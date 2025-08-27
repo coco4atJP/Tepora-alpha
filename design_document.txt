@@ -1,0 +1,163 @@
+i自律型マルチエージェント・システム 設計仕様書 Ver. 1.0
+
+1. プロジェクト概要
+
+1.1. プロジェクト名:Tepora(テポラ)
+
+1.2. プロジェクト目標:
+ユーザーとの自然な対話を通じて、単純な応答から、複数のツールを駆使する複雑なタスクまでを自律的に実行可能な、高度なパーソナルAIエージェントを構築する。本システムは、役割を専門化した複数のAIモデルが協調して動作するマルチエージェント・アーキテクチャを採用し、限られたハードウェアリソース（単一GPU）上で最大のパフォーマンスを発揮することを目指す。
+
+1.3. コアコンセプト:
+
+役割の専門化: ユーザーとの対話とタスク管理を担当する「キャラクター・エージェント」と、ツールの実行に特化した「プロフェッショナル・エージェント」を分離する。
+
+動的リソース管理: 2つのAIモデルをVRAMに同時に展開するのではなく、タスクに応じて動的にロード・アンロードすることで、単一のGPU上での動作を実現する。
+
+高度な記憶: 人間の記憶から着想を得た「エピソード記憶 (EM-LLM)」アーキテクチャを導入し、長期的な文脈理解と自己学習能力を持つエージェントを目指す。
+
+ユーザー主導の制御: ユーザーがコマンド（/search, /agentmode）によってエージェントの動作モードを明示的に指定できる、透明性の高いインターフェースを提供する。
+
+2. システムアーキテクチャ
+
+本システムは、ユーザー入力を解釈し、適切なエージェントにタスクを割り振る中央オーケストレーター（LangGraph）と、それぞれ異なるLLMを搭載した2体のエージェントで構成される。
+
+Generated mermaid
+graph TD
+    subgraph User Interaction Layer
+        CLI[CLI / User Interface]
+    end
+
+    subgraph AIAgent Core (Orchestrator - LangGraph based)
+        Router[Input Router<br/>(Command Parser)]
+        GemmaAgent[Character / Manager Agent<br/>(Gemma 3N)]
+        JanAgent[Professional / Worker Agent<br/>(jan-nano-128k)]
+        LLM_Manager[LLM Manager<br/>(Dynamic Load/Unload)]
+        MemorySystem[Memory System<br/>(EM-LLM Architecture)]
+    end
+
+    subgraph Tools Layer
+        NativeTools[Native Tools<br/>(e.g., DuckDuckGo)]
+        MCP_Tools[MCP Tools<br/>(via MultiServerMCPClient)]
+    end
+
+    %% Flow
+    CLI -- User Input --> Router
+    Router -- Direct Chat --> GemmaAgent
+    Router -- /search --> GemmaAgent
+    Router -- /agentmode --> GemmaAgent
+
+    subgraph "Direct Answer & Search Flow"
+        GemmaAgent -- Loads --> LLM_Manager
+        LLM_Manager -- Loads --> Gemma3N_Model[(Gemma 3N)]
+        GemmaAgent -- Executes --> NativeTools
+        GemmaAgent -- Responds to --> CLI
+    end
+    
+    subgraph "Agent Mode Flow"
+        GemmaAgent -- 1. Generate Order --> JanAgent
+        JanAgent -- 2. Execute ReAct Loop --> JanAgent
+        JanAgent -- 3. Generate Report --> GemmaAgent
+        GemmaAgent -- 4. Synthesize Response --> CLI
+    end
+
+    %% Model Swapping
+    GemmaAgent -- Requests Model --> LLM_Manager
+    JanAgent -- Requests Model --> LLM_Manager
+    LLM_Manager -- Swaps Models on VRAM --> GPU[GPU VRAM]
+    
+    %% Tool Usage
+    JanAgent -- Uses --> NativeTools
+    JanAgent -- Uses --> MCP_Tools
+
+
+3. コアコンポーネント詳細
+
+3.1. AIAgent Core (LangGraph):
+
+役割: システム全体のオーケストレーター。ユーザー入力を解釈し、Direct Answer, Search, Agent Mode の3つの主要な処理フローにルーティングする。エージェント間の状態（対話履歴、オーダー、レポート）を管理する。
+
+3.2. Character / Manager Agent (Gemma 3N):
+
+モデル: google/gemma-3n-e4b-it
+
+役割:
+
+ユーザーインターフェース: ユーザーとの全ての対話を担当する「顔」。キャラクター性を持ち、自然な会話を行う。
+
+単純タスク処理: ツールを必要としない直接応答や、/search コマンドによる単発の検索タスクを実行する。
+
+タスクプランナー: /agentmode が指定された際、ユーザーの曖昧な要求を、プロフェッショナル・エージェントが実行可能な、構造化された詳細な「オーダー（計画）」に変換する。
+
+翻訳者/報告者: プロフェッショナル・エージェントからの技術的な「成果報告」を受け取り、それをユーザーにとって分かりやすい自然な言葉に要約・翻訳して最終的な応答を生成する。
+
+3.3. Professional / Worker Agent (jan-nano-128k):
+
+モデル: Menlo/jan-nano-128k (4ビット量子化)
+
+役割:
+
+タスク実行特化: Gemma 3Nから受け取った「オーダー」に基づき、ツール（ネイティブ/MCP）を駆使して複雑なマルチステップタスクを遂行することに専念する。
+
+ReActループ: 思考（Thought）、行動（Action）、観察（Observation）を繰り返すReActフレームワークを実行する。128kの広大なコンテキストウィンドウを活かし、長期的なタスクでも文脈を維持する。
+
+報告者: タスクの完了、または遂行不可能な場合はその理由を、構造化された「成果報告」としてGemma 3Nに返す。
+
+3.4. LLM Manager:
+
+役割: VRAMリソースの動的管理。Gemma 3Nとjan-nano-128kのいずれか一方のみをVRAMにロードする。タスクの要求に応じてモデルを動的にアンロード・ロードする責務を負う。システムのハードウェア制約を解決する核心的なコンポーネント。
+
+3.5. Memory System (EM-LLM Architecture):
+
+役割: エージェントに長期的で文脈に応じた記憶能力を付与する。
+
+ワーキングメモリ: LLMのコンテキストウィンドウ。直近の対話や思考を保持する短期記憶。
+
+エピソード記憶 (長期記憶):
+
+エンコード: 対話が一段落するたびに、その内容を構造化された「エピソード」として要約し、外部の永続ストレージ（ベクトルストアなど）に保存する。
+
+リトリーバル & リコレクション: 新しいユーザー入力があった際、関連する過去の「エピソード」を検索し、現在のタスクに合わせて再構成した上で、ワーキングメモリ（プロンプト）に「思い出したこと」として注入する。
+
+4. 機能要件
+
+4.1. Direct Answer Mode (コマンドなし):
+
+ユーザーとの日常的な会話を行う。Gemma 3Nが応答を生成。
+
+4.2. Search Mode (/search <query>):
+
+ユーザーが指定したクエリ、またはユーザーの質問からGemma 3Nが生成したクエリに基づき、DuckDuckGoでウェブ検索を一度だけ実行する。
+
+Gemma 3Nが検索結果を要約し、ユーザーに応答する。
+
+4.3. Agent Mode (/agentmode <task>):
+
+Step 1 (Order Generation): Gemma 3Nがユーザーのタスク要求を分析し、jan-nano-128k向けの実行計画（オーダー）を生成する。
+
+Step 2 (Execution - ReAct Loop): jan-nano-128kがオーダーを受け取り、ツール（ネイティブ/MCP）を繰り返し呼び出してタスクを遂行する。
+
+Step 3 (Report Generation): jan-nano-128kが実行結果をまとめ、成果報告を生成する。
+
+Step 4 (Response Synthesis): Gemma 3Nが成果報告を解釈し、ユーザー向けの最終応答を生成する。
+
+5. 非機能要件
+
+5.1. パフォーマンス:
+
+モデルのロード・アンロードにより、Agent Modeへの切り替え時や、エージェント間の引き継ぎ時に数秒〜数十秒の遅延が発生することを許容する。
+
+Direct Answer Modeでの応答は、高速であることを目指す。
+
+5.2. 拡張性:
+
+新しいコマンド、ネイティブツール、MCPサーバーを容易に追加できる設計とする。
+
+将来的には、jan-nano-128k以外の専門エージェント（例: コーディング専門、画像生成専門など）を追加できるアーキテクチャとする。
+
+6. 将来展望
+
+マルチモーダル対応: Gemma 3Nの能力を活かし、画像や音声入力を処理する機能を追加する。
+
+キャラクター性の深化: エピソード記憶を活用し、ユーザーとの関係性や過去の経験に基づいてキャラクターの応答が変化する、より高度なペルソナを実装する。
+
+レイテンシの改善: VRAMの最適化、モデルの蒸留、より高速な推論エンジンの採用などにより、モデル切り替えの遅延を削減する。

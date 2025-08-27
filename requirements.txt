@@ -1,0 +1,14 @@
+langchain
+langchain-core
+langgraph
+langchain-huggingface
+transformers
+torch
+bitsandbytes
+accelerate
+sentencepiece
+requests
+python-dotenv
+langchain-mcp-adapters
+pydantic
+urllib3
