@@ -1,0 +1,57 @@
+{
+    "mcpServers": {
+      "fetch": {
+        "command": "uvx",
+        "args": ["mcp-server-fetch"]
+      },
+      "time": {
+        "timeout": 600,
+        "command": "uvx",
+        "args": [
+          "mcp-server-time",
+          "--local-timezone=Asia/Tokyo"
+        ],
+        "transportType": "stdio"
+      },
+      "memory": {
+        "timeout": 600,
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-memory"
+        ],
+        "transportType": "stdio"
+      },
+      "sequential-thinking": {
+        "timeout": 600,
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-sequential-thinking"
+        ],
+        "transportType": "stdio"
+      },
+      "mcp-deepwiki": {
+        "timeout": 600,
+        "command": "npx",
+        "args": [
+          "-y",
+          "mcp-deepwiki@latest"
+        ],
+        "transportType": "stdio"
+      },
+      "playwright": {
+        "timeout": 600,
+        "command": "npx",
+        "args": [
+          "-y",
+          "@executeautomation/playwright-mcp-server"
+        ],
+        "transportType": "stdio"
+      },
+      "puppeteer": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
+      }
+    }
+  }
