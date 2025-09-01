@@ -1,4 +1,4 @@
-# AI Agent Core Framework (Alpha v1.0)
+# Tepora - AI Agent Core Framework (Alpha v1.1)
 
 A modular framework for building sophisticated, multi-agent conversational AI systems. This project leverages local LLMs, dynamic resource management, and an extensible tool system to create powerful and autonomous agents.
 
@@ -45,8 +45,8 @@ The application follows a state-driven, graph-based execution model.
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repo-url>
-    cd AIagent_Project 1
+    git clone https://github.com/username/repository.git AIagent_Project_1
+    cd AIagent_Project_1
     ```
 
 2.  **Install dependencies:**
@@ -113,7 +113,7 @@ These are Python classes that inherit from `langchain_core.tools.BaseTool`, like
 
 This system allows the agent to use tools running in separate processes, which can be written in any language.
 
-1.  **Configuration**: Define your tool servers in `mcp_tools_config.json`.
+1.  **Configuration**: Define your tool servers in `mcp_tools_config.json`. Server definition can be done using the ClaudeDesktop method.
     ```json
     {
       "mcpServers": {
@@ -153,7 +153,7 @@ This system allows the agent to use tools running in separate processes, which c
 This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 
-# AIエージェントコアフレームワーク (アルファ版 v1.0)
+# Tepora - AIエージェントコアフレームワーク (アルファ版 v1.1)
 
 洗練されたマルチエージェント対話型AIシステムを構築するためのモジュール式フレームワークです。このプロジェクトでは、ローカルLLM、動的リソース管理、拡張可能なツールシステムを活用し、強力で自律的なエージェントを構築します。
 
@@ -181,10 +181,10 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 2. **`agent_core/graph.py`**: エージェントの中核部分。`LangGraph` を使用して実行フローを定義します。
 * **ルーティング**: `route_by_command` 関数は、まずユーザー入力を 3 つの主要なブランチ (`direct_answer`、`search`、`agent_mode`) のいずれかに誘導します。
 * **エージェントモードフロー**:
-1. `generate_order_node`: プランナーエージェント (Gemma) が JSON プランを作成します。
-2. `agent_reasoning_node`: Executor Agent (Jan-nano) は、ツールを使用して計画を実行する ReAct ループを開始します。
-3. `tool_node`: エージェントが `ToolManager` を介して選択したツールを実行します。
-4. `synthesize_final_response_node`: ReAct ループが完了すると、最終的な技術レポートがユーザーフレンドリーなレスポンスに変換されます。
+    1.  `generate_order_node`: プランナーエージェント (Gemma) が JSON プランを作成します。
+    2.  `agent_reasoning_node`: Executor Agent (Jan-nano) は、ツールを使用して計画を実行する ReAct ループを開始します。
+    3.  `tool_node`: エージェントが `ToolManager` を介して選択したツールを実行します。
+    4.  `synthesize_final_response_node`: ReAct ループが完了すると、最終的な技術レポートがユーザーフレンドリーなレスポンスに変換されます。
 3. **`agent_core/llm_manager.py`**: LLM のライフサイクルを管理します。必要な場合にのみモデルを GPU VRAM にロードし、その後アンロードしてリソースを解放することで、異なるタスクに異なるモデルを使用できるようにします。
 4. **`agent_core/tool_manager.py`**: すべてのツールのための統一インターフェースです。ネイティブ Python ツールと MCP 経由で接続された外部ツールを検出および管理します。同期および非同期の両方のツール実行を処理します。
 
@@ -200,8 +200,8 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 1. **リポジトリのクローンを作成します:**
 ```bash
-git clone <リポジトリの URL>
-cd AIagent_Project 1
+git clone https://github.com/username/repository.git AIagent_Project_1
+cd AIagent_Project_1
 ```
 
 2. **依存関係をインストールします:**
@@ -268,7 +268,7 @@ python main.py
 
 このシステムにより、エージェントは別プロセスで実行されるツールを使用できます。ツールは任意の言語で記述できます。
 
-1. **設定**: `mcp_tools_config.json` でツールサーバーを定義します。
+1. **設定**: `mcp_tools_config.json` でツールサーバーを定義します。サーバー定義はClaudeDesktop方式で可能です。
 ```json
 {
 "mcpServers": {
