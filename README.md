@@ -1,7 +1,7 @@
 
 ![Tepora log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
-**# Tepora – Multi‑AI Agent System (Alpha v1.1)**
+# Tepora – Multi‑AI Agent System (Alpha v1.1)
 
 Tepora is a modular framework designed to build a sophisticated, conversational multi‑agent AI system. The project
 leverages local LLMs, dynamic resource management, and an extensible tool ecosystem to create powerful, autonomous
@@ -365,5 +365,6 @@ python main.py
 ## 📜 ライセンス
 
 このプロジェクトはMITライセンスに基づきライセンスされています。詳細は`LICENSE`ファイルをご覧ください。
+
 
 
