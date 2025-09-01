@@ -1,3 +1,6 @@
+
+![Tepora log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
+
 # Tepora - AI Agent Core Framework (Alpha v1.1)
 
 A modular framework for building sophisticated, multi-agent conversational AI systems. This project leverages local LLMs, dynamic resource management, and an extensible tool system to create powerful and autonomous agents.
@@ -306,3 +309,4 @@ python main.py
 ## 📜 ライセンス
 
 このプロジェクトはMITライセンスに基づきライセンスされています。詳細は`LICENSE`ファイルをご覧ください。
+
