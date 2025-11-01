@@ -1,4 +1,4 @@
-![log]([Tepora_log.png](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png))
+![log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
 # Tepora - マルチAIエージェントシステム 
 
@@ -178,5 +178,6 @@ python main.py
 このプロジェクトはにApache License 2.0に基づきライセンスされています。詳細は`LICENSE`ファイルをご覧ください。
 
 また、実行に使用する各機械学習モデルはその提供元のライセンスに従います。
+
 
 
