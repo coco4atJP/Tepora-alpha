@@ -13,6 +13,7 @@ langchain>=0.2.5
 langchain-core>=0.2.10
 langchain-community>=0.2.5
 langchain-huggingface>=0.0.3
+langchain-openai>=0.1.8
 langgraph>=0.1.1
 
 # Llama.cpp Python bindings
@@ -43,3 +44,6 @@ anyio>=4.4.0
 
 # 設定管理の強化
 PyYAML>=6.0.1
+
+# For advanced sentence tokenization
+nltk>=3.8.1

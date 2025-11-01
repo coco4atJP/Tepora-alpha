@@ -13,7 +13,7 @@ LangGraph で用いるエージェント状態の型定義をまとめたモジ�
 # agent_core/state.py
 
 from typing import List, TypedDict, Optional
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
 class AgentAction(TypedDict):
     tool: str
@@ -26,7 +26,7 @@ class AgentFinish(TypedDict):
 class AgentState(TypedDict):
     # 初期入力と全体のチャット履歴
     input: str
-    chat_history: list[BaseMessage]
+    chat_history: List[HumanMessage | AIMessage]
     
     # AgentModeのReActループ専用の履歴 (思考、ツール呼び出し、ツール結果)
     agent_scratchpad: list[BaseMessage]
@@ -37,6 +37,15 @@ class AgentState(TypedDict):
 
     # AgentModeの最終的な成果物
     agent_outcome: Optional[str]
+
+    # --- EM-LLM Memory Pipeline ---
+    # 1. 検索された生のエピソード
+    recalled_episodes: Optional[List[dict]]
+    # 2. SLMによって統合された記憶
+    synthesized_memory: Optional[str]
+
+    # ストリーミング生成時に収集されたlogprobs
+    generation_logprobs: Optional[List[dict]]
 
     # 検索用 (変更なし)
     search_query: Optional[str]

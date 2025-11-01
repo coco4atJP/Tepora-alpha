@@ -15,7 +15,8 @@
 
 import json
 import asyncio
-from typing import Literal, List
+import re 
+from typing import Literal, List, Dict, Optional
 
 from langchain_core.messages import AIMessage, ToolMessage, BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -24,10 +25,12 @@ from langgraph.graph import StateGraph, END
 
 from .state import AgentState
 from .tool_manager import ToolManager
-from .llm_manager import LLMManager
+from .llm_manager import LLMManager # MemoryProcessorは不要になった
+from .memory.memory_system import MemorySystem
 from . import config
 
 # --- Helper Function ---
+
 def _format_scratchpad(scratchpad: List[BaseMessage]) -> str:
     """agent_scratchpadの内容をLLMが理解しやすい文字列にフォーマットする"""
     print(f"Formatting scratchpad with {len(scratchpad)} messages")
@@ -75,29 +78,67 @@ def _format_scratchpad(scratchpad: List[BaseMessage]) -> str:
     print(f"Formatted scratchpad length: {len(result)} characters")
     return result
 
-# --- Graph Definition ---
-def route_by_command(state: AgentState) -> Literal["agent_mode", "search", "direct_answer"]:
-    """ユーザーの入力コマンドに基づいてルートを判断する"""
-    user_input = state["input"].strip().lower()
-    print(f"\n--- Routing Decision ---")
-    print(f"User input: '{user_input}'")
-    
-    if user_input.startswith('/agentmode'):
-        print("Route: agent_mode (ReAct loop)")
-        return "agent_mode"
-    elif user_input.startswith('/search'):
-        print("Route: search")
-        return "search"
-    else:
-        print("Route: direct_answer")
-        return "direct_answer"
+class _GraphNodes:
+    """LangGraphのノード名を定義する定数クラス"""
+    MEMORY_RETRIEVAL = "memory_retrieval"
+    DIRECT_ANSWER = "direct_answer"
+    GENERATE_SEARCH_QUERY = "generate_search_query"
+    EXECUTE_SEARCH = "execute_search"
+    SUMMARIZE_SEARCH_RESULT = "summarize_search_result"
+    GENERATE_ORDER = "generate_order_node"
+    AGENT_REASONING = "agent_reasoning_node"
+    SYNTHESIZE_FINAL_RESPONSE = "synthesize_final_response_node"
+    TOOL_NODE = "tool_node"
+    UPDATE_SCRATCHPAD = "update_scratchpad_node"
+    SAVE_MEMORY = "save_memory_node"
+
 
 class AgentCore:
     """アプリ全体の実行グラフを組み立て、実行するためのファサード。"""
-    def __init__(self, llm_manager: LLMManager, tool_manager: ToolManager):
+    def __init__(self, llm_manager: LLMManager, tool_manager: ToolManager, memory_system: Optional[MemorySystem] = None):
         self.llm_manager = llm_manager
         self.tool_manager = tool_manager
+        self.memory_system = memory_system
         self.graph = self._build_graph()
+
+    def memory_retrieval_node(self, state: AgentState) -> dict:
+        """入力に基づいて関連するエピソード記憶を検索する。"""
+        print("--- Node: Memory Retrieval ---")
+        if not self.memory_system:
+            print("Warning: Memory system not available. Skipping retrieval.")
+            return {"recalled_episodes": [], "synthesized_memory": "No memory system available."}
+        try:
+            recalled_episodes = self.memory_system.retrieve_similar_episodes(state["input"])
+            if recalled_episodes:
+                print(f"Retrieved {len(recalled_episodes)} relevant episodes.")
+                # 後続ノードが直接利用できるように、エピソードリストを文字列にフォーマットする
+                formatted_memory = "\n\n".join([
+                    f"Recalled Episode {i+1}:\n- Summary: {ep.get('summary', 'N/A')}"
+                    for i, ep in enumerate(recalled_episodes)
+                ])
+                return {"recalled_episodes": recalled_episodes, "synthesized_memory": formatted_memory}
+            else:
+                print("No relevant memories found.")
+                return {"recalled_episodes": [], "synthesized_memory": "No relevant memories found."}
+        except Exception as e:
+            print(f"Warning: Failed to retrieve memories: {e}")
+            return {"recalled_episodes": [], "synthesized_memory": "An error occurred during memory retrieval."}
+
+    def route_by_command(self, state: AgentState) -> Literal["agent_mode", "search", "direct_answer"]:
+        """ユーザーの入力コマンドに基づいてルートを判断する"""
+        user_input = state["input"].strip().lower()
+        print(f"\n--- Routing Decision ---")
+        print(f"User input: '{user_input}'")
+        
+        if user_input.startswith('/agentmode'):
+            print("Route: agent_mode (ReAct loop)")
+            return "agent_mode"
+        elif user_input.startswith('/search'):
+            print("Route: search")
+            return "search"
+        else:
+            print("Route: direct_answer")
+            return "direct_answer"
 
     def unified_tool_executor_node(self, state: AgentState) -> dict:
         """
@@ -141,42 +182,87 @@ class AgentCore:
         """LangGraph のノード/エッジを定義し、コンパイルして返す。"""
         workflow = StateGraph(AgentState)
 
-        workflow.add_node("direct_answer", self.direct_answer_node)
-        workflow.add_node("generate_search_query", self.generate_search_query_node)
-        workflow.add_node("execute_search", self.execute_search_node)
-        workflow.add_node("summarize_search_result", self.summarize_search_result_node)
-        workflow.add_node("agent_reasoning_node", self.agent_reasoning_node)
-        workflow.add_node("synthesize_final_response_node", self.synthesize_final_response_node)
-        workflow.add_node("tool_node", self.unified_tool_executor_node) 
-        workflow.add_node("update_scratchpad_node", self.update_scratchpad_node)
-        workflow.add_node("generate_order_node", self.generate_order_node)
+        # EM-LLM パイプラインノード
+        workflow.add_node(_GraphNodes.MEMORY_RETRIEVAL, self.memory_retrieval_node)
+
+        # 各モードの実行ノード
+        workflow.add_node(_GraphNodes.DIRECT_ANSWER, self.direct_answer_node)
+        workflow.add_node(_GraphNodes.GENERATE_SEARCH_QUERY, self.generate_search_query_node)
+        workflow.add_node(_GraphNodes.EXECUTE_SEARCH, self.execute_search_node)
+        workflow.add_node(_GraphNodes.SUMMARIZE_SEARCH_RESULT, self.summarize_search_result_node)
+        workflow.add_node(_GraphNodes.GENERATE_ORDER, self.generate_order_node)
+        workflow.add_node(_GraphNodes.AGENT_REASONING, self.agent_reasoning_node)
+        workflow.add_node(_GraphNodes.SYNTHESIZE_FINAL_RESPONSE, self.synthesize_final_response_node)
+        workflow.add_node(_GraphNodes.TOOL_NODE, self.unified_tool_executor_node) 
+        workflow.add_node(_GraphNodes.UPDATE_SCRATCHPAD, self.update_scratchpad_node)
         
-        workflow.set_conditional_entry_point(route_by_command, {
-            "agent_mode": "generate_order_node", "search": "generate_search_query", "direct_answer": "direct_answer",
-        })
+        # 最終的な記憶保存ノード
+        workflow.add_node(_GraphNodes.SAVE_MEMORY, self.save_memory_node)
+        
+        # --- グラフの接続 ---
 
-        workflow.add_edge("direct_answer", END)
-        workflow.add_edge("generate_search_query", "execute_search")
-        workflow.add_edge("execute_search", "summarize_search_result")
-        workflow.add_edge("summarize_search_result", END)
-        workflow.add_edge("generate_order_node", "agent_reasoning_node")
+        # 1. エントリーポイントは記憶の検索から
+        workflow.set_entry_point(_GraphNodes.MEMORY_RETRIEVAL)
 
+        # 2. 記憶検索後、コマンドでルーティング
         workflow.add_conditional_edges(
-            "agent_reasoning_node",
+            _GraphNodes.MEMORY_RETRIEVAL,
+            self.route_by_command,
+            {
+                "agent_mode": _GraphNodes.GENERATE_ORDER,
+                "search": _GraphNodes.GENERATE_SEARCH_QUERY,
+                "direct_answer": _GraphNodes.DIRECT_ANSWER,
+            }
+        )
+
+        # 3. 各ブランチのフロー
+        # Direct Answer Path
+        workflow.add_edge(_GraphNodes.DIRECT_ANSWER, _GraphNodes.SAVE_MEMORY)
+
+        # Search Path
+        workflow.add_edge(_GraphNodes.GENERATE_SEARCH_QUERY, _GraphNodes.EXECUTE_SEARCH)
+        workflow.add_edge(_GraphNodes.EXECUTE_SEARCH, _GraphNodes.SUMMARIZE_SEARCH_RESULT)
+        workflow.add_edge(_GraphNodes.SUMMARIZE_SEARCH_RESULT, _GraphNodes.SAVE_MEMORY)
+
+        # Agent (ReAct) Path
+        workflow.add_edge(_GraphNodes.GENERATE_ORDER, _GraphNodes.AGENT_REASONING)
+        workflow.add_conditional_edges(
+            _GraphNodes.AGENT_REASONING,
             self.should_continue_react_loop,
             {
-                "continue": "tool_node", 
-                "end": "synthesize_final_response_node" 
+                "continue": _GraphNodes.TOOL_NODE, 
+                "end": _GraphNodes.SYNTHESIZE_FINAL_RESPONSE 
             },
         )
-        workflow.add_edge("tool_node", "update_scratchpad_node")
-        workflow.add_edge("update_scratchpad_node", "agent_reasoning_node")
+        workflow.add_edge(_GraphNodes.TOOL_NODE, _GraphNodes.UPDATE_SCRATCHPAD)
+        workflow.add_edge(_GraphNodes.UPDATE_SCRATCHPAD, _GraphNodes.AGENT_REASONING)
+        workflow.add_edge(_GraphNodes.SYNTHESIZE_FINAL_RESPONSE, _GraphNodes.SAVE_MEMORY)
 
-        # 応答生成ノードが最後のステップとなる
-        workflow.add_edge("synthesize_final_response_node", END)
-        
+        # 4. 最終出口
+        workflow.add_edge(_GraphNodes.SAVE_MEMORY, END)
+
         return workflow.compile()
 
+    def save_memory_node(self, state: AgentState) -> dict:
+        """
+        対話の最終的な内容をメモリシステムに保存する。
+        memory_systemがなければ何もしない。
+        """
+        print("--- Node: Save Memory ---")
+        if not self.memory_system:
+            print("Warning: Memory system not available. Skipping save.")
+            return {}
+
+        try:
+            # 最後のAIの応答を要約として保存する
+            last_ai_message = next((msg for msg in reversed(state.get("chat_history", [])) if isinstance(msg, AIMessage)), None)
+            if last_ai_message:
+                self.memory_system.save_episode(summary=last_ai_message.content, history_json=json.dumps([m.dict() for m in state.get("chat_history", [])]))
+        except Exception as e:
+            print(f"Warning: Failed to save memory: {e}")
+
+        return {}
+    
     # --- ReAct Loop Nodes ---
 
     def generate_order_node(self, state: AgentState) -> dict:
@@ -184,19 +270,20 @@ class AgentCore:
         キャラクター・エージェント(Gemma)が、ユーザーの要求をプロフェッショナル向けの「オーダー」に変換する。
         """
         print("--- Node: Generate Order (using Gemma 3N) ---")
-        llm = self.llm_manager.get_gemma_3n()
+        llm = self.llm_manager.get_character_agent()
         
         # オーダー生成専用のプロンプトを使用
         prompt = ChatPromptTemplate.from_messages([
-            ("system", config.BASE_SYSTEM_PROMPTS["order_generation"]),
-            ("human", "User Request: {input}\n\nAvailable Tools:\n{tools}\n\nPlease generate the JSON order now.")
+            ("system", config.BASE_SYSTEM_PROMPTS["order_generation"] + "\n\n--- Relevant Context from Past Conversations ---\n{synthesized_memory}"),
+            ("human", "Based on the user's request and the provided context, generate a structured plan (Order).\n\n--- User Request ---\n{input}\n\n--- Available Tools ---\n{tools}\n\nPlease generate the JSON order now.")
         ])
         chain = prompt | llm
 
         response_message = chain.invoke({
             "input": state["input"],
-            # Use the method from ToolManager directly
-            "tools": self.tool_manager.format_tools_for_react_prompt()
+            # EM-LLM: 統合された記憶をコンテキストとして渡す
+            "synthesized_memory": state.get("synthesized_memory", "No relevant context."),
+            "tools": config.format_tools_for_react_prompt(self.tool_manager.tools)
         })
         
         # LLMが生成したJSON文字列をパースしてstateに保存
@@ -225,7 +312,7 @@ class AgentCore:
 
         # jan-nanoをロード
         print("--- Node: Agent Reasoning (using Jan-nano) ---")
-        llm = self.llm_manager.get_jan_nano()
+        llm = self.llm_manager.get_professional_agent()
 
         # 1. ReActループの開始時にscratchpadを初期化
         if not state["agent_scratchpad"]:
@@ -236,9 +323,10 @@ class AgentCore:
         scratchpad_str = _format_scratchpad(state["agent_scratchpad"])
         print(f"Current scratchpad: {scratchpad_str}")
         
-        # 3. REACT_SYSTEM_PROMPTでLLMに思考とツール使用を指示
+        # 3.  システムプロンプトに変数を渡せるように、テンプレートを直接渡す
+        system_prompt_template = config.BASE_SYSTEM_PROMPTS["react_professional"]
         prompt = ChatPromptTemplate.from_messages([
-            ("system", config.BASE_SYSTEM_PROMPTS["react_professional"]),
+            ("system", system_prompt_template),
             ("human", "A user has made the following request:\nUser Request: {user_input}\n\nBased on this, the following order has been generated for you to execute:\nOrder: {order}\n\nHere is the history of your work on this order:\n{agent_scratchpad}")
         ])
         chain = prompt | llm
@@ -250,7 +338,8 @@ class AgentCore:
         print(f"Scratchpad: {scratchpad_str}")
         
         response_message = chain.invoke({
-            "tools": self.tool_manager.format_tools_for_react_prompt(),
+            #  これでシステムプロンプト内の {tools} が展開される
+            "tools": config.format_tools_for_react_prompt(self.tool_manager.tools),
             "user_input": state["input"],
             "order": json.dumps(state.get("order", {})),
             "agent_scratchpad": _format_scratchpad(state["agent_scratchpad"])
@@ -260,48 +349,59 @@ class AgentCore:
         print(f"Response content: {response_message.content}")
         
         try:
-            # 4. LLMの出力をJSONとして解析
+            # 4. CoT + JSON形式の出力を解析
             content_str = response_message.content
-            if content_str.startswith("```json"):
-                content_str = content_str[7:-3].strip()
-                print(f"Extracted JSON content: {content_str}")
             
-            parsed_json = json.loads(content_str)
+            # 正規表現でJSONブロックを検索
+            json_match = re.search(r"```json\n(.*?)\n```", content_str, re.DOTALL)
+            
+            if not json_match:
+                raise ValueError("Invalid format: JSON block not found in the output.")
+
+            # 思考テキストとJSON文字列を分離
+            thought_text = content_str[:json_match.start()].strip()
+            json_str = json_match.group(1).strip()
+            
+            print(f"\n--- Parsed CoT Output ---")
+            print(f"Thought: {thought_text}")
+            print(f"JSON String: {json_str}")
+
+            parsed_json = json.loads(json_str)
             print(f"\n--- Parsed JSON ---")
             print(f"Parsed successfully: {json.dumps(parsed_json, indent=2, ensure_ascii=False)}")
 
             # 5. "action"の場合はツール呼び出しメッセージを作成
             if "action" in parsed_json:
                 action = parsed_json["action"]
-                print(f"\n--- Action Detected ---")
-                print(f"Tool: {action['tool_name']}")
-                print(f"Args: {action.get('args', 'No arguments')}") 
-                print(f"Thought: {parsed_json.get('thought', 'No thought provided')}")
                 
-                # ツール呼び出し用のAIMessageを作成
+                # ★修正: AIMessageのcontentに思考テキストを入れる
                 tool_call_message = AIMessage(
-                    content=parsed_json.get("thought", ""),
+                    content=thought_text,
                     tool_calls=[{
                         "name": action["tool_name"], "args": action.get("args", {}), "id": f"tool_call_{len(state['agent_scratchpad'])}"
                     }]
                 )
                 
                 print(f"\n--- Tool Call Message Created ---")
-                print(f"Content: {tool_call_message.content}")
+                print(f"Content (Thought): {tool_call_message.content}")
                 print(f"Tool calls: {tool_call_message.tool_calls}")
                 
-                # 指示書を「記録棚」と「郵便受け」の両方に入れる
                 return {
                     "agent_scratchpad": state["agent_scratchpad"] + [tool_call_message],
-                    "messages": [tool_call_message] # ToolNodeは最後のメッセージしか見ないので、上書きでOK
+                    "messages": [tool_call_message]
                 }
 
             # 6. "finish"の場合はループ終了として結果を返却
             elif "finish" in parsed_json:
                 answer = parsed_json["finish"]["answer"]
                 print(f"\n--- Finish Action Detected ---")
+                print(f"Thought: {thought_text}")
                 print(f"Final answer: {answer}")
-                return {"agent_outcome": answer, "messages": []} # ループ終了時はmessagesをクリア
+                
+                # 最終レポートに思考を含めることで、後続の要約ノードがより多くの文脈を利用できる
+                final_report = f"Thought Process:\n{thought_text}\n\nTechnical Report:\n{answer}"
+                
+                return {"agent_outcome": final_report, "messages": []}
             
             else:
                 raise ValueError("Invalid JSON: missing 'action' or 'finish' key.")
@@ -311,8 +411,7 @@ class AgentCore:
             print(f"\n--- Error Parsing LLM Output ---")
             print(f"Error: {e}")
             print(f"Raw content that failed to parse: {response_message.content}")
-            # エラーをAIMessageとしてscratchpadに追加し、LLMに自己修正を促す
-            error_ai_message = AIMessage(content=f"My last attempt failed. The response was not valid JSON. Error: {e}. I must correct my output to be a single valid JSON object.")
+            error_ai_message = AIMessage(content=f"My last attempt failed. The response was not in the correct 'Thought then JSON' format. Error: {e}. I must correct my output to be a plain text thought, followed by a valid JSON block in ```json code fences.")
             return {"agent_scratchpad": state["agent_scratchpad"] + [error_ai_message]}
 
     def update_scratchpad_node(self, state: AgentState) -> dict:
@@ -374,49 +473,113 @@ class AgentCore:
 
     # --- Other Paths (no changes) ---
 
-    async def direct_answer_node(self, state: AgentState):
+    async def direct_answer_node(self, state: AgentState) -> dict:
         """シンプルなシステムプロンプトで一往復の応答を生成する。"""
-        print("--- Node: Direct Answer (Streaming) ---")
+        print("--- Node: Direct Answer (Streaming, EM-LLM Context) ---")
 
         # Gemma-3Nをロード
-        llm = self.llm_manager.get_gemma_3n()
+        llm = self.llm_manager.get_character_agent()
         # ペルソナとシステムプロンプトを結合
         persona = config.PERSONA_PROMPTS[config.ACTIVE_PERSONA]
         system_prompt = config.BASE_SYSTEM_PROMPTS["direct_answer"]
-        full_prompt = f"{persona}\n\n{system_prompt}"
+
+        # --- 階層型コンテキスト構築 (EM-LLM & Attention Sink準拠) ---
+        # 論文(2407.09450v2)で述べられている階層構造を実装します。
+        # 1. Attention Sink: モデルの安定化のための固定プレフィックス。
+        # 2. System/Persona: エージェントの役割定義。
+        # 3. Retrieved Memory: EM-LLMによって検索された長期記憶。
+        # 4. Local Context: 直近の対話履歴（短期記憶）。
+
+        full_history = state.get("chat_history", [])
         
+        # 1. Attention Sink (固定プレフィックス)
+        # 論文のセマンティック初期化の概念を参考に、自然な文頭に近い固定テキストを使用。
+        # これが真の「アテンションシンク」として機能し、対話履歴の長さに影響されず安定します。
+        attention_sink_prefix = "This is a conversation between a user and an AI assistant."
+        attention_sink_context = [HumanMessage(content=attention_sink_prefix)]
+
+        # 2. System/Persona Context
+        system_persona_context = [HumanMessage(content=f"<instructions>\nYour persona and instructions for this conversation are defined as follows:\n\n<persona_definition>\n{persona}\n</persona_definition>\n\n<system_prompt>\n{system_prompt}\n</system_prompt>\n</instructions>")]
+
+        # 3. Retrieved Memory Context (長期記憶)
+        retrieved_memory_str = state.get('synthesized_memory', 'No relevant memories found.')
+        retrieved_memory_context = [HumanMessage(content=f"\n--- Relevant Context from Past Conversations ---\n{retrieved_memory_str}\n")]
+
+        # 4. Local Context (短期記憶) の構築
+        # 対話履歴の末尾から指定トークン数分のメッセージを取得します。
+        max_local_tokens = 4096 
+        local_context = []
+        current_local_tokens = 0
+        for i in range(len(full_history) - 1, -1, -1):
+            msg = full_history[i]
+            msg_tokens = self.llm_manager.count_tokens_for_messages([msg])
+            if current_local_tokens + msg_tokens > max_local_tokens and local_context:
+                break
+            local_context.insert(0, msg) # 先頭に追加して順序を維持
+            current_local_tokens += msg_tokens
+
+        # 5. 全コンテキストの結合
+        # 履歴が短い場合（短期記憶が全履歴を含んでいる場合）
+        if len(local_context) == len(full_history):
+            # [Attention Sink] -> [System/Persona] -> [Retrieved Memory] -> [Full History]
+            context_history = attention_sink_context + system_persona_context + retrieved_memory_context + local_context
+            print(f"Context: History is short. Using full history as local context ({len(local_context)} messages).")
+        else:
+            # 履歴が長い場合、省略を示すプロンプトを挿入
+            # [Attention Sink] -> [System/Persona] -> [Retrieved Memory] -> ...omitted... -> [Local Context]
+            middle_prompt = f"\n... (omitted context, providing relevant memories) ...\n--- Relevant Context from Past Conversations ---\n{retrieved_memory_context}\n... (returning to recent context) ...\n"
+            context_history = (
+                attention_sink_context + 
+                system_persona_context + 
+                retrieved_memory_context + 
+                [HumanMessage(content=middle_prompt)] + 
+                local_context
+            )
+            print("Context: Using hierarchical structure (Attention Sink > System/Persona > Retrieved > Local).")
+            print(f"  - Local Context: {len(local_context)} messages (~{current_local_tokens} tokens)")
+            print(f"  - Omitted: {len(full_history) - len(local_context)} messages")
+
+        # --- プロンプト構築とLLM呼び出し ---
+
         prompt = ChatPromptTemplate.from_messages([
-            ("system", full_prompt),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}")
+            ("placeholder", "{context_history}"),
+            ("human", "<user_input>{input}</user_input>")
         ])
 
-        # ユーザーの入力をまず履歴に追加
-        current_history = state["chat_history"] + [HumanMessage(content=state["input"])]
-        
-        # プロンプトを手動でレンダリングし、llm.astreamを直接呼び出す
-        messages = prompt.format_messages(
-            chat_history=state["chat_history"], 
-            input=state["input"]
-        )
+        chain = prompt | llm
 
-        full_response_content = ""
-        # astreamを使ってLLMからの応答をチャンクで受け取る
-        async for chunk in llm.astream(messages):
-            full_response_content += chunk.content
-            # 途中の状態をyieldでストリーミング
-            yield {"chat_history": current_history + [AIMessage(content=full_response_content)]}
-    
+        # 論文の「驚き度」計算のためにlogprobsをリクエスト
+        response_message = await chain.ainvoke({
+            "context_history": context_history,
+            "input": state["input"],
+        }, config={
+            "configurable": {
+                "model_kwargs": {
+                    "logprobs": True
+                }
+            }
+        })
+        
+        # 応答からlogprobsを取得
+        logprobs = response_message.response_metadata.get("logprobs")
+
+        return {"chat_history": state["chat_history"] + [HumanMessage(content=state["input"]), AIMessage(content=response_message.content)],
+                "generation_logprobs": logprobs, # 状態にlogprobsを保存
+                }
+
     async def generate_search_query_node(self, state: AgentState) -> dict:
         """ユーザー入力から検索クエリを要約・生成する。"""
         print("--- Node: Generate Search Query ---")
 
         # Gemma-3Nをロード
         print("--- Node: Generate Search Query (using Gemma 3N) ---")
-        llm = self.llm_manager.get_gemma_3n()
+        llm = self.llm_manager.get_character_agent()
 
-        prompt = f"Based on the user's request, generate a concise and effective search query. User request: \"{state['input']}\""
-        response_message = await llm.ainvoke(prompt)
+        prompt = ChatPromptTemplate.from_template(
+            "Based on the user's request, generate a concise and effective search query. User request: \"{input}\""
+        )
+        chain = prompt | llm
+        response_message = await chain.ainvoke({"input": state["input"]})
 
         return {"search_query": response_message.content}
     
@@ -429,45 +592,60 @@ class AgentCore:
         result = self.tool_manager.execute_tool("native_google_search", {"query": query})
         return {"search_result": result}
     
-    async def summarize_search_result_node(self, state: AgentState):
+    async def summarize_search_result_node(self, state: AgentState) -> dict:
         """検索結果をユーザーにわかりやすい要約に変換する。"""
         print("--- Node: Summarize Search Result (Streaming) ---")
 
         # Gemma-3nをロード
-        llm = self.llm_manager.get_gemma_3n()
+        llm = self.llm_manager.get_character_agent()
 
         # システム指示はsystemに保持し、humanには変数データのみを渡す
+        # ★修正: 全ての変数をプレースホルダーとして渡し、ainvoke時に解決する
         persona = config.PERSONA_PROMPTS[config.ACTIVE_PERSONA]
         system_template = config.BASE_SYSTEM_PROMPTS["search_summary"]
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"{persona}\n\n{system_template}"),
-            ("human", "Original question: {original_question}\nSearch results: {search_result}"),
+            ("system", f"{persona}\n\n{system_template}\n\n--- Relevant Context from Past Conversations ---\n{{synthesized_memory}}"),
+            ("placeholder", "{chat_history}"),
+            ("human", "Please summarize the search results for my request: {original_question}")
         ])
 
-        # ユーザーの入力をまず履歴に追加
-        current_history = state["chat_history"] + [HumanMessage(content=state["input"])]
-        
-        # プロンプトを手動でレンダリングし、llm.astreamを直接呼び出す
-        messages = prompt.format_messages(
-            chat_history=state["chat_history"],
-            original_question=state["input"],
-            search_result=state.get("search_result", "No result found.")
+        chain = prompt | llm
+
+        response_message = await chain.ainvoke(
+            {
+            "chat_history": state["chat_history"],
+            "synthesized_memory": state.get('synthesized_memory', 'No relevant memories found.'),
+            "original_question": state["input"],
+            "search_result": state.get("search_result", "No result found.")
+            },
+            config={
+                "configurable": {
+                    "model_kwargs": {
+                        "logprobs": True
+                    }
+                }
+            }
         )
 
-        full_response_content = ""
-        async for chunk in llm.astream(messages):
-            full_response_content += chunk.content
-            yield {"chat_history": current_history + [AIMessage(content=full_response_content)]}
-    
-    async def synthesize_final_response_node(self, state: AgentState):
+        # 応答からlogprobsを取得
+        logprobs = response_message.response_metadata.get("logprobs")
+
+        # ストリーミングが完了した後、最終的な完全な応答を状態に設定する。
+        return {
+            "messages": [AIMessage(content=response_message.content)],
+            "chat_history": state["chat_history"] + [HumanMessage(content=state["input"]), AIMessage(content=response_message.content)],
+            "generation_logprobs": logprobs, # 状態にlogprobsを保存
+        }
+
+    async def synthesize_final_response_node(self, state: AgentState) -> dict:
         """
         ReActループの結果（内部レポート）を、ユーザー向けの自然な応答に変換する。
         """
         print("--- Node: Synthesize Final Response (Streaming) ---")
 
         # Gemma-3nをロード
-        llm = self.llm_manager.get_gemma_3n()
+        llm = self.llm_manager.get_character_agent()
 
         # ReActループが生成した内部レポートを取得
         internal_report = state.get("agent_outcome", "No report generated.")
@@ -480,28 +658,43 @@ class AgentCore:
         print(f"Original user input: {state['input']}")
 
         # システム指示はsystemに保持し、humanには変数データのみを渡す
+        # ★修正: 全ての変数をプレースホルダーとして渡し、ainvoke時に解決する
         persona = config.PERSONA_PROMPTS[config.ACTIVE_PERSONA]
         system_template = config.BASE_SYSTEM_PROMPTS["synthesis"]
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"{persona}\n\n{system_template}"),
-            ("human", "original_request: {original_request}\ntechnical_report: {technical_report}"),
+            ("system", f"{persona}\n\n{system_template}\n\n--- Relevant Context from Past Conversations ---\n{{synthesized_memory}}"),
+            ("placeholder", "{chat_history}"),
+            ("human", "Please provide the final response for my request: {original_request}")
         ])
 
         print(f"\n--- Generating Final Response ---")
         print(f"System prompt being used: synthesis")
 
-        # ユーザーの入力をまず履歴に追加
-        current_history = state["chat_history"] + [HumanMessage(content=state["input"])]
+        chain = prompt | llm
 
-        # プロンプトを手動でレンダリングし、llm.astreamを直接呼び出す
-        messages = prompt.format_messages(
-            chat_history=state["chat_history"],
-            original_request=state["input"],
-            technical_report=internal_report
+        response_message = await chain.ainvoke(
+            {
+            "chat_history": state["chat_history"],
+            "synthesized_memory": state.get('synthesized_memory', 'No relevant memories found.'),
+            "original_request": state["input"],
+            "technical_report": internal_report
+            },
+            config={
+                "configurable": {
+                    "model_kwargs": {
+                        "logprobs": True
+                    }
+                }
+            }
         )
 
-        full_response_content = ""
-        async for chunk in llm.astream(messages):
-            full_response_content += chunk.content
-            yield {"chat_history": current_history + [AIMessage(content=full_response_content)]}
+        # 応答からlogprobsを取得
+        logprobs = response_message.response_metadata.get("logprobs")
+
+        # ストリーミングが完了した後、最終的な完全な応答を状態に設定する。
+        return {
+            "messages": [AIMessage(content=response_message.content)],
+            "chat_history": state["chat_history"] + [HumanMessage(content=state["input"]), AIMessage(content=response_message.content)],
+            "generation_logprobs": logprobs, # 状態にlogprobsを保存
+        }

@@ -78,16 +78,14 @@ class GoogleCustomSearchTool(BaseTool):
     
     async def _arun(self, query: str) -> str:
         """非同期実行"""
-        return self._perform_search(query)
+        return await asyncio.to_thread(self._perform_search, query)
     
     def _perform_search(self, query: str) -> str:
         """Google Custom Search APIを使用して検索を実行"""
         try:
-            # API設定の確認
-            if not config.GOOGLE_CUSTOM_SEARCH_API_KEY:
-                return "Error: Google Custom Search API Key is not configured."
-            if not config.GOOGLE_CUSTOM_SEARCH_ENGINE_ID:
-                return "Error: Google Custom Search Engine ID is not configured."
+            # APIキーが設定されていない場合は機能を無効化
+            if not config.GOOGLE_SEARCH_ENABLED:
+                return "Error: Google Custom Search is disabled (API keys not configured)."
             
             # APIリクエストの構築
             url = "https://www.googleapis.com/customsearch/v1"
@@ -164,13 +162,16 @@ class GoogleCustomSearchTool(BaseTool):
             logger.error(f"Google Custom Search API connection error: {e}")
             return f"Error: Connection failed. Please check your internet connection and try again."
         except requests.exceptions.HTTPError as e:
-            logger.error(f"Google Custom Search API HTTP error: {e}")
-            if e.response.status_code == 429:
+            # [セキュリティ修正] エラーログにリクエストURLやヘッダーが含まれないように、必要な情報だけを抽出する
+            status_code = e.response.status_code if e.response else "N/A"
+            logger.error(f"Google Custom Search API HTTP error: Status {status_code}")
+            if status_code == 429:
                 return f"Error: Rate limit exceeded. Please wait a moment and try again."
-            elif e.response.status_code == 403:
+            elif status_code == 403:
                 return f"Error: API access denied. Please check your API key and permissions."
             else:
-                return f"Error: HTTP error {e.response.status_code}: {e}"
+                # [セキュリティ修正] 例外オブジェクトeを直接文字列化せず、安全な情報のみを返す
+                return f"Error: HTTP error occurred with status code {status_code}."
         except requests.exceptions.RequestException as e:
             logger.error(f"Google Custom Search API request failed: {e}")
             return f"Error: Failed to perform search: {e}"
@@ -328,7 +329,7 @@ class ToolManager:
         
         # 3. MCPツールを安全にロード（改善されたエラーハンドリング）
         try:
-            mcp_tools = self._load_mcp_tools_robust()
+            mcp_tools = self._run_coroutine(self._load_mcp_tools_robust())
             self.tools.extend(mcp_tools)
         except Exception as e:
             logger.error(f"An error occurred during MCP tool loading: {e}", exc_info=True)
@@ -366,7 +367,7 @@ class ToolManager:
             logger.info(f"Native tool available: {tool.name}")
         return tools
 
-    def _load_mcp_tools_robust(self) -> List[BaseTool]:
+    async def _load_mcp_tools_robust(self) -> List[BaseTool]:
         """
         堅牢化されたMCPツールローダー。個別のサーバーごとにエラーハンドリングを行い、
         一部のサーバーが失敗しても他のサーバーからツールを取得できるようにする。
@@ -386,7 +387,7 @@ class ToolManager:
                 logger.info(f"Attempting to connect to MCP server: {server_name}")
                 
                 # 個別のサーバーに対してツールを取得
-                server_tools = self._load_single_mcp_server(server_name, connection)
+                server_tools = await self._load_single_mcp_server(server_name, connection)
                 
                 if server_tools:
                     logger.info(f"Successfully loaded {len(server_tools)} tools from server: {server_name}")
@@ -406,7 +407,7 @@ class ToolManager:
         logger.info(f"MCP tool loading completed. Total tools loaded: {len(all_tools)}")
         return all_tools
 
-    def _load_single_mcp_server(self, server_name: str, connection: StdioConnection, max_retries: int = 3) -> List[BaseTool]:
+    async def _load_single_mcp_server(self, server_name: str, connection: StdioConnection, max_retries: int = 3) -> List[BaseTool]:
         """
         単一のMCPサーバーからツールを取得する。リトライロジックを含む。
         """
@@ -418,13 +419,13 @@ class ToolManager:
                 if attempt > 0:
                     delay = 2 ** attempt  # 指数バックオフ
                     logger.info(f"Waiting {delay} seconds before retry...")
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
                 
                 # 個別のMCPクライアントを作成
                 single_client = MultiServerMCPClient(connections={server_name: connection})
                 
                 # ツールを取得
-                discovered_tools = self._run_coroutine(single_client.get_tools())
+                discovered_tools = await single_client.get_tools()
                 
                 # サーバー名をプレフィックスとして追加
                 unique_tools = []
@@ -432,11 +433,11 @@ class ToolManager:
                     tool.name = f"{server_name}_{tool.name}"
                     unique_tools.append(tool)
                 
-                # クライアントをクリーンアップ
-                try:
-                    self._run_coroutine(single_client.close_all_sessions())
-                except:
-                    pass  # クリーンアップエラーは無視
+                # NOTE: MultiServerMCPClientは内部的にセッションを管理するため、
+                # ここで個別にclose_all_sessionsを呼び出す必要はない。
+                # ToolManager全体のcleanupで一度だけ呼び出す。
+                # single_clientインスタンスはスコープを抜ければGCされる。
+
                 
                 return unique_tools
                 
@@ -537,33 +538,6 @@ class ToolManager:
             logger.error(f"Failed to format tools for prompt: {e}", exc_info=True)
             return "Error formatting tools."
 
-    def format_tools_for_react_prompt(self) -> str:
-        """
-        ReActプロンプトのために、ツール一覧を人が読みやすいシグネチャ形式の文字列に整形する。
-
-        例:
-          - tool_name(arg1: string, arg2: number): 説明
-        """
-        if not self.tools:
-            return "No tools available."
-
-        tool_strings = []
-        for tool in self.tools:
-            # Pydanticモデルのスキーマから引数を取得
-            if hasattr(tool, 'args_schema') and hasattr(tool.args_schema, 'model_json_schema'):
-                schema = tool.args_schema.model_json_schema()
-                properties = schema.get('properties', {})
-                args_repr = ", ".join(
-                    f"{name}: {prop.get('type', 'any')}"
-                    for name, prop in properties.items()
-                )
-            else:
-                # フォールバック（args_schemaがない、またはPydanticモデルでない場合）
-                args_repr = ""
-            # プロンプトのインデントに合わせて整形
-            tool_strings.append(f"  - {tool.name}({args_repr}): {tool.description}")
-        return "\n".join(tool_strings)
-
     def cleanup(self):
         """リソースのクリーンアップ。
 
@@ -585,3 +559,6 @@ class ToolManager:
             self._thread.join(timeout=5)
             if self._thread.is_alive():
                 print("WARNING: Async runner thread did not stop gracefully.")
+            # ループを閉じてリソースを解放
+            if not self._loop.is_closed():
+                self._loop.close()

@@ -1,16 +1,11 @@
+# main.py (EM-LLM統合版)
 """
-エージェントアプリのエントリーポイント。
+EM-LLM対応エージェントアプリのエントリーポイント
 
-流れ:
-1) LLMロード
-2) ツール初期化(MCP含む)
-3) LangGraphのアプリ(実行グラフ)を構築
-4) 対話ループを開始し、ユーザー入力を受け付ける
-
-終了時はリソース(モデル/ツール)を確実に解放する。
+このファイルは、EM-LLM（Episodic Memory-enhanced Large Language Model）機能を
+統合したAIエージェントアプリケーションのエントリーポイントです。
+AgentAppクラスがアプリケーションの初期化、実行、クリーンアップのライフサイクルを管理します。
 """
-
-# main.py
 
 import logging
 import os
@@ -19,160 +14,276 @@ os.environ["TORCHDYNAMO_DISABLE"] = "1"
 
 import asyncio
 import sys
+from typing import Any, Dict, List, Optional
+
 from langchain_core.messages import HumanMessage, AIMessage
-import json
-from agent_core.config import MCP_CONFIG_FILE , MAX_CHAT_HISTORY_LENGTH
+
+# EM-LLM関連のインポート
+from agent_core.em_llm_core import EMLLMIntegrator, EMConfig
+from agent_core.em_llm_graph import EMEnabledAgentCore
+from agent_core.embedding_provider import EmbeddingProvider
+
+# 従来のインポート
+from agent_core.config import MCP_CONFIG_FILE, MAX_CHAT_HISTORY_TOKENS, EM_LLM_CONFIG
 from agent_core.llm_manager import LLMManager
 from agent_core.tool_manager import ToolManager
+from agent_core.memory.memory_system import MemorySystem
 from agent_core.graph import AgentCore
 
+# 定数
+CMD_EM_STATS = "/emstats"
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 async def ainput(prompt: str = "") -> str:
-    # The prompt needs to be printed separately as readline doesn't handle it.
     print(prompt, end="", flush=True)
     return await asyncio.to_thread(sys.stdin.readline)
 
 async def main():
-    """
-    エージェントの初期化と対話ループを実行するメイン関数。
+    """EM-LLM対応エージェントのメイン関数"""
     
-    処理の流れ:
-    1. 初期化フェーズ: LLMロード、ツール初期化、グラフ構築
-    2. 対話ループフェーズ: ユーザー入力受付、LangGraph実行、結果表示
-    3. クリーンアップフェーズ: リソース解放、MCPセッション終了
-    """
-    # finallyブロックで参照できるよう、Noneで初期化しておきます
     llm_manager = None
     tool_manager = None
+    em_llm_integrator = None
+    embedding_provider = None # フォールバック時の未定義参照を回避するためにここで初期化
     app = None
     
-    # --- 1. 初期化フェーズ ---
-    # 初期化中に発生した致命的なエラーはここでキャッチします
     try:
-        print("Initializing AI Agent...")
+        print("Initializing EM-LLM Enhanced AI Agent...")
+        print("=" * 60)
         
-        # 1a. LLMManagerをインスタンス化
+        # === Phase 1: 基本システム初期化 ===
+        print("Phase 1: Initializing core systems...")
+        
+        # LLMマネージャー初期化
         llm_manager = LLMManager()
-
-        # 1b. 最初にGemmaをロードしておく
-        llm_manager.get_gemma_3n()
+        llm_manager.get_character_agent()  # メインLLMをプリロード
+        print("✓ LLM Manager initialized")
         
-        # 1c. ツールマネージャーを初期化: MCPサーバー起動とツール発見
+        # ツールマネージャー初期化
         tool_manager = ToolManager(config_file=MCP_CONFIG_FILE)
         tool_manager.initialize()
+        print(f"✓ Tool Manager initialized with {len(tool_manager.tools)} tools")
         
-        # 1d. エージェントコアを構築し、実行可能なグラフ(app)を取得
-        agent_core = AgentCore(llm_manager=llm_manager, tool_manager=tool_manager)
-        app = agent_core.graph
-    
+        # === Phase 2: EM-LLM システム初期化 ===
+        print("\nPhase 2: Initializing EM-LLM systems...")
+        
+        try:
+            # 埋め込みモデルをロード
+            embedding_llm = llm_manager.get_embedding_model()
+            embedding_provider = EmbeddingProvider(embedding_llm)
+            print("✓ Embedding provider initialized")
+            
+            # EM-LLM用の永続メモリシステムを初期化
+            em_memory_system = MemorySystem(embedding_provider, db_path="./chroma_db_em_llm", collection_name="em_llm_events")
+            print("✓ EM-LLM persistent memory system (ChromaDB) initialized")
+
+            # config.pyのキー名がEMConfigのフィールド名と一致しているため、辞書アンパックで簡潔に初期化
+            em_config = EMConfig(**EM_LLM_CONFIG)
+            # EM-LLM統合レイヤーを初期化 (em_configを直接渡す)
+            em_llm_integrator = EMLLMIntegrator(llm_manager, embedding_provider, em_config, em_memory_system)
+            print("✓ EM-LLM configuration applied")
+            print("✓ EM-LLM integrator initialized")
+            
+        except Exception as e:
+            logger.error(f"EM-LLM initialization failed: {e}", exc_info=True)
+            print(f"⚠ EM-LLM initialization failed: {e}. Check logs for details.")
+            print("Falling back to traditional memory system...")
+            em_llm_integrator = None
+        
+        # === Phase 3: アプリケーショングラフ構築 ===
+        print("\nPhase 3: Building application graph...")
+        
+        if em_llm_integrator:
+            # EM-LLM対応グラフを構築
+            agent_core = EMEnabledAgentCore(llm_manager, tool_manager, em_llm_integrator)
+            app = agent_core.graph
+            print("✓ EM-LLM enhanced graph initialized")
+            
+            # 初期統計を表示
+            if em_llm_integrator:
+                total_events = em_llm_integrator.memory_system.count()
+                summary = f"{total_events} events loaded from persistent storage." if total_events > 0 else "Ready (no prior events)."
+                print(f"✓ EM-LLM Memory System: {summary}")
+        else:
+            # フォールバック: 従来システム
+            # EM-LLM初期化中にembedding_providerが正常に初期化されているはずなので、それを再利用する
+            if embedding_provider:
+                print("Re-using embedding provider for fallback memory system.")
+            else: # 何らかの理由でembedding_providerも失敗した場合
+                print("⚠ Embedding provider is not available. Fallback memory system will be disabled.")
+
+            if embedding_provider: # 再度チェック
+                memory_system = MemorySystem(embedding_provider, db_path="./chroma_db_fallback")
+                agent_core = AgentCore(llm_manager, tool_manager, memory_system)
+            else:
+                agent_core = AgentCore(llm_manager, tool_manager, None)
+            app = agent_core.graph
+            print("✓ Traditional graph initialized (fallback mode)")
+        
+        print("=" * 60)
+        
     except Exception as e:
-        logging.error(f"A critical error occurred during agent initialization: {e}", exc_info=True)
-        print("\nFailed to start the AI agent. Please check the logs.")
-        return # 初期化に失敗した場合はここでプログラムを終了
-
-    print("\n--- AI Agent is ready. Type '/agentmode <your request>' ・ AI Search is ready. Type '/search <your query>' for complex tasks, or a simple chat message. Type 'exit' to quit. ---")
-
-    # --- 2. 対話ループフェーズ ---    
+        logger.error(f"Critical error during initialization: {e}", exc_info=True)
+        print(f"\n❌ Failed to start the AI agent: {e}")
+        print("Please check the logs and configuration.")
+        return
+    
+    # === 対話ループ開始 ===
+    if em_llm_integrator:
+        print("🧠 EM-LLM Enhanced AI Agent is ready!")
+        print("Features: Surprise-based memory formation, Two-stage retrieval, Episodic segmentation")
+    else:
+        print("🤖 AI Agent is ready (traditional mode)")
+    
+    print("\nCommands:")
+    print("  • '/agentmode <request>' - Complex task with tools")  
+    print("  • '/search <query>' - Web search")
+    print("  • '/emstats' - EM-LLM memory statistics (if available)")
+    print("  • Normal chat - Direct conversation")
+    print("  • 'exit' - Quit")
+    print("-" * 60)
+    
     chat_history = []
+    
     try:
         while True:
             try:
-                # 2a. ユーザー入力受付: 終了コマンドと空入力をチェック
-                # Use the async input function and strip the trailing newline
                 user_input = (await ainput("You: ")).strip()
+                
                 if user_input.lower() in ["exit", "quit"]:
                     break
                 if not user_input:
                     continue
-
-                # 2b. LangGraphに渡す初期状態を構築
+                
+                # EM-LLM統計コマンド処理
+                if user_input.lower() == '/emstats' and em_llm_integrator:
+                    try:
+                        stats = em_llm_integrator.get_memory_statistics()
+                        print("\n📊 EM-LLM Memory System Statistics:")
+                        print(f"   Total Events: {stats.get('total_events', 0)}")
+                        print(f"   Total Tokens: {stats.get('total_tokens_in_memory', 0)}")
+                        print(f"   Mean Event Size: {stats.get('mean_event_size', 0):.1f} tokens")
+                        print()
+                        
+                        surprise_stats = stats.get('surprise_statistics', {})
+                        if surprise_stats and surprise_stats.get('mean', 0) > 0:
+                            print(f"   Surprise - Mean: {surprise_stats.get('mean', 0):.3f}, "
+                                  f"Std: {surprise_stats.get('std', 0):.3f}, Max: {surprise_stats.get('max', 0):.3f}")
+                        
+                        config_info = stats.get('configuration', {})
+                        print(f"   Config - γ: {config_info.get('surprise_gamma', 0)}, "
+                              f"Event Size: {config_info.get('min_event_size', 0)}-{config_info.get('max_event_size', 0)}")
+                        print()
+                        continue
+                    except Exception as e:
+                        print(f"❌ Failed to retrieve EM-LLM statistics: {e}")
+                        continue
+                
+                # LangGraphの実行
                 initial_state = {
                     "input": user_input,
-                    "chat_history": chat_history, # 常に最新の履歴を渡す
+                    "chat_history": chat_history,
                     "agent_scratchpad": [],
                     "messages": [],
                 }
                 
-                print(f"\n--- Initial State ---")
-                print(f"Input: {initial_state['input']}")
-                print(f"Chat history length: {len(initial_state['chat_history'])}")
+                print(f"\n--- Processing (EM-LLM: {'✓' if em_llm_integrator else '✗'}) ---")
                 
-                # 2c. LangGraphの実行: ルーティングとノード処理
-                print("\n--- Agent is thinking... ---")
-
-                # 2d. LangGraphのストリーミング実行と結果表示
                 full_response = ""
-                final_output = None # Will hold the final state from the graph
-
-                # astream_eventsを使用して、より低レベルのイベントをリッスンする
+                final_output = None
+                
+                # ストリーミング実行
                 async for event in app.astream_events(initial_state, version="v2", config={"recursion_limit": 50}):
                     kind = event["event"]
                     
-                    # LLMからトークンがストリーミングされるたびにこのイベントが発生
+                    # LLMストリーミング出力
                     if kind == "on_chat_model_stream":
                         content = event["data"]["chunk"].content
                         if content:
-                            # 差分をそのまま出力
                             print(content, end="", flush=True)
                             full_response += content
                     
-                    # グラフ全体の実行が終了したときのイベント
+                    # グラフ実行完了
                     elif kind == "on_graph_end":
-                        # 最終的なグラフの出力を保存
                         final_output = event["data"]["output"]
-
-                print()  # ストリーミング出力後の改行
-
-                # 2e. 最終的なチャット履歴でローカルの履歴を更新
-                # ストリーミングで応答が正常に生成されたかを第一に確認する
-                if full_response:
-                    # ユーザーの入力と、ストリーミングで得られたAIの完全な応答を履歴に追加
+                
+                print()  # 改行
+                
+                # チャット履歴更新
+                # agent_outcomeがある場合でも、full_responseが生成されていればそれを使う
+                if final_output and full_response:
                     chat_history.append(HumanMessage(content=user_input))
                     chat_history.append(AIMessage(content=full_response))
-                # ストリーミングは無かったが、ReActループが何らかの結果を返した場合
-                elif final_output and "agent_outcome" in final_output and final_output.get("agent_outcome"):
-                    print(f"\nAI: (Task completed, but no final response was generated. Outcome: {final_output['agent_outcome']})")
-                    # この場合もユーザーの入力は履歴に残す
-                    chat_history.append(HumanMessage(content=user_input))
                 else:
-                    # ストリーミングもfinal_outputも得られなかった場合のフォールバック
-                    print("\nAI: An unexpected error occurred and no response was generated.")
+                    # フォールバック：応答が生成されなかったが、何らかのエラーが発生した場合
+                    # ユーザーの入力のみ履歴に追加し、エラーメッセージを表示
+                    print("\nAI: An unexpected error occurred.")
                     chat_history.append(HumanMessage(content=user_input))
-
-                # チャット履歴が上限を超えたら古いものから削除
-                if len(chat_history) > MAX_CHAT_HISTORY_LENGTH:
-                    print(f"INFO: Chat history truncated from {len(chat_history)} to {MAX_CHAT_HISTORY_LENGTH} messages.")
-                    chat_history = chat_history[-MAX_CHAT_HISTORY_LENGTH:]
                 
-                print("\n-----------------------------------------\n")
+                # チャット履歴のトークン数制限
+                try:
+                    if llm_manager:
+                        current_tokens = llm_manager.count_tokens_for_messages(chat_history)
+                        if current_tokens > MAX_CHAT_HISTORY_TOKENS:
+                            print(f"INFO: Chat history exceeds token limit ({current_tokens}/{MAX_CHAT_HISTORY_TOKENS}). Truncating...")
+                            
+                            truncated_history = list(chat_history)
+                            # 制限を下回るまで、古いメッセージペア（Human & AI）を削除
+                            while llm_manager.count_tokens_for_messages(truncated_history) > MAX_CHAT_HISTORY_TOKENS and len(truncated_history) > 2:
+                                truncated_history = truncated_history[2:]
+                            
+                            chat_history = truncated_history
+                            final_tokens = llm_manager.count_tokens_for_messages(chat_history)
+                            print(f"INFO: Chat history truncated. Final tokens: {final_tokens}")
 
+                except Exception as e:
+                    logger.warning(f"Could not truncate chat history by tokens: {e}. The history may grow unchecked.")
+
+                
             except KeyboardInterrupt:
-                print("\nExiting agent. Goodbye!")
+                print("\n\n👋 Exiting EM-LLM Agent. Goodbye!")
                 break
             except Exception as e:
-                logging.error(f"An error occurred during the conversation loop: {e}", exc_info=True)
-                print("\nAn error occurred. Please try again or type 'exit' to quit.")
-
-    # --- 3. クリーンアップフェーズ ---
-    # プログラム終了時にリソースを解放します
+                logger.error(f"Error during conversation: {e}", exc_info=True)
+                print(f"\n❌ An error occurred: {e}")
+                print("Please try again or type 'exit' to quit.")
+            finally:
+                print("-" * 60)
+    
     finally:
-        print("Cleaning up resources...")
-        # 3a. LLMのVRAM解放: モデルとトークナイザーを削除
+        # === クリーンアップ ===
+        print("\n🧹 Cleaning up resources...")
+        
         if llm_manager:
             try:
                 llm_manager.cleanup()
+                print("✓ LLM resources cleaned up")
             except Exception as e:
-                print(f"ERROR: Failed to cleanup LLM manager: {e}")
-        # 3b. ツールマネージャーのクリーンアップ: MCPセッション終了、イベントループ停止
+                print(f"⚠ LLM cleanup warning: {e}")
+        
         if tool_manager:
             try:
                 tool_manager.cleanup()
+                print("✓ Tool manager cleaned up")
             except Exception as e:
-                print(f"ERROR: Failed to cleanup tool manager: {e}")
+                print(f"⚠ Tool manager cleanup warning: {e}")
+        
+        if em_llm_integrator:
+            try:
+                stats = em_llm_integrator.get_memory_statistics()
+                print(f"✓ Final EM-LLM state: {stats.get('total_events', 0)} events, "
+                      f"{stats.get('total_tokens_in_memory', 0)} tokens")
+            except Exception as e:
+                print(f"⚠ Could not retrieve final EM-LLM statistics: {e}")
+        
+        print("Cleanup completed.")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as e:
-        logging.error(f"Failed to run the agent application: {e}", exc_info=True)
+        logging.error(f"Failed to run the EM-LLM agent application: {e}", exc_info=True)
+        print(f"❌ Critical failure: {e}")
+        print("Check logs for details.")
