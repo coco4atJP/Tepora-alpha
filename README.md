@@ -25,6 +25,8 @@
 
 このアプリケーションは、状態駆動型のグラフベースの実行モデルに従います。
 
+1. **`main.py`**: アプリケーションのエントリポイント。`AgentApp`クラスがアプリケーションのライフサイクル（初期化、実行、クリーンアップ）を管理します。初期化フェーズでは`LLMManager`と`ToolManager`を準備し、**EM-LLM（エピソード記憶）システムの初期化を試みます**。成功した場合はEM-LLM対応の`EMEnabledAgentCore`グラフを、失敗した場合は従来の`AgentCore`グラフにフォールバックします。その後、`run`メソッドがコマンドラインループでユーザー入力を受け付けます。
+2. **`agent_core/graph.py`**: **従来の`AgentCore`を定義します**。これは、EM-LLMシステムが利用できない場合のフォールバックとして機能する、エージェントの基本的な実行グラフです。`LangGraph`を基盤とし、コマンドルーティング、ReActループ、各種ツール実行のロジックを含みます。EM-LLMが有効な場合は、このグラフは直接使用されず、`EMEnabledAgentCore`が優先されます。
 1. **`Tepora_app/main.py`**: アプリケーションのエントリポイント。EM-LLMシステムの初期化を試み、成功した場合はEM-LLM対応の`EMEnabledAgentCore`グラフを、失敗した場合は従来の`AgentCore`グラフにフォールバックします。
 2. **`Tepora_app/agent_core/em_llm_graph.py`**: **メインの実行グラフ`EMEnabledAgentCore`を定義します**。EM-LLMの記憶形成、検索、統合のロジックを`LangGraph`のフローに組み込んでいます。
 3. **`Tepora_app/agent_core/graph.py`**: **フォールバック用の`AgentCore`を定義します**。EM-LLMシステムが利用できない場合に、基本的なエージェント機能を提供します。
@@ -38,6 +40,9 @@
         2.  `agent_reasoning_node`: Executor Agent (Jan-nano) は、ツールを使用して計画を実行する ReAct ループを開始します。
         3.  `tool_node`: エージェントが `ToolManager` を介して選択したツールを実行します。
         4.  `synthesize_final_response_node`: ReAct ループが完了すると、最終的な技術レポートがユーザーフレンドリーなレスポンスに変換されます。
+3. **`agent_core/llm_manager.py`**: LLM のライフサイクルを管理します。メインのLLMに加えて、記憶の統合と定着を担当するSLM（小規模言語モデル）も管理します。
+4. **`agent_core/tool_manager.py`**: すべてのツールのための統一インターフェースです。ネイティブ Python ツールと MCP 経由で接続された外部ツールを検出および管理します。
+5. **`agent_core/memory/memory_system.py`**: SQLiteデータベースを利用して、エピソード記憶の保存と類似度検索を管理します。
 4. **`Tepora_app/agent_core/llm_manager.py`**: LLM のライフサイクルを管理します。メインのLLMに加えて、記憶の統合と定着を担当するSLM（小規模言語モデル）も管理します。
 5. **`Tepora_app/agent_core/tool_manager.py`**: すべてのツールのための統一インターフェースです。ネイティブ Python ツールと MCP 経由で接続された外部ツールを検出および管理します。
 6. **`Tepora_app/agent_core/memory/memory_system.py`**: ChromaDBを利用して、エピソード記憶のベクトル保存と類似度検索を管理します。
@@ -62,6 +67,7 @@
 
 1. **リポジトリのクローンを作成します:**
 ```bash
+git clone
 git clone https://github.com/coco4atJP/Tepora.git
 cd Tepora
 ```
@@ -86,6 +92,8 @@ GOOGLE_CUSTOM_SEARCH_API_KEY="your_google_api_key"
 GOOGLE_CUSTOM_SEARCH_ENGINE_ID="your_google_cx_id"
 ```
 
+4. **プロジェクトルートにモデルを配置:**
+main.pyと同じ階層に使用するllama.cpp対応GGUF形式ファイルを配置します。
 4. **Tepora_appディレクトリにモデルを配置:**
 `Tepora_app/main.py`と同じ階層に使用するllama.cpp対応GGUF形式ファイルを配置します。
 デフォルトのモデルは下記のものです。
@@ -100,6 +108,9 @@ GOOGLE_CUSTOM_SEARCH_ENGINE_ID="your_google_cx_id"
 
 ### エージェントの実行
 
+プロジェクトルートディレクトリからエージェントを起動します:
+```bash
+python main.py
 プロジェクトのルートディレクトリからエージェントを起動します:
 ```bash
 python Tepora_app/main.py
@@ -123,6 +134,13 @@ python Tepora_app/main.py
 
 ## 🧩 コアコンポーネント
 
+* **`main.py`**: アプリケーションのエントリポイント、初期化、およびメインの会話ループ。
+* **`agent_core/graph.py`**: `LangGraph` 実行グラフ、ノード、エッジを定義します。すべてのエージェントモードのコアロジックが含まれています。
+* **`agent_core/state.py`**: グラフ内のノード間で渡される状態を表す `AgentState` TypedDict を定義します。
+* **`agent_core/llm_manager.py`**: GGUF モデルの動的なロード/アンロードを処理して VRAM もしくは RAM を管理します。メインのLLMと記憶処理用のSLMの両方を扱います。
+* **`agent_core/tool_manager.py`**: すべてのツール (ネイティブおよび MCP) の統合実行インターフェースを検出、管理、および提供します。
+* **`agent_core/memory/memory_system.py`**: SQLiteデータベースを利用して、エピソード記憶の保存と類似度検索を管理します。
+* **`agent_core/config.py`**: モデルパス、生成パラメータ、プロンプト、ペルソナ、API キーの一元的な構成。EM-LLMの記憶統合・定着用プロンプトも含まれます。
 * **`Tepora_app/main.py`**: アプリケーションのエントリポイント、初期化、およびメインの会話ループ。
 * **`Tepora_app/agent_core/em_llm_graph.py`**: EM-LLM機能を統合したメインの`LangGraph`実行グラフ（`EMEnabledAgentCore`）を定義します。
 * **`Tepora_app/agent_core/em_llm_core.py`**: EM-LLMの記憶形成、イベント境界検出、驚き（Surprise）の計算など、中核となるアルゴリズムを実装します。
@@ -168,11 +186,21 @@ python Tepora_app/main.py
 ## ⚙️ 設定
 
 * **`.env`**: API キーなどのシークレットを保存します。バージョン管理にはコミットされません。
+* **`agent_core/config.py`**: メインの設定ファイルです。
 * **`Tepora_app/agent_core/config.py`**: メインの設定ファイルです。
 * `MODELS_GGUF`: モデルパス、モデルパラメータを定義しています。生成パラメータは temperature Top.P Top.K max_tokens がデフォルト定義です。
 * `PERSONA_PROMPTS`: キャラクターエージェントの異なるキャラクターペルソナを定義します。デフォルトでは`souha_yoi`(奏羽 茗伊) `bunny_girl`(マリナ)の2種類が用意されています。どちらも日本語で記述されているので、必要に応じて書き換えてください。
 * `ACTIVE_PERSONA`: 現在のペルソナを選択します。
 * `BASE_SYSTEM_PROMPTS`: 要約、ReAct推論、記憶の統合・定着などのタスクにおけるコア機能プロンプトを定義します。
+* **`mcp_tools_config.json`**: 外部ツールサーバーを設定します。
+
+## 🧪 テスト
+
+プロジェクトにはユニットテストが含まれています。テストを実行するには、プロジェクトのルートディレクトリで次のコマンドを実行します:
+
+```bash
+python -m unittest discover tests
+```
 * **`Tepora_app/mcp_tools_config.json`**: 外部ツールサーバーを設定します。
 
 
