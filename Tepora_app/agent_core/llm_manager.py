@@ -40,47 +40,58 @@ class LLMManager:
 
     def _unload_model(self):
         """現在ロードされているモデルを解放する。"""
-        if self._current_model_key:
-            logger.info(f"Unloading model: {self._current_model_key}")
-            if self._active_process:
-                logger.info(f"Terminating server process (PID: {self._active_process.pid})...")
-                # まずgracefulに終了を試行
-                self._active_process.terminate()
-                try:
-                    timeout_sec = config.LLAMA_CPP_CONFIG.get("process_terminate_timeout", 10)
-                    self._active_process.wait(timeout=timeout_sec)
-                    logger.info("Server process terminated gracefully.")
-                except subprocess.TimeoutExpired:
-                    logger.warning("Process didn't terminate gracefully, forcing kill...")
-                    self._active_process.kill()
-                    self._active_process.wait()  # kill後は必ず終了するはず
-                    logger.info("Server process killed forcefully.")
+        if not self._current_model_key and not self._active_process:
+            return
 
-                self._active_process = None
+        logger.info(f"Unloading model: {self._current_model_key or 'N/A'}")
 
+        active_process = self._active_process
+        self._active_process = None # 先にNoneに設定
+
+        if active_process:
+            logger.info(f"Terminating server process (PID: {active_process.pid})...")
+            active_process.terminate()
+            try:
+                timeout_sec = config.LLAMA_CPP_CONFIG.get("process_terminate_timeout", 10)
+                active_process.wait(timeout=timeout_sec)
+                logger.info("Server process terminated gracefully.")
+            except subprocess.TimeoutExpired:
+                logger.warning("Process didn't terminate gracefully, forcing kill...")
+                active_process.kill()
+                active_process.wait()
+                logger.info("Server process killed forcefully.")
+
+        if hasattr(self, '_chat_llm'):
             del self._chat_llm
-            self._chat_llm = None
-            self._current_model_key = None
-            self._current_model_config = None
-            gc.collect() # メモリを明示的に解放
+
+        self._chat_llm = None
+        self._current_model_key = None
+        self._current_model_config = None
+        gc.collect()
 
     def _unload_embedding_model(self):
         """埋め込みモデルを解放する。"""
-        if self._embedding_process:
-            logger.info("Unloading embedding model...")
-            logger.info(f"Terminating embedding server process (PID: {self._embedding_process.pid})...")
-            self._embedding_process.terminate()
-            try:
-                timeout_sec = config.LLAMA_CPP_CONFIG.get("process_terminate_timeout", 10)
-                self._embedding_process.wait(timeout=timeout_sec)
-                logger.info("Embedding server process terminated gracefully.")
-            except subprocess.TimeoutExpired:
-                logger.warning("Embedding process didn't terminate gracefully, forcing kill...")
-                self._embedding_process.kill()
-                self._embedding_process.wait()
-            self._embedding_process = None
-            self._embedding_llm = None
-            self._embedding_config = None
+        if not self._embedding_process:
+            return
+
+        logger.info("Unloading embedding model...")
+
+        embedding_process = self._embedding_process
+        self._embedding_process = None # 先にNoneに設定
+
+        logger.info(f"Terminating embedding server process (PID: {embedding_process.pid})...")
+        embedding_process.terminate()
+        try:
+            timeout_sec = config.LLAMA_CPP_CONFIG.get("process_terminate_timeout", 10)
+            embedding_process.wait(timeout=timeout_sec)
+            logger.info("Embedding server process terminated gracefully.")
+        except subprocess.TimeoutExpired:
+            logger.warning("Embedding process didn't terminate gracefully, forcing kill...")
+            embedding_process.kill()
+            embedding_process.wait()
+
+        self._embedding_llm = None
+        self._embedding_config = None
 
     def _find_server_executable(self, llama_cpp_dir: Path) -> Path | None: # noqa: C901
         """
@@ -157,26 +168,36 @@ class LLMManager:
         health_check_url = f"http://localhost:{port}/health"
         # キーに応じて設定からタイムアウト値を取得
         timeout_config_key = "embedding_health_check_timeout" if "embedding" in key else "health_check_timeout"
-        max_retries = config.LLAMA_CPP_CONFIG.get(timeout_config_key, 20)
+        timeout_seconds = config.LLAMA_CPP_CONFIG.get(timeout_config_key, 20)
         retry_interval = config.LLAMA_CPP_CONFIG.get("health_check_interval", 1.0)
         
-        logger.info(f"Performing health check for '{key}' on {health_check_url}...")
+        if retry_interval <= 0:
+            retry_interval = 1.0 # ゼロ除算を避ける
 
-        for attempt in range(max_retries):
+        num_retries = int(timeout_seconds / retry_interval)
+
+        logger.info(f"Performing health check for '{key}' on {health_check_url} (timeout: {timeout_seconds}s)...")
+
+        for attempt in range(num_retries):
             # ログパスが指定されている場合のみ、管理下のプロセスの状態を確認
-            if stderr_log_path and self._active_process and self._active_process.poll() is not None:
-                self._active_process = None # プロセスハンドルをクリア
+            # embedding_processもチェック対象に加える
+            process_to_check = self._embedding_process if "embedding" in key else self._active_process
+            if stderr_log_path and process_to_check and process_to_check.poll() is not None:
+                if "embedding" in key:
+                    self._embedding_process = None
+                else:
+                    self._active_process = None # プロセスハンドルをクリア
                 error_detail = f"Review server log for details: {stderr_log_path}"
                 raise RuntimeError(f"Server process for '{key}' terminated unexpectedly. {error_detail}")
 
             try:
                 response = requests.get(health_check_url, timeout=0.5)
                 if response.status_code == 200 and response.json().get("status") == "ok":
-                    logger.info(f"Server for '{key}' is healthy and ready. (Attempt {attempt + 1}/{max_retries})")
+                    logger.info(f"Server for '{key}' is healthy and ready. (Attempt {attempt + 1}/{num_retries})")
                     return  # ヘルスチェック成功
                 elif response.status_code == 503:
                     # サーバーがまだ準備中 - 正常なので待機を続ける
-                    logger.debug(f"Server for '{key}' is still starting up (503 Service Unavailable). Waiting... (Attempt {attempt + 1}/{max_retries})")
+                    logger.debug(f"Server for '{key}' is still starting up (503 Service Unavailable). Waiting... (Attempt {attempt + 1}/{num_retries})")
                     pass
                 else:
                     # 予期しないステータスコード
@@ -190,9 +211,12 @@ class LLMManager:
         else:  # for-else: ループがbreakされずに完了した場合
             # ログパスがある場合は、管理下のプロセスなのでクリーンアップを試みる
             if stderr_log_path:
-                self._unload_model()
+                if "embedding" in key:
+                    self._unload_embedding_model()
+                else:
+                    self._unload_model()
             error_detail = f"Review server log for details: {stderr_log_path}" if stderr_log_path else ""
-            raise TimeoutError(f"Server for '{key}' did not become healthy within {max_retries * retry_interval} seconds. {error_detail.strip()}")
+            raise TimeoutError(f"Server for '{key}' did not become healthy within {timeout_seconds} seconds. {error_detail.strip()}")
 
     def _load_model(self, key: str):
         """指定された対話用GGUFモデルをLlama.cppでロードする。"""

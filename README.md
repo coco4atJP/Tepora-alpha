@@ -1,6 +1,6 @@
 ![log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
-# Tepora - マルチAIエージェントシステム 
+# Tepora - マルチAIエージェントシステム
 
 洗練されたマルチエージェント対話型AIシステムを提供します。このプロジェクトでは、ローカルLLM、動的リソース管理、拡張可能なMCPツールシステム、そして**EM-LLM (arXiv:2407.09450)** アーキテクチャに基づく記憶システムを活用し、文脈を理解し学習する自律的なエージェントを構築します。
 
@@ -61,7 +61,7 @@
 
 1. **リポジトリのクローンを作成します:**
 ```bash
-git clone 
+git clone
 cd Tepora
 ```
 
@@ -171,6 +171,13 @@ python main.py
 * `BASE_SYSTEM_PROMPTS`: 要約、ReAct推論、記憶の統合・定着などのタスクにおけるコア機能プロンプトを定義します。
 * **`mcp_tools_config.json`**: 外部ツールサーバーを設定します。
 
+## 🧪 テスト
+
+プロジェクトにはユニットテストが含まれています。テストを実行するには、プロジェクトのルートディレクトリで次のコマンドを実行します:
+
+```bash
+python -m unittest discover tests
+```
 
 ## 📜 ライセンス
 
@@ -178,6 +185,3 @@ python main.py
 このプロジェクトはにApache License 2.0に基づきライセンスされています。詳細は`LICENSE`ファイルをご覧ください。
 
 また、実行に使用する各機械学習モデルはその提供元のライセンスに従います。
-
-
-
