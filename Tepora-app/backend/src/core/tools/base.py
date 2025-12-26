@@ -1,0 +1,25 @@
+from abc import ABC, abstractmethod
+from typing import List, Any
+from langchain_core.tools import BaseTool
+
+class ToolProvider(ABC):
+    """
+    Abstract base class for tool providers.
+    A ToolProvider is responsible for loading and managing a specific set of tools
+    (e.g., Native tools, MCP tools, etc.).
+    """
+
+    @abstractmethod
+    async def load_tools(self) -> List[BaseTool]:
+        """
+        Load and return a list of tools.
+        This method should handle any initialization required for the tools.
+        """
+        pass
+
+    def cleanup(self):
+        """
+        Perform any necessary cleanup when the application shuts down.
+        Default implementation does nothing.
+        """
+        pass

@@ -1,0 +1,168 @@
+# Tepora Project - Task Runner Configuration
+# https://taskfile.dev
+#
+# Usage:
+#   task dev          - Start both backend and frontend
+#   task test         - Run all tests
+#   task lint         - Run linters
+#   task build-sidecar - Build PyInstaller sidecar
+
+version: '3'
+
+vars:
+  BACKEND_DIR: backend
+  FRONTEND_DIR: frontend
+
+tasks:
+  # === Default ===
+  default:
+    desc: "Show available tasks"
+    cmds:
+      - task --list
+
+  # === Development ===
+  dev:
+    desc: "Start both backend and frontend in development mode (parallel)"
+    deps: [dev-backend, dev-frontend]
+
+  dev-backend:
+    desc: "Start backend server"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - python server.py
+
+  dev-frontend:
+    desc: "Start frontend dev server"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run dev
+
+  dev-tauri:
+    desc: "Start Tauri app in dev mode"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run tauri dev
+
+  # === Testing ===
+  test:
+    desc: "Run all tests"
+    cmds:
+      - task: test-backend
+      - task: test-frontend
+
+  test-backend:
+    desc: "Run backend tests"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - pytest tests/ -v
+
+  test-frontend:
+    desc: "Run frontend tests"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run test
+
+  # === Linting ===
+  lint:
+    desc: "Run all linters"
+    cmds:
+      - task: lint-backend
+      - task: lint-frontend
+
+  lint-backend:
+    desc: "Lint backend code with ruff"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - python -m ruff check src/
+    ignore_error: true
+
+  lint-frontend:
+    desc: "Lint frontend code"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run lint
+    ignore_error: true
+
+  # === Type Checking ===
+  typecheck:
+    desc: "Run type checking"
+    cmds:
+      - task: typecheck-backend
+      - task: typecheck-frontend
+
+  typecheck-backend:
+    desc: "Type check backend with mypy"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - python -m mypy src/
+    ignore_error: true
+
+  typecheck-frontend:
+    desc: "Type check frontend"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npx tsc --noEmit
+    ignore_error: true
+
+  # === Build ===
+  build:
+    desc: "Build both backend sidecar and frontend"
+    cmds:
+      - task: build-sidecar
+      - task: build-frontend
+
+  build-sidecar:
+    desc: "Build PyInstaller sidecar for Tauri"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - python scripts/build_sidecar.py
+
+  build-frontend:
+    desc: "Build frontend for production"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run build
+
+  # === Installation ===
+  install:
+    desc: "Install all dependencies"
+    cmds:
+      - task: install-backend
+      - task: install-frontend
+
+  install-backend:
+    desc: "Install backend dependencies using uv"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv sync --extra dev
+
+  install-frontend:
+    desc: "Install frontend dependencies"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm install
+
+  # === Cleanup ===
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - task: clean-backend
+      - task: clean-frontend
+
+  clean-backend:
+    desc: "Clean backend build artifacts"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cmd: rm -rf dist build *.egg-info .pytest_cache .mypy_cache .ruff_cache
+        platforms: [linux, darwin]
+      - cmd: if exist dist rmdir /s /q dist & if exist build rmdir /s /q build
+        platforms: [windows]
+
+  clean-frontend:
+    desc: "Clean frontend build artifacts"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - cmd: rm -rf dist node_modules/.cache
+        platforms: [linux, darwin]
+      - cmd: if exist dist rmdir /s /q dist
+        platforms: [windows]

@@ -1,0 +1,78 @@
+{
+    "setup": {
+        "title": "Tepora 配置",
+        "checking": "正在检查环境...",
+        "ready": "所有系统准备就绪！",
+        "binary_needed": "需要设置推理引擎",
+        "models_needed": "需要下载模型",
+        "complete": "设置完成！",
+        "error": "设置过程中出错",
+        "start": "启动 Tepora",
+        "auto_setup": "自动设置",
+        "skip": "跳过",
+        "retry": "重试",
+        "downloading": "正在下载...",
+        "steps": {
+            "language": "选择语言",
+            "binary": "推理引擎 (llama.cpp)",
+            "models": "模型"
+        },
+        "status": {
+            "satisfied": "已安装",
+            "missing": "缺失",
+            "outdated": "可用更新",
+            "installed": "已安装",
+            "not_downloaded": "未下载"
+        },
+        "advanced_settings": "高级设置 (更改模型)",
+        "model_settings": "模型设置",
+        "model": "模型"
+    },
+    "common": {
+        "language": "语言",
+        "next": "下一步",
+        "back": "返回",
+        "cancel": "取消",
+        "save": "保存",
+        "clear": "清除",
+        "settings": "设置",
+        "close": "关闭"
+    },
+    "chat": {
+        "clear_history": "清除历史记录",
+        "input": {
+            "placeholder": {
+                "connecting": "正在连接...",
+                "search": "让我搜索...",
+                "agent": "分配任务...",
+                "default": "与 Tepora 聊天..."
+            },
+            "system_ready": "系统就绪",
+            "disconnected": "已断开连接",
+            "web_search": "网络搜索",
+            "attach_file": "附加文件",
+            "send": "发送消息",
+            "stop": "停止生成",
+            "mode_active": "{{mode}} 模式已激活",
+            "aria_label": "消息输入"
+        }
+    },
+    "dial": {
+        "chat": "聊天",
+        "search": "搜索",
+        "agent": "代理"
+    },
+    "status": {
+        "title": "系统状态",
+        "network": "网络",
+        "connected": "已连接",
+        "disconnected": "已断开",
+        "core_system": "核心系统",
+        "ready": "就绪",
+        "loading": "加载中",
+        "events": "事件",
+        "messages": "消息",
+        "char": "Char",
+        "prof": "Prof"
+    }
+}

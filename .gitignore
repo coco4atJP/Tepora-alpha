@@ -1,0 +1,134 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+Tepora-app/frontend/dist/
+Tepora-app/backend/logs/
+chroma_db_em_llm/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+*_output.txt
+*_results.txt
+install_log*.txt
+
+# Database files
+*.db
+
+# ChromaDB directories
+chroma_db/
+chroma_db_*/
+chroma_db_fallback/
+
+# Secrets and sensitive files
+secrets.yaml
+secrets.yml
+
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# User configuration (may contain API keys or personal settings)
+config.yml
+config.yaml
+
+# Cache directories
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+__pycache__/
+
+# Backup directories
+*_bak/
+*.bak
+
+# Tauri build outputs
+**/target/
+
+# Lock files (optional - some projects commit these)
+# uv.lock
+# Cargo.lock
+
+# Large binary files
+*.exe
+*.dll
+*.so
+*.dylib
+*.gguf
+
+# Tauri sidecar binaries and resources
+**/src-tauri/binaries/
+**/src-tauri/resources/
+
+# Models directory
+models/
+models_bak/
+
+# Binary backups
+bin/
+bin_bak/
+
+# Reference materials (if exists)
+プロジェクト参考資料/
