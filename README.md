@@ -1,6 +1,138 @@
 ![log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
-# Tepora （Beta v2.0）
+# Tepora (Beta v2.0)
+
+[English](#english) | [日本語](#japanese)
+
+<div id="english"></div>
+
+# Tepora (English)
+
+> Think, remember, and grow by your side.
+> Welcome to Tepora, your personal AI agent.
+
+## 📖 What is Tepora?
+
+Tepora is a special AI agent system that works exclusively for you on your computer. Not someone on the other side of the internet, but right by your side, protecting your important information while supporting your daily chats and complex tasks.
+
+Tepora aims to be more than just a "useful tool."
+Just as humans remember surprising events, Tepora has its own memory system, **EM-LLM**, at its heart. It remembers important moments from your conversations as "episodes" and deepens its understanding of you over time, just like a living partner.
+
+## ✨ Key Features
+
+#### 🤝 Two in One! Unique Agents
+Inside Tepora, there are two agents with different personalities.
+- **Character Agent**: A friendly mood maker who is good at casual daily chats!
+- **Professional Agent**: A cool worker who skillfully uses tools to solve specialized tasks such as research and analysis!
+
+By combining their strengths, they can respond to a wide range of requests, from fun chats to slightly difficult tasks.
+
+#### 🧠 EM-LLM System that Remembers "Surprises"
+Tepora is amazing because it doesn't just log conversations. Based on ideas from a paper presented at ICLR 2025, it catches "surprises" in conversations and remembers particularly important events as episodes. So, the longer you are together, the deeper it understands you.
+
+#### ⚙️ Good at Thinking According to the Situation!
+"Should I answer this normally? Or search? Should I use a tool?"... Such complex thought processes are elegantly managed by a system called `LangGraph`. It understands the intent of your words and always chooses the optimal action.
+
+#### 🔧 Infinite Possibilities with "Tools"!
+What Tepora can do expands infinitely by adding "tools," such as web searches and file operations. It supports native tools written in Python as well as MCP tools that link with external programs. Please make it smarter to your liking!
+
+#### 💻 Comfortable Dialogue with Modern Web UI!
+We provide a beautiful and easy-to-use Web interface. You can enjoy smooth conversations with a streaming display where you can see Tepora's replies in real time.
+
+## 🚀 Quick Start
+
+Here is a step-by-step guide to get ready to talk to Tepora.
+
+### 1. Requirements
+- Python 3.10 or higher
+- Node.js 18 or higher
+- A powerful CPU or GPU (required to run the GGUF models that serve as Tepora's brain)
+- uv (Recommended package manager)
+- Rust (for Tauri development)
+
+### 2. Installation
+```bash
+# Clone the repository
+git clone https://github.com/coco4atJP/Tepora.git
+cd Tepora/Tepora-app
+
+# Install backend dependencies
+cd backend
+uv sync
+
+# Install frontend dependencies
+cd ../frontend
+npm install
+```
+
+### 3. Model Placement
+Please place the GGUF model files that will be Tepora's brain in the `Tepora-app/backend/models/` folder. By default, it is waiting for the following models:
+
+- **Character**: unsloth/gemma-3n-E4B-it-GGUF (`gemma-3n-E4B-it-IQ4_XS.gguf`)
+- **Professional**: Menlo/Jan-nano-128k-gguf (`jan-nano-128k-iQ4_XS.gguf`)
+- **Memory/Embedding**: Google/embeddinggemma-gguf (`embeddinggemma-300M-Q8_0.gguf`)
+
+### 4. Wake Up Tepora (Desktop App)
+
+The recommended way to launch is as a Tauri desktop app.
+
+```bash
+# From Tepora-app/frontend
+cd frontend
+npm run tauri dev
+```
+
+This will launch the desktop app with the backend (Sidecar) and frontend integrated.
+
+#### Development Web Mode (Legacy/Dev)
+If you want to use it from a web browser for development purposes, you can use the following script.
+
+```bash
+# From the project root
+scripts/legacy/start_app.bat
+```
+
+*Note: The `scripts/` directory at the project root contains legacy scripts. Modern build scripts are located in `Tepora-app/scripts/`.*
+
+Web mode starts at `http://localhost:5173`.
+**Note**: Web mode is currently positioned for development and debugging purposes.
+
+## 💬 How to Talk
+Tepora is waiting for your words. You can select 3 modes from the Web UI.
+
+| Mode | Tepora's Action |
+|:---|:---|
+| **💬 CHAT** | Daily conversation with the Character Agent |
+| **🔍 SEARCH** | Searches the Web and summarizes the results clearly |
+| **🤖 AGENT** | The Professional Agent uses tools to challenge complex tasks |
+
+## 🛠️ For Developers
+
+Tepora's heart consists of beautifully organized modules.
+
+- **`docs/`**: Detailed design documents and plans.
+  - [Comprehensive Architecture Specification](docs/architecture/ARCHITECTURE.md)
+  - [Design Document V2](docs/architecture/design_document_v2.md)
+  - [Developer Guide](docs/guides/developer_guide.md)
+- **`Tepora-app/backend/src/tepora_server/`**: Web server and API entry point
+- **`Tepora-app/backend/src/core/app/`**: Tepora's core logic and application management
+- **`Tepora-app/backend/src/core/graph/`**: Uses LangGraph to build Tepora's thought circuits
+- **`Tepora-app/backend/src/core/em_llm/`**: The part that remembers "surprises," essentially Tepora's heart
+- **`Tepora-app/backend/src/core/llm_manager.py`**: A commander that smartly switches multiple brains (models)
+- **`Tepora-app/backend/src/core/tool_manager.py`**: Entry point for adding new abilities (tools)
+- **`Tepora-app/backend/src/core/config/`**: Detailed settings such as model personality and memory quirks
+- **`Tepora-app/frontend/`**: Modern Web UI built with React + TypeScript
+
+## 📜 License
+
+Tepora is released under the Apache License 2.0. See `LICENSE` for details.
+Each machine learning model follows the license of its respective provider.
+
+---
+
+<div id="japanese"></div>
+
+# Tepora (日本語)
 
 > あなたの隣で、思考し、記憶し、成長する。
 > パーソナルAIエージェント、Teporaへようこそ。
@@ -42,17 +174,13 @@ Teporaとお話しするための準備を、ステップバイステップで�
 - Node.js 18 以上
 - パワフルなCPU、またはGPU（Teporaの頭脳になるGGUFモデルを動かすために必要です）
 - uv（推奨パッケージマネージャ）
+- Rust（Tauri開発用）
 
 ### 2. お迎えの準備
 ```bash
 # TeporaのおうちをあなたのPCに作ります
 git clone https://github.com/coco4atJP/Tepora.git
-cd Tepora
-
-# Tepora専用のお部屋（仮想環境）を用意します
-python -m venv .venv
-.venv\Scripts\activate        # Windowsの場合
-# source .venv/bin/activate   # macOS/Linuxの場合
+cd Tepora/Tepora-app
 
 # バックエンドの依存関係をインストール
 cd backend
@@ -61,11 +189,10 @@ uv sync
 # フロントエンドの依存関係をインストール
 cd ../frontend
 npm install
-cd ..
 ```
 
 ### 3. モデルの配置
-Teporaの頭脳となるGGUFモデルファイルを、`backend/models/` フォルダの中に置いてあげてください。デフォルトでは、以下のモデルたちを待っています。
+Teporaの頭脳となるGGUFモデルファイルを、`Tepora-app/backend/models/` フォルダの中に置いてあげてください。デフォルトでは、以下のモデルたちを待っています。
 
 - **キャラクター担当**: unsloth/gemma-3n-E4B-it-GGUF (`gemma-3n-E4B-it-IQ4_XS.gguf`)
 - **プロフェッショナル担当**: Menlo/Jan-nano-128k-gguf (`jan-nano-128k-iQ4_XS.gguf`)
@@ -76,6 +203,7 @@ Teporaの頭脳となるGGUFモデルファイルを、`backend/models/` フォ�
 推奨される起動方法は、Tauriデスクトップアプリとしての起動です。
 
 ```bash
+# Tepora-app/frontend ディレクトリから実行
 cd frontend
 npm run tauri dev
 ```
@@ -86,9 +214,11 @@ npm run tauri dev
 開発目的でWebブラウザから利用したい場合は、以下のスクリプトを使用できます。
 
 ```bash
-# ルートディレクトリで実行
-start_app.bat
+# プロジェクトルートディレクトリで実行
+scripts/legacy/start_app.bat
 ```
+
+*注意: プロジェクトルートの `scripts/` ディレクトリにはレガシースクリプトが含まれています。最新のビルドスクリプトは `Tepora-app/scripts/` にあります。*
 
 Webモードは `http://localhost:5173` で起動します。
 **注意**: Webモードは現在、開発およびデバッグ用途として位置づけられています。
@@ -110,16 +240,16 @@ Teporaの心臓部は、美しく整理されたモジュールで構成され�
 - **`docs/`**: 詳細な設計書や計画書が格納されています。
   - [包括的アーキテクチャ仕様書 (Architecture)](docs/architecture/ARCHITECTURE.md)
   - [設計ドキュメント V2 (Design Doc)](docs/architecture/design_document_v2.md)
-  - [開発者ガイド (Development Guide)](docs/guides/development.md)
+  - [開発者ガイド (Developer Guide)](docs/guides/developer_guide.md)
   - [リファクタリング計画 (Refactoring Plan)](docs/planning/refactoring_plan.md)
-- **`backend/src/tepora_server/`**: WebサーバーとAPIのエントリーポイント
-- **`backend/src/core/app/`**: Teporaのコアロジックとアプリケーション管理
-- **`backend/src/core/graph/`**: LangGraphを使って、Teporaの思考回路を組み立てています
-- **`backend/src/core/em_llm/`**: 「驚き」を記憶する、Teporaの心とも言える部分です
-- **`backend/src/core/llm_manager.py`**: 複数の頭脳（モデル）を賢く切り替える司令塔です
-- **`backend/src/core/tool_manager.py`**: 新しい能力（ツール）を追加するための入り口です
-- **`backend/src/core/config/`**: モデルの性格や記憶のクセなど、細かい設定ができます
-- **`frontend/`**: React + TypeScript で構築されたモダンなWeb UI
+- **`Tepora-app/backend/src/tepora_server/`**: WebサーバーとAPIのエントリーポイント
+- **`Tepora-app/backend/src/core/app/`**: Teporaのコアロジックとアプリケーション管理
+- **`Tepora-app/backend/src/core/graph/`**: LangGraphを使って、Teporaの思考回路を組み立てています
+- **`Tepora-app/backend/src/core/em_llm/`**: 「驚き」を記憶する、Teporaの心とも言える部分です
+- **`Tepora-app/backend/src/core/llm_manager.py`**: 複数の頭脳（モデル）を賢く切り替える司令塔です
+- **`Tepora-app/backend/src/core/tool_manager.py`**: 新しい能力（ツール）を追加するための入り口です
+- **`Tepora-app/backend/src/core/config/`**: モデルの性格や記憶のクセなど、細かい設定ができます
+- **`Tepora-app/frontend/`**: React + TypeScript で構築されたモダンなWeb UI
 
 
 ## 📜 ライセンス
