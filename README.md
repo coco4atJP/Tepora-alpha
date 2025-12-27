@@ -1,3 +1,5 @@
+このリポジトリは不安定です。
+
 ![log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
 # Tepora （Beta v2.0）
