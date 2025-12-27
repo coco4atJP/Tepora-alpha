@@ -151,6 +151,11 @@
             },
             "chat_history": {
                 "title": "Chat History"
+            },
+            "logs": {
+                "label": "System Logs",
+                "title": "System Logs",
+                "description": "View backend system logs and execution traces."
             }
         },
         "fields": {

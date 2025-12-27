@@ -1,165 +1,50 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Route, createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ChatInterface from './components/ChatInterface';
-import Logs from './pages/Logs';
-import Memory from './pages/Memory';
+import { WebSocketProvider } from './context/WebSocketContext';
 import SetupWizard from './components/SetupWizard';
-import { API_BASE } from './utils/api';
-
-// Fetch with timeout
-const fetchWithTimeout = async (url: string, timeoutMs: number = 10000): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
-
-// ルーターをコンポーネント外で一度だけ作成
-const router = createBrowserRouter(
-  createRoutesFromElements(
-    <Route path="/" element={<Layout />}>
-      <Route index element={<ChatInterface />} />
-      <Route path="logs" element={<Logs />} />
-      <Route path="memory" element={<Memory />} />
-      <Route path="*" element={<ChatInterface />} />
-    </Route>
-  ),
-  {
-    future: {
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    },
-  }
-);
-
-type AppState = 'loading' | 'error' | 'setup' | 'ready';
+import { useSetup } from './hooks/useSetup';
+import './i18n';
 
 function App() {
-  const [appState, setAppState] = useState<AppState>('loading');
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const [retryCount, setRetryCount] = useState(0);
+  const { isSetupComplete, isLoading, checkSetup } = useSetup();
 
-  const { t, i18n } = useTranslation();
-
-  const initApp = useCallback(async () => {
-    setAppState('loading');
-    setErrorMessage('');
-
-    try {
-      // 1. Check requirements with timeout
-      const reqResponse = await fetchWithTimeout(`${API_BASE}/api/setup/requirements`, 10000);
-      if (reqResponse.ok) {
-        const data = await reqResponse.json();
-        if (!data.is_ready) {
-          setAppState('setup');
-          return;
-        }
-      } else {
-        setAppState('setup');
-        return;
-      }
-
-      // 2. Load language setting (non-critical, don't fail if this fails)
-      try {
-        const configResponse = await fetchWithTimeout(`${API_BASE}/api/config`, 5000);
-        if (configResponse.ok) {
-          const config = await configResponse.json();
-          if (config.language && config.language !== i18n.language) {
-            i18n.changeLanguage(config.language);
-          }
-        }
-      } catch (e) {
-        console.warn("Failed to load language config:", e);
-      }
-
-      setAppState('ready');
-    } catch (error) {
-      console.error("Initialization error:", error);
-
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          setErrorMessage(t('errors.connectionTimeout', 'Connection timed out. Please ensure the backend server is running.'));
-        } else {
-          setErrorMessage(error.message || t('errors.connectionFailed', 'Failed to connect to the server.'));
-        }
-      } else {
-        setErrorMessage(t('errors.unknownError', 'An unknown error occurred.'));
-      }
-      setAppState('error');
-    }
-  }, [i18n, t]);
-
-  useEffect(() => {
-    initApp();
-  }, [initApp, retryCount]);
-
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-  };
-
-  // ローディング中
-  if (appState === 'loading') {
+  // Handle splash screen / loading state
+  if (isLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-950">
-        <div className="text-center">
-          <div className="text-gold-400 animate-pulse text-lg mb-2">
-            {t('app.loading', 'Connecting to server...')}
-          </div>
-          <div className="text-gray-500 text-sm">
-            {t('app.loadingHint', 'This may take a few seconds')}
-          </div>
+      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center">
+            <div className="text-tea-400 animate-pulse text-lg mb-2 font-display tracking-widest">TEPORA SYSTEM</div>
+            <div className="h-0.5 w-24 bg-tea-500/50 rounded-full overflow-hidden">
+                <div className="h-full bg-tea-400 animate-[shimmer_1s_infinite]"></div>
+            </div>
         </div>
       </div>
     );
   }
 
-  // エラー状態
-  if (appState === 'error') {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-950">
-        <div className="text-center max-w-md px-6">
-          <div className="text-red-400 text-6xl mb-4" aria-hidden="true">⚠</div>
-          <h1 className="text-white text-xl font-semibold mb-2">
-            {t('errors.connectionErrorTitle', 'Connection Error')}
-          </h1>
-          <p className="text-gray-400 mb-6" role="alert">
-            {errorMessage}
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={handleRetry}
-              className="w-full px-6 py-3 bg-gold-500 hover:bg-gold-600 text-black font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-gray-950"
-              aria-label={t('errors.retryButton', 'Retry connection')}
-            >
-              {t('errors.retryButton', 'Retry Connection')}
-            </button>
-            <p className="text-gray-500 text-sm">
-              {t('errors.troubleshootHint', 'Make sure the backend server is running on the expected port.')}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <BrowserRouter>
+      <WebSocketProvider>
+        {!isSetupComplete && (
+          <SetupWizard
+            onComplete={checkSetup}
+            // Optional: Allow skipping setup in dev mode or if strictly desired
+            // onSkip={() => { /* handle skip logic if needed */ }}
+          />
+        )}
 
-  // セットアップが必要
-  if (appState === 'setup') {
-    return (
-      <SetupWizard
-        onComplete={() => setAppState('ready')}
-        onSkip={() => setAppState('ready')}
-      />
-    );
-  }
-
-  return <RouterProvider router={router} />;
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/chat" replace />} />
+            <Route path="chat" element={<ChatInterface />} />
+            {/* Add more routes here if needed */}
+          </Route>
+        </Routes>
+      </WebSocketProvider>
+    </BrowserRouter>
+  );
 }
 
 export default App;

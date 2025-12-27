@@ -12,11 +12,18 @@ export interface Message {
 
 export interface SearchResult {
   title: string;
-  link: string;
+  url: string; // Changed from link to url to match usage
   snippet: string;
 }
 
 // WebSocketメッセージタイプ
+export interface AgentActivity {
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  agent_name: string;
+  details: string;
+  step: number;
+}
+
 export interface ActivityLogEntry {
   id: string;
   status: 'pending' | 'processing' | 'done' | 'error';
@@ -29,7 +36,7 @@ export interface WebSocketMessage {
   mode?: string;
   agentName?: string;
   nodeId?: string;
-  data?: MemoryStats | Record<string, unknown> | SearchResult[] | ActivityLogEntry;
+  data?: MemoryStats | Record<string, unknown> | SearchResult[] | AgentActivity[];
 }
 
 // システムステータス

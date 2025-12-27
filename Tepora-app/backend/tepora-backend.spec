@@ -9,8 +9,8 @@ hiddenimports += collect_submodules('chromadb')
 
 
 a = Analysis(
-    ['E:\\Tepora_Project\\backend\\server.py'],
-    pathex=['E:\\Tepora_Project\\backend'],
+    ['/app/Tepora-app/backend/server.py'],
+    pathex=['/app/Tepora-app/backend'],
     binaries=[],
     datas=[],
     hiddenimports=hiddenimports,
