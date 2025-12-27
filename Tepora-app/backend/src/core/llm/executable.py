@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-import torch
+from src.core.common.gpu_detect import is_cuda_available
 
 __all__ = ["find_server_executable"]
 
@@ -18,7 +18,7 @@ def _build_preference_list() -> Iterable[str]:
     sys_platform = sys.platform
 
     if sys_platform == "win32":
-        if torch.cuda.is_available():
+        if is_cuda_available():
             return ("cuda", "vulkan", "sycl", "opencl", "cpu", "win")
         return ("vulkan", "sycl", "opencl", "cpu", "win")
 
@@ -28,7 +28,7 @@ def _build_preference_list() -> Iterable[str]:
         return ("x64", "macos")
 
     if sys_platform == "linux":
-        if torch.cuda.is_available():
+        if is_cuda_available():
             return ("cuda", "vulkan", "x64", "linux")
         return ("vulkan", "x64", "linux")
 

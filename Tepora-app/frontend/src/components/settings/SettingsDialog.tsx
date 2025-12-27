@@ -31,10 +31,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
         updateChatHistory,
         updateEmLlm,
         updateModel,
-        updateAgentProfile,
+        updateCharacter,
         setActiveAgent,
-        addAgentProfile,
-        deleteAgentProfile,
+        addCharacter,
+        deleteCharacter,
         saveConfig,
         resetConfig,
     } = useSettings();
@@ -144,12 +144,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 
                                     {activeSection === 'agents' && (
                                         <CharacterSettings
-                                            profiles={config.agent_profiles}
+                                            profiles={config.characters}
                                             activeProfileId={config.active_agent_profile}
-                                            onUpdateProfile={updateAgentProfile}
+                                            onUpdateProfile={updateCharacter}
                                             onSetActive={setActiveAgent}
-                                            onAddProfile={addAgentProfile}
-                                            onDeleteProfile={deleteAgentProfile}
+                                            onAddProfile={addCharacter}
+                                            onDeleteProfile={deleteCharacter}
                                         />
                                     )}
 

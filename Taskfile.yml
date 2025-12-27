@@ -10,8 +10,8 @@
 version: '3'
 
 vars:
-  BACKEND_DIR: backend
-  FRONTEND_DIR: frontend
+  BACKEND_DIR: Tepora-app/backend
+  FRONTEND_DIR: Tepora-app/frontend
 
 tasks:
   # === Default ===

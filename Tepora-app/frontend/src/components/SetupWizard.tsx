@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Download, CheckCircle, XCircle, Loader2, AlertTriangle, Cpu, HardDrive, PlayCircle, Settings, X, Save } from 'lucide-react';
-import { API_BASE } from '../utils/api';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import { useTranslation } from 'react-i18next';
 
 interface DefaultModelConfig {
@@ -61,7 +61,10 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
         try {
             await fetch(`${API_BASE}/api/config`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ language: lang })
             });
         } catch (err) {
@@ -74,7 +77,9 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     // Fetch default models
     const fetchDefaultModels = useCallback(async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/setup/default-models`);
+            const response = await fetch(`${API_BASE}/api/setup/default-models`, {
+                headers: { ...getAuthHeaders() }
+            });
             if (response.ok) {
                 const data: DefaultModelsConfig = await response.json();
                 setCustomModels(data);
@@ -95,7 +100,9 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
             if (step === 'language') return;
 
             setStep('checking');
-            const response = await fetch(`${API_BASE}/api/setup/requirements`);
+            const response = await fetch(`${API_BASE}/api/setup/requirements`, {
+                headers: { ...getAuthHeaders() }
+            });
             if (!response.ok) throw new Error('Failed to check requirements');
 
             const data: RequirementsStatus = await response.json();
@@ -120,7 +127,9 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     // Poll progress
     const pollProgress = useCallback(async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/setup/progress`);
+            const response = await fetch(`${API_BASE}/api/setup/progress`, {
+                headers: { ...getAuthHeaders() }
+            });
             if (response.ok) {
                 const data: ProgressState = await response.json();
                 setProgress(data);
@@ -142,7 +151,10 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
             const response = await fetch(`${API_BASE}/api/setup/run`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify(body)
             });
             if (!response.ok) throw new Error(t('setup.error'));

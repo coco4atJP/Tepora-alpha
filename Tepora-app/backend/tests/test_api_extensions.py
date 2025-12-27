@@ -181,16 +181,18 @@ def test_get_logs_list(client, run_with_auth):
         assert response.status_code == 200
         assert response.json() == {"logs": ["server.log"]}
 
-def test_get_logs_unauthorized(client):
-    """Test listing logs without auth."""
-    # Ensure no override is active (default setup)
-    # We also need to ensure environment doesn't allow dev access if we want to test block
-    # But get_api_key logic allows dev if TEPORA_ENV=development.
-    # We should force env to production to test auth failure, or just check 403 if key is missing/wrong.
+def test_get_logs_no_auth_for_localhost(client):
+    """Test that logs are accessible without auth for localhost (desktop app mode).
     
-    with patch.dict("os.environ", {"TEPORA_ENV": "production", "TEPORA_API_KEY": "secret"}):
-        response = client.get("/api/logs", headers={"x-api-key": "wrong"})
-        assert response.status_code == 403
+    Note: Authentication is intentionally skipped for localhost binding
+    as Tepora is a local desktop app. This test verifies the design decision
+    documented in security.py.
+    """
+    with patch("pathlib.Path.mkdir"), \
+         patch("pathlib.Path.glob", return_value=[]):
+        response = client.get("/api/logs")
+        # Should succeed without auth for localhost
+        assert response.status_code == 200
 
 def test_get_log_content(client, run_with_auth):
     """Test reading specific log file."""

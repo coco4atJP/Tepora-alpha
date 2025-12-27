@@ -31,17 +31,26 @@ async def health_check(state: AppState = Depends(get_app_state)):
 @router.get("/api/personas")
 async def get_persona_presets():
     """
-    PERSONA_PROMPTSのプリセット一覧を取得
+    Deprecated: Return Characters list for backward compatibility if needed, 
+    or just return the characters configuration.
+    Actually, we should probably update the frontend to use /api/config or a specific /api/agents endpoint.
+    For now, let's map the new structure to what the frontend expects, 
+    BUT the frontend is also being refactored, so let's just expose the raw config via /api/config.
+    
+    If we keep this, it should probably return the characters list.
     """
     try:
-        from src.core.config.prompts import PERSONA_PROMPTS
+        service = get_config_service()
+        settings = service.config
+        
         return {
             "personas": [
                 {
                     "key": key,
-                    "preview": prompt[:150] + "..." if len(prompt) > 150 else prompt
+                    "preview": char.system_prompt[:150] + "..." if len(char.system_prompt) > 150 else char.system_prompt,
+                    "name": char.name # Bonus field
                 }
-                for key, prompt in PERSONA_PROMPTS.items()
+                for key, char in settings.characters.items()
             ]
         }
     except Exception as e:

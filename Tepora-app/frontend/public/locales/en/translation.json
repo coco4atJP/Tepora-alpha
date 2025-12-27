@@ -132,7 +132,27 @@
                     "allowed_tools_description": "Use \"*\" for all.",
                     "denied_tools": "Denied Tools",
                     "tool_placeholder": "Tool name..."
-                }
+                },
+                "tab": {
+                    "characters": "Characters",
+                    "professionals": "Professionals"
+                },
+                "professionals_coming_soon_title": "Professional Agents coming soon...",
+                "professionals_coming_soon_desc": "Agents for specialized task execution are currently under development.",
+                "modal": {
+                    "title_add": "Add Character",
+                    "title_edit": "Edit Character",
+                    "key_label": "ID (Key)",
+                    "key_desc": "Unique identifier used internally.",
+                    "name_label": "Display Name",
+                    "desc_label": "Description",
+                    "prompt_label": "System Prompt"
+                },
+                "error_empty_key": "Please enter an ID.",
+                "error_duplicate_key": "This ID is already in use.",
+                "edit": "Edit",
+                "delete": "Delete",
+                "no_description": "No description"
             },
             "mcp": {
                 "label": "MCP Tools",

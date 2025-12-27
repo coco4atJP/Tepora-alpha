@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { ChatMode, Attachment, Message, SearchResult, MemoryStats, ActivityLogEntry } from '../types';
+import { ChatMode, Attachment, Message, SearchResult, MemoryStats, AgentActivity, ToolConfirmationRequest } from '../types';
 
 interface WebSocketContextType {
     isConnected: boolean;
@@ -8,12 +8,15 @@ interface WebSocketContextType {
     messages: Message[];
     searchResults: SearchResult[];
     memoryStats: MemoryStats | null;
-    activityLog: ActivityLogEntry[];
+    activityLog: AgentActivity[];
     sendMessage: (content: string, mode: ChatMode, attachments?: Attachment[], skipWebSearch?: boolean) => void;
     clearMessages: () => void;
     stopGeneration: () => void;
     error: string | null;
     clearError: () => void;
+    // Tool confirmation (A+C Hybrid)
+    pendingToolConfirmation: ToolConfirmationRequest | null;
+    handleToolConfirmation: (requestId: string, approved: boolean, remember: boolean) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);

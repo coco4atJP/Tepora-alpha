@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, Database, MessageSquare, Cpu } from 'lucide-react';
 import { SystemStatus, MemoryStats } from '../types';
 import { useTranslation } from 'react-i18next';
+import { getAuthHeaders } from '../utils/api';
 
 interface SystemStatusPanelProps {
     isConnected: boolean;
@@ -15,7 +16,9 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
     useEffect(() => {
         const fetchStatus = async () => {
             try {
-                const response = await fetch('/api/status');
+                const response = await fetch('/api/status', {
+                    headers: { ...getAuthHeaders() }
+                });
                 const data = await response.json();
                 setSystemStatus(data);
             } catch (error) {

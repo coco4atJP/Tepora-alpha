@@ -68,16 +68,10 @@ class ConversationNodes:
         llm = await self.llm_manager.get_character_model()
 
         # Get persona and system prompt (apply agent profile overrides)
-        persona_override, persona_key = config.get_persona_prompt_for_profile(
-            default_key=config.ACTIVE_PERSONA,
-            default_prompt=config.PERSONA_PROMPTS[config.ACTIVE_PERSONA],
-        )
-        if persona_override:
-            persona = persona_override
-        elif persona_key and persona_key in config.PERSONA_PROMPTS:
-            persona = config.PERSONA_PROMPTS[persona_key]
-        else:
-            persona = config.PERSONA_PROMPTS[config.ACTIVE_PERSONA]
+        persona, _ = config.get_persona_prompt_for_profile()
+        if not persona:
+             # Should be handled by get_persona_prompt_for_profile raising error, but just in case
+             raise ValueError("Could not retrieve active persona prompt.")
 
         system_prompt = config.get_prompt_for_profile(
             "direct_answer",
@@ -429,16 +423,9 @@ class ConversationNodes:
                     logger.info("Extracted %d most relevant chunks from combined sources.", len(selected_contexts))
         
         # Build summarization prompt
-        persona_override, persona_key = config.get_persona_prompt_for_profile(
-            default_key=config.ACTIVE_PERSONA,
-            default_prompt=config.PERSONA_PROMPTS[config.ACTIVE_PERSONA],
-        )
-        if persona_override:
-            persona = persona_override
-        elif persona_key and persona_key in config.PERSONA_PROMPTS:
-            persona = config.PERSONA_PROMPTS[persona_key]
-        else:
-            persona = config.PERSONA_PROMPTS[config.ACTIVE_PERSONA]
+        persona, _ = config.get_persona_prompt_for_profile()
+        if not persona:
+             raise ValueError("Could not retrieve active persona prompt.")
 
         attachments = state.get("search_attachments") or []
         if attachments:

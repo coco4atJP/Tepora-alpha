@@ -5,7 +5,7 @@ Setup API Routes - セットアップウィザード用APIエンドポイント
 """
 
 import logging
-
+import uuid
 from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,12 +18,11 @@ from src.tepora_server.api.security import get_api_key
 logger = logging.getLogger("tepora.server.api.setup")
 router = APIRouter(prefix="/api/setup", tags=["setup"], dependencies=[Depends(get_api_key)])
 
-# グローバルな進捗状態（簡易版、本番ではWebSocketを推奨）
-_current_progress = {
-    "status": "idle",
-    "progress": 0.0,
-    "message": "",
-}
+# ジョブID単位の進捗管理（複数セッション対応）
+_job_progress: Dict[str, Dict] = {}
+
+# レガシー互換: デフォルトジョブIDで最後の進捗を保持
+_current_job_id: str | None = None
 
 
 class BinaryDownloadRequest(BaseModel):
@@ -96,7 +95,11 @@ async def download_binary(request: BinaryDownloadRequest):
     """
     llama.cppバイナリをダウンロード
     """
-    global _current_progress
+    global _job_progress, _current_job_id
+    
+    job_id = str(uuid.uuid4())
+    _current_job_id = job_id
+    _job_progress[job_id] = {"status": "pending", "progress": 0.0, "message": ""}
 
     try:
         from src.core.download import BinaryVariant
@@ -105,8 +108,7 @@ async def download_binary(request: BinaryDownloadRequest):
 
         # 進捗コールバックを設定
         def on_progress(event):
-            global _current_progress
-            _current_progress = {
+            _job_progress[job_id] = {
                 "status": event.status.value,
                 "progress": event.progress,
                 "message": event.message,
@@ -130,10 +132,12 @@ async def download_binary(request: BinaryDownloadRequest):
             "version": result.version,
             "variant": result.variant.value if result.variant else None,
             "error": result.error_message,
+            "job_id": job_id,
         }
     except Exception as e:
         logger.error(f"Failed to download binary: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        _job_progress[job_id] = {"status": "failed", "progress": 0.0, "message": str(e)}
+        return JSONResponse(status_code=500, content={"error": str(e), "job_id": job_id})
 
 
 @router.post("/model/download")
@@ -141,7 +145,11 @@ async def download_model(request: ModelDownloadRequest):
     """
     HuggingFaceからモデルをダウンロード
     """
-    global _current_progress
+    global _job_progress, _current_job_id
+    
+    job_id = str(uuid.uuid4())
+    _current_job_id = job_id
+    _job_progress[job_id] = {"status": "pending", "progress": 0.0, "message": ""}
 
     try:
         from src.core.download import ModelRole
@@ -150,8 +158,7 @@ async def download_model(request: ModelDownloadRequest):
 
         # 進捗コールバックを設定
         def on_progress(event):
-            global _current_progress
-            _current_progress = {
+            _job_progress[job_id] = {
                 "status": event.status.value,
                 "progress": event.progress,
                 "message": event.message,
@@ -221,11 +228,21 @@ async def add_local_model(request: LocalModelRequest):
 
 
 @router.get("/progress")
-async def get_progress():
+async def get_progress(job_id: str | None = None):
     """
     現在のダウンロード進捗を取得
+    
+    Args:
+        job_id: ジョブID（指定なしの場合は最新のジョブ）
     """
-    return _current_progress
+    if job_id:
+        return _job_progress.get(job_id, {"status": "unknown", "progress": 0.0, "message": "Job not found"})
+    
+    # レガシー互換: 最新のジョブを返す
+    if _current_job_id and _current_job_id in _job_progress:
+        return _job_progress[_current_job_id]
+    
+    return {"status": "idle", "progress": 0.0, "message": ""}
 
 
 class RunSetupRequest(BaseModel):
@@ -238,14 +255,17 @@ async def run_initial_setup(request: Optional[RunSetupRequest] = None):
     初回セットアップを完全に実行
     （バイナリ + デフォルトモデルのダウンロード）
     """
-    global _current_progress
+    global _job_progress, _current_job_id
+    
+    job_id = str(uuid.uuid4())
+    _current_job_id = job_id
+    _job_progress[job_id] = {"status": "pending", "progress": 0.0, "message": ""}
 
     try:
         dm = _get_download_manager()
 
         def on_progress(event):
-            global _current_progress
-            _current_progress = {
+            _job_progress[job_id] = {
                 "status": event.status.value,
                 "progress": event.progress,
                 "message": event.message,
@@ -262,10 +282,12 @@ async def run_initial_setup(request: Optional[RunSetupRequest] = None):
             "binary_installed": result.binary_installed,
             "models_installed": result.models_installed,
             "errors": result.errors,
+            "job_id": job_id,
         }
     except Exception as e:
         logger.error(f"Failed to run initial setup: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        _job_progress[job_id] = {"status": "failed", "progress": 0.0, "message": str(e)}
+        return JSONResponse(status_code=500, content={"error": str(e), "job_id": job_id})
 
 
 @router.get("/models")

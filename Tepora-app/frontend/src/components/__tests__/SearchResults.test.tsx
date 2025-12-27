@@ -15,7 +15,7 @@ describe('SearchResults', () => {
         const mockResults: SearchResult[] = [
             {
                 title: 'Test Result',
-                link: 'https://example.com',
+                url: 'https://example.com',
                 snippet: 'This is a test snippet'
             }
         ];

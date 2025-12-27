@@ -6,7 +6,7 @@ Shared between CLI and Web interfaces.
 import logging
 import os
 import re
-from typing import Optional, Dict, Any, List, AsyncGenerator
+from typing import Optional, Dict, Any, List, AsyncGenerator, Callable, Awaitable
 
 from pathlib import Path
 from .. import config
@@ -167,9 +167,13 @@ class TeporaCoreApp:
                           user_input: str, 
                           chat_history: List,
                           mode: str = "direct",
-                          search_metadata: Optional[Dict] = None) -> AsyncGenerator[Dict, None]:
+                          search_metadata: Optional[Dict] = None,
+                          approval_callback: Optional[Callable[[str, Dict], Awaitable[bool]]] = None) -> AsyncGenerator[Dict, None]:
         """
         Process user input and yield events from the graph.
+        
+        Args:
+            approval_callback: Optional async callback for tool approval (tool_name, args) -> bool
         """
         if not self.app:
             raise RuntimeError("App not initialized")
@@ -184,11 +188,19 @@ class TeporaCoreApp:
         
         if search_metadata:
             initial_state.update(search_metadata)
+        
+        # Build config with optional approval callback
+        run_config = {
+            "recursion_limit": config.GRAPH_RECURSION_LIMIT,
+            "configurable": {}
+        }
+        if approval_callback:
+            run_config["configurable"]["approval_callback"] = approval_callback
 
         async for event in self.app.astream_events(
             initial_state,
             version="v2",
-            config={"recursion_limit": config.GRAPH_RECURSION_LIMIT}
+            config=run_config
         ):
             yield event
 
@@ -197,7 +209,8 @@ class TeporaCoreApp:
         user_input: str,
         mode: str = "direct",
         attachments: List[Dict] = None,
-        skip_web_search: bool = False
+        skip_web_search: bool = False,
+        approval_callback: Optional[Callable[[str, Dict], Awaitable[bool]]] = None
     ) -> AsyncGenerator[Dict, None]:
         """
         Full pipeline for processing a user request:
@@ -206,6 +219,9 @@ class TeporaCoreApp:
         3. Prepare search metadata
         4. Run graph
         5. Update history
+        
+        Args:
+            approval_callback: Optional async callback for tool approval
         """
         if attachments is None:
             attachments = []
@@ -284,7 +300,8 @@ class TeporaCoreApp:
             user_input_processed,
             recent_history,
             mode=final_mode,
-            search_metadata=search_metadata
+            search_metadata=search_metadata,
+            approval_callback=approval_callback
         ):
             kind = event["event"]
             if kind == STREAM_EVENT_CHAT_MODEL:

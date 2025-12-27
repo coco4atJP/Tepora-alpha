@@ -11,7 +11,7 @@ import {
     Cpu,
 } from 'lucide-react';
 import { SettingsSection } from './SettingsComponents';
-import { API_BASE } from '../../utils/api';
+import { API_BASE, getAuthHeaders } from '../../utils/api';
 
 interface ModelInfo {
     id: string;
@@ -50,7 +50,9 @@ const ModelManagerSettings: React.FC = () => {
     // 要件チェックを取得
     const fetchRequirements = useCallback(async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/setup/requirements`);
+            const response = await fetch(`${API_BASE}/api/setup/requirements`, {
+                headers: { ...getAuthHeaders() }
+            });
             if (response.ok) {
                 setRequirements(await response.json());
             }
@@ -62,7 +64,9 @@ const ModelManagerSettings: React.FC = () => {
     // モデル一覧を取得
     const fetchModels = useCallback(async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/setup/models`);
+            const response = await fetch(`${API_BASE}/api/setup/models`, {
+                headers: { ...getAuthHeaders() }
+            });
             if (response.ok) {
                 const data = await response.json();
                 setModels(data.models || []);
@@ -87,7 +91,9 @@ const ModelManagerSettings: React.FC = () => {
         if (!downloading) return;
         const interval = setInterval(async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/setup/progress`);
+                const response = await fetch(`${API_BASE}/api/setup/progress`, {
+                    headers: { ...getAuthHeaders() }
+                });
                 if (response.ok) {
                     const data = await response.json();
                     setDownloadProgress({ progress: data.progress, message: data.message });
@@ -111,7 +117,10 @@ const ModelManagerSettings: React.FC = () => {
             setError(null);
             const response = await fetch(`${API_BASE}/api/setup/binary/download`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ variant: 'auto' }),
             });
             if (!response.ok) throw new Error('Download failed');
@@ -153,7 +162,10 @@ const ModelManagerSettings: React.FC = () => {
             setError(null);
             const response = await fetch(`${API_BASE}/api/setup/model/download`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ ...model, role }),
             });
             if (!response.ok) throw new Error('Download failed');
@@ -174,6 +186,7 @@ const ModelManagerSettings: React.FC = () => {
             setError(null);
             const response = await fetch(`${API_BASE}/api/setup/model/${id}`, {
                 method: 'DELETE',
+                headers: { ...getAuthHeaders() }
             });
             if (!response.ok) throw new Error('Delete failed');
             const result = await response.json();
@@ -192,7 +205,10 @@ const ModelManagerSettings: React.FC = () => {
             setError(null);
             const response = await fetch(`${API_BASE}/api/setup/model/active`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ model_id: id, role }),
             });
             if (!response.ok) throw new Error('Failed to set active model');

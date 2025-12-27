@@ -6,13 +6,11 @@ import { ChatMode } from '../types';
 import SettingsDialog from './settings/SettingsDialog';
 import SearchResults from './SearchResults';
 import AgentStatus from './AgentStatus';
+import DynamicBackground from './ui/DynamicBackground';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import { MessageSquare, Search, Bot, Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const BACKGROUND_IMAGE_URL = '/assets/images/background.jpg';
-// Fallback gradient when image is not available
-const FALLBACK_GRADIENT = 'from-coffee-900 via-gray-900 to-coffee-950';
 
 // Extracted outside of Layout to prevent recreation on every render
 interface MobileNavButtonProps {
@@ -39,20 +37,12 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({ mode, icon: Icon, lab
 const Layout: React.FC = () => {
     const [currentMode, setCurrentMode] = useState<ChatMode>('direct');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [bgImageLoaded, setBgImageLoaded] = useState(true);
     const { t } = useTranslation();
 
     // Use Context instead of local hook
     const wsData = useWebSocketContext();
     const { searchResults, isConnected, memoryStats, activityLog } = wsData;
 
-    // Preload background image and handle errors
-    React.useEffect(() => {
-        const img = new Image();
-        img.onload = () => setBgImageLoaded(true);
-        img.onerror = () => setBgImageLoaded(false);
-        img.src = BACKGROUND_IMAGE_URL;
-    }, []);
 
     const handleModeChange = useCallback((mode: ChatMode) => {
         setCurrentMode(mode);
@@ -60,18 +50,14 @@ const Layout: React.FC = () => {
 
     return (
         <div className="flex flex-col h-[100dvh] w-full overflow-hidden relative font-sans bg-gray-950">
-            {/* Background with Gemini Gradient Animation */}
+            {/* Dynamic Background with Tea Theme */}
+            <DynamicBackground />
             <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-                {bgImageLoaded ? (
-                    <div className={`absolute inset-0 bg-[url('${BACKGROUND_IMAGE_URL}')] bg-cover bg-center opacity-30 blur-md transform scale-105`}></div>
-                ) : (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${FALLBACK_GRADIENT} opacity-50`}></div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-coffee-950/80 to-black/90 mix-blend-multiply"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-tea-950/40 to-black/70 mix-blend-multiply"></div>
                 <div className="absolute inset-0 bg-gradient-to-tr from-gemini-start/20 via-transparent to-gemini-accent/5 animate-gradient-x opacity-60"></div>
 
                 {/* Ambient Orbs */}
-                <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-gold-500/5 rounded-full blur-[100px] animate-float"></div>
+                <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-tea-500/5 rounded-full blur-[100px] animate-float"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[100px] animate-pulse-slow"></div>
             </div>
 

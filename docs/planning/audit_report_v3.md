@@ -159,19 +159,19 @@
 ## 「今すぐやる」優先度付きロードマップ（現実的な順序）
 
 ## 優先度P0
-- [ ] **[CI修正]** `.github/workflows/ci.yml` を `Tepora-app/*` に合わせる
-- [ ] **[認証の一本化]** APIキー方式を見直し（ローカル前提のセキュリティモデルに確定）
-- [ ] **[ポート/URL単一化]** `8000` ハードコード排除（WS/health/CSPまで含む）
-- [ ] **[リポジトリ衛生]** `secrets.yaml`/DB/log/謎ファイル（[src-tauri/2](cci:7://file:///e:/Tepora_Project/Tepora-app/frontend/src-tauri/2:0:0-0:0)）等の扱いを確定
+- [x] **[CI修正]** `.github/workflows/ci.yml` を `Tepora-app/*` に合わせる
+- [x] **[認証の一本化]** APIキー方式を見直し（ローカル前提のセキュリティモデルに確定）
+- [x] **[ポート/URL単一化]** `8000` ハードコード排除（WS/health/CSPまで含む）
+- [x] **[リポジトリ衛生]** `secrets.yaml`/DB/log/謎ファイル（[src-tauri/2](cci:7://file:///e:/Tepora_Project/Tepora-app/frontend/src-tauri/2:0:0-0:0)）等の扱いを確定
 
 ## 優先度P1
-- [ ] **[依存関係の棚卸し]** torch/transformers等の必要性判断→削減 or optional化
-- [ ] **[Dev/Prod整合]** Python 3.11基準に統一（ruff/mypy/docs）
-- [ ] **[Setup進捗管理]** グローバル進捗をジョブ化
+- [x] **[依存関係の棚卸し]** torch/transformers削除、OSレベルCUDA検出に置換
+- [x] **[Dev/Prod整合]** Python 3.11基準に統一（ruff/mypy）
+- [x] **[Setup進捗管理]** グローバル進捗をジョブID単位に変更
 
 ## 優先度P2
-- [ ] **[ログローテ・監視]** ローカルでも保守しやすい形に
-- [ ] **[ツール安全設計]** 権限・承認・スコープ（特にweb fetch/外部実行）
+- [x] **[ログローテ・監視]** ローカルでも保守しやすい形に
+- [x] **[ツール安全設計]** 権限・承認・スコープ（停止コマンドによるキャンセル対応）
 
 ---
 

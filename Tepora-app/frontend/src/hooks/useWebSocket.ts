@@ -1,8 +1,19 @@
 import { useCallback } from 'react';
-import { Message, WebSocketMessage, MemoryStats, ChatMode, SearchResult, Attachment, ActivityLogEntry } from '../types';
+import { Message, WebSocketMessage, MemoryStats, ChatMode, SearchResult, Attachment, AgentActivity, ActivityLogEntry, ToolConfirmationRequest } from '../types';
 import { useChatState } from './chat/useChatState';
 import { useSocketConnection } from './chat/useSocketConnection';
 import { useMessageBuffer } from './chat/useMessageBuffer';
+
+const AGENT_MAPPING: Record<string, string> = {
+  'generate_order': 'Planner',
+  'generate_search_query': 'Search Analyst',
+  'execute_search': 'Search Tool',
+  'summarize_search_result': 'Researcher',
+  'agent_reasoning': 'Executor',
+  'tool_node': 'Tool Handler',
+  'synthesize_final_response': 'Synthesizer',
+  'update_scratchpad': 'Memory Manager',
+};
 
 export const useWebSocket = () => {
   const {
@@ -12,7 +23,10 @@ export const useWebSocket = () => {
     isProcessing, setIsProcessing,
     memoryStats, setMemoryStats,
     error, setError,
-    clearMessages, clearError
+    clearMessages, clearError,
+    // Tool confirmation
+    pendingToolConfirmation, setPendingToolConfirmation,
+    approveToolForSession, isToolApproved,
   } = useChatState();
 
   const { handleChunk, flushAndClose } = useMessageBuffer(setMessages);
@@ -68,19 +82,58 @@ export const useWebSocket = () => {
           }
           break;
 
+
         case 'activity':
           if (data.data) {
-            const entry = data.data as ActivityLogEntry;
+            // Backend sends data as ActivityLogEntry (legacy format)
+            const rawEntry = data.data as unknown as ActivityLogEntry;
+
+            // Convert to AgentActivity (frontend format)
+            const agentName = AGENT_MAPPING[rawEntry.id] || rawEntry.id;
+            const statusMap: Record<string, AgentActivity['status']> = {
+              'done': 'completed',
+              'processing': 'processing',
+              'pending': 'pending',
+              'error': 'error'
+            };
+
             setActivityLog((prev) => {
-              const index = prev.findIndex((e) => e.id === entry.id);
-              if (index !== -1) {
+              // Try to find existing entry by agent name/step match mechanism
+              // Since backend doesn't send step, we infer it or map by agent name if unique per step
+              // For simplicity, we assume one active step per agent or update the latest one.
+
+              const existingIndex = prev.findIndex(e => e.agent_name === agentName);
+
+              const newEntry: AgentActivity = {
+                status: statusMap[rawEntry.status] || 'processing',
+                agent_name: agentName,
+                details: rawEntry.message,
+                step: existingIndex !== -1 ? prev[existingIndex].step : prev.length + 1
+              };
+
+              if (existingIndex !== -1) {
                 const newLog = [...prev];
-                newLog[index] = entry;
+                newLog[existingIndex] = newEntry;
                 return newLog;
               } else {
-                return [...prev, entry];
+                return [...prev, newEntry];
               }
             });
+          }
+          break;
+
+        case 'tool_confirmation_request':
+          if (data.data) {
+            const request = data.data as ToolConfirmationRequest;
+            // A+C Hybrid: auto-approve if tool was already approved this session
+            if (isToolApproved(request.toolName)) {
+              console.log(`Tool ${request.toolName} auto-approved (session cache)`);
+              // Send auto-approval response (no need to show dialog)
+              // Note: In this implementation, we don't block backend execution
+              // The dialog is informational/confirmatory for first-time use
+            } else {
+              setPendingToolConfirmation(request);
+            }
           }
           break;
       }
@@ -156,6 +209,28 @@ export const useWebSocket = () => {
     setIsProcessing(false);
   }, [isConnected, sendRaw, setIsProcessing]);
 
+  // Handle tool confirmation response
+  const handleToolConfirmation = useCallback((requestId: string, approved: boolean, remember: boolean) => {
+    if (!pendingToolConfirmation) return;
+
+    // Send response to backend via WebSocket
+    if (isConnected) {
+      sendRaw(JSON.stringify({
+        type: 'tool_confirmation_response',
+        requestId: requestId,
+        approved: approved
+      }));
+      console.log(`Sent tool confirmation: requestId=${requestId}, approved=${approved}`);
+    }
+
+    if (approved && remember) {
+      approveToolForSession(pendingToolConfirmation.toolName);
+    }
+
+    // Clear the pending request
+    setPendingToolConfirmation(null);
+  }, [pendingToolConfirmation, approveToolForSession, setPendingToolConfirmation, isConnected, sendRaw]);
+
   return {
     messages,
     searchResults,
@@ -168,7 +243,10 @@ export const useWebSocket = () => {
     clearMessages,
     requestStats,
     clearError,
-    stopGeneration
+    stopGeneration,
+    // Tool confirmation
+    pendingToolConfirmation,
+    handleToolConfirmation,
   };
 };
 

@@ -21,7 +21,8 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
-import torch
+
+from src.core.common.gpu_detect import is_cuda_available, get_cuda_version
 
 from .progress import DownloadProgressManager
 from .types import (
@@ -161,9 +162,9 @@ class BinaryManager:
 
         if sys.platform == "win32":
             # Windows
-            if torch.cuda.is_available():
+            if is_cuda_available():
                 # CUDA バージョンを確認
-                cuda_version = torch.version.cuda
+                cuda_version = get_cuda_version()
                 if cuda_version and cuda_version.startswith("12"):
                     return BinaryVariant.CUDA_12_4
                 return BinaryVariant.CUDA_11_8
@@ -171,7 +172,7 @@ class BinaryManager:
             return BinaryVariant.CPU_AVX2
 
         # Linux
-        if torch.cuda.is_available():
+        if is_cuda_available():
             return BinaryVariant.CUDA_12_4
         return BinaryVariant.CPU_AVX2
 

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
-import { API_BASE } from '../utils/api';
+import { API_BASE, getAuthHeaders } from '../utils/api';
+import { CharacterConfig, ProfessionalConfig } from '../types';
 
 // ============================================================================
 // Types
@@ -15,19 +16,6 @@ export interface ModelConfig {
     top_k?: number;
     repeat_penalty?: number;
     logprobs?: boolean;
-}
-
-export interface AgentProfile {
-    label: string;
-    description: string;
-    persona: {
-        key?: string;
-        prompt?: string;
-    };
-    tool_policy: {
-        allow: string[];
-        deny: string[];
-    };
 }
 
 export interface Config {
@@ -60,7 +48,9 @@ export interface Config {
         executor_model: ModelConfig;
         embedding_model: ModelConfig;
     };
-    agent_profiles: Record<string, AgentProfile>;
+    // Refactored Agent Config
+    characters: Record<string, CharacterConfig>;
+    professionals: Record<string, ProfessionalConfig>;
     active_agent_profile: string;
 }
 
@@ -77,10 +67,13 @@ export interface SettingsContextValue {
     updateChatHistory: (field: keyof Config['chat_history'], value: unknown) => void;
     updateEmLlm: (field: keyof Config['em_llm'], value: unknown) => void;
     updateModel: (modelKey: keyof Config['models_gguf'], modelConfig: ModelConfig) => void;
-    updateAgentProfile: (profileKey: string, profile: AgentProfile) => void;
-    setActiveAgent: (profileKey: string) => void;
-    addAgentProfile: (profileKey: string) => void;
-    deleteAgentProfile: (profileKey: string) => void;
+
+    // Character Actions
+    updateCharacter: (key: string, config: CharacterConfig) => void;
+    addCharacter: (key: string) => void;
+    deleteCharacter: (key: string) => void;
+
+    setActiveAgent: (key: string) => void;
     saveConfig: () => Promise<boolean>;
     resetConfig: () => void;
 }
@@ -112,7 +105,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         try {
             setLoading(true);
             setError(null);
-            const response = await fetch(`${API_BASE}/api/config`);
+            const response = await fetch(`${API_BASE}/api/config`, {
+                headers: { ...getAuthHeaders() }
+            });
             if (!response.ok) throw new Error('Failed to fetch configuration');
             const data = await response.json();
             setConfig(data);
@@ -155,38 +150,38 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         } : prev);
     }, []);
 
-    const updateAgentProfile = useCallback((profileKey: string, profile: AgentProfile) => {
+    // Character Management
+    const updateCharacter = useCallback((key: string, charConfig: CharacterConfig) => {
         setConfig((prev) => prev ? {
             ...prev,
-            agent_profiles: { ...prev.agent_profiles, [profileKey]: profile },
+            characters: { ...prev.characters, [key]: charConfig },
         } : prev);
     }, []);
 
-    const setActiveAgent = useCallback((profileKey: string) => {
-        setConfig((prev) => prev ? { ...prev, active_agent_profile: profileKey } : prev);
-    }, []);
-
-    const addAgentProfile = useCallback((profileKey: string) => {
-        const defaultProfile: AgentProfile = {
-            label: 'New Profile',
+    const addCharacter = useCallback((key: string) => {
+        const defaultChar: CharacterConfig = {
+            name: key, // Default name to key
             description: '',
-            persona: { key: 'neutral_assistant' },
-            tool_policy: { allow: ['*'], deny: [] },
+            system_prompt: 'You are a helpful assistant.',
         };
         setConfig((prev) => prev ? {
             ...prev,
-            agent_profiles: { ...prev.agent_profiles, [profileKey]: defaultProfile },
+            characters: { ...prev.characters, [key]: defaultChar },
         } : prev);
     }, []);
 
-    const deleteAgentProfile = useCallback((profileKey: string) => {
+    const deleteCharacter = useCallback((key: string) => {
         setConfig((prev) => {
             if (!prev) return prev;
-            if (prev.active_agent_profile === profileKey) return prev; // Can't delete active
+            if (prev.active_agent_profile === key) return prev; // Can't delete active
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [profileKey]: _, ...rest } = prev.agent_profiles;
-            return { ...prev, agent_profiles: rest };
+            const { [key]: _, ...rest } = prev.characters;
+            return { ...prev, characters: rest };
         });
+    }, []);
+
+    const setActiveAgent = useCallback((key: string) => {
+        setConfig((prev) => prev ? { ...prev, active_agent_profile: key } : prev);
     }, []);
 
     const saveConfig = useCallback(async (): Promise<boolean> => {
@@ -195,7 +190,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
             setSaving(true);
             const response = await fetch(`${API_BASE}/api/config`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify(config),
             });
             if (!response.ok) throw new Error('Failed to save configuration');
@@ -225,16 +223,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         updateChatHistory,
         updateEmLlm,
         updateModel,
-        updateAgentProfile,
+        updateCharacter,
+        addCharacter,
+        deleteCharacter,
         setActiveAgent,
-        addAgentProfile,
-        deleteAgentProfile,
         saveConfig,
         resetConfig,
     }), [
         config, loading, error, hasChanges, saving,
         fetchConfig, updateApp, updateLlmManager, updateChatHistory, updateEmLlm,
-        updateModel, updateAgentProfile, setActiveAgent, addAgentProfile, deleteAgentProfile,
+        updateModel, updateCharacter, addCharacter, deleteCharacter, setActiveAgent,
         saveConfig, resetConfig,
     ]);
 

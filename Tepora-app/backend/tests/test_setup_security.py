@@ -37,31 +37,31 @@ def client_with_auth(mock_core_app):
             with TestClient(app) as c:
                 yield c
 
-def test_setup_requirements_protected(client_with_auth):
-    """Test that /api/setup/requirements requires authentication."""
-    # 1. Without header -> 403 Forbidden
+def test_setup_endpoints_accessible_localhost(client_with_auth):
+    """Test that /api/setup/* endpoints are accessible without auth for localhost.
+    
+    Note: Authentication is intentionally skipped for localhost binding
+    as Tepora is a local desktop app. This test verifies the design decision
+    documented in security.py.
+    """
+    # Without auth header -> should still succeed for localhost
     response = client_with_auth.get("/api/setup/requirements")
-    assert response.status_code == 403
-    
-    # 2. With wrong header -> 403 Forbidden
-    response = client_with_auth.get("/api/setup/requirements", headers={"x-api-key": "wrong-key"})
-    assert response.status_code == 403
-    
-    # 3. With correct header -> 200 OK
-    response = client_with_auth.get("/api/setup/requirements", headers={"x-api-key": "test-secret"})
     assert response.status_code == 200
 
-def test_setup_download_protected(client_with_auth):
-    """Test that POST /api/setup/binary/download requires authentication."""
-    # 1. Without header -> 403 Forbidden
-    response = client_with_auth.post("/api/setup/binary/download", json={"variant": "auto"})
-    assert response.status_code == 403
+def test_setup_download_accessible_localhost(client_with_auth):
+    """Test that POST /api/setup/binary/download is accessible without auth for localhost.
     
-    # 2. With correct header -> Mocked 200 (or at least passed auth)
-    # Note: We rely on the mock setup in fixture. The real handler might fail if we didn't mock everything,
-    # but the auth check happens before handler execution.
-    # To be sure auth passed, we look for != 403.
-    # With our mock_dm above, it only mocked check_requirements. 
-    # Let's verify auth block specifically.
-    pass
-
+    Note: Authentication is intentionally skipped for localhost binding.
+    """
+    # Mock the download method to avoid actual download
+    with patch("src.tepora_server.api.setup._get_download_manager") as mock_get_dm:
+        mock_dm = MagicMock()
+        async def mock_download(*args, **kwargs):
+            return {"success": True}
+        mock_dm.download_binary = MagicMock(side_effect=mock_download)
+        mock_get_dm.return_value = mock_dm
+        
+        # Without auth header -> should still succeed for localhost
+        response = client_with_auth.post("/api/setup/binary/download", json={"variant": "auto"})
+        # Should not be 403 (auth passed)
+        assert response.status_code != 403

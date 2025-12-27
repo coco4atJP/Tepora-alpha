@@ -160,9 +160,52 @@ class WebFetchTool(BaseTool):
         return session
 
     def _validate_url(self, url: str) -> str | None:
+        """Validate URL format and check against denylist."""
+        import fnmatch
+        import ipaddress
+        
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return "Error: URL must include a valid http/https scheme and host."
+        
+        # Get host (without port), handling IPv6 literals correctly
+        host = (parsed.hostname or "").lower()
+        if not host:
+             return "Error: Could not determine hostname from URL."
+        
+        # Check against URL denylist from config
+        # Default denylist for private/local networks
+        default_denylist = [
+            "localhost", "127.0.0.1", "0.0.0.0",
+            "192.168.*", "10.*",
+            "172.16.*", "172.17.*", "172.18.*", "172.19.*",
+            "172.20.*", "172.21.*", "172.22.*", "172.23.*",
+            "172.24.*", "172.25.*", "172.26.*", "172.27.*",
+            "172.28.*", "172.29.*", "172.30.*", "172.31.*",
+            "169.254.*", "::1",
+        ]
+        
+        # TODO: In future, can merge with config-based denylist
+        # For now, always use default denylist for security
+        denylist = default_denylist
+        
+        # Check denylist patterns
+        for pattern in denylist:
+            if fnmatch.fnmatch(host, pattern):
+                logger.warning("URL blocked by denylist: %s (matched pattern: %s)", url, pattern)
+                return f"Error: Access to {host} is blocked for security reasons (private/local network)."
+        
+        # Additional check: resolve hostname and check if it's a private IP
+        try:
+            # Try to parse as IP address directly
+            ip = ipaddress.ip_address(host)
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                logger.warning("URL blocked: %s resolves to private IP %s", url, ip)
+                return f"Error: Access to private/local IP addresses is blocked for security reasons."
+        except ValueError:
+            # Not an IP address, that's fine - it's a hostname
+            pass
+        
         return None
 
     def _fetch_content(self, url: str) -> str:

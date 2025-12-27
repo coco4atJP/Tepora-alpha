@@ -1,243 +1,129 @@
 @import "tailwindcss";
+@config "../tailwind.config.cjs";
 
-/* @theme {
-  --font-sans: 'Outfit', 'sans-serif';
-  --font-display: 'Cinzel', 'serif';
-  --font-mono: 'JetBrains Mono', 'monospace';
-
-  --color-primary-50: #fef2f2;
-  --color-primary-100: #fee2e2;
-  --color-primary-200: #fecaca;
-  --color-primary-300: #fca5a5;
-  --color-primary-400: #f87171;
-  --color-primary-500: #ef4444;
-  --color-primary-600: #dc2626;
-  --color-primary-700: #b91c1c;
-  --color-primary-800: #991b1b;
-  --color-primary-900: #7f1d1d;
-
-  --color-coffee-50: #fdf8f6;
-  --color-coffee-100: #f2e8e5;
-  --color-coffee-200: #eaddd7;
-  --color-coffee-300: #e0cec7;
-  --color-coffee-400: #d2bab0;
-  --color-coffee-500: #a77f71;
-  --color-coffee-600: #8a5a4c;
-  --color-coffee-700: #6f453a;
-  --color-coffee-800: #57362e;
-  --color-coffee-900: #3d2620;
-
-  --color-gold-100: #fbf8cc;
-  --color-gold-200: #f7f199;
-  --color-gold-300: #f3ea66;
-  --color-gold-400: #f0e333;
-  --color-gold-500: #d4c820;
-  --color-gold-600: #aa9f10;
-  --color-gold-700: #80770c;
-  --color-gold-800: #555008;
-  --color-gold-900: #2b2804;
-
-  --color-gemini-start: #4b3f35;
-  --color-gemini-mid: #8a5a4c;
-  --color-gemini-end: #d4af37;
-  --color-gemini-accent: #00ffcc;
-  
-  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-gradient-x: gradient-x 15s ease infinite;
-  
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-  @keyframes gradient-x {
-    0%, 100% { background-size: 200% 200%; background-position: left center; }
-    50% { background-size: 200% 200%; background-position: right center; }
-  }
-} */
-@theme {
-    --font-sans: 'Outfit', 'sans-serif';
-    --font-display: 'Cinzel', 'serif';
-    --font-mono: 'JetBrains Mono', 'monospace';
-
-    --color-primary-50: #fef2f2;
-    --color-primary-100: #fee2e2;
-    --color-primary-200: #fecaca;
-    --color-primary-300: #fca5a5;
-    --color-primary-400: #f87171;
-    --color-primary-500: #ef4444;
-    --color-primary-600: #dc2626;
-    --color-primary-700: #b91c1c;
-    --color-primary-800: #991b1b;
-    --color-primary-900: #7f1d1d;
-
-    --color-coffee-50: #fdf8f6;
-    --color-coffee-100: #f2e8e5;
-    --color-coffee-200: #eaddd7;
-    --color-coffee-300: #e0cec7;
-    --color-coffee-400: #d2bab0;
-    --color-coffee-500: #a77f71;
-    --color-coffee-600: #8a5a4c;
-    --color-coffee-700: #6f453a;
-    --color-coffee-800: #57362e;
-    --color-coffee-900: #3d2620;
-
-    --color-gold-100: #fbf8cc;
-    --color-gold-200: #f7f199;
-    --color-gold-300: #f3ea66;
-    --color-gold-400: #f0e333;
-    --color-gold-500: #d4c820;
-    --color-gold-600: #aa9f10;
-    --color-gold-700: #80770c;
-    --color-gold-800: #555008;
-    --color-gold-900: #2b2804;
-
-    --color-gemini-start: #4b3f35;
-    --color-gemini-mid: #8a5a4c;
-    --color-gemini-end: #d4af37;
-    --color-gemini-accent: #00ffcc;
-
-    --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    --animate-float: float 6s ease-in-out infinite;
-    --animate-gradient-x: gradient-x 15s ease infinite;
-    --animate-message-in: message-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-
-    @keyframes message-in {
-        0% {
-            opacity: 0;
-            transform: translateY(20px) scale(0.98);
-        }
-
-        100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-    }
-
-    @keyframes shimmer {
-        from {
-            transform: translateX(-100%);
-        }
-
-        to {
-            transform: translateX(100%);
-        }
-    }
-
-    @keyframes float {
-
-        0%,
-        100% {
-            transform: translateY(0);
-        }
-
-        50% {
-            transform: translateY(-10px);
-        }
-    }
-
-    @keyframes gradient-x {
-
-        0%,
-        100% {
-            background-size: 200% 200%;
-            background-position: left center;
-        }
-
-        50% {
-            background-size: 200% 200%;
-            background-position: right center;
-        }
+@layer base {
+    body {
+        @apply bg-gray-950 text-gray-100;
     }
 }
 
+/* Custom Utilities if needed */
+.glass-gemini {
+    @apply bg-black/40 backdrop-blur-md border border-white/10;
+}
+
+@keyframes message-in {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes shimmer {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
+}
+
+
 :root {
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-bg: rgba(20, 10, 5, 0.6);
-    /* Deep coffee tint */
-    --glass-highlight: rgba(255, 215, 0, 0.05);
-    /* Gold tint */
-    --gemini-gradient: linear-gradient(135deg, rgba(75, 63, 53, 0.8), rgba(138, 90, 76, 0.6), rgba(212, 175, 55, 0.2));
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(15, 5, 2, 0.7);
+    /* Deep Tea Dark */
+    --glass-highlight: rgba(219, 89, 37, 0.1);
+    /* Tea Orange Tint */
+    --gemini-gradient: linear-gradient(135deg, rgba(63, 21, 11, 0.9), rgba(145, 52, 29, 0.7), rgba(212, 200, 32, 0.2));
 }
 
 body {
     color: #f3f4f6;
-    /* text-gray-100 */
-    background-color: #030712;
-    /* bg-gray-950 */
+    background-color: #050201;
+    /* Extremely dark tea/black */
     overflow: hidden;
-    /* Premium Coffee Shop Background */
-    background-image: url('https://images.unsplash.com/photo-1509042239860-f550ce710b93');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
 }
 
-/* Gemini-Coffee Glassmorphism Utilities */
+/* Cyber Tea Salon Glassmorphism Utilities */
 @layer components {
+
+    /* Use comma separation instead of @apply to avoid self-reference/custom class errors in build tools */
+    .glass-tea,
     .glass-gemini {
-        backdrop-filter: blur(24px);
-        background-image: linear-gradient(to bottom right, rgba(61, 38, 32, 0.8), rgba(87, 54, 46, 0.6), rgba(0, 0, 0, 0.8));
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        backdrop-filter: blur(20px);
+        background-image: linear-gradient(to bottom right, rgba(63, 21, 11, 0.6), rgba(20, 10, 5, 0.8));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow:
+            0 8px 32px 0 rgba(0, 0, 0, 0.5),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.05);
     }
 
     .glass-panel {
-        backdrop-filter: blur(12px);
-        background-color: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(16px);
+        background-color: rgba(10, 5, 3, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
         border-radius: 1rem;
     }
 
     .glass-button {
-        backdrop-filter: blur(4px);
-        background-color: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 300ms;
+        backdrop-filter: blur(8px);
+        background-color: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
         border-radius: 0.5rem;
+        position: relative;
+        overflow: hidden;
     }
 
     .glass-button:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.08);
+        border-color: rgba(219, 89, 37, 0.3);
+        /* Tea accent */
+        box-shadow: 0 0 15px rgba(219, 89, 37, 0.1);
     }
 
     .glass-button:active {
-        transform: scale(0.95);
+        transform: scale(0.96);
     }
 
     .glass-input {
-        backdrop-filter: blur(4px);
-        background-color: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(8px);
+        background-color: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         transition: all 300ms;
         border-radius: 9999px;
         padding: 1rem 1.5rem;
         outline: none;
         color: #f3f4f6;
-        /* text-gray-100 */
     }
 
     .glass-input::placeholder {
-        color: #6b7280;
-        /* placeholder-gray-500 */
+        color: #9ca3af;
     }
 
     .glass-input:focus {
-        border-color: rgba(212, 200, 32, 0.5);
-        /* gold-500/50 approx */
-        box-shadow: 0 0 0 1px rgba(212, 200, 32, 0.3);
+        border-color: rgba(219, 89, 37, 0.5);
+        /* Tea accent */
+        box-shadow: 0 0 0 1px rgba(219, 89, 37, 0.3), 0 0 15px rgba(219, 89, 37, 0.1);
     }
 
     .text-shadow-glow {
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4), 0 0 20px rgba(219, 89, 37, 0.2);
     }
 
-    .text-gradient-gemini {
+    .text-gradient-tea {
         background-clip: text;
         -webkit-background-clip: text;
         color: transparent;
-        background-image: linear-gradient(to right, #f7f199, #eaddd7, #f0e333);
+        background-image: linear-gradient(to right, #fae1c7, #f0e333);
     }
 }
 
@@ -256,7 +142,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(219, 89, 37, 0.4);
 }
 
 /* Modal Animations */

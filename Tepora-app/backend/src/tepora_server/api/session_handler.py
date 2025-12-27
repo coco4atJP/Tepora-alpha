@@ -6,13 +6,18 @@ This improves testability and separation of concerns.
 """
 import asyncio
 import logging
-from typing import Optional, Dict, Any, List
+import uuid
+from typing import Optional, Dict, Any, List, Set
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from src.core.config import STREAM_EVENT_CHAT_MODEL
-from src.core.graph.constants import GraphNodes
+from src.core.graph.constants import GraphNodes, DANGEROUS_TOOLS
 from src.tepora_server.state import AppState
+
+# Tools that require confirmation before execution.
+# Design: Blocking approval - backend waits for user response via WebSocket.
+# DANGEROUS_TOOLS is now imported from src.core.graph.constants
 
 logger = logging.getLogger("tepora.server.ws.session")
 
@@ -63,6 +68,9 @@ class SessionHandler:
         # Track current node for streaming context
         self._current_node_id: Optional[str] = None
         self._current_agent_name: Optional[str] = None
+        
+        # Pending tool approval requests (request_id -> Future[bool])
+        self._pending_approvals: Dict[str, asyncio.Future] = {}
     
     async def send_json(self, data: dict) -> bool:
         """
@@ -88,6 +96,68 @@ class SessionHandler:
         """Send memory statistics to the client."""
         stats = self.app_state.core.get_memory_stats()
         await self.send_json({"type": "stats", "data": stats})
+    
+    async def request_tool_approval(self, tool_name: str, tool_args: Dict[str, Any]) -> bool:
+        """
+        Request user approval for a dangerous tool execution.
+        
+        Sends a confirmation request to the frontend and waits for response.
+        This is called from the tool executor node via approval callback.
+        
+        Args:
+            tool_name: Name of the tool requesting approval
+            tool_args: Arguments to be passed to the tool
+            
+        Returns:
+            True if approved, False if denied or cancelled
+        """
+        request_id = str(uuid.uuid4())
+        
+        # Create a Future to wait for the response
+        loop = asyncio.get_event_loop()
+        future: asyncio.Future[bool] = loop.create_future()
+        self._pending_approvals[request_id] = future
+        
+        # Send confirmation request to frontend
+        logger.info(f"Requesting approval for tool '{tool_name}' (request_id: {request_id})")
+        await self.send_json({
+            "type": "tool_confirmation_request",
+            "data": {
+                "requestId": request_id,
+                "toolName": tool_name,
+                "toolArgs": tool_args if isinstance(tool_args, dict) else {"input": str(tool_args)},
+                "description": f"Tool '{tool_name}' requires your approval to execute."
+            }
+        })
+        
+        try:
+            # Wait for user response (with timeout)
+            approved = await asyncio.wait_for(future, timeout=300.0)  # 5 minute timeout
+            return approved
+        except asyncio.TimeoutError:
+            logger.warning(f"Tool approval request {request_id} timed out")
+            return False
+        except asyncio.CancelledError:
+            logger.info(f"Tool approval request {request_id} cancelled")
+            return False
+        finally:
+            # Cleanup
+            self._pending_approvals.pop(request_id, None)
+    
+    def handle_tool_confirmation(self, request_id: str, approved: bool) -> None:
+        """
+        Handle tool confirmation response from frontend.
+        
+        Args:
+            request_id: The ID of the confirmation request
+            approved: Whether the user approved the tool execution
+        """
+        future = self._pending_approvals.get(request_id)
+        if future and not future.done():
+            logger.info(f"Tool confirmation received: request_id={request_id}, approved={approved}")
+            future.set_result(approved)
+        else:
+            logger.warning(f"No pending approval found for request_id: {request_id}")
     
     async def _send_activity_update(
         self, 
@@ -135,12 +205,13 @@ class SessionHandler:
             self._current_node_id = None
             self._current_agent_name = None
 
-            # Call Core.process_user_request
+            # Call Core.process_user_request with approval callback
             async for event in self.app_state.core.process_user_request(
                 user_input, 
                 mode=mode, 
                 attachments=attachments, 
-                skip_web_search=skip_web_search
+                skip_web_search=skip_web_search,
+                approval_callback=self.request_tool_approval
             ):
                 await self._handle_stream_event(event, mode)
 
@@ -189,6 +260,9 @@ class SessionHandler:
             # Handle search results specifically
             if node_name == GraphNodes.EXECUTE_SEARCH:
                 await self._handle_search_results(event)
+        
+        # Note: on_tool_start is no longer handled here.
+        # Dangerous tool approval is now managed via approval_callback injection.
     
     async def _handle_search_results(self, event: Dict[str, Any]) -> None:
         """Handle search results from the EXECUTE_SEARCH node."""

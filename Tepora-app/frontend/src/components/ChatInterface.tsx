@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import MessageList from './MessageList';
 import InputArea from './InputArea';
+import ToolConfirmationDialog from './chat/ToolConfirmationDialog';
 import { Trash2 } from 'lucide-react';
 import { ChatMode } from '../types';
 import { useTranslation } from 'react-i18next';
@@ -23,11 +24,20 @@ const ChatInterface: React.FC = () => {
     clearMessages,
     error,
     clearError,
-    stopGeneration
+    stopGeneration,
+    pendingToolConfirmation,
+    handleToolConfirmation,
   } = useWebSocketContext();
 
   return (
     <div className="flex flex-col h-full w-full relative">
+      {/* Tool Confirmation Dialog */}
+      <ToolConfirmationDialog
+        request={pendingToolConfirmation}
+        onAllow={(requestId, remember) => handleToolConfirmation(requestId, true, remember)}
+        onDeny={(requestId) => handleToolConfirmation(requestId, false, false)}
+      />
+
       {/* Error Toast */}
       {error && (
         <div className="absolute top-4 right-4 z-50 bg-red-500/90 text-white px-4 py-2 rounded shadow-lg backdrop-blur-sm flex items-center gap-2 animate-fade-in">
@@ -73,4 +83,3 @@ const ChatInterface: React.FC = () => {
 };
 
 export default ChatInterface;
-

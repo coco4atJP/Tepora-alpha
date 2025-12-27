@@ -102,9 +102,9 @@ class AgentCore:
         """Delegate to ReActNodes."""
         return self._react_nodes.update_scratchpad_node(state)
     
-    def unified_tool_executor_node(self, state: AgentState) -> dict:
-        """Delegate to ReActNodes."""
-        return self._react_nodes.unified_tool_executor_node(state)
+    async def unified_tool_executor_node(self, state: AgentState, config: dict = None) -> dict:
+        """Delegate to ReActNodes (async with config)."""
+        return await self._react_nodes.unified_tool_executor_node(state, config)
     
     async def synthesize_final_response_node(self, state: AgentState) -> dict:
         """Delegate to ReActNodes."""

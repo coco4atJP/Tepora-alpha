@@ -15,7 +15,6 @@ from .loader import (
 
 from .prompts import (
     ACTIVE_PERSONA,
-    PERSONA_PROMPTS,
     BASE_SYSTEM_PROMPTS,
     resolve_system_prompt,
     format_tools_for_react_prompt,
@@ -55,7 +54,6 @@ __all__ = [
 
     # Prompts
     "ACTIVE_PERSONA",
-    "PERSONA_PROMPTS",
     "BASE_SYSTEM_PROMPTS",
     "resolve_system_prompt",
     "format_tools_for_react_prompt",

@@ -7,7 +7,7 @@ class TestConfigSystem:
     def test_settings_load_defaults(self):
         """Test that settings load with defaults."""
         assert settings.app.max_input_length == 10000
-        assert settings.active_agent_profile == "default"
+        assert settings.active_agent_profile == "bunny_girl"
 
     def test_settings_load_from_yaml_proxy(self):
         """Test that values usually in config.yml are present (assuming config.yml exists)."""
@@ -38,11 +38,11 @@ class TestConfigSystem:
         assert isinstance(origins, list)
         assert len(origins) > 0
 
-    def test_agent_profiles(self):
-        """Test agent profile loading."""
-        assert "default" in settings.agent_profiles
-        profile = settings.agent_profiles["default"]
-        assert profile.label == "Default Agent"
+    def test_characters(self):
+        """Test character profile loading."""
+        assert "bunny_girl" in settings.characters
+        char = settings.characters["bunny_girl"]
+        assert char.name == "マリナ"
 
     def test_pydantic_validation(self):
         """Test that invalid config raises error (or defaults)."""

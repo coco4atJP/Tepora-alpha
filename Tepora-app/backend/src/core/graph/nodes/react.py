@@ -21,7 +21,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from ... import config
 from ...a2a import A2AMessage, MessageType
-from ..constants import PROFESSIONAL_ATTENTION_SINK
+from ..constants import PROFESSIONAL_ATTENTION_SINK, DANGEROUS_TOOLS
 from ..utils import format_scratchpad
 
 if TYPE_CHECKING:
@@ -330,12 +330,14 @@ class ReActNodes:
         
         return {"agent_scratchpad": new_scratchpad}
     
-    def unified_tool_executor_node(self, state: AgentState) -> dict:
+    async def unified_tool_executor_node(self, state: AgentState, config: dict = None) -> dict:
         """
-        Simple node that delegates tool execution to ToolManager.
+        Async node that delegates tool execution to ToolManager.
+        Supports blocking approval for dangerous tools via callback injection.
         
         Args:
             state: Current agent state
+            config: LangGraph config containing optional approval_callback
             
         Returns:
             Dictionary with tool result messages
@@ -351,6 +353,14 @@ class ReActNodes:
         logger.info(f"Executing {len(tool_calls)} tool call(s)")
         tool_messages = []
         
+        # Extract approval callback from config if available
+        approval_callback = None
+        if config and "configurable" in config:
+            approval_callback = config["configurable"].get("approval_callback")
+        
+        # Dangerous tools that require user approval
+        dangerous_tools = DANGEROUS_TOOLS
+        
         for i, tool_call in enumerate(tool_calls):
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
@@ -360,9 +370,24 @@ class ReActNodes:
             logger.debug(f"Arguments: {json.dumps(tool_args, indent=2, ensure_ascii=False)}")
             logger.debug(f"Call ID: {tool_call_id}")
             
-            # Delegate to ToolManager
+            # Request approval for dangerous tools
+            if tool_name in dangerous_tools and approval_callback:
+                logger.info(f"Requesting user approval for dangerous tool: {tool_name}")
+                approved = await approval_callback(tool_name, tool_args)
+                if not approved:
+                    logger.info(f"Tool {tool_name} execution denied by user")
+                    tool_messages.append(
+                        ToolMessage(
+                            content=f"Tool execution denied by user: {tool_name}",
+                            tool_call_id=tool_call_id
+                        )
+                    )
+                    continue
+                logger.info(f"Tool {tool_name} approved by user")
+            
+            # Delegate to ToolManager (async)
             logger.debug(f"Executing tool...")
-            result_content = self.tool_manager.execute_tool(tool_name, tool_args)
+            result_content = await self.tool_manager.aexecute_tool(tool_name, tool_args)
             logger.debug(f"Tool result: {str(result_content)[:200]}...")
             
             tool_messages.append(
@@ -403,7 +428,9 @@ class ReActNodes:
         logger.debug(f"Original user input: {state['input']}")
         
         # Build synthesis prompt
-        persona = config.PERSONA_PROMPTS[config.ACTIVE_PERSONA]
+        persona, _ = config.get_persona_prompt_for_profile()
+        if not persona:
+             raise ValueError("Could not retrieve active persona prompt.")
         system_template = config.BASE_SYSTEM_PROMPTS["synthesis"]
         
         prompt = ChatPromptTemplate.from_messages([

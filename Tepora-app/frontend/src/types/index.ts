@@ -12,24 +12,42 @@ export interface Message {
 
 export interface SearchResult {
   title: string;
-  link: string;
+  url: string; // Changed from link to url to match usage
   snippet: string;
 }
 
 // WebSocketメッセージタイプ
+export interface AgentActivity {
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  agent_name: string;
+  details: string;
+  step: number;
+}
+
+// Backend format (received via WebSocket)
 export interface ActivityLogEntry {
   id: string;
   status: 'pending' | 'processing' | 'done' | 'error';
   message: string;
 }
 
+
+
+// Tool Confirmation Request (from backend)
+export interface ToolConfirmationRequest {
+  requestId: string;
+  toolName: string;
+  toolArgs: Record<string, unknown>;
+  description?: string;
+}
+
 export interface WebSocketMessage {
-  type: 'chunk' | 'done' | 'status' | 'error' | 'stats' | 'search_results' | 'activity' | 'stopped';
+  type: 'chunk' | 'done' | 'status' | 'error' | 'stats' | 'search_results' | 'activity' | 'stopped' | 'tool_confirmation_request';
   message?: string;
   mode?: string;
   agentName?: string;
   nodeId?: string;
-  data?: MemoryStats | Record<string, unknown> | SearchResult[] | ActivityLogEntry;
+  data?: MemoryStats | Record<string, unknown> | SearchResult[] | AgentActivity[] | ToolConfirmationRequest;
 }
 
 // システムステータス
@@ -75,4 +93,27 @@ export interface Attachment {
   content: string; // Base64 encoded content or text
   type: string; // MIME type
   path?: string; // Optional file path (for local files if applicable)
+}
+
+// Configuration Types (Matches Backend Schema)
+export interface CharacterConfig {
+  name: string;
+  description: string;
+  system_prompt: string;
+  model_config_name?: string;
+}
+
+export interface ProfessionalConfig {
+  name: string;
+  description: string;
+  system_prompt: string;
+  tools: string[];
+  model_config_name?: string;
+}
+
+// Deprecated/Legacy types (Transitioning)
+export interface PersonaPreset {
+  key: string;
+  preview: string;
+  name?: string;
 }

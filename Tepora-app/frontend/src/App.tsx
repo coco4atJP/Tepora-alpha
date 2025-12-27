@@ -6,7 +6,7 @@ import ChatInterface from './components/ChatInterface';
 import Logs from './pages/Logs';
 import Memory from './pages/Memory';
 import SetupWizard from './components/SetupWizard';
-import { API_BASE } from './utils/api';
+import { getApiBase, getAuthHeaders } from './utils/api';
 
 // Fetch with timeout
 const fetchWithTimeout = async (url: string, timeoutMs: number = 10000): Promise<Response> => {
@@ -14,7 +14,10 @@ const fetchWithTimeout = async (url: string, timeoutMs: number = 10000): Promise
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { ...getAuthHeaders() }
+    });
     return response;
   } finally {
     clearTimeout(timeoutId);
@@ -54,7 +57,7 @@ function App() {
 
     try {
       // 1. Check requirements with timeout
-      const reqResponse = await fetchWithTimeout(`${API_BASE}/api/setup/requirements`, 10000);
+      const reqResponse = await fetchWithTimeout(`${getApiBase()}/api/setup/requirements`, 10000);
       if (reqResponse.ok) {
         const data = await reqResponse.json();
         if (!data.is_ready) {
@@ -68,7 +71,7 @@ function App() {
 
       // 2. Load language setting (non-critical, don't fail if this fails)
       try {
-        const configResponse = await fetchWithTimeout(`${API_BASE}/api/config`, 5000);
+        const configResponse = await fetchWithTimeout(`${getApiBase()}/api/config`, 5000);
         if (configResponse.ok) {
           const config = await configResponse.json();
           if (config.language && config.language !== i18n.language) {

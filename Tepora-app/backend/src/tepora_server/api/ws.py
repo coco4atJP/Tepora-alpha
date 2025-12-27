@@ -50,6 +50,9 @@ class WSIncomingMessage(BaseModel):
     mode: str = "direct"
     attachments: List[Dict[str, Any]] = []
     skipWebSearch: bool = False
+    # Tool confirmation fields
+    requestId: Optional[str] = None
+    approved: Optional[bool] = None
     
     model_config = {
         "extra": "ignore"  # Ignore unknown fields
@@ -164,6 +167,14 @@ async def websocket_endpoint(websocket: WebSocket):
             # Handle stats request
             if msg_type == "get_stats":
                 await handler.handle_get_stats()
+                continue
+            
+            # Handle tool confirmation response
+            if msg_type == "tool_confirmation_response":
+                if data.requestId is not None and data.approved is not None:
+                    handler.handle_tool_confirmation(data.requestId, data.approved)
+                else:
+                    logger.warning(f"Invalid tool_confirmation_response from {handler.client_host}")
                 continue
 
             # Handle message processing

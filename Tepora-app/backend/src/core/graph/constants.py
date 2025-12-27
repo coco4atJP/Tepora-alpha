@@ -52,3 +52,6 @@ class RAGConfig:
     CHUNK_OVERLAP = 50
     EMBEDDING_BATCH_SIZE = 32
     TOP_K_CHUNKS = 5
+
+# Tools that require confirmation before execution.
+DANGEROUS_TOOLS = {"native_web_fetch", "native_google_search"}

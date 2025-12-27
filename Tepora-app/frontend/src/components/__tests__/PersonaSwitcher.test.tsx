@@ -5,12 +5,12 @@ import { describe, it, expect, vi } from 'vitest';
 
 describe('PersonaSwitcher', () => {
     it('renders correctly', () => {
-        render(<PersonaSwitcher onPersonaChange={vi.fn()} />);
+        render(<PersonaSwitcher currentPersonaId="default" onPersonaChange={vi.fn()} />);
         expect(screen.getByTitle('Change Persona')).toBeInTheDocument();
     });
 
     it('opens menu on click', () => {
-        render(<PersonaSwitcher onPersonaChange={vi.fn()} />);
+        render(<PersonaSwitcher currentPersonaId="default" onPersonaChange={vi.fn()} />);
 
         const button = screen.getByTitle('Change Persona');
         fireEvent.click(button);
@@ -22,7 +22,7 @@ describe('PersonaSwitcher', () => {
 
     it('calls onPersonaChange when a persona is selected', () => {
         const mockChange = vi.fn();
-        render(<PersonaSwitcher onPersonaChange={mockChange} />);
+        render(<PersonaSwitcher currentPersonaId="default" onPersonaChange={mockChange} />);
 
         // Open menu
         fireEvent.click(screen.getByTitle('Change Persona'));

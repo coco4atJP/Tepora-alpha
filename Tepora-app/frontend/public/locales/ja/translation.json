@@ -132,7 +132,27 @@
                     "allowed_tools_description": "すべてを許可するには \"*\" を使用。",
                     "denied_tools": "拒否されたツール",
                     "tool_placeholder": "ツール名..."
-                }
+                },
+                "tab": {
+                    "characters": "キャラクター",
+                    "professionals": "プロフェッショナル"
+                },
+                "professionals_coming_soon_title": "Professional Agents coming soon...",
+                "professionals_coming_soon_desc": "専門的なタスクを実行するエージェントは現在開発中です。",
+                "modal": {
+                    "title_add": "キャラクターを追加",
+                    "title_edit": "キャラクターを編集",
+                    "key_label": "ID (キー)",
+                    "key_desc": "システム内部で使用する一意の識別子です。",
+                    "name_label": "表示名",
+                    "desc_label": "説明",
+                    "prompt_label": "システムプロンプト"
+                },
+                "error_empty_key": "IDを入力してください。",
+                "error_duplicate_key": "このIDは既に使用されています。",
+                "edit": "編集",
+                "delete": "削除",
+                "no_description": "説明なし"
             },
             "mcp": {
                 "label": "MCPツール",

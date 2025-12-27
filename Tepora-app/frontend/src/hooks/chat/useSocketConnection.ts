@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { isDesktop } from '../../utils/sidecar';
+import { getWsBase } from '../../utils/api';
 
 const getWsUrl = () => {
     if (isDesktop()) {
-        return 'ws://localhost:8000/ws';
+        return `${getWsBase()}/ws`;
     }
-    return import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+    return import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
 };
 
 interface UseSocketConnectionProps {

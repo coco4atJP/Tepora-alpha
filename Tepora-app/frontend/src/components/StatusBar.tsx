@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wifi, WifiOff, Database } from 'lucide-react';
 import { SystemStatus, MemoryStats } from '../types';
+import { getAuthHeaders } from '../utils/api';
 
 interface StatusBarProps {
   isConnected: boolean;
@@ -13,7 +14,9 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch('/api/status', {
+          headers: { ...getAuthHeaders() }
+        });
         const data = await response.json();
         setSystemStatus(data);
       } catch (error) {

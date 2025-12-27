@@ -19,12 +19,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    # PyTorch - Core ML framework
-    "torch==2.9.1",
-    
-    # Core ML and NLP
-    "transformers==4.57.3",
-    
     # LangChain ecosystem
     "langchain-openai==1.1.4",
     "langchain-community==0.4.1",
@@ -64,6 +58,9 @@ dependencies = [
     "numpy==2.3.5",
     "scikit-learn==1.6.0",
     "networkx==3.6.1",
+    
+    # HuggingFace Hub (for model downloads)
+    "huggingface-hub>=0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -94,14 +91,14 @@ python_files = ["test_*.py"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP"]
 ignore = ["E501"]  # Line length handled separately
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
