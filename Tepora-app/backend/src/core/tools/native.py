@@ -173,21 +173,9 @@ class WebFetchTool(BaseTool):
         if not host:
              return "Error: Could not determine hostname from URL."
         
-        # Check against URL denylist from config
-        # Default denylist for private/local networks
-        default_denylist = [
-            "localhost", "127.0.0.1", "0.0.0.0",
-            "192.168.*", "10.*",
-            "172.16.*", "172.17.*", "172.18.*", "172.19.*",
-            "172.20.*", "172.21.*", "172.22.*", "172.23.*",
-            "172.24.*", "172.25.*", "172.26.*", "172.27.*",
-            "172.28.*", "172.29.*", "172.30.*", "172.31.*",
-            "169.254.*", "::1",
-        ]
-        
-        # TODO: In future, can merge with config-based denylist
-        # For now, always use default denylist for security
-        denylist = default_denylist
+        # Get URL denylist from config schema (externalized from hardcoded values)
+        from ..config.schema import AgentToolPolicyConfig
+        denylist = AgentToolPolicyConfig().url_denylist
         
         # Check denylist patterns
         for pattern in denylist:
@@ -236,8 +224,8 @@ class WebFetchTool(BaseTool):
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
         cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
         
-        # Limit to 6000 characters to prevent embedding server overload
-        max_chars = 6000
+        # Limit to configured characters to prevent embedding server overload
+        max_chars = settings.app.web_fetch_max_chars
         if len(cleaned_text) > max_chars:
             cleaned_text = cleaned_text[:max_chars] + "\n\n... (content truncated)"
         

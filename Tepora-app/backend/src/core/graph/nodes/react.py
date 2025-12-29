@@ -64,7 +64,7 @@ class ReActNodes:
             (
                 "system",
                 config.BASE_SYSTEM_PROMPTS["order_generation"] +
-                "\n\n--- Relevant Context from Past Conversations ---\n{synthesized_memory}"
+                "\n\n<relevant_context>\n{synthesized_memory}\n</relevant_context>"
             ),
             (
                 "human",
@@ -177,7 +177,7 @@ class ReActNodes:
             (
                 "system",
                 f"{attention_sink_prefix}\n\n"
-                f"--- System Instructions & Tools ---\n{system_prompt}"
+                f"{system_prompt}"
             ),
             (
                 "human",

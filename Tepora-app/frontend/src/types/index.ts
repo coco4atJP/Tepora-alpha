@@ -42,8 +42,10 @@ export interface ToolConfirmationRequest {
 }
 
 export interface WebSocketMessage {
-  type: 'chunk' | 'done' | 'status' | 'error' | 'stats' | 'search_results' | 'activity' | 'stopped' | 'tool_confirmation_request';
+  type: 'chunk' | 'done' | 'status' | 'error' | 'stats' | 'search_results' | 'activity' | 'stopped' | 'tool_confirmation_request' | 'history' | 'session_changed' | 'download_progress';
   message?: string;
+  messages?: Message[]; // For history loading
+  sessionId?: string; // For session_changed event
   mode?: string;
   agentName?: string;
   nodeId?: string;

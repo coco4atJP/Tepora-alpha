@@ -215,15 +215,83 @@ class LLMManager:
             return self._chat_model_cache[self._current_model_key][0]
         return None
 
+    async def get_text_model(self) -> BaseChatModel:
+        """テキスト生成モデル（後方互換）。get_character_model()を推奨。"""
+        return await self.get_character_model()
+
     async def get_character_model(self) -> BaseChatModel:
-        """キャラクター・モデルを取得する。"""
+        """キャラクターモデル（会話用）を取得する。"""
         await self._load_model("character_model")
         return self._get_active_chat_model()
 
+    async def get_executor_model(self, task_type: str = "default") -> BaseChatModel:
+        """
+        エグゼキューターモデル（ツール実行用）を取得する。
+        
+        Args:
+            task_type: タスクタイプ (e.g., "default", "coding", "browser")
+        """
+        # executor_model用のカスタムロード（task_type対応）
+        key = f"executor_model:{task_type}"
+        async with self._model_locks[key]:
+            # 既にロード済みの場合
+            if key in self._chat_model_cache:
+                self._current_model_key = key
+                return self._chat_model_cache[key][0]
+            
+            # キャッシュのエビクション
+            if len(self._chat_model_cache) >= self._cache_size:
+                key_to_evict = next(iter(self._chat_model_cache.keys()))
+                self._evict_from_cache(key_to_evict)
+            
+            # モデル設定を取得（text_modelの設定を流用）
+            model_config = self.registry.get_model_config("text_model")
+            if not model_config:
+                raise ValueError("Model configuration for executor not found.")
+            
+            # タスクタイプ対応のパス解決
+            model_path = self.registry.resolve_model_path("executor_model", task_type)
+            server_executable = self.registry.resolve_binary_path(find_server_executable)
+            
+            if not model_path.exists():
+                raise FileNotFoundError(f"Executor model file not found: {model_path}")
+            if not server_executable:
+                raise FileNotFoundError("llama.cpp server executable not found.")
+            
+            # 起動
+            log_dir = self.registry.resolve_logs_dir()
+            stderr_log_path = log_dir / f"llama_server_{key.replace(':', '_')}_{int(time.time())}.log"
+            port = self.process_manager.find_free_port()
+            logger.info(f"Allocated port {port} for executor model (task_type: {task_type})")
+            
+            command = build_server_command(
+                server_executable,
+                model_path,
+                port=port,
+                n_ctx=model_config.n_ctx,
+                n_gpu_layers=model_config.n_gpu_layers,
+                extra_args=[],
+            )
+            
+            try:
+                self.process_manager.start_process(key, command, stderr_log_path)
+                self.process_manager.perform_health_check(port, key, stderr_log_path)
+            except Exception:
+                logger.error(f"Failed to start server for executor model (task_type: {task_type})")
+                self.process_manager.stop_process(key)
+                raise
+            
+            chat_llm = self.client_factory.create_chat_client(key, port, model_config)
+            self._chat_model_cache[key] = (chat_llm, model_config, port)
+            self._current_model_key = key
+            
+            logger.info(f"Executor model for '{task_type}' ready.")
+            return chat_llm
+
+    # 後方互換エイリアス（非推奨、将来削除予定）
     async def get_executor_agent_model(self) -> BaseChatModel:
-        """エグゼキューター・エージェント・モデルを取得する。"""
-        await self._load_model("executor_model")
-        return self._get_active_chat_model()
+        """[非推奨] get_executor_model()を使用してください"""
+        return await self.get_executor_model("default")
 
     def cleanup(self):
         """アプリケーション終了時にリソースを解放する"""

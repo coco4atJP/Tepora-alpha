@@ -8,6 +8,7 @@ import SearchResults from './SearchResults';
 import AgentStatus from './AgentStatus';
 import DynamicBackground from './ui/DynamicBackground';
 import { useWebSocketContext } from '../context/WebSocketContext';
+import { SessionHistoryPanel } from './SessionHistory';
 import { MessageSquare, Search, Bot, Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -112,10 +113,21 @@ const Layout: React.FC = () => {
 
                         {/* System Status Panel (Visible in Chat mode) */}
                         {currentMode === 'direct' && (
-                            <SystemStatusPanel
-                                isConnected={isConnected}
-                                memoryStats={memoryStats}
-                            />
+                            <>
+                                {/* Session History - Collapsible */}
+                                <details className="glass-panel rounded-xl" open>
+                                    <summary className="px-4 py-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                                        {t('sessionHistory', 'Sessions')}
+                                    </summary>
+                                    <div className="px-2 pb-2 max-h-64 overflow-y-auto custom-scrollbar">
+                                        <SessionHistoryPanel />
+                                    </div>
+                                </details>
+                                <SystemStatusPanel
+                                    isConnected={isConnected}
+                                    memoryStats={memoryStats}
+                                />
+                            </>
                         )}
                     </div>
                 </div>

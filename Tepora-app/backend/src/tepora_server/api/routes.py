@@ -28,34 +28,7 @@ async def health_check(state: AppState = Depends(get_app_state)):
     return {"status": "ok", "initialized": state.core.initialized}
 
 
-@router.get("/api/personas")
-async def get_persona_presets():
-    """
-    Deprecated: Return Characters list for backward compatibility if needed, 
-    or just return the characters configuration.
-    Actually, we should probably update the frontend to use /api/config or a specific /api/agents endpoint.
-    For now, let's map the new structure to what the frontend expects, 
-    BUT the frontend is also being refactored, so let's just expose the raw config via /api/config.
-    
-    If we keep this, it should probably return the characters list.
-    """
-    try:
-        service = get_config_service()
-        settings = service.config
-        
-        return {
-            "personas": [
-                {
-                    "key": key,
-                    "preview": char.system_prompt[:150] + "..." if len(char.system_prompt) > 150 else char.system_prompt,
-                    "name": char.name # Bonus field
-                }
-                for key, char in settings.characters.items()
-            ]
-        }
-    except Exception as e:
-        logger.error(f"Failed to get persona presets: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+# /api/personas removed (deprecated)
 
 @router.get("/api/status")
 async def get_status(state: AppState = Depends(get_app_state)):

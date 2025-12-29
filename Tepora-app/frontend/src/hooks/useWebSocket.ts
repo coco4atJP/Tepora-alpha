@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Message, WebSocketMessage, MemoryStats, ChatMode, SearchResult, Attachment, AgentActivity, ActivityLogEntry, ToolConfirmationRequest } from '../types';
 import { useChatState } from './chat/useChatState';
 import { useSocketConnection } from './chat/useSocketConnection';
@@ -30,6 +30,9 @@ export const useWebSocket = () => {
   } = useChatState();
 
   const { handleChunk, flushAndClose } = useMessageBuffer(setMessages);
+
+  // Session management
+  const [currentSessionId, setCurrentSessionIdState] = useState<string>('default');
 
   const onMessage = useCallback((event: MessageEvent) => {
     try {
@@ -136,6 +139,30 @@ export const useWebSocket = () => {
             }
           }
           break;
+
+        case 'history':
+          if (data.messages && Array.isArray(data.messages)) {
+            console.log(`Received ${data.messages.length} history messages`);
+            // Convert timestamp strings to Date objects if needed because JSON.parse leaves them as strings
+            const parsedMessages = data.messages.map(msg => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp)
+            }));
+            setMessages(parsedMessages);
+          }
+          break;
+
+        case 'session_changed':
+          // Optional: handle confirmation of session switch if needed
+          console.log(`Session switched to ${data.sessionId}`);
+          break;
+
+        case 'download_progress':
+          if (data.data) {
+            const event = new CustomEvent('download-progress', { detail: data.data });
+            window.dispatchEvent(event);
+          }
+          break;
       }
     } catch (error) {
       console.error("WebSocket message parse error:", error);
@@ -182,7 +209,7 @@ export const useWebSocket = () => {
     setActivityLog([]); // Clear previous activity
     setError(null);
 
-    // Send to server
+    // Send to server with sessionId
     setIsProcessing(true);
     sendRaw(
       JSON.stringify({
@@ -190,9 +217,10 @@ export const useWebSocket = () => {
         mode,
         attachments,
         skipWebSearch,
+        sessionId: currentSessionId,
       })
     );
-  }, [isConnected, setMessages, setActivityLog, setError, setIsProcessing, sendRaw]);
+  }, [isConnected, setMessages, setActivityLog, setError, setIsProcessing, sendRaw, currentSessionId]);
 
   const requestStats = useCallback(() => {
     if (!isConnected) {
@@ -208,6 +236,15 @@ export const useWebSocket = () => {
     sendRaw(JSON.stringify({ type: 'stop' }));
     setIsProcessing(false);
   }, [isConnected, sendRaw, setIsProcessing]);
+
+  // Set current session (sends to backend via WebSocket)
+  const setCurrentSessionId = useCallback((sessionId: string) => {
+    setCurrentSessionIdState(sessionId);
+    clearMessages(); // Clear local messages when switching sessions
+    if (isConnected) {
+      sendRaw(JSON.stringify({ type: 'set_session', sessionId }));
+    }
+  }, [isConnected, sendRaw, clearMessages]);
 
   // Handle tool confirmation response
   const handleToolConfirmation = useCallback((requestId: string, approved: boolean, remember: boolean) => {
@@ -247,6 +284,9 @@ export const useWebSocket = () => {
     // Tool confirmation
     pendingToolConfirmation,
     handleToolConfirmation,
+    // Session management
+    currentSessionId,
+    setCurrentSessionId,
   };
 };
 

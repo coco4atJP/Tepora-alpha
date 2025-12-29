@@ -83,7 +83,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title={t('common.settings')}>
+        <Modal isOpen={isOpen} onClose={handleClose} title={t('common.settings')} size="xl">
             <SettingsLayout>
                 {/* Sidebar */}
                 <SettingsSidebar

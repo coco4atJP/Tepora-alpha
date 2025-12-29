@@ -111,6 +111,11 @@ class DownloadProgressManager:
         """進捗コールバックを登録"""
         self._callbacks.append(callback)
 
+    def remove_callback(self, callback: ProgressCallback) -> None:
+        """進捗コールバックを削除"""
+        if callback in self._callbacks:
+            self._callbacks.remove(callback)
+
     def _emit_progress(self, event: ProgressEvent) -> None:
         """進捗イベントを発火"""
         for callback in self._callbacks:

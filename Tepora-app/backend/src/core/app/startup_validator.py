@@ -72,7 +72,8 @@ def validate_startup_config(config, project_root: Path) -> None:
                  model_path = project_root / model_path_str
 
             if not model_path.exists():
-                errors.append(
+                # 警告のみ: 初回セットアップ前やモデルダウンロード前の起動を許可
+                logger.warning(
                     f"[models_gguf.{model_key}.path] Model file not found at: {model_path} (Key: {model_key})"
                 )
             elif not model_path.is_file():

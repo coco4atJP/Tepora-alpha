@@ -6,7 +6,8 @@ llama.cppバイナリとGGUFモデルのダウンロード・管理機能を提�
 
 from .types import (
     BinaryVariant,
-    ModelRole,
+    ModelPool,
+    ModelRole,  # 後方互換エイリアス
     DownloadStatus,
     RequirementStatus,
     ProgressEvent,
@@ -33,7 +34,8 @@ __all__ = [
     "get_user_data_dir",
     # Enums
     "BinaryVariant",
-    "ModelRole",
+    "ModelPool",
+    "ModelRole",  # 後方互換エイリアス
     "DownloadStatus",
     "RequirementStatus",
     # Data classes

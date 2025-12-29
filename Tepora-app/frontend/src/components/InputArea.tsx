@@ -15,7 +15,6 @@ interface InputAreaProps {
 const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isProcessing, isConnected, currentMode, onStop }) => {
   const { t } = useTranslation();
   const [message, setMessage] = useState('');
-  const [currentPersonaId, setCurrentPersonaId] = useState('default');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [skipWebSearch, setSkipWebSearch] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -142,10 +141,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isProcessing, isCo
 
         {/* Persona Switcher */}
         <div className="shrink-0 mb-1 ml-1">
-          <PersonaSwitcher
-            currentPersonaId={currentPersonaId}
-            onPersonaChange={setCurrentPersonaId}
-          />
+          <PersonaSwitcher />
         </div>
 
         {/* Text Input */}

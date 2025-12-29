@@ -97,6 +97,15 @@ class SessionHandler:
         stats = self.app_state.core.get_memory_stats()
         await self.send_json({"type": "stats", "data": stats})
     
+    def _cleanup_stale_approvals(self) -> None:
+        """Remove completed or cancelled futures to prevent memory leaks."""
+        stale_ids = [
+            req_id for req_id, future in self._pending_approvals.items()
+            if future.done()
+        ]
+        for req_id in stale_ids:
+            self._pending_approvals.pop(req_id, None)
+    
     async def request_tool_approval(self, tool_name: str, tool_args: Dict[str, Any]) -> bool:
         """
         Request user approval for a dangerous tool execution.
@@ -111,6 +120,9 @@ class SessionHandler:
         Returns:
             True if approved, False if denied or cancelled
         """
+        # Cleanup any stale approvals to prevent memory leaks
+        self._cleanup_stale_approvals()
+        
         request_id = str(uuid.uuid4())
         
         # Create a Future to wait for the response
@@ -131,8 +143,9 @@ class SessionHandler:
         })
         
         try:
-            # Wait for user response (with timeout)
-            approved = await asyncio.wait_for(future, timeout=300.0)  # 5 minute timeout
+            # Wait for user response (with timeout from config)
+            timeout = self.app_state.core.settings.app.tool_approval_timeout
+            approved = await asyncio.wait_for(future, timeout=float(timeout))
             return approved
         except asyncio.TimeoutError:
             logger.warning(f"Tool approval request {request_id} timed out")
@@ -184,7 +197,8 @@ class SessionHandler:
         user_input: str, 
         mode: str, 
         attachments: List[Dict[str, Any]], 
-        skip_web_search: bool
+        skip_web_search: bool,
+        session_id: str = "default"
     ) -> None:
         """
         Process a user message.
@@ -194,13 +208,14 @@ class SessionHandler:
             mode: The processing mode (direct, search, agent).
             attachments: List of attachments.
             skip_web_search: Whether to skip web search.
+            session_id: The session ID for chat history.
         """
         try:
             if not user_input and not attachments:
                 return
 
             await self.send_json({"type": "status", "message": "Processing..."})
-            logger.info(f"Processing input from {self.client_host} in mode '{mode}': {user_input[:50]}...")
+            logger.info(f"Processing input from {self.client_host} in mode '{mode}' session '{session_id}': {user_input[:50]}...")
 
             self._current_node_id = None
             self._current_agent_name = None
@@ -211,6 +226,7 @@ class SessionHandler:
                 mode=mode, 
                 attachments=attachments, 
                 skip_web_search=skip_web_search,
+                session_id=session_id,
                 approval_callback=self.request_tool_approval
             ):
                 await self._handle_stream_event(event, mode)
@@ -227,6 +243,40 @@ class SessionHandler:
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
             await self.send_json({"type": "error", "message": "Processing error occurred"})
+
+    async def send_history(self, session_id: str) -> None:
+        """Send chat history for the given session to the client."""
+        try:
+            messages = self.app_state.core.history_manager.get_history(session_id=session_id, limit=100)
+            
+            # Format messages for frontend
+            formatted_messages = []
+            for msg in messages:
+                role = "user"
+                if msg.type == "ai":
+                    role = "assistant"
+                elif msg.type == "system":
+                    role = "system"
+                
+                formatted_messages.append({
+                    "id": str(getattr(msg, 'id', '')) or str(uuid.uuid4()), # Fallback if id missing
+                    "role": role,
+                    "content": msg.content,
+                    "timestamp": msg.additional_kwargs.get('timestamp') or datetime.now().isoformat(),
+                    "mode": msg.additional_kwargs.get('mode', 'direct')
+                })
+            
+            # Sort by timestamp/ID if necessary, but get_history returns ordered
+            # Send history message
+            await self.send_json({
+                "type": "history",
+                "messages": formatted_messages
+            })
+            logger.info(f"Sent {len(formatted_messages)} history messages for session {session_id} to {self.client_host}")
+            
+        except Exception as e:
+            logger.error(f"Failed to send history: {e}", exc_info=True)
+            await self.send_json({"type": "error", "message": "Failed to load history"})
     
     async def _handle_stream_event(self, event: Dict[str, Any], mode: str) -> None:
         """Handle a single stream event from the core."""

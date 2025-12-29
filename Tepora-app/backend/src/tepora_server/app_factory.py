@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 
 from src.tepora_server.state import AppState
-from src.tepora_server.api import ws, routes, setup
+from src.tepora_server.api import ws, routes, setup, mcp_routes, sessions
 from src.core.config import settings, PROJECT_ROOT
 
 logger = logging.getLogger("tepora.server.factory")
@@ -56,6 +56,10 @@ async def lifespan(app: FastAPI):
     yield
     
     logger.info("🔻 Tepora Web Server shutting down...")
+    
+    # Cleanup MCP resources
+    if hasattr(app.state, 'app_state') and app.state.app_state:
+        await app.state.app_state.shutdown()
 
 
 def create_app() -> FastAPI:
@@ -70,6 +74,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Global Exception Handler (Audit Issue 3.3)
+    from .api.exception_handlers import global_exception_handler
+    app.add_exception_handler(Exception, global_exception_handler)
+
     # Request Logging Middleware
     @app.middleware("http")
     async def log_requests(request: Request, call_next: Callable):
@@ -82,6 +90,8 @@ def create_app() -> FastAPI:
     # Include Routers
     app.include_router(routes.router)
     app.include_router(setup.router)  # Setup wizard API
+    app.include_router(mcp_routes.router)  # MCP management API
+    app.include_router(sessions.router)  # Session history API
     app.include_router(ws.router)
 
     # Serve Frontend (Static Files) - Legacy/Dev support

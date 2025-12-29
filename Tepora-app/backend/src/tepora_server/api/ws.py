@@ -50,6 +50,8 @@ class WSIncomingMessage(BaseModel):
     mode: str = "direct"
     attachments: List[Dict[str, Any]] = []
     skipWebSearch: bool = False
+    # Session management
+    sessionId: Optional[str] = None
     # Tool confirmation fields
     requestId: Optional[str] = None
     approved: Optional[bool] = None
@@ -123,6 +125,50 @@ async def websocket_endpoint(websocket: WebSocket):
     # Create session handler for this connection
     app_state = get_app_state_from_websocket(websocket)
     handler = SessionHandler(websocket, app_state)
+    current_session_id = "default"  # Track current session for this connection
+
+    # --- Download Progress Integration ---
+    from src.tepora_server.api.setup import _get_download_manager
+    from src.core.download.types import ProgressEvent
+    import json
+
+    # 循環インポートを避けるためにここで取得
+    dm = None
+    send_progress = None
+    try:
+        dm = _get_download_manager()
+        
+        async def send_progress_callback(event: ProgressEvent):
+            try:
+                # Pydanticモデルを辞書に変換して送信
+                await websocket.send_json({
+                    "type": "download_progress",
+                    "data": {
+                        "status": event.status.value,
+                        "progress": event.progress,
+                        "message": event.message,
+                        "job_id": event.job_id,
+                        "current_bytes": event.current_bytes,
+                        "total_bytes": event.total_bytes,
+                        "speed_bps": event.speed_bps,
+                        "eta_seconds": event.eta_seconds
+                    }
+                })
+            except Exception as e:
+                logger.warning(f"Failed to send progress: {e}")
+
+        send_progress = send_progress_callback # Assign to the outer scope variable
+
+        # コールバック登録 (DownloadManager側で非同期対応が必要な場合は考慮)
+        # ModelManagerとBinaryManager (DownloadProgressManager) 両方に登録
+        dm.download_progress.on_progress(send_progress)
+        dm.model_manager.on_progress(send_progress)
+        
+    except Exception as e:
+        logger.error(f"Failed to setup download progress: {e}")
+        send_progress = None
+        dm = None
+
     logger.info(f"WebSocket connection accepted from {handler.client_host}")
     
     try:
@@ -130,8 +176,11 @@ async def websocket_endpoint(websocket: WebSocket):
             # Receive and validate message
             try:
                 raw_data = await websocket.receive_json()
+                # Delegate message handling to SessionHandler
+                await handler.handle_message(raw_data, current_session_id)
             except WebSocketDisconnect:
-                raise  # Let outer handler handle clean disconnect
+                logger.info(f"WebSocket disconnected: {handler.client_host}")
+                break
             except Exception as e:
                 error_msg = str(e)
                 # Check for disconnect-related errors in RuntimeError
@@ -169,6 +218,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 await handler.handle_get_stats()
                 continue
             
+            # Handle session switching
+            if msg_type == "set_session":
+                if data.sessionId:
+                    current_session_id = data.sessionId
+                    logger.info(f"Session switched to {current_session_id} for {handler.client_host}")
+                    await handler.send_json({"type": "session_changed", "sessionId": current_session_id})
+                    # Send history for the new session
+                    await handler.send_history(current_session_id)
+                continue
+            
             # Handle tool confirmation response
             if msg_type == "tool_confirmation_response":
                 if data.requestId is not None and data.approved is not None:
@@ -184,19 +243,38 @@ async def websocket_endpoint(websocket: WebSocket):
                     logger.warning(f"Received new message from {handler.client_host} while processing. Ignoring.")
                     continue
                 
+                # Use session_id from message or current connection session
+                session_id = data.sessionId or current_session_id
+                
                 # Start processing in background task
                 handler.current_task = asyncio.create_task(
                     handler.process_message(
                         data.message or "", 
                         data.mode, 
                         data.attachments, 
-                        data.skipWebSearch
+                        data.skipWebSearch,
+                        session_id
                     )
                 )
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {handler.client_host}")
         await handler.handle_stop()
+    except Exception as e:
+        logger.error(f"WebSocket loop error: {e}")
+    finally:
+        # Cleanup callbacks
+        if dm and send_progress:
+            try:
+                dm.download_progress.remove_callback(send_progress)
+            except Exception:
+                pass 
+            
+            # Remove from ModelManager
+            if dm and hasattr(dm.model_manager, "remove_progress_callback"):
+                 dm.model_manager.remove_progress_callback(send_progress)
+            
+        await handler.on_disconnect()
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.error(f"Unexpected WebSocket error from {handler.client_host} (ID: {error_id}): {e}", exc_info=True)

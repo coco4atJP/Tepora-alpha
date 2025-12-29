@@ -43,6 +43,7 @@ task dev
 | `task dev` | 開発サーバー起動（backend + frontend） |
 | `task dev-backend` | バックエンドのみ起動 |
 | `task dev-frontend` | フロントエンドのみ起動 |
+| `task dev-sync` | 動的ポート同期で開発サーバー起動 |
 | `task dev-tauri` | Tauri デスクトップアプリとして起動 |
 | `task test` | 全テスト実行 |
 | `task lint` | リンター実行 |

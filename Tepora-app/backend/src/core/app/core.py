@@ -210,6 +210,7 @@ class TeporaCoreApp:
         mode: str = "direct",
         attachments: List[Dict] = None,
         skip_web_search: bool = False,
+        session_id: str = "default",
         approval_callback: Optional[Callable[[str, Dict], Awaitable[bool]]] = None
     ) -> AsyncGenerator[Dict, None]:
         """
@@ -221,6 +222,7 @@ class TeporaCoreApp:
         5. Update history
         
         Args:
+            session_id: The session ID for chat history isolation
             approval_callback: Optional async callback for tool approval
         """
         if attachments is None:
@@ -289,8 +291,8 @@ class TeporaCoreApp:
             if skip_web_search:
                 search_metadata["skip_web_search"] = True
         
-        # 5. Get History (use configured limit instead of magic number)
-        recent_history = self.history_manager.get_history(limit=DEFAULT_HISTORY_LIMIT)
+        # 5. Get History for this session
+        recent_history = self.history_manager.get_history(session_id=session_id, limit=DEFAULT_HISTORY_LIMIT)
 
         # 6. Process
         full_response = ""
@@ -313,18 +315,20 @@ class TeporaCoreApp:
             
             yield event
 
-        # 7. Update History
+        # 7. Update History for this session
         if final_state:
             final_history = final_state.get("chat_history")
             if final_history:
-                self.history_manager.overwrite_history(final_history)
+                self.history_manager.overwrite_history(final_history, session_id=session_id)
         else:
             self.history_manager.add_messages([
                 HumanMessage(content=user_input_processed),
                 AIMessage(content=full_response),
-            ])
+            ], session_id=session_id)
         
-        self.history_manager.trim_history(keep_last_n=1000)
+        # Touch session to update updated_at timestamp
+        self.history_manager.touch_session(session_id)
+        self.history_manager.trim_history(session_id=session_id, keep_last_n=1000)
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """Get statistics for memory systems."""

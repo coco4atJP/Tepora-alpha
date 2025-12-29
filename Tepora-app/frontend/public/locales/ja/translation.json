@@ -241,6 +241,38 @@
                 "helper": "新しいMCPサーバーを追加するには、このファイルを直接編集してバックエンドを再起動してください。"
             }
         },
+        "mcp": {
+            "refresh": "更新",
+            "addServer": "サーバーを追加",
+            "disabled": "無効",
+            "disable": "無効化",
+            "enable": "有効化",
+            "delete": "削除",
+            "confirmDelete": "削除を確認",
+            "cancelDelete": "キャンセル",
+            "noServers": {
+                "title": "MCPサーバーがありません",
+                "description": "「サーバーを追加」をクリックして、公式レジストリからサーバーをインストールしてください。"
+            },
+            "status": {
+                "connected": "接続中 ({{count}}ツール)",
+                "connecting": "接続中...",
+                "disconnected": "切断済み",
+                "error": "エラー",
+                "unknown": "不明"
+            },
+            "store": {
+                "title": "MCPサーバーストア",
+                "searchPlaceholder": "サーバーを検索...",
+                "noResults": "サーバーが見つかりません",
+                "selectRuntime": "ランタイムを選択",
+                "runtimeDescription": "このサーバーを実行するランタイムを選択してください。",
+                "configure": "設定",
+                "configDescription": "必要な環境変数を入力してください。",
+                "confirm": "確認",
+                "install": "インストール"
+            }
+        },
         "models_settings": {
             "global_manager": {
                 "title": "LLMマネージャー全般",

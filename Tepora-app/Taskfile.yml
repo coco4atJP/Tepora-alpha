@@ -37,6 +37,11 @@ tasks:
     cmds:
       - npm run dev
 
+  dev-sync:
+    desc: "Start backend and frontend with dynamic port synchronization"
+    cmds:
+      - python scripts/dev_sync.py
+
   dev-tauri:
     desc: "Start Tauri app in dev mode"
     dir: "{{.FRONTEND_DIR}}"
@@ -113,7 +118,6 @@ tasks:
 
   build-sidecar:
     desc: "Build PyInstaller sidecar for Tauri"
-    dir: "{{.BACKEND_DIR}}"
     cmds:
       - python scripts/build_sidecar.py
 

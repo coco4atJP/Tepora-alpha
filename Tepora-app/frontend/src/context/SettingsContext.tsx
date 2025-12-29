@@ -1,5 +1,5 @@
 import React, { createContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
-import { API_BASE, getAuthHeaders } from '../utils/api';
+import { getApiBase, getAuthHeaders } from '../utils/api';
 import { CharacterConfig, ProfessionalConfig } from '../types';
 
 // ============================================================================
@@ -44,8 +44,7 @@ export interface Config {
         use_boundary_refinement: boolean;
     };
     models_gguf: {
-        character_model: ModelConfig;
-        executor_model: ModelConfig;
+        text_model: ModelConfig;
         embedding_model: ModelConfig;
     };
     // Refactored Agent Config
@@ -74,7 +73,7 @@ export interface SettingsContextValue {
     deleteCharacter: (key: string) => void;
 
     setActiveAgent: (key: string) => void;
-    saveConfig: () => Promise<boolean>;
+    saveConfig: (override?: Config) => Promise<boolean>;
     resetConfig: () => void;
 }
 
@@ -105,11 +104,29 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         try {
             setLoading(true);
             setError(null);
-            const response = await fetch(`${API_BASE}/api/config`, {
+            const response = await fetch(`${getApiBase()}/api/config`, {
                 headers: { ...getAuthHeaders() }
             });
             if (!response.ok) throw new Error('Failed to fetch configuration');
             const data = await response.json();
+
+            // Backward compatibility: Map legacy model keys to new 'text_model' key
+            if (data.models_gguf && !data.models_gguf.text_model) {
+                const legacyChar = (data.models_gguf as any).character_model;
+                const legacyExec = (data.models_gguf as any).executor_model;
+
+                if (legacyChar) {
+                    data.models_gguf.text_model = legacyChar;
+                } else if (legacyExec) {
+                    data.models_gguf.text_model = legacyExec;
+                }
+
+                // Ensure embedding_model exists if legacy embedding key is present (though key name is same)
+                if (!data.models_gguf.embedding_model && (data.models_gguf as any).embedding_model) {
+                    data.models_gguf.embedding_model = (data.models_gguf as any).embedding_model;
+                }
+            }
+
             setConfig(data);
             setOriginalConfig(data);
         } catch (err) {
@@ -184,20 +201,27 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setConfig((prev) => prev ? { ...prev, active_agent_profile: key } : prev);
     }, []);
 
-    const saveConfig = useCallback(async (): Promise<boolean> => {
-        if (!config) return false;
+    const saveConfig = useCallback(async (override?: Config): Promise<boolean> => {
+        const configToSave = override || config;
+        if (!configToSave) return false;
         try {
             setSaving(true);
-            const response = await fetch(`${API_BASE}/api/config`, {
+            const response = await fetch(`${getApiBase()}/api/config`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...getAuthHeaders()
                 },
-                body: JSON.stringify(config),
+                body: JSON.stringify(configToSave),
             });
             if (!response.ok) throw new Error('Failed to save configuration');
-            setOriginalConfig(config);
+
+            // Update local state if override was used, to ensure consistency
+            if (override) {
+                setConfig(override);
+            }
+
+            setOriginalConfig(configToSave);
             return true;
         } catch (err) {
             console.error('Failed to save config:', err);

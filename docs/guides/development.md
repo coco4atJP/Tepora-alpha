@@ -54,13 +54,20 @@ npm run tauri dev
 ### B. Webブラウザで開発 (UI調整向け)
 UIの調整だけを高速に行いたい場合、ブラウザモードが便利です。ただし、Tauri固有のAPI (ファイル操作など) は動作しません。
 
+**推奨: ポート同期起動**
+バックエンドの動的ポートを自動的にフロントエンドに同期して起動します。
+```powershell
+task dev-sync
+```
+
+**代替: 個別起動 (手動)**
+個別に起動する場合は、環境変数を手動で合わせる必要があります。
+
 **ターミナル1 (バックエンド)**
 ```powershell
 cd backend
-source venv/bin/activate  # or .\venv\Scripts\activate
-python server.py
-# または
-uvicorn server:app --reload --port 8000
+# 固定ポートを指定して起動
+$env:PORT="8000"; python server.py
 ```
 
 **ターミナル2 (フロントエンド)**

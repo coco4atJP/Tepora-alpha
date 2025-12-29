@@ -7,7 +7,8 @@ const DynamicBackground: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on canvas itself if possible, but we use alpha.
+        // Actually, let's keep default context but just be careful.
         if (!ctx) return;
 
         let animationFrameId: number;
@@ -25,8 +26,11 @@ const DynamicBackground: React.FC = () => {
         resize();
 
         // --- Configuration ---
-        const STEAM_COUNT = 15;
-        const PARTICLE_COUNT = 40;
+        // Slightly increased counts for better visuals, keeping FPS limit
+        const STEAM_COUNT = 12;
+        const PARTICLE_COUNT = 35;
+        const FPS = 30;
+        const INTERVAL = 1000 / FPS;
 
         // --- Types ---
         interface Steam {
@@ -47,7 +51,9 @@ const DynamicBackground: React.FC = () => {
             vy: number;
             size: number;
             color: string;
-            opacity: number;
+            baseOpacity: number; // Store base opacity
+            phase: number;       // For twinkling
+            phaseSpeed: number;  // Speed of twinkle
         }
 
         // --- Initialization ---
@@ -68,11 +74,13 @@ const DynamicBackground: React.FC = () => {
         const initParticle = (): Particle => ({
             x: Math.random() * width,
             y: Math.random() * height,
-            vx: (Math.random() - 0.5) * 0.2,
-            vy: (Math.random() - 0.5) * 0.2,
-            size: Math.random() * 2 + 0.5,
-            color: Math.random() > 0.8 ? '#00f0ff' : '#d4c820', // Cyan or Gold
-            opacity: Math.random() * 0.5 + 0.2,
+            vx: (Math.random() - 0.5) * 0.3, // Slightly faster
+            vy: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 3 + 1, // Slightly larger to show gradient
+            color: Math.random() > 0.7 ? '#00f0ff' : '#ffd700', // Cyan or Gold
+            baseOpacity: Math.random() * 0.5 + 0.3,
+            phase: Math.random() * Math.PI * 2,
+            phaseSpeed: 0.05 + Math.random() * 0.05,
         });
 
         for (let i = 0; i < STEAM_COUNT; i++) {
@@ -84,13 +92,24 @@ const DynamicBackground: React.FC = () => {
         }
 
         // --- Animation Loop ---
-        const render = () => {
+        let lastTime = 0;
+
+        const render = (currentTime: number) => {
+            animationFrameId = requestAnimationFrame(render);
+
+            const delta = currentTime - lastTime;
+            if (delta < INTERVAL) return;
+
+            // Adjust lastTime to target FPS interval
+            lastTime = currentTime - (delta % INTERVAL);
+
             ctx.clearRect(0, 0, width, height);
 
-            // Background Gradient (Deep Tea)
+            // Background Gradient (Deep Tea - slightly richer)
             const gradient = ctx.createLinearGradient(0, 0, width, height);
-            gradient.addColorStop(0, '#050201'); // Black/Tea
-            gradient.addColorStop(1, '#1a0b06'); // Dark Tea
+            gradient.addColorStop(0, '#0a0402'); // Deep Warm Black
+            gradient.addColorStop(0.5, '#120805'); // Mid Warmth
+            gradient.addColorStop(1, '#1f0d08'); // Dark Tea base
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, width, height);
 
@@ -124,35 +143,45 @@ const DynamicBackground: React.FC = () => {
                 ctx.fill();
             });
 
-            // Draw Cyber Particles
+            // Draw Cyber Particles with Gradient Glow (Simulated Bloom)
             ctx.globalCompositeOperation = 'screen'; // additive
             cyberParticles.forEach((p) => {
                 p.x += p.vx;
                 p.y += p.vy;
 
+                // Update animation phase
+                p.phase += p.phaseSpeed;
+                const twinkle = Math.sin(p.phase) * 0.3 + 0.7; // vary between 0.4 and 1.0 roughly
+                const currentOpacity = p.baseOpacity * twinkle;
+
                 // Bounce off edges
                 if (p.x < 0 || p.x > width) p.vx *= -1;
                 if (p.y < 0 || p.y > height) p.vy *= -1;
 
-                // Draw
-                ctx.fillStyle = p.color;
-                ctx.globalAlpha = p.opacity;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
+                // Draw with efficient gradient glow
+                // Create a radial gradient for each particle to mimic a glow
+                const glowRadius = p.size * 4; // Glow extends beyond the physical size
+                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius);
 
-                // Glow
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = p.color;
+                // Parse color to add opacity
+                // Assuming hex colors #RRGGBB
+                const r = parseInt(p.color.slice(1, 3), 16);
+                const g = parseInt(p.color.slice(3, 5), 16);
+                const b = parseInt(p.color.slice(5, 7), 16);
+
+                grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${currentOpacity})`); // Core
+                grad.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${currentOpacity * 0.4})`); // Mid glow
+                grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`); // Fade out
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.shadowBlur = 0;
             });
             ctx.globalAlpha = 1;
-
-            animationFrameId = requestAnimationFrame(render);
         };
 
-        render();
+        animationFrameId = requestAnimationFrame(render);
 
         return () => {
             window.removeEventListener('resize', resize);

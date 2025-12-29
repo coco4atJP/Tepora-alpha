@@ -22,7 +22,7 @@ function getIconBgClass(message: Message): string {
         case 'system':
             return 'bg-red-900/50';
         default:
-            return 'bg-black/40 backdrop-blur-md';
+            return 'bg-black/70 backdrop-blur-md';
     }
 }
 
@@ -33,33 +33,33 @@ function getBubbleClass(message: Message): string {
     const baseClasses = 'rounded-2xl p-4 shadow-lg backdrop-blur-md border min-w-0 transition-all';
 
     if (message.role === 'user') {
-        return `${baseClasses} bg-coffee-600/30 border-coffee-400/30 text-cream-100 rounded-tr-none`;
+        return `${baseClasses} bg-coffee-600/70 border-coffee-400/50 text-cream-100 rounded-tr-none`;
     }
 
     if (message.role === 'system') {
-        return `${baseClasses} bg-red-900/20 border-red-500/30 text-red-200`;
+        return `${baseClasses} bg-red-900/60 border-red-500/50 text-red-200`;
     }
 
     // Assistant role
     if (message.nodeId) {
         // Agent/Tool specific styling
         if (message.agentName === 'Planner') {
-            return `${baseClasses} bg-purple-900/20 border-purple-500/30 text-purple-100`;
+            return `${baseClasses} bg-purple-900/60 border-purple-500/50 text-purple-100`;
         }
         if (message.agentName?.includes('Search')) {
-            return `${baseClasses} bg-cyan-900/20 border-cyan-500/30 text-cyan-100`;
+            return `${baseClasses} bg-cyan-900/60 border-cyan-500/50 text-cyan-100`;
         }
-        return `${baseClasses} bg-gold-900/10 border-gold-500/20 text-gold-100`;
+        return `${baseClasses} bg-gold-900/50 border-gold-500/40 text-gold-100`;
     }
 
     // Fallback to mode styling
     switch (message.mode) {
         case 'search':
-            return `${baseClasses} bg-cyan-950/40 border-cyan-500/20 text-cyan-50`;
+            return `${baseClasses} bg-cyan-950/70 border-cyan-500/40 text-cyan-50`;
         case 'agent':
-            return `${baseClasses} bg-coffee-900/40 border-gold-500/20 text-gold-50`;
+            return `${baseClasses} bg-coffee-900/70 border-gold-500/40 text-gold-50`;
         default:
-            return `${baseClasses} bg-black/30 border-white/10 text-gray-100 rounded-tl-none`;
+            return `${baseClasses} bg-black/70 border-white/20 text-gray-100 rounded-tl-none`;
     }
 }
 

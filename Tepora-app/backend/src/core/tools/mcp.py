@@ -132,9 +132,8 @@ async def _load_single_server(
     # 全リトライ失敗時
     if last_exception:
         raise last_exception
-    # ここには到達しないはずだが型チェックのために空リストとダミー（または例外送出）が必要
-    # 実装上はraiseされるので到達不能
-    return [], None  # type: ignore
+    # ここには到達しないはずだが型チェックのために例外送出
+    raise RuntimeError(f"Unexpected unreachable code in _load_single_server for {server_name}")
 
 from .base import ToolProvider
 

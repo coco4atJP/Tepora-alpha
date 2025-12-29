@@ -15,17 +15,20 @@ import yaml
 from pydantic import ValidationError
 
 from .loader import PROJECT_ROOT, SECRETS_PATH, USER_DATA_DIR
-from .schema import TeporaSettings
+from .schema import TeporaSettings, AppConfig
 
 logger = logging.getLogger(__name__)
 
-# Sensitive keys that should be stored in secrets.yaml
-SENSITIVE_KEYS = ["api_key", "secret", "password", "token", "credential"]
+
+def _get_sensitive_patterns() -> list[str]:
+    """Get sensitive key patterns from config schema."""
+    return AppConfig().sensitive_key_patterns
 
 
 def _is_sensitive(key: str) -> bool:
     """Check if a key name indicates sensitive data."""
-    return any(s in key.lower() for s in SENSITIVE_KEYS)
+    patterns = _get_sensitive_patterns()
+    return any(s in key.lower() for s in patterns)
 
 
 class ConfigService:
@@ -120,7 +123,17 @@ class ConfigService:
             except Exception as e:
                 logger.error(f"Failed to load secrets.yaml: {e}")
 
-        return self.deep_merge(public_config, secrets_config)
+        merged = self.deep_merge(public_config, secrets_config)
+        
+        # Apply defaults for characters if missing or empty
+        from .schema import DEFAULT_CHARACTERS
+        if not merged.get("characters"):
+            merged["characters"] = {
+                k: c.model_dump() if hasattr(c, 'model_dump') else dict(c)
+                for k, c in DEFAULT_CHARACTERS.items()
+            }
+        
+        return merged
     
     def split_config(self, full_config: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """

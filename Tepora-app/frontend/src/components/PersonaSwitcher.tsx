@@ -1,113 +1,122 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
 import { User, Check, Plus, Trash2, Edit2, X, Save, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { API_BASE, getAuthHeaders } from '../utils/api';
+import { SettingsContext } from '../context/SettingsContext';
+import { CharacterConfig } from '../types';
 
-interface Persona {
-    id: string;
-    name: string;
-    description: string;
-    role_instruction: string;
-}
-
-interface PersonaSwitcherProps {
-    currentPersonaId: string;
-    onPersonaChange: (personaId: string) => void;
-}
-
-const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onPersonaChange }) => {
+const PersonaSwitcher: React.FC = () => {
     const { t } = useTranslation();
-    const [personas, setPersonas] = useState<Persona[]>([]);
+    const settings = useContext(SettingsContext);
+
+    // State for UI
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+    const [editingKey, setEditingKey] = useState<string | null>(null);
+    const [editingCharacter, setEditingCharacter] = useState<CharacterConfig | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [newKey, setNewKey] = useState('');
 
-    // Initial load
-    useEffect(() => {
-        fetchPersonas();
-    }, []);
+    if (!settings || !settings.config) {
+        return null; // Or a loading spinner
+    }
 
-    const fetchPersonas = async () => {
-        try {
-            const response = await fetch(`${API_BASE}/api/personas`, {
-                headers: { ...getAuthHeaders() }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setPersonas(data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch personas:', error);
-        }
-    };
+    const {
+        config,
+        setActiveAgent,
+        updateCharacter,
+        addCharacter,
+        deleteCharacter,
+        saveConfig
+    } = settings;
+
+    const characters = config.characters || {};
+    const currentPersonaId = config.active_agent_profile;
 
     const handleCreate = () => {
-        setEditingPersona({
-            id: '', // Backend assigns ID
+        setNewKey('');
+        setEditingCharacter({
             name: '',
             description: '',
-            role_instruction: ''
+            system_prompt: '',
+            model_config_name: 'default'
         });
+        setIsCreating(true);
         setIsEditing(true);
         setIsOpen(false);
     };
 
-    const handleEdit = (persona: Persona, e: React.MouseEvent) => {
+    const handleEdit = (key: string, character: CharacterConfig, e: React.MouseEvent) => {
         e.stopPropagation();
-        setEditingPersona(persona);
+        setEditingKey(key);
+        setEditingCharacter({ ...character });
+        setIsCreating(false);
         setIsEditing(true);
         setIsOpen(false);
     };
 
-    const handleDelete = async (id: string, e: React.MouseEvent) => {
+    const handleDelete = async (key: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm(t('personas.confirm_delete'))) return;
+        if (key === currentPersonaId) return; // Guard logic
 
-        try {
-            await fetch(`${API_BASE}/api/personas/${id}`, {
-                method: 'DELETE',
-                headers: { ...getAuthHeaders() }
-            });
-            await fetchPersonas();
-            if (currentPersonaId === id && personas.length > 0) {
-                // Switch to default if current is deleted
-                const remaining = personas.filter(p => p.id !== id);
-                if (remaining.length > 0) onPersonaChange(remaining[0].id);
-            }
-        } catch (error) {
-            console.error('Failed to delete persona:', error);
+        // Ensure at least one character remains
+        if (Object.keys(characters).length <= 1) {
+            alert(t('personas.error_last_character', 'Cannot delete the last character.'));
+            return;
         }
-    };
 
-    const handleSave = async () => {
-        if (!editingPersona || !editingPersona.name) return;
+        if (!confirm(t('personas.confirm_delete'))) return;
 
         setIsLoading(true);
         try {
-            const method = editingPersona.id ? 'PUT' : 'POST';
-            const url = editingPersona.id
-                ? `${API_BASE}/api/personas/${editingPersona.id}`
-                : `${API_BASE}/api/personas`;
-
-            await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...getAuthHeaders()
-                },
-                body: JSON.stringify(editingPersona)
-            });
-
-            await fetchPersonas();
-            setIsEditing(false);
-            setEditingPersona(null);
+            deleteCharacter(key);
+            const success = await saveConfig();
+            if (!success) {
+                console.error("Failed to save deletion");
+            }
         } catch (error) {
-            console.error('Failed to save persona:', error);
+            console.error('Failed to delete character:', error);
         } finally {
             setIsLoading(false);
         }
     };
+
+    const handleSave = async () => {
+        if (!editingCharacter || !editingCharacter.name) return;
+
+        const key = isCreating ? newKey.trim().toLowerCase().replace(/\s+/g, '_') : editingKey;
+        if (!key) return;
+
+        setIsLoading(true);
+        try {
+            if (isCreating) {
+                // Ensure unique key
+                if (characters[key]) {
+                    alert("This key already exists.");
+                    return;
+                }
+                addCharacter(key);
+                updateCharacter(key, editingCharacter);
+            } else if (editingKey) {
+                updateCharacter(editingKey, editingCharacter);
+            }
+
+            const success = await saveConfig();
+            if (success) {
+                setIsEditing(false);
+                setEditingCharacter(null);
+                setEditingKey(null);
+                setIsCreating(false);
+                setNewKey('');
+            }
+        } catch (error) {
+            console.error('Failed to save character:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const characterEntries = Object.entries(characters);
 
     return (
         <>
@@ -143,47 +152,57 @@ const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onP
                             </div>
 
                             <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
-                                {personas.map(persona => (
+                                {characterEntries.map(([key, character]) => (
                                     <div
-                                        key={persona.id}
-                                        onClick={() => {
-                                            onPersonaChange(persona.id);
+                                        key={key}
+                                        onClick={async () => {
+                                            if (!config) return;
+
+                                            // Create updated config for immediate persistence
+                                            const newConfig = {
+                                                ...config,
+                                                active_agent_profile: key
+                                            };
+
+                                            setActiveAgent(key);
+                                            await saveConfig(newConfig); // Persist selection immediately with override
                                             setIsOpen(false);
                                         }}
-                                        className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${currentPersonaId === persona.id
+                                        className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${currentPersonaId === key
                                             ? 'bg-white/10'
                                             : 'hover:bg-white/5'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentPersonaId === persona.id
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentPersonaId === key
                                                 ? 'bg-gold-500 text-black'
                                                 : 'bg-tea-800 text-tea-200'
                                                 } shrink-0`}>
                                                 <User size={14} />
                                             </div>
                                             <div className="min-w-0">
-                                                <div className={`text-sm font-medium truncate ${currentPersonaId === persona.id ? 'text-gold-300' : 'text-gray-200'
+                                                <div className={`text-sm font-medium truncate ${currentPersonaId === key ? 'text-gold-300' : 'text-gray-200'
                                                     }`}>
-                                                    {persona.name}
+                                                    {character.name}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {currentPersonaId === persona.id && (
+                                        {currentPersonaId === key && (
                                             <Check className="w-4 h-4 text-gold-400 ml-2 shrink-0" />
                                         )}
 
                                         <div className="hidden group-hover:flex items-center gap-1 ml-2">
                                             <button
-                                                onClick={(e) => handleEdit(persona, e)}
+                                                onClick={(e) => handleEdit(key, character, e)}
                                                 className="p-1 hover:text-blue-400 text-gray-500 transition-colors"
                                             >
                                                 <Edit2 size={12} />
                                             </button>
-                                            {persona.id !== 'default' && (
+                                            {/* Delete button: Only show if NOT active profile */}
+                                            {key !== currentPersonaId && (
                                                 <button
-                                                    onClick={(e) => handleDelete(persona.id, e)}
+                                                    onClick={(e) => handleDelete(key, e)}
                                                     className="p-1 hover:text-red-400 text-gray-500 transition-colors"
                                                 >
                                                     <Trash2 size={12} />
@@ -204,7 +223,7 @@ const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onP
                     <div className="glass-panel w-full max-w-lg p-6 space-y-4 animate-modal-enter">
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-display text-gradient-tea">
-                                {editingPersona?.id ? t('personas.edit') : t('personas.create_new')}
+                                {isCreating ? t('personas.create_new') : t('personas.edit')}
                             </h2>
                             <button onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-white">
                                 <X size={20} />
@@ -212,14 +231,28 @@ const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onP
                         </div>
 
                         <div className="space-y-4">
+                            {isCreating && (
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">
+                                        ID (Key)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newKey}
+                                        onChange={e => setNewKey(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
+                                        placeholder="e.g. coding_assistant"
+                                    />
+                                </div>
+                            )}
                             <div>
                                 <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">
                                     {t('personas.name')}
                                 </label>
                                 <input
                                     type="text"
-                                    value={editingPersona?.name || ''}
-                                    onChange={e => setEditingPersona(prev => prev ? { ...prev, name: e.target.value } : null)}
+                                    value={editingCharacter?.name || ''}
+                                    onChange={e => setEditingCharacter(prev => prev ? { ...prev, name: e.target.value } : null)}
                                     className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
                                     placeholder="e.g. Coding Assistant"
                                 />
@@ -231,8 +264,8 @@ const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onP
                                 </label>
                                 <input
                                     type="text"
-                                    value={editingPersona?.description || ''}
-                                    onChange={e => setEditingPersona(prev => prev ? { ...prev, description: e.target.value } : null)}
+                                    value={editingCharacter?.description || ''}
+                                    onChange={e => setEditingCharacter(prev => prev ? { ...prev, description: e.target.value } : null)}
                                     className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-300 focus:border-tea-500 focus:outline-none"
                                     placeholder="Brief description..."
                                 />
@@ -243,8 +276,8 @@ const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onP
                                     {t('personas.instruction')}
                                 </label>
                                 <textarea
-                                    value={editingPersona?.role_instruction || ''}
-                                    onChange={e => setEditingPersona(prev => prev ? { ...prev, role_instruction: e.target.value } : null)}
+                                    value={editingCharacter?.system_prompt || ''}
+                                    onChange={e => setEditingCharacter(prev => prev ? { ...prev, system_prompt: e.target.value } : null)}
                                     className="w-full h-40 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-300 focus:border-tea-500 focus:outline-none resize-none font-mono text-sm"
                                     placeholder="You are a helpful AI assistant..."
                                 />
@@ -260,7 +293,7 @@ const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({ currentPersonaId, onP
                             </button>
                             <button
                                 onClick={handleSave}
-                                disabled={isLoading || !editingPersona?.name}
+                                disabled={isLoading || !editingCharacter?.name || (isCreating && !newKey.trim())}
                                 className="glass-button px-6 py-2 flex items-center gap-2 bg-tea-600/20 text-tea-300 hover:bg-tea-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isLoading ? <RefreshCw className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}

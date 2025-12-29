@@ -17,6 +17,9 @@ interface WebSocketContextType {
     // Tool confirmation (A+C Hybrid)
     pendingToolConfirmation: ToolConfirmationRequest | null;
     handleToolConfirmation: (requestId: string, approved: boolean, remember: boolean) => void;
+    // Session management
+    currentSessionId: string;
+    setCurrentSessionId: (sessionId: string) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);

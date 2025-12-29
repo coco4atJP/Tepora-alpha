@@ -110,7 +110,7 @@ function App() {
   // ローディング中
   if (appState === 'loading') {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-950">
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#050201]">
         <div className="text-center">
           <div className="text-gold-400 animate-pulse text-lg mb-2">
             {t('app.loading', 'Connecting to server...')}
@@ -126,7 +126,7 @@ function App() {
   // エラー状態
   if (appState === 'error') {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-950">
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#050201]">
         <div className="text-center max-w-md px-6">
           <div className="text-red-400 text-6xl mb-4" aria-hidden="true">⚠</div>
           <h1 className="text-white text-xl font-semibold mb-2">

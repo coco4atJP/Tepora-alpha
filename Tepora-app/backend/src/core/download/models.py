@@ -77,10 +77,18 @@ class ModelManager:
                     data = json.load(f)
                     models = []
                     for m in data.get("models", []):
+                        # 後方互換: 古いrole値を新しいプールに変換
+                        role_str = m["role"]
+                        role_mapping = {
+                            "character": "text",
+                            "executor": "text",
+                        }
+                        mapped_role = role_mapping.get(role_str, role_str)
+                        
                         models.append(ModelInfo(
                             id=m["id"],
                             display_name=m["display_name"],
-                            role=ModelRole(m["role"]),
+                            role=ModelRole(mapped_role),
                             file_path=Path(m["file_path"]),
                             file_size=m["file_size"],
                             source=m["source"],
@@ -93,6 +101,8 @@ class ModelManager:
                         version=data.get("version", 1),
                         models=models,
                         active=data.get("active", {}),
+                        character_model_id=data.get("character_model_id"),
+                        executor_model_map=data.get("executor_model_map", {}),
                     )
             except Exception as e:
                 logger.warning(f"Failed to load model registry: {e}")
@@ -120,6 +130,8 @@ class ModelManager:
                 for m in registry.models
             ],
             "active": registry.active,
+            "character_model_id": registry.character_model_id,
+            "executor_model_map": registry.executor_model_map,
         }
         with open(registry_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -133,6 +145,11 @@ class ModelManager:
     def on_progress(self, callback: ProgressCallback) -> None:
         """進捗コールバックを登録"""
         self._progress_callbacks.append(callback)
+
+    def remove_progress_callback(self, callback: ProgressCallback) -> None:
+        """進捗コールバックを削除"""
+        if callback in self._progress_callbacks:
+            self._progress_callbacks.remove(callback)
     
     async def _emit_progress_async(self, event: ProgressEvent) -> None:
         """非同期コンテキストから呼ばれる進捗通知"""
@@ -463,8 +480,175 @@ class ModelManager:
         return None
     
     def has_required_models(self) -> bool:
-        """必須モデル（character, executor, embedding）がすべて揃っているか"""
-        for role in [ModelRole.CHARACTER, ModelRole.EXECUTOR, ModelRole.EMBEDDING]:
-            if not self.get_active_model(role):
+        """必須モデル（text, embedding）がすべて揃っているか"""
+        from .types import ModelPool
+        for pool in [ModelPool.TEXT, ModelPool.EMBEDDING]:
+            if not self.get_active_model(pool):
                 return False
         return True
+
+    def reorder_models(self, role: ModelRole, new_order_ids: List[str]) -> bool:
+        """
+        モデルの表示順序を更新
+        
+        Args:
+            role: 対象のロール
+            new_order_ids: モデルIDのリスト（保存したい順序）
+        """
+        self._registry = self.registry
+        
+        # 指定ロールのモデルを抽出
+        role_models = [m for m in self._registry.models if m.role == role]
+        other_models = [m for m in self._registry.models if m.role != role]
+        
+        # IDでマップを作成
+        model_map = {m.id: m for m in role_models}
+        
+        # 新しい順序でリストを作成
+        new_role_models = []
+        for mid in new_order_ids:
+            if mid in model_map:
+                new_role_models.append(model_map[mid])
+            else:
+                logger.warning(f"Model ID {mid} not found in registry during reorder")
+        
+        # リストに含まれていないモデル（もしあれば）を末尾に追加
+        existing_ids = set(new_order_ids)
+        for m in role_models:
+            if m.id not in existing_ids:
+                new_role_models.append(m)
+        
+        # レジストリを更新
+        # 元のリストでの相対的な位置関係を保つために、単純結合ではなく少し慎重にやる必要があるが
+        # ここではシンプルに「他ロール」+「並び替えた自ロール」とする
+        # ただし、元のリストの順序に依存しないように、常にロールごとにグルーピングされる副作用があるかもしれない
+        # User requirement implies just reordering within the list visible in UI.
+        
+        self._registry.models = other_models + new_role_models
+        self._save_registry(self._registry)
+        return True
+
+    async def check_huggingface_repo(self, repo_id: str, filename: str) -> bool:
+        """
+        HuggingFace Hubにファイルが存在するか確認
+        """
+        try:
+            from huggingface_hub import hf_hub_url
+            import requests
+
+            url = hf_hub_url(repo_id, filename)
+            # HEADリクエストで存在確認
+            response = requests.head(url, allow_redirects=True, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            logger.warning(f"Failed to check HuggingFace repo: {e}")
+            return False
+
+    # ========================================================================
+    # ロールベースモデル選択 (Character / Executor)
+    # ========================================================================
+
+    def get_character_model_id(self) -> Optional[str]:
+        """キャラクターモデルのIDを取得"""
+        return self.registry.character_model_id
+
+    def get_executor_model_id(self, task_type: str = "default") -> Optional[str]:
+        """
+        エグゼキューターモデルのIDを取得
+        
+        Args:
+            task_type: タスクタイプ (e.g., "default", "coding", "browser")
+        
+        Returns:
+            モデルID。見つからない場合は "default" にフォールバック
+        """
+        executor_map = self.registry.executor_model_map
+        if task_type in executor_map:
+            return executor_map[task_type]
+        # フォールバック: default
+        return executor_map.get("default")
+
+    def set_character_model(self, model_id: str) -> bool:
+        """キャラクターモデルを設定"""
+        # モデルがTEXTプールに存在するか確認
+        from .types import ModelPool
+        found = any(
+            m.id == model_id and m.role == ModelPool.TEXT
+            for m in self.registry.models
+        )
+        if not found:
+            logger.error(f"Model {model_id} not found in TEXT pool")
+            return False
+        
+        self._registry = self.registry
+        self._registry.character_model_id = model_id
+        self._save_registry(self._registry)
+        logger.info(f"Set character model: {model_id}")
+        return True
+
+    def set_executor_model(self, task_type: str, model_id: str) -> bool:
+        """
+        エグゼキューターモデルを設定
+        
+        Args:
+            task_type: タスクタイプ (e.g., "default", "coding", "browser")
+            model_id: モデルID
+        """
+        # モデルがTEXTプールに存在するか確認
+        from .types import ModelPool
+        found = any(
+            m.id == model_id and m.role == ModelPool.TEXT
+            for m in self.registry.models
+        )
+        if not found:
+            logger.error(f"Model {model_id} not found in TEXT pool")
+            return False
+        
+        self._registry = self.registry
+        self._registry.executor_model_map[task_type] = model_id
+        self._save_registry(self._registry)
+        logger.info(f"Set executor model for '{task_type}': {model_id}")
+        return True
+
+    def remove_executor_model(self, task_type: str) -> bool:
+        """
+        エグゼキューターモデルのマッピングを削除
+        
+        Args:
+            task_type: 削除するタスクタイプ（"default"は削除不可）
+        """
+        if task_type == "default":
+            logger.error("Cannot remove 'default' executor model mapping")
+            return False
+        
+        self._registry = self.registry
+        if task_type in self._registry.executor_model_map:
+            del self._registry.executor_model_map[task_type]
+            self._save_registry(self._registry)
+            logger.info(f"Removed executor model mapping for '{task_type}'")
+            return True
+        return False
+
+    def get_executor_task_types(self) -> List[str]:
+        """設定済みのエグゼキュータータスクタイプ一覧を取得"""
+        return list(self.registry.executor_model_map.keys())
+
+    def get_character_model_path(self) -> Optional[Path]:
+        """キャラクターモデルのパスを取得"""
+        model_id = self.get_character_model_id()
+        if not model_id:
+            return None
+        for m in self.registry.models:
+            if m.id == model_id and m.file_path.exists():
+                return m.file_path
+        return None
+
+    def get_executor_model_path(self, task_type: str = "default") -> Optional[Path]:
+        """エグゼキューターモデルのパスを取得"""
+        model_id = self.get_executor_model_id(task_type)
+        if not model_id:
+            return None
+        for m in self.registry.models:
+            if m.id == model_id and m.file_path.exists():
+                return m.file_path
+        return None

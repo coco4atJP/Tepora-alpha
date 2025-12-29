@@ -234,17 +234,17 @@ class TestLLMManager(unittest.IsolatedAsyncioTestCase):
         await self.manager.get_character_model()
         self.assertIn("character_model", self.manager._chat_model_cache)
         
-        # 2. Load Executor
-        # Update config logic if needed, but the same mock config is fine for generic test
-        await self.manager.get_executor_agent_model()
+        # 2. Load Executor (now uses key "executor_model:default")
+        await self.manager.get_executor_model()
         
         # Should have evicted character_model (cache size 1)
         self.assertNotIn("character_model", self.manager._chat_model_cache)
         # Should have stopped character_model process
         self.mock_process_manager.stop_process.assert_called_with("character_model")
         
-        self.assertIn("executor_model", self.manager._chat_model_cache)
-        self.assertEqual(self.manager._current_model_key, "executor_model")
+        # New key format: "executor_model:default"
+        self.assertIn("executor_model:default", self.manager._chat_model_cache)
+        self.assertEqual(self.manager._current_model_key, "executor_model:default")
 
 
 # --- The rest of the tests (MemorySystem, EMEventSegmenter, etc.) are preserved below ---

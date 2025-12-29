@@ -241,6 +241,38 @@
                 "helper": "To add new MCP servers, please edit this file directly and restart the backend."
             }
         },
+        "mcp": {
+            "refresh": "Refresh",
+            "addServer": "Add Server",
+            "disabled": "Disabled",
+            "disable": "Disable",
+            "enable": "Enable",
+            "delete": "Delete",
+            "confirmDelete": "Confirm Delete",
+            "cancelDelete": "Cancel",
+            "noServers": {
+                "title": "No MCP Servers",
+                "description": "Click 'Add Server' to install servers from the official registry."
+            },
+            "status": {
+                "connected": "Connected ({{count}} tools)",
+                "connecting": "Connecting...",
+                "disconnected": "Disconnected",
+                "error": "Error",
+                "unknown": "Unknown"
+            },
+            "store": {
+                "title": "MCP Server Store",
+                "searchPlaceholder": "Search servers...",
+                "noResults": "No servers found",
+                "selectRuntime": "Select Runtime",
+                "runtimeDescription": "Choose a runtime to execute this server.",
+                "configure": "Configure",
+                "configDescription": "Enter the required environment variables.",
+                "confirm": "Confirm",
+                "install": "Install"
+            }
+        },
         "models_settings": {
             "global_manager": {
                 "title": "LLM Manager Global",

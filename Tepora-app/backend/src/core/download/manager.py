@@ -15,7 +15,7 @@ from .binary import BinaryManager
 from .models import ModelManager
 from .types import (
     DownloadStatus,
-    ModelRole,
+    ModelPool,
     ProgressCallback,
     ProgressEvent,
     RequirementsStatus,
@@ -164,23 +164,20 @@ class DownloadManager:
             binary_version = await self.binary_manager.get_current_version()
         
         # モデルチェック
-        def check_model(role: ModelRole) -> tuple[RequirementStatus, Optional[str]]:
-            model = self.model_manager.get_active_model(role)
+        def check_model(pool: ModelPool) -> tuple[RequirementStatus, Optional[str]]:
+            model = self.model_manager.get_active_model(pool)
             if model and model.file_path.exists():
                 return RequirementStatus.SATISFIED, model.display_name
             return RequirementStatus.MISSING, None
         
-        char_status, char_name = check_model(ModelRole.CHARACTER)
-        exec_status, exec_name = check_model(ModelRole.EXECUTOR)
-        embed_status, embed_name = check_model(ModelRole.EMBEDDING)
+        text_status, text_name = check_model(ModelPool.TEXT)
+        embed_status, embed_name = check_model(ModelPool.EMBEDDING)
         
         return RequirementsStatus(
             binary_status=binary_status,
             binary_version=binary_version,
-            character_model_status=char_status,
-            character_model_name=char_name,
-            executor_model_status=exec_status,
-            executor_model_name=exec_name,
+            text_model_status=text_status,
+            text_model_name=text_name,
             embedding_model_status=embed_status,
             embedding_model_name=embed_name,
         )
@@ -236,30 +233,17 @@ class DownloadManager:
             # ターゲットモデルリストを作成
             target_models = []
             
-            # Character Model
-            char_cfg = custom_models.get("character") or (
+            # Text Model (テキスト生成用LLM)
+            text_cfg = custom_models.get("text") or (
                 {"repo_id": defaults.character.repo_id, "filename": defaults.character.filename, "display_name": defaults.character.display_name} 
                 if defaults.character else None
             )
-            if char_cfg:
+            if text_cfg:
                 target_models.append({
-                    "repo_id": char_cfg["repo_id"],
-                    "filename": char_cfg["filename"],
-                    "role": ModelRole.CHARACTER,
-                    "display_name": char_cfg.get("display_name", "Character Model"),
-                })
-                
-            # Executor Model
-            exec_cfg = custom_models.get("executor") or (
-                {"repo_id": defaults.executor.repo_id, "filename": defaults.executor.filename, "display_name": defaults.executor.display_name}
-                if defaults.executor else None
-            )
-            if exec_cfg:
-                target_models.append({
-                    "repo_id": exec_cfg["repo_id"],
-                    "filename": exec_cfg["filename"],
-                    "role": ModelRole.EXECUTOR,
-                    "display_name": exec_cfg.get("display_name", "Executor Model"),
+                    "repo_id": text_cfg["repo_id"],
+                    "filename": text_cfg["filename"],
+                    "pool": ModelPool.TEXT,
+                    "display_name": text_cfg.get("display_name", "Text Model"),
                 })
                 
             # Embedding Model
@@ -271,7 +255,7 @@ class DownloadManager:
                 target_models.append({
                     "repo_id": embed_cfg["repo_id"],
                     "filename": embed_cfg["filename"],
-                    "role": ModelRole.EMBEDDING,
+                    "pool": ModelPool.EMBEDDING,
                     "display_name": embed_cfg.get("display_name", "Embedding Model"),
                 })
 
@@ -285,7 +269,7 @@ class DownloadManager:
                 result = await self.model_manager.download_from_huggingface(
                     repo_id=model["repo_id"],
                     filename=model["filename"],
-                    role=model["role"],
+                    role=model["pool"],
                     display_name=model["display_name"],
                 )
                 
@@ -313,9 +297,9 @@ class DownloadManager:
         """llama.cpp実行ファイルのパスを取得"""
         return self.binary_manager.get_executable_path()
     
-    def get_model_path(self, role: ModelRole) -> Optional[Path]:
-        """指定ロールのモデルパスを取得"""
-        return self.model_manager.get_model_path(role)
+    def get_model_path(self, pool: ModelPool) -> Optional[Path]:
+        """指定プールのモデルパスを取得"""
+        return self.model_manager.get_model_path(pool)
     
     def get_config_dir(self) -> Path:
         """設定ディレクトリを取得"""

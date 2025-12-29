@@ -91,16 +91,13 @@ class ConversationNodes:
         system_content_parts = [
             ATTENTION_SINK_PREFIX,
             "",  # blank line
-            "<instructions>",
-            "Your persona and instructions for this conversation are defined as follows:",
+            f"{persona}",
             "",
-            f"<persona_definition>\n{persona}\n</persona_definition>",
+            f"{system_prompt}",
             "",
-            f"<system_prompt>\n{system_prompt}\n</system_prompt>",
-            "</instructions>",
-            "",
-            "--- Relevant Context from Past Conversations ---",
-            retrieved_memory_str,
+            "<retrieved_memory>",
+            "{retrieved_memory_str}",
+            "</retrieved_memory>",
         ]
         
         # 4. Local Context (short-term) construction
@@ -456,52 +453,43 @@ class ConversationNodes:
             # Attachment-only mode: Focus on file attachments as the primary source
             system_template = config.get_prompt_for_profile(
                 "attachment_summary",
-                base="""You are a document analysis expert. Your task is to answer the user's question based on the provided file attachments.
-Base your answer *exclusively* on the information given in the file attachments and retrieved context below.
+                base="""<system_instructions>
+You are a document analysis expert.
 
-User's original question: {original_question}
+<task>
+Answer user question based EXCLUSIVELY on attachments.
+</task>
 
-=== Retrieved Context from Attachments ===
+<input_context>
+Question: {original_question}
+
+<retrieved_context>
 {rag_context}
+</retrieved_context>
 
-=== File Attachments ===
+<attachments>
 {attachments}
+</attachments>
+</input_context>
 
-Instructions:
-1. Use the "Retrieved Context" and "File Attachments" as your primary and only source of truth.
-2. Do NOT make assumptions or use external knowledge.
-3. If the answer is not found in the attachments, clearly state that.
-4. Synthesize the information into a coherent and helpful response.""",
+<constraints>
+- Primary Source: Attachments & Retrieved Context ONLY.
+- No Assumptions: Do not use external knowledge.
+- Honesty: State clearly if answer is not found.
+</constraints>
+</system_instructions>""",
             )
         else:
             # Web search mode: Use web results and attachments
             system_template = config.get_prompt_for_profile(
                 "search_summary",
-                base="""You are a search summarization expert. Your task is to synthesize the provided search result snippets and the most relevant text chunks from a web page to answer the user's original question.
-Base your answer *primarily* on the information given in the context below.
-
-User's original question: {original_question}
-
-=== Search Result Snippets ===
-{search_snippets}
-
-=== Retrieved Context from Web Page ===
-{rag_context}
-
-=== File Attachments ===
-{attachments}
-
-Instructions:
-1. Use the "Retrieved Context" as the primary source of truth.
-2. Use "Search Result Snippets" to supplement information if needed.
-3. If the answer is not found in the context, clearly state that.
-4. Synthesize the information into a coherent and helpful response.""",
+                base=config.resolve_system_prompt("search_summary"),
             )
 
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                f"{persona}\n\n{system_template}\n\n--- Relevant Context from Past Conversations ---\n{{synthesized_memory}}",
+                f"{{persona}}\n\n{{system_template}}\n\n<relevant_context>\n{{synthesized_memory}}\n</relevant_context>",
             ),
             ("placeholder", "{chat_history}"),
             ("human", "Please summarize the search results for my request: {original_question}")

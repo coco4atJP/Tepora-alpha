@@ -49,8 +49,8 @@ class BinaryManager:
     - フォールバック
     """
 
-    GITHUB_API_URL = "https://api.github.com/repos/ggerganov/llama.cpp/releases"
-    GITHUB_RELEASES_URL = "https://github.com/ggerganov/llama.cpp/releases/download"
+    GITHUB_API_URL = "https://api.github.com/repos/ggml-org/llama.cpp/releases"
+    GITHUB_RELEASES_URL = "https://github.com/ggml-org/llama.cpp/releases/download"
     REGISTRY_FILENAME = "binary_versions.json"
 
     def __init__(self, bin_dir: Path, bundled_fallback: Path | None = None):
@@ -139,6 +139,11 @@ class BinaryManager:
         if self._registry is None:
             self._registry = self._load_registry()
         return self._registry
+
+    def reload_registry(self) -> None:
+        """レジストリを強制的に再ロードする"""
+        self._registry = self._load_registry()
+        logger.debug("Binary registry reloaded from disk.")
 
     def on_progress(self, callback: ProgressCallback) -> None:
         """進捗コールバックを登録"""
@@ -307,7 +312,7 @@ class BinaryManager:
             )
 
             # リリース情報を取得
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
                 if version:
                     url = f"{self.GITHUB_API_URL}/tags/{version}"
                 else:
@@ -507,15 +512,44 @@ class BinaryManager:
                 # ダウンロードしたアーカイブを削除
                 target_path.unlink(missing_ok=True)
 
-                # currentディレクトリを更新
-                if self.current_dir.exists():
-                    if self.current_dir.is_symlink():
-                        self.current_dir.unlink()
-                    else:
-                        shutil.rmtree(self.current_dir)
+                # currentディレクトリを更新（リトライ付き）
+                retry_count = 0
+                max_retries = 5
+                last_error = None
 
-                # Windowsではシンボリックリンクに管理者権限が必要な場合があるのでコピー
-                shutil.copytree(version_dir, self.current_dir)
+                while retry_count < max_retries:
+                    try:
+                        if self.current_dir.exists():
+                            if self.current_dir.is_symlink():
+                                self.current_dir.unlink()
+                            else:
+                                # Rename strategy for atomic-ish replacement
+                                timestamp = int(asyncio.get_event_loop().time())
+                                old_path = self.current_dir.with_name(f"old_{self.current_dir.name}_{timestamp}")
+                                
+                                # Try rename first (fast)
+                                try:
+                                    self.current_dir.rename(old_path)
+                                    # Schedule old path deletion (ignore errors)
+                                    shutil.rmtree(old_path, ignore_errors=True)
+                                except OSError:
+                                    # Fallback to direct delete if rename fails
+                                    shutil.rmtree(self.current_dir)
+
+                        # Windowsではシンボリックリンクに管理者権限が必要な場合があるのでコピー
+                        shutil.copytree(version_dir, self.current_dir)
+                        
+                        # Success
+                        break
+                    except OSError as e:
+                        last_error = e
+                        retry_count += 1
+                        wait_time = 1.0 * (2 ** (retry_count - 1))  # 1s, 2s, 4s, 8s, 16s
+                        logger.warning(f"File operation failed (attempt {retry_count}/{max_retries}): {e}. Retrying in {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                
+                if retry_count >= max_retries:
+                    raise RuntimeError(f"Failed to update current directory after {max_retries} attempts: {last_error}")
 
                 # レジストリ更新
                 self._registry = self.registry

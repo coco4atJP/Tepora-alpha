@@ -1,7 +1,7 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
 **バージョン**: 2.1
-**最終更新日**: 2025-12-15
+**最終更新日**: 2025-12-28
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
 ---
@@ -17,7 +17,7 @@
 7. [主要機能](#主要機能)
 8. [データフローとAPI仕様](#データフローとapi仕様)
 9. [開発経緯](#開発経緯)
-10. [今後の展望](#今後の展望)
+
 
 ---
 
@@ -41,8 +41,7 @@ Teporaは以下の革新的な特徴を持ちます：
 1. **エピソード記憶システム (EM-LLM)**: 人間のような記憶の仕組みを実現
 2. **マルチエージェント協調**: 対話型と実行型の2つのエージェントが協調
 3. **3つの動作モード**: Chat、Search、Agentの使い分け
-4. **無限コンテキスト**: Attention Sinksによる長時間対話の実現
-5. **MCP対応**: Model Context Protocolによる拡張可能なツールシステム
+4. **MCP対応**: Model Context Protocolによる拡張可能なツールシステム
 
 ### 1.3 プロジェクトの名称
 
@@ -130,18 +129,18 @@ graph TB
 | **フレームワーク** | React | 19.2.1 | UIコンポーネント |
 | **言語** | TypeScript | 5.9.3 | 型安全性 |
 | **アプリシェル** | Tauri | 2.9.6 | デスクトップアプリ化 |
-| **スタイリング** | Tailwind CSS | 4.0.0 | ユーティリティファーストCSS |
-| **ルーティング** | React Router | 6.20.1 | SPA routing |
-| **ビルドツール** | Vite | 7.2.7 | 高速ビルド |
+| **スタイリング** | Tailwind CSS | 4.1.18 | ユーティリティファーストCSS |
+| **ルーティング** | React Router | 7.10.1 | SPA routing |
+| **ビルドツール** | Vite | 7.3.0 | 高速ビルド |
 | **テスト** | Vitest, Testing Library | 4.0.14 | ユニット/コンポーネントテスト |
-| **アイコン** | Lucide React | 0.294.0 | アイコンライブラリ |
-| **マークダウン** | react-markdown | 9.0.1 | マークダウンレンダリング |
+| **アイコン** | Lucide React | 0.561.0 | アイコンライブラリ |
+| **マークダウン** | react-markdown | 10.0.0 | マークダウンレンダリング |
 
 ### 3.2 バックエンド
 
 | カテゴリ | 技術 | 用途 |
 |----------|------|------|
-| **Webフレームワーク** | FastAPI | REST API + WebSocket |
+| **Webフレームワーク** | FastAPI | 0.124.4 | REST API + WebSocket |
 | **言語** | Python | 3.10+ |
 | **ASGIサーバー** | Uvicorn | 非同期サーバー |
 | **ステートマシン** | LangGraph | エージェント制御フロー |
@@ -167,21 +166,21 @@ graph TB
 
 ```
 Tepora_Project/
-├── backend/                    # バックエンドアプリケーション
-├── frontend/                   # フロントエンドアプリケーション
+├── Tepora-app/                 # アプリケーションルート
+│   ├── backend/                # バックエンドアプリケーション
+│   └── frontend/               # フロントエンドアプリケーション
 ├── docs/                       # ドキュメント
 │   ├── architecture/           # アーキテクチャ・設計
 │   │   ├── ARCHITECTURE.md
+│   │   ├── ROADMAP.md
 │   │   └── design_document_v2.md
 │   ├── planning/               # 計画・監査
 │   │   ├── audit_report.md
 │   │   └── refactoring_plan.md
 │   └── guides/                 # ガイド
 │       └── web_development.md
-├── scripts/                    # スタートアップスクリプト
-│   ├── start_backend.bat
-│   └── start_frontend.bat
-├── start_app.bat              # 統合起動スクリプト
+├── scripts/                    # 開発用スクリプト
+├── Taskfile.yml               # タスクランナー定義
 ├── README.md                  # プロジェクトREADME
 └── LICENSE                    # Apache 2.0 License
 ```
@@ -190,8 +189,8 @@ Tepora_Project/
 
 ```
 backend/
-├── server.py                   # FastAPIエントリーポイント (Delegates to tepora_server)
-├── config.yml                  # システム設定ファイル
+├── server.py                   # FastAPIエントリーポイント
+├── config.yml                  # システム設定 (gitignored)
 ├── pyproject.toml              # プロジェクト設定・依存関係
 ├── uv.lock                     # 依存関係ロックファイル
 ├── REFACTORING_SUMMARY.md      # リファクタリング詳細
@@ -241,6 +240,13 @@ backend/
         ├── tools/              # ツールシステム
         │   ├── native.py       # ネイティブツール
         │   └── mcp.py          # MCPクライアント
+        ├── mcp/                # MCP Store・管理システム
+        │   ├── hub.py          # McpHubクラス
+        │   ├── installer.py    # MCPインストーラー
+        │   ├── registry.py     # MCPレジストリ
+        │   └── models.py       # MCPデータモデル
+        ├── download/           # モデルダウンロード管理
+        ├── common/             # 共通ユーティリティ
         ├── memory/             # メモリシステム
         │   └── memory_system.py
         ├── a2a/                # Agent-to-Agent Protocol
@@ -310,6 +316,26 @@ frontend/
 - `POST /api/config` - 設定更新
 - `GET /api/logs` - ログファイル一覧
 - `GET /api/logs/{filename}` - ログ内容取得
+
+**Session API**
+- `GET /api/sessions` - セッション一覧取得
+- `POST /api/sessions` - 新規セッション作成
+- `GET /api/sessions/{session_id}` - セッション詳細取得
+- `PUT /api/sessions/{session_id}` - セッション更新
+- `DELETE /api/sessions/{session_id}` - セッション削除
+
+**MCP API**
+- `GET /api/mcp/servers` - MCPサーバー一覧
+- `POST /api/mcp/servers` - MCPサーバー追加
+- `DELETE /api/mcp/servers/{server_id}` - MCPサーバー削除
+- `POST /api/mcp/servers/{server_id}/toggle` - MCPサーバー有効/無効切り替え
+- `GET /api/mcp/registry` - MCPレジストリ取得
+- `POST /api/mcp/install` - MCPサーバーインストール
+
+**Setup API**
+- `GET /api/setup/status` - セットアップ状態取得
+- `POST /api/setup/download-model` - モデルダウンロード
+- `POST /api/setup/complete` - セットアップ完了
 
 #### WebSocketメッセージフォーマット
 
@@ -535,6 +561,16 @@ agent_profiles:
 - エージェントモード時の右パネル
 - 思考プロセス、実行ログ、生成物（Artifact）の表示
 
+**SessionHistoryPanel.tsx**
+- 過去のチャットセッション履歴の表示・管理
+- セッションの切り替え、削除、名称変更
+
+**SettingsContext.tsx**
+- アプリケーション全体の設定管理（テーマ、言語、モデル設定など）
+
+**McpStoreModal.tsx**
+- MCPサーバーの管理・インストール・設定
+
 ### 6.2 カスタムフック
 
 #### useWebSocket.ts
@@ -702,6 +738,17 @@ Spring animationを用いた自然な動き：
 - **性格**: 論理的、効率的
 - **モデル**: Jan-nano-128k
 
+### 7.3 セッション管理
+
+**概要**:
+- 複数のチャットセッションを保存・管理する機能。
+
+**機能詳細**:
+- **セッション永続化**: SQLiteデータベースへの会話履歴保存
+- **履歴閲覧**: サイドバー（または専用パネル）からの過去ログアクセス
+- **コンテキスト復帰**: セッション切り替え時のコンテキスト（会話履歴）の再ロード
+- **自動タイトル生成**: 会話内容に基づくセッションタイトルの自動生成
+
 ---
 
 ## データフローとAPI仕様
@@ -815,95 +862,48 @@ sequenceDiagram
 
 詳細は `backend/REFACTORING_SUMMARY.md` 参照。
 
-### 9.2 Phase 2: Transition & Refinement (2025年11月〜12月、現在)
+### 9.2 Phase 2: Transition & Refinement (2025年11月〜12月)
 
 #### 完了項目
 
+**コアインフラ**
 - ✅ FastAPI + WebSocketサーバー実装
 - ✅ Reactフロントエンド基盤
 - ✅ Tauri統合とデスクトップアプリ化
+- ✅ テストインフラ（Vitest、Testing Library、pytest）
+
+**UI/UX**
 - ✅ 3つのモード（CHAT、SEARCH、AGENT）のUI実装
-- ✅ Glassmorphismデザインシステム
+- ✅ Glassmorphismデザインシステム（Teaテーマ）
 - ✅ WebSocketリアルタイムストリーミング
 - ✅ ダイアルコントロール、ペルソナスイッチャー
 - ✅ モード別スプリットビュー（SearchResults、AgentStatus）
-- ✅ テストインフラ（Vitest、Testing Library）
+- ✅ セッション履歴パネル（SessionHistoryPanel）
+- ✅ 設定画面（SettingsContext、各種設定オーバーレイ）
+- ✅ セットアップウィザード（SetupWizard）
+- ✅ ダイナミック背景（DynamicBackground）
+- ✅ ログビューア（Logsページ）
+
+**バックエンド機能**
+- ✅ セッション管理API（CRUD操作）
+- ✅ MCPストア・管理システム（McpHub、インストーラー、レジストリ）
+- ✅ モデルダウンロード機能（HuggingFace Hub統合）
+- ✅ ツール確認ダイアログ（危険ツールのハイブリッド承認フロー）
+
+**品質・セキュリティ**
+- ✅ 認証ヘッダー実装（将来のリモートアクセス対応）
+- ✅ コード監査・レビュー実施
 
 #### 残タスク
 
-詳細は `design_document_V2.md` のPhase 2セクション参照：
-
-- [ ] Attention Sinksの完全統合と長時間テスト
-- [ ] MCPクライアントの堅牢化
-- [ ] 設定画面（オーバーレイ）の実装
-- [ ] ストリーミング描画の滑らかさ向上
-- [ ] インストーラー作成
+- [ ] EM-LLMの長期的評価と長時間テスト
+- [ ] インストーラー作成（Tauri Bundle）
+- [ ] i18n対応の拡充
+- [ ] E2Eテストの整備
 
 ---
 
-## 今後の展望
 
-### 10.1 Phase 3: Ecosystem (v3.0以降)
-
-> [!NOTE]
-> **このセクション (Phase 3) は将来構想です。現時点でコードは実装されていません。**
-> 現在の実装状態については「開発経緯」セクション (9.2 Phase 2) を参照してください。
-
-#### 10.1.1 AG-UI (Agent-User Interaction Protocol)
-
-エージェントが動的にUIコンポーネントを生成。
-
-**Generative UI**:
-- ボタン、フォーム、グラフ、地図などをチャット内に動的表示
-- Human-in-the-loop: ツール実行承認をGUIで効率化
-
-#### 10.1.2 A2A Protocol (Agent-to-Agent)
-
-分散エージェント社会を見据えた標準プロトコル。
-
-**機能**:
-- **Discovery**: ネットワーク上の他エージェント発見
-- **Negotiation**: タスク依頼、能力確認、権限交渉
-- **Collaboration**: 共通ゴールに向けた協調作業
-
-#### 10.1.3 Multimodal Capabilities
-
-**Vision**:
-- ユーザーがアップロードした画像の認識・解析
-- スクリーンショットの理解
-
-**Image Generation**:
-- エージェントが説明図やアイデアスケッチを生成
-
-#### 10.1.4 Advanced Reasoning (Thinking)
-
-**System 2 Reasoning**:
-- アプリケーション側で思考プロセスを管理
-- 「思考」と「回答」のコンテキスト分離
-- 複雑な推論の強制的なステップ挿入
-
-#### 10.1.5 Canvas & Artifacts
-
-**Canvas機能**:
-- コード、ドキュメント、プレビュー画面をチャットとは別ペインで表示
-- リアルタイム共同編集
-
-**Artifact Management**:
-- 生成物のバージョン管理
-- 後から参照・修正可能
-
-#### 10.1.6 Scalable Agent Registry
-
-**複数エージェント登録**:
-- カスタムプロンプト、ツールセット、モデル構成を持つエージェントを無制限登録
-- タスクに応じた最適エージェントの自動/手動切り替え
-
-### 10.2 技術的将来計画
-
-- **モデルの多様化**: Llama 3, Qwen, Mistralなど、より多くのモデルのサポート
-- **マルチモーダルモデル統合**: LLaVA, Bakllavaなどのビジョンモデル
-- **分散実行**: 複数デバイス間でのモデル分散推論
-- **プラグインマーケットプレイス**: コミュニティ製のプロンプト・ツール共有
 
 ---
 

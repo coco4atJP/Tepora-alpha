@@ -63,6 +63,53 @@
     z-index: 1;
 }
 
+@media (max-width: 768px) {
+    .settings-layout {
+        flex-direction: column;
+    }
+
+    .settings-sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--s-border);
+        padding: 1rem;
+        flex-shrink: 0;
+        /* Prevent shrinking */
+    }
+
+    .settings-sidebar__nav {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 0.5rem;
+        padding-bottom: 4px;
+        /* Scrollbar space */
+    }
+
+    .settings-sidebar__header {
+        margin-bottom: 1rem;
+        display: none;
+        /* Save space on mobile */
+    }
+
+    .settings-sidebar__item {
+        white-space: nowrap;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .settings-sidebar__item--active::before {
+        bottom: 0;
+        top: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 20px;
+        height: 3px;
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 0 8px var(--s-accent);
+    }
+}
+
 .settings-main {
     flex: 1;
     overflow-y: auto;

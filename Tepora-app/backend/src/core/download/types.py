@@ -24,12 +24,24 @@ class BinaryVariant(Enum):
     METAL = "metal"  # macOS Metal
 
 
-class ModelRole(Enum):
-    """モデルの役割"""
+class ModelPool(Enum):
+    """モデルプール（モーダル別分類）
+    
+    モデルを主要なモダリティで分類：
+    - TEXT: テキスト生成モデル（LLM）- 会話とツール実行に使用
+    - EMBEDDING: 埋め込みモデル - 記憶と検索に使用
+    
+    将来拡張予定:
+    - IMAGE: 画像生成モデル
+    - AUDIO: 音声モデル
+    """
 
-    CHARACTER = "character"  # キャラクターエージェント
-    EXECUTOR = "executor"  # エグゼキューターエージェント
+    TEXT = "text"           # テキスト生成モデル（旧: CHARACTER + EXECUTOR）
     EMBEDDING = "embedding"  # 埋め込みモデル
+
+
+# 後方互換性のためのエイリアス（非推奨、将来削除予定）
+ModelRole = ModelPool
 
 
 class DownloadStatus(Enum):
@@ -126,9 +138,14 @@ class ModelInfo:
 class ModelRegistry:
     """モデルレジストリデータ"""
 
-    version: int = 1
+    version: int = 2  # スキーマバージョン更新
     models: list[ModelInfo] = field(default_factory=list)
     active: dict = field(default_factory=dict)  # role -> model_id
+    
+    # ロールベースモデル選択
+    character_model_id: str | None = None  # 会話用モデルID
+    executor_model_map: dict = field(default_factory=dict)
+    # 例: {"default": "model-a", "coding": "model-b", "browser": "model-c"}
 
 
 @dataclass
@@ -148,11 +165,8 @@ class RequirementsStatus:
     binary_status: RequirementStatus
     binary_version: str | None = None
 
-    character_model_status: RequirementStatus = RequirementStatus.MISSING
-    character_model_name: str | None = None
-
-    executor_model_status: RequirementStatus = RequirementStatus.MISSING
-    executor_model_name: str | None = None
+    text_model_status: RequirementStatus = RequirementStatus.MISSING
+    text_model_name: str | None = None
 
     embedding_model_status: RequirementStatus = RequirementStatus.MISSING
     embedding_model_name: str | None = None
@@ -163,8 +177,7 @@ class RequirementsStatus:
         return all(
             [
                 self.binary_status == RequirementStatus.SATISFIED,
-                self.character_model_status == RequirementStatus.SATISFIED,
-                self.executor_model_status == RequirementStatus.SATISFIED,
+                self.text_model_status == RequirementStatus.SATISFIED,
                 self.embedding_model_status == RequirementStatus.SATISFIED,
             ]
         )
@@ -174,8 +187,7 @@ class RequirementsStatus:
         """何か欠落しているものがあるか"""
         return RequirementStatus.MISSING in [
             self.binary_status,
-            self.character_model_status,
-            self.executor_model_status,
+            self.text_model_status,
             self.embedding_model_status,
         ]
 
