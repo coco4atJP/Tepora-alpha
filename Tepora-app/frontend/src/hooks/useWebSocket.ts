@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { Message, WebSocketMessage, MemoryStats, ChatMode, SearchResult, Attachment, AgentActivity, ActivityLogEntry, ToolConfirmationRequest } from '../types';
 import { useChatState } from './chat/useChatState';
 import { useSocketConnection } from './chat/useSocketConnection';
@@ -33,6 +33,8 @@ export const useWebSocket = () => {
 
   // Session management
   const [currentSessionId, setCurrentSessionIdState] = useState<string>('default');
+  // UX改善4: セッション切り替え時のローディング状態
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const onMessage = useCallback((event: MessageEvent) => {
     try {
@@ -47,6 +49,8 @@ export const useWebSocket = () => {
         case 'done':
           flushAndClose();
           setIsProcessing(false);
+          // セッションリストのリフレッシュを通知 (UX改善2)
+          window.dispatchEvent(new CustomEvent('session-refresh'));
           break;
 
         case 'status':
@@ -150,6 +154,8 @@ export const useWebSocket = () => {
             }));
             setMessages(parsedMessages);
           }
+          // UX改善4: 履歴ロード完了
+          setIsLoadingHistory(false);
           break;
 
         case 'session_changed':
@@ -168,7 +174,7 @@ export const useWebSocket = () => {
       console.error("WebSocket message parse error:", error);
       setError("Failed to parse server message");
     }
-  }, [handleChunk, flushAndClose, setIsProcessing, setError, setMessages, setMemoryStats, setSearchResults, setActivityLog]);
+  }, [handleChunk, flushAndClose, setIsProcessing, setError, setMessages, setMemoryStats, setSearchResults, setActivityLog, isToolApproved, setPendingToolConfirmation, setIsLoadingHistory]);
 
   // Define callbacks before passing to useSocketConnection (React hooks best practice)
   const handleOpen = useCallback(() => {
@@ -176,7 +182,7 @@ export const useWebSocket = () => {
     setError(null);
   }, [setIsProcessing, setError]);
 
-  const handleError = useCallback((_error: Event) => {
+  const handleError = useCallback(() => {
     setError("Connection error");
   }, [setError]);
 
@@ -190,6 +196,23 @@ export const useWebSocket = () => {
     onError: handleError,
     onClose: handleClose
   });
+
+  // 接続確立時の初回履歴読み込み用フラグ
+  const hasLoadedInitialHistory = useRef(false);
+
+  // UX改善1: 接続確立時に現在セッションの履歴を自動読み込み
+  useEffect(() => {
+    if (isConnected && !hasLoadedInitialHistory.current) {
+      // 接続が確立されたら現在のセッションの履歴をリクエスト
+      sendRaw(JSON.stringify({ type: 'set_session', sessionId: currentSessionId }));
+      hasLoadedInitialHistory.current = true;
+      console.log('Auto-loading history for session:', currentSessionId);
+    }
+    // 接続が切れたらフラグをリセット
+    if (!isConnected) {
+      hasLoadedInitialHistory.current = false;
+    }
+  }, [isConnected, sendRaw, currentSessionId]);
 
   const sendMessage = useCallback((content: string, mode: ChatMode = 'direct', attachments: Attachment[] = [], skipWebSearch: boolean = false) => {
     if (!isConnected) {
@@ -240,6 +263,7 @@ export const useWebSocket = () => {
   // Set current session (sends to backend via WebSocket)
   const setCurrentSessionId = useCallback((sessionId: string) => {
     setCurrentSessionIdState(sessionId);
+    setIsLoadingHistory(true); // UX改善4: ローディング開始
     clearMessages(); // Clear local messages when switching sessions
     if (isConnected) {
       sendRaw(JSON.stringify({ type: 'set_session', sessionId }));
@@ -287,6 +311,7 @@ export const useWebSocket = () => {
     // Session management
     currentSessionId,
     setCurrentSessionId,
+    isLoadingHistory, // UX改善4
   };
 };
 

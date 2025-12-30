@@ -20,6 +20,21 @@ tasks:
     cmds:
       - task --list
 
+  # === Packaging ===
+  package:
+    desc: "Build installer and move to Installer directory"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run build:sidecar
+      - npm run tauri build
+      - cmd: |
+          if not exist "..\..\Installer" mkdir "..\..\Installer"
+          for %%f in (src-tauri\target\release\bundle\nsis\*.exe) do (
+            echo Found installer: %%f
+            copy /Y "%%f" "..\..\Installer\Tepora-Setup-Windows-x64.exe"
+          )
+        platforms: [windows]
+
   # === Development ===
   dev:
     desc: "Start both backend and frontend in development mode (parallel)"

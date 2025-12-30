@@ -78,7 +78,7 @@ async function fetchMcpConfig(): Promise<Record<string, McpServerConfig>> {
     return data.mcpServers || {};
 }
 
-async function updateMcpConfig(config: Record<string, any>): Promise<void> {
+async function updateMcpConfig(config: Record<string, McpServerConfig>): Promise<void> {
     const response = await fetch(`${API_BASE}/config`, {
         method: 'POST',
         headers: {
@@ -295,7 +295,7 @@ export function useMcpConfig() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const saveConfig = useCallback(async (config: Record<string, any>) => {
+    const saveConfig = useCallback(async (config: Record<string, McpServerConfig>) => {
         setSaving(true);
         setError(null);
         try {

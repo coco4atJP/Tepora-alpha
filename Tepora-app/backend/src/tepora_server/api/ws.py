@@ -176,8 +176,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # Receive and validate message
             try:
                 raw_data = await websocket.receive_json()
-                # Delegate message handling to SessionHandler
-                await handler.handle_message(raw_data, current_session_id)
+                # Message is now parsed as JSON, proceed to validation
             except WebSocketDisconnect:
                 logger.info(f"WebSocket disconnected: {handler.client_host}")
                 break
@@ -275,16 +274,3 @@ async def websocket_endpoint(websocket: WebSocket):
                  dm.model_manager.remove_progress_callback(send_progress)
             
         await handler.on_disconnect()
-    except Exception as e:
-        error_id = str(uuid.uuid4())
-        logger.error(f"Unexpected WebSocket error from {handler.client_host} (ID: {error_id}): {e}", exc_info=True)
-        
-        env = os.getenv("TEPORA_ENV", "production")
-        
-        if env == "development":
-            error_message = f"Internal server error: {str(e)}"
-        else:
-            error_message = f"Internal server error (ID: {error_id})"
-            
-        await handler.send_json({"type": "error", "message": error_message})
-        await handler.handle_stop()

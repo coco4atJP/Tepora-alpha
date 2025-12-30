@@ -1,8 +1,10 @@
-
 import os
 import sys
 import shutil
 import subprocess
+import zipfile
+import tarfile
+import re
 from pathlib import Path
 
 # Constants
@@ -10,6 +12,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = PROJECT_ROOT / "backend"
 FRONTEND_TAURI_DIR = PROJECT_ROOT / "frontend" / "src-tauri"
 BINARIES_DIR = FRONTEND_TAURI_DIR / "binaries"
+RESOURCES_DIR = FRONTEND_TAURI_DIR / "resources"
+FALLBACK_DIR = RESOURCES_DIR / "llama-cpu-fallback"
+
+# This should point to e:\Tepora_Project\格納
+# PROJECT_ROOT is e:\Tepora_Project\Tepora-app
+REPO_ROOT = PROJECT_ROOT.parent
+STORAGE_DIR = REPO_ROOT / "格納"
 
 # Determine current platform's target triple
 # For Windows, usually x86_64-pc-windows-msvc
@@ -46,7 +55,81 @@ def clean():
     if build_dir.exists(): shutil.rmtree(build_dir)
     # Don't delete spec file if we want to reuse it, but here we might auto-generate.
 
+    # Clean fallback resources
+    if FALLBACK_DIR.exists():
+        print(f"Cleaning fallback dir: {FALLBACK_DIR}")
+        shutil.rmtree(FALLBACK_DIR)
+
+def get_platform_variant_regex():
+    """Get regex to match the correct fallback binary from '格納'"""
+    # Filenames in 格納:
+    # llama-b7574-bin-macos-arm64.tar.gz
+    # llama-b7574-bin-ubuntu-x64.tar.gz
+    # llama-b7574-bin-win-cpu-arm64.zip
+    # llama-b7574-bin-win-cpu-x64.zip
+
+    import platform
+    machine = platform.machine().lower()
+
+    if sys.platform == "win32":
+        if machine in ("arm64", "aarch64"):
+            return r"win-cpu-arm64\.zip$"
+        else:
+            return r"win-cpu-x64\.zip$"
+    elif sys.platform == "darwin":
+        if machine == "arm64":
+            return r"macos-arm64\.tar\.gz$"
+        else:
+            return r"macos-x64\.tar\.gz$"
+    else:
+        # Linux
+        return r"ubuntu-x64\.tar\.gz$" # Default to ubuntu-x64
+
+def setup_fallback_binaries():
+    print("Setting up fallback binaries...")
+    if not STORAGE_DIR.exists():
+        print(f"Warning: Storage directory not found at {STORAGE_DIR}. Skipping fallback setup.")
+        return
+
+    pattern = get_platform_variant_regex()
+    regex = re.compile(pattern)
+
+    found_archive = None
+    for item in STORAGE_DIR.iterdir():
+        if item.is_file() and regex.search(item.name):
+            found_archive = item
+            break
+    
+    if not found_archive:
+        print(f"Warning: No matching fallback binary found in {STORAGE_DIR} for pattern {pattern}")
+        return
+
+    print(f"Found fallback archive: {found_archive}")
+    FALLBACK_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Extract
+    try:
+        if found_archive.suffix == ".zip":
+            with zipfile.ZipFile(found_archive, "r") as zf:
+                zf.extractall(FALLBACK_DIR)
+        elif found_archive.name.endswith(".tar.gz") or found_archive.name.endswith(".tgz"):
+             with tarfile.open(found_archive, "r:gz") as tf:
+                tf.extractall(FALLBACK_DIR)
+        
+        print(f"Extracted fallback binaries to {FALLBACK_DIR}")
+
+        # Cleanup: Remove unneeded files if necessary (e.g. keeping only executables)
+        # But commonly we need dlls too. Leaving as is is safer for now.
+        
+    except Exception as e:
+        print(f"Error extracting fallback binary: {e}")
+        sys.exit(1)
+
+
 def build():
+    # 1. Setup Resources
+    setup_fallback_binaries()
+
     print(f"Building sidecar for {TARGET_TRIPLE}...")
     
     # Ensure binaries dir exists

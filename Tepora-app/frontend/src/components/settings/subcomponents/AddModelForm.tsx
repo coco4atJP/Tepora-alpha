@@ -63,49 +63,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
         }
     };
 
-    const handleDownload = async () => {
-        if (checkStatus !== 'valid') return;
 
-        setDownloading(true);
-        try {
-            // Determine role implies 'character' by default or we need a selector.
-            // Requirement says "Model - Add", "Model Selection" is separate.
-            // The user usually wants to add a model to the pool, but the backend mandates a role for directory placement.
-            // However, the backend implementation puts all models in `models/{role}`.
-            // If we don't ask for role, we don't know where to put it.
-            // Actually, `ModelManager` can move models between roles conceptually, but physically they are in folders.
-            // Let's default to 'character' or ask user. 
-            // The simplified requirements didn't specify "Role Selector" in Add, so I will default to 'character' 
-            // OR I should add a role selector. Given the pool concept, a model belongs to a pool.
-            // I'll add a simple Role Toggle/Select in the form.
-
-            // Wait, looking at current `download_model` in `setup.py`, it requires `role`.
-            // I'll assume for now we need a role selector in this form.
-
-            await fetch(`${getApiBase()}/api/setup/model/download`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                body: JSON.stringify({
-                    repo_id: repoId,
-                    filename: filename,
-                    role: selectedRole
-                })
-            });
-
-            // Trigger parent refresh (usually just knowing download started is enough)
-            onModelAdded();
-
-            // Reset form
-            setRepoId('');
-            setFilename('');
-            setCheckStatus('idle');
-            setDownloading(false);
-
-        } catch (e) {
-            console.error(e);
-            setDownloading(false);
-        }
-    };
 
     const [selectedRole, setSelectedRole] = useState('text');
 
@@ -139,7 +97,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
         if (!localFile) return;
 
         try {
-            // @ts-ignore
+            // @ts-expect-error - Electron adds path property to File objects
             const path = localFile.path;
             if (!path) {
                 alert('Cannot resolve file path. This feature requires a desktop environment.');

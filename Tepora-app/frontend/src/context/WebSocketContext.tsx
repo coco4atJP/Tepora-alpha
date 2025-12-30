@@ -20,6 +20,7 @@ interface WebSocketContextType {
     // Session management
     currentSessionId: string;
     setCurrentSessionId: (sessionId: string) => void;
+    isLoadingHistory: boolean; // UX改善4
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);

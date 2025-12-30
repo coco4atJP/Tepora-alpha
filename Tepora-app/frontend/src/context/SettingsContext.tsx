@@ -112,8 +112,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
             // Backward compatibility: Map legacy model keys to new 'text_model' key
             if (data.models_gguf && !data.models_gguf.text_model) {
-                const legacyChar = (data.models_gguf as any).character_model;
-                const legacyExec = (data.models_gguf as any).executor_model;
+                const modelsGguf = data.models_gguf as Record<string, unknown>;
+                const legacyChar = modelsGguf.character_model as ModelConfig | undefined;
+                const legacyExec = modelsGguf.executor_model as ModelConfig | undefined;
 
                 if (legacyChar) {
                     data.models_gguf.text_model = legacyChar;
@@ -122,8 +123,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
                 }
 
                 // Ensure embedding_model exists if legacy embedding key is present (though key name is same)
-                if (!data.models_gguf.embedding_model && (data.models_gguf as any).embedding_model) {
-                    data.models_gguf.embedding_model = (data.models_gguf as any).embedding_model;
+                if (!data.models_gguf.embedding_model && modelsGguf.embedding_model) {
+                    data.models_gguf.embedding_model = modelsGguf.embedding_model as ModelConfig;
                 }
             }
 

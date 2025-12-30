@@ -7,7 +7,11 @@ import { SessionHistory } from './SessionHistory';
 import { useSessions } from '../../hooks/useSessions';
 import { useWebSocketContext } from '../../context/WebSocketContext';
 
-export const SessionHistoryPanel: React.FC = () => {
+interface SessionHistoryPanelProps {
+    onSessionSelect?: () => void;
+}
+
+export const SessionHistoryPanel: React.FC<SessionHistoryPanelProps> = ({ onSessionSelect }) => {
     const {
         sessions,
         loading,
@@ -21,6 +25,9 @@ export const SessionHistoryPanel: React.FC = () => {
 
     const handleSelectSession = (sessionId: string) => {
         setCurrentSessionId(sessionId);
+        if (onSessionSelect) {
+            onSessionSelect();
+        }
     };
 
     const handleCreateSession = async () => {

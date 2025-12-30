@@ -8,8 +8,8 @@ import SearchResults from './SearchResults';
 import AgentStatus from './AgentStatus';
 import DynamicBackground from './ui/DynamicBackground';
 import { useWebSocketContext } from '../context/WebSocketContext';
-import { SessionHistoryPanel } from './SessionHistory';
-import { MessageSquare, Search, Bot, Settings as SettingsIcon } from 'lucide-react';
+import { SessionHistoryModal } from './SessionHistory/SessionHistoryModal';
+import { MessageSquare, Search, Bot, Settings as SettingsIcon, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 
@@ -38,6 +38,7 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({ mode, icon: Icon, lab
 const Layout: React.FC = () => {
     const [currentMode, setCurrentMode] = useState<ChatMode>('direct');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const { t } = useTranslation();
 
     // Use Context instead of local hook
@@ -107,26 +108,31 @@ const Layout: React.FC = () => {
                     </div>
 
                     {/* Dynamic Info Panel */}
-                    <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-2">
+                    <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden pr-2">
                         {currentMode === 'search' && <SearchResults results={searchResults} />}
                         {currentMode === 'agent' && <AgentStatus activityLog={activityLog} />}
 
                         {/* System Status Panel (Visible in Chat mode) */}
                         {currentMode === 'direct' && (
                             <>
-                                {/* Session History - Collapsible */}
-                                <details className="glass-panel rounded-xl" open>
-                                    <summary className="px-4 py-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                                        {t('sessionHistory', 'Sessions')}
-                                    </summary>
-                                    <div className="px-2 pb-2 max-h-64 overflow-y-auto custom-scrollbar">
-                                        <SessionHistoryPanel />
+                                {/* Session History Button & System Status */}
+                                <div className="flex-1 min-h-0 flex flex-col justify-end">
+                                    <div className="flex justify-end px-2 pb-2">
+                                        <button
+                                            onClick={() => setIsHistoryOpen(true)}
+                                            className="p-3 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                                            title={t('sessionHistory', 'History')}
+                                        >
+                                            <History size={20} />
+                                        </button>
                                     </div>
-                                </details>
-                                <SystemStatusPanel
-                                    isConnected={isConnected}
-                                    memoryStats={memoryStats}
-                                />
+                                    <div className="shrink-0">
+                                        <SystemStatusPanel
+                                            isConnected={isConnected}
+                                            memoryStats={memoryStats}
+                                        />
+                                    </div>
+                                </div>
                             </>
                         )}
                     </div>
@@ -152,6 +158,9 @@ const Layout: React.FC = () => {
 
             {/* Settings Dialog */}
             <SettingsDialog isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+            {/* Session History Modal */}
+            <SessionHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
         </div>
     );
 };

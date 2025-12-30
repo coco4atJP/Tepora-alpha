@@ -4,9 +4,10 @@ import { useWebSocketContext } from '../context/WebSocketContext';
 import MessageList from './MessageList';
 import InputArea from './InputArea';
 import ToolConfirmationDialog from './chat/ToolConfirmationDialog';
-import { Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ChatMode } from '../types';
 import { useTranslation } from 'react-i18next';
+import { useSessions } from '../hooks/useSessions';
 
 interface ChatInterfaceContext {
   currentMode: ChatMode;
@@ -15,19 +16,22 @@ interface ChatInterfaceContext {
 const ChatInterface: React.FC = () => {
   const { currentMode } = useOutletContext<ChatInterfaceContext>();
   const { t } = useTranslation();
-
+  const { createSession } = useSessions();
   const {
     messages,
     isConnected,
     isProcessing,
     sendMessage,
-    clearMessages,
     error,
     clearError,
     stopGeneration,
     pendingToolConfirmation,
     handleToolConfirmation,
   } = useWebSocketContext();
+
+  const handleCreateSession = () => {
+    createSession();
+  };
 
   return (
     <div className="flex flex-col h-full w-full relative">
@@ -51,15 +55,14 @@ const ChatInterface: React.FC = () => {
         </div>
       )}
 
-      {/* Clear Button - Floating Top Left */}
+      {/* New Session Button - Floating Top Left */}
       <div className="absolute top-4 left-4 z-20">
         <button
-          onClick={clearMessages}
+          onClick={handleCreateSession}
           className="glass-button p-2 text-coffee-200 hover:text-gold-300 flex items-center gap-2 text-xs"
-          title={t('chat.clear_history')}
+          title={t('newSession', 'New Session')}
         >
-          <Trash2 className="w-4 h-4" />
-          <span className="hidden sm:inline">{t('common.clear')}</span>
+          <Plus className="w-5 h-5" />
         </button>
       </div>
 

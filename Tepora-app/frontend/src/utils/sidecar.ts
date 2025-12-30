@@ -58,17 +58,32 @@ export async function startSidecar() {
         command.on('error', error => console.error(`[Sidecar] error: "${error}"`));
 
         // Parse TEPORA_PORT from stdout
-        command.stdout.on('data', line => {
+        command.stdout.on('data', async (line) => {
             console.log(`[Backend]: ${line}`);
             const portMatch = line.match(/TEPORA_PORT=(\d+)/);
             if (portMatch) {
                 const port = parseInt(portMatch[1], 10);
-                console.log(`[Sidecar] Backend port detected: ${port}`);
+                console.log(`[Sidecar] Backend port confirmed: ${port}. Waiting for health check...`);
                 backendPort = port;
                 setDynamicPort(port);
-                if (backendReadyResolve) {
-                    backendReadyResolve(port);
-                    backendReadyResolve = null;
+
+                // Wait for the server to actually start listening (since port is printed before heavy init)
+                const startWait = Date.now();
+                while (Date.now() - startWait < 30000) { // 30s timeout for startup
+                    try {
+                        const res = await fetch(`http://localhost:${port}/health`);
+                        if (res.ok) {
+                            console.log('[Sidecar] Backend health check passed. Ready.');
+                            if (backendReadyResolve) {
+                                backendReadyResolve(port);
+                                backendReadyResolve = null;
+                            }
+                            break;
+                        }
+                    } catch (e) {
+                        // wait and retry
+                    }
+                    await new Promise(r => setTimeout(r, 500));
                 }
             }
         });

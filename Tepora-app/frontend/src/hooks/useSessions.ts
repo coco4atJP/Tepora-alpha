@@ -114,6 +114,17 @@ export const useSessions = (): UseSessionsReturn => {
         fetchSessions();
     }, [fetchSessions]);
 
+    // UX改善2: メッセージ送信完了時にセッションリストを自動リフレッシュ
+    useEffect(() => {
+        const handleSessionRefresh = () => {
+            fetchSessions();
+        };
+        window.addEventListener('session-refresh', handleSessionRefresh);
+        return () => {
+            window.removeEventListener('session-refresh', handleSessionRefresh);
+        };
+    }, [fetchSessions]);
+
     return {
         sessions,
         loading,
