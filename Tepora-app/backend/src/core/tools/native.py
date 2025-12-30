@@ -32,7 +32,7 @@ class GoogleCustomSearchTool(BaseTool):
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-        self.session = self._create_session()
+
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -71,7 +71,8 @@ class GoogleCustomSearchTool(BaseTool):
         logger.info("Executing Google Custom Search for query: %s", query)
         start_time = time.time()
         try:
-            response = self.session.get(url, params=params, headers=headers, timeout=(10, 30))
+            with self._create_session() as session:
+                response = session.get(url, params=params, headers=headers, timeout=(10, 30))
             elapsed_time = time.time() - start_time
             logger.info("Search completed in %.2f seconds", elapsed_time)
             response.raise_for_status()
@@ -136,9 +137,7 @@ class GoogleCustomSearchTool(BaseTool):
     async def _arun(self, query: str) -> str:
         return await asyncio.to_thread(self._perform_search, query)
 
-    def __del__(self) -> None:  # noqa: D401
-        if hasattr(self, "session"):
-            self.session.close()
+
 
 
 class WebFetchInput(BaseModel):

@@ -34,12 +34,24 @@ export const useSocketConnection = ({
     const onErrorRef = useRef(onError);
     const onCloseRef = useRef(onClose);
 
+    const [retryCount, setRetryCount] = useState(0);
+
     useEffect(() => {
         onOpenRef.current = onOpen;
         onMessageRef.current = onMessage;
         onErrorRef.current = onError;
         onCloseRef.current = onClose;
     }, [onOpen, onMessage, onError, onClose]);
+
+    const calculateBackoff = (attempt: number) => {
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s... capped at 30s
+        const baseDelay = 1000;
+        const maxDelay = 30000;
+        const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+        // Add random jitter +/- 10%
+        const jitter = delay * 0.1 * (Math.random() * 2 - 1);
+        return delay + jitter;
+    };
 
     const connect = useCallback(() => {
         if (!isMounted.current) return;
@@ -53,6 +65,7 @@ export const useSocketConnection = ({
                     return;
                 }
                 setIsConnected(true);
+                setRetryCount(0); // Reset retry count on successful connection
                 onOpenRef.current?.();
             };
 
@@ -64,7 +77,7 @@ export const useSocketConnection = ({
             ws.onerror = (error) => {
                 if (!isMounted.current) return;
                 console.error("WebSocket error:", error);
-                setIsConnected(false);
+                // Don't modify isConnected here, allow onclose to handle state
                 onErrorRef.current?.(error);
             };
 
@@ -73,12 +86,16 @@ export const useSocketConnection = ({
                 setIsConnected(false);
                 onCloseRef.current?.();
 
-                // Automatic reconnect
+                // Automatic reconnect with exponential backoff
+                const delay = calculateBackoff(retryCount);
+                console.log(`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms (Attempt ${retryCount + 1})`);
+
                 reconnectTimeoutRef.current = setTimeout(() => {
                     if (isMounted.current) {
+                        setRetryCount(prev => prev + 1);
                         connect();
                     }
-                }, 5000);
+                }, delay);
             };
 
             wsRef.current = ws;
@@ -86,9 +103,17 @@ export const useSocketConnection = ({
             if (!isMounted.current) return;
             console.error("WebSocket connection failed:", error);
             setIsConnected(false);
-            // onErrorRef.current?.(error); // Error event structure might differ
+
+            // Retry even if immediate connection fails (e.g. invalid URL or network down)
+            const delay = calculateBackoff(retryCount);
+            reconnectTimeoutRef.current = setTimeout(() => {
+                if (isMounted.current) {
+                    setRetryCount(prev => prev + 1);
+                    connect();
+                }
+            }, delay);
         }
-    }, [WS_URL]);
+    }, [WS_URL, retryCount]); // Include retryCount to update next backoff calculation
 
     useEffect(() => {
         isMounted.current = true;
@@ -108,7 +133,7 @@ export const useSocketConnection = ({
                 wsRef.current.close();
             }
         };
-    }, [connect]);
+    }, [connect]); // Run only once on mount (connect handles recursion)
 
     const sendMessage = useCallback((data: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {

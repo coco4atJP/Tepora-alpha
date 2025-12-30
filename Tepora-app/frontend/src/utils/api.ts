@@ -52,7 +52,7 @@ export function getAuthHeaders(): Record<string, string> {
  */
 export function getApiBase(): string {
     if (isDesktop) {
-        return `http://localhost:${getApiPort()}`;
+        return `http://127.0.0.1:${getApiPort()}`;
     }
     return '';
 }
@@ -64,13 +64,19 @@ export function getApiBase(): string {
  */
 export function getWsBase(): string {
     if (isDesktop) {
-        return `ws://localhost:${getApiPort()}`;
+        return `ws://127.0.0.1:${getApiPort()}`;
     }
     return '';
 }
 
-// 後方互換性のための静的エクスポート（初期値）
-// 注意: 動的ポート取得後は getApiBase()/getWsBase() を使用すること
-const apiPort = import.meta.env.VITE_API_PORT || '8000';
-export const API_BASE = isDesktop ? `http://localhost:${apiPort}` : '';
-export const WS_BASE = isDesktop ? `ws://localhost:${apiPort}` : '';
+// Deprecated static constants - maintained for localized refactoring but
+// heavily discouraged. Use getApiBase() and getWsBase() instead.
+// These will still be incorrect until port is dynamic, but we can make them getters property-wise if we wanted,
+// but for now, we just removed the export of the const assignment that would be stale.
+// Actually, to prevent compilation errors in other files before we fix them, we can keep them
+// as getters using Object.defineProperty or just export functions.
+// But better to just remove them and fix the errors.
+
+// Re-export as property getters if you need compatibility, but here we will just redirect.
+// NOTE: We are removing API_BASE and WS_BASE constants to force usage of functions.
+// If this breaks build, we will fix the call sites.

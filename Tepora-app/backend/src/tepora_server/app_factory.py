@@ -41,14 +41,22 @@ async def lifespan(app: FastAPI):
 
         # Initialize Application State
         state = AppState()
-        await state.initialize()
         app.state.app_state = state
-        
-        if not state.core.initialized:
-            logger.critical("Failed to initialize core app components.")
-            raise RuntimeError("Failed to initialize core app")
-            
-        logger.info("✅ Tepora Web Server ready!")
+
+        # Initialize core app in background so setup endpoints can be served immediately.
+        async def _background_init():
+            try:
+                await state.initialize()
+                if state.core.initialized:
+                    logger.info("✅ Core initialization complete.")
+                else:
+                    logger.warning("Core initialization finished but core is not initialized (setup required).")
+            except Exception as e:
+                logger.error("Core initialization task failed: %s", e, exc_info=True)
+
+        asyncio.create_task(_background_init())
+
+        logger.info("✅ Tepora Web Server ready (core init running in background).")
     except Exception as e:
         logger.critical(f"❌ Critical failure during startup: {e}", exc_info=True)
         raise

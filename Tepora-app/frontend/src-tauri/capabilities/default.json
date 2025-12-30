@@ -7,13 +7,14 @@
   ],
   "permissions": [
     "core:default",
+    "log:default",
     {
-      "identifier": "shell:allow-execute",
+      "identifier": "shell:allow-spawn",
       "allow": [
         {
-          "name": "tepora-backend",
-          "cmd": "",
-          "sidecar": true
+          "name": "binaries/tepora-backend",
+          "sidecar": true,
+          "args": true
         }
       ]
     }

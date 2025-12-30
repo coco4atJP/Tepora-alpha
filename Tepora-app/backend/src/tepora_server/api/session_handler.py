@@ -73,6 +73,21 @@ class SessionHandler:
         # Pending tool approval requests (request_id -> Future[bool])
         self._pending_approvals: Dict[str, asyncio.Future] = {}
     
+    async def on_disconnect(self) -> None:
+        """Handle cleanup on WebSocket disconnection."""
+        logger.info(f"Session disconnected: {self.client_host}")
+        await self.handle_stop()
+        
+        # Cleanup pending approvals
+        count = 0
+        for req_id, future in self._pending_approvals.items():
+            if not future.done():
+                future.cancel()
+                count += 1
+        self._pending_approvals.clear()
+        if count > 0:
+            logger.info(f"Cancelled {count} pending tool approvals")
+
     async def send_json(self, data: dict) -> bool:
         """
         Send JSON data to the client.
@@ -127,7 +142,7 @@ class SessionHandler:
         request_id = str(uuid.uuid4())
         
         # Create a Future to wait for the response
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         future: asyncio.Future[bool] = loop.create_future()
         self._pending_approvals[request_id] = future
         

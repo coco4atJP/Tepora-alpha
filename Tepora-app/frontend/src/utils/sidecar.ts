@@ -1,4 +1,5 @@
-import { Command } from '@tauri-apps/plugin-shell';
+import { Command, Child } from '@tauri-apps/plugin-shell';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { setDynamicPort, getApiBase } from './api';
 
 // Helper to detect if running in Tauri
@@ -10,12 +11,31 @@ export const isDesktop = () => {
 let backendReadyResolve: ((port: number) => void) | null = null;
 let backendPort: number | null = null;
 
+// Store the sidecar child process for termination
+let sidecarChild: Child | null = null;
+
 export const backendReady: Promise<number> = new Promise((resolve) => {
     backendReadyResolve = resolve;
 });
 
 export function getBackendPort(): number | null {
     return backendPort;
+}
+
+/**
+ * Stop the sidecar process gracefully
+ */
+export async function stopSidecar(): Promise<void> {
+    if (sidecarChild) {
+        try {
+            console.log('[Sidecar] Terminating backend process...');
+            await sidecarChild.kill();
+            console.log('[Sidecar] Backend process terminated.');
+            sidecarChild = null;
+        } catch (error) {
+            console.error('[Sidecar] Failed to terminate backend:', error);
+        }
+    }
 }
 
 export async function startSidecar() {
@@ -33,7 +53,7 @@ export async function startSidecar() {
         // Check if backend is already running on any common port
         for (const testPort of [8000, 8001, 8002]) {
             try {
-                const response = await fetch(`http://localhost:${testPort}/health`);
+                const response = await fetch(`http://127.0.0.1:${testPort}/health`);
                 if (response.ok) {
                     console.log(`[Sidecar] Backend already running on port ${testPort}`);
                     backendPort = testPort;
@@ -50,10 +70,11 @@ export async function startSidecar() {
 
         console.log('[Sidecar] Starting backend sidecar...');
         // Note: Tauri will look for tepora-backend-target-triple(.exe)
-        const command = Command.sidecar('tepora-backend');
+        const command = Command.sidecar('binaries/tepora-backend');
 
         command.on('close', data => {
             console.log(`[Sidecar] finished with code ${data.code} and signal ${data.signal}`);
+            sidecarChild = null;
         });
         command.on('error', error => console.error(`[Sidecar] error: "${error}"`));
 
@@ -71,7 +92,7 @@ export async function startSidecar() {
                 const startWait = Date.now();
                 while (Date.now() - startWait < 30000) { // 30s timeout for startup
                     try {
-                        const res = await fetch(`http://localhost:${port}/health`);
+                        const res = await fetch(`http://127.0.0.1:${port}/health`);
                         if (res.ok) {
                             console.log('[Sidecar] Backend health check passed. Ready.');
                             if (backendReadyResolve) {
@@ -80,7 +101,7 @@ export async function startSidecar() {
                             }
                             break;
                         }
-                    } catch (e) {
+                    } catch {
                         // wait and retry
                     }
                     await new Promise(r => setTimeout(r, 500));
@@ -90,7 +111,21 @@ export async function startSidecar() {
         command.stderr.on('data', line => console.error(`[Backend Error]: ${line}`));
 
         const child = await command.spawn();
+        sidecarChild = child; // Store reference for termination
         console.log('[Sidecar] Backend spawned with PID:', child.pid);
+
+        // Setup window close handler to terminate sidecar
+        try {
+            const appWindow = getCurrentWindow();
+            await appWindow.onCloseRequested(async () => {
+                console.log('[Sidecar] Window close requested, terminating backend...');
+                await stopSidecar();
+                // Allow close to proceed
+            });
+            console.log('[Sidecar] Window close handler registered.');
+        } catch (err) {
+            console.warn('[Sidecar] Failed to register window close handler:', err);
+        }
 
         // Wait for port detection with timeout
         const timeoutMs = 30000;
@@ -104,7 +139,7 @@ export async function startSidecar() {
             // Fallback: try to detect port by checking health
             for (let testPort = 8000; testPort < 8100; testPort++) {
                 try {
-                    const response = await fetch(`http://localhost:${testPort}/health`, {
+                    const response = await fetch(`http://127.0.0.1:${testPort}/health`, {
                         signal: AbortSignal.timeout(1000)
                     });
                     if (response.ok) {
@@ -137,3 +172,4 @@ export async function checkBackendHealth(): Promise<boolean> {
         return false;
     }
 }
+

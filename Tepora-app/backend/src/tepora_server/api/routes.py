@@ -46,6 +46,10 @@ async def get_status(state: AppState = Depends(get_app_state)):
                 state.core.char_em_llm_integrator is not None or 
                 state.core.prof_em_llm_integrator is not None
             ),
+            "degraded": (
+                state.core.char_em_llm_integrator is None and 
+                state.core.prof_em_llm_integrator is None
+            ),
             # Count from DB using proper count method
             "total_messages": state.core.history_manager.get_message_count(),
             "memory_events": total_memory_events

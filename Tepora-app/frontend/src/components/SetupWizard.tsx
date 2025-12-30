@@ -96,9 +96,6 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     // Check requirements
     const checkRequirements = useCallback(async () => {
         try {
-            // Don't check if we are in language selection step
-            if (step === 'language') return;
-
             setStep('checking');
             const response = await fetch(`${getApiBase()}/api/setup/requirements`, {
                 headers: { ...getAuthHeaders() }
@@ -122,7 +119,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
             setError(err instanceof Error ? err.message : 'Unknown error');
             setStep('error');
         }
-    }, [step]); // Dependency on step to avoid loops if called incorrectly
+    }, []); // No dependencies needed
 
     // Poll progress
     const pollProgress = useCallback(async () => {

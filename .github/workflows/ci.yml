@@ -28,7 +28,7 @@ jobs:
       run: uv sync --frozen
 
     - name: Run Backend Tests
-      run: uv run pytest tests/test_api.py tests/test_contract_ws.py -v
+      run: uv run pytest tests/ -v --ignore=tests/core
 
   frontend-test:
     runs-on: ubuntu-latest

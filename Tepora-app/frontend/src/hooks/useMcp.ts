@@ -8,7 +8,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getAuthHeaders } from '../utils/api';
+import { getApiBase, getAuthHeaders } from '../utils/api';
+
+// --- Types ---
 
 // --- Types ---
 
@@ -58,10 +60,8 @@ export interface McpStoreServer {
 
 // --- API Functions ---
 
-const API_BASE = '/api/mcp';
-
 async function fetchMcpStatus(): Promise<Record<string, McpServerStatus>> {
-    const response = await fetch(`${API_BASE}/status`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/status`, {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch MCP status');
@@ -70,7 +70,7 @@ async function fetchMcpStatus(): Promise<Record<string, McpServerStatus>> {
 }
 
 async function fetchMcpConfig(): Promise<Record<string, McpServerConfig>> {
-    const response = await fetch(`${API_BASE}/config`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/config`, {
         headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch MCP config');
@@ -79,7 +79,7 @@ async function fetchMcpConfig(): Promise<Record<string, McpServerConfig>> {
 }
 
 async function updateMcpConfig(config: Record<string, McpServerConfig>): Promise<void> {
-    const response = await fetch(`${API_BASE}/config`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/config`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -94,7 +94,7 @@ async function updateMcpConfig(config: Record<string, McpServerConfig>): Promise
 }
 
 async function fetchMcpStore(search?: string): Promise<McpStoreServer[]> {
-    const url = search ? `${API_BASE}/store?search=${encodeURIComponent(search)}` : `${API_BASE}/store`;
+    const url = search ? `${getApiBase()}/api/mcp/store?search=${encodeURIComponent(search)}` : `${getApiBase()}/api/mcp/store`;
     const response = await fetch(url, {
         headers: getAuthHeaders(),
     });
@@ -109,7 +109,7 @@ async function installMcpServer(
     envValues?: Record<string, string>,
     serverName?: string
 ): Promise<{ server_name: string }> {
-    const response = await fetch(`${API_BASE}/install`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/install`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ async function installMcpServer(
 }
 
 async function enableServer(serverName: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/servers/${encodeURIComponent(serverName)}/enable`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/servers/${encodeURIComponent(serverName)}/enable`, {
         method: 'POST',
         headers: getAuthHeaders(),
     });
@@ -138,7 +138,7 @@ async function enableServer(serverName: string): Promise<void> {
 }
 
 async function disableServer(serverName: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/servers/${encodeURIComponent(serverName)}/disable`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/servers/${encodeURIComponent(serverName)}/disable`, {
         method: 'POST',
         headers: getAuthHeaders(),
     });
@@ -146,7 +146,7 @@ async function disableServer(serverName: string): Promise<void> {
 }
 
 async function deleteServer(serverName: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/servers/${encodeURIComponent(serverName)}`, {
+    const response = await fetch(`${getApiBase()}/api/mcp/servers/${encodeURIComponent(serverName)}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
     });

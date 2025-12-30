@@ -131,7 +131,7 @@ class TeporaCoreApp:
             )
             
         except Exception as e:
-            logger.warning(f"EM-LLM initialization failed, falling back: {e}")
+            logger.error(f"EM-LLM initialization failed (System degraded): {e}", exc_info=True)
             self.char_em_llm_integrator = None
             self.prof_em_llm_integrator = None
             # Fallback logic is handled in _build_graph

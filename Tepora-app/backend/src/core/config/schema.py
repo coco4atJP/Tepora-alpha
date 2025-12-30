@@ -15,7 +15,8 @@ class AppConfig(BaseModel):
     ]
     # Patterns for identifying sensitive keys in config (used by ConfigService)
     sensitive_key_patterns: List[str] = [
-        "api_key", "secret", "password", "token", "credential", "private_key"
+        "api_key", "secret", "password", "token", "credential", "private_key",
+        "auth", "jwt", "access_key", "client_id", "client_secret"
     ]
     
     # Timeouts and limits (centralized from hardcoded values)
@@ -38,12 +39,14 @@ class ServerConfig(BaseModel):
         "http://localhost:3000",
         "tauri://localhost",
         "https://tauri.localhost",
+        "http://tauri.localhost",
     ]
     
     # Allowed WebSocket origins for additional security
     ws_allowed_origins: List[str] = [
         "tauri://localhost",
         "https://tauri.localhost",
+        "http://tauri.localhost",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8000",

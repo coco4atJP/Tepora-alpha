@@ -195,9 +195,6 @@ class ReActNodes:
             "user_input": state["input"],
             "order_plan": order_plan_str,
             "long_term_memory": long_term_memory_str,
-            "user_input": state["input"],
-            "order_plan": order_plan_str,
-            "long_term_memory": long_term_memory_str,
             "short_term_memory": short_term_memory_str,
             "tools": tools_str
         })

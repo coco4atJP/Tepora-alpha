@@ -4,10 +4,30 @@ from src.core.config.loader import config_manager, settings
 from src.core.config.schema import TeporaSettings
 
 class TestConfigSystem:
-    def test_settings_load_defaults(self):
+    def test_settings_load_defaults(self, monkeypatch):
         """Test that settings load with defaults."""
-        assert settings.app.max_input_length == 10000
-        assert settings.active_agent_profile == "bunny_girl"
+        # Force reload with no config file to ensure defaults
+        # We temporarily override config_path to a non-existent file
+        monkeypatch.setenv("TEPORA_CONFIG_PATH", "non_existent_config.yml")
+        config_manager.load_config(force_reload=True)
+        
+        try:
+            assert settings.app.max_input_length == 10000
+            assert settings.active_agent_profile == "bunny_girl"
+        finally:
+            # Clean up by reloading without the env var (monkeypatch handles env restoration automatically)
+            # But we need to trigger load_config again after test finishes or env is reverted
+            pass
+            
+    # Note: We need a teardown to reset config_manager state for other tests,
+    # but since monkeypatch undoes env change, we just need to ensure next access reloads correct config.
+    # config_manager doesn't auto-detect env change if already initialized.
+    # So we should probably force reload in teardown or fixture.
+    
+    @pytest.fixture(autouse=True)
+    def reset_config(self):
+        yield
+        config_manager.load_config(force_reload=True)
 
     def test_settings_load_from_yaml_proxy(self):
         """Test that values usually in config.yml are present (assuming config.yml exists)."""

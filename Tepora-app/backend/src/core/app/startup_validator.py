@@ -37,7 +37,7 @@ def validate_startup_config(config, project_root: Path) -> None:
     # Note: Pydantic schema ensures types, we only validate existence/constraints.
     models_config = config.models_gguf
     if not models_config:
-        errors.append("models_gguf section is missing or empty in configuration")
+        logger.warning("models_gguf section is missing or empty in configuration (allowed before initial setup)")
     else:
         # Prepare Registry for path resolution
         try:

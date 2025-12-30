@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { getAuthHeaders } from '../utils/api';
+import { getApiBase, getAuthHeaders } from '../utils/api';
 
 const Logs: React.FC = () => {
     const [logs, setLogs] = useState<string[]>([]);
@@ -11,7 +11,7 @@ const Logs: React.FC = () => {
 
     const fetchLogs = useCallback(async () => {
         try {
-            const response = await fetch('/api/logs', {
+            const response = await fetch(`${getApiBase()}/api/logs`, {
                 headers: { ...getAuthHeaders() }
             });
             if (!response.ok) throw new Error('Failed to fetch logs');
@@ -27,7 +27,7 @@ const Logs: React.FC = () => {
     const fetchLogContent = useCallback(async (filename: string) => {
         setContentLoading(true);
         try {
-            const response = await fetch(`/api/logs/${filename}`, {
+            const response = await fetch(`${getApiBase()}/api/logs/${filename}`, {
                 headers: { ...getAuthHeaders() }
             });
             if (!response.ok) throw new Error('Failed to fetch log content');
