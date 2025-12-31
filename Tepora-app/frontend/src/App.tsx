@@ -101,7 +101,8 @@ function App() {
 
   useEffect(() => {
     initApp();
-  }, [initApp, retryCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryCount]);
 
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
