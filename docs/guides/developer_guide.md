@@ -37,7 +37,7 @@ Follow the official [Tauri Prerequisites](https://tauri.app/v1/guides/getting-st
 Tepora adopts a monorepo-like structure within the `Tepora-app` directory.
 
 ```
-Tepora/
+Tepora_Project/
 ├── Tepora-app/
 │   ├── backend/           # Python Backend (FastAPI + LangGraph)
 │   │   ├── models/        # Place GGUF models here
@@ -47,8 +47,11 @@ Tepora/
 │   │   ├── src/           # React components & hooks
 │   │   └── src-tauri/     # Rust Tauri configuration
 │   └── scripts/           # Build & utility scripts (e.g., build_sidecar.py)
-├── scripts/               # Legacy & root utility scripts
-└── docs/                  # Documentation
+├── docs/                  # Documentation
+│   ├── architecture/      # Architecture & design docs
+│   ├── guides/            # Developer guides
+│   └── planning/          # Planning & audit docs
+└── Taskfile.yml           # Task runner definitions
 ```
 
 ## 3. Development Workflow
@@ -93,8 +96,7 @@ uv run pytest tests/
 uv run pytest tests/ -v
 ```
 
-### Frontend Verification
-Currently, manual verification via the UI is the primary method.
+### Frontend Tests
 Automated frontend tests (Vitest) can be run via:
 ```bash
 cd Tepora-app/frontend
@@ -104,9 +106,24 @@ npm run test
 ## 5. Adding New Features
 
 ### Adding a New Tool
-1. Create a tool class in `Tepora-app/backend/src/core/tools/native.py`.
-2. Register the tool in `Tepora-app/backend/src/core/tool_manager.py`.
-3. If necessary, update the `agent_profiles` in `config.yml` to allow the new tool.
+
+Tepora's tool system is modular. To add a new tool:
+
+1. **Native Tools**: Create a tool class in `Tepora-app/backend/src/core/tools/native.py`.
+   - Inherit from `BaseTool` defined in `tools/base.py`
+2. **MCP Tools**: Configure external MCP servers in `config/mcp_tools_config.json`
+   - See `tools/mcp.py` for the `McpToolProvider` implementation
+3. Register the tool in `Tepora-app/backend/src/core/tool_manager.py`.
+4. If necessary, update the `agent_profiles` in `config.yml` to allow the new tool.
+
+**Tool directory structure:**
+```
+src/core/tools/
+├── __init__.py     # Tool exports
+├── base.py         # BaseTool abstract class
+├── native.py       # Built-in Python tools (e.g., Google Search)
+└── mcp.py          # MCP tool provider (McpToolProvider)
+```
 
 ### Modifying Agent Behavior
 - **Prompt Engineering**: Edit system prompts in `Tepora-app/backend/src/core/config/prompts.py`.
@@ -149,7 +166,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Teporaは `Tepora-app` ディレクトリ内でモノレポのような構造を採用しています。
 
 ```
-Tepora/
+Tepora_Project/
 ├── Tepora-app/
 │   ├── backend/           # Pythonバックエンド (FastAPI + LangGraph)
 │   │   ├── models/        # GGUFモデルはここに配置
@@ -159,8 +176,11 @@ Tepora/
 │   │   ├── src/           # Reactコンポーネント & フック
 │   │   └── src-tauri/     # Rust Tauri設定
 │   └── scripts/           # ビルド・ユーティリティスクリプト (例: build_sidecar.py)
-├── scripts/               # レガシー・ルート用スクリプト
-└── docs/                  # ドキュメント
+├── docs/                  # ドキュメント
+│   ├── architecture/      # アーキテクチャ・設計
+│   ├── guides/            # 開発者ガイド
+│   └── planning/          # 計画・監査
+└── Taskfile.yml           # タスクランナー定義
 ```
 
 ## 3. 開発ワークフロー
@@ -205,8 +225,7 @@ uv run pytest tests/
 uv run pytest tests/ -v
 ```
 
-### フロントエンド検証
-現在はUIを通じた手動検証が主な方法です。
+### フロントエンドテスト
 自動化されたフロントエンドテスト（Vitest）は以下で実行可能です：
 ```bash
 cd Tepora-app/frontend
@@ -216,9 +235,24 @@ npm run test
 ## 5. 新機能の追加
 
 ### 新しいツールの追加
-1. `Tepora-app/backend/src/core/tools/native.py` にツールクラスを作成します。
-2. `Tepora-app/backend/src/core/tool_manager.py` にツールを登録します。
-3. 必要であれば、`config.yml` の `agent_profiles` を更新して新しいツールを許可します。
+
+Teporaのツールシステムはモジュラー設計です。新しいツールを追加するには：
+
+1. **ネイティブツール**: `Tepora-app/backend/src/core/tools/native.py` にツールクラスを作成します。
+   - `tools/base.py` で定義された `BaseTool` を継承
+2. **MCPツール**: 外部MCPサーバーを `config/mcp_tools_config.json` で設定
+   - `McpToolProvider` の実装は `tools/mcp.py` を参照
+3. `Tepora-app/backend/src/core/tool_manager.py` にツールを登録します。
+4. 必要であれば、`config.yml` の `agent_profiles` を更新して新しいツールを許可します。
+
+**ツールディレクトリ構造:**
+```
+src/core/tools/
+├── __init__.py     # ツールのエクスポート
+├── base.py         # BaseTool抽象クラス
+├── native.py       # 組み込みPythonツール (例: Google検索)
+└── mcp.py          # MCPツールプロバイダ (McpToolProvider)
+```
 
 ### エージェントの挙動変更
 - **プロンプトエンジニアリング**: `Tepora-app/backend/src/core/config/prompts.py` 内のシステムプロンプトを編集します。

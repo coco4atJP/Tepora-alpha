@@ -1,4 +1,4 @@
-# Tepora Project Design Document Ver. 2.0
+# Tepora Project Design Document Ver. 2.0 （Legacy）
 〜 実験的プロトタイプから、実用的なパーソナルAIエージェントへ 〜
 
 ## 1. はじめに (Introduction)

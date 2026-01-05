@@ -1,6 +1,7 @@
 import {
 	Check,
 	CheckCircle,
+	CheckSquare,
 	ChevronRight,
 	Cpu,
 	Download,
@@ -9,6 +10,7 @@ import {
 	Loader2,
 	PlayCircle,
 	Settings,
+	Square,
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useReducer, useState } from "react";
@@ -29,6 +31,8 @@ interface SetupState {
 	step: SetupStep;
 	language: string;
 	requirements: RequirementsStatus | null;
+	defaults: DefaultModelsResponse | null;
+	selectedModels: Set<string>; // ID or some unique key for selected models
 	customModels: CustomModelsConfig | null;
 	progress: ProgressState;
 	error: string | null;
@@ -41,6 +45,8 @@ type SetupAction =
 	| { type: "REQ_CHECK_SUCCESS"; payload: RequirementsStatus }
 	| { type: "REQ_CHECK_FAILURE"; payload: string }
 	| { type: "GOTO_CONFIG" }
+	| { type: "SET_DEFAULTS"; payload: DefaultModelsResponse }
+	| { type: "TOGGLE_MODEL"; payload: string }
 	| { type: "SET_CUSTOM_MODELS"; payload: CustomModelsConfig }
 	| { type: "START_INSTALL"; payload: string } // jobId
 	| { type: "UPDATE_PROGRESS"; payload: ProgressState }
@@ -59,10 +65,21 @@ interface RequirementsStatus {
 	};
 }
 
+interface ModelConfig {
+	repo_id: string;
+	filename: string;
+	display_name: string;
+	role?: string; // from user selection, implies text if missing
+}
+
+interface DefaultModelsResponse {
+	text_models: ModelConfig[];
+	embedding: ModelConfig | null;
+}
+
 interface CustomModelsConfig {
-	text?: { repo_id: string; filename: string; display_name?: string };
-	executor?: { repo_id: string; filename: string; display_name?: string };
-	embedding?: { repo_id: string; filename: string; display_name?: string };
+	text?: ModelConfig; // Legacy single custom text model override
+	embedding?: ModelConfig;
 }
 
 interface ProgressState {
@@ -77,6 +94,8 @@ const initialState: SetupState = {
 	step: "LANGUAGE",
 	language: "en",
 	requirements: null,
+	defaults: null,
+	selectedModels: new Set(),
 	customModels: null,
 	progress: { status: "idle", progress: 0, message: "" },
 	error: null,
@@ -104,6 +123,33 @@ function setupReducer(state: SetupState, action: SetupAction): SetupState {
 			};
 		case "GOTO_CONFIG":
 			return { ...state, step: "MODEL_CONFIG" };
+		case "SET_DEFAULTS": {
+			// Auto select first 2 models as default recommendation
+			const recommended = new Set<string>();
+			if (action.payload.text_models.length > 0) {
+				// Select first one at least
+				recommended.add(getKey(action.payload.text_models[0]));
+				// Maybe second one too if available (Ministral?)
+				// Just selecting first one (Gemma) and second (Ministral) if available
+				if (action.payload.text_models.length > 1) {
+					recommended.add(getKey(action.payload.text_models[1]));
+				}
+			}
+			return {
+				...state,
+				defaults: action.payload,
+				selectedModels: recommended,
+			};
+		}
+		case "TOGGLE_MODEL": {
+			const newSet = new Set(state.selectedModels);
+			if (newSet.has(action.payload)) {
+				newSet.delete(action.payload);
+			} else {
+				newSet.add(action.payload);
+			}
+			return { ...state, selectedModels: newSet };
+		}
 		case "SET_CUSTOM_MODELS":
 			return { ...state, customModels: action.payload };
 		case "START_INSTALL":
@@ -126,6 +172,9 @@ function setupReducer(state: SetupState, action: SetupAction): SetupState {
 			return state;
 	}
 }
+
+// Helper to generate unique key for model
+const getKey = (m: ModelConfig) => `${m.repo_id}:${m.filename}`;
 
 // --- Component ---
 
@@ -184,19 +233,77 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		}
 	}, []);
 
+	// Load Defaults for Config Screen
+	useEffect(() => {
+		if (state.step === "MODEL_CONFIG" && !state.defaults) {
+			fetch(`${getApiBase()}/api/setup/default-models`, {
+				headers: { ...getAuthHeaders() },
+			})
+				.then((r) => r.json())
+				.then((data) => {
+					dispatch({ type: "SET_DEFAULTS", payload: data });
+				})
+				.catch(() => {});
+		}
+	}, [state.step, state.defaults]);
+
 	// 3. Start Auto Setup
 	const handleStartSetup = async () => {
 		try {
-			const body = state.customModels
-				? { custom_models: state.customModels }
-				: {};
+			// Construct target models list
+			const target_models: any[] = [];
+
+			if (showAdvanced && state.customModels) {
+				// Use custom single overrides
+				if (state.customModels.text) {
+					target_models.push({
+						...state.customModels.text,
+						role: "text",
+					});
+				}
+				if (state.customModels.embedding) {
+					target_models.push({
+						...state.customModels.embedding,
+						role: "embedding",
+					});
+				}
+			} else {
+				// Use selected defaults
+				if (state.defaults) {
+					// Text models
+					state.defaults.text_models.forEach((m) => {
+						if (state.selectedModels.has(getKey(m))) {
+							target_models.push({
+								repo_id: m.repo_id,
+								filename: m.filename,
+								display_name: m.display_name,
+								role: "text",
+							});
+						}
+					});
+
+					// Always include embedding if available for now
+					if (state.defaults.embedding) {
+						target_models.push({
+							repo_id: state.defaults.embedding.repo_id,
+							filename: state.defaults.embedding.filename,
+							display_name: state.defaults.embedding.display_name,
+							role: "embedding",
+						});
+					}
+				}
+			}
+
+			// If no models selected, confirm warning? Or allow?
+			// Assuming at least one text model is preferred.
+
 			const res = await fetch(`${getApiBase()}/api/setup/run`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					...getAuthHeaders(),
 				},
-				body: JSON.stringify(body),
+				body: JSON.stringify({ target_models }),
 			});
 
 			if (!res.ok) throw new Error("Failed to start setup");
@@ -268,26 +375,6 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 			});
 		}
 	};
-
-	// --- Helpers ---
-
-	// Load Defaults for Config Screen
-	useEffect(() => {
-		if (state.step === "MODEL_CONFIG" && !state.customModels) {
-			fetch(`${getApiBase()}/api/setup/default-models`, {
-				headers: { ...getAuthHeaders() },
-			})
-				.then((r) => r.json())
-				.then((data) => {
-					// Backend returns { text: {}, executor: {}, embedding: {} }
-					// We can use this as initial state for customModels if needed
-					// But for now we just let user override it.
-					// If we really want to show defaults in inputs, we should set them.
-					dispatch({ type: "SET_CUSTOM_MODELS", payload: data });
-				})
-				.catch(() => {});
-		}
-	}, [state.step, state.customModels]);
 
 	// --- Render ---
 
@@ -389,7 +476,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 									<p className="font-medium mb-1">
 										{t(
 											"setup.storage_required",
-											"Approx. 4GB download required",
+											"Approx. 2GB+ per model required",
 										)}
 									</p>
 									<p className="opacity-80">
@@ -403,24 +490,65 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 							{!showAdvanced ? (
 								<div className="space-y-4">
+									<div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+										<div className="text-sm font-medium text-gray-300 mb-2">
+											Select Models to Install:
+										</div>
+										{state.defaults?.text_models.map((m) => {
+											const key = getKey(m);
+											const isSelected = state.selectedModels.has(key);
+											return (
+												<div
+													key={key}
+													className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${isSelected ? "bg-gold-400/10 border-gold-400/30" : "bg-black/20 border-transparent hover:bg-white/5"}`}
+													onClick={() =>
+														dispatch({ type: "TOGGLE_MODEL", payload: key })
+													}
+												>
+													{isSelected ? (
+														<CheckSquare className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" />
+													) : (
+														<Square className="w-5 h-5 text-gray-500 shrink-0 mt-0.5" />
+													)}
+													<div>
+														<div
+															className={`font-medium ${isSelected ? "text-gold-100" : "text-gray-400"}`}
+														>
+															{m.display_name}
+														</div>
+														<div className="text-xs text-gray-500 break-all">
+															{m.repo_id}
+														</div>
+													</div>
+												</div>
+											);
+										})}
+										{state.defaults?.text_models.length === 0 && (
+											<div className="text-gray-500 text-sm italic">
+												Loading models...
+											</div>
+										)}
+									</div>
+
 									<button
 										onClick={() => handleStartSetup()}
-										className="w-full text-left p-6 bg-gradient-to-br from-coffee-900/40 to-black/60 border border-gold-500/20 hover:border-gold-500/50 rounded-xl group transition-all duration-300 shadow-lg hover:shadow-gold-900/20"
+										disabled={state.selectedModels.size === 0}
+										className="w-full text-left p-6 bg-gradient-to-br from-coffee-900/40 to-black/60 border border-gold-500/20 hover:border-gold-500/50 rounded-xl group transition-all duration-300 shadow-lg hover:shadow-gold-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 										<div className="flex items-center justify-between mb-2">
 											<div className="flex items-center gap-2">
 												<CheckCircle className="w-5 h-5 text-green-400" />
 												<span className="font-semibold text-lg text-gold-100">
-													{t("setup.recommended", "Recommended Settings")}
+													{t(
+														"setup.install_selected",
+														"Install Selected Models",
+													)}
 												</span>
 											</div>
 											<ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-gold-400" />
 										</div>
 										<p className="text-sm text-gray-400 pl-7">
-											{t(
-												"setup.recommended_desc",
-												"Install standard Llama 3 models optimized for speed and quality.",
-											)}
+											{state.selectedModels.size} models selected.
 										</p>
 									</button>
 
@@ -432,7 +560,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 											<div className="flex items-center gap-2">
 												<Settings className="w-5 h-5 text-gray-400" />
 												<span className="font-semibold text-lg text-gray-200">
-													{t("setup.custom", "Custom Configuration")}
+													{t("setup.custom", "Custom Configuration (Advanced)")}
 												</span>
 											</div>
 											<ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white" />
@@ -455,7 +583,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 											onClick={() => setShowAdvanced(false)}
 											className="text-xs text-gold-400 hover:underline"
 										>
-											{t("common.back", "Use Recommendations")}
+											{t("common.back", "Back to Recommendations")}
 										</button>
 									</div>
 
@@ -482,6 +610,9 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 																[role]: {
 																	...state.customModels?.[role],
 																	repo_id: e.target.value,
+																	display_name: "Custom Model",
+																	filename:
+																		state.customModels?.[role]?.filename || "",
 																},
 															},
 														})
@@ -499,6 +630,9 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 																[role]: {
 																	...state.customModels?.[role],
 																	filename: e.target.value,
+																	display_name: "Custom Model",
+																	repo_id:
+																		state.customModels?.[role]?.repo_id || "",
 																},
 															},
 														})

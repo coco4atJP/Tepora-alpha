@@ -1,7 +1,7 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
-**バージョン**: 2.1
-**最終更新日**: 2025-12-28
+**バージョン**: 2.4
+**最終更新日**: 2026-01-05
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
 ---
@@ -135,6 +135,7 @@ graph TB
 | **テスト** | Vitest, Testing Library | 4.0.14 | ユニット/コンポーネントテスト |
 | **アイコン** | Lucide React | 0.561.0 | アイコンライブラリ |
 | **マークダウン** | react-markdown | 10.0.0 | マークダウンレンダリング |
+| **データフェッチ** | TanStack Query | 5.90.16 | 非同期状態管理・キャッシュ |
 
 ### 3.2 バックエンド
 
@@ -152,11 +153,16 @@ graph TB
 
 ### 3.3 AIモデル
 
-| モデル | 用途 | 推奨サイズ | ポート |
-|--------|------|-----------|--------|
-| **Gemma-3N-E4B** | キャラクターエージェント（対話） | 4B (IQ4_XS) | Dynamic (Auto) |
-| **Jan-nano-128k** | プロフェッショナルエージェント（ツール実行） | 128k context (iQ4_XS) | Dynamic (Auto) |
-| **EmbeddingGemma** | ベクトル埋め込み | 300M (Q8_0) | Dynamic (Auto) |
+ユーザーはセットアップ時に、以下の推奨モデルリストから用途に合わせて選択可能です。
+(デフォルト設定: `src/core/config/schema.py` の `DefaultModelsConfig` 参照)
+
+| カテゴリ | モデル例 | 用途 | 推奨サイズ |
+|---|---|---|---|
+| **Text Model** | **Gemma 3n E2B/4B**<br>**Ministral 3B**<br>**Phi-4 Mini** | キャラクター/エージェント対話 | 2B - 4B (IQ4_XS) |
+| **Embedding** | **EmbeddingGemma** | ベクトル埋め込み (RAG/EM-LLM) | 300M (Q8_0) |
+
+> **Note**: アプリケーションは複数のモデルを同時に管理し、ロール（Character/Executor）に応じて動的に切り替えることが可能です。
+
 
 ---
 
@@ -175,8 +181,7 @@ Tepora_Project/
 │   │   ├── ROADMAP.md
 │   │   └── design_document_v2.md
 │   ├── planning/               # 計画・監査
-│   │   ├── audit_report.md
-│   │   └── refactoring_plan.md
+│   │   └── audit_report.md
 │   └── guides/                 # ガイド
 │       └── web_development.md
 ├── scripts/                    # 開発用スクリプト
@@ -191,6 +196,8 @@ Tepora_Project/
 backend/
 ├── server.py                   # FastAPIエントリーポイント
 ├── config.yml                  # システム設定 (gitignored)
+├── config/                     # ランタイム設定
+│   └── mcp_tools_config.json   # MCPサーバー設定 (gitignored)
 ├── pyproject.toml              # プロジェクト設定・依存関係
 ├── uv.lock                     # 依存関係ロックファイル
 ├── REFACTORING_SUMMARY.md      # リファクタリング詳細
@@ -203,9 +210,20 @@ backend/
 ├── logs/                       # ログファイル
 └── src/
     ├── tepora_server/          # Webサーバー/API層
+    │   ├── __init__.py
     │   ├── app_factory.py      # FastAPI App生成
-    │   ├── api/                # ルート定義
-    │   └── state.py            # アプリケーション状態
+    │   ├── state.py            # アプリケーション状態
+    │   └── api/                # ルート定義
+    │       ├── __init__.py
+    │       ├── dependencies.py # 依存性注入
+    │       ├── exception_handlers.py # 例外ハンドラ
+    │       ├── security.py     # 認証・セキュリティ
+    │       ├── routes.py       # 基本REST API
+    │       ├── sessions.py     # セッションAPI
+    │       ├── session_handler.py # セッションハンドラ
+    │       ├── setup.py        # セットアップAPI
+    │       ├── mcp_routes.py   # MCP管理API
+    │       └── ws.py           # WebSocketハンドラ
     └── core/                   # コアロジック (Business Logic)
         ├── __init__.py
         ├── state.py            # グラフステート定義
@@ -213,50 +231,78 @@ backend/
         ├── tool_manager.py     # ツール管理
         ├── chat_history_manager.py # チャット履歴管理
         ├── embedding_provider.py
+        ├── log_maintenance.py  # ログメンテナンス
         ├── app/                # アプリケーション層
+        │   ├── __init__.py
         │   ├── core.py         # TeporaCoreAppクラス (Main Hub)
+        │   ├── startup_validator.py # 起動時バリデーション
         │   └── utils.py
         ├── graph/              # LangGraphロジック
+        │   ├── __init__.py
         │   ├── core.py         # AgentCoreクラス
         │   ├── em_llm_core.py  # EMEnabledAgentCore
         │   ├── constants.py
         │   ├── routing.py
         │   ├── utils.py
         │   └── nodes/          # グラフノード
+        │       ├── __init__.py
         │       ├── memory.py
         │       ├── conversation.py
         │       ├── react.py
         │       └── em_llm.py
         ├── em_llm/             # エピソード記憶システム
+        │   ├── __init__.py
         │   ├── integrator.py   # EMLLMIntegrator
         │   ├── segmenter.py    # イベントセグメンテーション
         │   ├── boundary.py     # 境界精密化
         │   ├── retrieval.py    # 2段階検索
         │   └── types.py        # データクラス
         ├── llm/                # LLM実行管理
-        │   ├── executable.py
-        │   ├── health.py
-        │   └── process.py
+        │   ├── __init__.py
+        │   ├── executable.py   # 実行形式管理
+        │   ├── health.py       # ヘルスチェック
+        │   ├── process.py      # プロセス管理
+        │   ├── client_factory.py   # LangChainクライアント生成
+        │   ├── model_registry.py   # モデルパス解決
+        │   └── process_manager.py  # llama.cppプロセス管理
         ├── tools/              # ツールシステム
+        │   ├── __init__.py
+        │   ├── base.py         # ツール基底クラス
         │   ├── native.py       # ネイティブツール
-        │   └── mcp.py          # MCPクライアント
+        │   └── mcp.py          # MCPツールプロバイダ (McpToolProvider)
         ├── mcp/                # MCP Store・管理システム
-        │   ├── hub.py          # McpHubクラス
+        │   ├── __init__.py
+        │   ├── hub.py          # McpHubクラス (API/管理用)
         │   ├── installer.py    # MCPインストーラー
         │   ├── registry.py     # MCPレジストリ
-        │   └── models.py       # MCPデータモデル
+        │   ├── models.py       # MCPデータモデル
+        │   └── seed.json       # デフォルトMCPサーバー定義
         ├── download/           # モデルダウンロード管理
+        │   ├── __init__.py
+        │   ├── binary.py       # llama.cppバイナリDL
+        │   ├── manager.py      # ダウンロードマネージャー
+        │   ├── models.py       # モデルDL処理
+        │   ├── progress.py     # 進捗追跡
+        │   └── types.py        # 型定義
         ├── common/             # 共通ユーティリティ
+        │   ├── __init__.py
+        │   └── security.py     # セキュリティユーティリティ
         ├── memory/             # メモリシステム
-        │   └── memory_system.py
+        │   ├── memory_system.py    # メモリシステム本体
+        │   ├── chroma_store.py     # ChromaDBストア
+        │   └── vector_store.py     # ベクトルストア抽象化
         ├── a2a/                # Agent-to-Agent Protocol
-        └── config/             # 設定モジュール (Internal Config)
-            ├── __init__.py     # 公開API定義
-            ├── app.py          # アプリケーション設定クラス
-            ├── loader.py       # 設定ロード・バリデーション・パス解決
-            ├── agents.py       # エージェント・ペルソナ設定
-            ├── prompts.py      # システムプロンプト定義
-            └── memory.py       # メモリ関連定数
+        │   └── __init__.py
+        ├── config/             # 設定モジュール
+        │   ├── __init__.py     # 公開API定義
+        │   ├── app.py          # アプリケーション設定クラス
+        │   ├── loader.py       # 設定ロード・バリデーション・パス解決
+        │   ├── schema.py       # Pydanticスキーマ定義
+        │   ├── service.py      # 設定サービスクラス
+        │   ├── agents.py       # エージェント・ペルソナ設定
+        │   ├── prompts.py      # システムプロンプト定義
+        │   └── memory.py       # メモリ関連定数
+
 ```
 
 ### 4.3 フロントエンド構造
@@ -272,12 +318,45 @@ frontend/
 │   ├── main.tsx                # Reactエントリーポイント
 │   ├── App.tsx                 # ルートコンポーネント
 │   ├── index.css               # グローバルスタイル
+│   ├── i18n.ts                 # 国際化設定 (i18next)
 │   ├── components/             # UIコンポーネント
+│   │   ├── Layout.tsx          # メインレイアウト
+│   │   ├── ChatInterface.tsx   # チャット画面
+│   │   ├── SetupWizard.tsx     # セットアップウィザード
+│   │   ├── Sidebar.tsx         # サイドバー
+│   │   ├── StatusBar.tsx       # ステータスバー
+│   │   ├── InputArea.tsx       # 入力エリア
+│   │   ├── MessageList.tsx     # メッセージリスト
+│   │   ├── MessageBubble.tsx   # メッセージバブル
+│   │   ├── DialControl.tsx     # モード切替ダイアル
+│   │   ├── PersonaSwitcher.tsx # ペルソナ切替
+│   │   ├── AgentStatus.tsx     # エージェント状態表示
+│   │   ├── SearchResults.tsx   # 検索結果表示
+│   │   ├── SystemStatusPanel.tsx # システム詳細パネル
+│   │   ├── settings/           # 設定画面
+│   │   ├── SessionHistory/     # セッション履歴
+│   │   ├── ui/                 # 汎用UIパーツ
+│   │   └── chat/               # チャット関連パーツ
 │   ├── context/                # React Context
+│   │   ├── SettingsContext.tsx # 設定プロバイダー
+│   │   └── WebSocketContext.tsx # WS接続プロバイダー
 │   ├── hooks/                  # カスタムフック
+│   │   ├── useWebSocket.ts     # WebSocket管理
+│   │   ├── useSettings.ts      # 設定管理
+│   │   ├── useSessions.ts      # セッション管理
+│   │   ├── useMcp.ts           # MCP管理
+│   │   ├── useServerConfig.ts  # サーバー設定取得
+│   │   └── chat/               # チャット関連フック
 │   ├── pages/                  # ページコンポーネント
+│   │   ├── Logs.tsx            # ログビューア
+│   │   └── Memory.tsx          # 記憶可視化
 │   ├── types/                  # TypeScript型定義
+│   │   ├── index.ts            # 主要型定義
+│   │   └── tauri.d.ts          # Tauri型宣言
 │   ├── utils/                  # ユーティリティ
+│   │   ├── api.ts              # API呼び出し
+│   │   ├── api-client.ts       # HTTPクライアント
+│   │   └── sidecar.ts          # Tauriサイドカー管理
 │   ├── styles/                 # スタイル定義
 │   └── test/                   # テストセットアップ (Vitest)
 └── src-tauri/                  # Tauri設定
@@ -312,8 +391,11 @@ frontend/
 
 **REST API**
 - `GET /health` - ヘルスチェック
+- `POST /api/shutdown` - サーバーシャットダウン
+- `GET /api/status` - システムステータス・統計情報取得
 - `GET /api/config` - 設定情報取得
-- `POST /api/config` - 設定更新
+- `POST /api/config` - 設定更新 (全体)
+- `PATCH /api/config` - 設定更新 (部分)
 - `GET /api/logs` - ログファイル一覧
 - `GET /api/logs/{filename}` - ログ内容取得
 
@@ -321,21 +403,44 @@ frontend/
 - `GET /api/sessions` - セッション一覧取得
 - `POST /api/sessions` - 新規セッション作成
 - `GET /api/sessions/{session_id}` - セッション詳細取得
-- `PUT /api/sessions/{session_id}` - セッション更新
+- `PATCH /api/sessions/{session_id}` - セッション名更新
 - `DELETE /api/sessions/{session_id}` - セッション削除
 
 **MCP API**
-- `GET /api/mcp/servers` - MCPサーバー一覧
-- `POST /api/mcp/servers` - MCPサーバー追加
-- `DELETE /api/mcp/servers/{server_id}` - MCPサーバー削除
-- `POST /api/mcp/servers/{server_id}/toggle` - MCPサーバー有効/無効切り替え
-- `GET /api/mcp/registry` - MCPレジストリ取得
+- `GET /api/mcp/status` - MCPサーバー接続ステータス一覧
+- `GET /api/mcp/config` - MCP設定情報取得
+- `POST /api/mcp/config` - MCP設定更新
+- `GET /api/mcp/store` - MCPレジストリ（利用可能なサーバー一覧）取得
 - `POST /api/mcp/install` - MCPサーバーインストール
+- `POST /api/mcp/servers/{server_name}/enable` - サーバー有効化
+- `POST /api/mcp/servers/{server_name}/disable` - サーバー無効化
+- `DELETE /api/mcp/servers/{server_name}` - サーバー削除
 
 **Setup API**
-- `GET /api/setup/status` - セットアップ状態取得
-- `POST /api/setup/download-model` - モデルダウンロード
-- `POST /api/setup/complete` - セットアップ完了
+- `POST /api/setup/init` - セットアップ初期化（言語設定）
+- `GET /api/setup/requirements` - 要件チェック
+- `GET /api/setup/default-models` - 推奨モデルリスト取得
+- `POST /api/setup/run` - セットアップジョブ開始（バイナリ+選択モデルのダウンロード）
+- `GET /api/setup/progress` - 進捗確認
+- `POST /api/setup/finish` - セットアップ完了・設定保存
+- `POST /api/setup/download/action` - ダウンロード制御（一時停止/再開/キャンセル）
+- `GET /api/setup/download/incomplete` - 未完了ダウンロード一覧
+- `GET /api/setup/download/progress` - ダウンロード進捗取得
+- `GET /api/setup/models` - 利用可能なモデル一覧取得
+- `DELETE /api/setup/model/{model_id}` - モデル削除
+- `POST /api/setup/model/active` - アクティブモデル設定
+- `POST /api/setup/model/check` - モデル存在確認 (HF)
+- `POST /api/setup/model/reorder` - モデル順序変更
+- `POST /api/setup/model/download` - HuggingFaceからモデルダウンロード
+- `POST /api/setup/model/local` - ローカルモデル追加
+- `GET /api/setup/model/roles` - モデルロール設定取得
+- `POST /api/setup/model/roles/character` - キャラクターモデル設定
+- `POST /api/setup/model/roles/executor` - エグゼキューターモデル設定
+- `DELETE /api/setup/model/roles/executor/{task_type}` - エグゼキューター設定解除
+- `POST /api/setup/binary` - バイナリ直接ダウンロード
+- `GET /api/setup/binary/check` - llama.cpp更新チェック
+- `POST /api/setup/binary/update` - llama.cpp更新実行
+- `POST /api/setup/initial` - 初回セットアップ実行
 
 #### WebSocketメッセージフォーマット
 
@@ -397,32 +502,44 @@ graph LR
     STORE --> END([END])
 ```
 
-### 5.3 LLMManager (`llm_manager.py`)
+### 5.3 LLMManager (`src/core/llm_manager.py`)
 
-複数のllama.cppサーバーを管理し、動的にモデルをロード/アンロードします。
+LLMManagerは、モデルライフサイクル管理の司令塔として機能し、以下の責務を持ちます：
+- **動的リソース割り当て**: 空きポートの検索、プロセス管理
+- **モデルキャッシング**: LRUキャッシュによるモデルプロセスの再利用とメモリ効率化
+- **ロールベースアクセス**: キャラクター、エグゼキューター、Embeddingの役割に応じたモデル解決
 
-#### 主要メソッド
+#### 5.3.1 内部コンポーネント構成
+
+`LLMManager`は内部的に責務を分割しています：
+
+- **ModelRegistry** (`src/core/llm/model_registry.py`): 設定ファイルとファイルシステムからモデルパスを解決。
+- **ProcessManager** (`src/core/llm/process_manager.py`): llama.cppサーバープロセスの起動・停止・監視（ヘルスチェック）。
+- **ClientFactory** (`src/core/llm/client_factory.py`): LangChain互換のチャットクライアント生成。
+
+#### 5.3.2 主要メソッド
 
 ```python
 class LLMManager:
-    def get_model(self, model_key: str) -> LLMExecutable:
-        """モデルを取得（必要に応じて起動）"""
+    async def get_character_model(self) -> BaseChatModel:
+        """対話用キャラクターモデルを取得（必要に応じて起動）"""
         
-    def unload_model(self, model_key: str):
-        """モデルをアンロード（メモリ解放）"""
+    async def get_executor_model(self, task_type: str = "default") -> BaseChatModel:
+        """タスク実行用モデルを取得。タスクタイプに応じて最適なモデルを選択可能。"""
         
-    def generate(self, model_key: str, prompt: str, **kwargs) -> str:
-        """テキスト生成"""
+    async def get_embedding_model(self) -> Embeddings:
+        """ベクトル化用モデルを取得（専用プロセスとして常駐）"""
         
-    def stream_generate(self, model_key: str, prompt: str, **kwargs):
-        """ストリーミング生成"""
+    def cleanup(self):
+        """全プロセスの停止とリソース解放"""
 ```
 
-#### モデル管理戦略
+#### 5.3.3 プロセス管理戦略
+- **1モデル1プロセス**: 各モデルは独立した `llama-server` プロセスとして実行され、HTTP経由で通信します。
+- **動的ポート**: ポート競合を防ぐため、起動時に空きポートを動的に割り当てます。
+- **自動終了**: アプリケーション終了時、管理者プロセスが子プロセスツリーを確実に終了させます。
 
-- **オンデマンドロード**: 使用時のみモデルを起動
-- **ヘルスチェック**: 60秒のタイムアウトで大規模モデルの起動を待機
-- **プロセス管理**: 各モデルを独立したllama.cppプロセスで実行
+
 
 ### 5.4 EM-LLM (Episodic Memory with LLMs)
 
@@ -446,12 +563,13 @@ graph TB
 #### 5.4.2 主要コンポーネント
 
 **EMEventSegmenter** (`em_llm/segmenter.py`)
-- **Surprise-based Segmentation**: logprobsの変化を「驚き」として検出
+- **Surprise-based Segmentation**: logprobsの変化を「驚き」として検出（ログ確率が利用できない場合は、文埋め込みによる意味的変化検出へフォールバック）
 - **動的イベント分割**: 驚きが閾値を超えた際にイベントを分割
 - **設定パラメータ**:
-  - `surprise_gamma`: 驚き度の感度 (0.1)
-  - `min_event_size`: 最小イベントサイズ (10トークン)
-  - `max_event_size`: 最大イベントサイズ (512トークン)
+  - `surprise_gamma`: 驚き度の感度 (1.0)
+  - `surprise_window`: 驚き計算のウィンドウサイズ (128)
+  - `min_event_size`: 最小イベントサイズ (8トークン)
+  - `max_event_size`: 最大イベントサイズ (128トークン)
 
 **EMTwoStageRetrieval** (`em_llm/retrieval.py`)
 - **Stage 1**: ベクトル類似性による関連エピソード検索
@@ -474,6 +592,8 @@ graph TB
 
 **MCPツール** (`tools/mcp.py`)
 - Model Context Protocol準拠の外部サーバーと連携
+- **McpToolProvider**: エージェント起動時に `mcp_tools_config.json` から設定を読み込み、ツールとして登録
+- **McpHub**: API経由での動的設定変更・接続管理を担当（設定ファイルの監視とホットリロード）
 - stdio/HTTP経由で通信
 
 #### 5.5.2 主要メソッド
@@ -489,28 +609,36 @@ class ToolManager:
 
 ### 5.6 設定システム (`config/`)
 
-YAMLベースの階層的設定管理。
+YAMLベースのメイン設定と、JSONベースのMCP設定の2本立て。
 
-**config.yml** の主要セクション:
+**A. config.yml** (アプリケーション全体設定):
+主要セクション:
 
 ```yaml
 app:
   max_input_length: 10000
   graph_recursion_limit: 50
+  google_search_api_key: "YOUR_KEY"  # Optional
+  google_search_engine_id: "YOUR_CX" # Optional
+  nsfw_detection: false  # Optional
 
 llm_manager:
   health_check_timeout: 60
 
 models_gguf:
+  # 任意の数のモデルを定義可能
   gemma_3n:
     path: "models/gemma-3n-E4B-it-IQ4_XS.gguf"
     port: 8088
     n_ctx: 8192
     n_gpu_layers: -1
+  # ministral_3b:
+  #   path: "models/Ministral-3-3B.gguf"
+  #   ...
 
 em_llm:
-  surprise_gamma: 0.1
-  total_retrieved_events: 5
+  surprise_gamma: 1.0
+  total_retrieved_events: 4
 
 agent_profiles:
   default:
@@ -518,6 +646,9 @@ agent_profiles:
       key: "default"
     tool_policy:
       allow: ["*"]
+
+**B. config/mcp_tools_config.json** (MCPサーバー設定):
+MCPサーバーの接続情報（コマンド、引数、環境変数）を管理。`McpHub` によりAPI経由で読み書きされ、ホットリロードに対応。
 ```
 
 ---
@@ -526,78 +657,147 @@ agent_profiles:
 
 ### 6.1 コンポーネント構成
 
-#### 6.1.1 主要コンポーネント
+#### 6.1.1 ディレクトリ構成
+`src/components/` は機能・ドメインごとに整理されています。
+
+```
+components/
+├── Root Components
+│   ├── Layout.tsx              # アプリ全体レイアウト
+│   ├── ChatInterface.tsx       # チャット画面コンテナ
+│   ├── SetupWizard.tsx         # セットアップウィザード
+│   ├── Sidebar.tsx             # ナビゲーションサイドバー
+│   ├── StatusBar.tsx           # ステータスバー
+│   ├── InputArea.tsx           # メッセージ入力エリア
+│   ├── MessageList.tsx         # メッセージ一覧
+│   ├── MessageBubble.tsx       # メッセージバブル
+│   ├── DialControl.tsx         # モード切替ダイアル
+│   ├── PersonaSwitcher.tsx     # ペルソナ切替UI
+│   ├── AgentStatus.tsx         # エージェントステータス
+│   ├── SearchResults.tsx       # 検索結果パネル
+│   └── SystemStatusPanel.tsx   # システム詳細パネル
+├── settings/                   # 設定画面
+│   ├── SettingsDialog.tsx      # 設定ダイアログ
+│   ├── SettingsComponents.tsx  # 共通UI部品
+│   ├── SettingsLayout.tsx      # レイアウト
+│   ├── SettingsConstants.tsx   # 定数定義
+│   ├── settings.css            # スタイル
+│   ├── sections/               # タブセクション
+│   │   ├── GeneralSettings.tsx     # 一般設定
+│   │   ├── ModelSettings.tsx       # モデル設定
+│   │   ├── CharacterSettings.tsx   # キャラクター設定
+│   │   ├── McpSettings.tsx         # MCP設定
+│   │   └── MemorySettings.tsx      # 記憶設定
+│   └── subcomponents/          # サブコンポーネント
+│       ├── AddModelForm.tsx        # モデル追加フォーム
+│       ├── ModelDetailOverlay.tsx  # モデル詳細
+│       ├── ModelListOverlay.tsx    # モデル一覧
+│       └── ModelSelectionRow.tsx   # モデル選択行
+├── SessionHistory/             # セッション履歴
+│   ├── SessionHistory.tsx      # メインコンポーネント
+│   ├── SessionHistoryPanel.tsx # パネル表示
+│   ├── SessionHistoryModal.tsx # モーダル表示
+│   └── index.ts                # エクスポート
+├── ui/                         # 汎用UIパーツ
+│   ├── Modal.tsx               # モーダルダイアログ
+│   ├── ConfirmDialog.tsx       # 確認ダイアログ
+│   └── DynamicBackground.tsx   # 動的背景
+└── chat/                       # チャット拡張
+```
+
+#### 6.1.2 主要コンポーネント詳細
+
+**SetupWizard.tsx**
+- 初回起動時のセットアップウィザード
+- 言語設定、モデルダウンロード、システム要件チェックを行う
+- ステップバイステップのUIでユーザーをガイド
 
 **Layout.tsx**
-- アプリケーション全体のレイアウト
-- サイドバー、メインコンテンツ、ステータスバーの配置
+- アプリケーション全体のレイアウトフレーム
+- サイドバー、メインエリア、ステータスバーを統合管理
+- `SettingsDialog` や `McpStoreModal` のマウントポイント
+
+**Sidebar.tsx**
+- ナビゲーションとアクションへのアクセス
+- チャットモード切替、セッション履歴、設定、MCPストアへのアクセスランチャー
+
+**StatusBar.tsx**
+- アプリケーション下部のステータス表示
+- 現在のモデル、システムリソース、バックグラウンド処理の状態を表示
+
+**SystemStatusPanel.tsx**
+- システム詳細情報の可視化パネル
 
 **ChatInterface.tsx**
-- チャットモードのメインUI
-- MessageList + InputAreaを統合
+- チャット画面のメインコンテナ
+- `MessageList` と `InputArea` を包含
+- ストリーミング応答の制御
 
-**MessageList.tsx**
+**MessageList.tsx / MessageBubble.tsx**
 - メッセージ履歴の表示
-- マークダウンレンダリング（react-markdown）
-- 自動スクロール
+- マークダウンレンダリング (`react-markdown`)、コードハイライト
+- ユーザー/AI/システムメッセージのスタイル区分
+
+**SettingsDialog.tsx / SettingsComponents.tsx**
+- アプリケーション詳細設定
+- タブ切り替え（一般、モデル、キャラクター、MCP、記憶）
+- 各種設定項目の即時反映と永続化
 
 **InputArea.tsx**
-- ユーザー入力エリア
-- 送信ボタン、クリアボタン
-- Enter送信、Shift+Enter改行
+- メッセージ入力フィールド
+- 送信ボタン、キーボードショートカット
+- 入力中のタイピング表示
 
 **DialControl.tsx**
-- 3つのモード（CHAT、SEARCH、AGENT）を切り替える円形ダイアル
-- アニメーション付き視覚的フィードバック
+- 3モード（Chat/Search/Agent）切替ダイアル
+- 視覚的なモード表示とアニメーション
 
 **PersonaSwitcher.tsx**
-- キャラクターエージェント ⇔ プロフェッショナルエージェント切替
-
-**SearchResults.tsx**
-- 検索モード時の右パネル
-- 検索結果とRAGコンテキストの表示
+- キャラクター/ペルソナの切り替えUI
+- プロファイル選択とカスタマイズ
 
 **AgentStatus.tsx**
-- エージェントモード時の右パネル
-- 思考プロセス、実行ログ、生成物（Artifact）の表示
+- エージェントモード時の実行状態表示
+- 思考プロセス、ツール実行ログの可視化
 
-**SessionHistoryPanel.tsx**
-- 過去のチャットセッション履歴の表示・管理
-- セッションの切り替え、削除、名称変更
+**SearchResults.tsx**
+- 検索モード時の結果表示パネル
+- ソースリンク、スニペット表示
 
-**SettingsContext.tsx**
-- アプリケーション全体の設定管理（テーマ、言語、モデル設定など）
+**SessionHistory.tsx / SessionHistoryPanel.tsx**
+- 過去の対話履歴の参照・切り替え
+- セッション検索・フィルタリング
 
-**McpStoreModal.tsx**
-- MCPサーバーの管理・インストール・設定
+#### 6.1.3 ページ構成 (`src/pages/`)
+ルーティング対応のページコンポーネント。
+
+- **Logs.tsx**: システムログビューア
+- **Memory.tsx**: EM-LLMの記憶状態の可視化・デバッグ
 
 ### 6.2 カスタムフック
 
-#### useWebSocket.ts
+ビジネスロジックと状態管理の分離。
 
-WebSocket通信を管理するReact Hook。
+#### 6.2.1 コアロジック
+- **useWebSocket.ts**: WebSocket通信チャネルの確立・管理
+- **useServerConfig.ts**: バックエンド設定の取得・同期
+- **useSettings.ts**: アプリケーション設定の管理
+- **useSessions.ts**: チャットセッションのCRUD操作
+- **useMcp.ts**: MCPサーバーのインストール・状態管理
 
-```typescript
-interface UseWebSocketReturn {
-  messages: Message[];
-  connectionStatus: 'connected' | 'disconnected' | 'error';
-  sendMessage: (content: string, mode: string) => void;
-  clearMessages: () => void;
-  stats: EMStats | null;
-}
+#### 6.2.2 チャット機能 (`hooks/chat/`)
+- **useChatState.ts**: チャット画面のUI状態管理
+- **useMessageBuffer.ts**: ストリーミングメッセージのバッファリング制御
+- **useSocketConnection.ts**: Socket接続の低レベル制御（再接続、バックオフ）
 
-const useWebSocket = (url: string): UseWebSocketReturn
-```
+### 6.3 コンテキスト
 
-**機能**:
-- 自動再接続
-- メッセージキューイング
-- ストリーミングメッセージの蓄積
-- EM-LLM統計の管理
+- **SettingsContext.tsx**: 全域的な設定プロバイダー
+- **WebSocketContext.tsx**: WebSocket接続の共有プロバイダー
 
-### 6.3 Glassmorphism デザインシステム
+### 6.4 Glassmorphism デザインシステム
 
-#### 6.3.1 カラーパレット
+#### 6.4.1 カラーパレット
 
 Tailwind設定で定義されたカスタムカラー：
 
@@ -615,7 +815,7 @@ colors: {
 }
 ```
 
-#### 6.3.2 Glassmorphismスタイル
+#### 6.4.2 Glassmorphismスタイル
 
 `index.css` で定義されたユーティリティクラス：
 
@@ -632,7 +832,7 @@ colors: {
 }
 ```
 
-#### 6.3.3 アニメーション
+#### 6.4.3 アニメーション
 
 Spring animationを用いた自然な動き：
 
@@ -640,9 +840,9 @@ Spring animationを用いた自然な動き：
 - **ダイアル回転**: イージング付き回転アニメーション
 - **ホバーエフェクト**: スケール変化 + 影の変化
 
-### 6.4 Tauri統合
+### 6.5 Tauri統合
 
-#### 6.4.1 設定 (`src-tauri/tauri.conf.json`)
+#### 6.5.1 設定 (`src-tauri/tauri.conf.json`)
 
 ```json
 {
@@ -661,7 +861,7 @@ Spring animationを用いた自然な動き：
 }
 ```
 
-#### 6.4.2 Sidecar実行形式
+#### 6.5.2 Sidecar実行形式
 
 バックエンドをPyInstallerで実行形式化し、`tepora-backend`としてバンドル。
 
@@ -985,6 +1185,6 @@ em_llm:
 
 ---
 
-**作成日**: 2025-12-02  
-**バージョン**: 2.0  
+**作成日**: 2026-01-05  
+**バージョン**: 2.4  
 **メンテナー**: Tepora Development Team

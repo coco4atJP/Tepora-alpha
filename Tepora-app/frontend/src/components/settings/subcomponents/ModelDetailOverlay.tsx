@@ -20,7 +20,7 @@ interface ModelDetailOverlayProps {
 	isOpen: boolean;
 	onClose: () => void;
 	title: string;
-	config: ModelConfig;
+	config?: ModelConfig;
 	onChange: (config: ModelConfig) => void;
 	isEmbedding?: boolean;
 }

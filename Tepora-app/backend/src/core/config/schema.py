@@ -195,21 +195,55 @@ class DefaultModelConfig(BaseModel):
     model_config = {"extra": "allow"}
 
 
-
 class DefaultModelsConfig(BaseModel):
-    character: DefaultModelConfig | None = Field(
-        default_factory=lambda: DefaultModelConfig(
-            repo_id="unsloth/gemma-3n-E2B-it-GGUF",
-            filename="gemma-3n-E2B-it-IQ4_XS.gguf",
-            display_name="Gemma 3n E2B (IQ4_XS)",
-        )
-    )
-    executor: DefaultModelConfig | None = Field(
-        default_factory=lambda: DefaultModelConfig(
-            repo_id="unsloth/Ministral-3-3B-Reasoning-2512-GGUF",
-            filename="Ministral-3-3B-Reasoning-2512-IQ4_XS.gguf",
-            display_name="Ministral 3B (Reasoning)",
-        )
+    text_models: list[DefaultModelConfig] = Field(
+        default_factory=lambda: [
+            DefaultModelConfig(
+                repo_id="unsloth/gemma-3n-E2B-it-GGUF",
+                filename="gemma-3n-E2B-it-IQ4_XS.gguf",
+                display_name="Gemma 3n E2B (IQ4_XS)",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/Ministral-3-3B-Reasoning-2512-GGUF",
+                filename="Ministral-3-3B-Reasoning-2512-IQ4_XS.gguf",
+                display_name="Ministral 3B (Reasoning)",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/gemma-3-270m-it-qat-GGUF",
+                filename="gemma-3-270m-it-qat-IQ4_XS.gguf",
+                display_name="Gemma 3 270M (QAT)",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/functiongemma-270m-it-GGUF",
+                filename="functiongemma-270m-it-IQ4_XS.gguf",
+                display_name="FunctionGemma 270M",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/gpt-oss-20b-GGUF",
+                filename="gpt-oss-20b-Q4_K_M.gguf",
+                display_name="GPT-OSS 20B",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/Qwen3-4B-Thinking-2507-GGUF",
+                filename="Qwen3-4B-Thinking-2507-IQ4_XS.gguf",
+                display_name="Qwen3 4B (Thinking)",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/granite-4.0-h-micro-GGUF",
+                filename="granite-4.0-h-micro-IQ4_XS.gguf",
+                display_name="Granite 4.0 Micro",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/Phi-4-mini-reasoning-GGUF",
+                filename="Phi-4-mini-reasoning-IQ4_XS.gguf",
+                display_name="Phi-4 Mini (Reasoning)",
+            ),
+            DefaultModelConfig(
+                repo_id="unsloth/rnj-1-instruct-GGUF",
+                filename="rnj-1-instruct-IQ4_XS.gguf",
+                display_name="RNJ 1 Instruct",
+            ),
+        ]
     )
     embedding: DefaultModelConfig | None = Field(
         default_factory=lambda: DefaultModelConfig(

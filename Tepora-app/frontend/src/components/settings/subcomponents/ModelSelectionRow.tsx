@@ -30,7 +30,7 @@ interface ModelSelectionRowProps {
 	models: ModelInfo[];
 	onSelect: (modelId: string) => void;
 
-	config: ModelConfig;
+	config?: ModelConfig;
 	onUpdateConfig: (config: ModelConfig) => void;
 	onDelete?: () => void;
 }

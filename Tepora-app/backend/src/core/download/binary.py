@@ -485,10 +485,11 @@ class BinaryManager:
                                 raise RuntimeError(f"Tar Slip attempt detected: {member.name}")
 
                         import sys
+
                         if sys.version_info >= (3, 12):
-                            tf.extractall(version_dir, filter='data')
+                            tf.extractall(version_dir, filter="data")
                         else:
-                             # Legacy support or warning
+                            # Legacy support or warning
                             tf.extractall(version_dir)
                 else:
                     # zip

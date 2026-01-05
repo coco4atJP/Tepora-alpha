@@ -53,8 +53,9 @@ class ModelConfig(BaseModel):
 
 
 class SetupRunRequest(BaseModel):
-    # If provided, overrides defaults
-    custom_models: dict[str, ModelConfig | None] | None = None
+    # List of models to install. If empty, falls back to manager defaults (though frontend should provide).
+    # Each item is {repo_id, filename, role, display_name}
+    target_models: list[dict[str, Any]] | None = None
 
 
 class BinaryDownloadRequest(BaseModel):
@@ -172,9 +173,10 @@ async def get_default_models():
     """
     try:
         defaults = settings.default_models
+        # Convert list of pydantic models to list of dicts
+        text_models = [m.model_dump() for m in defaults.text_models]
         return {
-            "text": defaults.character.model_dump() if defaults.character else None,
-            "executor": defaults.executor.model_dump() if defaults.executor else None,
+            "text_models": text_models,
             "embedding": defaults.embedding.model_dump() if defaults.embedding else None,
         }
     except Exception as e:
@@ -198,16 +200,13 @@ async def run_setup_job(request: SetupRunRequest):
     _setup_session.update_progress("pending", 0.0, "Starting setup...")
 
     # モデル設定を保存（セッション）
-    if request.custom_models:
-        # dict形式に変換して保持
-        models_dict = {}
-        for role, cfg in request.custom_models.items():
-            if cfg:
-                models_dict[role] = cfg.model_dump()
-        _setup_session.custom_models = models_dict
-    else:
-        # デフォルトを使用する場合はNoneのままでOK（DownloadManagerがデフォルト使用）
-        _setup_session.custom_models = None
+    # SetupRunRequest now sends a list of target models to install directly.
+    target_models = request.target_models
+
+    # Store in session for reference (optional, but good for debugging)
+    _setup_session.custom_models = {
+        "targets": target_models
+    }  # Storing as dict for compatibility with type hint if needed, or just leverage dynamic
 
     try:
         dm = _get_download_manager()
@@ -223,15 +222,12 @@ async def run_setup_job(request: SetupRunRequest):
 
                 dm.on_progress(on_progress)
 
-                # Run Setup
-                # custom_modelsがNoneでもbackend側でdefaultsを使うロジックがあるが、
-                # 明示的に渡すほうが安全。
-                target_models = _setup_session.custom_models
-
                 logger.info(f"Starting setup job {job_id} with models: {target_models}")
 
+                # Pass the list directly to run_initial_setup
+                # Note: We need to update manager signature next
                 result = await dm.run_initial_setup(
-                    install_binary=True, download_default_models=True, custom_models=target_models
+                    install_binary=True, download_default_models=True, target_models=target_models
                 )
 
                 if result.success:

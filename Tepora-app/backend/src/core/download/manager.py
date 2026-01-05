@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from src.core.config.loader import settings
 
@@ -188,7 +189,9 @@ class DownloadManager:
         self,
         install_binary: bool = True,
         download_default_models: bool = True,
-        custom_models: dict[str, dict[str, str]] | None = None,
+        target_models: list[dict[str, Any]] | None = None,
+        custom_models: dict[str, dict[str, str]]
+        | None = None,  # kept for compat/overload if needed
     ) -> SetupResult:
         """
         初回セットアップを実行
@@ -196,6 +199,8 @@ class DownloadManager:
         Args:
             install_binary: llama.cppバイナリをインストールするか
             download_default_models: デフォルトモデルをダウンロードするか
+            target_models: ダウンロード対象モデルの明示的なリスト。
+                           [{repo_id, filename, role, display_name}, ...]
         """
         errors: list[str] = []
         binary_installed = False
@@ -227,78 +232,78 @@ class DownloadManager:
 
         # 2. デフォルトモデルのダウンロード
         if download_default_models:
-            # デフォルトモデルリストを構築（設定ファイルベース）
-            # UI等からカスタム設定が渡された場合はそちらを優先
-            custom_models = custom_models or {}
+            # ターゲットモデルリストの構築
+            # 引数 target_models があればそれを優先。
+            # なければ default_models から構築 (backend fallback when frontend sends nothing?)
+            # Frontend should send the selection.
 
-            # 設定ファイルのデフォルト値を取得
-            defaults = settings.default_models
+            final_targets = []
 
-            # ターゲットモデルリストを作成
-            target_models = []
+            if target_models:
+                final_targets = target_models
+            else:
+                # Fallback to schema defaults if no explicit targets (e.g. headless setup)
+                # But mostly schema defaults are now a list of OPTIONS, not a single default.
+                # So we might just pick the first one? Or just the embedding model?
+                # For safety, if no target models provided, we install nothing or just embedding.
+                # Let's try to install at least embedding if available.
+                defaults = settings.default_models
+                if defaults.embedding:
+                    final_targets.append(
+                        {
+                            "repo_id": defaults.embedding.repo_id,
+                            "filename": defaults.embedding.filename,
+                            "role": ModelPool.EMBEDDING,  # ensure consistent key
+                            "display_name": defaults.embedding.display_name,
+                        }
+                    )
 
-            # Text Model (テキスト生成用LLM)
-            text_cfg = custom_models.get("text") or (
-                {
-                    "repo_id": defaults.character.repo_id,
-                    "filename": defaults.character.filename,
-                    "display_name": defaults.character.display_name,
-                }
-                if defaults.character
-                else None
-            )
-            if text_cfg:
-                target_models.append(
-                    {
-                        "repo_id": text_cfg["repo_id"],
-                        "filename": text_cfg["filename"],
-                        "pool": ModelPool.TEXT,
-                        "display_name": text_cfg.get("display_name", "Text Model"),
-                    }
-                )
+            # Check for legacy custom_models argument if target_models was empty?
+            # (Ignoring for now as we updated caller)
 
-            # Embedding Model
-            embed_cfg = custom_models.get("embedding") or (
-                {
-                    "repo_id": defaults.embedding.repo_id,
-                    "filename": defaults.embedding.filename,
-                    "display_name": defaults.embedding.display_name,
-                }
-                if defaults.embedding
-                else None
-            )
-            if embed_cfg:
-                target_models.append(
-                    {
-                        "repo_id": embed_cfg["repo_id"],
-                        "filename": embed_cfg["filename"],
-                        "pool": ModelPool.EMBEDDING,
-                        "display_name": embed_cfg.get("display_name", "Embedding Model"),
-                    }
-                )
+            for model_cfg in final_targets:
+                # normalize keys: 'role' vs 'pool'
+                role_val = model_cfg.get("role") or model_cfg.get("pool")
+                if not role_val:
+                    # try to infer? No, must be explicit.
+                    logger.warning(f"Skipping model without role: {model_cfg}")
+                    continue
 
-            for model in target_models:
+                # Convert 'role' string to ModelPool enum
+                try:
+                    pool_enum = ModelPool(role_val)
+                    # If string was 'text' -> ModelPool.TEXT ('text')
+                except ValueError:
+                    # fallback map
+                    if role_val == "character" or role_val == "executor":
+                        pool_enum = ModelPool.TEXT
+                    else:
+                        logger.warning(f"Invalid role: {role_val}")
+                        continue
+
+                display_name = model_cfg.get("display_name", f"{role_val} Model")
+
                 self._emit_progress(
                     ProgressEvent(
                         status=DownloadStatus.PENDING,
                         progress=0.0,
-                        message=f"モデルをダウンロード中: {model['display_name']}",
+                        message=f"モデルをダウンロード中: {display_name}",
                     )
                 )
 
                 result = await self.model_manager.download_from_huggingface(
-                    repo_id=model["repo_id"],
-                    filename=model["filename"],
-                    role=model["pool"],
-                    display_name=model["display_name"],
+                    repo_id=model_cfg["repo_id"],
+                    filename=model_cfg["filename"],
+                    role=pool_enum,
+                    display_name=display_name,
                 )
 
                 if result.success:
-                    models_installed.append(model["display_name"])
+                    models_installed.append(display_name)
+                    # If it's a text model, we might want to set it as active if it's the first one?
+                    # logic for verify active is separate.
                 else:
-                    errors.append(
-                        f"Model download failed ({model['display_name']}): {result.error_message}"
-                    )
+                    errors.append(f"Model download failed ({display_name}): {result.error_message}")
 
         success = len(errors) == 0
 
