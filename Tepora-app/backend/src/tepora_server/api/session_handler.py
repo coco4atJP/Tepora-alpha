@@ -4,16 +4,17 @@ WebSocket Session Handler
 Encapsulates message processing logic for a single WebSocket connection.
 This improves testability and separation of concerns.
 """
+
 import asyncio
 import logging
 import uuid
-from typing import Optional, Dict, Any, List, Set
 from datetime import datetime
+from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from src.core.config import STREAM_EVENT_CHAT_MODEL
-from src.core.graph.constants import GraphNodes, DANGEROUS_TOOLS
+from src.core.graph.constants import GraphNodes
 from src.tepora_server.state import AppState
 
 # Tools that require confirmation before execution.
@@ -26,12 +27,12 @@ logger = logging.getLogger("tepora.server.ws.session")
 class SessionHandler:
     """
     Handles a single WebSocket session.
-    
+
     Encapsulates the processing logic for incoming messages,
     activity tracking, and streaming responses.
     """
-    
-    NODE_DESCRIPTIONS: Dict[str, str] = {
+
+    NODE_DESCRIPTIONS: dict[str, str] = {
         GraphNodes.GENERATE_ORDER: "Analyzing user request...",
         GraphNodes.GENERATE_SEARCH_QUERY: "Identifying necessary tools...",
         GraphNodes.EXECUTE_SEARCH: "Executing search query...",
@@ -41,8 +42,8 @@ class SessionHandler:
         GraphNodes.SYNTHESIZE_FINAL_RESPONSE: "Synthesizing final response...",
         GraphNodes.UPDATE_SCRATCHPAD: "Updating memory...",
     }
-    
-    AGENT_NAMES: Dict[str, str] = {
+
+    AGENT_NAMES: dict[str, str] = {
         GraphNodes.GENERATE_ORDER: "Planner",
         GraphNodes.GENERATE_SEARCH_QUERY: "Search Analyst",
         GraphNodes.EXECUTE_SEARCH: "Search Tool",
@@ -52,32 +53,32 @@ class SessionHandler:
         GraphNodes.SYNTHESIZE_FINAL_RESPONSE: "Synthesizer",
         GraphNodes.UPDATE_SCRATCHPAD: "Memory Manager",
     }
-    
+
     def __init__(self, websocket: WebSocket, app_state: AppState):
         """
         Initialize the session handler.
-        
+
         Args:
             websocket: The WebSocket connection to handle.
             app_state: Application state containing the core app.
         """
         self.websocket = websocket
         self.app_state = app_state
-        self.current_task: Optional[asyncio.Task] = None
+        self.current_task: asyncio.Task | None = None
         self.client_host = websocket.client.host if websocket.client else "unknown"
-        
+
         # Track current node for streaming context
-        self._current_node_id: Optional[str] = None
-        self._current_agent_name: Optional[str] = None
-        
+        self._current_node_id: str | None = None
+        self._current_agent_name: str | None = None
+
         # Pending tool approval requests (request_id -> Future[bool])
-        self._pending_approvals: Dict[str, asyncio.Future] = {}
-    
+        self._pending_approvals: dict[str, asyncio.Future] = {}
+
     async def on_disconnect(self) -> None:
         """Handle cleanup on WebSocket disconnection."""
         logger.info(f"Session disconnected: {self.client_host}")
         await self.handle_stop()
-        
+
         # Cleanup pending approvals
         count = 0
         for req_id, future in self._pending_approvals.items():
@@ -91,7 +92,7 @@ class SessionHandler:
     async def send_json(self, data: dict) -> bool:
         """
         Send JSON data to the client.
-        
+
         Returns:
             True if sent successfully, False if disconnected.
         """
@@ -101,69 +102,70 @@ class SessionHandler:
         except (RuntimeError, WebSocketDisconnect):
             logger.debug(f"Failed to send to {self.client_host}: client disconnected")
             return False
-    
+
     async def handle_stop(self) -> None:
         """Cancel the current processing task."""
         if self.current_task and not self.current_task.done():
             logger.info(f"Stop command received from {self.client_host}, cancelling task.")
             self.current_task.cancel()
-    
+
     async def handle_get_stats(self) -> None:
         """Send memory statistics to the client."""
         stats = self.app_state.core.get_memory_stats()
         await self.send_json({"type": "stats", "data": stats})
-    
+
     def _cleanup_stale_approvals(self) -> None:
         """Remove completed or cancelled futures to prevent memory leaks."""
-        stale_ids = [
-            req_id for req_id, future in self._pending_approvals.items()
-            if future.done()
-        ]
+        stale_ids = [req_id for req_id, future in self._pending_approvals.items() if future.done()]
         for req_id in stale_ids:
             self._pending_approvals.pop(req_id, None)
-    
-    async def request_tool_approval(self, tool_name: str, tool_args: Dict[str, Any]) -> bool:
+
+    async def request_tool_approval(self, tool_name: str, tool_args: dict[str, Any]) -> bool:
         """
         Request user approval for a dangerous tool execution.
-        
+
         Sends a confirmation request to the frontend and waits for response.
         This is called from the tool executor node via approval callback.
-        
+
         Args:
             tool_name: Name of the tool requesting approval
             tool_args: Arguments to be passed to the tool
-            
+
         Returns:
             True if approved, False if denied or cancelled
         """
         # Cleanup any stale approvals to prevent memory leaks
         self._cleanup_stale_approvals()
-        
+
         request_id = str(uuid.uuid4())
-        
+
         # Create a Future to wait for the response
         loop = asyncio.get_running_loop()
         future: asyncio.Future[bool] = loop.create_future()
         self._pending_approvals[request_id] = future
-        
+
         # Send confirmation request to frontend
         logger.info(f"Requesting approval for tool '{tool_name}' (request_id: {request_id})")
-        await self.send_json({
-            "type": "tool_confirmation_request",
-            "data": {
-                "requestId": request_id,
-                "toolName": tool_name,
-                "toolArgs": tool_args if isinstance(tool_args, dict) else {"input": str(tool_args)},
-                "description": f"Tool '{tool_name}' requires your approval to execute."
+        await self.send_json(
+            {
+                "type": "tool_confirmation_request",
+                "data": {
+                    "requestId": request_id,
+                    "toolName": tool_name,
+                    "toolArgs": tool_args
+                    if isinstance(tool_args, dict)
+                    else {"input": str(tool_args)},
+                    "description": f"Tool '{tool_name}' requires your approval to execute.",
+                },
             }
-        })
-        
+        )
+
         try:
             # Wait for user response (with timeout from config)
             timeout = self.app_state.core.settings.app.tool_approval_timeout
             approved = await asyncio.wait_for(future, timeout=float(timeout))
             return approved
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Tool approval request {request_id} timed out")
             return False
         except asyncio.CancelledError:
@@ -172,11 +174,11 @@ class SessionHandler:
         finally:
             # Cleanup
             self._pending_approvals.pop(request_id, None)
-    
+
     def handle_tool_confirmation(self, request_id: str, approved: bool) -> None:
         """
         Handle tool confirmation response from frontend.
-        
+
         Args:
             request_id: The ID of the confirmation request
             approved: Whether the user approved the tool execution
@@ -187,38 +189,30 @@ class SessionHandler:
             future.set_result(approved)
         else:
             logger.warning(f"No pending approval found for request_id: {request_id}")
-    
+
     async def _send_activity_update(
-        self, 
-        node_name: str, 
-        status: str, 
-        message_override: Optional[str] = None
+        self, node_name: str, status: str, message_override: str | None = None
     ) -> None:
         """Send an activity update to the client."""
         if node_name not in self.NODE_DESCRIPTIONS and not message_override:
             return
-        
+
         desc = message_override or self.NODE_DESCRIPTIONS.get(node_name, "Processing...")
-        await self.send_json({
-            "type": "activity",
-            "data": {
-                "id": node_name,
-                "status": status,
-                "message": desc
-            }
-        })
-    
+        await self.send_json(
+            {"type": "activity", "data": {"id": node_name, "status": status, "message": desc}}
+        )
+
     async def process_message(
-        self, 
-        user_input: str, 
-        mode: str, 
-        attachments: List[Dict[str, Any]], 
+        self,
+        user_input: str,
+        mode: str,
+        attachments: list[dict[str, Any]],
         skip_web_search: bool,
-        session_id: str = "default"
+        session_id: str = "default",
     ) -> None:
         """
         Process a user message.
-        
+
         Args:
             user_input: The user's message text.
             mode: The processing mode (direct, search, agent).
@@ -231,19 +225,21 @@ class SessionHandler:
                 return
 
             await self.send_json({"type": "status", "message": "Processing..."})
-            logger.info(f"Processing input from {self.client_host} in mode '{mode}' session '{session_id}': {user_input[:50]}...")
+            logger.info(
+                f"Processing input from {self.client_host} in mode '{mode}' session '{session_id}': {user_input[:50]}..."
+            )
 
             self._current_node_id = None
             self._current_agent_name = None
 
             # Call Core.process_user_request with approval callback
             async for event in self.app_state.core.process_user_request(
-                user_input, 
-                mode=mode, 
-                attachments=attachments, 
+                user_input,
+                mode=mode,
+                attachments=attachments,
                 skip_web_search=skip_web_search,
                 session_id=session_id,
-                approval_callback=self.request_tool_approval
+                approval_callback=self.request_tool_approval,
             ):
                 await self._handle_stream_event(event, mode)
 
@@ -251,7 +247,7 @@ class SessionHandler:
             stats = self.app_state.core.get_memory_stats()
             await self.send_json({"type": "stats", "data": stats})
             await self.send_json({"type": "done"})
-            
+
         except asyncio.CancelledError:
             logger.info(f"Message processing cancelled for {self.client_host}")
             await self.send_json({"type": "status", "message": "Cancelled"})
@@ -263,8 +259,10 @@ class SessionHandler:
     async def send_history(self, session_id: str) -> None:
         """Send chat history for the given session to the client."""
         try:
-            messages = self.app_state.core.history_manager.get_history(session_id=session_id, limit=100)
-            
+            messages = self.app_state.core.history_manager.get_history(
+                session_id=session_id, limit=100
+            )
+
             # Format messages for frontend
             formatted_messages = []
             for msg in messages:
@@ -273,44 +271,49 @@ class SessionHandler:
                     role = "assistant"
                 elif msg.type == "system":
                     role = "system"
-                
-                formatted_messages.append({
-                    "id": str(getattr(msg, 'id', '')) or str(uuid.uuid4()), # Fallback if id missing
-                    "role": role,
-                    "content": msg.content,
-                    "timestamp": msg.additional_kwargs.get('timestamp') or datetime.now().isoformat(),
-                    "mode": msg.additional_kwargs.get('mode', 'direct')
-                })
-            
+
+                formatted_messages.append(
+                    {
+                        "id": str(getattr(msg, "id", ""))
+                        or str(uuid.uuid4()),  # Fallback if id missing
+                        "role": role,
+                        "content": msg.content,
+                        "timestamp": msg.additional_kwargs.get("timestamp")
+                        or datetime.now().isoformat(),
+                        "mode": msg.additional_kwargs.get("mode", "direct"),
+                    }
+                )
+
             # Sort by timestamp/ID if necessary, but get_history returns ordered
             # Send history message
-            await self.send_json({
-                "type": "history",
-                "messages": formatted_messages
-            })
-            logger.info(f"Sent {len(formatted_messages)} history messages for session {session_id} to {self.client_host}")
-            
+            await self.send_json({"type": "history", "messages": formatted_messages})
+            logger.info(
+                f"Sent {len(formatted_messages)} history messages for session {session_id} to {self.client_host}"
+            )
+
         except Exception as e:
             logger.error(f"Failed to send history: {e}", exc_info=True)
             await self.send_json({"type": "error", "message": "Failed to load history"})
-    
-    async def _handle_stream_event(self, event: Dict[str, Any], mode: str) -> None:
+
+    async def _handle_stream_event(self, event: dict[str, Any], mode: str) -> None:
         """Handle a single stream event from the core."""
         kind = event["event"]
-        
+
         if kind == STREAM_EVENT_CHAT_MODEL:
             chunk = event["data"]["chunk"]
             if chunk.content:
-                success = await self.send_json({
-                    "type": "chunk",
-                    "message": chunk.content,
-                    "mode": mode,
-                    "nodeId": self._current_node_id,
-                    "agentName": self._current_agent_name
-                })
+                success = await self.send_json(
+                    {
+                        "type": "chunk",
+                        "message": chunk.content,
+                        "mode": mode,
+                        "nodeId": self._current_node_id,
+                        "agentName": self._current_agent_name,
+                    }
+                )
                 if not success:
                     raise WebSocketDisconnect()
-        
+
         elif kind == "on_chain_start":
             node_name = event.get("name")
             if node_name in self.NODE_DESCRIPTIONS:
@@ -326,24 +329,21 @@ class SessionHandler:
             # Handle search results specifically
             if node_name == GraphNodes.EXECUTE_SEARCH:
                 await self._handle_search_results(event)
-        
+
         # Note: on_tool_start is no longer handled here.
         # Dangerous tool approval is now managed via approval_callback injection.
-    
-    async def _handle_search_results(self, event: Dict[str, Any]) -> None:
+
+    async def _handle_search_results(self, event: dict[str, Any]) -> None:
         """Handle search results from the EXECUTE_SEARCH node."""
         output = event["data"].get("output")
         if not output or "search_results" not in output:
             return
-        
+
         flattened_results = []
         for group in output["search_results"]:
             if "results" in group and isinstance(group["results"], list):
                 flattened_results.extend(group["results"])
-        
+
         if flattened_results:
             logger.info(f"Sending {len(flattened_results)} search results to frontend")
-            await self.send_json({
-                "type": "search_results",
-                "data": flattened_results
-            })
+            await self.send_json({"type": "search_results", "data": flattened_results})

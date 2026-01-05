@@ -1,95 +1,111 @@
-import { render, fireEvent } from '@testing-library/react';
-import { screen } from '@testing-library/dom';
-import InputArea from '../InputArea';
-import { vi, describe, it, expect } from 'vitest';
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "../../test/test-utils";
+import InputArea from "../InputArea";
 
-describe('InputArea', () => {
-    const mockOnSendMessage = vi.fn();
+vi.mock("../PersonaSwitcher", () => ({
+	default: () => <div data-testid="persona-switcher" />,
+}));
 
-    const getTextbox = () => screen.getByRole('textbox');
-    const getSendButton = () => screen.getByRole('button', { name: /send message/i });
-    const getStopButton = () => screen.getByRole('button', { name: /stop generation/i });
+describe("InputArea", () => {
+	const mockOnSendMessage = vi.fn();
 
-    it('renders correctly', () => {
-        render(
-            <InputArea
-                onSendMessage={mockOnSendMessage}
-                isProcessing={false}
-                isConnected={true}
-                currentMode="direct"
-            />
-        );
-        expect(getTextbox()).toBeInTheDocument();
-        expect(getSendButton()).toBeInTheDocument();
-    });
+	const getTextbox = () => screen.getByRole("textbox");
+	const getSendButton = () =>
+		screen.getByRole("button", { name: /send message/i });
+	const getStopButton = () =>
+		screen.getByRole("button", { name: /stop generation/i });
 
-    it('handles input and submission', () => {
-        render(
-            <InputArea
-                onSendMessage={mockOnSendMessage}
-                isProcessing={false}
-                isConnected={true}
-                currentMode="direct"
-            />
-        );
+	it("renders correctly", () => {
+		render(
+			<InputArea
+				onSendMessage={mockOnSendMessage}
+				isProcessing={false}
+				isConnected={true}
+				currentMode="direct"
+			/>,
+		);
+		expect(getTextbox()).toBeInTheDocument();
+		expect(getSendButton()).toBeInTheDocument();
+	});
 
-        const input = getTextbox();
-        const sendButton = getSendButton();
+	it("handles input and submission", () => {
+		render(
+			<InputArea
+				onSendMessage={mockOnSendMessage}
+				isProcessing={false}
+				isConnected={true}
+				currentMode="direct"
+			/>,
+		);
 
-        fireEvent.change(input, { target: { value: 'Hello' } });
-        expect(input).toHaveValue('Hello');
+		const input = getTextbox();
+		const sendButton = getSendButton();
 
-        fireEvent.click(sendButton);
-        expect(mockOnSendMessage).toHaveBeenCalledWith('Hello', 'direct', [], false);
-        expect(input).toHaveValue('');
-    });
+		fireEvent.change(input, { target: { value: "Hello" } });
+		expect(input).toHaveValue("Hello");
 
-    it('disables input when processing or disconnected', () => {
-        const { rerender } = render(
-            <InputArea
-                onSendMessage={mockOnSendMessage}
-                isProcessing={true}
-                isConnected={true}
-                currentMode="direct"
-            />
-        );
+		fireEvent.click(sendButton);
+		expect(mockOnSendMessage).toHaveBeenCalledWith(
+			"Hello",
+			"direct",
+			[],
+			false,
+		);
+		expect(input).toHaveValue("");
+	});
 
-        // When processing, Textbox disabled, Send button replaced by Stop button
-        expect(getTextbox()).toBeDisabled();
-        expect(screen.queryByRole('button', { name: /send message/i })).not.toBeInTheDocument();
-        expect(getStopButton()).toBeInTheDocument();
+	it("disables input when processing or disconnected", () => {
+		const { rerender } = render(
+			<InputArea
+				onSendMessage={mockOnSendMessage}
+				isProcessing={true}
+				isConnected={true}
+				currentMode="direct"
+			/>,
+		);
 
-        rerender(
-            <InputArea
-                onSendMessage={mockOnSendMessage}
-                isProcessing={false}
-                isConnected={false}
-                currentMode="direct"
-            />
-        );
+		// When processing, Textbox disabled, Send button replaced by Stop button
+		expect(getTextbox()).toBeDisabled();
+		expect(
+			screen.queryByRole("button", { name: /send message/i }),
+		).not.toBeInTheDocument();
+		expect(getStopButton()).toBeInTheDocument();
 
-        // When disconnected (and not processing), Textbox and Send button disabled
-        expect(getTextbox()).toBeDisabled();
-        expect(getSendButton()).toBeDisabled();
-    });
+		rerender(
+			<InputArea
+				onSendMessage={mockOnSendMessage}
+				isProcessing={false}
+				isConnected={false}
+				currentMode="direct"
+			/>,
+		);
 
-    it('sends message with correct mode', () => {
-        render(
-            <InputArea
-                onSendMessage={mockOnSendMessage}
-                isProcessing={false}
-                isConnected={true}
-                currentMode="search"
-            />
-        );
+		// When disconnected (and not processing), Textbox and Send button disabled
+		expect(getTextbox()).toBeDisabled();
+		expect(getSendButton()).toBeDisabled();
+	});
 
-        const input = getTextbox();
-        const sendButton = getSendButton();
+	it("sends message with correct mode", () => {
+		render(
+			<InputArea
+				onSendMessage={mockOnSendMessage}
+				isProcessing={false}
+				isConnected={true}
+				currentMode="search"
+			/>,
+		);
 
-        fireEvent.change(input, { target: { value: 'Search query' } });
-        fireEvent.click(sendButton);
+		const input = getTextbox();
+		const sendButton = getSendButton();
 
-        expect(mockOnSendMessage).toHaveBeenCalledWith('Search query', 'search', [], false);
-    });
+		fireEvent.change(input, { target: { value: "Search query" } });
+		fireEvent.click(sendButton);
+
+		expect(mockOnSendMessage).toHaveBeenCalledWith(
+			"Search query",
+			"search",
+			[],
+			false,
+		);
+	});
 });
-

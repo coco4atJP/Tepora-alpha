@@ -1,303 +1,303 @@
 {
-    "setup": {
-        "title": "Tepora セットアップ",
-        "checking": "環境をチェック中...",
-        "ready": "すべての準備が整っています！",
-        "binary_needed": "推論エンジンのセットアップが必要です",
-        "models_needed": "モデルのダウンロードが必要です",
-        "complete": "セットアップ完了！",
-        "error": "セットアップ中にエラーが発生しました",
-        "start": "Teporaを開始",
-        "auto_setup": "自動セットアップ",
-        "skip": "スキップ",
-        "retry": "再試行",
-        "downloading": "ダウンロード中...",
-        "steps": {
-            "language": "言語選択",
-            "binary": "推論エンジン (llama.cpp)",
-            "models": "モデル"
-        },
-        "status": {
-            "satisfied": "インストール済み",
-            "missing": "未インストール",
-            "outdated": "更新あり",
-            "installed": "インストール済み",
-            "not_downloaded": "未ダウンロード"
-        },
-        "advanced_settings": "詳細設定 (モデルの変更)",
-        "model_settings": "モデル詳細設定",
-        "model": "モデル"
-    },
-    "common": {
-        "language": "言語",
-        "next": "次へ",
-        "back": "戻る",
-        "cancel": "キャンセル",
-        "save": "保存",
-        "clear": "クリア",
-        "settings": "設定",
-        "close": "閉じる",
-        "enabled": "有効",
-        "disabled": "無効",
-        "retry": "再試行"
-    },
-    "chat": {
-        "clear_history": "履歴を削除",
-        "input": {
-            "placeholder": {
-                "connecting": "接続中...",
-                "search": "検索したいことを入力...",
-                "agent": "タスクを入力...",
-                "default": "Teporaとチャット..."
-            },
-            "system_ready": "システム準備完了",
-            "disconnected": "未接続",
-            "web_search": "Web検索",
-            "web_search_toggle": "Web検索: {{state}}",
-            "attach_file": "ファイルを添付",
-            "remove_attachment": "添付ファイル {{name}} を削除",
-            "send": "送信",
-            "send_message": "メッセージを送信",
-            "stop": "生成を停止",
-            "stop_generation": "生成を停止",
-            "mode_active": "{{mode}}モード 起動中",
-            "aria_label": "メッセージ入力"
-        }
-    },
-    "dial": {
-        "chat": "チャット",
-        "search": "検索",
-        "agent": "エージェント"
-    },
-    "status": {
-        "title": "システムステータス",
-        "network": "ネットワーク",
-        "connected": "接続済み",
-        "disconnected": "未接続",
-        "core_system": "コアシステム",
-        "ready": "準備完了",
-        "loading": "読み込み中",
-        "events": "イベント",
-        "messages": "メッセージ",
-        "char": "Char",
-        "prof": "Prof"
-    },
-    "settings": {
-        "title": "設定",
-        "subtitle": "AIの設定を管理します",
-        "confirm_discard": "未保存の変更があります。破棄しますか？",
-        "toast": {
-            "save_success": "設定を保存しました！",
-            "save_error": "設定の保存に失敗しました。"
-        },
-        "save_bar": {
-            "reset": "リセット",
-            "save": "変更を保存",
-            "saving": "保存中..."
-        },
-        "sections": {
-            "general": {
-                "label": "一般",
-                "title": "アプリケーション",
-                "description": "基本設定と安全制限を設定します。"
-            },
-            "agents": {
-                "label": "キャラクター",
-                "title": "キャラクター",
-                "description": "エージェント（人格とツール）を定義します。",
-                "add_new_profile": "新規プロファイル追加",
-                "new_profile_key_placeholder": "プロファイルID (英数字とアンダースコア)",
-                "add": "追加",
-                "cancel": "キャンセル",
-                "cannot_delete_active": "アクティブなプロファイルは削除できません",
-                "confirm_delete": "このプロファイルを削除しますか？",
-                "card": {
-                    "currently_active": "現在アクティブ",
-                    "set_active": "アクティブに設定",
-                    "active": "アクティブ",
-                    "set_active_short": "設定",
-                    "delete": "削除",
-                    "label": "ラベル",
-                    "label_placeholder": "エージェント名",
-                    "description": "説明",
-                    "description_placeholder": "簡単な説明",
-                    "persona": "ペルソナ",
-                    "persona_description": "エージェントの性格と役割を定義します。",
-                    "preset_key": "プリセットキー",
-                    "preset_key_placeholder": "例: default (任意)",
-                    "select_preset": "プリセットを選択...",
-                    "custom_prompt": "カスタムプロンプト (上書き)",
-                    "custom_prompt_placeholder": "あなたは親切なAIアシスタントです...",
-                    "allowed_tools": "許可されたツール",
-                    "allowed_tools_description": "すべてを許可するには \"*\" を使用。",
-                    "denied_tools": "拒否されたツール",
-                    "tool_placeholder": "ツール名..."
-                },
-                "tab": {
-                    "characters": "キャラクター",
-                    "professionals": "プロフェッショナル"
-                },
-                "professionals_coming_soon_title": "Professional Agents coming soon...",
-                "professionals_coming_soon_desc": "専門的なタスクを実行するエージェントは現在開発中です。",
-                "modal": {
-                    "title_add": "キャラクターを追加",
-                    "title_edit": "キャラクターを編集",
-                    "key_label": "ID (キー)",
-                    "key_desc": "システム内部で使用する一意の識別子です。",
-                    "name_label": "表示名",
-                    "desc_label": "説明",
-                    "prompt_label": "システムプロンプト"
-                },
-                "error_empty_key": "IDを入力してください。",
-                "error_duplicate_key": "このIDは既に使用されています。",
-                "edit": "編集",
-                "delete": "削除",
-                "no_description": "説明なし"
-            },
-            "mcp": {
-                "label": "MCPツール",
-                "title": "MCPツール",
-                "description": "Model Context Protocolサーバーを管理します。"
-            },
-            "models": {
-                "label": "モデル",
-                "title": "モデル",
-                "description": "LLMのパスとパラメータを設定します。"
-            },
-            "memory": {
-                "label": "メモリ",
-                "title": "EM-LLM (エピソード記憶)",
-                "description": "エピソード記憶と履歴の上限を設定します。"
-            },
-            "chat_history": {
-                "title": "チャット履歴"
-            }
-        },
-        "fields": {
-            "language": {
-                "label": "言語",
-                "description": "インターフェースの言語を選択してください。"
-            },
-            "max_input_length": {
-                "label": "最大入力長",
-                "description": "ユーザー入力の最大文字数。"
-            },
-            "graph_recursion_limit": {
-                "label": "再帰制限",
-                "description": "エージェントグラフ探索の最大深度（安全装置）。"
-            },
-            "tool_execution_timeout": {
-                "label": "ツール実行タイムアウト",
-                "description": "ツール実行がタイムアウトするまでの秒数。"
-            },
-            "dangerous_patterns": {
-                "label": "禁止パターン",
-                "description": "セキュリティのためにブロックする正規表現パターン。",
-                "placeholder": "正規表現を追加 (例: system\\s*:)"
-            }
-        },
-        "memory": {
-            "max_tokens": {
-                "label": "最大トークン数",
-                "description": "アクティブな会話コンテキストウィンドウの制限。"
-            },
-            "surprise_gamma": {
-                "label": "Surprise Gamma",
-                "description": "イベント境界検出の感度 (0.0 - 1.0)。"
-            },
-            "min_event_size": {
-                "label": "最小イベントサイズ",
-                "description": "メモリイベントを形成するための最小トークン数。"
-            },
-            "max_event_size": {
-                "label": "最大イベントサイズ",
-                "description": "メモリイベントごとの最大トークン数。"
-            },
-            "retrieved_events": {
-                "label": "検索イベント数",
-                "description": "想起する過去のイベント数。"
-            },
-            "repr_topk": {
-                "label": "Repr Top K",
-                "description": "イベント表現のためのTop Kトークン。"
-            },
-            "boundary_refinement": {
-                "label": "境界リファインメント",
-                "description": "イベント分割の精度を向上させます。"
-            }
-        },
-        "mcp_content": {
-            "info": {
-                "title": "構成情報",
-                "description": "MCP (Model Context Protocol) ツールを使用すると、AIは外部データやサービスと対話できます。現在、MCP構成はローカルJSON構成ファイルを介して管理されています。"
-            },
-            "servers": {
-                "title": "検出されたサーバー",
-                "active": "アクティブ"
-            },
-            "config_path": {
-                "title": "構成パス",
-                "readonly": "読み取り専用",
-                "helper": "新しいMCPサーバーを追加するには、このファイルを直接編集してバックエンドを再起動してください。"
-            }
-        },
-        "mcp": {
-            "refresh": "更新",
-            "addServer": "サーバーを追加",
-            "disabled": "無効",
-            "disable": "無効化",
-            "enable": "有効化",
-            "delete": "削除",
-            "confirmDelete": "削除を確認",
-            "cancelDelete": "キャンセル",
-            "noServers": {
-                "title": "MCPサーバーがありません",
-                "description": "「サーバーを追加」をクリックして、公式レジストリからサーバーをインストールしてください。"
-            },
-            "status": {
-                "connected": "接続中 ({{count}}ツール)",
-                "connecting": "接続中...",
-                "disconnected": "切断済み",
-                "error": "エラー",
-                "unknown": "不明"
-            },
-            "store": {
-                "title": "MCPサーバーストア",
-                "searchPlaceholder": "サーバーを検索...",
-                "noResults": "サーバーが見つかりません",
-                "selectRuntime": "ランタイムを選択",
-                "runtimeDescription": "このサーバーを実行するランタイムを選択してください。",
-                "configure": "設定",
-                "configDescription": "必要な環境変数を入力してください。",
-                "confirm": "確認",
-                "install": "インストール"
-            }
-        },
-        "models_settings": {
-            "global_manager": {
-                "title": "LLMマネージャー全般",
-                "description": "プロセス管理とヘルスチェックの設定。",
-                "terminate_timeout": "終了タイムアウト",
-                "health_check_timeout": "ヘルスチェックタイムアウト",
-                "health_check_interval": "ヘルスチェック間隔",
-                "tokenizer_model": "トークナイザーモデル"
-            },
-            "download_manager": {
-                "title": "ダウンロードマネージャー",
-                "description": "ローカルモデルファイルを管理します。"
-            },
-            "configurations": {
-                "title": "モデル構成",
-                "description": "各モデルインスタンスの詳細設定。",
-                "path": "パス",
-                "port": "ポート",
-                "context": "コンテキスト",
-                "gpu_layers": "GPUレイヤー",
-                "temp": "Temp",
-                "top_p": "Top P",
-                "top_k": "Top K",
-                "repeat_penalty": "Rep. Penalty"
-            }
-        }
-    }
+	"setup": {
+		"title": "Tepora セットアップ",
+		"checking": "環境をチェック中...",
+		"ready": "すべての準備が整っています！",
+		"binary_needed": "推論エンジンのセットアップが必要です",
+		"models_needed": "モデルのダウンロードが必要です",
+		"complete": "セットアップ完了！",
+		"error": "セットアップ中にエラーが発生しました",
+		"start": "Teporaを開始",
+		"auto_setup": "自動セットアップ",
+		"skip": "スキップ",
+		"retry": "再試行",
+		"downloading": "ダウンロード中...",
+		"steps": {
+			"language": "言語選択",
+			"binary": "推論エンジン (llama.cpp)",
+			"models": "モデル"
+		},
+		"status": {
+			"satisfied": "インストール済み",
+			"missing": "未インストール",
+			"outdated": "更新あり",
+			"installed": "インストール済み",
+			"not_downloaded": "未ダウンロード"
+		},
+		"advanced_settings": "詳細設定 (モデルの変更)",
+		"model_settings": "モデル詳細設定",
+		"model": "モデル"
+	},
+	"common": {
+		"language": "言語",
+		"next": "次へ",
+		"back": "戻る",
+		"cancel": "キャンセル",
+		"save": "保存",
+		"clear": "クリア",
+		"settings": "設定",
+		"close": "閉じる",
+		"enabled": "有効",
+		"disabled": "無効",
+		"retry": "再試行"
+	},
+	"chat": {
+		"clear_history": "履歴を削除",
+		"input": {
+			"placeholder": {
+				"connecting": "接続中...",
+				"search": "検索したいことを入力...",
+				"agent": "タスクを入力...",
+				"default": "Teporaとチャット..."
+			},
+			"system_ready": "システム準備完了",
+			"disconnected": "未接続",
+			"web_search": "Web検索",
+			"web_search_toggle": "Web検索: {{state}}",
+			"attach_file": "ファイルを添付",
+			"remove_attachment": "添付ファイル {{name}} を削除",
+			"send": "送信",
+			"send_message": "メッセージを送信",
+			"stop": "生成を停止",
+			"stop_generation": "生成を停止",
+			"mode_active": "{{mode}}モード 起動中",
+			"aria_label": "メッセージ入力"
+		}
+	},
+	"dial": {
+		"chat": "チャット",
+		"search": "検索",
+		"agent": "エージェント"
+	},
+	"status": {
+		"title": "システムステータス",
+		"network": "ネットワーク",
+		"connected": "接続済み",
+		"disconnected": "未接続",
+		"core_system": "コアシステム",
+		"ready": "準備完了",
+		"loading": "読み込み中",
+		"events": "イベント",
+		"messages": "メッセージ",
+		"char": "Char",
+		"prof": "Prof"
+	},
+	"settings": {
+		"title": "設定",
+		"subtitle": "AIの設定を管理します",
+		"confirm_discard": "未保存の変更があります。破棄しますか？",
+		"toast": {
+			"save_success": "設定を保存しました！",
+			"save_error": "設定の保存に失敗しました。"
+		},
+		"save_bar": {
+			"reset": "リセット",
+			"save": "変更を保存",
+			"saving": "保存中..."
+		},
+		"sections": {
+			"general": {
+				"label": "一般",
+				"title": "アプリケーション",
+				"description": "基本設定と安全制限を設定します。"
+			},
+			"agents": {
+				"label": "キャラクター",
+				"title": "キャラクター",
+				"description": "エージェント（人格とツール）を定義します。",
+				"add_new_profile": "新規プロファイル追加",
+				"new_profile_key_placeholder": "プロファイルID (英数字とアンダースコア)",
+				"add": "追加",
+				"cancel": "キャンセル",
+				"cannot_delete_active": "アクティブなプロファイルは削除できません",
+				"confirm_delete": "このプロファイルを削除しますか？",
+				"card": {
+					"currently_active": "現在アクティブ",
+					"set_active": "アクティブに設定",
+					"active": "アクティブ",
+					"set_active_short": "設定",
+					"delete": "削除",
+					"label": "ラベル",
+					"label_placeholder": "エージェント名",
+					"description": "説明",
+					"description_placeholder": "簡単な説明",
+					"persona": "ペルソナ",
+					"persona_description": "エージェントの性格と役割を定義します。",
+					"preset_key": "プリセットキー",
+					"preset_key_placeholder": "例: default (任意)",
+					"select_preset": "プリセットを選択...",
+					"custom_prompt": "カスタムプロンプト (上書き)",
+					"custom_prompt_placeholder": "あなたは親切なAIアシスタントです...",
+					"allowed_tools": "許可されたツール",
+					"allowed_tools_description": "すべてを許可するには \"*\" を使用。",
+					"denied_tools": "拒否されたツール",
+					"tool_placeholder": "ツール名..."
+				},
+				"tab": {
+					"characters": "キャラクター",
+					"professionals": "プロフェッショナル"
+				},
+				"professionals_coming_soon_title": "Professional Agents coming soon...",
+				"professionals_coming_soon_desc": "専門的なタスクを実行するエージェントは現在開発中です。",
+				"modal": {
+					"title_add": "キャラクターを追加",
+					"title_edit": "キャラクターを編集",
+					"key_label": "ID (キー)",
+					"key_desc": "システム内部で使用する一意の識別子です。",
+					"name_label": "表示名",
+					"desc_label": "説明",
+					"prompt_label": "システムプロンプト"
+				},
+				"error_empty_key": "IDを入力してください。",
+				"error_duplicate_key": "このIDは既に使用されています。",
+				"edit": "編集",
+				"delete": "削除",
+				"no_description": "説明なし"
+			},
+			"mcp": {
+				"label": "MCPツール",
+				"title": "MCPツール",
+				"description": "Model Context Protocolサーバーを管理します。"
+			},
+			"models": {
+				"label": "モデル",
+				"title": "モデル",
+				"description": "LLMのパスとパラメータを設定します。"
+			},
+			"memory": {
+				"label": "メモリ",
+				"title": "EM-LLM (エピソード記憶)",
+				"description": "エピソード記憶と履歴の上限を設定します。"
+			},
+			"chat_history": {
+				"title": "チャット履歴"
+			}
+		},
+		"fields": {
+			"language": {
+				"label": "言語",
+				"description": "インターフェースの言語を選択してください。"
+			},
+			"max_input_length": {
+				"label": "最大入力長",
+				"description": "ユーザー入力の最大文字数。"
+			},
+			"graph_recursion_limit": {
+				"label": "再帰制限",
+				"description": "エージェントグラフ探索の最大深度（安全装置）。"
+			},
+			"tool_execution_timeout": {
+				"label": "ツール実行タイムアウト",
+				"description": "ツール実行がタイムアウトするまでの秒数。"
+			},
+			"dangerous_patterns": {
+				"label": "禁止パターン",
+				"description": "セキュリティのためにブロックする正規表現パターン。",
+				"placeholder": "正規表現を追加 (例: system\\s*:)"
+			}
+		},
+		"memory": {
+			"max_tokens": {
+				"label": "最大トークン数",
+				"description": "アクティブな会話コンテキストウィンドウの制限。"
+			},
+			"surprise_gamma": {
+				"label": "Surprise Gamma",
+				"description": "イベント境界検出の感度 (0.0 - 1.0)。"
+			},
+			"min_event_size": {
+				"label": "最小イベントサイズ",
+				"description": "メモリイベントを形成するための最小トークン数。"
+			},
+			"max_event_size": {
+				"label": "最大イベントサイズ",
+				"description": "メモリイベントごとの最大トークン数。"
+			},
+			"retrieved_events": {
+				"label": "検索イベント数",
+				"description": "想起する過去のイベント数。"
+			},
+			"repr_topk": {
+				"label": "Repr Top K",
+				"description": "イベント表現のためのTop Kトークン。"
+			},
+			"boundary_refinement": {
+				"label": "境界リファインメント",
+				"description": "イベント分割の精度を向上させます。"
+			}
+		},
+		"mcp_content": {
+			"info": {
+				"title": "構成情報",
+				"description": "MCP (Model Context Protocol) ツールを使用すると、AIは外部データやサービスと対話できます。現在、MCP構成はローカルJSON構成ファイルを介して管理されています。"
+			},
+			"servers": {
+				"title": "検出されたサーバー",
+				"active": "アクティブ"
+			},
+			"config_path": {
+				"title": "構成パス",
+				"readonly": "読み取り専用",
+				"helper": "新しいMCPサーバーを追加するには、このファイルを直接編集してバックエンドを再起動してください。"
+			}
+		},
+		"mcp": {
+			"refresh": "更新",
+			"addServer": "サーバーを追加",
+			"disabled": "無効",
+			"disable": "無効化",
+			"enable": "有効化",
+			"delete": "削除",
+			"confirmDelete": "削除を確認",
+			"cancelDelete": "キャンセル",
+			"noServers": {
+				"title": "MCPサーバーがありません",
+				"description": "「サーバーを追加」をクリックして、公式レジストリからサーバーをインストールしてください。"
+			},
+			"status": {
+				"connected": "接続中 ({{count}}ツール)",
+				"connecting": "接続中...",
+				"disconnected": "切断済み",
+				"error": "エラー",
+				"unknown": "不明"
+			},
+			"store": {
+				"title": "MCPサーバーストア",
+				"searchPlaceholder": "サーバーを検索...",
+				"noResults": "サーバーが見つかりません",
+				"selectRuntime": "ランタイムを選択",
+				"runtimeDescription": "このサーバーを実行するランタイムを選択してください。",
+				"configure": "設定",
+				"configDescription": "必要な環境変数を入力してください。",
+				"confirm": "確認",
+				"install": "インストール"
+			}
+		},
+		"models_settings": {
+			"global_manager": {
+				"title": "LLMマネージャー全般",
+				"description": "プロセス管理とヘルスチェックの設定。",
+				"terminate_timeout": "終了タイムアウト",
+				"health_check_timeout": "ヘルスチェックタイムアウト",
+				"health_check_interval": "ヘルスチェック間隔",
+				"tokenizer_model": "トークナイザーモデル"
+			},
+			"download_manager": {
+				"title": "ダウンロードマネージャー",
+				"description": "ローカルモデルファイルを管理します。"
+			},
+			"configurations": {
+				"title": "モデル構成",
+				"description": "各モデルインスタンスの詳細設定。",
+				"path": "パス",
+				"port": "ポート",
+				"context": "コンテキスト",
+				"gpu_layers": "GPUレイヤー",
+				"temp": "Temp",
+				"top_p": "Top P",
+				"top_k": "Top K",
+				"repeat_penalty": "Rep. Penalty"
+			}
+		}
+	}
 }

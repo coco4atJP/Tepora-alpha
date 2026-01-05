@@ -1,303 +1,303 @@
 {
-    "setup": {
-        "title": "Tepora Setup",
-        "checking": "Checking environment...",
-        "ready": "All systems ready!",
-        "binary_needed": "Inference engine setup required",
-        "models_needed": "Model download required",
-        "complete": "Setup complete!",
-        "error": "Error during setup",
-        "start": "Start Tepora",
-        "auto_setup": "Auto Setup",
-        "skip": "Skip",
-        "retry": "Retry",
-        "downloading": "Downloading...",
-        "steps": {
-            "language": "Language Selection",
-            "binary": "Inference Engine (llama.cpp)",
-            "models": "Models"
-        },
-        "status": {
-            "satisfied": "Installed",
-            "missing": "Missing",
-            "outdated": "Update Available",
-            "installed": "Installed",
-            "not_downloaded": "Not Downloaded"
-        },
-        "advanced_settings": "Advanced Settings (Change Models)",
-        "model_settings": "Model Settings",
-        "model": "Model"
-    },
-    "common": {
-        "language": "Language",
-        "next": "Next",
-        "back": "Back",
-        "cancel": "Cancel",
-        "save": "Save",
-        "clear": "Clear",
-        "settings": "Settings",
-        "close": "Close",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "retry": "Retry"
-    },
-    "chat": {
-        "clear_history": "Clear History",
-        "input": {
-            "placeholder": {
-                "connecting": "Connecting...",
-                "search": "Ask me to search...",
-                "agent": "Assign a task...",
-                "default": "Chat with Tepora..."
-            },
-            "system_ready": "System Ready",
-            "disconnected": "Disconnected",
-            "web_search": "Web Search",
-            "web_search_toggle": "Web Search: {{state}}",
-            "attach_file": "Attach File",
-            "remove_attachment": "Remove attachment {{name}}",
-            "send": "Send Message",
-            "send_message": "Send Message",
-            "stop": "Stop Generation",
-            "stop_generation": "Stop Generation",
-            "mode_active": "{{mode}} MODE ACTIVE",
-            "aria_label": "Message Input"
-        }
-    },
-    "dial": {
-        "chat": "CHAT",
-        "search": "SEARCH",
-        "agent": "AGENT"
-    },
-    "status": {
-        "title": "System Status",
-        "network": "Network",
-        "connected": "Connected",
-        "disconnected": "Disconnected",
-        "core_system": "Core System",
-        "ready": "Ready",
-        "loading": "Loading",
-        "events": "events",
-        "messages": "Messages",
-        "char": "Char",
-        "prof": "Prof"
-    },
-    "settings": {
-        "title": "Settings",
-        "subtitle": "Manage your AI configuration",
-        "confirm_discard": "You have unsaved changes. Discard them?",
-        "toast": {
-            "save_success": "Settings saved successfully!",
-            "save_error": "Failed to save settings."
-        },
-        "save_bar": {
-            "reset": "Reset",
-            "save": "Save Changes",
-            "saving": "Saving..."
-        },
-        "sections": {
-            "general": {
-                "label": "General",
-                "title": "Application",
-                "description": "Core application settings and safety limits."
-            },
-            "agents": {
-                "label": "Characters",
-                "title": "Characters",
-                "description": "Define agent personas and tool policies.",
-                "add_new_profile": "Add New Profile",
-                "new_profile_key_placeholder": "Profile ID (alphanumeric and underscores)",
-                "add": "Add",
-                "cancel": "Cancel",
-                "cannot_delete_active": "Cannot delete active profile",
-                "confirm_delete": "Delete this profile?",
-                "card": {
-                    "currently_active": "Currently Active",
-                    "set_active": "Set as Active",
-                    "active": "Active",
-                    "set_active_short": "Set Active",
-                    "delete": "Delete",
-                    "label": "Label",
-                    "label_placeholder": "Agent Name",
-                    "description": "Description",
-                    "description_placeholder": "Short description",
-                    "persona": "Persona",
-                    "persona_description": "Define the agent's personality and role.",
-                    "preset_key": "Preset Key",
-                    "preset_key_placeholder": "e.g. default (Optional)",
-                    "select_preset": "Select preset...",
-                    "custom_prompt": "Custom Prompt (Override)",
-                    "custom_prompt_placeholder": "You are a helpful AI assistant...",
-                    "allowed_tools": "Allowed Tools",
-                    "allowed_tools_description": "Use \"*\" for all.",
-                    "denied_tools": "Denied Tools",
-                    "tool_placeholder": "Tool name..."
-                },
-                "tab": {
-                    "characters": "Characters",
-                    "professionals": "Professionals"
-                },
-                "professionals_coming_soon_title": "Professional Agents coming soon...",
-                "professionals_coming_soon_desc": "Agents for specialized task execution are currently under development.",
-                "modal": {
-                    "title_add": "Add Character",
-                    "title_edit": "Edit Character",
-                    "key_label": "ID (Key)",
-                    "key_desc": "Unique identifier used internally.",
-                    "name_label": "Display Name",
-                    "desc_label": "Description",
-                    "prompt_label": "System Prompt"
-                },
-                "error_empty_key": "Please enter an ID.",
-                "error_duplicate_key": "This ID is already in use.",
-                "edit": "Edit",
-                "delete": "Delete",
-                "no_description": "No description"
-            },
-            "mcp": {
-                "label": "MCP Tools",
-                "title": "MCP Tools",
-                "description": "Manage Model Context Protocol servers."
-            },
-            "models": {
-                "label": "Models",
-                "title": "Models",
-                "description": "Configure LLM paths and parameters."
-            },
-            "memory": {
-                "label": "Memory",
-                "title": "EM-LLM (Episodic Memory)",
-                "description": "Configure episodic memory and history limits."
-            },
-            "chat_history": {
-                "title": "Chat History"
-            }
-        },
-        "fields": {
-            "language": {
-                "label": "Interface Language",
-                "description": "Select your preferred language."
-            },
-            "max_input_length": {
-                "label": "Max Input Length",
-                "description": "Maximum characters allowed in user input."
-            },
-            "graph_recursion_limit": {
-                "label": "Graph Recursion Limit",
-                "description": "Maximum depth for agent graph traversal (safety brake)."
-            },
-            "tool_execution_timeout": {
-                "label": "Tool Execution Timeout",
-                "description": "Seconds before a tool execution times out."
-            },
-            "dangerous_patterns": {
-                "label": "Dangerous Patterns",
-                "description": "Regex patterns to block from user input for security.",
-                "placeholder": "Add regex pattern (e.g. system\\s*:)"
-            }
-        },
-        "memory": {
-            "max_tokens": {
-                "label": "Max Tokens",
-                "description": "Limit for active conversation context window."
-            },
-            "surprise_gamma": {
-                "label": "Surprise Gamma",
-                "description": "Sensitivity for event boundary detection (0.0 - 1.0)."
-            },
-            "min_event_size": {
-                "label": "Min Event Size",
-                "description": "Minimum tokens to form a memory event."
-            },
-            "max_event_size": {
-                "label": "Max Event Size",
-                "description": "Maximum tokens per memory event."
-            },
-            "retrieved_events": {
-                "label": "Retrieved Events",
-                "description": "Number of past events to recall."
-            },
-            "repr_topk": {
-                "label": "Repr Top K",
-                "description": "Top K tokens for event representation."
-            },
-            "boundary_refinement": {
-                "label": "Boundary Refinement",
-                "description": "Improve event segmentation accuracy."
-            }
-        },
-        "mcp_content": {
-            "info": {
-                "title": "Configuration Information",
-                "description": "MCP (Model Context Protocol) tools allow the AI to interact with external data and services. Currently, MCP configuration is managed via a local JSON configuration file."
-            },
-            "servers": {
-                "title": "Detected Servers",
-                "active": "Active"
-            },
-            "config_path": {
-                "title": "Configuration Path",
-                "readonly": "Read-only",
-                "helper": "To add new MCP servers, please edit this file directly and restart the backend."
-            }
-        },
-        "mcp": {
-            "refresh": "Refresh",
-            "addServer": "Add Server",
-            "disabled": "Disabled",
-            "disable": "Disable",
-            "enable": "Enable",
-            "delete": "Delete",
-            "confirmDelete": "Confirm Delete",
-            "cancelDelete": "Cancel",
-            "noServers": {
-                "title": "No MCP Servers",
-                "description": "Click 'Add Server' to install servers from the official registry."
-            },
-            "status": {
-                "connected": "Connected ({{count}} tools)",
-                "connecting": "Connecting...",
-                "disconnected": "Disconnected",
-                "error": "Error",
-                "unknown": "Unknown"
-            },
-            "store": {
-                "title": "MCP Server Store",
-                "searchPlaceholder": "Search servers...",
-                "noResults": "No servers found",
-                "selectRuntime": "Select Runtime",
-                "runtimeDescription": "Choose a runtime to execute this server.",
-                "configure": "Configure",
-                "configDescription": "Enter the required environment variables.",
-                "confirm": "Confirm",
-                "install": "Install"
-            }
-        },
-        "models_settings": {
-            "global_manager": {
-                "title": "LLM Manager Global",
-                "description": "Process management and health check configuration.",
-                "terminate_timeout": "Terminate Timeout",
-                "health_check_timeout": "Health Check Timeout",
-                "health_check_interval": "Health Check Interval",
-                "tokenizer_model": "Tokenizer Model"
-            },
-            "download_manager": {
-                "title": "Download Manager",
-                "description": "Manage local model files."
-            },
-            "configurations": {
-                "title": "Model Configurations",
-                "description": "Detailed configuration for each model instance.",
-                "path": "Path",
-                "port": "Port",
-                "context": "Context",
-                "gpu_layers": "GPU Layers",
-                "temp": "Temp",
-                "top_p": "Top P",
-                "top_k": "Top K",
-                "repeat_penalty": "Rep. Penalty"
-            }
-        }
-    }
+	"setup": {
+		"title": "Tepora Setup",
+		"checking": "Checking environment...",
+		"ready": "All systems ready!",
+		"binary_needed": "Inference engine setup required",
+		"models_needed": "Model download required",
+		"complete": "Setup complete!",
+		"error": "Error during setup",
+		"start": "Start Tepora",
+		"auto_setup": "Auto Setup",
+		"skip": "Skip",
+		"retry": "Retry",
+		"downloading": "Downloading...",
+		"steps": {
+			"language": "Language Selection",
+			"binary": "Inference Engine (llama.cpp)",
+			"models": "Models"
+		},
+		"status": {
+			"satisfied": "Installed",
+			"missing": "Missing",
+			"outdated": "Update Available",
+			"installed": "Installed",
+			"not_downloaded": "Not Downloaded"
+		},
+		"advanced_settings": "Advanced Settings (Change Models)",
+		"model_settings": "Model Settings",
+		"model": "Model"
+	},
+	"common": {
+		"language": "Language",
+		"next": "Next",
+		"back": "Back",
+		"cancel": "Cancel",
+		"save": "Save",
+		"clear": "Clear",
+		"settings": "Settings",
+		"close": "Close",
+		"enabled": "Enabled",
+		"disabled": "Disabled",
+		"retry": "Retry"
+	},
+	"chat": {
+		"clear_history": "Clear History",
+		"input": {
+			"placeholder": {
+				"connecting": "Connecting...",
+				"search": "Ask me to search...",
+				"agent": "Assign a task...",
+				"default": "Chat with Tepora..."
+			},
+			"system_ready": "System Ready",
+			"disconnected": "Disconnected",
+			"web_search": "Web Search",
+			"web_search_toggle": "Web Search: {{state}}",
+			"attach_file": "Attach File",
+			"remove_attachment": "Remove attachment {{name}}",
+			"send": "Send Message",
+			"send_message": "Send Message",
+			"stop": "Stop Generation",
+			"stop_generation": "Stop Generation",
+			"mode_active": "{{mode}} MODE ACTIVE",
+			"aria_label": "Message Input"
+		}
+	},
+	"dial": {
+		"chat": "CHAT",
+		"search": "SEARCH",
+		"agent": "AGENT"
+	},
+	"status": {
+		"title": "System Status",
+		"network": "Network",
+		"connected": "Connected",
+		"disconnected": "Disconnected",
+		"core_system": "Core System",
+		"ready": "Ready",
+		"loading": "Loading",
+		"events": "events",
+		"messages": "Messages",
+		"char": "Char",
+		"prof": "Prof"
+	},
+	"settings": {
+		"title": "Settings",
+		"subtitle": "Manage your AI configuration",
+		"confirm_discard": "You have unsaved changes. Discard them?",
+		"toast": {
+			"save_success": "Settings saved successfully!",
+			"save_error": "Failed to save settings."
+		},
+		"save_bar": {
+			"reset": "Reset",
+			"save": "Save Changes",
+			"saving": "Saving..."
+		},
+		"sections": {
+			"general": {
+				"label": "General",
+				"title": "Application",
+				"description": "Core application settings and safety limits."
+			},
+			"agents": {
+				"label": "Characters",
+				"title": "Characters",
+				"description": "Define agent personas and tool policies.",
+				"add_new_profile": "Add New Profile",
+				"new_profile_key_placeholder": "Profile ID (alphanumeric and underscores)",
+				"add": "Add",
+				"cancel": "Cancel",
+				"cannot_delete_active": "Cannot delete active profile",
+				"confirm_delete": "Delete this profile?",
+				"card": {
+					"currently_active": "Currently Active",
+					"set_active": "Set as Active",
+					"active": "Active",
+					"set_active_short": "Set Active",
+					"delete": "Delete",
+					"label": "Label",
+					"label_placeholder": "Agent Name",
+					"description": "Description",
+					"description_placeholder": "Short description",
+					"persona": "Persona",
+					"persona_description": "Define the agent's personality and role.",
+					"preset_key": "Preset Key",
+					"preset_key_placeholder": "e.g. default (Optional)",
+					"select_preset": "Select preset...",
+					"custom_prompt": "Custom Prompt (Override)",
+					"custom_prompt_placeholder": "You are a helpful AI assistant...",
+					"allowed_tools": "Allowed Tools",
+					"allowed_tools_description": "Use \"*\" for all.",
+					"denied_tools": "Denied Tools",
+					"tool_placeholder": "Tool name..."
+				},
+				"tab": {
+					"characters": "Characters",
+					"professionals": "Professionals"
+				},
+				"professionals_coming_soon_title": "Professional Agents coming soon...",
+				"professionals_coming_soon_desc": "Agents for specialized task execution are currently under development.",
+				"modal": {
+					"title_add": "Add Character",
+					"title_edit": "Edit Character",
+					"key_label": "ID (Key)",
+					"key_desc": "Unique identifier used internally.",
+					"name_label": "Display Name",
+					"desc_label": "Description",
+					"prompt_label": "System Prompt"
+				},
+				"error_empty_key": "Please enter an ID.",
+				"error_duplicate_key": "This ID is already in use.",
+				"edit": "Edit",
+				"delete": "Delete",
+				"no_description": "No description"
+			},
+			"mcp": {
+				"label": "MCP Tools",
+				"title": "MCP Tools",
+				"description": "Manage Model Context Protocol servers."
+			},
+			"models": {
+				"label": "Models",
+				"title": "Models",
+				"description": "Configure LLM paths and parameters."
+			},
+			"memory": {
+				"label": "Memory",
+				"title": "EM-LLM (Episodic Memory)",
+				"description": "Configure episodic memory and history limits."
+			},
+			"chat_history": {
+				"title": "Chat History"
+			}
+		},
+		"fields": {
+			"language": {
+				"label": "Interface Language",
+				"description": "Select your preferred language."
+			},
+			"max_input_length": {
+				"label": "Max Input Length",
+				"description": "Maximum characters allowed in user input."
+			},
+			"graph_recursion_limit": {
+				"label": "Graph Recursion Limit",
+				"description": "Maximum depth for agent graph traversal (safety brake)."
+			},
+			"tool_execution_timeout": {
+				"label": "Tool Execution Timeout",
+				"description": "Seconds before a tool execution times out."
+			},
+			"dangerous_patterns": {
+				"label": "Dangerous Patterns",
+				"description": "Regex patterns to block from user input for security.",
+				"placeholder": "Add regex pattern (e.g. system\\s*:)"
+			}
+		},
+		"memory": {
+			"max_tokens": {
+				"label": "Max Tokens",
+				"description": "Limit for active conversation context window."
+			},
+			"surprise_gamma": {
+				"label": "Surprise Gamma",
+				"description": "Sensitivity for event boundary detection (0.0 - 1.0)."
+			},
+			"min_event_size": {
+				"label": "Min Event Size",
+				"description": "Minimum tokens to form a memory event."
+			},
+			"max_event_size": {
+				"label": "Max Event Size",
+				"description": "Maximum tokens per memory event."
+			},
+			"retrieved_events": {
+				"label": "Retrieved Events",
+				"description": "Number of past events to recall."
+			},
+			"repr_topk": {
+				"label": "Repr Top K",
+				"description": "Top K tokens for event representation."
+			},
+			"boundary_refinement": {
+				"label": "Boundary Refinement",
+				"description": "Improve event segmentation accuracy."
+			}
+		},
+		"mcp_content": {
+			"info": {
+				"title": "Configuration Information",
+				"description": "MCP (Model Context Protocol) tools allow the AI to interact with external data and services. Currently, MCP configuration is managed via a local JSON configuration file."
+			},
+			"servers": {
+				"title": "Detected Servers",
+				"active": "Active"
+			},
+			"config_path": {
+				"title": "Configuration Path",
+				"readonly": "Read-only",
+				"helper": "To add new MCP servers, please edit this file directly and restart the backend."
+			}
+		},
+		"mcp": {
+			"refresh": "Refresh",
+			"addServer": "Add Server",
+			"disabled": "Disabled",
+			"disable": "Disable",
+			"enable": "Enable",
+			"delete": "Delete",
+			"confirmDelete": "Confirm Delete",
+			"cancelDelete": "Cancel",
+			"noServers": {
+				"title": "No MCP Servers",
+				"description": "Click 'Add Server' to install servers from the official registry."
+			},
+			"status": {
+				"connected": "Connected ({{count}} tools)",
+				"connecting": "Connecting...",
+				"disconnected": "Disconnected",
+				"error": "Error",
+				"unknown": "Unknown"
+			},
+			"store": {
+				"title": "MCP Server Store",
+				"searchPlaceholder": "Search servers...",
+				"noResults": "No servers found",
+				"selectRuntime": "Select Runtime",
+				"runtimeDescription": "Choose a runtime to execute this server.",
+				"configure": "Configure",
+				"configDescription": "Enter the required environment variables.",
+				"confirm": "Confirm",
+				"install": "Install"
+			}
+		},
+		"models_settings": {
+			"global_manager": {
+				"title": "LLM Manager Global",
+				"description": "Process management and health check configuration.",
+				"terminate_timeout": "Terminate Timeout",
+				"health_check_timeout": "Health Check Timeout",
+				"health_check_interval": "Health Check Interval",
+				"tokenizer_model": "Tokenizer Model"
+			},
+			"download_manager": {
+				"title": "Download Manager",
+				"description": "Manage local model files."
+			},
+			"configurations": {
+				"title": "Model Configurations",
+				"description": "Detailed configuration for each model instance.",
+				"path": "Path",
+				"port": "Port",
+				"context": "Context",
+				"gpu_layers": "GPU Layers",
+				"temp": "Temp",
+				"top_p": "Top P",
+				"top_k": "Top K",
+				"repeat_penalty": "Rep. Penalty"
+			}
+		}
+	}
 }

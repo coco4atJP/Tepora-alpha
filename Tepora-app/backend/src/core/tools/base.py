@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Any
+
 from langchain_core.tools import BaseTool
+
 
 class ToolProvider(ABC):
     """
@@ -10,7 +11,7 @@ class ToolProvider(ABC):
     """
 
     @abstractmethod
-    async def load_tools(self) -> List[BaseTool]:
+    async def load_tools(self) -> list[BaseTool]:
         """
         Load and return a list of tools.
         This method should handle any initialization required for the tools.

@@ -5,22 +5,20 @@ Sessions API Routes - セッション履歴管理用APIエンドポイント
 """
 
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.tepora_server.api.security import get_api_key
-from src.tepora_server.state import get_app_state, AppState
-from fastapi import Request
+from src.tepora_server.state import AppState, get_app_state
 
 logger = logging.getLogger("tepora.server.api.sessions")
 router = APIRouter(prefix="/api/sessions", tags=["sessions"], dependencies=[Depends(get_api_key)])
 
 
 class CreateSessionRequest(BaseModel):
-    title: Optional[str] = None
+    title: str | None = None
 
 
 class UpdateSessionRequest(BaseModel):
@@ -66,18 +64,12 @@ async def get_session(request: Request, session_id: str):
         session = app_state.core.history_manager.get_session(session_id)
         if session is None:
             return JSONResponse(status_code=404, content={"error": "Session not found"})
-        
+
         # Get message history for the session
         messages = app_state.core.history_manager.get_history(session_id=session_id, limit=100)
         return {
             "session": session,
-            "messages": [
-                {
-                    "type": msg.type,
-                    "content": msg.content
-                }
-                for msg in messages
-            ]
+            "messages": [{"type": msg.type, "content": msg.content} for msg in messages],
         }
     except Exception as e:
         logger.error(f"Failed to get session: {e}", exc_info=True)
@@ -108,7 +100,7 @@ async def delete_session(request: Request, session_id: str):
     try:
         if session_id == "default":
             return JSONResponse(status_code=400, content={"error": "Cannot delete default session"})
-        
+
         app_state: AppState = get_app_state(request)
         success = app_state.core.history_manager.delete_session(session_id)
         if not success:

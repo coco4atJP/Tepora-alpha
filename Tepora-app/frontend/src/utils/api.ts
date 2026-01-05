@@ -1,13 +1,14 @@
 /**
  * API設定ユーティリティ
- * 
+ *
  * 動的ポート取得をサポート。
  * デスクトップモードではsidecarからポートを受け取り、
  * Webモードではデフォルトまたは環境変数を使用。
  */
 
 // Tauriアプリかどうかを判定
-export const isDesktop = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+export const isDesktop =
+	typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 
 // 動的ポート格納用（sidecarから設定される）
 let dynamicPort: number | null = null;
@@ -16,18 +17,18 @@ let dynamicPort: number | null = null;
  * sidecarから取得したポートを設定
  */
 export function setDynamicPort(port: number): void {
-    dynamicPort = port;
-    console.log(`[API] Dynamic port set to: ${port}`);
+	dynamicPort = port;
+	console.log(`[API] Dynamic port set to: ${port}`);
 }
 
 /**
  * 現在のAPIポートを取得
  */
 export function getApiPort(): string {
-    if (dynamicPort !== null) {
-        return String(dynamicPort);
-    }
-    return import.meta.env.VITE_API_PORT || '8000';
+	if (dynamicPort !== null) {
+		return String(dynamicPort);
+	}
+	return import.meta.env.VITE_API_PORT || "8000";
 }
 
 /**
@@ -36,13 +37,13 @@ export function getApiPort(): string {
  * but provides the structure for future remote access scenarios.
  */
 export function getAuthHeaders(): Record<string, string> {
-    // For localhost desktop app, auth is skipped by backend.
-    // If remote access is enabled in the future, retrieve key from secure storage.
-    const apiKey = import.meta.env.VITE_API_KEY || '';
-    if (apiKey) {
-        return { 'x-api-key': apiKey };
-    }
-    return {};
+	// For localhost desktop app, auth is skipped by backend.
+	// If remote access is enabled in the future, retrieve key from secure storage.
+	const apiKey = import.meta.env.VITE_API_KEY || "";
+	if (apiKey) {
+		return { "x-api-key": apiKey };
+	}
+	return {};
 }
 
 /**
@@ -51,10 +52,10 @@ export function getAuthHeaders(): Record<string, string> {
  * - Web の場合: '' (相対パス、Vite のプロキシを使用)
  */
 export function getApiBase(): string {
-    if (isDesktop) {
-        return `http://127.0.0.1:${getApiPort()}`;
-    }
-    return '';
+	if (isDesktop) {
+		return `http://127.0.0.1:${getApiPort()}`;
+	}
+	return "";
 }
 
 /**
@@ -63,10 +64,10 @@ export function getApiBase(): string {
  * - Web の場合: '' (相対パス、Vite のプロキシを使用)
  */
 export function getWsBase(): string {
-    if (isDesktop) {
-        return `ws://127.0.0.1:${getApiPort()}`;
-    }
-    return '';
+	if (isDesktop) {
+		return `ws://127.0.0.1:${getApiPort()}`;
+	}
+	return "";
 }
 
 // Deprecated static constants - maintained for localized refactoring but

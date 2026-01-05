@@ -19,9 +19,9 @@ from __future__ import annotations
 from .constants import (
     ATTENTION_SINK_PREFIX,
     PROFESSIONAL_ATTENTION_SINK,
-    InputMode,
     GraphNodes,
     GraphRoutes,
+    InputMode,
     MemoryLimits,
     RAGConfig,
 )

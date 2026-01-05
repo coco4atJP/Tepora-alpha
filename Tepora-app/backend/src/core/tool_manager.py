@@ -17,21 +17,24 @@
 import asyncio
 import logging
 import threading
-from pathlib import Path
-from typing import Any, Coroutine, List, Dict, Optional, Union, TypedDict
+from collections.abc import Coroutine
+from typing import Any, TypedDict
 
 from langchain_core.tools import BaseTool
 
-from .tools.base import ToolProvider
 from . import config
+from .tools.base import ToolProvider
 
 logger = logging.getLogger(__name__)
 
+
 class ToolResult(TypedDict):
     """ツールの実行結果を表す型"""
+
     success: bool
     output: Any
-    error: Optional[str]
+    error: str | None
+
 
 class ToolManager:
     """
@@ -43,17 +46,18 @@ class ToolManager:
     - 同期/非同期に関わらず、ツール実行の統一APIを提供
     - バックグラウンドのイベントループを維持し、非同期ツールを安全に実行
     """
-    def __init__(self, providers: List['ToolProvider'] = None):
+
+    def __init__(self, providers: list["ToolProvider"] = None):
         """コンストラクタ
 
         引数:
             providers: ツールを提供するToolProviderのリスト
         """
         self.providers = providers or []
-        self.tools: List[BaseTool] = []
-        self.tool_map: Dict[str, BaseTool] = {}
-        self._all_tools: List[BaseTool] = []
-        
+        self.tools: list[BaseTool] = []
+        self.tool_map: dict[str, BaseTool] = {}
+        self._all_tools: list[BaseTool] = []
+
         self._profile_name = config.get_active_agent_profile_name()
 
         # 非同期処理専用のイベントループを作成し、
@@ -63,7 +67,7 @@ class ToolManager:
         self._thread.start()
         logger.info("Async task runner thread started.")
 
-    # 同期コードから非同期関数を安全に呼び出すためのブリッジメソッド 
+    # 同期コードから非同期関数を安全に呼び出すためのブリッジメソッド
     def _run_coroutine(self, coro: Coroutine) -> Any:
         """Execute async coroutine from sync code and wait for result."""
         # バックグラウンドのイベントループにコルーチンを送信し、現在のスレッドで待機
@@ -73,19 +77,19 @@ class ToolManager:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         try:
             return future.result(timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Coroutine execution timed out after {timeout} seconds.")
             raise
         except Exception as e:
             # future.result() raises the exception from the coroutine
             raise e
 
-    # 同期/非同期を問わず、全てのツールを実行するための統一インターフェース 
-    def execute_tool(self, tool_name: str, tool_args: dict) -> Union[str, Any]:
+    # 同期/非同期を問わず、全てのツールを実行するための統一インターフェース
+    def execute_tool(self, tool_name: str, tool_args: dict) -> str | Any:
         """
         指定されたツールを同期/非同期を自動で判断して実行する。
         graph.pyからはこのメソッドだけを呼び出せば良い。
-        
+
         処理の流れ:
         1. ツール名でツールインスタンスを取得
         2. `aexecute_tool`をコルーチンとして取得
@@ -97,14 +101,14 @@ class ToolManager:
             logger.info("Executing tool '%s' via sync bridge.", tool_name)
             coro = self.aexecute_tool(tool_name, tool_args)
             return self._run_coroutine(coro)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Tool '{tool_name}' execution timed out.")
             return f"Error: Tool '{tool_name}' execution timed out."
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}", exc_info=True)
             return f"Error executing tool {tool_name}: {e}"
 
-    async def aexecute_tool(self, tool_name: str, tool_args: dict) -> Union[str, Any]:
+    async def aexecute_tool(self, tool_name: str, tool_args: dict) -> str | Any:
         """非同期コンテキストからツールを実行するためのヘルパー。"""
         tool_instance = self.get_tool(tool_name)
         if not tool_instance:
@@ -123,7 +127,9 @@ class ToolManager:
 
             return f"Error: Tool '{tool_name}' has no callable invoke or ainvoke method."
         except Exception as exc:  # noqa: BLE001
-            logger.error("Error executing tool %s asynchronously: %s", tool_name, exc, exc_info=True)
+            logger.error(
+                "Error executing tool %s asynchronously: %s", tool_name, exc, exc_info=True
+            )
             return f"Error executing tool {tool_name}: {exc}"
 
     def initialize(self):
@@ -135,7 +141,7 @@ class ToolManager:
         self.tools = []
         self.tool_map = {}
         self._all_tools = []
-        
+
         # 2. 各プロバイダからツールをロード
         for provider in self.providers:
             try:
@@ -143,15 +149,19 @@ class ToolManager:
                 # プロバイダのload_toolsはasyncなのでブリッジ経由で実行
                 provider_tools = self._run_coroutine(provider.load_tools())
                 self.tools.extend(provider_tools)
-                logger.info(f"Loaded {len(provider_tools)} tools from {provider.__class__.__name__}.")
+                logger.info(
+                    f"Loaded {len(provider_tools)} tools from {provider.__class__.__name__}."
+                )
             except Exception as e:
-                logger.error(f"An error occurred while loading tools from {provider.__class__.__name__}: {e}", exc_info=True)
-        
+                logger.error(
+                    f"An error occurred while loading tools from {provider.__class__.__name__}: {e}",
+                    exc_info=True,
+                )
+
         # 4. 全ツールリストを保持し、プロファイルでフィルタリング
         self._all_tools = list(self.tools)
         total_loaded = len(self._all_tools)
         self._apply_profile_filter()
-
 
         logger.info(
             "ToolManager initialized with %d tools (profile '%s', %d total loaded): %s",
@@ -185,7 +195,7 @@ class ToolManager:
         self.tools = list(filtered)
         self.tool_map = {tool.name: tool for tool in self.tools}
 
-    def get_tool(self, tool_name: str) -> Optional[BaseTool]:
+    def get_tool(self, tool_name: str) -> BaseTool | None:
         """指定された名前のツールを取得する。
 
         見つからない場合は `None` を返す。
@@ -204,14 +214,18 @@ class ToolManager:
                 provider.cleanup()
             except Exception as e:
                 logger.warning(f"Error during provider cleanup: {e}", exc_info=True)
-        
+
         if self._loop.is_running():
             logger.info("Stopping async task runner thread...")
             try:
-                shutdown_future = asyncio.run_coroutine_threadsafe(self._loop.shutdown_asyncgens(), self._loop)
+                shutdown_future = asyncio.run_coroutine_threadsafe(
+                    self._loop.shutdown_asyncgens(), self._loop
+                )
                 shutdown_future.result(timeout=5)
             except Exception as e:
-                logger.warning("Failed to shutdown async generators gracefully: %s", e, exc_info=True)
+                logger.warning(
+                    "Failed to shutdown async generators gracefully: %s", e, exc_info=True
+                )
 
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._thread.join(timeout=5)

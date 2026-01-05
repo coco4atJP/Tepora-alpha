@@ -1,13 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "./test-utils";
 
-import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+vi.mock("../components/PersonaSwitcher", () => ({
+	default: () => <div data-testid="persona-switcher" />,
+}));
 
-vi.mock('react-router-dom', async () => {
-    const actual = await vi.importActual('react-router-dom');
-    return {
-        ...actual,
-        useOutletContext: () => ({ currentMode: 'chat' as ChatMode }),
-    };
+vi.mock("react-router-dom", async () => {
+	const actual = await vi.importActual("react-router-dom");
+	return {
+		...actual,
+		useOutletContext: () => ({ currentMode: "chat" as ChatMode }),
+	};
 });
 
 // Mock InputArea and MessageList to simplify integration test
@@ -18,142 +21,156 @@ vi.mock('react-router-dom', async () => {
 // Let's mock scrollIntoView.
 Element.prototype.scrollIntoView = vi.fn();
 
-
-
 // We need to mock the MODULE for WebSocketContext usage
-vi.mock('../context/WebSocketContext', async () => {
-    const actual = await vi.importActual('../context/WebSocketContext');
-    return {
-        ...actual,
-        useWebSocketContext: vi.fn(),
-    };
+vi.mock("../context/WebSocketContext", async () => {
+	const actual = await vi.importActual("../context/WebSocketContext");
+	return {
+		...actual,
+		useWebSocketContext: vi.fn(),
+	};
 });
 
-import { useWebSocketContext as mockUseWebSocketContext } from '../context/WebSocketContext';
-import ChatInterface from '../components/ChatInterface';
-import { ChatMode } from '../types';
+const mockCreateSession = vi.fn();
+// Mock useSessions hook
+vi.mock("../hooks/useSessions", () => ({
+	useSessions: () => ({
+		createSession: mockCreateSession,
+	}),
+}));
 
-describe('ChatInterface Integration', () => {
+import ChatInterface from "../components/ChatInterface";
+import { useWebSocketContext as mockUseWebSocketContext } from "../context/WebSocketContext";
+import type { ChatMode } from "../types";
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
+describe("ChatInterface Integration", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
 
-    it('renders initial state correctly', () => {
-        const mockSendMessage = vi.fn();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mockUseWebSocketContext as any).mockReturnValue({
-            isConnected: true,
-            isProcessing: false,
-            messages: [
-                { id: '1', role: 'user', content: 'Hello', timestamp: new Date(1000) },
-                { id: '2', role: 'assistant', content: 'Hi there', timestamp: new Date(1001) }
-            ],
-            sendMessage: mockSendMessage,
-            error: null
-        });
+	it("renders initial state correctly", () => {
+		const mockSendMessage = vi.fn();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(mockUseWebSocketContext as any).mockReturnValue({
+			isConnected: true,
+			isProcessing: false,
+			messages: [
+				{ id: "1", role: "user", content: "Hello", timestamp: new Date(1000) },
+				{
+					id: "2",
+					role: "assistant",
+					content: "Hi there",
+					timestamp: new Date(1001),
+				},
+			],
+			sendMessage: mockSendMessage,
+			error: null,
+		});
 
-        render(<ChatInterface />);
+		render(<ChatInterface />);
 
-        // Verify messages are displayed
-        expect(screen.getByText('Hello')).toBeInTheDocument();
-        expect(screen.getByText('Hi there')).toBeInTheDocument();
+		// Verify messages are displayed
+		expect(screen.getByText("Hello")).toBeInTheDocument();
+		expect(screen.getByText("Hi there")).toBeInTheDocument();
 
-        // Verify input area is present (uses i18n key in test)
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
-    });
+		// Verify input area is present (uses i18n key in test)
+		expect(screen.getByRole("textbox")).toBeInTheDocument();
+	});
 
-    it('handles user input and sends message', async () => {
-        const mockSendMessage = vi.fn();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mockUseWebSocketContext as any).mockReturnValue({
-            isConnected: true,
-            isProcessing: false,
-            messages: [],
-            sendMessage: mockSendMessage,
-            error: null
-        });
+	it("handles user input and sends message", async () => {
+		const mockSendMessage = vi.fn();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(mockUseWebSocketContext as any).mockReturnValue({
+			isConnected: true,
+			isProcessing: false,
+			messages: [],
+			sendMessage: mockSendMessage,
+			error: null,
+		});
 
-        render(<ChatInterface />);
+		render(<ChatInterface />);
 
-        const input = screen.getByRole('textbox');
-        const sendButton = screen.getByRole('button', { name: /send/i });
+		const input = screen.getByRole("textbox");
+		const sendButton = screen.getByRole("button", { name: /send/i });
 
-        // Simulate typing
-        fireEvent.change(input, { target: { value: 'Test Query' } });
+		// Simulate typing
+		fireEvent.change(input, { target: { value: "Test Query" } });
 
-        // Simulate send
-        fireEvent.click(sendButton);
+		// Simulate send
+		fireEvent.click(sendButton);
 
-        // Verify sendMessage called with correct args
-        // Assuming ChatMode 'chat' from outlet context mock
-        expect(mockSendMessage).toHaveBeenCalledWith('Test Query', 'chat', [], false);
-    });
+		// Verify sendMessage called with correct args
+		// Assuming ChatMode 'chat' from outlet context mock
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"Test Query",
+			"chat",
+			[],
+			false,
+		);
+	});
 
-    it('displays error toast when error occurs', () => {
-        const mockClearError = vi.fn();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mockUseWebSocketContext as any).mockReturnValue({
-            isConnected: true,
-            isProcessing: false,
-            messages: [],
-            sendMessage: vi.fn(),
-            error: 'Connection Failed',
-            clearError: mockClearError
-        });
+	it("displays error toast when error occurs", () => {
+		const mockClearError = vi.fn();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(mockUseWebSocketContext as any).mockReturnValue({
+			isConnected: true,
+			isProcessing: false,
+			messages: [],
+			sendMessage: vi.fn(),
+			error: "Connection Failed",
+			clearError: mockClearError,
+		});
 
-        render(<ChatInterface />);
+		render(<ChatInterface />);
 
-        expect(screen.getByText('Connection Failed')).toBeInTheDocument();
+		expect(screen.getByText("Connection Failed")).toBeInTheDocument();
 
-        // Verify clear error interaction
-        const closeBtn = screen.getByText('×');
-        fireEvent.click(closeBtn);
-        expect(mockClearError).toHaveBeenCalled();
-    });
+		// Verify clear error interaction
+		const closeBtn = screen.getByText("×");
+		fireEvent.click(closeBtn);
+		expect(mockClearError).toHaveBeenCalled();
+	});
 
-    it('disables input when processing', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mockUseWebSocketContext as any).mockReturnValue({
-            isConnected: true,
-            isProcessing: true,
-            messages: [],
-            sendMessage: vi.fn(),
-            error: null
-        });
+	it("disables input when processing", () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(mockUseWebSocketContext as any).mockReturnValue({
+			isConnected: true,
+			isProcessing: true,
+			messages: [],
+			sendMessage: vi.fn(),
+			error: null,
+		});
 
-        render(<ChatInterface />);
+		render(<ChatInterface />);
 
-        // Check for stop button or disabled input depending on InputArea implementation
-        // If InputArea shows stop button when processing:
-        expect(screen.getByLabelText(/stop generation/i)).toBeInTheDocument();
+		// Check for stop button or disabled input depending on InputArea implementation
+		// If InputArea shows stop button when processing:
+		expect(screen.getByLabelText(/stop generation/i)).toBeInTheDocument();
 
-        // Input usually disabled or replaced
-        const input = screen.queryByPlaceholderText(/Type a message.../i);
-        // It might be disabled or still there, check attribute if implemented
-        if (input) {
-            expect(input).toBeDisabled();
-        }
-    });
+		// Input usually disabled or replaced
+		const input = screen.queryByPlaceholderText(/Type a message.../i);
+		// It might be disabled or still there, check attribute if implemented
+		if (input) {
+			expect(input).toBeDisabled();
+		}
+	});
 
-    it('clears messages when header clear button clicked', () => {
-        const mockClearMessages = vi.fn();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mockUseWebSocketContext as any).mockReturnValue({
-            isConnected: true,
-            isProcessing: false,
-            messages: [{ id: '1', role: 'user', content: 'History', timestamp: new Date(0) }],
-            sendMessage: vi.fn(),
-            clearMessages: mockClearMessages,
-            error: null
-        });
+	it("creates new session when button clicked", () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(mockUseWebSocketContext as any).mockReturnValue({
+			isConnected: true,
+			isProcessing: false,
+			messages: [
+				{ id: "1", role: "user", content: "History", timestamp: new Date(0) },
+			],
+			sendMessage: vi.fn(),
+			error: null,
+		});
 
-        render(<ChatInterface />);
+		render(<ChatInterface />);
 
-        // Find clear button by its aria-label or as button containing Trash icon
-        const clearBtn = screen.getByRole('button', { name: /clear/i });
-        fireEvent.click(clearBtn);
+		const newSessionBtn = screen.getByRole("button", { name: /new session/i });
+		fireEvent.click(newSessionBtn);
 
-        expect(mockClearMessages).toHaveBeenCalled();
-    });
+		expect(mockCreateSession).toHaveBeenCalled();
+	});
 });

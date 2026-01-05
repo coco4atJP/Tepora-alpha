@@ -1,23 +1,24 @@
 import logging
 import socket
 import subprocess
-import psutil
-import time
 from pathlib import Path
-from typing import Dict, Optional
+
+import psutil
 
 from .. import config
 from . import launch_server, perform_health_check
 
 logger = logging.getLogger(__name__)
 
+
 class ProcessManager:
     """
     Llama.cppサーバープロセスのライフサイクル管理を担当するクラス。
     """
+
     def __init__(self):
         # 管理中のプロセス: model_key -> subprocess.Popen
-        self._active_processes: Dict[str, subprocess.Popen] = {}
+        self._active_processes: dict[str, subprocess.Popen] = {}
 
     def start_process(self, key: str, command: list, stderr_log_path: Path) -> subprocess.Popen:
         """
@@ -44,29 +45,30 @@ class ProcessManager:
 
         timeout = config.settings.llm_manager.process_terminate_timeout
         self._terminate_process_tree(process, timeout, context=f"server process for {key}")
-        
+
         if key in self._active_processes:
             del self._active_processes[key]
 
-    def get_process(self, key: str) -> Optional[subprocess.Popen]:
+    def get_process(self, key: str) -> subprocess.Popen | None:
         return self._active_processes.get(key)
 
     def find_free_port(self) -> int:
         """Find a free port on localhost."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('localhost', 0))
+            s.bind(("localhost", 0))
             return s.getsockname()[1]
 
-    def perform_health_check(self, port: int, key: str, stderr_log_path: Optional[Path] = None):
+    def perform_health_check(self, port: int, key: str, stderr_log_path: Path | None = None):
         """
         プロセスのヘルスチェックを行う。
         """
+
         def get_process_ref():
             return self._active_processes.get(key)
-        
+
         process_ref = get_process_ref
         try:
-             perform_health_check(
+            perform_health_check(
                 port,
                 key,
                 process_ref=process_ref,
@@ -74,10 +76,10 @@ class ProcessManager:
                 logger=logger,
             )
         except Exception:
-             # ヘルスチェック失敗時はプロセスを停止する
-             logger.error(f"Health check failed for '{key}'. Terminating process.")
-             self.stop_process(key)
-             raise
+            # ヘルスチェック失敗時はプロセスを停止する
+            logger.error(f"Health check failed for '{key}'. Terminating process.")
+            self.stop_process(key)
+            raise
 
     def cleanup(self):
         """管理中の全プロセスを停止する"""
@@ -85,22 +87,24 @@ class ProcessManager:
         for key in keys:
             self.stop_process(key)
 
-    def _terminate_process_tree(self, process: subprocess.Popen, timeout_sec: int, *, context: str) -> None:
+    def _terminate_process_tree(
+        self, process: subprocess.Popen, timeout_sec: int, *, context: str
+    ) -> None:
         """
         プロセスツリーを適切に終了させる内部メソッド
         """
         context_title = context.capitalize()
         logger.info(f"Terminating {context} (PID: {process.pid})...")
-        
+
         try:
             parent = psutil.Process(process.pid)
             children = parent.children(recursive=True)
-            
+
             # Send SIGTERM to parent
             parent.terminate()
-            
+
             _, alive = psutil.wait_procs([parent] + children, timeout=timeout_sec)
-            
+
             if alive:
                 logger.warning(f"{context_title} didn't terminate gracefully, forcing kill...")
                 for p in alive:
@@ -110,9 +114,9 @@ class ProcessManager:
                         pass
                 _, alive = psutil.wait_procs(alive, timeout=5)
                 if alive:
-                     logger.error(f"Failed to kill {context_title} processes: {alive}")
+                    logger.error(f"Failed to kill {context_title} processes: {alive}")
                 else:
-                     logger.info(f"{context_title} killed forcefully.")
+                    logger.info(f"{context_title} killed forcefully.")
             else:
                 logger.info(f"{context_title} terminated gracefully.")
 

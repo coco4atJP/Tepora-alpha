@@ -1,8 +1,9 @@
 """
 Agent profile configurations.
 """
+
 import logging
-from typing import Dict, List, Tuple, Union, Any
+from typing import Any
 
 from langchain_core.tools import BaseTool
 
@@ -13,7 +14,8 @@ logger = logging.getLogger(__name__)
 # Cache active profile in memory if set programmatically, otherwise load from config
 _active_profile_override: str | None = None
 
-def _get_profiles() -> Dict[str, Any]:
+
+def _get_profiles() -> dict[str, Any]:
     """
     Return dict of all profiles (merged characters and professionals).
     If a key exists in both, character takes precedence (though keys should ideally be unique).
@@ -25,21 +27,23 @@ def _get_profiles() -> Dict[str, Any]:
         profiles.update({k: v.model_dump() for k, v in settings.characters.items()})
     return profiles
 
-def get_agent_profile(name: str) -> Dict | None:
+
+def get_agent_profile(name: str) -> dict | None:
     """Return the configuration for a single agent profile (Character or Professional)."""
     # Try Character first
     char = settings.characters.get(name)
     if char:
         return char.model_dump()
-    
+
     # Then Professional
     prof = settings.professionals.get(name)
     if prof:
         return prof.model_dump()
-        
+
     return None
 
-def get_agent_profile_names() -> List[str]:
+
+def get_agent_profile_names() -> list[str]:
     """Return a list of all available agent profile names."""
     keys = set()
     if settings.characters:
@@ -48,9 +52,11 @@ def get_agent_profile_names() -> List[str]:
         keys.update(settings.professionals.keys())
     return list(keys)
 
-def iter_agent_profiles() -> List[Tuple[str, Dict]]:
+
+def iter_agent_profiles() -> list[tuple[str, dict]]:
     """Iterate through all (name, profile_config) pairs."""
     return list(_get_profiles().items())
+
 
 def get_active_agent_profile_name() -> str:
     """Return the name of the currently active agent profile."""
@@ -59,13 +65,15 @@ def get_active_agent_profile_name() -> str:
     # Fallback to config, then default
     return str(settings.active_agent_profile or "default")
 
+
 def set_active_agent_profile(name: str) -> None:
     """Set the active agent profile by name (runtime only)."""
     global _active_profile_override
-    
+
     # Check if exists in either
-    if (settings.characters and name in settings.characters) or \
-       (settings.professionals and name in settings.professionals):
+    if (settings.characters and name in settings.characters) or (
+        settings.professionals and name in settings.professionals
+    ):
         _active_profile_override = name
         logger.info("Active agent profile set to: %s", name)
     else:
@@ -73,7 +81,8 @@ def set_active_agent_profile(name: str) -> None:
         valid_keys = get_agent_profile_names()
         raise ValueError(f"Profile '{name}' not found. Available: {', '.join(valid_keys)}")
 
-def filter_tools_for_profile(tools: List[BaseTool], profile_name: str) -> List[BaseTool]:
+
+def filter_tools_for_profile(tools: list[BaseTool], profile_name: str) -> list[BaseTool]:
     """
     Filter a list of tools based on the profile type.
     - Characters: Access to all tools (default behavior for now).

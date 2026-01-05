@@ -1,0 +1,44 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.14 [39m[90mE:/Tepora_Project/Tepora-app/frontend[39m
+
+ [32m✓[39m src/test/example.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+[90mstdout[2m | src/hooks/__tests__/useWebSocket.test.ts[2m > [22m[2museWebSocket[2m > [22m[2mshould connect on mount
+[22m[39mAuto-loading history for session: default
+
+[90mstdout[2m | src/hooks/__tests__/useWebSocket.test.ts[2m > [22m[2museWebSocket[2m > [22m[2mshould receive messages
+[22m[39mAuto-loading history for session: default
+
+[90mstdout[2m | src/hooks/__tests__/useWebSocket.test.ts[2m > [22m[2museWebSocket[2m > [22m[2mshould receive messages
+[22m[39mWS Received: { type: [32m'chunk'[39m, message: [32m'Hello from server'[39m, mode: [32m'direct'[39m }
+
+[90mstdout[2m | src/hooks/__tests__/useWebSocket.test.ts[2m > [22m[2museWebSocket[2m > [22m[2mshould send messages
+[22m[39mAuto-loading history for session: default
+
+[90mstdout[2m | src/hooks/__tests__/useWebSocket.test.ts[2m > [22m[2museWebSocket[2m > [22m[2mshould cleanup on unmount
+[22m[39mAuto-loading history for session: default
+
+ [32m✓[39m src/hooks/__tests__/useWebSocket.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+[90mstderr[2m | src/components/__tests__/PersonaSwitcher.test.tsx[2m > [22m[2mPersonaSwitcher[2m > [22m[2mcalls setActiveAgent when a persona is selected
+[22m[39mAn update to PersonaSwitcher inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32m✓[39m src/components/__tests__/PersonaSwitcher.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 104[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/SearchResults.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 238[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/InputArea.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 406[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/MessageBubble.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 120[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/MessageList.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 154[2mms[22m[39m
+ [32m✓[39m src/test/Integration.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 300[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m29 passed[39m[22m[90m (29)[39m
+[2m   Start at [22m 00:08:32
+[2m   Duration [22m 3.40s[2m (transform 1.43s, setup 1.60s, import 6.77s, tests 1.37s, environment 8.60s)[22m
+

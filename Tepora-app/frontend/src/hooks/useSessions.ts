@@ -1,137 +1,135 @@
-/**
- * Session API hooks
- * Handles session CRUD operations via REST API
- */
-
-import { useState, useCallback, useEffect } from 'react';
-import { getApiBase, getAuthHeaders } from '../utils/api';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
+import { apiClient } from "../utils/api-client";
 
 export interface Session {
-    id: string;
-    title: string;
-    created_at: string;
-    updated_at: string;
-    message_count?: number;
-    preview?: string;
+	id: string;
+	title: string;
+	created_at: string;
+	updated_at: string;
+	message_count?: number;
+	preview?: string;
 }
 
 interface UseSessionsReturn {
-    sessions: Session[];
-    loading: boolean;
-    error: string | null;
-    fetchSessions: () => Promise<void>;
-    createSession: (title?: string) => Promise<Session | null>;
-    deleteSession: (id: string) => Promise<boolean>;
-    renameSession: (id: string, title: string) => Promise<boolean>;
+	sessions: Session[];
+	loading: boolean;
+	error: string | null;
+	fetchSessions: () => Promise<void>;
+	createSession: (title?: string) => Promise<Session | null>;
+	deleteSession: (id: string) => Promise<boolean>;
+	renameSession: (id: string, title: string) => Promise<boolean>;
 }
 
 export const useSessions = (): UseSessionsReturn => {
-    const [sessions, setSessions] = useState<Session[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+	const queryClient = useQueryClient();
 
-    const fetchSessions = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await fetch(`${getApiBase()}/api/sessions`, {
-                headers: getAuthHeaders(),
-            });
-            if (!res.ok) throw new Error('Failed to fetch sessions');
-            const data = await res.json();
-            setSessions(data.sessions || []);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+	const {
+		data: sessions = [],
+		isLoading: loading,
+		error: queryError,
+		refetch,
+	} = useQuery({
+		queryKey: ["sessions"],
+		queryFn: async () => {
+			const data = await apiClient.get<{ sessions: Session[] }>("api/sessions");
+			return data.sessions || [];
+		},
+		staleTime: 1000 * 60, // 1 minute
+	});
 
-    const createSession = useCallback(async (title?: string): Promise<Session | null> => {
-        try {
-            const res = await fetch(`${getApiBase()}/api/sessions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...getAuthHeaders(),
-                },
-                body: JSON.stringify({ title }),
-            });
-            if (!res.ok) throw new Error('Failed to create session');
-            const data = await res.json();
-            if (data.session) {
-                setSessions(prev => [data.session, ...prev]);
-                return data.session;
-            }
-            return null;
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error');
-            return null;
-        }
-    }, []);
+	const createMutation = useMutation({
+		mutationFn: (title?: string) =>
+			apiClient.post<{ session: Session }>("api/sessions", { title }),
+		onSuccess: (data) => {
+			queryClient.setQueryData(["sessions"], (old: Session[] = []) => [
+				data.session,
+				...old,
+			]);
+		},
+	});
 
-    const deleteSession = useCallback(async (id: string): Promise<boolean> => {
-        if (id === 'default') {
-            setError('Cannot delete default session');
-            return false;
-        }
-        try {
-            const res = await fetch(`${getApiBase()}/api/sessions/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders(),
-            });
-            if (!res.ok) throw new Error('Failed to delete session');
-            setSessions(prev => prev.filter(s => s.id !== id));
-            // Note: Caller should handle switching to 'default' if current session was deleted
-            return true;
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error');
-            return false;
-        }
-    }, []);
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => apiClient.delete(`api/sessions/${id}`),
+		onSuccess: (_, id) => {
+			queryClient.setQueryData(["sessions"], (old: Session[] = []) =>
+				old.filter((s) => s.id !== id),
+			);
+		},
+	});
 
-    const renameSession = useCallback(async (id: string, title: string): Promise<boolean> => {
-        try {
-            const res = await fetch(`${getApiBase()}/api/sessions/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...getAuthHeaders(),
-                },
-                body: JSON.stringify({ title }),
-            });
-            if (!res.ok) throw new Error('Failed to rename session');
-            setSessions(prev => prev.map(s => s.id === id ? { ...s, title } : s));
-            return true;
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error');
-            return false;
-        }
-    }, []);
+	const renameMutation = useMutation({
+		mutationFn: ({ id, title }: { id: string; title: string }) =>
+			apiClient.patch(`api/sessions/${id}`, { title }),
+		onSuccess: (_, { id, title }) => {
+			queryClient.setQueryData(["sessions"], (old: Session[] = []) =>
+				old.map((s) => (s.id === id ? { ...s, title } : s)),
+			);
+		},
+	});
 
-    // Fetch sessions on mount
-    useEffect(() => {
-        fetchSessions();
-    }, [fetchSessions]);
+	// UX改善2: メッセージ送信完了時にセッションリストを自動リフレッシュ
+	useEffect(() => {
+		const handleSessionRefresh = () => {
+			queryClient.invalidateQueries({ queryKey: ["sessions"] });
+		};
+		window.addEventListener("session-refresh", handleSessionRefresh);
+		return () => {
+			window.removeEventListener("session-refresh", handleSessionRefresh);
+		};
+	}, [queryClient]);
 
-    // UX改善2: メッセージ送信完了時にセッションリストを自動リフレッシュ
-    useEffect(() => {
-        const handleSessionRefresh = () => {
-            fetchSessions();
-        };
-        window.addEventListener('session-refresh', handleSessionRefresh);
-        return () => {
-            window.removeEventListener('session-refresh', handleSessionRefresh);
-        };
-    }, [fetchSessions]);
+	const fetchSessions = useCallback(async () => {
+		await refetch();
+	}, [refetch]);
 
-    return {
-        sessions,
-        loading,
-        error,
-        fetchSessions,
-        createSession,
-        deleteSession,
-        renameSession,
-    };
+	const createSession = useCallback(
+		async (title?: string) => {
+			try {
+				const data = await createMutation.mutateAsync(title);
+				return data.session;
+			} catch (e) {
+				console.error(e);
+				return null;
+			}
+		},
+		[createMutation],
+	);
+
+	const deleteSession = useCallback(
+		async (id: string) => {
+			if (id === "default") return false;
+			try {
+				await deleteMutation.mutateAsync(id);
+				return true;
+			} catch (e) {
+				console.error(e);
+				return false;
+			}
+		},
+		[deleteMutation],
+	);
+
+	const renameSession = useCallback(
+		async (id: string, title: string) => {
+			try {
+				await renameMutation.mutateAsync({ id, title });
+				return true;
+			} catch (e) {
+				console.error(e);
+				return false;
+			}
+		},
+		[renameMutation],
+	);
+
+	return {
+		sessions,
+		loading,
+		error: queryError ? (queryError as Error).message : null,
+		fetchSessions,
+		createSession,
+		deleteSession,
+		renameSession,
+	};
 };

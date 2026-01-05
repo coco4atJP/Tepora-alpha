@@ -1,19 +1,18 @@
 import asyncio
 import logging
-import sys
-import os
 import time
-from typing import Callable, List
+from collections.abc import Callable
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from src.core.config import PROJECT_ROOT, settings
+from src.tepora_server.api import mcp_routes, routes, sessions, setup, ws
 from src.tepora_server.state import AppState
-from src.tepora_server.api import ws, routes, setup, mcp_routes, sessions
-from src.core.config import settings, PROJECT_ROOT
 
 logger = logging.getLogger("tepora.server.factory")
 
@@ -28,11 +27,12 @@ async def lifespan(app: FastAPI):
     try:
         # Load Config Explicitly
         from src.core.config.loader import config_manager
+
         config_manager.load_config()
 
         # Validate Config (Fail-Fast)
         from src.core.app.startup_validator import validate_startup_config
-        
+
         # Run blocking validation in a thread to avoid blocking the event loop
         await asyncio.get_running_loop().run_in_executor(
             None, validate_startup_config, settings, PROJECT_ROOT
@@ -50,7 +50,9 @@ async def lifespan(app: FastAPI):
                 if state.core.initialized:
                     logger.info("✅ Core initialization complete.")
                 else:
-                    logger.warning("Core initialization finished but core is not initialized (setup required).")
+                    logger.warning(
+                        "Core initialization finished but core is not initialized (setup required)."
+                    )
             except Exception as e:
                 logger.error("Core initialization task failed: %s", e, exc_info=True)
 
@@ -60,13 +62,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.critical(f"❌ Critical failure during startup: {e}", exc_info=True)
         raise
-    
+
     yield
-    
+
     logger.info("🔻 Tepora Web Server shutting down...")
-    
+
     # Cleanup MCP resources
-    if hasattr(app.state, 'app_state') and app.state.app_state:
+    if hasattr(app.state, "app_state") and app.state.app_state:
         await app.state.app_state.shutdown()
 
 
@@ -84,6 +86,7 @@ def create_app() -> FastAPI:
 
     # Global Exception Handler (Audit Issue 3.3)
     from .api.exception_handlers import global_exception_handler
+
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Request Logging Middleware
@@ -92,7 +95,9 @@ def create_app() -> FastAPI:
         start_time = time.time()
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000
-        logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.2f}ms")
+        logger.info(
+            f"{request.method} {request.url.path} - {response.status_code} - {process_time:.2f}ms"
+        )
         return response
 
     # Include Routers
@@ -108,7 +113,9 @@ def create_app() -> FastAPI:
         # Assuming we are in backend/src/tepora_server/app_factory.py
         # root is ../../../
         current_file = Path(__file__)
-        project_root = current_file.parent.parent.parent.parent # src/tepora_server/app_factory.py -> backend -> project_root
+        project_root = (
+            current_file.parent.parent.parent.parent
+        )  # src/tepora_server/app_factory.py -> backend -> project_root
         frontend_dist = project_root / "frontend" / "dist"
 
         if frontend_dist.exists():
@@ -120,18 +127,18 @@ def create_app() -> FastAPI:
             async def serve_spa(full_path: str):
                 # Check for API/WS prefixes to avoid capturing them (though router order usually handles this)
                 if full_path.startswith("api") or full_path.startswith("ws"):
-                     return JSONResponse(status_code=404, content={"error": "Not Found"})
+                    return JSONResponse(status_code=404, content={"error": "Not Found"})
 
                 # File check
                 file_path = frontend_dist / full_path
                 if file_path.exists() and file_path.is_file():
                     return FileResponse(str(file_path))
-                
+
                 # SPA Fallback
                 index_path = frontend_dist / "index.html"
                 if index_path.exists():
                     return FileResponse(str(index_path))
-                
+
                 return JSONResponse(status_code=404, content={"error": "Not Found"})
     except Exception as e:
         logger.warning(f"Could not setup static file serving: {e}")

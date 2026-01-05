@@ -4,17 +4,16 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, List
+from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 from requests.adapters import HTTPAdapter
-from urllib.parse import urlparse
 from urllib3.util.retry import Retry
 
-import os
 from ..config.loader import settings
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,6 @@ class GoogleCustomSearchTool(BaseTool):
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -138,8 +136,6 @@ class GoogleCustomSearchTool(BaseTool):
         return await asyncio.to_thread(self._perform_search, query)
 
 
-
-
 class WebFetchInput(BaseModel):
     url: str = Field(description="内容を取得したいWebページのURL")
 
@@ -162,37 +158,40 @@ class WebFetchTool(BaseTool):
         """Validate URL format and check against denylist."""
         import fnmatch
         import ipaddress
-        
+
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return "Error: URL must include a valid http/https scheme and host."
-        
+
         # Get host (without port), handling IPv6 literals correctly
         host = (parsed.hostname or "").lower()
         if not host:
-             return "Error: Could not determine hostname from URL."
-        
+            return "Error: Could not determine hostname from URL."
+
         # Get URL denylist from config schema (externalized from hardcoded values)
         from ..config.schema import AgentToolPolicyConfig
+
         denylist = AgentToolPolicyConfig().url_denylist
-        
+
         # Check denylist patterns
         for pattern in denylist:
             if fnmatch.fnmatch(host, pattern):
                 logger.warning("URL blocked by denylist: %s (matched pattern: %s)", url, pattern)
                 return f"Error: Access to {host} is blocked for security reasons (private/local network)."
-        
+
         # Additional check: resolve hostname and check if it's a private IP
         try:
             # Try to parse as IP address directly
             ip = ipaddress.ip_address(host)
             if ip.is_private or ip.is_loopback or ip.is_link_local:
                 logger.warning("URL blocked: %s resolves to private IP %s", url, ip)
-                return f"Error: Access to private/local IP addresses is blocked for security reasons."
+                return (
+                    "Error: Access to private/local IP addresses is blocked for security reasons."
+                )
         except ValueError:
             # Not an IP address, that's fine - it's a hostname
             pass
-        
+
         return None
 
     def _fetch_content(self, url: str) -> str:
@@ -222,12 +221,12 @@ class WebFetchTool(BaseTool):
         lines = (line.strip() for line in text.splitlines())
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
         cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
-        
+
         # Limit to configured characters to prevent embedding server overload
         max_chars = settings.app.web_fetch_max_chars
         if len(cleaned_text) > max_chars:
             cleaned_text = cleaned_text[:max_chars] + "\n\n... (content truncated)"
-        
+
         return cleaned_text
 
     def _run(self, url: str) -> str:
@@ -237,27 +236,27 @@ class WebFetchTool(BaseTool):
         return await asyncio.to_thread(self._fetch_content, url)
 
 
-from .base import ToolProvider
+from .base import ToolProvider  # noqa: E402
+
 
 class NativeToolProvider(ToolProvider):
     """
     Provider for collecting native tools (search, web fetch, etc.).
     """
-    async def load_tools(self) -> List[BaseTool]:
+
+    async def load_tools(self) -> list[BaseTool]:
         logger.info("Loading native tools via Provider...")
-        tools: List[BaseTool] = []
+        tools: list[BaseTool] = []
 
         # Check if Google Search is enabled
         api_key = settings.tools.google_search_api_key
         engine_id = settings.tools.google_search_engine_id
-        
+
         if api_key and engine_id:
             try:
                 google_search_tool = GoogleCustomSearchTool()
                 google_search_tool.name = "native_google_search"
-                google_search_tool.description = (
-                    "Search the web with Google Custom Search API and return multiple results (list of findings). This is a native tool."
-                )
+                google_search_tool.description = "Search the web with Google Custom Search API and return multiple results (list of findings). This is a native tool."
                 tools.append(google_search_tool)
             except Exception as exc:  # noqa: BLE001
                 logger.error("Failed to load Google Custom Search tool: %s", exc, exc_info=True)
@@ -269,5 +268,3 @@ class NativeToolProvider(ToolProvider):
             logger.info("Native tool available: %s", tool.name)
 
         return tools
-
-

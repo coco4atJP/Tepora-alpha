@@ -8,8 +8,8 @@ This package provides:
 """
 
 from .hub import McpHub
+from .installer import McpInstaller, extract_env_schema, generate_command
 from .registry import McpRegistry
-from .installer import McpInstaller, generate_command, extract_env_schema
 
 __all__ = [
     "McpHub",

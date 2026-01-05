@@ -12,17 +12,17 @@ import asyncio
 import json
 import logging
 import platform
+import re
 import shutil
 import sys
-import re
-import zipfile
 import tarfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
 import httpx
 
-from src.core.common.gpu_detect import is_cuda_available, get_cuda_version
+from src.core.common.gpu_detect import get_cuda_version, is_cuda_available
 
 from .progress import DownloadProgressManager
 from .types import (
@@ -186,7 +186,7 @@ class BinaryManager:
         # Common pattern parts
         # e.g., llama-b4409-bin-...
         prefix = r"llama-b\d+-bin-"
-        
+
         if sys.platform == "darwin":
             patterns = {
                 BinaryVariant.METAL: r"macos-arm64\.tar\.gz$",
@@ -199,13 +199,12 @@ class BinaryManager:
             # Windows ARM64 check (less common for basic llama.cpp generic bins but exists)
             is_arm64 = platform.machine().lower() in ("arm64", "aarch64")
 
-
             if is_arm64:
                 return prefix + r"win-cpu-arm64\.zip$"
 
             patterns = {
                 BinaryVariant.CUDA_12_4: r"win-cuda-12\.4-x64\.zip$",
-                BinaryVariant.CUDA_11_8: r"win-cuda-11\.\d+(\.\d+)?-x64\.zip$", # Check if actually exists
+                BinaryVariant.CUDA_11_8: r"win-cuda-11\.\d+(\.\d+)?-x64\.zip$",  # Check if actually exists
                 BinaryVariant.VULKAN: r"win-vulkan-x64\.zip$",
                 BinaryVariant.CPU_AVX2: r"win-cpu-x64\.zip$",
                 BinaryVariant.CPU_AVX: r"win-cpu-x64\.zip$",
@@ -213,18 +212,18 @@ class BinaryManager:
             }
             # Fallback for CUDA 11 check if naming varies
             if variant == BinaryVariant.CUDA_11_8:
-                 # Catch-all for 11.x?
-                 return prefix + r"win-cuda-cu11\.\d+(\.\d+)?-x64\.zip$"
-            
+                # Catch-all for 11.x?
+                return prefix + r"win-cuda-cu11\.\d+(\.\d+)?-x64\.zip$"
+
             return prefix + patterns.get(variant, r"win-cpu-x64\.zip$")
 
         else:
             # Linux
             patterns = {
-                BinaryVariant.CUDA_12_4: r"linux-cuda-12\.4-x64\.tar\.gz$", 
+                BinaryVariant.CUDA_12_4: r"linux-cuda-12\.4-x64\.tar\.gz$",
                 BinaryVariant.CUDA_11_8: r"linux-cuda-11\.\d+(\.\d+)?-x64\.tar\.gz$",
                 BinaryVariant.VULKAN: r"ubuntu-vulkan-x64\.tar\.gz$",
-                BinaryVariant.CPU_AVX2: r"ubuntu-x64\.tar\.gz$", 
+                BinaryVariant.CPU_AVX2: r"ubuntu-x64\.tar\.gz$",
             }
             return prefix + patterns.get(variant, r"ubuntu-x64\.tar\.gz$")
 
@@ -360,7 +359,7 @@ class BinaryManager:
                     ext = ".tar.gz"
                 elif download_url.endswith(".zip"):
                     ext = ".zip"
-                
+
                 zip_filename = f"llama-{version}-{variant.value}{ext}"
                 target_path = self.downloads_dir / zip_filename
                 # .tar.gz の場合、with_suffix は .gz のみを置換するため、文字列連結を使用
@@ -468,24 +467,29 @@ class BinaryManager:
                 version_dir = self.versions_dir / f"{version}-{variant.value}"
                 if version_dir.exists():
                     shutil.rmtree(version_dir)
-                
+
                 # Check for tar.gz vs zip
                 if target_path.suffix == ".gz" and target_path.with_suffix("").suffix == ".tar":
-                     # .tar.gz
-                     with tarfile.open(target_path, "r:gz") as tf:
+                    # .tar.gz
+                    with tarfile.open(target_path, "r:gz") as tf:
                         # Tar Slip check
                         for member in tf.getmembers():
                             extract_target = version_dir / member.name
                             abs_target = extract_target.resolve()
                             abs_root = version_dir.resolve()
-                            
+
                             try:
                                 abs_target.relative_to(abs_root)
                             except ValueError:
                                 logger.error(f"Tar Slip attempt detected: {member.name}")
                                 raise RuntimeError(f"Tar Slip attempt detected: {member.name}")
-                        
-                        tf.extractall(version_dir)
+
+                        import sys
+                        if sys.version_info >= (3, 12):
+                            tf.extractall(version_dir, filter='data')
+                        else:
+                             # Legacy support or warning
+                            tf.extractall(version_dir)
                 else:
                     # zip
                     with zipfile.ZipFile(target_path, "r") as zf:
@@ -525,8 +529,10 @@ class BinaryManager:
                             else:
                                 # Rename strategy for atomic-ish replacement
                                 timestamp = int(asyncio.get_event_loop().time())
-                                old_path = self.current_dir.with_name(f"old_{self.current_dir.name}_{timestamp}")
-                                
+                                old_path = self.current_dir.with_name(
+                                    f"old_{self.current_dir.name}_{timestamp}"
+                                )
+
                                 # Try rename first (fast)
                                 try:
                                     self.current_dir.rename(old_path)
@@ -538,18 +544,22 @@ class BinaryManager:
 
                         # Windowsではシンボリックリンクに管理者権限が必要な場合があるのでコピー
                         shutil.copytree(version_dir, self.current_dir)
-                        
+
                         # Success
                         break
                     except OSError as e:
                         last_error = e
                         retry_count += 1
                         wait_time = 1.0 * (2 ** (retry_count - 1))  # 1s, 2s, 4s, 8s, 16s
-                        logger.warning(f"File operation failed (attempt {retry_count}/{max_retries}): {e}. Retrying in {wait_time}s...")
+                        logger.warning(
+                            f"File operation failed (attempt {retry_count}/{max_retries}): {e}. Retrying in {wait_time}s..."
+                        )
                         await asyncio.sleep(wait_time)
-                
+
                 if retry_count >= max_retries:
-                    raise RuntimeError(f"Failed to update current directory after {max_retries} attempts: {last_error}")
+                    raise RuntimeError(
+                        f"Failed to update current directory after {max_retries} attempts: {last_error}"
+                    )
 
                 # レジストリ更新
                 self._registry = self.registry
@@ -718,7 +728,7 @@ class BinaryManager:
             base = filename[:-4]  # .zip を除去
         else:
             base = job.target_path.stem
-        
+
         parts = base.split("-", 2)  # ['llama', 'b1234', 'cuda-12.4']
         if len(parts) >= 3:
             version = parts[1]

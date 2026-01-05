@@ -1,48 +1,42 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "tepora",
-  "version": "0.1.0",
-  "identifier": "dev.tepora.app",
-  "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "tsc && vite build"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "Tepora AI",
-        "width": 800,
-        "height": 600,
-        "resizable": true,
-        "fullscreen": false,
-        "devtools": true
-      }
-    ],
-    "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;"
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": [
-      "nsis"
-    ],
-    "publisher": "Tepora",
-    "shortDescription": "Tepora AI Agent",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "externalBin": [
-      "binaries/tepora-backend"
-    ],
-    "resources": [
-      "resources/llama-cpu-fallback/*"
-    ]
-  }
+	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+	"productName": "tepora",
+	"version": "0.1.0",
+	"identifier": "dev.tepora.app",
+	"build": {
+		"frontendDist": "../dist",
+		"devUrl": "http://localhost:5173",
+		"beforeDevCommand": "npm run dev",
+		"beforeBuildCommand": "tsc && vite build"
+	},
+	"app": {
+		"windows": [
+			{
+				"title": "Tepora AI",
+				"width": 800,
+				"height": 600,
+				"resizable": true,
+				"fullscreen": false,
+				"devtools": true
+			}
+		],
+		"security": {
+			"csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost data:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;"
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": ["nsis"],
+		"publisher": "Tepora",
+		"shortDescription": "Tepora AI Agent",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"externalBin": ["binaries/tepora-backend"],
+		"resources": ["resources/llama-cpu-fallback/*"]
+	}
 }

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .. import config
 
@@ -39,7 +39,9 @@ def build_server_command(
     return command
 
 
-def launch_server(command: Sequence[str], *, stderr_log_path: Path, logger: logging.Logger) -> subprocess.Popen:
+def launch_server(
+    command: Sequence[str], *, stderr_log_path: Path, logger: logging.Logger
+) -> subprocess.Popen:
     logger.info("Starting llama.cpp server: %s", " ".join(command))
     logger.info("Server stderr will be logged to: %s", stderr_log_path)
     with open(stderr_log_path, "w", encoding="utf-8") as log_file:

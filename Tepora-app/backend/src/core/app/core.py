@@ -3,32 +3,38 @@ Core application logic for Tepora Agent.
 Shared between CLI and Web interfaces.
 """
 
+import base64
 import logging
-import os
 import re
-from typing import Optional, Dict, Any, List, AsyncGenerator, Callable, Awaitable
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import Any
 
-from pathlib import Path
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.graph.state import CompiledStateGraph as CompiledGraph
+
 from .. import config
-from ..config import MODELS_GGUF, EM_LLM_CONFIG, PROJECT_ROOT, CHROMA_DB_PATH
+from ..chat_history_manager import ChatHistoryManager
+from ..config import (
+    CHROMA_DB_PATH,
+    DEFAULT_HISTORY_LIMIT,
+    PROJECT_ROOT,
+    STREAM_EVENT_CHAT_MODEL,
+    STREAM_EVENT_GRAPH_END,
+)
 from ..em_llm import EMConfig, EMLLMIntegrator
 from ..embedding_provider import EmbeddingProvider
 from ..graph import AgentCore, EMEnabledAgentCore
+from ..graph.constants import InputMode
 from ..llm_manager import LLMManager
 from ..memory.memory_system import MemorySystem
 from ..tool_manager import ToolManager
-from ..chat_history_manager import ChatHistoryManager
 from .utils import sanitize_user_input
-from ..graph.constants import InputMode
-import base64
-from langchain_core.messages import HumanMessage, AIMessage
-from langgraph.graph.state import CompiledStateGraph as CompiledGraph
-from ..config import STREAM_EVENT_CHAT_MODEL, STREAM_EVENT_GRAPH_END, DEFAULT_HISTORY_LIMIT
 
 # Base64 pattern for detection (standard base64 with optional padding)
-BASE64_PATTERN = re.compile(r'^[A-Za-z0-9+/]+={0,2}$')
+BASE64_PATTERN = re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
 
 logger = logging.getLogger(__name__)
+
 
 class TeporaCoreApp:
     """
@@ -37,13 +43,13 @@ class TeporaCoreApp:
     """
 
     def __init__(self):
-        self.llm_manager: Optional[LLMManager] = None
-        self.tool_manager: Optional[ToolManager] = None
-        self.embedding_provider: Optional[EmbeddingProvider] = None
-        self.char_em_llm_integrator: Optional[EMLLMIntegrator] = None
-        self.prof_em_llm_integrator: Optional[EMLLMIntegrator] = None
-        self.history_manager: Optional[ChatHistoryManager] = None
-        self.app: Optional[CompiledGraph] = None  # The compiled graph
+        self.llm_manager: LLMManager | None = None
+        self.tool_manager: ToolManager | None = None
+        self.embedding_provider: EmbeddingProvider | None = None
+        self.char_em_llm_integrator: EMLLMIntegrator | None = None
+        self.prof_em_llm_integrator: EMLLMIntegrator | None = None
+        self.history_manager: ChatHistoryManager | None = None
+        self.app: CompiledGraph | None = None  # The compiled graph
         self.initialized = False
 
     async def initialize(self) -> bool:
@@ -52,51 +58,52 @@ class TeporaCoreApp:
             logger.info("Initializing Core Systems...")
 
             # 0. Startup configuration is validated externally (fail-fast) by app factory.
-            
+
             # 1. LLM Manager
             try:
                 from ..download.manager import DownloadManager
+
                 download_manager = DownloadManager()
                 logger.info("DownloadManager initialized for LLMManager context.")
             except ImportError:
-                logger.warning("Could not import DownloadManager. LLMManager will use fallback paths.")
+                logger.warning(
+                    "Could not import DownloadManager. LLMManager will use fallback paths."
+                )
                 download_manager = None
-            
+
             self.llm_manager = LLMManager(download_manager=download_manager)
             logger.info("LLMManager for Llama.cpp initialized.")
-            
+
             # 2. Tool Manager
-            from ..tools.native import NativeToolProvider
             from ..tools.mcp import McpToolProvider
-            
+            from ..tools.native import NativeToolProvider
+
             tool_config_path = PROJECT_ROOT / "config" / "mcp_tools_config.json"
-            providers = [
-                NativeToolProvider(),
-                McpToolProvider(config_path=tool_config_path)
-            ]
+            providers = [NativeToolProvider(), McpToolProvider(config_path=tool_config_path)]
             self.tool_manager = ToolManager(providers=providers)
             self.tool_manager.initialize()
-            logger.info("ToolManager initialized with providers: %s", [p.__class__.__name__ for p in providers])
-            
+            logger.info(
+                "ToolManager initialized with providers: %s",
+                [p.__class__.__name__ for p in providers],
+            )
+
             # 3. History Manager
             self.history_manager = ChatHistoryManager()
             logger.info("ChatHistoryManager initialized.")
 
             # 4. EM-LLM Systems
             await self._initialize_memory_systems()
-            
+
             # 5. Application Graph
             await self._build_graph()
-            
+
             self.initialized = True
             logger.info("Core initialization complete.")
             return True
-            
+
         except Exception as e:
             logger.error(f"Core initialization failed: {e}", exc_info=True)
             return False
-
-
 
     async def _initialize_memory_systems(self):
         """Initialize EM-LLM memory systems."""
@@ -104,32 +111,32 @@ class TeporaCoreApp:
             # Embedding Provider
             embedding_llm = await self.llm_manager.get_embedding_model()
             self.embedding_provider = EmbeddingProvider(embedding_llm)
-            
+
             # EM Config
             em_config = EMConfig(**config.EM_LLM_CONFIG)
-            
+
             # Character Memory
             char_db_path = CHROMA_DB_PATH / "em_llm"
             char_em_memory_system = MemorySystem(
                 self.embedding_provider,
                 db_path=str(char_db_path),
-                collection_name="em_llm_events_char"
+                collection_name="em_llm_events_char",
             )
             self.char_em_llm_integrator = EMLLMIntegrator(
                 self.llm_manager, self.embedding_provider, em_config, char_em_memory_system
             )
-            
+
             # Professional Memory
             prof_db_path = CHROMA_DB_PATH / "em_llm"
             prof_em_memory_system = MemorySystem(
                 self.embedding_provider,
                 db_path=str(prof_db_path),
-                collection_name="em_llm_events_prof"
+                collection_name="em_llm_events_prof",
             )
             self.prof_em_llm_integrator = EMLLMIntegrator(
                 self.llm_manager, self.embedding_provider, em_config, prof_em_memory_system
             )
-            
+
         except Exception as e:
             logger.error(f"EM-LLM initialization failed (System degraded): {e}", exc_info=True)
             self.char_em_llm_integrator = None
@@ -144,7 +151,7 @@ class TeporaCoreApp:
                 self.llm_manager,
                 self.tool_manager,
                 self.char_em_llm_integrator,
-                self.prof_em_llm_integrator
+                self.prof_em_llm_integrator,
             )
         else:
             # Fallback
@@ -153,25 +160,26 @@ class TeporaCoreApp:
                 try:
                     fallback_db_path = CHROMA_DB_PATH / "fallback"
                     memory_system = MemorySystem(
-                        self.embedding_provider,
-                        db_path=str(fallback_db_path)
+                        self.embedding_provider, db_path=str(fallback_db_path)
                     )
                 except Exception as e:
                     logger.error(f"Fallback memory init failed: {e}")
-            
+
             agent_core = AgentCore(self.llm_manager, self.tool_manager, memory_system)
-            
+
         self.app = agent_core.graph
 
-    async def process_input(self, 
-                          user_input: str, 
-                          chat_history: List,
-                          mode: str = "direct",
-                          search_metadata: Optional[Dict] = None,
-                          approval_callback: Optional[Callable[[str, Dict], Awaitable[bool]]] = None) -> AsyncGenerator[Dict, None]:
+    async def process_input(
+        self,
+        user_input: str,
+        chat_history: list,
+        mode: str = "direct",
+        search_metadata: dict | None = None,
+        approval_callback: Callable[[str, dict], Awaitable[bool]] | None = None,
+    ) -> AsyncGenerator[dict, None]:
         """
         Process user input and yield events from the graph.
-        
+
         Args:
             approval_callback: Optional async callback for tool approval (tool_name, args) -> bool
         """
@@ -185,34 +193,27 @@ class TeporaCoreApp:
             "agent_scratchpad": [],
             "messages": [],
         }
-        
+
         if search_metadata:
             initial_state.update(search_metadata)
-        
+
         # Build config with optional approval callback
-        run_config = {
-            "recursion_limit": config.GRAPH_RECURSION_LIMIT,
-            "configurable": {}
-        }
+        run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
         if approval_callback:
             run_config["configurable"]["approval_callback"] = approval_callback
 
-        async for event in self.app.astream_events(
-            initial_state,
-            version="v2",
-            config=run_config
-        ):
+        async for event in self.app.astream_events(initial_state, version="v2", config=run_config):
             yield event
 
     async def process_user_request(
         self,
         user_input: str,
         mode: str = "direct",
-        attachments: List[Dict] = None,
+        attachments: list[dict] = None,
         skip_web_search: bool = False,
         session_id: str = "default",
-        approval_callback: Optional[Callable[[str, Dict], Awaitable[bool]]] = None
-    ) -> AsyncGenerator[Dict, None]:
+        approval_callback: Callable[[str, dict], Awaitable[bool]] | None = None,
+    ) -> AsyncGenerator[dict, None]:
         """
         Full pipeline for processing a user request:
         1. Sanitize input
@@ -220,7 +221,7 @@ class TeporaCoreApp:
         3. Prepare search metadata
         4. Run graph
         5. Update history
-        
+
         Args:
             session_id: The session ID for chat history isolation
             approval_callback: Optional async callback for tool approval
@@ -245,11 +246,11 @@ class TeporaCoreApp:
         # Security: Calculate safe limit for raw content size
         # Base64 encoded size is ~1.33x of original. We check raw string length.
         safe_limit = int(config.SEARCH_ATTACHMENT_SIZE_LIMIT * 1.35)
-        
+
         for att in attachments:
             try:
                 content = att.get("content", "")
-                
+
                 # Security: Check size limit FIRST for ALL content types
                 if isinstance(content, str) and len(content) > safe_limit:
                     logger.warning(
@@ -258,25 +259,27 @@ class TeporaCoreApp:
                     )
                     # Skip this attachment but process others
                     continue
-                
+
                 # Check if it looks like base64 using pattern matching
                 # Criteria: long string, matches base64 pattern, no whitespace
                 if isinstance(content, str) and len(content) > 100:
                     # Quick check: base64 strings don't have spaces or newlines (unless MIME encoded)
-                    content_stripped = content.replace('\n', '').replace('\r', '')
+                    content_stripped = content.replace("\n", "").replace("\r", "")
                     if BASE64_PATTERN.match(content_stripped):
                         try:
                             decoded_bytes = base64.b64decode(content_stripped)
-                            decoded_text = decoded_bytes.decode('utf-8')
-                            processed_attachments.append({
-                                "name": att.get("name"),
-                                "content": decoded_text,
-                                "type": att.get("type")
-                            })
+                            decoded_text = decoded_bytes.decode("utf-8")
+                            processed_attachments.append(
+                                {
+                                    "name": att.get("name"),
+                                    "content": decoded_text,
+                                    "type": att.get("type"),
+                                }
+                            )
                             continue
                         except Exception:
                             pass  # Not valid base64 or decode failed, use as is
-                
+
                 processed_attachments.append(att)
             except Exception as e:
                 logger.warning(f"Failed to decode attachment {att.get('name')}: {e}")
@@ -290,9 +293,11 @@ class TeporaCoreApp:
                 search_metadata["search_attachments"] = processed_attachments
             if skip_web_search:
                 search_metadata["skip_web_search"] = True
-        
+
         # 5. Get History for this session
-        recent_history = self.history_manager.get_history(session_id=session_id, limit=DEFAULT_HISTORY_LIMIT)
+        recent_history = self.history_manager.get_history(
+            session_id=session_id, limit=DEFAULT_HISTORY_LIMIT
+        )
 
         # 6. Process
         full_response = ""
@@ -303,16 +308,16 @@ class TeporaCoreApp:
             recent_history,
             mode=final_mode,
             search_metadata=search_metadata,
-            approval_callback=approval_callback
+            approval_callback=approval_callback,
         ):
             kind = event["event"]
             if kind == STREAM_EVENT_CHAT_MODEL:
-                 chunk = event["data"]["chunk"]
-                 if chunk.content:
-                     full_response += chunk.content
+                chunk = event["data"]["chunk"]
+                if chunk.content:
+                    full_response += chunk.content
             elif kind == STREAM_EVENT_GRAPH_END:
-                 final_state = event["data"]["output"]
-            
+                final_state = event["data"]["output"]
+
             yield event
 
         # 7. Update History for this session
@@ -321,36 +326,36 @@ class TeporaCoreApp:
             if final_history:
                 self.history_manager.overwrite_history(final_history, session_id=session_id)
         else:
-            self.history_manager.add_messages([
-                HumanMessage(content=user_input_processed),
-                AIMessage(content=full_response),
-            ], session_id=session_id)
-        
+            self.history_manager.add_messages(
+                [
+                    HumanMessage(content=user_input_processed),
+                    AIMessage(content=full_response),
+                ],
+                session_id=session_id,
+            )
+
         # Touch session to update updated_at timestamp
         self.history_manager.touch_session(session_id)
         self.history_manager.trim_history(session_id=session_id, keep_last_n=1000)
 
-    def get_memory_stats(self) -> Dict[str, Any]:
+    def get_memory_stats(self) -> dict[str, Any]:
         """Get statistics for memory systems."""
-        stats = {
-            "char_memory": {},
-            "prof_memory": {}
-        }
-        
+        stats = {"char_memory": {}, "prof_memory": {}}
+
         if self.char_em_llm_integrator:
             try:
                 stats["char_memory"] = self.char_em_llm_integrator.get_memory_statistics()
             except Exception as e:
                 logger.error(f"Failed to get char memory stats: {e}")
                 stats["char_memory"] = {"error": str(e)}
-                
+
         if self.prof_em_llm_integrator:
             try:
                 stats["prof_memory"] = self.prof_em_llm_integrator.get_memory_statistics()
             except Exception as e:
                 logger.error(f"Failed to get prof memory stats: {e}")
                 stats["prof_memory"] = {"error": str(e)}
-                
+
         return stats
 
     async def cleanup(self):

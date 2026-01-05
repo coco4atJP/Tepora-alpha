@@ -4,7 +4,7 @@ import os
 import secrets
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any
 
 import yaml
 from dotenv import load_dotenv
@@ -13,6 +13,7 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 from .schema import TeporaSettings
 
 logger = logging.getLogger(__name__)
+
 
 def _find_project_root() -> Path:
     """
@@ -29,7 +30,7 @@ def _find_project_root() -> Path:
         return Path(env_root).resolve()
 
     # 2. Frozen/PyInstaller environment
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
 
     # 3. Search for pyproject.toml from this file upwards (robust method)
@@ -49,6 +50,7 @@ def _find_project_root() -> Path:
     except (IndexError, ValueError):
         return Path.cwd()
 
+
 PROJECT_ROOT = _find_project_root()
 MODEL_BASE_PATH = os.getenv("MODEL_BASE_PATH", str(PROJECT_ROOT))
 
@@ -58,14 +60,14 @@ load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
 def is_frozen() -> bool:
     """PyInstaller/Tauri Sidecar環境かどうかを判定"""
-    return getattr(sys, 'frozen', False)
+    return getattr(sys, "frozen", False)
 
 
 def get_user_data_dir() -> Path:
     """ユーザーデータディレクトリを取得"""
     if not is_frozen():
         return PROJECT_ROOT
-    
+
     if sys.platform == "win32":
         base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
         return Path(base) / "Tepora"
@@ -74,7 +76,6 @@ def get_user_data_dir() -> Path:
     else:
         xdg_data = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         return Path(xdg_data) / "tepora"
-
 
 
 USER_DATA_DIR = get_user_data_dir()
@@ -92,36 +93,39 @@ except Exception as e:
     # If we can't create them (e.g. permissions), we log to stdout but continue
     logger.warning(f"Failed to create user directories: {e}")
 
+
 class YamlConfigSettingsSource(PydanticBaseSettingsSource):
     """
     A settings source that loads values from a YAML file.
     """
-    def __init__(self, settings_cls: Type[BaseSettings], yaml_path: Path):
+
+    def __init__(self, settings_cls: type[BaseSettings], yaml_path: Path):
         super().__init__(settings_cls)
         self.yaml_path = yaml_path
 
-    def get_field_value(self, field: Any, field_name: str) -> Tuple[Any, str, bool]:
+    def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
         # Not used when returning the whole dict from __call__
         return None, field_name, False
 
-    def __call__(self) -> Dict[str, Any]:
+    def __call__(self) -> dict[str, Any]:
         if not self.yaml_path.exists():
             return {}
         try:
-            with open(self.yaml_path, "r", encoding="utf-8") as f:
+            with open(self.yaml_path, encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except Exception as e:
             logger.error(f"Failed to load YAML config from {self.yaml_path}: {e}")
             return {}
 
+
 class ConfigManager:
     _instance = None
-    _settings: Optional[TeporaSettings] = None
+    _settings: TeporaSettings | None = None
     _initialized = False
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(ConfigManager, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
     def load_config(self, force_reload: bool = False) -> None:
@@ -136,7 +140,7 @@ class ConfigManager:
         # 1. TEPORA_CONFIG_PATH env var
         # 2. USER_DATA_DIR / config.yml
         # 3. PROJECT_ROOT / config.yml (Fallback)
-        
+
         env_config = os.getenv("TEPORA_CONFIG_PATH")
         if env_config:
             config_path = Path(env_config)
@@ -146,13 +150,13 @@ class ConfigManager:
                 config_path = user_config
             else:
                 config_path = PROJECT_ROOT / "config.yml"
-        
+
         # Subclass TeporaSettings to inject the YAML source dynamically
         class LoadedTeporaSettings(TeporaSettings):
             @classmethod
             def settings_customise_sources(
                 cls,
-                settings_cls: Type[BaseSettings],
+                settings_cls: type[BaseSettings],
                 init_settings: PydanticBaseSettingsSource,
                 env_settings: PydanticBaseSettingsSource,
                 dotenv_settings: PydanticBaseSettingsSource,
@@ -169,7 +173,9 @@ class ConfigManager:
 
         try:
             self._settings = LoadedTeporaSettings()
-            logger.info(f"Settings initialized. Priority: Env > .env > Secrets ({SECRETS_PATH}) > YAML ({config_path}) > Defaults")
+            logger.info(
+                f"Settings initialized. Priority: Env > .env > Secrets ({SECRETS_PATH}) > YAML ({config_path}) > Defaults"
+            )
         except Exception as e:
             logger.error(f"Failed to validate settings: {e}", exc_info=True)
             self._settings = TeporaSettings()
@@ -182,27 +188,31 @@ class ConfigManager:
             self.load_config()
         return self._settings
 
+
 # Singleton Instance
 config_manager = ConfigManager()
+
 
 class SettingsProxy:
     def __getattr__(self, name):
         return getattr(config_manager.settings, name)
+
 
 settings = SettingsProxy()
 
 
 # --- Session Token (for WebSocket Security) ---
 
-_session_token: Optional[str] = None
+_session_token: str | None = None
+
 
 def get_session_token() -> str:
     """
     Get the session token generated at startup.
-    
+
     This token is used for WebSocket authentication to ensure only
     the local frontend can connect to the backend.
-    
+
     Returns:
         A cryptographically secure random token (32 bytes, URL-safe base64)
     """
@@ -211,4 +221,3 @@ def get_session_token() -> str:
         _session_token = secrets.token_urlsafe(32)
         logger.info("Session token generated for WebSocket authentication")
     return _session_token
-

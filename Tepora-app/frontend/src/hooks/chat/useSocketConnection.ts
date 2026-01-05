@@ -1,150 +1,154 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { isDesktop } from '../../utils/sidecar';
-import { getWsBase } from '../../utils/api';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getWsBase } from "../../utils/api";
+import { isDesktop } from "../../utils/sidecar";
 
 const getWsUrl = () => {
-    if (isDesktop()) {
-        return `${getWsBase()}/ws`;
-    }
-    return import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
+	if (isDesktop()) {
+		return `${getWsBase()}/ws`;
+	}
+	return import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
+};
+
+// Calculate backoff outside component to avoid re-creation
+const calculateBackoff = (attempt: number) => {
+	// Exponential backoff: 1s, 2s, 4s, 8s, 16s... capped at 30s
+	const baseDelay = 1000;
+	const maxDelay = 30000;
+	const delay = Math.min(baseDelay * 2 ** attempt, maxDelay);
+	// Add random jitter +/- 10%
+	const jitter = delay * 0.1 * (Math.random() * 2 - 1);
+	return delay + jitter;
 };
 
 interface UseSocketConnectionProps {
-    onOpen?: () => void;
-    onMessage?: (event: MessageEvent) => void;
-    onError?: (event: Event) => void;
-    onClose?: () => void;
+	onOpen?: () => void;
+	onMessage?: (event: MessageEvent) => void;
+	onError?: (event: Event) => void;
+	onClose?: () => void;
 }
 
 export const useSocketConnection = ({
-    onOpen,
-    onMessage,
-    onError,
-    onClose
+	onOpen,
+	onMessage,
+	onError,
+	onClose,
 }: UseSocketConnectionProps = {}) => {
-    const [isConnected, setIsConnected] = useState(false);
-    const wsRef = useRef<WebSocket | null>(null);
-    const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const isMounted = useRef(true);
-    const WS_URL = getWsUrl();
+	const [isConnected, setIsConnected] = useState(false);
+	const wsRef = useRef<WebSocket | null>(null);
+	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	);
+	const isMounted = useRef(true);
+	const retryCountRef = useRef(0); // Use ref to avoid triggering re-render/re-creation of connect
+	const WS_URL = getWsUrl();
 
-    // Use refs for callbacks to avoid re-triggering effect on callback change
-    const onOpenRef = useRef(onOpen);
-    const onMessageRef = useRef(onMessage);
-    const onErrorRef = useRef(onError);
-    const onCloseRef = useRef(onClose);
+	// Use refs for callbacks to avoid re-triggering effect on callback change
+	const onOpenRef = useRef(onOpen);
+	const onMessageRef = useRef(onMessage);
+	const onErrorRef = useRef(onError);
+	const onCloseRef = useRef(onClose);
 
-    const [retryCount, setRetryCount] = useState(0);
+	useEffect(() => {
+		onOpenRef.current = onOpen;
+		onMessageRef.current = onMessage;
+		onErrorRef.current = onError;
+		onCloseRef.current = onClose;
+	}, [onOpen, onMessage, onError, onClose]);
 
-    useEffect(() => {
-        onOpenRef.current = onOpen;
-        onMessageRef.current = onMessage;
-        onErrorRef.current = onError;
-        onCloseRef.current = onClose;
-    }, [onOpen, onMessage, onError, onClose]);
+	const connect = useCallback(() => {
+		if (!isMounted.current) return;
 
-    const calculateBackoff = (attempt: number) => {
-        // Exponential backoff: 1s, 2s, 4s, 8s, 16s... capped at 30s
-        const baseDelay = 1000;
-        const maxDelay = 30000;
-        const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
-        // Add random jitter +/- 10%
-        const jitter = delay * 0.1 * (Math.random() * 2 - 1);
-        return delay + jitter;
-    };
+		try {
+			const ws = new WebSocket(WS_URL);
 
-    const connect = useCallback(() => {
-        if (!isMounted.current) return;
+			ws.onopen = () => {
+				if (!isMounted.current) {
+					ws.close();
+					return;
+				}
+				setIsConnected(true);
+				retryCountRef.current = 0; // Reset retry count on successful connection
+				onOpenRef.current?.();
+			};
 
-        try {
-            const ws = new WebSocket(WS_URL);
+			ws.onmessage = (event) => {
+				if (!isMounted.current) return;
+				onMessageRef.current?.(event);
+			};
 
-            ws.onopen = () => {
-                if (!isMounted.current) {
-                    ws.close();
-                    return;
-                }
-                setIsConnected(true);
-                setRetryCount(0); // Reset retry count on successful connection
-                onOpenRef.current?.();
-            };
+			ws.onerror = (error) => {
+				if (!isMounted.current) return;
+				console.error("WebSocket error:", error);
+				// Don't modify isConnected here, allow onclose to handle state
+				onErrorRef.current?.(error);
+			};
 
-            ws.onmessage = (event) => {
-                if (!isMounted.current) return;
-                onMessageRef.current?.(event);
-            };
+			ws.onclose = () => {
+				if (!isMounted.current) return;
+				setIsConnected(false);
+				onCloseRef.current?.();
 
-            ws.onerror = (error) => {
-                if (!isMounted.current) return;
-                console.error("WebSocket error:", error);
-                // Don't modify isConnected here, allow onclose to handle state
-                onErrorRef.current?.(error);
-            };
+				// Automatic reconnect with exponential backoff
+				const delay = calculateBackoff(retryCountRef.current);
+				console.log(
+					`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms (Attempt ${retryCountRef.current + 1})`,
+				);
 
-            ws.onclose = () => {
-                if (!isMounted.current) return;
-                setIsConnected(false);
-                onCloseRef.current?.();
+				reconnectTimeoutRef.current = setTimeout(() => {
+					if (isMounted.current) {
+						retryCountRef.current += 1;
+						connect();
+					}
+				}, delay);
+			};
 
-                // Automatic reconnect with exponential backoff
-                const delay = calculateBackoff(retryCount);
-                console.log(`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms (Attempt ${retryCount + 1})`);
+			wsRef.current = ws;
+		} catch (error) {
+			if (!isMounted.current) return;
+			console.error("WebSocket connection failed:", error);
+			setIsConnected(false);
 
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    if (isMounted.current) {
-                        setRetryCount(prev => prev + 1);
-                        connect();
-                    }
-                }, delay);
-            };
+			// Retry even if immediate connection fails (e.g. invalid URL or network down)
+			const delay = calculateBackoff(retryCountRef.current);
+			reconnectTimeoutRef.current = setTimeout(() => {
+				if (isMounted.current) {
+					retryCountRef.current += 1;
+					connect();
+				}
+			}, delay);
+		}
+	}, [WS_URL]); // Only depend on WS_URL, retryCount is managed via ref
 
-            wsRef.current = ws;
-        } catch (error) {
-            if (!isMounted.current) return;
-            console.error("WebSocket connection failed:", error);
-            setIsConnected(false);
+	useEffect(() => {
+		isMounted.current = true;
+		connect();
 
-            // Retry even if immediate connection fails (e.g. invalid URL or network down)
-            const delay = calculateBackoff(retryCount);
-            reconnectTimeoutRef.current = setTimeout(() => {
-                if (isMounted.current) {
-                    setRetryCount(prev => prev + 1);
-                    connect();
-                }
-            }, delay);
-        }
-    }, [WS_URL, retryCount]); // Include retryCount to update next backoff calculation
+		return () => {
+			isMounted.current = false;
+			if (reconnectTimeoutRef.current) {
+				clearTimeout(reconnectTimeoutRef.current);
+			}
+			if (wsRef.current) {
+				// Clear handlers
+				wsRef.current.onopen = null;
+				wsRef.current.onmessage = null;
+				wsRef.current.onerror = null;
+				wsRef.current.onclose = null;
+				wsRef.current.close();
+			}
+		};
+	}, [connect]); // Run only once on mount (connect handles recursion)
 
-    useEffect(() => {
-        isMounted.current = true;
-        connect();
+	const sendMessage = useCallback((data: string) => {
+		if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+			throw new Error("Not connected to server");
+		}
+		wsRef.current.send(data);
+	}, []);
 
-        return () => {
-            isMounted.current = false;
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-            }
-            if (wsRef.current) {
-                // Clear handlers
-                wsRef.current.onopen = null;
-                wsRef.current.onmessage = null;
-                wsRef.current.onerror = null;
-                wsRef.current.onclose = null;
-                wsRef.current.close();
-            }
-        };
-    }, [connect]); // Run only once on mount (connect handles recursion)
-
-    const sendMessage = useCallback((data: string) => {
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-            throw new Error("Not connected to server");
-        }
-        wsRef.current.send(data);
-    }, []);
-
-    return {
-        isConnected,
-        sendMessage,
-        wsRef
-    };
+	return {
+		isConnected,
+		sendMessage,
+		wsRef,
+	};
 };

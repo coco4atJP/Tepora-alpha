@@ -26,17 +26,17 @@ class BinaryVariant(Enum):
 
 class ModelPool(Enum):
     """モデルプール（モーダル別分類）
-    
+
     モデルを主要なモダリティで分類：
     - TEXT: テキスト生成モデル（LLM）- 会話とツール実行に使用
     - EMBEDDING: 埋め込みモデル - 記憶と検索に使用
-    
+
     将来拡張予定:
     - IMAGE: 画像生成モデル
     - AUDIO: 音声モデル
     """
 
-    TEXT = "text"           # テキスト生成モデル（旧: CHARACTER + EXECUTOR）
+    TEXT = "text"  # テキスト生成モデル（旧: CHARACTER + EXECUTOR）
     EMBEDDING = "embedding"  # 埋め込みモデル
 
 
@@ -141,7 +141,7 @@ class ModelRegistry:
     version: int = 2  # スキーマバージョン更新
     models: list[ModelInfo] = field(default_factory=list)
     active: dict = field(default_factory=dict)  # role -> model_id
-    
+
     # ロールベースモデル選択
     character_model_id: str | None = None  # 会話用モデルID
     executor_model_map: dict = field(default_factory=dict)

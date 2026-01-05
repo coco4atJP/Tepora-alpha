@@ -1,9 +1,9 @@
 """Tests for log maintenance utilities."""
+
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
 
 import pytest
+
 from src.core.log_maintenance import cleanup_llama_server_logs, cleanup_old_logs
 
 
@@ -26,10 +26,11 @@ class TestLogMaintenance:
         # Create an old file (should be deleted)
         old_file = log_dir / "old.log"
         old_file.touch()
-        
+
         # Manually set mtime to 8 days ago
         old_time = time.time() - (8 * 24 * 3600)
         import os
+
         os.utime(old_file, (old_time, old_time))
 
         # Run cleanup (7 days default)
@@ -43,7 +44,7 @@ class TestLogMaintenance:
         """Test keeping only newest N llama server logs."""
         max_files = 3
         model_type = "character_model"
-        
+
         # Create 5 log files with different timestamps
         files = []
         for i in range(5):
@@ -52,6 +53,7 @@ class TestLogMaintenance:
             # Ensure different mtimes (newest has higher index)
             mtime = time.time() - (5 - i) * 10
             import os
+
             os.utime(p, (mtime, mtime))
             files.append(p)
 
@@ -60,11 +62,11 @@ class TestLogMaintenance:
 
         # Should delete 2 files (5 - 3 = 2)
         assert deleted == 2
-        
+
         # Oldest files (index 0, 1) should be gone
         assert not files[0].exists()
         assert not files[1].exists()
-        
+
         # Newest files (index 2, 3, 4) should remain
         assert files[2].exists()
         assert files[3].exists()
@@ -75,12 +77,13 @@ class TestLogMaintenance:
         # Create an old text file
         old_txt = log_dir / "old.txt"
         old_txt.touch()
-        
+
         old_time = time.time() - (8 * 24 * 3600)
         import os
+
         os.utime(old_txt, (old_time, old_time))
 
         deleted = cleanup_old_logs(log_dir, max_age_days=7)
-        
+
         assert deleted == 0
         assert old_txt.exists()

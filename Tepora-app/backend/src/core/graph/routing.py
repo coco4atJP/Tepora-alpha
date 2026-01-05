@@ -20,19 +20,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def route_by_command(state: AgentState) -> Literal["agent_mode", "search", "direct_answer", "stats"]:
+def route_by_command(
+    state: AgentState,
+) -> Literal["agent_mode", "search", "direct_answer", "stats"]:
     """
     Determine route based on user input command.
-    
+
     Args:
         state: Current agent state
-        
+
     Returns:
         Route identifier string
     """
     mode = state.get("mode")
     logger.info(f"Routing decision for mode: '{mode}'")
-    
+
     if mode == InputMode.AGENT:
         logger.info("Route: agent_mode (ReAct loop)")
         return GraphRoutes.AGENT_MODE
@@ -50,25 +52,25 @@ def route_by_command(state: AgentState) -> Literal["agent_mode", "search", "dire
 def should_continue_react_loop(state: AgentState) -> Literal["continue", "end"]:
     """
     Determine if ReAct loop should continue based on tool calls or finish action.
-    
+
     Args:
         state: Current agent state
-        
+
     Returns:
         "continue" if loop should continue, "end" if it should terminate
     """
     logger.debug("Decision: Should Continue ReAct Loop?")
-    
+
     if "agent_outcome" in state and state["agent_outcome"]:
         logger.info("Decision: End ReAct loop (finish action detected).")
         logger.debug(f"Final outcome: {state['agent_outcome']}")
         return "end"
-    
+
     # If last message in scratchpad has tool calls, continue
     if state["agent_scratchpad"]:
         last_message = state["agent_scratchpad"][-1]
         logger.debug(f"Last message in scratchpad: {type(last_message).__name__}")
-        
+
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
             logger.info("Decision: Continue ReAct loop (last message has tool calls).")
             logger.debug(f"Tool calls: {[tc['name'] for tc in last_message.tool_calls]}")

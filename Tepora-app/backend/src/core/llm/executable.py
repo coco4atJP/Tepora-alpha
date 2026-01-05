@@ -4,8 +4,8 @@ import logging
 import platform
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from src.core.common.gpu_detect import is_cuda_available
 
@@ -53,7 +53,9 @@ def _score_candidate(path: Path, preferences: Iterable[str]) -> tuple[int, int, 
     return version, env_score, mtime
 
 
-def find_server_executable(llama_cpp_dir: Path, logger: logging.Logger | None = None) -> Path | None:
+def find_server_executable(
+    llama_cpp_dir: Path, logger: logging.Logger | None = None
+) -> Path | None:
     """Locate the most suitable llama.cpp server executable for the current host."""
     server_exe_name = "llama-server.exe" if sys.platform == "win32" else "llama-server"
 

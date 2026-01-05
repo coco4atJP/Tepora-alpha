@@ -1,6 +1,6 @@
 /**
  * SessionHistory Component
- * 
+ *
  * Displays a list of chat sessions with options to:
  * - Create new session
  * - Switch between sessions
@@ -8,169 +8,199 @@
  * - Rename sessions
  */
 
-import React, { useState } from 'react';
-import { Session } from '../../hooks/useSessions';
-import { useTranslation } from 'react-i18next';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
+import type React from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { Session } from "../../hooks/useSessions";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 interface SessionHistoryProps {
-  sessions: Session[];
-  currentSessionId: string;
-  onSelectSession: (id: string) => void;
-  onCreateSession: () => void;
-  onDeleteSession: (id: string) => void;
-  onRenameSession: (id: string, title: string) => void;
-  loading?: boolean;
+	sessions: Session[];
+	currentSessionId: string;
+	onSelectSession: (id: string) => void;
+	onCreateSession: () => void;
+	onDeleteSession: (id: string) => void;
+	onRenameSession: (id: string, title: string) => void;
+	loading?: boolean;
 }
 
 export const SessionHistory: React.FC<SessionHistoryProps> = ({
-  sessions,
-  currentSessionId,
-  onSelectSession,
-  onCreateSession,
-  onDeleteSession,
-  onRenameSession,
-  loading = false,
+	sessions,
+	currentSessionId,
+	onSelectSession,
+	onCreateSession,
+	onDeleteSession,
+	onRenameSession,
+	loading = false,
 }) => {
-  const { t } = useTranslation();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  // UX改善3: 削除確認ダイアログ用state
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+	const { t } = useTranslation();
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const [editTitle, setEditTitle] = useState("");
+	// UX改善3: 削除確認ダイアログ用state
+	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  const handleStartEdit = (session: Session) => {
-    setEditingId(session.id);
-    setEditTitle(session.title);
-  };
+	const handleStartEdit = (session: Session) => {
+		setEditingId(session.id);
+		setEditTitle(session.title);
+	};
 
-  const handleSaveEdit = () => {
-    if (editingId && editTitle.trim()) {
-      onRenameSession(editingId, editTitle.trim());
-    }
-    setEditingId(null);
-    setEditTitle('');
-  };
+	const handleSaveEdit = () => {
+		if (editingId && editTitle.trim()) {
+			onRenameSession(editingId, editTitle.trim());
+		}
+		setEditingId(null);
+		setEditTitle("");
+	};
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditTitle('');
-  };
+	const handleCancelEdit = () => {
+		setEditingId(null);
+		setEditTitle("");
+	};
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+	const formatDate = (dateStr: string) => {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diff = now.getTime() - date.getTime();
+		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (days === 0) return t('today', 'Today');
-    if (days === 1) return t('yesterday', 'Yesterday');
-    if (days < 7) return t('daysAgo', '{{count}} days ago', { count: days });
-    return date.toLocaleDateString();
-  };
+		if (days === 0) return t("today", "Today");
+		if (days === 1) return t("yesterday", "Yesterday");
+		if (days < 7) return t("daysAgo", "{{count}} days ago", { count: days });
+		return date.toLocaleDateString();
+	};
 
-  return (
-    <div className="session-history">
-      {/* Header */}
-      <div className="session-history-header">
-        <h3>{t('sessionHistory', 'Sessions')}</h3>
-        <button
-          className="btn-new-session"
-          onClick={onCreateSession}
-          disabled={loading}
-          aria-label={t('newSession', 'New Session')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
-      </div>
+	return (
+		<div className="session-history">
+			{/* Header */}
+			<div className="session-history-header">
+				<h3>{t("sessionHistory", "Sessions")}</h3>
+				<button
+					type="button"
+					className="btn-new-session"
+					onClick={onCreateSession}
+					disabled={loading}
+					aria-label={t("newSession", "New Session")}
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						aria-hidden="true"
+					>
+						<line x1="12" y1="5" x2="12" y2="19" />
+						<line x1="5" y1="12" x2="19" y2="12" />
+					</svg>
+				</button>
+			</div>
 
-      {/* Session List */}
-      <div className="session-list" role="list" aria-label={t('sessionList', 'Session List')}>
-        {loading && sessions.length === 0 ? (
-          <div className="session-loading">{t('loading', 'Loading...')}</div>
-        ) : sessions.length === 0 ? (
-          <div className="session-empty">{t('noSessions', 'No sessions yet')}</div>
-        ) : (
-          sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`session-item ${session.id === currentSessionId ? 'active' : ''}`}
-              role="listitem"
-            >
-              {editingId === session.id ? (
-                <div className="session-edit">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveEdit();
-                      if (e.key === 'Escape') handleCancelEdit();
-                    }}
-                    autoFocus
-                    aria-label={t('editSessionTitle', 'Edit session title')}
-                  />
-                  <button onClick={handleSaveEdit} className="btn-save" aria-label={t('save', 'Save')}>
-                    ✓
-                  </button>
-                  <button onClick={handleCancelEdit} className="btn-cancel" aria-label={t('cancel', 'Cancel')}>
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <button
-                    className="session-content"
-                    onClick={() => onSelectSession(session.id)}
-                    aria-current={session.id === currentSessionId ? 'true' : 'false'}
-                  >
-                    <div className="session-title">{session.title}</div>
-                    <div className="session-meta">
-                      <span className="session-date">{formatDate(session.updated_at)}</span>
-                      {session.message_count !== undefined && (
-                        <span className="session-count">
-                          {session.message_count} {t('messages', 'msgs')}
-                        </span>
-                      )}
-                    </div>
-                    {session.preview && (
-                      <div className="session-preview">{session.preview}</div>
-                    )}
-                  </button>
-                  <div className="session-actions">
-                    <button
-                      className="btn-edit"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartEdit(session);
-                      }}
-                      aria-label={t('rename', 'Rename')}
-                    >
-                      ✎
-                    </button>
-                    {session.id !== 'default' && (
-                      <button
-                        className="btn-delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTargetId(session.id);
-                        }}
-                        aria-label={t('delete', 'Delete')}
-                      >
-                        🗑
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          ))
-        )}
-      </div>
+			{/* Session List */}
+			<ul
+				className="session-list"
+				aria-label={t("sessionList", "Session List")}
+			>
+				{loading && sessions.length === 0 ? (
+					<div className="session-loading">{t("loading", "Loading...")}</div>
+				) : sessions.length === 0 ? (
+					<div className="session-empty">
+						{t("noSessions", "No sessions yet")}
+					</div>
+				) : (
+					sessions.map((session) => (
+						<li
+							key={session.id}
+							className={`session-item ${session.id === currentSessionId ? "active" : ""}`}
+						>
+							{editingId === session.id ? (
+								<div className="session-edit">
+									<input
+										type="text"
+										value={editTitle}
+										onChange={(e) => setEditTitle(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") handleSaveEdit();
+											if (e.key === "Escape") handleCancelEdit();
+										}}
+										aria-label={t("editSessionTitle", "Edit session title")}
+									/>
+									<button
+										type="button"
+										onClick={handleSaveEdit}
+										className="btn-save"
+										aria-label={t("save", "Save")}
+									>
+										✓
+									</button>
+									<button
+										type="button"
+										onClick={handleCancelEdit}
+										className="btn-cancel"
+										aria-label={t("cancel", "Cancel")}
+									>
+										✕
+									</button>
+								</div>
+							) : (
+								<>
+									<button
+										type="button"
+										className="session-content"
+										onClick={() => onSelectSession(session.id)}
+										aria-current={
+											session.id === currentSessionId ? "true" : "false"
+										}
+									>
+										<div className="session-title">{session.title}</div>
+										<div className="session-meta">
+											<span className="session-date">
+												{formatDate(session.updated_at)}
+											</span>
+											{session.message_count !== undefined && (
+												<span className="session-count">
+													{session.message_count} {t("messages", "msgs")}
+												</span>
+											)}
+										</div>
+										{session.preview && (
+											<div className="session-preview">{session.preview}</div>
+										)}
+									</button>
+									<div className="session-actions">
+										<button
+											type="button"
+											className="btn-edit"
+											onClick={(e) => {
+												e.stopPropagation();
+												handleStartEdit(session);
+											}}
+											aria-label={t("rename", "Rename")}
+										>
+											✎
+										</button>
+										{session.id !== "default" && (
+											<button
+												type="button"
+												className="btn-delete"
+												onClick={(e) => {
+													e.stopPropagation();
+													setDeleteTargetId(session.id);
+												}}
+												aria-label={t("delete", "Delete")}
+											>
+												🗑
+											</button>
+										)}
+									</div>
+								</>
+							)}
+						</li>
+					))
+				)}
+			</ul>
 
-      <style>{`
+			<style>{`
         .session-history {
           display: flex;
           flex-direction: column;
@@ -371,24 +401,27 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
         }
       `}</style>
 
-      {/* UX改善3: カスタム削除確認ダイアログ */}
-      <ConfirmDialog
-        isOpen={deleteTargetId !== null}
-        title={t('deleteSession', 'セッションを削除')}
-        message={t('confirmDeleteMessage', 'このセッションを削除してもよろしいですか？会話履歴もすべて削除されます。')}
-        confirmLabel={t('delete', '削除')}
-        cancelLabel={t('cancel', 'キャンセル')}
-        variant="danger"
-        onConfirm={() => {
-          if (deleteTargetId) {
-            onDeleteSession(deleteTargetId);
-          }
-          setDeleteTargetId(null);
-        }}
-        onCancel={() => setDeleteTargetId(null)}
-      />
-    </div>
-  );
+			{/* UX改善3: カスタム削除確認ダイアログ */}
+			<ConfirmDialog
+				isOpen={deleteTargetId !== null}
+				title={t("deleteSession", "セッションを削除")}
+				message={t(
+					"confirmDeleteMessage",
+					"このセッションを削除してもよろしいですか？会話履歴もすべて削除されます。",
+				)}
+				confirmLabel={t("delete", "削除")}
+				cancelLabel={t("cancel", "キャンセル")}
+				variant="danger"
+				onConfirm={() => {
+					if (deleteTargetId) {
+						onDeleteSession(deleteTargetId);
+					}
+					setDeleteTargetId(null);
+				}}
+				onCancel={() => setDeleteTargetId(null)}
+			/>
+		</div>
+	);
 };
 
 export default SessionHistory;

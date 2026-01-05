@@ -3,52 +3,52 @@
  * UX改善3: window.confirm()の代わりにUIに統一された確認モーダルを使用
  */
 
-import React from 'react';
-import { useTranslation } from 'react-i18next';
+import type React from "react";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmDialogProps {
-    isOpen: boolean;
-    title?: string;
-    message: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-    variant?: 'danger' | 'default';
+	isOpen: boolean;
+	title?: string;
+	message: string;
+	confirmLabel?: string;
+	cancelLabel?: string;
+	onConfirm: () => void;
+	onCancel: () => void;
+	variant?: "danger" | "default";
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
-    isOpen,
-    title,
-    message,
-    confirmLabel,
-    cancelLabel,
-    onConfirm,
-    onCancel,
-    variant = 'default',
+	isOpen,
+	title,
+	message,
+	confirmLabel,
+	cancelLabel,
+	onConfirm,
+	onCancel,
+	variant = "default",
 }) => {
-    const { t } = useTranslation();
+	const { t } = useTranslation();
 
-    if (!isOpen) return null;
+	if (!isOpen) return null;
 
-    return (
-        <div className="confirm-dialog-overlay" onClick={onCancel}>
-            <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-                {title && <h3 className="confirm-dialog-title">{title}</h3>}
-                <p className="confirm-dialog-message">{message}</p>
-                <div className="confirm-dialog-actions">
-                    <button className="btn-cancel" onClick={onCancel}>
-                        {cancelLabel || t('cancel', 'キャンセル')}
-                    </button>
-                    <button
-                        className={`btn-confirm ${variant === 'danger' ? 'btn-danger' : ''}`}
-                        onClick={onConfirm}
-                    >
-                        {confirmLabel || t('confirm', '確認')}
-                    </button>
-                </div>
+	return (
+		<div className="confirm-dialog-overlay" onClick={onCancel}>
+			<div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+				{title && <h3 className="confirm-dialog-title">{title}</h3>}
+				<p className="confirm-dialog-message">{message}</p>
+				<div className="confirm-dialog-actions">
+					<button className="btn-cancel" onClick={onCancel}>
+						{cancelLabel || t("cancel", "キャンセル")}
+					</button>
+					<button
+						className={`btn-confirm ${variant === "danger" ? "btn-danger" : ""}`}
+						onClick={onConfirm}
+					>
+						{confirmLabel || t("confirm", "確認")}
+					</button>
+				</div>
 
-                <style>{`
+				<style>{`
                     .confirm-dialog-overlay {
                         position: fixed;
                         inset: 0;
@@ -147,9 +147,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                         background: #ef4444;
                     }
                 `}</style>
-            </div>
-        </div>
-    );
+			</div>
+		</div>
+	);
 };
 
 export default ConfirmDialog;

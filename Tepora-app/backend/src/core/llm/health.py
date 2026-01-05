@@ -11,9 +11,13 @@ from .. import config
 __all__ = ["perform_health_check"]
 
 
-def perform_health_check(port: int, key: str, *, process_ref, stderr_log_path: Path | None, logger: logging.Logger) -> None:
+def perform_health_check(
+    port: int, key: str, *, process_ref, stderr_log_path: Path | None, logger: logging.Logger
+) -> None:
     health_check_url = f"http://localhost:{port}/health"
-    timeout_config_key = "embedding_health_check_timeout" if "embedding" in key else "health_check_timeout"
+    timeout_config_key = (
+        "embedding_health_check_timeout" if "embedding" in key else "health_check_timeout"
+    )
     max_retries = config.LLAMA_CPP_CONFIG.get(timeout_config_key, 20)
     retry_interval = config.LLAMA_CPP_CONFIG.get("health_check_interval", 1.0)
 
@@ -28,10 +32,14 @@ def perform_health_check(port: int, key: str, *, process_ref, stderr_log_path: P
         try:
             response = requests.get(health_check_url, timeout=0.5)
             if response.status_code == 200 and response.json().get("status") == "ok":
-                logger.info("Server for '%s' is healthy (attempt %s/%s)", key, attempt + 1, max_retries)
+                logger.info(
+                    "Server for '%s' is healthy (attempt %s/%s)", key, attempt + 1, max_retries
+                )
                 return
             if response.status_code != 503:
-                logger.warning("Unexpected health check response %s for '%s'", response.status_code, key)
+                logger.warning(
+                    "Unexpected health check response %s for '%s'", response.status_code, key
+                )
         except requests.exceptions.RequestException:
             pass
         time.sleep(retry_interval)

@@ -1,14 +1,13 @@
-import unittest
-from unittest.mock import MagicMock, patch
 import sys
-import os
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.core.graph.nodes.memory import MemoryNodes
-from src.core.state import AgentState
+
 
 class TestMemoryNodes(unittest.TestCase):
     def setUp(self):
@@ -20,7 +19,7 @@ class TestMemoryNodes(unittest.TestCase):
         nodes = MemoryNodes(None)
         state = {"input": "test query", "chat_history": []}
         result = nodes.memory_retrieval_node(state)
-        
+
         self.assertIn("recalled_episodes", result)
         self.assertEqual(result["recalled_episodes"], [])
         self.assertIn("synthesized_memory", result)
@@ -41,16 +40,20 @@ class TestMemoryNodes(unittest.TestCase):
         # Mock state with messages
         state = {
             "input": "user input",
-            "chat_history": [MagicMock(content="ai response", __class__=MagicMock(__name__='AIMessage'))]
+            "chat_history": [
+                MagicMock(content="ai response", __class__=MagicMock(__name__="AIMessage"))
+            ],
         }
         # Ensure isinstance check passes for AIMessage
         from langchain_core.messages import AIMessage
+
         state["chat_history"][0] = AIMessage(content="ai response")
 
-        result = self.memory_nodes.save_memory_node(state)
+        self.memory_nodes.save_memory_node(state)
 
         # Should call save_episode
         self.mock_memory_system.save_episode.assert_called_once()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

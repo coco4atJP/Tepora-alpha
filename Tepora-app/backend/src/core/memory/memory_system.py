@@ -8,17 +8,26 @@ Features:
 - Uses embedding_provider.encode(...) to produce embeddings (expects a list-of-lists).
 - Retrieval supports k-nearest by cosine similarity and a temporally-contiguous boost.
 """
+
 import json
-import time
 import logging
-from typing import List, Dict, Any, Optional
-from .vector_store import VectorStore
+import time
+from typing import Any
+
 from .chroma_store import ChromaVectorStore
+from .vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
+
 class MemorySystem:
-    def __init__(self, embedding_provider, db_path: str | None = None, collection_name: str = "tepora_memory", vector_store: Optional[VectorStore] = None):
+    def __init__(
+        self,
+        embedding_provider,
+        db_path: str | None = None,
+        collection_name: str = "tepora_memory",
+        vector_store: VectorStore | None = None,
+    ):
         """
         embedding_provider: object with .encode(List[str]) -> List[List[float]]
         db_path: path to the directory where ChromaDB data will be stored.
@@ -29,14 +38,15 @@ class MemorySystem:
         # Lazy import to avoid circular dependency and allow DI override
         if db_path is None:
             from ..config import CHROMA_DB_PATH
+
             db_path = str(CHROMA_DB_PATH / "default")
-        
+
         self.embedding_provider = embedding_provider
         if vector_store:
             self.store = vector_store
         else:
             self.store = ChromaVectorStore(db_path, collection_name)
-        
+
         logger.info(f"MemorySystem initialized with {type(self.store).__name__}")
 
     @property
@@ -44,7 +54,7 @@ class MemorySystem:
         """Expose the underlying collection for EM-LLM direct access."""
         return self.store.collection
 
-    def save_episode(self, summary: str, history_json: str, metadata: Optional[Dict[str,Any]] = None):
+    def save_episode(self, summary: str, history_json: str, metadata: dict[str, Any] | None = None):
         """
         Save an episode and compute/store its embedding.
         Returns generated id.
@@ -53,29 +63,40 @@ class MemorySystem:
             logger.warning("Attempted to save an episode with an empty summary. Skipping.")
             return None
         try:
-            doc_id = metadata.get("id") if metadata and "id" in metadata else str(time.time()).replace('.','')
+            doc_id = (
+                metadata.get("id")
+                if metadata and "id" in metadata
+                else str(time.time()).replace(".", "")
+            )
             embedding = self.embedding_provider.encode([summary])[0]
-            
+
             # Prepare metadata for storage
             episode_metadata = {
                 "created_ts": time.time(),
                 "history_json": history_json,
-                "metadata_json": json.dumps(metadata or {})
+                "metadata_json": json.dumps(metadata or {}),
             }
 
             self.store.add(
                 ids=[doc_id],
                 embeddings=[embedding],
                 documents=[summary],
-                metadatas=[episode_metadata]
+                metadatas=[episode_metadata],
             )
             logger.info(f"Saved episode {doc_id} to MemorySystem (summary len={len(summary)})")
             return doc_id
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to save episode to MemorySystem")
             raise
 
-    def retrieve(self, query: str, k: int = 5, temporality_boost: float = 0.15, query_embedding_override: Optional[List[float]] = None, where_filter: Optional[Dict[str, Any]] = None):
+    def retrieve(
+        self,
+        query: str,
+        k: int = 5,
+        temporality_boost: float = 0.15,
+        query_embedding_override: list[float] | None = None,
+        where_filter: dict[str, Any] | None = None,
+    ):
         """
         Retrieve top-k episodes for query.
         """
@@ -89,23 +110,21 @@ class MemorySystem:
 
             if query_embedding:
                 results = self.store.query(
-                    query_embeddings=query_embedding,
-                    n_results=k,
-                    where=where_filter
+                    query_embeddings=query_embedding, n_results=k, where=where_filter
                 )
             else:
                 # Store-level search without embedding might return different format,
-                # but our VectorStore.query expects embeddings. 
+                # but our VectorStore.query expects embeddings.
                 # If we need 'get' by metadata only, we should add it to VectorStore.
                 # For now, keeping it consistent.
                 return []
 
-            if not results or not results['ids'] or not results['ids'][0]:
+            if not results or not results["ids"] or not results["ids"][0]:
                 return []
 
             scored = []
-            ids = results['ids'][0]
-            raw_distances = results.get('distances')
+            ids = results["ids"][0]
+            raw_distances = results.get("distances")
             if raw_distances and raw_distances[0] is not None:
                 distances = raw_distances[0]
             else:
@@ -114,21 +133,23 @@ class MemorySystem:
             if len(distances) < len(ids):
                 distances = list(distances) + [0.0] * (len(ids) - len(distances))
 
-            metadatas = results['metadatas'][0]
-            documents = results['documents'][0]
+            metadatas = results["metadatas"][0]
+            documents = results["documents"][0]
 
             for i in range(len(ids)):
                 # Cosine distance to similarity: sim = 1 - dist
                 sim = 1.0 - distances[i]
                 meta = metadatas[i]
-                scored.append({
-                    "id": ids[i],
-                    "ts": meta.get("created_ts", 0.0),
-                    "summary": documents[i],
-                    "history_json": meta.get("history_json", "{}"),
-                    "metadata": json.loads(meta.get("metadata_json", "{}")),
-                    "score": sim
-                })
+                scored.append(
+                    {
+                        "id": ids[i],
+                        "ts": meta.get("created_ts", 0.0),
+                        "summary": documents[i],
+                        "history_json": meta.get("history_json", "{}"),
+                        "metadata": json.loads(meta.get("metadata_json", "{}")),
+                        "score": sim,
+                    }
+                )
 
             if not scored:
                 return []
@@ -143,7 +164,9 @@ class MemorySystem:
 
             scored.sort(key=lambda x: x["score"], reverse=True)
             topk = scored[:k]
-            logger.info(f"Retrieved {len(topk)} episodes from MemorySystem (k={k}). Top score={topk[0]['score'] if topk else None}")
+            logger.info(
+                f"Retrieved {len(topk)} episodes from MemorySystem (k={k}). Top score={topk[0]['score'] if topk else None}"
+            )
             return topk
         except Exception as e:
             logger.error(f"Failed during retrieval: {e}", exc_info=True)
@@ -161,7 +184,9 @@ class MemorySystem:
         try:
             current_count = self.count()
             if current_count <= max_events:
-                logger.info(f"Cleanup not needed. Current events ({current_count}) <= limit ({max_events}).")
+                logger.info(
+                    f"Cleanup not needed. Current events ({current_count}) <= limit ({max_events})."
+                )
                 return
 
             num_to_delete = current_count - max_events
@@ -175,11 +200,11 @@ class MemorySystem:
                 logger.info(f"Cleaned up {len(ids_to_delete)} oldest events.")
             else:
                 logger.info("No events found to delete for cleanup.")
-                
+
         except Exception as e:
             logger.error(f"Error during memory cleanup: {e}", exc_info=True)
 
-    def retrieve_similar_episodes(self, query: str, k: int = 5) -> List[Dict]:
+    def retrieve_similar_episodes(self, query: str, k: int = 5) -> list[dict]:
         return self.retrieve(query, k)
 
     def close(self):

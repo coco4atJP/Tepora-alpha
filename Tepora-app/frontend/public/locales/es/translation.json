@@ -1,78 +1,78 @@
 {
-    "setup": {
-        "title": "Configuración de Tepora",
-        "checking": "Comprobando entorno...",
-        "ready": "¡Todos los sistemas listos!",
-        "binary_needed": "Se requiere configuración del motor de inferencia",
-        "models_needed": "Se requiere descarga de modelos",
-        "complete": "¡Configuración completa!",
-        "error": "Error durante la configuración",
-        "start": "Iniciar Tepora",
-        "auto_setup": "Configuración automática",
-        "skip": "Omitir",
-        "retry": "Reintentar",
-        "downloading": "Descargando...",
-        "steps": {
-            "language": "Selección de idioma",
-            "binary": "Motor de inferencia (llama.cpp)",
-            "models": "Modelos"
-        },
-        "status": {
-            "satisfied": "Instalado",
-            "missing": "Faltante",
-            "outdated": "Actualización disponible",
-            "installed": "Instalado",
-            "not_downloaded": "No descargado"
-        },
-        "advanced_settings": "Configuración avanzada (Cambiar modelos)",
-        "model_settings": "Configuración de modelos",
-        "model": "Modelo"
-    },
-    "common": {
-        "language": "Idioma",
-        "next": "Siguiente",
-        "back": "Atrás",
-        "cancel": "Cancelar",
-        "save": "Guardar",
-        "clear": "Limpiar",
-        "settings": "Configuración",
-        "close": "Cerrar"
-    },
-    "chat": {
-        "clear_history": "Borrar historial",
-        "input": {
-            "placeholder": {
-                "connecting": "Conectando...",
-                "search": "Pídeme que busque...",
-                "agent": "Asignar una tarea...",
-                "default": "Chatea con Tepora..."
-            },
-            "system_ready": "Sistema listo",
-            "disconnected": "Desconectado",
-            "web_search": "Búsqueda web",
-            "attach_file": "Adjuntar archivo",
-            "send": "Enviar mensaje",
-            "stop": "Detener generación",
-            "mode_active": "MODO {{mode}} ACTIVO",
-            "aria_label": "Entrada de mensaje"
-        }
-    },
-    "dial": {
-        "chat": "CHAT",
-        "search": "BÚSQUEDA",
-        "agent": "AGENTE"
-    },
-    "status": {
-        "title": "Estado del sistema",
-        "network": "Red",
-        "connected": "Conectado",
-        "disconnected": "Desconectado",
-        "core_system": "Sistema núcleo",
-        "ready": "Listo",
-        "loading": "Cargando",
-        "events": "eventos",
-        "messages": "Mensajes",
-        "char": "Char",
-        "prof": "Prof"
-    }
+	"setup": {
+		"title": "Configuración de Tepora",
+		"checking": "Comprobando entorno...",
+		"ready": "¡Todos los sistemas listos!",
+		"binary_needed": "Se requiere configuración del motor de inferencia",
+		"models_needed": "Se requiere descarga de modelos",
+		"complete": "¡Configuración completa!",
+		"error": "Error durante la configuración",
+		"start": "Iniciar Tepora",
+		"auto_setup": "Configuración automática",
+		"skip": "Omitir",
+		"retry": "Reintentar",
+		"downloading": "Descargando...",
+		"steps": {
+			"language": "Selección de idioma",
+			"binary": "Motor de inferencia (llama.cpp)",
+			"models": "Modelos"
+		},
+		"status": {
+			"satisfied": "Instalado",
+			"missing": "Faltante",
+			"outdated": "Actualización disponible",
+			"installed": "Instalado",
+			"not_downloaded": "No descargado"
+		},
+		"advanced_settings": "Configuración avanzada (Cambiar modelos)",
+		"model_settings": "Configuración de modelos",
+		"model": "Modelo"
+	},
+	"common": {
+		"language": "Idioma",
+		"next": "Siguiente",
+		"back": "Atrás",
+		"cancel": "Cancelar",
+		"save": "Guardar",
+		"clear": "Limpiar",
+		"settings": "Configuración",
+		"close": "Cerrar"
+	},
+	"chat": {
+		"clear_history": "Borrar historial",
+		"input": {
+			"placeholder": {
+				"connecting": "Conectando...",
+				"search": "Pídeme que busque...",
+				"agent": "Asignar una tarea...",
+				"default": "Chatea con Tepora..."
+			},
+			"system_ready": "Sistema listo",
+			"disconnected": "Desconectado",
+			"web_search": "Búsqueda web",
+			"attach_file": "Adjuntar archivo",
+			"send": "Enviar mensaje",
+			"stop": "Detener generación",
+			"mode_active": "MODO {{mode}} ACTIVO",
+			"aria_label": "Entrada de mensaje"
+		}
+	},
+	"dial": {
+		"chat": "CHAT",
+		"search": "BÚSQUEDA",
+		"agent": "AGENTE"
+	},
+	"status": {
+		"title": "Estado del sistema",
+		"network": "Red",
+		"connected": "Conectado",
+		"disconnected": "Desconectado",
+		"core_system": "Sistema núcleo",
+		"ready": "Listo",
+		"loading": "Cargando",
+		"events": "eventos",
+		"messages": "Mensajes",
+		"char": "Char",
+		"prof": "Prof"
+	}
 }

@@ -4,27 +4,27 @@ Download Manager Package
 llama.cppバイナリとGGUFモデルのダウンロード・管理機能を提供
 """
 
-from .types import (
-    BinaryVariant,
-    ModelPool,
-    ModelRole,  # 後方互換エイリアス
-    DownloadStatus,
-    RequirementStatus,
-    ProgressEvent,
-    BinaryVersionInfo,
-    UpdateInfo,
-    ModelInfo,
-    ModelRegistry,
-    BinaryRegistry,
-    RequirementsStatus,
-    DownloadResult,
-    InstallResult,
-    SetupResult,
-    ProgressCallback,
-)
 from .binary import BinaryManager
-from .models import ModelManager
 from .manager import DownloadManager, get_user_data_dir
+from .models import ModelManager
+from .types import (
+    BinaryRegistry,
+    BinaryVariant,
+    BinaryVersionInfo,
+    DownloadResult,
+    DownloadStatus,
+    InstallResult,
+    ModelInfo,
+    ModelPool,
+    ModelRegistry,
+    ModelRole,  # 後方互換エイリアス
+    ProgressCallback,
+    ProgressEvent,
+    RequirementsStatus,
+    RequirementStatus,
+    SetupResult,
+    UpdateInfo,
+)
 
 __all__ = [
     # Managers

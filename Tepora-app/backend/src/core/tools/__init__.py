@@ -2,19 +2,19 @@ from __future__ import annotations
 
 """Utilities and tool definitions used by :mod:`agent_core`."""
 
-from .native import (
-    GoogleCustomSearchInput,
-    GoogleCustomSearchTool,
-    WebFetchInput,
-    WebFetchTool,
-    NativeToolProvider,
-)
-from .mcp import (
+from .base import ToolProvider  # noqa: E402
+from .mcp import (  # noqa: E402
+    McpToolProvider,
     load_connections_from_config,
     load_mcp_tools_robust,
-    McpToolProvider,
 )
-from .base import ToolProvider
+from .native import (  # noqa: E402
+    GoogleCustomSearchInput,
+    GoogleCustomSearchTool,
+    NativeToolProvider,
+    WebFetchInput,
+    WebFetchTool,
+)
 
 __all__ = [
     "ToolProvider",
@@ -27,5 +27,3 @@ __all__ = [
     "load_connections_from_config",
     "load_mcp_tools_robust",
 ]
-
-
