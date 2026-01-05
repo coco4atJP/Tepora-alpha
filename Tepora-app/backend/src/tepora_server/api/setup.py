@@ -117,6 +117,58 @@ def _get_download_manager():
         raise HTTPException(status_code=500, detail="Download manager not available")
 
 
+async def _sync_model_to_config(model_info):
+    """Sync model selection to config.yml models_gguf section"""
+    try:
+        from src.core.config.service import get_config_service
+        from src.core.download import ModelRole
+
+        service = get_config_service()
+        current_config = service.load_config()
+
+        if "models_gguf" not in current_config:
+            current_config["models_gguf"] = {}
+
+        # Determine key based on role
+        # Note: ModelRole enum values match what's in registry
+        role = model_info.role
+        key = "text_model" if role == ModelRole.TEXT else "embedding_model"
+
+        # Check if exists in current config
+        # Use .get() safely
+        models_config = current_config.get("models_gguf", {})
+
+        # Only add if not exists (preserve user customizations)
+        if key not in models_config:
+            logger.info(f"Syncing default config for {key} (model={model_info.id})")
+
+            # Default port logic: 8080 for text, 8081 for embedding
+            port = 8080 if key == "text_model" else 8081
+
+            # Ensure path is relative if possible, or string absolute path
+            model_path = str(model_info.file_path)
+
+            # Create a patch (partial config) to merge
+            patch_data = {
+                "models_gguf": {
+                    key: {
+                        "path": model_path,
+                        "port": port,
+                        "n_ctx": 4096,
+                        "n_gpu_layers": -1,
+                        "temperature": 0.7,
+                    }
+                }
+            }
+
+            service.update_config(patch_data, merge=True)
+            logger.info(f"Synced {key} to config.yml")
+
+    except Exception as e:
+        logger.warning(f"Failed in _sync_model_to_config: {e}")
+
+
+
 # --- Endpoints ---
 
 
@@ -597,6 +649,14 @@ async def set_active_model(request: SetActiveModelRequest):
                 content={"success": False, "error": "Model not found or invalid role"},
             )
 
+        # Sync to config.yml
+        try:
+            model = next((m for m in dm.model_manager.get_available_models() if m.id == request.model_id), None)
+            if model:
+                await _sync_model_to_config(model)
+        except Exception as e:
+            logger.warning(f"Failed to sync config: {e}")
+
         return {"success": True}
     except Exception as e:
         logger.error(f"Failed to set active model: {e}", exc_info=True)
@@ -677,6 +737,14 @@ async def set_character_model(request: SetCharacterModelRequest):
                 content={"success": False, "error": "Failed to set character model"},
             )
 
+        # Sync to config.yml
+        try:
+            model = next((m for m in dm.model_manager.get_available_models() if m.id == request.model_id), None)
+            if model:
+                await _sync_model_to_config(model)
+        except Exception as e:
+            logger.warning(f"Failed to sync config: {e}")
+
         return {"success": True}
     except Exception as e:
         logger.error(f"Failed to set character model: {e}", exc_info=True)
@@ -696,6 +764,16 @@ async def set_executor_model(request: SetExecutorModelRequest):
             return JSONResponse(
                 status_code=400, content={"success": False, "error": "Failed to set executor model"}
             )
+
+        # Sync to config.yml
+        try:
+            model = next((m for m in dm.model_manager.get_available_models() if m.id == request.model_id), None)
+            if model:
+                # For executors, we always map to "text_model" pool settings if not default
+                # But here we just sync the text_model config derived from the model info
+                await _sync_model_to_config(model)
+        except Exception as e:
+            logger.warning(f"Failed to sync config: {e}")
 
         return {"success": True}
     except Exception as e:
