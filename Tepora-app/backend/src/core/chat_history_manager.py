@@ -21,6 +21,19 @@ class ChatHistoryManager:
         self.db_path = db_path
         self._init_db()
 
+    def _ensure_session(self, session_id: str = "default", title: str = "Default Session"):
+        """Ensure a session exists in the database."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR IGNORE INTO sessions (id, title) VALUES (?, ?)",
+                    (session_id, title),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to ensure session {session_id}: {e}", exc_info=True)
+
     def _init_db(self):
         """Initialize the SQLite database schema."""
         try:
@@ -132,6 +145,7 @@ class ChatHistoryManager:
                 content = message.content
                 additional_kwargs = json.dumps(message.additional_kwargs)
 
+                self._ensure_session(session_id)
                 cursor.execute(
                     """
                     INSERT INTO chat_history (session_id, type, content, additional_kwargs)
@@ -154,6 +168,7 @@ class ChatHistoryManager:
                         (session_id, msg.type, msg.content, json.dumps(msg.additional_kwargs))
                     )
 
+                self._ensure_session(session_id)
                 cursor.executemany(
                     """
                     INSERT INTO chat_history (session_id, type, content, additional_kwargs)
@@ -225,6 +240,7 @@ class ChatHistoryManager:
                         (session_id, msg.type, msg.content, json.dumps(msg.additional_kwargs))
                     )
 
+                self._ensure_session(session_id)
                 cursor.executemany(
                     """
                     INSERT INTO chat_history (session_id, type, content, additional_kwargs)
@@ -342,8 +358,8 @@ class ChatHistoryManager:
     def delete_session(self, session_id: str) -> bool:
         """Delete a session and all its messages."""
         if session_id == "default":
-            logger.warning("Cannot delete default session")
-            return False
+            # Allow deleting default session, but log it
+            logger.info("Deleting default session")
 
         try:
             with sqlite3.connect(self.db_path) as conn:

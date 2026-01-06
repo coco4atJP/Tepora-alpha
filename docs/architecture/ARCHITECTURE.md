@@ -1,7 +1,7 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
-**バージョン**: 2.4
-**最終更新日**: 2026-01-05
+**バージョン**: 2.5
+**最終更新日**: 2026-01-06
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
 ---
@@ -16,7 +16,8 @@
 6. [フロントエンド詳細](#フロントエンド詳細)
 7. [主要機能](#主要機能)
 8. [データフローとAPI仕様](#データフローとapi仕様)
-9. [開発経緯](#開発経緯)
+9. [テスト構造](#テスト構造)
+10. [開発経緯](#開発経緯)
 
 
 ---
@@ -177,14 +178,18 @@ Tepora_Project/
 │   └── frontend/               # フロントエンドアプリケーション
 ├── docs/                       # ドキュメント
 │   ├── architecture/           # アーキテクチャ・設計
-│   │   ├── ARCHITECTURE.md
-│   │   ├── ROADMAP.md
-│   │   └── design_document_v2.md
-│   ├── planning/               # 計画・監査
-│   │   └── audit_report.md
-│   └── guides/                 # ガイド
-│       └── web_development.md
+│   │   ├── ARCHITECTURE.md     # 包括的仕様書（本ドキュメント）
+│   │   ├── ROADMAP.md          # 開発ロードマップ
+│   │   ├── SYSTEM_PROMPTS_LIST.md  # システムプロンプト一覧
+│   │   └── design_document_v2.md   # 設計ドキュメント（レガシー）
+│   ├── planning/               # 計画・監査レポート（内容は随時更新）
+│   └── guides/                 # 開発ガイド
+│       ├── developer_guide.md  # 開発者ガイド
+│       ├── development.md      # 開発環境セットアップ
+│       └── web_development.md  # Web開発ガイドライン
 ├── scripts/                    # 開発用スクリプト
+│   ├── build_sidecar.py        # PyInstallerビルドスクリプト
+│   └── prepare_fallback.py     # フォールバック準備スクリプト
 ├── Taskfile.yml               # タスクランナー定義
 ├── README.md                  # プロジェクトREADME
 └── LICENSE                    # Apache 2.0 License
@@ -611,7 +616,35 @@ class ToolManager:
 
 YAMLベースのメイン設定と、JSONベースのMCP設定の2本立て。
 
-**A. config.yml** (アプリケーション全体設定):
+#### 5.6.1 設定ファイルの関係
+
+```mermaid
+graph TB
+    subgraph Runtime["ランタイム設定"]
+        ConfigYml[config.yml<br/>メイン設定]
+        McpJson[config/mcp_tools_config.json<br/>MCP接続設定]
+    end
+    
+    subgraph Defaults["デフォルト定義"]
+        Schema[src/core/config/schema.py<br/>Pydanticスキーマ]
+        SeedJson[src/core/mcp/seed.json<br/>MCPサーバーカタログ]
+    end
+    
+    Schema -->|"デフォルト値提供"| ConfigYml
+    SeedJson -->|"インストール時にコピー"| McpJson
+    ConfigYml -->|"読み込み"| Loader[config/loader.py]
+    McpJson -->|"読み書き"| McpHub[McpHub]
+```
+
+| ファイル | 役割 | 編集方法 |
+|----------|------|----------|
+| `config.yml` | アプリ全体設定 | 手動編集 / 設定API |
+| `mcp_tools_config.json` | MCP接続情報 | 設定画面 / API |
+| `schema.py` | デフォルト値定義 | 開発者のみ |
+| `seed.json` | MCPサーバーカタログ | 開発者のみ |
+
+#### 5.6.2 config.yml（アプリケーション全体設定）
+
 主要セクション:
 
 ```yaml
@@ -632,9 +665,6 @@ models_gguf:
     port: 8088
     n_ctx: 8192
     n_gpu_layers: -1
-  # ministral_3b:
-  #   path: "models/Ministral-3-3B.gguf"
-  #   ...
 
 em_llm:
   surprise_gamma: 1.0
@@ -646,10 +676,11 @@ agent_profiles:
       key: "default"
     tool_policy:
       allow: ["*"]
-
-**B. config/mcp_tools_config.json** (MCPサーバー設定):
-MCPサーバーの接続情報（コマンド、引数、環境変数）を管理。`McpHub` によりAPI経由で読み書きされ、ホットリロードに対応。
 ```
+
+#### 5.6.3 mcp_tools_config.json（MCPサーバー設定）
+
+MCPサーバーの接続情報（コマンド、引数、環境変数）を管理。`McpHub` によりAPI経由で読み書きされ、ホットリロードに対応。
 
 ---
 
@@ -1031,9 +1062,67 @@ sequenceDiagram
 
 ---
 
+## テスト構造
+
+### 9.1 概要
+
+| レイヤー | テストフレームワーク | カバレッジ対象 |
+|----------|---------------------|----------------|
+| **バックエンド** | pytest | API、コア機能、WebSocket |
+| **フロントエンド** | Vitest + Testing Library | コンポーネント、フック、統合 |
+
+### 9.2 バックエンドテスト (`backend/tests/`)
+
+```
+tests/
+├── conftest.py              # pytest共通設定・fixture
+├── core/                    # コアモジュールテスト
+│   └── test_startup_validator.py
+├── test_api.py              # REST APIエンドポイント
+├── test_api_extensions.py   # 拡張APIテスト
+├── test_config_schema.py    # 設定スキーマバリデーション
+├── test_llm_manager.py      # LLMManager単体テスト
+├── test_tool_manager.py     # ToolManagerテスト
+├── test_ws_e2e.py           # WebSocket E2Eテスト
+├── test_ws_security.py      # WebSocketセキュリティ
+├── test_segmenter.py        # EM-LLMセグメンター
+└── test_retrieval.py        # EM-LLM検索
+```
+
+**実行方法**:
+```bash
+cd backend
+pytest                      # 全テスト実行
+pytest -v tests/test_api.py # 特定ファイル
+```
+
+### 9.3 フロントエンドテスト (`frontend/src/test/`)
+
+```
+test/
+├── setup.ts                 # Vitestセットアップ
+├── test-utils.tsx           # テストユーティリティ
+├── Integration.test.tsx     # 統合テスト
+└── example.test.ts          # サンプルテスト
+```
+
+コンポーネント個別テストは `components/__tests__/` に配置。
+
+**実行方法**:
+```bash
+cd frontend
+npm run test                # 全テスト実行
+npm run test:watch          # ウォッチモード
+```
+
+---
+
 ## 開発経緯
 
-### 9.1 Phase 1: Foundation (〜2025年11月)
+> [!NOTE]
+> **AI-Driven Development**: 本プロジェクトのコードは、設計から実装まで100%コーディングエージェント（AI）によって記述されています。人間の開発者はアーキテクチャの方針決定、レビュー、および指示を担当し、実際のコーディング作業はAIが行いました。
+
+### 10.1 Phase 1: Foundation (〜2025年11月)
 
 #### 主要マイルストーン
 
@@ -1062,7 +1151,7 @@ sequenceDiagram
 
 詳細は `backend/REFACTORING_SUMMARY.md` 参照。
 
-### 9.2 Phase 2: Transition & Refinement (2025年11月〜12月)
+### 10.2 Phase 2: Transition & Refinement (2025年11月〜12月)
 
 #### 完了項目
 
@@ -1185,6 +1274,6 @@ em_llm:
 
 ---
 
-**作成日**: 2026-01-05  
-**バージョン**: 2.4  
+**作成日**: 2026-01-06  
+**バージョン**: 2.5  
 **メンテナー**: Tepora Development Team

@@ -98,9 +98,6 @@ async def delete_session(request: Request, session_id: str):
     セッションを削除
     """
     try:
-        if session_id == "default":
-            return JSONResponse(status_code=400, content={"error": "Cannot delete default session"})
-
         app_state: AppState = get_app_state(request)
         success = app_state.core.history_manager.delete_session(session_id)
         if not success:

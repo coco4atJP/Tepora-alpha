@@ -1,169 +1,104 @@
 import { X } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 interface ModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	children: React.ReactNode;
 	title?: string;
-	size?: "sm" | "md" | "lg" | "xl" | "full";
+	children: React.ReactNode;
+	className?: string;
+	size?: "md" | "lg" | "xl";
 }
 
-/**
- * Accessible Modal component with:
- * - Focus trapping
- * - Escape key to close
- * - Click outside to close
- * - ARIA attributes for screen readers
- */
 const Modal: React.FC<ModalProps> = ({
 	isOpen,
 	onClose,
-	children,
 	title,
-	size = "lg",
+	children,
+	className = "",
+	size = "md",
 }) => {
-	const modalRef = useRef<HTMLDivElement>(null);
-	const previousActiveElement = useRef<HTMLElement | null>(null);
+	const overlayRef = useRef<HTMLDivElement>(null);
 
-	// Prevent body scroll when modal is open
+	// Close on Escape key
 	useEffect(() => {
-		if (isOpen) {
-			previousActiveElement.current = document.activeElement as HTMLElement;
-			document.body.style.overflow = "hidden";
-			// Focus the modal container
-			setTimeout(() => {
-				modalRef.current?.focus();
-			}, 10);
-		} else {
-			document.body.style.overflow = "";
-			// Restore focus
-			previousActiveElement.current?.focus();
-		}
-		return () => {
-			document.body.style.overflow = "";
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === "Escape") onClose();
 		};
-	}, [isOpen]);
 
-	// Handle Escape key
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Escape") {
-				e.preventDefault();
-				onClose();
-			}
-			// Focus trap
-			if (e.key === "Tab" && modalRef.current) {
-				const focusableElements =
-					modalRef.current.querySelectorAll<HTMLElement>(
-						'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-					);
-				const firstElement = focusableElements[0];
-				const lastElement = focusableElements[focusableElements.length - 1];
+		if (isOpen) {
+			document.addEventListener("keydown", handleEscape);
+			document.body.style.overflow = "hidden"; // Prevent scrolling behind modal
+		}
 
-				if (e.shiftKey) {
-					if (document.activeElement === firstElement) {
-						e.preventDefault();
-						lastElement?.focus();
-					}
-				} else {
-					if (document.activeElement === lastElement) {
-						e.preventDefault();
-						firstElement?.focus();
-					}
-				}
-			}
-		},
-		[onClose],
-	);
+		return () => {
+			document.removeEventListener("keydown", handleEscape);
+			document.body.style.overflow = "unset";
+		};
+	}, [isOpen, onClose]);
 
-	// Handle backdrop click
-	const handleBackdropClick = useCallback(
-		(e: React.MouseEvent) => {
-			if (e.target === e.currentTarget) {
-				onClose();
-			}
-		},
-		[onClose],
-	);
+	// Close on click outside
+	const handleBackdropClick = (e: React.MouseEvent) => {
+		if (e.target === overlayRef.current) {
+			onClose();
+		}
+	};
 
 	if (!isOpen) return null;
 
-	const sizeClasses: Record<string, string> = {
-		sm: "max-w-md",
-		md: "max-w-xl",
-		lg: "max-w-3xl",
-		xl: "max-w-5xl",
-		full: "max-w-[95vw] w-full",
+	const sizeClasses = {
+		md: "max-w-lg",
+		lg: "max-w-2xl",
+		xl: "max-w-4xl",
 	};
 
 	const modalContent = (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center p-4"
-			role="presentation"
-			onClick={handleBackdropClick}
-			onKeyDown={handleKeyDown}
+			className="fixed inset-0 z-[100] flex items-center justify-center p-4 min-h-screen overflow-y-auto"
+			role="dialog"
+			aria-modal="true"
 		>
 			{/* Backdrop */}
 			<div
-				className="absolute inset-0 bg-black/70 backdrop-blur-md animate-fade-in"
-				aria-hidden="true"
+				ref={overlayRef}
+				className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+				onClick={handleBackdropClick}
 			/>
 
-			{/* Modal Panel */}
+			{/* Modal Container */}
 			<div
-				ref={modalRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={title ? "modal-title" : undefined}
-				tabIndex={-1}
 				className={`
-                    relative z-10 w-full ${sizeClasses[size]} 
-                    h-[85dvh] max-h-[900px]
-                    flex flex-col
-                    bg-gradient-to-br from-gray-900 via-coffee-950 to-gray-900
-                    border border-gold-500/30
-                    rounded-2xl shadow-2xl
-                    overflow-hidden
-                    animate-modal-enter
+                    relative w-full ${sizeClasses[size] || sizeClasses.md} transform rounded-xl 
+                    bg-[#141419] border border-white/10 shadow-2xl 
+                    transition-all animate-in fade-in zoom-in-95 duration-200
+                    ${className}
                 `}
 			>
 				{/* Header */}
-				<header className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-					{title && (
-						<h2
-							id="modal-title"
-							className="text-lg font-semibold text-gray-100 tracking-wide"
-						>
-							{title}
-						</h2>
-					)}
+				<div className="flex items-center justify-between p-4 border-b border-white/10">
+					<h3 className="text-lg font-semibold text-white/90">{title}</h3>
 					<button
-						type="button"
 						onClick={onClose}
-						className="
-                            ml-auto p-2 rounded-full
-                            text-gray-400 hover:text-white hover:bg-white/10
-                            transition-all duration-200
-                            focus:outline-none focus:ring-2 focus:ring-gold-500/50
-                        "
-						aria-label="Close modal"
+						className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+						aria-label="Close"
 					>
 						<X size={20} />
 					</button>
-				</header>
+				</div>
 
 				{/* Content */}
-				<div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-					{children}
-				</div>
+				<div className="p-4 overflow-y-auto max-h-[80vh]">{children}</div>
 			</div>
 		</div>
 	);
 
-	return createPortal(modalContent, document.body);
+	// Use Portal if document is available, otherwise normal render (SSR safety)
+	if (typeof document !== "undefined") {
+		return createPortal(modalContent, document.body);
+	}
+	return modalContent;
 };
 
 export default Modal;

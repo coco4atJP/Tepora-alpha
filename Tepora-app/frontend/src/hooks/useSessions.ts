@@ -98,7 +98,6 @@ export const useSessions = (): UseSessionsReturn => {
 
 	const deleteSession = useCallback(
 		async (id: string) => {
-			if (id === "default") return false;
 			try {
 				await deleteMutation.mutateAsync(id);
 				return true;

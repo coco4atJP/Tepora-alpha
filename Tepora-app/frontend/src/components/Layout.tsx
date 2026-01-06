@@ -80,7 +80,7 @@ const Layout: React.FC = () => {
 			</div>
 
 			{/* Main Content Grid */}
-			<div className="relative z-10 flex-1 w-full max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 min-h-0">
+			<div className="relative z-10 flex-1 w-full px-2 md:px-4 py-2 md:py-4 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 min-h-0">
 				{/* Left Column: Chat Interface */}
 				<div className="h-full flex flex-col min-h-0 order-1">
 					<div className="flex-1 glass-gemini rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 ring-1 ring-white/5 min-h-0 flex flex-col">
@@ -147,7 +147,7 @@ const Layout: React.FC = () => {
 											className="p-3 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
 											title={t("sessionHistory", "History")}
 										>
-											<History size={20} />
+											<History size={28} />
 										</button>
 									</div>
 									<div className="shrink-0">

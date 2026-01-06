@@ -116,7 +116,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 	}, []);
 
 	return (
-		<div className="w-full max-w-3xl mx-auto relative group">
+		<div className="w-full max-w-7xl mx-auto relative group">
 			{/* Attachments Preview */}
 			{attachments.length > 0 && (
 				<div className="flex flex-wrap gap-2 mb-3 px-4 animate-message-in">
@@ -149,21 +149,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 					))}
 				</div>
 			)}
-
-			{/* Status Indicator (Integrated) */}
-			<output
-				className={`absolute -top-8 left-4 flex items-center gap-2 text-[10px] font-medium transition-all duration-300 font-display tracking-widest uppercase ${
-					isConnected ? "text-gold-400/80" : "text-red-400/80"
-				}`}
-			>
-				<div
-					className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-gold-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"}`}
-					aria-hidden="true"
-				/>
-				{isConnected
-					? t("chat.input.system_ready")
-					: t("chat.input.disconnected")}
-			</output>
 
 			<div
 				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-gemini transition-all duration-500 ${

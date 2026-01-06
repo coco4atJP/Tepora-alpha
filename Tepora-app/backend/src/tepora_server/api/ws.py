@@ -156,9 +156,8 @@ async def websocket_endpoint(websocket: WebSocket):
         send_progress = send_progress_callback  # Assign to the outer scope variable
 
         # コールバック登録 (DownloadManager側で非同期対応が必要な場合は考慮)
-        # ModelManagerとBinaryManager (DownloadProgressManager) 両方に登録
-        dm.download_progress.on_progress(send_progress)
-        dm.model_manager.on_progress(send_progress)
+        # DownloadManagerに登録すれば、BinaryManager/ModelManagerのイベントも転送される
+        dm.on_progress(send_progress)
 
     except Exception as e:
         logger.error(f"Failed to setup download progress: {e}")
@@ -268,12 +267,8 @@ async def websocket_endpoint(websocket: WebSocket):
         # Cleanup callbacks
         if dm and send_progress:
             try:
-                dm.download_progress.remove_callback(send_progress)
+                dm.remove_progress_callback(send_progress)
             except Exception:
                 pass
-
-            # Remove from ModelManager
-            if dm and hasattr(dm.model_manager, "remove_progress_callback"):
-                dm.model_manager.remove_progress_callback(send_progress)
 
         await handler.on_disconnect()

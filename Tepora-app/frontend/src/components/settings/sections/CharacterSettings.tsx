@@ -1,4 +1,5 @@
 import {
+	AlertCircle,
 	Bot,
 	Briefcase,
 	Check,
@@ -8,10 +9,11 @@ import {
 	Users,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../hooks/useSettings";
 import type { CharacterConfig } from "../../../types";
+import ConfirmDialog from "../../ui/ConfirmDialog";
 import Modal from "../../ui/Modal";
 import { FormGroup, FormInput, SettingsSection } from "../SettingsComponents";
 
@@ -47,6 +49,21 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	const [editState, setEditState] = useState<EditState | null>(null);
 	const [newKeyInput, setNewKeyInput] = useState("");
 
+	// Error message state (replaces native alert)
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+	// Delete confirmation dialog state (replaces native confirm)
+	const [deleteConfirm, setDeleteConfirm] = useState<{
+		key: string;
+		isOpen: boolean;
+	} | null>(null);
+
+	// Clear error message after 4 seconds
+	const showError = useCallback((message: string) => {
+		setErrorMessage(message);
+		setTimeout(() => setErrorMessage(null), 4000);
+	}, []);
+
 	const handleEdit = (key: string, config: CharacterConfig) => {
 		setEditState({ key, config: { ...config }, isNew: false });
 	};
@@ -75,19 +92,19 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				.replace(/\s+/g, "_")
 				.replace(/[^a-z0-9_]/g, "");
 			if (!key) {
-				alert(t("settings.sections.agents.error_empty_key"));
+				showError(t("settings.sections.agents.error_empty_key"));
 				return;
 			}
 			if (profiles[key]) {
-				alert(t("settings.sections.agents.error_duplicate_key"));
+				showError(t("settings.sections.agents.error_duplicate_key"));
 				return;
 			}
 
-			// Add then Update
+			// First call addProfile to create the key, then immediately update with full config
+			// Using synchronous pattern: addProfile creates the entry, then updateProfile overwrites it
+			// This is safe because both operations use React's setState batching
 			onAddProfile(key);
-			setTimeout(() => {
-				onUpdateProfile(key, editState.config);
-			}, 100);
+			onUpdateProfile(key, editState.config);
 		} else {
 			onUpdateProfile(editState.key, editState.config);
 		}
@@ -97,12 +114,22 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	const handleDelete = (key: string, e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (key === activeProfileId) {
-			alert(t("settings.sections.agents.cannot_delete_active"));
+			showError(t("settings.sections.agents.cannot_delete_active"));
 			return;
 		}
-		if (confirm(t("settings.sections.agents.confirm_delete"))) {
-			onDeleteProfile(key);
+		// Open confirm dialog instead of native confirm()
+		setDeleteConfirm({ key, isOpen: true });
+	};
+
+	const confirmDelete = () => {
+		if (deleteConfirm) {
+			onDeleteProfile(deleteConfirm.key);
+			setDeleteConfirm(null);
 		}
+	};
+
+	const cancelDelete = () => {
+		setDeleteConfirm(null);
 	};
 
 	// --- Render Helpers ---
@@ -337,6 +364,30 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 					</div>
 				)}
 			</Modal>
+
+			{/* Delete Confirmation Dialog */}
+			<ConfirmDialog
+				isOpen={deleteConfirm?.isOpen || false}
+				title={t(
+					"settings.sections.agents.delete_confirm_title",
+					"Delete Profile",
+				)}
+				message={t("settings.sections.agents.confirm_delete")}
+				confirmLabel={t("common.delete", "Delete")}
+				cancelLabel={t("common.cancel")}
+				onConfirm={confirmDelete}
+				onCancel={cancelDelete}
+				variant="danger"
+			/>
+
+			{/* Error Toast */}
+			{errorMessage && (
+				<div className="fixed bottom-4 right-4 z-[200] flex items-center gap-2 px-4 py-3 rounded-lg bg-red-900/90 border border-red-500/50 text-red-200 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200">
+					<AlertCircle size={18} className="text-red-400" />
+					<span className="text-sm">{errorMessage}</span>
+				</div>
+			)}
+
 			{/* Discreet NSFW Toggle */}
 			<div className="mt-8 pt-6 border-t border-white/5 opacity-50 hover:opacity-100 transition-opacity">
 				<div className="flex items-center justify-between">

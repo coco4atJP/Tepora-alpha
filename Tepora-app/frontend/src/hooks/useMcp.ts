@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getApiBase, getAuthHeaders } from "../utils/api";
 
-// --- Types ---
+const SEARCH_DEBOUNCE_MS = 300;
 
 // --- Types ---
 
@@ -287,7 +287,7 @@ export function useMcpStore() {
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			fetchStore(searchQuery || undefined);
-		}, 300);
+		}, SEARCH_DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [searchQuery, fetchStore]);
 

@@ -143,6 +143,11 @@ class DownloadManager:
         """進捗コールバックを登録"""
         self._progress_callbacks.append(callback)
 
+    def remove_progress_callback(self, callback: ProgressCallback) -> None:
+        """進捗コールバックを削除"""
+        if callback in self._progress_callbacks:
+            self._progress_callbacks.remove(callback)
+
     def _emit_progress(self, event: ProgressEvent) -> None:
         """進捗イベントを発火"""
         for callback in self._progress_callbacks:
@@ -347,3 +352,11 @@ class DownloadManager:
         logs_dir = self.user_data_dir / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         return logs_dir
+
+    def get_character_model_path(self) -> Path | None:
+        """キャラクターモデルのパスを取得"""
+        return self.model_manager.get_character_model_path()
+
+    def get_executor_model_path(self, task_type: str = "default") -> Path | None:
+        """エグゼキューターモデルのパスを取得"""
+        return self.model_manager.get_executor_model_path(task_type)

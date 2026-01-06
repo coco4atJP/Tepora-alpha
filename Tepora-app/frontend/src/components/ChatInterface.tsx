@@ -74,7 +74,7 @@ const ChatInterface: React.FC = () => {
 			</div>
 
 			{/* Input Area - Fixed at Bottom */}
-			<div className="p-4 md:p-6 w-full shrink-0">
+			<div className="p-2 md:p-4 w-full shrink-0">
 				<InputArea
 					onSendMessage={sendMessage}
 					isProcessing={isProcessing}

@@ -14,9 +14,9 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from src.core.mcp.installer import McpInstaller
 from src.tepora_server.api.dependencies import AppState, get_app_state
 from src.tepora_server.api.security import get_api_key
 
@@ -83,7 +83,7 @@ async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, 
 
     except Exception as e:
         logger.error("Failed to get MCP status: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/config", dependencies=[Depends(get_api_key)])
@@ -116,7 +116,7 @@ async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, 
 
     except Exception as e:
         logger.error("Failed to get MCP config: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/config", dependencies=[Depends(get_api_key)])
@@ -135,9 +135,7 @@ async def update_mcp_config(
         success, error = await state.mcp_hub.update_config({"mcpServers": request.mcpServers})
 
         if not success:
-            return JSONResponse(
-                status_code=400, content={"error": error or "Failed to update config"}
-            )
+            raise HTTPException(status_code=400, detail=error or "Failed to update config")
 
         return {"status": "success"}
 
@@ -145,7 +143,7 @@ async def update_mcp_config(
         raise
     except Exception as e:
         logger.error("Failed to update MCP config: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/store")
@@ -207,7 +205,7 @@ async def get_mcp_store(
 
     except Exception as e:
         logger.error("Failed to get MCP store: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/install", dependencies=[Depends(get_api_key)])
@@ -238,7 +236,6 @@ async def install_mcp_server(
             )
 
         # Generate config using installer
-        from src.core.mcp.installer import McpInstaller
 
         config = McpInstaller.generate_config(
             server,
@@ -277,9 +274,7 @@ async def install_mcp_server(
         success, error = await state.mcp_hub.update_config({"mcpServers": new_servers})
 
         if not success:
-            return JSONResponse(
-                status_code=400, content={"error": error or "Failed to install server"}
-            )
+            raise HTTPException(status_code=400, detail=error or "Failed to install server")
 
         return {
             "status": "success",
@@ -291,7 +286,7 @@ async def install_mcp_server(
         raise
     except Exception as e:
         logger.error("Failed to install MCP server: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/servers/{server_name}/enable", dependencies=[Depends(get_api_key)])
@@ -306,9 +301,7 @@ async def enable_server(
         success = await state.mcp_hub.enable_server(server_name)
 
         if not success:
-            return JSONResponse(
-                status_code=404, content={"error": f"Server '{server_name}' not found"}
-            )
+            raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
 
         return {"status": "success"}
 
@@ -316,7 +309,7 @@ async def enable_server(
         raise
     except Exception as e:
         logger.error("Failed to enable server: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/servers/{server_name}/disable", dependencies=[Depends(get_api_key)])
@@ -331,9 +324,7 @@ async def disable_server(
         success = await state.mcp_hub.disable_server(server_name)
 
         if not success:
-            return JSONResponse(
-                status_code=404, content={"error": f"Server '{server_name}' not found"}
-            )
+            raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
 
         return {"status": "success"}
 
@@ -341,7 +332,7 @@ async def disable_server(
         raise
     except Exception as e:
         logger.error("Failed to disable server: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/servers/{server_name}", dependencies=[Depends(get_api_key)])
@@ -357,9 +348,7 @@ async def delete_server(
         config = state.mcp_hub.get_config()
 
         if server_name not in config.mcpServers:
-            return JSONResponse(
-                status_code=404, content={"error": f"Server '{server_name}' not found"}
-            )
+            raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
 
         # Remove server and update
         new_servers = {
@@ -376,9 +365,7 @@ async def delete_server(
         success, error = await state.mcp_hub.update_config({"mcpServers": new_servers})
 
         if not success:
-            return JSONResponse(
-                status_code=400, content={"error": error or "Failed to remove server"}
-            )
+            raise HTTPException(status_code=400, detail=error or "Failed to remove server")
 
         return {"status": "success"}
 
@@ -386,4 +373,4 @@ async def delete_server(
         raise
     except Exception as e:
         logger.error("Failed to delete server: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))

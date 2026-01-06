@@ -153,96 +153,100 @@ const McpSettings: React.FC = () => {
 						<p className="text-sm">{t("settings.mcp.noServers.description")}</p>
 					</div>
 				) : (
-					serverList.map(({ name, config, status: serverStatus }) => (
-						<div
-							key={name}
-							className="bg-black/20 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
-						>
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-3 flex-1 min-w-0">
-									{/* Status Icon */}
-									<div className="shrink-0">{getStatusIcon(serverStatus)}</div>
-
-									{/* Server Info */}
-									<div className="flex-1 min-w-0">
-										<div className="flex items-center gap-2">
-											<h4 className="font-medium text-gray-100 truncate">
-												{config.metadata?.name || name}
-											</h4>
-											{!config.enabled && (
-												<span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-400 rounded">
-													{t("settings.mcp.disabled")}
-												</span>
-											)}
+					serverList.map(
+						({ name, config: serverConfig, status: serverStatus }) => (
+							<div
+								key={name}
+								className="bg-black/20 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
+							>
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-3 flex-1 min-w-0">
+										{/* Status Icon */}
+										<div className="shrink-0">
+											{getStatusIcon(serverStatus)}
 										</div>
-										<p className="text-xs text-gray-500 truncate">
-											{config.command} {config.args.join(" ")}
-										</p>
-										<p className="text-xs text-gray-400 mt-1">
-											{getStatusText(serverStatus)}
-										</p>
+
+										{/* Server Info */}
+										<div className="flex-1 min-w-0">
+											<div className="flex items-center gap-2">
+												<h4 className="font-medium text-gray-100 truncate">
+													{serverConfig.metadata?.name || name}
+												</h4>
+												{!serverConfig.enabled && (
+													<span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-400 rounded">
+														{t("settings.mcp.disabled")}
+													</span>
+												)}
+											</div>
+											<p className="text-xs text-gray-500 truncate">
+												{serverConfig.command} {serverConfig.args.join(" ")}
+											</p>
+											<p className="text-xs text-gray-400 mt-1">
+												{getStatusText(serverStatus)}
+											</p>
+										</div>
+									</div>
+
+									{/* Actions */}
+									<div className="flex items-center gap-2 ml-4">
+										{/* Toggle */}
+										<button
+											onClick={() => toggleServer(name, !serverConfig.enabled)}
+											className={`p-2 rounded-lg transition-colors ${
+												serverConfig.enabled
+													? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+													: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+											}`}
+											aria-label={
+												serverConfig.enabled
+													? t("settings.mcp.disable")
+													: t("settings.mcp.enable")
+											}
+											title={
+												serverConfig.enabled
+													? t("settings.mcp.disable")
+													: t("settings.mcp.enable")
+											}
+										>
+											<Power size={16} />
+										</button>
+
+										{/* Delete */}
+										{deleteConfirm === name ? (
+											<div className="flex items-center gap-1">
+												<button
+													onClick={() => {
+														removeServer(name);
+														setDeleteConfirm(null);
+													}}
+													className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
+													aria-label={t("settings.mcp.confirmDelete")}
+												>
+													<CheckCircle size={16} />
+												</button>
+												<button
+													onClick={() => setDeleteConfirm(null)}
+													className="p-2 bg-gray-700 text-gray-400 hover:bg-gray-600 rounded-lg transition-colors"
+													aria-label={t("settings.mcp.cancelDelete")}
+												>
+													<XCircle size={16} />
+												</button>
+											</div>
+										) : (
+											<button
+												onClick={() => setDeleteConfirm(name)}
+												className="p-2 bg-gray-700 text-gray-400 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
+												aria-label={t("settings.mcp.delete")}
+												title={t("settings.mcp.delete")}
+											>
+												<Trash2 size={16} />
+											</button>
+										)}
 									</div>
 								</div>
-
-								{/* Actions */}
-								<div className="flex items-center gap-2 ml-4">
-									{/* Toggle */}
-									<button
-										onClick={() => toggleServer(name, !config.enabled)}
-										className={`p-2 rounded-lg transition-colors ${
-											config.enabled
-												? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-												: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-										}`}
-										aria-label={
-											config.enabled
-												? t("settings.mcp.disable")
-												: t("settings.mcp.enable")
-										}
-										title={
-											config.enabled
-												? t("settings.mcp.disable")
-												: t("settings.mcp.enable")
-										}
-									>
-										<Power size={16} />
-									</button>
-
-									{/* Delete */}
-									{deleteConfirm === name ? (
-										<div className="flex items-center gap-1">
-											<button
-												onClick={() => {
-													removeServer(name);
-													setDeleteConfirm(null);
-												}}
-												className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
-												aria-label={t("settings.mcp.confirmDelete")}
-											>
-												<CheckCircle size={16} />
-											</button>
-											<button
-												onClick={() => setDeleteConfirm(null)}
-												className="p-2 bg-gray-700 text-gray-400 hover:bg-gray-600 rounded-lg transition-colors"
-												aria-label={t("settings.mcp.cancelDelete")}
-											>
-												<XCircle size={16} />
-											</button>
-										</div>
-									) : (
-										<button
-											onClick={() => setDeleteConfirm(name)}
-											className="p-2 bg-gray-700 text-gray-400 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
-											aria-label={t("settings.mcp.delete")}
-											title={t("settings.mcp.delete")}
-										>
-											<Trash2 size={16} />
-										</button>
-									)}
-								</div>
 							</div>
-						</div>
-					))
+						),
+					)
 				)}
 			</div>
 

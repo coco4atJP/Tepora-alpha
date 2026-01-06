@@ -129,7 +129,7 @@
 /* Sidebar
    ------------------------------------------------------------------------- */
 .settings-sidebar {
-	width: 260px;
+	width: 220px;
 	background: rgba(0, 0, 0, 0.2);
 	border-right: 1px solid var(--s-border);
 	display: flex;
@@ -202,7 +202,7 @@
 /* Headers
    ------------------------------------------------------------------------- */
 .settings-header {
-	margin-bottom: 3rem;
+	margin-bottom: 1.5rem;
 	animation: fadeInDown 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 

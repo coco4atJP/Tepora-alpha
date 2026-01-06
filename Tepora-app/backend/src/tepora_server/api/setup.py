@@ -168,7 +168,6 @@ async def _sync_model_to_config(model_info):
         logger.warning(f"Failed in _sync_model_to_config: {e}")
 
 
-
 # --- Endpoints ---
 
 
@@ -651,7 +650,10 @@ async def set_active_model(request: SetActiveModelRequest):
 
         # Sync to config.yml
         try:
-            model = next((m for m in dm.model_manager.get_available_models() if m.id == request.model_id), None)
+            model = next(
+                (m for m in dm.model_manager.get_available_models() if m.id == request.model_id),
+                None,
+            )
             if model:
                 await _sync_model_to_config(model)
         except Exception as e:
@@ -739,7 +741,10 @@ async def set_character_model(request: SetCharacterModelRequest):
 
         # Sync to config.yml
         try:
-            model = next((m for m in dm.model_manager.get_available_models() if m.id == request.model_id), None)
+            model = next(
+                (m for m in dm.model_manager.get_available_models() if m.id == request.model_id),
+                None,
+            )
             if model:
                 await _sync_model_to_config(model)
         except Exception as e:
@@ -767,7 +772,10 @@ async def set_executor_model(request: SetExecutorModelRequest):
 
         # Sync to config.yml
         try:
-            model = next((m for m in dm.model_manager.get_available_models() if m.id == request.model_id), None)
+            model = next(
+                (m for m in dm.model_manager.get_available_models() if m.id == request.model_id),
+                None,
+            )
             if model:
                 # For executors, we always map to "text_model" pool settings if not default
                 # But here we just sync the text_model config derived from the model info

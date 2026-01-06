@@ -179,19 +179,17 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 										>
 											✎
 										</button>
-										{session.id !== "default" && (
-											<button
-												type="button"
-												className="btn-delete"
-												onClick={(e) => {
-													e.stopPropagation();
-													setDeleteTargetId(session.id);
-												}}
-												aria-label={t("delete", "Delete")}
-											>
-												🗑
-											</button>
-										)}
+										<button
+											type="button"
+											className="btn-delete"
+											onClick={(e) => {
+												e.stopPropagation();
+												setDeleteTargetId(session.id);
+											}}
+											aria-label={t("delete", "Delete")}
+										>
+											🗑
+										</button>
 									</div>
 								</>
 							)}
@@ -233,14 +231,14 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
           height: 28px;
           border: none;
           border-radius: 6px;
-          background: var(--color-primary, #6366f1);
+          background: var(--color-primary, #f59e0b);
           color: white;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .btn-new-session:hover:not(:disabled) {
-          background: var(--color-primary-hover, #818cf8);
+          background: var(--color-primary-hover, #fbbf24);
           transform: scale(1.05);
         }
 
@@ -269,8 +267,8 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
         }
 
         .session-item.active {
-          background: var(--color-bg-active, rgba(99, 102, 241, 0.2));
-          border-left: 3px solid var(--color-primary, #6366f1);
+          background: var(--color-bg-active, rgba(245, 158, 11, 0.2));
+          border-left: 3px solid var(--color-primary, #f59e0b);
         }
 
         .session-content {
@@ -364,7 +362,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
         .session-edit input {
           flex: 1;
           padding: 6px 8px;
-          border: 1px solid var(--color-primary, #6366f1);
+          border: 1px solid var(--color-primary, #f59e0b);
           border-radius: 4px;
           background: var(--color-bg-input, rgba(0, 0, 0, 0.3));
           color: var(--color-text-primary, #fff);
@@ -383,7 +381,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
         }
 
         .session-edit .btn-save {
-          background: var(--color-primary, #6366f1);
+          background: var(--color-primary, #f59e0b);
           color: white;
         }
 

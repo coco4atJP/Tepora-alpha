@@ -1,238 +1,27 @@
-import { AlertCircle, Bot, User } from "lucide-react";
-import React, { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import remarkGfm from "remark-gfm";
+import type React from "react";
 import type { Message } from "../types";
 
 interface MessageBubbleProps {
 	message: Message;
 }
 
-// --- Helper functions for styling ---
-
-/**
- * Get the icon background class based on message role.
- */
-function getIconBgClass(message: Message): string {
-	switch (message.role) {
-		case "user":
-			return "bg-gradient-to-br from-coffee-500 to-coffee-700";
-		case "system":
-			return "bg-red-900/50";
-		default:
-			return "bg-black/70 backdrop-blur-md";
-	}
-}
-
-/**
- * Get the message bubble class based on message role, agentName, nodeId, and mode.
- */
-function getBubbleClass(message: Message): string {
-	const baseClasses =
-		"rounded-2xl p-4 shadow-lg backdrop-blur-md border min-w-0 transition-all";
-
-	if (message.role === "user") {
-		return `${baseClasses} bg-coffee-600/70 border-coffee-400/50 text-cream-100 rounded-tr-none`;
-	}
-
-	if (message.role === "system") {
-		return `${baseClasses} bg-red-900/60 border-red-500/50 text-red-200`;
-	}
-
-	// Assistant role
-	if (message.nodeId) {
-		// Agent/Tool specific styling
-		if (message.agentName === "Planner") {
-			return `${baseClasses} bg-purple-900/60 border-purple-500/50 text-purple-100`;
-		}
-		if (message.agentName?.includes("Search")) {
-			return `${baseClasses} bg-cyan-900/60 border-cyan-500/50 text-cyan-100`;
-		}
-		return `${baseClasses} bg-gold-900/50 border-gold-500/40 text-gold-100`;
-	}
-
-	// Fallback to mode styling
-	switch (message.mode) {
-		case "search":
-			return `${baseClasses} bg-cyan-950/70 border-cyan-500/40 text-cyan-50`;
-		case "agent":
-			return `${baseClasses} bg-coffee-900/70 border-gold-500/40 text-gold-50`;
-		default:
-			return `${baseClasses} bg-black/70 border-white/20 text-gray-100 rounded-tl-none`;
-	}
-}
-
-/**
- * Get the agent header color class.
- */
-function getAgentHeaderClass(agentName: string): string {
-	if (agentName === "Planner") return "text-purple-400";
-	if (agentName.includes("Search")) return "text-cyan-400";
-	return "text-gold-400";
-}
-
-/**
- * Get the mode label for user messages.
- */
-function getModeLabel(mode: Message["mode"]): string | null {
-	switch (mode) {
-		case "search":
-			return "🔍 Search";
-		case "agent":
-			return "🤖 Agent";
-		case "direct":
-			return "💬 Direct";
-		default:
-			return null;
-	}
-}
-
-/**
- * Render the icon based on message role.
- */
-function renderIcon(role: Message["role"]): React.ReactNode {
-	switch (role) {
-		case "user":
-			return <User className="w-4 h-4 text-white" />;
-		case "system":
-			return <AlertCircle className="w-4 h-4 text-red-400" />;
-		default:
-			return <Bot className="w-4 h-4 text-gold-400" />;
-	}
-}
-
-// デバウンス間隔（ストリーミング中）
-const MARKDOWN_DEBOUNCE_MS = 150;
-
-// --- Main Component ---
-
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-	const modeLabel =
-		message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
-
-	// デバウンス付きコンテンツ（パフォーマンス最適化）
-	const [debouncedContent, setDebouncedContent] = useState(message.content);
-
-	useEffect(() => {
-		// 完了済みメッセージまたはユーザーメッセージは即時反映
-		if (
-			message.isComplete ||
-			message.role === "user" ||
-			message.role === "system"
-		) {
-			setDebouncedContent(message.content);
-			return;
-		}
-
-		// ストリーミング中はデバウンス
-		const timer = setTimeout(() => {
-			setDebouncedContent(message.content);
-		}, MARKDOWN_DEBOUNCE_MS);
-
-		return () => clearTimeout(timer);
-	}, [message.content, message.isComplete, message.role]);
-
+	const isUser = message.role === "user";
 	return (
 		<div
-			className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-message-in group`}
+			className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-4`}
 		>
 			<div
-				className={`flex max-w-[90%] md:max-w-[85%] min-w-0 ${message.role === "user" ? "flex-row-reverse" : "flex-row"} gap-4`}
+				className={`max-w-[80%] rounded-lg p-3 ${
+					isUser
+						? "bg-blue-600 text-white rounded-br-none"
+						: "bg-gray-700 text-gray-100 rounded-bl-none"
+				}`}
 			>
-				{/* Icon */}
-				<div
-					className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center mt-1 shadow-xl ring-1 ring-white/10 ${getIconBgClass(message)} transition-transform duration-500 group-hover:scale-110`}
-				>
-					{renderIcon(message.role)}
-				</div>
-
-				{/* Message Container */}
-				<div className="flex flex-col min-w-0">
-					{/* Agent Header */}
-					{message.agentName && (
-						<div
-							className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2 ${getAgentHeaderClass(message.agentName)}`}
-						>
-							<span className="w-1 h-1 rounded-full bg-current opacity-70"></span>
-							{message.agentName}
-						</div>
-					)}
-
-					{/* Message Bubble */}
-					<div
-						className={`${getBubbleClass(message)} relative overflow-hidden`}
-					>
-						{/* Shimmer Effect for AI Messages */}
-						{message.role !== "user" && !message.isComplete && (
-							<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
-						)}
-
-						{modeLabel && (
-							<div className="text-[10px] opacity-60 mb-2 flex items-center gap-1.5 font-display uppercase tracking-wider text-gold-300 border-b border-white/5 pb-1">
-								{modeLabel}
-							</div>
-						)}
-
-						<div
-							className={`markdown-content prose prose-invert max-w-none break-words whitespace-pre-wrap
-                                prose-p:leading-7 prose-p:my-3
-                                prose-headings:font-display prose-headings:text-gold-100 prose-headings:font-normal
-                                prose-pre:bg-black/40 prose-pre:backdrop-blur-sm prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:shadow-inner
-                                prose-code:bg-white/10 prose-code:rounded-md prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:text-gold-200 prose-code:before:content-[''] prose-code:after:content-['']
-                                prose-blockquote:border-l-gold-500/50 prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic
-                                prose-ul:my-2 prose-li:my-1
-                                prose-a:text-gold-400 prose-a:no-underline hover:prose-a:text-gold-300 hover:prose-a:underline
-                                ${message.role === "user" ? "prose-p:text-cream-50" : "prose-p:text-gray-200"}
-                            `}
-						>
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm]}
-								components={{
-									code({ className, children, ...rest }) {
-										const match = /language-(\w+)/.exec(className || "");
-										return match ? (
-											<section
-												aria-label={`${match[1]} code block`}
-												className="grid overflow-x-auto w-full max-w-full my-4 rounded-xl border border-white/10 shadow-lg group/code"
-											>
-												<div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 text-xs text-gray-400 font-mono">
-													<span>{match[1]}</span>
-												</div>
-												<SyntaxHighlighter
-													style={vscDarkPlus}
-													language={match[1]}
-													PreTag="div"
-													className="!bg-black/60 !m-0 !p-4 !font-mono text-sm"
-													wrapLines={true}
-													wrapLongLines={true}
-												>
-													{String(children).replace(/\n$/, "")}
-												</SyntaxHighlighter>
-											</section>
-										) : (
-											<code {...rest} className={`${className}`}>
-												{children}
-											</code>
-										);
-									},
-								}}
-							>
-								{debouncedContent}
-							</ReactMarkdown>
-						</div>
-					</div>
-
-					<div
-						className={`text-[10px] opacity-40 mt-1.5 font-mono flex items-center gap-1 ${message.role === "user" ? "justify-end text-gold-200/50" : "justify-start text-gray-500"}`}
-					>
-						{message.timestamp.toLocaleTimeString("ja-JP")}
-					</div>
-				</div>
+				<p className="whitespace-pre-wrap">{message.content}</p>
 			</div>
 		</div>
 	);
 };
 
-export default React.memo(MessageBubble);
+export default MessageBubble;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
 	ActivityLogEntry,
 	AgentActivity,
@@ -48,6 +49,8 @@ export const useWebSocket = () => {
 		isToolApproved,
 	} = useChatState();
 
+	const { t } = useTranslation();
+
 	const { handleChunk, flushAndClose } = useMessageBuffer(setMessages);
 
 	// Session management
@@ -60,7 +63,6 @@ export const useWebSocket = () => {
 		(event: MessageEvent) => {
 			try {
 				const data: WebSocketMessage = JSON.parse(event.data);
-				console.log("WS Received:", data);
 
 				switch (data.type) {
 					case "chunk":
@@ -90,7 +92,7 @@ export const useWebSocket = () => {
 						const errorMessage: Message = {
 							id: Date.now().toString(),
 							role: "system",
-							content: `エラー: ${errorMessageStr} `,
+							content: `${t("common.error_prefix", "Error: ")}${errorMessageStr}`,
 							timestamp: new Date(),
 						};
 						setMessages((prev) => [...prev, errorMessage]);
