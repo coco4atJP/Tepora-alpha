@@ -124,7 +124,7 @@ const McpSettings: React.FC = () => {
 				>
 					<FormInput
 						value={config?.app.mcp_config_path || ""}
-						onChange={(v) => updateApp("mcp_config_path", v)}
+						onChange={(v) => updateApp("mcp_config_path", v as string)}
 						placeholder="config/mcp_tools_config.json"
 					/>
 				</FormGroup>

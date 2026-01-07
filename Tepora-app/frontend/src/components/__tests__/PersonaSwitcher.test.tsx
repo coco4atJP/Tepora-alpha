@@ -26,6 +26,7 @@ const createMockSettings = (
 			health_check_timeout: 10,
 			health_check_interval: 30,
 			tokenizer_model_key: "default",
+			cache_size: 1,
 		},
 		chat_history: {
 			max_tokens: 4096,

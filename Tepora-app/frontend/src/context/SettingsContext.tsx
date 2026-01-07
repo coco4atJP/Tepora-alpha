@@ -42,6 +42,7 @@ export interface Config {
 		health_check_timeout: number;
 		health_check_interval: number;
 		tokenizer_model_key: string;
+		cache_size: number;
 	};
 	chat_history: {
 		max_tokens: number;
@@ -54,10 +55,7 @@ export interface Config {
 		repr_topk: number;
 		use_boundary_refinement: boolean;
 	};
-	models_gguf: {
-		text_model: ModelConfig;
-		embedding_model: ModelConfig;
-	};
+	models_gguf: Record<string, ModelConfig>;
 	// Refactored Agent Config
 	characters: Record<string, CharacterConfig>;
 	professionals: Record<string, ProfessionalConfig>;
@@ -77,23 +75,32 @@ export interface SettingsContextValue {
 	saving: boolean;
 	// Actions
 	fetchConfig: () => Promise<void>;
-	updateApp: (field: keyof Config["app"], value: unknown) => void;
-	updateLlmManager: (
-		field: keyof Config["llm_manager"],
-		value: unknown,
+	updateApp: <K extends keyof Config["app"]>(
+		field: K,
+		value: Config["app"][K],
 	) => void;
-	updateChatHistory: (
-		field: keyof Config["chat_history"],
-		value: unknown,
+	updateLlmManager: <K extends keyof Config["llm_manager"]>(
+		field: K,
+		value: Config["llm_manager"][K],
 	) => void;
-	updateEmLlm: (field: keyof Config["em_llm"], value: unknown) => void;
+	updateChatHistory: <K extends keyof Config["chat_history"]>(
+		field: K,
+		value: Config["chat_history"][K],
+	) => void;
+	updateEmLlm: <K extends keyof Config["em_llm"]>(
+		field: K,
+		value: Config["em_llm"][K],
+	) => void;
 	updateModel: (
 		modelKey: keyof Config["models_gguf"],
 		modelConfig: ModelConfig,
 	) => void;
 
 	// Tools Actions
-	updateTools: (field: keyof Config["tools"], value: unknown) => void;
+	updateTools: <K extends keyof Config["tools"]>(
+		field: K,
+		value: Config["tools"][K],
+	) => void;
 
 	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
@@ -176,7 +183,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 
 	// Update functions
 	const updateApp = useCallback(
-		(field: keyof Config["app"], value: unknown) => {
+		<K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => {
 			setConfig((prev) =>
 				prev ? { ...prev, app: { ...prev.app, [field]: value } } : prev,
 			);
@@ -185,7 +192,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	);
 
 	const updateLlmManager = useCallback(
-		(field: keyof Config["llm_manager"], value: unknown) => {
+		<K extends keyof Config["llm_manager"]>(
+			field: K,
+			value: Config["llm_manager"][K],
+		) => {
 			setConfig((prev) =>
 				prev
 					? { ...prev, llm_manager: { ...prev.llm_manager, [field]: value } }
@@ -196,12 +206,15 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	);
 
 	const updateChatHistory = useCallback(
-		(field: keyof Config["chat_history"], value: unknown) => {
+		<K extends keyof Config["chat_history"]>(
+			field: K,
+			value: Config["chat_history"][K],
+		) => {
 			setConfig((prev) =>
 				prev
 					? {
 							...prev,
-							chat_history: { ...prev.chat_history, [field]: Number(value) },
+							chat_history: { ...prev.chat_history, [field]: value },
 						}
 					: prev,
 			);
@@ -210,7 +223,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	);
 
 	const updateEmLlm = useCallback(
-		(field: keyof Config["em_llm"], value: unknown) => {
+		<K extends keyof Config["em_llm"]>(
+			field: K,
+			value: Config["em_llm"][K],
+		) => {
 			setConfig((prev) =>
 				prev ? { ...prev, em_llm: { ...prev.em_llm, [field]: value } } : prev,
 			);
@@ -233,7 +249,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	);
 
 	const updateTools = useCallback(
-		(field: keyof Config["tools"], value: unknown) => {
+		<K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => {
 			setConfig((prev) =>
 				prev ? { ...prev, tools: { ...prev.tools, [field]: value } } : prev,
 			);

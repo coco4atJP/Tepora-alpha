@@ -8,6 +8,7 @@ import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 
+from . import config
 from .llm import build_server_command, find_server_executable
 from .llm.client_factory import ClientFactory
 from .llm.model_registry import ModelRegistry
@@ -40,7 +41,7 @@ class LLMManager:
 
         # Model cache: key -> (llm_instance, model_config, port)
         self._chat_model_cache: dict[str, tuple] = {}
-        self._cache_size = 1
+        self._cache_size = config.settings.llm_manager.cache_size
 
         # Embedding model (persisted separately)
         self._embedding_llm = None

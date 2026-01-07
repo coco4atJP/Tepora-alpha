@@ -1,7 +1,7 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
-**バージョン**: 2.5
-**最終更新日**: 2026-01-06
+**バージョン**: 2.6
+**最終更新日**: 2026-01-07
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
 ---
@@ -327,7 +327,9 @@ frontend/
 │   ├── components/             # UIコンポーネント
 │   │   ├── Layout.tsx          # メインレイアウト
 │   │   ├── ChatInterface.tsx   # チャット画面
-│   │   ├── SetupWizard.tsx     # セットアップウィザード
+│   │   ├── SetupWizard/        # セットアップウィザード
+│   │   │   ├── SetupWizard.tsx
+│   │   │   └── steps/          # ステップコンポーネント
 │   │   ├── Sidebar.tsx         # サイドバー
 │   │   ├── StatusBar.tsx       # ステータスバー
 │   │   ├── InputArea.tsx       # 入力エリア
@@ -339,6 +341,8 @@ frontend/
 │   │   ├── SearchResults.tsx   # 検索結果表示
 │   │   ├── SystemStatusPanel.tsx # システム詳細パネル
 │   │   ├── settings/           # 設定画面
+│   │   │   ├── components/     # 設定UIコンポーネント
+│   │   │   └── sections/       # 設定セクション
 │   │   ├── SessionHistory/     # セッション履歴
 │   │   ├── ui/                 # 汎用UIパーツ
 │   │   └── chat/               # チャット関連パーツ
@@ -347,6 +351,11 @@ frontend/
 │   │   └── WebSocketContext.tsx # WS接続プロバイダー
 │   ├── hooks/                  # カスタムフック
 │   │   ├── useWebSocket.ts     # WebSocket管理
+│   │   ├── chat/               # チャット関連フック
+│   │   │   ├── useChatState.ts
+│   │   │   ├── useMessageBuffer.ts
+│   │   │   ├── useSocketConnection.ts
+│   │   │   └── useWebSocketMessageHandlers.ts
 │   │   ├── useSettings.ts      # 設定管理
 │   │   ├── useSessions.ts      # セッション管理
 │   │   ├── useMcp.ts           # MCP管理
@@ -823,7 +832,7 @@ components/
 
 ### 6.3 コンテキスト
 
-- **SettingsContext.tsx**: 全域的な設定プロバイダー
+- **SettingsContext.tsx**: 全域的な設定プロバイダー（型安全な更新関数を提供）
 - **WebSocketContext.tsx**: WebSocket接続の共有プロバイダー
 
 ### 6.4 Glassmorphism デザインシステム
@@ -1103,6 +1112,10 @@ test/
 ├── setup.ts                 # Vitestセットアップ
 ├── test-utils.tsx           # テストユーティリティ
 ├── Integration.test.tsx     # 統合テスト
+├── unit/                    # ユニットテスト
+│   ├── context/             # Contextテスト (SettingsContext等)
+│   ├── hooks/               # Hookテスト (useSettings, useMcp等)
+│   └── components/          # コンポーネント単体テスト (CharacterSettings等)
 └── example.test.ts          # サンプルテスト
 ```
 
@@ -1190,6 +1203,23 @@ npm run test:watch          # ウォッチモード
 - [ ] i18n対応の拡充
 - [ ] E2Eテストの整備
 
+### 10.3 Phase 3: Stabilization & Verification (2026年1月)
+
+#### 完了項目
+
+**品質向上**
+- ✅ フロントエンドテストカバレッジ拡大 (Vitest/RTL)
+  - `useSettings`, `SettingsContext`, `useMcp`, `CharacterSettings` 等の主要モジュールをカバー
+- ✅ バックエンドエラーハンドリング統一 (`HTTPException`利用)
+- ✅ 型安全性向上 (`SettingsContext`のリファクタリング)
+- ✅ 脆弱性監査と修正 (Frontend/Backend)
+
+**バグ修正**
+- ✅ UI競合状態の解消 (`setTimeout`の除去)
+- ✅ モジュール解決エラーの修正 (`Modal.tsx`)
+- ✅ セッション削除ロジックの修正
+
+
 ---
 
 
@@ -1275,5 +1305,5 @@ em_llm:
 ---
 
 **作成日**: 2026-01-06  
-**バージョン**: 2.5  
+**バージョン**: 2.6  
 **メンテナー**: Tepora Development Team

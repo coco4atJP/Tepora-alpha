@@ -106,7 +106,7 @@ async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, 
                 name: {
                     "command": server.command,
                     "args": server.args,
-                    "env": server.env,
+                    "env": server.env or {},
                     "enabled": server.enabled,
                     "metadata": server.metadata.model_dump() if server.metadata else None,
                 }
@@ -252,7 +252,7 @@ async def install_mcp_server(
             name: {
                 "command": s.command,
                 "args": s.args,
-                "env": s.env,
+                "env": s.env or {},
                 "enabled": s.enabled,
             }
             for name, s in current_config.mcpServers.items()
@@ -355,7 +355,7 @@ async def delete_server(
             name: {
                 "command": s.command,
                 "args": s.args,
-                "env": s.env,
+                "env": s.env or {},
                 "enabled": s.enabled,
             }
             for name, s in config.mcpServers.items()

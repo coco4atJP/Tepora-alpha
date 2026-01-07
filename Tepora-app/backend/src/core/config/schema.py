@@ -78,6 +78,7 @@ class LLMManagerConfig(BaseModel):
     health_check_timeout: int = 60
     health_check_interval: float = 1.0
     tokenizer_model_key: str = "text_model"
+    cache_size: int = 1
 
     # Optional: allow extra fields
     model_config = {"extra": "ignore"}

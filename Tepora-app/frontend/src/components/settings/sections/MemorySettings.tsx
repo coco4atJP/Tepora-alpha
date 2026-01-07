@@ -25,8 +25,14 @@ interface ChatHistoryConfig {
 interface MemorySettingsProps {
 	emConfig: EmLlmConfig;
 	historyConfig: ChatHistoryConfig;
-	onUpdateEm: (field: keyof EmLlmConfig, value: unknown) => void;
-	onUpdateHistory: (field: keyof ChatHistoryConfig, value: unknown) => void;
+	onUpdateEm: <K extends keyof EmLlmConfig>(
+		field: K,
+		value: EmLlmConfig[K],
+	) => void;
+	onUpdateHistory: <K extends keyof ChatHistoryConfig>(
+		field: K,
+		value: ChatHistoryConfig[K],
+	) => void;
 }
 
 const MemorySettings: React.FC<MemorySettingsProps> = ({
@@ -50,7 +56,7 @@ const MemorySettings: React.FC<MemorySettingsProps> = ({
 					<FormInput
 						type="number"
 						value={historyConfig.max_tokens}
-						onChange={(v) => onUpdateHistory("max_tokens", v)}
+						onChange={(v) => onUpdateHistory("max_tokens", v as number)}
 						min={1024}
 						step={1024}
 					/>
@@ -70,7 +76,7 @@ const MemorySettings: React.FC<MemorySettingsProps> = ({
 						<FormInput
 							type="number"
 							value={emConfig.surprise_gamma}
-							onChange={(v) => onUpdateEm("surprise_gamma", v)}
+							onChange={(v) => onUpdateEm("surprise_gamma", v as number)}
 							min={0}
 							max={1}
 							step={0.05}
@@ -84,7 +90,7 @@ const MemorySettings: React.FC<MemorySettingsProps> = ({
 						<FormInput
 							type="number"
 							value={emConfig.min_event_size}
-							onChange={(v) => onUpdateEm("min_event_size", v)}
+							onChange={(v) => onUpdateEm("min_event_size", v as number)}
 							min={1}
 						/>
 					</FormGroup>
@@ -95,7 +101,7 @@ const MemorySettings: React.FC<MemorySettingsProps> = ({
 						<FormInput
 							type="number"
 							value={emConfig.max_event_size}
-							onChange={(v) => onUpdateEm("max_event_size", v)}
+							onChange={(v) => onUpdateEm("max_event_size", v as number)}
 							min={1}
 						/>
 					</FormGroup>
@@ -107,7 +113,9 @@ const MemorySettings: React.FC<MemorySettingsProps> = ({
 						<FormInput
 							type="number"
 							value={emConfig.total_retrieved_events}
-							onChange={(v) => onUpdateEm("total_retrieved_events", v)}
+							onChange={(v) =>
+								onUpdateEm("total_retrieved_events", v as number)
+							}
 							min={1}
 							max={50}
 						/>
@@ -119,7 +127,7 @@ const MemorySettings: React.FC<MemorySettingsProps> = ({
 						<FormInput
 							type="number"
 							value={emConfig.repr_topk}
-							onChange={(v) => onUpdateEm("repr_topk", v)}
+							onChange={(v) => onUpdateEm("repr_topk", v as number)}
 							min={1}
 							max={50}
 						/>

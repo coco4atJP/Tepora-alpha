@@ -1,30 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import type {
-	ActivityLogEntry,
-	AgentActivity,
-	Attachment,
-	ChatMode,
-	MemoryStats,
-	Message,
-	SearchResult,
-	ToolConfirmationRequest,
-	WebSocketMessage,
-} from "../types";
+import type { Attachment, ChatMode, Message } from "../types";
 import { useChatState } from "./chat/useChatState";
 import { useMessageBuffer } from "./chat/useMessageBuffer";
 import { useSocketConnection } from "./chat/useSocketConnection";
-
-const AGENT_MAPPING: Record<string, string> = {
-	generate_order: "Planner",
-	generate_search_query: "Search Analyst",
-	execute_search: "Search Tool",
-	summarize_search_result: "Researcher",
-	agent_reasoning: "Executor",
-	tool_node: "Tool Handler",
-	synthesize_final_response: "Synthesizer",
-	update_scratchpad: "Memory Manager",
-};
+import { useWebSocketMessageHandlers } from "./chat/useWebSocketMessageHandlers";
 
 export const useWebSocket = () => {
 	const {
@@ -49,178 +28,29 @@ export const useWebSocket = () => {
 		isToolApproved,
 	} = useChatState();
 
-	const { t } = useTranslation();
-
 	const { handleChunk, flushAndClose } = useMessageBuffer(setMessages);
 
 	// Session management
 	const [currentSessionId, setCurrentSessionIdState] =
 		useState<string>("default");
-	// UX改善4: セッション切り替え時のローディング状態
 	const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-	const onMessage = useCallback(
-		(event: MessageEvent) => {
-			try {
-				const data: WebSocketMessage = JSON.parse(event.data);
+	// Create message handlers using the new separated hook
+	const { handleMessage: onMessage } = useWebSocketMessageHandlers({
+		handleChunk,
+		flushAndClose,
+		setIsProcessing,
+		setError,
+		setMessages,
+		setMemoryStats,
+		setSearchResults,
+		setActivityLog,
+		setIsLoadingHistory,
+		isToolApproved,
+		setPendingToolConfirmation,
+	});
 
-				switch (data.type) {
-					case "chunk":
-						handleChunk(data);
-						break;
-
-					case "done":
-						flushAndClose();
-						setIsProcessing(false);
-						// セッションリストのリフレッシュを通知 (UX改善2)
-						window.dispatchEvent(new CustomEvent("session-refresh"));
-						break;
-
-					case "status":
-						// Status messages doesn't affect visible state here
-						break;
-
-					case "stopped":
-						flushAndClose();
-						setIsProcessing(false);
-						break;
-
-					case "error": {
-						const errorMessageStr = data.message || "Unknown error";
-						setError(errorMessageStr);
-
-						const errorMessage: Message = {
-							id: Date.now().toString(),
-							role: "system",
-							content: `${t("common.error_prefix", "Error: ")}${errorMessageStr}`,
-							timestamp: new Date(),
-						};
-						setMessages((prev) => [...prev, errorMessage]);
-						setIsProcessing(false);
-						break;
-					}
-
-					case "stats":
-						if (data.data) {
-							setMemoryStats(data.data as MemoryStats);
-						}
-						break;
-
-					case "search_results":
-						if (data.data && Array.isArray(data.data)) {
-							setSearchResults(data.data as SearchResult[]);
-						}
-						break;
-
-					case "activity":
-						if (data.data) {
-							// Backend sends data as ActivityLogEntry (legacy format)
-							const rawEntry = data.data as unknown as ActivityLogEntry;
-
-							// Convert to AgentActivity (frontend format)
-							const agentName = AGENT_MAPPING[rawEntry.id] || rawEntry.id;
-							const statusMap: Record<string, AgentActivity["status"]> = {
-								done: "completed",
-								processing: "processing",
-								pending: "pending",
-								error: "error",
-							};
-
-							setActivityLog((prev) => {
-								// Try to find existing entry by agent name/step match mechanism
-								// Since backend doesn't send step, we infer it or map by agent name if unique per step
-								// For simplicity, we assume one active step per agent or update the latest one.
-
-								const existingIndex = prev.findIndex(
-									(e) => e.agent_name === agentName,
-								);
-
-								const newEntry: AgentActivity = {
-									status: statusMap[rawEntry.status] || "processing",
-									agent_name: agentName,
-									details: rawEntry.message,
-									step:
-										existingIndex !== -1
-											? prev[existingIndex].step
-											: prev.length + 1,
-								};
-
-								if (existingIndex !== -1) {
-									const newLog = [...prev];
-									newLog[existingIndex] = newEntry;
-									return newLog;
-								} else {
-									return [...prev, newEntry];
-								}
-							});
-						}
-						break;
-
-					case "tool_confirmation_request":
-						if (data.data) {
-							const request = data.data as ToolConfirmationRequest;
-							// A+C Hybrid: auto-approve if tool was already approved this session
-							if (isToolApproved(request.toolName)) {
-								console.log(
-									`Tool ${request.toolName} auto-approved (session cache)`,
-								);
-								// Send auto-approval response (no need to show dialog)
-								// Note: In this implementation, we don't block backend execution
-								// The dialog is informational/confirmatory for first-time use
-							} else {
-								setPendingToolConfirmation(request);
-							}
-						}
-						break;
-
-					case "history":
-						if (data.messages && Array.isArray(data.messages)) {
-							console.log(`Received ${data.messages.length} history messages`);
-							// Convert timestamp strings to Date objects if needed because JSON.parse leaves them as strings
-							const parsedMessages = data.messages.map((msg) => ({
-								...msg,
-								timestamp: new Date(msg.timestamp),
-							}));
-							setMessages(parsedMessages);
-						}
-						// UX改善4: 履歴ロード完了
-						setIsLoadingHistory(false);
-						break;
-
-					case "session_changed":
-						// Optional: handle confirmation of session switch if needed
-						console.log(`Session switched to ${data.sessionId}`);
-						break;
-
-					case "download_progress":
-						if (data.data) {
-							const event = new CustomEvent("download-progress", {
-								detail: data.data,
-							});
-							window.dispatchEvent(event);
-						}
-						break;
-				}
-			} catch (error) {
-				console.error("WebSocket message parse error:", error);
-				setError("Failed to parse server message");
-			}
-		},
-		[
-			handleChunk,
-			flushAndClose,
-			setIsProcessing,
-			setError,
-			setMessages,
-			setMemoryStats,
-			setSearchResults,
-			setActivityLog,
-			isToolApproved,
-			setPendingToolConfirmation,
-		],
-	);
-
-	// Define callbacks before passing to useSocketConnection (React hooks best practice)
+	// Define callbacks before passing to useSocketConnection
 	const handleOpen = useCallback(() => {
 		setIsProcessing(false);
 		setError(null);
@@ -247,14 +77,14 @@ export const useWebSocket = () => {
 	// UX改善1: 接続確立時に現在セッションの履歴を自動読み込み
 	useEffect(() => {
 		if (isConnected && !hasLoadedInitialHistory.current) {
-			// 接続が確立されたら現在のセッションの履歴をリクエスト
 			sendRaw(
 				JSON.stringify({ type: "set_session", sessionId: currentSessionId }),
 			);
 			hasLoadedInitialHistory.current = true;
-			console.log("Auto-loading history for session:", currentSessionId);
+			if (import.meta.env.DEV) {
+				console.log("Auto-loading history for session:", currentSessionId);
+			}
 		}
-		// 接続が切れたらフラグをリセット
 		if (!isConnected) {
 			hasLoadedInitialHistory.current = false;
 		}
@@ -272,7 +102,6 @@ export const useWebSocket = () => {
 				return;
 			}
 
-			// Add user message locally
 			const userMessage: Message = {
 				id: Date.now().toString(),
 				role: "user",
@@ -281,10 +110,9 @@ export const useWebSocket = () => {
 				mode,
 			};
 			setMessages((prev) => [...prev, userMessage]);
-			setActivityLog([]); // Clear previous activity
+			setActivityLog([]);
 			setError(null);
 
-			// Send to server with sessionId
 			setIsProcessing(true);
 			sendRaw(
 				JSON.stringify({
@@ -322,12 +150,11 @@ export const useWebSocket = () => {
 		setIsProcessing(false);
 	}, [isConnected, sendRaw, setIsProcessing]);
 
-	// Set current session (sends to backend via WebSocket)
 	const setCurrentSessionId = useCallback(
 		(sessionId: string) => {
 			setCurrentSessionIdState(sessionId);
-			setIsLoadingHistory(true); // UX改善4: ローディング開始
-			clearMessages(); // Clear local messages when switching sessions
+			setIsLoadingHistory(true);
+			clearMessages();
 			if (isConnected) {
 				sendRaw(JSON.stringify({ type: "set_session", sessionId }));
 			}
@@ -335,12 +162,10 @@ export const useWebSocket = () => {
 		[isConnected, sendRaw, clearMessages],
 	);
 
-	// Handle tool confirmation response
 	const handleToolConfirmation = useCallback(
 		(requestId: string, approved: boolean, remember: boolean) => {
 			if (!pendingToolConfirmation) return;
 
-			// Send response to backend via WebSocket
 			if (isConnected) {
 				sendRaw(
 					JSON.stringify({
@@ -349,16 +174,17 @@ export const useWebSocket = () => {
 						approved: approved,
 					}),
 				);
-				console.log(
-					`Sent tool confirmation: requestId=${requestId}, approved=${approved}`,
-				);
+				if (import.meta.env.DEV) {
+					console.log(
+						`Sent tool confirmation: requestId=${requestId}, approved=${approved}`,
+					);
+				}
 			}
 
 			if (approved && remember) {
 				approveToolForSession(pendingToolConfirmation.toolName);
 			}
 
-			// Clear the pending request
 			setPendingToolConfirmation(null);
 		},
 		[
@@ -389,6 +215,6 @@ export const useWebSocket = () => {
 		// Session management
 		currentSessionId,
 		setCurrentSessionId,
-		isLoadingHistory, // UX改善4
+		isLoadingHistory,
 	};
 };
