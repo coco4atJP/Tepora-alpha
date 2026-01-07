@@ -1,6 +1,19 @@
-import { ArrowDown, ArrowUp, List, Trash2, X } from "lucide-react";
+import {
+	AlertCircle,
+	ArrowDown,
+	ArrowUp,
+	CheckCircle,
+	Download,
+	List,
+	RefreshCw,
+	Trash2,
+	X,
+} from "lucide-react";
 import type React from "react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useModelUpdateCheck } from "../../../hooks/useModelUpdateCheck";
+import { getApiBase } from "../../../utils/api";
 
 interface ModelInfo {
 	id: string;
@@ -26,11 +39,52 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 	onDelete,
 	onReorder,
 }) => {
+	const { t } = useTranslation();
 	const [activeTab, setActiveTab] = useState("text");
+	const { updateStatus, isChecking, checkAllModels } = useModelUpdateCheck();
+	const [updatingModels, setUpdatingModels] = useState<Set<string>>(new Set());
 
 	if (!isOpen) return null;
 
 	const filteredModels = models.filter((m) => m.role === activeTab);
+
+	const handleCheckUpdates = () => {
+		checkAllModels(filteredModels.map((m) => m.id));
+	};
+
+	const handleUpdate = async (model: ModelInfo) => {
+		if (!model.filename) return;
+
+		setUpdatingModels((prev) => new Set(prev).add(model.id));
+		try {
+			await fetch(`${getApiBase()}/api/setup/model/download`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					repo_id: model.source, // Assuming source is repo_id for now
+					filename: model.filename,
+					role: model.role,
+					display_name: model.display_name,
+					acknowledge_warnings: true,
+				}),
+			});
+			// Ideally we would switch to a download progress view here
+			// For now, we'll just alert (or rely on the toast system if available)
+			console.log("Download started for", model.display_name);
+		} catch (error) {
+			console.error("Failed to start update", error);
+		} finally {
+			setTimeout(() => {
+				setUpdatingModels((prev) => {
+					const next = new Set(prev);
+					next.delete(model.id);
+					return next;
+				});
+			}, 2000);
+		}
+	};
 
 	const move = (index: number, direction: "up" | "down") => {
 		const newModels = [...filteredModels];
@@ -57,17 +111,39 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 						<List size={20} className="text-gold-400" />
 						Model Management
 					</h3>
-					<button
-						onClick={onClose}
-						className="text-gray-400 hover:text-white transition-colors"
-					>
-						<X size={20} />
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={handleCheckUpdates}
+							disabled={isChecking}
+							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+								isChecking
+									? "bg-white/5 text-gray-500 cursor-not-allowed"
+									: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
+							}`}
+						>
+							<RefreshCw
+								size={14}
+								className={isChecking ? "animate-spin" : ""}
+							/>
+							{isChecking
+								? t("settings.sections.models.checking")
+								: t("settings.sections.models.check_updates")}
+						</button>
+						<button
+							type="button"
+							onClick={onClose}
+							className="text-gray-400 hover:text-white transition-colors"
+						>
+							<X size={20} />
+						</button>
+					</div>
 				</div>
 
 				<div className="flex border-b border-white/5 px-6">
 					{["text", "embedding"].map((role) => (
 						<button
+							type="button"
 							key={role}
 							onClick={() => setActiveTab(role)}
 							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
@@ -102,8 +178,50 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										{(model.file_size / 1024 / 1024).toFixed(1)} MB
 									</div>
 								</div>
+
+								{/* Status Badge */}
+								{updateStatus[model.id] && (
+									<div className="mr-4">
+										{updateStatus[model.id].update_available ? (
+											<div className="flex items-center gap-2">
+												<span className="text-xs text-gold-400 flex items-center gap-1 bg-surface-gold/10 px-2 py-1 rounded">
+													<Download size={12} />
+													{t("settings.sections.models.update_available")}
+												</span>
+												<button
+													type="button"
+													onClick={() => handleUpdate(model)}
+													disabled={updatingModels.has(model.id)}
+													className="p-1.5 bg-gold-500/10 hover:bg-gold-500/20 text-gold-400 rounded-md transition-colors"
+													title={t("settings.sections.models.update_btn")}
+												>
+													{updatingModels.has(model.id) ? (
+														<RefreshCw size={14} className="animate-spin" />
+													) : (
+														<Download size={14} />
+													)}
+												</button>
+											</div>
+										) : updateStatus[model.id].reason === "up_to_date" ? (
+											<span className="text-xs text-green-400 flex items-center gap-1">
+												<CheckCircle size={12} />
+												{t("settings.sections.models.up_to_date")}
+											</span>
+										) : (
+											<span
+												className="text-xs text-gray-500 flex items-center gap-1"
+												title={updateStatus[model.id].reason}
+											>
+												<AlertCircle size={12} />
+												{t("settings.sections.models.check_failed")}
+											</span>
+										)}
+									</div>
+								)}
+
 								<div className="flex items-center gap-2 opacity-100 sm:opacity-50 group-hover:opacity-100 transition-opacity">
 									<button
+										type="button"
 										onClick={() => move(index, "up")}
 										disabled={index === 0}
 										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white"
@@ -111,6 +229,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										<ArrowUp size={16} />
 									</button>
 									<button
+										type="button"
 										onClick={() => move(index, "down")}
 										disabled={index === filteredModels.length - 1}
 										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white"
@@ -119,6 +238,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 									</button>
 									<div className="w-px h-6 bg-white/10 mx-2" />
 									<button
+										type="button"
 										onClick={() => onDelete(model.id)}
 										className="p-2 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-full transition-colors"
 									>

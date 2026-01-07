@@ -162,7 +162,13 @@
 			"models": {
 				"label": "モデル",
 				"title": "モデル",
-				"description": "LLMのパスとパラメータを設定します。"
+				"description": "LLMのパスとパラメータを設定します。",
+				"check_updates": "更新を確認",
+				"checking": "確認中...",
+				"update_available": "更新あり",
+				"up_to_date": "最新です",
+				"check_failed": "確認失敗",
+				"update_btn": "モデルを更新"
 			},
 			"memory": {
 				"label": "メモリ",

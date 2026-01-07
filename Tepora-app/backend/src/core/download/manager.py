@@ -195,6 +195,7 @@ class DownloadManager:
         install_binary: bool = True,
         download_default_models: bool = True,
         target_models: list[dict[str, Any]] | None = None,
+        consent_provided: bool = False,
         custom_models: dict[str, dict[str, str]]
         | None = None,  # kept for compat/overload if needed
     ) -> SetupResult:
@@ -301,6 +302,7 @@ class DownloadManager:
                     filename=model_cfg["filename"],
                     role=pool_enum,
                     display_name=display_name,
+                    consent_provided=consent_provided,
                 )
 
                 if result.success:

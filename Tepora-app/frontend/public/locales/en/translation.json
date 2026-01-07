@@ -162,7 +162,13 @@
 			"models": {
 				"label": "Models",
 				"title": "Models",
-				"description": "Configure LLM paths and parameters."
+				"description": "Configure LLM paths and parameters.",
+				"check_updates": "Check Updates",
+				"checking": "Checking...",
+				"update_available": "Update Available",
+				"up_to_date": "Up to date",
+				"check_failed": "Check Failed",
+				"update_btn": "Update Model"
 			},
 			"memory": {
 				"label": "Memory",

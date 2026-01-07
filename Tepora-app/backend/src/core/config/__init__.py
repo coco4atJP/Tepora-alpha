@@ -28,7 +28,10 @@ from .schema import (
     ChatHistoryConfig,
     EmLLMConfig,
     LLMManagerConfig,
+    ModelDownloadAllowlistEntry,
+    ModelDownloadConfig,
     ModelGGUFConfig,
+    PrivacyConfig,
     ServerConfig,
 )
 
@@ -56,7 +59,10 @@ __all__ = [
     "ChatHistoryConfig",
     "EmLLMConfig",
     "LLMManagerConfig",
+    "ModelDownloadAllowlistEntry",
+    "ModelDownloadConfig",
     "ModelGGUFConfig",
+    "PrivacyConfig",
     "ServerConfig",
     # Prompts
     "ACTIVE_PERSONA",

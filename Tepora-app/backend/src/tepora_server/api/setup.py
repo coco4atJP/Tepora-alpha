@@ -56,6 +56,7 @@ class SetupRunRequest(BaseModel):
     # List of models to install. If empty, falls back to manager defaults (though frontend should provide).
     # Each item is {repo_id, filename, role, display_name}
     target_models: list[dict[str, Any]] | None = None
+    acknowledge_warnings: bool = False
 
 
 class BinaryDownloadRequest(BaseModel):
@@ -67,6 +68,7 @@ class ModelDownloadRequest(BaseModel):
     filename: str
     role: str
     display_name: str | None = None
+    acknowledge_warnings: bool = False
 
 
 class SetupFinishRequest(BaseModel):
@@ -168,6 +170,27 @@ async def _sync_model_to_config(model_info):
         logger.warning(f"Failed in _sync_model_to_config: {e}")
 
 
+def _evaluate_model_download_warnings(dm, target_models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    warnings: list[dict[str, Any]] = []
+    for model_cfg in target_models:
+        repo_id = model_cfg.get("repo_id")
+        filename = model_cfg.get("filename")
+        if not repo_id or not filename:
+            continue
+        policy = dm.model_manager.evaluate_download_policy(repo_id, filename)
+        if not policy.allowed:
+            raise HTTPException(status_code=400, detail=policy.warnings[0])
+        if policy.requires_consent:
+            warnings.append(
+                {
+                    "repo_id": repo_id,
+                    "filename": filename,
+                    "warnings": policy.warnings,
+                }
+            )
+    return warnings
+
+
 # --- Endpoints ---
 
 
@@ -254,14 +277,43 @@ async def run_setup_job(request: SetupRunRequest):
     # SetupRunRequest now sends a list of target models to install directly.
     target_models = request.target_models
 
+    # Preflight policy checks (warnings/consent)
+    try:
+        dm = _get_download_manager()
+        targets_for_policy = target_models or []
+        if not targets_for_policy:
+            defaults = settings.default_models
+            if defaults.embedding:
+                targets_for_policy = [
+                    {
+                        "repo_id": defaults.embedding.repo_id,
+                        "filename": defaults.embedding.filename,
+                        "role": "embedding",
+                        "display_name": defaults.embedding.display_name,
+                    }
+                ]
+        warnings = _evaluate_model_download_warnings(dm, targets_for_policy)
+        if warnings and not request.acknowledge_warnings:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "requires_consent": True,
+                    "warnings": warnings,
+                },
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Preflight model policy check failed: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
     # Store in session for reference (optional, but good for debugging)
     _setup_session.custom_models = {
         "targets": target_models
     }  # Storing as dict for compatibility with type hint if needed, or just leverage dynamic
 
     try:
-        dm = _get_download_manager()
-
         # バックグラウンドタスクの定義
         async def _background_setup():
             try:
@@ -278,7 +330,10 @@ async def run_setup_job(request: SetupRunRequest):
                 # Pass the list directly to run_initial_setup
                 # Note: We need to update manager signature next
                 result = await dm.run_initial_setup(
-                    install_binary=True, download_default_models=True, target_models=target_models
+                    install_binary=True,
+                    download_default_models=True,
+                    target_models=target_models,
+                    consent_provided=request.acknowledge_warnings,
                 )
 
                 if result.success:
@@ -434,6 +489,19 @@ async def download_model(request: ModelDownloadRequest):
 
         dm = _get_download_manager()
 
+        policy = dm.model_manager.evaluate_download_policy(request.repo_id, request.filename)
+        if not policy.allowed:
+            raise HTTPException(status_code=400, detail=policy.warnings[0])
+        if policy.requires_consent and not request.acknowledge_warnings:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "requires_consent": True,
+                    "warnings": policy.warnings,
+                },
+            )
+
         # 進捗コールバックを設定
         def on_progress(event):
             _job_progress[job_id] = {
@@ -459,7 +527,18 @@ async def download_model(request: ModelDownloadRequest):
             filename=request.filename,
             role=pool,
             display_name=request.display_name,
+            consent_provided=request.acknowledge_warnings,
         )
+
+        if result.requires_consent:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "requires_consent": True,
+                    "warnings": result.warnings,
+                },
+            )
 
         return {
             "success": result.success,
@@ -676,6 +755,50 @@ async def check_model_existence(request: CheckModelRequest):
         return {"exists": exists}
     except Exception as e:
         logger.error(f"Failed to check model existence: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/model/update-check")
+async def check_model_update(
+    model_id: str | None = None,
+    repo_id: str | None = None,
+    filename: str | None = None,
+):
+    """
+    HuggingFaceの最新リビジョンと比較して更新があるかチェック
+    """
+    try:
+        dm = _get_download_manager()
+
+        if model_id:
+            model = next(
+                (m for m in dm.model_manager.get_available_models() if m.id == model_id),
+                None,
+            )
+            if not model:
+                raise HTTPException(status_code=404, detail="Model not found")
+            if not model.repo_id or not model.filename:
+                raise HTTPException(status_code=400, detail="Model is not from HuggingFace")
+
+            return dm.model_manager.check_huggingface_update(
+                repo_id=model.repo_id,
+                filename=model.filename,
+                current_revision=model.revision,
+                current_sha256=model.sha256,
+                current_path=model.file_path,
+            )
+
+        if not repo_id or not filename:
+            raise HTTPException(status_code=400, detail="repo_id and filename are required")
+
+        return dm.model_manager.check_huggingface_update(
+            repo_id=repo_id,
+            filename=filename,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to check model update: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

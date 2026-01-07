@@ -47,6 +47,9 @@ class GoogleCustomSearchTool(BaseTool):
         return session
 
     def _perform_search(self, query: str) -> str:
+        if not settings.privacy.allow_web_search:
+            return "Error: Web search is disabled by privacy settings."
+
         api_key = settings.tools.google_search_api_key
         engine_id = settings.tools.google_search_engine_id
 
@@ -252,7 +255,7 @@ class NativeToolProvider(ToolProvider):
         api_key = settings.tools.google_search_api_key
         engine_id = settings.tools.google_search_engine_id
 
-        if api_key and engine_id:
+        if settings.privacy.allow_web_search and api_key and engine_id:
             try:
                 google_search_tool = GoogleCustomSearchTool()
                 google_search_tool.name = "native_google_search"

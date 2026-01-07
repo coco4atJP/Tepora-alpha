@@ -9,13 +9,18 @@ Model Manager - GGUFモデルの管理
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import shutil
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
+from ..config.loader import settings
 from .types import (
     DownloadResult,
     DownloadStatus,
@@ -27,6 +32,101 @@ from .types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+
+def _sha256_file(path: Path) -> str:
+    sha256 = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def _repo_id_from_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) >= 2:
+        return "/".join(parts[:2])
+    return None
+
+
+def _get_entry_value(entry: object, key: str) -> str | None:
+    if entry is None:
+        return None
+    if isinstance(entry, dict):
+        return entry.get(key)
+    return getattr(entry, key, None)
+
+
+def _get_repo_owner(repo_id: str | None) -> str | None:
+    if not repo_id:
+        return None
+    parts = repo_id.split("/")
+    if not parts:
+        return None
+    return parts[0].lower()
+
+
+def _get_attr(obj: object, key: str) -> Any:
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _extract_sha256(file_info: object) -> str | None:
+    lfs = _get_attr(file_info, "lfs")
+    if isinstance(lfs, dict):
+        return lfs.get("sha256") or lfs.get("sha") or lfs.get("oid")
+    if lfs:
+        return _get_attr(lfs, "sha256") or _get_attr(lfs, "sha")
+    return _get_attr(file_info, "oid") or _get_attr(file_info, "blob_id")
+
+
+def _fetch_hf_file_metadata(repo_id: str, filename: str, revision: str | None = None) -> dict:
+    _, hf_api_cls = _get_hf_hub()
+    if hf_api_cls is None:
+        return {}
+
+    api = hf_api_cls()
+    try:
+        info = api.model_info(repo_id, revision=revision, files_metadata=True)
+    except TypeError:
+        # Older huggingface_hub without files_metadata support
+        info = api.model_info(repo_id, revision=revision)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to fetch HuggingFace metadata: %s", exc)
+        return {}
+
+    siblings = _get_attr(info, "siblings") or []
+    file_info = None
+    for sibling in siblings:
+        if _get_attr(sibling, "rfilename") == filename:
+            file_info = sibling
+            break
+
+    return {
+        "revision": _get_attr(info, "sha"),
+        "sha256": _extract_sha256(file_info) if file_info else None,
+        "size": _get_attr(file_info, "size") if file_info else None,
+    }
+
+
+@dataclass
+class DownloadPolicyDecision:
+    allowed: bool
+    requires_consent: bool
+    warnings: list[str]
+    revision: str | None
+    expected_sha256: str | None
 
 
 # HuggingFace Hub は遅延インポート（依存関係の問題を避けるため）
@@ -95,6 +195,8 @@ class ModelManager:
                                 source=m["source"],
                                 repo_id=m.get("repo_id"),
                                 filename=m.get("filename"),
+                                revision=m.get("revision"),
+                                sha256=m.get("sha256"),
                                 is_active=m.get("is_active", False),
                                 added_at=datetime.fromisoformat(m["added_at"])
                                 if m.get("added_at")
@@ -128,6 +230,8 @@ class ModelManager:
                     "source": m.source,
                     "repo_id": m.repo_id,
                     "filename": m.filename,
+                    "revision": m.revision,
+                    "sha256": m.sha256,
                     "is_active": m.is_active,
                     "added_at": m.added_at.isoformat() if m.added_at else None,
                 }
@@ -179,12 +283,122 @@ class ModelManager:
         short_uuid = uuid.uuid4().hex[:8]
         return f"{base}-{short_uuid}"
 
+    def _find_allowlist_entry(self, repo_id: str, filename: str) -> object | None:
+        allowlist = settings.model_download.allowed
+        if not allowlist:
+            return None
+        for entry in allowlist.values():
+            entry_repo_id = _get_entry_value(entry, "repo_id") or _repo_id_from_url(
+                _get_entry_value(entry, "url")
+            )
+            entry_filename = _get_entry_value(entry, "filename")
+            if entry_repo_id == repo_id and (entry_filename is None or entry_filename == filename):
+                return entry
+        return None
+
+    def evaluate_download_policy(self, repo_id: str, filename: str) -> DownloadPolicyDecision:
+        download_config = settings.model_download
+        allowlist_entry = self._find_allowlist_entry(repo_id, filename)
+
+        warnings: list[str] = []
+        revision = None
+        expected_sha256 = None
+        verify_sha256 = download_config.require_sha256
+
+        if allowlist_entry:
+            revision = _get_entry_value(allowlist_entry, "revision")
+            expected_sha256 = _get_entry_value(allowlist_entry, "sha256")
+            if expected_sha256:
+                verify_sha256 = True
+
+            if download_config.require_revision and not revision:
+                return DownloadPolicyDecision(
+                    allowed=False,
+                    requires_consent=False,
+                    warnings=["Model download blocked: revision is required but missing."],
+                    revision=None,
+                    expected_sha256=None,
+                )
+
+            if verify_sha256 and not expected_sha256:
+                return DownloadPolicyDecision(
+                    allowed=False,
+                    requires_consent=False,
+                    warnings=["Model download blocked: sha256 is required but missing."],
+                    revision=None,
+                    expected_sha256=None,
+                )
+
+            return DownloadPolicyDecision(
+                allowed=True,
+                requires_consent=False,
+                warnings=warnings,
+                revision=revision,
+                expected_sha256=expected_sha256,
+            )
+
+        owner = _get_repo_owner(repo_id)
+        owner_allowed = (
+            owner is not None and owner in [o.lower() for o in download_config.allow_repo_owners]
+        )
+
+        if owner_allowed:
+            warnings.append(
+                f"Model is not allowlisted. Owner '{owner}' is allowed; user consent required."
+            )
+            requires_consent = True
+        else:
+            if download_config.require_allowlist:
+                return DownloadPolicyDecision(
+                    allowed=False,
+                    requires_consent=False,
+                    warnings=["Model download blocked: model is not allowlisted."],
+                    revision=None,
+                    expected_sha256=None,
+                )
+
+            requires_consent = download_config.warn_on_unlisted
+            if requires_consent:
+                warnings.append(
+                    "Model is not allowlisted or owner-approved; user consent required."
+                )
+
+        if download_config.require_revision or verify_sha256:
+            metadata = _fetch_hf_file_metadata(repo_id, filename)
+            if download_config.require_revision and not metadata.get("revision"):
+                return DownloadPolicyDecision(
+                    allowed=False,
+                    requires_consent=False,
+                    warnings=["Model download blocked: unable to resolve revision."],
+                    revision=None,
+                    expected_sha256=None,
+                )
+            if verify_sha256 and not metadata.get("sha256"):
+                return DownloadPolicyDecision(
+                    allowed=False,
+                    requires_consent=False,
+                    warnings=["Model download blocked: unable to resolve sha256."],
+                    revision=None,
+                    expected_sha256=None,
+                )
+            revision = metadata.get("revision")
+            expected_sha256 = metadata.get("sha256") if verify_sha256 else None
+
+        return DownloadPolicyDecision(
+            allowed=True,
+            requires_consent=requires_consent,
+            warnings=warnings,
+            revision=revision,
+            expected_sha256=expected_sha256,
+        )
+
     async def download_from_huggingface(
         self,
         repo_id: str,
         filename: str,
         role: ModelRole,
         display_name: str | None = None,
+        consent_provided: bool = False,
     ) -> DownloadResult:
         """
         HuggingFace Hubからモデルをダウンロード
@@ -204,6 +418,29 @@ class ModelManager:
             import requests
             from huggingface_hub import hf_hub_url
 
+            policy = self.evaluate_download_policy(repo_id, filename)
+            if not policy.allowed:
+                return DownloadResult(
+                    success=False,
+                    error_message=policy.warnings[0] if policy.warnings else "Download blocked.",
+                )
+
+            if policy.requires_consent and not consent_provided:
+                return DownloadResult(
+                    success=False,
+                    error_message="User consent required for model download.",
+                    requires_consent=True,
+                    warnings=policy.warnings,
+                )
+
+            if policy.warnings:
+                logger.warning(
+                    "Model download consented with warnings: %s", "; ".join(policy.warnings)
+                )
+
+            revision = policy.revision
+            expected_sha256 = policy.expected_sha256
+
             self._emit_progress(
                 ProgressEvent(
                     status=DownloadStatus.PENDING,
@@ -213,7 +450,10 @@ class ModelManager:
             )
 
             # URLを取得
-            url = hf_hub_url(repo_id, filename)
+            if revision:
+                url = hf_hub_url(repo_id, filename, revision=revision)
+            else:
+                url = hf_hub_url(repo_id, filename)
 
             # ダウンロード先
             target_dir = self.models_dir / role.value
@@ -281,6 +521,19 @@ class ModelManager:
             downloaded_path = target_path
             actual_size = downloaded_path.stat().st_size if downloaded_path.exists() else 0
 
+            actual_sha256 = None
+            if expected_sha256:
+                actual_sha256 = _sha256_file(downloaded_path)
+                if actual_sha256.lower() != expected_sha256.lower():
+                    try:
+                        downloaded_path.unlink()
+                    except Exception as cleanup_error:
+                        logger.warning(
+                            "Failed to remove model with mismatched sha256: %s",
+                            cleanup_error,
+                        )
+                    raise ValueError("sha256 mismatch for downloaded model.")
+
             # レジストリに追加
             model_id = self._generate_model_id(display_name)
             model_info = ModelInfo(
@@ -292,6 +545,8 @@ class ModelManager:
                 source="huggingface",
                 repo_id=repo_id,
                 filename=filename,
+                revision=revision,
+                sha256=actual_sha256,
                 is_active=False,
                 added_at=datetime.now(),
             )
@@ -332,6 +587,50 @@ class ModelManager:
                 success=False,
                 error_message=str(e),
             )
+
+    def check_huggingface_update(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        current_revision: str | None = None,
+        current_sha256: str | None = None,
+        current_path: Path | None = None,
+    ) -> dict:
+        """
+        Check if a newer revision exists on HuggingFace for the given model file.
+        """
+        metadata = _fetch_hf_file_metadata(repo_id, filename)
+        latest_revision = metadata.get("revision")
+        latest_sha256 = metadata.get("sha256")
+
+        resolved_current_sha256 = current_sha256
+        if not resolved_current_sha256 and current_path and current_path.exists() and latest_sha256:
+            try:
+                resolved_current_sha256 = _sha256_file(current_path)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to compute local sha256 for update check: %s", exc)
+
+        update_available = False
+        reason = "unknown"
+
+        if current_revision and latest_revision:
+            update_available = current_revision != latest_revision
+            reason = "revision_mismatch" if update_available else "up_to_date"
+        elif resolved_current_sha256 and latest_sha256:
+            update_available = resolved_current_sha256.lower() != latest_sha256.lower()
+            reason = "sha256_mismatch" if update_available else "up_to_date"
+        else:
+            reason = "insufficient_data"
+
+        return {
+            "update_available": update_available,
+            "reason": reason,
+            "current_revision": current_revision,
+            "latest_revision": latest_revision,
+            "current_sha256": resolved_current_sha256,
+            "latest_sha256": latest_sha256,
+        }
 
     async def add_local_model(
         self,

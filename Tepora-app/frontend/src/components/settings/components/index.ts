@@ -2,31 +2,29 @@
 // Central export point for all settings-related components
 
 export {
-    FormGroup,
-    FormInput,
-    FormSwitch,
-    FormSelect,
-    FormList,
-    type FormGroupProps,
-    type FormInputProps,
-    type FormSwitchProps,
-    type FormSelectProps,
-    type FormListProps,
-} from "./FormComponents";
-
-export {
-    SettingsSidebar,
-    SettingsSection,
-    type NavItem,
-    type SettingsSidebarProps,
-    type SettingsSectionProps,
-} from "./LayoutComponents";
-
-export {
-    ModelCard,
-    AgentCard,
-    type ModelConfig,
-    type ModelCardProps,
-    type AgentProfile,
-    type AgentCardProps,
+	AgentCard,
+	type AgentCardProps,
+	type AgentProfile,
+	ModelCard,
+	type ModelCardProps,
+	type ModelConfig,
 } from "./CardComponents";
+export {
+	FormGroup,
+	type FormGroupProps,
+	FormInput,
+	type FormInputProps,
+	FormList,
+	type FormListProps,
+	FormSelect,
+	type FormSelectProps,
+	FormSwitch,
+	type FormSwitchProps,
+} from "./FormComponents";
+export {
+	type NavItem,
+	SettingsSection,
+	type SettingsSectionProps,
+	SettingsSidebar,
+	type SettingsSidebarProps,
+} from "./LayoutComponents";

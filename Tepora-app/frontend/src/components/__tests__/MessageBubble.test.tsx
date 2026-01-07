@@ -47,7 +47,7 @@ describe("MessageBubble", () => {
 		).toBeInTheDocument();
 	});
 
-	it("renders message content as plain text", () => {
+	it("renders message content as markdown", () => {
 		const message: Message = {
 			id: "4",
 			role: "assistant",
@@ -56,12 +56,12 @@ describe("MessageBubble", () => {
 			isComplete: true,
 		};
 
-		render(<MessageBubble message={message} />);
-		// Current implementation renders as plain text, not markdown
-		expect(screen.getByText("**Bold text** and *Italic*")).toBeInTheDocument();
+		const { container } = render(<MessageBubble message={message} />);
+		expect(container.querySelector("strong")).toHaveTextContent("Bold text");
+		expect(container.querySelector("em")).toHaveTextContent("Italic");
 	});
 
-	it("renders code content as plain text", () => {
+	it("renders code content", () => {
 		const message: Message = {
 			id: "5",
 			role: "assistant",
@@ -71,7 +71,7 @@ describe("MessageBubble", () => {
 		};
 
 		const { container } = render(<MessageBubble message={message} />);
-		// Current implementation renders as plain text without syntax highlighting
+		expect(container.querySelector("code")).toBeInTheDocument();
 		expect(container.textContent).toContain('print("test")');
 	});
 });

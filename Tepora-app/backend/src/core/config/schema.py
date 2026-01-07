@@ -188,6 +188,34 @@ class ToolsConfig(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class PrivacyConfig(BaseModel):
+    allow_web_search: bool = False
+    redact_pii: bool = True
+
+    model_config = {"extra": "ignore"}
+
+
+class ModelDownloadAllowlistEntry(BaseModel):
+    repo_id: str | None = None
+    filename: str | None = None
+    url: str | None = None
+    revision: str | None = None
+    sha256: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class ModelDownloadConfig(BaseModel):
+    require_allowlist: bool = False
+    allow_repo_owners: list[str] = Field(default_factory=list)
+    warn_on_unlisted: bool = True
+    require_revision: bool = True
+    require_sha256: bool = True
+    allowed: dict[str, ModelDownloadAllowlistEntry] = Field(default_factory=dict)
+
+    model_config = {"extra": "allow"}
+
+
 class DefaultModelConfig(BaseModel):
     repo_id: str
     filename: str
@@ -376,6 +404,10 @@ class TeporaSettings(BaseSettings):
     active_agent_profile: str = "bunny_girl"
 
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+
+    privacy: PrivacyConfig = Field(default_factory=PrivacyConfig)
+
+    model_download: ModelDownloadConfig = Field(default_factory=ModelDownloadConfig)
 
     # Security
     # Uses SecretStr for automatic redaction during serialization

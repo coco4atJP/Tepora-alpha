@@ -2,7 +2,7 @@
 	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
 	"productName": "tepora",
 	"version": "0.1.0",
-	"identifier": "dev.tepora.app",
+	"identifier": "jp.tepora.app",
 	"build": {
 		"frontendDist": "../dist",
 		"devUrl": "http://localhost:5173",

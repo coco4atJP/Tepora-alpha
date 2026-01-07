@@ -195,7 +195,7 @@ Tepora_Project/
 └── LICENSE                    # Apache 2.0 License
 ```
 
-### 4.2 バックエンド構造
+### 4.2 バックエンド構造 (Tepora-app/backend/)
 
 ```
 backend/
@@ -310,7 +310,7 @@ backend/
 
 ```
 
-### 4.3 フロントエンド構造
+### 4.3 フロントエンド構造 (Tepora-app/frontend/)
 
 ```
 frontend/
@@ -405,7 +405,7 @@ frontend/
 
 **REST API**
 - `GET /health` - ヘルスチェック
-- `POST /api/shutdown` - サーバーシャットダウン
+- `POST /api/shutdown` - サーバーシャットダウン（管理トークン必須、localhostのみ）
 - `GET /api/status` - システムステータス・統計情報取得
 - `GET /api/config` - 設定情報取得
 - `POST /api/config` - 設定更新 (全体)
@@ -444,8 +444,9 @@ frontend/
 - `DELETE /api/setup/model/{model_id}` - モデル削除
 - `POST /api/setup/model/active` - アクティブモデル設定
 - `POST /api/setup/model/check` - モデル存在確認 (HF)
+- `GET /api/setup/model/update-check` - モデル更新チェック (HF)
 - `POST /api/setup/model/reorder` - モデル順序変更
-- `POST /api/setup/model/download` - HuggingFaceからモデルダウンロード
+- `POST /api/setup/model/download` - HuggingFaceからモデルダウンロード（allowlist/リビジョン固定/SHA256検証必須）
 - `POST /api/setup/model/local` - ローカルモデル追加
 - `GET /api/setup/model/roles` - モデルロール設定取得
 - `POST /api/setup/model/roles/character` - キャラクターモデル設定
@@ -456,6 +457,10 @@ frontend/
 - `POST /api/setup/binary/update` - llama.cpp更新実行
 - `POST /api/setup/initial` - 初回セットアップ実行
 
+**セキュリティ要件**
+- `POST /api/shutdown` は `X-Admin-Token` を必須とし、バックエンドは `127.0.0.1` のみバインド。
+- モデルダウンロードは allowlist または許可オーナーに限定し、未登録時は警告 + 同意を必須化。リビジョン固定を行い、SHA256は提供時のみ検証する。
+
 #### WebSocketメッセージフォーマット
 
 **送信（クライアント→サーバー）**
@@ -465,6 +470,8 @@ frontend/
   "mode": "direct" | "search" | "agent"
 }
 ```
+
+> **Note**: WebSocket wire protocol では `direct` を使用しますが、UI表示では「CHAT」と表示されます。これは意図的な設計で、ユーザー向けラベルと技術的なプロトコル値を分離しています。
 
 **受信（サーバー→クライアント）**
 ```json
@@ -664,6 +671,23 @@ app:
   google_search_engine_id: "YOUR_CX" # Optional
   nsfw_detection: false  # Optional
 
+privacy:
+  allow_web_search: false
+  redact_pii: true
+
+model_download:
+  require_allowlist: false
+  allow_repo_owners:
+    - "unsloth"
+  warn_on_unlisted: true
+  require_revision: true
+  require_sha256: false
+  allowed:
+    gemma_3n_e4b:
+      url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF"
+      revision: "7b5c9f2"
+      sha256: "..."
+
 llm_manager:
   health_check_timeout: 60
 
@@ -776,6 +800,7 @@ components/
 **MessageList.tsx / MessageBubble.tsx**
 - メッセージ履歴の表示
 - マークダウンレンダリング (`react-markdown`)、コードハイライト
+- HTML無効化 + `rehype-sanitize` によるサニタイズ（許可スキーマで制御）
 - ユーザー/AI/システムメッセージのスタイル区分
 
 **SettingsDialog.tsx / SettingsComponents.tsx**
@@ -887,7 +912,7 @@ Spring animationを用いた自然な動き：
 ```json
 {
   "productName": "tepora",
-  "identifier": "com.tauri.dev",
+  "identifier": "jp.tepora.app",
   "app": {
     "windows": [{
       "title": "Tepora AI",
@@ -940,7 +965,7 @@ Spring animationを用いた自然な動き：
 **動作フロー**:
 1. ユーザー入力
 2. クエリ解析
-3. Web検索実行（DuckDuckGo）
+3. Web検索実行（DuckDuckGo、ユーザー同意と設定で明示的に許可された場合のみ）
 4. 検索結果のスクレイピング
 5. RAG（Retrieval-Augmented Generation）
 6. ソースを明示した応答生成

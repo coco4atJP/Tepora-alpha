@@ -130,6 +130,8 @@ class ModelInfo:
     source: str  # "huggingface" | "local"
     repo_id: str | None = None  # HuggingFace repo (オプション)
     filename: str | None = None  # HuggingFaceファイル名
+    revision: str | None = None  # HuggingFace revision (commit hash)
+    sha256: str | None = None  # File SHA256 (if verified)
     is_active: bool = False  # 現在選択中か
     added_at: datetime | None = None
 
@@ -199,6 +201,8 @@ class DownloadResult:
     success: bool
     path: Path | None = None
     error_message: str | None = None
+    requires_consent: bool = False
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass

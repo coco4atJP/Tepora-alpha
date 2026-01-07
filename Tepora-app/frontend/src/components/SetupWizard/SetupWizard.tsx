@@ -21,6 +21,19 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 	const { t, i18n } = useTranslation();
 	const [state, dispatch] = useReducer(setupReducer, initialState);
 	const [showAdvanced, setShowAdvanced] = useState(false);
+	const [pendingConsent, setPendingConsent] = useState<{
+		targetModels: Array<{
+			repo_id: string;
+			filename: string;
+			display_name: string;
+			role: string;
+		}>;
+		warnings: Array<{
+			repo_id: string;
+			filename: string;
+			warnings: string[];
+		}>;
+	} | null>(null);
 
 	// --- Actions ---
 
@@ -59,6 +72,59 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		} catch (err) {
 			console.error("Language set failed", err);
 			dispatch({ type: "REQ_CHECK_START" });
+		}
+	};
+
+	const runSetup = async (
+		target_models: Array<{
+			repo_id: string;
+			filename: string;
+			display_name: string;
+			role: string;
+		}>,
+		acknowledge_warnings: boolean,
+	) => {
+		const res = await fetch(`${getApiBase()}/api/setup/run`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				...getAuthHeaders(),
+			},
+			body: JSON.stringify({ target_models, acknowledge_warnings }),
+		});
+
+		let data: {
+			success?: boolean;
+			job_id?: string;
+			error?: string;
+			requires_consent?: boolean;
+			warnings?: Array<{
+				repo_id: string;
+				filename: string;
+				warnings: string[];
+			}>;
+		} = {};
+
+		try {
+			data = await res.json();
+		} catch {
+			// ignore parse errors
+		}
+
+		if (res.status === 409 && data?.requires_consent) {
+			setPendingConsent({
+				targetModels: target_models,
+				warnings: data.warnings || [],
+			});
+			return;
+		}
+
+		if (!res.ok) throw new Error(data?.error || "Failed to start setup");
+
+		if (data.success) {
+			dispatch({ type: "START_INSTALL", payload: data.job_id || "" });
+		} else {
+			throw new Error(data.error || "Setup failed to start");
 		}
 	};
 
@@ -110,22 +176,8 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				}
 			}
 
-			const res = await fetch(`${getApiBase()}/api/setup/run`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					...getAuthHeaders(),
-				},
-				body: JSON.stringify({ target_models }),
-			});
-
-			if (!res.ok) throw new Error("Failed to start setup");
-			const data = await res.json();
-			if (data.success) {
-				dispatch({ type: "START_INSTALL", payload: data.job_id });
-			} else {
-				throw new Error(data.error || "Setup failed to start");
-			}
+			setPendingConsent(null);
+			await runSetup(target_models, false);
 		} catch (err) {
 			dispatch({
 				type: "INSTALL_FAILURE",
@@ -169,7 +221,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				.then((data) => {
 					dispatch({ type: "SET_DEFAULTS", payload: data });
 				})
-				.catch(() => { });
+				.catch(() => {});
 		}
 	}, [state.step, state.defaults]);
 
@@ -266,12 +318,13 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 					return (
 						<div
 							key={s}
-							className={`h-1.5 rounded-full transition-all duration-500 ${isActive
-								? "w-12 bg-gold-400 shadow-[0_0_10px_rgba(250,227,51,0.5)]"
-								: isDone
-									? "w-4 bg-coffee-500/50"
-									: "w-2 bg-white/10"
-								}`}
+							className={`h-1.5 rounded-full transition-all duration-500 ${
+								isActive
+									? "w-12 bg-gold-400 shadow-[0_0_10px_rgba(250,227,51,0.5)]"
+									: isDone
+										? "w-4 bg-coffee-500/50"
+										: "w-2 bg-white/10"
+							}`}
 						/>
 					);
 				})}
@@ -300,6 +353,68 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				<div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
 					{renderStep()}
 				</div>
+
+				{pendingConsent ? (
+					<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+						<div className="w-full max-w-lg mx-6 glass-gemini rounded-2xl border border-white/10 shadow-xl p-6">
+							<h2 className="text-2xl font-display font-semibold mb-3 text-gold-200">
+								{t("setup.download_warning_title", "Confirm Model Download")}
+							</h2>
+							<p className="text-sm text-white/70 mb-4">
+								{t(
+									"setup.download_warning_desc",
+									"Some models are not in the allowlist. Please review the warnings and confirm to proceed.",
+								)}
+							</p>
+							<div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+								{pendingConsent.warnings.map((warning) => (
+									<div
+										key={`${warning.repo_id}:${warning.filename}`}
+										className="rounded-lg bg-white/5 border border-white/10 p-3"
+									>
+										<div className="text-sm font-semibold text-white mb-1">
+											{warning.repo_id} / {warning.filename}
+										</div>
+										<ul className="text-xs text-white/70 space-y-1">
+											{warning.warnings.map((msg, idx) => (
+												<li key={`${warning.repo_id}:${idx}`}>- {msg}</li>
+											))}
+										</ul>
+									</div>
+								))}
+							</div>
+							<div className="mt-5 flex gap-3 justify-end">
+								<button
+									type="button"
+									className="px-4 py-2 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition"
+									onClick={() => setPendingConsent(null)}
+								>
+									{t("setup.download_warning_cancel", "Cancel")}
+								</button>
+								<button
+									type="button"
+									className="px-4 py-2 rounded-full bg-gold-400 text-black font-semibold hover:bg-gold-300 transition"
+									onClick={async () => {
+										if (!pendingConsent) return;
+										const { targetModels } = pendingConsent;
+										setPendingConsent(null);
+										try {
+											await runSetup(targetModels, true);
+										} catch (err) {
+											dispatch({
+												type: "INSTALL_FAILURE",
+												payload:
+													err instanceof Error ? err.message : "Start failed",
+											});
+										}
+									}}
+								>
+									{t("setup.download_warning_confirm", "Proceed")}
+								</button>
+							</div>
+						</div>
+					</div>
+				) : null}
 			</div>
 		</div>
 	);

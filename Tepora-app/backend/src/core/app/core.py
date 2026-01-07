@@ -289,6 +289,10 @@ class TeporaCoreApp:
         search_metadata = {}
         # mode logic for search metdata
         if final_mode == InputMode.SEARCH:
+            if not config.settings.privacy.allow_web_search:
+                if not skip_web_search:
+                    logger.info("Web search disabled by privacy settings; skipping search.")
+                skip_web_search = True
             if processed_attachments:
                 search_metadata["search_attachments"] = processed_attachments
             if skip_web_search:
