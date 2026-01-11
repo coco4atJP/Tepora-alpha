@@ -12,6 +12,7 @@ import GeneralSettings from "./sections/GeneralSettings";
 import McpSettings from "./sections/McpSettings";
 import MemorySettings from "./sections/MemorySettings";
 import ModelSettings from "./sections/ModelSettings";
+import PrivacySettings from "./sections/PrivacySettings";
 
 interface SettingsDialogProps {
 	isOpen: boolean;
@@ -27,12 +28,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 		hasChanges,
 		saving,
 		fetchConfig,
-		updateApp,
-		updateLlmManager,
-		updateChatHistory,
-		updateEmLlm,
-		updateModel,
-		updateTools,
+		updatePrivacy,
 		updateCharacter,
 		setActiveAgent,
 		addCharacter,
@@ -82,6 +78,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 	const getSectionLabel = (id: string) => {
 		const keyMap: Record<string, string> = {
 			general: "settings.sections.general.label",
+			privacy: "settings.sections.privacy.label",
 			agents: "settings.sections.agents.label",
 			mcp: "settings.sections.mcp.label",
 			models: "settings.sections.models.label",
@@ -96,21 +93,23 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			onClose={handleClose}
 			title={t("common.settings")}
 			size="xl"
+			className="h-[85vh] flex flex-col"
+			customContent={true}
 		>
 			<SettingsLayout>
-				{/* Sidebar */}
-				<SettingsSidebar
-					items={NAV_ITEMS.map((item) => ({
-						...item,
-						label: t(`settings.sections.${item.id}.label`),
-					}))}
-					activeItem={activeSection}
-					onSelect={setActiveSection}
-				/>
+				<div className="flex h-full min-h-0 overflow-hidden">
+					{/* Sidebar */}
+					<SettingsSidebar
+						items={NAV_ITEMS.map((item) => ({
+							...item,
+							label: t(`settings.sections.${item.id}.label`),
+						}))}
+						activeItem={activeSection}
+						onSelect={setActiveSection}
+					/>
 
-				{/* Content Wrapper */}
-				<div className="settings-content-wrapper">
-					<main className="settings-main">
+					{/* Main Content Area */}
+					<div className="flex-1 flex flex-col min-w-0 bg-[#0A0A0C]">
 						{/* Loading State */}
 						{loading && (
 							<div className="flex items-center justify-center h-full">
@@ -125,7 +124,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 								<button
 									type="button"
 									onClick={fetchConfig}
-									className="settings-save-btn settings-save-btn--secondary"
+									className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors flex items-center gap-2"
 								>
 									<RotateCcw size={16} /> {t("common.retry")}
 								</button>
@@ -135,85 +134,84 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 						{/* Content */}
 						{!loading && !error && config && (
 							<>
-								<header className="settings-header">
-									<h1 className="settings-header__title">
+								{/* Fixed Header */}
+								<header className="flex-none px-8 py-6 border-b border-white/5 flex flex-col gap-1">
+									<h2 className="text-2xl font-light text-white tracking-tight">
 										{getSectionLabel(activeSection)}
-									</h1>
-									<p className="settings-header__subtitle">
+									</h2>
+									<p className="text-sm text-gray-400">
 										{t("settings.subtitle")}
 									</p>
 								</header>
 
-								<div className="relative">
-									{activeSection === "general" && (
-										<GeneralSettings
-											config={config.app}
-											onChange={updateApp}
-											toolsConfig={config.tools}
-											onUpdateTools={updateTools}
-										/>
-									)}
+								{/* Scrollable Body */}
+								<main className="flex-1 overflow-y-auto overflow-x-hidden p-8">
+									<div className="max-w-4xl mx-auto space-y-8 pb-20">
+										{activeSection === "general" && <GeneralSettings />}
+										{activeSection === "privacy" && (
+											<PrivacySettings
+												privacyConfig={config.privacy}
+												onUpdate={updatePrivacy}
+											/>
+										)}
+										{activeSection === "agents" && (
+											<CharacterSettings
+												profiles={config.characters}
+												activeProfileId={config.active_agent_profile}
+												onUpdateProfile={updateCharacter}
+												onSetActive={setActiveAgent}
+												onAddProfile={addCharacter}
+												onDeleteProfile={deleteCharacter}
+											/>
+										)}
+										{activeSection === "mcp" && <McpSettings />}
+										{activeSection === "models" && <ModelSettings />}
+										{activeSection === "memory" && <MemorySettings />}
+									</div>
+								</main>
 
-									{activeSection === "models" && (
-										<ModelSettings
-											llmConfig={config.llm_manager}
-											modelsConfig={config.models_gguf}
-											onUpdateLlm={updateLlmManager}
-											onUpdateModel={updateModel}
-										/>
-									)}
-
-									{activeSection === "agents" && (
-										<CharacterSettings
-											profiles={config.characters}
-											activeProfileId={config.active_agent_profile}
-											onUpdateProfile={updateCharacter}
-											onSetActive={setActiveAgent}
-											onAddProfile={addCharacter}
-											onDeleteProfile={deleteCharacter}
-										/>
-									)}
-
-									{activeSection === "mcp" && <McpSettings />}
-
-									{activeSection === "memory" && (
-										<MemorySettings
-											emConfig={config.em_llm}
-											historyConfig={config.chat_history}
-											onUpdateEm={updateEmLlm}
-											onUpdateHistory={updateChatHistory}
-										/>
-									)}
+								{/* Fixed Footer */}
+								<div className="flex-none p-4 border-t border-white/5 bg-[#0A0A0C]/90 backdrop-blur-sm">
+									<div className="max-w-4xl mx-auto flex items-center justify-between">
+										<div className="text-xs text-gray-500">
+											{hasChanges ? t("settings.save_bar.unsaved") : ""}
+										</div>
+										<div className="flex items-center gap-3">
+											<button
+												type="button"
+												onClick={handleReset}
+												className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+												disabled={!hasChanges || saving}
+											>
+												<RotateCcw size={16} /> {t("settings.save_bar.reset")}
+											</button>
+											<button
+												type="button"
+												onClick={handleSave}
+												className={`
+													px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
+													${
+														hasChanges
+															? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+															: "bg-white/5 text-gray-400 cursor-not-allowed"
+													}
+												`}
+												disabled={!hasChanges || saving}
+											>
+												{saving ? (
+													<Loader2 size={16} className="animate-spin" />
+												) : (
+													<Save size={16} />
+												)}
+												{saving
+													? t("settings.save_bar.saving")
+													: t("settings.save_bar.save")}
+											</button>
+										</div>
+									</div>
 								</div>
 							</>
 						)}
-					</main>
-
-					{/* Save Bar */}
-					<div className="settings-save-bar">
-						<button
-							type="button"
-							onClick={handleReset}
-							className="settings-save-btn settings-save-btn--secondary"
-							disabled={!hasChanges || saving}
-						>
-							<RotateCcw size={16} /> {t("settings.save_bar.reset")}
-						</button>
-						<button
-							type="button"
-							onClick={handleSave}
-							className="settings-save-btn"
-							disabled={!hasChanges || saving}
-						>
-							{saving ? (
-								<Loader2 size={16} className="animate-spin" />
-							) : (
-								<Save size={16} />
-							)}
-							{saving
-								? t("settings.save_bar.saving")
-								: t("settings.save_bar.save")}
-						</button>
 					</div>
 				</div>
 

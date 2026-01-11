@@ -35,6 +35,30 @@ export const useWebSocket = () => {
 		useState<string>("default");
 	const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+	// Refs to break circular dependency between handlers and socket connection
+	const sendRawRef = useRef<(data: string) => void>(() => {});
+	const isConnectedRef = useRef(false);
+
+	const handleAutoApprove = useCallback(
+		(requestId: string, toolName: string) => {
+			if (isConnectedRef.current) {
+				sendRawRef.current(
+					JSON.stringify({
+						type: "tool_confirmation_response",
+						requestId: requestId,
+						approved: true,
+					}),
+				);
+				if (import.meta.env.DEV) {
+					console.log(
+						`Sent auto-approval for tool: ${toolName}, requestId: ${requestId}`,
+					);
+				}
+			}
+		},
+		[],
+	);
+
 	// Create message handlers using the new separated hook
 	const { handleMessage: onMessage } = useWebSocketMessageHandlers({
 		handleChunk,
@@ -48,6 +72,7 @@ export const useWebSocket = () => {
 		setIsLoadingHistory,
 		isToolApproved,
 		setPendingToolConfirmation,
+		onAutoApprove: handleAutoApprove,
 	});
 
 	// Define callbacks before passing to useSocketConnection
@@ -70,6 +95,12 @@ export const useWebSocket = () => {
 		onError: handleError,
 		onClose: handleClose,
 	});
+
+	// Sync refs
+	useEffect(() => {
+		isConnectedRef.current = isConnected;
+		sendRawRef.current = sendRaw;
+	}, [isConnected, sendRaw]);
 
 	// 接続確立時の初回履歴読み込み用フラグ
 	const hasLoadedInitialHistory = useRef(false);

@@ -72,9 +72,12 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		setEditState({
 			key: "",
 			config: {
-				name: "New Character",
+				name: t("settings.sections.agents.default_name", "New Character"),
 				description: "",
-				system_prompt: "You are a helpful assistant.",
+				system_prompt: t(
+					"settings.sections.agents.default_prompt",
+					"You are a helpful assistant.",
+				),
 			},
 			isNew: true,
 		});
@@ -137,16 +140,17 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	const renderCharacterCard = (key: string, config: CharacterConfig) => {
 		const isActive = activeProfileId === key;
 		return (
-			<div
+			<button
+				type="button"
 				key={key}
 				className={`
-                    relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer
-                    ${
-											isActive
-												? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-												: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
-										}
-                `}
+					relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
+					${
+						isActive
+							? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+							: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
+					}
+				`}
 				onClick={() => onSetActive(key)}
 			>
 				{/* Active Indicator */}
@@ -174,6 +178,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				{/* Actions (visible on hover or active) */}
 				<div className="mt-auto flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
 					<button
+						type="button"
 						onClick={(e) => {
 							e.stopPropagation();
 							handleEdit(key, config);
@@ -185,6 +190,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 					</button>
 					{!isActive && (
 						<button
+							type="button"
 							onClick={(e) => handleDelete(key, e)}
 							className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
 							title={t("settings.sections.agents.delete")}
@@ -193,12 +199,13 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</div>
+			</button>
 		);
 	};
 
 	const renderAddCard = () => (
 		<button
+			type="button"
 			onClick={handleStartAdd}
 			className="flex flex-col items-center justify-center p-4 rounded-xl border border-white/10 border-dashed bg-white/5 hover:bg-white/10 hover:border-white/30 transition-all gap-3 h-full min-h-[160px] group"
 		>
@@ -220,6 +227,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			{/* Tabs */}
 			<div className="flex gap-4 mb-6 border-b border-white/10">
 				<button
+					type="button"
 					onClick={() => setActiveTab("characters")}
 					className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
 						activeTab === "characters"
@@ -236,6 +244,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 					)}
 				</button>
 				<button
+					type="button"
 					onClick={() => setActiveTab("professionals")}
 					className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
 						activeTab === "professionals"
@@ -349,12 +358,14 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 
 						<div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
 							<button
+								type="button"
 								onClick={() => setEditState(null)}
 								className="px-4 py-2 rounded-md hover:bg-white/10 text-sm text-gray-300 transition-colors"
 							>
 								{t("common.cancel")}
 							</button>
 							<button
+								type="button"
 								onClick={handleSaveEdit}
 								className="px-4 py-2 rounded-md bg-gold-500 hover:bg-gold-600 text-black text-sm font-medium transition-colors"
 							>
@@ -393,9 +404,15 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				<div className="flex items-center justify-between">
 					<span
 						className="text-xs text-gray-500 cursor-help"
-						title="Allows generation of sensitive content. Use with caution."
+						title={t(
+							"settings.sections.agents.nsfw_desc",
+							"Allows generation of sensitive content. Use with caution.",
+						)}
 					>
-						Unlock Restricted Content
+						{t(
+							"settings.sections.agents.nsfw_label",
+							"Unlock Restricted Content",
+						)}
 					</span>
 					<NsfwToggle />
 				</div>

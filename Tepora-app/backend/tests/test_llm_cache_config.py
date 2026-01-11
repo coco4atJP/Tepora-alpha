@@ -1,7 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add the parent directory to the Python path to allow module imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -57,6 +57,9 @@ class TestLLMCacheConfig(unittest.IsolatedAsyncioTestCase):
         self.mock_registry.resolve_logs_dir.return_value.__truediv__.return_value = MagicMock(
             spec=Path
         )
+
+        # Set perform_health_check_async as AsyncMock for await compatibility
+        self.mock_process_manager.perform_health_check_async = AsyncMock()
 
     def tearDown(self):
         self.registry_patcher.stop()

@@ -56,3 +56,61 @@ class TestBinaryManagerRegex:
             # Ubuntu CPU
             regex = manager._get_asset_regex(BinaryVariant.CPU_AVX2)
             assert re.search(regex, "llama-b7527-bin-ubuntu-x64.tar.gz")
+
+
+class TestBinaryManagerHashVerification:
+    """Tests for SHA256 hash verification (P0-6 supply chain security)."""
+
+    @pytest.fixture
+    def manager(self, tmp_path):
+        return BinaryManager(bin_dir=tmp_path / "bin")
+
+    def test_verify_file_hash_correct(self, manager, tmp_path):
+        """Test that correct SHA256 hash passes verification."""
+        # Create a test file with known content
+        test_file = tmp_path / "test_file.bin"
+        test_content = b"Hello, World! This is a test file for hash verification."
+        test_file.write_bytes(test_content)
+
+        # SHA256 of the test content (pre-calculated)
+        import hashlib
+
+        expected_hash = hashlib.sha256(test_content).hexdigest()
+
+        # Verify that the hash matches
+        assert manager._verify_file_hash(test_file, expected_hash) is True
+
+    def test_verify_file_hash_incorrect(self, manager, tmp_path):
+        """Test that incorrect SHA256 hash fails verification."""
+        # Create a test file
+        test_file = tmp_path / "test_file.bin"
+        test_content = b"Original content"
+        test_file.write_bytes(test_content)
+
+        # Use a wrong hash (hash of different content)
+        wrong_hash = "0" * 64  # All zeros - definitely wrong
+
+        # Verify that the hash does not match
+        assert manager._verify_file_hash(test_file, wrong_hash) is False
+
+    def test_verify_file_hash_case_insensitive(self, manager, tmp_path):
+        """Test that hash comparison is case-insensitive."""
+        test_file = tmp_path / "test_file.bin"
+        test_content = b"Test content"
+        test_file.write_bytes(test_content)
+
+        import hashlib
+
+        expected_hash = hashlib.sha256(test_content).hexdigest()
+
+        # Test with uppercase hash
+        assert manager._verify_file_hash(test_file, expected_hash.upper()) is True
+        # Test with lowercase hash
+        assert manager._verify_file_hash(test_file, expected_hash.lower()) is True
+
+    def test_verify_file_hash_nonexistent_file(self, manager, tmp_path):
+        """Test that verification fails for non-existent file."""
+        nonexistent_file = tmp_path / "nonexistent.bin"
+
+        # Should return False, not raise an exception
+        assert manager._verify_file_hash(nonexistent_file, "a" * 64) is False

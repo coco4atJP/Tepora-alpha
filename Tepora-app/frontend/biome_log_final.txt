@@ -1,0 +1,123 @@
+src\components\settings\sections\CharacterSettings.tsx:143:4 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Expected corresponding JSX closing tag for 'button'.
+  
+    141 笏・		const isActive = activeProfileId === key;
+    142 笏・		return (
+  > 143 笏・			<button
+        笏・			^^^^^^^
+  > 144 笏・				type="button"
+         ...
+  > 153 笏・				onClick={() => onSetActive(key)}
+  > 154 笏・			>
+        笏・			^
+    155 笏・				{/* Active Indicator */}
+    156 笏・				<div className="flex justify-between items-start mb-2">
+  
+  i Opening tag
+  
+    141 笏・		const isActive = activeProfileId === key;
+    142 笏・		return (
+  > 143 笏・			<button
+        笏・			^^^^^^^
+  > 144 笏・				type="button"
+         ...
+  > 153 笏・				onClick={() => onSetActive(key)}
+  > 154 笏・			>
+        笏・			^
+    155 笏・				{/* Active Indicator */}
+    156 笏・				<div className="flex justify-between items-start mb-2">
+  
+  i closing tag
+  
+    199 笏・					)}
+    200 笏・				</div>
+  > 201 笏・			</div>
+        笏・			^^^^^^
+    202 笏・		);
+    203 笏・	};
+  
+
+src\components\settings\sections\CharacterSettings.tsx:143:4 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Expected corresponding JSX closing tag for 'button'.
+  
+    141 笏・		const isActive = activeProfileId === key;
+    142 笏・		return (
+  > 143 笏・			<button
+        笏・			^^^^^^^
+  > 144 笏・				type="button"
+         ...
+  > 153 笏・				onClick={() => onSetActive(key)}
+  > 154 笏・			>
+        笏・			^
+    155 笏・				{/* Active Indicator */}
+    156 笏・				<div className="flex justify-between items-start mb-2">
+  
+  i Opening tag
+  
+    141 笏・		const isActive = activeProfileId === key;
+    142 笏・		return (
+  > 143 笏・			<button
+        笏・			^^^^^^^
+  > 144 笏・				type="button"
+         ...
+  > 153 笏・				onClick={() => onSetActive(key)}
+  > 154 笏・			>
+        笏・			^
+    155 笏・				{/* Active Indicator */}
+    156 笏・				<div className="flex justify-between items-start mb-2">
+  
+  i closing tag
+  
+    199 笏・					)}
+    200 笏・				</div>
+  > 201 笏・			</div>
+        笏・			^^^^^^
+    202 笏・		);
+    203 笏・	};
+  
+
+src\components\settings\sections\CharacterSettings.tsx format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Code formatting aborted due to parsing errors. To format code with errors, enable the 'formatter.formatWithErrors' option.
+  
+
+src\components\settings\sections\McpSettings.tsx format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Formatter would have printed the following content:
+  
+    273 273 笏・  											type="button"
+    274 274 笏・  											onClick={() => toggleServer(name, !serverConfig.enabled)}
+    275     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・className={`p-2ﾂｷrounded-lgﾂｷtransition-colorsﾂｷ${serverConfig.enabled
+    276     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"bg-green-500/20ﾂｷtext-green-400ﾂｷhover:bg-green-500/30"
+    277     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"bg-gray-700ﾂｷtext-gray-400ﾂｷhover:bg-gray-600"
+    278     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・}`}
+        275 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・className={`p-2ﾂｷrounded-lgﾂｷtransition-colorsﾂｷ${
+        276 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・serverConfig.enabled
+        277 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"bg-green-500/20ﾂｷtext-green-400ﾂｷhover:bg-green-500/30"
+        278 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"bg-gray-700ﾂｷtext-gray-400ﾂｷhover:bg-gray-600"
+        279 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・}`}
+    279 280 笏・  											aria-label={
+    280 281 笏・  												serverConfig.enabled
+    ﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷ 笏・
+    597 598 笏・  									}
+    598 599 笏・  								}}
+    599     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・className={`w-fullﾂｷp-4ﾂｷtext-leftﾂｷborderﾂｷrounded-xlﾂｷtransition-allﾂｷ${selectedRuntimeﾂｷ===ﾂｷpkg.runtimeHint
+    600     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"border-purple-500ﾂｷbg-purple-500/10"
+    601     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"border-white/10ﾂｷhover:border-white/20ﾂｷbg-black/20"
+    602     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・}`}
+        600 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・className={`w-fullﾂｷp-4ﾂｷtext-leftﾂｷborderﾂｷrounded-xlﾂｷtransition-allﾂｷ${
+        601 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・selectedRuntimeﾂｷ===ﾂｷpkg.runtimeHint
+        602 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"border-purple-500ﾂｷbg-purple-500/10"
+        603 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"border-white/10ﾂｷhover:border-white/20ﾂｷbg-black/20"
+        604 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・}`}
+    603 605 笏・  							>
+    604 606 笏・  								<div className="font-medium text-gray-100">
+  
+
+Checked 21 files in 20ms. No fixes applied.
+Found 4 errors.
+check 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Some errors were emitted while running checks.
+  
+

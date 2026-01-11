@@ -16,6 +16,8 @@ const createMockSettings = (
 			max_input_length: 4096,
 			graph_recursion_limit: 10,
 			tool_execution_timeout: 30,
+			tool_approval_timeout: 300,
+			web_fetch_max_chars: 6000,
 			dangerous_patterns: [],
 			language: "ja",
 			nsfw_enabled: false,
@@ -30,6 +32,7 @@ const createMockSettings = (
 		},
 		chat_history: {
 			max_tokens: 4096,
+			default_limit: 50,
 		},
 		em_llm: {
 			surprise_gamma: 0.5,
@@ -71,7 +74,12 @@ const createMockSettings = (
 			google_search_api_key: "",
 			google_search_engine_id: "",
 		},
+		privacy: {
+			allow_web_search: false,
+			redact_pii: true,
+		},
 	} as Config,
+	originalConfig: null,
 	loading: false,
 	error: null,
 	hasChanges: false,
@@ -83,6 +91,7 @@ const createMockSettings = (
 	updateEmLlm: vi.fn(),
 	updateModel: vi.fn(),
 	updateTools: vi.fn(),
+	updatePrivacy: vi.fn(),
 	updateCharacter: vi.fn(),
 	addCharacter: vi.fn(),
 	deleteCharacter: vi.fn(),

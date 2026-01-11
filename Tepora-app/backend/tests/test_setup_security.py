@@ -47,16 +47,21 @@ def client_with_auth(mock_core_app):
                 yield c
 
 
-def test_setup_endpoints_accessible_localhost(client_with_auth):
-    """Test that /api/setup/* endpoints are accessible without auth for localhost.
+def test_setup_endpoints_with_auth(client_with_auth):
+    """Test that /api/setup/* endpoints are accessible with proper authentication.
 
-    Note: Authentication is intentionally skipped for localhost binding
-    as Tepora is a local desktop app. This test verifies the design decision
-    documented in security.py.
+    Note: In production, session token authentication is required.
+    This test verifies authenticated access to setup endpoints.
     """
-    # Without auth header -> should still succeed for localhost
-    response = client_with_auth.get("/api/setup/requirements")
-    assert response.status_code == 200
+    from src.tepora_server.api.security import get_api_key
+
+    # Override authentication dependency
+    client_with_auth.app.dependency_overrides[get_api_key] = lambda: "valid-key"
+    try:
+        response = client_with_auth.get("/api/setup/requirements")
+        assert response.status_code == 200
+    finally:
+        client_with_auth.app.dependency_overrides.pop(get_api_key, None)
 
 
 def test_setup_download_accessible_localhost(client_with_auth):

@@ -13,8 +13,8 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from src.core.config.loader import get_session_token
 from src.tepora_server.api.dependencies import get_app_state_from_websocket
+from src.tepora_server.api.security import get_session_token
 from src.tepora_server.api.session_handler import SessionHandler
 
 logger = logging.getLogger("tepora.server.ws")
@@ -73,17 +73,27 @@ def _validate_origin(origin: str | None) -> bool:
 
 
 def _validate_token(websocket: WebSocket) -> bool:
-    """Validate session token from query params."""
-    # In development mode, skip token validation
+    """Validate session token from query params.
+
+    Token is required for production security.
+    In development mode (TEPORA_ENV=development), token validation is skipped.
+    """
     env = os.getenv("TEPORA_ENV", "production")
     if env == "development":
         return True
 
     token = websocket.query_params.get("token")
-    if not token:
-        return True  # Allow connections without token for backwards compatibility
-
     expected_token = get_session_token()
+
+    # Token is required if server has been initialized
+    if expected_token is None:
+        # Server not initialized yet - allow connection
+        return True
+
+    if not token:
+        # Token required but not provided
+        return False
+
     return token == expected_token
 
 

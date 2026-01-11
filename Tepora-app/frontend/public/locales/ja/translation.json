@@ -7,6 +7,14 @@
 		"models_needed": "モデルのダウンロードが必要です",
 		"complete": "セットアップ完了！",
 		"error": "セットアップ中にエラーが発生しました",
+		"errors": {
+			"req_check_failed": "システム要件の確認に失敗しました",
+			"start_failed": "セットアップの開始に失敗しました",
+			"setup_failed_start": "セットアップを開始できませんでした",
+			"finalize_failed": "セットアップの完了処理に失敗しました",
+			"save_config_failed": "設定の保存に失敗しました。再試行してください。",
+			"unknown": "不明なエラー"
+		},
 		"start": "Teporaを開始",
 		"auto_setup": "自動セットアップ",
 		"skip": "スキップ",
@@ -22,11 +30,56 @@
 			"missing": "未インストール",
 			"outdated": "更新あり",
 			"installed": "インストール済み",
+			"installed": "インストール済み",
 			"not_downloaded": "未ダウンロード"
 		},
+		"download_warning_title": "モデルダウンロードの確認",
+		"download_warning_desc": "一部のモデルは許可リストに含まれていません。警告を確認して続行してください。",
+		"download_warning_cancel": "キャンセル",
+		"download_warning_confirm": "続行",
 		"advanced_settings": "詳細設定 (モデルの変更)",
 		"model_settings": "モデル詳細設定",
 		"model": "モデル"
+	},
+	"app": {
+		"loading": "サーバーに接続中...",
+		"loadingHint": "数秒かかる場合があります"
+	},
+	"errors": {
+		"unknownError": "不明なエラーが発生しました。",
+		"connectionErrorTitle": "接続エラー",
+		"retryButton": "再試行",
+		"troubleshootHint": "バックエンドサーバーが予期されたポートで実行されているか確認してください。"
+	},
+	"logs": {
+		"title": "ログファイル",
+		"refresh": "リストを更新",
+		"refresh_content": "内容を更新",
+		"loading_logs": "ログを読み込み中...",
+		"loading_content": "内容を読み込み中...",
+		"no_logs": "ログが見つかりません",
+		"select_log": "ログを選択",
+		"select_to_view": "ログファイルを選択して内容を表示します。",
+		"error_fetch": "ログの取得に失敗しました",
+		"error_content": "ログ内容の取得に失敗しました",
+		"unknown_error": "不明なエラーが発生しました"
+	},
+	"tool_confirmation": {
+		"title": "ツール実行の確認",
+		"description": "このツールを実行しようとしています。",
+		"params": "パラメータ",
+		"allow_session": "このセッション中は同じツールを自動的に許可する",
+		"warning_deny": "⚠️ 拒否すると処理を中断します",
+		"deny": "拒否",
+		"allow": "許可",
+		"names": {
+			"native_web_fetch": "Webページ取得",
+			"native_google_search": "Google検索"
+		},
+		"descriptions": {
+			"native_web_fetch": "指定されたURLのWebページにアクセスします。",
+			"native_google_search": "Googleでウェブ検索を実行します。"
+		}
 	},
 	"common": {
 		"language": "言語",
@@ -39,10 +92,31 @@
 		"close": "閉じる",
 		"enabled": "有効",
 		"disabled": "無効",
-		"retry": "再試行"
+		"retry": "再試行",
+		"today": "今日",
+		"yesterday": "昨日",
+		"daysAgo": "{{count}}日前",
+		"daysAgo": "{{count}}日前",
+		"confirm": "確認",
+		"delete": "削除"
+	},
+	"session_history": {
+		"title": "セッション履歴",
+		"new": "新規セッション",
+		"list_aria_label": "セッションリスト",
+		"edit_title": "セッション名を編集",
+		"delete_title": "セッションを削除",
+		"delete_message": "このセッションを削除してもよろしいですか？会話履歴もすべて削除されます。",
+		"loading": "読み込み中...",
+		"empty": "セッションはまだありません",
+		"messages": "msgs"
 	},
 	"chat": {
 		"clear_history": "履歴を削除",
+		"role": {
+			"assistant": "アシスタント",
+			"user": "あなた"
+		},
 		"input": {
 			"placeholder": {
 				"connecting": "接続中...",
@@ -99,7 +173,18 @@
 			"general": {
 				"label": "一般",
 				"title": "アプリケーション",
-				"description": "基本設定と安全制限を設定します。"
+				"description": "基本設定と安全制限を設定します。",
+				"google_search": {
+					"title": "Google検索設定",
+					"api_key_label": "Google Search API Key",
+					"api_key_desc": "Google Custom Search JSON APIを利用するためのAPIキーを入力してください。",
+					"engine_id_label": "Search Engine ID",
+					"engine_id_desc": "Programmable Search EngineのIDを入力してください。"
+				},
+				"app_settings": "アプリケーション設定",
+				"advanced_settings": "詳細設定",
+				"advanced_settings_desc": "再帰制限とフェッチ制約",
+				"timeout_settings": "タイムアウト設定"
 			},
 			"agents": {
 				"label": "キャラクター",
@@ -152,7 +237,17 @@
 				"error_duplicate_key": "このIDは既に使用されています。",
 				"edit": "編集",
 				"delete": "削除",
-				"no_description": "説明なし"
+				"delete": "削除",
+				"no_description": "説明なし",
+				"default_name": "新しいキャラクター",
+				"default_prompt": "あなたは親切なAIアシスタントです。",
+				"nsfw_label": "制限付きコンテンツのロック解除",
+				"nsfw_desc": "機密性の高いコンテンツの生成を許可します。注意して使用してください。"
+			},
+			"privacy": {
+				"label": "プライバシー",
+				"title": "プライバシー設定",
+				"description": "外部通信とデータ共有の設定を管理します。"
 			},
 			"mcp": {
 				"label": "MCPツール",
@@ -168,7 +263,13 @@
 				"update_available": "更新あり",
 				"up_to_date": "最新です",
 				"check_failed": "確認失敗",
-				"update_btn": "モデルを更新"
+				"update_btn": "モデルを更新",
+				"manager_title": "LLMマネージャー設定",
+				"manager_description": "システムがLLMプロセスとリソースを管理する方法を設定します。",
+				"list_title": "モデル構成",
+				"list_description": "コンテキストサイズやGPUレイヤーなど、個々のモデルパラメータを設定します。",
+				"advanced_title": "高度なマネージャー設定",
+				"advanced_description": "タイムアウトとヘルスチェック"
 			},
 			"memory": {
 				"label": "メモリ",
@@ -230,7 +331,13 @@
 			"boundary_refinement": {
 				"label": "境界リファインメント",
 				"description": "イベント分割の精度を向上させます。"
-			}
+			},
+			"default_limit": {
+				"label": "デフォルト履歴制限",
+				"description": "履歴から取得するデフォルトのメッセージ数。"
+			},
+			"episodic_params_title": "エピソード記憶パラメータ",
+			"episodic_params_desc": "EM-LLMの詳細設定"
 		},
 		"mcp_content": {
 			"info": {
@@ -248,8 +355,22 @@
 			}
 		},
 		"mcp": {
-			"refresh": "更新",
-			"addServer": "サーバーを追加",
+			"refresh": "ステータス更新",
+			"policy": {
+				"title": "セキュリティポリシー",
+				"mode": {
+					"label": "接続モード",
+					"description": "MCPサーバーの接続許可範囲を制御します。",
+					"local_only": "ローカルのみ (推奨)",
+					"stdio_only": "標準入出力のみ (最も安全)",
+					"allowlist": "許可リストのみ"
+				},
+				"confirmation": {
+					"label": "ツール実行確認",
+					"description": "ツール実行前にユーザーの承認を求めます。"
+				}
+			},
+			"addServer": "サーバー追加",
 			"disabled": "無効",
 			"disable": "無効化",
 			"enable": "有効化",
@@ -276,7 +397,17 @@
 				"configure": "設定",
 				"configDescription": "必要な環境変数を入力してください。",
 				"confirm": "確認",
-				"install": "インストール"
+				"install": "インストール",
+				"preview": "コマンド確認",
+				"installing": "インストール中...",
+				"commandPreview": "実行コマンド",
+				"securityWarnings": "セキュリティ警告",
+				"envVars": "環境変数",
+				"confirmInstall": "インストール実行"
+			},
+			"config_path": {
+				"label": "MCP構成ファイル",
+				"description": "MCPサーバーを定義するJSONファイルのパス。"
 			}
 		},
 		"models_settings": {
@@ -304,6 +435,42 @@
 				"top_k": "Top K",
 				"repeat_penalty": "Rep. Penalty"
 			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "Web検索を有効にする",
+				"description": "AIがインターネット検索を使用して情報を取得することを許可します。",
+				"warning_title": "データ共有について",
+				"warning_query": "検索クエリがGoogle APIに送信されます",
+				"warning_api": "設定したAPIキーが検索リクエストに使用されます"
+			},
+			"redact_pii": {
+				"label": "個人情報の保護",
+				"description": "Web検索が有効な場合、検索クエリに含まれる個人情報（メールアドレス、電話番号等）を外部サービスへ送信する前に自動的に伏字化します。"
+			}
 		}
+	},
+	"tool_errors": {
+		"search_disabled_privacy": "プライバシー設定によりWeb検索が無効になっています。",
+		"search_disabled_api_keys": "APIキーが設定されていないため、Google検索は無効です。",
+		"search_timeout": "検索リクエストがタイムアウトしました。後でもう一度お試しください。",
+		"search_connection_error": "接続に失敗しました。インターネット接続を確認してください。",
+		"search_rate_limit": "レート制限を超えました。しばらくお待ちください。",
+		"search_access_denied": "APIアクセスが拒否されました。APIキーと権限を確認してください。",
+		"search_http_error": "HTTPエラーが発生しました (ステータスコード: {{status_code}})。",
+		"search_failed": "検索に失敗しました: {{details}}",
+		"search_invalid_response": "Google APIから無効なレスポンスを受信しました。後でもう一度お試しください。",
+		"search_unexpected_error": "予期しないエラーが発生しました: {{details}}",
+		"search_api_error": "Google APIエラー: {{message}}",
+		"url_invalid_scheme": "URLにはhttp/httpsスキームとホストが必要です。",
+		"url_no_hostname": "URLからホスト名を特定できませんでした。",
+		"url_blocked_private": "セキュリティ上の理由から {{host}} へのアクセスはブロックされています。",
+		"url_blocked_private_ip": "セキュリティ上の理由からプライベート/ローカルIPアドレスへのアクセスはブロックされています。",
+		"fetch_failed": "{{url}} からコンテンツを取得できませんでした: {{details}}",
+		"fetch_not_html": "URLはHTMLページではありません (Content-Type: {{content_type}})。",
+		"tool_timeout": "ツール '{{tool_name}}' の実行がタイムアウトしました。",
+		"tool_not_found": "ツール '{{tool_name}}' が見つかりません。",
+		"tool_no_method": "ツール '{{tool_name}}' に呼び出し可能なメソッドがありません。",
+		"tool_execution_error": "ツール '{{tool_name}}' の実行中にエラーが発生しました: {{details}}"
 	}
 }

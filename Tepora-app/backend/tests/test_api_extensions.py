@@ -195,16 +195,15 @@ def test_get_logs_list(client, run_with_auth):
         assert response.json() == {"logs": ["server.log"]}
 
 
-def test_get_logs_no_auth_for_localhost(client):
-    """Test that logs are accessible without auth for localhost (desktop app mode).
+def test_get_logs_with_auth(client, run_with_auth):
+    """Test that logs are accessible with proper authentication.
 
-    Note: Authentication is intentionally skipped for localhost binding
-    as Tepora is a local desktop app. This test verifies the design decision
-    documented in security.py.
+    Note: In production, session token authentication is required.
+    This test verifies authenticated access to logs endpoint.
     """
     with patch("pathlib.Path.mkdir"), patch("pathlib.Path.glob", return_value=[]):
         response = client.get("/api/logs")
-        # Should succeed without auth for localhost
+        # Should succeed with auth
         assert response.status_code == 200
 
 

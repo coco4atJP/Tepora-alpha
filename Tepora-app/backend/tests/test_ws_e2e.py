@@ -3,12 +3,18 @@ WebSocket E2E Tests
 
 End-to-end tests for WebSocket communication flow.
 Tests actual WebSocket connection handling with mocked TeporaCoreApp.
+
+Note: These tests run in development mode to bypass token authentication.
 """
 
+import os
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+
+# Set development mode for E2E tests (bypass token auth)
+os.environ["TEPORA_ENV"] = "development"
 
 from src.tepora_server.app_factory import create_app
 

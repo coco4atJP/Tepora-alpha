@@ -7,6 +7,14 @@
 		"models_needed": "需要下载模型",
 		"complete": "设置完成！",
 		"error": "设置过程中出错",
+		"errors": {
+			"req_check_failed": "要求检查失败",
+			"start_failed": "启动设置失败",
+			"setup_failed_start": "设置无法启动",
+			"finalize_failed": "完成设置失败",
+			"save_config_failed": "保存配置失败。请重试。",
+			"unknown": "未知错误"
+		},
 		"start": "启动 Tepora",
 		"auto_setup": "自动设置",
 		"skip": "跳过",
@@ -24,9 +32,79 @@
 			"installed": "已安装",
 			"not_downloaded": "未下载"
 		},
+		"download_warning_title": "确认模型下载",
+		"download_warning_desc": "某些模型不在允许列表中。请查看警告并确认继续。",
+		"download_warning_cancel": "取消",
+		"download_warning_confirm": "继续",
 		"advanced_settings": "高级设置 (更改模型)",
 		"model_settings": "模型设置",
 		"model": "模型"
+	},
+	"app": {
+		"loading": "连接服务器中...",
+		"loadingHint": "这可能需要几秒钟"
+	},
+	"errors": {
+		"unknownError": "发生未知错误。",
+		"connectionErrorTitle": "连接错误",
+		"retryButton": "重试连接",
+		"troubleshootHint": "请确保后端服务器正在预期的端口上运行。"
+	},
+	"logs": {
+		"title": "日志文件",
+		"refresh": "刷新状态",
+		"policy": {
+			"title": "安全策略",
+			"mode": {
+				"label": "连接模式",
+				"description": "控制允许连接的服务器范围。",
+				"local_only": "仅本地 (推荐)",
+				"stdio_only": "仅标准输入输出 (最安全)",
+				"allowlist": "仅允许列表"
+			},
+			"confirmation": {
+				"label": "工具执行确认",
+				"description": "在执行工具前请求用户批准。"
+			}
+		},
+		"addServer": "添加服务器",
+		"refresh_content": "刷新内容",
+		"loading_logs": "正在加载日志...",
+		"loading_content": "正在加载内容...",
+		"no_logs": "未找到日志",
+		"select_log": "选择日志",
+		"select_to_view": "选择日志文件以查看其内容。",
+		"error_fetch": "获取日志失败",
+		"error_content": "获取日志内容失败",
+		"unknown_error": "发生错误"
+	},
+	"tool_confirmation": {
+		"title": "工具执行确认",
+		"description": "即将执行一个工具。",
+		"params": "参数",
+		"allow_session": "在此会话中始终允许此工具",
+		"warning_deny": "⚠️ 拒绝将停止进程",
+		"deny": "拒绝",
+		"allow": "允许",
+		"names": {
+			"native_web_fetch": "获取网页",
+			"native_google_search": "谷歌搜索"
+		},
+		"descriptions": {
+			"native_web_fetch": "访问指定的URL。",
+			"native_google_search": "执行谷歌网页搜索。"
+		}
+	},
+	"session_history": {
+		"title": "会话历史",
+		"new": "新会话",
+		"list_aria_label": "会话列表",
+		"edit_title": "编辑会话标题",
+		"delete_title": "删除会话",
+		"delete_message": "确定要删除此会话吗？所有对话历史记录都将丢失。",
+		"loading": "加载中...",
+		"empty": "暂无会话",
+		"messages": "条消息"
 	},
 	"common": {
 		"language": "语言",
@@ -36,10 +114,22 @@
 		"save": "保存",
 		"clear": "清除",
 		"settings": "设置",
-		"close": "关闭"
+		"close": "关闭",
+		"enabled": "启用",
+		"disabled": "已禁用",
+		"retry": "重试",
+		"today": "今天",
+		"yesterday": "昨天",
+		"daysAgo": "{{count}}天前",
+		"confirm": "确认",
+		"delete": "删除"
 	},
 	"chat": {
 		"clear_history": "清除历史记录",
+		"role": {
+			"assistant": "助手",
+			"user": "你"
+		},
 		"input": {
 			"placeholder": {
 				"connecting": "正在连接...",
@@ -74,5 +164,220 @@
 		"messages": "消息",
 		"char": "Char",
 		"prof": "Prof"
+	},
+	"settings": {
+		"title": "设置",
+		"subtitle": "管理 AI 配置",
+		"models_settings": {
+			"global_manager": {
+				"title": "LLM 全局管理器",
+				"description": "流程管理和健康检查配置。",
+				"tokenizer_model": "分词器模型"
+			},
+			"configurations": {
+				"title": "模型配置",
+				"description": "每个模型实例的详细配置。",
+				"path": "路径",
+				"port": "端口",
+				"context": "上下文",
+				"gpu_layers": "GPU 层",
+				"temp": "Temp",
+				"top_p": "Top P",
+				"top_k": "Top K",
+				"repeat_penalty": "重复惩罚"
+			}
+		},
+		"sections": {
+			"general": {
+				"label": "常规",
+				"title": "应用程序",
+				"description": "核心应用程序设置和安全限制。",
+				"google_search": {
+					"title": "谷歌搜索设置",
+					"api_key_label": "谷歌搜索 API 密钥",
+					"api_key_desc": "输入 Google Custom Search JSON API 的 API 密钥。",
+					"engine_id_label": "搜索引擎 ID",
+					"engine_id_desc": "输入 Programmable Search Engine ID。"
+				},
+				"app_settings": "应用程序设置",
+				"advanced_settings": "高级设置",
+				"advanced_settings_desc": "递归限制和提取约束",
+				"timeout_settings": "超时设置",
+				"nsfw_label": "解锁受限内容",
+				"nsfw_desc": "允许生成敏感内容。请谨慎使用。"
+			},
+			"privacy": {
+				"label": "隐私",
+				"title": "隐私设置",
+				"description": "管理外部通信和数据共享设置。"
+			},
+			"mcp": {
+				"label": "MCP 工具",
+				"title": "MCP 工具",
+				"description": "管理模型上下文协议服务器。"
+			},
+			"models": {
+				"label": "模型",
+				"title": "模型",
+				"description": "配置 LLM 路径和参数。",
+				"manager_title": "LLM 管理器设置",
+				"manager_description": "配置系统如何管理 LLM 进程和资源。",
+				"list_title": "模型配置",
+				"list_description": "配置各个模型参数，如上下文大小和 GPU 层。",
+				"advanced_title": "高级管理器设置",
+				"advanced_description": "超时和健康检查"
+			},
+			"agents": {
+				"label": "代理",
+				"title": "代理",
+				"description": "定义角色和工具策略。",
+				"card": {
+					"label": "标签",
+					"label_placeholder": "代理名称",
+					"description": "描述",
+					"description_placeholder": "简短描述",
+					"persona": "角色",
+					"persona_description": "定义代理的个性和角色。",
+					"preset_key": "预设键",
+					"preset_key_placeholder": "例如：default（可选）",
+					"custom_prompt": "自定义提示（覆盖）",
+					"custom_prompt_placeholder": "你是一个有用的 AI 助手...",
+					"allowed_tools": "允许的工具",
+					"allowed_tools_description": "使用“*”表示全部。",
+					"denied_tools": "拒绝的工具",
+					"tool_placeholder": "工具名称...",
+					"currently_active": "当前活动",
+					"set_active": "设为活动",
+					"active": "活动",
+					"set_active_short": "设置"
+				}
+			},
+			"memory": {
+				"label": "记忆",
+				"title": "EM-LLM (情景记忆)",
+				"description": "配置情景记忆和历史限制。"
+			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "启用网络搜索",
+				"description": "允许AI使用互联网搜索来检索信息。",
+				"warning_title": "数据共享通知",
+				"warning_query": "搜索查询将发送到Google API",
+				"warning_api": "您配置的API密钥将用于搜索请求"
+			},
+			"redact_pii": {
+				"label": "保护个人信息",
+				"description": "启用网页搜索时，会在发送到外部服务之前自动从网页搜索查询中删除个人信息（电子邮件地址、电话号码等）。"
+			}
+		},
+		"mcp": {
+			"refresh": "刷新状态",
+			"policy": {
+				"title": "安全策略",
+				"mode": {
+					"label": "连接模式",
+					"description": "控制允许连接的服务器范围。",
+					"local_only": "仅本地 (推荐)",
+					"stdio_only": "仅标准输入输出 (最安全)",
+					"allowlist": "仅允许列表"
+				},
+				"confirmation": {
+					"label": "工具确认",
+					"description": "在执行工具前请求许可。"
+				}
+			},
+			"addServer": "添加服务器",
+			"config_path": {
+				"label": "MCP 配置文件",
+				"description": "定义 MCP 服务器的 JSON 文件路径。"
+			},
+			"disabled": "已禁用",
+			"disable": "禁用",
+			"enable": "启用",
+			"remove": "移除",
+			"status": {
+				"connected": "已连接",
+				"disconnected": "已断开",
+				"error": "错误",
+				"connecting": "连接中"
+			},
+			"store": {
+				"title": "MCP 服务器商店",
+				"searchPlaceholder": "搜索服务器...",
+				"noResults": "未找到服务器",
+				"selectRuntime": "选择运行时",
+				"runtimeDescription": "选择运行此服务器的运行时。",
+				"configure": "配置",
+				"configDescription": "输入所需的环境变量。",
+				"confirm": "确认",
+				"install": "安装",
+				"preview": "预览命令",
+				"installing": "安装中...",
+				"commandPreview": "命令预览",
+				"securityWarnings": "安全警告",
+				"envVars": "环境变量",
+				"confirmInstall": "确认安装"
+			}
+		},
+		"memory": {
+			"max_tokens": {
+				"label": "最大 Token",
+				"description": "活动对话上下文窗口的限制。"
+			},
+			"surprise_gamma": {
+				"label": "惊奇 Gamma",
+				"description": "事件边界检测的灵敏度 (0.0 - 1.0)。"
+			},
+			"min_event_size": {
+				"label": "最小事件大小",
+				"description": "形成记忆事件的最小 token 数。"
+			},
+			"max_event_size": {
+				"label": "最大事件大小",
+				"description": "每个记忆事件的最大 token 数。"
+			},
+			"retrieved_events": {
+				"label": "检索事件",
+				"description": "要召回的过去事件数量。"
+			},
+			"repr_topk": {
+				"label": "Repr Top K",
+				"description": "事件表示的 Top K token。"
+			},
+			"boundary_refinement": {
+				"label": "边界细化",
+				"description": "提高事件分割精度。"
+			},
+			"default_limit": {
+				"label": "默认历史限制",
+				"description": "从历史记录中检索的默认消息数。"
+			},
+			"episodic_params_title": "情景记忆参数",
+			"episodic_params_desc": "EM-LLM 的高级配置"
+		}
+	},
+	"tool_errors": {
+		"search_disabled_privacy": "隐私设置已禁用网络搜索。",
+		"search_disabled_api_keys": "Google自定义搜索已禁用（API密钥未配置）。",
+		"search_timeout": "搜索请求超时。请稍后重试。",
+		"search_connection_error": "连接失败。请检查您的互联网连接并重试。",
+		"search_rate_limit": "超出速率限制。请稍等片刻再试。",
+		"search_access_denied": "API访问被拒绝。请检查您的API密钥和权限。",
+		"search_http_error": "发生HTTP错误（状态码：{{status_code}}）。",
+		"search_failed": "搜索失败：{{details}}",
+		"search_invalid_response": "Google API返回无效响应。请重试。",
+		"search_unexpected_error": "发生意外错误：{{details}}",
+		"search_api_error": "Google API错误：{{message}}",
+		"url_invalid_scheme": "URL必须包含有效的http/https协议和主机。",
+		"url_no_hostname": "无法从URL确定主机名。",
+		"url_blocked_private": "出于安全原因，对 {{host}} 的访问已被阻止（私有/本地网络）。",
+		"url_blocked_private_ip": "出于安全原因，对私有/本地IP地址的访问已被阻止。",
+		"fetch_failed": "无法从 {{url}} 获取内容：{{details}}",
+		"fetch_not_html": "URL不是HTML页面（Content-Type：{{content_type}}）。",
+		"tool_timeout": "工具 '{{tool_name}}' 执行超时。",
+		"tool_not_found": "未找到工具 '{{tool_name}}'。",
+		"tool_no_method": "工具 '{{tool_name}}' 没有可调用的方法。",
+		"tool_execution_error": "执行工具 '{{tool_name}}' 时出错：{{details}}"
 	}
 }

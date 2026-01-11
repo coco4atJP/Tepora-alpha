@@ -7,6 +7,14 @@
 		"models_needed": "Se requiere descarga de modelos",
 		"complete": "¡Configuración completa!",
 		"error": "Error durante la configuración",
+		"errors": {
+			"req_check_failed": "Falló la comprobación de requisitos",
+			"start_failed": "Error al iniciar la configuración",
+			"setup_failed_start": "La configuración no pudo iniciarse",
+			"finalize_failed": "Error al finalizar la configuración",
+			"save_config_failed": "Error al guardar la configuración. Inténtelo de nuevo.",
+			"unknown": "Error desconocido"
+		},
 		"start": "Iniciar Tepora",
 		"auto_setup": "Configuración automática",
 		"skip": "Omitir",
@@ -22,11 +30,67 @@
 			"missing": "Faltante",
 			"outdated": "Actualización disponible",
 			"installed": "Instalado",
+			"installed": "Instalado",
 			"not_downloaded": "No descargado"
 		},
+		"download_warning_title": "Confirmar descarga de modelo",
+		"download_warning_desc": "Algunos modelos no están en la lista de permitidos. Revise las advertencias y confirme para continuar.",
+		"download_warning_cancel": "Cancelar",
+		"download_warning_confirm": "Proceder",
 		"advanced_settings": "Configuración avanzada (Cambiar modelos)",
 		"model_settings": "Configuración de modelos",
 		"model": "Modelo"
+	},
+	"app": {
+		"loading": "Conectando al servidor...",
+		"loadingHint": "Esto puede tardar unos segundos"
+	},
+	"errors": {
+		"unknownError": "Ocurrió un error desconocido.",
+		"connectionErrorTitle": "Error de conexión",
+		"retryButton": "Reintentar conexión",
+		"troubleshootHint": "Asegúrese de que el servidor backend se esté ejecutando en el puerto esperado."
+	},
+	"logs": {
+		"title": "Archivos de registro",
+		"refresh": "Actualizar lista",
+		"refresh_content": "Actualizar contenido",
+		"loading_logs": "Cargando registros...",
+		"loading_content": "Cargando contenido...",
+		"no_logs": "No se encontraron registros",
+		"select_log": "Seleccionar un registro",
+		"select_to_view": "Seleccione un archivo de registro para ver su contenido.",
+		"error_fetch": "Error al obtener registros",
+		"error_content": "Error al obtener contenido del registro",
+		"unknown_error": "Ocurrió un error"
+	},
+	"tool_confirmation": {
+		"title": "Confirmación de ejecución de herramienta",
+		"description": "Está a punto de ejecutar una herramienta.",
+		"params": "Parámetros",
+		"allow_session": "Permitir siempre esta herramienta para esta sesión",
+		"warning_deny": "⚠️ Denegar detendrá el proceso",
+		"deny": "Denegar",
+		"allow": "Permitir",
+		"names": {
+			"native_web_fetch": "Obtener página web",
+			"native_google_search": "Búsqueda de Google"
+		},
+		"descriptions": {
+			"native_web_fetch": "Accede a una URL especificada.",
+			"native_google_search": "Realiza una búsqueda web en Google."
+		}
+	},
+	"session_history": {
+		"title": "Historial de sesiones",
+		"new": "Nueva sesión",
+		"list_aria_label": "Lista de sesiones",
+		"edit_title": "Editar título de la sesión",
+		"delete_title": "Eliminar sesión",
+		"delete_message": "¿Está seguro de que desea eliminar esta sesión? Se perderá todo el historial de conversación.",
+		"loading": "Cargando...",
+		"empty": "No hay sesiones todavía",
+		"messages": "mensajes"
 	},
 	"common": {
 		"language": "Idioma",
@@ -36,10 +100,22 @@
 		"save": "Guardar",
 		"clear": "Limpiar",
 		"settings": "Configuración",
-		"close": "Cerrar"
+		"close": "Cerrar",
+		"enabled": "Habilitado",
+		"disabled": "Desactivado",
+		"retry": "Reintentar",
+		"today": "Hoy",
+		"yesterday": "Ayer",
+		"daysAgo": "Hace {{count}} días",
+		"confirm": "Confirmar",
+		"delete": "Eliminar"
 	},
 	"chat": {
 		"clear_history": "Borrar historial",
+		"role": {
+			"assistant": "Asistente",
+			"user": "Tú"
+		},
 		"input": {
 			"placeholder": {
 				"connecting": "Conectando...",
@@ -74,5 +150,220 @@
 		"messages": "Mensajes",
 		"char": "Char",
 		"prof": "Prof"
+	},
+	"settings": {
+		"title": "Configuración",
+		"subtitle": "Administrar configuración de IA",
+		"models_settings": {
+			"global_manager": {
+				"title": "Administrador Global de LLM",
+				"description": "Configuración de gestión de procesos y comprobación de estado.",
+				"tokenizer_model": "Modelo Tokenizer"
+			},
+			"configurations": {
+				"title": "Configuraciones de modelos",
+				"description": "Configuración detallada para cada instancia de modelo.",
+				"path": "Ruta",
+				"port": "Puerto",
+				"context": "Contexto",
+				"gpu_layers": "Capas GPU",
+				"temp": "Temp",
+				"top_p": "Top P",
+				"top_k": "Top K",
+				"repeat_penalty": "Penalización de repetición"
+			}
+		},
+		"sections": {
+			"general": {
+				"label": "General",
+				"title": "Aplicación",
+				"description": "Configuración principal de la aplicación y límites de seguridad.",
+				"google_search": {
+					"title": "Configuración de búsqueda de Google",
+					"api_key_label": "Clave de API de búsqueda de Google",
+					"api_key_desc": "Ingrese la clave de API para Google Custom Search JSON API.",
+					"engine_id_label": "ID del motor de búsqueda",
+					"engine_id_desc": "Ingrese el ID del motor de búsqueda programable."
+				},
+				"app_settings": "Configuración de la aplicación",
+				"advanced_settings": "Configuración avanzada",
+				"advanced_settings_desc": "Límites de recursión y restricciones de búsqueda",
+				"timeout_settings": "Configuración de tiempo de espera",
+				"nsfw_label": "Desbloquear contenido restringido",
+				"nsfw_desc": "Permite la generación de contenido sensible. Úselo con precaución."
+			},
+			"privacy": {
+				"label": "Privacidad",
+				"title": "Configuración de privacidad",
+				"description": "Administrar comunicaciones externas y configuración de intercambio de datos."
+			},
+			"mcp": {
+				"label": "Herramientas MCP",
+				"title": "Herramientas MCP",
+				"description": "Administrar servidores del Protocolo de Contexto de Modelo."
+			},
+			"models": {
+				"label": "Modelos",
+				"title": "Modelos",
+				"description": "Configurar rutas y parámetros de LLM.",
+				"manager_title": "Configuración del administrador de LLM",
+				"manager_description": "Configurar cómo el sistema gestiona los procesos y recursos de LLM.",
+				"list_title": "Configuraciones de modelos",
+				"list_description": "Configurar parámetros individuales del modelo como tamaño de contexto y capas de GPU.",
+				"advanced_title": "Configuración avanzada del administrador",
+				"advanced_description": "Tiempos de espera y comprobaciones de estado"
+			},
+			"agents": {
+				"label": "Agentes",
+				"title": "Agentes",
+				"description": "Definir personas y políticas de herramientas.",
+				"card": {
+					"label": "Etiqueta",
+					"label_placeholder": "Nombre del agente",
+					"description": "Descripción",
+					"description_placeholder": "Descripción breve",
+					"persona": "Persona",
+					"persona_description": "Definir la personalidad y el rol del agente.",
+					"preset_key": "Clave preestablecida",
+					"preset_key_placeholder": "ej. default (Opcional)",
+					"custom_prompt": "Prompt personalizado (Anular)",
+					"custom_prompt_placeholder": "Eres un asistente de IA útil...",
+					"allowed_tools": "Herramientas permitidas",
+					"allowed_tools_description": "Use \"*\" para todas.",
+					"denied_tools": "Herramientas denegadas",
+					"tool_placeholder": "Nombre de la herramienta...",
+					"currently_active": "Actualmente activo",
+					"set_active": "Establecer como activo",
+					"active": "Activo",
+					"set_active_short": "Activar"
+				}
+			},
+			"memory": {
+				"label": "Memoria",
+				"title": "EM-LLM (Memoria Episódica)",
+				"description": "Configurar memoria episódica y límites de historial."
+			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "Habilitar búsqueda web",
+				"description": "Permitir que la IA use búsqueda en internet para recuperar información.",
+				"warning_title": "Aviso de intercambio de datos",
+				"warning_query": "Las consultas de búsqueda se enviarán a la API de Google",
+				"warning_api": "Se utilizará su clave API configurada para las solicitudes de búsqueda"
+			},
+			"redact_pii": {
+				"label": "Proteger información personal",
+				"description": "Cuando la búsqueda web está habilitada, elimina automáticamente información personal (direcciones de correo electrónico, números de teléfono, etc.) de las consultas de búsqueda web antes de enviarlas a servicios externos."
+			}
+		},
+		"mcp": {
+			"refresh": "Actualizar Estado",
+			"policy": {
+				"title": "Política de Seguridad",
+				"mode": {
+					"label": "Modo de Conexión",
+					"description": "Controla qué servidores pueden conectarse.",
+					"local_only": "Solo Local (Recomendado)",
+					"stdio_only": "Solo Stdio (Más Seguro)",
+					"allowlist": "Solo Lista Permitida"
+				},
+				"confirmation": {
+					"label": "Confirmación de Herramienta",
+					"description": "Pedir permiso antes de ejecutar herramientas."
+				}
+			},
+			"addServer": "Añadir Servidor",
+			"config_path": {
+				"label": "Archivo de configuración MCP",
+				"description": "Ruta al archivo JSON que define los servidores MCP."
+			},
+			"disabled": "Desactivado",
+			"disable": "Desactivar",
+			"enable": "Habilitar",
+			"remove": "Eliminar",
+			"status": {
+				"connected": "Conectado",
+				"disconnected": "Desconectado",
+				"error": "Error",
+				"connecting": "Conectando"
+			},
+			"store": {
+				"title": "Tienda de Servidores MCP",
+				"searchPlaceholder": "Buscar servidores...",
+				"noResults": "No se encontraron servidores",
+				"selectRuntime": "Seleccionar Runtime",
+				"runtimeDescription": "Elija un runtime para ejecutar este servidor.",
+				"configure": "Configurar",
+				"configDescription": "Ingrese las variables de entorno requeridas.",
+				"confirm": "Confirmar",
+				"install": "Instalar",
+				"preview": "Vista previa del comando",
+				"installing": "Instalando...",
+				"commandPreview": "Vista previa del comando",
+				"securityWarnings": "Advertencias de seguridad",
+				"envVars": "Variables de entorno",
+				"confirmInstall": "Confirmar instalación"
+			}
+		},
+		"memory": {
+			"max_tokens": {
+				"label": "Max Tokens",
+				"description": "Límite para la ventana de contexto de conversación activa."
+			},
+			"surprise_gamma": {
+				"label": "Surprise Gamma",
+				"description": "Sensibilidad para la detección de límites de eventos (0.0 - 1.0)."
+			},
+			"min_event_size": {
+				"label": "Tamaño de evento mínimo",
+				"description": "Tokens mínimos para formar un evento de memoria."
+			},
+			"max_event_size": {
+				"label": "Tamaño de evento máximo",
+				"description": "Tokens máximos por evento de memoria."
+			},
+			"retrieved_events": {
+				"label": "Eventos recuperados",
+				"description": "Número de eventos pasados para recordar."
+			},
+			"repr_topk": {
+				"label": "Repr Top K",
+				"description": "Top K tokens para representación de eventos."
+			},
+			"boundary_refinement": {
+				"label": "Refinamiento de límites",
+				"description": "Mejorar la precisión de la segmentación de eventos."
+			},
+			"default_limit": {
+				"label": "Límite de historial predeterminado",
+				"description": "Número predeterminado de mensajes para recuperar del historial."
+			},
+			"episodic_params_title": "Parámetros de Memoria Episódica",
+			"episodic_params_desc": "Configuración avanzada para EM-LLM"
+		}
+	},
+	"tool_errors": {
+		"search_disabled_privacy": "La búsqueda web está deshabilitada por la configuración de privacidad.",
+		"search_disabled_api_keys": "Google Custom Search está deshabilitado (claves API no configuradas).",
+		"search_timeout": "La solicitud de búsqueda agotó el tiempo de espera. Inténtelo de nuevo más tarde.",
+		"search_connection_error": "Conexión fallida. Verifique su conexión a internet e intente nuevamente.",
+		"search_rate_limit": "Límite de solicitudes excedido. Espere un momento e intente nuevamente.",
+		"search_access_denied": "Acceso API denegado. Verifique su clave API y permisos.",
+		"search_http_error": "Error HTTP con código de estado {{status_code}}.",
+		"search_failed": "Error al realizar la búsqueda: {{details}}",
+		"search_invalid_response": "Respuesta inválida de Google API. Intente nuevamente.",
+		"search_unexpected_error": "Error inesperado: {{details}}",
+		"search_api_error": "Error de Google API: {{message}}",
+		"url_invalid_scheme": "La URL debe incluir un esquema http/https válido y un host.",
+		"url_no_hostname": "No se pudo determinar el nombre del host de la URL.",
+		"url_blocked_private": "El acceso a {{host}} está bloqueado por razones de seguridad (red privada/local).",
+		"url_blocked_private_ip": "El acceso a direcciones IP privadas/locales está bloqueado por razones de seguridad.",
+		"fetch_failed": "Error al recuperar contenido de {{url}}: {{details}}",
+		"fetch_not_html": "La URL no es una página HTML (Content-Type: {{content_type}}).",
+		"tool_timeout": "La ejecución de la herramienta '{{tool_name}}' agotó el tiempo de espera.",
+		"tool_not_found": "Herramienta '{{tool_name}}' no encontrada.",
+		"tool_no_method": "La herramienta '{{tool_name}}' no tiene un método invocable.",
+		"tool_execution_error": "Error al ejecutar la herramienta '{{tool_name}}': {{details}}"
 	}
 }

@@ -113,7 +113,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 			textareaRef.current.style.height = "auto";
 			textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
 		}
-	}, []);
+	}, [message]);
 
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">

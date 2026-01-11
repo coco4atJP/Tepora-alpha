@@ -1,8 +1,10 @@
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getApiBase, getAuthHeaders } from "../utils/api";
 
 const Logs: React.FC = () => {
+	const { t } = useTranslation();
 	const [logs, setLogs] = useState<string[]>([]);
 	const [selectedLog, setSelectedLog] = useState<string | null>(null);
 	const [logContent, setLogContent] = useState<string>("");
@@ -15,33 +17,44 @@ const Logs: React.FC = () => {
 			const response = await fetch(`${getApiBase()}/api/logs`, {
 				headers: { ...getAuthHeaders() },
 			});
-			if (!response.ok) throw new Error("Failed to fetch logs");
+			if (!response.ok)
+				throw new Error(t("logs.error_fetch", "Failed to fetch logs"));
 			const data = await response.json();
 			setLogs(data.logs);
 			setLoading(false);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "An error occurred");
+			setError(
+				err instanceof Error
+					? err.message
+					: t("logs.unknown_error", "An error occurred"),
+			);
 			setLoading(false);
 		}
-	}, []);
+	}, [t]);
 
-	const fetchLogContent = useCallback(async (filename: string) => {
-		setContentLoading(true);
-		try {
-			const response = await fetch(`${getApiBase()}/api/logs/${filename}`, {
-				headers: { ...getAuthHeaders() },
-			});
-			if (!response.ok) throw new Error("Failed to fetch log content");
-			const data = await response.json();
-			setLogContent(data.content);
-			setContentLoading(false);
-		} catch (err) {
-			setLogContent(
-				`Error loading log content: ${err instanceof Error ? err.message : "Unknown error"}`,
-			);
-			setContentLoading(false);
-		}
-	}, []);
+	const fetchLogContent = useCallback(
+		async (filename: string) => {
+			setContentLoading(true);
+			try {
+				const response = await fetch(`${getApiBase()}/api/logs/${filename}`, {
+					headers: { ...getAuthHeaders() },
+				});
+				if (!response.ok)
+					throw new Error(
+						t("logs.error_content", "Failed to fetch log content"),
+					);
+				const data = await response.json();
+				setLogContent(data.content);
+				setContentLoading(false);
+			} catch (err) {
+				setLogContent(
+					`${t("logs.error_content", "Error loading log content")}: ${err instanceof Error ? err.message : t("logs.unknown_error", "Unknown error")}`,
+				);
+				setContentLoading(false);
+			}
+		},
+		[t],
+	);
 
 	// 初回ロード
 	useEffect(() => {
@@ -61,19 +74,26 @@ const Logs: React.FC = () => {
 		}
 	}, [selectedLog, fetchLogContent]);
 
-	if (loading) return <div className="p-8 text-white">Loading logs...</div>;
+	if (loading)
+		return (
+			<div className="p-8 text-white">
+				{t("logs.loading_logs", "Loading logs...")}
+			</div>
+		);
 
 	return (
 		<div className="flex h-full bg-gray-900">
 			{/* Sidebar List */}
 			<div className="w-64 border-r border-gray-800 bg-gray-900/50 flex flex-col">
 				<div className="p-4 border-b border-gray-800">
-					<h2 className="text-xl font-bold text-white">Log Files</h2>
+					<h2 className="text-xl font-bold text-white">
+						{t("logs.title", "Log Files")}
+					</h2>
 					<button
 						onClick={fetchLogs}
 						className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
 					>
-						↻ Refresh List
+						↻ {t("logs.refresh", "Refresh List")}
 					</button>
 				</div>
 				<div className="flex-1 overflow-y-auto">
@@ -92,7 +112,7 @@ const Logs: React.FC = () => {
 					))}
 					{logs.length === 0 && (
 						<div className="p-4 text-gray-500 text-sm text-center">
-							No logs found
+							{t("logs.no_logs", "No logs found")}
 						</div>
 					)}
 				</div>
@@ -107,14 +127,14 @@ const Logs: React.FC = () => {
 				)}
 				<div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
 					<h2 className="text-lg font-medium text-white truncate">
-						{selectedLog || "Select a log"}
+						{selectedLog || t("logs.select_log", "Select a log")}
 					</h2>
 					{selectedLog && (
 						<button
 							onClick={() => fetchLogContent(selectedLog)}
 							className="text-sm text-gray-400 hover:text-white px-3 py-1 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
 						>
-							Refresh Content
+							{t("logs.refresh_content", "Refresh Content")}
 						</button>
 					)}
 				</div>
@@ -122,11 +142,17 @@ const Logs: React.FC = () => {
 				<div className="flex-1 p-4 overflow-hidden relative">
 					{contentLoading && (
 						<div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-10 backdrop-blur-sm">
-							<div className="text-blue-400">Loading content...</div>
+							<div className="text-blue-400">
+								{t("logs.loading_content", "Loading content...")}
+							</div>
 						</div>
 					)}
 					<div className="h-full bg-black/30 rounded-lg border border-gray-800 p-4 overflow-auto font-mono text-xs text-gray-300 whitespace-pre-wrap">
-						{logContent || "Select a log file to view its content."}
+						{logContent ||
+							t(
+								"logs.select_to_view",
+								"Select a log file to view its content.",
+							)}
 					</div>
 				</div>
 			</div>

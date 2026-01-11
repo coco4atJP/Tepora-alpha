@@ -1,5 +1,6 @@
 import { Bot } from "lucide-react";
 import React, { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { Message } from "../types";
 import MessageBubble from "./MessageBubble";
 
@@ -8,6 +9,7 @@ interface MessageListProps {
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+	const { t } = useTranslation();
 	const endOfMessagesRef = useRef<HTMLDivElement>(null);
 	const prevLengthRef = useRef(messages.length);
 
@@ -41,7 +43,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
 				<div className="flex flex-col items-center justify-center h-full text-coffee-200/50">
 					<Bot className="w-16 h-16 mb-4 opacity-30" aria-hidden="true" />
 					<p className="text-lg font-bold tracking-widest uppercase font-display">
-						System Ready
+						{t("chat.input.system_ready", "System Ready")}
 					</p>
 					<p className="text-sm mt-2 opacity-50 font-sans">
 						Select a mode from the dial to begin

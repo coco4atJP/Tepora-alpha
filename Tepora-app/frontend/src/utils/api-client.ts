@@ -2,9 +2,9 @@ import { getApiBase, getAuthHeaders } from "./api";
 
 export class ApiError extends Error {
 	status: number;
-	data: any;
+	data: unknown;
 
-	constructor(message: string, status: number, data: any) {
+	constructor(message: string, status: number, data: unknown) {
 		super(message);
 		this.name = "ApiError";
 		this.status = status;
@@ -65,14 +65,14 @@ export const apiClient = {
 	get: <T>(endpoint: string, config?: RequestInit) =>
 		request<T>(endpoint, { ...config, method: "GET" }),
 
-	post: <T>(endpoint: string, body?: any, config?: RequestInit) =>
+	post: <T>(endpoint: string, body?: unknown, config?: RequestInit) =>
 		request<T>(endpoint, {
 			...config,
 			method: "POST",
 			body: JSON.stringify(body),
 		}),
 
-	put: <T>(endpoint: string, body?: any, config?: RequestInit) =>
+	put: <T>(endpoint: string, body?: unknown, config?: RequestInit) =>
 		request<T>(endpoint, {
 			...config,
 			method: "PUT",
@@ -82,7 +82,7 @@ export const apiClient = {
 	delete: <T>(endpoint: string, config?: RequestInit) =>
 		request<T>(endpoint, { ...config, method: "DELETE" }),
 
-	patch: <T>(endpoint: string, body?: any, config?: RequestInit) =>
+	patch: <T>(endpoint: string, body?: unknown, config?: RequestInit) =>
 		request<T>(endpoint, {
 			...config,
 			method: "PATCH",

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.core.common.security import SecurityUtils
 from src.core.config import PROJECT_ROOT, settings
 from src.tepora_server.api import mcp_routes, routes, sessions, setup, ws
 from src.tepora_server.state import AppState
@@ -29,6 +30,12 @@ async def lifespan(app: FastAPI):
         from src.core.config.loader import config_manager
 
         config_manager.load_config()
+
+        # Initialize Session Token for API/WebSocket Authentication
+        from src.tepora_server.api.security import initialize_session_token
+
+        session_token = initialize_session_token()
+        logger.info(f"🔐 Session token initialized (length: {len(session_token)})")
 
         # Validate Config (Fail-Fast)
         from src.core.app.startup_validator import validate_startup_config
@@ -73,7 +80,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Tepora AI Agent", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="Tepora AI Agent", version="0.2.0-beta", lifespan=lifespan)
 
     # CORS - Configurable origins
     app.add_middleware(
@@ -130,9 +137,19 @@ def create_app() -> FastAPI:
                     return JSONResponse(status_code=404, content={"error": "Not Found"})
 
                 # File check
-                file_path = frontend_dist / full_path
-                if file_path.exists() and file_path.is_file():
-                    return FileResponse(str(file_path))
+                try:
+                    # Security Check: Ensure path does not traverse outside dist
+                    # Using SecurityUtils for strict check (P1-1 Fix)
+                    file_path = frontend_dist / full_path
+                    if not SecurityUtils.validate_path_is_safe(file_path, frontend_dist):
+                        logger.warning(f"Blocked path traversal attempt: {full_path}")
+                        return JSONResponse(status_code=404, content={"error": "Not Found"})
+
+                    if file_path.exists() and file_path.is_file():
+                        return FileResponse(str(file_path))
+                except Exception:
+                    # Catch security validation errors or path errors
+                    return JSONResponse(status_code=404, content={"error": "Not Found"})
 
                 # SPA Fallback
                 index_path = frontend_dist / "index.html"

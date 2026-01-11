@@ -1,0 +1,13 @@
+
+E:\Tepora_Project\Tepora-app\frontend\src\test\test-utils.tsx
+  26:1  warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+
+E:\Tepora_Project\Tepora-app\frontend\src\utils\api-client.ts
+   5:8   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   7:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  68:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  75:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  85:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+笨・6 problems (5 errors, 1 warning)
+

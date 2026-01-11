@@ -53,9 +53,21 @@ class TestTokenValidation:
 
         assert _validate_token(mock_ws) is True
 
+    @patch("src.tepora_server.api.ws.get_session_token")
     @patch.dict("os.environ", {"TEPORA_ENV": "production"})
-    def test_production_mode_no_token_allowed(self):
-        """In production without token, allow for backwards compatibility."""
+    def test_production_mode_no_token_rejected(self, mock_get_token):
+        """In production without token, connection should be rejected when token is required."""
+        mock_get_token.return_value = "valid_secret_token"  # Server has a token
+        mock_ws = MagicMock(spec=WebSocket)
+        mock_ws.query_params = {}
+
+        assert _validate_token(mock_ws) is False
+
+    @patch("src.tepora_server.api.ws.get_session_token")
+    @patch.dict("os.environ", {"TEPORA_ENV": "production"})
+    def test_production_mode_no_token_allowed_before_init(self, mock_get_token):
+        """Before server initialization (token is None), allow connections."""
+        mock_get_token.return_value = None  # Server not initialized yet
         mock_ws = MagicMock(spec=WebSocket)
         mock_ws.query_params = {}
 

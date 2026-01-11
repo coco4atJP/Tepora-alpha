@@ -1,7 +1,7 @@
 # プロジェクト徹底批判的レビューレポート
 
 **日付**: 2025-12-26
-**対象**: Tepora Project (Beta v2.0)
+**対象**: Tepora Project (v0.2.0-beta)
 **レビュワー**: Antigravity (AI Agent)
 
 ## 1. 概要 (Executive Summary)

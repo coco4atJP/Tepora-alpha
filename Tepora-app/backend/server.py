@@ -10,7 +10,8 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from src.core.config.loader import LOG_DIR
+from src.core.common.pii_redactor import contains_pii, redact_pii
+from src.core.config.loader import LOG_DIR, config_manager, settings
 
 # Ensure backend directory is in path for imports if running directly
 # sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -40,15 +41,44 @@ rotating_handler = RotatingFileHandler(
     backupCount=5,
     encoding="utf-8",
 )
-rotating_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+rotating_handler.setFormatter(formatter)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(formatter)
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout), rotating_handler],
+    handlers=[stream_handler, rotating_handler],
 )
+
+try:
+    # Load settings before installing the log redaction filter to avoid recursion
+    # (settings initialization emits logs).
+    config_manager.load_config()
+except Exception:
+    pass
+
+
+class PiiRedactionFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            if not settings.privacy.redact_pii:
+                return True
+            message = record.getMessage()
+            if not message or not contains_pii(message):
+                return True
+            redacted, _ = redact_pii(message, enabled=True, log_redactions=False)
+            record.msg = redacted
+            record.args = ()
+        except Exception:
+            # Never block logging due to redaction errors.
+            return True
+        return True
+
+
+pii_filter = PiiRedactionFilter()
+stream_handler.addFilter(pii_filter)
+rotating_handler.addFilter(pii_filter)
 
 os.environ["TORCHDYNAMO_DISABLE"] = "1"
 

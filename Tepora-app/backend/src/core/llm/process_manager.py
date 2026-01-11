@@ -6,7 +6,7 @@ from pathlib import Path
 import psutil
 
 from .. import config
-from . import launch_server, perform_health_check
+from . import launch_server, perform_health_check_async
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,11 @@ class ProcessManager:
             s.bind(("localhost", 0))
             return s.getsockname()[1]
 
-    def perform_health_check(self, port: int, key: str, stderr_log_path: Path | None = None):
+    async def perform_health_check_async(
+        self, port: int, key: str, stderr_log_path: Path | None = None
+    ):
         """
-        プロセスのヘルスチェックを行う。
+        プロセスのヘルスチェックを非同期で行う。
         """
 
         def get_process_ref():
@@ -68,7 +70,7 @@ class ProcessManager:
 
         process_ref = get_process_ref
         try:
-            perform_health_check(
+            await perform_health_check_async(
                 port,
                 key,
                 process_ref=process_ref,

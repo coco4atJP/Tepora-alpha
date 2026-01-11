@@ -74,6 +74,9 @@ class SessionHandler:
         # Pending tool approval requests (request_id -> Future[bool])
         self._pending_approvals: dict[str, asyncio.Future] = {}
 
+        # Phase 5: MCP tool approval tracking (per-session)
+        self._approved_mcp_tools: set[str] = set()  # Tools approved in this session
+
     async def on_disconnect(self) -> None:
         """Handle cleanup on WebSocket disconnection."""
         logger.info(f"Session disconnected: {self.client_host}")
@@ -189,6 +192,58 @@ class SessionHandler:
             future.set_result(approved)
         else:
             logger.warning(f"No pending approval found for request_id: {request_id}")
+
+    # --- Phase 5: MCP Tool Handling ---
+
+    def is_mcp_tool(self, tool_name: str) -> bool:
+        """
+        Check if a tool is an MCP tool based on naming convention.
+
+        MCP tools are prefixed with their server name (e.g., "filesystem_read_file").
+        """
+        # MCP tools follow the pattern: {server_name}_{tool_name}
+        # Check if tool name contains underscore and isn't a known native tool
+        if "_" not in tool_name:
+            return False
+
+        # Get MCP hub to check registered servers
+        if hasattr(self.app_state, "mcp_hub") and self.app_state.mcp_hub:
+            for server_name in self.app_state.mcp_hub._tools:
+                if tool_name.startswith(f"{server_name}_"):
+                    return True
+
+        return False
+
+    def is_mcp_tool_approved_in_session(self, tool_name: str) -> bool:
+        """Check if an MCP tool has been approved in this session."""
+        return tool_name in self._approved_mcp_tools
+
+    def approve_mcp_tool_for_session(self, tool_name: str) -> None:
+        """Mark an MCP tool as approved for this session."""
+        self._approved_mcp_tools.add(tool_name)
+        logger.info(f"MCP tool '{tool_name}' approved for this session")
+
+    async def request_mcp_tool_approval(self, tool_name: str, tool_args: dict[str, Any]) -> bool:
+        """
+        Request approval for MCP tool on first use in session.
+
+        Returns True if:
+        - Tool already approved in this session
+        - User approves the tool
+
+        Returns False if user denies.
+        """
+        # Check if already approved in this session
+        if self.is_mcp_tool_approved_in_session(tool_name):
+            return True
+
+        # Request approval
+        approved = await self.request_tool_approval(tool_name, tool_args)
+
+        if approved:
+            self.approve_mcp_tool_for_session(tool_name)
+
+        return approved
 
     async def _send_activity_update(
         self, node_name: str, status: str, message_override: str | None = None

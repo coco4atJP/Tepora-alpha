@@ -58,6 +58,22 @@ export interface McpStoreServer {
 	sourceUrl?: string;
 }
 
+/** Response from install preview endpoint */
+export interface McpInstallPreview {
+	consent_id: string;
+	expires_in_seconds: number;
+	server_id: string;
+	server_name: string;
+	description?: string;
+	command: string;
+	args: string[];
+	env: Record<string, string>;
+	full_command: string;
+	warnings: string[];
+	requires_consent: boolean;
+	runtime?: string;
+}
+
 // --- API Functions ---
 
 async function fetchMcpStatus(): Promise<Record<string, McpServerStatus>> {
@@ -107,13 +123,17 @@ async function fetchMcpStore(search?: string): Promise<McpStoreServer[]> {
 	return data.servers || [];
 }
 
-async function installMcpServer(
+/**
+ * Step 1: Preview MCP server installation.
+ * Returns command details and security warnings for user review.
+ */
+async function previewMcpInstall(
 	serverId: string,
 	runtime?: string,
 	envValues?: Record<string, string>,
 	serverName?: string,
-): Promise<{ server_name: string }> {
-	const response = await fetch(`${getApiBase()}/api/mcp/install`, {
+): Promise<McpInstallPreview> {
+	const response = await fetch(`${getApiBase()}/api/mcp/install/preview`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -128,7 +148,28 @@ async function installMcpServer(
 	});
 	if (!response.ok) {
 		const error = await response.json();
-		throw new Error(error.error || "Failed to install server");
+		throw new Error(error.detail || error.error || "Failed to preview install");
+	}
+	return response.json();
+}
+
+/**
+ * Step 2: Confirm MCP server installation after user consent.
+ */
+async function confirmMcpInstall(
+	consentId: string,
+): Promise<{ status: string; server_name: string; message: string }> {
+	const response = await fetch(`${getApiBase()}/api/mcp/install/confirm`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			...getAuthHeaders(),
+		},
+		body: JSON.stringify({ consent_id: consentId }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.detail || error.error || "Failed to confirm install");
 	}
 	return response.json();
 }
@@ -291,17 +332,21 @@ export function useMcpStore() {
 		return () => clearTimeout(timer);
 	}, [searchQuery, fetchStore]);
 
-	const install = useCallback(
+	const previewInstall = useCallback(
 		async (
 			serverId: string,
 			runtime?: string,
 			envValues?: Record<string, string>,
 			serverName?: string,
 		) => {
-			return installMcpServer(serverId, runtime, envValues, serverName);
+			return previewMcpInstall(serverId, runtime, envValues, serverName);
 		},
 		[],
 	);
+
+	const confirmInstall = useCallback(async (consentId: string) => {
+		return confirmMcpInstall(consentId);
+	}, []);
 
 	return {
 		storeServers,
@@ -310,7 +355,8 @@ export function useMcpStore() {
 		searchQuery,
 		setSearchQuery,
 		refresh: () => fetchStore(searchQuery || undefined),
-		install,
+		previewInstall,
+		confirmInstall,
 	};
 }
 
@@ -341,5 +387,98 @@ export function useMcpConfig() {
 		saving,
 		error,
 		saveConfig,
+	};
+}
+
+// --- Policy Hooks ---
+
+export interface McpPolicyConfig {
+	policy: string;
+	server_permissions: Record<string, unknown>;
+	blocked_commands: string[];
+	require_tool_confirmation: boolean;
+	first_use_confirmation: boolean;
+}
+
+export interface McpPolicyUpdate {
+	policy?: string;
+	require_tool_confirmation?: boolean;
+	first_use_confirmation?: boolean;
+}
+
+async function fetchMcpPolicy(): Promise<McpPolicyConfig> {
+	const response = await fetch(`${getApiBase()}/api/mcp/policy`, {
+		headers: getAuthHeaders(),
+	});
+	if (!response.ok) throw new Error("Failed to fetch MCP policy");
+	return response.json();
+}
+
+async function updateMcpPolicy(update: McpPolicyUpdate): Promise<void> {
+	const response = await fetch(`${getApiBase()}/api/mcp/policy`, {
+		method: "PATCH",
+		headers: {
+			"Content-Type": "application/json",
+			...getAuthHeaders(),
+		},
+		body: JSON.stringify(update),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.detail || "Failed to update policy");
+	}
+}
+
+/**
+ * Hook for managing MCP security policy
+ */
+export function useMcpPolicy() {
+	const [policy, setPolicy] = useState<McpPolicyConfig | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [saving, setSaving] = useState(false);
+
+	const fetchPolicy = useCallback(async () => {
+		setLoading(true);
+		try {
+			const data = await fetchMcpPolicy();
+			setPolicy(data);
+			setError(null);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to fetch policy");
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchPolicy();
+	}, [fetchPolicy]);
+
+	const updatePolicy = useCallback(
+		async (update: McpPolicyUpdate) => {
+			setSaving(true);
+			try {
+				await updateMcpPolicy(update);
+				await fetchPolicy();
+			} catch (err) {
+				setError(
+					err instanceof Error ? err.message : "Failed to update policy",
+				);
+				throw err;
+			} finally {
+				setSaving(false);
+			}
+		},
+		[fetchPolicy],
+	);
+
+	return {
+		policy,
+		loading,
+		error,
+		saving,
+		updatePolicy,
+		refresh: fetchPolicy,
 	};
 }

@@ -6,6 +6,8 @@ export {
 	AgentCard,
 	type AgentCardProps,
 	type AgentProfile,
+	// Layout & UI Components
+	CollapsibleSection,
 	// Form Components
 	FormGroup,
 	type FormGroupProps,

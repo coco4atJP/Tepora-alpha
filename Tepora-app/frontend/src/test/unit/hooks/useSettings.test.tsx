@@ -23,6 +23,7 @@ describe("useSettings", () => {
 	it("returns context value when used within SettingsProvider", () => {
 		const mockContextValue: SettingsContextValue = {
 			config: null,
+			originalConfig: null,
 			loading: false,
 			error: null,
 			hasChanges: false,
@@ -34,6 +35,7 @@ describe("useSettings", () => {
 			updateEmLlm: vi.fn(),
 			updateModel: vi.fn(),
 			updateTools: vi.fn(),
+			updatePrivacy: vi.fn(),
 			updateCharacter: vi.fn(),
 			addCharacter: vi.fn(),
 			deleteCharacter: vi.fn(),

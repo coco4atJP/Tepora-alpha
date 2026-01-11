@@ -1,5 +1,28 @@
+use std::path::PathBuf;
 use tauri::RunEvent;
 use tauri_plugin_log::{Target, TargetKind};
+
+#[tauri::command]
+fn read_session_token() -> Option<String> {
+    if let Ok(token) = std::env::var("TEPORA_SESSION_TOKEN") {
+        let token = token.trim().to_string();
+        if !token.is_empty() {
+            return Some(token);
+        }
+    }
+
+    let home_dir = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)?;
+    let token_path = home_dir.join(".tepora").join(".session_token");
+    let token = std::fs::read_to_string(token_path).ok()?;
+    let token = token.trim().to_string();
+    if token.is_empty() {
+        None
+    } else {
+        Some(token)
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,6 +37,7 @@ pub fn run() {
                 }))
                 .build(),
         )
+        .invoke_handler(tauri::generate_handler![read_session_token])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

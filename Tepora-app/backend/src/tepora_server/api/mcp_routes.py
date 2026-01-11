@@ -11,6 +11,8 @@ Provides:
 from __future__ import annotations
 
 import logging
+import secrets
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -52,10 +54,30 @@ class McpServerInstallRequest(BaseModel):
     server_name: str | None = None  # Custom name for the server
 
 
+class McpInstallConfirmRequest(BaseModel):
+    """Request model for confirming installation after preview."""
+
+    consent_id: str
+
+
+class McpPolicyUpdateRequest(BaseModel):
+    """Request model for policy update."""
+
+    policy: str | None = None
+    require_tool_confirmation: bool | None = None
+    first_use_confirmation: bool | None = None
+
+
+# --- Pending Consent Storage ---
+# In-memory storage for pending consents (production should use persistent storage)
+_pending_consents: dict[str, dict[str, Any]] = {}
+CONSENT_EXPIRY_MINUTES = 5
+
+
 # --- API Endpoints ---
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(get_api_key)])
 async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, Any]:
     """
     Get connection status of all configured MCP servers.
@@ -146,7 +168,7 @@ async def update_mcp_config(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/store")
+@router.get("/store", dependencies=[Depends(get_api_key)])
 async def get_mcp_store(
     state: AppState = Depends(get_app_state), search: str | None = None
 ) -> dict[str, Any]:
@@ -208,25 +230,18 @@ async def get_mcp_store(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/install", dependencies=[Depends(get_api_key)])
-async def install_mcp_server(
+@router.post("/install/preview", dependencies=[Depends(get_api_key)])
+async def preview_mcp_install(
     request: McpServerInstallRequest, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
     """
-    Install an MCP server from the registry.
+    Step 1 of 2-step install: Preview installation and get consent payload.
 
-    This will:
-    1. Fetch server info from registry
-    2. Generate appropriate config
-    3. Add to mcp_tools_config.json
-    4. Trigger hot-reload to connect
+    Returns command details and warnings for user review before confirming.
     """
     try:
         if not hasattr(state, "mcp_registry") or state.mcp_registry is None:
             raise HTTPException(status_code=500, detail="MCP Registry not initialized")
-
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
 
         # Get server info from registry
         server = await state.mcp_registry.get_server_by_id(request.server_id)
@@ -235,16 +250,71 @@ async def install_mcp_server(
                 status_code=404, detail=f"Server '{request.server_id}' not found in registry"
             )
 
-        # Generate config using installer
-
-        config = McpInstaller.generate_config(
+        # Generate consent payload
+        consent_payload = McpInstaller.generate_consent_payload(
             server,
             runtime=request.runtime,
             env_values=request.env_values,
         )
 
+        # Generate consent ID and store pending consent
+        consent_id = secrets.token_urlsafe(16)
+        _pending_consents[consent_id] = {
+            "payload": consent_payload,
+            "expires": datetime.now() + timedelta(minutes=CONSENT_EXPIRY_MINUTES),
+            "request": request.model_dump(),
+            "server": server,
+        }
+
+        # Cleanup expired consents
+        _cleanup_expired_consents()
+
+        return {
+            "consent_id": consent_id,
+            "expires_in_seconds": CONSENT_EXPIRY_MINUTES * 60,
+            **consent_payload,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to preview MCP install: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/install/confirm", dependencies=[Depends(get_api_key)])
+async def confirm_mcp_install(
+    request: McpInstallConfirmRequest, state: AppState = Depends(get_app_state)
+) -> dict[str, Any]:
+    """
+    Step 2 of 2-step install: Confirm and execute installation after user consent.
+    """
+    try:
+        # Validate consent
+        pending = _pending_consents.get(request.consent_id)
+        if not pending:
+            raise HTTPException(status_code=400, detail="Invalid or expired consent ID")
+
+        if pending["expires"] < datetime.now():
+            del _pending_consents[request.consent_id]
+            raise HTTPException(status_code=400, detail="Consent has expired, please preview again")
+
+        # Get stored data
+        server = pending["server"]
+        original_request = pending["request"]
+
+        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
+            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
+
+        # Generate config
+        config = McpInstaller.generate_config(
+            server,
+            runtime=original_request.get("runtime"),
+            env_values=original_request.get("env_values"),
+        )
+
         # Determine server name
-        server_name = request.server_name or request.server_id
+        server_name = original_request.get("server_name") or original_request["server_id"]
 
         # Get current config and add new server
         current_config = state.mcp_hub.get_config()
@@ -258,12 +328,12 @@ async def install_mcp_server(
             for name, s in current_config.mcpServers.items()
         }
 
-        # Add new server
+        # Add new server (disabled by default for security - user must explicitly enable)
         new_servers[server_name] = {
             "command": config.command,
             "args": config.args,
             "env": config.env,
-            "enabled": True,
+            "enabled": False,
             "metadata": {
                 "name": server.name,
                 "description": server.description,
@@ -276,17 +346,32 @@ async def install_mcp_server(
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to install server")
 
+        # Remove used consent
+        del _pending_consents[request.consent_id]
+
+        logger.info(f"MCP server '{server_name}' installed with user consent")
+
         return {
             "status": "success",
             "server_name": server_name,
-            "message": f"Server '{server_name}' installed successfully",
+            "message": f"Server '{server_name}' installed successfully with consent",
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to install MCP server: %s", e)
+        logger.error("Failed to confirm MCP install: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _cleanup_expired_consents() -> None:
+    """Remove expired consent entries to prevent memory leaks."""
+    now = datetime.now()
+    expired = [cid for cid, data in _pending_consents.items() if data["expires"] < now]
+    for cid in expired:
+        del _pending_consents[cid]
+    if expired:
+        logger.debug(f"Cleaned up {len(expired)} expired consent entries")
 
 
 @router.post("/servers/{server_name}/enable", dependencies=[Depends(get_api_key)])
@@ -373,4 +458,49 @@ async def delete_server(
         raise
     except Exception as e:
         logger.error("Failed to delete server: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/policy", dependencies=[Depends(get_api_key)])
+async def get_mcp_policy(state: AppState = Depends(get_app_state)) -> dict[str, Any]:
+    """Get current MCP connection policy."""
+    try:
+        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
+            return {}
+
+        policy_manager = state.mcp_hub.policy_manager
+        if not policy_manager:
+            return {"error": "Policy manager not configured"}
+
+        config = policy_manager.get_policy()
+        return config.model_dump()
+
+    except Exception as e:
+        logger.error("Failed to get MCP policy: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/policy", dependencies=[Depends(get_api_key)])
+async def update_mcp_policy(
+    request: McpPolicyUpdateRequest, state: AppState = Depends(get_app_state)
+) -> dict[str, Any]:
+    """Update MCP connection policy."""
+    try:
+        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
+            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
+
+        policy_manager = state.mcp_hub.policy_manager
+        if not policy_manager:
+            raise HTTPException(status_code=500, detail="Policy manager not configured")
+
+        # Update settings
+        settings = request.model_dump(exclude_unset=True)
+        policy_manager.update_settings(settings)
+
+        return {"status": "success", "policy": policy_manager.get_policy().model_dump()}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to update MCP policy: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

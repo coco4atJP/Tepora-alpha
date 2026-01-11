@@ -1,6 +1,6 @@
 [project]
 name = "tepora"
-version = "1.0.0"
+version = "0.2.0-beta"
 description = "Local-first personal AI agent with episodic memory"
 readme = "README.md"
 license = {text = "Apache-2.0"}

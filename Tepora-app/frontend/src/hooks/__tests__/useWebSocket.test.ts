@@ -2,6 +2,12 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWebSocket } from "../useWebSocket";
 
+// Mock sessionToken module to avoid async loading in tests
+vi.mock("../../utils/sessionToken", () => ({
+	getSessionToken: vi.fn().mockResolvedValue(null),
+	getSessionTokenSync: vi.fn().mockReturnValue(null),
+}));
+
 // Capture instances to interact with them
 let createdSockets: MockWebSocket[] = [];
 
@@ -49,13 +55,18 @@ describe("useWebSocket", () => {
 		vi.useRealTimers();
 	});
 
+	// Helper to flush microtask queue along with timers
+	const flushPromisesAndTimers = async () => {
+		await vi.runAllTimersAsync();
+	};
+
 	it("should connect on mount", async () => {
 		const { result } = renderHook(() => useWebSocket());
 
 		expect(result.current.isConnected).toBe(false);
 
 		await act(async () => {
-			vi.runAllTimers();
+			await flushPromisesAndTimers();
 		});
 
 		expect(result.current.isConnected).toBe(true);
@@ -66,7 +77,7 @@ describe("useWebSocket", () => {
 		const { result } = renderHook(() => useWebSocket());
 
 		await act(async () => {
-			vi.runAllTimers();
+			await flushPromisesAndTimers();
 		});
 
 		const socket = createdSockets[0];
@@ -93,7 +104,7 @@ describe("useWebSocket", () => {
 		const { result } = renderHook(() => useWebSocket());
 
 		await act(async () => {
-			vi.runAllTimers();
+			await flushPromisesAndTimers();
 		});
 
 		const socket = createdSockets[0];
@@ -112,7 +123,7 @@ describe("useWebSocket", () => {
 		const { unmount } = renderHook(() => useWebSocket());
 
 		await act(async () => {
-			vi.runAllTimers();
+			await flushPromisesAndTimers();
 		});
 
 		const socket = createdSockets[0];

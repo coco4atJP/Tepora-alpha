@@ -1,7 +1,7 @@
 // Form Components
 // Base form UI components for settings pages
 
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, HelpCircle, Plus, Trash2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 
@@ -14,6 +14,8 @@ export interface FormGroupProps {
 	description?: string;
 	children: React.ReactNode;
 	error?: string;
+	tooltip?: string;
+	isDirty?: boolean;
 }
 
 export const FormGroup: React.FC<FormGroupProps> = ({
@@ -21,10 +23,32 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 	description,
 	children,
 	error,
+	tooltip,
+	isDirty,
 }) => (
-	<div className="settings-form-group">
+	<div
+		className={`settings-form-group ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""}`}
+	>
 		<div className="settings-form-group__header">
-			<label className="settings-form-group__label">{label}</label>
+			<div className="flex items-center gap-2">
+				<span className="settings-form-group__label">{label}</span>
+				{tooltip && (
+					<div className="group relative" role="button" tabIndex={0}>
+						<HelpCircle
+							size={14}
+							className="text-gray-500 hover:text-gray-300 cursor-help"
+						/>
+						<div className="absolute top-0 left-full ml-2 w-64 p-2 bg-gray-900 border border-white/10 rounded-md shadow-xl text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
+							{tooltip}
+						</div>
+					</div>
+				)}
+				{isDirty && (
+					<span className="text-xs text-gold-400 font-medium px-1.5 py-0.5 bg-gold-400/10 rounded-sm">
+						Modified
+					</span>
+				)}
+			</div>
 			{description && (
 				<p className="settings-form-group__description">{description}</p>
 			)}
@@ -178,6 +202,7 @@ export const FormList: React.FC<FormListProps> = ({
 		<div className="settings-list">
 			<div className="settings-list__items">
 				{items.map((item, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: Simple string list, index needed for uniqueness
 					<div key={`${item}-${index}`} className="settings-list__item">
 						<code className="settings-list__item-text">{item}</code>
 						<button

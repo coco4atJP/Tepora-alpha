@@ -15,6 +15,7 @@
 """
 
 import asyncio
+import json
 import logging
 import threading
 from collections.abc import Coroutine
@@ -84,6 +85,16 @@ class ToolManager:
             # future.result() raises the exception from the coroutine
             raise e
 
+    def _make_error_response(self, error_code: str, message: str, **kwargs: Any) -> str:
+        """Create a structured error response for frontend translation."""
+        response = {
+            "error": True,
+            "error_code": error_code,
+            "message": message,
+            **kwargs,
+        }
+        return json.dumps(response, ensure_ascii=False)
+
     # 同期/非同期を問わず、全てのツールを実行するための統一インターフェース
     def execute_tool(self, tool_name: str, tool_args: dict) -> str | Any:
         """
@@ -103,10 +114,19 @@ class ToolManager:
             return self._run_coroutine(coro)
         except TimeoutError:
             logger.error(f"Tool '{tool_name}' execution timed out.")
-            return f"Error: Tool '{tool_name}' execution timed out."
+            return self._make_error_response(
+                "tool_timeout",
+                f"Tool '{tool_name}' execution timed out.",
+                tool_name=tool_name
+            )
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}", exc_info=True)
-            return f"Error executing tool {tool_name}: {e}"
+            return self._make_error_response(
+                "tool_execution_error",
+                f"Error executing tool {tool_name}: {e}",
+                tool_name=tool_name,
+                details=str(e)
+            )
 
     async def aexecute_tool(self, tool_name: str, tool_args: dict) -> str | Any:
         """非同期コンテキストからツールを実行するためのヘルパー。"""
@@ -114,7 +134,11 @@ class ToolManager:
         if not tool_instance:
             # エラーメッセージもログに出力するとデバッグしやすい
             logger.error("Tool '%s' not found.", tool_name)
-            return f"Error: Tool '{tool_name}' not found."
+            return self._make_error_response(
+                "tool_not_found",
+                f"Tool '{tool_name}' not found.",
+                tool_name=tool_name
+            )
 
         try:
             if hasattr(tool_instance, "ainvoke"):
@@ -125,12 +149,21 @@ class ToolManager:
                 logger.info("Executing SYNC tool in executor: %s", tool_name)
                 return await asyncio.to_thread(tool_instance.invoke, tool_args)
 
-            return f"Error: Tool '{tool_name}' has no callable invoke or ainvoke method."
+            return self._make_error_response(
+                "tool_no_method",
+                f"Tool '{tool_name}' has no callable invoke or ainvoke method.",
+                tool_name=tool_name
+            )
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "Error executing tool %s asynchronously: %s", tool_name, exc, exc_info=True
             )
-            return f"Error executing tool {tool_name}: {exc}"
+            return self._make_error_response(
+                "tool_execution_error",
+                f"Error executing tool {tool_name}: {exc}",
+                tool_name=tool_name,
+                details=str(exc)
+            )
 
     def initialize(self):
         """

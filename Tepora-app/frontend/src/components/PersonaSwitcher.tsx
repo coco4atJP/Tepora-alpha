@@ -27,6 +27,8 @@ const PersonaSwitcher: React.FC = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCreating, setIsCreating] = useState(false);
 	const [newKey, setNewKey] = useState("");
+	const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(null);
 
 	if (!settings || !settings.config) {
 		return null; // Or a loading spinner
@@ -46,6 +48,7 @@ const PersonaSwitcher: React.FC = () => {
 
 	const handleCreate = () => {
 		setNewKey("");
+		setError(null);
 		setEditingCharacter({
 			name: "",
 			description: "",
@@ -64,33 +67,38 @@ const PersonaSwitcher: React.FC = () => {
 	) => {
 		e.stopPropagation();
 		setEditingKey(key);
+		setError(null);
 		setEditingCharacter({ ...character });
 		setIsCreating(false);
 		setIsEditing(true);
 		setIsOpen(false);
 	};
 
-	const handleDelete = async (key: string, e: React.MouseEvent) => {
+	const handleDeleteRequest = (key: string, e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (key === currentPersonaId) return; // Guard logic
+		if (key === currentPersonaId) return;
 
 		// Ensure at least one character remains
 		if (Object.keys(characters).length <= 1) {
-			alert(
-				t("personas.error_last_character", "Cannot delete the last character."),
-			);
+			// Silently ignore or maybe show a tooltip in future.
 			return;
 		}
 
-		if (!confirm(t("personas.confirm_delete"))) return;
+		setDeleteTarget(key);
+		setIsOpen(false);
+	};
+
+	const executeDelete = async () => {
+		if (!deleteTarget) return;
 
 		setIsLoading(true);
 		try {
-			deleteCharacter(key);
+			deleteCharacter(deleteTarget);
 			const success = await saveConfig();
 			if (!success) {
 				console.error("Failed to save deletion");
 			}
+			setDeleteTarget(null);
 		} catch (error) {
 			console.error("Failed to delete character:", error);
 		} finally {
@@ -107,11 +115,12 @@ const PersonaSwitcher: React.FC = () => {
 		if (!key) return;
 
 		setIsLoading(true);
+		setError(null);
 		try {
 			if (isCreating) {
 				// Ensure unique key
 				if (characters[key]) {
-					alert("This key already exists.");
+					setError(t("personas.error_exists") || "This key already exists.");
 					return;
 				}
 				addCharacter(key);
@@ -130,6 +139,7 @@ const PersonaSwitcher: React.FC = () => {
 			}
 		} catch (error) {
 			console.error("Failed to save character:", error);
+			setError("Failed to save character.");
 		} finally {
 			setIsLoading(false);
 		}
@@ -254,7 +264,7 @@ const PersonaSwitcher: React.FC = () => {
 											{key !== currentPersonaId && (
 												<button
 													type="button"
-													onClick={(e) => handleDelete(key, e)}
+													onClick={(e) => handleDeleteRequest(key, e)}
 													className="p-1 hover:text-red-400 text-gray-500 transition-colors"
 												>
 													<Trash2 size={12} />
@@ -285,6 +295,12 @@ const PersonaSwitcher: React.FC = () => {
 								<X size={20} />
 							</button>
 						</div>
+
+						{error && (
+							<div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-sm">
+								{error}
+							</div>
+						)}
 
 						<div className="space-y-4">
 							{isCreating && (
@@ -392,6 +408,48 @@ const PersonaSwitcher: React.FC = () => {
 									<Save className="w-4 h-4" />
 								)}
 								{t("common.save")}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Delete Confirmation Modal */}
+			{deleteTarget && (
+				<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+					<div className="glass-panel w-full max-w-sm p-6 space-y-4 animate-modal-enter text-center">
+						<div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+							<Trash2 className="w-6 h-6 text-red-400" />
+						</div>
+
+						<h3 className="text-lg font-bold text-white">
+							{t("personas.confirm_delete_title") || "Delete Persona?"}
+						</h3>
+						<p className="text-gray-400 text-sm">
+							{t("personas.confirm_delete") ||
+								"Are you sure you want to delete this persona? This action cannot be undone."}
+						</p>
+
+						<div className="flex justify-center gap-3 pt-4">
+							<button
+								type="button"
+								onClick={() => setDeleteTarget(null)}
+								className="px-4 py-2 rounded-lg hover:bg-white/5 text-gray-400 text-sm transition-colors"
+								disabled={isLoading}
+							>
+								{t("common.cancel")}
+							</button>
+							<button
+								type="button"
+								onClick={executeDelete}
+								className="glass-button px-6 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/40 text-sm font-medium"
+								disabled={isLoading}
+							>
+								{isLoading ? (
+									<RefreshCw className="animate-spin w-4 h-4" />
+								) : (
+									t("common.delete") || "Delete"
+								)}
 							</button>
 						</div>
 					</div>

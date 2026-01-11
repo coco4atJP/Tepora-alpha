@@ -1,6 +1,7 @@
 import { Database, Wifi, WifiOff } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { MemoryStats, SystemStatus } from "../types";
 import { getApiBase, getAuthHeaders } from "../utils/api";
 
@@ -10,6 +11,7 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
+	const { t } = useTranslation();
 	const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
 
 	useEffect(() => {
@@ -36,12 +38,16 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 				{isConnected ? (
 					<>
 						<Wifi className="w-4 h-4 text-green-500" />
-						<span className="text-green-500">接続中</span>
+						<span className="text-green-500">
+							{t("status.connected", "接続済み")}
+						</span>
 					</>
 				) : (
 					<>
 						<WifiOff className="w-4 h-4 text-red-500" />
-						<span className="text-red-500">切断</span>
+						<span className="text-red-500">
+							{t("status.disconnected", "未接続")}
+						</span>
 					</>
 				)}
 			</div>
@@ -52,7 +58,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 					<span className="text-gray-400">
 						EM-LLM:{" "}
 						<span className="text-blue-400">
-							{systemStatus.memory_events} イベント
+							{systemStatus.memory_events} {t("status.events", "イベント")}
 						</span>
 					</span>
 				</div>

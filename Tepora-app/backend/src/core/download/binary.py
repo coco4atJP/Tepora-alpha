@@ -9,6 +9,7 @@ Binary Manager - llama.cpp バイナリの管理
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import platform
@@ -156,6 +157,34 @@ class BinaryManager:
                 callback(event)
             except Exception as e:
                 logger.warning(f"Progress callback error: {e}")
+
+    def _verify_file_hash(self, file_path: Path, expected_hash: str) -> bool:
+        """
+        Verify SHA256 hash of downloaded file.
+
+        Args:
+            file_path: Path to the file to verify
+            expected_hash: Expected SHA256 hash (hex string)
+
+        Returns:
+            True if hash matches, False otherwise
+        """
+        sha256 = hashlib.sha256()
+        try:
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    sha256.update(chunk)
+            actual_hash = sha256.hexdigest()
+            matches = actual_hash.lower() == expected_hash.lower()
+            if not matches:
+                logger.error(
+                    f"Hash mismatch for {file_path.name}: "
+                    f"expected {expected_hash[:16]}..., got {actual_hash[:16]}..."
+                )
+            return matches
+        except OSError as e:
+            logger.error(f"Failed to read file for hash verification: {e}")
+            return False
 
     def _detect_best_variant(self) -> BinaryVariant:
         """現在の環境に最適なバリアントを検出"""
@@ -331,10 +360,16 @@ class BinaryManager:
                 # アセットを検索
                 download_url = None
                 file_size = 0
+                expected_hash = None  # SHA256 digest from GitHub API
                 for asset in release_data.get("assets", []):
                     if re.search(regex_pattern, asset["name"]):
                         download_url = asset["browser_download_url"]
                         file_size = asset.get("size", 0)
+                        # GitHub API provides digest for release assets
+                        # Format: "sha256:HEXDIGEST"
+                        digest = asset.get("digest", "")
+                        if digest.startswith("sha256:"):
+                            expected_hash = digest[7:]  # Remove "sha256:" prefix
                         break
 
                 if not download_url:
@@ -455,6 +490,60 @@ class BinaryManager:
                     self._progress_manager.cancel_job(job_id)
                     raise
 
+                # SHA256 ハッシュ検証 (Supply Chain Security - P0-6)
+                if not expected_hash:
+                    target_path.unlink(missing_ok=True)
+                    self._progress_manager.cancel_job(job_id)
+                    error_msg = (
+                        f"No SHA256 hash available for {target_path.name}. "
+                        "Hash verification is required; download rejected."
+                    )
+                    logger.error(error_msg)
+                    self._emit_progress(
+                        ProgressEvent(
+                            status=DownloadStatus.FAILED,
+                            progress=0.0,
+                            message="エラー: ハッシュ情報がありません（検証必須）",
+                            job_id=job_id,
+                        )
+                    )
+                    return InstallResult(
+                        success=False,
+                        error_message=error_msg,
+                    )
+
+                self._emit_progress(
+                    ProgressEvent(
+                        status=DownloadStatus.VERIFYING,
+                        progress=0.75,
+                        message="ハッシュを検証中...",
+                        job_id=job_id,
+                    )
+                )
+
+                if not self._verify_file_hash(target_path, expected_hash):
+                    # Hash mismatch - delete the file and fail
+                    target_path.unlink(missing_ok=True)
+                    self._progress_manager.cancel_job(job_id)
+                    error_msg = (
+                        f"Hash verification failed for {target_path.name}. "
+                        "The file may have been tampered with."
+                    )
+                    logger.error(error_msg)
+                    self._emit_progress(
+                        ProgressEvent(
+                            status=DownloadStatus.FAILED,
+                            progress=0.0,
+                            message="エラー: ハッシュ検証に失敗しました",
+                            job_id=job_id,
+                        )
+                    )
+                    return InstallResult(
+                        success=False,
+                        error_message=error_msg,
+                    )
+                logger.info(f"Hash verification passed for {target_path.name}")
+
                 # 解凍
                 self._emit_progress(
                     ProgressEvent(
@@ -473,6 +562,7 @@ class BinaryManager:
                     # .tar.gz
                     with tarfile.open(target_path, "r:gz") as tf:
                         # Tar Slip check
+                        safe_members = []
                         for member in tf.getmembers():
                             extract_target = version_dir / member.name
                             abs_target = extract_target.resolve()
@@ -480,6 +570,7 @@ class BinaryManager:
 
                             try:
                                 abs_target.relative_to(abs_root)
+                                safe_members.append(member)
                             except ValueError:
                                 logger.error(f"Tar Slip attempt detected: {member.name}")
                                 raise RuntimeError(f"Tar Slip attempt detected: {member.name}")
@@ -487,10 +578,11 @@ class BinaryManager:
                         import sys
 
                         if sys.version_info >= (3, 12):
-                            tf.extractall(version_dir, filter="data")
+                            tf.extractall(version_dir, members=safe_members, filter="data")
                         else:
                             # Legacy support or warning
-                            tf.extractall(version_dir)
+                            # members are validated above
+                            tf.extractall(version_dir, members=safe_members)  # nosec B202
                 else:
                     # zip
                     with zipfile.ZipFile(target_path, "r") as zf:

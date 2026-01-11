@@ -43,16 +43,22 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 			const res = await fetch(`${getApiBase()}/api/setup/requirements`, {
 				headers: { ...getAuthHeaders() },
 			});
-			if (!res.ok) throw new Error("Requirements check failed");
+			if (!res.ok)
+				throw new Error(
+					t("setup.errors.req_check_failed", "Requirements check failed"),
+				);
 			const data = await res.json();
 			dispatch({ type: "REQ_CHECK_SUCCESS", payload: data });
 		} catch (err) {
 			dispatch({
 				type: "REQ_CHECK_FAILURE",
-				payload: err instanceof Error ? err.message : "Unknown error",
+				payload:
+					err instanceof Error
+						? err.message
+						: t("setup.errors.unknown", "Unknown error"),
 			});
 		}
-	}, []);
+	}, [t]);
 
 	const handleSelectLanguage = async (lang: string) => {
 		try {
@@ -119,12 +125,18 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 			return;
 		}
 
-		if (!res.ok) throw new Error(data?.error || "Failed to start setup");
+		if (!res.ok)
+			throw new Error(
+				data?.error || t("setup.errors.start_failed", "Failed to start setup"),
+			);
 
 		if (data.success) {
 			dispatch({ type: "START_INSTALL", payload: data.job_id || "" });
 		} else {
-			throw new Error(data.error || "Setup failed to start");
+			throw new Error(
+				data.error ||
+					t("setup.errors.setup_failed_start", "Setup failed to start"),
+			);
 		}
 	};
 
@@ -199,12 +211,17 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 			if (res.ok) {
 				onComplete();
 			} else {
-				throw new Error("Failed to finalize setup");
+				throw new Error(
+					t("setup.errors.finalize_failed", "Failed to finalize setup"),
+				);
 			}
 		} catch {
 			dispatch({
 				type: "INSTALL_FAILURE",
-				payload: "Failed to save configuration. Please try again.",
+				payload: t(
+					"setup.errors.save_config_failed",
+					"Failed to save configuration. Please try again.",
+				),
 			});
 		}
 	};

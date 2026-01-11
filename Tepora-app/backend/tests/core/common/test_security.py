@@ -48,3 +48,23 @@ class TestSecurityUtils:
         # 2. Traversal
         with pytest.raises(ValueError):
             SecurityUtils.safe_path_join(base, "../outside.txt")
+
+    def test_safe_path_join_prefix_collision(self):
+        """
+        Test that a path starting with the same prefix but not in the same directory is rejected.
+        E.g. base="/tmp/data", target="/tmp/database/secret.txt"
+        str(target).startswith(str(base)) would be True, but it is unsafe.
+        """
+        base = Path("/tmp/data")
+        # /tmp/database is NOT inside /tmp/data
+        # We construct a path that resolves to /tmp/database/secret.txt
+        # If we use joinpath, base / "../database/secret.txt" -> /tmp/database/secret.txt
+
+        with pytest.raises(ValueError, match="Path traversal attempt detected"):
+            SecurityUtils.safe_path_join(base, "../database/secret.txt")
+
+    def test_validate_path_is_safe_prefix_collision(self):
+        base = Path("/tmp/data")
+        target = Path("/tmp/database/secret.txt")
+        # Should be False, but with simple startswith it might be True
+        assert SecurityUtils.validate_path_is_safe(target, base) is False

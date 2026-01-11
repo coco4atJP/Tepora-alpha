@@ -33,6 +33,7 @@ export interface MessageHandlerDependencies {
 	setIsLoadingHistory: (value: boolean) => void;
 	isToolApproved: (toolName: string) => boolean;
 	setPendingToolConfirmation: (request: ToolConfirmationRequest | null) => void;
+	onAutoApprove: (requestId: string, toolName: string) => void;
 }
 
 /**
@@ -57,6 +58,7 @@ export const useWebSocketMessageHandlers = (
 		setIsLoadingHistory,
 		isToolApproved,
 		setPendingToolConfirmation,
+		onAutoApprove,
 	} = deps;
 
 	const handleChunkMessage = useCallback(
@@ -157,11 +159,12 @@ export const useWebSocketMessageHandlers = (
 				if (import.meta.env.DEV) {
 					console.log(`Tool ${request.toolName} auto-approved (session cache)`);
 				}
+				onAutoApprove(request.requestId, request.toolName);
 			} else {
 				setPendingToolConfirmation(request);
 			}
 		},
-		[isToolApproved, setPendingToolConfirmation],
+		[isToolApproved, setPendingToolConfirmation, onAutoApprove],
 	);
 
 	const handleHistoryMessage = useCallback(

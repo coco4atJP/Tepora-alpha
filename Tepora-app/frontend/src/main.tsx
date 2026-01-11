@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { SettingsProvider } from "./context/SettingsContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
+import { getSessionToken } from "./utils/sessionToken";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,12 @@ async function init() {
 			console.warn("[Main] Backend startup issue:", error);
 			// Continue anyway - App will handle connection errors
 		}
+	}
+
+	try {
+		await getSessionToken();
+	} catch (error) {
+		console.warn("[Main] Failed to load session token:", error);
 	}
 
 	ReactDOM.createRoot(document.getElementById("root")!).render(

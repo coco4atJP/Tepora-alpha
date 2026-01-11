@@ -10,6 +10,7 @@ interface ModalProps {
 	children: React.ReactNode;
 	className?: string;
 	size?: "md" | "lg" | "xl";
+	customContent?: boolean;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -19,6 +20,7 @@ const Modal: React.FC<ModalProps> = ({
 	children,
 	className = "",
 	size = "md",
+	customContent = false,
 }) => {
 	const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -89,7 +91,11 @@ const Modal: React.FC<ModalProps> = ({
 				</div>
 
 				{/* Content */}
-				<div className="p-4 overflow-y-auto max-h-[80vh]">{children}</div>
+				{customContent ? (
+					children
+				) : (
+					<div className="p-4 overflow-y-auto max-h-[80vh]">{children}</div>
+				)}
 			</div>
 		</div>
 	);

@@ -1,7 +1,7 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
-**バージョン**: 2.6
-**最終更新日**: 2026-01-07
+**バージョン**: 2.7
+**最終更新日**: 2026-01-11
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
 ---
@@ -425,7 +425,8 @@ frontend/
 - `GET /api/mcp/config` - MCP設定情報取得
 - `POST /api/mcp/config` - MCP設定更新
 - `GET /api/mcp/store` - MCPレジストリ（利用可能なサーバー一覧）取得
-- `POST /api/mcp/install` - MCPサーバーインストール
+- `POST /api/mcp/install/preview` - MCPサーバーインストールプレビュー（2段階Step 1）
+- `POST /api/mcp/install/confirm` - MCPサーバーインストール確認（2段階Step 2）
 - `POST /api/mcp/servers/{server_name}/enable` - サーバー有効化
 - `POST /api/mcp/servers/{server_name}/disable` - サーバー無効化
 - `DELETE /api/mcp/servers/{server_name}` - サーバー削除
@@ -458,8 +459,13 @@ frontend/
 - `POST /api/setup/initial` - 初回セットアップ実行
 
 **セキュリティ要件**
+- セッショントークン認証: APIおよびWebSocket接続にはセッショントークンが必須（`x-api-key`ヘッダー / `?token=`クエリパラメータ）。トークンはサーバー起動時に生成され、環境変数またはファイルでフロントエンドに共有される。
+- MCP 2段階インストール: MCPサーバーインストールは`/install/preview`でコマンドプレビュー→`/install/confirm`で同意後実行の2段階フローを推奨。インストール直後はセキュリティのためデフォルトで**無効（disabled）**状態となり、手動での有効化が必要。
+- MCP接続ポリシー: デフォルトで `LOCAL_ONLY`（ローカルサーバー/stdioのみ許可）。外部サーバーはAllowlistによる明示的な許可が必要。`sudo` 等の危険コマンドはブロックされる。
+- MCPツール承認: 全てのMCPツールは潜在的に危険とみなされ、セッションごとの初回使用時にユーザー承認（Confirmation）を要求する。
 - `POST /api/shutdown` は `X-Admin-Token` を必須とし、バックエンドは `127.0.0.1` のみバインド。
 - モデルダウンロードは allowlist または許可オーナーに限定し、未登録時は警告 + 同意を必須化。リビジョン固定を行い、SHA256は提供時のみ検証する。
+- 実行バイナリ (llama.cpp) のダウンロード時は、GitHub ReleasesのSHA256ダイジェストを用いて完全性検証を必須とする。
 
 #### WebSocketメッセージフォーマット
 
@@ -610,6 +616,7 @@ graph TB
 **ネイティブツール** (`tools/native.py`)
 - Pythonで直接実装されたツール
 - 例: Google検索、Web scraping
+- **PII保護**: `pii_redactor` モジュールにより、外部通信前に個人情報（メール、電話番号等）を自動的に検出しリダクションを行う。
 
 **MCPツール** (`tools/mcp.py`)
 - Model Context Protocol準拠の外部サーバーと連携
@@ -673,7 +680,7 @@ app:
 
 privacy:
   allow_web_search: false
-  redact_pii: true
+  redact_pii: true # 外部送信テキスト（Web検索クエリ等）からPIIを自動削除
 
 model_download:
   require_allowlist: false
@@ -748,6 +755,7 @@ components/
 │   ├── settings.css            # スタイル
 │   ├── sections/               # タブセクション
 │   │   ├── GeneralSettings.tsx     # 一般設定
+│   │   ├── PrivacySettings.tsx     # プライバシー設定
 │   │   ├── ModelSettings.tsx       # モデル設定
 │   │   ├── CharacterSettings.tsx   # キャラクター設定
 │   │   ├── McpSettings.tsx         # MCP設定

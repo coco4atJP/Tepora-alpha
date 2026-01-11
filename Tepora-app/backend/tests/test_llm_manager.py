@@ -80,6 +80,9 @@ class TestLLMManager(unittest.IsolatedAsyncioTestCase):
 
         self.manager = LLMManager()
 
+        # Set perform_health_check_async as AsyncMock for await compatibility
+        self.mock_process_manager.perform_health_check_async = AsyncMock()
+
     def tearDown(self):
         """Clean up by stopping the patchers."""
         self.manager.cleanup()
@@ -143,7 +146,7 @@ class TestLLMManager(unittest.IsolatedAsyncioTestCase):
         args, _ = self.mock_process_manager.start_process.call_args
         self.assertEqual(args[0], key)  # key argument
 
-        self.mock_process_manager.perform_health_check.assert_called_once()
+        self.mock_process_manager.perform_health_check_async.assert_called_once()
 
         # 3. ClientFactory called
         self.mock_client_factory.create_chat_client.assert_called_once_with(key, 12345, mock_config)

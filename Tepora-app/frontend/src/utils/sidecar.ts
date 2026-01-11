@@ -1,7 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { exit } from "@tauri-apps/plugin-process";
 import { type Child, Command } from "@tauri-apps/plugin-shell";
-import { getApiBase, setDynamicPort } from "./api";
+import { getApiBase, getAuthHeadersAsync, setDynamicPort } from "./api";
 
 // Helper to detect if running in Tauri
 export const isDesktop = () => {
@@ -14,6 +14,29 @@ let backendPort: number | null = null;
 
 // Store the sidecar child process for termination
 let sidecarChild: Child | null = null;
+
+let closeHandlerRegistered = false;
+let shutdownInProgress = false;
+
+let sidecarExited: Promise<void> | null = null;
+let resolveSidecarExited: (() => void) | null = null;
+
+function resetSidecarExitPromise(): void {
+	sidecarExited = new Promise((resolve) => {
+		resolveSidecarExited = resolve;
+	});
+}
+
+function markSidecarExited(): void {
+	if (resolveSidecarExited) {
+		resolveSidecarExited();
+		resolveSidecarExited = null;
+	}
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export const backendReady: Promise<number> = new Promise((resolve) => {
 	backendReadyResolve = resolve;
@@ -52,6 +75,78 @@ export async function startSidecar() {
 		return;
 	}
 
+	// Ensure we always attempt cleanup on window close (even if backend was already running)
+	if (!closeHandlerRegistered) {
+		closeHandlerRegistered = true;
+		try {
+			const appWindow = getCurrentWindow();
+			await appWindow.onCloseRequested(async (event) => {
+				event.preventDefault();
+
+				if (shutdownInProgress) return;
+				shutdownInProgress = true;
+
+				console.log(
+					"[Sidecar] Window close requested, shutting down backend...",
+				);
+
+				// 1) Ask backend to shutdown gracefully (requires x-api-key)
+				if (backendPort) {
+					try {
+						const headers = await getAuthHeadersAsync();
+						const res = await fetch(
+							`http://127.0.0.1:${backendPort}/api/shutdown`,
+							{
+								method: "POST",
+								headers,
+								signal: AbortSignal.timeout(800),
+							},
+						);
+						if (!res.ok) {
+							console.warn(
+								`[Sidecar] Backend shutdown request failed: ${res.status}`,
+							);
+						} else {
+							console.log("[Sidecar] Shutdown request sent to backend.");
+						}
+					} catch (error) {
+						console.log(
+							"[Sidecar] Backend shutdown request completed or timed out.",
+							error,
+						);
+					}
+				}
+
+				// 2) Give it a moment to exit on its own, then force-kill as a fallback
+				try {
+					const exited = await Promise.race([
+						sidecarExited?.then(() => true) ?? Promise.resolve(false),
+						delay(1200).then(() => false),
+					]);
+					if (!exited) {
+						await stopSidecar();
+					}
+				} catch (error) {
+					console.warn(
+						"[Sidecar] Failed while waiting for backend exit:",
+						error,
+					);
+					await stopSidecar();
+				}
+
+				// 3) Exit the app process
+				try {
+					await exit(0);
+				} catch {
+					// exit呼び出しが失敗しても問題ない（既に終了中）
+				}
+			});
+			console.log("[Sidecar] Window close handler registered.");
+		} catch (err) {
+			console.warn("[Sidecar] Failed to register window close handler:", err);
+		}
+	}
+
 	try {
 		// Check if backend is already running on any common port
 		for (const testPort of [8000, 8001, 8002]) {
@@ -74,12 +169,14 @@ export async function startSidecar() {
 		console.log("[Sidecar] Starting backend sidecar...");
 		// Note: Tauri will look for tepora-backend-target-triple(.exe)
 		const command = Command.sidecar("binaries/tepora-backend");
+		resetSidecarExitPromise();
 
 		command.on("close", (data) => {
 			console.log(
 				`[Sidecar] finished with code ${data.code} and signal ${data.signal}`,
 			);
 			sidecarChild = null;
+			markSidecarExited();
 		});
 		command.on("error", (error) =>
 			console.error(`[Sidecar] error: "${error}"`),
@@ -125,44 +222,6 @@ export async function startSidecar() {
 		const child = await command.spawn();
 		sidecarChild = child; // Store reference for termination
 		console.log("[Sidecar] Backend spawned with PID:", child.pid);
-
-		// Setup window close handler to terminate sidecar
-		try {
-			const appWindow = getCurrentWindow();
-			await appWindow.onCloseRequested(async () => {
-				console.log(
-					"[Sidecar] Window close requested, shutting down backend...",
-				);
-
-				// バックエンドにシャットダウンリクエストを送信
-				if (backendPort) {
-					try {
-						await fetch(`http://127.0.0.1:${backendPort}/api/shutdown`, {
-							method: "POST",
-							signal: AbortSignal.timeout(1000), // 1秒タイムアウト
-						});
-						console.log("[Sidecar] Shutdown request sent to backend.");
-					} catch {
-						// タイムアウトやエラーは無視（サーバーが終了中の場合接続が切れる）
-						console.log(
-							"[Sidecar] Backend shutdown request completed or timed out.",
-						);
-					}
-				}
-
-				// 少し待ってからアプリを強制終了
-				setTimeout(async () => {
-					try {
-						await exit(0);
-					} catch {
-						// exit呼び出しが失敗しても問題ない（既に終了中）
-					}
-				}, 200);
-			});
-			console.log("[Sidecar] Window close handler registered.");
-		} catch (err) {
-			console.warn("[Sidecar] Failed to register window close handler:", err);
-		}
 
 		// Wait for port detection with timeout
 		const timeoutMs = 30000;

@@ -2,7 +2,7 @@
 
 ![log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
-# Tepora （Beta v2.0）
+# Tepora （v0.2.0-beta）
 
 > あなたの隣で、思考し、記憶し、成長する。
 > パーソナルAIエージェント、Teporaへようこそ。

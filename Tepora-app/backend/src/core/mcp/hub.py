@@ -11,11 +11,12 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -27,6 +28,9 @@ from .models import (
     McpToolsConfig,
     TransportType,
 )
+
+if TYPE_CHECKING:
+    from .mcp_policy import McpPolicyManager
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +45,20 @@ class McpHub:
     - Provides connection status for each server
     - Supports hot-reload of config file changes
     - Lenient validation to handle third-party server quirks
+    - Phase 3: Config change detection & approval
+    - Phase 4: Connection policy enforcement
     """
 
-    def __init__(self, config_path: Path):
+    def __init__(self, config_path: Path, policy_manager: McpPolicyManager | None = None):
         """
         Initialize McpHub.
 
         Args:
             config_path: Path to mcp_tools_config.json
+            policy_manager: Optional McpPolicyManager for enforcing connection policies.
         """
         self.config_path = config_path
+        self._policy_manager = policy_manager
         self._config: McpToolsConfig = McpToolsConfig()
         self._clients: dict[str, MultiServerMCPClient] = {}
         self._tools: dict[str, list[BaseTool]] = {}  # server_name -> tools
@@ -58,6 +66,16 @@ class McpHub:
         self._initialized = False
         self._watcher_task: asyncio.Task | None = None
         self._last_config_mtime: float = 0
+
+        # Phase 3: Pending changes and trust management
+        self._pending_changes: dict[str, dict[str, Any]] = {}  # change_id -> change_data
+        self._trusted_hashes: set[str] = set()  # SHA256 hashes of approved configs
+        self._load_trusted_hashes()
+
+    @property
+    def policy_manager(self) -> McpPolicyManager | None:
+        """Get the policy manager instance."""
+        return self._policy_manager
 
     @property
     def initialized(self) -> bool:
@@ -246,6 +264,143 @@ class McpHub:
         self._watcher_task = asyncio.create_task(watch_loop())
         logger.info("Started config file watcher (poll interval: %ss)", poll_interval)
 
+    # --- Pending Changes Management (Phase 3) ---
+
+    def detect_config_changes(self) -> dict[str, Any] | None:
+        """
+        Detect if current config file differs from last trusted state.
+
+        Returns:
+            Change details if untrusted changes detected, None if config is trusted.
+        """
+        raw_config = self._read_config_raw()
+        config_hash = self._compute_config_hash(raw_config)
+
+        if config_hash in self._trusted_hashes:
+            return None
+
+        # Detect specific changes
+        old_servers = set(self._config.mcpServers.keys())
+        new_config = self._parse_config_lenient(raw_config)
+        new_servers = set(new_config.mcpServers.keys())
+
+        added = new_servers - old_servers
+        removed = old_servers - new_servers
+        modified = []
+
+        for name in old_servers & new_servers:
+            old_cfg = self._config.mcpServers[name]
+            new_cfg = new_config.mcpServers.get(name)
+            if new_cfg and (
+                old_cfg.command != new_cfg.command
+                or old_cfg.args != new_cfg.args
+                or old_cfg.env != new_cfg.env
+            ):
+                modified.append(name)
+
+        if not added and not removed and not modified:
+            # No meaningful changes
+            self._trusted_hashes.add(config_hash)
+            self._save_trusted_hashes()
+            return None
+
+        return {
+            "config_hash": config_hash,
+            "added_servers": list(added),
+            "removed_servers": list(removed),
+            "modified_servers": modified,
+            "pending_config": raw_config,
+        }
+
+    def hold_pending_change(self, change_id: str, change_data: dict[str, Any]) -> None:
+        """Hold a config change in pending state until user approval."""
+        self._pending_changes[change_id] = {
+            **change_data,
+            "created_at": datetime.now().isoformat(),
+        }
+        logger.info("Holding pending config change: %s", change_id)
+
+    def get_pending_changes(self) -> list[dict[str, Any]]:
+        """Get all pending config changes awaiting approval."""
+        return [{"change_id": cid, **data} for cid, data in self._pending_changes.items()]
+
+    async def approve_pending_change(self, change_id: str) -> tuple[bool, str | None]:
+        """
+        Approve and apply a pending config change.
+
+        Returns:
+            (success, error_message)
+        """
+        if change_id not in self._pending_changes:
+            return False, f"Pending change '{change_id}' not found"
+
+        change = self._pending_changes[change_id]
+        pending_config = change.get("pending_config", {})
+        config_hash = change.get("config_hash")
+
+        # Apply the change
+        success, error = await self.update_config(pending_config)
+
+        if success:
+            # Mark as trusted
+            if config_hash:
+                self._trusted_hashes.add(config_hash)
+                self._save_trusted_hashes()
+            del self._pending_changes[change_id]
+            logger.info("Approved and applied pending change: %s", change_id)
+
+        return success, error
+
+    def reject_pending_change(self, change_id: str) -> bool:
+        """Reject and discard a pending config change."""
+        if change_id not in self._pending_changes:
+            return False
+
+        del self._pending_changes[change_id]
+        logger.info("Rejected pending change: %s", change_id)
+        return True
+
+    def trust_current_config(self) -> None:
+        """Mark current config as trusted."""
+        raw_config = self._read_config_raw()
+        config_hash = self._compute_config_hash(raw_config)
+        self._trusted_hashes.add(config_hash)
+        self._save_trusted_hashes()
+        logger.info("Current config marked as trusted")
+
+    def is_config_trusted(self) -> bool:
+        """Check if current config file is in trusted state."""
+        raw_config = self._read_config_raw()
+        config_hash = self._compute_config_hash(raw_config)
+        return config_hash in self._trusted_hashes
+
+    def _compute_config_hash(self, config: dict[str, Any]) -> str:
+        """Compute SHA256 hash of config for trust verification."""
+        config_str = json.dumps(config, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(config_str.encode()).hexdigest()
+
+    def _load_trusted_hashes(self) -> None:
+        """Load trusted config hashes from storage."""
+        trust_file = self.config_path.parent / ".mcp_trusted_hashes"
+        try:
+            if trust_file.exists():
+                data = json.loads(trust_file.read_text(encoding="utf-8"))
+                self._trusted_hashes = set(data.get("hashes", []))
+                logger.debug("Loaded %d trusted hashes", len(self._trusted_hashes))
+        except Exception as e:
+            logger.warning("Failed to load trusted hashes: %s", e)
+            self._trusted_hashes = set()
+
+    def _save_trusted_hashes(self) -> None:
+        """Save trusted config hashes to storage."""
+        trust_file = self.config_path.parent / ".mcp_trusted_hashes"
+        try:
+            trust_file.write_text(
+                json.dumps({"hashes": list(self._trusted_hashes)}, indent=2), encoding="utf-8"
+            )
+        except Exception as e:
+            logger.warning("Failed to save trusted hashes: %s", e)
+
     # --- Private Methods ---
 
     async def _load_config(self) -> None:
@@ -324,6 +479,30 @@ class McpHub:
             name=name,
             status=ConnectionStatus.CONNECTING,
         )
+
+        # Helper to mark error
+        def _mark_error(err_msg: str):
+            self._status[name] = McpServerStatus(
+                name=name,
+                status=ConnectionStatus.ERROR,
+                error_message=err_msg,
+            )
+            logger.error(err_msg)
+
+        # Phase 4: Check if connection is allowed by policy
+        if self._policy_manager:
+            is_local = config.transport == TransportType.STDIO or (
+                config.url and ("localhost" in config.url or "127.0.0.1" in config.url)
+            )
+            allowed, reason = self._policy_manager.can_connect(
+                server_name=name,
+                transport=config.transport.value,
+                command=config.command,
+                is_local=is_local or False,
+            )
+            if not allowed:
+                _mark_error(f"Connection blocked by policy: {reason}")
+                return False
 
         last_error: str | None = None
 

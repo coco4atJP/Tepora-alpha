@@ -226,7 +226,7 @@ class ConversationNodes:
         logger.info(f"Generated search queries: {queries}")
         return {"search_queries": queries or ([base_request] if base_request else [])}
 
-    def execute_search_node(self, state: AgentState) -> dict:
+    async def execute_search_node(self, state: AgentState) -> dict:
         """
         Execute Google Custom Search API tool and aggregate results.
 
@@ -252,7 +252,10 @@ class ConversationNodes:
 
         for query in queries:
             logger.info("Executing search for query: '%s'", query)
-            raw_result = self.tool_manager.execute_tool("native_google_search", {"query": query})
+            # Use async execution to avoid blocking the event loop
+            raw_result = await self.tool_manager.aexecute_tool(
+                "native_google_search", {"query": query}
+            )
 
             if not isinstance(raw_result, str):
                 logger.warning(
@@ -326,7 +329,7 @@ class ConversationNodes:
                     and isinstance(result_group["results"], list)
                     and len(result_group["results"]) > 0
                 ):
-                    top_result_url = result_group["results"][0].get("link")
+                    top_result_url = result_group["results"][0].get("url")
                     if top_result_url:
                         break
 

@@ -128,7 +128,7 @@ class LLMManager:
                 self.process_manager.start_process(key, command, stderr_log_path)
 
                 # Check health
-                self.process_manager.perform_health_check(port, key, stderr_log_path)
+                await self.process_manager.perform_health_check_async(port, key, stderr_log_path)
             except Exception:
                 logger.error(f"Failed to start server for '{key}'.")
                 self.process_manager.stop_process(key)
@@ -174,7 +174,9 @@ class LLMManager:
 
                     try:
                         self.process_manager.start_process(key, command, stderr_log_path)
-                        self.process_manager.perform_health_check(port, key, stderr_log_path)
+                        await self.process_manager.perform_health_check_async(
+                            port, key, stderr_log_path
+                        )
                     except Exception:
                         self.process_manager.stop_process(key)
                         raise
@@ -277,7 +279,7 @@ class LLMManager:
 
             try:
                 self.process_manager.start_process(key, command, stderr_log_path)
-                self.process_manager.perform_health_check(port, key, stderr_log_path)
+                await self.process_manager.perform_health_check_async(port, key, stderr_log_path)
             except Exception:
                 logger.error(f"Failed to start server for executor model (task_type: {task_type})")
                 self.process_manager.stop_process(key)

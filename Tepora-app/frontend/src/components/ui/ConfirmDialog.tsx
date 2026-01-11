@@ -38,13 +38,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 				<p className="confirm-dialog-message">{message}</p>
 				<div className="confirm-dialog-actions">
 					<button className="btn-cancel" onClick={onCancel}>
-						{cancelLabel || t("cancel", "キャンセル")}
+						{cancelLabel || t("common.cancel", "キャンセル")}
 					</button>
 					<button
 						className={`btn-confirm ${variant === "danger" ? "btn-danger" : ""}`}
 						onClick={onConfirm}
 					>
-						{confirmLabel || t("confirm", "確認")}
+						{confirmLabel || t("common.confirm", "確認")}
 					</button>
 				</div>
 

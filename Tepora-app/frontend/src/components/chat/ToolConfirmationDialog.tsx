@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, ExternalLink, X } from "lucide-react";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Modal from "../ui/Modal";
 
 export interface ToolConfirmationRequest {
@@ -15,16 +16,6 @@ interface ToolConfirmationDialogProps {
 	onDeny: (requestId: string) => void;
 }
 
-const TOOL_DISPLAY_NAMES: Record<string, string> = {
-	native_web_fetch: "Webページ取得",
-	native_google_search: "Google検索",
-};
-
-const TOOL_DESCRIPTIONS: Record<string, string> = {
-	native_web_fetch: "指定されたURLのWebページにアクセスします。",
-	native_google_search: "Googleでウェブ検索を実行します。",
-};
-
 /**
  * Dialog for confirming dangerous tool execution.
  * Shows tool name, arguments, and allows user to approve or deny.
@@ -34,21 +25,32 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 	onAllow,
 	onDeny,
 }) => {
+	const { t } = useTranslation();
 	const [rememberChoice, setRememberChoice] = React.useState(false);
 
 	if (!request) return null;
 
-	const displayName = TOOL_DISPLAY_NAMES[request.toolName] || request.toolName;
+	const displayName =
+		t(`tool_confirmation.names.${request.toolName}`) !==
+		`tool_confirmation.names.${request.toolName}`
+			? t(`tool_confirmation.names.${request.toolName}`)
+			: request.toolName;
+
 	const description =
 		request.description ||
-		TOOL_DESCRIPTIONS[request.toolName] ||
-		"このツールを実行しようとしています。";
+		(t(`tool_confirmation.descriptions.${request.toolName}`) !==
+		`tool_confirmation.descriptions.${request.toolName}`
+			? t(`tool_confirmation.descriptions.${request.toolName}`)
+			: t(
+					"tool_confirmation.description",
+					"このツールを実行しようとしています。",
+				));
 
 	return (
 		<Modal
 			isOpen={true}
 			onClose={() => onDeny(request.requestId)}
-			title="ツール実行の確認"
+			title={t("tool_confirmation.title", "ツール実行の確認")}
 			size="md"
 		>
 			<div className="p-6 space-y-6">
@@ -68,7 +70,7 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 				{/* Tool Arguments */}
 				<div className="bg-black/30 rounded-lg p-4 border border-white/10">
 					<h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-						パラメータ
+						{t("tool_confirmation.params", "パラメータ")}
 					</h4>
 					<pre className="text-sm text-gray-300 whitespace-pre-wrap break-all font-mono">
 						{JSON.stringify(request.toolArgs, null, 2)}
@@ -93,13 +95,16 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 						className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-gold-500 focus:ring-gold-500/50"
 					/>
 					<span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-						このセッション中は同じツールを自動的に許可する
+						{t(
+							"tool_confirmation.allow_session",
+							"このセッション中は同じツールを自動的に許可する",
+						)}
 					</span>
 				</label>
 
 				{/* Warning about non-blocking behavior */}
 				<div className="text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
-					⚠️ 拒否すると処理を中断します
+					{t("tool_confirmation.warning_deny", "⚠️ 拒否すると処理を中断します")}
 				</div>
 
 				{/* Action Buttons */}
@@ -118,7 +123,7 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
             "
 					>
 						<X className="w-4 h-4" />
-						拒否
+						{t("tool_confirmation.deny", "拒否")}
 					</button>
 					<button
 						type="button"
@@ -134,7 +139,7 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
             "
 					>
 						<Check className="w-4 h-4" />
-						許可
+						{t("tool_confirmation.allow", "許可")}
 					</button>
 				</div>
 			</div>

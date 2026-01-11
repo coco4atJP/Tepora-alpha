@@ -63,9 +63,10 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 		const diff = now.getTime() - date.getTime();
 		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-		if (days === 0) return t("today", "Today");
-		if (days === 1) return t("yesterday", "Yesterday");
-		if (days < 7) return t("daysAgo", "{{count}} days ago", { count: days });
+		if (days === 0) return t("common.today", "Today");
+		if (days === 1) return t("common.yesterday", "Yesterday");
+		if (days < 7)
+			return t("common.daysAgo", "{{count}} days ago", { count: days });
 		return date.toLocaleDateString();
 	};
 
@@ -73,13 +74,13 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 		<div className="session-history">
 			{/* Header */}
 			<div className="session-history-header">
-				<h3>{t("sessionHistory", "Sessions")}</h3>
+				<h3>{t("session_history.title", "Sessions")}</h3>
 				<button
 					type="button"
 					className="btn-new-session"
 					onClick={onCreateSession}
 					disabled={loading}
-					aria-label={t("newSession", "New Session")}
+					aria-label={t("session_history.new", "New Session")}
 				>
 					<svg
 						width="16"
@@ -99,13 +100,15 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 			{/* Session List */}
 			<ul
 				className="session-list"
-				aria-label={t("sessionList", "Session List")}
+				aria-label={t("session_history.list_aria_label", "Session List")}
 			>
 				{loading && sessions.length === 0 ? (
-					<div className="session-loading">{t("loading", "Loading...")}</div>
+					<div className="session-loading">
+						{t("session_history.loading", "Loading...")}
+					</div>
 				) : sessions.length === 0 ? (
 					<div className="session-empty">
-						{t("noSessions", "No sessions yet")}
+						{t("session_history.empty", "No sessions yet")}
 					</div>
 				) : (
 					sessions.map((session) => (
@@ -123,13 +126,16 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 											if (e.key === "Enter") handleSaveEdit();
 											if (e.key === "Escape") handleCancelEdit();
 										}}
-										aria-label={t("editSessionTitle", "Edit session title")}
+										aria-label={t(
+											"session_history.edit_title",
+											"Edit session title",
+										)}
 									/>
 									<button
 										type="button"
 										onClick={handleSaveEdit}
 										className="btn-save"
-										aria-label={t("save", "Save")}
+										aria-label={t("common.save", "Save")}
 									>
 										✓
 									</button>
@@ -137,7 +143,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 										type="button"
 										onClick={handleCancelEdit}
 										className="btn-cancel"
-										aria-label={t("cancel", "Cancel")}
+										aria-label={t("common.cancel", "Cancel")}
 									>
 										✕
 									</button>
@@ -159,7 +165,8 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 											</span>
 											{session.message_count !== undefined && (
 												<span className="session-count">
-													{session.message_count} {t("messages", "msgs")}
+													{session.message_count}{" "}
+													{t("session_history.messages", "msgs")}
 												</span>
 											)}
 										</div>
@@ -175,7 +182,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 												e.stopPropagation();
 												handleStartEdit(session);
 											}}
-											aria-label={t("rename", "Rename")}
+											aria-label={t("common.edit", "Rename")}
 										>
 											✎
 										</button>
@@ -186,7 +193,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 												e.stopPropagation();
 												setDeleteTargetId(session.id);
 											}}
-											aria-label={t("delete", "Delete")}
+											aria-label={t("common.delete", "Delete")}
 										>
 											🗑
 										</button>
@@ -402,13 +409,13 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 			{/* UX改善3: カスタム削除確認ダイアログ */}
 			<ConfirmDialog
 				isOpen={deleteTargetId !== null}
-				title={t("deleteSession", "セッションを削除")}
+				title={t("session_history.delete_title", "Delete Session")}
 				message={t(
-					"confirmDeleteMessage",
-					"このセッションを削除してもよろしいですか？会話履歴もすべて削除されます。",
+					"session_history.delete_message",
+					"Are you sure you want to delete this session? All conversation history will be lost.",
 				)}
-				confirmLabel={t("delete", "削除")}
-				cancelLabel={t("cancel", "キャンセル")}
+				confirmLabel={t("common.delete", "Delete")}
+				cancelLabel={t("common.cancel", "Cancel")}
 				variant="danger"
 				onConfirm={() => {
 					if (deleteTargetId) {

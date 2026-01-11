@@ -1,7 +1,6 @@
 # agent_core/config/loader.py
 import logging
 import os
-import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -202,22 +201,23 @@ settings = SettingsProxy()
 
 
 # --- Session Token (for WebSocket Security) ---
+# Deprecated: Use src.tepora_server.api.security.get_session_token instead
+# This function is kept for backwards compatibility
 
-_session_token: str | None = None
 
-
-def get_session_token() -> str:
+def get_session_token() -> str | None:
     """
-    Get the session token generated at startup.
+    Get the session token for WebSocket authentication.
 
-    This token is used for WebSocket authentication to ensure only
-    the local frontend can connect to the backend.
-
-    Returns:
-        A cryptographically secure random token (32 bytes, URL-safe base64)
+    DEPRECATED: Use src.tepora_server.api.security.get_session_token instead.
+    This function now delegates to the security module.
     """
-    global _session_token
-    if _session_token is None:
-        _session_token = secrets.token_urlsafe(32)
-        logger.info("Session token generated for WebSocket authentication")
-    return _session_token
+    try:
+        from src.tepora_server.api.security import get_session_token as _get_token
+
+        return _get_token()
+    except ImportError:
+        # Fallback for cases where security module is not available
+        import secrets
+
+        return secrets.token_urlsafe(32)

@@ -338,9 +338,9 @@ class ModelManager:
             )
 
         owner = _get_repo_owner(repo_id)
-        owner_allowed = (
-            owner is not None and owner in [o.lower() for o in download_config.allow_repo_owners]
-        )
+        owner_allowed = owner is not None and owner in [
+            o.lower() for o in download_config.allow_repo_owners
+        ]
 
         if owner_allowed:
             warnings.append(

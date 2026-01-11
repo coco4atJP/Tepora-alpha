@@ -1,39 +1,30 @@
 import { Cpu, Server } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
+import { useSettings } from "../../../hooks/useSettings";
 import {
+	CollapsibleSection,
 	FormGroup,
 	FormInput,
 	ModelCard,
-	type ModelConfig,
 	SettingsSection,
 } from "../SettingsComponents";
 
-interface LlmManagerConfig {
-	process_terminate_timeout: number;
-	health_check_timeout: number;
-	health_check_interval: number;
-	tokenizer_model_key: string;
-	cache_size: number;
-}
-
-interface ModelSettingsProps {
-	llmConfig: LlmManagerConfig;
-	modelsConfig: Record<string, ModelConfig>;
-	onUpdateLlm: <K extends keyof LlmManagerConfig>(
-		field: K,
-		value: LlmManagerConfig[K],
-	) => void;
-	onUpdateModel: (key: string, config: ModelConfig) => void;
-}
-
-const ModelSettings: React.FC<ModelSettingsProps> = ({
-	llmConfig,
-	modelsConfig,
-	onUpdateLlm,
-	onUpdateModel,
-}) => {
+const ModelSettings: React.FC = () => {
 	const { t } = useTranslation();
+	const { config, originalConfig, updateLlmManager, updateModel } =
+		useSettings();
+
+	if (!config) return null;
+
+	const llmConfig = config.llm_manager;
+	const originalLlmConfig = originalConfig?.llm_manager;
+	const modelsConfig = config.models_gguf;
+
+	const isLlmDirty = (field: keyof typeof llmConfig) => {
+		if (!originalLlmConfig) return false;
+		return llmConfig[field] !== originalLlmConfig[field];
+	};
 
 	return (
 		<div className="space-y-6">
@@ -55,11 +46,12 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
 							t("settings.descriptions.cache_size") ||
 							"Number of models to keep loaded in memory simultaneously."
 						}
+						isDirty={isLlmDirty("cache_size")}
 					>
 						<FormInput
 							type="number"
 							value={llmConfig.cache_size ?? 1}
-							onChange={(v) => onUpdateLlm("cache_size", v as number)}
+							onChange={(v) => updateLlmManager("cache_size", v as number)}
 							min={1}
 							max={5}
 							step={1}
@@ -67,15 +59,87 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
 					</FormGroup>
 
 					<FormGroup
-						label="Tokenizer Model"
-						description="Model key used for token counting."
+						label={t("settings.models_settings.global_manager.tokenizer_model")}
+						description={t("settings.fields.tokenizer_model.description") || "Model key used for token counting."}
+						isDirty={isLlmDirty("tokenizer_model_key")}
 					>
 						<FormInput
 							value={llmConfig.tokenizer_model_key}
-							onChange={(v) => onUpdateLlm("tokenizer_model_key", v as string)}
+							onChange={(v) =>
+								updateLlmManager("tokenizer_model_key", v as string)
+							}
 						/>
 					</FormGroup>
 				</div>
+
+				<CollapsibleSection
+					title={t("settings.sections.models.advanced_title") || "Advanced Manager Settings"}
+					description={t("settings.sections.models.advanced_description") || "Timeouts and health checks"}
+				>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<FormGroup
+							label={
+								t("settings.fields.process_terminate_timeout.label") ||
+								"Terminate Timeout"
+							}
+							tooltip={t(
+								"settings.fields.process_terminate_timeout.description",
+							)}
+							isDirty={isLlmDirty("process_terminate_timeout")}
+						>
+							<FormInput
+								type="number"
+								value={llmConfig.process_terminate_timeout}
+								onChange={(v) =>
+									updateLlmManager("process_terminate_timeout", v as number)
+								}
+								min={1}
+								max={60}
+								step={1}
+							/>
+						</FormGroup>
+
+						<FormGroup
+							label={
+								t("settings.fields.health_check_timeout.label") ||
+								"Health Check Timeout"
+							}
+							tooltip={t("settings.fields.health_check_timeout.description")}
+							isDirty={isLlmDirty("health_check_timeout")}
+						>
+							<FormInput
+								type="number"
+								value={llmConfig.health_check_timeout}
+								onChange={(v) =>
+									updateLlmManager("health_check_timeout", v as number)
+								}
+								min={10}
+								max={300}
+								step={10}
+							/>
+						</FormGroup>
+
+						<FormGroup
+							label={
+								t("settings.fields.health_check_interval.label") ||
+								"Health Check Interval"
+							}
+							tooltip={t("settings.fields.health_check_interval.description")}
+							isDirty={isLlmDirty("health_check_interval")}
+						>
+							<FormInput
+								type="number"
+								value={llmConfig.health_check_interval}
+								onChange={(v) =>
+									updateLlmManager("health_check_interval", v as number)
+								}
+								min={0.5}
+								max={10}
+								step={0.5}
+							/>
+						</FormGroup>
+					</div>
+				</CollapsibleSection>
 			</SettingsSection>
 
 			{/* Individual Model Settings */}
@@ -95,7 +159,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
 							key={key}
 							name={key}
 							config={config}
-							onChange={(newConfig) => onUpdateModel(key, newConfig)}
+							onChange={(newConfig) => updateModel(key, newConfig)}
 							isEmbedding={key.includes("embedding")}
 						/>
 					))}

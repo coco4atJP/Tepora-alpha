@@ -3311,7 +3311,7 @@ wheels = [
 
 [[package]]
 name = "tepora"
-version = "1.0.0"
+version = "0.2.0b0"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },

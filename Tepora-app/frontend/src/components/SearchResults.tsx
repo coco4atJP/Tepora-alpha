@@ -23,6 +23,28 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 		);
 	}
 
+	// Helper to safely get hostname
+	const getHostname = (urlString: string) => {
+		try {
+			// Handle case where backend might send 'link' instead of 'url'
+			// or if the url is just missing/invalid
+			if (!urlString) return "";
+			return new URL(urlString).hostname;
+		} catch {
+			return "Unknown Source";
+		}
+	};
+
+	// Helper to get valid URL
+	const getValidUrl = (
+		result: SearchResult | { url?: string; link?: string },
+	) => {
+		// Fallback to 'link' if 'url' is missing (backend inconsistency fix)
+		if ("url" in result && result.url) return result.url;
+		if ("link" in result && result.link) return result.link;
+		return "#";
+	};
+
 	return (
 		<div className="h-full max-h-[calc(100vh-320px)] flex flex-col glass-panel p-4 overflow-hidden animate-fade-in border border-tea-500/10">
 			{/* Header */}
@@ -38,41 +60,44 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 
 			{/* Scrollable List */}
 			<div className="overflow-y-auto custom-scrollbar flex-1 -mr-2 pr-2 space-y-3">
-				{results.map((result, index) => (
-					<a
-						key={`${result.url}-${index}`}
-						href={result.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="block group relative p-3 rounded-xl bg-black/20 hover:bg-white/5 border border-white/5 hover:border-tea-500/30 transition-all duration-300"
-					>
-						{/* Hover Glow */}
-						<div className="absolute inset-0 rounded-xl bg-tea-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+				{results.map((result, index) => {
+					const targetUrl = getValidUrl(result);
+					return (
+						<a
+							key={`${targetUrl}-${index}`}
+							href={targetUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="block group relative p-3 rounded-xl bg-black/20 hover:bg-white/5 border border-white/5 hover:border-tea-500/30 transition-all duration-300"
+						>
+							{/* Hover Glow */}
+							<div className="absolute inset-0 rounded-xl bg-tea-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-						<div className="relative z-10">
-							<h4 className="text-xs font-medium text-tea-200 group-hover:text-tea-100 flex items-center gap-2 leading-tight mb-1.5">
-								<span className="line-clamp-2">{result.title}</span>
-								<ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
-							</h4>
+							<div className="relative z-10">
+								<h4 className="text-xs font-medium text-tea-200 group-hover:text-tea-100 flex items-center gap-2 leading-tight mb-1.5">
+									<span className="line-clamp-2">{result.title}</span>
+									<ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+								</h4>
 
-							<p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed mb-2 group-hover:text-gray-400 transition-colors">
-								{result.snippet}
-							</p>
+								<p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed mb-2 group-hover:text-gray-400 transition-colors">
+									{result.snippet}
+								</p>
 
-							<div className="flex items-center gap-1.5 text-[9px] text-tea-500/50 font-mono">
-								<Globe className="w-2.5 h-2.5" />
-								<span className="truncate max-w-[150px]">
-									{new URL(result.url).hostname}
-								</span>
+								<div className="flex items-center gap-1.5 text-[9px] text-tea-500/50 font-mono">
+									<Globe className="w-2.5 h-2.5" />
+									<span className="truncate max-w-[150px]">
+										{getHostname(targetUrl)}
+									</span>
+								</div>
 							</div>
-						</div>
 
-						{/* Arrow indicator */}
-						<div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all duration-300 text-tea-400">
-							<ChevronRight className="w-4 h-4" />
-						</div>
-					</a>
-				))}
+							{/* Arrow indicator */}
+							<div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all duration-300 text-tea-400">
+								<ChevronRight className="w-4 h-4" />
+							</div>
+						</a>
+					);
+				})}
 			</div>
 
 			{/* Footer Fade */}

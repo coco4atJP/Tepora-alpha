@@ -31,6 +31,8 @@ export interface Config {
 		max_input_length: number;
 		graph_recursion_limit: number;
 		tool_execution_timeout: number;
+		tool_approval_timeout: number;
+		web_fetch_max_chars: number;
 		dangerous_patterns: string[];
 		language: string;
 		nsfw_enabled: boolean;
@@ -46,6 +48,7 @@ export interface Config {
 	};
 	chat_history: {
 		max_tokens: number;
+		default_limit: number;
 	};
 	em_llm: {
 		surprise_gamma: number;
@@ -65,10 +68,16 @@ export interface Config {
 		google_search_api_key?: string;
 		google_search_engine_id?: string;
 	};
+
+	privacy: {
+		allow_web_search: boolean;
+		redact_pii: boolean;
+	};
 }
 
 export interface SettingsContextValue {
 	config: Config | null;
+	originalConfig: Config | null;
 	loading: boolean;
 	error: string | null;
 	hasChanges: boolean;
@@ -100,6 +109,12 @@ export interface SettingsContextValue {
 	updateTools: <K extends keyof Config["tools"]>(
 		field: K,
 		value: Config["tools"][K],
+	) => void;
+
+	// Privacy Actions
+	updatePrivacy: <K extends keyof Config["privacy"]>(
+		field: K,
+		value: Config["privacy"][K],
 	) => void;
 
 	// Character Actions
@@ -257,6 +272,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 		[],
 	);
 
+	const updatePrivacy = useCallback(
+		<K extends keyof Config["privacy"]>(
+			field: K,
+			value: Config["privacy"][K],
+		) => {
+			setConfig((prev) =>
+				prev ? { ...prev, privacy: { ...prev.privacy, [field]: value } } : prev,
+			);
+		},
+		[],
+	);
+
 	// Character Management
 	const updateCharacter = useCallback(
 		(key: string, charConfig: CharacterConfig) => {
@@ -353,15 +380,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateEmLlm,
 			updateModel,
 			updateTools,
+			updatePrivacy,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
 			setActiveAgent,
 			saveConfig,
 			resetConfig,
+			originalConfig,
 		}),
 		[
 			config,
+			originalConfig,
 			loading,
 			error,
 			hasChanges,
@@ -373,6 +403,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateEmLlm,
 			updateModel,
 			updateTools,
+			updatePrivacy,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,

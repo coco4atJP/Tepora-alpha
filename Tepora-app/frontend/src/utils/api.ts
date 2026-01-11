@@ -32,16 +32,38 @@ export function getApiPort(): string {
 }
 
 /**
- * Get authentication headers for API requests.
- * Currently returns empty headers as localhost auth is skipped,
- * but provides the structure for future remote access scenarios.
+ * Get authentication headers for API requests (synchronous version).
+ * Uses cached token if available, otherwise returns empty headers.
+ * For guaranteed token availability, use getAuthHeadersAsync().
  */
 export function getAuthHeaders(): Record<string, string> {
-	// For localhost desktop app, auth is skipped by backend.
-	// If remote access is enabled in the future, retrieve key from secure storage.
+	// Access cached token directly - this is a synchronous fallback
+	// Token must be loaded via getAuthHeadersAsync() first for this to work
+	const cachedToken =
+		typeof window !== "undefined"
+			? (window as unknown as { __tepora_session_token?: string })
+					.__tepora_session_token
+			: undefined;
+	if (cachedToken) {
+		return { "x-api-key": cachedToken };
+	}
+	// Fallback to environment variable
 	const apiKey = import.meta.env.VITE_API_KEY || "";
 	if (apiKey) {
 		return { "x-api-key": apiKey };
+	}
+	return {};
+}
+
+/**
+ * Get authentication headers for API requests (async version).
+ * Ensures token is loaded before returning headers.
+ */
+export async function getAuthHeadersAsync(): Promise<Record<string, string>> {
+	const { getSessionToken } = await import("./sessionToken");
+	const token = await getSessionToken();
+	if (token) {
+		return { "x-api-key": token };
 	}
 	return {};
 }

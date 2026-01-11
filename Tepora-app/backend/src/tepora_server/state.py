@@ -29,6 +29,7 @@ class AppState:
         self._core: TeporaCoreApp | None = None
         self._mcp_hub = None
         self._mcp_registry = None
+        self._mcp_policy_manager = None
 
     @property
     def core(self) -> TeporaCoreApp:
@@ -52,6 +53,11 @@ class AppState:
         """Get McpRegistry instance (may be None if not initialized)."""
         return self._mcp_registry
 
+    @property
+    def mcp_policy_manager(self):
+        """Get McpPolicyManager instance (may be None if not initialized)."""
+        return self._mcp_policy_manager
+
     async def initialize(self) -> bool:
         """Initialize the core app and MCP infrastructure."""
         # Initialize core app
@@ -68,15 +74,22 @@ class AppState:
 
     async def _initialize_mcp(self) -> None:
         """Initialize MCP Hub and Registry."""
-        # Determine config path
+        # Determine config paths
         config_path = PROJECT_ROOT / "config" / "mcp_tools_config.json"
+        policy_path = PROJECT_ROOT / "config" / "mcp_policy.json"
 
         # Initialize Registry
         self._mcp_registry = McpRegistry()
         logger.info("MCP Registry initialized")
 
-        # Initialize Hub
-        self._mcp_hub = McpHub(config_path)
+        # Initialize Policy Manager (Phase 4)
+        from src.core.mcp.mcp_policy import McpPolicyManager
+
+        self._mcp_policy_manager = McpPolicyManager(policy_path)
+        logger.info("MCP Policy Manager initialized")
+
+        # Initialize Hub (Phase 3)
+        self._mcp_hub = McpHub(config_path, self._mcp_policy_manager)
         await self._mcp_hub.initialize()
 
         # Start config watcher for hot-reload

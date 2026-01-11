@@ -139,6 +139,89 @@ class McpInstaller:
             return f"Error generating command: {e}"
 
     @staticmethod
+    def generate_consent_payload(
+        server: McpRegistryServer,
+        runtime: str | None = None,
+        env_values: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Generate consent payload for user approval before installation.
+
+        This is used in the 2-step install flow:
+        1. Preview the command and get user consent
+        2. Actually execute the installation
+
+        Args:
+            server: Registry server information
+            runtime: Preferred runtime
+            env_values: Environment variable values
+
+        Returns:
+            Dictionary with command details and warnings for user review
+        """
+        config = McpInstaller.generate_config(server, runtime, env_values)
+
+        # Mask sensitive environment variables
+        masked_env = {}
+        for key, value in (config.env or {}).items():
+            key_lower = key.lower()
+            if any(
+                s in key_lower for s in ["key", "secret", "token", "password", "credential", "auth"]
+            ):
+                masked_env[key] = "***MASKED***"
+            else:
+                masked_env[key] = value
+
+        # Generate command preview
+        full_command = McpInstaller.preview_command(server, runtime, env_values)
+
+        # Generate warnings based on command patterns
+        warnings = McpInstaller._generate_warnings(config.command, config.args)
+
+        return {
+            "server_id": server.id,
+            "server_name": server.name,
+            "description": server.description,
+            "command": config.command,
+            "args": config.args,
+            "env": masked_env,
+            "full_command": full_command,
+            "warnings": warnings,
+            "requires_consent": True,
+            "runtime": runtime or (server.packages[0].runtimeHint if server.packages else None),
+        }
+
+    @staticmethod
+    def _generate_warnings(command: str, args: list[str]) -> list[str]:
+        """Generate security warnings based on command patterns."""
+        warnings = []
+        full_cmd = f"{command} {' '.join(args)}".lower()
+
+        if "docker" in command:
+            warnings.append("Docker container execution - may have system access")
+            if "--privileged" in full_cmd:
+                warnings.append("⚠️ PRIVILEGED MODE - Full system access!")
+            if "-v" in args or "--volume" in full_cmd:
+                warnings.append("Volume mount detected - filesystem access")
+
+        if "npx -y" in full_cmd:
+            warnings.append("External npm package download and execution")
+
+        if "uvx" in command:
+            warnings.append("External Python package download and execution")
+
+        if "sudo" in full_cmd:
+            warnings.append("⚠️ ROOT PRIVILEGES REQUESTED")
+
+        if "rm " in full_cmd or "del " in full_cmd:
+            warnings.append("⚠️ Delete operation detected")
+
+        if not warnings:
+            warnings.append("Standard tool execution")
+
+        return warnings
+
+    @staticmethod
     def _find_package(
         packages: list[PackageInfo], preferred_runtime: str | None
     ) -> PackageInfo | None:

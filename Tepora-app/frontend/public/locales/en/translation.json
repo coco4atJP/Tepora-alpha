@@ -7,6 +7,14 @@
 		"models_needed": "Model download required",
 		"complete": "Setup complete!",
 		"error": "Error during setup",
+		"errors": {
+			"req_check_failed": "Requirements check failed",
+			"start_failed": "Failed to start setup",
+			"setup_failed_start": "Setup failed to start",
+			"finalize_failed": "Failed to finalize setup",
+			"save_config_failed": "Failed to save configuration. Please try again.",
+			"unknown": "Unknown error"
+		},
 		"start": "Start Tepora",
 		"auto_setup": "Auto Setup",
 		"skip": "Skip",
@@ -22,11 +30,67 @@
 			"missing": "Missing",
 			"outdated": "Update Available",
 			"installed": "Installed",
+			"installed": "Installed",
 			"not_downloaded": "Not Downloaded"
 		},
+		"download_warning_title": "Confirm Model Download",
+		"download_warning_desc": "Some models are not in the allowlist. Please review the warnings and confirm to proceed.",
+		"download_warning_cancel": "Cancel",
+		"download_warning_confirm": "Proceed",
 		"advanced_settings": "Advanced Settings (Change Models)",
 		"model_settings": "Model Settings",
 		"model": "Model"
+	},
+	"app": {
+		"loading": "Connecting to server...",
+		"loadingHint": "This may take a few seconds"
+	},
+	"errors": {
+		"unknownError": "An unknown error occurred.",
+		"connectionErrorTitle": "Connection Error",
+		"retryButton": "Retry Connection",
+		"troubleshootHint": "Make sure the backend server is running on the expected port."
+	},
+	"logs": {
+		"title": "Log Files",
+		"refresh": "Refresh List",
+		"refresh_content": "Refresh Content",
+		"loading_logs": "Loading logs...",
+		"loading_content": "Loading content...",
+		"no_logs": "No logs found",
+		"select_log": "Select a log",
+		"select_to_view": "Select a log file to view its content.",
+		"error_fetch": "Failed to fetch logs",
+		"error_content": "Failed to fetch log content",
+		"unknown_error": "An error occurred"
+	},
+	"tool_confirmation": {
+		"title": "Tool Execution Confirmation",
+		"description": "You are about to execute a tool.",
+		"params": "Parameters",
+		"allow_session": "Always allow this tool for this session",
+		"warning_deny": "⚠️ Denying will stop the process",
+		"deny": "Deny",
+		"allow": "Allow",
+		"names": {
+			"native_web_fetch": "Fetch Web Page",
+			"native_google_search": "Google Search"
+		},
+		"descriptions": {
+			"native_web_fetch": "Accesses a specified URL.",
+			"native_google_search": "Performs a Google web search."
+		}
+	},
+	"session_history": {
+		"title": "Sessions",
+		"new": "New Session",
+		"list_aria_label": "Session List",
+		"edit_title": "Edit session title",
+		"delete_title": "Delete Session",
+		"delete_message": "Are you sure you want to delete this session? All conversation history will be lost.",
+		"loading": "Loading...",
+		"empty": "No sessions yet",
+		"messages": "msgs"
 	},
 	"common": {
 		"language": "Language",
@@ -39,10 +103,20 @@
 		"close": "Close",
 		"enabled": "Enabled",
 		"disabled": "Disabled",
-		"retry": "Retry"
+		"disabled": "Disabled",
+		"retry": "Retry",
+		"today": "Today",
+		"yesterday": "Yesterday",
+		"daysAgo": "{{count}} days ago",
+		"confirm": "Confirm",
+		"delete": "Delete"
 	},
 	"chat": {
 		"clear_history": "Clear History",
+		"role": {
+			"assistant": "Assistant",
+			"user": "You"
+		},
 		"input": {
 			"placeholder": {
 				"connecting": "Connecting...",
@@ -99,7 +173,18 @@
 			"general": {
 				"label": "General",
 				"title": "Application",
-				"description": "Core application settings and safety limits."
+				"description": "Core application settings and safety limits.",
+				"google_search": {
+					"title": "Google Search Settings",
+					"api_key_label": "Google Search API Key",
+					"api_key_desc": "Enter API Key for Google Custom Search JSON API.",
+					"engine_id_label": "Search Engine ID",
+					"engine_id_desc": "Enter Programmable Search Engine ID."
+				},
+				"app_settings": "Application Settings",
+				"advanced_settings": "Advanced Settings",
+				"advanced_settings_desc": "Recursion limits and fetch constraints",
+				"timeout_settings": "Timeout Settings"
 			},
 			"agents": {
 				"label": "Characters",
@@ -152,7 +237,17 @@
 				"error_duplicate_key": "This ID is already in use.",
 				"edit": "Edit",
 				"delete": "Delete",
-				"no_description": "No description"
+				"delete": "Delete",
+				"no_description": "No description",
+				"default_name": "New Character",
+				"default_prompt": "You are a helpful assistant.",
+				"nsfw_label": "Unlock Restricted Content",
+				"nsfw_desc": "Allows generation of sensitive content. Use with caution."
+			},
+			"privacy": {
+				"label": "Privacy",
+				"title": "Privacy Settings",
+				"description": "Manage external communications and data sharing settings."
 			},
 			"mcp": {
 				"label": "MCP Tools",
@@ -168,7 +263,13 @@
 				"update_available": "Update Available",
 				"up_to_date": "Up to date",
 				"check_failed": "Check Failed",
-				"update_btn": "Update Model"
+				"update_btn": "Update Model",
+				"manager_title": "LLM Manager Settings",
+				"manager_description": "Configure how the system manages LLM processes and resources.",
+				"list_title": "Model Configurations",
+				"list_description": "Configure individual model parameters like context size and GPU layers.",
+				"advanced_title": "Advanced Manager Settings",
+				"advanced_description": "Timeouts and health checks"
 			},
 			"memory": {
 				"label": "Memory",
@@ -230,7 +331,13 @@
 			"boundary_refinement": {
 				"label": "Boundary Refinement",
 				"description": "Improve event segmentation accuracy."
-			}
+			},
+			"default_limit": {
+				"label": "Default History Limit",
+				"description": "Default number of messages to retrieve from history."
+			},
+			"episodic_params_title": "Episodic Memory Parameters",
+			"episodic_params_desc": "Advanced configuration for EM-LLM"
 		},
 		"mcp_content": {
 			"info": {
@@ -248,7 +355,21 @@
 			}
 		},
 		"mcp": {
-			"refresh": "Refresh",
+			"refresh": "Refresh Status",
+			"policy": {
+				"title": "Security Policy",
+				"mode": {
+					"label": "Connection Mode",
+					"description": "Control which servers are allowed to connect.",
+					"local_only": "Local Only (Recommended)",
+					"stdio_only": "Stdio Only (Safest)",
+					"allowlist": "Allowlist Only"
+				},
+				"confirmation": {
+					"label": "Tool Confirmation",
+					"description": "Ask for permission before executing tools."
+				}
+			},
 			"addServer": "Add Server",
 			"disabled": "Disabled",
 			"disable": "Disable",
@@ -276,7 +397,17 @@
 				"configure": "Configure",
 				"configDescription": "Enter the required environment variables.",
 				"confirm": "Confirm",
-				"install": "Install"
+				"install": "Install",
+				"preview": "Preview Command",
+				"installing": "Installing...",
+				"commandPreview": "Command Preview",
+				"securityWarnings": "Security Warnings",
+				"envVars": "Environment Variables",
+				"confirmInstall": "Confirm Install"
+			},
+			"config_path": {
+				"label": "MCP Configuration File",
+				"description": "Path to the JSON file defining MCP servers."
 			}
 		},
 		"models_settings": {
@@ -304,6 +435,42 @@
 				"top_k": "Top K",
 				"repeat_penalty": "Rep. Penalty"
 			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "Enable Web Search",
+				"description": "Allow the AI to use internet search to retrieve information.",
+				"warning_title": "Data Sharing Notice",
+				"warning_query": "Search queries will be sent to Google API",
+				"warning_api": "Your configured API key will be used for search requests"
+			},
+			"redact_pii": {
+				"label": "Protect Personal Information",
+				"description": "When web search is enabled, automatically redact personal information (email addresses, phone numbers, etc.) from web search queries before they are sent to external services."
+			}
 		}
+	},
+	"tool_errors": {
+		"search_disabled_privacy": "Web search is disabled by privacy settings.",
+		"search_disabled_api_keys": "Google Custom Search is disabled (API keys not configured).",
+		"search_timeout": "Search request timed out. Please try again later.",
+		"search_connection_error": "Connection failed. Please check your internet connection and try again.",
+		"search_rate_limit": "Rate limit exceeded. Please wait a moment and try again.",
+		"search_access_denied": "API access denied. Please check your API key and permissions.",
+		"search_http_error": "HTTP error occurred with status code {{status_code}}.",
+		"search_failed": "Failed to perform search: {{details}}",
+		"search_invalid_response": "Invalid response from Google API. Please try again.",
+		"search_unexpected_error": "Unexpected error occurred: {{details}}",
+		"search_api_error": "Google API Error: {{message}}",
+		"url_invalid_scheme": "URL must include a valid http/https scheme and host.",
+		"url_no_hostname": "Could not determine hostname from URL.",
+		"url_blocked_private": "Access to {{host}} is blocked for security reasons (private/local network).",
+		"url_blocked_private_ip": "Access to private/local IP addresses is blocked for security reasons.",
+		"fetch_failed": "Failed to retrieve content from {{url}}: {{details}}",
+		"fetch_not_html": "URL is not an HTML page (Content-Type: {{content_type}}).",
+		"tool_timeout": "Tool '{{tool_name}}' execution timed out.",
+		"tool_not_found": "Tool '{{tool_name}}' not found.",
+		"tool_no_method": "Tool '{{tool_name}}' has no callable method.",
+		"tool_execution_error": "Error executing tool '{{tool_name}}': {{details}}"
 	}
 }

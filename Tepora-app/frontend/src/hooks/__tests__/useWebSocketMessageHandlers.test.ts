@@ -15,6 +15,7 @@ const mockDeps = {
 	setIsLoadingHistory: vi.fn(),
 	isToolApproved: vi.fn().mockReturnValue(false),
 	setPendingToolConfirmation: vi.fn(),
+	onAutoApprove: vi.fn(),
 };
 
 // Mock react-i18next
@@ -175,6 +176,28 @@ describe("useWebSocketMessageHandlers", () => {
 			});
 
 			result.current.handleMessage(event);
+			expect(mockDeps.setPendingToolConfirmation).not.toHaveBeenCalled();
+		});
+
+		it("calls onAutoApprove when tool is already approved", () => {
+			mockDeps.isToolApproved.mockReturnValue(true);
+			const { result } = renderHook(() =>
+				useWebSocketMessageHandlers(mockDeps),
+			);
+			const request = { toolName: "approved_tool", requestId: "456" };
+
+			const event = new MessageEvent("message", {
+				data: JSON.stringify({
+					type: "tool_confirmation_request",
+					data: request,
+				}),
+			});
+
+			result.current.handleMessage(event);
+			expect(mockDeps.onAutoApprove).toHaveBeenCalledWith(
+				"456",
+				"approved_tool",
+			);
 			expect(mockDeps.setPendingToolConfirmation).not.toHaveBeenCalled();
 		});
 

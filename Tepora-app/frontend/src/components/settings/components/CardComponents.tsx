@@ -3,6 +3,8 @@
 
 import { Check, Cpu, Users } from "lucide-react";
 import type React from "react";
+import { useTranslation } from "react-i18next";
+import { useSettings } from "../../../hooks/useSettings";
 import { FormGroup, FormInput, FormList } from "./FormComponents";
 
 // ============================================================================
@@ -34,6 +36,17 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 	onChange,
 	isEmbedding,
 }) => {
+	const { t } = useTranslation();
+	const { originalConfig } = useSettings();
+	const originalModelConfig = originalConfig?.models_gguf[name];
+
+	const isDirty = (field: keyof ModelConfig) => {
+		if (!originalModelConfig) return false;
+		// Special handling for legacy undefined vs default values if needed,
+		// but simple equality check is good start.
+		return config[field] !== originalModelConfig[field];
+	};
+
 	const update = <K extends keyof ModelConfig>(f: K, v: ModelConfig[K]) =>
 		onChange({ ...config, [f]: v });
 
@@ -44,7 +57,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 				<h3 className="settings-model-card__title">{name}</h3>
 			</div>
 			<div className="settings-model-card__grid">
-				<FormGroup label="Path">
+				<FormGroup label={t("settings.models_settings.configurations.path")} isDirty={isDirty("path")}>
 					<FormInput
 						value={config.path}
 						onChange={(v) => update("path", v as string)}
@@ -52,14 +65,14 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 						className="font-mono text-xs"
 					/>
 				</FormGroup>
-				<FormGroup label="Port">
+				<FormGroup label={t("settings.models_settings.configurations.port")} isDirty={isDirty("port")}>
 					<FormInput
 						type="number"
 						value={config.port}
 						onChange={(v) => update("port", v as number)}
 					/>
 				</FormGroup>
-				<FormGroup label="Context">
+				<FormGroup label={t("settings.models_settings.configurations.context")} isDirty={isDirty("n_ctx")}>
 					<FormInput
 						type="number"
 						value={config.n_ctx}
@@ -67,7 +80,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 						step={512}
 					/>
 				</FormGroup>
-				<FormGroup label="GPU Layers">
+				<FormGroup label={t("settings.models_settings.configurations.gpu_layers")} isDirty={isDirty("n_gpu_layers")}>
 					<FormInput
 						type="number"
 						value={config.n_gpu_layers}
@@ -78,22 +91,50 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
 				{!isEmbedding && (
 					<>
-						<FormGroup label="Temp">
+						<FormGroup label={t("settings.models_settings.configurations.temp")} isDirty={isDirty("temperature")}>
 							<FormInput
 								type="number"
 								value={config.temperature ?? 0.7}
 								onChange={(v) => update("temperature", v as number)}
 								step={0.1}
+								min={0}
+								max={2}
 							/>
 						</FormGroup>
-						<FormGroup label="Top P">
+						<FormGroup label={t("settings.models_settings.configurations.top_p")} isDirty={isDirty("top_p")}>
 							<FormInput
 								type="number"
 								value={config.top_p ?? 0.9}
 								onChange={(v) => update("top_p", v as number)}
 								step={0.05}
+								min={0}
+								max={1}
 							/>
 						</FormGroup>
+						<FormGroup label={t("settings.models_settings.configurations.top_k")} isDirty={isDirty("top_k")}>
+							<FormInput
+								type="number"
+								value={config.top_k ?? 40}
+								onChange={(v) => update("top_k", v as number)}
+								step={1}
+								min={1}
+								max={100}
+							/>
+						</FormGroup>
+						<FormGroup
+							label={t("settings.models_settings.configurations.repeat_penalty")}
+							isDirty={isDirty("repeat_penalty")}
+						>
+							<FormInput
+								type="number"
+								value={config.repeat_penalty ?? 1.1}
+								onChange={(v) => update("repeat_penalty", v as number)}
+								step={0.05}
+								min={1}
+								max={2}
+							/>
+						</FormGroup>
+						{/* Logprobs might be internal/advanced, keeping minimal */}
 					</>
 				)}
 			</div>
@@ -133,6 +174,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 	isActive,
 	onSetActive,
 }) => {
+	const { t } = useTranslation();
 	const updateField = <K extends keyof AgentProfile>(
 		field: K,
 		value: AgentProfile[K],
@@ -157,54 +199,54 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 					type="button"
 					onClick={onSetActive}
 					className={`settings-agent-card__active-btn ${isActive ? "settings-agent-card__active-btn--active" : ""}`}
-					title={isActive ? "Currently Active" : "Set as Active"}
+					title={isActive ? t("settings.sections.agents.card.currently_active") : t("settings.sections.agents.card.set_active")}
 				>
 					{isActive && <Check size={14} />}
-					{isActive ? "Active" : "Set Active"}
+					{isActive ? t("settings.sections.agents.card.active") : t("settings.sections.agents.card.set_active_short")}
 				</button>
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-				<FormGroup label="Label">
+				<FormGroup label={t("settings.sections.agents.card.label")}>
 					<FormInput
 						value={profile.label}
 						onChange={(v) => updateField("label", v as string)}
-						placeholder="Agent Name"
+						placeholder={t("settings.sections.agents.card.label_placeholder")}
 					/>
 				</FormGroup>
-				<FormGroup label="Description">
+				<FormGroup label={t("settings.sections.agents.card.description")}>
 					<FormInput
 						value={profile.description}
 						onChange={(v) => updateField("description", v as string)}
-						placeholder="Short description"
+						placeholder={t("settings.sections.agents.card.description_placeholder")}
 					/>
 				</FormGroup>
 			</div>
 
 			<FormGroup
-				label="Persona"
-				description="Define the agent's personality and role."
+				label={t("settings.sections.agents.card.persona")}
+				description={t("settings.sections.agents.card.persona_description")}
 			>
 				<div className="space-y-3">
 					<div className="grid grid-cols-[120px_1fr] gap-4 items-center">
-						<span className="text-sm text-gray-400">Preset Key</span>
+						<span className="text-sm text-gray-400">{t("settings.sections.agents.card.preset_key")}</span>
 						<FormInput
 							value={profile.persona.key || ""}
 							onChange={(v) => updatePersona("key", v as string)}
-							placeholder="e.g. default (Optional)"
+							placeholder={t("settings.sections.agents.card.preset_key_placeholder")}
 							className="font-mono text-sm"
 						/>
 					</div>
 					<div>
 						<span className="text-sm text-gray-400 mb-1 block">
-							Custom Prompt (Override)
+							{t("settings.sections.agents.card.custom_prompt")}
 						</span>
 						<textarea
 							value={profile.persona.prompt || ""}
 							onChange={(e) => updatePersona("prompt", e.target.value)}
 							className="settings-input settings-input--textarea w-full font-sans leading-relaxed text-sm p-3 bg-black/20 rounded border border-white/10"
 							rows={3}
-							placeholder="You are a helpful AI assistant..."
+							placeholder={t("settings.sections.agents.card.custom_prompt_placeholder")}
 						/>
 					</div>
 				</div>
@@ -212,7 +254,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 
 			<div className="mt-4 pt-4 border-t border-white/5">
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<FormGroup label="Allowed Tools" description='Use "*" for all.'>
+					<FormGroup label={t("settings.sections.agents.card.allowed_tools")} description={t("settings.sections.agents.card.allowed_tools_description")}>
 						<FormList
 							items={profile.tool_policy.allow}
 							onChange={(items) =>
@@ -221,10 +263,10 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 									tool_policy: { ...profile.tool_policy, allow: items },
 								})
 							}
-							placeholder="Tool name..."
+							placeholder={t("settings.sections.agents.card.tool_placeholder")}
 						/>
 					</FormGroup>
-					<FormGroup label="Denied Tools">
+					<FormGroup label={t("settings.sections.agents.card.denied_tools")}>
 						<FormList
 							items={profile.tool_policy.deny}
 							onChange={(items) =>
@@ -233,7 +275,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 									tool_policy: { ...profile.tool_policy, deny: items },
 								})
 							}
-							placeholder="Tool name..."
+							placeholder={t("settings.sections.agents.card.tool_placeholder")}
 						/>
 					</FormGroup>
 				</div>

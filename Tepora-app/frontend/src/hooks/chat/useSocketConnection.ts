@@ -1,12 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getWsBase } from "../../utils/api";
+import { getSessionToken } from "../../utils/sessionToken";
 import { isDesktop } from "../../utils/sidecar";
 
-const getWsUrl = () => {
+/**
+ * Build WebSocket URL with optional token query parameter.
+ * @param token - Session token to append as query parameter
+ */
+const getWsUrl = (token: string | null = null) => {
+	let baseUrl: string;
 	if (isDesktop()) {
-		return `${getWsBase()}/ws`;
+		baseUrl = `${getWsBase()}/ws`;
+	} else {
+		baseUrl = import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
 	}
-	return import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
+
+	// Append token as query parameter for authentication
+	if (token) {
+		const separator = baseUrl.includes("?") ? "&" : "?";
+		return `${baseUrl}${separator}token=${encodeURIComponent(token)}`;
+	}
+	return baseUrl;
 };
 
 // Calculate backoff outside component to avoid re-creation
@@ -40,7 +54,7 @@ export const useSocketConnection = ({
 	);
 	const isMounted = useRef(true);
 	const retryCountRef = useRef(0); // Use ref to avoid triggering re-render/re-creation of connect
-	const WS_URL = getWsUrl();
+	const tokenRef = useRef<string | null>(null); // Cache token for reconnection
 
 	// Use refs for callbacks to avoid re-triggering effect on callback change
 	const onOpenRef = useRef(onOpen);
@@ -55,10 +69,19 @@ export const useSocketConnection = ({
 		onCloseRef.current = onClose;
 	}, [onOpen, onMessage, onError, onClose]);
 
-	const connect = useCallback(() => {
+	const connect = useCallback(async () => {
 		if (!isMounted.current) return;
 
 		try {
+			// Get session token for authentication
+			if (!tokenRef.current) {
+				tokenRef.current = await getSessionToken();
+				if (import.meta.env.DEV && tokenRef.current) {
+					console.log("[WebSocket] Token loaded for connection");
+				}
+			}
+
+			const WS_URL = getWsUrl(tokenRef.current);
 			const ws = new WebSocket(WS_URL);
 
 			ws.onopen = () => {
@@ -83,10 +106,18 @@ export const useSocketConnection = ({
 				onErrorRef.current?.(error);
 			};
 
-			ws.onclose = () => {
+			ws.onclose = (event) => {
 				if (!isMounted.current) return;
 				setIsConnected(false);
 				onCloseRef.current?.();
+
+				// If closed due to auth failure (4001), try refreshing token
+				if (event.code === 4001) {
+					tokenRef.current = null;
+					if (import.meta.env.DEV) {
+						console.log("[WebSocket] Auth failed, will retry with fresh token");
+					}
+				}
 
 				// Automatic reconnect with exponential backoff
 				const delay = calculateBackoff(retryCountRef.current);
@@ -117,7 +148,7 @@ export const useSocketConnection = ({
 				}
 			}, delay);
 		}
-	}, [WS_URL]); // Only depend on WS_URL, retryCount is managed via ref
+	}, []); // No dependencies - uses refs for all state
 
 	useEffect(() => {
 		isMounted.current = true;

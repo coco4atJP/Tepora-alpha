@@ -9,6 +9,7 @@ export {
 	type ModelCardProps,
 	type ModelConfig,
 } from "./CardComponents";
+export { CollapsibleSection } from "./CollapsibleSection";
 export {
 	FormGroup,
 	type FormGroupProps,

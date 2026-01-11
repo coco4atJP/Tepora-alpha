@@ -1,0 +1,324 @@
+src\components\settings\components\FormComponents.tsx:181:27 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    179 笏・			<div className="settings-list__items">
+    180 笏・				{items.map((item, index) => (
+  > 181 笏・					<div key={`${item}-${index}`} className="settings-list__item">
+        笏・					                     ^^^^^
+    182 笏・						<code className="settings-list__item-text">{item}</code>
+    183 笏・						<button
+  
+  i This is the source of the key value.
+  
+    178 笏・		<div className="settings-list">
+    179 笏・			<div className="settings-list__items">
+  > 180 笏・				{items.map((item, index) => (
+        笏・				                  ^^^^^
+    181 笏・					<div key={`${item}-${index}`} className="settings-list__item">
+    182 笏・						<code className="settings-list__item-text">{item}</code>
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\components\settings\sections\CharacterSettings.tsx:143:4 lint/a11y/noStaticElementInteractions 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Static Elements should not be interactive.
+  
+    141 笏・		const isActive = activeProfileId === key;
+    142 笏・		return (
+  > 143 笏・			<div
+        笏・			^^^^
+  > 144 笏・				key={key}
+         ...
+  > 152 笏・				onClick={() => onSetActive(key)}
+  > 153 笏・			>
+        笏・			^
+    154 笏・				{/* Active Indicator */}
+    155 笏・				<div className="flex justify-between items-start mb-2">
+  
+  i To add interactivity such as a mouse or key event listener to a static element, give the element an appropriate role value.
+  
+
+src\components\settings\sections\CharacterSettings.tsx:143:4 lint/a11y/useKeyWithClickEvents 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Enforce to have the onClick mouse event with the onKeyUp, the onKeyDown, or the onKeyPress keyboard event.
+  
+    141 笏・		const isActive = activeProfileId === key;
+    142 笏・		return (
+  > 143 笏・			<div
+        笏・			^^^^
+  > 144 笏・				key={key}
+         ...
+  > 152 笏・				onClick={() => onSetActive(key)}
+  > 153 笏・			>
+        笏・			^
+    154 笏・				{/* Active Indicator */}
+    155 笏・				<div className="flex justify-between items-start mb-2">
+  
+  i Actions triggered using mouse events should have corresponding keyboard events to account for keyboard-only navigation.
+  
+
+src\components\settings\sections\CharacterSettings.tsx:178:6 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    176 笏・				{/* Actions (visible on hover or active) */}
+    177 笏・				<div className="mt-auto flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+  > 178 笏・					<button
+        笏・					^^^^^^^
+  > 179 笏・						onClick={(e) => {
+         ...
+  > 184 笏・						title={t("settings.sections.agents.edit")}
+  > 185 笏・					>
+        笏・					^
+    186 笏・						<Edit2 size={14} />
+    187 笏・					</button>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\components\settings\sections\CharacterSettings.tsx:189:7 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    187 笏・					</button>
+    188 笏・					{!isActive && (
+  > 189 笏・						<button
+        笏・						^^^^^^^
+  > 190 笏・							onClick={(e) => handleDelete(key, e)}
+  > 191 笏・							className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
+  > 192 笏・							title={t("settings.sections.agents.delete")}
+  > 193 笏・						>
+        笏・						^
+    194 笏・							<Trash2 size={14} />
+    195 笏・						</button>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\components\settings\sections\CharacterSettings.tsx:225:5 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    223 笏・			{/* Tabs */}
+    224 笏・			<div className="flex gap-4 mb-6 border-b border-white/10">
+  > 225 笏・				<button
+        笏・				^^^^^^^
+  > 226 笏・					onClick={() => setActiveTab("characters")}
+         ...
+  > 230 笏・						}`}
+  > 231 笏・				>
+        笏・				^
+    232 笏・					<span className="flex items-center gap-2">
+    233 笏・						<Users size={16} />
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\components\settings\sections\CharacterSettings.tsx:240:5 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    238 笏・					)}
+    239 笏・				</button>
+  > 240 笏・				<button
+        笏・				^^^^^^^
+  > 241 笏・					onClick={() => setActiveTab("professionals")}
+         ...
+  > 245 笏・						}`}
+  > 246 笏・				>
+        笏・				^
+    247 笏・					<span className="flex items-center gap-2">
+    248 笏・						<Briefcase size={16} />
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\components\settings\sections\CharacterSettings.tsx format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Formatter would have printed the following content:
+  
+    145 145 笏・  				className={`
+    146 146 笏・                      relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer
+    147     笏・- ﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷ${isActive
+    148     笏・- 竊・竊・竊・竊・竊・竊・?ﾂｷ"bg-gold-500/10ﾂｷborder-gold-500/50ﾂｷshadow-[0_0_15px_rgba(255,215,0,0.1)]"
+    149     笏・- 竊・竊・竊・竊・竊・竊・:ﾂｷ"bg-white/5ﾂｷborder-white/10ﾂｷhover:border-white/20ﾂｷhover:bg-white/10"
+    150     笏・- 竊・竊・竊・竊・竊・}
+        147 笏・+ ﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷ${
+        148 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・isActive
+        149 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"bg-gold-500/10ﾂｷborder-gold-500/50ﾂｷshadow-[0_0_15px_rgba(255,215,0,0.1)]"
+        150 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"bg-white/5ﾂｷborder-white/10ﾂｷhover:border-white/20ﾂｷhover:bg-white/10"
+        151 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・}
+    151 152 笏・                  `}
+    152 153 笏・  				onClick={() => onSetActive(key)}
+    ﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷ 笏・
+    225 226 笏・  				<button
+    226 227 笏・  					onClick={() => setActiveTab("characters")}
+    227     笏・- 竊・竊・竊・竊・竊・className={`pb-2ﾂｷpx-1ﾂｷtext-smﾂｷfont-mediumﾂｷtransition-colorsﾂｷrelativeﾂｷ${activeTabﾂｷ===ﾂｷ"characters"
+    228     笏・- 竊・竊・竊・竊・竊・竊・?ﾂｷ"text-gold-400"
+    229     笏・- 竊・竊・竊・竊・竊・竊・:ﾂｷ"text-gray-400ﾂｷhover:text-white"
+    230     笏・- 竊・竊・竊・竊・竊・竊・}`}
+        228 笏・+ 竊・竊・竊・竊・竊・className={`pb-2ﾂｷpx-1ﾂｷtext-smﾂｷfont-mediumﾂｷtransition-colorsﾂｷrelativeﾂｷ${
+        229 笏・+ 竊・竊・竊・竊・竊・竊・activeTabﾂｷ===ﾂｷ"characters"
+        230 笏・+ 竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"text-gold-400"
+        231 笏・+ 竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"text-gray-400ﾂｷhover:text-white"
+        232 笏・+ 竊・竊・竊・竊・竊・}`}
+    231 233 笏・  				>
+    232 234 笏・  					<span className="flex items-center gap-2">
+    ﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷ 笏・
+    240 242 笏・  				<button
+    241 243 笏・  					onClick={() => setActiveTab("professionals")}
+    242     笏・- 竊・竊・竊・竊・竊・className={`pb-2ﾂｷpx-1ﾂｷtext-smﾂｷfont-mediumﾂｷtransition-colorsﾂｷrelativeﾂｷ${activeTabﾂｷ===ﾂｷ"professionals"
+    243     笏・- 竊・竊・竊・竊・竊・竊・?ﾂｷ"text-gold-400"
+    244     笏・- 竊・竊・竊・竊・竊・竊・:ﾂｷ"text-gray-400ﾂｷhover:text-white"
+    245     笏・- 竊・竊・竊・竊・竊・竊・}`}
+        244 笏・+ 竊・竊・竊・竊・竊・className={`pb-2ﾂｷpx-1ﾂｷtext-smﾂｷfont-mediumﾂｷtransition-colorsﾂｷrelativeﾂｷ${
+        245 笏・+ 竊・竊・竊・竊・竊・竊・activeTabﾂｷ===ﾂｷ"professionals"
+        246 笏・+ 竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"text-gold-400"
+        247 笏・+ 竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"text-gray-400ﾂｷhover:text-white"
+        248 笏・+ 竊・竊・竊・竊・竊・}`}
+    246 249 笏・  				>
+    247 250 笏・  					<span className="flex items-center gap-2">
+  
+
+src\components\settings\sections\McpSettings.tsx:618:9 lint/a11y/noLabelWithoutControl 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・A form label must be associated with an input.
+  
+    616 笏・						{selectedServer.environmentVariables.map((env) => (
+    617 笏・							<div key={env.name}>
+  > 618 笏・								<label className="block text-sm font-medium text-gray-300 mb-1">
+        笏・								^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 619 笏・									{env.name}
+  > 620 笏・									{env.isRequired && (
+  > 621 笏・										<span className="text-red-400 ml-1">*</span>
+  > 622 笏・									)}
+  > 623 笏・								</label>
+        笏・								^^^^^^^^
+    624 笏・								{env.description && (
+    625 笏・									<p className="text-xs text-gray-500 mb-2">
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or moving the input element to inside the label element.
+  
+
+src\components\settings\sections\McpSettings.tsx:547:21 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    545 笏・													{server.packages.map((pkg, i) => (
+    546 笏・														<span
+  > 547 笏・															key={i}
+        笏・															     ^
+    548 笏・															className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded"
+    549 笏・														>
+  
+  i This is the source of the key value.
+  
+    543 笏・												)}
+    544 笏・												<div className="flex items-center gap-2 mt-2">
+  > 545 笏・													{server.packages.map((pkg, i) => (
+        笏・													                           ^
+    546 笏・														<span
+    547 笏・															key={i}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\components\settings\sections\McpSettings.tsx:587:14 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    585 笏・							<button
+    586 笏・								type="button"
+  > 587 笏・								key={i}
+        笏・								     ^
+    588 笏・								onClick={() => {
+    589 笏・									const rt = pkg.runtimeHint || "npx";
+  
+  i This is the source of the key value.
+  
+    582 笏・							{t("settings.mcp.store.runtimeDescription")}
+    583 笏・						</p>
+  > 584 笏・						{selectedServer.packages.map((pkg, i) => (
+        笏・						                                   ^
+    585 笏・							<button
+    586 笏・								type="button"
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\components\settings\sections\McpSettings.tsx:703:20 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    701 笏・								<ul className="text-sm text-yellow-200 space-y-1">
+    702 笏・									{previewData.warnings.map((warning, i) => (
+  > 703 笏・										<li key={i} className="flex items-start gap-2">
+        笏・										         ^
+    704 笏・											<span className="text-yellow-400">窶｢</span>
+    705 笏・											{warning}
+  
+  i This is the source of the key value.
+  
+    700 笏・								</h5>
+    701 笏・								<ul className="text-sm text-yellow-200 space-y-1">
+  > 702 笏・									{previewData.warnings.map((warning, i) => (
+        笏・									                                    ^
+    703 笏・										<li key={i} className="flex items-start gap-2">
+    704 笏・											<span className="text-yellow-400">窶｢</span>
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\components\settings\sections\McpSettings.tsx format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Formatter would have printed the following content:
+  
+    273 273 笏・  											type="button"
+    274 274 笏・  											onClick={() => toggleServer(name, !serverConfig.enabled)}
+    275     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・className={`p-2ﾂｷrounded-lgﾂｷtransition-colorsﾂｷ${serverConfig.enabled
+    276     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"bg-green-500/20ﾂｷtext-green-400ﾂｷhover:bg-green-500/30"
+    277     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"bg-gray-700ﾂｷtext-gray-400ﾂｷhover:bg-gray-600"
+    278     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・}`}
+        275 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・className={`p-2ﾂｷrounded-lgﾂｷtransition-colorsﾂｷ${
+        276 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・serverConfig.enabled
+        277 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"bg-green-500/20ﾂｷtext-green-400ﾂｷhover:bg-green-500/30"
+        278 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"bg-gray-700ﾂｷtext-gray-400ﾂｷhover:bg-gray-600"
+        279 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・}`}
+    279 280 笏・  											aria-label={
+    280 281 笏・  												serverConfig.enabled
+    ﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷﾂｷ 笏・
+    595 596 笏・  									}
+    596 597 笏・  								}}
+    597     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・className={`w-fullﾂｷp-4ﾂｷtext-leftﾂｷborderﾂｷrounded-xlﾂｷtransition-allﾂｷ${selectedRuntimeﾂｷ===ﾂｷpkg.runtimeHint
+    598     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"border-purple-500ﾂｷbg-purple-500/10"
+    599     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"border-white/10ﾂｷhover:border-white/20ﾂｷbg-black/20"
+    600     笏・- 竊・竊・竊・竊・竊・竊・竊・竊・竊・}`}
+        598 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・className={`w-fullﾂｷp-4ﾂｷtext-leftﾂｷborderﾂｷrounded-xlﾂｷtransition-allﾂｷ${
+        599 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・selectedRuntimeﾂｷ===ﾂｷpkg.runtimeHint
+        600 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・?ﾂｷ"border-purple-500ﾂｷbg-purple-500/10"
+        601 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・竊・竊・:ﾂｷ"border-white/10ﾂｷhover:border-white/20ﾂｷbg-black/20"
+        602 笏・+ 竊・竊・竊・竊・竊・竊・竊・竊・}`}
+    601 603 笏・  							>
+    602 604 笏・  								<div className="font-medium text-gray-100">
+  
+
+Checked 21 files in 19ms. No fixes applied.
+Found 13 errors.
+check 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Some errors were emitted while running checks.
+  
+

@@ -25,7 +25,7 @@ class SecurityUtils:
         base = Path(base_path).resolve()
         final_path = base.joinpath(*paths).resolve()
 
-        if not str(final_path).startswith(str(base)):
+        if not final_path.is_relative_to(base):
             raise ValueError(f"Path traversal attempt detected: {final_path} is not within {base}")
 
         return final_path
@@ -45,6 +45,6 @@ class SecurityUtils:
         try:
             base = Path(base_path).resolve()
             target = Path(path).resolve()
-            return str(target).startswith(str(base))
+            return target.is_relative_to(base)
         except Exception:
             return False

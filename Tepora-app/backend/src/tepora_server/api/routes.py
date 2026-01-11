@@ -32,7 +32,7 @@ async def health_check(state: AppState = Depends(get_app_state)):
     return {"status": "ok", "initialized": state.core.initialized}
 
 
-@router.post("/api/shutdown")
+@router.post("/api/shutdown", dependencies=[Depends(get_api_key)])
 async def shutdown_server():
     """Gracefully shutdown the server by sending SIGTERM to self."""
     logger.info("Shutdown requested via API")
