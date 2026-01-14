@@ -22,38 +22,38 @@ module.exports = {
 					900: "#7f1d1d",
 				},
 				tea: {
-					50: "#fffbf5",
-					100: "#fdf2e3",
-					200: "#fae1c7",
-					300: "#f4c89f",
-					400: "#ee9f68",
-					500: "#e97a3a",
-					600: "#db5925",
-					700: "#b6411d",
-					800: "#91341d",
-					900: "#752d1b",
-					950: "#3f150b",
+					50: "#fdf6f3",
+					100: "#fae8e0",
+					200: "#f5d0bf",
+					300: "#edab91",
+					400: "#e47f5d",
+					500: "#bd4b26",
+					600: "#96351b",
+					700: "#7a2715",
+					800: "#632114",
+					900: "#521d13",
+					950: "#2e1510",
 				},
 				gold: {
-					100: "#fbf8cc",
-					200: "#f7f199",
-					300: "#f3ea66",
-					400: "#f0e333",
-					500: "#d4c820",
-					600: "#aa9f10",
-					700: "#80770c",
-					800: "#555008",
-					900: "#2b2804",
+					100: "#fcf8f0",
+					200: "#f6efde",
+					300: "#efe4c4",
+					400: "#e6d5a3",
+					500: "#d4bf80",
+					600: "#aa9555",
+					700: "#806e3b",
+					800: "#5c4f2b",
+					900: "#3d341d",
 				},
 				cyber: {
 					cyan: "#00f0ff",
 					magenta: "#ff0055",
 				},
-				gemini: {
-					start: "#4b3f35", // Deep Coffee
-					mid: "#8a5a4c", // Medium Coffee
-					end: "#d4af37", // Gold
-					accent: "#00ffcc", // Neon Cyan (Near Future)
+				tepora: {
+					start: "#2e1510", // Deep Assam
+					mid: "#bd4b26", // Amber Liquid
+					end: "#f0e2c8", // Steam & Cream
+					accent: "#4fffc0", // Cyber Leaf
 				},
 			},
 			animation: {

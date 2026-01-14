@@ -75,6 +75,8 @@ class SetupFinishRequest(BaseModel):
 
 # Singleton Check
 _download_manager_instance = None
+_job_progress: dict[str, dict] = {}
+_current_job_id: str | None = None
 
 
 def _get_download_manager():
@@ -509,3 +511,406 @@ async def check_model_update(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@router.get("/models")
+async def get_models():
+    """
+    ダウンロード済みモデル一覧を取得
+    """
+    try:
+        dm = _get_download_manager()
+        models = dm.model_manager.get_available_models()
+
+        result = []
+        for model in models:
+            result.append(
+                {
+                    "id": model.id,
+                    "display_name": model.display_name or model.id,
+                    "role": model.role.value if hasattr(model.role, "value") else str(model.role),
+                    "file_size": model.file_size or 0,
+                    "filename": model.filename,
+                    "source": model.repo_id or "local",
+                    "is_active": getattr(model, "is_active", False),
+                }
+            )
+
+        return {"models": result}
+    except Exception as e:
+        logger.error(f"Failed to get models: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class ModelCheckRequest(BaseModel):
+    repo_id: str
+    filename: str
+
+
+@router.post("/model/check")
+async def check_model_exists(request: ModelCheckRequest):
+    """
+    HuggingFaceリポジトリにモデルファイルが存在するか確認
+    """
+    try:
+        from huggingface_hub import get_hf_file_metadata, hf_hub_url
+
+        try:
+            url = hf_hub_url(repo_id=request.repo_id, filename=request.filename)
+            metadata = get_hf_file_metadata(url)
+            return {"exists": True, "size": metadata.size}
+        except Exception:
+            return {"exists": False}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "huggingface_hub not installed"})
+    except Exception as e:
+        logger.error(f"Failed to check model: {e}", exc_info=True)
+        return {"exists": False, "error": str(e)}
+
+
+class LocalModelRequest(BaseModel):
+    file_path: str
+    role: str
+    display_name: str | None = None
+
+
+@router.post("/model/local")
+async def register_local_model(request: LocalModelRequest):
+    """
+    ローカルのGGUFファイルをモデルとして登録
+    """
+    try:
+        from pathlib import Path
+
+        from src.core.download import ModelPool
+
+        dm = _get_download_manager()
+
+        file_path = Path(request.file_path)
+        if not file_path.exists():
+            raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
+
+        if not file_path.suffix.lower() == ".gguf":
+            raise HTTPException(status_code=400, detail="Only .gguf files are supported")
+
+        pool_map = {
+            "text": ModelPool.TEXT,
+            "embedding": ModelPool.EMBEDDING,
+        }
+        pool = pool_map.get(request.role)
+        if not pool:
+            raise HTTPException(status_code=400, detail=f"Invalid role: {request.role}")
+
+        result = await dm.model_manager.register_local_model(
+            file_path=file_path,
+            role=pool,
+            display_name=request.display_name or file_path.stem,
+        )
+
+        return {
+            "success": result.success if hasattr(result, "success") else True,
+            "model_id": result.model_id if hasattr(result, "model_id") else file_path.stem,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to register local model: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.delete("/model/{model_id}")
+async def delete_model(model_id: str):
+    """
+    モデルを削除
+    """
+    try:
+        dm = _get_download_manager()
+        result = await dm.model_manager.delete_model(model_id)
+        return {"success": result}
+    except Exception as e:
+        logger.error(f"Failed to delete model: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class ReorderRequest(BaseModel):
+    role: str
+    model_ids: list[str]
+
+
+@router.post("/model/reorder")
+async def reorder_models(request: ReorderRequest):
+    """
+    モデルの優先順位を変更
+    """
+    try:
+        dm = _get_download_manager()
+
+        from src.core.download import ModelPool
+
+        pool_map = {
+            "text": ModelPool.TEXT,
+            "embedding": ModelPool.EMBEDDING,
+        }
+        pool = pool_map.get(request.role)
+        if not pool:
+            raise HTTPException(status_code=400, detail=f"Invalid role: {request.role}")
+
+        result = await dm.model_manager.reorder_models(pool, request.model_ids)
+        return {"success": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to reorder models: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# --- Binary Update Endpoints ---
+
+
+class BinaryUpdateRequest(BaseModel):
+    variant: str = "auto"
+
+
+@router.get("/binary/update-info")
+async def check_binary_update():
+    """
+    llama.cppの更新をチェック
+    """
+    try:
+        dm = _get_download_manager()
+
+        # 常に最新のレジストリを取得する
+        dm.binary_manager.reload_registry()
+
+        update_info = await dm.binary_manager.check_for_updates()
+
+        if update_info:
+            return {
+                "has_update": True,
+                "current_version": update_info.current_version,
+                "latest_version": update_info.latest_version,
+                "release_notes": getattr(update_info, "release_notes", None),
+            }
+
+        current_version = await dm.binary_manager.get_current_version()
+        return {
+            "has_update": False,
+            "current_version": current_version,
+        }
+    except Exception as e:
+        logger.error(f"Failed to check for updates: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.post("/binary/update")
+async def update_binary(request: BinaryUpdateRequest):
+    """
+    llama.cppを更新（バックグラウンドジョブ）
+    """
+    global _setup_session
+
+    job_id = str(uuid.uuid4())
+    _setup_session.job_id = job_id
+    _setup_session.update_progress("pending", 0.0, "Starting binary update...")
+
+    try:
+        dm = _get_download_manager()
+
+        async def _background_update():
+            try:
+
+                def on_progress(event):
+                    _setup_session.update_progress(
+                        event.status.value, event.progress, event.message
+                    )
+
+                dm.on_progress(on_progress)
+                result = await dm.binary_manager.install_llama_cpp(variant=request.variant)
+
+                if result.success:
+                    _setup_session.update_progress("completed", 1.0, f"Updated to {result.version}")
+                else:
+                    _setup_session.update_progress(
+                        "failed", 0.0, f"Update failed: {result.error_message}"
+                    )
+            except Exception as e:
+                logger.error(f"Binary update error: {e}", exc_info=True)
+                _setup_session.update_progress("failed", 0.0, f"Critical error: {str(e)}")
+
+        asyncio.create_task(_background_update())
+        return {"success": True, "job_id": job_id}
+
+    except Exception as e:
+        logger.error(f"Failed to start binary update: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# --- Download Control Endpoints ---
+
+
+class DownloadActionRequest(BaseModel):
+    job_id: str
+    action: str  # "pause", "resume", "cancel"
+
+
+@router.post("/download/action")
+async def download_action(request: DownloadActionRequest):
+    """
+    ダウンロードを一時停止/再開/キャンセル
+    """
+    try:
+        dm = _get_download_manager()
+
+        if request.action == "pause":
+            success = dm.binary_manager.pause_download(request.job_id)
+            return {
+                "success": success,
+                "message": "Download paused" if success else "Failed to pause",
+            }
+
+        elif request.action == "cancel":
+            success = dm.binary_manager.cancel_download(request.job_id)
+            return {
+                "success": success,
+                "message": "Download cancelled" if success else "Failed to cancel",
+            }
+
+        elif request.action == "resume":
+            result = await dm.binary_manager.resume_download(request.job_id)
+            return {
+                "success": result.success,
+                "version": result.version,
+                "error": result.error_message,
+            }
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {request.action}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to perform download action: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/download/incomplete")
+async def get_incomplete_downloads():
+    """
+    未完了（中断/失敗）のダウンロード一覧を取得
+    レジューム可能なダウンロードを確認するために使用
+    """
+    try:
+        dm = _get_download_manager()
+        jobs = dm.binary_manager.get_incomplete_downloads()
+
+        return {
+            "jobs": [
+                {
+                    "job_id": job.job_id,
+                    "status": job.status.value,
+                    "target_url": job.target_url,
+                    "downloaded_bytes": job.downloaded_bytes,
+                    "total_bytes": job.total_bytes,
+                    "progress": job.downloaded_bytes / job.total_bytes
+                    if job.total_bytes > 0
+                    else 0,
+                    "error_message": job.error_message,
+                }
+                for job in jobs
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Failed to get incomplete downloads: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# --- Role-based Model Selection Endpoints ---
+
+
+class SetCharacterModelRequest(BaseModel):
+    model_id: str
+
+
+class SetExecutorModelRequest(BaseModel):
+    task_type: str
+    model_id: str
+
+
+@router.get("/model/roles")
+async def get_model_roles():
+    """
+    現在のモデルロール設定を取得
+    """
+    try:
+        dm = _get_download_manager()
+
+        return {
+            "character_model_id": dm.model_manager.get_character_model_id(),
+            "executor_model_map": dm.model_manager.registry.executor_model_map,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get model roles: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.post("/model/roles/character")
+async def set_character_model(request: SetCharacterModelRequest):
+    """
+    キャラクターモデルを設定
+    """
+    try:
+        dm = _get_download_manager()
+        success = dm.model_manager.set_character_model(request.model_id)
+
+        if not success:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Failed to set character model"},
+            )
+
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Failed to set character model: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+
+@router.post("/model/roles/executor")
+async def set_executor_model(request: SetExecutorModelRequest):
+    """
+    エグゼキューターモデルを設定（タスクタイプごと）
+    """
+    try:
+        dm = _get_download_manager()
+        success = dm.model_manager.set_executor_model(request.task_type, request.model_id)
+
+        if not success:
+            return JSONResponse(
+                status_code=400, content={"success": False, "error": "Failed to set executor model"}
+            )
+
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Failed to set executor model: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+
+@router.delete("/model/roles/executor/{task_type}")
+async def remove_executor_model(task_type: str):
+    """
+    エグゼキューターモデルマッピングを削除
+    """
+    try:
+        dm = _get_download_manager()
+        success = dm.model_manager.remove_executor_model(task_type)
+
+        if not success:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "Cannot remove default or non-existent mapping",
+                },
+            )
+
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Failed to remove executor model: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})

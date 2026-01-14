@@ -20,11 +20,11 @@
 	--s-text-muted: #52525b;
 	/* Zinc 600 */
 
-	--s-accent: #fbbf24;
-	/* Amber 400 (Gold) */
-	--s-accent-glow: rgba(251, 191, 36, 0.2);
-	--s-accent-dark: #d97706;
-	/* Amber 600 */
+	--s-accent: #d4bf80;
+	/* Champagne Gold (Gold 500) */
+	--s-accent-glow: rgba(212, 191, 128, 0.2);
+	--s-accent-dark: #aa9555;
+	/* Antique Gold (Gold 600) */
 
 	--s-danger: #f87171;
 	--s-success: #4ade80;
@@ -47,7 +47,7 @@
 	background-image:
 		radial-gradient(
 			circle at 15% 50%,
-			rgba(251, 191, 36, 0.03),
+			rgba(212, 191, 128, 0.03),
 			transparent 25%
 		),
 		radial-gradient(
@@ -182,7 +182,7 @@
 
 .settings-sidebar__item--active {
 	color: var(--s-accent);
-	background: rgba(251, 191, 36, 0.05);
+	background: rgba(212, 191, 128, 0.05);
 	font-weight: 500;
 }
 
@@ -505,7 +505,7 @@
 	box-shadow: 0 0 0 1px var(--s-accent-glow);
 	background: linear-gradient(
 		to bottom right,
-		rgba(251, 191, 36, 0.05),
+		rgba(212, 191, 128, 0.05),
 		var(--s-bg-card)
 	);
 }

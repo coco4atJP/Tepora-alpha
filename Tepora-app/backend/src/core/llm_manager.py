@@ -3,6 +3,7 @@ import gc
 import logging
 import time
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -14,11 +15,20 @@ from .llm.client_factory import ClientFactory
 from .llm.model_registry import ModelRegistry
 from .llm.process_manager import ProcessManager
 
-# オプショナルなDownloadManager依存
+# オプショナルな依存
 try:
     from .download import DownloadManager
 except ImportError:
     DownloadManager = None
+
+try:
+    from .models import ModelManager
+except ImportError:
+    ModelManager = None
+
+if TYPE_CHECKING:
+    from .download import DownloadManager as DownloadManagerType
+    from .models import ModelManager as ModelManagerType
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +40,32 @@ class LLMManager:
     責務を分割したコンポーネント(ModelRegistry, ProcessManager, ClientFactory)を統括する。
     """
 
-    def __init__(self, download_manager: "DownloadManager | None" = None):
+    def __init__(
+        self,
+        download_manager: "DownloadManagerType | None" = None,
+        model_manager: "ModelManagerType | None" = None,
+    ):
+        """
+        Args:
+            download_manager: DownloadManager インスタンス (後方互換用)
+            model_manager: ModelManager インスタンス (推奨)
+        """
         self._model_locks = defaultdict(asyncio.Lock)  # Lock per model key
         self._current_model_key = None
 
+        # ModelManager を取得（直接渡された場合、または DownloadManager 経由）
+        if model_manager:
+            self._model_manager = model_manager
+        elif download_manager:
+            self._model_manager = getattr(download_manager, "model_manager", None)
+        else:
+            self._model_manager = None
+
         # Components
-        self.registry = ModelRegistry(download_manager)
+        self.registry = ModelRegistry(
+            download_manager=download_manager,
+            model_manager=self._model_manager,
+        )
         self.process_manager = ProcessManager()
         self.client_factory = ClientFactory()
 

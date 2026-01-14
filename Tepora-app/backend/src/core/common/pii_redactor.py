@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Callable, Final
+from collections.abc import Callable
+from typing import Final
 
 logger = logging.getLogger(__name__)
 

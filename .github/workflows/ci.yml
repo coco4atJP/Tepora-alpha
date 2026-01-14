@@ -25,7 +25,7 @@ jobs:
       run: uv python install 3.11
 
     - name: Install Dependencies
-      run: uv sync --frozen
+      run: uv sync --frozen --extra dev
 
     - name: Run Backend Tests
       run: uv run pytest tests/ -v

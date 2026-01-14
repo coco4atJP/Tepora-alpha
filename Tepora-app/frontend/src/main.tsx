@@ -5,6 +5,7 @@ import "./index.css";
 import "./i18n";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { SettingsProvider } from "./context/SettingsContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import { getSessionToken } from "./utils/sessionToken";
@@ -42,14 +43,16 @@ async function init() {
 
 	ReactDOM.createRoot(document.getElementById("root")!).render(
 		<React.StrictMode>
-			<QueryClientProvider client={queryClient}>
-				<WebSocketProvider>
-					<SettingsProvider>
-						<App />
-					</SettingsProvider>
-				</WebSocketProvider>
-				<ReactQueryDevtools initialIsOpen={false} />
-			</QueryClientProvider>
+			<ErrorBoundary>
+				<QueryClientProvider client={queryClient}>
+					<WebSocketProvider>
+						<SettingsProvider>
+							<App />
+						</SettingsProvider>
+					</WebSocketProvider>
+					<ReactQueryDevtools initialIsOpen={false} />
+				</QueryClientProvider>
+			</ErrorBoundary>
 		</React.StrictMode>,
 	);
 }

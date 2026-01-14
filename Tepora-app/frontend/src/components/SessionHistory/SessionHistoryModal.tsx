@@ -49,7 +49,7 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
 		>
 			<div
 				ref={modalRef}
-				className="relative w-full max-w-lg h-[80vh] bg-[#1e1e2e] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+				className="glass-tepora relative w-full max-w-lg h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
 			>
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
@@ -67,7 +67,7 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
 				</div>
 
 				{/* Content */}
-				<div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-[#1e1e2e]/95">
+				<div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-transparent">
 					{/* We pass a custom onSelect wrapper to close modal on selection if needed, 
                         or we can let the user manually close it. 
                         Currently SessionHistoryPanel handles selection deeply. 

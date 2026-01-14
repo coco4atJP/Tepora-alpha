@@ -39,7 +39,21 @@
 		"download_warning_confirm": "続行",
 		"advanced_settings": "詳細設定 (モデルの変更)",
 		"model_settings": "モデル詳細設定",
-		"model": "モデル"
+		"model": "モデル",
+		"checking_desc": "システム要件と依存関係を確認しています...",
+		"ready_desc": "Tepora はあなたのAIコンパニオンとして利用できます。",
+		"all_set": "準備完了！",
+		"installing": "インストール中...",
+		"extracting": "展開中...",
+		"failed": "セットアップに失敗しました",
+		"install_selected": "選択したモデルをインストール",
+		"start_install": "インストール開始",
+		"custom": "カスタム設定 (上級者向け)",
+		"custom_desc": "GGUFモデルのリポジトリとファイル名を指定します。",
+		"custom_models": "カスタムモデル",
+		"launch": "Tepora を起動",
+		"storage_required": "モデルあたり約2GB以上が必要です",
+		"storage_desc": "Tepora はローカルで実行されます。モデルは AppData フォルダに保存されます。"
 	},
 	"app": {
 		"loading": "サーバーに接続中...",
@@ -85,7 +99,10 @@
 		"language": "言語",
 		"next": "次へ",
 		"back": "戻る",
+		"skip": "スキップ",
 		"cancel": "キャンセル",
+		"add": "追加",
+		"edit": "編集",
 		"save": "保存",
 		"clear": "クリア",
 		"settings": "設定",
@@ -93,6 +110,9 @@
 		"enabled": "有効",
 		"disabled": "無効",
 		"retry": "再試行",
+		"load_more": "さらに読み込む",
+		"update_now": "今すぐ更新",
+		"error_prefix": "エラー: ",
 		"today": "今日",
 		"yesterday": "昨日",
 		"daysAgo": "{{count}}日前",
@@ -111,11 +131,15 @@
 		"empty": "セッションはまだありません",
 		"messages": "msgs"
 	},
+	"newSession": "新規セッション",
+	"sessionHistory": "セッション履歴",
+	"close": "閉じる",
 	"chat": {
 		"clear_history": "履歴を削除",
 		"role": {
 			"assistant": "アシスタント",
-			"user": "あなた"
+			"user": "あなた",
+			"system": "システム"
 		},
 		"input": {
 			"placeholder": {
@@ -125,6 +149,7 @@
 				"default": "Teporaとチャット..."
 			},
 			"system_ready": "システム準備完了",
+			"system_ready_hint": "ダイヤルからモードを選択して開始してください",
 			"disconnected": "未接続",
 			"web_search": "Web検索",
 			"web_search_toggle": "Web検索: {{state}}",
@@ -136,7 +161,41 @@
 			"stop_generation": "生成を停止",
 			"mode_active": "{{mode}}モード 起動中",
 			"aria_label": "メッセージ入力"
-		}
+		},
+		"messages_aria_label": "チャットメッセージ",
+		"jump_to_latest": "最新のメッセージへ移動",
+		"jump_to_latest_short": "最新"
+	},
+	"agent": {
+		"title": "エージェント状況",
+		"waiting": "待機中"
+	},
+	"search": {
+		"title": "検索",
+		"hits": "件",
+		"no_results": "結果が見つかりません"
+	},
+	"rag_context": {
+		"title": "RAGコンテキスト",
+		"sources": "ソース",
+		"files": "ファイル",
+		"add_file": "ファイルを追加",
+		"no_sources": "ソースがありません",
+		"add_hint": "ファイルを追加するかWebを検索してください",
+		"web_results": "Web検索結果"
+	},
+	"personas": {
+		"switch": "ペルソナを切り替え",
+		"select": "ペルソナを選択",
+		"create": "ペルソナを作成",
+		"create_new": "新しいペルソナ",
+		"edit": "ペルソナを編集",
+		"name": "名前",
+		"description": "説明",
+		"instruction": "システムプロンプト",
+		"error_exists": "このキーは既に存在します。",
+		"confirm_delete_title": "ペルソナを削除しますか？",
+		"confirm_delete": "このペルソナを削除してもよろしいですか？この操作は元に戻せません。"
 	},
 	"dial": {
 		"chat": "チャット",
@@ -167,7 +226,8 @@
 		"save_bar": {
 			"reset": "リセット",
 			"save": "変更を保存",
-			"saving": "保存中..."
+			"saving": "保存中...",
+			"unsaved": "未保存の変更があります"
 		},
 		"sections": {
 			"general": {
@@ -184,7 +244,34 @@
 				"app_settings": "アプリケーション設定",
 				"advanced_settings": "詳細設定",
 				"advanced_settings_desc": "再帰制限とフェッチ制約",
-				"timeout_settings": "タイムアウト設定"
+				"timeout_settings": "タイムアウト設定",
+				"inference_engine": {
+					"title": "推論エンジン (llama.cpp)",
+					"description": "llama.cpp のバイナリ更新を管理します",
+					"current_version": "現在のバージョン",
+					"new_available": "新しいバージョンがあります",
+					"check_updates": "更新を確認",
+					"checking": "確認中...",
+					"starting": "更新を開始中...",
+					"completed": "更新が完了しました！",
+					"failed": "更新に失敗しました",
+					"start_failed": "更新の開始に失敗しました",
+					"error": "更新の開始中にエラーが発生しました"
+				}
+			},
+			"updater": {
+				"title": "ソフトウェア更新",
+				"description": "Tepora のアップデートを管理します",
+				"current_version": "現在のバージョン",
+				"new_version": "新しいバージョン",
+				"check_button": "更新を確認",
+				"update_button": "今すぐ更新",
+				"checking": "確認中...",
+				"downloading": "ダウンロード中...",
+				"installing": "インストール中...",
+				"relaunching": "再起動中...",
+				"uptodate": "最新の状態です！",
+				"error": "更新に失敗しました"
 			},
 			"agents": {
 				"label": "キャラクター",
@@ -196,6 +283,7 @@
 				"cancel": "キャンセル",
 				"cannot_delete_active": "アクティブなプロファイルは削除できません",
 				"confirm_delete": "このプロファイルを削除しますか？",
+				"delete_confirm_title": "プロファイルを削除しますか？",
 				"card": {
 					"currently_active": "現在アクティブ",
 					"set_active": "アクティブに設定",
@@ -231,7 +319,9 @@
 					"key_desc": "システム内部で使用する一意の識別子です。",
 					"name_label": "表示名",
 					"desc_label": "説明",
-					"prompt_label": "システムプロンプト"
+					"prompt_label": "システムプロンプト",
+					"model_label": "使用モデル",
+					"model_desc": "このエージェントが使用するモデル設定を選択してください。"
 				},
 				"error_empty_key": "IDを入力してください。",
 				"error_duplicate_key": "このIDは既に使用されています。",
@@ -269,7 +359,72 @@
 				"list_title": "モデル構成",
 				"list_description": "コンテキストサイズやGPUレイヤーなど、個々のモデルパラメータを設定します。",
 				"advanced_title": "高度なマネージャー設定",
-				"advanced_description": "タイムアウトとヘルスチェック"
+				"advanced_description": "キャッシュとリソース設定",
+				"add_new_model": "新規モデル追加",
+				"no_models": "モデルが設定されていません。「新規モデル追加」ボタンを押して追加してください。",
+				"confirm_delete": "本当にこのモデル設定を削除しますか？",
+				"manage_models": "モデル管理 (削除 / 並べ替え)",
+				"text_model_title": "テキストモデル",
+				"text_model_desc": "テキスト生成に使用するモデルを選択します。",
+				"text_model_label": "テキストモデル",
+				"embedding_model_title": "埋め込みモデル",
+				"embedding_model_desc": "メモリと検索に使用するモデルを選択します。",
+				"executor_label": "Executor: {{taskType}}",
+				"executor_default_desc": "デフォルトのフォールバックエクゼキューターモデル。",
+				"executor_task_desc": "{{taskType}}タスク専用のモデル。",
+				"character_model_title": "キャラクターモデル",
+				"character_model_desc": "会話やペルソナ応答に使用するモデルを選択します。",
+				"character_model_label": "キャラクターモデル",
+				"executor_models_title": "エグゼキューターモデル",
+				"executor_models_desc": "タスクタイプごとにモデルを設定します。各タスクに専用モデルを割り当てられます。",
+				"add_task_placeholder": "タスクタイプを追加 (例: coding, browser)...",
+				"no_models_for_role": "この役割のモデルが見つかりません。",
+				"defaults": {
+					"global": "グローバル既定"
+				},
+				"add_modal": {
+					"title": "モデルを追加",
+					"tab_local": "ローカルファイル",
+					"tab_huggingface": "Hugging Face",
+					"drop_zone": "ここに.ggufファイルをドラッグ&ドロップ",
+					"drop_zone_hint": "またはファイル選択",
+					"drop_zone_active": "ファイルをドロップしてください...",
+					"file_selected": "選択されたファイル",
+					"model_name": "モデル名（ID）",
+					"role_text": "テキストモデル",
+					"role_embedding": "埋め込みモデル",
+					"repo_id": "リポジトリID",
+					"repo_id_placeholder": "user/repo",
+					"filename": "ファイル名",
+					"filename_placeholder": "model-Q4_K_M.gguf",
+					"download": "モデルをダウンロード",
+					"downloading": "ダウンロード中...",
+					"starting": "ダウンロード開始中...",
+					"add_local": "モデルを登録",
+					"invalid_file": ".ggufファイルのみ対応しています",
+					"path_required": "ファイルパスを取得できません。デスクトップ環境が必要です。"
+				},
+				"consent_dialog": {
+					"title": "ダウンロードの確認",
+					"description": "このダウンロードを続行するには確認が必要です：",
+					"confirm": "続行"
+				},
+				"selection": {
+					"select_model": "モデルを選択...",
+					"no_models": "利用可能なモデルがありません",
+					"remove_mapping": "マッピングを削除",
+					"configure": "モデル設定",
+					"no_config": "設定がありません"
+				},
+				"detail": {
+					"changes_note": "モデルパラメータの変更は次回読み込み時に適用されます。",
+					"temp_desc": "ランダム性を制御します。",
+					"top_p_desc": "核サンプリング。",
+					"n_ctx": "コンテキストウィンドウ (n_ctx)",
+					"n_ctx_desc": "モデルが一度に処理できる最大トークン数。",
+					"show_advanced": "詳細設定を表示",
+					"hide_advanced": "詳細設定を隠す"
+				}
 			},
 			"memory": {
 				"label": "メモリ",
@@ -297,11 +452,39 @@
 				"label": "ツール実行タイムアウト",
 				"description": "ツール実行がタイムアウトするまでの秒数。"
 			},
+			"tool_approval_timeout": {
+				"label": "ツール承認タイムアウト",
+				"description": "ツール実行の承認待ちがタイムアウトするまでの秒数。"
+			},
+			"web_fetch_max_chars": {
+				"label": "Web取得最大文字数",
+				"description": "Webページから取得する最大文字数。"
+			},
 			"dangerous_patterns": {
 				"label": "禁止パターン",
 				"description": "セキュリティのためにブロックする正規表現パターン。",
 				"placeholder": "正規表現を追加 (例: system\\s*:)"
+			},
+			"cache_size": "モデルキャッシュ数",
+			"tokenizer_model": {
+				"label": "トークナイザーモデル",
+				"description": "トークンカウントに使用するモデルキー。"
+			},
+			"process_terminate_timeout": {
+				"label": "終了タイムアウト",
+				"description": "プロセス終了を待機する秒数。"
+			},
+			"health_check_timeout": {
+				"label": "ヘルスチェックタイムアウト",
+				"description": "ヘルスチェックリクエストのタイムアウト秒数。"
+			},
+			"health_check_interval": {
+				"label": "ヘルスチェック間隔",
+				"description": "ヘルスチェックを実行する間隔（秒）。"
 			}
+		},
+		"descriptions": {
+			"cache_size": "メモリに保持するモデルの最大数。"
 		},
 		"memory": {
 			"max_tokens": {
@@ -446,7 +629,7 @@
 			},
 			"redact_pii": {
 				"label": "個人情報の保護",
-				"description": "Web検索が有効な場合、検索クエリに含まれる個人情報（メールアドレス、電話番号等）を外部サービスへ送信する前に自動的に伏字化します。"
+				"description": "ログ、およびWeb検索クエリに含まれる個人情報（メールアドレス、電話番号等）を自動的に伏字化します。"
 			}
 		}
 	},

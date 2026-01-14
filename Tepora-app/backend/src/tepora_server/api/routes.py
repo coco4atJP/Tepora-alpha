@@ -115,6 +115,14 @@ async def update_config(config_data: dict[str, Any]):
                 status_code=400, content={"error": "Invalid configuration", "details": errors}
             )
 
+        # Reload in-memory settings so changes take effect without restart where possible.
+        try:
+            from src.core.config.loader import config_manager
+
+            config_manager.load_config(force_reload=True)
+        except Exception:
+            pass
+
         logger.info("Configuration updated successfully")
         return {"status": "success"}
     except Exception as e:
@@ -137,6 +145,14 @@ async def patch_config(config_data: dict[str, Any]):
             return JSONResponse(
                 status_code=400, content={"error": "Invalid configuration", "details": errors}
             )
+
+        # Reload in-memory settings so changes take effect without restart where possible.
+        try:
+            from src.core.config.loader import config_manager
+
+            config_manager.load_config(force_reload=True)
+        except Exception:
+            pass
 
         logger.info("Configuration patched successfully")
         return {"status": "success"}

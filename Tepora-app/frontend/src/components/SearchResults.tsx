@@ -46,7 +46,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 	};
 
 	return (
-		<div className="h-full max-h-[calc(100vh-320px)] flex flex-col glass-panel p-4 overflow-hidden animate-fade-in border border-tea-500/10">
+		<div className="h-full min-h-0 flex flex-col glass-panel p-4 overflow-hidden animate-fade-in border border-tea-500/10">
 			{/* Header */}
 			<div className="flex items-center gap-2 mb-3 text-tea-400 border-b border-white/10 pb-2 shrink-0">
 				<Globe className="w-4 h-4" />
@@ -59,7 +59,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 			</div>
 
 			{/* Scrollable List */}
-			<div className="overflow-y-auto custom-scrollbar flex-1 -mr-2 pr-2 space-y-3">
+			<div className="overflow-y-auto custom-scrollbar flex-1 min-h-0 -mr-2 pr-2 space-y-3">
 				{results.map((result, index) => {
 					const targetUrl = getValidUrl(result);
 					return (
@@ -79,11 +79,11 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 									<ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
 								</h4>
 
-								<p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed mb-2 group-hover:text-gray-400 transition-colors">
+								<p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-2 group-hover:text-gray-400 transition-colors">
 									{result.snippet}
 								</p>
 
-								<div className="flex items-center gap-1.5 text-[9px] text-tea-500/50 font-mono">
+								<div className="flex items-center gap-1.5 text-[10px] text-tea-500/60 font-mono">
 									<Globe className="w-2.5 h-2.5" />
 									<span className="truncate max-w-[150px]">
 										{getHostname(targetUrl)}

@@ -67,7 +67,7 @@ class ConfigService:
 
     @property
     def config_path(self) -> Path:
-        """Get the configuration file path using priority logic."""
+        """Get the configuration file path for *reading* using priority logic."""
         if self._config_path_override:
             return self._config_path_override
 
@@ -79,6 +79,23 @@ class ConfigService:
         if user_config.exists():
             return user_config
         return PROJECT_ROOT / "config.yml"
+
+    @property
+    def config_write_path(self) -> Path:
+        """Get the configuration file path for *writing*.
+
+        In packaged (frozen) environments, PROJECT_ROOT may point to an extracted bundle
+        directory (e.g. PyInstaller `_MEIPASS`) which is non-persistent across launches.
+        Writes should default to USER_DATA_DIR to ensure settings persist.
+        """
+        if self._config_path_override:
+            return self._config_path_override
+
+        env_config = os.getenv("TEPORA_CONFIG_PATH")
+        if env_config:
+            return Path(env_config)
+
+        return self._user_data_dir / "config.yml"
 
     @property
     def secrets_path(self) -> Path:
@@ -254,7 +271,9 @@ class ConfigService:
         public_config, secrets_config = self.split_config(config)
 
         # Write public config
-        with open(self.config_path, "w", encoding="utf-8") as f:
+        config_path = self.config_write_path
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(public_config, f, default_flow_style=False, allow_unicode=True)
 
         # Write secrets config

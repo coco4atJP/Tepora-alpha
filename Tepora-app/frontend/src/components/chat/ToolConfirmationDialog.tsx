@@ -16,6 +16,43 @@ interface ToolConfirmationDialogProps {
 	onDeny: (requestId: string) => void;
 }
 
+const TOOL_NAME_ACRONYMS = new Set([
+	"API",
+	"HTTP",
+	"HTTPS",
+	"JSON",
+	"LLM",
+	"MCP",
+	"URL",
+]);
+
+const toTitleWord = (token: string) => {
+	const upper = token.toUpperCase();
+	if (TOOL_NAME_ACRONYMS.has(upper)) return upper;
+	return token.charAt(0).toUpperCase() + token.slice(1);
+};
+
+const humanizeToolName = (toolName: string) => {
+	if (!toolName) return toolName;
+	const spaced = toolName
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.replace(/[_-]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+
+	if (!spaced) return toolName;
+	return spaced.split(" ").map(toTitleWord).join(" ");
+};
+
+const replaceToolName = (
+	text: string,
+	toolName: string,
+	displayName: string,
+) => {
+	if (!text || !toolName) return text;
+	return text.split(toolName).join(displayName);
+};
+
 /**
  * Dialog for confirming dangerous tool execution.
  * Shows tool name, arguments, and allows user to approve or deny.
@@ -30,21 +67,26 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 
 	if (!request) return null;
 
+	const translatedName = t(`tool_confirmation.names.${request.toolName}`);
 	const displayName =
-		t(`tool_confirmation.names.${request.toolName}`) !==
-		`tool_confirmation.names.${request.toolName}`
-			? t(`tool_confirmation.names.${request.toolName}`)
-			: request.toolName;
+		translatedName !== `tool_confirmation.names.${request.toolName}`
+			? translatedName
+			: humanizeToolName(request.toolName);
 
+	const translatedDescription = t(
+		`tool_confirmation.descriptions.${request.toolName}`,
+	);
+	const fallbackDescription = t(
+		"tool_confirmation.description",
+		"このツールを実行しようとしています。",
+	);
 	const description =
-		request.description ||
-		(t(`tool_confirmation.descriptions.${request.toolName}`) !==
+		translatedDescription !==
 		`tool_confirmation.descriptions.${request.toolName}`
-			? t(`tool_confirmation.descriptions.${request.toolName}`)
-			: t(
-					"tool_confirmation.description",
-					"このツールを実行しようとしています。",
-				));
+			? translatedDescription
+			: request.description
+				? replaceToolName(request.description, request.toolName, displayName)
+				: fallbackDescription;
 
 	return (
 		<Modal

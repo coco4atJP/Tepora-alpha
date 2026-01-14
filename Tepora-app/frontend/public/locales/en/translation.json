@@ -39,7 +39,21 @@
 		"download_warning_confirm": "Proceed",
 		"advanced_settings": "Advanced Settings (Change Models)",
 		"model_settings": "Model Settings",
-		"model": "Model"
+		"model": "Model",
+		"checking_desc": "Checking system requirements and dependencies...",
+		"ready_desc": "Tepora is ready to be your AI companion.",
+		"all_set": "All Set!",
+		"installing": "Installing...",
+		"extracting": "Extracting...",
+		"failed": "Setup Failed",
+		"install_selected": "Install Selected Models",
+		"start_install": "Start Installation",
+		"custom": "Custom Configuration (Advanced)",
+		"custom_desc": "Specify your own GGUF model repositories and filenames.",
+		"custom_models": "Custom Models",
+		"launch": "Launch Tepora",
+		"storage_required": "Approx. 2GB+ per model required",
+		"storage_desc": "Tepora runs locally. Models will be stored in your AppData folder."
 	},
 	"app": {
 		"loading": "Connecting to server...",
@@ -92,11 +106,17 @@
 		"empty": "No sessions yet",
 		"messages": "msgs"
 	},
+	"newSession": "New Session",
+	"sessionHistory": "Session History",
+	"close": "Close",
 	"common": {
 		"language": "Language",
 		"next": "Next",
 		"back": "Back",
+		"skip": "Skip",
 		"cancel": "Cancel",
+		"add": "Add",
+		"edit": "Edit",
 		"save": "Save",
 		"clear": "Clear",
 		"settings": "Settings",
@@ -105,6 +125,9 @@
 		"disabled": "Disabled",
 		"disabled": "Disabled",
 		"retry": "Retry",
+		"load_more": "Load more",
+		"update_now": "Update Now",
+		"error_prefix": "Error: ",
 		"today": "Today",
 		"yesterday": "Yesterday",
 		"daysAgo": "{{count}} days ago",
@@ -115,7 +138,8 @@
 		"clear_history": "Clear History",
 		"role": {
 			"assistant": "Assistant",
-			"user": "You"
+			"user": "You",
+			"system": "System"
 		},
 		"input": {
 			"placeholder": {
@@ -125,6 +149,7 @@
 				"default": "Chat with Tepora..."
 			},
 			"system_ready": "System Ready",
+			"system_ready_hint": "Select a mode from the dial to begin",
 			"disconnected": "Disconnected",
 			"web_search": "Web Search",
 			"web_search_toggle": "Web Search: {{state}}",
@@ -136,7 +161,41 @@
 			"stop_generation": "Stop Generation",
 			"mode_active": "{{mode}} MODE ACTIVE",
 			"aria_label": "Message Input"
-		}
+		},
+		"messages_aria_label": "Chat messages",
+		"jump_to_latest": "Jump to latest message",
+		"jump_to_latest_short": "Latest"
+	},
+	"agent": {
+		"title": "Agent Activity",
+		"waiting": "Waiting"
+	},
+	"search": {
+		"title": "Search",
+		"hits": "results",
+		"no_results": "No results found"
+	},
+	"rag_context": {
+		"title": "RAG Context",
+		"sources": "Sources",
+		"files": "Files",
+		"add_file": "Add File",
+		"no_sources": "No sources added",
+		"add_hint": "Add files or search the web",
+		"web_results": "Web Results"
+	},
+	"personas": {
+		"switch": "Switch Persona",
+		"select": "Select Persona",
+		"create": "Create Persona",
+		"create_new": "Create Persona",
+		"edit": "Edit Persona",
+		"name": "Name",
+		"description": "Description",
+		"instruction": "System Prompt",
+		"error_exists": "This key already exists.",
+		"confirm_delete_title": "Delete Persona?",
+		"confirm_delete": "Are you sure you want to delete this persona? This action cannot be undone."
 	},
 	"dial": {
 		"chat": "CHAT",
@@ -167,7 +226,8 @@
 		"save_bar": {
 			"reset": "Reset",
 			"save": "Save Changes",
-			"saving": "Saving..."
+			"saving": "Saving...",
+			"unsaved": "Unsaved changes"
 		},
 		"sections": {
 			"general": {
@@ -184,7 +244,34 @@
 				"app_settings": "Application Settings",
 				"advanced_settings": "Advanced Settings",
 				"advanced_settings_desc": "Recursion limits and fetch constraints",
-				"timeout_settings": "Timeout Settings"
+				"timeout_settings": "Timeout Settings",
+				"inference_engine": {
+					"title": "Inference Engine (llama.cpp)",
+					"description": "Manage llama.cpp binary updates",
+					"current_version": "Current Version",
+					"new_available": "New Version Available",
+					"check_updates": "Check for Updates",
+					"checking": "Checking...",
+					"starting": "Starting update...",
+					"completed": "Update completed!",
+					"failed": "Update failed",
+					"start_failed": "Failed to start update",
+					"error": "Error starting update"
+				}
+			},
+			"updater": {
+				"title": "Software Update",
+				"description": "Manage Tepora updates.",
+				"current_version": "Current Version",
+				"new_version": "New Version",
+				"check_button": "Check for Updates",
+				"update_button": "Update Now",
+				"checking": "Checking...",
+				"downloading": "Downloading...",
+				"installing": "Installing...",
+				"relaunching": "Relaunching...",
+				"uptodate": "You are up to date!",
+				"error": "Update failed"
 			},
 			"agents": {
 				"label": "Characters",
@@ -196,6 +283,7 @@
 				"cancel": "Cancel",
 				"cannot_delete_active": "Cannot delete active profile",
 				"confirm_delete": "Delete this profile?",
+				"delete_confirm_title": "Delete Profile",
 				"card": {
 					"currently_active": "Currently Active",
 					"set_active": "Set as Active",
@@ -231,7 +319,9 @@
 					"key_desc": "Unique identifier used internally.",
 					"name_label": "Display Name",
 					"desc_label": "Description",
-					"prompt_label": "System Prompt"
+					"prompt_label": "System Prompt",
+					"model_label": "Model",
+					"model_desc": "Select the model configuration for this agent."
 				},
 				"error_empty_key": "Please enter an ID.",
 				"error_duplicate_key": "This ID is already in use.",
@@ -269,7 +359,72 @@
 				"list_title": "Model Configurations",
 				"list_description": "Configure individual model parameters like context size and GPU layers.",
 				"advanced_title": "Advanced Manager Settings",
-				"advanced_description": "Timeouts and health checks"
+				"advanced_description": "Cache and resource settings",
+				"add_new_model": "Add New Model",
+				"no_models": "No models configured. Click 'Add New Model' to add one.",
+				"confirm_delete": "Are you sure you want to delete this model configuration?",
+				"manage_models": "Manage Models (Delete / Reorder)",
+				"text_model_title": "Text Model",
+				"text_model_desc": "Select the model used for text generation.",
+				"text_model_label": "Text Model",
+				"embedding_model_title": "Embedding Model",
+				"embedding_model_desc": "Select the model used for memory and retrieval.",
+				"executor_label": "Executor: {{taskType}}",
+				"executor_default_desc": "Default fallback executor model.",
+				"executor_task_desc": "Specialized model for {{taskType}} tasks.",
+				"character_model_title": "Character Model",
+				"character_model_desc": "Select the model used for conversation and persona-based responses.",
+				"character_model_label": "Character Model",
+				"executor_models_title": "Executor Models",
+				"executor_models_desc": "Configure models for different task types. Each task can use a specialized model.",
+				"add_task_placeholder": "Add task type (e.g., coding, browser)...",
+				"no_models_for_role": "No models found for this role.",
+				"defaults": {
+					"global": "Global Default"
+				},
+				"add_modal": {
+					"title": "Add Model",
+					"tab_local": "Local File",
+					"tab_huggingface": "Hugging Face",
+					"drop_zone": "Drag & Drop .gguf file here",
+					"drop_zone_hint": "or select file",
+					"drop_zone_active": "Drop file here...",
+					"file_selected": "Selected file",
+					"model_name": "Model Name (ID)",
+					"role_text": "Text Model",
+					"role_embedding": "Embedding Model",
+					"repo_id": "Repository ID",
+					"repo_id_placeholder": "user/repo",
+					"filename": "Filename",
+					"filename_placeholder": "model-Q4_K_M.gguf",
+					"download": "Download Model",
+					"downloading": "Downloading...",
+					"starting": "Starting download...",
+					"add_local": "Register Model",
+					"invalid_file": "Only .gguf files are supported",
+					"path_required": "Cannot resolve file path. This feature requires a desktop environment."
+				},
+				"consent_dialog": {
+					"title": "Confirm Download",
+					"description": "This download requires your confirmation before proceeding:",
+					"confirm": "Proceed"
+				},
+				"selection": {
+					"select_model": "Select a model...",
+					"no_models": "No models available",
+					"remove_mapping": "Remove Mapping",
+					"configure": "Model Configuration",
+					"no_config": "No configuration available"
+				},
+				"detail": {
+					"changes_note": "Changes to model parameters will apply on next load.",
+					"temp_desc": "Controls randomness.",
+					"top_p_desc": "Nucleus sampling.",
+					"n_ctx": "Context Window (n_ctx)",
+					"n_ctx_desc": "Maximum number of tokens the model can process at once.",
+					"show_advanced": "Show Advanced Settings",
+					"hide_advanced": "Hide Advanced Settings"
+				}
 			},
 			"memory": {
 				"label": "Memory",
@@ -297,11 +452,23 @@
 				"label": "Tool Execution Timeout",
 				"description": "Seconds before a tool execution times out."
 			},
+			"tool_approval_timeout": {
+				"label": "Tool Approval Timeout",
+				"description": "Seconds before a tool approval request expires."
+			},
+			"web_fetch_max_chars": {
+				"label": "Web Fetch Max Chars",
+				"description": "Maximum characters to fetch from a web page."
+			},
 			"dangerous_patterns": {
 				"label": "Dangerous Patterns",
 				"description": "Regex patterns to block from user input for security.",
 				"placeholder": "Add regex pattern (e.g. system\\s*:)"
-			}
+			},
+			"cache_size": "Model Cache Limit"
+		},
+		"descriptions": {
+			"cache_size": "Number of models to keep loaded in memory."
 		},
 		"memory": {
 			"max_tokens": {
@@ -446,7 +613,7 @@
 			},
 			"redact_pii": {
 				"label": "Protect Personal Information",
-				"description": "When web search is enabled, automatically redact personal information (email addresses, phone numbers, etc.) from web search queries before they are sent to external services."
+				"description": "Automatically redact personal information (email addresses, phone numbers, etc.) from logs, and from web search queries before they are sent to external services."
 			}
 		}
 	},

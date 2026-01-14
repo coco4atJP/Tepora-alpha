@@ -10,7 +10,9 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Any
@@ -25,6 +27,8 @@ from src.tepora_server.api.security import get_api_key
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
+
+_SERVER_KEY_UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9_-]")
 
 
 # --- Request/Response Models ---
@@ -75,6 +79,63 @@ CONSENT_EXPIRY_MINUTES = 5
 
 
 # --- API Endpoints ---
+
+
+def _normalize_server_key(raw: str) -> str:
+    """
+    Normalize a registry/server identifier into a safe MCP server key.
+
+    This key is used as:
+    - the config key in `mcp_tools_config.json`
+    - the prefix for tool names (e.g. `{server_key}_{tool_name}`)
+    """
+    if not raw:
+        return "mcp_server"
+
+    # Prefer the segment after the namespace (reverse-DNS name like `io.github.user/weather`)
+    base = raw.split("/", 1)[-1]
+    base = _SERVER_KEY_UNSAFE_CHARS.sub("_", base).strip("_")
+    return base or "mcp_server"
+
+
+def _make_unique_server_key(base: str, existing: set[str]) -> str:
+    if base not in existing:
+        return base
+    i = 2
+    while f"{base}_{i}" in existing:
+        i += 1
+    return f"{base}_{i}"
+
+
+def _dump_server_config(server: Any) -> dict[str, Any]:
+    """Serialize McpServerConfig into the config file shape without dropping metadata."""
+    data: dict[str, Any] = {
+        "command": server.command,
+        "args": server.args,
+        "env": server.env or {},
+        "enabled": server.enabled,
+        "transport": getattr(server.transport, "value", server.transport),
+    }
+    if getattr(server, "url", None):
+        data["url"] = server.url
+    if getattr(server, "metadata", None):
+        data["metadata"] = server.metadata.model_dump(exclude_none=True)
+    return data
+
+
+async def _reload_core_tools(state: AppState) -> None:
+    """
+    Reload the core ToolManager so MCP enable/disable/install is reflected immediately.
+
+    This is best-effort; failures should not break MCP config updates.
+    """
+    try:
+        core = getattr(state, "core", None)
+        if not core or not getattr(core, "tool_manager", None):
+            return
+        await asyncio.to_thread(core.tool_manager.initialize)
+    except Exception as e:
+        logger.warning("Failed to reload ToolManager after MCP change: %s", e)
 
 
 @router.get("/status", dependencies=[Depends(get_api_key)])
@@ -159,6 +220,7 @@ async def update_mcp_config(
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to update config")
 
+        await _reload_core_tools(state)
         return {"status": "success"}
 
     except HTTPException:
@@ -170,13 +232,22 @@ async def update_mcp_config(
 
 @router.get("/store", dependencies=[Depends(get_api_key)])
 async def get_mcp_store(
-    state: AppState = Depends(get_app_state), search: str | None = None
+    state: AppState = Depends(get_app_state),
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    runtime: str | None = None,
+    refresh: bool = False,
 ) -> dict[str, Any]:
     """
     Get list of available MCP servers from registry.
 
     Args:
         search: Optional search query to filter servers
+        page: 1-based page number
+        page_size: Items per page (max 200)
+        runtime: Optional runtime filter (e.g. npx, uvx, docker)
+        refresh: Force-refresh registry cache
 
     Returns:
         List of available servers with metadata
@@ -184,12 +255,36 @@ async def get_mcp_store(
     try:
         if not hasattr(state, "mcp_registry") or state.mcp_registry is None:
             # Return empty list if registry not initialized
-            return {"servers": []}
+            return {
+                "servers": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "has_more": False,
+            }
 
-        if search:
-            servers = await state.mcp_registry.search_servers(search)
-        else:
-            servers = await state.mcp_registry.fetch_servers()
+        # Clamp pagination inputs
+        if page < 1:
+            page = 1
+        page_size = max(1, min(page_size, 200))
+
+        servers = await state.mcp_registry.fetch_servers(force_refresh=refresh, search=search)
+
+        if runtime:
+            runtime_lower = runtime.lower()
+            servers = [
+                s
+                for s in servers
+                if any((p.runtimeHint or "").lower() == runtime_lower for p in s.packages)
+            ]
+
+        # Stable ordering for consistent pagination/UI rendering
+        servers.sort(key=lambda s: (s.name or "").lower())
+
+        total = len(servers)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paged = servers[start:end] if start < total else []
 
         # Convert to serializable format
         return {
@@ -197,13 +292,16 @@ async def get_mcp_store(
                 {
                     "id": s.id,
                     "name": s.name,
+                    "title": s.title,
                     "description": s.description,
+                    "version": s.version,
                     "vendor": s.vendor,
                     "packages": [
                         {
                             "name": p.name,
                             "runtimeHint": p.runtimeHint,
                             "registry": p.registry,
+                            "version": p.version,
                         }
                         for p in s.packages
                     ],
@@ -220,9 +318,15 @@ async def get_mcp_store(
                     "icon": s.icon,
                     "category": s.category,
                     "sourceUrl": s.sourceUrl,
+                    "homepage": s.homepage,
+                    "websiteUrl": s.websiteUrl,
                 }
-                for s in servers
-            ]
+                for s in paged
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_more": end < total,
         }
 
     except Exception as e:
@@ -314,18 +418,15 @@ async def confirm_mcp_install(
         )
 
         # Determine server name
-        server_name = original_request.get("server_name") or original_request["server_id"]
-
-        # Get current config and add new server
         current_config = state.mcp_hub.get_config()
+        existing_names = set(current_config.mcpServers.keys())
+
+        requested_name = original_request.get("server_name")
+        base_name = _normalize_server_key(requested_name or original_request["server_id"])
+        server_name = _make_unique_server_key(base_name, existing_names)
+
         new_servers = {
-            name: {
-                "command": s.command,
-                "args": s.args,
-                "env": s.env or {},
-                "enabled": s.enabled,
-            }
-            for name, s in current_config.mcpServers.items()
+            name: _dump_server_config(s) for name, s in current_config.mcpServers.items()
         }
 
         # Add new server (disabled by default for security - user must explicitly enable)
@@ -334,9 +435,11 @@ async def confirm_mcp_install(
             "args": config.args,
             "env": config.env,
             "enabled": False,
+            "transport": config.transport.value,
             "metadata": {
-                "name": server.name,
+                "name": server.title or server.name,
                 "description": server.description,
+                "icon": server.icon,
             },
         }
 
@@ -345,6 +448,8 @@ async def confirm_mcp_install(
 
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to install server")
+
+        await _reload_core_tools(state)
 
         # Remove used consent
         del _pending_consents[request.consent_id]
@@ -388,6 +493,7 @@ async def enable_server(
         if not success:
             raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
 
+        await _reload_core_tools(state)
         return {"status": "success"}
 
     except HTTPException:
@@ -411,6 +517,7 @@ async def disable_server(
         if not success:
             raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
 
+        await _reload_core_tools(state)
         return {"status": "success"}
 
     except HTTPException:
@@ -435,14 +542,9 @@ async def delete_server(
         if server_name not in config.mcpServers:
             raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
 
-        # Remove server and update
+        # Remove server and update (preserve per-server metadata/transport/etc)
         new_servers = {
-            name: {
-                "command": s.command,
-                "args": s.args,
-                "env": s.env or {},
-                "enabled": s.enabled,
-            }
+            name: _dump_server_config(s)
             for name, s in config.mcpServers.items()
             if name != server_name
         }
@@ -452,6 +554,7 @@ async def delete_server(
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to remove server")
 
+        await _reload_core_tools(state)
         return {"status": "success"}
 
     except HTTPException:

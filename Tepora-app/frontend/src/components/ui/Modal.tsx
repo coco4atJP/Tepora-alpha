@@ -26,18 +26,19 @@ const Modal: React.FC<ModalProps> = ({
 
 	// Close on Escape key
 	useEffect(() => {
+		if (!isOpen) return;
+
 		const handleEscape = (e: KeyboardEvent) => {
 			if (e.key === "Escape") onClose();
 		};
 
-		if (isOpen) {
-			document.addEventListener("keydown", handleEscape);
-			document.body.style.overflow = "hidden"; // Prevent scrolling behind modal
-		}
+		const previousOverflow = document.body.style.overflow;
+		document.addEventListener("keydown", handleEscape);
+		document.body.style.overflow = "hidden"; // Prevent scrolling behind modal
 
 		return () => {
 			document.removeEventListener("keydown", handleEscape);
-			document.body.style.overflow = "unset";
+			document.body.style.overflow = previousOverflow;
 		};
 	}, [isOpen, onClose]);
 

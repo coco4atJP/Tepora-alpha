@@ -120,7 +120,13 @@ export interface SettingsContextValue {
 	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
 	addCharacter: (key: string) => void;
+
 	deleteCharacter: (key: string) => void;
+
+	// Professional Actions
+	updateProfessional: (key: string, config: ProfessionalConfig) => void;
+	addProfessional: (key: string) => void;
+	deleteProfessional: (key: string) => void;
 
 	setActiveAgent: (key: string) => void;
 	saveConfig: (override?: Config) => Promise<boolean>;
@@ -325,6 +331,47 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 		});
 	}, []);
 
+	// Professional Management
+	const updateProfessional = useCallback(
+		(key: string, profConfig: ProfessionalConfig) => {
+			setConfig((prev) =>
+				prev
+					? {
+							...prev,
+							professionals: { ...prev.professionals, [key]: profConfig },
+						}
+					: prev,
+			);
+		},
+		[],
+	);
+
+	const addProfessional = useCallback((key: string) => {
+		const defaultProf: ProfessionalConfig = {
+			name: key,
+			description: "",
+			system_prompt: "You are a helpful professional assistant.",
+			tools: [],
+		};
+		setConfig((prev) =>
+			prev
+				? {
+						...prev,
+						professionals: { ...prev.professionals, [key]: defaultProf },
+					}
+				: prev,
+		);
+	}, []);
+
+	const deleteProfessional = useCallback((key: string) => {
+		setConfig((prev) => {
+			if (!prev) return prev;
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			const { [key]: _, ...rest } = prev.professionals;
+			return { ...prev, professionals: rest };
+		});
+	}, []);
+
 	const setActiveAgent = useCallback((key: string) => {
 		setConfig((prev) => (prev ? { ...prev, active_agent_profile: key } : prev));
 	}, []);
@@ -384,6 +431,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
+
+			updateProfessional,
+			addProfessional,
+			deleteProfessional,
 			setActiveAgent,
 			saveConfig,
 			resetConfig,
@@ -407,6 +458,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
+
+			updateProfessional,
+			addProfessional,
+			deleteProfessional,
 			setActiveAgent,
 			saveConfig,
 			resetConfig,

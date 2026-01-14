@@ -60,8 +60,7 @@ class GoogleCustomSearchTool(BaseTool):
     def _perform_search(self, query: str) -> str:
         if not settings.privacy.allow_web_search:
             return self._make_error_response(
-                "search_disabled_privacy",
-                "Web search is disabled by privacy settings."
+                "search_disabled_privacy", "Web search is disabled by privacy settings."
             )
 
         # Apply PII redaction if enabled
@@ -78,7 +77,7 @@ class GoogleCustomSearchTool(BaseTool):
         if not api_key or not engine_id:
             return self._make_error_response(
                 "search_disabled_api_keys",
-                "Google Custom Search is disabled (API keys not configured)."
+                "Google Custom Search is disabled (API keys not configured).",
             )
 
         url = "https://www.googleapis.com/customsearch/v1"
@@ -106,52 +105,45 @@ class GoogleCustomSearchTool(BaseTool):
         except requests.exceptions.Timeout as exc:  # noqa: PERF203
             logger.error("Google Custom Search API timeout: %s", exc)
             return self._make_error_response(
-                "search_timeout",
-                "Search request timed out. Please try again later."
+                "search_timeout", "Search request timed out. Please try again later."
             )
         except requests.exceptions.ConnectionError as exc:
             logger.error("Google Custom Search API connection error: %s", exc)
             return self._make_error_response(
                 "search_connection_error",
-                "Connection failed. Please check your internet connection and try again."
+                "Connection failed. Please check your internet connection and try again.",
             )
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response else "N/A"
             logger.error("Google Custom Search API HTTP error: Status %s", status_code)
             if status_code == 429:
                 return self._make_error_response(
-                    "search_rate_limit",
-                    "Rate limit exceeded. Please wait a moment and try again."
+                    "search_rate_limit", "Rate limit exceeded. Please wait a moment and try again."
                 )
             if status_code == 403:
                 return self._make_error_response(
                     "search_access_denied",
-                    "API access denied. Please check your API key and permissions."
+                    "API access denied. Please check your API key and permissions.",
                 )
             return self._make_error_response(
                 "search_http_error",
                 f"HTTP error occurred with status code {status_code}.",
-                status_code=str(status_code)
+                status_code=str(status_code),
             )
         except requests.exceptions.RequestException as exc:
             logger.error("Google Custom Search API request failed: %s", exc)
             return self._make_error_response(
-                "search_failed",
-                f"Failed to perform search: {exc}",
-                details=str(exc)
+                "search_failed", f"Failed to perform search: {exc}", details=str(exc)
             )
         except json.JSONDecodeError as exc:
             logger.error("Failed to parse Google API response: %s", exc)
             return self._make_error_response(
-                "search_invalid_response",
-                "Invalid response from Google API. Please try again."
+                "search_invalid_response", "Invalid response from Google API. Please try again."
             )
         except Exception as exc:  # noqa: BLE001
             logger.error("Unexpected error in Google Custom Search: %s", exc, exc_info=True)
             return self._make_error_response(
-                "search_unexpected_error",
-                f"Unexpected error occurred: {exc}",
-                details=str(exc)
+                "search_unexpected_error", f"Unexpected error occurred: {exc}", details=str(exc)
             )
 
         if "error" in data:
@@ -159,9 +151,7 @@ class GoogleCustomSearchTool(BaseTool):
             error_message = f"Google API Error: {error_info.get('code', 'Unknown')} - {error_info.get('message', 'Unknown error')}"
             logger.error(error_message)
             return self._make_error_response(
-                "search_api_error",
-                error_message,
-                api_code=error_info.get('code', 'Unknown')
+                "search_api_error", error_message, api_code=error_info.get("code", "Unknown")
             )
 
         items = data.get("items")
@@ -233,16 +223,14 @@ class WebFetchTool(BaseTool):
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return self._make_error_response(
-                "url_invalid_scheme",
-                "URL must include a valid http/https scheme and host."
+                "url_invalid_scheme", "URL must include a valid http/https scheme and host."
             )
 
         # Get host (without port), handling IPv6 literals correctly
         host = (parsed.hostname or "").lower()
         if not host:
             return self._make_error_response(
-                "url_no_hostname",
-                "Could not determine hostname from URL."
+                "url_no_hostname", "Could not determine hostname from URL."
             )
 
         # Get URL denylist from config schema (externalized from hardcoded values)
@@ -257,7 +245,7 @@ class WebFetchTool(BaseTool):
                 return self._make_error_response(
                     "url_blocked_private",
                     f"Access to {host} is blocked for security reasons (private/local network).",
-                    host=host
+                    host=host,
                 )
 
         # Additional check: resolve hostname and check if it's a private IP
@@ -268,7 +256,7 @@ class WebFetchTool(BaseTool):
                 logger.warning("URL blocked: %s resolves to private IP %s", url, ip)
                 return self._make_error_response(
                     "url_blocked_private_ip",
-                    "Access to private/local IP addresses is blocked for security reasons."
+                    "Access to private/local IP addresses is blocked for security reasons.",
                 )
         except ValueError:
             # Not an IP address, that's fine - it's a hostname
@@ -293,15 +281,13 @@ class WebFetchTool(BaseTool):
                     "fetch_failed",
                     f"Failed to retrieve content from {url}.",
                     url=url,
-                    details=str(exc)
+                    details=str(exc),
                 )
 
         content_type = response.headers.get("Content-Type", "")
         if "text/html" not in content_type:
             return self._make_error_response(
-                "fetch_not_html",
-                "URL is not an HTML page.",
-                content_type=content_type
+                "fetch_not_html", "URL is not an HTML page.", content_type=content_type
             )
 
         soup = BeautifulSoup(response.text, "html.parser")

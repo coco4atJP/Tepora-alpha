@@ -14,12 +14,24 @@ vi.mock("lucide-react", () => ({
 	Save: () => <span data-testid="icon-save" />,
 	Bot: () => <span data-testid="icon-bot" />,
 	Briefcase: () => <span data-testid="icon-briefcase" />,
+	ChevronDown: () => <span data-testid="icon-chevron-down" />,
+	ChevronRight: () => <span data-testid="icon-chevron-right" />,
+	HelpCircle: () => <span data-testid="icon-help-circle" />,
+	Cpu: () => <span data-testid="icon-cpu" />,
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
 	useSettings: () => ({
 		config: {
 			app: { nsfw_enabled: false },
+			models_gguf: {
+				text_model: {
+					path: "test.gguf",
+					port: 8080,
+					n_ctx: 2048,
+					n_gpu_layers: -1,
+				},
+			},
 		},
 		updateApp: vi.fn(),
 	}),
@@ -44,6 +56,10 @@ describe("CharacterSettings", () => {
 		onSetActive: vi.fn(),
 		onAddProfile: vi.fn(),
 		onDeleteProfile: vi.fn(),
+		professionals: {},
+		onUpdateProfessional: vi.fn(),
+		onAddProfessional: vi.fn(),
+		onDeleteProfessional: vi.fn(),
 	};
 
 	it("renders character profiles", () => {

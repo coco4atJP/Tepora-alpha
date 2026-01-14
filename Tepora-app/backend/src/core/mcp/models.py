@@ -79,10 +79,16 @@ class EnvVarSchema(BaseModel):
 class PackageInfo(BaseModel):
     """Package information from registry."""
 
-    name: str
+    # NOTE: The official registry schema uses `identifier` and `registryType`.
+    # We keep legacy field names (`name`, `registry`) and map them via aliases
+    # to remain compatible with earlier seed/API formats.
+    name: str = Field(..., alias="identifier")
     version: str | None = None
-    registry: str | None = None  # e.g., "npm", "pypi"
+    registry: str | None = Field(default=None, alias="registryType")  # e.g., "npm", "pypi"
     runtimeHint: str | None = None  # noqa: N815 - e.g., "npx", "uvx", "docker"
+    environmentVariables: list[EnvVarSchema] = Field(default_factory=list)  # noqa: N815
+
+    model_config = {"populate_by_name": True}
 
 
 class McpRegistryServer(BaseModel):
@@ -91,9 +97,12 @@ class McpRegistryServer(BaseModel):
     id: str
     name: str
     description: str | None = None
+    title: str | None = None
+    version: str | None = None
     vendor: str | None = None
     sourceUrl: str | None = None  # noqa: N815
     homepage: str | None = None
+    websiteUrl: str | None = None  # noqa: N815
     license: str | None = None
     packages: list[PackageInfo] = Field(default_factory=list)
     environmentVariables: list[EnvVarSchema] = Field(default_factory=list)  # noqa: N815

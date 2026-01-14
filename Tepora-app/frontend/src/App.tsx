@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -81,8 +82,8 @@ function App() {
 		return (
 			<div className="min-h-screen w-full flex items-center justify-center bg-[#050201]">
 				<div className="text-center max-w-md px-6">
-					<div className="text-red-400 text-6xl mb-4" aria-hidden="true">
-						⚠
+					<div className="flex justify-center mb-4" aria-hidden="true">
+						<AlertTriangle className="w-14 h-14 text-red-400" />
 					</div>
 					<h1 className="text-white text-xl font-semibold mb-2">
 						{t("errors.connectionErrorTitle", "Connection Error")}

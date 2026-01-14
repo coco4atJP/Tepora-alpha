@@ -7,7 +7,7 @@ import base64
 import logging
 import re
 from collections.abc import AsyncGenerator, Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.state import CompiledStateGraph as CompiledGraph
@@ -29,6 +29,9 @@ from ..llm_manager import LLMManager
 from ..memory.memory_system import MemorySystem
 from ..tool_manager import ToolManager
 from .utils import sanitize_user_input
+
+if TYPE_CHECKING:
+    from ..mcp.hub import McpHub
 
 # Base64 pattern for detection (standard base64 with optional padding)
 BASE64_PATTERN = re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
@@ -52,7 +55,7 @@ class TeporaCoreApp:
         self.app: CompiledGraph | None = None  # The compiled graph
         self.initialized = False
 
-    async def initialize(self) -> bool:
+    async def initialize(self, mcp_hub: "McpHub | None" = None) -> bool:
         """Initialize all core components."""
         try:
             logger.info("Initializing Core Systems...")
@@ -79,7 +82,10 @@ class TeporaCoreApp:
             from ..tools.native import NativeToolProvider
 
             tool_config_path = PROJECT_ROOT / "config" / "mcp_tools_config.json"
-            providers = [NativeToolProvider(), McpToolProvider(config_path=tool_config_path)]
+            providers = [
+                NativeToolProvider(),
+                McpToolProvider(config_path=tool_config_path, hub=mcp_hub),
+            ]
             self.tool_manager = ToolManager(providers=providers)
             self.tool_manager.initialize()
             logger.info(

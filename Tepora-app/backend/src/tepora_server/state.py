@@ -60,17 +60,15 @@ class AppState:
 
     async def initialize(self) -> bool:
         """Initialize the core app and MCP infrastructure."""
-        # Initialize core app
-        result = await self.core.initialize()
-
-        # Initialize MCP Hub
+        # Initialize MCP Hub first so the core ToolManager can reuse it (no duplicate connections).
         try:
             await self._initialize_mcp()
         except Exception as e:
             logger.error("Failed to initialize MCP Hub: %s", e)
             # Don't fail initialization - MCP is optional
 
-        return result
+        # Initialize core app (ToolManager, graph, etc.)
+        return await self.core.initialize(mcp_hub=self._mcp_hub)
 
     async def _initialize_mcp(self) -> None:
         """Initialize MCP Hub and Registry."""
@@ -79,7 +77,19 @@ class AppState:
         policy_path = PROJECT_ROOT / "config" / "mcp_policy.json"
 
         # Initialize Registry
-        self._mcp_registry = McpRegistry()
+        # Prefer the local registry seed (if present in project reference materials),
+        # otherwise fall back to the bundled seed.json.
+        repo_root = PROJECT_ROOT.parents[1]  # backend -> Tepora-app -> Tepora_Project
+        local_seed = (
+            repo_root
+            / "プロジェクト参考資料"
+            / "MCP関連"
+            / "registry-main"
+            / "registry-main"
+            / "data"
+            / "seed.json"
+        )
+        self._mcp_registry = McpRegistry(seed_path=local_seed if local_seed.exists() else None)
         logger.info("MCP Registry initialized")
 
         # Initialize Policy Manager (Phase 4)

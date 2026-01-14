@@ -1,6 +1,5 @@
 import {
 	AlertCircle,
-	Bot,
 	Briefcase,
 	Check,
 	Edit2,
@@ -12,49 +11,75 @@ import type React from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../hooks/useSettings";
-import type { CharacterConfig } from "../../../types";
+import type { CharacterConfig, ProfessionalConfig } from "../../../types";
 import ConfirmDialog from "../../ui/ConfirmDialog";
 import Modal from "../../ui/Modal";
-import { FormGroup, FormInput, SettingsSection } from "../SettingsComponents";
+import {
+	AgentCard,
+	type AgentProfile,
+	FormGroup,
+	FormSelect,
+	SettingsSection,
+} from "../SettingsComponents";
 
 interface CharacterSettingsProps {
 	profiles: Record<string, CharacterConfig>;
+	professionals: Record<string, ProfessionalConfig>;
 	activeProfileId: string;
 	onUpdateProfile: (key: string, profile: CharacterConfig) => void;
+	onUpdateProfessional: (key: string, profile: ProfessionalConfig) => void;
 	onSetActive: (key: string) => void;
 	onAddProfile: (key: string) => void;
+	onAddProfessional: (key: string) => void;
 	onDeleteProfile: (key: string) => void;
+	onDeleteProfessional: (key: string) => void;
 }
 
 interface EditState {
 	key: string;
-	config: CharacterConfig;
+	profile: AgentProfile;
+	model_config_name: string; // Restored feature
+	type: "character" | "professional";
 	isNew: boolean;
 }
 
 const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	profiles,
+	professionals,
 	activeProfileId,
 	onUpdateProfile,
+	onUpdateProfessional,
 	onSetActive,
 	onAddProfile,
+	onAddProfessional,
 	onDeleteProfile,
+	onDeleteProfessional,
 }) => {
 	const { t } = useTranslation();
+	const { config: settingsConfig } = useSettings();
 	const [activeTab, setActiveTab] = useState<"characters" | "professionals">(
 		"characters",
 	);
+
+	// Model Options
+	const modelOptions = settingsConfig?.models_gguf
+		? Object.keys(settingsConfig.models_gguf).map((key) => ({
+				value: key,
+				label: key,
+			}))
+		: [];
 
 	// Edit Modal State
 	const [editState, setEditState] = useState<EditState | null>(null);
 	const [newKeyInput, setNewKeyInput] = useState("");
 
-	// Error message state (replaces native alert)
+	// Error message state
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-	// Delete confirmation dialog state (replaces native confirm)
+	// Delete confirmation dialog state
 	const [deleteConfirm, setDeleteConfirm] = useState<{
 		key: string;
+		type: "character" | "professional";
 		isOpen: boolean;
 	} | null>(null);
 
@@ -64,21 +89,78 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		setTimeout(() => setErrorMessage(null), 4000);
 	}, []);
 
-	const handleEdit = (key: string, config: CharacterConfig) => {
-		setEditState({ key, config: { ...config }, isNew: false });
+	// --- Converters ---
+
+	const characterToAgentProfile = (config: CharacterConfig): AgentProfile => ({
+		label: config.name,
+		description: config.description,
+		persona: {
+			prompt: config.system_prompt,
+		},
+		tool_policy: {
+			allow: [], // Characters don't have tools by default
+			deny: [],
+		},
+	});
+
+	const professionalToAgentProfile = (
+		config: ProfessionalConfig,
+	): AgentProfile => ({
+		label: config.name,
+		description: config.description,
+		persona: {
+			prompt: config.system_prompt,
+		},
+		tool_policy: {
+			allow: config.tools,
+			deny: [],
+		},
+	});
+
+	// --- Handlers ---
+
+	const handleEditCharacter = (key: string, config: CharacterConfig) => {
+		setEditState({
+			key,
+			profile: characterToAgentProfile(config),
+			model_config_name: config.model_config_name || "",
+			type: "character",
+			isNew: false,
+		});
+	};
+
+	const handleEditProfessional = (key: string, config: ProfessionalConfig) => {
+		setEditState({
+			key,
+			profile: professionalToAgentProfile(config),
+			model_config_name: config.model_config_name || "",
+			type: "professional",
+			isNew: false,
+		});
 	};
 
 	const handleStartAdd = () => {
+		const isChar = activeTab === "characters";
 		setEditState({
 			key: "",
-			config: {
-				name: t("settings.sections.agents.default_name", "New Character"),
+			profile: {
+				label: isChar
+					? t("settings.sections.agents.default_name", "New Agent")
+					: "New Pro",
 				description: "",
-				system_prompt: t(
-					"settings.sections.agents.default_prompt",
-					"You are a helpful assistant.",
-				),
+				persona: {
+					prompt: t(
+						"settings.sections.agents.default_prompt",
+						"You are a helpful assistant.",
+					),
+				},
+				tool_policy: {
+					allow: isChar ? [] : ["*"], // Defaults
+					deny: [],
+				},
 			},
+			model_config_name: "",
+			type: isChar ? "character" : "professional",
 			isNew: true,
 		});
 		setNewKeyInput("");
@@ -86,6 +168,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 
 	const handleSaveEdit = () => {
 		if (!editState) return;
+
+		let targetKey = editState.key;
 
 		if (editState.isNew) {
 			// Validate key
@@ -98,35 +182,68 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				showError(t("settings.sections.agents.error_empty_key"));
 				return;
 			}
-			if (profiles[key]) {
+
+			// Check duplicates
+			const exists =
+				editState.type === "character"
+					? profiles && profiles[key]
+					: professionals && professionals[key];
+
+			if (exists) {
 				showError(t("settings.sections.agents.error_duplicate_key"));
 				return;
 			}
 
-			// First call addProfile to create the key, then immediately update with full config
-			// Using synchronous pattern: addProfile creates the entry, then updateProfile overwrites it
-			// This is safe because both operations use React's setState batching
-			onAddProfile(key);
-			onUpdateProfile(key, editState.config);
-		} else {
-			onUpdateProfile(editState.key, editState.config);
+			targetKey = key;
+			if (editState.type === "character") {
+				onAddProfile(targetKey);
+			} else {
+				onAddProfessional(targetKey);
+			}
 		}
+
+		// Update config
+		if (editState.type === "character") {
+			onUpdateProfile(targetKey, {
+				name: editState.profile.label,
+				description: editState.profile.description,
+				system_prompt: editState.profile.persona.prompt || "",
+				model_config_name: editState.model_config_name || undefined,
+				// Characters ignore tools
+			});
+		} else {
+			onUpdateProfessional(targetKey, {
+				name: editState.profile.label,
+				description: editState.profile.description,
+				system_prompt: editState.profile.persona.prompt || "",
+				tools: editState.profile.tool_policy.allow,
+				model_config_name: editState.model_config_name || undefined,
+			});
+		}
+
 		setEditState(null);
 	};
 
-	const handleDelete = (key: string, e: React.MouseEvent) => {
+	const handleDelete = (
+		key: string,
+		type: "character" | "professional",
+		e: React.MouseEvent,
+	) => {
 		e.stopPropagation();
 		if (key === activeProfileId) {
 			showError(t("settings.sections.agents.cannot_delete_active"));
 			return;
 		}
-		// Open confirm dialog instead of native confirm()
-		setDeleteConfirm({ key, isOpen: true });
+		setDeleteConfirm({ key, type, isOpen: true });
 	};
 
 	const confirmDelete = () => {
 		if (deleteConfirm) {
-			onDeleteProfile(deleteConfirm.key);
+			if (deleteConfirm.type === "character") {
+				onDeleteProfile(deleteConfirm.key);
+			} else {
+				onDeleteProfessional(deleteConfirm.key);
+			}
 			setDeleteConfirm(null);
 		}
 	};
@@ -137,12 +254,19 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 
 	// --- Render Helpers ---
 
-	const renderCharacterCard = (key: string, config: CharacterConfig) => {
-		const isActive = activeProfileId === key;
+	const renderCard = (
+		key: string,
+		profile: AgentProfile,
+		type: "character" | "professional",
+	) => {
+		const isActive = activeProfileId === key && type === "character";
+
 		return (
-			<button
-				type="button"
+			<div
 				key={key}
+				role="button"
+				tabIndex={0}
+				aria-pressed={isActive}
 				className={`
 					relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
 					${
@@ -150,20 +274,33 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 							? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
 							: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
 					}
+					focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950
 				`}
-				onClick={() => onSetActive(key)}
+				onClick={() => {
+					if (type === "character") onSetActive(key);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						if (type === "character") onSetActive(key);
+					}
+				}}
 			>
 				{/* Active Indicator */}
 				<div className="flex justify-between items-start mb-2">
 					<div className="flex items-center gap-2">
-						<Users
-							size={18}
-							className={isActive ? "text-gold-400" : "text-gray-400"}
-						/>
+						{type === "character" ? (
+							<Users
+								size={18}
+								className={isActive ? "text-gold-400" : "text-gray-400"}
+							/>
+						) : (
+							<Briefcase size={18} className="text-cyan-400" />
+						)}
 						<h3
 							className={`font-medium ${isActive ? "text-gold-100" : "text-gray-200"}`}
 						>
-							{config.name || key}
+							{profile.label || key}
 						</h3>
 					</div>
 					{isActive && <Check size={16} className="text-gold-400" />}
@@ -172,16 +309,20 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				<p className="text-xs text-gray-500 font-mono mb-3 truncate">@{key}</p>
 
 				<p className="text-sm text-gray-400 line-clamp-2 mb-4 h-10">
-					{config.description || t("settings.sections.agents.no_description")}
+					{profile.description || t("settings.sections.agents.no_description")}
 				</p>
 
-				{/* Actions (visible on hover or active) */}
+				{/* Actions */}
 				<div className="mt-auto flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
 					<button
 						type="button"
 						onClick={(e) => {
 							e.stopPropagation();
-							handleEdit(key, config);
+							if (type === "character") {
+								handleEditCharacter(key, profiles[key]);
+							} else {
+								handleEditProfessional(key, professionals[key]);
+							}
 						}}
 						className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
 						title={t("settings.sections.agents.edit")}
@@ -191,7 +332,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 					{!isActive && (
 						<button
 							type="button"
-							onClick={(e) => handleDelete(key, e)}
+							onClick={(e) => handleDelete(key, type, e)}
 							className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
 							title={t("settings.sections.agents.delete")}
 						>
@@ -199,7 +340,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</button>
+			</div>
 		);
 	};
 
@@ -263,28 +404,23 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			</div>
 
 			{/* Content Area */}
-			{activeTab === "characters" ? (
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-					{/* Ensure profiles is an object before mapping */}
-					{profiles &&
-						Object.entries(profiles).map(([key, config]) =>
-							renderCharacterCard(key, config),
-						)}
-					{renderAddCard()}
-				</div>
-			) : (
-				<div className="flex flex-col items-center justify-center py-12 text-center border border-white/5 rounded-xl bg-white/5">
-					<Bot size={48} className="text-white/20 mb-4" />
-					<h3 className="text-lg font-medium text-white/50 mb-2">
-						{t("settings.sections.agents.professionals_coming_soon_title")}
-					</h3>
-					<p className="text-sm text-white/30 max-w-sm">
-						{t("settings.sections.agents.professionals_coming_soon_desc")}
-					</p>
-				</div>
-			)}
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				{activeTab === "characters" &&
+					profiles &&
+					Object.entries(profiles).map(([key, config]) =>
+						renderCard(key, characterToAgentProfile(config), "character"),
+					)}
 
-			{/* Edit Modal */}
+				{activeTab === "professionals" &&
+					professionals &&
+					Object.entries(professionals).map(([key, config]) =>
+						renderCard(key, professionalToAgentProfile(config), "professional"),
+					)}
+
+				{renderAddCard()}
+			</div>
+
+			{/* Edit Modal with AgentCard */}
 			<Modal
 				isOpen={!!editState}
 				onClose={() => setEditState(null)}
@@ -293,69 +429,74 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						? t("settings.sections.agents.modal.title_add")
 						: t("settings.sections.agents.modal.title_edit")
 				}
+				size="lg"
 			>
 				{editState && (
-					<div className="space-y-4 p-1">
+					<div className="space-y-4">
+						{/* Key Input for New Agents */}
 						{editState.isNew && (
-							<FormGroup
-								label={t("settings.sections.agents.modal.key_label")}
-								description={t("settings.sections.agents.modal.key_desc")}
-							>
-								<FormInput
+							<div className="p-4 bg-white/5 rounded-xl border border-white/10 mb-4">
+								<label className="block text-sm font-medium text-gray-300 mb-1">
+									{t("settings.sections.agents.modal.key_label")}
+								</label>
+								<p className="text-xs text-gray-500 mb-2">
+									{t("settings.sections.agents.modal.key_desc")}
+								</p>
+								<input
+									type="text"
 									value={newKeyInput}
-									onChange={(v) => setNewKeyInput(v as string)}
-									placeholder="e.g. coding_assistant"
-									className="font-mono"
+									onChange={(e) => setNewKeyInput(e.target.value)}
+									placeholder="e.g. coding_expert"
+									className="settings-input font-mono w-full"
 								/>
-							</FormGroup>
+							</div>
 						)}
 
-						<FormGroup label={t("settings.sections.agents.modal.name_label")}>
-							<FormInput
-								value={editState.config.name}
-								onChange={(v) =>
-									setEditState({
-										...editState,
-										config: { ...editState.config, name: v as string },
-									})
-								}
-								placeholder="Display Name"
-							/>
-						</FormGroup>
-
-						<FormGroup label={t("settings.sections.agents.modal.desc_label")}>
-							<FormInput
-								value={editState.config.description}
-								onChange={(v) =>
-									setEditState({
-										...editState,
-										config: { ...editState.config, description: v as string },
-									})
-								}
-								placeholder="Short description..."
-							/>
-						</FormGroup>
-
-						<FormGroup
-							label={t("settings.sections.agents.modal.prompt_label")}
-							description="The core personality definition."
-						>
-							<textarea
-								value={editState.config.system_prompt}
-								onChange={(e) =>
-									setEditState({
-										...editState,
-										config: {
-											...editState.config,
-											system_prompt: e.target.value,
+						{/* Model Selection (Restored) */}
+						<div className="bg-white/5 p-4 rounded-xl border border-white/10">
+							<FormGroup
+								label={t("settings.sections.agents.modal.model_label")}
+								description={t("settings.sections.agents.modal.model_desc")}
+							>
+								<FormSelect
+									value={editState.model_config_name}
+									onChange={(v) =>
+										setEditState({
+											...editState,
+											model_config_name: v,
+										})
+									}
+									options={[
+										{
+											value: "",
+											label: t(
+												"settings.sections.models.defaults.global",
+												"Global Default",
+											),
 										},
-									})
-								}
-								className="w-full h-40 bg-black/20 border border-white/10 rounded-md p-3 text-sm text-gray-200 focus:outline-none focus:border-gold-500/50 resize-y font-mono"
-								placeholder="System Prompt..."
-							/>
-						</FormGroup>
+										...modelOptions,
+									]}
+								/>
+							</FormGroup>
+						</div>
 
+						{/* The Restored AgentCard Component */}
+						<AgentCard
+							id={editState.key || newKeyInput || "new_agent"}
+							profile={editState.profile}
+							onChange={(p) => setEditState({ ...editState, profile: p })}
+							isActive={
+								editState.type === "character" &&
+								activeProfileId === editState.key
+							}
+							onSetActive={() => {
+								if (editState.type === "character" && editState.key) {
+									onSetActive(editState.key);
+								}
+							}}
+						/>
+
+						{/* Footer Actions */}
 						<div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
 							<button
 								type="button"

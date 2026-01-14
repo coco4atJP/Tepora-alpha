@@ -58,6 +58,7 @@ class ToolManager:
         self.tools: list[BaseTool] = []
         self.tool_map: dict[str, BaseTool] = {}
         self._all_tools: list[BaseTool] = []
+        self._lock = threading.RLock()
 
         self._profile_name = config.get_active_agent_profile_name()
 
@@ -115,9 +116,7 @@ class ToolManager:
         except TimeoutError:
             logger.error(f"Tool '{tool_name}' execution timed out.")
             return self._make_error_response(
-                "tool_timeout",
-                f"Tool '{tool_name}' execution timed out.",
-                tool_name=tool_name
+                "tool_timeout", f"Tool '{tool_name}' execution timed out.", tool_name=tool_name
             )
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}", exc_info=True)
@@ -125,7 +124,7 @@ class ToolManager:
                 "tool_execution_error",
                 f"Error executing tool {tool_name}: {e}",
                 tool_name=tool_name,
-                details=str(e)
+                details=str(e),
             )
 
     async def aexecute_tool(self, tool_name: str, tool_args: dict) -> str | Any:
@@ -135,9 +134,7 @@ class ToolManager:
             # エラーメッセージもログに出力するとデバッグしやすい
             logger.error("Tool '%s' not found.", tool_name)
             return self._make_error_response(
-                "tool_not_found",
-                f"Tool '{tool_name}' not found.",
-                tool_name=tool_name
+                "tool_not_found", f"Tool '{tool_name}' not found.", tool_name=tool_name
             )
 
         try:
@@ -152,7 +149,7 @@ class ToolManager:
             return self._make_error_response(
                 "tool_no_method",
                 f"Tool '{tool_name}' has no callable invoke or ainvoke method.",
-                tool_name=tool_name
+                tool_name=tool_name,
             )
         except Exception as exc:  # noqa: BLE001
             logger.error(
@@ -162,7 +159,7 @@ class ToolManager:
                 "tool_execution_error",
                 f"Error executing tool {tool_name}: {exc}",
                 tool_name=tool_name,
-                details=str(exc)
+                details=str(exc),
             )
 
     def initialize(self):
@@ -170,18 +167,15 @@ class ToolManager:
         登録されたプロバイダからツールを初期化する。
         """
         logger.info("Initializing ToolManager...")
-        # 1. ツールリストとマップを明示的にクリアし、再初期化の安全性を確保
-        self.tools = []
-        self.tool_map = {}
-        self._all_tools = []
+        loaded_tools: list[BaseTool] = []
 
-        # 2. 各プロバイダからツールをロード
+        # 各プロバイダからツールをロード（ロード中は既存ツールを維持し、最後にアトミックに差し替える）
         for provider in self.providers:
             try:
                 logger.info("Loading tools from provider: %s", provider.__class__.__name__)
                 # プロバイダのload_toolsはasyncなのでブリッジ経由で実行
                 provider_tools = self._run_coroutine(provider.load_tools())
-                self.tools.extend(provider_tools)
+                loaded_tools.extend(provider_tools)
                 logger.info(
                     f"Loaded {len(provider_tools)} tools from {provider.__class__.__name__}."
                 )
@@ -191,29 +185,40 @@ class ToolManager:
                     exc_info=True,
                 )
 
-        # 4. 全ツールリストを保持し、プロファイルでフィルタリング
-        self._all_tools = list(self.tools)
-        total_loaded = len(self._all_tools)
-        self._apply_profile_filter()
+        # 全ツールリストを保持し、プロファイルでフィルタリング
+        all_tools = list(loaded_tools)
+        filtered = list(config.filter_tools_for_profile(all_tools, self._profile_name))
+        tool_map = {tool.name: tool for tool in filtered}
+
+        # 差し替えはロック下で実施（並行実行時の一時的な空マップを避ける）
+        with self._lock:
+            self._all_tools = all_tools
+            self.tools = filtered
+            self.tool_map = tool_map
+
+        total_loaded = len(all_tools)
 
         logger.info(
             "ToolManager initialized with %d tools (profile '%s', %d total loaded): %s",
-            len(self.tools),
+            len(filtered),
             self._profile_name,
             total_loaded,
-            [t.name for t in self.tools],
+            [t.name for t in filtered],
         )
 
     def set_profile(self, profile_name: str) -> int:
         """Apply a new agent profile and refilter tools. Returns available count."""
 
-        self._profile_name = profile_name
-        if not self._all_tools:
-            self.tools = []
-            self.tool_map = {}
-            return 0
+        with self._lock:
+            self._profile_name = profile_name
+            if not self._all_tools:
+                self.tools = []
+                self.tool_map = {}
+                return 0
 
-        self._apply_profile_filter()
+            filtered = list(config.filter_tools_for_profile(self._all_tools, self._profile_name))
+            self.tools = list(filtered)
+            self.tool_map = {tool.name: tool for tool in self.tools}
         logger.info(
             "Tool profile switched to '%s' (%d tools available)",
             self._profile_name,
@@ -221,19 +226,13 @@ class ToolManager:
         )
         return len(self.tools)
 
-    def _apply_profile_filter(self) -> None:
-        """Filter the cached tool inventory according to the active profile."""
-
-        filtered = config.filter_tools_for_profile(self._all_tools, self._profile_name)
-        self.tools = list(filtered)
-        self.tool_map = {tool.name: tool for tool in self.tools}
-
     def get_tool(self, tool_name: str) -> BaseTool | None:
         """指定された名前のツールを取得する。
 
         見つからない場合は `None` を返す。
         """
-        return self.tool_map.get(tool_name)
+        with self._lock:
+            return self.tool_map.get(tool_name)
 
     def cleanup(self):
         """リソースのクリーンアップ。

@@ -54,12 +54,8 @@ const MemorySettings: React.FC = () => {
 					</FormGroup>
 
 					<FormGroup
-						label={
-							t("settings.memory.default_limit.label")
-						}
-						tooltip={
-							t("settings.memory.default_limit.description")
-						}
+						label={t("settings.memory.default_limit.label")}
+						tooltip={t("settings.memory.default_limit.description")}
 						isDirty={isHistoryDirty("default_limit")}
 					>
 						<FormInput
@@ -80,8 +76,14 @@ const MemorySettings: React.FC = () => {
 				description={t("settings.sections.memory.description")}
 			>
 				<CollapsibleSection
-					title={t("settings.memory.episodic_params_title") || "Episodic Memory Parameters"}
-					description={t("settings.memory.episodic_params_desc") || "Advanced configuration for EM-LLM"}
+					title={
+						t("settings.memory.episodic_params_title") ||
+						"Episodic Memory Parameters"
+					}
+					description={
+						t("settings.memory.episodic_params_desc") ||
+						"Advanced configuration for EM-LLM"
+					}
 					defaultOpen={true}
 				>
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

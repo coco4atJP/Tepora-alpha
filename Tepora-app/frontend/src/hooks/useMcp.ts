@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getApiBase, getAuthHeaders } from "../utils/api";
 
 const SEARCH_DEBOUNCE_MS = 300;
+const DEFAULT_STORE_PAGE_SIZE = 50;
 
 // --- Types ---
 
@@ -44,18 +45,31 @@ export interface McpPackage {
 	name: string;
 	runtimeHint?: string;
 	registry?: string;
+	version?: string;
 }
 
 export interface McpStoreServer {
 	id: string;
 	name: string;
+	title?: string;
 	description?: string;
+	version?: string;
 	vendor?: string;
 	packages: McpPackage[];
 	environmentVariables: McpEnvVar[];
 	icon?: string;
 	category?: string;
 	sourceUrl?: string;
+	homepage?: string;
+	websiteUrl?: string;
+}
+
+export interface McpStoreResponse {
+	servers: McpStoreServer[];
+	total: number;
+	page: number;
+	page_size: number;
+	has_more: boolean;
 }
 
 /** Response from install preview endpoint */
@@ -111,16 +125,22 @@ async function updateMcpConfig(
 	}
 }
 
-async function fetchMcpStore(search?: string): Promise<McpStoreServer[]> {
-	const url = search
-		? `${getApiBase()}/api/mcp/store?search=${encodeURIComponent(search)}`
-		: `${getApiBase()}/api/mcp/store`;
-	const response = await fetch(url, {
-		headers: getAuthHeaders(),
-	});
+async function fetchMcpStorePaged(params: {
+	search?: string;
+	page?: number;
+	pageSize?: number;
+	runtime?: string;
+}): Promise<McpStoreResponse> {
+	const query = new URLSearchParams();
+	if (params.search) query.set("search", params.search);
+	if (params.page) query.set("page", String(params.page));
+	if (params.pageSize) query.set("page_size", String(params.pageSize));
+	if (params.runtime) query.set("runtime", params.runtime);
+
+	const url = `${getApiBase()}/api/mcp/store?${query.toString()}`;
+	const response = await fetch(url, { headers: getAuthHeaders() });
 	if (!response.ok) throw new Error("Failed to fetch MCP store");
-	const data = await response.json();
-	return data.servers || [];
+	return response.json();
 }
 
 /**
@@ -308,29 +328,66 @@ export function useMcpServers(pollInterval = 5000) {
 export function useMcpStore() {
 	const [storeServers, setStoreServers] = useState<McpStoreServer[]>([]);
 	const [loading, setLoading] = useState(false);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [page, setPage] = useState(1);
+	const [pageSize] = useState(DEFAULT_STORE_PAGE_SIZE);
+	const [total, setTotal] = useState(0);
+	const [hasMore, setHasMore] = useState(false);
 
-	const fetchStore = useCallback(async (search?: string) => {
-		setLoading(true);
-		try {
-			const servers = await fetchMcpStore(search);
-			setStoreServers(servers);
-			setError(null);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to fetch store");
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+	const fetchStore = useCallback(
+		async (opts?: { search?: string; page?: number; append?: boolean }) => {
+			const nextSearch = opts?.search;
+			const nextPage = opts?.page ?? 1;
+			const append = Boolean(opts?.append);
+
+			if (append) {
+				setLoadingMore(true);
+			} else {
+				setLoading(true);
+			}
+
+			try {
+				const data = await fetchMcpStorePaged({
+					search: nextSearch,
+					page: nextPage,
+					pageSize,
+				});
+				setStoreServers((prev) =>
+					append ? [...prev, ...(data.servers || [])] : data.servers || [],
+				);
+				setTotal(data.total || 0);
+				setHasMore(Boolean(data.has_more));
+				setPage(data.page || nextPage);
+				setError(null);
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "Failed to fetch store");
+			} finally {
+				setLoading(false);
+				setLoadingMore(false);
+			}
+		},
+		[pageSize],
+	);
 
 	// Debounced search
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			fetchStore(searchQuery || undefined);
+			// Reset pagination when search changes
+			fetchStore({ search: searchQuery || undefined, page: 1, append: false });
 		}, SEARCH_DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [searchQuery, fetchStore]);
+
+	const loadMore = useCallback(async () => {
+		if (loading || loadingMore || !hasMore) return;
+		await fetchStore({
+			search: searchQuery || undefined,
+			page: page + 1,
+			append: true,
+		});
+	}, [fetchStore, hasMore, loading, loadingMore, page, searchQuery]);
 
 	const previewInstall = useCallback(
 		async (
@@ -351,10 +408,15 @@ export function useMcpStore() {
 	return {
 		storeServers,
 		loading,
+		loadingMore,
 		error,
 		searchQuery,
 		setSearchQuery,
-		refresh: () => fetchStore(searchQuery || undefined),
+		total,
+		hasMore,
+		loadMore,
+		refresh: () =>
+			fetchStore({ search: searchQuery || undefined, page: 1, append: false }),
 		previewInstall,
 		confirmInstall,
 	};

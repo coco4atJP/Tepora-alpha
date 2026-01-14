@@ -1,4 +1,4 @@
-import { FileText, Globe, Paperclip, Send, Square, X } from "lucide-react";
+import { Globe, Paperclip, Send, Square } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +16,8 @@ interface InputAreaProps {
 	isConnected: boolean;
 	currentMode: ChatMode;
 	onStop?: () => void;
+	onFileSelect?: () => void;
+	attachments?: Attachment[];
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -24,19 +26,18 @@ const InputArea: React.FC<InputAreaProps> = ({
 	isConnected,
 	currentMode,
 	onStop,
+	onFileSelect,
+	attachments = [],
 }) => {
 	const { t } = useTranslation();
 	const [message, setMessage] = useState("");
-	const [attachments, setAttachments] = useState<Attachment[]>([]);
 	const [skipWebSearch, setSkipWebSearch] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const handleSend = () => {
 		if (message.trim() && !isProcessing && isConnected) {
 			onSendMessage(message, currentMode, attachments, skipWebSearch);
 			setMessage("");
-			setAttachments([]);
 			if (textareaRef.current) {
 				textareaRef.current.style.height = "auto";
 			}
@@ -48,51 +49,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 			e.preventDefault();
 			handleSend();
 		}
-	};
-
-	const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		if (e.target.files && e.target.files.length > 0) {
-			const newAttachments: Attachment[] = [];
-
-			for (let i = 0; i < e.target.files.length; i++) {
-				const file = e.target.files[i];
-				try {
-					const content = await readFileAsBase64(file);
-					newAttachments.push({
-						name: file.name,
-						content: content,
-						type: file.type,
-					});
-				} catch (err) {
-					console.error("Failed to read file:", file.name, err);
-				}
-			}
-
-			setAttachments((prev) => [...prev, ...newAttachments]);
-			// Reset input so same file can be selected again
-			if (fileInputRef.current) fileInputRef.current.value = "";
-		}
-	};
-
-	const readFileAsBase64 = (file: File): Promise<string> => {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => {
-				if (typeof reader.result === "string") {
-					// Remove data URL prefix (e.g., "data:text/plain;base64,")
-					const base64Content = reader.result.split(",")[1];
-					resolve(base64Content);
-				} else {
-					reject(new Error("Failed to read file as string"));
-				}
-			};
-			reader.onerror = reject;
-			reader.readAsDataURL(file);
-		});
-	};
-
-	const removeAttachment = (index: number) => {
-		setAttachments((prev) => prev.filter((_, i) => i !== index));
 	};
 
 	const getPlaceholder = () => {
@@ -117,41 +73,8 @@ const InputArea: React.FC<InputAreaProps> = ({
 
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
-			{/* Attachments Preview */}
-			{attachments.length > 0 && (
-				<div className="flex flex-wrap gap-2 mb-3 px-4 animate-message-in">
-					{attachments.map((att, index) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: file order matters
-						<div
-							key={index}
-							className="flex items-center gap-3 bg-black/40 backdrop-blur-md rounded-xl px-4 py-2 text-xs text-gray-200 border border-white/10 shadow-lg hover:border-gold-500/30 transition-colors group/file"
-						>
-							<div className="p-1.5 bg-white/5 rounded-lg group-hover/file:bg-gold-500/10 transition-colors">
-								<FileText
-									className="w-4 h-4 text-gold-400"
-									aria-hidden="true"
-								/>
-							</div>
-							<span className="max-w-[150px] truncate font-medium">
-								{att.name}
-							</span>
-							<button
-								type="button"
-								onClick={() => removeAttachment(index)}
-								className="hover:text-red-400 transition-colors ml-1 p-1 hover:bg-white/5 rounded-md"
-								aria-label={t("chat.input.remove_attachment", {
-									name: att.name,
-								})}
-							>
-								<X className="w-3.5 h-3.5" aria-hidden="true" />
-							</button>
-						</div>
-					))}
-				</div>
-			)}
-
 			<div
-				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-gemini transition-all duration-500 ${
+				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-tepora transition-all duration-500 ${
 					isProcessing
 						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-black/40"
 						: "hover:shadow-[0_0_30px_-5px_rgba(0,0,0,0.5)] hover:bg-black/40 shadow-2xl"
@@ -178,27 +101,17 @@ const InputArea: React.FC<InputAreaProps> = ({
 
 				<div className="flex items-center gap-1 mb-1 mr-1">
 					{/* File Attachment (Search Mode Only) */}
-					{currentMode === "search" && (
-						<>
-							<input
-								type="file"
-								ref={fileInputRef}
-								className="hidden"
-								onChange={handleFileSelect}
-								multiple
-								accept=".txt,.md,.json,.xml,.csv,.log,.py,.js,.ts,.tsx,.jsx,.html,.css,.yml,.yaml,.toml,.ini,.cfg,.conf,.sh,.bat,.ps1,.c,.cpp,.h,.hpp,.java,.go,.rs,.rb,.php,.sql,.r,.m,.swift,.kt"
-							/>
-							<button
-								type="button"
-								onClick={() => fileInputRef.current?.click()}
-								className="p-2.5 text-gray-400 hover:text-gold-300 transition-all rounded-full hover:bg-white/5 active:scale-95"
-								title={t("chat.input.attach_file")}
-								aria-label={t("chat.input.attach_file")}
-								disabled={isProcessing || !isConnected}
-							>
-								<Paperclip className="w-5 h-5" aria-hidden="true" />
-							</button>
-						</>
+					{currentMode === "search" && onFileSelect && (
+						<button
+							type="button"
+							onClick={onFileSelect}
+							className="p-2.5 text-gray-400 hover:text-gold-300 transition-all rounded-full hover:bg-white/5 active:scale-95"
+							title={t("chat.input.attach_file")}
+							aria-label={t("chat.input.attach_file")}
+							disabled={isProcessing || !isConnected}
+						>
+							<Paperclip className="w-5 h-5" aria-hidden="true" />
+						</button>
 					)}
 
 					{/* Web Search Toggle (Search Mode Only) */}
@@ -236,7 +149,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 					{isProcessing ? (
 						<button
 							type="button"
-							onClick={onStop}
+							onClick={() => onStop?.()}
 							className="w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500 shadow-lg hover:shadow-red-500/40 active:scale-95 group/stop"
 							title={t("chat.input.stop")}
 							aria-label={t("chat.input.stop_generation")}
@@ -269,8 +182,10 @@ const InputArea: React.FC<InputAreaProps> = ({
 			</div>
 
 			{/* Helper Text */}
-			<div className="absolute -bottom-8 right-6 text-[10px] text-gray-600 font-light tracking-widest opacity-60 font-display uppercase">
-				{t("chat.input.mode_active", { mode: currentMode.toUpperCase() })}
+			<div className="mt-2 hidden md:flex justify-end">
+				<div className="text-[10px] text-gray-600 font-light tracking-widest opacity-60 font-display uppercase">
+					{t("chat.input.mode_active", { mode: currentMode.toUpperCase() })}
+				</div>
 			</div>
 		</div>
 	);

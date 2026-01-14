@@ -357,7 +357,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				<div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-gold-900/10 rounded-full blur-[120px]" />
 			</div>
 
-			<div className="relative w-full max-w-2xl mx-4 glass-gemini rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-enter">
+			<div className="relative w-full max-w-2xl mx-4 glass-tepora rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-enter">
 				{/* Header */}
 				<div className="p-8 border-b border-white/5 text-center">
 					<h1 className="text-4xl font-display font-bold text-gradient-tea mb-2 tracking-wide">
@@ -373,7 +373,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 				{pendingConsent ? (
 					<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-						<div className="w-full max-w-lg mx-6 glass-gemini rounded-2xl border border-white/10 shadow-xl p-6">
+						<div className="w-full max-w-lg mx-6 glass-tepora rounded-2xl border border-white/10 shadow-xl p-6">
 							<h2 className="text-2xl font-display font-semibold mb-3 text-gold-200">
 								{t("setup.download_warning_title", "Confirm Model Download")}
 							</h2>

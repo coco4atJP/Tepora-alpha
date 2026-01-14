@@ -29,14 +29,14 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
                 .target(Target::new(TargetKind::LogDir {
                     file_name: Some("tepora".to_string()),
                 }))
-                .build(),
-        )
+                .build())
         .invoke_handler(tauri::generate_handler![read_session_token])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

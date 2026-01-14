@@ -34,7 +34,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 		addCharacter,
 		deleteCharacter,
 		saveConfig,
+
 		resetConfig,
+		updateProfessional,
+		addProfessional,
+		deleteProfessional,
 	} = useSettings();
 
 	const [activeSection, setActiveSection] = useState("general");
@@ -162,6 +166,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onSetActive={setActiveAgent}
 												onAddProfile={addCharacter}
 												onDeleteProfile={deleteCharacter}
+												professionals={config.professionals}
+												onUpdateProfessional={updateProfessional}
+												onAddProfessional={addProfessional}
+												onDeleteProfessional={deleteProfessional}
 											/>
 										)}
 										{activeSection === "mcp" && <McpSettings />}

@@ -1,10 +1,30 @@
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const DynamicBackground: React.FC = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const [isEnabled, setIsEnabled] = useState(true);
 
 	useEffect(() => {
+		if (typeof window === "undefined" || !window.matchMedia) return;
+
+		const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+		const update = () => setIsEnabled(!mediaQuery.matches);
+		update();
+
+		if (typeof mediaQuery.addEventListener === "function") {
+			mediaQuery.addEventListener("change", update);
+			return () => mediaQuery.removeEventListener("change", update);
+		}
+
+		// Safari < 14 fallback
+		mediaQuery.addListener(update);
+		return () => mediaQuery.removeListener(update);
+	}, []);
+
+	useEffect(() => {
+		if (!isEnabled) return;
+
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 
@@ -12,15 +32,20 @@ const DynamicBackground: React.FC = () => {
 		// Actually, let's keep default context but just be careful.
 		if (!ctx) return;
 
-		let animationFrameId: number;
+		let animationFrameId: number | null = null;
+		let isRunning = false;
 		let width = window.innerWidth;
 		let height = window.innerHeight;
 
 		const resize = () => {
 			width = window.innerWidth;
 			height = window.innerHeight;
-			canvas.width = width;
-			canvas.height = height;
+			const dpr = window.devicePixelRatio || 1;
+			canvas.width = Math.floor(width * dpr);
+			canvas.height = Math.floor(height * dpr);
+			canvas.style.width = `${width}px`;
+			canvas.style.height = `${height}px`;
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		};
 
 		window.addEventListener("resize", resize);
@@ -96,10 +121,13 @@ const DynamicBackground: React.FC = () => {
 		let lastTime = 0;
 
 		const render = (currentTime: number) => {
-			animationFrameId = requestAnimationFrame(render);
+			if (!isRunning) return;
 
 			const delta = currentTime - lastTime;
-			if (delta < INTERVAL) return;
+			if (delta < INTERVAL) {
+				animationFrameId = requestAnimationFrame(render);
+				return;
+			}
 
 			// Adjust lastTime to target FPS interval
 			lastTime = currentTime - (delta % INTERVAL);
@@ -190,15 +218,44 @@ const DynamicBackground: React.FC = () => {
 				ctx.fill();
 			});
 			ctx.globalAlpha = 1;
+
+			animationFrameId = requestAnimationFrame(render);
 		};
 
-		animationFrameId = requestAnimationFrame(render);
+		const start = () => {
+			if (isRunning) return;
+			isRunning = true;
+			lastTime = 0;
+			animationFrameId = requestAnimationFrame(render);
+		};
+
+		const stop = () => {
+			isRunning = false;
+			if (animationFrameId != null) {
+				cancelAnimationFrame(animationFrameId);
+			}
+			animationFrameId = null;
+		};
+
+		const handleVisibilityChange = () => {
+			if (document.hidden) {
+				stop();
+			} else {
+				start();
+			}
+		};
+
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		start();
 
 		return () => {
 			window.removeEventListener("resize", resize);
-			cancelAnimationFrame(animationFrameId);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			stop();
 		};
-	}, []);
+	}, [isEnabled]);
+
+	if (!isEnabled) return null;
 
 	return (
 		<canvas

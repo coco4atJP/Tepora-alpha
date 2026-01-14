@@ -130,12 +130,8 @@ const McpSettings: React.FC = () => {
 			{/* Config Path Input */}
 			<div className="mb-6">
 				<FormGroup
-					label={
-						t("settings.mcp.config_path.label")
-					}
-					description={
-						t("settings.mcp.config_path.description")
-					}
+					label={t("settings.mcp.config_path.label")}
+					description={t("settings.mcp.config_path.description")}
 				>
 					<FormInput
 						value={config?.app.mcp_config_path || ""}
@@ -170,9 +166,7 @@ const McpSettings: React.FC = () => {
 					<div className="space-y-4">
 						<FormGroup
 							label={t("settings.mcp.policy.mode.label")}
-							description={
-								t("settings.mcp.policy.mode.description")
-							}
+							description={t("settings.mcp.policy.mode.description")}
 						>
 							<select
 								value={policy?.policy || "local_only"}
@@ -195,12 +189,8 @@ const McpSettings: React.FC = () => {
 						<div className="border-t border-white/10 my-2" />
 
 						<FormGroup
-							label={
-								t("settings.mcp.policy.confirmation.label")
-							}
-							description={
-								t("settings.mcp.policy.confirmation.description")
-							}
+							label={t("settings.mcp.policy.confirmation.label")}
+							description={t("settings.mcp.policy.confirmation.description")}
 						>
 							<FormSwitch
 								checked={policy?.require_tool_confirmation ?? true}
@@ -268,10 +258,11 @@ const McpSettings: React.FC = () => {
 										<button
 											type="button"
 											onClick={() => toggleServer(name, !serverConfig.enabled)}
-											className={`p-2 rounded-lg transition-colors ${serverConfig.enabled
+											className={`p-2 rounded-lg transition-colors ${
+												serverConfig.enabled
 													? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 													: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-												}`}
+											}`}
 											aria-label={
 												serverConfig.enabled
 													? t("settings.mcp.disable")
@@ -354,9 +345,13 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 	const {
 		storeServers,
 		loading,
+		loadingMore,
 		error,
 		searchQuery,
 		setSearchQuery,
+		total,
+		hasMore,
+		loadMore,
 		previewInstall,
 		confirmInstall,
 	} = useMcpStore();
@@ -381,8 +376,12 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 		setEnvValues({});
 
 		// Auto-select runtime if only one
-		const runtimes = server.packages.map((p) => p.runtimeHint).filter(Boolean);
-		if (runtimes.length === 1 && runtimes[0]) {
+		const runtimes = [
+			...new Set(
+				server.packages.map((p) => p.runtimeHint || "npx").filter(Boolean),
+			),
+		];
+		if (runtimes.length === 1) {
 			setSelectedRuntime(runtimes[0]);
 		} else {
 			setSelectedRuntime("");
@@ -394,7 +393,7 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 				setStep("config");
 			} else {
 				// Go directly to preview step
-				handlePreview(server, runtimes[0] || "");
+				handlePreview(server, runtimes[0]);
 			}
 		} else {
 			setStep("runtime");
@@ -404,7 +403,7 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 	// Step 1: Get preview with command details and warnings
 	const handlePreview = async (server?: McpStoreServer, runtime?: string) => {
 		const srv = server || selectedServer;
-		const rt = runtime ?? selectedRuntime;
+		const rt = (runtime ?? selectedRuntime) || undefined;
 		if (!srv) return;
 
 		setPreviewLoading(true);
@@ -444,18 +443,26 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 	};
 
 	const handleBack = () => {
+		const runtimeCount = selectedServer
+			? new Set(
+					selectedServer.packages
+						.map((p) => p.runtimeHint || "npx")
+						.filter(Boolean),
+				).size
+			: 0;
+
 		if (step === "preview") {
 			setPreviewData(null);
 			if (selectedServer?.environmentVariables.length) {
 				setStep("config");
-			} else if ((selectedServer?.packages.length || 0) > 1) {
+			} else if (runtimeCount > 1) {
 				setStep("runtime");
 			} else {
 				setStep("browse");
 				setSelectedServer(null);
 			}
 		} else if (step === "config") {
-			if ((selectedServer?.packages.length || 0) > 1) {
+			if (runtimeCount > 1) {
 				setStep("runtime");
 			} else {
 				setStep("browse");
@@ -511,7 +518,7 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 
 						{/* Server List */}
 						<div className="space-y-2 max-h-[400px] overflow-y-auto">
-							{loading ? (
+							{loading && storeServers.length === 0 ? (
 								<div className="flex items-center justify-center py-12">
 									<Loader2 className="animate-spin text-gray-400" size={32} />
 								</div>
@@ -520,54 +527,87 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 									<p>{t("settings.mcp.store.noResults")}</p>
 								</div>
 							) : (
-								storeServers.map((server) => (
-									<button
-										type="button"
-										key={server.id}
-										onClick={() => handleSelectServer(server)}
-										className="w-full text-left p-4 bg-black/20 hover:bg-black/30 border border-white/5 hover:border-purple-500/50 rounded-xl transition-all"
-									>
-										<div className="flex items-start justify-between gap-4">
-											<div className="flex-1 min-w-0">
-												<h4 className="font-medium text-gray-100">
-													{server.name}
-												</h4>
-												{server.description && (
-													<p className="text-sm text-gray-400 mt-1 line-clamp-2">
-														{server.description}
+								<>
+									{storeServers.map((server) => (
+										<button
+											type="button"
+											key={server.id}
+											onClick={() => handleSelectServer(server)}
+											className="w-full text-left p-4 bg-black/20 hover:bg-black/30 border border-white/5 hover:border-purple-500/50 rounded-xl transition-all"
+										>
+											<div className="flex items-start justify-between gap-4">
+												<div className="flex-1 min-w-0">
+													<h4 className="font-medium text-gray-100">
+														{server.name}
+													</h4>
+													<p className="text-xs text-gray-500 mt-0.5">
+														{server.id}
+														{server.version ? ` · v${server.version}` : ""}
 													</p>
-												)}
-												<div className="flex items-center gap-2 mt-2">
-													{server.packages.map((pkg, i) => (
-														<span
-															// biome-ignore lint/suspicious/noArrayIndexKey: pkg has no unique id
-															key={i}
-															className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded"
-														>
-															{pkg.runtimeHint || "npx"}
-														</span>
-													))}
-													{server.vendor && (
-														<span className="text-xs text-gray-500">
-															by {server.vendor}
-														</span>
+													{server.description && (
+														<p className="text-sm text-gray-400 mt-1 line-clamp-2">
+															{server.description}
+														</p>
 													)}
+													<div className="flex items-center gap-2 mt-2">
+														{[
+															...new Set(
+																server.packages
+																	.map((p) => p.runtimeHint || "npx")
+																	.filter(Boolean),
+															),
+														].map((rt) => (
+															<span
+																key={rt}
+																className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded"
+															>
+																{rt}
+															</span>
+														))}
+														{server.vendor && (
+															<span className="text-xs text-gray-500">
+																by {server.vendor}
+															</span>
+														)}
+													</div>
 												</div>
+												{server.sourceUrl && (
+													<a
+														href={server.sourceUrl}
+														target="_blank"
+														rel="noopener noreferrer"
+														onClick={(e) => e.stopPropagation()}
+														className="p-2 text-gray-400 hover:text-white"
+													>
+														<ExternalLink size={16} />
+													</a>
+												)}
 											</div>
-											{server.sourceUrl && (
-												<a
-													href={server.sourceUrl}
-													target="_blank"
-													rel="noopener noreferrer"
-													onClick={(e) => e.stopPropagation()}
-													className="p-2 text-gray-400 hover:text-white"
-												>
-													<ExternalLink size={16} />
-												</a>
-											)}
-										</div>
-									</button>
-								))
+										</button>
+									))}
+
+									{/* Footer */}
+									<div className="pt-3">
+										{total > 0 && (
+											<p className="text-center text-xs text-gray-500 mb-3">
+												{storeServers.length} / {total}
+											</p>
+										)}
+										{hasMore && (
+											<button
+												type="button"
+												onClick={loadMore}
+												disabled={loadingMore || loading}
+												className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-sm disabled:opacity-50"
+											>
+												{loadingMore && (
+													<Loader2 className="animate-spin" size={16} />
+												)}
+												{t("common.load_more")}
+											</button>
+										)}
+									</div>
+								</>
 							)}
 						</div>
 					</>
@@ -578,13 +618,17 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 						<p className="text-gray-400 mb-4">
 							{t("settings.mcp.store.runtimeDescription")}
 						</p>
-						{selectedServer.packages.map((pkg, i) => (
+						{[
+							...new Set(
+								selectedServer.packages
+									.map((p) => p.runtimeHint || "npx")
+									.filter(Boolean),
+							),
+						].map((rt) => (
 							<button
 								type="button"
-								// biome-ignore lint/suspicious/noArrayIndexKey: pkg has no unique id
-								key={i}
+								key={rt}
 								onClick={() => {
-									const rt = pkg.runtimeHint || "npx";
 									setSelectedRuntime(rt);
 									if (selectedServer.environmentVariables.length > 0) {
 										setStep("config");
@@ -592,15 +636,18 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 										handlePreview(selectedServer, rt);
 									}
 								}}
-								className={`w-full p-4 text-left border rounded-xl transition-all ${selectedRuntime === pkg.runtimeHint
+								className={`w-full p-4 text-left border rounded-xl transition-all ${
+									selectedRuntime === rt
 										? "border-purple-500 bg-purple-500/10"
 										: "border-white/10 hover:border-white/20 bg-black/20"
-									}`}
+								}`}
 							>
-								<div className="font-medium text-gray-100">
-									{pkg.runtimeHint || "npx"}
+								<div className="font-medium text-gray-100">{rt}</div>
+								<div className="text-sm text-gray-400">
+									{selectedServer.packages.find(
+										(p) => (p.runtimeHint || "npx") === rt,
+									)?.name || selectedServer.id}
 								</div>
-								<div className="text-sm text-gray-400">{pkg.name}</div>
 							</button>
 						))}
 					</div>

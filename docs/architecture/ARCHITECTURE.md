@@ -1,6 +1,6 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
-**バージョン**: 2.7
+**バージョン**: 2.8
 **最終更新日**: 2026-01-11
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
@@ -200,9 +200,9 @@ Tepora_Project/
 ```
 backend/
 ├── server.py                   # FastAPIエントリーポイント
-├── config.yml                  # システム設定 (gitignored)
+├── config.yml                  # システム設定（開発時の既定）
 ├── config/                     # ランタイム設定
-│   └── mcp_tools_config.json   # MCPサーバー設定 (gitignored)
+│   └── mcp_tools_config.json   # MCPサーバー設定（ユーザー環境で変更）
 ├── pyproject.toml              # プロジェクト設定・依存関係
 ├── uv.lock                     # 依存関係ロックファイル
 ├── REFACTORING_SUMMARY.md      # リファクタリング詳細
@@ -211,7 +211,7 @@ backend/
 │   ├── jan-nano-128k-iQ4_XS.gguf
 │   └── embeddinggemma-300M-Q8_0.gguf
 ├── bin/                        # llama.cppバイナリ
-├── chroma_db_em_llm/           # ChromaDB永続化
+├── chroma_db/                  # ChromaDB永続化
 ├── logs/                       # ログファイル
 └── src/
     ├── tepora_server/          # Webサーバー/API層
@@ -381,8 +381,34 @@ frontend/
     │   ├── main.rs
     │   └── lib.rs
     ├── icons/                  # アプリアイコン
-    └── binaries/               # sidecar用バイナリ
-        └── tepora-backend.exe  # Pythonバックエンド実行形式
+     └── binaries/               # sidecar用バイナリ
+         └── tepora-backend.exe  # Pythonバックエンド実行形式
+```
+
+### 4.4 実行時データ（ユーザーデータディレクトリ）
+
+Teporaは「開発実行（Python）」と「配布版（Tauri + PyInstaller）」で永続データの保存先が変わります。
+
+- 開発実行（非frozen）: `USER_DATA_DIR` は `PROJECT_ROOT`（`backend/`）
+- 配布版（frozen/PyInstaller）: `USER_DATA_DIR` はOS標準のユーザーデータ領域
+  - Windows: `%LOCALAPPDATA%\\Tepora`
+  - macOS: `~/Library/Application Support/Tepora`
+  - Linux: `${XDG_DATA_HOME:-~/.local/share}/tepora`
+
+主な永続データ（概念的な配置）:
+
+```
+USER_DATA_DIR/
+├── config.yml                  # ユーザー設定（公開設定）
+├── secrets.yaml                # 機密設定（APIキー等）
+├── logs/                       # アプリログ（server.log 等）
+├── tepora_chat.db              # SQLite: セッション/会話履歴
+├── chroma_db/                  # ChromaDB: EM-LLM/RAG
+└── config/
+    ├── mcp_tools_config.json   # MCP接続設定
+    └── .mcp_trusted_hashes     # MCP設定の信頼ハッシュ
+
+~/.tepora/.session_token         # セッショントークン（環境変数未設定時のフォールバック）
 ```
 
 ---
@@ -405,7 +431,7 @@ frontend/
 
 **REST API**
 - `GET /health` - ヘルスチェック
-- `POST /api/shutdown` - サーバーシャットダウン（管理トークン必須、localhostのみ）
+- `POST /api/shutdown` - サーバーシャットダウン（セッショントークン必須、localhostのみ）
 - `GET /api/status` - システムステータス・統計情報取得
 - `GET /api/config` - 設定情報取得
 - `POST /api/config` - 設定更新 (全体)
@@ -425,6 +451,8 @@ frontend/
 - `GET /api/mcp/config` - MCP設定情報取得
 - `POST /api/mcp/config` - MCP設定更新
 - `GET /api/mcp/store` - MCPレジストリ（利用可能なサーバー一覧）取得
+- `GET /api/mcp/policy` - MCP接続ポリシー取得
+- `PATCH /api/mcp/policy` - MCP接続ポリシー更新
 - `POST /api/mcp/install/preview` - MCPサーバーインストールプレビュー（2段階Step 1）
 - `POST /api/mcp/install/confirm` - MCPサーバーインストール確認（2段階Step 2）
 - `POST /api/mcp/servers/{server_name}/enable` - サーバー有効化
@@ -440,10 +468,8 @@ frontend/
 - `POST /api/setup/finish` - セットアップ完了・設定保存
 - `POST /api/setup/download/action` - ダウンロード制御（一時停止/再開/キャンセル）
 - `GET /api/setup/download/incomplete` - 未完了ダウンロード一覧
-- `GET /api/setup/download/progress` - ダウンロード進捗取得
 - `GET /api/setup/models` - 利用可能なモデル一覧取得
 - `DELETE /api/setup/model/{model_id}` - モデル削除
-- `POST /api/setup/model/active` - アクティブモデル設定
 - `POST /api/setup/model/check` - モデル存在確認 (HF)
 - `GET /api/setup/model/update-check` - モデル更新チェック (HF)
 - `POST /api/setup/model/reorder` - モデル順序変更
@@ -453,42 +479,66 @@ frontend/
 - `POST /api/setup/model/roles/character` - キャラクターモデル設定
 - `POST /api/setup/model/roles/executor` - エグゼキューターモデル設定
 - `DELETE /api/setup/model/roles/executor/{task_type}` - エグゼキューター設定解除
-- `POST /api/setup/binary` - バイナリ直接ダウンロード
-- `GET /api/setup/binary/check` - llama.cpp更新チェック
+- `GET /api/setup/binary/update-info` - llama.cpp更新チェック
 - `POST /api/setup/binary/update` - llama.cpp更新実行
-- `POST /api/setup/initial` - 初回セットアップ実行
 
 **セキュリティ要件**
-- セッショントークン認証: APIおよびWebSocket接続にはセッショントークンが必須（`x-api-key`ヘッダー / `?token=`クエリパラメータ）。トークンはサーバー起動時に生成され、環境変数またはファイルでフロントエンドに共有される。
+- セッショントークン認証: 機密操作（設定/ログ/シャットダウン等）は `x-api-key` ヘッダーが必須。WebSocketは `WS /ws?token=...` のクエリで認証（`TEPORA_ENV=development` の場合はトークン検証をスキップ）。トークンはサーバー起動時に初期化され、環境変数または `~/.tepora/.session_token` ファイルでフロントエンドへ共有される。
+- Origin検証: WebSocketは `Origin` ヘッダーをAllowlistで検証し、外部サイトからの接続を拒否（無効な場合はClose code `4003`）。
 - MCP 2段階インストール: MCPサーバーインストールは`/install/preview`でコマンドプレビュー→`/install/confirm`で同意後実行の2段階フローを推奨。インストール直後はセキュリティのためデフォルトで**無効（disabled）**状態となり、手動での有効化が必要。
 - MCP接続ポリシー: デフォルトで `LOCAL_ONLY`（ローカルサーバー/stdioのみ許可）。外部サーバーはAllowlistによる明示的な許可が必要。`sudo` 等の危険コマンドはブロックされる。
 - MCPツール承認: 全てのMCPツールは潜在的に危険とみなされ、セッションごとの初回使用時にユーザー承認（Confirmation）を要求する。
-- `POST /api/shutdown` は `X-Admin-Token` を必須とし、バックエンドは `127.0.0.1` のみバインド。
+- `POST /api/shutdown` はセッショントークン（`x-api-key`）で保護され、バックエンドは `127.0.0.1` のみバインド。
 - モデルダウンロードは allowlist または許可オーナーに限定し、未登録時は警告 + 同意を必須化。リビジョン固定を行い、SHA256は提供時のみ検証する。
 - 実行バイナリ (llama.cpp) のダウンロード時は、GitHub ReleasesのSHA256ダイジェストを用いて完全性検証を必須とする。
 
 #### WebSocketメッセージフォーマット
 
+**接続**
+
+```text
+ws://127.0.0.1:{port}/ws?token={session_token}
+```
+
 **送信（クライアント→サーバー）**
 ```json
 {
+  "type": "message",
   "message": "ユーザーの入力テキスト",
-  "mode": "direct" | "search" | "agent"
+  "mode": "direct" | "search" | "agent",
+  "attachments": [{"name": "note.txt", "content": "...", "type": "text/plain"}],
+  "skipWebSearch": false,
+  "sessionId": "default"
 }
 ```
 
 > **Note**: WebSocket wire protocol では `direct` を使用しますが、UI表示では「CHAT」と表示されます。これは意図的な設計で、ユーザー向けラベルと技術的なプロトコル値を分離しています。
 
+**送信（クライアント→サーバー）の主な type**
+- `message`: 通常のメッセージ処理（上記）。`type` を省略した場合も同様に扱われます。
+- `stop`: 実行中タスクをキャンセル（`{"type":"stop"}`）。
+- `get_stats`: メモリ統計などを要求（`{"type":"get_stats"}`）。
+- `set_session`: セッション切替（`{"type":"set_session","sessionId":"..."}`）。切替後に `history` が送られます。
+- `tool_confirmation_response`: ツール承認の応答（`{"type":"tool_confirmation_response","requestId":"...","approved":true}`）。
+
 **受信（サーバー→クライアント）**
 ```json
 {
-  "type": "chunk" | "status" | "error" | "stats" | "done",
+  "type": "chunk" | "status" | "error" | "stats" | "done" | "activity" | "history" | "search_results" | "tool_confirmation_request" | "download_progress",
   "message": "AIの応答テキスト",
   "data": {
     // タイプに応じた追加データ
   }
 }
 ```
+
+**補足（代表的なペイロード）**
+- `chunk`: `{ message, mode, nodeId, agentName }`
+- `activity`: `{ data: { id, status, message } }`（ノード進捗表示用）
+- `history`: `{ messages: [{id, role, content, timestamp, mode}, ...] }`
+- `tool_confirmation_request`: `{ data: { requestId, toolName, toolArgs, description } }`
+- `search_results`: `{ data: [{title,url,snippet,...}, ...] }`
+- `download_progress`: `{ data: { status, progress, message, job_id, current_bytes, total_bytes, speed_bps, eta_seconds } }`
 
 ### 5.2 LangGraphステートマシン
 
@@ -662,6 +712,7 @@ graph TB
 | ファイル | 役割 | 編集方法 |
 |----------|------|----------|
 | `config.yml` | アプリ全体設定 | 手動編集 / 設定API |
+| `secrets.yaml` | 機密設定（APIキー等） | 設定API / 手動編集（推奨しない） |
 | `mcp_tools_config.json` | MCP接続情報 | 設定画面 / API |
 | `schema.py` | デフォルト値定義 | 開発者のみ |
 | `seed.json` | MCPサーバーカタログ | 開発者のみ |
@@ -674,13 +725,22 @@ graph TB
 app:
   max_input_length: 10000
   graph_recursion_limit: 50
+  tool_execution_timeout: 120
+  tool_approval_timeout: 300
+  web_fetch_max_chars: 6000
+  language: "ja"
+  nsfw_enabled: false
+
+server:
+  host: "127.0.0.1"
+
+tools:
   google_search_api_key: "YOUR_KEY"  # Optional
   google_search_engine_id: "YOUR_CX" # Optional
-  nsfw_detection: false  # Optional
 
 privacy:
   allow_web_search: false
-  redact_pii: true # 外部送信テキスト（Web検索クエリ等）からPIIを自動削除
+  redact_pii: true # 外部送信テキスト（Web検索クエリ等）およびログからPIIを自動削除
 
 model_download:
   require_allowlist: false
@@ -710,17 +770,57 @@ em_llm:
   surprise_gamma: 1.0
   total_retrieved_events: 4
 
-agent_profiles:
-  default:
-    persona:
-      key: "default"
-    tool_policy:
-      allow: ["*"]
+characters:
+  bunny_girl:
+    name: "Bunny Girl"
+    description: "..."
+    system_prompt: "..."
+
+professionals:
+  professional:
+    name: "Professional"
+    description: "..."
+    system_prompt: "..."
+
+active_agent_profile: "bunny_girl"
 ```
+
+> **Note**: 旧 `agent_profiles` は廃止され、`characters`/`professionals` と `active_agent_profile` に置き換えられています。
 
 #### 5.6.3 mcp_tools_config.json（MCPサーバー設定）
 
 MCPサーバーの接続情報（コマンド、引数、環境変数）を管理。`McpHub` によりAPI経由で読み書きされ、ホットリロードに対応。
+
+また、安全性のために「信頼済み設定ハッシュ」を `.mcp_trusted_hashes` に保存し、設定ファイルが外部から書き換えられた場合に未承認変更として検出できるようにしています。
+
+#### 5.6.4 設定の読み込み優先順位（実装）
+
+設定はPydantic Settingsで統合され、概ね次の優先順位で解決されます（上ほど強い）:
+
+1. 環境変数
+2. `.env`（`PROJECT_ROOT/.env`）
+3. `secrets.yaml`（`USER_DATA_DIR/secrets.yaml`）
+4. `config.yml`（`TEPORA_CONFIG_PATH` → `USER_DATA_DIR/config.yml` → `PROJECT_ROOT/config.yml` の順）
+5. スキーマのデフォルト値（`schema.py`）
+
+> **Note**: `TEPORA_ROOT` は `PROJECT_ROOT` を明示的に上書きできます（開発/検証用途）。
+
+#### 5.6.5 secrets.yaml（機密設定）と設定APIの伏字
+
+設定は「公開設定」と「機密設定」に分割して保存されます。
+
+- `config.yml`: 画面から操作する一般設定（公開）
+- `secrets.yaml`: APIキー等の機密値（ローカルの `USER_DATA_DIR` に保存）
+
+`GET /api/config` は `config.yml` と `secrets.yaml` をマージした「実効設定」を返し、機密と判定されたキー（例: `api_key`, `token`, `secret` 等）は `****` に置換して返します。
+`POST/PATCH /api/config` は受け取った設定に `****` が含まれる場合、既存値から復元して保存するため、フロントエンドは機密値の再送信を不要にできます。
+
+### 5.7 ログと可観測性（Logging & Observability）
+
+- 出力先: 標準出力 + `LOG_DIR/server.log`（ローテーション: 10MB×最大5世代）
+- HTTPアクセスログ: middlewareが `METHOD PATH - status - ms` を記録
+- 自動クリーンアップ: 起動時に古いログ（既定7日超）を削除し、`llama_server_*.log` はモデル種別ごとに既定20世代までに制限
+- PII伏字（任意）: `privacy.redact_pii` が有効な場合、ログ出力中のPIIパターン（メール、電話番号等）を自動的に伏字化
 
 ---
 
@@ -943,6 +1043,13 @@ Spring animationを用いた自然な動き：
 - シングルインストーラーで配布可能
 - プラットフォーム固有の最適化
 
+#### 6.5.3 Tauri ↔ Backend 連携（ポート/トークン/終了）
+
+- 動的ポート: sidecar起動直後にバックエンドが `TEPORA_PORT=<port>` をstdoutへ出力し、フロントエンドが検出して以後のHTTP/WSの接続先に採用
+- 起動待ち: `TEPORA_PORT` 受信後、フロントエンドが `/health` をポーリングして起動完了を待機
+- セッショントークン: Tauriコマンド `read_session_token` が `TEPORA_SESSION_TOKEN` 環境変数または `~/.tepora/.session_token` を読み、RESTは `x-api-key`、WebSocketは `?token=` として利用
+- 終了: ウィンドウクローズ時に `POST /api/shutdown` を試行し、失敗時はsidecarプロセスを強制終了（残留防止）
+
 ---
 
 ## 主要機能
@@ -973,8 +1080,8 @@ Spring animationを用いた自然な動き：
 **動作フロー**:
 1. ユーザー入力
 2. クエリ解析
-3. Web検索実行（DuckDuckGo、ユーザー同意と設定で明示的に許可された場合のみ）
-4. 検索結果のスクレイピング
+3. Web検索実行（Google Custom Search API。ユーザー同意 + `privacy.allow_web_search=true` + `tools.google_search_*` 設定時のみ）
+4. 検索結果ページの本文抽出（WebFetch: HTML→テキスト抽出、URL denylist適用）
 5. RAG（Retrieval-Augmented Generation）
 6. ソースを明示した応答生成
 
@@ -1020,7 +1127,13 @@ Spring animationを用いた自然な動き：
 - **セッション永続化**: SQLiteデータベースへの会話履歴保存
 - **履歴閲覧**: サイドバー（または専用パネル）からの過去ログアクセス
 - **コンテキスト復帰**: セッション切り替え時のコンテキスト（会話履歴）の再ロード
-- **自動タイトル生成**: 会話内容に基づくセッションタイトルの自動生成
+- **セッションタイトル**: 作成時に指定、または未指定の場合は日時ベースの既定タイトル（自動生成）
+
+**保存先とスキーマ（要点）**
+- DB: `USER_DATA_DIR/tepora_chat.db`
+- `sessions` テーブル: `id`, `title`, `created_at`, `updated_at`
+- `chat_history` テーブル: `id`, `session_id`, `type`, `content`, `additional_kwargs(JSON)`, `created_at`
+- 取得/保持: UI表示用は直近N件（既定100件）を取得し、バックエンドはセッションごとに履歴をトリム（既定で直近1000件保持）
 
 ---
 
@@ -1037,8 +1150,9 @@ sequenceDiagram
     participant LG as LangGraph
     participant LLM as llama.cpp
 
+    F->>WS: connect(/ws?token=...)
     U->>F: メッセージ入力
-    F->>WS: send({message, mode})
+    F->>WS: send({type:"message", message, mode, attachments?, sessionId?, skipWebSearch?})
     WS->>B: WebSocketメッセージ
     B->>LG: グラフ実行開始
     LG->>LLM: プロンプト送信

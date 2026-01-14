@@ -8,7 +8,7 @@
 }
 
 /* Custom Utilities if needed */
-.glass-gemini {
+.glass-tepora {
     @apply bg-black/40 backdrop-blur-md border border-white/10;
 }
 
@@ -34,6 +34,39 @@
     }
 }
 
+.animate-message-in {
+    animation: message-in 0.25s ease-out both;
+}
+
+/* Safe area helpers (iOS/Android) */
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+    padding-top: env(safe-area-inset-top);
+}
+
+/* Scrollbar (Firefox) */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+/* Markdown (chat) */
+.chat-markdown code::before,
+.chat-markdown code::after {
+    content: "" !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-modal-enter,
+    .animate-message-in {
+        animation: none !important;
+    }
+}
+
 
 :root {
     --glass-border: rgba(255, 255, 255, 0.08);
@@ -41,7 +74,8 @@
     /* Deep Tea Dark */
     --glass-highlight: rgba(219, 89, 37, 0.1);
     /* Tea Orange Tint */
-    --gemini-gradient: linear-gradient(135deg, rgba(63, 21, 11, 0.9), rgba(145, 52, 29, 0.7), rgba(212, 200, 32, 0.2));
+    --tepora-gradient: linear-gradient(135deg, rgba(63, 21, 11, 0.9), rgba(145, 52, 29, 0.7), rgba(212, 200, 32, 0.2));
+    color-scheme: dark;
 }
 
 body {
@@ -56,7 +90,7 @@ body {
 
     /* Use comma separation instead of @apply to avoid self-reference/custom class errors in build tools */
     .glass-tea,
-    .glass-gemini {
+    .glass-tepora {
         backdrop-filter: blur(24px);
         background-image: linear-gradient(to bottom right, rgba(63, 21, 11, 0.9), rgba(20, 10, 5, 0.95));
         border: 1px solid rgba(255, 255, 255, 0.15);

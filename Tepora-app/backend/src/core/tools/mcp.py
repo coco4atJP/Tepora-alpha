@@ -4,11 +4,15 @@ import asyncio
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient, StdioConnection
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from ..mcp.hub import McpHub
 
 __all__ = [
     "load_connections_from_config",
@@ -33,6 +37,19 @@ def load_connections_from_config(config_path: Path) -> dict[str, StdioConnection
 
     connections: dict[str, StdioConnection] = {}
     for server_name, server_config in config_data.get("mcpServers", {}).items():
+        if not server_config.get("enabled", True):
+            logger.info("Skipping disabled MCP server config: %s", server_name)
+            continue
+
+        # Fallback loader currently supports only stdio transport.
+        if (server_config.get("transport") or "stdio") != "stdio":
+            logger.warning(
+                "Skipping MCP server '%s': unsupported transport '%s'",
+                server_name,
+                server_config.get("transport"),
+            )
+            continue
+
         command = server_config.get("command")
         if not command:
             logger.warning("Skipping server '%s': 'command' key is missing.", server_name)
@@ -144,11 +161,19 @@ class McpToolProvider(ToolProvider):
     Manages the lifecycle of MCP clients.
     """
 
-    def __init__(self, config_path: Path):
+    def __init__(self, config_path: Path, hub: McpHub | None = None):
         self.config_path = config_path
+        self._hub = hub
         self._clients: list[MultiServerMCPClient] = []
 
     async def load_tools(self) -> list[BaseTool]:
+        # Prefer the shared McpHub instance (web server) to avoid duplicate
+        # connections and to respect enable/disable/policy decisions.
+        if self._hub is not None:
+            if not self._hub.initialized:
+                await self._hub.initialize()
+            return self._hub.get_all_tools()
+
         logger.info("Loading MCP tools via Provider from %s", self.config_path)
         # Use existing logic but manage clients internally
         tools, clients = await load_mcp_tools_robust(self.config_path)

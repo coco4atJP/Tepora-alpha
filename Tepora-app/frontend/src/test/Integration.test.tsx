@@ -9,7 +9,13 @@ vi.mock("react-router-dom", async () => {
 	const actual = await vi.importActual("react-router-dom");
 	return {
 		...actual,
-		useOutletContext: () => ({ currentMode: "chat" as ChatMode }),
+		useOutletContext: () => ({
+			currentMode: "chat" as ChatMode,
+			attachments: [],
+			onFileSelect: vi.fn(),
+			onRemoveAttachment: vi.fn(),
+			clearAttachments: vi.fn(),
+		}),
 	};
 });
 
@@ -125,7 +131,7 @@ describe("ChatInterface Integration", () => {
 		expect(screen.getByText("Connection Failed")).toBeInTheDocument();
 
 		// Verify clear error interaction
-		const closeBtn = screen.getByText("×");
+		const closeBtn = screen.getByRole("button", { name: /close/i });
 		fireEvent.click(closeBtn);
 		expect(mockClearError).toHaveBeenCalled();
 	});

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useModelUpdateCheck } from "../../../hooks/useModelUpdateCheck";
 import { getApiBase } from "../../../utils/api";
@@ -103,13 +104,24 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 		);
 	};
 
-	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-			<div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-				<div className="flex items-center justify-between p-6 border-b border-white/5">
-					<h3 className="text-lg font-medium text-white flex items-center gap-2">
+	return createPortal(
+		<div
+			className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="model-list-overlay-title"
+			onClick={(e) => {
+				if (e.target === e.currentTarget) onClose();
+			}}
+		>
+			<div className="glass-tepora rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
+					<h3
+						id="model-list-overlay-title"
+						className="text-lg font-medium text-white flex items-center gap-2"
+					>
 						<List size={20} className="text-gold-400" />
-						Model Management
+						{t("settings.sections.models.manage_models") || "Model Management"}
 					</h3>
 					<div className="flex items-center gap-2">
 						<button
@@ -133,7 +145,8 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 						<button
 							type="button"
 							onClick={onClose}
-							className="text-gray-400 hover:text-white transition-colors"
+							className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+							aria-label="Close"
 						>
 							<X size={20} />
 						</button>
@@ -158,10 +171,11 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 					))}
 				</div>
 
-				<div className="flex-1 overflow-y-auto p-6 space-y-2">
+				<div className="flex-1 overflow-y-auto p-6 space-y-2 custom-scrollbar">
 					{filteredModels.length === 0 ? (
 						<div className="text-center text-gray-500 py-10">
-							No models found for this role.
+							{t("settings.sections.models.no_models_for_role") ||
+								"No models found for this role."}
 						</div>
 					) : (
 						filteredModels.map((model, index) => (
@@ -224,7 +238,8 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										type="button"
 										onClick={() => move(index, "up")}
 										disabled={index === 0}
-										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white"
+										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white transition-colors"
+										aria-label="Move up"
 									>
 										<ArrowUp size={16} />
 									</button>
@@ -232,7 +247,8 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										type="button"
 										onClick={() => move(index, "down")}
 										disabled={index === filteredModels.length - 1}
-										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white"
+										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white transition-colors"
+										aria-label="Move down"
 									>
 										<ArrowDown size={16} />
 									</button>
@@ -241,6 +257,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										type="button"
 										onClick={() => onDelete(model.id)}
 										className="p-2 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-full transition-colors"
+										aria-label="Delete model"
 									>
 										<Trash2 size={16} />
 									</button>
@@ -250,6 +267,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 					)}
 				</div>
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 };

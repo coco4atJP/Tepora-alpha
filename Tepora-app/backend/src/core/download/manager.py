@@ -13,8 +13,9 @@ from typing import Any
 
 from src.core.config.loader import settings
 
+# 新しいcore/modelsパッケージからModelManagerをインポート
+from ..models import ModelManager
 from .binary import BinaryManager
-from .models import ModelManager
 from .types import (
     DownloadStatus,
     ModelPool,
@@ -78,6 +79,8 @@ class DownloadManager:
         )
         self.model_manager = ModelManager(
             models_dir=self.user_data_dir / "models",
+            binary_dir=self.user_data_dir / "bin",
+            logs_dir=self.user_data_dir / "logs",
         )
         self._progress_callbacks: list[ProgressCallback] = []
 

@@ -1,11 +1,15 @@
-import { Settings } from "lucide-react";
+import { Cpu, Settings } from "lucide-react";
 import type React from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../../../hooks/useSettings"; // Import hook
+import { useSettings } from "../../../hooks/useSettings";
+import { getApiBase, getAuthHeaders } from "../../../utils/api";
+import Updater from "../components/Updater";
 import {
 	CollapsibleSection,
 	FormGroup,
 	FormInput,
+	FormSelect,
 	SettingsSection,
 } from "../SettingsComponents";
 
@@ -38,6 +42,14 @@ const GeneralSettings: React.FC = () => {
 			description={t("settings.sections.general.description")}
 		>
 			<div className="space-y-6">
+				{/* App Updater */}
+				<Updater />
+
+				<div className="border-t border-white/10 my-4" />
+
+				{/* Inference Engine Update */}
+				<InferenceEngineUpdate />
+
 				{/* Google Search Configuration */}
 				<div className="space-y-4">
 					<h3 className="text-lg font-medium text-white">
@@ -91,10 +103,15 @@ const GeneralSettings: React.FC = () => {
 							description={t("settings.fields.language.description")}
 							isDirty={isDirty("language")}
 						>
-							<FormInput
-								value={appConfig.language}
+							<FormSelect
+								value={appConfig.language || "en"}
 								onChange={(value) => updateApp("language", value as string)}
-								placeholder="ja"
+								options={[
+									{ value: "en", label: "English" },
+									{ value: "ja", label: "日本語" },
+									{ value: "es", label: "Español" },
+									{ value: "zh", label: "中文" },
+								]}
 							/>
 						</FormGroup>
 
@@ -120,8 +137,14 @@ const GeneralSettings: React.FC = () => {
 					</div>
 
 					<CollapsibleSection
-						title={t("settings.sections.general.advanced_settings") || "Advanced Settings"}
-						description={t("settings.sections.general.advanced_settings_desc") || "Recursion limits and fetch constraints"}
+						title={
+							t("settings.sections.general.advanced_settings") ||
+							"Advanced Settings"
+						}
+						description={
+							t("settings.sections.general.advanced_settings_desc") ||
+							"Recursion limits and fetch constraints"
+						}
 					>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 							<FormGroup
@@ -225,6 +248,170 @@ const GeneralSettings: React.FC = () => {
 				</CollapsibleSection>
 			</div>
 		</SettingsSection>
+	);
+};
+
+// Sub-component for llama.cpp Update Logic
+const InferenceEngineUpdate: React.FC = () => {
+	const { t } = useTranslation();
+	const [checking, setChecking] = useState(false);
+	const [updateInfo, setUpdateInfo] = useState<{
+		has_update: boolean;
+		current_version: string;
+		latest_version?: string;
+	} | null>(null);
+	const [updating, setUpdating] = useState(false);
+	const [status, setStatus] = useState("");
+
+	const checkUpdate = useCallback(async () => {
+		try {
+			setChecking(true);
+			const res = await fetch(
+				`${getApiBase()}/api/setup/binary/update-info?t=${Date.now()}`,
+				{ headers: { ...getAuthHeaders() } },
+			);
+			const data = await res.json();
+			setUpdateInfo(data);
+		} catch (e) {
+			console.error(e);
+		} finally {
+			setChecking(false);
+		}
+	}, []);
+
+	const doUpdate = async () => {
+		try {
+			setUpdating(true);
+			setStatus(
+				t("settings.sections.general.inference_engine.starting") ||
+					"Starting update...",
+			);
+			const res = await fetch(`${getApiBase()}/api/setup/binary/update`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+				body: JSON.stringify({ variant: "auto" }),
+			});
+			const data = await res.json();
+
+			if (data.job_id) {
+				// Poll progress
+				const poll = setInterval(async () => {
+					const progRes = await fetch(
+						`${getApiBase()}/api/setup/progress?job_id=${data.job_id}`,
+						{ headers: { ...getAuthHeaders() } },
+					);
+					const progData = await progRes.json();
+					setStatus(progData.message || `Status: ${progData.status}`);
+
+					if (progData.status === "completed") {
+						clearInterval(poll);
+						setUpdating(false);
+						setStatus(
+							t("settings.sections.general.inference_engine.completed") ||
+								"Update completed!",
+						);
+						checkUpdate();
+					} else if (progData.status === "failed") {
+						clearInterval(poll);
+						setUpdating(false);
+						setStatus(
+							`${t("settings.sections.general.inference_engine.failed") || "Update failed"}: ${progData.message}`,
+						);
+					}
+				}, 1000);
+			} else {
+				setUpdating(false);
+				setStatus(
+					t("settings.sections.general.inference_engine.start_failed") ||
+						"Failed to start update",
+				);
+			}
+		} catch (e) {
+			console.error(e);
+			setUpdating(false);
+			setStatus(
+				t("settings.sections.general.inference_engine.error") ||
+					"Error starting update",
+			);
+		}
+	};
+
+	useEffect(() => {
+		checkUpdate();
+	}, [checkUpdate]);
+
+	return (
+		<CollapsibleSection
+			title={
+				t("settings.sections.general.inference_engine.title") ||
+				"Inference Engine (llama.cpp)"
+			}
+			description={
+				t("settings.sections.general.inference_engine.description") ||
+				"Manage llama.cpp binary updates"
+			}
+			defaultOpen={false}
+		>
+			<div className="bg-black/20 rounded-lg p-4 border border-white/5">
+				<div className="flex items-center justify-between">
+					<div>
+						<div className="text-sm text-gray-400 mb-1">
+							{t(
+								"settings.sections.general.inference_engine.current_version",
+							) || "Current Version"}
+						</div>
+						<div className="font-mono text-green-400">
+							{updateInfo?.current_version || "Unknown"}
+						</div>
+					</div>
+
+					<div className="flex gap-3 items-center">
+						{updateInfo?.has_update && (
+							<div className="text-right">
+								<div className="text-xs text-yellow-400">
+									{t(
+										"settings.sections.general.inference_engine.new_available",
+									) || "New Version Available"}
+								</div>
+								<div className="font-mono text-white text-sm">
+									{updateInfo.latest_version}
+								</div>
+							</div>
+						)}
+
+						{updating ? (
+							<div className="flex items-center gap-2 px-4 py-2 bg-coffee-500/10 text-coffee-400 rounded-lg text-sm">
+								<span className="w-2 h-2 rounded-full bg-coffee-400 animate-pulse" />
+								{status}
+							</div>
+						) : updateInfo?.has_update ? (
+							<button
+								type="button"
+								onClick={doUpdate}
+								className="px-4 py-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg text-sm transition-colors flex items-center gap-2"
+							>
+								<Cpu size={14} />
+								{t("common.update_now") || "Update Now"}
+							</button>
+						) : (
+							<button
+								type="button"
+								onClick={checkUpdate}
+								disabled={checking}
+								className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-sm transition-colors"
+							>
+								{checking
+									? t("settings.sections.general.inference_engine.checking") ||
+										"Checking..."
+									: t(
+											"settings.sections.general.inference_engine.check_updates",
+										) || "Check for Updates"}
+							</button>
+						)}
+					</div>
+				</div>
+			</div>
+		</CollapsibleSection>
 	);
 };
 

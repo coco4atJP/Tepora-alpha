@@ -39,7 +39,21 @@
 		"download_warning_confirm": "Proceder",
 		"advanced_settings": "Configuración avanzada (Cambiar modelos)",
 		"model_settings": "Configuración de modelos",
-		"model": "Modelo"
+		"model": "Modelo",
+		"checking_desc": "Comprobando requisitos del sistema y dependencias...",
+		"ready_desc": "Tepora esta lista para ser tu companero de IA.",
+		"all_set": "!Todo listo!",
+		"installing": "Instalando...",
+		"extracting": "Extrayendo...",
+		"failed": "Configuracion fallida",
+		"install_selected": "Instalar modelos seleccionados",
+		"start_install": "Iniciar instalacion",
+		"custom": "Configuracion personalizada (Avanzado)",
+		"custom_desc": "Especifique sus propios repositorios GGUF y nombres de archivo.",
+		"custom_models": "Modelos personalizados",
+		"launch": "Iniciar Tepora",
+		"storage_required": "Aprox. 2GB+ por modelo",
+		"storage_desc": "Tepora se ejecuta localmente. Los modelos se guardaran en tu carpeta AppData."
 	},
 	"app": {
 		"loading": "Conectando al servidor...",
@@ -92,11 +106,17 @@
 		"empty": "No hay sesiones todavía",
 		"messages": "mensajes"
 	},
+	"newSession": "Nueva sesion",
+	"sessionHistory": "Historial de sesiones",
+	"close": "Cerrar",
 	"common": {
 		"language": "Idioma",
 		"next": "Siguiente",
 		"back": "Atrás",
+		"skip": "Omitir",
 		"cancel": "Cancelar",
+		"add": "Agregar",
+		"edit": "Editar",
 		"save": "Guardar",
 		"clear": "Limpiar",
 		"settings": "Configuración",
@@ -104,6 +124,9 @@
 		"enabled": "Habilitado",
 		"disabled": "Desactivado",
 		"retry": "Reintentar",
+		"load_more": "Cargar más",
+		"update_now": "Actualizar ahora",
+		"error_prefix": "Error: ",
 		"today": "Hoy",
 		"yesterday": "Ayer",
 		"daysAgo": "Hace {{count}} días",
@@ -114,7 +137,8 @@
 		"clear_history": "Borrar historial",
 		"role": {
 			"assistant": "Asistente",
-			"user": "Tú"
+			"user": "Tú",
+			"system": "Sistema"
 		},
 		"input": {
 			"placeholder": {
@@ -124,14 +148,53 @@
 				"default": "Chatea con Tepora..."
 			},
 			"system_ready": "Sistema listo",
+			"system_ready_hint": "Seleccione un modo del dial para comenzar",
 			"disconnected": "Desconectado",
 			"web_search": "Búsqueda web",
+			"web_search_toggle": "Búsqueda web: {{state}}",
 			"attach_file": "Adjuntar archivo",
+			"remove_attachment": "Eliminar adjunto {{name}}",
 			"send": "Enviar mensaje",
+			"send_message": "Enviar mensaje",
 			"stop": "Detener generación",
+			"stop_generation": "Detener generación",
 			"mode_active": "MODO {{mode}} ACTIVO",
 			"aria_label": "Entrada de mensaje"
-		}
+		},
+		"messages_aria_label": "Mensajes de chat",
+		"jump_to_latest": "Ir al mensaje mas reciente",
+		"jump_to_latest_short": "Ultimo"
+	},
+	"agent": {
+		"title": "Actividad del agente",
+		"waiting": "En espera"
+	},
+	"search": {
+		"title": "Busqueda",
+		"hits": "resultados",
+		"no_results": "No se encontraron resultados"
+	},
+	"rag_context": {
+		"title": "Contexto RAG",
+		"sources": "Fuentes",
+		"files": "Archivos",
+		"add_file": "Agregar archivo",
+		"no_sources": "No hay fuentes",
+		"add_hint": "Agregue archivos o busque en la web",
+		"web_results": "Resultados web"
+	},
+	"personas": {
+		"switch": "Cambiar persona",
+		"select": "Seleccionar persona",
+		"create": "Crear persona",
+		"create_new": "Crear persona",
+		"edit": "Editar persona",
+		"name": "Nombre",
+		"description": "Descripcion",
+		"instruction": "Prompt del sistema",
+		"error_exists": "Esta clave ya existe.",
+		"confirm_delete_title": "Eliminar persona?",
+		"confirm_delete": "Esta seguro de que desea eliminar esta persona? Esta accion no se puede deshacer."
 	},
 	"dial": {
 		"chat": "CHAT",
@@ -154,11 +217,29 @@
 	"settings": {
 		"title": "Configuración",
 		"subtitle": "Administrar configuración de IA",
+		"confirm_discard": "Tiene cambios sin guardar. ¿Desea descartarlos?",
+		"toast": {
+			"save_success": "¡Configuración guardada correctamente!",
+			"save_error": "Error al guardar la configuración."
+		},
+		"save_bar": {
+			"reset": "Restablecer",
+			"save": "Guardar cambios",
+			"saving": "Guardando...",
+			"unsaved": "Cambios sin guardar"
+		},
 		"models_settings": {
 			"global_manager": {
 				"title": "Administrador Global de LLM",
 				"description": "Configuración de gestión de procesos y comprobación de estado.",
+				"terminate_timeout": "Tiempo de espera de terminación",
+				"health_check_timeout": "Tiempo de espera de comprobación de salud",
+				"health_check_interval": "Intervalo de comprobación de salud",
 				"tokenizer_model": "Modelo Tokenizer"
+			},
+			"download_manager": {
+				"title": "Administrador de descargas",
+				"description": "Administrar archivos de modelos locales."
 			},
 			"configurations": {
 				"title": "Configuraciones de modelos",
@@ -189,8 +270,35 @@
 				"advanced_settings": "Configuración avanzada",
 				"advanced_settings_desc": "Límites de recursión y restricciones de búsqueda",
 				"timeout_settings": "Configuración de tiempo de espera",
+				"inference_engine": {
+					"title": "Motor de inferencia (llama.cpp)",
+					"description": "Administrar actualizaciones del binario llama.cpp",
+					"current_version": "Versión actual",
+					"new_available": "Nueva versión disponible",
+					"check_updates": "Buscar actualizaciones",
+					"checking": "Comprobando...",
+					"starting": "Iniciando actualización...",
+					"completed": "¡Actualización completada!",
+					"failed": "Actualización fallida",
+					"start_failed": "No se pudo iniciar la actualización",
+					"error": "Error al iniciar la actualización"
+				},
 				"nsfw_label": "Desbloquear contenido restringido",
 				"nsfw_desc": "Permite la generación de contenido sensible. Úselo con precaución."
+			},
+			"updater": {
+				"title": "Actualización de software",
+				"description": "Administrar actualizaciones de Tepora.",
+				"current_version": "Versión actual",
+				"new_version": "Nueva versión",
+				"check_button": "Buscar actualizaciones",
+				"update_button": "Actualizar ahora",
+				"checking": "Comprobando...",
+				"downloading": "Descargando...",
+				"installing": "Instalando...",
+				"relaunching": "Reiniciando...",
+				"uptodate": "¡Estás actualizado!",
+				"error": "Actualización fallida"
 			},
 			"privacy": {
 				"label": "Privacidad",
@@ -211,12 +319,108 @@
 				"list_title": "Configuraciones de modelos",
 				"list_description": "Configurar parámetros individuales del modelo como tamaño de contexto y capas de GPU.",
 				"advanced_title": "Configuración avanzada del administrador",
-				"advanced_description": "Tiempos de espera y comprobaciones de estado"
+				"advanced_description": "Configuración de caché y recursos",
+				"add_new_model": "Agregar nuevo modelo",
+				"no_models": "No hay modelos configurados. Haga clic en 'Agregar nuevo modelo' para agregar uno.",
+				"no_models_for_role": "No se encontraron modelos para este rol.",
+				"confirm_delete": "¿Está seguro de que desea eliminar esta configuración de modelo?",
+				"manage_models": "Administrar modelos (Eliminar / Reordenar)",
+				"text_model_title": "Modelo de texto",
+				"text_model_desc": "Seleccione el modelo utilizado para la generación de texto.",
+				"text_model_label": "Modelo de texto",
+				"character_model_title": "Modelo de personaje",
+				"character_model_desc": "Seleccione el modelo utilizado para conversación y respuestas basadas en persona.",
+				"character_model_label": "Modelo de personaje",
+				"embedding_model_title": "Modelo de incrustación",
+				"embedding_model_desc": "Seleccione el modelo utilizado para memoria y recuperación.",
+				"executor_label": "Executor: {{taskType}}",
+				"executor_default_desc": "Modelo de ejecución predeterminado.",
+				"executor_task_desc": "Modelo especializado para tareas de {{taskType}}.",
+				"executor_models_title": "Modelos de ejecutor",
+				"executor_models_desc": "Configure modelos para diferentes tipos de tareas. Cada tarea puede usar un modelo especializado.",
+				"add_task_placeholder": "Agregar tipo de tarea (p. ej., coding, browser)...",
+				"defaults": {
+					"global": "Predeterminado global"
+				},
+				"check_updates": "Verificar actualizaciones",
+				"checking": "Verificando...",
+				"update_available": "Actualización disponible",
+				"up_to_date": "Actualizado",
+				"check_failed": "Verificación fallida",
+				"update_btn": "Actualizar modelo",
+				"add_modal": {
+					"title": "Agregar modelo",
+					"tab_local": "Archivo local",
+					"tab_huggingface": "Hugging Face",
+					"drop_zone": "Arrastrar y soltar archivo .gguf aquí",
+					"drop_zone_hint": "o seleccionar archivo",
+					"drop_zone_active": "Soltar archivo aquí...",
+					"file_selected": "Archivo seleccionado",
+					"model_name": "Nombre del modelo (ID)",
+					"role_text": "Modelo de texto",
+					"role_embedding": "Modelo de incrustación",
+					"repo_id": "ID del repositorio",
+					"repo_id_placeholder": "usuario/repo",
+					"filename": "Nombre de archivo",
+					"filename_placeholder": "modelo-Q4_K_M.gguf",
+					"download": "Descargar modelo",
+					"downloading": "Descargando...",
+					"starting": "Iniciando descarga...",
+					"add_local": "Registrar modelo",
+					"invalid_file": "Solo se admiten archivos .gguf",
+					"path_required": "No se puede resolver la ruta del archivo. Esta función requiere un entorno de escritorio."
+				},
+				"consent_dialog": {
+					"title": "Confirmar descarga",
+					"description": "Esta descarga requiere su confirmación antes de continuar:",
+					"confirm": "Proceder"
+				},
+				"selection": {
+					"select_model": "Seleccionar un modelo...",
+					"no_models": "No hay modelos disponibles",
+					"remove_mapping": "Eliminar asignación",
+					"configure": "Configuración del modelo",
+					"no_config": "No hay configuración disponible"
+				},
+				"detail": {
+					"changes_note": "Los cambios en los parámetros del modelo se aplicarán en la próxima carga.",
+					"temp_desc": "Controla la aleatoriedad.",
+					"top_p_desc": "Muestreo de núcleo.",
+					"n_ctx": "Ventana de contexto (n_ctx)",
+					"n_ctx_desc": "Número máximo de tokens que el modelo puede procesar a la vez.",
+					"show_advanced": "Mostrar configuración avanzada",
+					"hide_advanced": "Ocultar configuración avanzada"
+				}
 			},
 			"agents": {
 				"label": "Agentes",
 				"title": "Agentes",
 				"description": "Definir personas y políticas de herramientas.",
+				"add_new_profile": "Agregar nuevo perfil",
+				"cannot_delete_active": "No se puede eliminar el perfil activo",
+				"confirm_delete": "¿Eliminar este perfil?",
+				"default_name": "Nuevo agente",
+				"default_prompt": "Eres un asistente de IA útil.",
+				"delete": "Eliminar",
+				"delete_confirm_title": "Eliminar perfil",
+				"edit": "Editar",
+				"error_duplicate_key": "Este ID ya está en uso.",
+				"error_empty_key": "Ingrese un ID.",
+				"modal": {
+					"title_add": "Agregar personaje",
+					"title_edit": "Editar personaje",
+					"key_label": "ID (Clave)",
+					"key_desc": "Identificador único usado internamente.",
+					"model_label": "Modelo",
+					"model_desc": "Seleccione la configuración de modelo para este agente."
+				},
+				"no_description": "Sin descripción",
+				"nsfw_label": "Desbloquear contenido restringido",
+				"nsfw_desc": "Permite generar contenido sensible. Úselo con precaución.",
+				"tab": {
+					"characters": "Personajes",
+					"professionals": "Profesionales"
+				},
 				"card": {
 					"label": "Etiqueta",
 					"label_placeholder": "Nombre del agente",
@@ -242,7 +446,40 @@
 				"label": "Memoria",
 				"title": "EM-LLM (Memoria Episódica)",
 				"description": "Configurar memoria episódica y límites de historial."
+			},
+			"chat_history": {
+				"title": "Historial de chat"
 			}
+		},
+		"fields": {
+			"language": {
+				"label": "Idioma de la interfaz",
+				"description": "Seleccione su idioma preferido."
+			},
+			"max_input_length": {
+				"label": "Longitud máxima de entrada",
+				"description": "Máximo de caracteres permitidos en la entrada del usuario."
+			},
+			"graph_recursion_limit": {
+				"label": "Límite de recursión del grafo",
+				"description": "Profundidad máxima para el recorrido del grafo de agentes (freno de seguridad)."
+			},
+			"tool_execution_timeout": {
+				"label": "Tiempo de espera de ejecución de herramientas",
+				"description": "Segundos antes de que una herramienta agote el tiempo."
+			},
+			"tool_approval_timeout": {
+				"label": "Tiempo de espera de aprobación de herramientas",
+				"description": "Segundos antes de que expire una solicitud de aprobación."
+			},
+			"web_fetch_max_chars": {
+				"label": "Máximo de caracteres en web fetch",
+				"description": "Máximo de caracteres a obtener de una página web."
+			},
+			"cache_size": "Límite de caché de modelos"
+		},
+		"descriptions": {
+			"cache_size": "Número de modelos que se mantienen cargados en memoria."
 		},
 		"privacy": {
 			"web_search": {
@@ -254,7 +491,7 @@
 			},
 			"redact_pii": {
 				"label": "Proteger información personal",
-				"description": "Cuando la búsqueda web está habilitada, elimina automáticamente información personal (direcciones de correo electrónico, números de teléfono, etc.) de las consultas de búsqueda web antes de enviarlas a servicios externos."
+				"description": "Elimina automáticamente información personal (direcciones de correo electrónico, números de teléfono, etc.) de los registros y de las consultas de búsqueda web antes de enviarlas a servicios externos."
 			}
 		},
 		"mcp": {
@@ -281,12 +518,20 @@
 			"disabled": "Desactivado",
 			"disable": "Desactivar",
 			"enable": "Habilitar",
+			"delete": "Eliminar",
+			"confirmDelete": "Confirmar eliminacion",
+			"cancelDelete": "Cancelar",
 			"remove": "Eliminar",
+			"noServers": {
+				"title": "No hay servidores MCP",
+				"description": "Haga clic en 'Anadir Servidor' para instalar servidores del registro oficial."
+			},
 			"status": {
 				"connected": "Conectado",
 				"disconnected": "Desconectado",
 				"error": "Error",
-				"connecting": "Conectando"
+				"connecting": "Conectando",
+				"unknown": "Desconocido"
 			},
 			"store": {
 				"title": "Tienda de Servidores MCP",

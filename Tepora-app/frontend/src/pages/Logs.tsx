@@ -1,3 +1,4 @@
+import { RefreshCcw } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -90,10 +91,12 @@ const Logs: React.FC = () => {
 						{t("logs.title", "Log Files")}
 					</h2>
 					<button
+						type="button"
 						onClick={fetchLogs}
 						className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
 					>
-						↻ {t("logs.refresh", "Refresh List")}
+						<RefreshCcw className="w-3.5 h-3.5" aria-hidden="true" />
+						{t("logs.refresh", "Refresh List")}
 					</button>
 				</div>
 				<div className="flex-1 overflow-y-auto">
