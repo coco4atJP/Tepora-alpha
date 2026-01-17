@@ -14,7 +14,7 @@ import {
 } from "../SettingsComponents";
 
 const GeneralSettings: React.FC = () => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const { config, originalConfig, updateApp, updateTools } = useSettings();
 
 	if (!config) return null;
@@ -34,6 +34,18 @@ const GeneralSettings: React.FC = () => {
 		if (!originalToolsConfig) return false;
 		return toolsConfig[field] !== originalToolsConfig[field];
 	};
+
+	const supportedLanguages = new Set(["en", "ja", "es", "zh"]);
+	const normalizeLanguage = (lang?: string): string | null => {
+		if (!lang) return null;
+		const normalized = lang.toLowerCase().split(/[-_]/)[0] || "";
+		return supportedLanguages.has(normalized) ? normalized : null;
+	};
+
+	const configLanguage = normalizeLanguage(appConfig.language) ?? "en";
+	const uiLanguage =
+		normalizeLanguage(i18n.resolvedLanguage || i18n.language) ?? configLanguage;
+	const languageSelectValue = appConfig.setup_completed ? configLanguage : uiLanguage;
 
 	return (
 		<SettingsSection
@@ -104,8 +116,13 @@ const GeneralSettings: React.FC = () => {
 							isDirty={isDirty("language")}
 						>
 							<FormSelect
-								value={appConfig.language || "en"}
-								onChange={(value) => updateApp("language", value as string)}
+								value={languageSelectValue}
+								onChange={(value) => {
+									if (!appConfig.setup_completed) {
+										i18n.changeLanguage(value);
+									}
+									updateApp("language", value as string);
+								}}
 								options={[
 									{ value: "en", label: "English" },
 									{ value: "ja", label: "日本語" },

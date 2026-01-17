@@ -15,4 +15,4 @@ class EmbeddingProvider:
     def encode(self, texts: list[str]) -> list[list[float]]:
         """複数のテキストを一度にベクトル化する。"""
         # LlamaCppのembed_documentsメソッドは、テキストのリストを受け取る
-        return self._llm.embed_documents(texts)
+        return list(self._llm.embed_documents(texts))

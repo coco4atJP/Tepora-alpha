@@ -11,7 +11,13 @@ async def global_exception_handler(request: Request, exc: Exception):
     Global exception handler to catch unhandled exceptions.
     Ensures that 500 errors are logged with stack traces and return a consistent JSON response.
     """
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger.error(
+        "Unhandled exception at %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500, content={"error": "Internal server error", "detail": str(exc)}
     )

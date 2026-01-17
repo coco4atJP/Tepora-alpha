@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -54,7 +55,8 @@ class EMTwoStageRetrieval:
 
         for event in events:
             # Convert to ChromaDB storage format
-            doc_id = f"em_event_{event.start_position}_{event.end_position}"
+            unique_suffix = uuid.uuid4().hex[:8]
+            doc_id = f"em_event_{event.start_position}_{event.end_position}_{unique_suffix}"
             summary = " ".join(event.tokens)
 
             # Use mean of representative embeddings as event embedding
@@ -76,11 +78,20 @@ class EMTwoStageRetrieval:
                     "avg_surprise": avg_surprise,
                     "token_count": len(event.tokens),
                 }
-                self.memory_system.collection.add(
-                    ids=[doc_id], embeddings=[embedding], documents=[summary], metadatas=[metadata]
-                )
+                try:
+                    self.memory_system.collection.add(
+                        ids=[doc_id],
+                        embeddings=[embedding],
+                        documents=[summary],
+                        metadatas=[metadata],
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Failed to store EM event %s: %s", doc_id, exc, exc_info=True)
+                    continue
         logger.info(
-            f"Added {len(events)} EM-LLM events to ChromaDB. Total events: {self.memory_system.count()}"
+            "Added %d EM-LLM events to ChromaDB. Total events: %d",
+            len(events),
+            self.memory_system.count(),
         )
 
     def retrieve_relevant_events(
@@ -114,8 +125,10 @@ class EMTwoStageRetrieval:
         unique_events = self._deduplicate_events(all_retrieved)
 
         logger.debug(
-            f"Retrieved {len(unique_events)} unique events "
-            f"(similarity: {len(similarity_events)}, contiguity: {len(contiguity_events)})"
+            "Retrieved %d unique events (similarity: %d, contiguity: %d)",
+            len(unique_events),
+            len(similarity_events),
+            len(contiguity_events),
         )
 
         # Return events sorted by time (oldest first)
@@ -177,7 +190,7 @@ class EMTwoStageRetrieval:
                 )
                 events.append(event)
             except (IndexError, ValueError, TypeError):
-                logger.warning(f"Could not parse event position from id: {result['id']}")
+                logger.warning("Could not parse event position from id: %s", result["id"])
                 continue
         return events
 
@@ -264,24 +277,37 @@ class EMTwoStageRetrieval:
             return []
 
         # 3. Extract results that don't overlap with similarity search
-        similarity_event_ids = {
-            f"em_event_{e.start_position}_{e.end_position}" for e in similarity_events
-        }
+        similarity_positions = {(e.start_position, e.end_position) for e in similarity_events}
 
         contiguity_results = []
         for i in range(len(results["ids"])):
-            if results["ids"][i] not in similarity_event_ids:
-                contiguity_results.append(
-                    {
-                        "id": results["ids"][i],
-                        "summary": results["documents"][i],
-                        "metadata": results["metadatas"][i],
-                    }
-                )
+            metadata = results["metadatas"][i] or {}
+            start_pos = metadata.get("start_position")
+            end_pos = metadata.get("end_position")
+            if start_pos is None or end_pos is None:
+                try:
+                    parts = results["ids"][i].split("_")
+                    start_pos = int(parts[2])
+                    end_pos = int(parts[3])
+                except (IndexError, TypeError, ValueError):
+                    start_pos = None
+                    end_pos = None
+
+            if start_pos is not None and end_pos is not None:
+                if (start_pos, end_pos) in similarity_positions:
+                    continue
+
+            contiguity_results.append(
+                {
+                    "id": results["ids"][i],
+                    "summary": results["documents"][i],
+                    "metadata": metadata,
+                }
+            )
 
         # 4. Convert to EpisodicEvent and deduplicate
         contiguity_events = self._results_to_events(contiguity_results)
         unique_contiguity_events = self._deduplicate_events(contiguity_events)
-        logger.debug(f"Found {len(unique_contiguity_events)} contiguous events via batch query.")
+        logger.debug("Found %d contiguous events via batch query.", len(unique_contiguity_events))
 
         return unique_contiguity_events[:kc]

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -45,6 +45,223 @@ class ConversationNodes:
         """
         self.llm_manager = llm_manager
         self.tool_manager = tool_manager
+
+    @staticmethod
+    def _format_attachment_summaries(
+        attachments: list[dict], *, max_items: int, max_preview_chars: int
+    ) -> str:
+        if not attachments:
+            return "(none)"
+
+        summaries = []
+        for attachment in attachments[:max_items]:
+            name = attachment.get("name") or attachment.get("path") or "attachment"
+            content = attachment.get("content", "")
+            content_str = content if isinstance(content, str) else str(content)
+            content_preview = content_str[:max_preview_chars]
+            summaries.append(f"- {name}: {content_preview}")
+        return "\n".join(summaries)
+
+    @staticmethod
+    def _select_top_result_url(search_results: list[dict]) -> str | None:
+        for result_group in search_results:
+            results = result_group.get("results")
+            if isinstance(results, list) and results:
+                url = results[0].get("url")
+                if url:
+                    return str(url)
+        return None
+
+    @staticmethod
+    def _parse_tool_error(payload: str) -> str | None:
+        payload_stripped = payload.lstrip()
+        if not payload_stripped.startswith("{"):
+            return None
+        try:
+            data = json.loads(payload_stripped)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(data, dict) and data.get("error"):
+            return data.get("message") or data.get("error_code") or "Tool error"
+        return None
+
+    @staticmethod
+    def _format_attachment_blocks(
+        attachments: list[dict],
+        *,
+        max_preview_chars: int,
+        max_total_chars: int,
+    ) -> str:
+        if not attachments:
+            return "No attachments were provided."
+
+        attachment_blocks = []
+        for attachment in attachments:
+            name = attachment.get("name") or attachment.get("path") or "attachment"
+            path = attachment.get("path") or "(path unavailable)"
+            content = attachment.get("content", "")
+            content_str = content if isinstance(content, str) else str(content)
+            if len(content_str) > max_preview_chars:
+                preview = (
+                    content_str[:max_preview_chars]
+                    + "... (content truncated, see RAG context for relevant excerpts)"
+                )
+            else:
+                preview = content_str
+            attachment_blocks.append(f"### {name}\nPath: {path}\nContent Preview:\n{preview}")
+
+        attachments_text = "\n\n".join(attachment_blocks)
+        if len(attachments_text) > max_total_chars:
+            attachments_text = attachments_text[:max_total_chars] + "\n... (attachments truncated)"
+        return attachments_text
+
+    async def _build_local_context(self, full_history: list, max_tokens: int) -> tuple[list, int]:
+        local_context: list[Any] = []
+        current_tokens = 0
+        for i in range(len(full_history) - 1, -1, -1):
+            msg = full_history[i]
+            msg_tokens = await self.llm_manager.count_tokens_for_messages([msg])
+            if current_tokens + msg_tokens > max_tokens and local_context:
+                break
+            local_context.insert(0, msg)
+            current_tokens += msg_tokens
+        return local_context, current_tokens
+
+    async def _collect_rag_chunks(
+        self,
+        *,
+        top_result_url: str | None,
+        attachments: list[dict],
+        text_splitter: RecursiveCharacterTextSplitter,
+        skip_web_search: bool,
+    ) -> tuple[list[str], list[str]]:
+        chunk_texts: list[str] = []
+        chunk_sources: list[str] = []
+
+        if top_result_url:
+            logger.info("--- Fetching most promising URL: %s ---", top_result_url)
+            content = await self.tool_manager.aexecute_tool(
+                "native_web_fetch", {"url": top_result_url}
+            )
+
+            if isinstance(content, str) and content and not content.startswith("Error:"):
+                tool_error = self._parse_tool_error(content)
+                if tool_error:
+                    logger.warning("Web fetch failed for URL '%s': %s", top_result_url, tool_error)
+                    content = ""
+
+            if isinstance(content, str) and content and not content.startswith("Error:"):
+                logger.info(
+                    "--- Fetched content (%d chars). Starting RAG pipeline. ---", len(content)
+                )
+                chunks = text_splitter.split_text(content)
+                logger.info("Split content into %d chunks from web page.", len(chunks))
+                for chunk in chunks:
+                    chunk_texts.append(chunk)
+                    chunk_sources.append(f"web:{top_result_url}")
+            else:
+                logger.warning("Web fetch failed for URL '%s': %s", top_result_url, content)
+        elif skip_web_search:
+            logger.info("Web search disabled - using attachments only for RAG")
+
+        for attachment in attachments:
+            attachment_content = attachment.get("content", "")
+            if not isinstance(attachment_content, str):
+                attachment_content = str(attachment_content)
+            if not attachment_content:
+                continue
+            source_label = attachment.get("path") or attachment.get("name") or "attachment"
+            file_chunks = text_splitter.split_text(attachment_content)
+            logger.info(
+                "Attachment '%s' yielded %d chunk(s) for RAG.", source_label, len(file_chunks)
+            )
+            for chunk in file_chunks:
+                chunk_texts.append(chunk)
+                chunk_sources.append(f"file:{source_label}")
+
+        return chunk_texts, chunk_sources
+
+    @staticmethod
+    def _build_rag_context(
+        *,
+        chunk_texts: list[str],
+        chunk_sources: list[str],
+        query: str,
+        embedding_llm: Any,
+    ) -> str:
+        rag_context = "No relevant content found from web results or attachments."
+        if not chunk_texts:
+            return rag_context
+
+        if not all(hasattr(embedding_llm, attr) for attr in ("embed_query", "embed_documents")):
+            logger.error(
+                "Embedding model does not expose embed_query/embed_documents. Skipping RAG."
+            )
+            return "Embedding model unavailable for RAG."
+
+        query_embedding = np.array(embedding_llm.embed_query(query))
+        if query_embedding.ndim == 1:
+            query_embedding = query_embedding.reshape(1, -1)
+
+        batch_size = getattr(RAGConfig, "EMBEDDING_BATCH_SIZE", len(chunk_texts) or 1)
+        embedded_chunk_texts: list[str] = []
+        embedded_chunk_sources: list[str] = []
+        chunk_embeddings_list: list[list[float]] = []
+
+        for batch_start in range(0, len(chunk_texts), batch_size):
+            batch_end = batch_start + batch_size
+            batch_texts = chunk_texts[batch_start:batch_end]
+            batch_sources = chunk_sources[batch_start:batch_end]
+
+            try:
+                batch_embeddings = embedding_llm.embed_documents(batch_texts)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "Failed to embed chunk batch %d-%d: %s",
+                    batch_start,
+                    batch_end - 1,
+                    exc,
+                    exc_info=True,
+                )
+                continue
+
+            if not batch_embeddings:
+                logger.warning(
+                    "Embedding batch %d-%d returned no vectors. Skipping that batch.",
+                    batch_start,
+                    batch_end - 1,
+                )
+                continue
+
+            chunk_embeddings_list.extend(batch_embeddings)
+            embedded_chunk_texts.extend(batch_texts)
+            embedded_chunk_sources.extend(batch_sources)
+
+        if not chunk_embeddings_list:
+            logger.warning("Embedding model returned empty embeddings. Skipping similarity search.")
+            return rag_context
+
+        chunk_embeddings = np.array(chunk_embeddings_list)
+        chunk_texts = embedded_chunk_texts
+        chunk_sources = embedded_chunk_sources
+
+        similarities = cosine_similarity(query_embedding, chunk_embeddings)[0]
+        top_k = min(RAGConfig.TOP_K_CHUNKS, len(chunk_texts))
+        top_indices = similarities.argsort()[-top_k:][::-1]
+        selected_contexts = [f"[Source: {chunk_sources[i]}]\n{chunk_texts[i]}" for i in top_indices]
+        rag_context = "\n\n---\n\n".join(selected_contexts)
+
+        max_rag_context_chars = 3000
+        if len(rag_context) > max_rag_context_chars:
+            rag_context = (
+                rag_context[:max_rag_context_chars] + "\n... (truncated for context limit)"
+            )
+            logger.info("RAG context truncated to %d chars", max_rag_context_chars)
+
+        logger.info(
+            "Extracted %d most relevant chunks from combined sources.", len(selected_contexts)
+        )
+        return rag_context
 
     async def direct_answer_node(self, state: AgentState) -> dict:
         """
@@ -81,8 +298,10 @@ class ConversationNodes:
         # Build hierarchical context (EM-LLM & Attention Sink compliant)
         full_history = state.get("chat_history", [])
 
-        # Get retrieved memory context (reserved for future use)
-        # retrieved_memory_str = state.get("synthesized_memory", "No relevant memories found.")
+        # Get retrieved memory context (long-term memory summary)
+        retrieved_memory_str: str = str(
+            state.get("synthesized_memory") or "No relevant memories found."
+        )
 
         # Build unified system message with all context
         # 1. Attention Sink (fixed prefix)
@@ -96,22 +315,15 @@ class ConversationNodes:
             f"{system_prompt}",
             "",
             "<retrieved_memory>",
-            "{retrieved_memory_str}",
+            retrieved_memory_str,
             "</retrieved_memory>",
         ]
 
         # 4. Local Context (short-term) construction
         max_local_tokens = MemoryLimits.MAX_LOCAL_CONTEXT_TOKENS
-        local_context = []
-        current_local_tokens = 0
-
-        for i in range(len(full_history) - 1, -1, -1):
-            msg = full_history[i]
-            msg_tokens = await self.llm_manager.count_tokens_for_messages([msg])
-            if current_local_tokens + msg_tokens > max_local_tokens and local_context:
-                break
-            local_context.insert(0, msg)  # Maintain order
-            current_local_tokens += msg_tokens
+        local_context, current_local_tokens = await self._build_local_context(
+            full_history, max_local_tokens
+        )
 
         # 5. Add omission notice if needed
         if len(local_context) != len(full_history):
@@ -127,14 +339,16 @@ class ConversationNodes:
                 "Context: Using hierarchical structure (Attention Sink > System/Persona > Retrieved > Local)."
             )
             logger.debug(
-                f"  - Local Context: {len(local_context)} messages (~{current_local_tokens} tokens)"
+                "  - Local Context: %d messages (~%d tokens)",
+                len(local_context),
+                current_local_tokens,
             )
-            logger.debug(f"  - Omitted: {len(full_history) - len(local_context)} messages")
+            logger.debug("  - Omitted: %d messages", len(full_history) - len(local_context))
         else:
             # Short history: use full history as local context
             logger.info(
-                f"Context: History is short. Using full history as local context "
-                f"({len(local_context)} messages)."
+                "Context: History is short. Using full history as local context (%d messages).",
+                len(local_context),
             )
 
         # Create single unified system message
@@ -191,15 +405,9 @@ class ConversationNodes:
 
         base_request = state.get("search_query") or state["input"]
         attachments = state.get("search_attachments") or []
-        if attachments:
-            attachment_summaries = []
-            for attachment in attachments[:3]:
-                name = attachment.get("name") or attachment.get("path") or "attachment"
-                content_preview = attachment.get("content", "")[:400]
-                attachment_summaries.append(f"- {name}: {content_preview}")
-            attachments_text = "\n".join(attachment_summaries)
-        else:
-            attachments_text = "(none)"
+        attachments_text = self._format_attachment_summaries(
+            attachments, max_items=3, max_preview_chars=400
+        )
 
         prompt = ChatPromptTemplate.from_template(
             "Based on the user's request and the optional file attachments provided, propose two diverse and "
@@ -223,7 +431,7 @@ class ConversationNodes:
             if fallback_query and fallback_query not in queries:
                 queries.append(fallback_query)
 
-        logger.info(f"Generated search queries: {queries}")
+        logger.info("Generated search queries: %s", queries)
         return {"search_queries": queries or ([base_request] if base_request else [])}
 
     async def execute_search_node(self, state: AgentState) -> dict:
@@ -278,6 +486,28 @@ class ConversationNodes:
 
             try:
                 parsed = json.loads(raw_result)
+                if isinstance(parsed, dict) and parsed.get("error"):
+                    error_message = parsed.get("message") or "Search tool error."
+                    logger.warning(
+                        "Search tool returned error for query '%s': %s",
+                        query,
+                        error_message,
+                    )
+                    aggregated_results.append(
+                        {"query": query, "results": [{"error": error_message}]}
+                    )
+                    continue
+                if not isinstance(parsed, dict):
+                    logger.warning(
+                        "Unexpected search payload for query '%s': %s", query, type(parsed)
+                    )
+                    aggregated_results.append(
+                        {
+                            "query": query,
+                            "results": [{"error": "Unexpected search response format."}],
+                        }
+                    )
+                    continue
                 aggregated_results.append({"query": query, "results": parsed.get("results", [])})
             except json.JSONDecodeError:
                 logger.warning(
@@ -304,7 +534,7 @@ class ConversationNodes:
         logger.info("--- Node: Summarize Search Result (Streaming with RAG) ---")
 
         # Check if web search/fetch should be skipped
-        skip_web_search = state.get("skip_web_search", False)
+        skip_web_search: bool = bool(state.get("skip_web_search", False))
 
         # Load Gemma-3n and embedding model
         llm = await self.llm_manager.get_character_model()
@@ -323,163 +553,35 @@ class ConversationNodes:
         # Identify most promising URL (only if web search is enabled)
         top_result_url = None
         if not skip_web_search and search_results_list and isinstance(search_results_list, list):
-            for result_group in search_results_list:
-                if (
-                    result_group.get("results")
-                    and isinstance(result_group["results"], list)
-                    and len(result_group["results"]) > 0
-                ):
-                    top_result_url = result_group["results"][0].get("url")
-                    if top_result_url:
-                        break
+            top_result_url = self._select_top_result_url(search_results_list)
 
         # RAG pipeline
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=RAGConfig.CHUNK_SIZE, chunk_overlap=RAGConfig.CHUNK_OVERLAP
         )
-        chunk_texts: list[str] = []
-        chunk_sources: list[str] = []
-
-        if top_result_url:
-            logger.info("--- Fetching most promising URL: %s ---", top_result_url)
-            content = await self.tool_manager.aexecute_tool(
-                "native_web_fetch", {"url": top_result_url}
-            )
-
-            if isinstance(content, str) and content and not content.startswith("Error:"):
-                logger.info(
-                    "--- Fetched content (%d chars). Starting RAG pipeline. ---", len(content)
-                )
-                chunks = text_splitter.split_text(content)
-                logger.info("Split content into %d chunks from web page.", len(chunks))
-                for chunk in chunks:
-                    chunk_texts.append(chunk)
-                    chunk_sources.append(f"web:{top_result_url}")
-            else:
-                logger.warning("Web fetch failed for URL '%s': %s", top_result_url, content)
-        elif skip_web_search:
-            logger.info("Web search disabled - using attachments only for RAG")
-
-        for attachment in attachments:
-            attachment_content = attachment.get("content", "")
-            if not attachment_content:
-                continue
-            source_label = attachment.get("path") or attachment.get("name") or "attachment"
-            file_chunks = text_splitter.split_text(attachment_content)
-            logger.info(
-                "Attachment '%s' yielded %d chunk(s) for RAG.", source_label, len(file_chunks)
-            )
-            for chunk in file_chunks:
-                chunk_texts.append(chunk)
-                chunk_sources.append(f"file:{source_label}")
-
-        rag_context = "No relevant content found from web results or attachments."
-        if chunk_texts:
-            if not all(hasattr(embedding_llm, attr) for attr in ("embed_query", "embed_documents")):
-                logger.error(
-                    "Embedding model does not expose embed_query/embed_documents. Skipping RAG."
-                )
-                rag_context = "Embedding model unavailable for RAG."
-            else:
-                query_embedding = np.array(embedding_llm.embed_query(state["input"]))
-                if query_embedding.ndim == 1:
-                    query_embedding = query_embedding.reshape(1, -1)
-
-                batch_size = getattr(RAGConfig, "EMBEDDING_BATCH_SIZE", len(chunk_texts) or 1)
-                embedded_chunk_texts: list[str] = []
-                embedded_chunk_sources: list[str] = []
-                chunk_embeddings_list: list[list[float]] = []
-
-                for batch_start in range(0, len(chunk_texts), batch_size):
-                    batch_end = batch_start + batch_size
-                    batch_texts = chunk_texts[batch_start:batch_end]
-                    batch_sources = chunk_sources[batch_start:batch_end]
-
-                    try:
-                        batch_embeddings = embedding_llm.embed_documents(batch_texts)
-                    except Exception as exc:  # noqa: BLE001
-                        logger.error(
-                            "Failed to embed chunk batch %d-%d: %s",
-                            batch_start,
-                            batch_end - 1,
-                            exc,
-                        )
-                        continue
-
-                    if not batch_embeddings:
-                        logger.warning(
-                            "Embedding batch %d-%d returned no vectors. Skipping that batch.",
-                            batch_start,
-                            batch_end - 1,
-                        )
-                        continue
-
-                    chunk_embeddings_list.extend(batch_embeddings)
-                    embedded_chunk_texts.extend(batch_texts)
-                    embedded_chunk_sources.extend(batch_sources)
-
-                if not chunk_embeddings_list:
-                    logger.warning(
-                        "Embedding model returned empty embeddings. Skipping similarity search."
-                    )
-                else:
-                    chunk_embeddings = np.array(chunk_embeddings_list)
-                    chunk_texts = embedded_chunk_texts
-                    chunk_sources = embedded_chunk_sources
-
-                    similarities = cosine_similarity(query_embedding, chunk_embeddings)[0]
-                    top_k = min(RAGConfig.TOP_K_CHUNKS, len(chunk_texts))
-                    top_indices = similarities.argsort()[-top_k:][::-1]
-                    selected_contexts = [
-                        f"[Source: {chunk_sources[i]}]\n{chunk_texts[i]}" for i in top_indices
-                    ]
-                    rag_context = "\n\n---\n\n".join(selected_contexts)
-
-                    # Limit RAG context size to prevent context overflow
-                    max_rag_context_chars = 3000  # noqa: N806
-                    if len(rag_context) > max_rag_context_chars:
-                        rag_context = (
-                            rag_context[:max_rag_context_chars]
-                            + "\n... (truncated for context limit)"
-                        )
-                        logger.info("RAG context truncated to %d chars", max_rag_context_chars)
-
-                    logger.info(
-                        "Extracted %d most relevant chunks from combined sources.",
-                        len(selected_contexts),
-                    )
+        chunk_texts, chunk_sources = await self._collect_rag_chunks(
+            top_result_url=top_result_url,
+            attachments=attachments,
+            text_splitter=text_splitter,
+            skip_web_search=skip_web_search,
+        )
+        rag_context = self._build_rag_context(
+            chunk_texts=chunk_texts,
+            chunk_sources=chunk_sources,
+            query=state["input"],
+            embedding_llm=embedding_llm,
+        )
 
         # Build summarization prompt
         persona, _ = config.get_persona_prompt_for_profile()
         if not persona:
             raise ValueError("Could not retrieve active persona prompt.")
 
-        attachments = state.get("search_attachments") or []
-        if attachments:
-            attachment_blocks = []
-            max_attachment_preview_chars = 500  # Limit per attachment
-            for attachment in attachments:
-                name = attachment.get("name") or attachment.get("path") or "attachment"
-                path = attachment.get("path") or "(path unavailable)"
-                content = attachment.get("content", "")
-                # Truncate content preview
-                if len(content) > max_attachment_preview_chars:
-                    preview = (
-                        content[:max_attachment_preview_chars]
-                        + "... (content truncated, see RAG context for relevant excerpts)"
-                    )
-                else:
-                    preview = content
-                attachment_blocks.append(f"### {name}\nPath: {path}\nContent Preview:\n{preview}")
-            attachments_text = "\n\n".join(attachment_blocks)
-            # Total attachments text limit
-            max_total_attachments_chars = 1500
-            if len(attachments_text) > max_total_attachments_chars:
-                attachments_text = (
-                    attachments_text[:max_total_attachments_chars] + "\n... (attachments truncated)"
-                )
-        else:
-            attachments_text = "No attachments were provided."
+        attachments_text = self._format_attachment_blocks(
+            attachments,
+            max_preview_chars=500,
+            max_total_chars=1500,
+        )
 
         # Use different system template based on whether web search is enabled
         if skip_web_search:
@@ -519,12 +621,13 @@ Question: {original_question}
                 base=config.resolve_system_prompt("search_summary"),
             )
 
+        system_prompt = (
+            f"{persona}\n\n{system_template}\n\n<relevant_context>\n"
+            "{synthesized_memory}\n</relevant_context>"
+        )
         prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    "{persona}\n\n{system_template}\n\n<relevant_context>\n{synthesized_memory}\n</relevant_context>",
-                ),
+                ("system", system_prompt),
                 ("placeholder", "{chat_history}"),
                 (
                     "human",
@@ -539,16 +642,9 @@ Question: {original_question}
         # Reserve tokens for system prompt, RAG context, and response generation
         max_history_tokens = MemoryLimits.MAX_LOCAL_CONTEXT_TOKENS // 2  # Conservative limit
         full_history = state.get("chat_history", [])
-        limited_history = []
-        current_tokens = 0
-
-        for i in range(len(full_history) - 1, -1, -1):
-            msg = full_history[i]
-            msg_tokens = await self.llm_manager.count_tokens_for_messages([msg])
-            if current_tokens + msg_tokens > max_history_tokens and limited_history:
-                break
-            limited_history.insert(0, msg)
-            current_tokens += msg_tokens
+        limited_history, current_tokens = await self._build_local_context(
+            full_history, max_history_tokens
+        )
 
         if len(limited_history) != len(full_history):
             logger.info(
@@ -559,7 +655,9 @@ Question: {original_question}
             )
 
         # Limit synthesized memory to prevent context overflow
-        synthesized_memory = state.get("synthesized_memory", "No relevant memories found.")
+        synthesized_memory: str = str(
+            state.get("synthesized_memory") or "No relevant memories found."
+        )
         max_synthesized_memory_chars = 1000  # noqa: N806
         if len(synthesized_memory) > max_synthesized_memory_chars:
             synthesized_memory = (
@@ -573,7 +671,7 @@ Question: {original_question}
                 "system_template": system_template,
                 "synthesized_memory": synthesized_memory,
                 "original_question": state.get("search_query") or state["input"],
-                "search_snippets": search_snippets,
+                "search_result": search_snippets,
                 "rag_context": rag_context,
                 "attachments": attachments_text,
             },

@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsProvider } from "../../../context/SettingsContext";
@@ -68,8 +69,13 @@ describe("SettingsContext", () => {
 			json: async () => mockConfig,
 		} as Response);
 
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsProvider>{children}</SettingsProvider>
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });
@@ -94,8 +100,13 @@ describe("SettingsContext", () => {
 			status: 500,
 		} as Response);
 
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsProvider>{children}</SettingsProvider>
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });
@@ -114,8 +125,13 @@ describe("SettingsContext", () => {
 			json: async () => mockConfig,
 		} as Response);
 
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsProvider>{children}</SettingsProvider>
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });
@@ -139,8 +155,13 @@ describe("SettingsContext", () => {
 			json: async () => mockConfig,
 		} as Response);
 
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsProvider>{children}</SettingsProvider>
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });
@@ -176,8 +197,13 @@ describe("SettingsContext", () => {
 			json: async () => mockConfig,
 		} as Response);
 
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsProvider>{children}</SettingsProvider>
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });
@@ -207,8 +233,13 @@ describe("SettingsContext", () => {
 			json: async () => configWithChar,
 		} as Response);
 
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsProvider>{children}</SettingsProvider>
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });

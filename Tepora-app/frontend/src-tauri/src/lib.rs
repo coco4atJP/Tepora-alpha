@@ -36,7 +36,8 @@ pub fn run() {
                 .target(Target::new(TargetKind::LogDir {
                     file_name: Some("tepora".to_string()),
                 }))
-                .build())
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![read_session_token])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

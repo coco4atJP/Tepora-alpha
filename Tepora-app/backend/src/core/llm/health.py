@@ -47,17 +47,28 @@ async def perform_health_check_async(
                 )
             try:
                 response = await client.get(health_check_url, timeout=0.5)
-                if response.status_code == 200 and response.json().get("status") == "ok":
-                    logger.info(
-                        "Server for '%s' is healthy (attempt %s/%s)", key, attempt + 1, max_retries
-                    )
-                    return
+                if response.status_code == 200:
+                    try:
+                        payload = response.json()
+                    except ValueError:
+                        logger.warning("Invalid health check response body for '%s'", key)
+                        await asyncio.sleep(retry_interval)
+                        continue
+
+                    if payload.get("status") == "ok":
+                        logger.info(
+                            "Server for '%s' is healthy (attempt %s/%s)",
+                            key,
+                            attempt + 1,
+                            max_retries,
+                        )
+                        return
                 if response.status_code != 503:
                     logger.warning(
                         "Unexpected health check response %s for '%s'", response.status_code, key
                     )
-            except httpx.RequestError:
-                pass
+            except httpx.RequestError as exc:
+                logger.debug("Health check request failed for '%s': %s", key, exc)
             await asyncio.sleep(retry_interval)
 
     raise TimeoutError(

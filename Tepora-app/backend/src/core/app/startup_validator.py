@@ -43,11 +43,9 @@ def validate_startup_config(config, project_root: Path) -> None:
     else:
         # Prepare Registry for path resolution
         try:
-            from ..download.manager import DownloadManager
             from ..llm.model_registry import ModelRegistry
 
-            download_manager = DownloadManager()
-            registry = ModelRegistry(download_manager)
+            registry = ModelRegistry()
         except ImportError:
             # Check safely if modules exist but fail to import
             # Fallback to naive check if core modules are missing (unlikely in prod)
@@ -66,9 +64,14 @@ def validate_startup_config(config, project_root: Path) -> None:
             if registry:
                 try:
                     model_path = registry.resolve_model_path(model_key)
-                except Exception:
+                except Exception as exc:
                     # If registry fails (e.g. config missing), it might raise
-                    pass
+                    logger.debug(
+                        "Model registry resolution failed for '%s': %s",
+                        model_key,
+                        exc,
+                        exc_info=True,
+                    )
 
             if not model_path:
                 # Fallback/Original check
@@ -77,7 +80,10 @@ def validate_startup_config(config, project_root: Path) -> None:
             if not model_path.exists():
                 # 警告のみ: 初回セットアップ前やモデルダウンロード前の起動を許可
                 logger.warning(
-                    f"[models_gguf.{model_key}.path] Model file not found at: {model_path} (Key: {model_key})"
+                    "[models_gguf.%s.path] Model file not found at: %s (Key: %s)",
+                    model_key,
+                    model_path,
+                    model_key,
                 )
             elif not model_path.is_file():
                 errors.append(f"[models_gguf.{model_key}.path] Path is not a file: {model_path}")

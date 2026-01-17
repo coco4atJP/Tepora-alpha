@@ -42,7 +42,7 @@ def is_cuda_available() -> bool:
             timeout=10,
         )
         if result.returncode == 0 and result.stdout.strip():
-            logger.info(f"CUDA GPU detected: {result.stdout.strip().split(chr(10))[0]}")
+            logger.info("CUDA GPU detected: %s", result.stdout.strip().splitlines()[0])
             return True
         return False
     except subprocess.TimeoutExpired:
@@ -51,7 +51,7 @@ def is_cuda_available() -> bool:
     except FileNotFoundError:
         return False
     except Exception as e:
-        logger.debug(f"CUDA detection failed: {e}")
+        logger.debug("CUDA detection failed: %s", e, exc_info=True)
         return False
 
 
@@ -78,7 +78,7 @@ def get_cuda_version() -> str | None:
             timeout=10,
         )
         if result.returncode == 0:
-            driver_version = result.stdout.strip().split("\n")[0]
+            driver_version = result.stdout.strip().splitlines()[0]
             # Map driver version to CUDA version (approximate)
             # See: https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
             try:
@@ -99,5 +99,5 @@ def get_cuda_version() -> str | None:
                 return "12.0"  # Default assumption
         return None
     except Exception as e:
-        logger.debug(f"CUDA version detection failed: {e}")
+        logger.debug("CUDA version detection failed: %s", e, exc_info=True)
         return None

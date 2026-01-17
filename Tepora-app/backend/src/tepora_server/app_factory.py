@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
         from src.tepora_server.api.security import initialize_session_token
 
         session_token = initialize_session_token()
-        logger.info(f"🔐 Session token initialized (length: {len(session_token)})")
+        logger.info("Session token initialized (length: %d)", len(session_token))
 
         # Validate Config (Fail-Fast)
         from src.core.app.startup_validator import validate_startup_config
@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("✅ Tepora Web Server ready (core init running in background).")
     except Exception as e:
-        logger.critical(f"❌ Critical failure during startup: {e}", exc_info=True)
+        logger.critical("Critical failure during startup: %s", e, exc_info=True)
         raise
 
     yield
@@ -103,7 +103,11 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000
         logger.info(
-            f"{request.method} {request.url.path} - {response.status_code} - {process_time:.2f}ms"
+            "%s %s - %s - %.2fms",
+            request.method,
+            request.url.path,
+            response.status_code,
+            process_time,
         )
         return response
 
@@ -142,7 +146,7 @@ def create_app() -> FastAPI:
                     # Using SecurityUtils for strict check (P1-1 Fix)
                     file_path = frontend_dist / full_path
                     if not SecurityUtils.validate_path_is_safe(file_path, frontend_dist):
-                        logger.warning(f"Blocked path traversal attempt: {full_path}")
+                        logger.warning("Blocked path traversal attempt: %s", full_path)
                         return JSONResponse(status_code=404, content={"error": "Not Found"})
 
                     if file_path.exists() and file_path.is_file():
@@ -158,6 +162,6 @@ def create_app() -> FastAPI:
 
                 return JSONResponse(status_code=404, content={"error": "Not Found"})
     except Exception as e:
-        logger.warning(f"Could not setup static file serving: {e}")
+        logger.warning("Could not setup static file serving: %s", e, exc_info=True)
 
     return app

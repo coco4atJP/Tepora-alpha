@@ -27,7 +27,7 @@ class EMMemoryNodes:
     def __init__(
         self,
         char_em_llm_integrator: EMLLMIntegrator,
-        prof_em_llm_integrator: EMLLMIntegrator = None,
+        prof_em_llm_integrator: EMLLMIntegrator | None = None,
     ):
         """
         Initialize EM-LLM memory nodes.
@@ -83,14 +83,16 @@ class EMMemoryNodes:
 
             if recalled_events_dict:
                 logger.info(
-                    f"EM-LLM retrieved {len(recalled_events_dict)} relevant episodic events."
+                    "EM-LLM retrieved %d relevant episodic events.", len(recalled_events_dict)
                 )
                 # Log statistics
                 for i, event in enumerate(recalled_events_dict):
                     surprise_stats = event.get("surprise_stats", {})
                     logger.info(
-                        f"  Event {i + 1}: {event.get('content', '')[:50]}... "
-                        f"(surprise: {surprise_stats.get('mean_surprise', 0):.3f})"
+                        "  Event %d: %s... (surprise: %.3f)",
+                        i + 1,
+                        event.get("content", "")[:50],
+                        surprise_stats.get("mean_surprise", 0),
                     )
 
                 # Format event list as string for downstream nodes
@@ -110,8 +112,8 @@ class EMMemoryNodes:
         except Exception as e:
             # Catch-all for graph node to prevent entire graph from failing
             error_message = f"EM-LLM memory retrieval failed: {e}"
-            logger.warning(f"Warning: {error_message}")
-            logger.error(error_message, exc_info=True)
+            logger.warning("Warning: %s", error_message)
+            logger.error("%s", error_message, exc_info=True)
             return {
                 "recalled_episodes": [],
                 "synthesized_memory": "An error occurred during memory retrieval.",
@@ -152,7 +154,8 @@ class EMMemoryNodes:
             List of formed episodic events
         """
         logger.info(
-            f"  - Analyzing {len(logprobs['content'])} tokens using surprisal-based segmentation."
+            "  - Analyzing %d tokens using surprisal-based segmentation.",
+            len(logprobs["content"]),
         )
         active_integrator = self._get_active_integrator(state)
         return await active_integrator.process_logprobs_for_memory(logprobs["content"])
@@ -174,7 +177,7 @@ class EMMemoryNodes:
             "  - Warning: Logprobs not available. Falling back to semantic change-based segmentation."
         )
         logger.info("  - Analyzing AI response for semantic change to form episodic memories.")
-        logger.info(f"  - Target text (first 150 chars): {ai_response[:150]}...")
+        logger.info("  - Target text (first 150 chars): %s...", ai_response[:150])
         active_integrator = self._get_active_integrator(state)
         return await active_integrator.process_conversation_turn_for_memory(
             state.get("input"), ai_response
@@ -206,9 +209,11 @@ class EMMemoryNodes:
             total_surprise / event_count_with_surprise if event_count_with_surprise > 0 else 0
         )
 
-        logger.info(f"EM-LLM formed {len(formed_events)} new episodic events from the AI response.")
-        logger.info(f"  - Total tokens: {total_tokens}")
-        logger.info(f"  - Average surprise: {avg_surprise:.3f}")
+        logger.info(
+            "EM-LLM formed %d new episodic events from the AI response.", len(formed_events)
+        )
+        logger.info("  - Total tokens: %d", total_tokens)
+        logger.info("  - Average surprise: %.3f", avg_surprise)
 
     async def em_memory_formation_node(self, state: AgentState) -> dict:
         """
@@ -244,7 +249,7 @@ class EMMemoryNodes:
         formed_events = []
         try:
             # Check if logprobs available and call appropriate memory formation method
-            if logprobs and logprobs.get("content"):
+            if isinstance(logprobs, dict) and logprobs.get("content"):
                 formed_events = await self._form_memory_with_surprisal(logprobs, state)
             else:
                 formed_events = await self._form_memory_with_semantic_change(state, ai_response)
@@ -254,8 +259,8 @@ class EMMemoryNodes:
 
         except Exception as e:
             error_message = f"EM-LLM memory formation error: {e}"
-            logger.error(f"  - Error: {error_message}")
-            logger.error(error_message, exc_info=True)
+            logger.error("  - Error: %s", error_message)
+            logger.error("%s", error_message, exc_info=True)
 
         logger.info("Memory formation completed. Graph continues.")
         return {}
@@ -276,25 +281,31 @@ class EMMemoryNodes:
             active_integrator = self._get_active_integrator(state)
             stats = active_integrator.get_memory_statistics()
             logger.info("EM-LLM Memory System Statistics:")
-            logger.info(f"  Total Events: {stats.get('total_events', 0)}")
-            logger.info(f"  Total Tokens in Memory: {stats.get('total_tokens_in_memory', 0)}")
-            logger.info(f"  Mean Event Size: {stats.get('mean_event_size', 0):.1f} tokens")
+            logger.info("  Total Events: %d", stats.get("total_events", 0))
+            if "total_tokens_in_memory" in stats:
+                logger.info("  Total Tokens in Memory: %s", stats.get("total_tokens_in_memory"))
+            if "mean_event_size" in stats:
+                logger.info("  Mean Event Size: %s", stats.get("mean_event_size"))
 
-            surprise_stats = stats.get("surprise_statistics", {})
-            if surprise_stats:
+            surprise_stats = stats.get("surprise_statistics")
+            if isinstance(surprise_stats, dict) and surprise_stats:
                 logger.info(
-                    f"  Surprise Stats - Mean: {surprise_stats.get('mean', 0):.3f}, "
-                    f"Std: {surprise_stats.get('std', 0):.3f}, Max: {surprise_stats.get('max', 0):.3f}"
+                    "  Surprise Stats - Mean: %.3f, Std: %.3f, Max: %.3f",
+                    surprise_stats.get("mean", 0),
+                    surprise_stats.get("std", 0),
+                    surprise_stats.get("max", 0),
                 )
 
             config_info = stats.get("configuration", {})
             logger.info(
-                f"  Configuration - Gamma: {config_info.get('surprise_gamma', 0)}, "
-                f"Event Size: {config_info.get('min_event_size', 0)}-{config_info.get('max_event_size', 0)}"
+                "  Configuration - Gamma: %s, Event Size: %s-%s",
+                config_info.get("surprise_gamma", 0),
+                config_info.get("min_event_size", 0),
+                config_info.get("max_event_size", 0),
             )
 
         except Exception as e:
-            logger.warning(f"Warning: Failed to retrieve EM-LLM statistics: {e}")
-            logger.warning(f"Could not get EM-LLM statistics: {e}", exc_info=True)
+            logger.warning("Warning: Failed to retrieve EM-LLM statistics: %s", e)
+            logger.warning("Could not get EM-LLM statistics: %s", e, exc_info=True)
 
         return {}

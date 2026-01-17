@@ -57,6 +57,7 @@ const Layout: React.FC = () => {
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 	const [attachments, setAttachments] = useState<Attachment[]>([]);
+	const [skipWebSearch, setSkipWebSearch] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { t } = useTranslation();
 
@@ -164,6 +165,7 @@ const Layout: React.FC = () => {
 										onFileSelect: handleAddAttachment,
 										onRemoveAttachment: handleRemoveAttachment,
 										clearAttachments,
+										skipWebSearch,
 									}}
 								/>
 							</div>
@@ -176,6 +178,8 @@ const Layout: React.FC = () => {
 										onAddAttachment={handleAddAttachment}
 										onRemoveAttachment={handleRemoveAttachment}
 										searchResults={searchResults}
+										skipWebSearch={skipWebSearch}
+										onToggleWebSearch={() => setSkipWebSearch(!skipWebSearch)}
 									/>
 								</div>
 							)}
@@ -218,6 +222,8 @@ const Layout: React.FC = () => {
 									onAddAttachment={handleAddAttachment}
 									onRemoveAttachment={handleRemoveAttachment}
 									searchResults={searchResults}
+									skipWebSearch={skipWebSearch}
+									onToggleWebSearch={() => setSkipWebSearch(!skipWebSearch)}
 								/>
 							)}
 							{currentMode === "agent" && (

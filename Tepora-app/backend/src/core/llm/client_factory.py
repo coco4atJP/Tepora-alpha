@@ -36,25 +36,29 @@ class ClientFactory:
         if hasattr(model_config, "repeat_penalty") and model_config.repeat_penalty is not None:
             extra_body["repeat_penalty"] = model_config.repeat_penalty
             logger.debug(
-                f"Client for '{model_key}' will use repeat_penalty={model_config.repeat_penalty} via extra_body."
+                "Client for '%s' will use repeat_penalty=%s via extra_body.",
+                model_key,
+                model_config.repeat_penalty,
             )
 
         # logprobs
         if hasattr(model_config, "logprobs") and model_config.logprobs:
             extra_body["logprobs"] = True
-            logger.debug(f"Client for '{model_key}' will request logprobs via extra_body.")
+            logger.debug("Client for '%s' will request logprobs via extra_body.", model_key)
 
         # top_k
         if hasattr(model_config, "top_k") and model_config.top_k is not None:
             extra_body["top_k"] = model_config.top_k
             logger.debug(
-                f"Client for '{model_key}' will use top_k={model_config.top_k} via extra_body."
+                "Client for '%s' will use top_k=%s via extra_body.",
+                model_key,
+                model_config.top_k,
             )
 
         if extra_body:
             init_kwargs["extra_body"] = extra_body
 
-        logger.info(f"Creating ChatOpenAI client for '{model_key}' at {base_url}")
+        logger.info("Creating ChatOpenAI client for '%s' at %s", model_key, base_url)
         return ChatOpenAI(**init_kwargs)
 
     def create_embedding_client(self, model_key: str, port: int) -> OpenAIEmbeddings:
@@ -62,7 +66,7 @@ class ClientFactory:
         OpenAIEmbeddingsクライアントを生成する。
         """
         base_url = f"http://localhost:{port}/v1"
-        logger.info(f"Creating OpenAIEmbeddings client for '{model_key}' at {base_url}")
+        logger.info("Creating OpenAIEmbeddings client for '%s' at %s", model_key, base_url)
         return OpenAIEmbeddings(
             model=model_key,
             base_url=base_url,

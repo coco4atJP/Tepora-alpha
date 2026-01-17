@@ -85,30 +85,105 @@ class BinaryManager:
             try:
                 with open(registry_path, encoding="utf-8") as f:
                     data = json.load(f)
-                    # Parse installed versions
-                    installed = []
-                    for v in data.get("installed_versions", []):
-                        installed.append(
-                            BinaryVersionInfo(
-                                version=v["version"],
-                                variant=BinaryVariant(v["variant"]),
-                                path=Path(v["path"]),
-                                installed_at=datetime.fromisoformat(v["installed_at"]),
-                                is_bundled=v.get("is_bundled", False),
-                            )
-                        )
-                    return BinaryRegistry(
-                        current_version=data.get("current_version"),
-                        current_variant=BinaryVariant(data["current_variant"])
-                        if data.get("current_variant")
-                        else None,
-                        installed_versions=installed,
-                        last_update_check=datetime.fromisoformat(data["last_update_check"])
-                        if data.get("last_update_check")
-                        else None,
-                    )
             except Exception as e:
-                logger.warning(f"Failed to load binary registry: {e}")
+                logger.warning("Failed to load binary registry: %s", e, exc_info=True)
+                return BinaryRegistry()
+
+            if not isinstance(data, dict):
+                logger.warning(
+                    "Invalid binary registry format: expected object, got %s",
+                    type(data).__name__,
+                )
+                return BinaryRegistry()
+
+            # Parse installed versions
+            raw_versions = data.get("installed_versions", [])
+            if not isinstance(raw_versions, list):
+                logger.warning(
+                    "Invalid binary registry installed_versions: expected list, got %s",
+                    type(raw_versions).__name__,
+                )
+                raw_versions = []
+
+            installed: list[BinaryVersionInfo] = []
+            for entry in raw_versions:
+                if not isinstance(entry, dict):
+                    logger.warning(
+                        "Skipping non-dict binary registry entry: %s",
+                        type(entry).__name__,
+                    )
+                    continue
+
+                version = entry.get("version")
+                variant_raw = entry.get("variant")
+                path_raw = entry.get("path")
+                installed_at_raw = entry.get("installed_at")
+
+                if not version or not variant_raw or not path_raw or not installed_at_raw:
+                    logger.warning(
+                        "Skipping binary registry entry with missing fields: version=%s",
+                        version,
+                    )
+                    continue
+
+                try:
+                    variant = BinaryVariant(variant_raw)
+                except ValueError:
+                    logger.warning(
+                        "Skipping binary registry entry with unknown variant: %s", variant_raw
+                    )
+                    continue
+
+                try:
+                    installed_at = datetime.fromisoformat(installed_at_raw)
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Skipping binary registry entry with invalid installed_at: %s",
+                        installed_at_raw,
+                    )
+                    continue
+
+                installed.append(
+                    BinaryVersionInfo(
+                        version=version,
+                        variant=variant,
+                        path=Path(path_raw),
+                        installed_at=installed_at,
+                        is_bundled=entry.get("is_bundled", False),
+                    )
+                )
+
+            current_variant = None
+            current_variant_raw = data.get("current_variant")
+            if current_variant_raw:
+                try:
+                    current_variant = BinaryVariant(current_variant_raw)
+                except ValueError:
+                    logger.warning(
+                        "Invalid current_variant in binary registry: %s", current_variant_raw
+                    )
+
+            current_version = data.get("current_version")
+            if current_version is not None and not isinstance(current_version, str):
+                logger.warning("Invalid current_version in binary registry: %s", current_version)
+                current_version = None
+
+            last_update_check = None
+            raw_last_update = data.get("last_update_check")
+            if raw_last_update:
+                try:
+                    last_update_check = datetime.fromisoformat(raw_last_update)
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Invalid last_update_check in binary registry: %s", raw_last_update
+                    )
+
+            return BinaryRegistry(
+                current_version=current_version,
+                current_variant=current_variant,
+                installed_versions=installed,
+                last_update_check=last_update_check,
+            )
         return BinaryRegistry()
 
     def _save_registry(self, registry: BinaryRegistry) -> None:
@@ -152,11 +227,11 @@ class BinaryManager:
 
     def _emit_progress(self, event: ProgressEvent) -> None:
         """進捗イベントを発火"""
-        for callback in self._progress_callbacks:
+        for callback in list(self._progress_callbacks):
             try:
                 callback(event)
             except Exception as e:
-                logger.warning(f"Progress callback error: {e}")
+                logger.warning("Progress callback error: %s", e, exc_info=True)
 
     def _verify_file_hash(self, file_path: Path, expected_hash: str) -> bool:
         """
@@ -178,12 +253,14 @@ class BinaryManager:
             matches = actual_hash.lower() == expected_hash.lower()
             if not matches:
                 logger.error(
-                    f"Hash mismatch for {file_path.name}: "
-                    f"expected {expected_hash[:16]}..., got {actual_hash[:16]}..."
+                    "Hash mismatch for %s: expected %s..., got %s...",
+                    file_path.name,
+                    expected_hash[:16],
+                    actual_hash[:16],
                 )
             return matches
         except OSError as e:
-            logger.error(f"Failed to read file for hash verification: {e}")
+            logger.error("Failed to read file for hash verification: %s", e, exc_info=True)
             return False
 
     def _detect_best_variant(self) -> BinaryVariant:
@@ -256,6 +333,24 @@ class BinaryManager:
             }
             return prefix + patterns.get(variant, r"ubuntu-x64\.tar\.gz$")
 
+    @staticmethod
+    def _normalize_variant(variant: BinaryVariant | str | None) -> BinaryVariant:
+        if isinstance(variant, BinaryVariant):
+            return variant
+        if isinstance(variant, str):
+            try:
+                return BinaryVariant(variant)
+            except ValueError:
+                return BinaryVariant.AUTO
+        return BinaryVariant.AUTO
+
+    async def install_llama_cpp(
+        self, *, variant: BinaryVariant | str = BinaryVariant.AUTO
+    ) -> InstallResult:
+        """Backward-compatible wrapper for downloading and installing llama.cpp."""
+        normalized_variant = self._normalize_variant(variant)
+        return await self.download_and_install(variant=normalized_variant)
+
     async def get_current_version(self) -> str | None:
         """現在インストール済みのバージョンを取得"""
         return self.registry.current_version
@@ -310,13 +405,14 @@ class BinaryManager:
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to check for updates: {e}")
+            logger.error("Failed to check for updates: %s", e, exc_info=True)
             return None
 
     async def download_and_install(
         self,
         version: str | None = None,
         variant: BinaryVariant = BinaryVariant.AUTO,
+        resume_job_id: str | None = None,
     ) -> InstallResult:
         """
         バイナリをダウンロードしてインストール
@@ -330,7 +426,10 @@ class BinaryManager:
         if variant == BinaryVariant.AUTO:
             variant = self._detect_best_variant()
 
+        job_id: str | None = resume_job_id
+
         try:
+            loop = asyncio.get_running_loop()
             self._emit_progress(
                 ProgressEvent(
                     status=DownloadStatus.PENDING,
@@ -404,15 +503,17 @@ class BinaryManager:
                 downloaded = 0
                 if partial_path.exists():
                     downloaded = partial_path.stat().st_size
-                    logger.info(f"Resuming download from {downloaded} bytes")
+                    logger.info("Resuming download from %d bytes", downloaded)
 
                 # ダウンロードジョブを作成/更新
                 job = self._progress_manager.create_job(
                     target_url=download_url,
                     target_path=target_path,
                     total_bytes=file_size,
+                    job_id=resume_job_id,
                 )
                 job_id = job.job_id
+                job.downloaded_bytes = downloaded
 
                 headers = {}
                 if downloaded > 0:
@@ -427,6 +528,7 @@ class BinaryManager:
                             # サーバーがRange未対応、最初からやり直し
                             downloaded = 0
                             partial_path.unlink(missing_ok=True)
+                            job.downloaded_bytes = 0
 
                         stream.raise_for_status()
 
@@ -440,7 +542,7 @@ class BinaryManager:
                                 int(stream.headers.get("content-length", file_size)) + downloaded
                             )
 
-                        start_time = asyncio.get_event_loop().time()
+                        start_time = loop.time()
 
                         # 追記モードでファイルを開く
                         mode = "ab" if downloaded > 0 else "wb"
@@ -452,7 +554,10 @@ class BinaryManager:
                                 if self._progress_manager.is_paused(job_id):
                                     # 一時停止時は状態を保存して終了
                                     self._progress_manager.update_job_progress(
-                                        job_id, downloaded, total
+                                        job_id,
+                                        downloaded,
+                                        total,
+                                        status=DownloadStatus.PAUSED,
                                     )
                                     return InstallResult(
                                         success=False,
@@ -462,7 +567,7 @@ class BinaryManager:
                                 f.write(chunk)
                                 downloaded += len(chunk)
 
-                                elapsed = asyncio.get_event_loop().time() - start_time
+                                elapsed = loop.time() - start_time
                                 speed = (
                                     (downloaded - job.downloaded_bytes) / elapsed
                                     if elapsed > 0
@@ -542,7 +647,7 @@ class BinaryManager:
                         success=False,
                         error_message=error_msg,
                     )
-                logger.info(f"Hash verification passed for {target_path.name}")
+                logger.info("Hash verification passed for %s", target_path.name)
 
                 # 解凍
                 self._emit_progress(
@@ -572,10 +677,8 @@ class BinaryManager:
                                 abs_target.relative_to(abs_root)
                                 safe_members.append(member)
                             except ValueError:
-                                logger.error(f"Tar Slip attempt detected: {member.name}")
+                                logger.error("Tar Slip attempt detected: %s", member.name)
                                 raise RuntimeError(f"Tar Slip attempt detected: {member.name}")
-
-                        import sys
 
                         if sys.version_info >= (3, 12):
                             tf.extractall(version_dir, members=safe_members, filter="data")
@@ -587,9 +690,9 @@ class BinaryManager:
                     # zip
                     with zipfile.ZipFile(target_path, "r") as zf:
                         # Zip Slip 対策: 安全な解凍を行う
-                        for member in zf.infolist():
+                        for zip_member in zf.infolist():
                             # ターゲットパスを解決
-                            extract_target = version_dir / member.filename
+                            extract_target = version_dir / zip_member.filename
                             # 絶対パスに正規化し、シンボリックリンクを解決
                             abs_target = extract_target.resolve()
                             abs_root = version_dir.resolve()
@@ -599,12 +702,16 @@ class BinaryManager:
                                 abs_target.relative_to(abs_root)
                             except ValueError:
                                 logger.error(
-                                    f"Zip Slip attempt detected: {member.filename} -> {extract_target}"
+                                    "Zip Slip attempt detected: %s -> %s",
+                                    zip_member.filename,
+                                    extract_target,
                                 )
-                                raise RuntimeError(f"Zip Slip attempt detected: {member.filename}")
+                                raise RuntimeError(
+                                    f"Zip Slip attempt detected: {zip_member.filename}"
+                                )
 
                             # 安全であれば解凍
-                            zf.extract(member, version_dir)
+                            zf.extract(zip_member, version_dir)
 
                 # ダウンロードしたアーカイブを削除
                 target_path.unlink(missing_ok=True)
@@ -621,7 +728,7 @@ class BinaryManager:
                                 self.current_dir.unlink()
                             else:
                                 # Rename strategy for atomic-ish replacement
-                                timestamp = int(asyncio.get_event_loop().time())
+                                timestamp = int(loop.time())
                                 old_path = self.current_dir.with_name(
                                     f"old_{self.current_dir.name}_{timestamp}"
                                 )
@@ -645,7 +752,11 @@ class BinaryManager:
                         retry_count += 1
                         wait_time = 1.0 * (2 ** (retry_count - 1))  # 1s, 2s, 4s, 8s, 16s
                         logger.warning(
-                            f"File operation failed (attempt {retry_count}/{max_retries}): {e}. Retrying in {wait_time}s..."
+                            "File operation failed (attempt %d/%d): %s. Retrying in %ss...",
+                            retry_count,
+                            max_retries,
+                            e,
+                            wait_time,
                         )
                         await asyncio.sleep(wait_time)
 
@@ -687,13 +798,28 @@ class BinaryManager:
                     path=self.current_dir,
                 )
 
+        except asyncio.CancelledError:
+            if job_id:
+                self._progress_manager.cancel_job(job_id)
+                self._emit_progress(
+                    ProgressEvent(
+                        status=DownloadStatus.CANCELLED,
+                        progress=0.0,
+                        message="キャンセルされました",
+                        job_id=job_id,
+                    )
+                )
+            raise
         except Exception as e:
-            logger.error(f"Failed to download and install: {e}", exc_info=True)
+            logger.error("Failed to download and install: %s", e, exc_info=True)
+            if job_id:
+                self._progress_manager.fail_job(job_id, str(e))
             self._emit_progress(
                 ProgressEvent(
                     status=DownloadStatus.FAILED,
                     progress=0.0,
                     message=f"エラー: {str(e)}",
+                    job_id=job_id,
                 )
             )
             return InstallResult(
@@ -714,10 +840,10 @@ class BinaryManager:
                 self._registry.current_variant = v.variant
                 self._save_registry(self._registry)
 
-                logger.info(f"Rolled back to version {version}")
+                logger.info("Rolled back to version %s", version)
                 return True
 
-        logger.warning(f"Version {version} not found for rollback")
+        logger.warning("Version %s not found for rollback", version)
         return False
 
     def get_executable_path(self) -> Path | None:
@@ -835,4 +961,8 @@ class BinaryManager:
             variant = BinaryVariant.AUTO
 
         # download_and_install を再利用（.part ファイルがあれば自動レジューム）
-        return await self.download_and_install(version=version, variant=variant)
+        return await self.download_and_install(
+            version=version,
+            variant=variant,
+            resume_job_id=job_id,
+        )

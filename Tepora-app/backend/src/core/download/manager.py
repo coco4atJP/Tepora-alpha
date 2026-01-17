@@ -15,6 +15,8 @@ from src.core.config.loader import settings
 
 # 新しいcore/modelsパッケージからModelManagerをインポート
 from ..models import ModelManager
+from ..models.types import ModelPool as ModelsModelPool
+from ..models.types import ProgressEvent as ModelsProgressEvent
 from .binary import BinaryManager
 from .types import (
     DownloadStatus,
@@ -46,6 +48,92 @@ def get_user_data_dir() -> Path:
         # Linux
         xdg_data = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         return Path(xdg_data) / "tepora"
+
+
+def _normalize_model_pool(role: Any) -> ModelPool | None:
+    if isinstance(role, ModelPool):
+        return role
+
+    if role is None:
+        return None
+
+    role_value = str(role).lower()
+    try:
+        return ModelPool(role_value)
+    except ValueError:
+        if role_value in {"character", "executor"}:
+            return ModelPool.TEXT
+    return None
+
+
+def _build_default_model_targets() -> list[dict[str, Any]]:
+    defaults = settings.default_models
+    targets: list[dict[str, Any]] = []
+
+    if defaults.text_models:
+        primary_text = defaults.text_models[0]
+        targets.append(
+            {
+                "repo_id": primary_text.repo_id,
+                "filename": primary_text.filename,
+                "role": ModelPool.TEXT,
+                "display_name": primary_text.display_name,
+            }
+        )
+
+    if defaults.embedding:
+        targets.append(
+            {
+                "repo_id": defaults.embedding.repo_id,
+                "filename": defaults.embedding.filename,
+                "role": ModelPool.EMBEDDING,
+                "display_name": defaults.embedding.display_name,
+            }
+        )
+
+    return targets
+
+
+def _build_targets_from_custom_models(
+    custom_models: dict[str, dict[str, str]] | None,
+) -> list[dict[str, Any]]:
+    if not custom_models:
+        return []
+
+    targets: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, ModelPool]] = set()
+    role_map = {
+        "text": ModelPool.TEXT,
+        "character": ModelPool.TEXT,
+        "executor": ModelPool.TEXT,
+        "embedding": ModelPool.EMBEDDING,
+    }
+
+    for role_key, pool in role_map.items():
+        model = custom_models.get(role_key)
+        if not isinstance(model, dict):
+            continue
+
+        repo_id = model.get("repo_id")
+        filename = model.get("filename")
+        if not repo_id or not filename:
+            continue
+
+        cache_key = (repo_id, filename, pool)
+        if cache_key in seen:
+            continue
+        seen.add(cache_key)
+
+        targets.append(
+            {
+                "repo_id": repo_id,
+                "filename": filename,
+                "role": pool,
+                "display_name": model.get("display_name"),
+            }
+        )
+
+    return targets
 
 
 class DownloadManager:
@@ -85,8 +173,32 @@ class DownloadManager:
         self._progress_callbacks: list[ProgressCallback] = []
 
         # サブマネージャーにもコールバックを転送
-        self.binary_manager.on_progress(self._forward_progress)
-        self.model_manager.on_progress(self._forward_progress)
+        self.binary_manager.on_progress(self._emit_progress)
+
+        def _forward_model_progress(event: ModelsProgressEvent) -> None:
+            # Convert models ProgressEvent to download ProgressEvent
+            # Map status string to DownloadStatus enum
+            status_value = (
+                event.status.value if hasattr(event.status, "value") else str(event.status)
+            )
+            try:
+                download_status = DownloadStatus(status_value)
+            except ValueError:
+                download_status = DownloadStatus.DOWNLOADING  # fallback
+            self._emit_progress(
+                ProgressEvent(
+                    status=download_status,
+                    progress=event.progress,
+                    message=event.message,
+                    total_bytes=event.total_bytes,
+                    current_bytes=event.current_bytes,
+                    speed_bps=event.speed_bps,
+                    eta_seconds=event.eta_seconds,
+                    job_id=event.job_id,
+                )
+            )
+
+        self.model_manager.on_progress(_forward_model_progress)
 
     def _detect_bundled_fallback(self) -> Path | None:
         """
@@ -114,7 +226,7 @@ class DownloadManager:
 
             for candidate in candidates:
                 if candidate.exists():
-                    logger.info(f"Found bundled fallback at: {candidate}")
+                    logger.info("Found bundled fallback at: %s", candidate)
                     return candidate
 
         # 開発環境: プロジェクトルートから探す
@@ -126,21 +238,13 @@ class DownloadManager:
                 project_root / "frontend" / "src-tauri" / "resources" / "llama-cpu-fallback"
             )
             if dev_fallback.exists():
-                logger.info(f"Found dev fallback at: {dev_fallback}")
+                logger.info("Found dev fallback at: %s", dev_fallback)
                 return dev_fallback
         except Exception as e:
-            logger.debug(f"Could not detect dev fallback: {e}")
+            logger.debug("Could not detect dev fallback: %s", e, exc_info=True)
 
         logger.warning("No bundled fallback found")
         return None
-
-    def _forward_progress(self, event: ProgressEvent) -> None:
-        """サブマネージャーからの進捗を転送"""
-        for callback in self._progress_callbacks:
-            try:
-                callback(event)
-            except Exception as e:
-                logger.warning(f"Progress callback error: {e}")
 
     def on_progress(self, callback: ProgressCallback) -> None:
         """進捗コールバックを登録"""
@@ -153,11 +257,11 @@ class DownloadManager:
 
     def _emit_progress(self, event: ProgressEvent) -> None:
         """進捗イベントを発火"""
-        for callback in self._progress_callbacks:
+        for callback in list(self._progress_callbacks):
             try:
                 callback(event)
             except Exception as e:
-                logger.warning(f"Progress callback error: {e}")
+                logger.warning("Progress callback error: %s", e, exc_info=True)
 
     async def check_requirements(self) -> RequirementsStatus:
         """
@@ -175,14 +279,14 @@ class DownloadManager:
             binary_version = await self.binary_manager.get_current_version()
 
         # モデルチェック
-        def check_model(pool: ModelPool) -> tuple[RequirementStatus, str | None]:
+        def check_model(pool: ModelsModelPool) -> tuple[RequirementStatus, str | None]:
             model = self.model_manager.get_active_model(pool)
             if model and model.file_path.exists():
                 return RequirementStatus.SATISFIED, model.display_name
             return RequirementStatus.MISSING, None
 
-        text_status, text_name = check_model(ModelPool.TEXT)
-        embed_status, embed_name = check_model(ModelPool.EMBEDDING)
+        text_status, text_name = check_model(ModelsModelPool.TEXT)
+        embed_status, embed_name = check_model(ModelsModelPool.EMBEDDING)
 
         return RequirementsStatus(
             binary_status=binary_status,
@@ -199,8 +303,7 @@ class DownloadManager:
         download_default_models: bool = True,
         target_models: list[dict[str, Any]] | None = None,
         consent_provided: bool = False,
-        custom_models: dict[str, dict[str, str]]
-        | None = None,  # kept for compat/overload if needed
+        custom_models: dict[str, dict[str, str]] | None = None,
     ) -> SetupResult:
         """
         初回セットアップを実行
@@ -210,6 +313,7 @@ class DownloadManager:
             download_default_models: デフォルトモデルをダウンロードするか
             target_models: ダウンロード対象モデルの明示的なリスト。
                            [{repo_id, filename, role, display_name}, ...]
+            custom_models: 旧形式のモデル指定。target_modelsが空の場合にのみ使用。
         """
         errors: list[str] = []
         binary_installed = False
@@ -246,51 +350,28 @@ class DownloadManager:
             # なければ default_models から構築 (backend fallback when frontend sends nothing?)
             # Frontend should send the selection.
 
-            final_targets = []
-
             if target_models:
                 final_targets = target_models
             else:
-                # Fallback to schema defaults if no explicit targets (e.g. headless setup)
-                # But mostly schema defaults are now a list of OPTIONS, not a single default.
-                # So we might just pick the first one? Or just the embedding model?
-                # For safety, if no target models provided, we install nothing or just embedding.
-                # Let's try to install at least embedding if available.
-                defaults = settings.default_models
-                if defaults.embedding:
-                    final_targets.append(
-                        {
-                            "repo_id": defaults.embedding.repo_id,
-                            "filename": defaults.embedding.filename,
-                            "role": ModelPool.EMBEDDING,  # ensure consistent key
-                            "display_name": defaults.embedding.display_name,
-                        }
-                    )
-
-            # Check for legacy custom_models argument if target_models was empty?
-            # (Ignoring for now as we updated caller)
+                final_targets = _build_targets_from_custom_models(custom_models)
+                if not final_targets:
+                    final_targets = _build_default_model_targets()
 
             for model_cfg in final_targets:
-                # normalize keys: 'role' vs 'pool'
-                role_val = model_cfg.get("role") or model_cfg.get("pool")
-                if not role_val:
-                    # try to infer? No, must be explicit.
-                    logger.warning(f"Skipping model without role: {model_cfg}")
+                repo_id = model_cfg.get("repo_id")
+                filename = model_cfg.get("filename")
+                if not repo_id or not filename:
+                    logger.warning("Skipping model with missing repo_id/filename: %s", model_cfg)
                     continue
 
-                # Convert 'role' string to ModelPool enum
-                try:
-                    pool_enum = ModelPool(role_val)
-                    # If string was 'text' -> ModelPool.TEXT ('text')
-                except ValueError:
-                    # fallback map
-                    if role_val == "character" or role_val == "executor":
-                        pool_enum = ModelPool.TEXT
-                    else:
-                        logger.warning(f"Invalid role: {role_val}")
-                        continue
+                # normalize keys: 'role' vs 'pool'
+                role_val = model_cfg.get("role") or model_cfg.get("pool")
+                pool_enum = _normalize_model_pool(role_val)
+                if not pool_enum:
+                    logger.warning("Skipping model with invalid role: %s", role_val)
+                    continue
 
-                display_name = model_cfg.get("display_name", f"{role_val} Model")
+                display_name = model_cfg.get("display_name") or f"{pool_enum.value} Model"
 
                 self._emit_progress(
                     ProgressEvent(
@@ -300,20 +381,23 @@ class DownloadManager:
                     )
                 )
 
-                result = await self.model_manager.download_from_huggingface(
-                    repo_id=model_cfg["repo_id"],
-                    filename=model_cfg["filename"],
-                    role=pool_enum,
+                # Convert download ModelPool to models ModelPool
+                models_pool = ModelsModelPool(pool_enum.value)
+
+                download_result = await self.model_manager.download_from_huggingface(
+                    repo_id=repo_id,
+                    filename=filename,
+                    role=models_pool,
                     display_name=display_name,
                     consent_provided=consent_provided,
                 )
 
-                if result.success:
+                if download_result.success:
                     models_installed.append(display_name)
-                    # If it's a text model, we might want to set it as active if it's the first one?
-                    # logic for verify active is separate.
                 else:
-                    errors.append(f"Model download failed ({display_name}): {result.error_message}")
+                    errors.append(
+                        f"Model download failed ({display_name}): {download_result.error_message}"
+                    )
 
         success = len(errors) == 0
 
@@ -338,7 +422,8 @@ class DownloadManager:
 
     def get_model_path(self, pool: ModelPool) -> Path | None:
         """指定プールのモデルパスを取得"""
-        return self.model_manager.get_model_path(pool)
+        models_pool = ModelsModelPool(pool.value)
+        return self.model_manager.get_model_path(models_pool)
 
     def get_config_dir(self) -> Path:
         """設定ディレクトリを取得"""

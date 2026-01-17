@@ -55,6 +55,65 @@ class TeporaCoreApp:
         self.app: CompiledGraph | None = None  # The compiled graph
         self.initialized = False
 
+    @staticmethod
+    def _try_decode_base64(content: str) -> str | None:
+        if len(content) <= 100:
+            return None
+
+        content_stripped = content.replace("\n", "").replace("\r", "")
+        if not BASE64_PATTERN.match(content_stripped):
+            return None
+
+        try:
+            decoded_bytes = base64.b64decode(content_stripped)
+            return decoded_bytes.decode("utf-8")
+        except Exception:
+            return None
+
+    def _process_attachments(self, attachments: list[dict]) -> list[dict]:
+        processed_attachments = []
+        safe_limit = int(config.SEARCH_ATTACHMENT_SIZE_LIMIT * 1.35)
+
+        for att in attachments:
+            if not isinstance(att, dict):
+                logger.warning("Skipping non-dict attachment: %s", type(att).__name__)
+                continue
+
+            attachment_name = att.get("name")
+            try:
+                content = att.get("content", "")
+
+                # Security: Check size limit FIRST for ALL content types
+                if isinstance(content, str) and len(content) > safe_limit:
+                    logger.warning(
+                        "Attachment '%s' skipped: Size %d exceeds limit %d",
+                        attachment_name,
+                        len(content),
+                        safe_limit,
+                    )
+                    continue
+
+                if isinstance(content, str):
+                    decoded_text = self._try_decode_base64(content)
+                    if decoded_text is not None:
+                        processed_attachments.append(
+                            {
+                                "name": attachment_name,
+                                "content": decoded_text,
+                                "type": att.get("type"),
+                            }
+                        )
+                        continue
+
+                processed_attachments.append(att)
+            except Exception as e:
+                logger.warning(
+                    "Failed to decode attachment %s: %s", attachment_name, e, exc_info=True
+                )
+                processed_attachments.append(att)
+
+        return processed_attachments
+
     async def initialize(self, mcp_hub: "McpHub | None" = None) -> bool:
         """Initialize all core components."""
         try:
@@ -108,7 +167,7 @@ class TeporaCoreApp:
             return True
 
         except Exception as e:
-            logger.error(f"Core initialization failed: {e}", exc_info=True)
+            logger.error("Core initialization failed: %s", e, exc_info=True)
             return False
 
     async def _initialize_memory_systems(self):
@@ -144,7 +203,7 @@ class TeporaCoreApp:
             )
 
         except Exception as e:
-            logger.error(f"EM-LLM initialization failed (System degraded): {e}", exc_info=True)
+            logger.error("EM-LLM initialization failed (System degraded): %s", e, exc_info=True)
             self.char_em_llm_integrator = None
             self.prof_em_llm_integrator = None
             # Fallback logic is handled in _build_graph
@@ -169,7 +228,7 @@ class TeporaCoreApp:
                         self.embedding_provider, db_path=str(fallback_db_path)
                     )
                 except Exception as e:
-                    logger.error(f"Fallback memory init failed: {e}")
+                    logger.error("Fallback memory init failed: %s", e, exc_info=True)
 
             agent_core = AgentCore(self.llm_manager, self.tool_manager, memory_system)
 
@@ -215,7 +274,7 @@ class TeporaCoreApp:
         self,
         user_input: str,
         mode: str = "direct",
-        attachments: list[dict] = None,
+        attachments: list[dict] | None = None,
         skip_web_search: bool = False,
         session_id: str = "default",
         approval_callback: Callable[[str, dict], Awaitable[bool]] | None = None,
@@ -239,7 +298,7 @@ class TeporaCoreApp:
         try:
             user_input_sanitized = sanitize_user_input(user_input)
         except ValueError as e:
-            logger.warning(f"Input sanitization failed: {e}")
+            logger.warning("Input sanitization failed: %s", e)
             raise
 
         # 2. Determine Mode & Clean Input
@@ -248,51 +307,10 @@ class TeporaCoreApp:
         user_input_processed = user_input_sanitized
 
         # 3. Process Attachments
-        processed_attachments = []
-        # Security: Calculate safe limit for raw content size
-        # Base64 encoded size is ~1.33x of original. We check raw string length.
-        safe_limit = int(config.SEARCH_ATTACHMENT_SIZE_LIMIT * 1.35)
-
-        for att in attachments:
-            try:
-                content = att.get("content", "")
-
-                # Security: Check size limit FIRST for ALL content types
-                if isinstance(content, str) and len(content) > safe_limit:
-                    logger.warning(
-                        f"Attachment '{att.get('name')}' skipped: "
-                        f"Size {len(content)} exceeds limit {safe_limit}"
-                    )
-                    # Skip this attachment but process others
-                    continue
-
-                # Check if it looks like base64 using pattern matching
-                # Criteria: long string, matches base64 pattern, no whitespace
-                if isinstance(content, str) and len(content) > 100:
-                    # Quick check: base64 strings don't have spaces or newlines (unless MIME encoded)
-                    content_stripped = content.replace("\n", "").replace("\r", "")
-                    if BASE64_PATTERN.match(content_stripped):
-                        try:
-                            decoded_bytes = base64.b64decode(content_stripped)
-                            decoded_text = decoded_bytes.decode("utf-8")
-                            processed_attachments.append(
-                                {
-                                    "name": att.get("name"),
-                                    "content": decoded_text,
-                                    "type": att.get("type"),
-                                }
-                            )
-                            continue
-                        except Exception:
-                            pass  # Not valid base64 or decode failed, use as is
-
-                processed_attachments.append(att)
-            except Exception as e:
-                logger.warning(f"Failed to decode attachment {att.get('name')}: {e}")
-                processed_attachments.append(att)
+        processed_attachments = self._process_attachments(attachments)
 
         # 4. Search Metadata & Mode
-        search_metadata = {}
+        search_metadata: dict[str, Any] = {}
         # mode logic for search metdata
         if final_mode == InputMode.SEARCH:
             if not config.settings.privacy.allow_web_search:
@@ -305,6 +323,8 @@ class TeporaCoreApp:
                 search_metadata["skip_web_search"] = True
 
         # 5. Get History for this session
+        if self.history_manager is None:
+            raise RuntimeError("history_manager not initialized")
         recent_history = self.history_manager.get_history(
             session_id=session_id, limit=DEFAULT_HISTORY_LIMIT
         )
@@ -350,20 +370,20 @@ class TeporaCoreApp:
 
     def get_memory_stats(self) -> dict[str, Any]:
         """Get statistics for memory systems."""
-        stats = {"char_memory": {}, "prof_memory": {}}
+        stats: dict[str, Any] = {"char_memory": {}, "prof_memory": {}}
 
         if self.char_em_llm_integrator:
             try:
                 stats["char_memory"] = self.char_em_llm_integrator.get_memory_statistics()
             except Exception as e:
-                logger.error(f"Failed to get char memory stats: {e}")
+                logger.error("Failed to get char memory stats: %s", e, exc_info=True)
                 stats["char_memory"] = {"error": str(e)}
 
         if self.prof_em_llm_integrator:
             try:
                 stats["prof_memory"] = self.prof_em_llm_integrator.get_memory_statistics()
             except Exception as e:
-                logger.error(f"Failed to get prof memory stats: {e}")
+                logger.error("Failed to get prof memory stats: %s", e, exc_info=True)
                 stats["prof_memory"] = {"error": str(e)}
 
         return stats
@@ -374,3 +394,9 @@ class TeporaCoreApp:
             self.llm_manager.cleanup()
         if self.tool_manager:
             self.tool_manager.cleanup()
+        for integrator in (self.char_em_llm_integrator, self.prof_em_llm_integrator):
+            if integrator:
+                try:
+                    integrator.memory_system.close()
+                except Exception as e:
+                    logger.warning("Failed to close memory system: %s", e, exc_info=True)

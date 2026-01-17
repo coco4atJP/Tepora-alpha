@@ -26,7 +26,6 @@ router = APIRouter(prefix="/api/setup", tags=["setup"], dependencies=[Depends(ge
 class SetupSession:
     def __init__(self):
         self.language: str = "en"
-        self.custom_models: dict[str, dict] | None = None
         self.job_id: str | None = None
         self._progress: dict[str, Any] = {"status": "idle", "progress": 0.0, "message": ""}
 
@@ -44,12 +43,6 @@ _setup_session = SetupSession()
 
 class InitSetupRequest(BaseModel):
     language: str
-
-
-class ModelConfig(BaseModel):
-    repo_id: str
-    filename: str
-    display_name: str | None = None
 
 
 class SetupRunRequest(BaseModel):
@@ -75,8 +68,6 @@ class SetupFinishRequest(BaseModel):
 
 # Singleton Check
 _download_manager_instance = None
-_job_progress: dict[str, dict] = {}
-_current_job_id: str | None = None
 
 
 def _get_download_manager():
@@ -88,59 +79,8 @@ def _get_download_manager():
             _download_manager_instance = DownloadManager()
         return _download_manager_instance
     except ImportError as e:
-        logger.error(f"DownloadManager not available: {e}")
+        logger.error("DownloadManager not available: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Download manager not available")
-
-
-async def _sync_model_to_config(model_info):
-    """Sync model selection to config.yml models_gguf section"""
-    try:
-        from src.core.config.service import get_config_service
-        from src.core.download import ModelRole
-
-        service = get_config_service()
-        current_config = service.load_config()
-
-        if "models_gguf" not in current_config:
-            current_config["models_gguf"] = {}
-
-        # Determine key based on role
-        # Note: ModelRole enum values match what's in registry
-        role = model_info.role
-        key = "text_model" if role == ModelRole.TEXT else "embedding_model"
-
-        # Check if exists in current config
-        # Use .get() safely
-        models_config = current_config.get("models_gguf", {})
-
-        # Only add if not exists (preserve user customizations)
-        if key not in models_config:
-            logger.info(f"Syncing default config for {key} (model={model_info.id})")
-
-            # Default port logic: 8080 for text, 8081 for embedding
-            port = 8080 if key == "text_model" else 8081
-
-            # Ensure path is relative if possible, or string absolute path
-            model_path = str(model_info.file_path)
-
-            # Create a patch (partial config) to merge
-            patch_data = {
-                "models_gguf": {
-                    key: {
-                        "path": model_path,
-                        "port": port,
-                        "n_ctx": 4096,
-                        "n_gpu_layers": -1,
-                        "temperature": 0.7,
-                    }
-                }
-            }
-
-            service.update_config(patch_data, merge=True)
-            logger.info(f"Synced {key} to config.yml")
-
-    except Exception as e:
-        logger.warning(f"Failed in _sync_model_to_config: {e}")
 
 
 def _evaluate_model_download_warnings(
@@ -166,6 +106,31 @@ def _evaluate_model_download_warnings(
     return warnings
 
 
+def _resolve_model_pool(role: str):
+    from src.core.download import ModelPool
+
+    if isinstance(role, ModelPool):
+        return role
+
+    normalized = str(role).lower() if role else ""
+    pool_map = {
+        "text": ModelPool.TEXT,
+        "character": ModelPool.TEXT,
+        "executor": ModelPool.TEXT,
+        "embedding": ModelPool.EMBEDDING,
+    }
+    pool = pool_map.get(normalized)
+    if not pool:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {role}")
+    return pool
+
+
+def _format_progress_status(status: object) -> str:
+    if hasattr(status, "value"):
+        return str(status.value)
+    return str(status)
+
+
 # --- Endpoints ---
 
 
@@ -175,9 +140,8 @@ async def init_setup(request: InitSetupRequest):
     ステップ1: セットアップセッションの初期化（言語設定など）
     ここではまだファイルには書き込まない。
     """
-    global _setup_session
     _setup_session.language = request.language
-    logger.info(f"Setup session initialized with language: {request.language}")
+    logger.info("Setup session initialized with language: %s", request.language)
     return {"success": True, "language": _setup_session.language}
 
 
@@ -211,7 +175,7 @@ async def check_requirements():
             },
         }
     except Exception as e:
-        logger.error(f"Requirements check failed: {e}", exc_info=True)
+        logger.error("Requirements check failed: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -229,7 +193,7 @@ async def get_default_models():
             "embedding": defaults.embedding.model_dump() if defaults.embedding else None,
         }
     except Exception as e:
-        logger.error(f"Failed to get default models: {e}", exc_info=True)
+        logger.error("Failed to get default models: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -239,8 +203,6 @@ async def run_setup_job(request: SetupRunRequest):
     セットアップの実行（バイナリダウンロード + モデルダウンロード）。
     長時間かかるため、バックグラウンドジョブとして実行する。
     """
-    global _setup_session
-
     # 既に実行中ならエラー等は返さず、現在のジョブIDを返すなどの制御も可能だが
     # ここではシンプルに新規ジョブを開始する
 
@@ -280,30 +242,24 @@ async def run_setup_job(request: SetupRunRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Preflight model policy check failed: {e}", exc_info=True)
+        logger.error("Preflight model policy check failed: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
-
-    # Store in session for reference (optional, but good for debugging)
-    _setup_session.custom_models = {
-        "targets": target_models
-    }  # Storing as dict for compatibility with type hint if needed, or just leverage dynamic
 
     try:
         # バックグラウンドタスクの定義
         async def _background_setup():
-            try:
-                # Progress Listener
-                def on_progress(event):
-                    _setup_session.update_progress(
-                        event.status.value, event.progress, event.message
-                    )
+            def on_progress(event):
+                _setup_session.update_progress(
+                    _format_progress_status(event.status),
+                    event.progress,
+                    event.message,
+                )
 
+            try:
                 dm.on_progress(on_progress)
 
-                logger.info(f"Starting setup job {job_id} with models: {target_models}")
+                logger.info("Starting setup job %s with models: %s", job_id, target_models)
 
-                # Pass the list directly to run_initial_setup
-                # Note: We need to update manager signature next
                 result = await dm.run_initial_setup(
                     install_binary=True,
                     download_default_models=True,
@@ -320,8 +276,10 @@ async def run_setup_job(request: SetupRunRequest):
                     _setup_session.update_progress("failed", 0.0, f"Setup failed: {error_msg}")
 
             except Exception as e:
-                logger.error(f"Setup job error: {e}", exc_info=True)
+                logger.error("Setup job error: %s", e, exc_info=True)
                 _setup_session.update_progress("failed", 0.0, f"Critical error: {str(e)}")
+            finally:
+                dm.remove_progress_callback(on_progress)
 
         # Start Task
         asyncio.create_task(_background_setup())
@@ -329,7 +287,7 @@ async def run_setup_job(request: SetupRunRequest):
         return {"success": True, "job_id": job_id}
 
     except Exception as e:
-        logger.error(f"Failed to start setup job: {e}", exc_info=True)
+        logger.error("Failed to start setup job: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -348,8 +306,6 @@ async def finish_setup(request: SetupFinishRequest):
     1. 設定ファイル(config.yml)の生成・保存（言語設定、初回完了フラグなど）
     2. 必要ならアプリの再起動やリロード指示
     """
-    global _setup_session
-
     try:
         import yaml
 
@@ -369,24 +325,24 @@ async def finish_setup(request: SetupFinishRequest):
                     existing["app"]["setup_completed"] = True
                     config_data = existing
             except Exception as e:
-                logger.warning(f"Failed to read existing config, overwriting: {e}")
+                logger.warning("Failed to read existing config, overwriting: %s", e, exc_info=True)
 
         # 書き込み
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
 
-        logger.info(f"Setup finished. Config saved to {config_path}")
+        logger.info("Setup finished. Config saved to %s", config_path)
 
         # 設定のリロードをトリガー
         try:
             config_manager.load_config(force_reload=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to reload config after setup: %s", e, exc_info=True)
 
         return {"success": True, "path": str(config_path)}
 
     except Exception as e:
-        logger.error(f"Finish setup failed: {e}", exc_info=True)
+        logger.error("Finish setup failed: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -395,15 +351,7 @@ async def download_model(request: ModelDownloadRequest):
     """
     HuggingFaceからモデルをダウンロード
     """
-    global _job_progress, _current_job_id
-
-    job_id = str(uuid.uuid4())
-    _current_job_id = job_id
-    _job_progress[job_id] = {"status": "pending", "progress": 0.0, "message": ""}
-
     try:
-        from src.core.download import ModelPool
-
         dm = _get_download_manager()
 
         policy = dm.model_manager.evaluate_download_policy(request.repo_id, request.filename)
@@ -419,24 +367,7 @@ async def download_model(request: ModelDownloadRequest):
                 },
             )
 
-        # 進捗コールバックを設定
-        def on_progress(event):
-            _job_progress[job_id] = {
-                "status": event.status.value,
-                "progress": event.progress,
-                "message": event.message,
-            }
-
-        dm.on_progress(on_progress)
-
-        # プールを解決
-        pool_map = {
-            "text": ModelPool.TEXT,
-            "embedding": ModelPool.EMBEDDING,
-        }
-        pool = pool_map.get(request.role)
-        if not pool:
-            raise HTTPException(status_code=400, detail=f"Invalid pool: {request.role}")
+        pool = _resolve_model_pool(request.role)
 
         # ダウンロード
         result = await dm.model_manager.download_from_huggingface(
@@ -463,7 +394,7 @@ async def download_model(request: ModelDownloadRequest):
             "error": result.error_message,
         }
     except Exception as e:
-        logger.error(f"Failed to download model: {e}", exc_info=True)
+        logger.error("Failed to download model: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -507,7 +438,7 @@ async def check_model_update(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to check model update: {e}", exc_info=True)
+        logger.error("Failed to check model update: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -536,7 +467,7 @@ async def get_models():
 
         return {"models": result}
     except Exception as e:
-        logger.error(f"Failed to get models: {e}", exc_info=True)
+        logger.error("Failed to get models: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -562,7 +493,7 @@ async def check_model_exists(request: ModelCheckRequest):
     except ImportError:
         return JSONResponse(status_code=500, content={"error": "huggingface_hub not installed"})
     except Exception as e:
-        logger.error(f"Failed to check model: {e}", exc_info=True)
+        logger.error("Failed to check model: %s", e, exc_info=True)
         return {"exists": False, "error": str(e)}
 
 
@@ -580,8 +511,6 @@ async def register_local_model(request: LocalModelRequest):
     try:
         from pathlib import Path
 
-        from src.core.download import ModelPool
-
         dm = _get_download_manager()
 
         file_path = Path(request.file_path)
@@ -591,13 +520,7 @@ async def register_local_model(request: LocalModelRequest):
         if not file_path.suffix.lower() == ".gguf":
             raise HTTPException(status_code=400, detail="Only .gguf files are supported")
 
-        pool_map = {
-            "text": ModelPool.TEXT,
-            "embedding": ModelPool.EMBEDDING,
-        }
-        pool = pool_map.get(request.role)
-        if not pool:
-            raise HTTPException(status_code=400, detail=f"Invalid role: {request.role}")
+        pool = _resolve_model_pool(request.role)
 
         result = await dm.model_manager.register_local_model(
             file_path=file_path,
@@ -605,14 +528,21 @@ async def register_local_model(request: LocalModelRequest):
             display_name=request.display_name or file_path.stem,
         )
 
+        success = result.success if hasattr(result, "success") else bool(result)
+        model_id = (
+            result.model_id
+            if hasattr(result, "model_id")
+            else (file_path.stem if success else None)
+        )
+
         return {
-            "success": result.success if hasattr(result, "success") else True,
-            "model_id": result.model_id if hasattr(result, "model_id") else file_path.stem,
+            "success": success,
+            "model_id": model_id,
         }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to register local model: {e}", exc_info=True)
+        logger.error("Failed to register local model: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -626,7 +556,7 @@ async def delete_model(model_id: str):
         result = await dm.model_manager.delete_model(model_id)
         return {"success": result}
     except Exception as e:
-        logger.error(f"Failed to delete model: {e}", exc_info=True)
+        logger.error("Failed to delete model: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -643,22 +573,14 @@ async def reorder_models(request: ReorderRequest):
     try:
         dm = _get_download_manager()
 
-        from src.core.download import ModelPool
-
-        pool_map = {
-            "text": ModelPool.TEXT,
-            "embedding": ModelPool.EMBEDDING,
-        }
-        pool = pool_map.get(request.role)
-        if not pool:
-            raise HTTPException(status_code=400, detail=f"Invalid role: {request.role}")
+        pool = _resolve_model_pool(request.role)
 
         result = await dm.model_manager.reorder_models(pool, request.model_ids)
         return {"success": result}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to reorder models: {e}", exc_info=True)
+        logger.error("Failed to reorder models: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -696,7 +618,7 @@ async def check_binary_update():
             "current_version": current_version,
         }
     except Exception as e:
-        logger.error(f"Failed to check for updates: {e}", exc_info=True)
+        logger.error("Failed to check for updates: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -705,8 +627,6 @@ async def update_binary(request: BinaryUpdateRequest):
     """
     llama.cppを更新（バックグラウンドジョブ）
     """
-    global _setup_session
-
     job_id = str(uuid.uuid4())
     _setup_session.job_id = job_id
     _setup_session.update_progress("pending", 0.0, "Starting binary update...")
@@ -715,13 +635,14 @@ async def update_binary(request: BinaryUpdateRequest):
         dm = _get_download_manager()
 
         async def _background_update():
+            def on_progress(event):
+                _setup_session.update_progress(
+                    _format_progress_status(event.status),
+                    event.progress,
+                    event.message,
+                )
+
             try:
-
-                def on_progress(event):
-                    _setup_session.update_progress(
-                        event.status.value, event.progress, event.message
-                    )
-
                 dm.on_progress(on_progress)
                 result = await dm.binary_manager.install_llama_cpp(variant=request.variant)
 
@@ -732,14 +653,16 @@ async def update_binary(request: BinaryUpdateRequest):
                         "failed", 0.0, f"Update failed: {result.error_message}"
                     )
             except Exception as e:
-                logger.error(f"Binary update error: {e}", exc_info=True)
+                logger.error("Binary update error: %s", e, exc_info=True)
                 _setup_session.update_progress("failed", 0.0, f"Critical error: {str(e)}")
+            finally:
+                dm.remove_progress_callback(on_progress)
 
         asyncio.create_task(_background_update())
         return {"success": True, "job_id": job_id}
 
     except Exception as e:
-        logger.error(f"Failed to start binary update: {e}", exc_info=True)
+        logger.error("Failed to start binary update: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -787,7 +710,7 @@ async def download_action(request: DownloadActionRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to perform download action: {e}", exc_info=True)
+        logger.error("Failed to perform download action: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -818,7 +741,7 @@ async def get_incomplete_downloads():
             ]
         }
     except Exception as e:
-        logger.error(f"Failed to get incomplete downloads: {e}", exc_info=True)
+        logger.error("Failed to get incomplete downloads: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -847,7 +770,7 @@ async def get_model_roles():
             "executor_model_map": dm.model_manager.registry.executor_model_map,
         }
     except Exception as e:
-        logger.error(f"Failed to get model roles: {e}", exc_info=True)
+        logger.error("Failed to get model roles: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -868,7 +791,7 @@ async def set_character_model(request: SetCharacterModelRequest):
 
         return {"success": True}
     except Exception as e:
-        logger.error(f"Failed to set character model: {e}", exc_info=True)
+        logger.error("Failed to set character model: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
@@ -888,7 +811,7 @@ async def set_executor_model(request: SetExecutorModelRequest):
 
         return {"success": True}
     except Exception as e:
-        logger.error(f"Failed to set executor model: {e}", exc_info=True)
+        logger.error("Failed to set executor model: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
@@ -912,5 +835,5 @@ async def remove_executor_model(task_type: str):
 
         return {"success": True}
     except Exception as e:
-        logger.error(f"Failed to remove executor model: {e}", exc_info=True)
+        logger.error("Failed to remove executor model: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})

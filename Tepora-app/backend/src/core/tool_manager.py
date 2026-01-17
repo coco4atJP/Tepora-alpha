@@ -19,6 +19,7 @@ import json
 import logging
 import threading
 from collections.abc import Coroutine
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any, TypedDict
 
 from langchain_core.tools import BaseTool
@@ -48,7 +49,7 @@ class ToolManager:
     - バックグラウンドのイベントループを維持し、非同期ツールを安全に実行
     """
 
-    def __init__(self, providers: list["ToolProvider"] = None):
+    def __init__(self, providers: list["ToolProvider"] | None = None):
         """コンストラクタ
 
         引数:
@@ -79,12 +80,12 @@ class ToolManager:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         try:
             return future.result(timeout=timeout)
-        except TimeoutError:
-            logger.error(f"Coroutine execution timed out after {timeout} seconds.")
+        except (FutureTimeoutError, TimeoutError):
+            logger.error("Coroutine execution timed out after %d seconds.", timeout)
             raise
-        except Exception as e:
+        except Exception:
             # future.result() raises the exception from the coroutine
-            raise e
+            raise
 
     def _make_error_response(self, error_code: str, message: str, **kwargs: Any) -> str:
         """Create a structured error response for frontend translation."""
@@ -113,13 +114,13 @@ class ToolManager:
             logger.info("Executing tool '%s' via sync bridge.", tool_name)
             coro = self.aexecute_tool(tool_name, tool_args)
             return self._run_coroutine(coro)
-        except TimeoutError:
-            logger.error(f"Tool '{tool_name}' execution timed out.")
+        except (FutureTimeoutError, TimeoutError):
+            logger.error("Tool '%s' execution timed out.", tool_name)
             return self._make_error_response(
                 "tool_timeout", f"Tool '{tool_name}' execution timed out.", tool_name=tool_name
             )
         except Exception as e:
-            logger.error(f"Error executing tool {tool_name}: {e}", exc_info=True)
+            logger.error("Error executing tool %s: %s", tool_name, e, exc_info=True)
             return self._make_error_response(
                 "tool_execution_error",
                 f"Error executing tool {tool_name}: {e}",
@@ -177,11 +178,13 @@ class ToolManager:
                 provider_tools = self._run_coroutine(provider.load_tools())
                 loaded_tools.extend(provider_tools)
                 logger.info(
-                    f"Loaded {len(provider_tools)} tools from {provider.__class__.__name__}."
+                    "Loaded %d tools from %s.", len(provider_tools), provider.__class__.__name__
                 )
             except Exception as e:
                 logger.error(
-                    f"An error occurred while loading tools from {provider.__class__.__name__}: {e}",
+                    "An error occurred while loading tools from %s: %s",
+                    provider.__class__.__name__,
+                    e,
                     exc_info=True,
                 )
 
@@ -245,7 +248,7 @@ class ToolManager:
             try:
                 provider.cleanup()
             except Exception as e:
-                logger.warning(f"Error during provider cleanup: {e}", exc_info=True)
+                logger.warning("Error during provider cleanup: %s", e, exc_info=True)
 
         if self._loop.is_running():
             logger.info("Stopping async task runner thread...")

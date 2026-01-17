@@ -16,6 +16,8 @@ interface RagContextPanelProps {
 	onAddAttachment: () => void;
 	onRemoveAttachment: (index: number) => void;
 	searchResults: SearchResult[] | null;
+	skipWebSearch?: boolean;
+	onToggleWebSearch?: () => void;
 }
 
 const RagContextPanel: React.FC<RagContextPanelProps> = ({
@@ -23,6 +25,8 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 	onAddAttachment,
 	onRemoveAttachment,
 	searchResults,
+	skipWebSearch,
+	onToggleWebSearch,
 }) => {
 	const { t } = useTranslation();
 
@@ -52,11 +56,37 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 	return (
 		<div className="h-full min-h-0 flex flex-col glass-panel p-4 overflow-hidden animate-fade-in border border-tea-500/10">
 			{/* Header */}
-			<div className="flex items-center gap-2 mb-3 text-tea-400 border-b border-white/10 pb-2 shrink-0">
-				<Search className="w-4 h-4" />
-				<h3 className="text-xs font-bold uppercase tracking-[0.2em] font-display">
-					{t("rag_context.title", "RAG Context")}
-				</h3>
+			<div className="flex items-center justify-between mb-3 text-tea-400 border-b border-white/10 pb-2 shrink-0">
+				<div className="flex items-center gap-2">
+					<Search className="w-4 h-4" />
+					<h3 className="text-xs font-bold uppercase tracking-[0.2em] font-display">
+						{t("rag_context.title", "RAG Context")}
+					</h3>
+				</div>
+				{onToggleWebSearch && (
+					<button
+						type="button"
+						onClick={onToggleWebSearch}
+						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${
+							!skipWebSearch
+								? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
+								: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
+						}`}
+						title={
+							skipWebSearch
+								? `${t("chat.input.web_search")}: OFF`
+								: `${t("chat.input.web_search")}: ON`
+						}
+					>
+						<Globe
+							className={`w-3 h-3 ${!skipWebSearch ? "text-gold-400 animate-pulse" : "text-gray-500"}`}
+							aria-hidden="true"
+						/>
+						<span className="font-medium font-display tracking-wide">
+							{skipWebSearch ? "OFF" : "ON"}
+						</span>
+					</button>
+				)}
 			</div>
 
 			{/* Scrollable Content */}

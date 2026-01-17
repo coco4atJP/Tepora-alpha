@@ -4,19 +4,25 @@ WebSocket E2E Tests
 End-to-end tests for WebSocket communication flow.
 Tests actual WebSocket connection handling with mocked TeporaCoreApp.
 
-Note: These tests run in development mode to bypass token authentication.
+Note: These tests pass Origin + session token for authentication.
 """
 
-import os
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-# Set development mode for E2E tests (bypass token auth)
-os.environ["TEPORA_ENV"] = "development"
-
 from src.tepora_server.app_factory import create_app
+
+TEST_SESSION_TOKEN = "test-session-token"
+TEST_WS_ORIGIN = "http://localhost:5173"
+
+
+def _ws_connect(client: TestClient):
+    return client.websocket_connect(
+        f"/ws?token={TEST_SESSION_TOKEN}",
+        headers={"origin": TEST_WS_ORIGIN},
+    )
 
 
 @pytest.fixture
@@ -46,8 +52,10 @@ def mock_core():
 
 
 @pytest.fixture
-def client(mock_core):
+def client(mock_core, monkeypatch):
     """Create a TestClient with mocked core."""
+    monkeypatch.setenv("TEPORA_ENV", "production")
+    monkeypatch.setenv("TEPORA_SESSION_TOKEN", TEST_SESSION_TOKEN)
     app = create_app()
 
     with TestClient(app) as c:
@@ -61,7 +69,7 @@ class TestWebSocketConnection:
 
     def test_websocket_connection(self, client):
         """Test basic WebSocket connection establishment."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             # Connection should be established successfully
             # Send a minimal valid message to verify connection
             ws.send_json({"type": "get_stats"})
@@ -72,7 +80,7 @@ class TestWebSocketConnection:
 
     def test_websocket_disconnection(self, client):
         """Test clean WebSocket disconnection."""
-        with client.websocket_connect("/ws") as _:
+        with _ws_connect(client) as _:
             pass  # Disconnect happens automatically
 
 
@@ -81,7 +89,7 @@ class TestMessageProcessing:
 
     def test_message_processing_flow(self, client, mock_core):
         """Test complete message processing flow: message → status → chunks → stats → done."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             # Send a user message
             ws.send_json(
                 {"message": "Hello AI", "mode": "direct", "attachments": [], "skipWebSearch": True}
@@ -107,7 +115,7 @@ class TestMessageProcessing:
 
     def test_empty_message_ignored(self, client):
         """Test that empty messages are handled gracefully."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             # Send empty message (no content, no attachments)
             ws.send_json({"message": "", "mode": "direct", "attachments": []})
 
@@ -122,7 +130,7 @@ class TestMessageValidation:
 
     def test_invalid_json(self, client):
         """Test handling of invalid JSON data."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             # Send text that's not valid JSON
             ws.send_text("not valid json")
 
@@ -132,7 +140,7 @@ class TestMessageValidation:
 
     def test_extra_fields_ignored(self, client):
         """Test that extra fields in messages are ignored (not rejected)."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             ws.send_json({"type": "get_stats", "unknown_field": "should be ignored"})
 
             response = ws.receive_json()
@@ -145,7 +153,7 @@ class TestControlCommands:
 
     def test_get_stats_command(self, client):
         """Test get_stats command returns memory statistics."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             ws.send_json({"type": "get_stats"})
 
             response = ws.receive_json()
@@ -159,7 +167,7 @@ class TestControlCommands:
 
     def test_stop_command(self, client):
         """Test stop command handling."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             # Send stop command (even without active task)
             ws.send_json({"type": "stop"})
 
@@ -175,7 +183,7 @@ class TestModeHandling:
     @pytest.mark.parametrize("mode", ["direct", "search", "agent"])
     def test_different_modes(self, client, mode):
         """Test that different modes are passed correctly to the processor."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             ws.send_json(
                 {"message": "Test message", "mode": mode, "attachments": [], "skipWebSearch": False}
             )
@@ -201,7 +209,7 @@ class TestAttachments:
 
     def test_message_with_attachments(self, client):
         """Test message with attachments is processed."""
-        with client.websocket_connect("/ws") as ws:
+        with _ws_connect(client) as ws:
             ws.send_json(
                 {
                     "message": "Check this image",

@@ -4,7 +4,7 @@ import logging
 import platform
 import re
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from src.core.common.gpu_detect import is_cuda_available
@@ -35,7 +35,7 @@ def _build_preference_list() -> Iterable[str]:
     return ()
 
 
-def _score_candidate(path: Path, preferences: Iterable[str]) -> tuple[int, int, float]:
+def _score_candidate(path: Path, preferences: Sequence[str]) -> tuple[int, int, float]:
     path_str = str(path.resolve()).lower()
 
     version = 0
@@ -44,9 +44,10 @@ def _score_candidate(path: Path, preferences: Iterable[str]) -> tuple[int, int, 
         version = int(match.group(1))
 
     env_score = 0
+    preferences_len = len(preferences)
     for idx, pref in enumerate(preferences):
         if pref in path_str:
-            env_score = len(tuple(preferences)) - idx
+            env_score = preferences_len - idx
             break
 
     mtime = path.stat().st_mtime
@@ -68,8 +69,9 @@ def find_server_executable(
         return None
 
     preferences = tuple(_build_preference_list())
-    latest_file = max(found_files, key=lambda p: _score_candidate(p, preferences))
-    version, _, _ = _score_candidate(latest_file, preferences)
+    scores = {candidate: _score_candidate(candidate, preferences) for candidate in found_files}
+    latest_file = max(scores, key=lambda p: scores[p])
+    version, _, _ = scores[latest_file]
 
     if logger:
         if version > 0:

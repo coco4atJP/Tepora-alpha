@@ -47,17 +47,26 @@ class MemorySystem:
         else:
             self.store = ChromaVectorStore(db_path, collection_name)
 
-        logger.info(f"MemorySystem initialized with {type(self.store).__name__}")
+        logger.info("MemorySystem initialized with %s", type(self.store).__name__)
 
     @property
     def collection(self):
         """Expose the underlying collection for EM-LLM direct access."""
         return self.store.collection
 
-    def save_episode(self, summary: str, history_json: str, metadata: dict[str, Any] | None = None):
+    def save_episode(
+        self, summary: str, history_json: str, metadata: dict[str, Any] | None = None
+    ) -> str | None:
         """
         Save an episode and compute/store its embedding.
-        Returns generated id.
+
+        Args:
+            summary: Episode summary text.
+            history_json: JSON-encoded history.
+            metadata: Optional additional metadata.
+
+        Returns:
+            Generated episode ID, or None if summary was empty.
         """
         if not summary:
             logger.warning("Attempted to save an episode with an empty summary. Skipping.")
@@ -78,12 +87,12 @@ class MemorySystem:
             }
 
             self.store.add(
-                ids=[doc_id],
+                ids=[str(doc_id)],
                 embeddings=[embedding],
                 documents=[summary],
                 metadatas=[episode_metadata],
             )
-            logger.info(f"Saved episode {doc_id} to MemorySystem (summary len={len(summary)})")
+            logger.info("Saved episode %s to MemorySystem (summary len=%d)", doc_id, len(summary))
             return doc_id
         except Exception:
             logger.exception("Failed to save episode to MemorySystem")
@@ -96,9 +105,19 @@ class MemorySystem:
         temporality_boost: float = 0.15,
         query_embedding_override: list[float] | None = None,
         where_filter: dict[str, Any] | None = None,
-    ):
+    ) -> list[dict[str, Any]]:
         """
         Retrieve top-k episodes for query.
+
+        Args:
+            query: Query text.
+            k: Number of results to return.
+            temporality_boost: Boost factor for recency.
+            query_embedding_override: Optional pre-computed embedding.
+            where_filter: Optional metadata filter.
+
+        Returns:
+            List of episode dictionaries sorted by relevance score.
         """
         if not query and query_embedding_override is None and where_filter is None:
             return []
@@ -119,34 +138,73 @@ class MemorySystem:
                 # For now, keeping it consistent.
                 return []
 
-            if not results or not results["ids"] or not results["ids"][0]:
+            if not results or not isinstance(results, dict):
+                return []
+
+            ids_group = results.get("ids") or []
+            if not ids_group:
+                return []
+            if isinstance(ids_group[0], list):
+                ids = ids_group[0]
+            else:
+                ids = ids_group
+            if not ids:
                 return []
 
             scored = []
-            ids = results["ids"][0]
             raw_distances = results.get("distances")
-            if raw_distances and raw_distances[0] is not None:
-                distances = raw_distances[0]
+            distances = None
+            if raw_distances is not None:
+                if isinstance(raw_distances, list):
+                    if raw_distances and isinstance(raw_distances[0], list):
+                        distances = raw_distances[0]
+                    else:
+                        distances = raw_distances
+                elif hasattr(raw_distances, "__len__"):
+                    distances = raw_distances
+
+            if distances is not None and len(distances) > 0:
+                distances = list(distances)
             else:
                 distances = [0.0] * len(ids)
 
             if len(distances) < len(ids):
                 distances = list(distances) + [0.0] * (len(ids) - len(distances))
 
-            metadatas = results["metadatas"][0]
-            documents = results["documents"][0]
+            metadatas = results.get("metadatas") or []
+            if metadatas and isinstance(metadatas[0], list):
+                metadatas = metadatas[0] or []
+            documents = results.get("documents") or []
+            if documents and isinstance(documents[0], list):
+                documents = documents[0] or []
+            if len(documents) < len(ids):
+                documents = list(documents) + [""] * (len(ids) - len(documents))
 
             for i in range(len(ids)):
                 # Cosine distance to similarity: sim = 1 - dist
                 sim = 1.0 - distances[i]
-                meta = metadatas[i]
+                meta = metadatas[i] if i < len(metadatas) else {}
+                if meta is None or not isinstance(meta, dict):
+                    meta = {}
+                metadata_json = meta.get("metadata_json", "{}")
+                history_json = meta.get("history_json", "{}")
+                created_ts = meta.get("created_ts", 0.0)
+                try:
+                    decoded_metadata = (
+                        json.loads(metadata_json) if isinstance(metadata_json, str) else {}
+                    )
+                except json.JSONDecodeError as exc:
+                    logger.debug(
+                        "Failed to decode metadata_json for id %s: %s", ids[i], exc, exc_info=True
+                    )
+                    decoded_metadata = {}
                 scored.append(
                     {
                         "id": ids[i],
-                        "ts": meta.get("created_ts", 0.0),
+                        "ts": created_ts,
                         "summary": documents[i],
-                        "history_json": meta.get("history_json", "{}"),
-                        "metadata": json.loads(meta.get("metadata_json", "{}")),
+                        "history_json": history_json,
+                        "metadata": decoded_metadata,
                         "score": sim,
                     }
                 )
@@ -165,18 +223,21 @@ class MemorySystem:
             scored.sort(key=lambda x: x["score"], reverse=True)
             topk = scored[:k]
             logger.info(
-                f"Retrieved {len(topk)} episodes from MemorySystem (k={k}). Top score={topk[0]['score'] if topk else None}"
+                "Retrieved %d episodes from MemorySystem (k=%d). Top score=%s",
+                len(topk),
+                k,
+                topk[0]["score"] if topk else None,
             )
             return topk
         except Exception as e:
-            logger.error(f"Failed during retrieval: {e}", exc_info=True)
+            logger.error("Failed during retrieval: %s", e, exc_info=True)
             raise
 
-    def count(self):
-        """Returns the number of episodes in the collection."""
+    def count(self) -> int:
+        """Return the number of episodes in the collection."""
         return self.store.count()
 
-    def cleanup_old_events(self, max_age_days: int = 30, max_events: int = 10000000):
+    def cleanup_old_events(self, max_age_days: int = 30, max_events: int = 10000000) -> None:
         """
         Deletes older events exceeding the limit.
         Optimized by delegating the 'oldest' identification to the VectorStore implementation.
@@ -185,27 +246,32 @@ class MemorySystem:
             current_count = self.count()
             if current_count <= max_events:
                 logger.info(
-                    f"Cleanup not needed. Current events ({current_count}) <= limit ({max_events})."
+                    "Cleanup not needed. Current events (%d) <= limit (%d).",
+                    current_count,
+                    max_events,
                 )
                 return
 
             num_to_delete = current_count - max_events
-            logger.info(f"Cleanup required. Identifying {num_to_delete} oldest events.")
+            logger.info("Cleanup required. Identifying %d oldest events.", num_to_delete)
 
             # Delegate to store to get only IDs to delete
             ids_to_delete = self.store.get_oldest_ids(num_to_delete)
 
             if ids_to_delete:
                 self.store.delete(ids_to_delete)
-                logger.info(f"Cleaned up {len(ids_to_delete)} oldest events.")
+                logger.info("Cleaned up %d oldest events.", len(ids_to_delete))
             else:
                 logger.info("No events found to delete for cleanup.")
 
         except Exception as e:
-            logger.error(f"Error during memory cleanup: {e}", exc_info=True)
+            logger.error("Error during memory cleanup: %s", e, exc_info=True)
 
     def retrieve_similar_episodes(self, query: str, k: int = 5) -> list[dict]:
         return self.retrieve(query, k)
 
-    def close(self):
-        pass
+    def close(self) -> None:
+        try:
+            self.store.close()
+        except Exception as e:
+            logger.warning("Failed to close vector store: %s", e, exc_info=True)

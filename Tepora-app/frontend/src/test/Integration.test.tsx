@@ -15,6 +15,7 @@ vi.mock("react-router-dom", async () => {
 			onFileSelect: vi.fn(),
 			onRemoveAttachment: vi.fn(),
 			clearAttachments: vi.fn(),
+			skipWebSearch: false,
 		}),
 	};
 });
@@ -55,7 +56,7 @@ describe("ChatInterface Integration", () => {
 
 	it("renders initial state correctly", () => {
 		const mockSendMessage = vi.fn();
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: mocking context
 		(mockUseWebSocketContext as any).mockReturnValue({
 			isConnected: true,
 			isProcessing: false,
@@ -84,7 +85,7 @@ describe("ChatInterface Integration", () => {
 
 	it("handles user input and sends message", async () => {
 		const mockSendMessage = vi.fn();
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: mocking context
 		(mockUseWebSocketContext as any).mockReturnValue({
 			isConnected: true,
 			isProcessing: false,
@@ -116,7 +117,7 @@ describe("ChatInterface Integration", () => {
 
 	it("displays error toast when error occurs", () => {
 		const mockClearError = vi.fn();
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: mocking context
 		(mockUseWebSocketContext as any).mockReturnValue({
 			isConnected: true,
 			isProcessing: false,
@@ -137,7 +138,7 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("disables input when processing", () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: mocking context
 		(mockUseWebSocketContext as any).mockReturnValue({
 			isConnected: true,
 			isProcessing: true,
@@ -161,7 +162,7 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("creates new session when button clicked", () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: mocking context
 		(mockUseWebSocketContext as any).mockReturnValue({
 			isConnected: true,
 			isProcessing: false,

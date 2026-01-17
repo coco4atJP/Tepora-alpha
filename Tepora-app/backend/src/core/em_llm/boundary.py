@@ -75,9 +75,9 @@ class EMBoundaryRefiner:
                 return 0.0
 
             # Calculate modularity (may raise exceptions if invalid partition)
-            return nx.algorithms.community.modularity(graph, communities, weight="weight")
+            return float(nx.algorithms.community.modularity(graph, communities, weight="weight"))
         except (nx.NetworkXError, ValueError) as e:
-            logger.warning(f"Modularity calculation failed: {e}", exc_info=True)
+            logger.warning("Modularity calculation failed: %s", e, exc_info=True)
             return 0.0
 
     def calculate_conductance(self, similarity_matrix: np.ndarray, boundaries: list[int]) -> float:
@@ -114,7 +114,7 @@ class EMBoundaryRefiner:
 
             return total_conductance / max(1, num_communities)
         except (IndexError, ValueError) as e:
-            logger.warning(f"Conductance calculation failed: {e}", exc_info=True)
+            logger.warning("Conductance calculation failed: %s", e, exc_info=True)
             return 1.0  # Bad score
 
     def refine_boundaries(
@@ -263,6 +263,8 @@ class EMBoundaryRefiner:
             refined_events.append(refined_event)
 
         logger.info(
-            f"Boundary refinement completed: {len(original_events)} -> {len(refined_events)} events"
+            "Boundary refinement completed: %d -> %d events",
+            len(original_events),
+            len(refined_events),
         )
         return refined_events

@@ -15,10 +15,11 @@ interface ChatInterfaceContext {
 	onFileSelect: () => void;
 	onRemoveAttachment: (index: number) => void;
 	clearAttachments: () => void;
+	skipWebSearch?: boolean;
 }
 
 const ChatInterface: React.FC = () => {
-	const { currentMode, attachments, onFileSelect, clearAttachments } =
+	const { currentMode, attachments, clearAttachments, skipWebSearch } =
 		useOutletContext<ChatInterfaceContext>();
 	const { t } = useTranslation();
 	const { createSession } = useSessions();
@@ -43,7 +44,6 @@ const ChatInterface: React.FC = () => {
 		message: string,
 		mode: ChatMode,
 		messageAttachments?: Attachment[],
-		skipWebSearch?: boolean,
 	) => {
 		sendMessage(message, mode, messageAttachments, skipWebSearch);
 		clearAttachments();
@@ -136,7 +136,6 @@ const ChatInterface: React.FC = () => {
 					isConnected={isConnected}
 					currentMode={currentMode}
 					onStop={stopGeneration}
-					onFileSelect={onFileSelect}
 					attachments={attachments}
 				/>
 			</div>

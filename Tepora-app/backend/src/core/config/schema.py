@@ -14,18 +14,31 @@ class AppConfig(BaseModel):
         "<\\|im_start\\|\\>",
     ]
     # Patterns for identifying sensitive keys in config (used by ConfigService)
+    # More specific patterns to avoid false positives like 'max_tokens'
     sensitive_key_patterns: list[str] = [
         "api_key",
         "secret",
         "password",
-        "token",
+        "_token",  # suffix pattern: auth_token, access_token, etc.
+        "token_",  # prefix pattern: token_id, token_secret, etc.
         "credential",
         "private_key",
-        "auth",
+        "auth_",  # prefix pattern: auth_key, but not 'author'
+        "_auth",  # suffix pattern: basic_auth, etc.
+        "oauth",  # OAuth specifically
         "jwt",
         "access_key",
         "client_id",
         "client_secret",
+    ]
+    # Whitelist for keys that match patterns but are NOT sensitive
+    sensitive_key_whitelist: list[str] = [
+        "max_tokens",
+        "total_tokens",
+        "input_tokens",
+        "output_tokens",
+        "token_count",
+        "tokenizer",
     ]
 
     # Timeouts and limits (centralized from hardcoded values)
@@ -286,7 +299,6 @@ class DefaultModelsConfig(BaseModel):
 
 
 # Default Personas (Migrated from prompts.py)
-# Default Personas (Migrated from prompts.py)
 DEFAULT_CHARACTERS = {
     "bunny_girl": CharacterConfig(
         name="マリナ",
@@ -449,7 +461,7 @@ class TeporaSettings(BaseSettings):
                 else:
                     result[key] = value
             return result
-        return v
+        return dict(v)
 
     @property
     def cors_origins(self) -> list[str]:

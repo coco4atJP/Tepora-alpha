@@ -176,7 +176,7 @@ class EMLLMIntegrator:
 
             return await self._finalize_and_store_events(events)
         except Exception as e:
-            logger.error(f"EM-LLM logprobs processing failed: {e}", exc_info=True)
+            logger.error("EM-LLM logprobs processing failed: %s", e, exc_info=True)
             return []
 
     async def process_conversation_turn_for_memory(
@@ -202,7 +202,7 @@ class EMLLMIntegrator:
                 return []
 
             # Semantic change-based memory formation pipeline
-            logger.info(f"Processing text of {len(ai_response)} chars for memory formation")
+            logger.info("Processing text of %d chars for memory formation", len(ai_response))
 
             # Step 1 & 2: Semantic change-based segmentation
             events, sentence_embeddings = self.segmenter.segment_text_into_events(
@@ -221,13 +221,13 @@ class EMLLMIntegrator:
             final_events = await self._finalize_and_store_events(events)
 
             logger.info(
-                f"Created {len(final_events)} episodic events from conversation turn "
-                f"via semantic segmentation."
+                "Created %d episodic events from conversation turn via semantic segmentation.",
+                len(final_events),
             )
             return final_events
 
         except Exception as e:
-            logger.error(f"EM-LLM memory formation failed: {e}", exc_info=True)
+            logger.error("EM-LLM memory formation failed: %s", e, exc_info=True)
             return []
 
     def _select_representative_tokens(self, event: EpisodicEvent) -> list[int]:
@@ -292,19 +292,19 @@ class EMLLMIntegrator:
                 }
                 memory_entries.append(memory_entry)
 
-            logger.info(f"Retrieved {len(memory_entries)} EM-LLM memories")
+            logger.info("Retrieved %d EM-LLM memories", len(memory_entries))
             return memory_entries
 
         except AttributeError as e:
             logger.error(
-                f"EM-LLM memory retrieval failed due to a missing component "
-                f"(e.g., embedding_provider): {e}",
+                "EM-LLM memory retrieval failed due to missing component (e.g., embedding_provider): %s",
+                e,
                 exc_info=True,
             )
             return []
         except Exception as e:
             logger.error(
-                f"An unexpected error occurred during EM-LLM memory retrieval: {e}", exc_info=True
+                "An unexpected error occurred during EM-LLM memory retrieval: %s", e, exc_info=True
             )
             return []
 
@@ -330,5 +330,5 @@ class EMLLMIntegrator:
             }
             return stats
         except Exception as e:
-            logger.error(f"Failed to get memory statistics: {e}", exc_info=True)
-            return {"status": f"Error retrieving statistics: {e}"}
+            logger.error("Failed to get memory statistics: %s", e, exc_info=True)
+            return {"status": "Error retrieving statistics", "error": str(e)}

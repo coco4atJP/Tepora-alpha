@@ -24,6 +24,15 @@ def _get_log_dir() -> Path:
     return LOG_DIR
 
 
+def _reload_config_manager() -> None:
+    try:
+        from src.core.config.loader import config_manager
+
+        config_manager.load_config(force_reload=True)
+    except Exception as e:
+        logger.debug("Failed to reload config manager: %s", e, exc_info=True)
+
+
 # --- Routes ---
 
 
@@ -53,6 +62,7 @@ async def get_status(state: AppState = Depends(get_app_state)):
         char_events = memory_stats.get("char_memory", {}).get("total_events", 0)
         prof_events = memory_stats.get("prof_memory", {}).get("total_events", 0)
         total_memory_events = char_events + prof_events
+        history_manager = state.core.history_manager
 
         return {
             "initialized": state.core.initialized,
@@ -65,11 +75,11 @@ async def get_status(state: AppState = Depends(get_app_state)):
                 and state.core.prof_em_llm_integrator is None
             ),
             # Count from DB using proper count method
-            "total_messages": state.core.history_manager.get_message_count(),
+            "total_messages": history_manager.get_message_count() if history_manager else 0,
             "memory_events": total_memory_events,
         }
     except Exception as e:
-        logger.error(f"Failed to get status: {e}", exc_info=True)
+        logger.error("Failed to get status: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": "Failed to retrieve system status"})
 
 
@@ -92,7 +102,7 @@ async def get_config():
         redacted_config = service.redact_sensitive_values(full_config)
         return redacted_config
     except Exception as e:
-        logger.error(f"Failed to read config: {e}", exc_info=True)
+        logger.error("Failed to read config: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -110,23 +120,18 @@ async def update_config(config_data: dict[str, Any]):
         success, errors = service.update_config(config_data, merge=False)
 
         if not success:
-            logger.warning(f"Config validation failed: {errors}")
+            logger.warning("Config validation failed: %s", errors)
             return JSONResponse(
                 status_code=400, content={"error": "Invalid configuration", "details": errors}
             )
 
         # Reload in-memory settings so changes take effect without restart where possible.
-        try:
-            from src.core.config.loader import config_manager
-
-            config_manager.load_config(force_reload=True)
-        except Exception:
-            pass
+        _reload_config_manager()
 
         logger.info("Configuration updated successfully")
         return {"status": "success"}
     except Exception as e:
-        logger.error(f"Failed to update config: {e}", exc_info=True)
+        logger.error("Failed to update config: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -141,23 +146,18 @@ async def patch_config(config_data: dict[str, Any]):
         success, errors = service.update_config(config_data, merge=True)
 
         if not success:
-            logger.warning(f"Config validation failed: {errors}")
+            logger.warning("Config validation failed: %s", errors)
             return JSONResponse(
                 status_code=400, content={"error": "Invalid configuration", "details": errors}
             )
 
         # Reload in-memory settings so changes take effect without restart where possible.
-        try:
-            from src.core.config.loader import config_manager
-
-            config_manager.load_config(force_reload=True)
-        except Exception:
-            pass
+        _reload_config_manager()
 
         logger.info("Configuration patched successfully")
         return {"status": "success"}
     except Exception as e:
-        logger.error(f"Failed to patch config: {e}", exc_info=True)
+        logger.error("Failed to patch config: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -172,7 +172,7 @@ async def get_logs():
         log_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
         return {"logs": [f.name for f in log_files]}
     except Exception as e:
-        logger.error(f"Failed to list logs: {e}", exc_info=True)
+        logger.error("Failed to list logs: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -186,10 +186,12 @@ async def get_log_content(filename: str):
         try:
             file_path = SecurityUtils.safe_path_join(log_dir, filename)
         except ValueError:
-            logger.warning(f"Attempted directory traversal: {filename}")
+            logger.warning("Attempted directory traversal: %s", filename)
             return JSONResponse(status_code=403, content={"error": "Invalid filename"})
 
         if not file_path.exists():
+            return JSONResponse(status_code=404, content={"error": "Log file not found"})
+        if not file_path.is_file():
             return JSONResponse(status_code=404, content={"error": "Log file not found"})
 
         # Limit to last 100KB to avoid huge payloads
@@ -202,5 +204,5 @@ async def get_log_content(filename: str):
 
         return {"content": content}
     except Exception as e:
-        logger.error(f"Failed to read log {filename}: {e}", exc_info=True)
+        logger.error("Failed to read log %s: %s", filename, e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})

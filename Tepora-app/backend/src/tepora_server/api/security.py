@@ -53,9 +53,9 @@ def initialize_session_token() -> str:
         # Set restrictive permissions (owner read/write only)
         if os.name != "nt":  # Unix-like systems
             token_path.chmod(0o600)
-        logger.info(f"Session token generated and saved to {token_path}")
+        logger.info("Session token generated and saved to %s", token_path)
     except OSError as e:
-        logger.warning(f"Could not save session token to file: {e}")
+        logger.warning("Could not save session token to file: %s", e)
 
     return _session_token
 

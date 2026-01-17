@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from src.core.config import STREAM_EVENT_CHAT_MODEL
+from src.core.config import STREAM_EVENT_CHAT_MODEL, settings
 from src.core.graph.constants import GraphNodes
 from src.tepora_server.state import AppState
 
@@ -79,7 +79,7 @@ class SessionHandler:
 
     async def on_disconnect(self) -> None:
         """Handle cleanup on WebSocket disconnection."""
-        logger.info(f"Session disconnected: {self.client_host}")
+        logger.info("Session disconnected: %s", self.client_host)
         await self.handle_stop()
 
         # Cleanup pending approvals
@@ -90,7 +90,7 @@ class SessionHandler:
                 count += 1
         self._pending_approvals.clear()
         if count > 0:
-            logger.info(f"Cancelled {count} pending tool approvals")
+            logger.info("Cancelled %d pending tool approvals", count)
 
     async def send_json(self, data: dict) -> bool:
         """
@@ -103,13 +103,13 @@ class SessionHandler:
             await self.websocket.send_json(data)
             return True
         except (RuntimeError, WebSocketDisconnect):
-            logger.debug(f"Failed to send to {self.client_host}: client disconnected")
+            logger.debug("Failed to send to %s: client disconnected", self.client_host)
             return False
 
     async def handle_stop(self) -> None:
         """Cancel the current processing task."""
         if self.current_task and not self.current_task.done():
-            logger.info(f"Stop command received from {self.client_host}, cancelling task.")
+            logger.info("Stop command received from %s, cancelling task.", self.client_host)
             self.current_task.cancel()
 
     async def handle_get_stats(self) -> None:
@@ -148,8 +148,8 @@ class SessionHandler:
         self._pending_approvals[request_id] = future
 
         # Send confirmation request to frontend
-        logger.info(f"Requesting approval for tool '{tool_name}' (request_id: {request_id})")
-        await self.send_json(
+        logger.info("Requesting approval for tool '%s' (request_id: %s)", tool_name, request_id)
+        sent = await self.send_json(
             {
                 "type": "tool_confirmation_request",
                 "data": {
@@ -162,17 +162,20 @@ class SessionHandler:
                 },
             }
         )
+        if not sent:
+            self._pending_approvals.pop(request_id, None)
+            return False
 
         try:
             # Wait for user response (with timeout from config)
-            timeout = self.app_state.core.settings.app.tool_approval_timeout
+            timeout = settings.app.tool_approval_timeout
             approved = await asyncio.wait_for(future, timeout=float(timeout))
             return approved
         except TimeoutError:
-            logger.warning(f"Tool approval request {request_id} timed out")
+            logger.warning("Tool approval request %s timed out", request_id)
             return False
         except asyncio.CancelledError:
-            logger.info(f"Tool approval request {request_id} cancelled")
+            logger.info("Tool approval request %s cancelled", request_id)
             return False
         finally:
             # Cleanup
@@ -188,10 +191,12 @@ class SessionHandler:
         """
         future = self._pending_approvals.get(request_id)
         if future and not future.done():
-            logger.info(f"Tool confirmation received: request_id={request_id}, approved={approved}")
+            logger.info(
+                "Tool confirmation received: request_id=%s, approved=%s", request_id, approved
+            )
             future.set_result(approved)
         else:
-            logger.warning(f"No pending approval found for request_id: {request_id}")
+            logger.warning("No pending approval found for request_id: %s", request_id)
 
     # --- Phase 5: MCP Tool Handling ---
 
@@ -221,7 +226,7 @@ class SessionHandler:
     def approve_mcp_tool_for_session(self, tool_name: str) -> None:
         """Mark an MCP tool as approved for this session."""
         self._approved_mcp_tools.add(tool_name)
-        logger.info(f"MCP tool '{tool_name}' approved for this session")
+        logger.info("MCP tool '%s' approved for this session", tool_name)
 
     async def request_mcp_tool_approval(self, tool_name: str, tool_args: dict[str, Any]) -> bool:
         """
@@ -279,9 +284,20 @@ class SessionHandler:
             if not user_input and not attachments:
                 return
 
+            if not self.app_state.core.initialized:
+                logger.warning("Core not initialized; rejecting message from %s", self.client_host)
+                await self.send_json(
+                    {"type": "error", "message": "Server not initialized. Please retry shortly."}
+                )
+                return
+
             await self.send_json({"type": "status", "message": "Processing..."})
             logger.info(
-                f"Processing input from {self.client_host} in mode '{mode}' session '{session_id}': {user_input[:50]}..."
+                "Processing input from %s in mode '%s' session '%s': %s...",
+                self.client_host,
+                mode,
+                session_id,
+                user_input[:50],
             )
 
             self._current_node_id = None
@@ -304,19 +320,27 @@ class SessionHandler:
             await self.send_json({"type": "done"})
 
         except asyncio.CancelledError:
-            logger.info(f"Message processing cancelled for {self.client_host}")
+            logger.info("Message processing cancelled for %s", self.client_host)
             await self.send_json({"type": "status", "message": "Cancelled"})
             raise
         except Exception as e:
-            logger.error(f"Error processing message: {e}", exc_info=True)
+            logger.error("Error processing message: %s", e, exc_info=True)
             await self.send_json({"type": "error", "message": "Processing error occurred"})
 
     async def send_history(self, session_id: str) -> None:
         """Send chat history for the given session to the client."""
         try:
-            messages = self.app_state.core.history_manager.get_history(
-                session_id=session_id, limit=100
-            )
+            history_manager = self.app_state.core.history_manager
+            if history_manager is None:
+                logger.warning(
+                    "History manager not initialized; cannot load history for %s", session_id
+                )
+                await self.send_json(
+                    {"type": "error", "message": "History manager not initialized"}
+                )
+                return
+
+            messages = history_manager.get_history(session_id=session_id, limit=100)
 
             # Format messages for frontend
             formatted_messages = []
@@ -343,11 +367,14 @@ class SessionHandler:
             # Send history message
             await self.send_json({"type": "history", "messages": formatted_messages})
             logger.info(
-                f"Sent {len(formatted_messages)} history messages for session {session_id} to {self.client_host}"
+                "Sent %d history messages for session %s to %s",
+                len(formatted_messages),
+                session_id,
+                self.client_host,
             )
 
         except Exception as e:
-            logger.error(f"Failed to send history: {e}", exc_info=True)
+            logger.error("Failed to send history: %s", e, exc_info=True)
             await self.send_json({"type": "error", "message": "Failed to load history"})
 
     async def _handle_stream_event(self, event: dict[str, Any], mode: str) -> None:
@@ -400,5 +427,5 @@ class SessionHandler:
                 flattened_results.extend(group["results"])
 
         if flattened_results:
-            logger.info(f"Sending {len(flattened_results)} search results to frontend")
+            logger.info("Sending %d search results to frontend", len(flattened_results))
             await self.send_json({"type": "search_results", "data": flattened_results})

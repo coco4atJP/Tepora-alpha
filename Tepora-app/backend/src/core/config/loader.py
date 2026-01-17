@@ -90,7 +90,7 @@ try:
     CHROMA_DB_PATH.mkdir(parents=True, exist_ok=True)
 except Exception as e:
     # If we can't create them (e.g. permissions), we log to stdout but continue
-    logger.warning(f"Failed to create user directories: {e}")
+    logger.warning("Failed to create user directories: %s", e, exc_info=True)
 
 
 class YamlConfigSettingsSource(PydanticBaseSettingsSource):
@@ -111,10 +111,25 @@ class YamlConfigSettingsSource(PydanticBaseSettingsSource):
             return {}
         try:
             with open(self.yaml_path, encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
+                data = yaml.safe_load(f) or {}
         except Exception as e:
-            logger.error(f"Failed to load YAML config from {self.yaml_path}: {e}")
+            logger.error(
+                "Failed to load YAML config from %s: %s",
+                self.yaml_path,
+                e,
+                exc_info=True,
+            )
             return {}
+
+        if not isinstance(data, dict):
+            logger.warning(
+                "Ignoring YAML config at %s: expected mapping, got %s",
+                self.yaml_path,
+                type(data).__name__,
+            )
+            return {}
+
+        return data
 
 
 class ConfigManager:
@@ -173,10 +188,12 @@ class ConfigManager:
         try:
             self._settings = LoadedTeporaSettings()
             logger.info(
-                f"Settings initialized. Priority: Env > .env > Secrets ({SECRETS_PATH}) > YAML ({config_path}) > Defaults"
+                "Settings initialized. Priority: Env > .env > Secrets (%s) > YAML (%s) > Defaults",
+                SECRETS_PATH,
+                config_path,
             )
         except Exception as e:
-            logger.error(f"Failed to validate settings: {e}", exc_info=True)
+            logger.error("Failed to validate settings: %s", e, exc_info=True)
             self._settings = TeporaSettings()
 
         self._initialized = True
@@ -185,6 +202,8 @@ class ConfigManager:
     def settings(self) -> TeporaSettings:
         if not self._initialized or self._settings is None:
             self.load_config()
+        if self._settings is None:
+            raise RuntimeError("Settings not loaded")
         return self._settings
 
 
@@ -209,8 +228,9 @@ def get_session_token() -> str | None:
     """
     Get the session token for WebSocket authentication.
 
-    DEPRECATED: Use src.tepora_server.api.security.get_session_token instead.
-    This function now delegates to the security module.
+    .. deprecated::
+        Use ``src.tepora_server.api.security.get_session_token`` instead.
+        This function is maintained for backwards compatibility only.
     """
     try:
         from src.tepora_server.api.security import get_session_token as _get_token

@@ -15,7 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class McpServerPermission(BaseModel):
 
     server_name: str
     allowed: bool = False
-    transport_types: list[str] = []  # Allowed transport types
+    transport_types: list[str] = Field(default_factory=list)  # Allowed transport types
     approved_at: str | None = None
     approved_by: str = "user"  # "user", "system", "default"
 
@@ -43,8 +43,10 @@ class McpPolicyConfig(BaseModel):
     """Policy configuration for MCP connections."""
 
     policy: McpConnectionPolicy = McpConnectionPolicy.LOCAL_ONLY
-    server_permissions: dict[str, McpServerPermission] = {}
-    blocked_commands: list[str] = ["sudo", "rm -rf", "format", "del /f", "shutdown"]
+    server_permissions: dict[str, McpServerPermission] = Field(default_factory=dict)
+    blocked_commands: list[str] = Field(
+        default_factory=lambda: ["sudo", "rm -rf", "format", "del /f", "shutdown"]
+    )
     require_tool_confirmation: bool = True
     first_use_confirmation: bool = True
 
@@ -80,7 +82,7 @@ class McpPolicyManager:
                 self._save_policy()
                 logger.info("Created default MCP policy: %s", self._config.policy.value)
         except Exception as e:
-            logger.warning("Failed to load policy, using defaults: %s", e)
+            logger.warning("Failed to load policy, using defaults: %s", e, exc_info=True)
             self._config = McpPolicyConfig()
 
     def _save_policy(self) -> None:
@@ -92,7 +94,7 @@ class McpPolicyManager:
                 encoding="utf-8",
             )
         except Exception as e:
-            logger.error("Failed to save policy: %s", e)
+            logger.error("Failed to save policy: %s", e, exc_info=True)
 
     def get_policy(self) -> McpPolicyConfig:
         """Get current policy configuration."""

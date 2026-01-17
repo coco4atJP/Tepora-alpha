@@ -20,6 +20,16 @@ from ..config.loader import settings
 logger = logging.getLogger(__name__)
 
 
+def _build_error_response(error_code: str, message: str, **kwargs: Any) -> str:
+    response = {
+        "error": True,
+        "error_code": error_code,
+        "message": message,
+        **kwargs,
+    }
+    return json.dumps(response, ensure_ascii=False)
+
+
 class GoogleCustomSearchInput(BaseModel):
     query: str = Field(description="検索クエリ")
 
@@ -44,18 +54,11 @@ class GoogleCustomSearchTool(BaseTool):
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
-        session.timeout = (10, 30)
         return session
 
     def _make_error_response(self, error_code: str, message: str, **kwargs: Any) -> str:
         """Create a structured error response for frontend translation."""
-        response = {
-            "error": True,
-            "error_code": error_code,
-            "message": message,
-            **kwargs,
-        }
-        return json.dumps(response, ensure_ascii=False)
+        return _build_error_response(error_code, message, **kwargs)
 
     def _perform_search(self, query: str) -> str:
         if not settings.privacy.allow_web_search:
@@ -71,7 +74,8 @@ class GoogleCustomSearchTool(BaseTool):
             if redaction_count > 0:
                 logger.info("Redacted %d PII items from search query", redaction_count)
 
-        api_key = settings.tools.google_search_api_key
+        api_key_secret = settings.tools.google_search_api_key
+        api_key = api_key_secret.get_secret_value() if api_key_secret else None
         engine_id = settings.tools.google_search_engine_id
 
         if not api_key or not engine_id:
@@ -103,19 +107,21 @@ class GoogleCustomSearchTool(BaseTool):
             response.raise_for_status()
             data = response.json()
         except requests.exceptions.Timeout as exc:  # noqa: PERF203
-            logger.error("Google Custom Search API timeout: %s", exc)
+            logger.error("Google Custom Search API timeout: %s", exc, exc_info=True)
             return self._make_error_response(
                 "search_timeout", "Search request timed out. Please try again later."
             )
         except requests.exceptions.ConnectionError as exc:
-            logger.error("Google Custom Search API connection error: %s", exc)
+            logger.error("Google Custom Search API connection error: %s", exc, exc_info=True)
             return self._make_error_response(
                 "search_connection_error",
                 "Connection failed. Please check your internet connection and try again.",
             )
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response else "N/A"
-            logger.error("Google Custom Search API HTTP error: Status %s", status_code)
+            logger.error(
+                "Google Custom Search API HTTP error: Status %s", status_code, exc_info=True
+            )
             if status_code == 429:
                 return self._make_error_response(
                     "search_rate_limit", "Rate limit exceeded. Please wait a moment and try again."
@@ -131,12 +137,12 @@ class GoogleCustomSearchTool(BaseTool):
                 status_code=str(status_code),
             )
         except requests.exceptions.RequestException as exc:
-            logger.error("Google Custom Search API request failed: %s", exc)
+            logger.error("Google Custom Search API request failed: %s", exc, exc_info=True)
             return self._make_error_response(
                 "search_failed", f"Failed to perform search: {exc}", details=str(exc)
             )
         except json.JSONDecodeError as exc:
-            logger.error("Failed to parse Google API response: %s", exc)
+            logger.error("Failed to parse Google API response: %s", exc, exc_info=True)
             return self._make_error_response(
                 "search_invalid_response", "Invalid response from Google API. Please try again."
             )
@@ -198,13 +204,7 @@ class WebFetchTool(BaseTool):
 
     def _make_error_response(self, error_code: str, message: str, **kwargs: Any) -> str:
         """Create a structured error response for frontend translation."""
-        response = {
-            "error": True,
-            "error_code": error_code,
-            "message": message,
-            **kwargs,
-        }
-        return json.dumps(response, ensure_ascii=False)
+        return _build_error_response(error_code, message, **kwargs)
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -326,7 +326,8 @@ class NativeToolProvider(ToolProvider):
         tools: list[BaseTool] = []
 
         # Check if Google Search is enabled
-        api_key = settings.tools.google_search_api_key
+        api_key_secret = settings.tools.google_search_api_key
+        api_key = api_key_secret.get_secret_value() if api_key_secret else None
         engine_id = settings.tools.google_search_engine_id
 
         if settings.privacy.allow_web_search and api_key and engine_id:

@@ -49,7 +49,6 @@ describe("InputArea", () => {
 			"Hello",
 			"direct",
 			[],
-			false,
 		);
 		expect(input).toHaveValue("");
 	});
@@ -105,7 +104,6 @@ describe("InputArea", () => {
 			"Search query",
 			"search",
 			[],
-			false,
 		);
 	});
 });

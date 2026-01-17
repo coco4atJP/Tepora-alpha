@@ -1,12 +1,12 @@
 """
-Sessions API Routes - セッション履歴管理用APIエンドポイント
+Sessions API Routes - Session History Management Endpoints
 
-チャットセッションの一覧取得、作成、削除、名前変更を提供
+Provides chat session listing, creation, deletion, and title updates.
 """
 
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -26,83 +26,87 @@ class UpdateSessionRequest(BaseModel):
 
 
 @router.get("")
-async def list_sessions(request: Request):
-    """
-    全セッション一覧を取得
-    """
+async def list_sessions(app_state: AppState = Depends(get_app_state)):
+    """List all sessions."""
+    history_manager = app_state.core.history_manager
+    if history_manager is None:
+        return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
-        app_state: AppState = get_app_state(request)
-        sessions = app_state.core.history_manager.list_sessions()
+        sessions = history_manager.list_sessions()
         return {"sessions": sessions}
     except Exception as e:
-        logger.error(f"Failed to list sessions: {e}", exc_info=True)
+        logger.error("Failed to list sessions: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.post("")
-async def create_session(request: Request, body: CreateSessionRequest):
-    """
-    新しいセッションを作成
-    """
+async def create_session(body: CreateSessionRequest, app_state: AppState = Depends(get_app_state)):
+    """Create a new session."""
+    history_manager = app_state.core.history_manager
+    if history_manager is None:
+        return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
-        app_state: AppState = get_app_state(request)
-        session_id = app_state.core.history_manager.create_session(title=body.title)
-        session = app_state.core.history_manager.get_session(session_id)
+        session_id = history_manager.create_session(title=body.title)
+        session = history_manager.get_session(session_id)
         return {"session": session}
     except Exception as e:
-        logger.error(f"Failed to create session: {e}", exc_info=True)
+        logger.error("Failed to create session: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.get("/{session_id}")
-async def get_session(request: Request, session_id: str):
-    """
-    特定のセッション情報を取得
-    """
+async def get_session(session_id: str, app_state: AppState = Depends(get_app_state)):
+    """Get a specific session's information."""
+    history_manager = app_state.core.history_manager
+    if history_manager is None:
+        return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
-        app_state: AppState = get_app_state(request)
-        session = app_state.core.history_manager.get_session(session_id)
+        session = history_manager.get_session(session_id)
         if session is None:
             return JSONResponse(status_code=404, content={"error": "Session not found"})
 
         # Get message history for the session
-        messages = app_state.core.history_manager.get_history(session_id=session_id, limit=100)
+        messages = history_manager.get_history(session_id=session_id, limit=100)
         return {
             "session": session,
             "messages": [{"type": msg.type, "content": msg.content} for msg in messages],
         }
     except Exception as e:
-        logger.error(f"Failed to get session: {e}", exc_info=True)
+        logger.error("Failed to get session: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.patch("/{session_id}")
-async def update_session(request: Request, session_id: str, body: UpdateSessionRequest):
-    """
-    セッションの名前を更新
-    """
+async def update_session(
+    session_id: str,
+    body: UpdateSessionRequest,
+    app_state: AppState = Depends(get_app_state),
+):
+    """Update a session's title."""
+    history_manager = app_state.core.history_manager
+    if history_manager is None:
+        return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
-        app_state: AppState = get_app_state(request)
-        success = app_state.core.history_manager.update_session_title(session_id, body.title)
+        success = history_manager.update_session_title(session_id, body.title)
         if not success:
             return JSONResponse(status_code=404, content={"error": "Session not found"})
         return {"success": True}
     except Exception as e:
-        logger.error(f"Failed to update session: {e}", exc_info=True)
+        logger.error("Failed to update session: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.delete("/{session_id}")
-async def delete_session(request: Request, session_id: str):
-    """
-    セッションを削除
-    """
+async def delete_session(session_id: str, app_state: AppState = Depends(get_app_state)):
+    """Delete a session."""
+    history_manager = app_state.core.history_manager
+    if history_manager is None:
+        return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
-        app_state: AppState = get_app_state(request)
-        success = app_state.core.history_manager.delete_session(session_id)
+        success = history_manager.delete_session(session_id)
         if not success:
             return JSONResponse(status_code=404, content={"error": "Session not found"})
         return {"success": True}
     except Exception as e:
-        logger.error(f"Failed to delete session: {e}", exc_info=True)
+        logger.error("Failed to delete session: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})

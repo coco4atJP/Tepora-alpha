@@ -51,7 +51,7 @@ class AgentState(TypedDict):
     synthesized_memory: str | None
 
     # ストリーミング生成時に収集されたlogprobs
-    generation_logprobs: list[dict] | None
+    generation_logprobs: dict | list[dict] | None
 
     # 検索用
     search_queries: list[str] | None

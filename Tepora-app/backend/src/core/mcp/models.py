@@ -80,15 +80,27 @@ class PackageInfo(BaseModel):
     """Package information from registry."""
 
     # NOTE: The official registry schema uses `identifier` and `registryType`.
-    # We keep legacy field names (`name`, `registry`) and map them via aliases
-    # to remain compatible with earlier seed/API formats.
-    name: str = Field(..., alias="identifier")
+    # We support both legacy field names (`name`, `registry`) and new v0.1 names
+    # (`identifier`, `registryType`) to remain compatible with all formats.
+    name: str | None = None  # Legacy field
+    identifier: str | None = None  # v0.1 field
     version: str | None = None
-    registry: str | None = Field(default=None, alias="registryType")  # e.g., "npm", "pypi"
+    registry: str | None = None  # Legacy field (e.g., "npm", "pypi")
+    registryType: str | None = None  # noqa: N815 - v0.1 field
     runtimeHint: str | None = None  # noqa: N815 - e.g., "npx", "uvx", "docker"
     environmentVariables: list[EnvVarSchema] = Field(default_factory=list)  # noqa: N815
 
     model_config = {"populate_by_name": True}
+
+    @property
+    def package_name(self) -> str:
+        """Get the package name from either field."""
+        return self.name or self.identifier or ""
+
+    @property
+    def package_registry(self) -> str | None:
+        """Get the registry type from either field."""
+        return self.registry or self.registryType
 
 
 class McpRegistryServer(BaseModel):

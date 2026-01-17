@@ -98,7 +98,7 @@ class EMEventSegmenter:
             return []
         # Replace newlines with spaces for better NLTK processing
         text = re.sub(r"\n+", " ", text).strip()
-        return self.sent_tokenizer.tokenize(text)
+        return list(self.sent_tokenizer.tokenize(text))
 
     def calculate_surprise_from_logprobs(self, logprobs: list[dict[str, Any]]) -> list[float]:
         """
@@ -149,7 +149,24 @@ class EMEventSegmenter:
             return [event], None
 
         # 2. Convert each sentence to embeddings
-        sentence_embeddings = np.array(embedding_provider.encode(sentences))
+        try:
+            sentence_embeddings = np.array(embedding_provider.encode(sentences))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Embedding provider failed during segmentation: %s", exc, exc_info=True)
+            return [], None
+        if sentence_embeddings.ndim == 1:
+            logger.warning(
+                "Embedding provider returned 1D embeddings for %d sentences.",
+                len(sentences),
+            )
+            return [], None
+        if sentence_embeddings.shape[0] != len(sentences):
+            logger.warning(
+                "Embedding count mismatch: got %d embeddings for %d sentences.",
+                sentence_embeddings.shape[0],
+                len(sentences),
+            )
+            return [], None
 
         # 3. Calculate cosine distance between adjacent sentences
         distances = [
@@ -188,7 +205,7 @@ class EMEventSegmenter:
             events.append(event)
             total_token_offset += len(event_tokens)
 
-        logger.info(f"Created {len(events)} episodic events based on semantic change.")
+        logger.info("Created %d episodic events based on semantic change.", len(events))
         return events, sentence_embeddings
 
     def _identify_event_boundaries(
@@ -232,15 +249,17 @@ class EMEventSegmenter:
                 if scores[i] > threshold:
                     boundaries.append(i)
                     logger.debug(
-                        f"Boundary detected at item index {i}, "
-                        f"score: {scores[i]:.3f}, threshold: {threshold:.3f}"
+                        "Boundary detected at item index %d, score: %.3f, threshold: %.3f",
+                        i,
+                        scores[i],
+                        threshold,
                     )
 
         boundaries.append(len(scores))  # Last position is also a boundary
 
         # Remove duplicates and sort
         boundaries = sorted(list(set(boundaries)))
-        logger.info(f"Identified {len(boundaries) - 1} initial events from surprise")
+        logger.info("Identified %d initial events from surprise", len(boundaries) - 1)
 
         return boundaries
 

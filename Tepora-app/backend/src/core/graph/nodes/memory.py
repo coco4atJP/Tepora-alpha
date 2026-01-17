@@ -56,7 +56,7 @@ class MemoryNodes:
             recalled_episodes = self.memory_system.retrieve_similar_episodes(state["input"])
 
             if recalled_episodes:
-                logger.info(f"Retrieved {len(recalled_episodes)} relevant episodes.")
+                logger.info("Retrieved %d relevant episodes.", len(recalled_episodes))
                 formatted_memory = format_episode_list(recalled_episodes)
                 return {
                     "recalled_episodes": recalled_episodes,
@@ -70,7 +70,7 @@ class MemoryNodes:
                 }
 
         except Exception as e:
-            logger.warning(f"Failed to retrieve memories: {e}", exc_info=True)
+            logger.warning("Failed to retrieve memories: %s", e, exc_info=True)
             return {
                 "recalled_episodes": [],
                 "synthesized_memory": "An error occurred during memory retrieval.",
@@ -125,6 +125,6 @@ class MemoryNodes:
             logger.info("Memory saved successfully.")
 
         except Exception as e:
-            logger.warning(f"Failed to save memory: {e}", exc_info=True)
+            logger.warning("Failed to save memory: %s", e, exc_info=True)
 
         return {}

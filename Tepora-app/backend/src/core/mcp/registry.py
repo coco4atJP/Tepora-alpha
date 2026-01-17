@@ -86,18 +86,14 @@ class McpRegistry:
         try:
             # Fetch a full list for a stable local cache, then apply search locally.
             servers = await self._fetch_from_api(search=None, version=version)
-            if version == DEFAULT_VERSION_FILTER:
-                self._cache = servers
-                self._cache_time = datetime.now()
+            self._update_cache(servers, version=version)
             logger.info("Fetched %d servers from registry API", len(servers))
             return self.search_servers_local(servers, search) if search else servers
 
         except Exception as e:
-            logger.warning("Failed to fetch from registry API: %s", e)
+            logger.warning("Failed to fetch from registry API: %s", e, exc_info=True)
             seed_servers = await self._load_from_seed()
-            if version == DEFAULT_VERSION_FILTER:
-                self._cache = seed_servers
-                self._cache_time = datetime.now()
+            self._update_cache(seed_servers, version=version)
             return self.search_servers_local(seed_servers, search) if search else seed_servers
 
     async def get_server_by_id(self, server_id: str) -> McpRegistryServer | None:
@@ -157,6 +153,12 @@ class McpRegistry:
             return False
         return datetime.now() - self._cache_time < CACHE_DURATION
 
+    def _update_cache(self, servers: list[McpRegistryServer], *, version: str) -> None:
+        if version != DEFAULT_VERSION_FILTER:
+            return
+        self._cache = servers
+        self._cache_time = datetime.now()
+
     async def _fetch_from_api(
         self,
         *,
@@ -194,7 +196,7 @@ class McpRegistry:
                     server = self._parse_server(server_data)
                     servers.append(server)
                 except Exception as e:
-                    logger.warning("Failed to parse server: %s", e)
+                    logger.warning("Failed to parse server: %s", e, exc_info=True)
 
             # Check for pagination
             metadata = data.get("metadata") or {}
@@ -226,7 +228,7 @@ class McpRegistry:
                         server = self._parse_server(server_data)
                         servers.append(server)
                     except Exception as e:
-                        logger.warning("Failed to parse seed server: %s", e)
+                        logger.warning("Failed to parse seed server: %s", e, exc_info=True)
             elif isinstance(data, list):
                 for item in data:
                     try:
@@ -235,7 +237,7 @@ class McpRegistry:
                         server = self._parse_server(item)
                         servers.append(server)
                     except Exception as e:
-                        logger.warning("Failed to parse seed server: %s", e)
+                        logger.warning("Failed to parse seed server: %s", e, exc_info=True)
             else:
                 logger.warning("Unsupported seed.json format: %s", type(data))
                 return []
@@ -245,7 +247,7 @@ class McpRegistry:
             return servers
 
         except Exception as e:
-            logger.error("Failed to load seed file: %s", e)
+            logger.error("Failed to load seed file: %s", e, exc_info=True)
             return []
 
     def _parse_server(self, data: dict) -> McpRegistryServer:
@@ -306,7 +308,8 @@ class McpRegistry:
                 continue
             try:
                 _merge_env(EnvVarSchema.model_validate(env))
-            except Exception:
+            except Exception as exc:
+                logger.debug("Failed to parse env var schema: %s", exc, exc_info=True)
                 continue
 
         for pkg in packages:

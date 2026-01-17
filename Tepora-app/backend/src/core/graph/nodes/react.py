@@ -46,6 +46,51 @@ class ReActNodes:
         self.llm_manager = llm_manager
         self.tool_manager = tool_manager
 
+    @staticmethod
+    def _build_task_message(payload: dict, *, sender: str, receiver: str) -> A2AMessage:
+        return A2AMessage(
+            type=MessageType.TASK,
+            sender=sender,
+            receiver=receiver,
+            content=payload,
+        )
+
+    @staticmethod
+    def _parse_react_response(content: str) -> tuple[str, dict]:
+        json_match = re.search(r"```json\s*(.*?)\s*```", content, re.DOTALL)
+        if not json_match:
+            raise ValueError("Invalid format: JSON block not found in the output.")
+
+        thought_text = content[: json_match.start()].strip()
+        json_str = json_match.group(1).strip()
+        parsed_json = json.loads(json_str)
+        return thought_text, parsed_json
+
+    @staticmethod
+    def _build_tool_call_message(thought_text: str, action: dict, *, call_index: int) -> AIMessage:
+        if "tool_name" not in action:
+            raise ValueError("Invalid JSON: 'action' object must contain 'tool_name' key.")
+
+        return AIMessage(
+            content=thought_text,
+            tool_calls=[
+                {
+                    "name": action["tool_name"],
+                    "args": action.get("args", {}),
+                    "id": f"tool_call_{call_index}",
+                }
+            ],
+        )
+
+    def _build_order_plan(self, state: AgentState) -> str:
+        task_input = state.get("task_input")
+        if task_input:
+            task_msg = A2AMessage.from_dict(task_input)
+            logger.info("Received A2A Task from %s (ID: %s)", task_msg.sender, task_msg.id)
+            return json.dumps(task_msg.content, indent=2, ensure_ascii=False)
+
+        return json.dumps(state.get("order", {}), indent=2, ensure_ascii=False)
+
     async def generate_order_node(self, state: AgentState) -> dict:
         """
         Character Agent (Gemma) converts user request into a professional "Order".
@@ -86,17 +131,13 @@ class ReActNodes:
             }
         )
 
-        # Parse LLM-generated JSON string and save to state
-        # Parse LLM-generated JSON string and save to state
         try:
             order_json = json.loads(response_message.content)
 
-            # Create A2A Task Message
-            task_msg = A2AMessage(
-                type=MessageType.TASK,
+            task_msg = self._build_task_message(
+                order_json,
                 sender="character_agent",
                 receiver="professional_agent",
-                content=order_json,
             )
 
             return {"order": order_json, "task_input": task_msg.to_dict()}
@@ -110,11 +151,10 @@ class ReActNodes:
                 ],
             }
 
-            task_msg = A2AMessage(
-                type=MessageType.TASK,
+            task_msg = self._build_task_message(
+                fallback_order,
                 sender="character_agent",
                 receiver="professional_agent",
-                content=fallback_order,
             )
 
             return {"order": fallback_order, "task_input": task_msg.to_dict()}
@@ -151,18 +191,13 @@ class ReActNodes:
         attention_sink_prefix = PROFESSIONAL_ATTENTION_SINK
 
         # 2. System prompt
-        system_prompt = config.BASE_SYSTEM_PROMPTS["react_professional"]
         tools_str = config.format_tools_for_react_prompt(self.tool_manager.tools)
+        system_prompt = config.BASE_SYSTEM_PROMPTS["react_professional"].replace(
+            "{tools}", tools_str
+        )
 
         # 3. Order
-        if state.get("task_input"):
-            # Use A2A message content if available
-            task_msg = A2AMessage.from_dict(state["task_input"])
-            order_plan_str = json.dumps(task_msg.content, indent=2, ensure_ascii=False)
-            logger.info(f"Received A2A Task from {task_msg.sender} (ID: {task_msg.id})")
-        else:
-            # Fallback to legacy order dict
-            order_plan_str = json.dumps(state.get("order", {}), indent=2, ensure_ascii=False)
+        order_plan_str = self._build_order_plan(state)
 
         # 4. Long-term memory (retrieved from EM-LLM)
         long_term_memory_str = state.get(
@@ -195,57 +230,33 @@ class ReActNodes:
                 "order_plan": order_plan_str,
                 "long_term_memory": long_term_memory_str,
                 "short_term_memory": short_term_memory_str,
-                "tools": tools_str,
             }
         )
 
         logger.debug("LLM Raw Output:")
-        logger.debug(f"Response content: {response_message.content}")
+        logger.debug("Response content: %s", response_message.content)
 
         try:
             # Parse CoT + JSON format output
-            content_str = response_message.content
-
-            # Search for JSON block with regex
-            json_match = re.search(r"```json\n(.*?)\n```", content_str, re.DOTALL)
-
-            if not json_match:
-                raise ValueError("Invalid format: JSON block not found in the output.")
-
-            # Separate thought text and JSON string
-            thought_text = content_str[: json_match.start()].strip()
-            json_str = json_match.group(1).strip()
-
+            thought_text, parsed_json = self._parse_react_response(response_message.content)
             logger.debug("Parsed CoT Output:")
-            logger.debug(f"Thought: {thought_text}")
-            logger.debug(f"JSON String: {json_str}")
-
-            parsed_json = json.loads(json_str)
+            logger.debug("Thought: %s", thought_text)
             logger.debug("Parsed JSON successfully:")
-            logger.debug(f"{json.dumps(parsed_json, indent=2, ensure_ascii=False)}")
+            logger.debug("%s", json.dumps(parsed_json, indent=2, ensure_ascii=False))
 
             # If "action": create tool call message
             if "action" in parsed_json:
                 action = parsed_json["action"]
 
-                if "tool_name" not in action:
-                    raise ValueError("Invalid JSON: 'action' object must contain 'tool_name' key.")
-
-                # Put thought text in AIMessage content
-                tool_call_message = AIMessage(
-                    content=thought_text,
-                    tool_calls=[
-                        {
-                            "name": action["tool_name"],
-                            "args": action.get("args", {}),
-                            "id": f"tool_call_{len(state['agent_scratchpad'])}",
-                        }
-                    ],
+                tool_call_message = self._build_tool_call_message(
+                    thought_text,
+                    action,
+                    call_index=len(state["agent_scratchpad"]),
                 )
 
                 logger.debug("Tool Call Message Created:")
-                logger.debug(f"Content (Thought): {tool_call_message.content}")
-                logger.debug(f"Tool calls: {tool_call_message.tool_calls}")
+                logger.debug("Content (Thought): %s", tool_call_message.content)
+                logger.debug("Tool calls: %s", tool_call_message.tool_calls)
 
                 return {
                     "agent_scratchpad": state["agent_scratchpad"] + [tool_call_message],
@@ -256,8 +267,8 @@ class ReActNodes:
             elif "finish" in parsed_json:
                 answer = parsed_json["finish"]["answer"]
                 logger.info("Finish Action Detected")
-                logger.debug(f"Thought: {thought_text}")
-                logger.debug(f"Final answer: {answer}")
+                logger.debug("Thought: %s", thought_text)
+                logger.debug("Final answer: %s", answer)
 
                 # Include thought in final report for better context in summary node
                 final_report = f"Thought Process:\n{thought_text}\n\nTechnical Report:\n{answer}"
@@ -268,7 +279,7 @@ class ReActNodes:
                     sender="professional_agent",
                     receiver="character_agent",
                     content={"report": final_report, "answer": answer},
-                    reply_to=state.get("task_input", {}).get("id"),
+                    reply_to=(state.get("task_input") or {}).get("id"),
                 )
 
                 return {
@@ -282,8 +293,8 @@ class ReActNodes:
 
         except (json.JSONDecodeError, ValueError) as e:
             # On error: add self-correction message to scratchpad
-            logger.error(f"Error Parsing LLM Output: {e}")
-            logger.debug(f"Raw content that failed to parse: {response_message.content}")
+            logger.error("Error Parsing LLM Output: %s", e, exc_info=True)
+            logger.debug("Raw content that failed to parse: %s", response_message.content)
             error_ai_message = AIMessage(
                 content=(
                     f"My last attempt failed. The response was not in the correct 'Thought then JSON' format. "
@@ -306,7 +317,7 @@ class ReActNodes:
         logger.info("--- Node: Update Scratchpad ---")
 
         # Collect consecutive ToolMessages from end of messages
-        tool_messages = []
+        tool_messages: list[ToolMessage] = []
         for msg in reversed(state.get("messages", [])):
             if isinstance(msg, ToolMessage):
                 tool_messages.insert(0, msg)
@@ -317,19 +328,21 @@ class ReActNodes:
             logger.warning("No ToolMessage found to update scratchpad.")
             return {}
 
-        logger.info(f"Found {len(tool_messages)} tool result(s) to add to scratchpad.")
-        logger.debug(f"Current scratchpad length: {len(state['agent_scratchpad'])}")
+        logger.info("Found %d tool result(s) to add to scratchpad.", len(tool_messages))
+        logger.debug("Current scratchpad length: %d", len(state["agent_scratchpad"]))
 
         for i, msg in enumerate(tool_messages):
-            logger.debug(f"  - Tool Result {i + 1}: {msg.content[:100]}...")
-            logger.debug(f"    Tool Call ID: {msg.tool_call_id}")
+            logger.debug("  - Tool Result %d: %s...", i + 1, msg.content[:100])
+            logger.debug("    Tool Call ID: %s", msg.tool_call_id)
 
         new_scratchpad = state["agent_scratchpad"] + tool_messages
-        logger.debug(f"New scratchpad length: {len(new_scratchpad)}")
+        logger.debug("New scratchpad length: %d", len(new_scratchpad))
 
         return {"agent_scratchpad": new_scratchpad}
 
-    async def unified_tool_executor_node(self, state: AgentState, config: dict = None) -> dict:
+    async def unified_tool_executor_node(
+        self, state: AgentState, config: dict | None = None
+    ) -> dict:
         """
         Async node that delegates tool execution to ToolManager.
         Supports blocking approval for dangerous tools via callback injection.
@@ -342,14 +355,19 @@ class ReActNodes:
             Dictionary with tool result messages
         """
         logger.info("--- Node: Unified Tool Executor ---")
-        last_message = state.get("messages", [])[-1]
+        messages = state.get("messages") or []
+        if not messages:
+            logger.debug("No messages found for tool execution.")
+            return {}
+
+        last_message = messages[-1]
 
         if not isinstance(last_message, AIMessage) or not last_message.tool_calls:
             logger.debug("No tool calls found in last message")
             return {}
 
         tool_calls = last_message.tool_calls
-        logger.info(f"Executing {len(tool_calls)} tool call(s)")
+        logger.info("Executing %d tool call(s)", len(tool_calls))
         tool_messages = []
 
         # Extract approval callback from config if available
@@ -365,16 +383,16 @@ class ReActNodes:
             tool_args = tool_call["args"]
             tool_call_id = tool_call["id"]
 
-            logger.info(f"Tool Execution {i + 1}/{len(tool_calls)}: {tool_name}")
-            logger.debug(f"Arguments: {json.dumps(tool_args, indent=2, ensure_ascii=False)}")
-            logger.debug(f"Call ID: {tool_call_id}")
+            logger.info("Tool Execution %d/%d: %s", i + 1, len(tool_calls), tool_name)
+            logger.debug("Arguments: %s", json.dumps(tool_args, indent=2, ensure_ascii=False))
+            logger.debug("Call ID: %s", tool_call_id)
 
             # Request approval for dangerous tools
             if tool_name in dangerous_tools and approval_callback:
-                logger.info(f"Requesting user approval for dangerous tool: {tool_name}")
+                logger.info("Requesting user approval for dangerous tool: %s", tool_name)
                 approved = await approval_callback(tool_name, tool_args)
                 if not approved:
-                    logger.info(f"Tool {tool_name} execution denied by user")
+                    logger.info("Tool %s execution denied by user", tool_name)
                     tool_messages.append(
                         ToolMessage(
                             content=f"Tool execution denied by user: {tool_name}",
@@ -382,19 +400,19 @@ class ReActNodes:
                         )
                     )
                     continue
-                logger.info(f"Tool {tool_name} approved by user")
+                logger.info("Tool %s approved by user", tool_name)
 
             # Delegate to ToolManager (async)
             logger.debug("Executing tool...")
             result_content = await self.tool_manager.aexecute_tool(tool_name, tool_args)
-            logger.debug(f"Tool result: {str(result_content)[:200]}...")
+            logger.debug("Tool result: %s...", str(result_content)[:200])
 
             tool_messages.append(
                 ToolMessage(content=str(result_content), tool_call_id=tool_call_id)
             )
 
         logger.info(
-            f"Tool Execution Complete: Generated {len(tool_messages)} tool result message(s)"
+            "Tool Execution Complete: Generated %d tool result message(s)", len(tool_messages)
         )
 
         return {"messages": tool_messages}
@@ -425,8 +443,8 @@ class ReActNodes:
                 f"{format_scratchpad(state['agent_scratchpad'])}"
             )
 
-        logger.debug(f"Internal report for synthesis: {internal_report}")
-        logger.debug(f"Original user input: {state['input']}")
+        logger.debug("Internal report for synthesis: %s", internal_report)
+        logger.debug("Original user input: %s", state["input"])
 
         # Build synthesis prompt
         persona, _ = config.get_persona_prompt_for_profile()

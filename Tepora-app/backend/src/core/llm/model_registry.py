@@ -14,24 +14,20 @@ from typing import TYPE_CHECKING, Any
 from .. import config
 
 # 新しいモデル管理パッケージを使用
+_ModelManager: Any = None
+_ModelPool: Any = None
 try:
-    from ..models import ModelConfigResolver, ModelManager, ModelPool
+    from ..models import ModelManager as ModelsModelManager
+    from ..models import ModelPool as ModelsModelPool
 
-    _HAS_MODEL_MANAGER = True
+    _ModelManager = ModelsModelManager
+    _ModelPool = ModelsModelPool
 except ImportError:
-    _HAS_MODEL_MANAGER = False
-    ModelConfigResolver = None
-    ModelManager = None
-    ModelPool = None
+    pass
 
-# 後方互換: DownloadManager経由での使用もサポート
-try:
-    from ..download import DownloadManager
-
-    _HAS_DOWNLOAD_MANAGER = True
-except ImportError:
-    _HAS_DOWNLOAD_MANAGER = False
-    DownloadManager = None
+# Compatibility aliases (avoid redefine error from mypy)
+ModelManager = _ModelManager
+ModelPool = _ModelPool
 
 if TYPE_CHECKING:
     from ..download import DownloadManager as DownloadManagerType
@@ -115,7 +111,7 @@ class ModelRegistry:
 
         model_config = config.settings.models_gguf[resolved_key]
         project_root = Path(config.MODEL_BASE_PATH)
-        return project_root / model_config.path
+        return Path(project_root / model_config.path)
 
     def resolve_binary_path(self, find_executable_func) -> Path | None:
         """
@@ -134,7 +130,8 @@ class ModelRegistry:
         # フォールバック: 従来のパス解決
         project_root = Path(config.MODEL_BASE_PATH)
         llama_cpp_dir = project_root / "bin" / "llama.cpp"
-        return find_executable_func(llama_cpp_dir)
+        result = find_executable_func(llama_cpp_dir)
+        return Path(result) if result else None
 
     def resolve_logs_dir(self) -> Path:
         """ログディレクトリを解決"""
@@ -176,7 +173,7 @@ class ModelRegistry:
                 repeat_penalty=1.1,
                 logprobs=True,
             )
-            logger.info(f"Using default model config for '{key}' (managed by ModelManager)")
+            logger.info("Using default model config for '%s' (managed by ModelManager)", key)
             return default_config
 
         return None

@@ -1,9 +1,15 @@
 import asyncio
 import gc
 import logging
+import re
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+# オプショナルな依存
+from typing import Any as _Any
 
 import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -15,22 +21,35 @@ from .llm.client_factory import ClientFactory
 from .llm.model_registry import ModelRegistry
 from .llm.process_manager import ProcessManager
 
-# オプショナルな依存
-try:
-    from .download import DownloadManager
-except ImportError:
-    DownloadManager = None
+_DownloadManager: _Any = None
+_ModelManager: _Any = None
 
 try:
-    from .models import ModelManager
+    from .download import DownloadManager as ModelsDownloadManager
+
+    _DownloadManager = ModelsDownloadManager
 except ImportError:
-    ModelManager = None
+    pass
+
+try:
+    from .models import ModelManager as CoreModelManager
+
+    _ModelManager = CoreModelManager
+except ImportError:
+    pass
 
 if TYPE_CHECKING:
     from .download import DownloadManager as DownloadManagerType
     from .models import ModelManager as ModelManagerType
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _ServerLaunch:
+    command: list[str]
+    port: int
+    stderr_log_path: Path
 
 
 class LLMManager:
@@ -50,10 +69,11 @@ class LLMManager:
             download_manager: DownloadManager インスタンス (後方互換用)
             model_manager: ModelManager インスタンス (推奨)
         """
-        self._model_locks = defaultdict(asyncio.Lock)  # Lock per model key
-        self._current_model_key = None
+        self._model_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._current_model_key: str | None = None
 
         # ModelManager を取得（直接渡された場合、または DownloadManager 経由）
+        self._model_manager: ModelManagerType | None
         if model_manager:
             self._model_manager = model_manager
         elif download_manager:
@@ -84,10 +104,51 @@ class LLMManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
 
+    def _prepare_server_launch(
+        self,
+        *,
+        key: str,
+        model_path: Path,
+        model_config: Any,
+        extra_args: list[str] | None = None,
+    ) -> _ServerLaunch:
+        server_executable = self.registry.resolve_binary_path(find_server_executable)
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model file not found at: {model_path}")
+        if not server_executable:
+            raise FileNotFoundError("llama.cpp server executable not found.")
+
+        log_dir = self.registry.resolve_logs_dir()
+        safe_key = re.sub(r"[^A-Za-z0-9_.-]+", "_", key)
+        stderr_log_path = log_dir / f"llama_server_{safe_key}_{int(time.time())}.log"
+        port = self.process_manager.find_free_port()
+
+        command = build_server_command(
+            server_executable,
+            model_path,
+            port=port,
+            n_ctx=model_config.n_ctx,
+            n_gpu_layers=model_config.n_gpu_layers,
+            extra_args=extra_args or [],
+        )
+
+        return _ServerLaunch(command=command, port=port, stderr_log_path=stderr_log_path)
+
+    async def _start_server(self, key: str, launch: _ServerLaunch) -> None:
+        try:
+            self.process_manager.start_process(key, launch.command, launch.stderr_log_path)
+            await self.process_manager.perform_health_check_async(
+                launch.port, key, launch.stderr_log_path
+            )
+        except Exception as exc:
+            logger.error("Failed to start server for '%s': %s", key, exc, exc_info=True)
+            self.process_manager.stop_process(key)
+            raise
+
     def _evict_from_cache(self, key: str):
         """Evict a specific model from the cache and terminate its process."""
         if key in self._chat_model_cache:
-            logger.info(f"Evicting model '{key}' from cache.")
+            logger.info("Evicting model '%s' from cache.", key)
             del self._chat_model_cache[key]
 
             # Stop the process via ProcessManager
@@ -114,7 +175,7 @@ class LLMManager:
 
             # --- Cache Check ---
             if key in self._chat_model_cache:
-                logger.info(f"Model '{key}' found in cache. Activating.")
+                logger.info("Model '%s' found in cache. Activating.", key)
                 self._current_model_key = key
                 return
 
@@ -130,48 +191,24 @@ class LLMManager:
                 raise ValueError(f"Model configuration for '{key}' not found.")
 
             model_path = self.registry.resolve_model_path(key)
-            server_executable = self.registry.resolve_binary_path(find_server_executable)
-
-            if not model_path.exists():
-                raise FileNotFoundError(f"Model file not found at: {model_path}")
-            if not server_executable:
-                raise FileNotFoundError("llama.cpp server executable not found.")
-
-            # --- 実行準備 ---
-            log_dir = self.registry.resolve_logs_dir()
-            stderr_log_path = log_dir / f"llama_server_{key}_{int(time.time())}.log"
-            port = self.process_manager.find_free_port()
-            logger.info(f"Allocated dynamic port {port} for model '{key}'")
-
-            extra_args = []
-            command = build_server_command(
-                server_executable,
-                model_path,
-                port=port,
-                n_ctx=model_config.n_ctx,
-                n_gpu_layers=model_config.n_gpu_layers,
-                extra_args=extra_args,
+            launch = self._prepare_server_launch(
+                key=key,
+                model_path=model_path,
+                model_config=model_config,
             )
+            logger.info("Allocated dynamic port %d for model '%s'", launch.port, key)
 
             # --- 起動 & ヘルスチェック ---
-            try:
-                self.process_manager.start_process(key, command, stderr_log_path)
-
-                # Check health
-                await self.process_manager.perform_health_check_async(port, key, stderr_log_path)
-            except Exception:
-                logger.error(f"Failed to start server for '{key}'.")
-                self.process_manager.stop_process(key)
-                raise
+            await self._start_server(key, launch)
 
             # --- クライアント作成 ---
-            chat_llm = self.client_factory.create_chat_client(key, port, model_config)
+            chat_llm = self.client_factory.create_chat_client(key, launch.port, model_config)
 
             # Cache: (llm, config, port)
-            self._chat_model_cache[key] = (chat_llm, model_config, port)
+            self._chat_model_cache[key] = (chat_llm, model_config, launch.port)
             self._current_model_key = key
 
-            logger.info(f"LLM client for '{key}' ready.")
+            logger.info("LLM client for '%s' ready.", key)
 
     async def get_embedding_model(self):
         """埋め込みモデルを取得またはロードする。"""
@@ -182,36 +219,19 @@ class LLMManager:
 
                     model_config = self.registry.get_model_config(key)
                     model_path = self.registry.resolve_model_path(key)
-                    server_executable = self.registry.resolve_binary_path(find_server_executable)
-
-                    if not model_path.exists():
-                        raise FileNotFoundError(f"Embedding model file not found: {model_path}")
-                    if not server_executable:
-                        raise FileNotFoundError("llama.cpp server executable not found.")
-
-                    log_dir = self.registry.resolve_logs_dir()
-                    stderr_log_path = log_dir / f"llama_server_{key}_{int(time.time())}.log"
-                    port = self.process_manager.find_free_port()
-
-                    command = build_server_command(
-                        server_executable,
-                        model_path,
-                        port=port,
-                        n_ctx=model_config.n_ctx,
-                        n_gpu_layers=model_config.n_gpu_layers,
+                    launch = self._prepare_server_launch(
+                        key=key,
+                        model_path=model_path,
+                        model_config=model_config,
                         extra_args=["--embedding"],
                     )
+                    logger.info("Allocated port %d for embedding model", launch.port)
 
-                    try:
-                        self.process_manager.start_process(key, command, stderr_log_path)
-                        await self.process_manager.perform_health_check_async(
-                            port, key, stderr_log_path
-                        )
-                    except Exception:
-                        self.process_manager.stop_process(key)
-                        raise
+                    await self._start_server(key, launch)
 
-                    self._embedding_llm = self.client_factory.create_embedding_client(key, port)
+                    self._embedding_llm = self.client_factory.create_embedding_client(
+                        key, launch.port
+                    )
 
         return self._embedding_llm
 
@@ -283,43 +303,24 @@ class LLMManager:
 
             # タスクタイプ対応のパス解決
             model_path = self.registry.resolve_model_path("executor_model", task_type)
-            server_executable = self.registry.resolve_binary_path(find_server_executable)
-
-            if not model_path.exists():
-                raise FileNotFoundError(f"Executor model file not found: {model_path}")
-            if not server_executable:
-                raise FileNotFoundError("llama.cpp server executable not found.")
-
-            # 起動
-            log_dir = self.registry.resolve_logs_dir()
-            stderr_log_path = (
-                log_dir / f"llama_server_{key.replace(':', '_')}_{int(time.time())}.log"
+            launch = self._prepare_server_launch(
+                key=key,
+                model_path=model_path,
+                model_config=model_config,
             )
-            port = self.process_manager.find_free_port()
-            logger.info(f"Allocated port {port} for executor model (task_type: {task_type})")
-
-            command = build_server_command(
-                server_executable,
-                model_path,
-                port=port,
-                n_ctx=model_config.n_ctx,
-                n_gpu_layers=model_config.n_gpu_layers,
-                extra_args=[],
+            logger.info(
+                "Allocated port %d for executor model (task_type: %s)",
+                launch.port,
+                task_type,
             )
 
-            try:
-                self.process_manager.start_process(key, command, stderr_log_path)
-                await self.process_manager.perform_health_check_async(port, key, stderr_log_path)
-            except Exception:
-                logger.error(f"Failed to start server for executor model (task_type: {task_type})")
-                self.process_manager.stop_process(key)
-                raise
+            await self._start_server(key, launch)
 
-            chat_llm = self.client_factory.create_chat_client(key, port, model_config)
-            self._chat_model_cache[key] = (chat_llm, model_config, port)
+            chat_llm = self.client_factory.create_chat_client(key, launch.port, model_config)
+            self._chat_model_cache[key] = (chat_llm, model_config, launch.port)
             self._current_model_key = key
 
-            logger.info(f"Executor model for '{task_type}' ready.")
+            logger.info("Executor model for '%s' ready.", task_type)
             return chat_llm
 
     # 後方互換エイリアス（非推奨、将来削除予定）
@@ -351,10 +352,19 @@ class LLMManager:
                     tokens = response.json().get("tokens", [])
                     return len(tokens)
                 else:
-                    logger.warning(f"Tokenize endpoint returned status {response.status_code}")
+                    logger.warning(
+                        "Tokenize endpoint returned status %s (port=%s)",
+                        response.status_code,
+                        port,
+                    )
                     return None
         except Exception as e:
-            logger.warning(f"Failed to get token count from server: {e}")
+            logger.warning(
+                "Failed to get token count from server (port=%s): %s",
+                port,
+                e,
+                exc_info=True,
+            )
             return None
 
     async def count_tokens_for_messages(self, messages: list[BaseMessage]) -> int:

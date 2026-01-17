@@ -33,12 +33,12 @@ def get_agent_profile(name: str) -> dict | None:
     # Try Character first
     char = settings.characters.get(name)
     if char:
-        return char.model_dump()
+        return dict(char.model_dump())
 
     # Then Professional
     prof = settings.professionals.get(name)
     if prof:
-        return prof.model_dump()
+        return dict(prof.model_dump())
 
     return None
 

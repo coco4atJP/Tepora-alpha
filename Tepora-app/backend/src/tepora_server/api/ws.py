@@ -11,8 +11,9 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from src.core.config.loader import settings
 from src.tepora_server.api.dependencies import get_app_state_from_websocket
 from src.tepora_server.api.security import get_session_token
 from src.tepora_server.api.session_handler import SessionHandler
@@ -20,20 +21,8 @@ from src.tepora_server.api.session_handler import SessionHandler
 logger = logging.getLogger("tepora.server.ws")
 router = APIRouter()
 
-# Allowed WebSocket origins
-WS_ALLOWED_ORIGINS = [
-    "tauri://localhost",
-    "https://tauri.localhost",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://localhost",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8000",
-    "http://127.0.0.1",
-    "http://tauri.localhost",
-]
+# Allowed WebSocket origins (configurable)
+WS_ALLOWED_ORIGINS = settings.server.ws_allowed_origins
 
 
 class WSIncomingMessage(BaseModel):
@@ -42,7 +31,7 @@ class WSIncomingMessage(BaseModel):
     type: str | None = None
     message: str | None = None
     mode: str = "direct"
-    attachments: list[dict[str, Any]] = []
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
     skipWebSearch: bool = False  # noqa: N815
     # Session management
     sessionId: str | None = None  # noqa: N815
@@ -55,11 +44,18 @@ class WSIncomingMessage(BaseModel):
     }
 
 
+def _format_progress_status(status: object) -> str:
+    if hasattr(status, "value"):
+        return str(status.value)
+    return str(status)
+
+
 def _validate_origin(origin: str | None) -> bool:
     """Validate WebSocket connection origin."""
+    env = os.getenv("TEPORA_ENV", "production").lower()
     if not origin:
-        # No origin header - could be same-origin request
-        return True
+        # Browsers (and Tauri WebView) always send Origin; require it in production.
+        return env != "production"
 
     for allowed in WS_ALLOWED_ORIGINS:
         # Exact match
@@ -75,13 +71,8 @@ def _validate_origin(origin: str | None) -> bool:
 def _validate_token(websocket: WebSocket) -> bool:
     """Validate session token from query params.
 
-    Token is required for production security.
-    In development mode (TEPORA_ENV=development), token validation is skipped.
+    Token is required when the server has been initialized.
     """
-    env = os.getenv("TEPORA_ENV", "production")
-    if env == "development":
-        return True
-
     token = websocket.query_params.get("token")
     expected_token = get_session_token()
 
@@ -94,7 +85,7 @@ def _validate_token(websocket: WebSocket) -> bool:
         # Token required but not provided
         return False
 
-    return token == expected_token
+    return bool(token == expected_token)
 
 
 @router.websocket("/ws")
@@ -109,16 +100,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
     Security:
     - Origin validation (blocks external sites)
-    - Session token authentication (optional, for enhanced security)
+    - Session token authentication (required once initialized)
     """
     # Security: Validate origin
     origin = websocket.headers.get("origin")
     if not _validate_origin(origin):
-        logger.warning(f"WebSocket connection rejected: invalid origin '{origin}'")
+        logger.warning("WebSocket connection rejected: invalid origin '%s'", origin)
         await websocket.close(code=4003, reason="Forbidden: Invalid Origin")
         return
 
-    # Security: Validate token (if provided)
+    # Security: Validate session token
     if not _validate_token(websocket):
         logger.warning("WebSocket connection rejected: invalid token")
         await websocket.close(code=4001, reason="Unauthorized: Invalid Token")
@@ -142,26 +133,29 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         dm = _get_download_manager()
 
-        async def send_progress_callback(event: ProgressEvent):
-            try:
-                # Pydanticモデルを辞書に変換して送信
-                await websocket.send_json(
-                    {
-                        "type": "download_progress",
-                        "data": {
-                            "status": event.status.value,
-                            "progress": event.progress,
-                            "message": event.message,
-                            "job_id": event.job_id,
-                            "current_bytes": event.current_bytes,
-                            "total_bytes": event.total_bytes,
-                            "speed_bps": event.speed_bps,
-                            "eta_seconds": event.eta_seconds,
-                        },
-                    }
-                )
-            except Exception as e:
-                logger.warning(f"Failed to send progress: {e}")
+        def send_progress_callback(event: ProgressEvent):
+            async def _send():
+                try:
+                    # Pydanticモデルを辞書に変換して送信
+                    await websocket.send_json(
+                        {
+                            "type": "download_progress",
+                            "data": {
+                                "status": _format_progress_status(event.status),
+                                "progress": event.progress,
+                                "message": event.message,
+                                "job_id": event.job_id,
+                                "current_bytes": event.current_bytes,
+                                "total_bytes": event.total_bytes,
+                                "speed_bps": event.speed_bps,
+                                "eta_seconds": event.eta_seconds,
+                            },
+                        }
+                    )
+                except Exception as e:
+                    logger.warning("Failed to send progress: %s", e, exc_info=True)
+
+            asyncio.create_task(_send())
 
         send_progress = send_progress_callback  # Assign to the outer scope variable
 
@@ -170,11 +164,11 @@ async def websocket_endpoint(websocket: WebSocket):
         dm.on_progress(send_progress)
 
     except Exception as e:
-        logger.error(f"Failed to setup download progress: {e}")
+        logger.error("Failed to setup download progress: %s", e, exc_info=True)
         send_progress = None
         dm = None
 
-    logger.info(f"WebSocket connection accepted from {handler.client_host}")
+    logger.info("WebSocket connection accepted from %s", handler.client_host)
 
     try:
         while True:
@@ -183,16 +177,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 raw_data = await websocket.receive_json()
                 # Message is now parsed as JSON, proceed to validation
             except WebSocketDisconnect:
-                logger.info(f"WebSocket disconnected: {handler.client_host}")
+                logger.info("WebSocket disconnected: %s", handler.client_host)
                 break
             except Exception as e:
                 error_msg = str(e)
                 # Check for disconnect-related errors in RuntimeError
                 if "disconnect" in error_msg.lower() or "close" in error_msg.lower():
-                    logger.info(f"Client disconnected (error detection): {handler.client_host}")
+                    logger.info("Client disconnected (error detection): %s", handler.client_host)
                     break
 
-                logger.warning(f"Invalid JSON from {handler.client_host}: {e}")
+                logger.warning("Invalid JSON from %s: %s", handler.client_host, e)
                 # Try to notify client, but if send fails, we should break
                 if not await handler.send_json({"type": "error", "message": "Invalid JSON format"}):
                     break
@@ -203,7 +197,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = WSIncomingMessage.model_validate(raw_data)
             except Exception as validation_error:
                 logger.warning(
-                    f"Message validation failed from {handler.client_host}: {validation_error}"
+                    "Message validation failed from %s: %s", handler.client_host, validation_error
                 )
                 await handler.send_json(
                     {"type": "error", "message": f"Invalid message format: {validation_error}"}
@@ -228,7 +222,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if data.sessionId:
                     current_session_id = data.sessionId
                     logger.info(
-                        f"Session switched to {current_session_id} for {handler.client_host}"
+                        "Session switched to %s for %s", current_session_id, handler.client_host
                     )
                     await handler.send_json(
                         {"type": "session_changed", "sessionId": current_session_id}
@@ -242,7 +236,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 if data.requestId is not None and data.approved is not None:
                     handler.handle_tool_confirmation(data.requestId, data.approved)
                 else:
-                    logger.warning(f"Invalid tool_confirmation_response from {handler.client_host}")
+                    logger.warning(
+                        "Invalid tool_confirmation_response from %s", handler.client_host
+                    )
                 continue
 
             # Handle message processing
@@ -250,7 +246,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 # If a task is already running, ignore new message
                 if handler.current_task and not handler.current_task.done():
                     logger.warning(
-                        f"Received new message from {handler.client_host} while processing. Ignoring."
+                        "Received new message from %s while processing. Ignoring.",
+                        handler.client_host,
                     )
                     continue
 
@@ -269,16 +266,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 )
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected: {handler.client_host}")
+        logger.info("WebSocket disconnected: %s", handler.client_host)
         await handler.handle_stop()
     except Exception as e:
-        logger.error(f"WebSocket loop error: {e}")
+        logger.error("WebSocket loop error: %s", e, exc_info=True)
     finally:
         # Cleanup callbacks
         if dm and send_progress:
             try:
                 dm.remove_progress_callback(send_progress)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to remove progress callback: %s", exc, exc_info=True)
 
         await handler.on_disconnect()

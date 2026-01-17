@@ -108,6 +108,8 @@ class McpHub:
             self._watcher_task = None
 
         # Close all clients
+        for name, client in list(self._clients.items()):
+            await self._close_client(name, client)
         self._clients.clear()
         self._tools.clear()
         self._status.clear()
@@ -198,41 +200,33 @@ class McpHub:
             return True, None
 
         except Exception as e:
-            logger.error("Failed to update config: %s", e)
+            logger.error("Failed to update config: %s", e, exc_info=True)
             return False, str(e)
 
     async def enable_server(self, server_name: str) -> bool:
         """Enable a server by name."""
-        if server_name not in self._config.mcpServers:
-            logger.warning("Server '%s' not found in config", server_name)
-            return False
-
-        config = self._config.mcpServers[server_name]
-        if config.enabled:
-            return True  # Already enabled
-
-        # Update config
-        raw_config = self._read_config_raw()
-        if server_name in raw_config.get("mcpServers", {}):
-            raw_config["mcpServers"][server_name]["enabled"] = True
-            await self.update_config(raw_config)
-        return True
+        return await self._set_server_enabled(server_name, True)
 
     async def disable_server(self, server_name: str) -> bool:
         """Disable a server by name."""
+        return await self._set_server_enabled(server_name, False)
+
+    async def _set_server_enabled(self, server_name: str, enabled: bool) -> bool:
         if server_name not in self._config.mcpServers:
             logger.warning("Server '%s' not found in config", server_name)
             return False
 
         config = self._config.mcpServers[server_name]
-        if not config.enabled:
-            return True  # Already disabled
+        if config.enabled == enabled:
+            return True
 
-        # Update config
         raw_config = self._read_config_raw()
         if server_name in raw_config.get("mcpServers", {}):
-            raw_config["mcpServers"][server_name]["enabled"] = False
-            await self.update_config(raw_config)
+            raw_config["mcpServers"][server_name]["enabled"] = enabled
+            success, error = await self.update_config(raw_config)
+            if not success:
+                logger.error("Failed to update MCP config: %s", error)
+                return False
         return True
 
     def start_config_watcher(self, poll_interval: float = 2.0) -> None:
@@ -259,7 +253,7 @@ class McpHub:
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
-                    logger.error("Error in config watcher: %s", e)
+                    logger.error("Error in config watcher: %s", e, exc_info=True)
 
         self._watcher_task = asyncio.create_task(watch_loop())
         logger.info("Started config file watcher (poll interval: %ss)", poll_interval)
@@ -388,7 +382,7 @@ class McpHub:
                 self._trusted_hashes = set(data.get("hashes", []))
                 logger.debug("Loaded %d trusted hashes", len(self._trusted_hashes))
         except Exception as e:
-            logger.warning("Failed to load trusted hashes: %s", e)
+            logger.warning("Failed to load trusted hashes: %s", e, exc_info=True)
             self._trusted_hashes = set()
 
     def _save_trusted_hashes(self) -> None:
@@ -399,7 +393,7 @@ class McpHub:
                 json.dumps({"hashes": list(self._trusted_hashes)}, indent=2), encoding="utf-8"
             )
         except Exception as e:
-            logger.warning("Failed to save trusted hashes: %s", e)
+            logger.warning("Failed to save trusted hashes: %s", e, exc_info=True)
 
     # --- Private Methods ---
 
@@ -416,9 +410,16 @@ class McpHub:
             if not self.config_path.exists():
                 logger.warning("Config file not found: %s", self.config_path)
                 return {"mcpServers": {}}
-            return json.loads(self.config_path.read_text(encoding="utf-8"))
+            raw = json.loads(self.config_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                logger.warning(
+                    "Invalid MCP config format (expected object, got %s)",
+                    type(raw).__name__,
+                )
+                return {"mcpServers": {}}
+            return raw
         except Exception as e:
-            logger.error("Failed to read config file: %s", e)
+            logger.error("Failed to read config file: %s", e, exc_info=True)
             return {"mcpServers": {}}
 
     def _parse_config_lenient(self, raw_config: dict[str, Any]) -> McpToolsConfig:
@@ -429,6 +430,13 @@ class McpHub:
         servers: dict[str, McpServerConfig] = {}
 
         for name, server_data in raw_config.get("mcpServers", {}).items():
+            if not isinstance(server_data, dict):
+                logger.warning(
+                    "Skipping server '%s': invalid config entry (%s)",
+                    name,
+                    type(server_data).__name__,
+                )
+                continue
             try:
                 # Handle legacy format (no 'enabled' field)
                 if "enabled" not in server_data:
@@ -441,7 +449,9 @@ class McpHub:
 
                 servers[name] = McpServerConfig.model_validate(server_data)
             except Exception as e:
-                logger.warning("Lenient parse: skipping server '%s' due to: %s", name, e)
+                logger.warning(
+                    "Lenient parse: skipping server '%s' due to: %s", name, e, exc_info=True
+                )
                 # Still try to create a minimal config
                 try:
                     servers[name] = McpServerConfig(
@@ -450,8 +460,13 @@ class McpHub:
                         env=server_data.get("env", {}),
                         enabled=server_data.get("enabled", True),
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug(
+                        "Lenient parse: failed to build minimal config for '%s': %s",
+                        name,
+                        exc,
+                        exc_info=True,
+                    )
 
         return McpToolsConfig(mcpServers=servers)
 
@@ -507,6 +522,7 @@ class McpHub:
         last_error: str | None = None
 
         for attempt in range(max_retries):
+            client: MultiServerMCPClient | None = None
             try:
                 if attempt > 0:
                     delay = 2**attempt
@@ -516,13 +532,13 @@ class McpHub:
                     await asyncio.sleep(delay)
 
                 # Build connection dict for MultiServerMCPClient
-                connection = {
+                connection: dict[str, Any] = {
                     "transport": config.transport.value,
                     "command": config.command,
                     "args": config.args,
                 }
                 if config.env:
-                    connection["env"] = config.env
+                    connection["env"] = dict(config.env)
                 if config.url and config.transport == TransportType.SSE:
                     connection["url"] = config.url
 
@@ -553,7 +569,9 @@ class McpHub:
 
             except Exception as e:
                 last_error = str(e)
-                logger.warning("Failed to connect to '%s': %s", name, e)
+                logger.warning("Failed to connect to '%s': %s", name, e, exc_info=True)
+                if client:
+                    await self._close_client(name, client)
 
         # All retries failed
         self._status[name] = McpServerStatus(
@@ -566,8 +584,9 @@ class McpHub:
 
     async def _disconnect_server(self, name: str) -> None:
         """Disconnect from an MCP server."""
-        if name in self._clients:
-            del self._clients[name]
+        client = self._clients.pop(name, None)
+        if client:
+            await self._close_client(name, client)
         if name in self._tools:
             del self._tools[name]
         self._status[name] = McpServerStatus(
@@ -575,3 +594,21 @@ class McpHub:
             status=ConnectionStatus.DISCONNECTED,
         )
         logger.info("Disconnected from MCP server '%s'", name)
+
+    async def _close_client(self, name: str, client: MultiServerMCPClient) -> None:
+        """Best-effort close for MCP clients (async or sync)."""
+        try:
+            closer = getattr(client, "aclose", None)
+            if callable(closer):
+                result = closer()
+                if asyncio.iscoroutine(result):
+                    await result
+                return
+
+            closer = getattr(client, "close", None)
+            if callable(closer):
+                result = closer()
+                if asyncio.iscoroutine(result):
+                    await result
+        except Exception as exc:
+            logger.debug("Failed to close MCP client '%s': %s", name, exc, exc_info=True)

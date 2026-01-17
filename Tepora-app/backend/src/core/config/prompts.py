@@ -8,7 +8,6 @@ from langchain_core.tools import BaseTool
 
 __all__ = [
     "ACTIVE_PERSONA",
-    "ACTIVE_PERSONA",
     "BASE_SYSTEM_PROMPTS",
     "resolve_system_prompt",
     "format_tools_for_react_prompt",
@@ -142,10 +141,9 @@ def resolve_system_prompt(prompt_key: str, *, current_time: str | None = None) -
 
     # Inject Safety Policy (NSFW Logic)
     if "{safety_policy_content}" in prompt_template:
-        from .service import get_config_service
-
         try:
-            settings = get_config_service().config
+            from .loader import settings
+
             nsfw_enabled = settings.app.nsfw_enabled
         except Exception:
             # Fallback if config service is unavailable
@@ -207,10 +205,7 @@ def get_persona_prompt_for_profile(
     Raises:
         ValueError: If active_agent_profile is not found in settings.characters.
     """
-    from .service import get_config_service
-
-    service = get_config_service()
-    settings = service.config
+    from .loader import settings
 
     active_key = settings.active_agent_profile
     character = settings.characters.get(active_key)

@@ -102,6 +102,8 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
 
 # ============================================
 # UV Configuration

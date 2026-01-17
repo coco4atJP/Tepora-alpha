@@ -21,18 +21,71 @@ class ChatHistoryManager:
         self.db_path = db_path
         self._init_db()
 
-    def _ensure_session(self, session_id: str = "default", title: str = "Default Session"):
-        """Ensure a session exists in the database."""
+    @staticmethod
+    def _serialize_message(message: BaseMessage, session_id: str) -> tuple:
+        additional_kwargs = (
+            message.additional_kwargs if isinstance(message.additional_kwargs, dict) else {}
+        )
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT OR IGNORE INTO sessions (id, title) VALUES (?, ?)",
-                    (session_id, title),
-                )
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to ensure session {session_id}: {e}", exc_info=True)
+            kwargs_payload = json.dumps(additional_kwargs, ensure_ascii=False, default=str)
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                "Failed to serialize additional_kwargs for session %s: %s",
+                session_id,
+                exc,
+                exc_info=True,
+            )
+            kwargs_payload = "{}"
+        return (
+            session_id,
+            message.type,
+            message.content,
+            kwargs_payload,
+        )
+
+    @staticmethod
+    def _deserialize_message(msg_type: str, content: str, kwargs: dict) -> BaseMessage | None:
+        if msg_type == "human":
+            return HumanMessage(content=content, additional_kwargs=kwargs)
+        if msg_type == "ai":
+            return AIMessage(content=content, additional_kwargs=kwargs)
+        if msg_type == "system":
+            return SystemMessage(content=content, additional_kwargs=kwargs)
+        if msg_type == "tool":
+            return ToolMessage(
+                content=content,
+                tool_call_id=kwargs.get("tool_call_id", ""),
+                additional_kwargs=kwargs,
+            )
+        return None
+
+    def _ensure_session(
+        self,
+        session_id: str = "default",
+        title: str = "Default Session",
+        cursor: sqlite3.Cursor | None = None,
+    ):
+        """Ensure a session exists in the database."""
+        if cursor is None:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO sessions (id, title) VALUES (?, ?)",
+                        (session_id, title),
+                    )
+                    conn.commit()
+            except sqlite3.Error as e:
+                logger.error("Failed to ensure session %s: %s", session_id, e, exc_info=True)
+            return
+
+        try:
+            cursor.execute(
+                "INSERT OR IGNORE INTO sessions (id, title) VALUES (?, ?)",
+                (session_id, title),
+            )
+        except sqlite3.Error as e:
+            logger.error("Failed to ensure session %s: %s", session_id, e, exc_info=True)
 
     def _init_db(self):
         """Initialize the SQLite database schema."""
@@ -68,9 +121,9 @@ class ChatHistoryManager:
                     "CREATE INDEX IF NOT EXISTS idx_session_id ON chat_history(session_id)"
                 )
                 conn.commit()
-            logger.info(f"Chat history database initialized at {self.db_path}")
-        except Exception as e:
-            logger.error(f"Failed to initialize chat history DB: {e}", exc_info=True)
+            logger.info("Chat history database initialized at %s", self.db_path)
+        except sqlite3.Error as e:
+            logger.error("Failed to initialize chat history DB: %s", e, exc_info=True)
             raise
 
     def get_history(self, session_id: str = "default", limit: int = 100) -> list[BaseMessage]:
@@ -97,29 +150,26 @@ class ChatHistoryManager:
                 for row in rows:
                     msg_type = row["type"]
                     content = row["content"]
-                    kwargs = (
-                        json.loads(row["additional_kwargs"]) if row["additional_kwargs"] else {}
-                    )
-
-                    if msg_type == "human":
-                        messages.append(HumanMessage(content=content, additional_kwargs=kwargs))
-                    elif msg_type == "ai":
-                        messages.append(AIMessage(content=content, additional_kwargs=kwargs))
-                    elif msg_type == "system":
-                        messages.append(SystemMessage(content=content, additional_kwargs=kwargs))
-                    elif msg_type == "tool":
-                        messages.append(
-                            ToolMessage(
-                                content=content,
-                                tool_call_id=kwargs.get("tool_call_id", ""),
-                                additional_kwargs=kwargs,
+                    kwargs = {}
+                    if row["additional_kwargs"]:
+                        try:
+                            kwargs = json.loads(row["additional_kwargs"])
+                        except (TypeError, json.JSONDecodeError) as exc:
+                            logger.warning(
+                                "Failed to decode additional_kwargs for message %s: %s",
+                                row["id"],
+                                exc,
+                                exc_info=True,
                             )
-                        )
-                    # Add other types as needed
+                            kwargs = {}
+
+                    message = self._deserialize_message(msg_type, content, kwargs)
+                    if message:
+                        messages.append(message)
 
                 return messages
-        except Exception as e:
-            logger.error(f"Failed to get chat history: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to get chat history: %s", e, exc_info=True)
             return []
 
     def get_message_count(self, session_id: str = "default") -> int:
@@ -132,8 +182,8 @@ class ChatHistoryManager:
                 )
                 result = cursor.fetchone()
                 return result[0] if result else 0
-        except Exception as e:
-            logger.error(f"Failed to get message count: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to get message count: %s", e, exc_info=True)
             return 0
 
     def add_message(self, message: BaseMessage, session_id: str = "default"):
@@ -141,34 +191,26 @@ class ChatHistoryManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                msg_type = message.type
-                content = message.content
-                additional_kwargs = json.dumps(message.additional_kwargs)
-
-                self._ensure_session(session_id)
+                self._ensure_session(session_id, cursor=cursor)
                 cursor.execute(
                     """
                     INSERT INTO chat_history (session_id, type, content, additional_kwargs)
                     VALUES (?, ?, ?, ?)
                 """,
-                    (session_id, msg_type, content, additional_kwargs),
+                    self._serialize_message(message, session_id),
                 )
                 conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to add message to history: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to add message to history: %s", e, exc_info=True)
 
     def add_messages(self, messages: list[BaseMessage], session_id: str = "default"):
         """Add multiple messages."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                data = []
-                for msg in messages:
-                    data.append(
-                        (session_id, msg.type, msg.content, json.dumps(msg.additional_kwargs))
-                    )
+                data = [self._serialize_message(msg, session_id) for msg in messages]
 
-                self._ensure_session(session_id)
+                self._ensure_session(session_id, cursor=cursor)
                 cursor.executemany(
                     """
                     INSERT INTO chat_history (session_id, type, content, additional_kwargs)
@@ -177,8 +219,8 @@ class ChatHistoryManager:
                     data,
                 )
                 conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to add messages to history: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to add messages to history: %s", e, exc_info=True)
 
     def clear_history(self, session_id: str = "default"):
         """Clear history for a session."""
@@ -187,9 +229,9 @@ class ChatHistoryManager:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM chat_history WHERE session_id = ?", (session_id,))
                 conn.commit()
-            logger.info(f"Cleared chat history for session {session_id}")
-        except Exception as e:
-            logger.error(f"Failed to clear history: {e}", exc_info=True)
+            logger.info("Cleared chat history for session %s", session_id)
+        except sqlite3.Error as e:
+            logger.error("Failed to clear history: %s", e, exc_info=True)
 
     def trim_history(self, session_id: str = "default", keep_last_n: int = 50):
         """Keep only the last N messages."""
@@ -221,10 +263,12 @@ class ChatHistoryManager:
                     deleted_count = cursor.rowcount
                     if deleted_count > 0:
                         logger.info(
-                            f"Trimmed {deleted_count} old messages for session {session_id}"
+                            "Trimmed %d old messages for session %s",
+                            deleted_count,
+                            session_id,
                         )
-        except Exception as e:
-            logger.error(f"Failed to trim history: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to trim history: %s", e, exc_info=True)
 
     def overwrite_history(self, messages: list[BaseMessage], session_id: str = "default"):
         """Overwrite the entire history for a session with the provided messages."""
@@ -234,13 +278,9 @@ class ChatHistoryManager:
                 # Use a transaction
                 cursor.execute("DELETE FROM chat_history WHERE session_id = ?", (session_id,))
 
-                data = []
-                for msg in messages:
-                    data.append(
-                        (session_id, msg.type, msg.content, json.dumps(msg.additional_kwargs))
-                    )
+                data = [self._serialize_message(msg, session_id) for msg in messages]
 
-                self._ensure_session(session_id)
+                self._ensure_session(session_id, cursor=cursor)
                 cursor.executemany(
                     """
                     INSERT INTO chat_history (session_id, type, content, additional_kwargs)
@@ -250,10 +290,12 @@ class ChatHistoryManager:
                 )
                 conn.commit()
                 logger.info(
-                    f"Overwrote history for session {session_id} with {len(messages)} messages"
+                    "Overwrote history for session %s with %d messages",
+                    session_id,
+                    len(messages),
                 )
-        except Exception as e:
-            logger.error(f"Failed to overwrite history: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to overwrite history: %s", e, exc_info=True)
 
     # --- Session Management Methods ---
 
@@ -275,10 +317,10 @@ class ChatHistoryManager:
                     (session_id, title),
                 )
                 conn.commit()
-            logger.info(f"Created new session: {session_id} with title '{title}'")
+            logger.info("Created new session: %s with title '%s'", session_id, title)
             return session_id
-        except Exception as e:
-            logger.error(f"Failed to create session: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to create session: %s", e, exc_info=True)
             raise
 
     def list_sessions(self) -> list[dict]:
@@ -306,8 +348,8 @@ class ChatHistoryManager:
                     }
                     for row in rows
                 ]
-        except Exception as e:
-            logger.error(f"Failed to list sessions: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to list sessions: %s", e, exc_info=True)
             return []
 
     def get_session(self, session_id: str) -> dict | None:
@@ -331,8 +373,8 @@ class ChatHistoryManager:
                         "updated_at": row["updated_at"],
                     }
                 return None
-        except Exception as e:
-            logger.error(f"Failed to get session: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to get session: %s", e, exc_info=True)
             return None
 
     def update_session_title(self, session_id: str, title: str) -> bool:
@@ -348,11 +390,11 @@ class ChatHistoryManager:
                 )
                 conn.commit()
                 if cursor.rowcount > 0:
-                    logger.info(f"Updated session {session_id} title to '{title}'")
+                    logger.info("Updated session %s title to '%s'", session_id, title)
                     return True
                 return False
-        except Exception as e:
-            logger.error(f"Failed to update session title: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to update session title: %s", e, exc_info=True)
             return False
 
     def delete_session(self, session_id: str) -> bool:
@@ -369,11 +411,11 @@ class ChatHistoryManager:
                 cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
                 conn.commit()
                 if cursor.rowcount > 0:
-                    logger.info(f"Deleted session {session_id}")
+                    logger.info("Deleted session %s", session_id)
                     return True
                 return False
-        except Exception as e:
-            logger.error(f"Failed to delete session: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to delete session: %s", e, exc_info=True)
             return False
 
     def touch_session(self, session_id: str) -> None:
@@ -388,5 +430,5 @@ class ChatHistoryManager:
                     (session_id,),
                 )
                 conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to touch session: {e}", exc_info=True)
+        except sqlite3.Error as e:
+            logger.error("Failed to touch session: %s", e, exc_info=True)

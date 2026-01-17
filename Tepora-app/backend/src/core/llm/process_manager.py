@@ -26,13 +26,17 @@ class ProcessManager:
         既に同じキーで起動中の場合は、既存のプロセスを返す（あるいはエラーにする？今は起動前に停止されている前提）
         """
         if key in self._active_processes:
-            logger.warning(f"Process for '{key}' is already running. Using existing process.")
-            return self._active_processes[key]
+            existing = self._active_processes[key]
+            if existing.poll() is None:
+                logger.warning("Process for '%s' is already running. Using existing process.", key)
+                return existing
+            logger.warning("Process for '%s' was not running. Restarting.", key)
+            del self._active_processes[key]
 
-        logger.info(f"Starting server process for '{key}'...")
+        logger.info("Starting server process for '%s'...", key)
         process = launch_server(command, stderr_log_path=stderr_log_path, logger=logger)
         self._active_processes[key] = process
-        logger.info(f"Server for '{key}' started with PID: {process.pid}")
+        logger.info("Server for '%s' started with PID: %d", key, process.pid)
         return process
 
     def stop_process(self, key: str):
@@ -56,7 +60,7 @@ class ProcessManager:
         """Find a free port on localhost."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("localhost", 0))
-            return s.getsockname()[1]
+            return int(s.getsockname()[1])
 
     async def perform_health_check_async(
         self, port: int, key: str, stderr_log_path: Path | None = None
@@ -77,9 +81,11 @@ class ProcessManager:
                 stderr_log_path=stderr_log_path,
                 logger=logger,
             )
-        except Exception:
+        except Exception as exc:
             # ヘルスチェック失敗時はプロセスを停止する
-            logger.error(f"Health check failed for '{key}'. Terminating process.")
+            logger.error(
+                "Health check failed for '%s': %s. Terminating process.", key, exc, exc_info=True
+            )
             self.stop_process(key)
             raise
 
@@ -96,7 +102,7 @@ class ProcessManager:
         プロセスツリーを適切に終了させる内部メソッド
         """
         context_title = context.capitalize()
-        logger.info(f"Terminating {context} (PID: {process.pid})...")
+        logger.info("Terminating %s (PID: %d)...", context, process.pid)
 
         try:
             parent = psutil.Process(process.pid)
@@ -108,7 +114,7 @@ class ProcessManager:
             _, alive = psutil.wait_procs([parent] + children, timeout=timeout_sec)
 
             if alive:
-                logger.warning(f"{context_title} didn't terminate gracefully, forcing kill...")
+                logger.warning("%s didn't terminate gracefully, forcing kill...", context_title)
                 for p in alive:
                     try:
                         p.kill()
@@ -116,13 +122,13 @@ class ProcessManager:
                         pass
                 _, alive = psutil.wait_procs(alive, timeout=5)
                 if alive:
-                    logger.error(f"Failed to kill {context_title} processes: {alive}")
+                    logger.error("Failed to kill %s processes: %s", context_title, alive)
                 else:
-                    logger.info(f"{context_title} killed forcefully.")
+                    logger.info("%s killed forcefully.", context_title)
             else:
-                logger.info(f"{context_title} terminated gracefully.")
+                logger.info("%s terminated gracefully.", context_title)
 
         except psutil.NoSuchProcess:
-            logger.info(f"{context_title} already terminated.")
+            logger.info("%s already terminated.", context_title)
         except Exception as e:
-            logger.error(f"Error while terminating {context}: {e}", exc_info=True)
+            logger.error("Error while terminating %s: %s", context, e, exc_info=True)

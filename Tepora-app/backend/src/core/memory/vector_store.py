@@ -46,3 +46,7 @@ class VectorStore(ABC):
         Implementation should be optimized to avoid loading full metadata for all items.
         """
         pass
+
+    def close(self) -> None:
+        """Optional cleanup hook for concrete store implementations."""
+        return None

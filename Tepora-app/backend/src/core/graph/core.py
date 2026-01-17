@@ -82,9 +82,9 @@ class AgentCore:
         """Delegate to ConversationNodes."""
         return await self._conversation_nodes.generate_search_query_node(state)
 
-    def execute_search_node(self, state: AgentState) -> dict:
+    async def execute_search_node(self, state: AgentState) -> dict:
         """Delegate to ConversationNodes."""
-        return self._conversation_nodes.execute_search_node(state)
+        return await self._conversation_nodes.execute_search_node(state)
 
     async def summarize_search_result_node(self, state: AgentState) -> dict:
         """Delegate to ConversationNodes."""
@@ -102,7 +102,9 @@ class AgentCore:
         """Delegate to ReActNodes."""
         return self._react_nodes.update_scratchpad_node(state)
 
-    async def unified_tool_executor_node(self, state: AgentState, config: dict = None) -> dict:
+    async def unified_tool_executor_node(
+        self, state: AgentState, config: dict | None = None
+    ) -> dict:
         """Delegate to ReActNodes (async with config)."""
         return await self._react_nodes.unified_tool_executor_node(state, config)
 

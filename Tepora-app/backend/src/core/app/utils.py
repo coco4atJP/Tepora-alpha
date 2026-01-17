@@ -15,7 +15,7 @@ from .. import config
 logger = logging.getLogger(__name__)
 
 
-def sanitize_user_input(user_input: str, max_length: int = None) -> str:
+def sanitize_user_input(user_input: str, max_length: int | None = None) -> str:
     """
     Sanitize user input to mitigate potential prompt injection attacks.
 

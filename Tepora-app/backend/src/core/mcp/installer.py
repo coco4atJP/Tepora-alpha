@@ -16,6 +16,7 @@ from .models import (
     EnvVarSchema,
     McpRegistryServer,
     McpServerConfig,
+    McpServerMetadata,
     PackageInfo,
     TransportType,
 )
@@ -58,7 +59,7 @@ class McpInstaller:
         command, args = McpInstaller._generate_command(package)
 
         # Build environment variables
-        env = env_values or {}
+        env = dict(env_values) if env_values else {}
 
         # Fill in defaults for missing required vars
         for env_schema in server.environmentVariables:
@@ -71,10 +72,10 @@ class McpInstaller:
             env=env,
             enabled=True,
             transport=TransportType.STDIO,
-            metadata={
-                "name": server.name,
-                "description": server.description,
-            },
+            metadata=McpServerMetadata(
+                name=server.name,
+                description=server.description,
+            ),
         )
 
     @staticmethod
@@ -252,7 +253,7 @@ class McpInstaller:
             (command, args) tuple
         """
         runtime = package.runtimeHint or "npx"
-        pkg_name = package.name
+        pkg_name = package.package_name
 
         if runtime == "npx":
             return "npx", ["-y", pkg_name]

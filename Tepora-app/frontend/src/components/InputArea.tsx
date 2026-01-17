@@ -1,4 +1,4 @@
-import { Globe, Paperclip, Send, Square } from "lucide-react";
+import { Send, Square } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,13 +10,11 @@ interface InputAreaProps {
 		message: string,
 		mode: ChatMode,
 		attachments?: Attachment[],
-		skipWebSearch?: boolean,
 	) => void;
 	isProcessing: boolean;
 	isConnected: boolean;
 	currentMode: ChatMode;
 	onStop?: () => void;
-	onFileSelect?: () => void;
 	attachments?: Attachment[];
 }
 
@@ -26,17 +24,15 @@ const InputArea: React.FC<InputAreaProps> = ({
 	isConnected,
 	currentMode,
 	onStop,
-	onFileSelect,
 	attachments = [],
 }) => {
 	const { t } = useTranslation();
 	const [message, setMessage] = useState("");
-	const [skipWebSearch, setSkipWebSearch] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const handleSend = () => {
 		if (message.trim() && !isProcessing && isConnected) {
-			onSendMessage(message, currentMode, attachments, skipWebSearch);
+			onSendMessage(message, currentMode, attachments);
 			setMessage("");
 			if (textareaRef.current) {
 				textareaRef.current.style.height = "auto";
@@ -64,6 +60,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 	};
 
 	// Auto-resize textarea
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resize on message change only
 	useEffect(() => {
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
@@ -100,51 +97,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 				/>
 
 				<div className="flex items-center gap-1 mb-1 mr-1">
-					{/* File Attachment (Search Mode Only) */}
-					{currentMode === "search" && onFileSelect && (
-						<button
-							type="button"
-							onClick={onFileSelect}
-							className="p-2.5 text-gray-400 hover:text-gold-300 transition-all rounded-full hover:bg-white/5 active:scale-95"
-							title={t("chat.input.attach_file")}
-							aria-label={t("chat.input.attach_file")}
-							disabled={isProcessing || !isConnected}
-						>
-							<Paperclip className="w-5 h-5" aria-hidden="true" />
-						</button>
-					)}
-
-					{/* Web Search Toggle (Search Mode Only) */}
-					{currentMode === "search" && (
-						<button
-							type="button"
-							onClick={() => setSkipWebSearch(!skipWebSearch)}
-							className={`flex items-center gap-1.5 h-10 px-4 rounded-full text-xs transition-all duration-300 border ${
-								!skipWebSearch
-									? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
-									: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
-							}`}
-							title={
-								skipWebSearch
-									? `${t("chat.input.web_search")}: OFF`
-									: `${t("chat.input.web_search")}: ON`
-							}
-							aria-label={t("chat.input.web_search_toggle", {
-								state: skipWebSearch ? "OFF" : "ON",
-							})}
-							aria-pressed={!skipWebSearch}
-							disabled={isProcessing}
-						>
-							<Globe
-								className={`w-3.5 h-3.5 ${!skipWebSearch ? "text-gold-400 animate-pulse" : "text-gray-500"}`}
-								aria-hidden="true"
-							/>
-							<span className="font-medium font-display tracking-wide">
-								{skipWebSearch ? "OFF" : "ON"}
-							</span>
-						</button>
-					)}
-
 					{/* Send / Stop Button */}
 					{isProcessing ? (
 						<button

@@ -14,9 +14,15 @@ from src.tepora_server.api.ws import WS_ALLOWED_ORIGINS, _validate_origin, _vali
 class TestOriginValidation:
     """Tests for WebSocket Origin validation."""
 
-    def test_no_origin_allowed(self):
-        """Connections without Origin header should be allowed (same-origin)."""
+    @patch.dict("os.environ", {"TEPORA_ENV": "development"})
+    def test_no_origin_allowed_in_development(self):
+        """Connections without Origin header are allowed in development."""
         assert _validate_origin(None) is True
+
+    @patch.dict("os.environ", {"TEPORA_ENV": "production"})
+    def test_no_origin_rejected_in_production(self):
+        """Connections without Origin header are rejected in production."""
+        assert _validate_origin(None) is False
 
     def test_tauri_origin_allowed(self):
         """Tauri desktop app origin should be allowed."""
@@ -45,13 +51,15 @@ class TestOriginValidation:
 class TestTokenValidation:
     """Tests for WebSocket token validation."""
 
+    @patch("src.tepora_server.api.ws.get_session_token")
     @patch.dict("os.environ", {"TEPORA_ENV": "development"})
-    def test_development_mode_skips_validation(self):
-        """In development mode, token validation should be skipped."""
+    def test_development_mode_requires_token_when_initialized(self, mock_get_token):
+        """Development mode must not bypass token validation when initialized."""
+        mock_get_token.return_value = "valid_secret_token"
         mock_ws = MagicMock(spec=WebSocket)
         mock_ws.query_params = {"token": "wrong_token"}
 
-        assert _validate_token(mock_ws) is True
+        assert _validate_token(mock_ws) is False
 
     @patch("src.tepora_server.api.ws.get_session_token")
     @patch.dict("os.environ", {"TEPORA_ENV": "production"})

@@ -7,6 +7,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { CharacterConfig, ProfessionalConfig } from "../types";
 import { getApiBase, getAuthHeaders } from "../utils/api";
 
@@ -147,6 +148,7 @@ interface SettingsProviderProps {
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	children,
 }) => {
+	const queryClient = useQueryClient();
 	const [config, setConfig] = useState<Config | null>(null);
 	const [originalConfig, setOriginalConfig] = useState<Config | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -398,6 +400,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 				}
 
 				setOriginalConfig(configToSave);
+				// Keep react-query cache in sync so consumers (e.g. App language sync) update immediately.
+				queryClient.setQueryData(["config"], configToSave);
+				void queryClient.invalidateQueries({ queryKey: ["config"] });
 				return true;
 			} catch (err) {
 				console.error("Failed to save config:", err);
@@ -406,7 +411,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 				setSaving(false);
 			}
 		},
-		[config],
+		[config, queryClient],
 	);
 
 	const resetConfig = useCallback(() => {

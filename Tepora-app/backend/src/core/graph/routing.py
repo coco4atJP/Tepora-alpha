@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def route_by_command(
     state: AgentState,
-) -> Literal["agent_mode", "search", "direct_answer", "stats"]:
+) -> str:
     """
     Determine route based on user input command.
 
@@ -33,7 +33,7 @@ def route_by_command(
         Route identifier string
     """
     mode = state.get("mode")
-    logger.info(f"Routing decision for mode: '{mode}'")
+    logger.info("Routing decision for mode: '%s'", mode)
 
     if mode == InputMode.AGENT:
         logger.info("Route: agent_mode (ReAct loop)")
@@ -63,22 +63,22 @@ def should_continue_react_loop(state: AgentState) -> Literal["continue", "end"]:
 
     if "agent_outcome" in state and state["agent_outcome"]:
         logger.info("Decision: End ReAct loop (finish action detected).")
-        logger.debug(f"Final outcome: {state['agent_outcome']}")
+        logger.debug("Final outcome: %s", state["agent_outcome"])
         return "end"
 
     # If last message in scratchpad has tool calls, continue
     if state["agent_scratchpad"]:
         last_message = state["agent_scratchpad"][-1]
-        logger.debug(f"Last message in scratchpad: {type(last_message).__name__}")
+        logger.debug("Last message in scratchpad: %s", type(last_message).__name__)
 
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
             logger.info("Decision: Continue ReAct loop (last message has tool calls).")
-            logger.debug(f"Tool calls: {[tc['name'] for tc in last_message.tool_calls]}")
+            logger.debug("Tool calls: %s", [tc["name"] for tc in last_message.tool_calls])
             return "continue"
         else:
             logger.info("Decision: End ReAct loop (last message has no tool calls).")
             if isinstance(last_message, AIMessage):
-                logger.debug(f"Last message content: {last_message.content[:100]}...")
+                logger.debug("Last message content: %s...", last_message.content[:100])
             return "end"
     else:
         logger.info("Decision: End ReAct loop (empty scratchpad).")

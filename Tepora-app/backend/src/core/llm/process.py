@@ -5,12 +5,9 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
-from .. import config
-
 __all__ = [
     "build_server_command",
     "launch_server",
-    "terminate_process",
 ]
 
 
@@ -46,15 +43,3 @@ def launch_server(
     logger.info("Server stderr will be logged to: %s", stderr_log_path)
     with open(stderr_log_path, "w", encoding="utf-8") as log_file:
         return subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=log_file)
-
-
-def terminate_process(process: subprocess.Popen, *, logger: logging.Logger) -> None:
-    timeout = config.LLAMA_CPP_CONFIG.get("process_terminate_timeout", 10)
-    logger.info("Terminating process PID=%s", process.pid)
-    try:
-        process.terminate()
-        process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        logger.warning("Process PID=%s did not terminate gracefully. Forcing kill...", process.pid)
-        process.kill()
-        process.wait()

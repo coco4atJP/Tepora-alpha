@@ -99,22 +99,32 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "0"))
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # SO_REUSEADDR allows the socket to be reused immediately after close
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("127.0.0.1", port))  # If port is 0, OS picks one
+    sock.listen(100)  # Enable listening with a backlog queue
     port = sock.getsockname()[1]
 
     # Output port for Tauri sidecar to capture
     print(f"TEPORA_PORT={port}", flush=True)
+    logging.info(f"Socket bound to 127.0.0.1:{port} (fd={sock.fileno()})")
 
-    # Close the socket so uvicorn can use it (there's a tiny race condition window here but minimal on local)
-    sock.close()
+    # NOTE: Do NOT close the socket here!
+    # Keeping the socket open prevents other processes from claiming the port
+    # while create_app() is initializing (which can take significant time for model loading).
 
     # 2. App Initialization (Heavy Lift)
     try:
         app = create_app()
     except Exception as e:
+        sock.close()  # Clean up socket on error
         print(f"TEPORA_ERROR={e}", file=sys.stderr)
         logging.critical(f"Failed to create app: {e}", exc_info=True)
         sys.exit(1)
 
-    # 3. Start Server
-    uvicorn.run(app, host="127.0.0.1", port=port)
+    # 3. Start Server using the pre-bound socket
+    # Pass only the file descriptor to uvicorn - do NOT specify host/port when using fd
+    # as that would cause uvicorn to attempt rebinding which conflicts with our socket
+    fd = sock.fileno()
+    logging.info(f"Starting uvicorn server with pre-bound fd={fd}")
+    uvicorn.run(app, fd=fd)

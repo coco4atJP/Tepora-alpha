@@ -29,14 +29,41 @@ def load_connections_from_config(config_path: Path) -> dict[str, StdioConnection
     Returns:
         サーバー名をキーとしたStdioConnection辞書
     """
+    if not config_path.exists():
+        logger.warning("MCP config file not found: %s", config_path)
+        return {}
     try:
-        config_data = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        config_data = json.loads(config_path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to load MCP config from %s: %s", config_path, exc)
+        logger.error("Failed to load MCP config from %s: %s", config_path, exc, exc_info=True)
+        return {}
+
+    if not isinstance(config_data, dict):
+        logger.warning(
+            "Invalid MCP config format in %s (expected object, got %s)",
+            config_path,
+            type(config_data).__name__,
+        )
+        return {}
+
+    servers_config = config_data.get("mcpServers", {})
+    if not isinstance(servers_config, dict):
+        logger.warning(
+            "Invalid MCP config in %s: mcpServers must be an object, got %s",
+            config_path,
+            type(servers_config).__name__,
+        )
         return {}
 
     connections: dict[str, StdioConnection] = {}
-    for server_name, server_config in config_data.get("mcpServers", {}).items():
+    for server_name, server_config in servers_config.items():
+        if not isinstance(server_config, dict):
+            logger.warning(
+                "Skipping MCP server '%s': invalid config entry (%s)",
+                server_name,
+                type(server_config).__name__,
+            )
+            continue
         if not server_config.get("enabled", True):
             logger.info("Skipping disabled MCP server config: %s", server_name)
             continue
@@ -54,11 +81,30 @@ def load_connections_from_config(config_path: Path) -> dict[str, StdioConnection
         if not command:
             logger.warning("Skipping server '%s': 'command' key is missing.", server_name)
             continue
+
+        args = server_config.get("args", [])
+        if not isinstance(args, list):
+            logger.warning(
+                "Invalid args for MCP server '%s' (expected list, got %s)",
+                server_name,
+                type(args).__name__,
+            )
+            args = []
+
+        env = server_config.get("env") or {}
+        if not isinstance(env, dict):
+            logger.warning(
+                "Invalid env for MCP server '%s' (expected object, got %s)",
+                server_name,
+                type(env).__name__,
+            )
+            env = {}
+
         connections[server_name] = StdioConnection(
             transport="stdio",
             command=command,
-            args=server_config.get("args", []),
-            env=server_config.get("env"),
+            args=args,
+            env=env,
         )
         logger.info("Loaded MCP server config: %s", server_name)
     return connections
@@ -92,7 +138,12 @@ async def load_mcp_tools_robust(
             tools.extend(server_tools)
             clients.append(client)
         except Exception as exc:  # noqa: BLE001
-            logger.error("Failed to load tools from MCP server '%s': %s", server_name, exc)
+            logger.error(
+                "Failed to load tools from MCP server '%s': %s",
+                server_name,
+                exc,
+                exc_info=True,
+            )
 
     return tools, clients
 
@@ -116,6 +167,7 @@ async def _load_single_server(
     last_exception: Exception | None = None
 
     for attempt in range(max_retries):
+        client: MultiServerMCPClient | None = None
         try:
             if attempt:
                 delay = 2**attempt
@@ -143,7 +195,33 @@ async def _load_single_server(
 
         except Exception as exc:  # noqa: BLE001
             last_exception = exc
-            logger.warning("Attempt %s failed for server '%s': %s", attempt + 1, server_name, exc)
+            if client:
+                try:
+                    closer = getattr(client, "aclose", None)
+                    if callable(closer):
+                        result = closer()
+                        if asyncio.iscoroutine(result):
+                            await result
+                    else:
+                        closer = getattr(client, "close", None)
+                        if callable(closer):
+                            result = closer()
+                            if asyncio.iscoroutine(result):
+                                await result
+                except Exception as close_exc:  # noqa: BLE001
+                    logger.debug(
+                        "Failed to close MCP client for '%s': %s",
+                        server_name,
+                        close_exc,
+                        exc_info=True,
+                    )
+            logger.warning(
+                "Attempt %s failed for server '%s': %s",
+                attempt + 1,
+                server_name,
+                exc,
+                exc_info=True,
+            )
 
     # 全リトライ失敗時
     if last_exception:

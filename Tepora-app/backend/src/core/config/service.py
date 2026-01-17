@@ -27,10 +27,27 @@ def _get_sensitive_patterns() -> list[str]:
     return AppConfig().sensitive_key_patterns
 
 
+def _get_sensitive_whitelist() -> list[str]:
+    """Get whitelist for keys that should NOT be treated as sensitive."""
+    return AppConfig().sensitive_key_whitelist
+
+
 def _is_sensitive(key: str) -> bool:
-    """Check if a key name indicates sensitive data."""
+    """Check if a key name indicates sensitive data.
+
+    Uses pattern matching but respects a whitelist to avoid false positives
+    on keys like 'max_tokens' which contain 'token' but are not secrets.
+    """
+    key_lower = key.lower()
+
+    # Check whitelist first - exact match takes precedence
+    whitelist = _get_sensitive_whitelist()
+    if key_lower in whitelist:
+        return False
+
+    # Check against sensitive patterns
     patterns = _get_sensitive_patterns()
-    return any(s in key.lower() for s in patterns)
+    return any(pattern in key_lower for pattern in patterns)
 
 
 class ConfigService:
@@ -128,21 +145,8 @@ class ConfigService:
         Returns:
             Merged configuration dictionary
         """
-        public_config: dict[str, Any] = {}
-        if self.config_path.exists():
-            try:
-                with open(self.config_path, encoding="utf-8") as f:
-                    public_config = yaml.safe_load(f) or {}
-            except Exception as e:
-                logger.error(f"Failed to load config.yml: {e}")
-
-        secrets_config: dict[str, Any] = {}
-        if self.secrets_path.exists():
-            try:
-                with open(self.secrets_path, encoding="utf-8") as f:
-                    secrets_config = yaml.safe_load(f) or {}
-            except Exception as e:
-                logger.error(f"Failed to load secrets.yaml: {e}")
+        public_config = self._load_yaml_file(self.config_path, label="config.yml")
+        secrets_config = self._load_yaml_file(self.secrets_path, label="secrets.yaml")
 
         merged = self.deep_merge(public_config, secrets_config)
 
@@ -156,6 +160,24 @@ class ConfigService:
             }
 
         return merged
+
+    @staticmethod
+    def _load_yaml_file(path: Path, *, label: str) -> dict[str, Any]:
+        if not path.exists():
+            return {}
+
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            logger.error("Failed to load %s: %s", label, e, exc_info=True)
+            return {}
+
+        if not isinstance(data, dict):
+            logger.warning("Ignoring %s: expected mapping, got %s", label, type(data).__name__)
+            return {}
+
+        return data
 
     def split_config(self, full_config: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -212,6 +234,13 @@ class ConfigService:
         """
         Restore redacted values ("****") from original configuration.
 
+        Notes:
+        - Redaction placeholders should never be persisted back to disk.
+        - If a placeholder cannot be restored (e.g., the original config did not
+          contain that key because it relied on defaults), we drop that key so
+          validation/defaults can apply instead of failing (e.g., int fields like
+          chat_history.max_tokens).
+
         Args:
             new_config: Configuration with potential "****" redacted values
             original_config: Original configuration with real values
@@ -219,31 +248,53 @@ class ConfigService:
         Returns:
             Configuration with redacted values restored
         """
-        if isinstance(new_config, dict) and isinstance(original_config, dict):
-            restored = {}
+        if isinstance(new_config, dict):
+            restored: dict[str, Any] = {}
+            orig_dict: dict[str, Any] | None = (
+                original_config if isinstance(original_config, dict) else None
+            )
+
             for key, value in new_config.items():
+                has_orig = orig_dict is not None and key in orig_dict
+                orig_value = orig_dict.get(key) if orig_dict else None
+
                 if value == "****":
-                    if key in original_config:
-                        restored[key] = original_config[key]
+                    if has_orig:
+                        restored[key] = orig_value
                     else:
-                        restored[key] = value
+                        # No original value to restore from (likely a default-only key).
+                        # Drop it to avoid persisting placeholders and failing validation.
+                        continue
+                elif isinstance(value, (dict, list)):
+                    restored[key] = self.restore_redacted_values(value, orig_value)
                 else:
-                    if key in original_config:
-                        restored[key] = self.restore_redacted_values(value, original_config[key])
-                    else:
-                        restored[key] = value
+                    restored[key] = value
+
             return restored
-        elif isinstance(new_config, list) and isinstance(original_config, list):
-            restored_list = []
+
+        if isinstance(new_config, list):
+            restored_list: list[Any] = []
+            orig_list: list[Any] | None = (
+                original_config if isinstance(original_config, list) else None
+            )
+
             for i, item in enumerate(new_config):
-                orig_item = original_config[i] if i < len(original_config) else None
-                if orig_item is not None:
+                orig_item = orig_list[i] if orig_list is not None and i < len(orig_list) else None
+
+                if item == "****":
+                    if orig_list is not None and i < len(orig_list):
+                        restored_list.append(orig_item)
+                    else:
+                        # Drop non-restorable placeholder items.
+                        continue
+                elif isinstance(item, (dict, list)):
                     restored_list.append(self.restore_redacted_values(item, orig_item))
                 else:
                     restored_list.append(item)
+
             return restored_list
-        else:
-            return new_config
+
+        return new_config
 
     def validate(self, config: dict[str, Any]) -> tuple[bool, Any | None]:
         """

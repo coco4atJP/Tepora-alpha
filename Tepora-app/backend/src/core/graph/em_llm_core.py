@@ -39,7 +39,7 @@ class EMEnabledAgentCore:
         llm_manager: LLMManager,
         tool_manager: ToolManager,
         char_em_llm_integrator: EMLLMIntegrator,
-        prof_em_llm_integrator: EMLLMIntegrator = None,
+        prof_em_llm_integrator: EMLLMIntegrator | None = None,
     ):
         """
         Initialize EM-LLM enabled agent core.

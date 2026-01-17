@@ -72,3 +72,67 @@ class TestConfigSystem:
         # We handle validation errors by logging and potentially falling back,
         # but the schema enforces types.
         pass
+
+
+class TestSensitiveKeyDetection:
+    """Tests for the sensitive key detection logic in ConfigService."""
+
+    def test_sensitive_patterns_detected(self):
+        """Test that sensitive key patterns are correctly detected."""
+        from src.core.config.service import _is_sensitive
+
+        # These should all be detected as sensitive
+        assert _is_sensitive("api_key") is True
+        assert _is_sensitive("API_KEY") is True  # case insensitive
+        assert _is_sensitive("secret") is True
+        assert _is_sensitive("password") is True
+        assert _is_sensitive("my_secret_value") is True
+        assert _is_sensitive("user_password") is True
+
+    def test_token_suffix_pattern(self):
+        """Test that _token suffix pattern detects tokens correctly."""
+        from src.core.config.service import _is_sensitive
+
+        # Suffix pattern: ends with _token
+        assert _is_sensitive("auth_token") is True
+        assert _is_sensitive("access_token") is True
+        assert _is_sensitive("refresh_token") is True
+
+        # Prefix pattern: starts with token_
+        assert _is_sensitive("token_secret") is True
+        assert _is_sensitive("token_id") is True
+
+    def test_whitelist_prevents_false_positives(self):
+        """Test that whitelisted keys are NOT detected as sensitive."""
+        from src.core.config.service import _is_sensitive
+
+        # These contain 'token' but should NOT be sensitive
+        assert _is_sensitive("max_tokens") is False
+        assert _is_sensitive("total_tokens") is False
+        assert _is_sensitive("input_tokens") is False
+        assert _is_sensitive("output_tokens") is False
+        assert _is_sensitive("token_count") is False
+        assert _is_sensitive("tokenizer") is False
+
+    def test_auth_patterns(self):
+        """Test that auth patterns work correctly."""
+        from src.core.config.service import _is_sensitive
+
+        # auth_ prefix and _auth suffix should be sensitive
+        assert _is_sensitive("auth_key") is True
+        assert _is_sensitive("oauth") is True
+        assert _is_sensitive("basic_auth") is True
+
+        # But 'author' or 'authentication' without suffix/prefix patterns should not
+        # Note: 'authentication' contains 'auth_' (auth followed by e), so it matches
+        # This is expected behavior for pattern-based matching
+
+    def test_non_sensitive_keys(self):
+        """Test that regular keys are NOT detected as sensitive."""
+        from src.core.config.service import _is_sensitive
+
+        assert _is_sensitive("name") is False
+        assert _is_sensitive("description") is False
+        assert _is_sensitive("max_length") is False
+        assert _is_sensitive("timeout") is False
+        assert _is_sensitive("model_path") is False

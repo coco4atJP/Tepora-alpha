@@ -26,21 +26,12 @@ from src.tepora_server.api.security import get_api_key
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/mcp", tags=["mcp"])
+router = APIRouter(prefix="/api/mcp", tags=["mcp"], dependencies=[Depends(get_api_key)])
 
 _SERVER_KEY_UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9_-]")
 
 
 # --- Request/Response Models ---
-
-
-class McpServerStatusResponse(BaseModel):
-    """Response model for server status."""
-
-    name: str
-    status: str  # connected, disconnected, error, connecting
-    tools_count: int = 0
-    error_message: str | None = None
 
 
 class McpConfigUpdateRequest(BaseModel):
@@ -135,10 +126,28 @@ async def _reload_core_tools(state: AppState) -> None:
             return
         await asyncio.to_thread(core.tool_manager.initialize)
     except Exception as e:
-        logger.warning("Failed to reload ToolManager after MCP change: %s", e)
+        logger.warning("Failed to reload ToolManager after MCP change: %s", e, exc_info=True)
 
 
-@router.get("/status", dependencies=[Depends(get_api_key)])
+def _get_mcp_hub(state: AppState, *, required: bool = True):
+    hub = getattr(state, "mcp_hub", None)
+    if hub is None:
+        if required:
+            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
+        return None
+    return hub
+
+
+def _get_mcp_registry(state: AppState, *, required: bool = True):
+    registry = getattr(state, "mcp_registry", None)
+    if registry is None:
+        if required:
+            raise HTTPException(status_code=500, detail="MCP Registry not initialized")
+        return None
+    return registry
+
+
+@router.get("/status")
 async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, Any]:
     """
     Get connection status of all configured MCP servers.
@@ -147,10 +156,11 @@ async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, 
         Dictionary with server names as keys and status info as values
     """
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
+        hub = _get_mcp_hub(state, required=False)
+        if hub is None:
             return {"servers": {}, "error": "MCP Hub not initialized"}
 
-        status_dict = state.mcp_hub.get_connection_status()
+        status_dict = hub.get_connection_status()
 
         # Convert to serializable format
         result = {}
@@ -165,11 +175,11 @@ async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, 
         return {"servers": result}
 
     except Exception as e:
-        logger.error("Failed to get MCP status: %s", e)
+        logger.error("Failed to get MCP status: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/config", dependencies=[Depends(get_api_key)])
+@router.get("/config")
 async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, Any]:
     """
     Get current MCP configuration.
@@ -178,10 +188,11 @@ async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, 
         Current mcp_tools_config.json content
     """
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
+        hub = _get_mcp_hub(state, required=False)
+        if hub is None:
             return {"mcpServers": {}}
 
-        config = state.mcp_hub.get_config()
+        config = hub.get_config()
 
         # Convert to dict for JSON response
         return {
@@ -198,11 +209,11 @@ async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, 
         }
 
     except Exception as e:
-        logger.error("Failed to get MCP config: %s", e)
+        logger.error("Failed to get MCP config: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/config", dependencies=[Depends(get_api_key)])
+@router.post("/config")
 async def update_mcp_config(
     request: McpConfigUpdateRequest, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
@@ -212,10 +223,8 @@ async def update_mcp_config(
     This will trigger a hot-reload of the MCP Hub.
     """
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
-
-        success, error = await state.mcp_hub.update_config({"mcpServers": request.mcpServers})
+        hub = _get_mcp_hub(state)
+        success, error = await hub.update_config({"mcpServers": request.mcpServers})
 
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to update config")
@@ -226,11 +235,11 @@ async def update_mcp_config(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to update MCP config: %s", e)
+        logger.error("Failed to update MCP config: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/store", dependencies=[Depends(get_api_key)])
+@router.get("/store")
 async def get_mcp_store(
     state: AppState = Depends(get_app_state),
     search: str | None = None,
@@ -253,7 +262,8 @@ async def get_mcp_store(
         List of available servers with metadata
     """
     try:
-        if not hasattr(state, "mcp_registry") or state.mcp_registry is None:
+        registry = _get_mcp_registry(state, required=False)
+        if registry is None:
             # Return empty list if registry not initialized
             return {
                 "servers": [],
@@ -268,7 +278,7 @@ async def get_mcp_store(
             page = 1
         page_size = max(1, min(page_size, 200))
 
-        servers = await state.mcp_registry.fetch_servers(force_refresh=refresh, search=search)
+        servers = await registry.fetch_servers(force_refresh=refresh, search=search)
 
         if runtime:
             runtime_lower = runtime.lower()
@@ -298,9 +308,9 @@ async def get_mcp_store(
                     "vendor": s.vendor,
                     "packages": [
                         {
-                            "name": p.name,
+                            "name": p.package_name,
                             "runtimeHint": p.runtimeHint,
-                            "registry": p.registry,
+                            "registry": p.package_registry,
                             "version": p.version,
                         }
                         for p in s.packages
@@ -330,11 +340,11 @@ async def get_mcp_store(
         }
 
     except Exception as e:
-        logger.error("Failed to get MCP store: %s", e)
+        logger.error("Failed to get MCP store: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/install/preview", dependencies=[Depends(get_api_key)])
+@router.post("/install/preview")
 async def preview_mcp_install(
     request: McpServerInstallRequest, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
@@ -344,11 +354,10 @@ async def preview_mcp_install(
     Returns command details and warnings for user review before confirming.
     """
     try:
-        if not hasattr(state, "mcp_registry") or state.mcp_registry is None:
-            raise HTTPException(status_code=500, detail="MCP Registry not initialized")
+        registry = _get_mcp_registry(state)
 
         # Get server info from registry
-        server = await state.mcp_registry.get_server_by_id(request.server_id)
+        server = await registry.get_server_by_id(request.server_id)
         if not server:
             raise HTTPException(
                 status_code=404, detail=f"Server '{request.server_id}' not found in registry"
@@ -382,11 +391,11 @@ async def preview_mcp_install(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to preview MCP install: %s", e)
+        logger.error("Failed to preview MCP install: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/install/confirm", dependencies=[Depends(get_api_key)])
+@router.post("/install/confirm")
 async def confirm_mcp_install(
     request: McpInstallConfirmRequest, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
@@ -407,8 +416,7 @@ async def confirm_mcp_install(
         server = pending["server"]
         original_request = pending["request"]
 
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
+        hub = _get_mcp_hub(state)
 
         # Generate config
         config = McpInstaller.generate_config(
@@ -418,7 +426,7 @@ async def confirm_mcp_install(
         )
 
         # Determine server name
-        current_config = state.mcp_hub.get_config()
+        current_config = hub.get_config()
         existing_names = set(current_config.mcpServers.keys())
 
         requested_name = original_request.get("server_name")
@@ -444,7 +452,7 @@ async def confirm_mcp_install(
         }
 
         # Update config
-        success, error = await state.mcp_hub.update_config({"mcpServers": new_servers})
+        success, error = await hub.update_config({"mcpServers": new_servers})
 
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to install server")
@@ -454,7 +462,7 @@ async def confirm_mcp_install(
         # Remove used consent
         del _pending_consents[request.consent_id]
 
-        logger.info(f"MCP server '{server_name}' installed with user consent")
+        logger.info("MCP server '%s' installed with user consent", server_name)
 
         return {
             "status": "success",
@@ -465,7 +473,7 @@ async def confirm_mcp_install(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to confirm MCP install: %s", e)
+        logger.error("Failed to confirm MCP install: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -476,19 +484,17 @@ def _cleanup_expired_consents() -> None:
     for cid in expired:
         del _pending_consents[cid]
     if expired:
-        logger.debug(f"Cleaned up {len(expired)} expired consent entries")
+        logger.debug("Cleaned up %d expired consent entries", len(expired))
 
 
-@router.post("/servers/{server_name}/enable", dependencies=[Depends(get_api_key)])
+@router.post("/servers/{server_name}/enable")
 async def enable_server(
     server_name: str, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
     """Enable a specific MCP server."""
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
-
-        success = await state.mcp_hub.enable_server(server_name)
+        hub = _get_mcp_hub(state)
+        success = await hub.enable_server(server_name)
 
         if not success:
             raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
@@ -499,20 +505,18 @@ async def enable_server(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to enable server: %s", e)
+        logger.error("Failed to enable server: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/servers/{server_name}/disable", dependencies=[Depends(get_api_key)])
+@router.post("/servers/{server_name}/disable")
 async def disable_server(
     server_name: str, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
     """Disable a specific MCP server."""
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
-
-        success = await state.mcp_hub.disable_server(server_name)
+        hub = _get_mcp_hub(state)
+        success = await hub.disable_server(server_name)
 
         if not success:
             raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
@@ -523,21 +527,18 @@ async def disable_server(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to disable server: %s", e)
+        logger.error("Failed to disable server: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/servers/{server_name}", dependencies=[Depends(get_api_key)])
+@router.delete("/servers/{server_name}")
 async def delete_server(
     server_name: str, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
     """Remove an MCP server from configuration."""
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
-
-        # Get current config
-        config = state.mcp_hub.get_config()
+        hub = _get_mcp_hub(state)
+        config = hub.get_config()
 
         if server_name not in config.mcpServers:
             raise HTTPException(status_code=404, detail=f"Server '{server_name}' not found")
@@ -549,7 +550,7 @@ async def delete_server(
             if name != server_name
         }
 
-        success, error = await state.mcp_hub.update_config({"mcpServers": new_servers})
+        success, error = await hub.update_config({"mcpServers": new_servers})
 
         if not success:
             raise HTTPException(status_code=400, detail=error or "Failed to remove server")
@@ -560,39 +561,38 @@ async def delete_server(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to delete server: %s", e)
+        logger.error("Failed to delete server: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/policy", dependencies=[Depends(get_api_key)])
+@router.get("/policy")
 async def get_mcp_policy(state: AppState = Depends(get_app_state)) -> dict[str, Any]:
     """Get current MCP connection policy."""
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
+        hub = _get_mcp_hub(state, required=False)
+        if hub is None:
             return {}
 
-        policy_manager = state.mcp_hub.policy_manager
+        policy_manager = hub.policy_manager
         if not policy_manager:
             return {"error": "Policy manager not configured"}
 
         config = policy_manager.get_policy()
-        return config.model_dump()
+        return dict(config.model_dump())
 
     except Exception as e:
-        logger.error("Failed to get MCP policy: %s", e)
+        logger.error("Failed to get MCP policy: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/policy", dependencies=[Depends(get_api_key)])
+@router.patch("/policy")
 async def update_mcp_policy(
     request: McpPolicyUpdateRequest, state: AppState = Depends(get_app_state)
 ) -> dict[str, Any]:
     """Update MCP connection policy."""
     try:
-        if not hasattr(state, "mcp_hub") or state.mcp_hub is None:
-            raise HTTPException(status_code=500, detail="MCP Hub not initialized")
-
-        policy_manager = state.mcp_hub.policy_manager
+        hub = _get_mcp_hub(state)
+        policy_manager = hub.policy_manager
         if not policy_manager:
             raise HTTPException(status_code=500, detail="Policy manager not configured")
 
@@ -605,5 +605,5 @@ async def update_mcp_policy(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to update MCP policy: %s", e)
+        logger.error("Failed to update MCP policy: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

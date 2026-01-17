@@ -64,7 +64,7 @@ class AppState:
         try:
             await self._initialize_mcp()
         except Exception as e:
-            logger.error("Failed to initialize MCP Hub: %s", e)
+            logger.error("Failed to initialize MCP Hub: %s", e, exc_info=True)
             # Don't fail initialization - MCP is optional
 
         # Initialize core app (ToolManager, graph, etc.)
@@ -130,7 +130,8 @@ def get_app_state(request: Request) -> AppState:
     Raises:
         AttributeError: If app.state.app_state is not set.
     """
-    return request.app.state.app_state
+    state: AppState = request.app.state.app_state
+    return state
 
 
 def get_app_state_from_websocket(websocket: WebSocket) -> AppState:
@@ -143,4 +144,5 @@ def get_app_state_from_websocket(websocket: WebSocket) -> AppState:
     Returns:
         The AppState instance attached to the app.
     """
-    return websocket.app.state.app_state
+    state: AppState = websocket.app.state.app_state
+    return state

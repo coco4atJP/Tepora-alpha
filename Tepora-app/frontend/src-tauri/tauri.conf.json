@@ -11,10 +11,11 @@
 	},
 	"plugins": {
 		"updater": {
+			"active": false,
 			"endpoints": [
-				"https://github.com/{{user}}/{{repo}}/releases/latest/download/latest.json"
+				"https://github.com/coco4atJP/Tepora/releases/latest/download/latest.json"
 			],
-			"pubkey": "YOUR_PUBLIC_KEY_HERE"
+			"pubkey": ""
 		}
 	},
 	"app": {

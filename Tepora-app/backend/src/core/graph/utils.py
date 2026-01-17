@@ -28,7 +28,7 @@ def format_scratchpad(scratchpad: list[BaseMessage]) -> str:
     Returns:
         Formatted string representation of the scratchpad
     """
-    logger.debug(f"Formatting scratchpad with {len(scratchpad)} messages")
+    logger.debug("Formatting scratchpad with %d messages", len(scratchpad))
 
     if not scratchpad:
         logger.debug("Scratchpad is empty")
@@ -36,7 +36,7 @@ def format_scratchpad(scratchpad: list[BaseMessage]) -> str:
 
     string_messages = []
     for i, message in enumerate(scratchpad):
-        logger.debug(f"  Message {i + 1}: {type(message).__name__}")
+        logger.debug("  Message %d: %s", i + 1, type(message).__name__)
 
         if isinstance(message, AIMessage):
             if message.tool_calls:
@@ -53,22 +53,22 @@ def format_scratchpad(scratchpad: list[BaseMessage]) -> str:
                 }
                 formatted_msg = json.dumps(action_obj, ensure_ascii=False)
                 string_messages.append(formatted_msg)
-                logger.debug(f"    AI Message with tool call: {tool_name}")
+                logger.debug("    AI Message with tool call: %s", tool_name)
             else:
                 # AI message without tool call (e.g., error)
                 string_messages.append(message.content)
-                logger.debug(f"    AI Message without tool call: {message.content[:50]}...")
+                logger.debug("    AI Message without tool call: %s...", message.content[:50])
 
         elif isinstance(message, ToolMessage):
             # Tool execution result
             observation_obj = {"observation": message.content}
             formatted_msg = json.dumps(observation_obj, ensure_ascii=False)
             string_messages.append(formatted_msg)
-            logger.debug(f"    Tool Message: {message.content[:50]}...")
+            logger.debug("    Tool Message: %s...", message.content[:50])
 
     # Join each step with newline
     result = "\n".join(string_messages)
-    logger.debug(f"Formatted scratchpad length: {len(result)} characters")
+    logger.debug("Formatted scratchpad length: %d characters", len(result))
     return result
 
 

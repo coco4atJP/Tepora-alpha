@@ -34,8 +34,15 @@ class TestEMTwoStageRetrieval(unittest.TestCase):
 
         self.mock_memory_system.collection.add.assert_called_once()
         call_args = self.mock_memory_system.collection.add.call_args[1]
-        self.assertEqual(call_args["ids"], ["em_event_0_2"])
+        # Event ID now includes a unique suffix (8-character hex UUID)
+        self.assertEqual(len(call_args["ids"]), 1)
+        event_id = call_args["ids"][0]
+        self.assertTrue(
+            event_id.startswith("em_event_0_2_"),
+            f"Event ID should start with 'em_event_0_2_', got '{event_id}'",
+        )
         self.assertEqual(call_args["documents"], ["test event"])
+
 
     def test_retrieve_relevant_events(self):
         # Mock similarity retrieval results

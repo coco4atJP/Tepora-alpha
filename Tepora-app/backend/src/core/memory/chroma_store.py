@@ -11,6 +11,18 @@ logger = logging.getLogger(__name__)
 class ChromaVectorStore(VectorStore):
     """
     ChromaDB-based implementation of the VectorStore interface.
+
+    This store uses a persistent ChromaDB client to manage vector embeddings
+    with cosine similarity for retrieval operations.
+
+    Warning:
+        ``get_oldest_ids`` fetches all metadata into memory. This may cause
+        memory pressure with very large collections (>1M items).
+
+    Example:
+        >>> store = ChromaVectorStore("/path/to/db", "my_collection")
+        >>> store.add(ids=["1"], embeddings=[[0.1, 0.2]], documents=["hello"], metadatas=[{}])
+        >>> results = store.query([[0.1, 0.2]], n_results=5)
     """
 
     def __init__(self, db_path: str, collection_name: str):
@@ -27,7 +39,7 @@ class ChromaVectorStore(VectorStore):
         embeddings: list[list[float]],
         documents: list[str],
         metadatas: list[dict[str, Any]],
-    ):
+    ) -> None:
         self.collection.upsert(
             ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas
         )
@@ -38,14 +50,15 @@ class ChromaVectorStore(VectorStore):
         n_results: int,
         where: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return self.collection.query(
+        result = self.collection.query(
             query_embeddings=query_embeddings, n_results=n_results, where=where
         )
+        return dict(result)
 
     def count(self) -> int:
-        return self.collection.count()
+        return int(self.collection.count())
 
-    def delete(self, ids: list[str]):
+    def delete(self, ids: list[str]) -> None:
         # Delete in batches to avoid ChromaDB limitations or memory spikes
         batch_size = 1000
         for i in range(0, len(ids), batch_size):
@@ -54,14 +67,18 @@ class ChromaVectorStore(VectorStore):
 
     def get_oldest_ids(self, limit: int) -> list[str]:
         """
-        Implementation for ChromaDB.
-        NOTE: ChromaDB does not support server-side sorting by metadata fields in their basic GET API.
-        To handle 10M events efficiently, we would ideally need a DB with indexing on 'created_ts'.
-        As a compromise for ChromaDB, we fetch ONLY 'metadatas' and 'ids' in batches if possible,
-        but since we need the GLOBAL oldest, we might still hit memory pressure.
+        Get the IDs of the oldest events by timestamp.
 
-        Refined approach for prototype: fetch in batches and maintain a min-heap or just sort
-        if memory allows for just IDs + TS.
+        Warning:
+            ChromaDB does not support server-side sorting by metadata fields.
+            This method fetches all IDs and timestamps into memory, which may
+            cause memory pressure for large collections (>1M items).
+
+        Args:
+            limit: Maximum number of IDs to return.
+
+        Returns:
+            List of IDs for the oldest events.
         """
         # Fetching all IDs and TS (Memory usage: 10M * (string_id_len + 8 bytes float))
         # For 10M items, if ID is 20 chars, that's roughly 280MB of raw data.
@@ -84,3 +101,7 @@ class ChromaVectorStore(VectorStore):
         # Sort by timestamp (oldest first)
         items.sort(key=lambda x: x[1])
         return [item[0] for item in items[:limit]]
+
+    def close(self) -> None:
+        """Close the ChromaDB client (no-op for PersistentClient)."""
+        pass
