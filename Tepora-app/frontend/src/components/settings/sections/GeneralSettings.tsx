@@ -10,7 +10,9 @@ import {
 	CollapsibleSection,
 	FormGroup,
 	FormInput,
+	FormList,
 	FormSelect,
+	FormSwitch,
 	SettingsSection,
 } from "../SettingsComponents";
 
@@ -116,6 +118,17 @@ const GeneralSettings: React.FC = () => {
 					{/* Theme Selection */}
 					<ThemeSelector />
 
+					<FormGroup
+						label={t("settings.fields.nsfw_enabled.label")}
+						description={t("settings.fields.nsfw_enabled.description")}
+						isDirty={isDirty("nsfw_enabled")}
+					>
+						<FormSwitch
+							checked={appConfig.nsfw_enabled}
+							onChange={(value) => updateApp("nsfw_enabled", value)}
+						/>
+					</FormGroup>
+
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<FormGroup
 							label={t("settings.fields.language.label")}
@@ -208,6 +221,23 @@ const GeneralSettings: React.FC = () => {
 									min={1000}
 									max={50000}
 									step={1000}
+								/>
+							</FormGroup>
+						</div>
+
+						<div className="mt-6">
+							<FormGroup
+								label={t("settings.fields.dangerous_patterns.label")}
+								description={t("settings.fields.dangerous_patterns.description")}
+								isDirty={isDirty("dangerous_patterns")}
+							>
+								<FormList
+									items={appConfig.dangerous_patterns}
+									onChange={(items) => updateApp("dangerous_patterns", items)}
+									placeholder={
+										t("settings.fields.dangerous_patterns.placeholder") ||
+										"Add regex pattern..."
+									}
 								/>
 							</FormGroup>
 						</div>

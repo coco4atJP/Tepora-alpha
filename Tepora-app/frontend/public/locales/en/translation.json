@@ -465,6 +465,10 @@
 				"description": "Regex patterns to block from user input for security.",
 				"placeholder": "Add regex pattern (e.g. system\\s*:)"
 			},
+			"nsfw_enabled": {
+				"label": "Unlock Restricted Content",
+				"description": "Allows generation of sensitive content. Use with caution."
+			},
 			"cache_size": "Model Cache Limit"
 		},
 		"descriptions": {

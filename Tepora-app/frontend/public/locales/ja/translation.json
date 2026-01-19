@@ -465,6 +465,10 @@
 				"description": "セキュリティのためにブロックする正規表現パターン。",
 				"placeholder": "正規表現を追加 (例: system\\s*:)"
 			},
+			"nsfw_enabled": {
+				"label": "制限付きコンテンツのロック解除",
+				"description": "機密性の高いコンテンツの生成を許可します。注意して使用してください。"
+			},
 			"cache_size": "モデルキャッシュ数",
 			"tokenizer_model": {
 				"label": "トークナイザーモデル",
