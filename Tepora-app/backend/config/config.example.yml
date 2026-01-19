@@ -1,0 +1,45 @@
+# Tepora Configuration Example
+# Rename this file to config.yml to use it.
+# Refer to README.md for model file requirements.
+
+models_gguf:
+  # Character Agent Model (Gemma 3n)
+  character_model:
+    path: "models/gemma-3n-E4B-it-IQ4_XS.gguf"
+    port: 0 # Port is managed dynamically by the application
+    n_ctx: 4096
+    n_gpu_layers: -1
+
+  # Professional Agent Model (Jan Nano)
+  professional_model:
+    path: "models/jan-nano-128k-iQ4_XS.gguf"
+    port: 0
+    n_ctx: 8192
+    n_gpu_layers: -1
+
+  # Embedding Model
+  embedding_model:
+    path: "models/embeddinggemma-300M-Q8_0.gguf"
+    port: 0
+    n_ctx: 2048
+    n_gpu_layers: -1
+
+# Character/Persona Definitions
+characters:
+  bunny_girl:
+    model_config_name: "character_model"
+  satuki:
+    model_config_name: "character_model"
+  shigure:
+    model_config_name: "professional_model"
+  haruka:
+    model_config_name: "character_model"
+  ren:
+    model_config_name: "character_model"
+  chohaku:
+    model_config_name: "character_model"
+
+# Privacy Settings
+privacy:
+  allow_web_search: false
+  redact_pii: true
