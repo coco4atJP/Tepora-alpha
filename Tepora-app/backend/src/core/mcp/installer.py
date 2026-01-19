@@ -5,11 +5,13 @@ Provides:
 - Command generation based on runtime hints (npx, uvx, docker)
 - Environment variable schema extraction
 - Config generation for new server installations
+- Server key normalization utilities
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from .models import (
@@ -23,6 +25,9 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+# Pattern for unsafe characters in server keys
+_SERVER_KEY_UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9_-]")
+
 
 class McpInstaller:
     """
@@ -31,6 +36,78 @@ class McpInstaller:
     Generates appropriate commands and configurations based on
     package runtime hints and user-provided environment variables.
     """
+
+    # --- Server Key Utilities ---
+
+    @staticmethod
+    def normalize_server_key(raw: str) -> str:
+        """
+        Normalize a registry/server identifier into a safe MCP server key.
+
+        This key is used as:
+        - the config key in `mcp_tools_config.json`
+        - the prefix for tool names (e.g. `{server_key}_{tool_name}`)
+
+        Args:
+            raw: Raw identifier (e.g. "io.github.user/weather")
+
+        Returns:
+            Safe key (e.g. "weather")
+        """
+        if not raw:
+            return "mcp_server"
+
+        # Prefer the segment after the namespace (reverse-DNS name like `io.github.user/weather`)
+        base = raw.split("/", 1)[-1]
+        base = _SERVER_KEY_UNSAFE_CHARS.sub("_", base).strip("_")
+        return base or "mcp_server"
+
+    @staticmethod
+    def make_unique_key(base: str, existing: set[str]) -> str:
+        """
+        Generate a unique server key by appending a suffix if needed.
+
+        Args:
+            base: Base key name
+            existing: Set of existing key names
+
+        Returns:
+            Unique key (e.g. "weather" or "weather_2")
+        """
+        if base not in existing:
+            return base
+        i = 2
+        while f"{base}_{i}" in existing:
+            i += 1
+        return f"{base}_{i}"
+
+    @staticmethod
+    def dump_config(server: McpServerConfig) -> dict[str, Any]:
+        """
+        Serialize McpServerConfig into the config file shape.
+
+        Preserves all metadata and transport settings.
+
+        Args:
+            server: Server configuration to serialize
+
+        Returns:
+            Dictionary suitable for JSON serialization
+        """
+        data: dict[str, Any] = {
+            "command": server.command,
+            "args": server.args,
+            "env": server.env or {},
+            "enabled": server.enabled,
+            "transport": getattr(server.transport, "value", server.transport),
+        }
+        if getattr(server, "url", None):
+            data["url"] = server.url
+        if server.metadata is not None:
+            data["metadata"] = server.metadata.model_dump(exclude_none=True)
+        return data
+
+    # --- Config Generation ---
 
     @staticmethod
     def generate_config(

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Any
@@ -27,8 +26,6 @@ from src.tepora_server.api.security import get_api_key
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"], dependencies=[Depends(get_api_key)])
-
-_SERVER_KEY_UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9_-]")
 
 
 # --- Request/Response Models ---
@@ -69,49 +66,7 @@ _pending_consents: dict[str, dict[str, Any]] = {}
 CONSENT_EXPIRY_MINUTES = 5
 
 
-# --- API Endpoints ---
-
-
-def _normalize_server_key(raw: str) -> str:
-    """
-    Normalize a registry/server identifier into a safe MCP server key.
-
-    This key is used as:
-    - the config key in `mcp_tools_config.json`
-    - the prefix for tool names (e.g. `{server_key}_{tool_name}`)
-    """
-    if not raw:
-        return "mcp_server"
-
-    # Prefer the segment after the namespace (reverse-DNS name like `io.github.user/weather`)
-    base = raw.split("/", 1)[-1]
-    base = _SERVER_KEY_UNSAFE_CHARS.sub("_", base).strip("_")
-    return base or "mcp_server"
-
-
-def _make_unique_server_key(base: str, existing: set[str]) -> str:
-    if base not in existing:
-        return base
-    i = 2
-    while f"{base}_{i}" in existing:
-        i += 1
-    return f"{base}_{i}"
-
-
-def _dump_server_config(server: Any) -> dict[str, Any]:
-    """Serialize McpServerConfig into the config file shape without dropping metadata."""
-    data: dict[str, Any] = {
-        "command": server.command,
-        "args": server.args,
-        "env": server.env or {},
-        "enabled": server.enabled,
-        "transport": getattr(server.transport, "value", server.transport),
-    }
-    if getattr(server, "url", None):
-        data["url"] = server.url
-    if getattr(server, "metadata", None):
-        data["metadata"] = server.metadata.model_dump(exclude_none=True)
-    return data
+# --- Helper Functions ---
 
 
 async def _reload_core_tools(state: AppState) -> None:
@@ -145,6 +100,9 @@ def _get_mcp_registry(state: AppState, *, required: bool = True):
             raise HTTPException(status_code=500, detail="MCP Registry not initialized")
         return None
     return registry
+
+
+# --- API Endpoints ---
 
 
 @router.get("/status")
@@ -430,11 +388,13 @@ async def confirm_mcp_install(
         existing_names = set(current_config.mcpServers.keys())
 
         requested_name = original_request.get("server_name")
-        base_name = _normalize_server_key(requested_name or original_request["server_id"])
-        server_name = _make_unique_server_key(base_name, existing_names)
+        base_name = McpInstaller.normalize_server_key(
+            requested_name or original_request["server_id"]
+        )
+        server_name = McpInstaller.make_unique_key(base_name, existing_names)
 
         new_servers = {
-            name: _dump_server_config(s) for name, s in current_config.mcpServers.items()
+            name: McpInstaller.dump_config(s) for name, s in current_config.mcpServers.items()
         }
 
         # Add new server (disabled by default for security - user must explicitly enable)
@@ -545,7 +505,7 @@ async def delete_server(
 
         # Remove server and update (preserve per-server metadata/transport/etc)
         new_servers = {
-            name: _dump_server_config(s)
+            name: McpInstaller.dump_config(s)
             for name, s in config.mcpServers.items()
             if name != server_name
         }

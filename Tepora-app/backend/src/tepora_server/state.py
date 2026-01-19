@@ -108,6 +108,14 @@ class AppState:
 
     async def shutdown(self) -> None:
         """Shutdown all managed resources."""
+        # Clean up core app resources first (LLM processes, tools, memory)
+        if self._core:
+            try:
+                await self._core.cleanup()
+                logger.info("Core app cleanup completed")
+            except Exception as e:
+                logger.warning("Error during core cleanup: %s", e, exc_info=True)
+
         if self._mcp_hub:
             await self._mcp_hub.shutdown()
         if self._mcp_registry:

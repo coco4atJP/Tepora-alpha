@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import {
 	createContext,
@@ -7,7 +8,6 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import type { CharacterConfig, ProfessionalConfig } from "../types";
 import { getApiBase, getAuthHeaders } from "../utils/api";
 

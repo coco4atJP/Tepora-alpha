@@ -55,6 +55,20 @@ module.exports = {
 					end: "#f0e2c8", // Steam & Cream
 					accent: "#4fffc0", // Cyber Leaf
 				},
+				// Semantic Theme Colors
+				theme: {
+					bg: "var(--bg-app)",
+					panel: "var(--bg-panel)",
+					overlay: "var(--bg-overlay)",
+					text: "var(--text-primary)",
+					subtext: "var(--text-secondary)",
+					accent: "var(--text-accent)",
+					border: "var(--border-subtle)",
+					"border-highlight": "var(--border-highlight)",
+					glass: "var(--glass-bg)",
+					"glass-border": "var(--glass-border)",
+					"glass-highlight": "var(--glass-highlight)",
+				},
 			},
 			animation: {
 				"pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",

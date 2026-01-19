@@ -7,32 +7,25 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { SettingsProvider } from "./context/SettingsContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import { getSessionToken } from "./utils/sessionToken";
 
 const queryClient = new QueryClient();
 
-import { backendReady, isDesktop, startSidecar } from "./utils/sidecar";
+import { isDesktop, startSidecar } from "./utils/sidecar";
 
 // Start the backend sidecar and wait for it before mounting React
 async function init() {
 	// Start sidecar (non-blocking)
 	startSidecar();
 
-	// Wait for backend to be ready (with timeout)
+	// Optimistic Rendering: We do NOT wait for backendReady here.
+	// The App component handles the "connecting" state via useRequirements.
 	if (isDesktop()) {
-		try {
-			await Promise.race([
-				backendReady,
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error("Backend startup timeout")), 30000),
-				),
-			]);
-			console.log("[Main] Backend is ready, mounting React app");
-		} catch (error) {
-			console.warn("[Main] Backend startup issue:", error);
-			// Continue anyway - App will handle connection errors
-		}
+		console.log(
+			"[Main] Desktop mode detected, proceeding with optimistic render",
+		);
 	}
 
 	try {
@@ -47,7 +40,9 @@ async function init() {
 				<QueryClientProvider client={queryClient}>
 					<WebSocketProvider>
 						<SettingsProvider>
-							<App />
+							<ThemeProvider>
+								<App />
+							</ThemeProvider>
 						</SettingsProvider>
 					</WebSocketProvider>
 					<ReactQueryDevtools initialIsOpen={false} />

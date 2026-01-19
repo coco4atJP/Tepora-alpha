@@ -2,7 +2,7 @@
 	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
 	"productName": "tepora",
 	"version": "0.2.0-beta",
-	"identifier": "jp.tepora.app",
+	"identifier": "jp.tepora.desktop",
 	"build": {
 		"frontendDist": "../dist",
 		"devUrl": "http://localhost:5173",
@@ -21,7 +21,7 @@
 	"app": {
 		"windows": [
 			{
-				"title": "Tepora AI",
+				"title": "Tepora",
 				"width": 1100,
 				"height": 720,
 				"minWidth": 800,
@@ -37,9 +37,11 @@
 	},
 	"bundle": {
 		"active": true,
-		"targets": ["nsis"],
+		"targets": [
+			"nsis"
+		],
 		"publisher": "Tepora",
-		"shortDescription": "Tepora AI Agent",
+		"shortDescription": "Tepora Desktop",
 		"icon": [
 			"icons/32x32.png",
 			"icons/128x128.png",
@@ -47,7 +49,11 @@
 			"icons/icon.icns",
 			"icons/icon.ico"
 		],
-		"externalBin": ["binaries/tepora-backend"],
-		"resources": ["resources/llama-cpu-fallback/*"]
+		"externalBin": [
+			"binaries/tepora-backend"
+		],
+		"resources": [
+			"resources/llama-cpu-fallback/*"
+		]
 	}
 }

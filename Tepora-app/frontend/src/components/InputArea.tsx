@@ -73,8 +73,8 @@ const InputArea: React.FC<InputAreaProps> = ({
 			<div
 				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-tepora transition-all duration-500 ${
 					isProcessing
-						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-black/40"
-						: "hover:shadow-[0_0_30px_-5px_rgba(0,0,0,0.5)] hover:bg-black/40 shadow-2xl"
+						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
+						: "hover:shadow-[0_0_30px_-5px_rgba(0,0,0,0.1)] hover:bg-theme-overlay shadow-2xl"
 				}`}
 			>
 				{/* Persona Switcher */}
@@ -91,7 +91,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 					placeholder={getPlaceholder()}
 					disabled={isProcessing || !isConnected}
 					aria-label={t("chat.input.aria_label")}
-					className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500 resize-none min-h-[44px] max-h-[200px] py-3 px-2 leading-relaxed font-sans text-[0.95rem] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+					className="flex-1 bg-transparent border-none outline-none text-theme-text placeholder-theme-subtext resize-none min-h-[44px] max-h-[200px] py-3 px-2 leading-relaxed font-sans text-[0.95rem] scrollbar-thin scrollbar-thumb-theme-border scrollbar-track-transparent"
 					rows={1}
 					style={{ maxHeight: "200px" }}
 				/>

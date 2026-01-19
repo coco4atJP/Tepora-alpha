@@ -24,7 +24,7 @@ logger = logging.getLogger("tepora.server.factory")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup the application."""
-    logger.info("🚀 Tepora Web Server starting up...")
+    logger.info("Tepora Web Server starting up...")
     try:
         # Load Config Explicitly
         from src.core.config.loader import config_manager
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
         await asyncio.get_running_loop().run_in_executor(
             None, validate_startup_config, settings, PROJECT_ROOT
         )
-        logger.info("✅ Startup configuration validated.")
+        logger.info("Startup configuration validated.")
 
         # Initialize Application State
         state = AppState()
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
             try:
                 await state.initialize()
                 if state.core.initialized:
-                    logger.info("✅ Core initialization complete.")
+                    logger.info("Core initialization complete.")
                 else:
                     logger.warning(
                         "Core initialization finished but core is not initialized (setup required)."
@@ -65,14 +65,14 @@ async def lifespan(app: FastAPI):
 
         asyncio.create_task(_background_init())
 
-        logger.info("✅ Tepora Web Server ready (core init running in background).")
+        logger.info("Tepora Web Server ready (core init running in background).")
     except Exception as e:
         logger.critical("Critical failure during startup: %s", e, exc_info=True)
         raise
 
     yield
 
-    logger.info("🔻 Tepora Web Server shutting down...")
+    logger.info("Tepora Web Server shutting down...")
 
     # Cleanup MCP resources
     if hasattr(app.state, "app_state") and app.state.app_state:

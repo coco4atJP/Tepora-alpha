@@ -9,6 +9,7 @@ import type React from "react";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
 import { useWebSocketContext } from "../context/WebSocketContext";
 import type { Attachment, ChatMode } from "../types";
 import AgentStatus from "./AgentStatus";
@@ -60,6 +61,8 @@ const Layout: React.FC = () => {
 	const [skipWebSearch, setSkipWebSearch] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { t } = useTranslation();
+	const { activeTheme } = useTheme();
+	const isTepora = activeTheme === "tepora";
 
 	// Use Context instead of local hook
 	const wsData = useWebSocketContext();
@@ -127,7 +130,7 @@ const Layout: React.FC = () => {
 	}, []);
 
 	return (
-		<div className="flex flex-col h-[100dvh] w-full overflow-hidden relative font-sans bg-gray-950">
+		<div className="flex flex-col h-[100dvh] w-full overflow-hidden relative font-sans bg-theme-bg text-theme-text transition-colors duration-300">
 			{/* Hidden File Input */}
 			<input
 				type="file"
@@ -138,14 +141,17 @@ const Layout: React.FC = () => {
 				accept=".txt,.md,.json,.xml,.csv,.log,.py,.js,.ts,.tsx,.jsx,.html,.css,.yml,.yaml,.toml,.ini,.cfg,.conf,.sh,.bat,.ps1,.c,.cpp,.h,.hpp,.java,.go,.rs,.rb,.php,.sql,.r,.m,.swift,.kt"
 			/>
 			{/* Dynamic Background with Tea Theme */}
-			<DynamicBackground />
+			{isTepora && <DynamicBackground />}
 			<div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-				<div className="absolute inset-0 bg-gradient-to-b from-black/60 via-tea-950/40 to-black/70 mix-blend-multiply"></div>
-				<div className="absolute inset-0 bg-gradient-to-tr from-tepora-start/20 via-transparent to-tepora-accent/5 animate-gradient-x opacity-60"></div>
-
-				{/* Ambient Orbs */}
-				<div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-tea-500/5 rounded-full blur-[100px] animate-float"></div>
-				<div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[100px] animate-pulse-slow"></div>
+				{isTepora && (
+					<>
+						<div className="absolute inset-0 bg-gradient-to-b from-black/60 via-tea-950/40 to-black/70 mix-blend-multiply"></div>
+						<div className="absolute inset-0 bg-gradient-to-tr from-tepora-start/20 via-transparent to-tepora-accent/5 animate-gradient-x opacity-60"></div>
+						{/* Ambient Orbs */}
+						<div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-tea-500/5 rounded-full blur-[100px] animate-float"></div>
+						<div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[100px] animate-pulse-slow"></div>
+					</>
+				)}
 			</div>
 
 			{/* Main Content Grid */}

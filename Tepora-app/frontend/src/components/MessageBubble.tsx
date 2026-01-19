@@ -22,7 +22,7 @@ function getIconBgClass(message: Message): string {
 		case "system":
 			return "bg-red-900/50";
 		default:
-			return "bg-black/70 backdrop-blur-md";
+			return "bg-theme-glass backdrop-blur-md";
 	}
 }
 
@@ -60,7 +60,7 @@ function getBubbleClass(message: Message): string {
 		case "agent":
 			return `${baseClasses} bg-tea-900/70 border-gold-500/40 text-gold-50`;
 		default:
-			return `${baseClasses} bg-black/70 border-white/20 text-gray-100 rounded-tl-none`;
+			return `${baseClasses} bg-theme-panel border-theme-border text-theme-text rounded-tl-none`;
 	}
 }
 
@@ -176,15 +176,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 						)}
 
 						<div
-							className={`markdown-content prose prose-invert max-w-none break-words whitespace-pre-wrap
+							className={`markdown-content prose prose-theme max-w-none break-words whitespace-pre-wrap
                                 prose-p:leading-7 prose-p:my-3
-                                prose-headings:font-display prose-headings:text-gold-100 prose-headings:font-normal
-                                prose-pre:bg-black/40 prose-pre:backdrop-blur-sm prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:shadow-inner
-                                prose-code:bg-white/10 prose-code:rounded-md prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:text-gold-200 prose-code:before:content-[''] prose-code:after:content-['']
-                                prose-blockquote:border-l-gold-500/50 prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic
+                                prose-headings:font-display prose-headings:font-normal
+                                prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic
                                 prose-ul:my-2 prose-li:my-1
-                                prose-a:text-gold-400 prose-a:no-underline hover:prose-a:text-gold-300 hover:prose-a:underline
-                                ${message.role === "user" ? "prose-p:text-cream-50" : "prose-p:text-gray-200"}
+                                prose-a:no-underline hover:prose-a:underline
+                                ${message.role === "user" ? "prose-p:text-cream-50" : ""}
                             `}
 						>
 							<ReactMarkdown

@@ -43,7 +43,6 @@ class TestEMTwoStageRetrieval(unittest.TestCase):
         )
         self.assertEqual(call_args["documents"], ["test event"])
 
-
     def test_retrieve_relevant_events(self):
         # Mock similarity retrieval results
         sim_event = EpisodicEvent(

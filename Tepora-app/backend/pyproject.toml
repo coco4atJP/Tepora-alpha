@@ -112,5 +112,10 @@ explicit_package_bases = true
 # UV設定（Pythonバージョンは requires-python から自動検出）
 
 [tool.uv.sources]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.18.0",
+]
 # PyTorch settings removed to use standard PyPI (supports CUDA on Windows/Linux)
 

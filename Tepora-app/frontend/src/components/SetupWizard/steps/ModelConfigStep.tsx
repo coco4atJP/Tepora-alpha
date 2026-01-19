@@ -1,13 +1,10 @@
 import {
 	CheckCircle,
-	CheckSquare,
 	ChevronRight,
 	Cpu,
 	Download,
 	Globe,
 	HardDrive,
-	Settings,
-	Square,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getKey } from "../reducer";
@@ -20,23 +17,18 @@ export default function ModelConfigStep({
 	setShowAdvanced,
 	onStartSetup,
 }: ModelConfigStepProps) {
-	const { t } = useTranslation();
-
 	return (
 		<div className="space-y-6">
 			{/* Storage Info */}
-			<div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 flex gap-3">
-				<HardDrive className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-				<div className="text-sm text-blue-200">
-					<p className="font-medium mb-1">
-						{t("setup.storage_required", "Approx. 2GB+ per model required")}
-					</p>
-					<p className="opacity-80">
-						{t(
-							"setup.storage_desc",
-							"Tepora runs locally. Models will be stored in your AppData folder.",
-						)}
-					</p>
+			{/* Storage Info */}
+			<div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-3 flex gap-3 text-xs text-blue-200/80 mb-2">
+				<HardDrive className="w-4 h-4 shrink-0 mt-0.5" />
+				<div>
+					<span className="font-medium text-blue-200">
+						Storage Requirement:
+					</span>{" "}
+					Models are stored locally in your AppData folder. Ensure you have
+					sufficient disk space.
 				</div>
 			</div>
 
@@ -76,22 +68,16 @@ function DefaultModelSelection({
 	const { t } = useTranslation();
 
 	return (
-		<div className="space-y-4">
-			<div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
-				<div className="text-sm font-medium text-gray-300 mb-2">
-					Select Models to Install:
-				</div>
+		<div className="space-y-8 animate-slide-up">
+			{/* Model Cards */}
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 				{state.defaults?.text_models.map((m) => {
 					const key = getKey(m);
 					const isSelected = state.selectedModels.has(key);
 					return (
 						<div
 							key={key}
-							className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
-								isSelected
-									? "bg-gold-400/10 border-gold-400/30"
-									: "bg-black/20 border-transparent hover:bg-white/5"
-							}`}
+							className={`setup-card relative cursor-pointer group flex flex-col h-full ${isSelected ? "active border-gold-500/50" : "opacity-80 hover:opacity-100"}`}
 							onClick={() => dispatch({ type: "TOGGLE_MODEL", payload: key })}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" || e.key === " ") {
@@ -101,70 +87,81 @@ function DefaultModelSelection({
 							role="button"
 							tabIndex={0}
 						>
-							{isSelected ? (
-								<CheckSquare className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" />
-							) : (
-								<Square className="w-5 h-5 text-gray-500 shrink-0 mt-0.5" />
-							)}
-							<div>
+							<div className="absolute top-4 right-4 z-10">
+								{isSelected ? (
+									<CheckCircle className="w-6 h-6 text-gold-400 fill-gold-400/10" />
+								) : (
+									<div className="w-6 h-6 rounded-full border-2 border-white/20 group-hover:border-white/40" />
+								)}
+							</div>
+
+							<div className="mb-4">
+								<div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center mb-3 group-hover:shadow-glow transition-shadow">
+									<Cpu
+										className={`w-5 h-5 ${isSelected ? "text-gold-400" : "text-gray-400"}`}
+									/>
+								</div>
 								<div
-									className={`font-medium ${isSelected ? "text-gold-100" : "text-gray-400"}`}
+									className={`font-display text-lg font-bold mb-1 ${isSelected ? "text-gold-100" : "text-gray-300"}`}
 								>
 									{m.display_name}
 								</div>
-								<div className="text-xs text-gray-500 break-all">
+								<div className="text-xs text-gray-500 break-all font-mono opacity-70">
 									{m.repo_id}
 								</div>
+							</div>
+
+							<div className="mt-auto pt-4 border-t border-white/5">
+								<span className="text-xs text-gray-400 flex items-center gap-1">
+									<HardDrive className="w-3 h-3" />
+									~2.5GB VRAM
+								</span>
 							</div>
 						</div>
 					);
 				})}
 				{state.defaults?.text_models.length === 0 && (
-					<div className="text-gray-500 text-sm italic">Loading models...</div>
+					<div className="col-span-2 text-center py-12 text-gray-500 italic border border-dashed border-white/10 rounded-xl">
+						Loading recommended models...
+					</div>
 				)}
 			</div>
 
-			<button
-				type="button"
-				onClick={onStartSetup}
-				disabled={state.selectedModels.size === 0}
-				className="w-full text-left p-6 bg-gradient-to-br from-coffee-900/40 to-black/60 border border-gold-500/20 hover:border-gold-500/50 rounded-xl group transition-all duration-300 shadow-lg hover:shadow-gold-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-			>
-				<div className="flex items-center justify-between mb-2">
-					<div className="flex items-center gap-2">
-						<CheckCircle className="w-5 h-5 text-green-400" />
-						<span className="font-semibold text-lg text-gold-100">
+			{/* Action Area */}
+			<div className="space-y-4 pt-4">
+				<button
+					type="button"
+					onClick={onStartSetup}
+					disabled={state.selectedModels.size === 0}
+					className="w-full relative overflow-hidden group p-4 rounded-xl bg-gold-400 text-black font-bold shadow-lg shadow-gold-900/20 hover:bg-gold-300 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+				>
+					<div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+					<div className="relative flex items-center justify-center gap-3">
+						<Download className="w-5 h-5" />
+						<span className="text-lg tracking-wide">
 							{t("setup.install_selected", "Install Selected Models")}
 						</span>
+						<ChevronRight className="w-5 h-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
 					</div>
-					<ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-gold-400" />
-				</div>
-				<p className="text-sm text-gray-400 pl-7">
-					{state.selectedModels.size} models selected.
-				</p>
-			</button>
+				</button>
 
-			<button
-				type="button"
-				onClick={onShowAdvanced}
-				className="w-full text-left p-4 bg-white/5 border border-white/5 hover:border-white/20 rounded-lg group transition-all"
-			>
-				<div className="flex items-center justify-between mb-2">
-					<div className="flex items-center gap-2">
-						<Settings className="w-5 h-5 text-gray-400" />
-						<span className="font-semibold text-lg text-gray-200">
-							{t("setup.custom", "Custom Configuration (Advanced)")}
+				{state.selectedModels.size > 0 && (
+					<div className="text-center">
+						<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+							<CheckCircle className="w-3 h-3" />
+							{state.selectedModels.size} models selected
 						</span>
 					</div>
-					<ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white" />
-				</div>
-				<p className="text-sm text-gray-500 pl-7">
-					{t(
-						"setup.custom_desc",
-						"Specify your own GGUF model repositories and filenames.",
-					)}
-				</p>
-			</button>
+				)}
+
+				<button
+					type="button"
+					onClick={onShowAdvanced}
+					className="w-full text-center text-xs text-gray-500 hover:text-white transition-colors py-2"
+				>
+					{t("setup.custom", "Configure custom models instead")}
+				</button>
+			</div>
 		</div>
 	);
 }

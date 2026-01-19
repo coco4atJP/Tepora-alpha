@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getWsBase } from "../../utils/api";
 import { getSessionToken } from "../../utils/sessionToken";
-import { isDesktop } from "../../utils/sidecar";
+import { backendReady, isDesktop } from "../../utils/sidecar";
 
 /**
  * Build WebSocket URL with optional token query parameter.
@@ -73,6 +73,14 @@ export const useSocketConnection = ({
 		if (!isMounted.current) return;
 
 		try {
+			// Wait for backend to be ready before connecting WebSocket
+			// This ensures dynamic port is set correctly
+			if (isDesktop()) {
+				console.log("[WebSocket] Waiting for backend to be ready...");
+				await backendReady;
+				console.log("[WebSocket] Backend is ready, proceeding with connection");
+			}
+
 			// Get session token for authentication
 			if (!tokenRef.current) {
 				tokenRef.current = await getSessionToken();

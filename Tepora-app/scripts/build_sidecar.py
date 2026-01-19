@@ -176,10 +176,24 @@ def build():
         "--hidden-import", "httpcore",
         "--hidden-import", "psutil",
         # Collect submodules for complex packages
-        "--collect-submodules", "langchain",
+        # "--collect-submodules", "langchain", # Too heavy
         "--collect-submodules", "langchain_core",
-        "--collect-submodules", "langchain_community",
+        # "--collect-submodules", "langchain_community", # Too heavy, pulls torch
         "--collect-submodules", "chromadb",
+        
+        # Exact dependencies needed
+        "--hidden-import", "langchain_openai",
+        "--hidden-import", "langchain_text_splitters",
+        
+        # Excludes to reduce size
+        "--exclude-module", "torch",
+        "--exclude-module", "torchvision",
+        "--exclude-module", "torchaudio",
+        "--exclude-module", "transformers",
+        "--exclude-module", "sentence_transformers",
+        "--exclude-module", "nvidia",
+        "--exclude-module", "triton",
+        "--exclude-module", "sympy",
         # Entry point
         str(BACKEND_DIR / "server.py")
     ]

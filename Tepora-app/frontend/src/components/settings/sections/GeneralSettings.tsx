@@ -1,9 +1,10 @@
 import { Cpu, Settings } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../hooks/useSettings";
 import { getApiBase, getAuthHeaders } from "../../../utils/api";
+import { ThemeSelector } from "../components/ThemeSelector";
 import Updater from "../components/Updater";
 import {
 	CollapsibleSection,
@@ -45,7 +46,9 @@ const GeneralSettings: React.FC = () => {
 	const configLanguage = normalizeLanguage(appConfig.language) ?? "en";
 	const uiLanguage =
 		normalizeLanguage(i18n.resolvedLanguage || i18n.language) ?? configLanguage;
-	const languageSelectValue = appConfig.setup_completed ? configLanguage : uiLanguage;
+	const languageSelectValue = appConfig.setup_completed
+		? configLanguage
+		: uiLanguage;
 
 	return (
 		<SettingsSection
@@ -109,6 +112,10 @@ const GeneralSettings: React.FC = () => {
 					<h3 className="text-lg font-medium text-white">
 						{t("settings.sections.general.app_settings")}
 					</h3>
+
+					{/* Theme Selection */}
+					<ThemeSelector />
+
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<FormGroup
 							label={t("settings.fields.language.label")}
@@ -279,6 +286,7 @@ const InferenceEngineUpdate: React.FC = () => {
 	} | null>(null);
 	const [updating, setUpdating] = useState(false);
 	const [status, setStatus] = useState("");
+	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const checkUpdate = useCallback(async () => {
 		try {
@@ -312,7 +320,7 @@ const InferenceEngineUpdate: React.FC = () => {
 
 			if (data.job_id) {
 				// Poll progress
-				const poll = setInterval(async () => {
+				pollRef.current = setInterval(async () => {
 					const progRes = await fetch(
 						`${getApiBase()}/api/setup/progress?job_id=${data.job_id}`,
 						{ headers: { ...getAuthHeaders() } },
@@ -321,7 +329,8 @@ const InferenceEngineUpdate: React.FC = () => {
 					setStatus(progData.message || `Status: ${progData.status}`);
 
 					if (progData.status === "completed") {
-						clearInterval(poll);
+						if (pollRef.current) clearInterval(pollRef.current);
+						pollRef.current = null;
 						setUpdating(false);
 						setStatus(
 							t("settings.sections.general.inference_engine.completed") ||
@@ -329,7 +338,8 @@ const InferenceEngineUpdate: React.FC = () => {
 						);
 						checkUpdate();
 					} else if (progData.status === "failed") {
-						clearInterval(poll);
+						if (pollRef.current) clearInterval(pollRef.current);
+						pollRef.current = null;
 						setUpdating(false);
 						setStatus(
 							`${t("settings.sections.general.inference_engine.failed") || "Update failed"}: ${progData.message}`,
@@ -355,6 +365,13 @@ const InferenceEngineUpdate: React.FC = () => {
 
 	useEffect(() => {
 		checkUpdate();
+		return () => {
+			// Cleanup: clear polling interval on unmount to prevent memory leaks
+			if (pollRef.current) {
+				clearInterval(pollRef.current);
+				pollRef.current = null;
+			}
+		};
 	}, [checkUpdate]);
 
 	return (

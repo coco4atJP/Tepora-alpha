@@ -1,17 +1,106 @@
 @import "tailwindcss";
 @config "../tailwind.config.cjs";
 
+/* 
+  THEMING SYSTEM
+  - :root (Default) -> Tepora Theme (Tea/Black/Gold)
+  - [data-theme="light"] -> Light Theme (Paper/Ink/Tea)
+  - [data-theme="dark"] -> Neutral Dark Theme (Slate/Gray)
+*/
+
+:root {
+    /* TEPORA THEME (Default) */
+    --bg-app: #050201;
+    /* Extremely dark tea/black */
+    --bg-panel: rgba(10, 5, 3, 0.9);
+    --bg-overlay: rgba(15, 5, 2, 0.7);
+
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+    --text-accent: #f0e333;
+
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-highlight: rgba(255, 255, 255, 0.15);
+
+    --glass-bg: rgba(15, 5, 2, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: rgba(219, 89, 37, 0.1);
+
+    --gradient-tepora: linear-gradient(135deg, rgba(63, 21, 11, 0.9), rgba(145, 52, 29, 0.7), rgba(212, 200, 32, 0.2));
+
+    color-scheme: dark;
+}
+
+[data-theme="light"] {
+    /* LIGHT THEME */
+    --bg-app: #FAFAFA;
+    /* Warm paper white */
+    --bg-panel: rgba(255, 255, 255, 0.85);
+    --bg-overlay: rgba(255, 255, 255, 0.6);
+
+    --text-primary: #1F1F1F;
+    /* Soft Black */
+    --text-secondary: #525252;
+    --text-accent: #bd4b26;
+    /* Tea Red for accent visibility */
+
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-highlight: rgba(0, 0, 0, 0.12);
+
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.06);
+    --glass-highlight: rgba(219, 89, 37, 0.08);
+
+    --gradient-tepora: linear-gradient(135deg, rgba(253, 246, 243, 0.95), rgba(250, 232, 224, 0.8), rgba(250, 245, 200, 0.4));
+
+    color-scheme: light;
+}
+
+[data-theme="dark"] {
+    /* NEUTRAL DARK THEME */
+    --bg-app: #0f1115;
+    /* Neutral Dark Blue-Grey */
+    --bg-panel: rgba(20, 22, 28, 0.9);
+    --bg-overlay: rgba(10, 10, 12, 0.8);
+
+    --text-primary: #f9fafb;
+    --text-secondary: #9ca3af;
+    --text-accent: #60a5fa;
+    /* Blue accent for neutral */
+
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-highlight: rgba(255, 255, 255, 0.1);
+
+    --glass-bg: rgba(20, 22, 28, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --glass-highlight: rgba(255, 255, 255, 0.03);
+
+    --gradient-tepora: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(51, 65, 85, 0.7), rgba(71, 85, 105, 0.4));
+
+    color-scheme: dark;
+}
+
 @layer base {
     body {
-        @apply bg-gray-950 text-gray-100;
+        /* Apply the mapped variables */
+        color: var(--text-primary);
+        background-color: var(--bg-app);
+        /* @apply bg-gray-950 text-gray-100; <--- Removing hardcoded tailwind classes */
+        overflow: hidden;
+        transition: background-color 0.3s ease, color 0.3s ease;
     }
 }
 
 /* Custom Utilities if needed */
 .glass-tepora {
-    @apply bg-black/40 backdrop-blur-md border border-white/10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+    /* Reduced shadow opacity for versatility */
 }
 
+/* ... Animations kept as is ... */
 @keyframes message-in {
     0% {
         opacity: 0;
@@ -50,7 +139,7 @@
 /* Scrollbar (Firefox) */
 .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    scrollbar-color: var(--border-highlight) transparent;
 }
 
 /* Markdown (chat) */
@@ -59,7 +148,53 @@
     content: "" !important;
 }
 
+.prose-theme {
+    --tw-prose-body: var(--text-primary);
+    --tw-prose-headings: var(--text-primary);
+    --tw-prose-lead: var(--text-secondary);
+    --tw-prose-links: var(--text-accent);
+    --tw-prose-bold: var(--text-primary);
+    --tw-prose-counters: var(--text-secondary);
+    --tw-prose-bullets: var(--text-secondary);
+    --tw-prose-hr: var(--border-subtle);
+    --tw-prose-quotes: var(--text-primary);
+    --tw-prose-quote-borders: var(--border-highlight);
+    --tw-prose-captions: var(--text-secondary);
+    --tw-prose-code: var(--text-primary);
+    --tw-prose-pre-code: var(--text-primary);
+    --tw-prose-pre-bg: var(--bg-overlay);
+    --tw-prose-th-borders: var(--border-subtle);
+    --tw-prose-td-borders: var(--border-subtle);
+    color: var(--text-primary);
+}
+
+.prose-theme h1,
+.prose-theme h2,
+.prose-theme h3,
+.prose-theme h4 {
+    color: var(--text-primary);
+}
+
+.prose-theme a {
+    color: var(--text-accent);
+}
+
+.prose-theme code {
+    color: var(--text-accent);
+    background-color: var(--bg-overlay);
+}
+
+.prose-theme strong {
+    color: var(--text-primary);
+}
+
+.prose-theme blockquote {
+    color: var(--text-secondary);
+    border-left-color: var(--border-highlight);
+}
+
 @media (prefers-reduced-motion: reduce) {
+
     .animate-fade-in,
     .animate-modal-enter,
     .animate-message-in {
@@ -67,61 +202,127 @@
     }
 }
 
+/* Setup Wizard Animations & Utilities REPLACED/ADAPTED */
+@layer components {
+    .setup-card {
+        /* @apply relative overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 transition-all duration-300; */
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border-subtle);
+        background: var(--bg-panel);
+        padding: 1rem;
+        transition: all 0.3s ease;
+    }
 
-:root {
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-bg: rgba(15, 5, 2, 0.7);
-    /* Deep Tea Dark */
-    --glass-highlight: rgba(219, 89, 37, 0.1);
-    /* Tea Orange Tint */
-    --tepora-gradient: linear-gradient(135deg, rgba(63, 21, 11, 0.9), rgba(145, 52, 29, 0.7), rgba(212, 200, 32, 0.2));
-    color-scheme: dark;
+    .setup-card:hover {
+        /* @apply border-gold-500/30 bg-white/10 shadow-[0_0_20px_#db592526]; */
+        border-color: var(--text-accent);
+        /* Simplified for now, refine later */
+        box-shadow: 0 0 20px rgba(219, 89, 37, 0.15);
+        /* Keep tea glow? customize per theme later */
+        transform: translateY(-2px);
+    }
+
+    .setup-card.active {
+        /* @apply border-gold-500/50 bg-gold-500/10 shadow-[0_0_25px_#fae33326]; */
+        border-color: var(--text-accent);
+        background: var(--glass-highlight);
+        box-shadow: 0 0 25px rgba(250, 227, 51, 0.15);
+    }
+
+    .glass-terminal {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        /* @apply bg-[#0c0c0c]/80 backdrop-blur-md border border-white/5 rounded-lg font-mono text-xs shadow-inner; */
+        backdrop-filter: blur(12px);
+        border-radius: 0.5rem;
+        font-family: monospace;
+        font-size: 0.75rem;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+    }
 }
 
-body {
-    color: #f3f4f6;
-    background-color: #050201;
-    /* Extremely dark tea/black */
-    overflow: hidden;
+@keyframes slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* @keyframes shimmer { ... duplicated in original, using first def */
+
+.animate-slide-up {
+    animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+    animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-shimmer {
+    background: linear-gradient(90deg, transparent, var(--border-highlight), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
 }
 
 /* Cyber Tea Salon Glassmorphism Utilities */
 @layer components {
 
-    /* Use comma separation instead of @apply to avoid self-reference/custom class errors in build tools */
+    /* Consolidated Glass Classes */
     .glass-tea,
     .glass-tepora {
         backdrop-filter: blur(24px);
-        background-image: linear-gradient(to bottom right, rgba(63, 21, 11, 0.9), rgba(20, 10, 5, 0.95));
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        background-image: var(--gradient-tepora);
+        border: 1px solid var(--glass-border);
         box-shadow:
-            0 8px 32px 0 rgba(0, 0, 0, 0.6),
+            0 8px 32px 0 rgba(0, 0, 0, 0.2),
             inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        /* Slight inset for 3D feel */
     }
 
     .glass-panel {
         backdrop-filter: blur(20px);
-        background-color: rgba(10, 5, 3, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
         border-radius: 1rem;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     .glass-button {
         backdrop-filter: blur(8px);
-        background-color: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        background-color: var(--glass-highlight);
+        /* Subtle tint */
+        border: 1px solid var(--border-highlight);
         transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
         border-radius: 0.5rem;
         position: relative;
         overflow: hidden;
+        color: var(--text-primary);
     }
 
     .glass-button:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        border-color: rgba(219, 89, 37, 0.4);
-        /* Tea accent */
-        box-shadow: 0 0 15px rgba(219, 89, 37, 0.15);
+        background-color: var(--border-highlight);
+        border-color: var(--text-accent);
+        box-shadow: 0 0 15px var(--glass-highlight);
     }
 
     .glass-button:active {
@@ -130,34 +331,39 @@ body {
 
     .glass-input {
         backdrop-filter: blur(12px);
-        background-color: rgba(0, 0, 0, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        background-color: var(--bg-overlay);
+        border: 1px solid var(--border-subtle);
         transition: all 300ms;
         border-radius: 9999px;
         padding: 1rem 1.5rem;
         outline: none;
-        color: #f3f4f6;
+        color: var(--text-primary);
     }
 
     .glass-input::placeholder {
-        color: #9ca3af;
+        color: var(--text-secondary);
     }
 
     .glass-input:focus {
-        border-color: rgba(219, 89, 37, 0.5);
-        /* Tea accent */
-        box-shadow: 0 0 0 1px rgba(219, 89, 37, 0.3), 0 0 15px rgba(219, 89, 37, 0.1);
+        border-color: var(--text-accent);
+        box-shadow: 0 0 0 1px var(--glass-highlight), 0 0 15px var(--glass-highlight);
     }
 
     .text-shadow-glow {
         text-shadow: 0 0 10px rgba(255, 215, 0, 0.4), 0 0 20px rgba(219, 89, 37, 0.2);
     }
 
+    /* Conditional text gradient based on theme? kept for Tepora */
     .text-gradient-tea {
         background-clip: text;
         -webkit-background-clip: text;
         color: transparent;
         background-image: linear-gradient(to right, #fae1c7, #f0e333);
+    }
+
+    [data-theme="light"] .text-gradient-tea {
+        background-image: linear-gradient(to right, #bd4b26, #d4bf80);
+        /* Darker gradient for light mode */
     }
 }
 
@@ -171,12 +377,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--border-subtle);
     border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(219, 89, 37, 0.4);
+    background-color: var(--border-highlight);
 }
 
 /* Modal Animations */

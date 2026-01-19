@@ -15,7 +15,7 @@ from src.core.config.loader import LOG_DIR, config_manager, settings
 
 # Ensure backend directory is in path for imports if running directly
 # sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from src.tepora_server.app_factory import create_app
+# from src.tepora_server.app_factory import create_app  <-- Moved to lazy import below
 
 # Configure Logging with rotation
 # Use LOG_DIR from loader.py which points to %LOCALAPPDATA%/Tepora/logs on Windows
@@ -90,6 +90,13 @@ cleanup_llama_server_logs(log_dir, max_files=20)
 
 if __name__ == "__main__":
     import socket
+    import sys
+
+    # Monkeypatch for uvicorn on Windows (see https://github.com/encode/uvicorn/issues/1007)
+    # uvicorn checks socket.AF_UNIX which is missing on Windows < Python 3.10 (or specifically in some envs)
+    # triggering AttributeError when passing an fd.
+    if sys.platform == "win32" and not hasattr(socket, "AF_UNIX"):
+        setattr(socket, "AF_UNIX", -1)
 
     import uvicorn
 
@@ -115,6 +122,9 @@ if __name__ == "__main__":
 
     # 2. App Initialization (Heavy Lift)
     try:
+        # Lazy import to allow port to be printed ASAP
+        from src.tepora_server.app_factory import create_app
+
         app = create_app()
     except Exception as e:
         sock.close()  # Clean up socket on error

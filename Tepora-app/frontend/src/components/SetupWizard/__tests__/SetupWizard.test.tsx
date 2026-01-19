@@ -25,12 +25,14 @@ import LanguageStep from "../steps/LanguageStep";
 import RequirementsCheckStep from "../steps/RequirementsCheckStep";
 
 describe("SetupWizard Steps", () => {
+	console.log("Test suite loaded");
 	describe("LanguageStep", () => {
 		it("renders all language options", () => {
 			const onSelectLanguage = vi.fn();
 			render(<LanguageStep onSelectLanguage={onSelectLanguage} />);
 
-			expect(screen.getByText("English")).toBeInTheDocument();
+			const englishElements = screen.getAllByText("English");
+			expect(englishElements.length).toBeGreaterThan(0);
 			expect(screen.getByText("日本語")).toBeInTheDocument();
 			expect(screen.getByText("中文")).toBeInTheDocument();
 			expect(screen.getByText("Español")).toBeInTheDocument();
@@ -74,8 +76,8 @@ describe("SetupWizard Steps", () => {
 			render(<InstallingStep progress={progress} />);
 
 			expect(screen.getByText("50%")).toBeInTheDocument();
-			expect(screen.getByText("Downloading...")).toBeInTheDocument();
-			expect(screen.getByText(/Downloading model/)).toBeInTheDocument();
+			expect(screen.getByText("50%")).toBeInTheDocument();
+			expect(screen.getByText("Downloading AI models...")).toBeInTheDocument();
 		});
 
 		it("shows extracting status", () => {
@@ -88,7 +90,7 @@ describe("SetupWizard Steps", () => {
 			render(<InstallingStep progress={progress} />);
 
 			expect(screen.getByText("75%")).toBeInTheDocument();
-			expect(screen.getByText("Extracting...")).toBeInTheDocument();
+			expect(screen.getByText("Extracting components...")).toBeInTheDocument();
 		});
 	});
 

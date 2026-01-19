@@ -319,32 +319,63 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		if (state.step === "CHECK_REQUIREMENTS") return null;
 
 		const steps = [
-			"LANGUAGE",
-			"MODEL_CONFIG",
-			"INSTALLING",
-			"COMPLETE",
+			{ key: "LANGUAGE", label: t("setup.step_lang", "Language") },
+			{ key: "MODEL_CONFIG", label: t("setup.step_model", "Model") },
+			{ key: "INSTALLING", label: t("setup.step_install", "Install") },
+			{ key: "COMPLETE", label: t("setup.step_done", "Complete") },
 		] as const;
-		const currentIdx = steps.indexOf(state.step as (typeof steps)[number]);
+
+		const currentIdx = steps.findIndex((s) => s.key === state.step);
+		// If current step is NOT in the list (e.g. ERROR), default to -1 or handle appropriately
+		// However, looking at the code, ERROR is a step. We'll handle visual state below.
 
 		return (
-			<div className="flex justify-center gap-2 mt-4">
-				{steps.map((s, i) => {
-					const isActive = i === currentIdx;
-					const isDone = i < currentIdx;
+			<div className="w-full px-12 py-6">
+				<div className="relative flex justify-between items-center">
+					{/* Line Background */}
+					<div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-white/10" />
 
-					return (
-						<div
-							key={s}
-							className={`h-1.5 rounded-full transition-all duration-500 ${
-								isActive
-									? "w-12 bg-gold-400 shadow-[0_0_10px_rgba(250,227,51,0.5)]"
-									: isDone
-										? "w-4 bg-coffee-500/50"
-										: "w-2 bg-white/10"
-							}`}
-						/>
-					);
-				})}
+					{/* Active Line (Progress) - approximate width based on steps */}
+					<div
+						className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-gold-400/50 transition-all duration-500 ease-out"
+						style={{
+							width: `${(Math.max(0, currentIdx) / (steps.length - 1)) * 100}%`,
+						}}
+					/>
+
+					{steps.map((s, i) => {
+						const isActive = i === currentIdx;
+						const isDone = i < currentIdx;
+
+						return (
+							<div
+								key={s.key}
+								className="relative z-10 flex flex-col items-center gap-2 group"
+							>
+								<div
+									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${
+										isActive
+											? "bg-gold-400 border-gold-400 scale-125 shadow-[0_0_15px_rgba(250,227,51,0.6)]"
+											: isDone
+												? "bg-gold-500/80 border-gold-500/80"
+												: "bg-[#050201] border-white/20"
+									}`}
+								/>
+								<span
+									className={`absolute top-6 text-xs font-medium tracking-wide transition-colors duration-300 ${
+										isActive
+											? "text-gold-100"
+											: isDone
+												? "text-gray-400"
+												: "text-gray-600"
+									}`}
+								>
+									{s.label}
+								</span>
+							</div>
+						);
+					})}
+				</div>
 			</div>
 		);
 	};
@@ -357,18 +388,26 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				<div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-gold-900/10 rounded-full blur-[120px]" />
 			</div>
 
-			<div className="relative w-full max-w-2xl mx-4 glass-tepora rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-enter">
+			<div className="relative w-full max-w-4xl h-[85vh] mx-auto glass-tepora rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-modal-enter border border-white/5">
 				{/* Header */}
-				<div className="p-8 border-b border-white/5 text-center">
-					<h1 className="text-4xl font-display font-bold text-gradient-tea mb-2 tracking-wide">
-						{stepTitles[state.step]}
-					</h1>
+				<div className="relative z-20 bg-black/20 backdrop-blur-sm border-b border-white/5">
+					<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold-500/20 to-transparent opacity-50" />
+					<div className="pt-8 pb-2 text-center">
+						<h1 className="text-3xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-gold-100 via-white to-gold-100 tracking-wider drop-shadow-sm">
+							{stepTitles[state.step]}
+						</h1>
+					</div>
 					{renderProgressDots()}
 				</div>
 
 				{/* Body */}
-				<div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
-					{renderStep()}
+				<div className="flex-1 relative overflow-hidden">
+					{/* Content Container */}
+					<div className="absolute inset-0 overflow-y-auto custom-scrollbar p-8 md:p-12">
+						<div className="max-w-3xl mx-auto h-full flex flex-col animate-slide-up">
+							{renderStep()}
+						</div>
+					</div>
 				</div>
 
 				{pendingConsent ? (

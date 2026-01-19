@@ -66,7 +66,7 @@ const Modal: React.FC<ModalProps> = ({
 			{/* Backdrop */}
 			<div
 				ref={overlayRef}
-				className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+				className="fixed inset-0 bg-theme-overlay backdrop-blur-sm transition-opacity"
 				onClick={handleBackdropClick}
 			/>
 
@@ -74,17 +74,17 @@ const Modal: React.FC<ModalProps> = ({
 			<div
 				className={`
                     relative w-full ${sizeClasses[size] || sizeClasses.md} transform rounded-xl 
-                    bg-[#141419] border border-white/10 shadow-2xl 
+                    bg-theme-panel border border-theme-border shadow-2xl 
                     transition-all animate-in fade-in zoom-in-95 duration-200
                     ${className}
                 `}
 			>
 				{/* Header */}
-				<div className="flex items-center justify-between p-4 border-b border-white/10">
-					<h3 className="text-lg font-semibold text-white/90">{title}</h3>
+				<div className="flex items-center justify-between p-4 border-b border-theme-border">
+					<h3 className="text-lg font-semibold text-theme-text">{title}</h3>
 					<button
 						onClick={onClose}
-						className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+						className="p-1 rounded-md text-theme-subtext hover:text-theme-text hover:bg-theme-glass-highlight transition-colors"
 						aria-label="Close"
 					>
 						<X size={20} />
@@ -95,7 +95,9 @@ const Modal: React.FC<ModalProps> = ({
 				{customContent ? (
 					children
 				) : (
-					<div className="p-4 overflow-y-auto max-h-[80vh]">{children}</div>
+					<div className="p-4 overflow-y-auto max-h-[80vh] text-theme-text">
+						{children}
+					</div>
 				)}
 			</div>
 		</div>
