@@ -122,9 +122,9 @@ __pycache__/
 **/src-tauri/binaries/
 **/src-tauri/resources/
 
-# Models directory
-models/
-models_bak/
+# Models directory (root only - for GGUF files)
+/models/
+/models_bak/
 
 # Binary backups
 bin/
