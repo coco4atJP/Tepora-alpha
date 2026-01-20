@@ -276,11 +276,11 @@
 }
 
 .settings-form-group__label {
-	display: block;
+	display: inline;
 	font-size: 0.9rem;
 	font-weight: 500;
 	color: var(--s-text-primary);
-	margin-bottom: 0.25rem;
+	margin-right: 0.5rem;
 }
 
 .settings-form-group__description {

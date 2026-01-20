@@ -34,6 +34,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 					<FormGroup
 						label={t("settings.privacy.web_search.label")}
 						description={t("settings.privacy.web_search.description")}
+						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={privacyConfig?.allow_web_search ?? false}
@@ -75,6 +76,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 				<FormGroup
 					label={t("settings.privacy.redact_pii.label")}
 					description={t("settings.privacy.redact_pii.description")}
+					orientation="horizontal"
 				>
 					<div className="flex items-center gap-3">
 						<Eye className="text-gray-400" size={18} />
