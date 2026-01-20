@@ -161,3 +161,26 @@ describe("SetupWizard Steps", () => {
 		});
 	});
 });
+
+import SetupWizard from "../SetupWizard";
+
+describe("SetupWizard Integration", () => {
+	it("renders skip button in header when onSkip is provided", () => {
+		const onComplete = vi.fn();
+		const onSkip = vi.fn();
+		render(<SetupWizard onComplete={onComplete} onSkip={onSkip} />);
+
+		const skipButton = screen.getByText("Skip Setup");
+		expect(skipButton).toBeInTheDocument();
+		fireEvent.click(skipButton);
+		expect(onSkip).toHaveBeenCalled();
+	});
+
+	it("does not render skip button in header when onSkip is not provided", () => {
+		const onComplete = vi.fn();
+		render(<SetupWizard onComplete={onComplete} />);
+
+		const skipButton = screen.queryByText("Skip Setup");
+		expect(skipButton).not.toBeInTheDocument();
+	});
+});

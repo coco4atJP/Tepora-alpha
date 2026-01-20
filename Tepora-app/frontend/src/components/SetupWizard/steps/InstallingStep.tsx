@@ -63,8 +63,7 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 						{getStatusText()}
 					</h3>
 					<p className="text-sm text-gray-500 max-w-md mx-auto">
-						This may take a few minutes depending on your internet connection.
-						We are preparing a personalized AI experience for you.
+						{t("setup.installing_desc")}
 					</p>
 				</div>
 			</div>
@@ -73,10 +72,11 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 			<div className="w-full bg-white/5 border border-white/10 rounded-xl p-6 flex items-start gap-4 backdrop-blur-sm">
 				<Sparkles className="w-6 h-6 text-gold-400 shrink-0 mt-1" />
 				<div>
-					<h4 className="font-medium text-gold-100 mb-1">Did you know?</h4>
+					<h4 className="font-medium text-gold-100 mb-1">
+						{t("setup.did_you_know")}
+					</h4>
 					<p className="text-sm text-gray-400 leading-relaxed">
-						Tepora runs completely offline once installed. Your data stays on
-						your device, ensuring maximum privacy and security.
+						{t("setup.offline_privacy_tip")}
 					</p>
 				</div>
 			</div>
@@ -92,14 +92,14 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 					) : (
 						<ChevronRight className="w-3 h-3" />
 					)}
-					{showLogs ? "Hide detailed logs" : "Show detailed logs"}
+					{showLogs ? t("setup.hide_logs") : t("setup.show_logs")}
 				</button>
 
 				{showLogs && (
 					<div className="glass-terminal p-4 h-32 overflow-y-auto w-full animate-scale-in">
 						<div className="flex items-center gap-2 text-gray-500 mb-2 border-b border-white/5 pb-1">
 							<Terminal className="w-3 h-3" />
-							<span>Installer Output</span>
+							<span>{t("setup.installer_output")}</span>
 						</div>
 						<div className="font-mono text-gray-400 space-y-1">
 							<div className="opacity-50">...</div>

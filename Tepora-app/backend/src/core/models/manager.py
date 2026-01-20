@@ -177,6 +177,7 @@ class ModelManager:
         self._binary_dir = binary_dir
         self._logs_dir = logs_dir or (models_dir.parent / "logs")
         self._registry: ModelRegistry | None = None
+        self._registry_mtime: float | None = None
         self._progress_callbacks: list[ProgressCallback] = []
 
     def _ensure_dirs(self) -> None:
@@ -187,9 +188,20 @@ class ModelManager:
     def _get_registry_path(self) -> Path:
         return self.models_dir / self.REGISTRY_FILENAME
 
+    def _get_registry_mtime(self) -> float | None:
+        registry_path = self._get_registry_path()
+        try:
+            return registry_path.stat().st_mtime
+        except FileNotFoundError:
+            return None
+        except Exception:
+            logger.debug("Failed to stat model registry", exc_info=True)
+            return None
+
     def _load_registry(self) -> ModelRegistry:
         """レジストリをロード"""
         registry_path = self._get_registry_path()
+        self._registry_mtime = self._get_registry_mtime()
         if registry_path.exists():
             try:
                 with open(registry_path, encoding="utf-8") as f:
@@ -289,9 +301,7 @@ class ModelManager:
                         )
                     )
                 except Exception as exc:
-                    logger.warning(
-                        "Skipping invalid model registry entry: %s", exc, exc_info=True
-                    )
+                    logger.warning("Skipping invalid model registry entry: %s", exc, exc_info=True)
 
             active = data.get("active", {})
             if not isinstance(active, dict):
@@ -346,10 +356,12 @@ class ModelManager:
         }
         with open(registry_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+        self._registry_mtime = self._get_registry_mtime()
 
     @property
     def registry(self) -> ModelRegistry:
-        if self._registry is None:
+        current_mtime = self._get_registry_mtime()
+        if self._registry is None or current_mtime != self._registry_mtime:
             self._registry = self._load_registry()
         return self._registry
 
@@ -391,6 +403,11 @@ class ModelManager:
         if model_info.role.value not in self._registry.active:
             self._registry.active[model_info.role.value] = model_info.id
             model_info.is_active = True
+
+        # TEXT プールのモデルが登録され、character_model_id が未設定の場合は自動設定
+        if model_info.role == ModelPool.TEXT and not self._registry.character_model_id:
+            self._registry.character_model_id = model_info.id
+            logger.info("Auto-set character_model_id to '%s'", model_info.id)
 
         self._save_registry(self._registry)
 
@@ -531,6 +548,23 @@ class ModelManager:
             expected_sha256=expected_sha256,
         )
 
+    def get_remote_file_size(
+        self, repo_id: str, filename: str, revision: str | None = None
+    ) -> int | None:
+        """
+        HuggingFace Hub上のファイルサイズを取得
+
+        Args:
+            repo_id: Repository ID
+            filename: Filename
+            revision: Revision (optional)
+
+        Returns:
+            int: File size in bytes, or None if failed
+        """
+        metadata = _fetch_hf_file_metadata(repo_id, filename, revision=revision)
+        return metadata.get("size")
+
     async def download_from_huggingface(
         self,
         repo_id: str,
@@ -613,9 +647,7 @@ class ModelManager:
                     downloaded = temp_path.stat().st_size
                     headers["Range"] = f"bytes={downloaded}-"
 
-                with requests.get(
-                    url, stream=True, headers=headers, timeout=(10, 60)
-                ) as response:
+                with requests.get(url, stream=True, headers=headers, timeout=(10, 60)) as response:
                     response.raise_for_status()
 
                     if downloaded > 0 and response.status_code == 200:
@@ -740,12 +772,7 @@ class ModelManager:
         latest_sha256 = metadata.get("sha256")
 
         resolved_current_sha256 = current_sha256
-        if (
-            not resolved_current_sha256
-            and current_path
-            and current_path.exists()
-            and latest_sha256
-        ):
+        if not resolved_current_sha256 and current_path and current_path.exists() and latest_sha256:
             try:
                 resolved_current_sha256 = _sha256_file(current_path)
             except Exception as exc:  # noqa: BLE001
@@ -985,9 +1012,7 @@ class ModelManager:
 
     def set_character_model(self, model_id: str) -> bool:
         """キャラクターモデルを設定"""
-        found = any(
-            m.id == model_id and m.role == ModelPool.TEXT for m in self.registry.models
-        )
+        found = any(m.id == model_id and m.role == ModelPool.TEXT for m in self.registry.models)
         if not found:
             logger.error(f"Model {model_id} not found in TEXT pool")
             return False
@@ -1000,9 +1025,7 @@ class ModelManager:
 
     def set_executor_model(self, task_type: str, model_id: str) -> bool:
         """エグゼキューターモデルを設定"""
-        found = any(
-            m.id == model_id and m.role == ModelPool.TEXT for m in self.registry.models
-        )
+        found = any(m.id == model_id and m.role == ModelPool.TEXT for m in self.registry.models)
         if not found:
             logger.error(f"Model {model_id} not found in TEXT pool")
             return False

@@ -19,7 +19,6 @@
 9. [テスト構造](#テスト構造)
 10. [開発経緯](#開発経緯)
 
-
 ---
 
 ## プロジェクト概要
@@ -60,39 +59,39 @@ Teporaは以下の革新的な特徴を持ちます：
 ```mermaid
 graph TB
     User[ユーザー] <--> Tauri[Tauri Desktop App (Primary)]
-    
+  
     subgraph Frontend[フロントエンド Layer]
         React[React + TypeScript]
         UI[Glassmorphism UI]
         WS[WebSocket Client]
     end
-    
+  
     subgraph Backend[バックエンド Layer]
         FastAPI[FastAPI Server]
         Core[AgentCore<br/>LangGraph]
-        
+      
         subgraph Managers[マネージャー]
             LLM[LLMManager]
             Tool[ToolManager]
             Mem[MemorySystem]
         end
-        
+      
         subgraph AI[AI Engine]
             Llama[llama.cpp Servers]
             Models[GGUF Models]
         end
-        
+      
         subgraph Storage[ストレージ]
             Chroma[(ChromaDB<br/>Vector DB)]
             SQLite[(SQLite<br/>Chat History)]
         end
     end
-    
+  
     subgraph External[外部連携]
         MCP[MCP Servers]
         Native[Native Tools]
     end
-    
+  
     Tauri <--> React
     React <--> WS
     WS <-->|WebSocket| FastAPI
@@ -110,14 +109,14 @@ graph TB
 
 ### 2.2 アーキテクチャの階層
 
-| 層 | 技術 | 役割 |
-|---|---|---|
-| **プレゼンテーション層** | Tauri + React | UIレンダリング、ユーザー操作 |
-| **通信層** | WebSocket | リアルタイム双方向通信 |
-| **アプリケーション層** | FastAPI | HTTPエンドポイント、WebSocketハンドリング |
-| **ビジネスロジック層** | LangGraph | ステートマシン、エージェント制御フロー |
-| **データアクセス層** | ChromaDB, SQLite | 永続化、ベクトル検索 |
-| **推論エンジン層** | llama.cpp | LLM推論処理 |
+| 層                             | 技術             | 役割                                      |
+| ------------------------------ | ---------------- | ----------------------------------------- |
+| **プレゼンテーション層** | Tauri + React    | UIレンダリング、ユーザー操作              |
+| **通信層**               | WebSocket        | リアルタイム双方向通信                    |
+| **アプリケーション層**   | FastAPI          | HTTPエンドポイント、WebSocketハンドリング |
+| **ビジネスロジック層**   | LangGraph        | ステートマシン、エージェント制御フロー    |
+| **データアクセス層**     | ChromaDB, SQLite | 永続化、ベクトル検索                      |
+| **推論エンジン層**       | llama.cpp        | LLM推論処理                               |
 
 ---
 
@@ -125,45 +124,44 @@ graph TB
 
 ### 3.1 フロントエンド
 
-| カテゴリ | 技術 | バージョン | 用途 |
-|----------|------|------------|------|
-| **フレームワーク** | React | 19.2.1 | UIコンポーネント |
-| **言語** | TypeScript | 5.9.3 | 型安全性 |
-| **アプリシェル** | Tauri | 2.9.6 | デスクトップアプリ化 |
-| **スタイリング** | Tailwind CSS | 4.1.18 | ユーティリティファーストCSS |
-| **ルーティング** | React Router | 7.10.1 | SPA routing |
-| **ビルドツール** | Vite | 7.3.0 | 高速ビルド |
-| **テスト** | Vitest, Testing Library | 4.0.14 | ユニット/コンポーネントテスト |
-| **アイコン** | Lucide React | 0.561.0 | アイコンライブラリ |
-| **マークダウン** | react-markdown | 10.0.0 | マークダウンレンダリング |
-| **データフェッチ** | TanStack Query | 5.90.16 | 非同期状態管理・キャッシュ |
+| カテゴリ                 | 技術                    | バージョン | 用途                          |
+| ------------------------ | ----------------------- | ---------- | ----------------------------- |
+| **フレームワーク** | React                   | 19.2.1     | UIコンポーネント              |
+| **言語**           | TypeScript              | 5.9.3      | 型安全性                      |
+| **アプリシェル**   | Tauri                   | 2.9.6      | デスクトップアプリ化          |
+| **スタイリング**   | Tailwind CSS            | 4.1.18     | ユーティリティファーストCSS   |
+| **ルーティング**   | React Router            | 7.10.1     | SPA routing                   |
+| **ビルドツール**   | Vite                    | 7.3.0      | 高速ビルド                    |
+| **テスト**         | Vitest, Testing Library | 4.0.14     | ユニット/コンポーネントテスト |
+| **アイコン**       | Lucide React            | 0.561.0    | アイコンライブラリ            |
+| **マークダウン**   | react-markdown          | 10.0.0     | マークダウンレンダリング      |
+| **データフェッチ** | TanStack Query          | 5.90.16    | 非同期状態管理・キャッシュ    |
 
 ### 3.2 バックエンド
 
-| カテゴリ | 技術 | 用途 |
-|----------|------|------|
-| **Webフレームワーク** | FastAPI | 0.124.4 | REST API + WebSocket |
-| **言語** | Python | 3.10+ |
-| **ASGIサーバー** | Uvicorn | 非同期サーバー |
-| **ステートマシン** | LangGraph | エージェント制御フロー |
-| **LLMフレームワーク** | LangChain | LLM統合 |
-| **推論エンジン** | llama.cpp (Python binding) | GGUF推論 |
-| **ベクトルDB** | ChromaDB | エピソード記憶、埋め込み |
-| **リレーショナルDB** | SQLite | チャット履歴メタデータ |
-| **設定管理** | PyYAML | 設定ファイル管理 |
+| カテゴリ                    | 技術                       | 用途                     |
+| --------------------------- | -------------------------- | ------------------------ |
+| **Webフレームワーク** | FastAPI                    | 0.124.4                  |
+| **言語**              | Python                     | 3.10+                    |
+| **ASGIサーバー**      | Uvicorn                    | 非同期サーバー           |
+| **ステートマシン**    | LangGraph                  | エージェント制御フロー   |
+| **LLMフレームワーク** | LangChain                  | LLM統合                  |
+| **推論エンジン**      | llama.cpp (Python binding) | GGUF推論                 |
+| **ベクトルDB**        | ChromaDB                   | エピソード記憶、埋め込み |
+| **リレーショナルDB**  | SQLite                     | チャット履歴メタデータ   |
+| **設定管理**          | PyYAML                     | 設定ファイル管理         |
 
 ### 3.3 AIモデル
 
 ユーザーはセットアップ時に、以下の推奨モデルリストから用途に合わせて選択可能です。
 (デフォルト設定: `src/core/config/schema.py` の `DefaultModelsConfig` 参照)
 
-| カテゴリ | モデル例 | 用途 | 推奨サイズ |
-|---|---|---|---|
-| **Text Model** | **Gemma 3n E2B/4B**<br>**Ministral 3B**<br>**Phi-4 Mini** | キャラクター/エージェント対話 | 2B - 4B (IQ4_XS) |
-| **Embedding** | **EmbeddingGemma** | ベクトル埋め込み (RAG/EM-LLM) | 300M (Q8_0) |
+| カテゴリ             | モデル例                                                                            | 用途                          | 推奨サイズ       |
+| -------------------- | ----------------------------------------------------------------------------------- | ----------------------------- | ---------------- |
+| **Text Model** | **Gemma 3n E2B/4B**`<br>`**Ministral 3B**`<br>`**Phi-4 Mini** | キャラクター/エージェント対話 | 2B - 4B (IQ4_XS) |
+| **Embedding**  | **EmbeddingGemma**                                                            | ベクトル埋め込み (RAG/EM-LLM) | 300M (Q8_0)      |
 
 > **Note**: アプリケーションは複数のモデルを同時に管理し、ロール（Character/Executor）に応じて動的に切り替えることが可能です。
-
 
 ---
 
@@ -416,9 +414,11 @@ USER_DATA_DIR/
 ## バックエンド詳細
 
 ### 5.1 Web Server & API (`src/tepora_server`)
+
 (**Old**: `server.py`)
 
 #### 構成
+
 - **`server.py`**: アプリケーションのエントリーポイント。`tepora_server.app_factory` に委譲します。
 - **`src.tepora_server.app_factory`**: FastAPI アプリケーションのインスタンス生成、CORS設定、寿命管理 (Lifespan) を行います。
 - **`src.tepora_server.api`**: ルート定義 (Router)。REST API と WebSocket エンドポイントを含みます。
@@ -427,9 +427,11 @@ USER_DATA_DIR/
 #### 主要エンドポイント
 
 **WebSocket**
+
 - `WS /ws` - チャット通信とリアルタイムストリーミング (Stream Response)
 
 **REST API**
+
 - `GET /health` - ヘルスチェック
 - `POST /api/shutdown` - サーバーシャットダウン（セッショントークン必須、localhostのみ）
 - `GET /api/status` - システムステータス・統計情報取得
@@ -440,6 +442,7 @@ USER_DATA_DIR/
 - `GET /api/logs/{filename}` - ログ内容取得
 
 **Session API**
+
 - `GET /api/sessions` - セッション一覧取得
 - `POST /api/sessions` - 新規セッション作成
 - `GET /api/sessions/{session_id}` - セッション詳細取得
@@ -447,6 +450,7 @@ USER_DATA_DIR/
 - `DELETE /api/sessions/{session_id}` - セッション削除
 
 **MCP API**
+
 - `GET /api/mcp/status` - MCPサーバー接続ステータス一覧
 - `GET /api/mcp/config` - MCP設定情報取得
 - `POST /api/mcp/config` - MCP設定更新
@@ -460,6 +464,7 @@ USER_DATA_DIR/
 - `DELETE /api/mcp/servers/{server_name}` - サーバー削除
 
 **Setup API**
+
 - `POST /api/setup/init` - セットアップ初期化（言語設定）
 - `GET /api/setup/requirements` - 要件チェック
 - `GET /api/setup/default-models` - 推奨モデルリスト取得
@@ -483,9 +488,10 @@ USER_DATA_DIR/
 - `POST /api/setup/binary/update` - llama.cpp更新実行
 
 **セキュリティ要件**
+
 - セッショントークン認証: 機密操作（設定/ログ/シャットダウン等）は `x-api-key` ヘッダーが必須。WebSocketは `WS /ws?token=...` のクエリで認証（`TEPORA_ENV=development` の場合はトークン検証をスキップ）。トークンはサーバー起動時に初期化され、環境変数または `~/.tepora/.session_token` ファイルでフロントエンドへ共有される。
 - Origin検証: WebSocketは `Origin` ヘッダーをAllowlistで検証し、外部サイトからの接続を拒否（無効な場合はClose code `4003`）。
-- MCP 2段階インストール: MCPサーバーインストールは`/install/preview`でコマンドプレビュー→`/install/confirm`で同意後実行の2段階フローを推奨。インストール直後はセキュリティのためデフォルトで**無効（disabled）**状態となり、手動での有効化が必要。
+- MCP 2段階インストール: MCPサーバーインストールは `/install/preview`でコマンドプレビュー→`/install/confirm`で同意後実行の2段階フローを推奨。インストール直後はセキュリティのためデフォルトで**無効（disabled）**状態となり、手動での有効化が必要。
 - MCP接続ポリシー: デフォルトで `LOCAL_ONLY`（ローカルサーバー/stdioのみ許可）。外部サーバーはAllowlistによる明示的な許可が必要。`sudo` 等の危険コマンドはブロックされる。
 - MCPツール承認: 全てのMCPツールは潜在的に危険とみなされ、セッションごとの初回使用時にユーザー承認（Confirmation）を要求する。
 - `POST /api/shutdown` はセッショントークン（`x-api-key`）で保護され、バックエンドは `127.0.0.1` のみバインド。
@@ -501,6 +507,7 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 ```
 
 **送信（クライアント→サーバー）**
+
 ```json
 {
   "type": "message",
@@ -515,6 +522,7 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 > **Note**: WebSocket wire protocol では `direct` を使用しますが、UI表示では「CHAT」と表示されます。これは意図的な設計で、ユーザー向けラベルと技術的なプロトコル値を分離しています。
 
 **送信（クライアント→サーバー）の主な type**
+
 - `message`: 通常のメッセージ処理（上記）。`type` を省略した場合も同様に扱われます。
 - `stop`: 実行中タスクをキャンセル（`{"type":"stop"}`）。
 - `get_stats`: メモリ統計などを要求（`{"type":"get_stats"}`）。
@@ -522,6 +530,7 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 - `tool_confirmation_response`: ツール承認の応答（`{"type":"tool_confirmation_response","requestId":"...","approved":true}`）。
 
 **受信（サーバー→クライアント）**
+
 ```json
 {
   "type": "chunk" | "status" | "error" | "stats" | "done" | "activity" | "history" | "search_results" | "tool_confirmation_request" | "download_progress",
@@ -533,6 +542,7 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 ```
 
 **補足（代表的なペイロード）**
+
 - `chunk`: `{ message, mode, nodeId, agentName }`
 - `activity`: `{ data: { id, status, message } }`（ノード進捗表示用）
 - `history`: `{ messages: [{id, role, content, timestamp, mode}, ...] }`
@@ -559,6 +569,7 @@ graph LR
 ```
 
 **ノード詳細**:
+
 - **対話ノード** (`nodes/conversation.py`): 通常の会話応答を生成
 - **ReActノード** (`nodes/react.py`): 思考→行動→観察のループ
 - **メモリノード** (`nodes/memory.py`): チャット履歴管理
@@ -582,6 +593,7 @@ graph LR
 ### 5.3 LLMManager (`src/core/llm_manager.py`)
 
 LLMManagerは、モデルライフサイクル管理の司令塔として機能し、以下の責務を持ちます：
+
 - **動的リソース割り当て**: 空きポートの検索、プロセス管理
 - **モデルキャッシング**: LRUキャッシュによるモデルプロセスの再利用とメモリ効率化
 - **ロールベースアクセス**: キャラクター、エグゼキューター、Embeddingの役割に応じたモデル解決
@@ -600,23 +612,22 @@ LLMManagerは、モデルライフサイクル管理の司令塔として機能�
 class LLMManager:
     async def get_character_model(self) -> BaseChatModel:
         """対話用キャラクターモデルを取得（必要に応じて起動）"""
-        
+      
     async def get_executor_model(self, task_type: str = "default") -> BaseChatModel:
         """タスク実行用モデルを取得。タスクタイプに応じて最適なモデルを選択可能。"""
-        
+      
     async def get_embedding_model(self) -> Embeddings:
         """ベクトル化用モデルを取得（専用プロセスとして常駐）"""
-        
+      
     def cleanup(self):
         """全プロセスの停止とリソース解放"""
 ```
 
 #### 5.3.3 プロセス管理戦略
+
 - **1モデル1プロセス**: 各モデルは独立した `llama-server` プロセスとして実行され、HTTP経由で通信します。
 - **動的ポート**: ポート競合を防ぐため、起動時に空きポートを動的に割り当てます。
 - **自動終了**: アプリケーション終了時、管理者プロセスが子プロセスツリーを確実に終了させます。
-
-
 
 ### 5.4 EM-LLM (Episodic Memory with LLMs)
 
@@ -629,7 +640,7 @@ graph TB
     Input[会話入力] --> Segment[驚きベース<br/>セグメンテーション]
     Segment --> Boundary[境界精密化]
     Boundary --> Store[ChromaDB保存]
-    
+  
     Query[クエリ] --> Retrieve1[類似性検索<br/>Similarity]
     Query --> Retrieve2[連続性検索<br/>Contiguity]
     Retrieve1 --> Merge[2段階統合]
@@ -640,6 +651,7 @@ graph TB
 #### 5.4.2 主要コンポーネント
 
 **EMEventSegmenter** (`em_llm/segmenter.py`)
+
 - **Surprise-based Segmentation**: logprobsの変化を「驚き」として検出（ログ確率が利用できない場合は、文埋め込みによる意味的変化検出へフォールバック）
 - **動的イベント分割**: 驚きが閾値を超えた際にイベントを分割
 - **設定パラメータ**:
@@ -649,11 +661,13 @@ graph TB
   - `max_event_size`: 最大イベントサイズ (128トークン)
 
 **EMTwoStageRetrieval** (`em_llm/retrieval.py`)
+
 - **Stage 1**: ベクトル類似性による関連エピソード検索
 - **Stage 2**: 時間的連続性を考慮した再ランキング
 - **Contiguity**: 時系列で近いエピソードを優先的に取得
 
 **EMLLMIntegrator** (`em_llm/integrator.py`)
+
 - すべてのEM-LLMコンポーネントを統合
 - LangGraphノードからの利用を簡略化
 
@@ -664,11 +678,13 @@ graph TB
 #### 5.5.1 ツールタイプ
 
 **ネイティブツール** (`tools/native.py`)
+
 - Pythonで直接実装されたツール
 - 例: Google検索、Web scraping
 - **PII保護**: `pii_redactor` モジュールにより、外部通信前に個人情報（メール、電話番号等）を自動的に検出しリダクションを行う。
 
 **MCPツール** (`tools/mcp.py`)
+
 - Model Context Protocol準拠の外部サーバーと連携
 - **McpToolProvider**: エージェント起動時に `mcp_tools_config.json` から設定を読み込み、ツールとして登録
 - **McpHub**: API経由での動的設定変更・接続管理を担当（設定ファイルの監視とホットリロード）
@@ -680,7 +696,7 @@ graph TB
 class ToolManager:
     def get_available_tools(self, allowed: List[str], denied: List[str]) -> List[Tool]:
         """利用可能なツールリストを取得"""
-        
+      
     def execute_tool(self, tool_name: str, **kwargs) -> Any:
         """ツールを実行"""
 ```
@@ -697,25 +713,25 @@ graph TB
         ConfigYml[config.yml<br/>メイン設定]
         McpJson[config/mcp_tools_config.json<br/>MCP接続設定]
     end
-    
+  
     subgraph Defaults["デフォルト定義"]
         Schema[src/core/config/schema.py<br/>Pydanticスキーマ]
         SeedJson[src/core/mcp/seed.json<br/>MCPサーバーカタログ]
     end
-    
+  
     Schema -->|"デフォルト値提供"| ConfigYml
     SeedJson -->|"インストール時にコピー"| McpJson
     ConfigYml -->|"読み込み"| Loader[config/loader.py]
     McpJson -->|"読み書き"| McpHub[McpHub]
 ```
 
-| ファイル | 役割 | 編集方法 |
-|----------|------|----------|
-| `config.yml` | アプリ全体設定 | 手動編集 / 設定API |
-| `secrets.yaml` | 機密設定（APIキー等） | 設定API / 手動編集（推奨しない） |
-| `mcp_tools_config.json` | MCP接続情報 | 設定画面 / API |
-| `schema.py` | デフォルト値定義 | 開発者のみ |
-| `seed.json` | MCPサーバーカタログ | 開発者のみ |
+| ファイル                  | 役割                  | 編集方法                         |
+| ------------------------- | --------------------- | -------------------------------- |
+| `config.yml`            | アプリ全体設定        | 手動編集 / 設定API               |
+| `secrets.yaml`          | 機密設定（APIキー等） | 設定API / 手動編集（推奨しない） |
+| `mcp_tools_config.json` | MCP接続情報           | 設定画面 / API                   |
+| `schema.py`             | デフォルト値定義      | 開発者のみ                       |
+| `seed.json`             | MCPサーバーカタログ   | 開発者のみ                       |
 
 #### 5.6.2 config.yml（アプリケーション全体設定）
 
@@ -829,6 +845,7 @@ MCPサーバーの接続情報（コマンド、引数、環境変数）を管�
 ### 6.1 コンポーネント構成
 
 #### 6.1.1 ディレクトリ構成
+
 `src/components/` は機能・ドメインごとに整理されています。
 
 ```
@@ -880,68 +897,83 @@ components/
 #### 6.1.2 主要コンポーネント詳細
 
 **SetupWizard.tsx**
+
 - 初回起動時のセットアップウィザード
 - 言語設定、モデルダウンロード、システム要件チェックを行う
 - ステップバイステップのUIでユーザーをガイド
 
 **Layout.tsx**
+
 - アプリケーション全体のレイアウトフレーム
 - サイドバー、メインエリア、ステータスバーを統合管理
 - `SettingsDialog` や `McpStoreModal` のマウントポイント
 
 **Sidebar.tsx**
+
 - ナビゲーションとアクションへのアクセス
 - チャットモード切替、セッション履歴、設定、MCPストアへのアクセスランチャー
 
 **StatusBar.tsx**
+
 - アプリケーション下部のステータス表示
 - 現在のモデル、システムリソース、バックグラウンド処理の状態を表示
 
 **SystemStatusPanel.tsx**
+
 - システム詳細情報の可視化パネル
 
 **ChatInterface.tsx**
+
 - チャット画面のメインコンテナ
 - `MessageList` と `InputArea` を包含
 - ストリーミング応答の制御
 
 **MessageList.tsx / MessageBubble.tsx**
+
 - メッセージ履歴の表示
 - マークダウンレンダリング (`react-markdown`)、コードハイライト
 - HTML無効化 + `rehype-sanitize` によるサニタイズ（許可スキーマで制御）
 - ユーザー/AI/システムメッセージのスタイル区分
 
 **SettingsDialog.tsx / SettingsComponents.tsx**
+
 - アプリケーション詳細設定
 - タブ切り替え（一般、モデル、キャラクター、MCP、記憶）
 - 各種設定項目の即時反映と永続化
 
 **InputArea.tsx**
+
 - メッセージ入力フィールド
 - 送信ボタン、キーボードショートカット
 - 入力中のタイピング表示
 
 **DialControl.tsx**
+
 - 3モード（Chat/Search/Agent）切替ダイアル
 - 視覚的なモード表示とアニメーション
 
 **PersonaSwitcher.tsx**
+
 - キャラクター/ペルソナの切り替えUI
 - プロファイル選択とカスタマイズ
 
 **AgentStatus.tsx**
+
 - エージェントモード時の実行状態表示
 - 思考プロセス、ツール実行ログの可視化
 
 **SearchResults.tsx**
+
 - 検索モード時の結果表示パネル
 - ソースリンク、スニペット表示
 
 **SessionHistory.tsx / SessionHistoryPanel.tsx**
+
 - 過去の対話履歴の参照・切り替え
 - セッション検索・フィルタリング
 
 #### 6.1.3 ページ構成 (`src/pages/`)
+
 ルーティング対応のページコンポーネント。
 
 - **Logs.tsx**: システムログビューア
@@ -952,6 +984,7 @@ components/
 ビジネスロジックと状態管理の分離。
 
 #### 6.2.1 コアロジック
+
 - **useWebSocket.ts**: WebSocket通信チャネルの確立・管理
 - **useServerConfig.ts**: バックエンド設定の取得・同期
 - **useSettings.ts**: アプリケーション設定の管理
@@ -959,6 +992,7 @@ components/
 - **useMcp.ts**: MCPサーバーのインストール・状態管理
 
 #### 6.2.2 チャット機能 (`hooks/chat/`)
+
 - **useChatState.ts**: チャット画面のUI状態管理
 - **useMessageBuffer.ts**: ストリーミングメッセージのバッファリング制御
 - **useSocketConnection.ts**: Socket接続の低レベル制御（再接続、バックオフ）
@@ -1039,6 +1073,7 @@ Spring animationを用いた自然な動き：
 バックエンドをPyInstallerで実行形式化し、`tepora-backend`としてバンドル。
 
 **利点**:
+
 - ユーザーはPython環境不要
 - シングルインストーラーで配布可能
 - プラットフォーム固有の最適化
@@ -1063,6 +1098,7 @@ Spring animationを用いた自然な動き：
 **UI**: 没入感のあるシングルカラムのチャットインターフェース
 
 **動作フロー**:
+
 1. ユーザー入力
 2. （EM-LLM有効時）過去のエピソード検索
 3. Gemma-3Nによる応答生成（ストリーミング）
@@ -1078,6 +1114,7 @@ Spring animationを用いた自然な動き：
 **UI**: 左側にチャット、右側に検索結果を表示するスプリットビュー
 
 **動作フロー**:
+
 1. ユーザー入力
 2. クエリ解析
 3. Web検索実行（Google Custom Search API。ユーザー同意 + `privacy.allow_web_search=true` + `tools.google_search_*` 設定時のみ）
@@ -1094,6 +1131,7 @@ Spring animationを用いた自然な動き：
 **UI**: 左側にチャット、右側に思考プロセス・実行ログ・生成物を表示
 
 **動作フロー**:
+
 1. ユーザーがゴール設定
 2. エージェントが計画(Plan)立案
 3. （オプション）ユーザー承認
@@ -1109,11 +1147,13 @@ Spring animationを用いた自然な動き：
 ### 7.2 マルチエージェント協調
 
 #### キャラクターエージェント (Persona)
+
 - **役割**: ユーザーインターフェース、共感的対話
 - **性格**: 親しみやすい、温かい
 - **モデル**: Gemma-3-4B-Instruct
 
 #### プロフェッショナルエージェント (Professional)
+
 - **役割**: タスク実行、論理推論、コーディング
 - **性格**: 論理的、効率的
 - **モデル**: Jan-nano-128k
@@ -1121,15 +1161,18 @@ Spring animationを用いた自然な動き：
 ### 7.3 セッション管理
 
 **概要**:
+
 - 複数のチャットセッションを保存・管理する機能。
 
 **機能詳細**:
+
 - **セッション永続化**: SQLiteデータベースへの会話履歴保存
 - **履歴閲覧**: サイドバー（または専用パネル）からの過去ログアクセス
 - **コンテキスト復帰**: セッション切り替え時のコンテキスト（会話履歴）の再ロード
 - **セッションタイトル**: 作成時に指定、または未指定の場合は日時ベースの既定タイトル（自動生成）
 
 **保存先とスキーマ（要点）**
+
 - DB: `USER_DATA_DIR/tepora_chat.db`
 - `sessions` テーブル: `id`, `title`, `created_at`, `updated_at`
 - `chat_history` テーブル: `id`, `session_id`, `type`, `content`, `additional_kwargs(JSON)`, `created_at`
@@ -1184,7 +1227,7 @@ sequenceDiagram
         EM->>EM: イベント分割
         EM->>Vec: 埋め込み生成・保存
     end
-    
+  
     Note over LG,Vec: 検索時
     LG->>EM: クエリ
     EM->>Vec: 類似性検索
@@ -1222,9 +1265,9 @@ sequenceDiagram
 
 ### 9.1 概要
 
-| レイヤー | テストフレームワーク | カバレッジ対象 |
-|----------|---------------------|----------------|
-| **バックエンド** | pytest | API、コア機能、WebSocket |
+| レイヤー                 | テストフレームワーク     | カバレッジ対象               |
+| ------------------------ | ------------------------ | ---------------------------- |
+| **バックエンド**   | pytest                   | API、コア機能、WebSocket     |
 | **フロントエンド** | Vitest + Testing Library | コンポーネント、フック、統合 |
 
 ### 9.2 バックエンドテスト (`backend/tests/`)
@@ -1246,6 +1289,7 @@ tests/
 ```
 
 **実行方法**:
+
 ```bash
 cd backend
 pytest                      # 全テスト実行
@@ -1269,6 +1313,7 @@ test/
 コンポーネント個別テストは `components/__tests__/` に配置。
 
 **実行方法**:
+
 ```bash
 cd frontend
 npm run test                # 全テスト実行
@@ -1287,14 +1332,15 @@ npm run test:watch          # ウォッチモード
 #### 主要マイルストーン
 
 1. **初期実装** (2025年初頭)
+
    - CLIベースのプロトタイプ
    - 基本的な対話機能
-
 2. **EM-LLM統合** (2025年中頃)
+
    - ICLR 2025論文の実装
    - エピソード記憶システムの構築
-
 3. **大規模リファクタリング** (2025年11月6日)
+
    - モノリシック構造からモジュラー設計へ
    - コード行数削減: 平均62.5%減
    - モジュール数増加: +209%
@@ -1302,12 +1348,12 @@ npm run test:watch          # ウォッチモード
 
 #### リファクタリング成果
 
-| 項目 | 変更前 | 変更後 | 改善率 |
-|------|--------|--------|--------|
-| `main.py` | 362行 | 52行 | -85.6% |
-| `graph.py` | 855行 | 68行（レイヤー） | -92.0% |
-| `em_llm_core.py` | 875行 | 30行（レイヤー） | -96.6% |
-| 平均ファイルサイズ | 〜400行 | 〜150行 | -62.5% |
+| 項目               | 変更前  | 変更後           | 改善率 |
+| ------------------ | ------- | ---------------- | ------ |
+| `main.py`        | 362行   | 52行             | -85.6% |
+| `graph.py`       | 855行   | 68行（レイヤー） | -92.0% |
+| `em_llm_core.py` | 875行   | 30行（レイヤー） | -96.6% |
+| 平均ファイルサイズ | 〜400行 | 〜150行          | -62.5% |
 
 詳細は `backend/REFACTORING_SUMMARY.md` 参照。
 
@@ -1316,12 +1362,14 @@ npm run test:watch          # ウォッチモード
 #### 完了項目
 
 **コアインフラ**
+
 - ✅ FastAPI + WebSocketサーバー実装
 - ✅ Reactフロントエンド基盤
 - ✅ Tauri統合とデスクトップアプリ化
 - ✅ テストインフラ（Vitest、Testing Library、pytest）
 
 **UI/UX**
+
 - ✅ 3つのモード（CHAT、SEARCH、AGENT）のUI実装
 - ✅ Glassmorphismデザインシステム（Teaテーマ）
 - ✅ WebSocketリアルタイムストリーミング
@@ -1334,27 +1382,23 @@ npm run test:watch          # ウォッチモード
 - ✅ ログビューア（Logsページ）
 
 **バックエンド機能**
+
 - ✅ セッション管理API（CRUD操作）
 - ✅ MCPストア・管理システム（McpHub、インストーラー、レジストリ）
 - ✅ モデルダウンロード機能（HuggingFace Hub統合）
 - ✅ ツール確認ダイアログ（危険ツールのハイブリッド承認フロー）
 
 **品質・セキュリティ**
+
 - ✅ 認証ヘッダー実装（将来のリモートアクセス対応）
 - ✅ コード監査・レビュー実施
-
-#### 残タスク
-
-- [ ] EM-LLMの長期的評価と長時間テスト
-- [ ] インストーラー作成（Tauri Bundle）
-- [ ] i18n対応の拡充
-- [ ] E2Eテストの整備
 
 ### 10.3 Phase 3: Stabilization & Verification (2026年1月)
 
 #### 完了項目
 
 **品質向上**
+
 - ✅ フロントエンドテストカバレッジ拡大 (Vitest/RTL)
   - `useSettings`, `SettingsContext`, `useMcp`, `CharacterSettings` 等の主要モジュールをカバー
 - ✅ バックエンドエラーハンドリング統一 (`HTTPException`利用)
@@ -1362,14 +1406,12 @@ npm run test:watch          # ウォッチモード
 - ✅ 脆弱性監査と修正 (Frontend/Backend)
 
 **バグ修正**
+
 - ✅ UI競合状態の解消 (`setTimeout`の除去)
 - ✅ モジュール解決エラーの修正 (`Modal.tsx`)
 - ✅ セッション削除ロジックの修正
 
-
 ---
-
-
 
 ---
 
@@ -1389,18 +1431,21 @@ start_app.bat
 #### 手動起動
 
 **バックエンド**:
+
 ```bash
 cd backend
 python server.py
 ```
 
 **フロントエンド**:
+
 ```bash
 cd frontend
 npm run dev
 ```
 
 **Tauriアプリ**:
+
 ```bash
 cd frontend
 npm run tauri dev
@@ -1411,12 +1456,13 @@ npm run tauri dev
 `backend/models/` に以下のGGUFモデルを配置：
 
 1. **Gemma-3N-E4B-it-IQ4_XS.gguf**
+
    - ソース: [unsloth/gemma-3n-E4B-it-GGUF](https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF)
-   
 2. **jan-nano-128k-iQ4_XS.gguf**
+
    - ソース: [Menlo/Jan-nano-128k-gguf](https://huggingface.co/Menlo/Jan-nano-128k-gguf)
-   
 3. **embeddinggemma-300M-Q8_0.gguf**
+
    - ソース: [Google/embeddinggemma-gguf](https://huggingface.co/Google/embeddinggemma-gguf)
 
 ### C. 設定カスタマイズ
@@ -1441,6 +1487,7 @@ em_llm:
 **Tepora**: Apache License 2.0
 
 **使用技術のライセンス**:
+
 - FastAPI: MIT
 - React: MIT
 - Tauri: MIT/Apache-2.0
@@ -1451,6 +1498,6 @@ em_llm:
 
 ---
 
-**作成日**: 2026-01-06  
-**バージョン**: 2.6  
+**作成日**: 2026-01-06
+**バージョン**: 2.6
 **メンテナー**: Tepora Development Team

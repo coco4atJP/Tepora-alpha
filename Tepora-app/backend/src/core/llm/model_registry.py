@@ -60,7 +60,7 @@ class ModelRegistry:
         if self._download_manager and not self._model_manager:
             self._model_manager = getattr(self._download_manager, "model_manager", None)
 
-    def resolve_model_path(self, key: str, task_type: str = "default") -> Path:
+    def resolve_model_path(self, key: str, task_type: str = "default") -> Path | None:
         """
         指定キーのモデルファイルパスを解決
         ModelManager > config.yml の優先順
@@ -107,6 +107,15 @@ class ModelRegistry:
             elif key == "text_model" and "character_model" in config.settings.models_gguf:
                 resolved_key = "character_model"
             else:
+                # ModelManager が存在する場合はエラーをログに記録し、None を返す
+                # 呼び出し元でエラーハンドリングを行う
+                if self._model_manager:
+                    logger.warning(
+                        "Model key '%s' not found in config.yml, but ModelManager is available. "
+                        "Ensure the model is properly configured in the UI.",
+                        key,
+                    )
+                    return None
                 raise ValueError(f"Model key '{key}' not found in configuration.")
 
         model_config = config.settings.models_gguf[resolved_key]

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getWsBase } from "../../utils/api";
-import { getSessionToken } from "../../utils/sessionToken";
+import { getSessionToken, refreshSessionToken } from "../../utils/sessionToken";
 import { backendReady, isDesktop } from "../../utils/sidecar";
 
 /**
@@ -122,6 +122,16 @@ export const useSocketConnection = ({
 				// If closed due to auth failure (4001), try refreshing token
 				if (event.code === 4001) {
 					tokenRef.current = null;
+					// Also refresh the global cached token
+					refreshSessionToken()
+						.then((newToken) => {
+							if (import.meta.env.DEV && newToken) {
+								console.log("[WebSocket] Token refreshed after auth failure");
+							}
+						})
+						.catch((err) => {
+							console.warn("[WebSocket] Failed to refresh token:", err);
+						});
 					if (import.meta.env.DEV) {
 						console.log("[WebSocket] Auth failed, will retry with fresh token");
 					}

@@ -18,6 +18,7 @@
 		"start": "启动 Tepora",
 		"auto_setup": "自动设置",
 		"skip": "跳过",
+		"skip_setup": "跳过设置",
 		"retry": "重试",
 		"downloading": "正在下载...",
 		"steps": {
@@ -52,7 +53,21 @@
 		"custom_models": "自定义模型",
 		"launch": "启动 Tepora",
 		"storage_required": "每个模型约需 2GB 以上空间",
-		"storage_desc": "Tepora 在本地运行。模型将存储在你的 AppData 文件夹中。"
+		"storage_desc": "Tepora 在本地运行。模型将存储在你的 AppData 文件夹中。",
+		"storage_requirement_label": "存储要求：",
+		"storage_requirement_hint": "模型存储在您的 AppData 文件夹中。请确保存储空间充足。",
+		"loading_recommendations": "正在加载推荐模型...",
+		"custom_repo_placeholder": "仓库 ID (例如 user/repo)",
+		"custom_filename_placeholder": "文件名 (例如 model.gguf)",
+		"model_role_text": "文本模型",
+		"model_role_embedding": "嵌入模型",
+		"approx_vram": "~2.5GB 显存",
+		"installing_desc": "这可能需要几分钟，具体取决于您的互联网连接。我们正在为您准备个性化的 AI 体验。",
+		"did_you_know": "你知道吗？",
+		"offline_privacy_tip": "Tepora 安装后完全离线运行。您的数据保留在您的设备上，确保最大的隐私和安全性。",
+		"hide_logs": "隐藏详细日志",
+		"show_logs": "显示详细日志",
+		"installer_output": "安装程序输出"
 	},
 	"app": {
 		"loading": "连接服务器中...",

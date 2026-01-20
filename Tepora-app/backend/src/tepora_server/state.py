@@ -27,9 +27,19 @@ class AppState:
 
     def __init__(self):
         self._core: TeporaCoreApp | None = None
+        self._download_manager = None
         self._mcp_hub = None
         self._mcp_registry = None
         self._mcp_policy_manager = None
+
+    @property
+    def download_manager(self):
+        """Get or create DownloadManager instance (shared across API and LLMManager)."""
+        if self._download_manager is None:
+            from src.core.download import DownloadManager
+
+            self._download_manager = DownloadManager()
+        return self._download_manager
 
     @property
     def core(self) -> TeporaCoreApp:
@@ -67,8 +77,10 @@ class AppState:
             logger.error("Failed to initialize MCP Hub: %s", e, exc_info=True)
             # Don't fail initialization - MCP is optional
 
-        # Initialize core app (ToolManager, graph, etc.)
-        return await self.core.initialize(mcp_hub=self._mcp_hub)
+        # Initialize core app (ToolManager, graph, etc.) with shared download_manager
+        return await self.core.initialize(
+            mcp_hub=self._mcp_hub, download_manager=self.download_manager
+        )
 
     async def _initialize_mcp(self) -> None:
         """Initialize MCP Hub and Registry."""

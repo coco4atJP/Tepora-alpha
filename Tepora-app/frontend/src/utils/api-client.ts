@@ -1,4 +1,5 @@
-import { getApiBase, getAuthHeaders } from "./api";
+import { getApiBase, getAuthHeaders, getAuthHeadersAsync } from "./api";
+import { refreshSessionToken } from "./sessionToken";
 
 export class ApiError extends Error {
 	status: number;
@@ -14,7 +15,7 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
 	if (!response.ok) {
-		let errorData;
+		let errorData: any;
 		try {
 			errorData = await response.json();
 		} catch {
@@ -41,6 +42,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 async function request<T>(
 	endpoint: string,
 	config: RequestInit = {},
+	isRetry: boolean = false,
 ): Promise<T> {
 	const apiBase = getApiBase();
 	// Ensure no double slash if apiBase ends with / (it usually doesn't based on api.ts)
@@ -57,6 +59,22 @@ async function request<T>(
 		...config,
 		headers,
 	});
+
+	// Handle 401 with token refresh and retry (once)
+	if (response.status === 401 && !isRetry) {
+		console.log("[API] 401 received, refreshing token and retrying...");
+		await refreshSessionToken();
+		const freshHeaders = await getAuthHeadersAsync();
+		const retryResponse = await fetch(url, {
+			...config,
+			headers: {
+				"Content-Type": "application/json",
+				...freshHeaders,
+				...config.headers,
+			},
+		});
+		return handleResponse<T>(retryResponse);
+	}
 
 	return handleResponse<T>(response);
 }

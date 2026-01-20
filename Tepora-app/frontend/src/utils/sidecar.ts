@@ -17,6 +17,7 @@ let sidecarChild: Child | null = null;
 
 let closeHandlerRegistered = false;
 let shutdownInProgress = false;
+let sidecarStarting = false; // 起動処理中フラグ（重複起動防止）
 
 let sidecarExited: Promise<void> | null = null;
 let resolveSidecarExited: (() => void) | null = null;
@@ -63,6 +64,17 @@ export async function stopSidecar(): Promise<void> {
 }
 
 export async function startSidecar() {
+	// 重複起動防止ガード
+	if (sidecarStarting) {
+		console.log("[Sidecar] Already starting, skipping duplicate call");
+		return;
+	}
+	if (sidecarChild !== null) {
+		console.log("[Sidecar] Already running, skipping duplicate call");
+		return;
+	}
+	sidecarStarting = true;
+
 	if (!isDesktop()) {
 		console.log(
 			"[Sidecar] Not running in Desktop mode (Tauri), skipping sidecar startup.",
@@ -255,6 +267,7 @@ export async function startSidecar() {
 		}
 	} catch (error) {
 		console.error("[Sidecar] Failed to start sidecar:", error);
+		sidecarStarting = false; // エラー時はフラグをリセットして再試行を許可
 	}
 }
 

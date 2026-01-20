@@ -135,7 +135,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		} else {
 			throw new Error(
 				data.error ||
-					t("setup.errors.setup_failed_start", "Setup failed to start"),
+				t("setup.errors.setup_failed_start", "Setup failed to start"),
 			);
 		}
 	};
@@ -238,7 +238,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				.then((data) => {
 					dispatch({ type: "SET_DEFAULTS", payload: data });
 				})
-				.catch(() => {});
+				.catch(() => { });
 		}
 	}, [state.step, state.defaults]);
 
@@ -353,22 +353,20 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 								className="relative z-10 flex flex-col items-center gap-2 group"
 							>
 								<div
-									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${
-										isActive
+									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${isActive
 											? "bg-gold-400 border-gold-400 scale-125 shadow-[0_0_15px_rgba(250,227,51,0.6)]"
 											: isDone
 												? "bg-gold-500/80 border-gold-500/80"
 												: "bg-[#050201] border-white/20"
-									}`}
+										}`}
 								/>
 								<span
-									className={`absolute top-6 text-xs font-medium tracking-wide transition-colors duration-300 ${
-										isActive
+									className={`absolute top-6 w-24 left-1/2 -translate-x-1/2 text-center text-xs font-medium tracking-wide transition-colors duration-300 leading-tight ${isActive
 											? "text-gold-100"
 											: isDone
 												? "text-gray-400"
 												: "text-gray-600"
-									}`}
+										}`}
 								>
 									{s.label}
 								</span>
@@ -392,10 +390,19 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				{/* Header */}
 				<div className="relative z-20 bg-black/20 backdrop-blur-sm border-b border-white/5">
 					<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold-500/20 to-transparent opacity-50" />
-					<div className="pt-8 pb-2 text-center">
+					<div className="pt-8 pb-2 text-center relative">
 						<h1 className="text-3xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-gold-100 via-white to-gold-100 tracking-wider drop-shadow-sm">
 							{stepTitles[state.step]}
 						</h1>
+						{onSkip && (
+							<button
+								type="button"
+								onClick={onSkip}
+								className="absolute top-1/2 -translate-y-1/2 right-8 text-sm text-gray-500 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-full px-4 py-1.5 backdrop-blur-md bg-black/20"
+							>
+								{t("setup.skip_setup", "Skip Setup")}
+							</button>
+						)}
 					</div>
 					{renderProgressDots()}
 				</div>

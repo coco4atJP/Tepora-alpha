@@ -18,6 +18,7 @@
 		"start": "Teporaを開始",
 		"auto_setup": "自動セットアップ",
 		"skip": "スキップ",
+		"skip_setup": "セットアップをスキップ",
 		"retry": "再試行",
 		"downloading": "ダウンロード中...",
 		"steps": {
@@ -29,7 +30,6 @@
 			"satisfied": "インストール済み",
 			"missing": "未インストール",
 			"outdated": "更新あり",
-			"installed": "インストール済み",
 			"installed": "インストール済み",
 			"not_downloaded": "未ダウンロード"
 		},
@@ -53,7 +53,21 @@
 		"custom_models": "カスタムモデル",
 		"launch": "Tepora を起動",
 		"storage_required": "モデルあたり約2GB以上が必要です",
-		"storage_desc": "Tepora はローカルで実行されます。モデルは AppData フォルダに保存されます。"
+		"storage_desc": "Tepora はローカルで実行されます。モデルは AppData フォルダに保存されます。",
+		"storage_requirement_label": "ストレージ要件:",
+		"storage_requirement_hint": "モデルはAppDataフォルダにローカル保存されます。十分なディスク容量を確認してください。",
+		"loading_recommendations": "推奨モデルを読み込み中...",
+		"custom_repo_placeholder": "リポジトリID (例: user/repo)",
+		"custom_filename_placeholder": "ファイル名 (例: model.gguf)",
+		"model_role_text": "テキストモデル",
+		"model_role_embedding": "埋め込みモデル",
+		"approx_vram": "~2.5GB VRAM",
+		"installing_desc": "インターネット接続状況により数分かかる場合があります。パーソナライズされたAI体験を準備しています。",
+		"did_you_know": "ご存知ですか？",
+		"offline_privacy_tip": "Teporaはインストール後、完全にオフラインで動作します。データはデバイス内に留まり、最大限のプライバシーとセキュリティを確保します。",
+		"hide_logs": "詳細ログを隠す",
+		"show_logs": "詳細ログを表示",
+		"installer_output": "インストーラー出力"
 	},
 	"app": {
 		"loading": "サーバーに接続中...",
@@ -115,7 +129,6 @@
 		"error_prefix": "エラー: ",
 		"today": "今日",
 		"yesterday": "昨日",
-		"daysAgo": "{{count}}日前",
 		"daysAgo": "{{count}}日前",
 		"confirm": "確認",
 		"delete": "削除"
@@ -326,7 +339,6 @@
 				"error_empty_key": "IDを入力してください。",
 				"error_duplicate_key": "このIDは既に使用されています。",
 				"edit": "編集",
-				"delete": "削除",
 				"delete": "削除",
 				"no_description": "説明なし",
 				"default_name": "新しいキャラクター",

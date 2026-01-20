@@ -191,6 +191,11 @@ class LLMManager:
                 raise ValueError(f"Model configuration for '{key}' not found.")
 
             model_path = self.registry.resolve_model_path(key)
+            if not model_path:
+                raise ValueError(
+                    f"Model path for '{key}' could not be resolved. "
+                    "Please configure a model in the setup wizard."
+                )
             launch = self._prepare_server_launch(
                 key=key,
                 model_path=model_path,
@@ -303,6 +308,11 @@ class LLMManager:
 
             # タスクタイプ対応のパス解決
             model_path = self.registry.resolve_model_path("executor_model", task_type)
+            if not model_path:
+                raise ValueError(
+                    f"Model path for 'executor_model' (task_type: {task_type}) could not be resolved. "
+                    "Please configure a model in the setup wizard."
+                )
             launch = self._prepare_server_launch(
                 key=key,
                 model_path=model_path,

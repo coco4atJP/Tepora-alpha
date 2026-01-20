@@ -66,21 +66,28 @@ class SetupFinishRequest(BaseModel):
 
 # --- Helper Functions ---
 
-# Singleton Check
-_download_manager_instance = None
+# DownloadManager accessor - uses AppState for shared instance
+# Fallback singleton for background tasks that don't have request context
+_download_manager_fallback = None
 
 
-def _get_download_manager():
-    global _download_manager_instance
+def _get_download_manager_from_state():
+    """Get DownloadManager from global AppState (preferred)."""
+    global _download_manager_fallback
     try:
-        if _download_manager_instance is None:
+        if _download_manager_fallback is None:
             from src.core.download import DownloadManager
 
-            _download_manager_instance = DownloadManager()
-        return _download_manager_instance
+            _download_manager_fallback = DownloadManager()
+        return _download_manager_fallback
     except ImportError as e:
         logger.error("DownloadManager not available: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Download manager not available")
+
+
+def _get_download_manager():
+    """Get shared DownloadManager instance."""
+    return _get_download_manager_from_state()
 
 
 def _evaluate_model_download_warnings(
@@ -482,16 +489,14 @@ async def check_model_exists(request: ModelCheckRequest):
     HuggingFaceリポジトリにモデルファイルが存在するか確認
     """
     try:
-        from huggingface_hub import get_hf_file_metadata, hf_hub_url
+        dm = _get_download_manager()
+        size = dm.model_manager.get_remote_file_size(request.repo_id, request.filename)
 
-        try:
-            url = hf_hub_url(repo_id=request.repo_id, filename=request.filename)
-            metadata = get_hf_file_metadata(url)
-            return {"exists": True, "size": metadata.size}
-        except Exception:
+        if size is not None:
+            return {"exists": True, "size": size}
+        else:
             return {"exists": False}
-    except ImportError:
-        return JSONResponse(status_code=500, content={"error": "huggingface_hub not installed"})
+
     except Exception as e:
         logger.error("Failed to check model: %s", e, exc_info=True)
         return {"exists": False, "error": str(e)}
@@ -575,7 +580,7 @@ async def reorder_models(request: ReorderRequest):
 
         pool = _resolve_model_pool(request.role)
 
-        result = await dm.model_manager.reorder_models(pool, request.model_ids)
+        result = dm.model_manager.reorder_models(pool, request.model_ids)
         return {"success": result}
     except HTTPException:
         raise

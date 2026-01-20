@@ -6,6 +6,7 @@ import { useWebSocket } from "../useWebSocket";
 vi.mock("../../utils/sessionToken", () => ({
 	getSessionToken: vi.fn().mockResolvedValue(null),
 	getSessionTokenSync: vi.fn().mockReturnValue(null),
+	refreshSessionToken: vi.fn().mockResolvedValue(null),
 }));
 
 // Capture instances to interact with them

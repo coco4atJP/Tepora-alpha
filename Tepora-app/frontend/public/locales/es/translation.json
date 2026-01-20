@@ -18,6 +18,7 @@
 		"start": "Iniciar Tepora",
 		"auto_setup": "Configuración automática",
 		"skip": "Omitir",
+		"skip_setup": "Omitir configuración",
 		"retry": "Reintentar",
 		"downloading": "Descargando...",
 		"steps": {
@@ -29,7 +30,6 @@
 			"satisfied": "Instalado",
 			"missing": "Faltante",
 			"outdated": "Actualización disponible",
-			"installed": "Instalado",
 			"installed": "Instalado",
 			"not_downloaded": "No descargado"
 		},
@@ -53,7 +53,21 @@
 		"custom_models": "Modelos personalizados",
 		"launch": "Iniciar Tepora",
 		"storage_required": "Aprox. 2GB+ por modelo",
-		"storage_desc": "Tepora se ejecuta localmente. Los modelos se guardaran en tu carpeta AppData."
+		"storage_desc": "Tepora se ejecuta localmente. Los modelos se guardaran en tu carpeta AppData.",
+		"storage_requirement_label": "Requisito de almacenamiento:",
+		"storage_requirement_hint": "Los modelos se almacenan localmente en su carpeta AppData. Asegúrese de tener suficiente espacio en disco.",
+		"loading_recommendations": "Cargando modelos recomendados...",
+		"custom_repo_placeholder": "ID del repositorio (ej. usuario/repo)",
+		"custom_filename_placeholder": "Nombre de archivo (ej. modelo.gguf)",
+		"model_role_text": "Modelo de texto",
+		"model_role_embedding": "Modelo de incrustación",
+		"approx_vram": "~2.5GB VRAM",
+		"installing_desc": "Esto puede tardar unos minutos dependiendo de su conexión a internet. Estamos preparando una experiencia de IA personalizada para usted.",
+		"did_you_know": "¿Sabías que?",
+		"offline_privacy_tip": "Tepora se ejecuta completamente sin conexión una vez instalado. Sus datos permanecen en su dispositivo, garantizando la máxima privacidad y seguridad.",
+		"hide_logs": "Ocultar registros detallados",
+		"show_logs": "Mostrar registros detallados",
+		"installer_output": "Salida del instalador"
 	},
 	"app": {
 		"loading": "Conectando al servidor...",

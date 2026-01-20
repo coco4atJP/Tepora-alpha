@@ -17,6 +17,7 @@ export default function ModelConfigStep({
 	setShowAdvanced,
 	onStartSetup,
 }: ModelConfigStepProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="space-y-6">
 			{/* Storage Info */}
@@ -25,10 +26,9 @@ export default function ModelConfigStep({
 				<HardDrive className="w-4 h-4 shrink-0 mt-0.5" />
 				<div>
 					<span className="font-medium text-blue-200">
-						Storage Requirement:
+						{t("setup.storage_requirement_label")}
 					</span>{" "}
-					Models are stored locally in your AppData folder. Ensure you have
-					sufficient disk space.
+					{t("setup.storage_requirement_hint")}
 				</div>
 			</div>
 
@@ -102,7 +102,7 @@ function DefaultModelSelection({
 									/>
 								</div>
 								<div
-									className={`font-display text-lg font-bold mb-1 ${isSelected ? "text-gold-100" : "text-gray-300"}`}
+									className={`font-display text-lg font-bold mb-1 line-clamp-2 ${isSelected ? "text-gold-100" : "text-gray-300"}`}
 								>
 									{m.display_name}
 								</div>
@@ -114,7 +114,7 @@ function DefaultModelSelection({
 							<div className="mt-auto pt-4 border-t border-white/5">
 								<span className="text-xs text-gray-400 flex items-center gap-1">
 									<HardDrive className="w-3 h-3" />
-									~2.5GB VRAM
+									{t("setup.approx_vram")}
 								</span>
 							</div>
 						</div>
@@ -122,7 +122,7 @@ function DefaultModelSelection({
 				})}
 				{state.defaults?.text_models.length === 0 && (
 					<div className="col-span-2 text-center py-12 text-gray-500 italic border border-dashed border-white/10 rounded-xl">
-						Loading recommended models...
+						{t("setup.loading_recommendations")}
 					</div>
 				)}
 			</div>
@@ -225,11 +225,13 @@ function AdvancedModelSelection({
 						) : (
 							<Globe className="w-4 h-4" />
 						)}
-						{role} Model
+						{role === "text"
+							? t("setup.model_role_text")
+							: t("setup.model_role_embedding")}
 					</label>
 					<div className="grid grid-cols-2 gap-3">
 						<input
-							placeholder="Repo ID (e.g. user/repo)"
+							placeholder={t("setup.custom_repo_placeholder")}
 							className="glass-input text-sm w-full"
 							value={state.customModels?.[role]?.repo_id || ""}
 							onChange={(e) =>
@@ -237,7 +239,7 @@ function AdvancedModelSelection({
 							}
 						/>
 						<input
-							placeholder="Filename (e.g. model.gguf)"
+							placeholder={t("setup.custom_filename_placeholder")}
 							className="glass-input text-sm w-full"
 							value={state.customModels?.[role]?.filename || ""}
 							onChange={(e) =>

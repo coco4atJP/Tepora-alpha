@@ -114,7 +114,7 @@ class TeporaCoreApp:
 
         return processed_attachments
 
-    async def initialize(self, mcp_hub: "McpHub | None" = None) -> bool:
+    async def initialize(self, mcp_hub: "McpHub | None" = None, download_manager=None) -> bool:
         """Initialize all core components."""
         try:
             logger.info("Initializing Core Systems...")
@@ -122,16 +122,17 @@ class TeporaCoreApp:
             # 0. Startup configuration is validated externally (fail-fast) by app factory.
 
             # 1. LLM Manager
-            try:
-                from ..download.manager import DownloadManager
+            # Use shared download_manager if provided, otherwise create new
+            if download_manager is None:
+                try:
+                    from ..download.manager import DownloadManager
 
-                download_manager = DownloadManager()
-                logger.info("DownloadManager initialized for LLMManager context.")
-            except ImportError:
-                logger.warning(
-                    "Could not import DownloadManager. LLMManager will use fallback paths."
-                )
-                download_manager = None
+                    download_manager = DownloadManager()
+                    logger.info("DownloadManager initialized for LLMManager context.")
+                except ImportError:
+                    logger.warning(
+                        "Could not import DownloadManager. LLMManager will use fallback paths."
+                    )
 
             self.llm_manager = LLMManager(download_manager=download_manager)
             logger.info("LLMManager for Llama.cpp initialized.")

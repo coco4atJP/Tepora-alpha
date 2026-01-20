@@ -71,13 +71,15 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 	};
 
 	return (
-		<div className="session-history">
+		<div className="flex flex-col h-full bg-[var(--bg-panel)] rounded-lg overflow-hidden">
 			{/* Header */}
-			<div className="session-history-header">
-				<h3>{t("session_history.title", "Sessions")}</h3>
+			<div className="flex justify-between items-center px-4 py-3 border-b border-[var(--border-subtle)]">
+				<h3 className="m-0 text-sm font-semibold text-[var(--text-primary)]">
+					{t("session_history.title", "Sessions")}
+				</h3>
 				<button
 					type="button"
-					className="btn-new-session"
+					className="flex items-center justify-center w-7 h-7 border-none rounded-md bg-[var(--text-accent)] text-[var(--bg-app)] cursor-pointer transition-all hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
 					onClick={onCreateSession}
 					disabled={loading}
 					aria-label={t("session_history.new", "New Session")}
@@ -99,25 +101,29 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 
 			{/* Session List */}
 			<ul
-				className="session-list"
+				className="flex-1 overflow-y-auto p-2 list-none m-0 custom-scrollbar"
 				aria-label={t("session_history.list_aria_label", "Session List")}
 			>
 				{loading && sessions.length === 0 ? (
-					<div className="session-loading">
+					<div className="p-6 text-center text-[var(--text-secondary)] text-sm">
 						{t("session_history.loading", "Loading...")}
 					</div>
 				) : sessions.length === 0 ? (
-					<div className="session-empty">
+					<div className="p-6 text-center text-[var(--text-secondary)] text-sm">
 						{t("session_history.empty", "No sessions yet")}
 					</div>
 				) : (
 					sessions.map((session) => (
 						<li
 							key={session.id}
-							className={`session-item ${session.id === currentSessionId ? "active" : ""}`}
+							className={`flex items-stretch mb-1 rounded-lg transition-colors group ${
+								session.id === currentSessionId
+									? "bg-[var(--glass-highlight)] border-l-[3px] border-[var(--text-accent)]"
+									: "bg-transparent hover:bg-[var(--border-subtle)]"
+							}`}
 						>
 							{editingId === session.id ? (
-								<div className="session-edit">
+								<div className="flex items-center gap-1 p-2 w-full">
 									<input
 										type="text"
 										value={editTitle}
@@ -126,15 +132,18 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 											if (e.key === "Enter") handleSaveEdit();
 											if (e.key === "Escape") handleCancelEdit();
 										}}
+										className="flex-1 px-2 py-1.5 border border-[var(--text-accent)] rounded bg-[var(--bg-overlay)] text-[var(--text-primary)] text-sm outline-none"
 										aria-label={t(
 											"session_history.edit_title",
 											"Edit session title",
 										)}
+										// biome-ignore lint/a11y/noAutofocus: user initiated edit
+										autoFocus
 									/>
 									<button
 										type="button"
 										onClick={handleSaveEdit}
-										className="btn-save"
+										className="w-6 h-6 border-none rounded cursor-pointer text-xs flex items-center justify-center bg-[var(--text-accent)] text-[var(--bg-app)]"
 										aria-label={t("common.save", "Save")}
 									>
 										✓
@@ -142,7 +151,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 									<button
 										type="button"
 										onClick={handleCancelEdit}
-										className="btn-cancel"
+										className="w-6 h-6 border-none rounded cursor-pointer text-xs flex items-center justify-center bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 										aria-label={t("common.cancel", "Cancel")}
 									>
 										✕
@@ -152,32 +161,34 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 								<>
 									<button
 										type="button"
-										className="session-content"
+										className="flex-1 flex flex-col items-start px-3 py-2.5 border-none bg-transparent text-inherit cursor-pointer text-left min-w-0"
 										onClick={() => onSelectSession(session.id)}
 										aria-current={
 											session.id === currentSessionId ? "true" : "false"
 										}
 									>
-										<div className="session-title">{session.title}</div>
-										<div className="session-meta">
-											<span className="session-date">
-												{formatDate(session.updated_at)}
-											</span>
+										<div className="text-[13px] font-medium text-[var(--text-primary)] whitespace-nowrap overflow-hidden text-ellipsis w-full">
+											{session.title}
+										</div>
+										<div className="flex gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5">
+											<span>{formatDate(session.updated_at)}</span>
 											{session.message_count !== undefined && (
-												<span className="session-count">
+												<span>
 													{session.message_count}{" "}
 													{t("session_history.messages", "msgs")}
 												</span>
 											)}
 										</div>
 										{session.preview && (
-											<div className="session-preview">{session.preview}</div>
+											<div className="text-[11px] text-[var(--text-secondary)] opacity-70 whitespace-nowrap overflow-hidden text-ellipsis w-full mt-1">
+												{session.preview}
+											</div>
 										)}
 									</button>
-									<div className="session-actions">
+									<div className="flex flex-col gap-0.5 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
 										<button
 											type="button"
-											className="btn-edit"
+											className="w-6 h-6 border-none rounded bg-transparent text-[var(--text-secondary)] cursor-pointer text-xs flex items-center justify-center hover:bg-[var(--border-highlight)] hover:text-[var(--text-primary)]"
 											onClick={(e) => {
 												e.stopPropagation();
 												handleStartEdit(session);
@@ -188,7 +199,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 										</button>
 										<button
 											type="button"
-											className="btn-delete"
+											className="w-6 h-6 border-none rounded bg-transparent text-[var(--text-secondary)] cursor-pointer text-xs flex items-center justify-center hover:bg-red-500/20 hover:text-red-400"
 											onClick={(e) => {
 												e.stopPropagation();
 												setDeleteTargetId(session.id);
@@ -204,207 +215,6 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 					))
 				)}
 			</ul>
-
-			<style>{`
-        .session-history {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          background: var(--color-bg-secondary, rgba(0, 0, 0, 0.2));
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .session-history-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
-        }
-
-        .session-history-header h3 {
-          margin: 0;
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--color-text-primary, #fff);
-        }
-
-        .btn-new-session {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border: none;
-          border-radius: 6px;
-          background: var(--color-primary, #bd4b26);
-          color: white;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .btn-new-session:hover:not(:disabled) {
-          background: var(--color-primary-hover, #96351b);
-          transform: scale(1.05);
-        }
-
-        .btn-new-session:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .session-list {
-          flex: 1;
-          overflow-y: auto;
-          padding: 8px;
-        }
-
-        .session-item {
-          display: flex;
-          align-items: stretch;
-          margin-bottom: 4px;
-          border-radius: 8px;
-          background: transparent;
-          transition: background 0.2s;
-        }
-
-        .session-item:hover {
-          background: var(--color-bg-hover, rgba(255, 255, 255, 0.05));
-        }
-
-        .session-item.active {
-          background: var(--color-bg-active, rgba(189, 75, 38, 0.2));
-          border-left: 3px solid var(--color-primary, #bd4b26);
-        }
-
-        .session-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          padding: 10px 12px;
-          border: none;
-          background: transparent;
-          color: inherit;
-          cursor: pointer;
-          text-align: left;
-          min-width: 0;
-        }
-
-        .session-title {
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--color-text-primary, #fff);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          width: 100%;
-        }
-
-        .session-meta {
-          display: flex;
-          gap: 8px;
-          font-size: 11px;
-          color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-          margin-top: 2px;
-        }
-
-        .session-preview {
-          font-size: 11px;
-          color: var(--color-text-muted, rgba(255, 255, 255, 0.4));
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          width: 100%;
-          margin-top: 4px;
-        }
-
-        .session-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 4px;
-          opacity: 0;
-          transition: opacity 0.2s;
-        }
-
-        .session-item:hover .session-actions {
-          opacity: 1;
-        }
-
-        .session-actions button {
-          width: 24px;
-          height: 24px;
-          border: none;
-          border-radius: 4px;
-          background: transparent;
-          color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-          cursor: pointer;
-          font-size: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s;
-        }
-
-        .session-actions button:hover {
-          background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
-          color: var(--color-text-primary, #fff);
-        }
-
-        .btn-delete:hover {
-          background: rgba(239, 68, 68, 0.2) !important;
-          color: #f87171 !important;
-        }
-
-        .session-edit {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 8px;
-          width: 100%;
-        }
-
-        .session-edit input {
-          flex: 1;
-          padding: 6px 8px;
-          border: 1px solid var(--color-primary, #bd4b26);
-          border-radius: 4px;
-          background: var(--color-bg-input, rgba(0, 0, 0, 0.3));
-          color: var(--color-text-primary, #fff);
-          font-size: 13px;
-          outline: none;
-        }
-
-        .session-edit .btn-save,
-        .session-edit .btn-cancel {
-          width: 24px;
-          height: 24px;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 12px;
-        }
-
-        .session-edit .btn-save {
-          background: var(--color-primary, #bd4b26);
-          color: white;
-        }
-
-        .session-edit .btn-cancel {
-          background: transparent;
-          color: var(--color-text-secondary, rgba(255, 255, 255, 0.6));
-        }
-
-        .session-loading,
-        .session-empty {
-          padding: 24px;
-          text-align: center;
-          color: var(--color-text-muted, rgba(255, 255, 255, 0.4));
-          font-size: 13px;
-        }
-      `}</style>
 
 			{/* UX改善3: カスタム削除確認ダイアログ */}
 			<ConfirmDialog

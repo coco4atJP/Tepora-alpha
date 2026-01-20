@@ -102,41 +102,39 @@ def test_get_models_empty(client, run_with_auth):
 
 def test_check_model_exists_found(client, run_with_auth):
     """Test checking for existing HuggingFace model."""
-    mock_metadata = MagicMock()
-    mock_metadata.size = 5000000000
 
-    # Mock the huggingface_hub imports inside check_model_exists function
-    with patch("huggingface_hub.hf_hub_url") as mock_url:
-        with patch("huggingface_hub.get_hf_file_metadata") as mock_meta:
-            mock_url.return_value = "https://huggingface.co/..."
-            mock_meta.return_value = mock_metadata
+    with patch("src.tepora_server.api.setup._get_download_manager") as mock_get_dm:
+        mock_dm = MagicMock()
+        mock_dm.model_manager.get_remote_file_size.return_value = 5000000000
+        mock_get_dm.return_value = mock_dm
 
-            response = client.post(
-                "/api/setup/model/check",
-                json={"repo_id": "TheBloke/Llama-2-7B-GGUF", "filename": "llama-2-7b.Q4_K_M.gguf"},
-            )
+        response = client.post(
+            "/api/setup/model/check",
+            json={"repo_id": "TheBloke/Llama-2-7B-GGUF", "filename": "llama-2-7b.Q4_K_M.gguf"},
+        )
 
-            assert response.status_code == 200
-            result = response.json()
-            assert result["exists"] is True
-            assert result["size"] == 5000000000
+        assert response.status_code == 200
+        result = response.json()
+        assert result["exists"] is True
+        assert result["size"] == 5000000000
 
 
 def test_check_model_exists_not_found(client, run_with_auth):
     """Test checking for non-existing HuggingFace model."""
-    with patch("huggingface_hub.hf_hub_url") as mock_url:
-        with patch("huggingface_hub.get_hf_file_metadata") as mock_meta:
-            mock_url.return_value = "https://huggingface.co/..."
-            mock_meta.side_effect = Exception("Not found")
 
-            response = client.post(
-                "/api/setup/model/check",
-                json={"repo_id": "nonexistent/repo", "filename": "nonexistent.gguf"},
-            )
+    with patch("src.tepora_server.api.setup._get_download_manager") as mock_get_dm:
+        mock_dm = MagicMock()
+        mock_dm.model_manager.get_remote_file_size.return_value = None
+        mock_get_dm.return_value = mock_dm
 
-            assert response.status_code == 200
-            result = response.json()
-            assert result["exists"] is False
+        response = client.post(
+            "/api/setup/model/check",
+            json={"repo_id": "nonexistent/repo", "filename": "nonexistent.gguf"},
+        )
+
+        assert response.status_code == 200
+        result = response.json()
+        assert result["exists"] is False
 
 
 # --- POST /api/setup/model/local Tests ---
@@ -255,7 +253,7 @@ def test_reorder_models_success(client, run_with_auth):
     with patch("src.tepora_server.api.setup._get_download_manager") as mock_get_dm:
         mock_dm = MagicMock()
 
-        async def mock_reorder(pool, model_ids):
+        def mock_reorder(pool, model_ids):
             return True
 
         mock_dm.model_manager.reorder_models = MagicMock(side_effect=mock_reorder)
