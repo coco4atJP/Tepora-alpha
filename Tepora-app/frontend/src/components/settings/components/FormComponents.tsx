@@ -32,7 +32,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 		className={`settings-form-group h-full flex flex-col ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${className || ""}`}
 	>
 		<div className="settings-form-group__header">
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-2 flex-wrap">
 				<span className="settings-form-group__label">{label}</span>
 				{tooltip && (
 					<button

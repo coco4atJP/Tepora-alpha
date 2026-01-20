@@ -171,7 +171,7 @@ const PersonaSwitcher: React.FC = () => {
 							className="fixed inset-0 z-40"
 							onClick={() => setIsOpen(false)}
 						/>
-						<div className="absolute bottom-full left-0 mb-2 w-64 glass-panel rounded-xl overflow-hidden animate-fade-in z-50">
+						<div className="absolute bottom-full left-0 mb-2 w-max min-w-[16rem] max-w-sm glass-panel rounded-xl overflow-hidden animate-fade-in z-50">
 							<div className="p-3 border-b border-white/5 flex justify-between items-center bg-black/40">
 								<h3 className="text-xs font-bold text-tea-200 uppercase tracking-wider">
 									{t("personas.select")}
@@ -237,7 +237,7 @@ const PersonaSwitcher: React.FC = () => {
 											</div>
 											<div className="min-w-0">
 												<div
-													className={`text-sm font-medium truncate ${
+													className={`text-sm font-medium break-words ${
 														currentPersonaId === key
 															? "text-gold-300"
 															: "text-gray-200"
