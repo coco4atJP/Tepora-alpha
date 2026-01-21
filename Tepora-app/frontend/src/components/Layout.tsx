@@ -158,7 +158,7 @@ const Layout: React.FC = () => {
 			<div className="relative z-10 flex-1 w-full px-2 md:px-4 py-2 md:py-4">
 				<div className="mx-auto h-full w-full max-w-7xl grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4 lg:gap-6 min-h-0">
 					{/* Left Column: Chat Interface */}
-					<div className="h-full flex flex-col min-h-0 order-1 w-full">
+					<div className="h-full flex flex-col min-h-0 order-1 w-full overflow-hidden">
 						<div className="flex-1 glass-tepora rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 ring-1 ring-white/5 min-h-0 flex flex-col">
 							{/* Chat View - Visible on Desktop OR when mode is 'direct' on Mobile */}
 							<div
