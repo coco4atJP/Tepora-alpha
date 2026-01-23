@@ -235,11 +235,7 @@ class TestTeporaGraph:
         from src.core.graph import TeporaGraph
         from src.core.rag import RAGContextBuilder, RAGEngine
 
-        with (
-            patch("src.core.llm.service.ModelRegistry"),
-            patch("src.core.llm.service.ProcessManager"),
-            patch("src.core.llm.service.ClientFactory"),
-        ):
+        with patch("src.core.llm.service.LlamaServerRunner"):
             from src.core.llm import LLMService
 
             llm_service = LLMService()

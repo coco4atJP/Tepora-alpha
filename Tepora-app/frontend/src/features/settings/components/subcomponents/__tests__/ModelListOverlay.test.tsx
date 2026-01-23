@@ -4,7 +4,7 @@ import * as useModelUpdateCheckHook from "../../../../../hooks/useModelUpdateChe
 import { ModelListOverlay } from "../ModelListOverlay";
 
 // Mock the hook
-vi.mock("../../../../hooks/useModelUpdateCheck", () => ({
+vi.mock("../../../../../hooks/useModelUpdateCheck", () => ({
 	useModelUpdateCheck: vi.fn(),
 }));
 

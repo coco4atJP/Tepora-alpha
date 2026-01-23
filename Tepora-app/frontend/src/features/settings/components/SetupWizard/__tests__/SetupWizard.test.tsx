@@ -12,7 +12,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 // Mock requirements hook to avoid QueryClient dependency in unit tests
-vi.mock("../../../hooks/useServerConfig", () => ({
+vi.mock("../../../../../hooks/useServerConfig", () => ({
 	useRequirements: () => ({
 		refetch: vi
 			.fn()
