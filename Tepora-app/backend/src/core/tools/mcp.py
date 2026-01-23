@@ -244,6 +244,11 @@ class McpToolProvider(ToolProvider):
         self._hub = hub
         self._clients: list[MultiServerMCPClient] = []
 
+    @property
+    def name(self) -> str:
+        """Return provider name."""
+        return "mcp"
+
     async def load_tools(self) -> list[BaseTool]:
         # Prefer the shared McpHub instance (web server) to avoid duplicate
         # connections and to respect enable/disable/policy decisions.

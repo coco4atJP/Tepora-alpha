@@ -39,6 +39,11 @@ export interface ToolConfirmationRequest {
 	description?: string;
 }
 
+// ============================================================================
+// WebSocket Message Types
+// ============================================================================
+
+// Incoming message types (from server)
 export interface WebSocketMessage {
 	type:
 		| "chunk"
@@ -66,6 +71,25 @@ export interface WebSocketMessage {
 		| AgentActivity[]
 		| ToolConfirmationRequest;
 }
+
+// Outgoing message types (to server)
+export type WebSocketOutgoingMessage =
+	| {
+			type?: undefined;
+			message: string;
+			mode: ChatMode;
+			attachments?: Attachment[];
+			skipWebSearch?: boolean;
+			sessionId?: string;
+	  }
+	| { type: "stop" }
+	| { type: "get_stats" }
+	| { type: "set_session"; sessionId: string }
+	| {
+			type: "tool_confirmation_response";
+			requestId: string;
+			approved: boolean;
+	  };
 
 // システムステータス
 export interface SystemStatus {
@@ -101,6 +125,19 @@ export interface MemoryStats {
 	prof_memory?: MemorySystemStats;
 }
 
+// ============================================================================
+// Session Types
+// ============================================================================
+
+export interface Session {
+	id: string;
+	title: string;
+	created_at: string;
+	updated_at: string;
+	message_count?: number;
+	preview?: string;
+}
+
 // チャットモード
 export type ChatMode = "direct" | "search" | "agent";
 
@@ -126,6 +163,32 @@ export interface ProfessionalConfig {
 	system_prompt: string;
 	tools: string[];
 	model_config_name?: string;
+}
+
+// Custom Agent Types (GPTs/Gems-style)
+export interface CustomAgentToolPolicy {
+	allowed_tools: string[];
+	denied_tools: string[];
+	require_confirmation: string[];
+}
+
+export interface CustomAgentConfig {
+	id: string;
+	name: string;
+	description: string;
+	icon: string;
+	system_prompt: string;
+	tool_policy: CustomAgentToolPolicy;
+	model_config_name?: string;
+	skills: string[];
+	enabled: boolean;
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface ToolInfo {
+	name: string;
+	description: string;
 }
 
 // Deprecated/Legacy types (Transitioning)

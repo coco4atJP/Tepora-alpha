@@ -194,6 +194,49 @@ class ProfessionalConfig(BaseModel):
     model_config = {"extra": "ignore"}
 
 
+class CustomAgentToolPolicy(BaseModel):
+    """カスタムエージェント用ツールポリシー"""
+
+    allowed_tools: list[str] = Field(
+        default_factory=lambda: ["*"],
+        description="許可ツール ('*' = 全て許可)",
+    )
+    denied_tools: list[str] = Field(
+        default_factory=list,
+        description="禁止ツール (allowed_toolsより優先)",
+    )
+    require_confirmation: list[str] = Field(
+        default_factory=list,
+        description="実行前に確認が必要なツール",
+    )
+
+    model_config = {"extra": "ignore"}
+
+
+class CustomAgentConfig(BaseModel):
+    """GPTs/Gems形式のカスタムエージェント定義"""
+
+    id: str = Field(description="一意識別子")
+    name: str = Field(description="エージェント表示名")
+    description: str = Field(default="", description="エージェントの説明")
+    icon: str = Field(default="🤖", description="絵文字またはアイコン識別子")
+    system_prompt: str = Field(description="システムプロンプト")
+    tool_policy: CustomAgentToolPolicy = Field(default_factory=CustomAgentToolPolicy)
+    model_config_name: str | None = Field(
+        default=None,
+        description="使用するモデル設定名 (models_ggufのキー)",
+    )
+    skills: list[str] = Field(
+        default_factory=list,
+        description="スキルファイルパス (.md)",
+    )
+    enabled: bool = Field(default=True, description="エージェントの有効/無効")
+    created_at: str | None = Field(default=None, description="作成日時 ISO8601")
+    updated_at: str | None = Field(default=None, description="更新日時 ISO8601")
+
+    model_config = {"extra": "ignore"}
+
+
 class ToolsConfig(BaseModel):
     google_search_api_key: SecretStr | None = None
     google_search_engine_id: str | None = None
@@ -412,6 +455,9 @@ class TeporaSettings(BaseSettings):
         default_factory=lambda: DEFAULT_CHARACTERS.copy()
     )
     professionals: dict[str, ProfessionalConfig] = Field(default_factory=dict)
+
+    # Custom Agents (GPTs/Gems-style user-defined agents)
+    custom_agents: dict[str, CustomAgentConfig] = Field(default_factory=dict)
 
     active_agent_profile: str = "bunny_girl"
 

@@ -10,6 +10,12 @@ class ToolProvider(ABC):
     (e.g., Native tools, MCP tools, etc.).
     """
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Return the unique name identifying this provider."""
+        pass
+
     @abstractmethod
     async def load_tools(self) -> list[BaseTool]:
         """

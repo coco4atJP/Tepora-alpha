@@ -1,15 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
+import type { Session } from "../types";
 import { apiClient } from "../utils/api-client";
+import { ENDPOINTS } from "../utils/endpoints";
 
-export interface Session {
-	id: string;
-	title: string;
-	created_at: string;
-	updated_at: string;
-	message_count?: number;
-	preview?: string;
-}
+// Re-export Session type for backward compatibility
+export type { Session } from "../types";
 
 interface UseSessionsReturn {
 	sessions: Session[];
@@ -32,7 +28,9 @@ export const useSessions = (): UseSessionsReturn => {
 	} = useQuery({
 		queryKey: ["sessions"],
 		queryFn: async () => {
-			const data = await apiClient.get<{ sessions: Session[] }>("api/sessions");
+			const data = await apiClient.get<{ sessions: Session[] }>(
+				ENDPOINTS.SESSIONS.LIST,
+			);
 			return data.sessions || [];
 		},
 		staleTime: 1000 * 60, // 1 minute
@@ -40,7 +38,7 @@ export const useSessions = (): UseSessionsReturn => {
 
 	const createMutation = useMutation({
 		mutationFn: (title?: string) =>
-			apiClient.post<{ session: Session }>("api/sessions", { title }),
+			apiClient.post<{ session: Session }>(ENDPOINTS.SESSIONS.LIST, { title }),
 		onSuccess: (data) => {
 			queryClient.setQueryData(["sessions"], (old: Session[] = []) => [
 				data.session,
@@ -50,7 +48,7 @@ export const useSessions = (): UseSessionsReturn => {
 	});
 
 	const deleteMutation = useMutation({
-		mutationFn: (id: string) => apiClient.delete(`api/sessions/${id}`),
+		mutationFn: (id: string) => apiClient.delete(ENDPOINTS.SESSIONS.DETAIL(id)),
 		onSuccess: (_, id) => {
 			queryClient.setQueryData(["sessions"], (old: Session[] = []) =>
 				old.filter((s) => s.id !== id),
@@ -60,7 +58,7 @@ export const useSessions = (): UseSessionsReturn => {
 
 	const renameMutation = useMutation({
 		mutationFn: ({ id, title }: { id: string; title: string }) =>
-			apiClient.patch(`api/sessions/${id}`, { title }),
+			apiClient.patch(ENDPOINTS.SESSIONS.DETAIL(id), { title }),
 		onSuccess: (_, { id, title }) => {
 			queryClient.setQueryData(["sessions"], (old: Session[] = []) =>
 				old.map((s) => (s.id === id ? { ...s, title } : s)),

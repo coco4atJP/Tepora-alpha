@@ -57,3 +57,17 @@ vi.mock("react-i18next", () => ({
 	},
 	Trans: ({ children }: { children: React.ReactNode }) => children,
 }));
+
+// Mock WebSocket
+class MockWebSocket {
+	onopen: (() => void) | null = null;
+	onmessage: ((event: MessageEvent) => void) | null = null;
+	onclose: (() => void) | null = null;
+	onerror: ((event: Event) => void) | null = null;
+	send = vi.fn();
+	close = vi.fn();
+	readyState = 0;
+	constructor(public url: string) {}
+}
+
+globalThis.WebSocket = MockWebSocket as any;

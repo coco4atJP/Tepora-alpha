@@ -11,7 +11,7 @@ if str(BACKEND_ROOT) not in sys.path:
 # Also ensure 'src' is importable if needed, though 'from src...' is preferred
 SRC_ROOT = BACKEND_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
-    sys.path.append(str(SRC_ROOT))
+    sys.path.insert(0, str(SRC_ROOT))
 
 # --- 2. Environment Setup ---
 os.environ["TEPORA_ENV"] = "test"

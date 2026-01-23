@@ -114,7 +114,7 @@ class SessionHandler:
 
     async def handle_get_stats(self) -> None:
         """Send memory statistics to the client."""
-        stats = self.app_state.core.get_memory_stats()
+        stats = self.app_state.active_core.get_memory_stats()
         await self.send_json({"type": "stats", "data": stats})
 
     def _cleanup_stale_approvals(self) -> None:
@@ -284,7 +284,7 @@ class SessionHandler:
             if not user_input and not attachments:
                 return
 
-            if not self.app_state.core.initialized:
+            if not self.app_state.active_core.initialized:
                 logger.warning("Core not initialized; rejecting message from %s", self.client_host)
                 await self.send_json(
                     {"type": "error", "message": "Server not initialized. Please retry shortly."}
@@ -304,7 +304,7 @@ class SessionHandler:
             self._current_agent_name = None
 
             # Call Core.process_user_request with approval callback
-            async for event in self.app_state.core.process_user_request(
+            async for event in self.app_state.active_core.process_user_request(
                 user_input,
                 mode=mode,
                 attachments=attachments,
@@ -315,7 +315,7 @@ class SessionHandler:
                 await self._handle_stream_event(event, mode)
 
             # Send Memory Stats
-            stats = self.app_state.core.get_memory_stats()
+            stats = self.app_state.active_core.get_memory_stats()
             await self.send_json({"type": "stats", "data": stats})
             await self.send_json({"type": "done"})
 
@@ -330,7 +330,7 @@ class SessionHandler:
     async def send_history(self, session_id: str) -> None:
         """Send chat history for the given session to the client."""
         try:
-            history_manager = self.app_state.core.history_manager
+            history_manager = self.app_state.active_core.history_manager
             if history_manager is None:
                 logger.warning(
                     "History manager not initialized; cannot load history for %s", session_id

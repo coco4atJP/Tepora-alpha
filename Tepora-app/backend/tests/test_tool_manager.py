@@ -16,6 +16,11 @@ class MockToolProvider(ToolProvider):
     def __init__(self, tools=None):
         self._tools = tools or []
 
+    @property
+    def name(self) -> str:
+        """Return provider name."""
+        return "mock"
+
     async def load_tools(self):
         return self._tools
 

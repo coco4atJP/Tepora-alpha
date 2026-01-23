@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { exit } from "@tauri-apps/plugin-process";
 import { type Child, Command } from "@tauri-apps/plugin-shell";
 import { getApiBase, getAuthHeadersAsync, setDynamicPort } from "./api";
+import { ENDPOINTS } from "./endpoints";
 
 // Helper to detect if running in Tauri
 export const isDesktop = () => {
@@ -107,7 +108,7 @@ export async function startSidecar() {
 					try {
 						const headers = await getAuthHeadersAsync();
 						const res = await fetch(
-							`http://127.0.0.1:${backendPort}/api/shutdown`,
+							`http://127.0.0.1:${backendPort}/${ENDPOINTS.SHUTDOWN}`,
 							{
 								method: "POST",
 								headers,
@@ -163,7 +164,9 @@ export async function startSidecar() {
 		// Check if backend is already running on any common port
 		for (const testPort of [8000, 8001, 8002]) {
 			try {
-				const response = await fetch(`http://127.0.0.1:${testPort}/health`);
+				const response = await fetch(
+					`http://127.0.0.1:${testPort}/${ENDPOINTS.HEALTH}`,
+				);
 				if (response.ok) {
 					console.log(`[Sidecar] Backend already running on port ${testPort}`);
 					backendPort = testPort;
@@ -211,7 +214,9 @@ export async function startSidecar() {
 				while (Date.now() - startWait < 30000) {
 					// 30s timeout for startup
 					try {
-						const res = await fetch(`http://127.0.0.1:${port}/health`);
+						const res = await fetch(
+							`http://127.0.0.1:${port}/${ENDPOINTS.HEALTH}`,
+						);
 						if (res.ok) {
 							console.log("[Sidecar] Backend health check passed. Ready.");
 							if (backendReadyResolve) {
@@ -249,9 +254,12 @@ export async function startSidecar() {
 			// Fallback: try to detect port by checking health
 			for (let testPort = 8000; testPort < 8100; testPort++) {
 				try {
-					const response = await fetch(`http://127.0.0.1:${testPort}/health`, {
-						signal: AbortSignal.timeout(1000),
-					});
+					const response = await fetch(
+						`http://127.0.0.1:${testPort}/${ENDPOINTS.HEALTH}`,
+						{
+							signal: AbortSignal.timeout(1000),
+						},
+					);
 					if (response.ok) {
 						backendPort = testPort;
 						setDynamicPort(testPort);
@@ -276,7 +284,7 @@ export async function startSidecar() {
  */
 export async function checkBackendHealth(): Promise<boolean> {
 	try {
-		const response = await fetch(`${getApiBase()}/health`);
+		const response = await fetch(`${getApiBase()}/${ENDPOINTS.HEALTH}`);
 		return response.ok;
 	} catch {
 		return false;

@@ -8,8 +8,13 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import type { CharacterConfig, ProfessionalConfig } from "../types";
-import { getApiBase, getAuthHeaders } from "../utils/api";
+import { useServerConfig } from "../hooks/useServerConfig";
+import type {
+	CharacterConfig,
+	CustomAgentConfig,
+	ProfessionalConfig,
+} from "../types";
+import { apiClient } from "../utils/api-client";
 
 // ============================================================================
 // Types
@@ -63,6 +68,8 @@ export interface Config {
 	// Refactored Agent Config
 	characters: Record<string, CharacterConfig>;
 	professionals: Record<string, ProfessionalConfig>;
+	// Custom Agents (GPTs/Gems-style)
+	custom_agents?: Record<string, CustomAgentConfig>;
 	active_agent_profile: string;
 
 	tools: {
@@ -129,6 +136,11 @@ export interface SettingsContextValue {
 	addProfessional: (key: string) => void;
 	deleteProfessional: (key: string) => void;
 
+	// Custom Agent Actions
+	updateCustomAgent: (id: string, agent: CustomAgentConfig) => void;
+	addCustomAgent: (agent: CustomAgentConfig) => void;
+	deleteCustomAgent: (id: string) => void;
+
 	setActiveAgent: (key: string) => void;
 	saveConfig: (override?: Config) => Promise<boolean>;
 	resetConfig: () => void;
@@ -141,6 +153,27 @@ export const SettingsContext = createContext<SettingsContextValue | null>(null);
 // Provider
 // ============================================================================
 
+function normalizeConfig(data: Config): Config {
+	if (!data.models_gguf || data.models_gguf.text_model) {
+		return data;
+	}
+
+	const modelsGguf = { ...data.models_gguf } as Record<string, unknown>;
+	const legacyChar = modelsGguf.character_model as ModelConfig | undefined;
+	const legacyExec = modelsGguf.executor_model as ModelConfig | undefined;
+
+	const textModel = legacyChar || legacyExec;
+	if (!textModel) {
+		return data;
+	}
+	modelsGguf.text_model = textModel;
+
+	return {
+		...data,
+		models_gguf: modelsGguf as Config["models_gguf"],
+	};
+}
+
 interface SettingsProviderProps {
 	children: ReactNode;
 }
@@ -149,60 +182,47 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	children,
 }) => {
 	const queryClient = useQueryClient();
+	const {
+		data: serverConfig,
+		isLoading: isConfigLoading,
+		isFetching: isConfigFetching,
+		error: serverError,
+		refetch: refetchConfig,
+	} = useServerConfig();
 	const [config, setConfig] = useState<Config | null>(null);
 	const [originalConfig, setOriginalConfig] = useState<Config | null>(null);
-	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 
 	const hasChanges = useMemo(() => {
 		if (!config || !originalConfig) return false;
 		return JSON.stringify(config) !== JSON.stringify(originalConfig);
 	}, [config, originalConfig]);
 
+	const error = useMemo(() => {
+		if (!serverError) return null;
+		return serverError instanceof Error
+			? serverError.message
+			: "An error occurred";
+	}, [serverError]);
+
+	const loading = isConfigLoading || (!config && isConfigFetching);
+
 	const fetchConfig = useCallback(async () => {
-		try {
-			setLoading(true);
-			setError(null);
-			const response = await fetch(`${getApiBase()}/api/config`, {
-				headers: { ...getAuthHeaders() },
-			});
-			if (!response.ok) throw new Error("Failed to fetch configuration");
-			const data = await response.json();
+		await refetchConfig();
+	}, [refetchConfig]);
 
-			// Backward compatibility: Map legacy model keys to new 'text_model' key
-			if (data.models_gguf && !data.models_gguf.text_model) {
-				const modelsGguf = data.models_gguf as Record<string, unknown>;
-				const legacyChar = modelsGguf.character_model as
-					| ModelConfig
-					| undefined;
-				const legacyExec = modelsGguf.executor_model as ModelConfig | undefined;
-
-				if (legacyChar) {
-					data.models_gguf.text_model = legacyChar;
-				} else if (legacyExec) {
-					data.models_gguf.text_model = legacyExec;
-				}
-
-				// Ensure embedding_model exists if legacy embedding key is present (though key name is same)
-				if (!data.models_gguf.embedding_model && modelsGguf.embedding_model) {
-					data.models_gguf.embedding_model =
-						modelsGguf.embedding_model as ModelConfig;
-				}
-			}
-
-			setConfig(data);
-			setOriginalConfig(data);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "An error occurred");
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+	const normalizedServerConfig = useMemo(() => {
+		if (!serverConfig) return null;
+		return normalizeConfig(serverConfig);
+	}, [serverConfig]);
 
 	useEffect(() => {
-		fetchConfig();
-	}, [fetchConfig]);
+		if (!normalizedServerConfig) return;
+		if (!config || !originalConfig || !hasChanges) {
+			setConfig(normalizedServerConfig);
+			setOriginalConfig(normalizedServerConfig);
+		}
+	}, [normalizedServerConfig, config, originalConfig, hasChanges]);
 
 	// Update functions
 	const updateApp = useCallback(
@@ -374,6 +394,41 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 		});
 	}, []);
 
+	// Custom Agent Management
+	const updateCustomAgent = useCallback(
+		(id: string, agent: CustomAgentConfig) => {
+			setConfig((prev) =>
+				prev
+					? {
+							...prev,
+							custom_agents: { ...prev.custom_agents, [id]: agent },
+						}
+					: prev,
+			);
+		},
+		[],
+	);
+
+	const addCustomAgent = useCallback((agent: CustomAgentConfig) => {
+		setConfig((prev) =>
+			prev
+				? {
+						...prev,
+						custom_agents: { ...prev.custom_agents, [agent.id]: agent },
+					}
+				: prev,
+		);
+	}, []);
+
+	const deleteCustomAgent = useCallback((id: string) => {
+		setConfig((prev) => {
+			if (!prev || !prev.custom_agents) return prev;
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			const { [id]: _, ...rest } = prev.custom_agents;
+			return { ...prev, custom_agents: rest };
+		});
+	}, []);
+
 	const setActiveAgent = useCallback((key: string) => {
 		setConfig((prev) => (prev ? { ...prev, active_agent_profile: key } : prev));
 	}, []);
@@ -384,15 +439,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			if (!configToSave) return false;
 			try {
 				setSaving(true);
-				const response = await fetch(`${getApiBase()}/api/config`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						...getAuthHeaders(),
-					},
-					body: JSON.stringify(configToSave),
-				});
-				if (!response.ok) throw new Error("Failed to save configuration");
+				await apiClient.post("api/config", configToSave);
 
 				// Update local state if override was used, to ensure consistency
 				if (override) {
@@ -402,7 +449,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 				setOriginalConfig(configToSave);
 				// Keep react-query cache in sync so consumers (e.g. App language sync) update immediately.
 				queryClient.setQueryData(["config"], configToSave);
-				void queryClient.invalidateQueries({ queryKey: ["config"] });
 				return true;
 			} catch (err) {
 				console.error("Failed to save config:", err);
@@ -440,6 +486,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateProfessional,
 			addProfessional,
 			deleteProfessional,
+
+			updateCustomAgent,
+			addCustomAgent,
+			deleteCustomAgent,
+
 			setActiveAgent,
 			saveConfig,
 			resetConfig,
@@ -467,6 +518,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateProfessional,
 			addProfessional,
 			deleteProfessional,
+
+			updateCustomAgent,
+			addCustomAgent,
+			deleteCustomAgent,
+
 			setActiveAgent,
 			saveConfig,
 			resetConfig,

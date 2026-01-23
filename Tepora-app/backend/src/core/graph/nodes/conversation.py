@@ -366,21 +366,28 @@ class ConversationNodes:
 
         chain = prompt | llm
 
-        # Request logprobs for surprise calculation
-        response_message = await chain.ainvoke(
+        # Stream response to enable on_chat_model_stream events
+        full_response = ""
+        logprobs = None
+
+        async for chunk in chain.astream(
             {
                 "context_history": context_history,
                 "input": state["input"],
             },
             config={"configurable": {"model_kwargs": {"logprobs": True, "cache_prompt": True}}},
-        )
-
-        # Extract logprobs from response
-        logprobs = response_message.response_metadata.get("logprobs")
+        ):
+            if hasattr(chunk, "content") and chunk.content:
+                full_response += chunk.content
+            # Extract logprobs from response metadata if available
+            if hasattr(chunk, "response_metadata") and chunk.response_metadata:
+                chunk_logprobs = chunk.response_metadata.get("logprobs")
+                if chunk_logprobs:
+                    logprobs = chunk_logprobs
 
         return {
             "chat_history": state["chat_history"]
-            + [HumanMessage(content=state["input"]), AIMessage(content=response_message.content)],
+            + [HumanMessage(content=state["input"]), AIMessage(content=full_response)],
             "generation_logprobs": logprobs,
         }
 
@@ -664,7 +671,11 @@ Question: {original_question}
                 synthesized_memory[:max_synthesized_memory_chars] + "\n... (memory truncated)"
             )
 
-        response_message = await chain.ainvoke(
+        # Stream response to enable on_chat_model_stream events
+        full_response = ""
+        logprobs = None
+
+        async for chunk in chain.astream(
             {
                 "chat_history": limited_history,
                 "persona": persona,
@@ -676,14 +687,18 @@ Question: {original_question}
                 "attachments": attachments_text,
             },
             config={"configurable": {"model_kwargs": {"logprobs": True, "cache_prompt": True}}},
-        )
-
-        # Extract logprobs
-        logprobs = response_message.response_metadata.get("logprobs")
+        ):
+            if hasattr(chunk, "content") and chunk.content:
+                full_response += chunk.content
+            # Extract logprobs from response metadata if available
+            if hasattr(chunk, "response_metadata") and chunk.response_metadata:
+                chunk_logprobs = chunk.response_metadata.get("logprobs")
+                if chunk_logprobs:
+                    logprobs = chunk_logprobs
 
         return {
-            "messages": [AIMessage(content=response_message.content)],
+            "messages": [AIMessage(content=full_response)],
             "chat_history": state["chat_history"]
-            + [HumanMessage(content=state["input"]), AIMessage(content=response_message.content)],
+            + [HumanMessage(content=state["input"]), AIMessage(content=full_response)],
             "generation_logprobs": logprobs,
         }

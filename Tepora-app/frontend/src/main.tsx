@@ -8,7 +8,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { SettingsProvider } from "./context/SettingsContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import { WebSocketProvider } from "./context/WebSocketContext";
+
 import { getSessionToken } from "./utils/sessionToken";
 
 const queryClient = new QueryClient();
@@ -38,13 +38,11 @@ async function init() {
 		<React.StrictMode>
 			<ErrorBoundary>
 				<QueryClientProvider client={queryClient}>
-					<WebSocketProvider>
-						<SettingsProvider>
-							<ThemeProvider>
-								<App />
-							</ThemeProvider>
-						</SettingsProvider>
-					</WebSocketProvider>
+					<SettingsProvider>
+						<ThemeProvider>
+							<App />
+						</ThemeProvider>
+					</SettingsProvider>
 					<ReactQueryDevtools initialIsOpen={false} />
 				</QueryClientProvider>
 			</ErrorBoundary>

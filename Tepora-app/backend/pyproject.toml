@@ -1,6 +1,6 @@
 [project]
 name = "tepora"
-version = "0.2.0-beta"
+version = "0.3.0-beta"
 description = "Local-first personal AI agent with episodic memory"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -88,6 +88,9 @@ packages = ["src"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = ["src"]
+# Cache directory settings to avoid permission issues on Windows
+cache_dir = ".pytest_cache"
 
 [tool.ruff]
 line-length = 100

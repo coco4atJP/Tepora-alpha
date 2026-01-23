@@ -28,7 +28,7 @@ class UpdateSessionRequest(BaseModel):
 @router.get("")
 async def list_sessions(app_state: AppState = Depends(get_app_state)):
     """List all sessions."""
-    history_manager = app_state.core.history_manager
+    history_manager = app_state.active_core.history_manager
     if history_manager is None:
         return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
@@ -42,7 +42,7 @@ async def list_sessions(app_state: AppState = Depends(get_app_state)):
 @router.post("")
 async def create_session(body: CreateSessionRequest, app_state: AppState = Depends(get_app_state)):
     """Create a new session."""
-    history_manager = app_state.core.history_manager
+    history_manager = app_state.active_core.history_manager
     if history_manager is None:
         return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
@@ -57,7 +57,7 @@ async def create_session(body: CreateSessionRequest, app_state: AppState = Depen
 @router.get("/{session_id}")
 async def get_session(session_id: str, app_state: AppState = Depends(get_app_state)):
     """Get a specific session's information."""
-    history_manager = app_state.core.history_manager
+    history_manager = app_state.active_core.history_manager
     if history_manager is None:
         return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
@@ -76,6 +76,67 @@ async def get_session(session_id: str, app_state: AppState = Depends(get_app_sta
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@router.get("/{session_id}/messages")
+async def get_session_messages(
+    session_id: str,
+    limit: int = 100,
+    app_state: AppState = Depends(get_app_state),
+):
+    """Get message history for a session via REST API.
+
+    This endpoint provides formatted messages suitable for the frontend,
+    with proper role mapping and timestamp handling.
+    """
+    import uuid
+    from datetime import datetime
+
+    history_manager = app_state.active_core.history_manager
+    if history_manager is None:
+        return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
+
+    try:
+        # Check if session exists
+        session = history_manager.get_session(session_id)
+        if session is None:
+            return JSONResponse(status_code=404, content={"error": "Session not found"})
+
+        # Get messages
+        messages = history_manager.get_history(session_id=session_id, limit=limit)
+
+        # Format messages for frontend
+        formatted_messages = []
+        for msg in messages:
+            # Map message type to role
+            role = "user"
+            if msg.type == "ai":
+                role = "assistant"
+            elif msg.type == "system":
+                role = "system"
+
+            raw_id = getattr(msg, "id", None)
+            if raw_id is None or (isinstance(raw_id, str) and raw_id.strip() == ""):
+                message_id = str(uuid.uuid4())
+            else:
+                message_id = str(raw_id)
+
+            formatted_messages.append(
+                {
+                    "id": message_id,
+                    "role": role,
+                    "content": msg.content,
+                    "timestamp": msg.additional_kwargs.get("timestamp")
+                    or datetime.now().isoformat(),
+                    "mode": msg.additional_kwargs.get("mode", "direct"),
+                    "isComplete": True,
+                }
+            )
+
+        return {"messages": formatted_messages}
+    except Exception as e:
+        logger.error("Failed to get session messages: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @router.patch("/{session_id}")
 async def update_session(
     session_id: str,
@@ -83,7 +144,7 @@ async def update_session(
     app_state: AppState = Depends(get_app_state),
 ):
     """Update a session's title."""
-    history_manager = app_state.core.history_manager
+    history_manager = app_state.active_core.history_manager
     if history_manager is None:
         return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:
@@ -99,7 +160,7 @@ async def update_session(
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, app_state: AppState = Depends(get_app_state)):
     """Delete a session."""
-    history_manager = app_state.core.history_manager
+    history_manager = app_state.active_core.history_manager
     if history_manager is None:
         return JSONResponse(status_code=503, content={"error": "History manager not initialized"})
     try:

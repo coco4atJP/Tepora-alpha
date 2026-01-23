@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { getApiBase } from "../utils/api";
+import { apiClient } from "../utils/api-client";
 
 export interface UpdateCheckResult {
 	update_available: boolean;
@@ -31,17 +31,9 @@ export const useModelUpdateCheck = (): UseModelUpdateCheck => {
 	const checkUpdate = useCallback(
 		async (modelId: string): Promise<UpdateCheckResult | null> => {
 			try {
-				const res = await fetch(
-					`${getApiBase()}/api/setup/model/update-check?model_id=${encodeURIComponent(modelId)}`,
+				const result = await apiClient.get<UpdateCheckResult>(
+					`api/setup/model/update-check?model_id=${encodeURIComponent(modelId)}`,
 				);
-				if (!res.ok) {
-					console.error(
-						`Failed to check update for model ${modelId}:`,
-						res.statusText,
-					);
-					return null;
-				}
-				const result: UpdateCheckResult = await res.json();
 				setUpdateStatus((prev) => ({ ...prev, [modelId]: result }));
 				return result;
 			} catch (error) {

@@ -346,6 +346,36 @@
 				"nsfw_label": "制限付きコンテンツのロック解除",
 				"nsfw_desc": "機密性の高いコンテンツの生成を許可します。注意して使用してください。"
 			},
+			"custom_agents": {
+				"label": "カスタムエージェント",
+				"title": "カスタムエージェント",
+				"description": "GPTs/Gems形式のカスタムエージェントを作成し、特定のツールとプロンプトを設定できます。",
+				"add_new": "新規エージェント追加",
+				"no_description": "説明なし",
+				"default_name": "新しいエージェント",
+				"default_prompt": "あなたは親切なアシスタントです。",
+				"confirm_delete": "このエージェントを削除してもよろしいですか？",
+				"delete_confirm_title": "エージェントを削除",
+				"error_empty_id": "IDを入力してください。",
+				"error_empty_name": "名前を入力してください。",
+				"error_empty_prompt": "システムプロンプトを入力してください。",
+				"error_duplicate_id": "このIDは既に使用されています。",
+				"modal": {
+					"title_add": "カスタムエージェントを追加",
+					"title_edit": "カスタムエージェントを編集",
+					"id_label": "エージェントID",
+					"id_desc": "一意の識別子（小文字、スペースなし）",
+					"icon_label": "アイコン",
+					"name_label": "名前",
+					"description_label": "説明",
+					"prompt_label": "システムプロンプト",
+					"prompt_desc": "エージェントの動作と性格を定義します。",
+					"model_label": "使用モデル",
+					"enabled_label": "有効",
+					"tools_label": "ツール権限",
+					"no_tools": "利用可能なツールがありません"
+				}
+			},
 			"privacy": {
 				"label": "プライバシー",
 				"title": "プライバシー設定",

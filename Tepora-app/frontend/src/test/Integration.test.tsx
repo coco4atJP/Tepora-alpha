@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "./test-utils";
 
-vi.mock("../components/PersonaSwitcher", () => ({
+vi.mock("../features/chat/PersonaSwitcher", () => ({
 	default: () => <div data-testid="persona-switcher" />,
 }));
 
@@ -20,22 +20,23 @@ vi.mock("react-router-dom", async () => {
 	};
 });
 
-// Mock InputArea and MessageList to simplify integration test
-// But for true integration, we should render them. However, if they are too complex
-// or depend on other things, we might shallow render.
-// Here we aim for "Integration" of components, so let's render them fully!
-// Wait, scrolling behavior in MessageList might be tricky in jsdom.
-// Let's mock scrollIntoView.
 Element.prototype.scrollIntoView = vi.fn();
 
-// We need to mock the MODULE for WebSocketContext usage
-vi.mock("../context/WebSocketContext", async () => {
-	const actual = await vi.importActual("../context/WebSocketContext");
-	return {
-		...actual,
-		useWebSocketContext: vi.fn(),
-	};
-});
+// Mock Stores
+const mockSendMessage = vi.fn();
+const mockSetSession = vi.fn();
+const mockHandleToolConfirmation = vi.fn();
+const mockStopGeneration = vi.fn();
+const mockClearError = vi.fn();
+
+vi.mock("../stores", () => ({
+	useChatStore: vi.fn(),
+	useWebSocketStore: vi.fn(),
+}));
+
+import ChatInterface from "../features/chat/ChatInterface";
+import { useChatStore, useWebSocketStore } from "../stores";
+import type { ChatMode } from "../types";
 
 const mockCreateSession = vi.fn();
 // Mock useSessions hook
@@ -45,33 +46,58 @@ vi.mock("../hooks/useSessions", () => ({
 	}),
 }));
 
-import ChatInterface from "../components/ChatInterface";
-import { useWebSocketContext as mockUseWebSocketContext } from "../context/WebSocketContext";
-import type { ChatMode } from "../types";
-
 describe("ChatInterface Integration", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+
+		// Default Store State
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			(selector) =>
+				selector({
+					isProcessing: false,
+					messages: [],
+					error: null,
+					clearError: mockClearError,
+				}),
+		);
+
+		(
+			useWebSocketStore as unknown as ReturnType<typeof vi.fn>
+		).mockImplementation((selector) =>
+			selector({
+				isConnected: true,
+				sendMessage: mockSendMessage,
+				setSession: mockSetSession,
+				pendingToolConfirmation: null,
+				handleToolConfirmation: mockHandleToolConfirmation,
+				stopGeneration: mockStopGeneration,
+			}),
+		);
 	});
 
 	it("renders initial state correctly", () => {
-		const mockSendMessage = vi.fn();
-		// biome-ignore lint/suspicious/noExplicitAny: mocking context
-		(mockUseWebSocketContext as any).mockReturnValue({
-			isConnected: true,
-			isProcessing: false,
-			messages: [
-				{ id: "1", role: "user", content: "Hello", timestamp: new Date(1000) },
-				{
-					id: "2",
-					role: "assistant",
-					content: "Hi there",
-					timestamp: new Date(1001),
-				},
-			],
-			sendMessage: mockSendMessage,
-			error: null,
-		});
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			(selector) =>
+				selector({
+					isProcessing: false,
+					messages: [
+						{
+							id: "1",
+							role: "user",
+							content: "Hello",
+							timestamp: new Date(1000),
+						},
+						{
+							id: "2",
+							role: "assistant",
+							content: "Hi there",
+							timestamp: new Date(1001),
+						},
+					],
+					error: null,
+					clearError: mockClearError,
+				}),
+		);
 
 		render(<ChatInterface />);
 
@@ -84,16 +110,6 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("handles user input and sends message", async () => {
-		const mockSendMessage = vi.fn();
-		// biome-ignore lint/suspicious/noExplicitAny: mocking context
-		(mockUseWebSocketContext as any).mockReturnValue({
-			isConnected: true,
-			isProcessing: false,
-			messages: [],
-			sendMessage: mockSendMessage,
-			error: null,
-		});
-
 		render(<ChatInterface />);
 
 		const input = screen.getByRole("textbox");
@@ -116,16 +132,15 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("displays error toast when error occurs", () => {
-		const mockClearError = vi.fn();
-		// biome-ignore lint/suspicious/noExplicitAny: mocking context
-		(mockUseWebSocketContext as any).mockReturnValue({
-			isConnected: true,
-			isProcessing: false,
-			messages: [],
-			sendMessage: vi.fn(),
-			error: "Connection Failed",
-			clearError: mockClearError,
-		});
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			(selector) =>
+				selector({
+					isProcessing: false,
+					messages: [],
+					error: "Connection Failed",
+					clearError: mockClearError,
+				}),
+		);
 
 		render(<ChatInterface />);
 
@@ -138,14 +153,15 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("disables input when processing", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mocking context
-		(mockUseWebSocketContext as any).mockReturnValue({
-			isConnected: true,
-			isProcessing: true,
-			messages: [],
-			sendMessage: vi.fn(),
-			error: null,
-		});
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			(selector) =>
+				selector({
+					isProcessing: true,
+					messages: [],
+					error: null,
+					clearError: mockClearError,
+				}),
+		);
 
 		render(<ChatInterface />);
 
@@ -162,16 +178,8 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("creates new session when button clicked", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mocking context
-		(mockUseWebSocketContext as any).mockReturnValue({
-			isConnected: true,
-			isProcessing: false,
-			messages: [
-				{ id: "1", role: "user", content: "History", timestamp: new Date(0) },
-			],
-			sendMessage: vi.fn(),
-			error: null,
-		});
+		// mockCreateSession returns a promise
+		mockCreateSession.mockResolvedValue({ id: "new-session" });
 
 		render(<ChatInterface />);
 
@@ -179,5 +187,6 @@ describe("ChatInterface Integration", () => {
 		fireEvent.click(newSessionBtn);
 
 		expect(mockCreateSession).toHaveBeenCalled();
+		// Wait for promise resolution (implicit if we dont use await here, check if test passes first)
 	});
 });

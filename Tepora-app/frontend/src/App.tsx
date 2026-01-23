@@ -7,9 +7,9 @@ import {
 	Route,
 	RouterProvider,
 } from "react-router-dom";
-import ChatInterface from "./components/ChatInterface";
-import Layout from "./components/Layout";
-import SetupWizard from "./components/SetupWizard";
+import ChatInterface from "./features/chat/ChatInterface";
+import Layout from "./features/navigation/Layout";
+import SetupWizard from "./features/settings/components/SetupWizard";
 import { useRequirements, useServerConfig } from "./hooks/useServerConfig";
 import Logs from "./pages/Logs";
 import Memory from "./pages/Memory";

@@ -1,9 +1,11 @@
 import type React from "react";
 import { useEffect } from "react";
-import { useWebSocketContext } from "../context/WebSocketContext";
+import { useChatStore, useWebSocketStore } from "../stores";
 
 const Memory: React.FC = () => {
-	const { memoryStats, requestStats, isConnected } = useWebSocketContext();
+	const memoryStats = useChatStore((state) => state.memoryStats);
+	const isConnected = useWebSocketStore((state) => state.isConnected);
+	const requestStats = useWebSocketStore((state) => state.requestStats);
 
 	useEffect(() => {
 		if (isConnected) {

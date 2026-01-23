@@ -321,6 +321,11 @@ class NativeToolProvider(ToolProvider):
     Provider for collecting native tools (search, web fetch, etc.).
     """
 
+    @property
+    def name(self) -> str:
+        """Return provider name."""
+        return "native"
+
     async def load_tools(self) -> list[BaseTool]:
         logger.info("Loading native tools via Provider...")
         tools: list[BaseTool] = []

@@ -346,6 +346,36 @@
 				"nsfw_label": "Unlock Restricted Content",
 				"nsfw_desc": "Allows generation of sensitive content. Use with caution."
 			},
+			"custom_agents": {
+				"label": "Custom Agents",
+				"title": "Custom Agents",
+				"description": "Create GPTs/Gems-style custom agents with specific tools and prompts.",
+				"add_new": "Add New Agent",
+				"no_description": "No description",
+				"default_name": "New Agent",
+				"default_prompt": "You are a helpful assistant.",
+				"confirm_delete": "Are you sure you want to delete this agent?",
+				"delete_confirm_title": "Delete Agent",
+				"error_empty_id": "Please enter an ID.",
+				"error_empty_name": "Please enter a name.",
+				"error_empty_prompt": "Please enter a system prompt.",
+				"error_duplicate_id": "This ID is already in use.",
+				"modal": {
+					"title_add": "Add Custom Agent",
+					"title_edit": "Edit Custom Agent",
+					"id_label": "Agent ID",
+					"id_desc": "Unique identifier (lowercase, no spaces)",
+					"icon_label": "Icon",
+					"name_label": "Name",
+					"description_label": "Description",
+					"prompt_label": "System Prompt",
+					"prompt_desc": "Define the agent's behavior and personality.",
+					"model_label": "Model",
+					"enabled_label": "Enabled",
+					"tools_label": "Tool Permissions",
+					"no_tools": "No tools available"
+				}
+			},
 			"privacy": {
 				"label": "Privacy",
 				"title": "Privacy Settings",

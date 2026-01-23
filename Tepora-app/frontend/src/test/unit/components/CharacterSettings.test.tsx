@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import CharacterSettings from "../../../components/settings/sections/CharacterSettings";
+import CharacterSettings from "../../../features/settings/components/sections/CharacterSettings";
 
 // Mock Lucide icons to avoid rendering issues
 vi.mock("lucide-react", () => ({

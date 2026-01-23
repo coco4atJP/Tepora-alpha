@@ -1,6 +1,6 @@
 {
 	"name": "tepora-frontend",
-	"version": "0.2.0-beta",
+	"version": "0.3.0-beta",
 	"description": "Tepora AI Agent Web Interface",
 	"type": "module",
 	"scripts": {
@@ -31,7 +31,8 @@
 		"react-router-dom": "^7.12.0",
 		"react-syntax-highlighter": "^16.1.0",
 		"rehype-sanitize": "^6.0.0",
-		"remark-gfm": "4.0.0"
+		"remark-gfm": "4.0.0",
+		"zustand": "^5.0.10"
 	},
 	"devDependencies": {
 		"@tailwindcss/postcss": "4.1.18",

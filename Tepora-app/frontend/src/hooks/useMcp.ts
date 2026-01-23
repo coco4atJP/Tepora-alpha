@@ -8,10 +8,27 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getApiBase, getAuthHeaders } from "../utils/api";
+import { ApiError, apiClient } from "../utils/api-client";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_STORE_PAGE_SIZE = 50;
+
+const getApiErrorMessage = (err: unknown, fallback: string) => {
+	if (err instanceof ApiError) {
+		const data = err.data as {
+			detail?: string;
+			error?: string;
+			message?: string;
+		} | null;
+		return (
+			data?.detail || data?.error || data?.message || err.message || fallback
+		);
+	}
+	if (err instanceof Error) {
+		return err.message || fallback;
+	}
+	return fallback;
+};
 
 // --- Types ---
 
@@ -91,37 +108,26 @@ export interface McpInstallPreview {
 // --- API Functions ---
 
 async function fetchMcpStatus(): Promise<Record<string, McpServerStatus>> {
-	const response = await fetch(`${getApiBase()}/api/mcp/status`, {
-		headers: getAuthHeaders(),
-	});
-	if (!response.ok) throw new Error("Failed to fetch MCP status");
-	const data = await response.json();
+	const data = await apiClient.get<{
+		servers?: Record<string, McpServerStatus>;
+	}>("api/mcp/status");
 	return data.servers || {};
 }
 
 async function fetchMcpConfig(): Promise<Record<string, McpServerConfig>> {
-	const response = await fetch(`${getApiBase()}/api/mcp/config`, {
-		headers: getAuthHeaders(),
-	});
-	if (!response.ok) throw new Error("Failed to fetch MCP config");
-	const data = await response.json();
+	const data = await apiClient.get<{
+		mcpServers?: Record<string, McpServerConfig>;
+	}>("api/mcp/config");
 	return data.mcpServers || {};
 }
 
 async function updateMcpConfig(
 	config: Record<string, McpServerConfig>,
 ): Promise<void> {
-	const response = await fetch(`${getApiBase()}/api/mcp/config`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...getAuthHeaders(),
-		},
-		body: JSON.stringify({ mcpServers: config }),
-	});
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.error || "Failed to update config");
+	try {
+		await apiClient.post("api/mcp/config", { mcpServers: config });
+	} catch (err) {
+		throw new Error(getApiErrorMessage(err, "Failed to update config"));
 	}
 }
 
@@ -137,10 +143,7 @@ async function fetchMcpStorePaged(params: {
 	if (params.pageSize) query.set("page_size", String(params.pageSize));
 	if (params.runtime) query.set("runtime", params.runtime);
 
-	const url = `${getApiBase()}/api/mcp/store?${query.toString()}`;
-	const response = await fetch(url, { headers: getAuthHeaders() });
-	if (!response.ok) throw new Error("Failed to fetch MCP store");
-	return response.json();
+	return apiClient.get<McpStoreResponse>(`api/mcp/store?${query.toString()}`);
 }
 
 /**
@@ -153,24 +156,16 @@ async function previewMcpInstall(
 	envValues?: Record<string, string>,
 	serverName?: string,
 ): Promise<McpInstallPreview> {
-	const response = await fetch(`${getApiBase()}/api/mcp/install/preview`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...getAuthHeaders(),
-		},
-		body: JSON.stringify({
+	try {
+		return await apiClient.post<McpInstallPreview>("api/mcp/install/preview", {
 			server_id: serverId,
 			runtime,
 			env_values: envValues,
 			server_name: serverName,
-		}),
-	});
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.detail || error.error || "Failed to preview install");
+		});
+	} catch (err) {
+		throw new Error(getApiErrorMessage(err, "Failed to preview install"));
 	}
-	return response.json();
 }
 
 /**
@@ -179,52 +174,33 @@ async function previewMcpInstall(
 async function confirmMcpInstall(
 	consentId: string,
 ): Promise<{ status: string; server_name: string; message: string }> {
-	const response = await fetch(`${getApiBase()}/api/mcp/install/confirm`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...getAuthHeaders(),
-		},
-		body: JSON.stringify({ consent_id: consentId }),
-	});
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.detail || error.error || "Failed to confirm install");
+	try {
+		return await apiClient.post<{
+			status: string;
+			server_name: string;
+			message: string;
+		}>("api/mcp/install/confirm", {
+			consent_id: consentId,
+		});
+	} catch (err) {
+		throw new Error(getApiErrorMessage(err, "Failed to confirm install"));
 	}
-	return response.json();
 }
 
 async function enableServer(serverName: string): Promise<void> {
-	const response = await fetch(
-		`${getApiBase()}/api/mcp/servers/${encodeURIComponent(serverName)}/enable`,
-		{
-			method: "POST",
-			headers: getAuthHeaders(),
-		},
+	await apiClient.post(
+		`api/mcp/servers/${encodeURIComponent(serverName)}/enable`,
 	);
-	if (!response.ok) throw new Error("Failed to enable server");
 }
 
 async function disableServer(serverName: string): Promise<void> {
-	const response = await fetch(
-		`${getApiBase()}/api/mcp/servers/${encodeURIComponent(serverName)}/disable`,
-		{
-			method: "POST",
-			headers: getAuthHeaders(),
-		},
+	await apiClient.post(
+		`api/mcp/servers/${encodeURIComponent(serverName)}/disable`,
 	);
-	if (!response.ok) throw new Error("Failed to disable server");
 }
 
 async function deleteServer(serverName: string): Promise<void> {
-	const response = await fetch(
-		`${getApiBase()}/api/mcp/servers/${encodeURIComponent(serverName)}`,
-		{
-			method: "DELETE",
-			headers: getAuthHeaders(),
-		},
-	);
-	if (!response.ok) throw new Error("Failed to delete server");
+	await apiClient.delete(`api/mcp/servers/${encodeURIComponent(serverName)}`);
 }
 
 // --- Hooks ---
@@ -249,7 +225,7 @@ export function useMcpServers(pollInterval = 5000) {
 			setStatus(statusData);
 			setError(null);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error");
+			setError(getApiErrorMessage(err, "Unknown error"));
 		} finally {
 			setLoading(false);
 		}
@@ -289,9 +265,7 @@ export function useMcpServers(pollInterval = 5000) {
 				}
 				await fetchData();
 			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to toggle server",
-				);
+				setError(getApiErrorMessage(err, "Failed to toggle server"));
 			}
 		},
 		[fetchData],
@@ -303,9 +277,7 @@ export function useMcpServers(pollInterval = 5000) {
 				await deleteServer(serverName);
 				await fetchData();
 			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to remove server",
-				);
+				setError(getApiErrorMessage(err, "Failed to remove server"));
 			}
 		},
 		[fetchData],
@@ -362,7 +334,7 @@ export function useMcpStore() {
 				setPage(data.page || nextPage);
 				setError(null);
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Failed to fetch store");
+				setError(getApiErrorMessage(err, "Failed to fetch store"));
 			} finally {
 				setLoading(false);
 				setLoadingMore(false);
@@ -436,7 +408,7 @@ export function useMcpConfig() {
 			try {
 				await updateMcpConfig(config);
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Failed to save config");
+				setError(getApiErrorMessage(err, "Failed to save config"));
 				throw err;
 			} finally {
 				setSaving(false);
@@ -469,25 +441,14 @@ export interface McpPolicyUpdate {
 }
 
 async function fetchMcpPolicy(): Promise<McpPolicyConfig> {
-	const response = await fetch(`${getApiBase()}/api/mcp/policy`, {
-		headers: getAuthHeaders(),
-	});
-	if (!response.ok) throw new Error("Failed to fetch MCP policy");
-	return response.json();
+	return apiClient.get<McpPolicyConfig>("api/mcp/policy");
 }
 
 async function updateMcpPolicy(update: McpPolicyUpdate): Promise<void> {
-	const response = await fetch(`${getApiBase()}/api/mcp/policy`, {
-		method: "PATCH",
-		headers: {
-			"Content-Type": "application/json",
-			...getAuthHeaders(),
-		},
-		body: JSON.stringify(update),
-	});
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.detail || "Failed to update policy");
+	try {
+		await apiClient.patch("api/mcp/policy", update);
+	} catch (err) {
+		throw new Error(getApiErrorMessage(err, "Failed to update policy"));
 	}
 }
 
@@ -507,7 +468,7 @@ export function useMcpPolicy() {
 			setPolicy(data);
 			setError(null);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to fetch policy");
+			setError(getApiErrorMessage(err, "Failed to fetch policy"));
 		} finally {
 			setLoading(false);
 		}
@@ -524,9 +485,7 @@ export function useMcpPolicy() {
 				await updateMcpPolicy(update);
 				await fetchPolicy();
 			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to update policy",
-				);
+				setError(getApiErrorMessage(err, "Failed to update policy"));
 				throw err;
 			} finally {
 				setSaving(false);

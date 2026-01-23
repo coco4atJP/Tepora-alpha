@@ -2,7 +2,7 @@ import { RefreshCcw } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getApiBase, getAuthHeaders } from "../utils/api";
+import { apiClient } from "../utils/api-client";
 
 const Logs: React.FC = () => {
 	const { t } = useTranslation();
@@ -15,12 +15,7 @@ const Logs: React.FC = () => {
 
 	const fetchLogs = useCallback(async () => {
 		try {
-			const response = await fetch(`${getApiBase()}/api/logs`, {
-				headers: { ...getAuthHeaders() },
-			});
-			if (!response.ok)
-				throw new Error(t("logs.error_fetch", "Failed to fetch logs"));
-			const data = await response.json();
+			const data = await apiClient.get<{ logs: string[] }>("api/logs");
 			setLogs(data.logs);
 			setLoading(false);
 		} catch (err) {
@@ -37,14 +32,9 @@ const Logs: React.FC = () => {
 		async (filename: string) => {
 			setContentLoading(true);
 			try {
-				const response = await fetch(`${getApiBase()}/api/logs/${filename}`, {
-					headers: { ...getAuthHeaders() },
-				});
-				if (!response.ok)
-					throw new Error(
-						t("logs.error_content", "Failed to fetch log content"),
-					);
-				const data = await response.json();
+				const data = await apiClient.get<{ content: string }>(
+					`api/logs/${filename}`,
+				);
 				setLogContent(data.content);
 				setContentLoading(false);
 			} catch (err) {

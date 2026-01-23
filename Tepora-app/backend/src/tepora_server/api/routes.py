@@ -1,6 +1,7 @@
 import logging
 import os
 import signal
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -38,7 +39,12 @@ def _reload_config_manager() -> None:
 
 @router.get("/health")
 async def health_check(state: AppState = Depends(get_app_state)):
-    return {"status": "ok", "initialized": state.core.initialized}
+    core = state.active_core
+    return {
+        "status": "ok",
+        "initialized": core.initialized,
+        "core_version": "v2" if state.use_v2 else "v1",
+    }
 
 
 @router.post("/api/shutdown", dependencies=[Depends(get_api_key)])
@@ -57,22 +63,22 @@ async def shutdown_server():
 async def get_status(state: AppState = Depends(get_app_state)):
     """Get system status information."""
     try:
+        core = state.active_core
         # Calculate memory events from both char and prof memory
-        memory_stats = state.core.get_memory_stats()
+        memory_stats = core.get_memory_stats()
         char_events = memory_stats.get("char_memory", {}).get("total_events", 0)
         prof_events = memory_stats.get("prof_memory", {}).get("total_events", 0)
         total_memory_events = char_events + prof_events
-        history_manager = state.core.history_manager
+        history_manager = core.history_manager
 
         return {
-            "initialized": state.core.initialized,
+            "initialized": core.initialized,
+            "core_version": "v2" if state.use_v2 else "v1",
             "em_llm_enabled": (
-                state.core.char_em_llm_integrator is not None
-                or state.core.prof_em_llm_integrator is not None
+                core.char_em_llm_integrator is not None or core.prof_em_llm_integrator is not None
             ),
             "degraded": (
-                state.core.char_em_llm_integrator is None
-                and state.core.prof_em_llm_integrator is None
+                core.char_em_llm_integrator is None and core.prof_em_llm_integrator is None
             ),
             # Count from DB using proper count method
             "total_messages": history_manager.get_message_count() if history_manager else 0,
@@ -205,4 +211,206 @@ async def get_log_content(filename: str):
         return {"content": content}
     except Exception as e:
         logger.error("Failed to read log %s: %s", filename, e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# =============================================================================
+# Custom Agent API Endpoints
+# =============================================================================
+
+
+@router.get("/api/custom-agents", dependencies=[Depends(get_api_key)])
+async def list_custom_agents(enabled_only: bool = False):
+    """
+    List all custom agents.
+
+    Args:
+        enabled_only: If True, only return enabled agents
+    """
+    from src.core.config.loader import settings
+
+    try:
+        agents = list(settings.custom_agents.values())
+        if enabled_only:
+            agents = [a for a in agents if a.enabled]
+
+        # Convert to dicts for JSON serialization
+        return {"agents": [a.model_dump() for a in agents]}
+    except Exception as e:
+        logger.error("Failed to list custom agents: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/api/custom-agents/{agent_id}", dependencies=[Depends(get_api_key)])
+async def get_custom_agent(agent_id: str):
+    """Get a single custom agent by ID."""
+    from src.core.config.loader import settings
+
+    try:
+        agent = settings.custom_agents.get(agent_id)
+        if not agent:
+            return JSONResponse(status_code=404, content={"error": "Agent not found"})
+
+        return agent.model_dump()
+    except Exception as e:
+        logger.error("Failed to get custom agent %s: %s", agent_id, e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.post("/api/custom-agents", dependencies=[Depends(get_api_key)])
+async def create_custom_agent(agent_data: dict[str, Any]):
+    """
+    Create a new custom agent.
+
+    Required fields: id, name, system_prompt
+    """
+    from datetime import datetime
+
+    from src.core.config.schema import CustomAgentConfig
+
+    try:
+        # Validate required fields
+        if not agent_data.get("id"):
+            return JSONResponse(status_code=400, content={"error": "Agent ID is required"})
+        if not agent_data.get("name"):
+            return JSONResponse(status_code=400, content={"error": "Agent name is required"})
+        if not agent_data.get("system_prompt"):
+            return JSONResponse(status_code=400, content={"error": "System prompt is required"})
+
+        agent_id = agent_data["id"]
+
+        # Check for duplicate ID
+        service = get_config_service()
+        current_config = service.load_config()
+        custom_agents = current_config.get("custom_agents", {})
+
+        if agent_id in custom_agents:
+            return JSONResponse(status_code=409, content={"error": "Agent ID already exists"})
+
+        # Add timestamps
+        now = datetime.now(UTC).isoformat()
+        agent_data["created_at"] = now
+        agent_data["updated_at"] = now
+
+        # Validate with Pydantic
+        try:
+            agent = CustomAgentConfig(**agent_data)
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"error": f"Invalid agent data: {e}"})
+
+        # Update config
+        custom_agents[agent_id] = agent.model_dump()
+        success, errors = service.update_config({"custom_agents": custom_agents}, merge=True)
+
+        if not success:
+            return JSONResponse(
+                status_code=400, content={"error": "Failed to save agent", "details": errors}
+            )
+
+        _reload_config_manager()
+        logger.info("Created custom agent: %s", agent_id)
+
+        return {"status": "success", "agent": agent.model_dump()}
+    except Exception as e:
+        logger.error("Failed to create custom agent: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.put("/api/custom-agents/{agent_id}", dependencies=[Depends(get_api_key)])
+async def update_custom_agent(agent_id: str, agent_data: dict[str, Any]):
+    """Update an existing custom agent."""
+    from datetime import datetime
+
+    from src.core.config.schema import CustomAgentConfig
+
+    try:
+        service = get_config_service()
+        current_config = service.load_config()
+        custom_agents = current_config.get("custom_agents", {})
+
+        if agent_id not in custom_agents:
+            return JSONResponse(status_code=404, content={"error": "Agent not found"})
+
+        # Merge with existing data
+        existing = custom_agents[agent_id]
+        updated_data = {**existing, **agent_data}
+        updated_data["id"] = agent_id  # Ensure ID cannot be changed
+        updated_data["updated_at"] = datetime.now(UTC).isoformat()
+
+        # Validate with Pydantic
+        try:
+            agent = CustomAgentConfig(**updated_data)
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"error": f"Invalid agent data: {e}"})
+
+        # Update config
+        custom_agents[agent_id] = agent.model_dump()
+        success, errors = service.update_config({"custom_agents": custom_agents}, merge=True)
+
+        if not success:
+            return JSONResponse(
+                status_code=400, content={"error": "Failed to update agent", "details": errors}
+            )
+
+        _reload_config_manager()
+        logger.info("Updated custom agent: %s", agent_id)
+
+        return {"status": "success", "agent": agent.model_dump()}
+    except Exception as e:
+        logger.error("Failed to update custom agent %s: %s", agent_id, e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.delete("/api/custom-agents/{agent_id}", dependencies=[Depends(get_api_key)])
+async def delete_custom_agent(agent_id: str):
+    """Delete a custom agent."""
+    try:
+        service = get_config_service()
+        current_config = service.load_config()
+        custom_agents = current_config.get("custom_agents", {})
+
+        if agent_id not in custom_agents:
+            return JSONResponse(status_code=404, content={"error": "Agent not found"})
+
+        del custom_agents[agent_id]
+        success, errors = service.update_config({"custom_agents": custom_agents}, merge=True)
+
+        if not success:
+            return JSONResponse(
+                status_code=400, content={"error": "Failed to delete agent", "details": errors}
+            )
+
+        _reload_config_manager()
+        logger.info("Deleted custom agent: %s", agent_id)
+
+        return {"status": "success"}
+    except Exception as e:
+        logger.error("Failed to delete custom agent %s: %s", agent_id, e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/api/tools", dependencies=[Depends(get_api_key)])
+async def list_available_tools(state: AppState = Depends(get_app_state)):
+    """
+    List all available tools.
+
+    Returns tool names and descriptions for UI selection.
+    """
+    try:
+        tool_manager = state.active_core.tool_manager
+        if not tool_manager:
+            return {"tools": []}
+
+        tools = []
+        for tool in tool_manager.all_tools:
+            tools.append(
+                {
+                    "name": tool.name,
+                    "description": getattr(tool, "description", ""),
+                }
+            )
+
+        return {"tools": tools}
+    except Exception as e:
+        logger.error("Failed to list tools: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
