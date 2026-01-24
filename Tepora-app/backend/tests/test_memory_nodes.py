@@ -6,53 +6,35 @@ from unittest.mock import MagicMock
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.core.graph.nodes.memory import MemoryNodes
+from src.core.graph.nodes.em_llm import EMMemoryNodes
 
 
-class TestMemoryNodes(unittest.TestCase):
+class TestEMMemoryNodes(unittest.TestCase):
     def setUp(self):
-        self.mock_memory_system = MagicMock()
-        self.memory_nodes = MemoryNodes(self.mock_memory_system)
+        self.mock_integrator = MagicMock()
+        self.memory_nodes = EMMemoryNodes(self.mock_integrator)
 
-    def test_memory_retrieval_node_no_memory_system(self):
-        # Test with None memory system
-        nodes = MemoryNodes(None)
-        state = {"input": "test query", "chat_history": []}
-        result = nodes.memory_retrieval_node(state)
+    def test_em_memory_retrieval_node_no_results(self):
+        self.mock_integrator.retrieve_relevant_memories_for_query.return_value = []
+        state = {"input": "test query"}
+        result = self.memory_nodes.em_memory_retrieval_node(state)
 
-        self.assertIn("recalled_episodes", result)
         self.assertEqual(result["recalled_episodes"], [])
-        self.assertIn("synthesized_memory", result)
+        self.assertIn("No relevant episodic memories found", result["synthesized_memory"])
 
-    def test_memory_retrieval_node_with_memory(self):
-        # Mock retrieval
-        self.mock_memory_system.retrieve_similar_episodes.return_value = [{"content": "memory"}]
+    def test_em_memory_retrieval_node_with_results(self):
+        events = [{"content": "memory", "surprise_stats": {"mean_surprise": 0.5}}]
+        self.mock_integrator.retrieve_relevant_memories_for_query.return_value = events
 
-        state = {"input": "test query", "chat_history": []}
-        result = self.memory_nodes.memory_retrieval_node(state)
+        state = {"input": "test query"}
+        result = self.memory_nodes.em_memory_retrieval_node(state)
 
-        self.assertIn("recalled_episodes", result)
-        self.assertEqual(len(result["recalled_episodes"]), 1)
-        self.assertIn("synthesized_memory", result)
-        self.mock_memory_system.retrieve_similar_episodes.assert_called_once()
-
-    def test_save_memory_node(self):
-        # Mock state with messages
-        state = {
-            "input": "user input",
-            "chat_history": [
-                MagicMock(content="ai response", __class__=MagicMock(__name__="AIMessage"))
-            ],
-        }
-        # Ensure isinstance check passes for AIMessage
-        from langchain_core.messages import AIMessage
-
-        state["chat_history"][0] = AIMessage(content="ai response")
-
-        self.memory_nodes.save_memory_node(state)
-
-        # Should call save_episode
-        self.mock_memory_system.save_episode.assert_called_once()
+        self.assertEqual(result["recalled_episodes"], events)
+        self.assertIn("Recalled Event 1", result["synthesized_memory"])
+        self.assertIn("memory", result["synthesized_memory"])
+        self.mock_integrator.retrieve_relevant_memories_for_query.assert_called_once_with(
+            "test query"
+        )
 
 
 if __name__ == "__main__":

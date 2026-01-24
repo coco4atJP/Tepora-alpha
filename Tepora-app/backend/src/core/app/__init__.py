@@ -1,16 +1,16 @@
 """
 Application package.
 
-This package provides the main application class and utilities
-for running the EM-LLM enhanced AI agent.
+This package provides shared utilities for application startup.
+
+Note:
+    The V2 runtime facade is `src.core.app_v2.TeporaApp`.
 """
 
 from __future__ import annotations
 
-from .core import TeporaCoreApp
 from .utils import sanitize_user_input
 
 __all__ = [
-    "TeporaCoreApp",
     "sanitize_user_input",
 ]

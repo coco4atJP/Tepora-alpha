@@ -7,6 +7,7 @@ attempting to initialize heavy resources.
 
 import logging
 from pathlib import Path
+import uuid
 
 from ..config import CHROMA_DB_PATH
 
@@ -29,7 +30,7 @@ def validate_startup_config(config, project_root: Path) -> None:
     Raises:
         ValueError: If validation fails.
 
-    Should be called BEFORE creating TeporaCoreApp.
+    Should be called BEFORE creating TeporaApp.
     """
     errors: list[str] = []
 
@@ -115,10 +116,15 @@ def validate_startup_config(config, project_root: Path) -> None:
     try:
         # Try to create the directory if it doesn't exist
         chroma_db_path.mkdir(parents=True, exist_ok=True)
-        # Test write access by creating and removing a temp file
-        test_file = chroma_db_path / ".write_test"
-        test_file.touch()
-        test_file.unlink()
+        # Test write access by creating a temp file.
+        # Note: In some sandboxed environments file deletion can be restricted, so we treat
+        # "can create/write" as the source of truth and only best-effort clean up.
+        test_file = chroma_db_path / f".write_test_{uuid.uuid4().hex}"
+        test_file.write_text("ok", encoding="utf-8")
+        try:
+            test_file.unlink()
+        except OSError:
+            logger.debug("Could not remove write test file: %s", test_file, exc_info=True)
     except PermissionError:
         errors.append(f"[ChromaDB] No write permission for directory: {chroma_db_path}")
     except OSError as e:

@@ -2,7 +2,7 @@
 WebSocket E2E Tests
 
 End-to-end tests for WebSocket communication flow.
-Tests actual WebSocket connection handling with mocked TeporaCoreApp.
+Tests actual WebSocket connection handling with mocked TeporaApp (V2-only).
 
 Note: These tests pass Origin + session token for authentication.
 """
@@ -27,12 +27,15 @@ def _ws_connect(client: TestClient):
 
 @pytest.fixture
 def mock_core():
-    """Create a mock TeporaCoreApp instance."""
+    """Create a mock TeporaApp instance."""
     mock = MagicMock()
     mock.initialized = True
 
     # Mock memory stats
-    mock.get_memory_stats.return_value = {"total_events": 10, "memory_size_mb": 5.5}
+    mock.get_memory_stats.return_value = {
+        "char_memory": {"total_events": 10},
+        "prof_memory": {"total_events": 5},
+    }
 
     # Mock process_user_request as async generator
     async def mock_process(*args, **kwargs):
@@ -162,8 +165,8 @@ class TestControlCommands:
 
             # Verify stats structure from mock
             stats = response["data"]
-            assert "total_events" in stats
-            assert "memory_size_mb" in stats
+            assert "char_memory" in stats
+            assert "prof_memory" in stats
 
     def test_stop_command(self, client):
         """Test stop command handling."""

@@ -2,18 +2,17 @@
 Application State Management
 
 Provides centralized state management for the Tepora web server.
-Supports both global access (legacy) and dependency injection patterns.
+Supports dependency injection patterns.
 
-Phase 4: V1/V2 Switch via TEPORA_USE_V2 environment variable.
+V2-only runtime:
+- V1 execution paths are removed.
 """
 
 import logging
-import os
 
 from fastapi import Request, WebSocket
 
-from src.core.app.core import TeporaCoreApp
-from src.core.app_v2 import TeporaApp as TeporaAppV2
+from src.core.app_v2 import TeporaApp
 from src.core.config.loader import PROJECT_ROOT
 from src.core.mcp.hub import McpHub
 from src.core.mcp.registry import McpRegistry
@@ -27,27 +26,14 @@ class AppState:
 
     Manages the lifecycle of the core application instance
     and MCP infrastructure.
-
-    Phase 4: Supports V1 (TeporaCoreApp) and V2 (TeporaApp) via
-    TEPORA_USE_V2 environment variable.
     """
 
     def __init__(self):
-        self._core: TeporaCoreApp | None = None
-        self._core_v2: TeporaAppV2 | None = None
-        self._use_v2 = os.getenv("TEPORA_USE_V2", "false").lower() == "true"
+        self._core: TeporaApp | None = None
         self._download_manager = None
         self._mcp_hub = None
         self._mcp_registry = None
         self._mcp_policy_manager = None
-
-        if self._use_v2:
-            logger.info("V2 mode enabled (TEPORA_USE_V2=true)")
-
-    @property
-    def use_v2(self) -> bool:
-        """Check if V2 mode is enabled."""
-        return self._use_v2
 
     @property
     def download_manager(self):
@@ -59,33 +45,21 @@ class AppState:
         return self._download_manager
 
     @property
-    def core(self) -> TeporaCoreApp:
-        """Get or create the TeporaCoreApp instance (V1)."""
+    def core(self) -> TeporaApp:
+        """Get or create the TeporaApp instance (V2)."""
         if self._core is None:
-            self._core = TeporaCoreApp()
+            self._core = TeporaApp()
         return self._core
 
     @core.setter
-    def core(self, value: TeporaCoreApp) -> None:
-        """Set the TeporaCoreApp instance (for testing/mocking)."""
+    def core(self, value: TeporaApp) -> None:
+        """Set the TeporaApp instance (for testing/mocking)."""
         self._core = value
 
     @property
-    def core_v2(self) -> TeporaAppV2:
-        """Get or create the TeporaApp instance (V2)."""
-        if self._core_v2 is None:
-            self._core_v2 = TeporaAppV2()
-        return self._core_v2
-
-    @core_v2.setter
-    def core_v2(self, value: TeporaAppV2) -> None:
-        """Set the TeporaApp instance (for testing/mocking)."""
-        self._core_v2 = value
-
-    @property
     def active_core(self):
-        """Get the active core instance (V1 or V2 based on TEPORA_USE_V2)."""
-        return self.core_v2 if self._use_v2 else self.core
+        """Get the active core instance (V2-only)."""
+        return self.core
 
     @property
     def mcp_hub(self):
@@ -111,19 +85,11 @@ class AppState:
             logger.error("Failed to initialize MCP Hub: %s", e, exc_info=True)
             # Don't fail initialization - MCP is optional
 
-        # Initialize the appropriate core app
-        if self._use_v2:
-            logger.info("Initializing V2 core (TeporaApp)...")
-            return await self.core_v2.initialize(
-                mcp_hub=self._mcp_hub,
-                download_manager=self.download_manager,
-            )
-        else:
-            logger.info("Initializing V1 core (TeporaCoreApp)...")
-            return await self.core.initialize(
-                mcp_hub=self._mcp_hub,
-                download_manager=self.download_manager,
-            )
+        logger.info("Initializing core (V2-only, TeporaApp)...")
+        return await self.core.initialize(
+            mcp_hub=self._mcp_hub,
+            download_manager=self.download_manager,
+        )
 
     async def _initialize_mcp(self) -> None:
         """Initialize MCP Hub and Registry."""
@@ -164,18 +130,12 @@ class AppState:
     async def shutdown(self) -> None:
         """Shutdown all managed resources."""
         # Clean up core app resources first (LLM processes, tools, memory)
-        if self._use_v2 and self._core_v2:
-            try:
-                await self._core_v2.cleanup()
-                logger.info("V2 Core app cleanup completed")
-            except Exception as e:
-                logger.warning("Error during V2 core cleanup: %s", e, exc_info=True)
-        elif self._core:
+        if self._core:
             try:
                 await self._core.cleanup()
-                logger.info("V1 Core app cleanup completed")
+                logger.info("Core app cleanup completed")
             except Exception as e:
-                logger.warning("Error during V1 core cleanup: %s", e, exc_info=True)
+                logger.warning("Error during core cleanup: %s", e, exc_info=True)
 
         if self._mcp_hub:
             await self._mcp_hub.shutdown()

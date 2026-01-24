@@ -56,190 +56,111 @@ except ImportError:
 
 # --- Imports under test ---
 from src.core.em_llm import EMConfig, EMEventSegmenter, EMLLMIntegrator
-from src.core.graph import AgentCore
-from src.core.llm_manager import LLMManager
+from src.core.graph import GraphRoutes, InputMode, route_by_command
+from src.core.llm.service import LLMService
 from src.core.memory.memory_system import MemorySystem
 
 
-class TestLLMManager(unittest.IsolatedAsyncioTestCase):
+class TestLLMService(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        """Set up a fresh LLMManager instance with mocked components."""
-        # Patch the classes used in LLMManager.__init__
-        self.registry_patcher = patch("src.core.llm_manager.ModelRegistry")
-        self.process_manager_patcher = patch("src.core.llm_manager.ProcessManager")
-        self.client_factory_patcher = patch("src.core.llm_manager.ClientFactory")
+        """Set up a fresh LLMService instance with mocked components."""
+        self.registry_patcher = patch("src.core.llm.service.ModelRegistry")
+        self.client_factory_patcher = patch("src.core.llm.service.ClientFactory")
 
         self.MockRegistry = self.registry_patcher.start()
-        self.MockProcessManager = self.process_manager_patcher.start()
         self.MockClientFactory = self.client_factory_patcher.start()
 
-        # Setup mock instances
         self.mock_registry = self.MockRegistry.return_value
-        self.mock_process_manager = self.MockProcessManager.return_value
         self.mock_client_factory = self.MockClientFactory.return_value
 
-        self.manager = LLMManager()
+        self.runner = MagicMock()
+        self.runner.start = AsyncMock(return_value=12345)
+        self.runner.stop = AsyncMock()
+        self.runner.cleanup = MagicMock()
 
-        # Set perform_health_check_async as AsyncMock for await compatibility
-        self.mock_process_manager.perform_health_check_async = AsyncMock()
-
-    def tearDown(self):
-        """Clean up by stopping the patchers."""
-        self.manager.cleanup()
-        self.registry_patcher.stop()
-        self.process_manager_patcher.stop()
-        self.client_factory_patcher.stop()
-
-    def test_initialization(self):
-        """Test that the LLMManager initializes with mocked components."""
-        self.assertIsNone(self.manager._current_model_key)
-        self.assertEqual(self.manager._chat_model_cache, {})
-        self.assertIsNone(self.manager._embedding_llm)
-        # Components should be initialized
-        self.MockRegistry.assert_called_once()
-        self.MockProcessManager.assert_called_once()
-        self.MockClientFactory.assert_called_once()
-
-    async def test_load_character_model_success(self):
-        """Test the successful loading of the character model."""
-        # Setup mocks
-        key = "character_model"
-
-        # Registry
         mock_config = MagicMock()
         mock_config.n_ctx = 1024
         mock_config.n_gpu_layers = -1
         self.mock_registry.get_model_config.return_value = mock_config
 
-        # Mocking Path objects
         mock_model_path = MagicMock(spec=Path)
         mock_model_path.exists.return_value = True
         mock_model_path.__str__.return_value = "fake/model.gguf"
         self.mock_registry.resolve_model_path.return_value = mock_model_path
 
-        mock_server_path = MagicMock(spec=Path)
-        mock_server_path.__str__.return_value = "fake/server.exe"
-        self.mock_registry.resolve_binary_path.return_value = mock_server_path
+        self.service = LLMService(runner=self.runner, cache_size=3)
 
-        mock_logs_dir = MagicMock(spec=Path)
-        mock_logs_dir.__truediv__.return_value = MagicMock(spec=Path)  # Handle / operator
-        self.mock_registry.resolve_logs_dir.return_value = mock_logs_dir
+    def tearDown(self):
+        """Clean up by stopping the patchers."""
+        self.service.cleanup()
+        self.registry_patcher.stop()
+        self.client_factory_patcher.stop()
 
-        # ProcessManager
-        self.mock_process_manager.find_free_port.return_value = 12345
+    def test_initialization(self):
+        """Test that the LLMService initializes with mocked components."""
+        self.assertEqual(self.service._chat_model_cache, {})
+        self.assertIsNone(self.service._embedding_client)
+        # Components should be initialized
+        self.MockRegistry.assert_called_once()
+        self.MockClientFactory.assert_called_once()
 
-        # ClientFactory
+    async def test_load_character_client_success(self):
+        """Test the successful loading and caching of the character chat client."""
         mock_client = MagicMock()
         self.mock_client_factory.create_chat_client.return_value = mock_client
 
         # Action
-        llm = await self.manager.get_character_model()
+        llm = await self.service.get_client("character")
 
-        # Assertions
-        # 1. Registry called
-        self.mock_registry.get_model_config.assert_called_with(key)
-        self.mock_registry.resolve_model_path.assert_called_with(key)
-
-        # 2. ProcessManager called
-        self.mock_process_manager.find_free_port.assert_called_once()
-        self.mock_process_manager.start_process.assert_called_once()
-        args, _ = self.mock_process_manager.start_process.call_args
-        self.assertEqual(args[0], key)  # key argument
-
-        self.mock_process_manager.perform_health_check_async.assert_called_once()
-
-        # 3. ClientFactory called
-        self.mock_client_factory.create_chat_client.assert_called_once_with(key, 12345, mock_config)
-
-        # 4. Result
+        self.mock_registry.get_model_config.assert_called_with("character_model")
+        self.mock_registry.resolve_model_path.assert_called_with(
+            "character_model", task_type="default"
+        )
+        self.runner.start.assert_called_once()
+        self.mock_client_factory.create_chat_client.assert_called_once_with(
+            "character_model",
+            12345,
+            self.mock_registry.get_model_config.return_value,
+        )
         self.assertEqual(llm, mock_client)
-        self.assertEqual(self.manager._current_model_key, key)
-        self.assertIn(key, self.manager._chat_model_cache)
 
-    async def test_load_embedding_model_success(self):
-        """Test the successful loading of the embedding model."""
-        # Setup mocks
-        key = "embedding_model"
+        # Cached call should not start runner again
+        llm2 = await self.service.get_client("character")
+        self.assertEqual(llm2, mock_client)
+        self.assertEqual(self.runner.start.call_count, 1)
 
-        # Registry
-        mock_config = MagicMock()
-        mock_config.n_ctx = 2048
-        mock_config.n_gpu_layers = -1
-        self.mock_registry.get_model_config.return_value = mock_config
-
-        mock_model_path = MagicMock(spec=Path)
-        mock_model_path.exists.return_value = True
-        mock_model_path.__str__.return_value = "fake/embedding.gguf"
-        self.mock_registry.resolve_model_path.return_value = mock_model_path
-
-        mock_server_path = MagicMock(spec=Path)
-        mock_server_path.__str__.return_value = "fake/server.exe"
-        self.mock_registry.resolve_binary_path.return_value = mock_server_path
-
-        mock_logs_dir = MagicMock(spec=Path)
-        mock_logs_dir.__truediv__.return_value = MagicMock(spec=Path)
-        self.mock_registry.resolve_logs_dir.return_value = mock_logs_dir
-
-        # ProcessManager
-        self.mock_process_manager.find_free_port.return_value = 54321
-
-        # ClientFactory
+    async def test_load_embedding_client_success(self):
+        """Test the successful loading and caching of the embedding client."""
         mock_embedding_client = MagicMock()
         self.mock_client_factory.create_embedding_client.return_value = mock_embedding_client
 
-        # Action
-        llm = await self.manager.get_embedding_model()
+        llm = await self.service.get_embedding_client()
 
-        # Assertions
-        self.mock_registry.get_model_config.assert_called_with(key)
-        self.mock_process_manager.start_process.assert_called_once()
-
-        self.mock_client_factory.create_embedding_client.assert_called_once_with(key, 54321)
+        self.mock_registry.get_model_config.assert_called_with("embedding_model")
+        self.mock_registry.resolve_model_path.assert_called_with("embedding_model")
+        self.runner.start.assert_called_once()
+        self.mock_client_factory.create_embedding_client.assert_called_once_with("embedding_model", 12345)
         self.assertEqual(llm, mock_embedding_client)
-        self.assertEqual(self.manager._embedding_llm, mock_embedding_client)
 
-    def test_cleanup(self):
-        """Test that cleanup delegates to ProcessManager."""
-        self.manager.cleanup()
+    async def test_cache_eviction_when_size_1(self):
+        """Test switching models evicts the oldest when cache size is 1."""
+        runner = MagicMock()
+        runner.start = AsyncMock(side_effect=[8000, 8001])
+        runner.stop = AsyncMock()
+        runner.cleanup = MagicMock()
 
-        self.mock_process_manager.cleanup.assert_called_once()
-        self.assertEqual(self.manager._chat_model_cache, {})
-        self.assertIsNone(self.manager._embedding_llm)
+        self.mock_client_factory.create_chat_client.side_effect = [MagicMock(), MagicMock()]
 
-    async def test_model_switching(self):
-        """Test switching models evicts old one and starts new one."""
-        # Setup for first model
-        mock_model_path = MagicMock(spec=Path)
-        mock_model_path.exists.return_value = True
-        self.mock_registry.resolve_model_path.return_value = mock_model_path
+        service = LLMService(runner=runner, cache_size=1)
+        await service.get_client("character")
+        await service.get_client("executor", task_type="default")
 
-        mock_server_path = MagicMock(spec=Path)
-        self.mock_registry.resolve_binary_path.return_value = mock_server_path
+        runner.stop.assert_called_with("character_model")
+        self.assertNotIn("character_model", service._chat_model_cache)
+        self.assertIn("executor_model:default", service._chat_model_cache)
 
-        mock_logs_dir = MagicMock(spec=Path)
-        mock_logs_dir.__truediv__.return_value = MagicMock(spec=Path)
-        self.mock_registry.resolve_logs_dir.return_value = mock_logs_dir
-
-        mock_config = MagicMock()
-        self.mock_registry.get_model_config.return_value = mock_config
-
-        self.mock_process_manager.find_free_port.return_value = 8000
-
-        # 1. Load Character
-        await self.manager.get_character_model()
-        self.assertIn("character_model", self.manager._chat_model_cache)
-
-        # 2. Load Executor (now uses key "executor_model:default")
-        await self.manager.get_executor_model()
-
-        # Should have evicted character_model (cache size 1)
-        self.assertNotIn("character_model", self.manager._chat_model_cache)
-        # Should have stopped character_model process
-        self.mock_process_manager.stop_process.assert_called_with("character_model")
-
-        # New key format: "executor_model:default"
-        self.assertIn("executor_model:default", self.manager._chat_model_cache)
-        self.assertEqual(self.manager._current_model_key, "executor_model:default")
+        service.cleanup()
+        runner.cleanup.assert_called_once()
 
 
 # --- The rest of the tests (MemorySystem, EMEventSegmenter, etc.) are preserved below ---
@@ -333,7 +254,7 @@ class TestEMLLMIntegrator(unittest.IsolatedAsyncioTestCase):
         ):
             memory_system = MagicMock()
             integrator = EMLLMIntegrator(
-                llm_manager=MagicMock(),
+                llm_diagnostics_provider=None,
                 embedding_provider=MagicMock(),
                 config=EMConfig(),
                 memory_system=memory_system,
@@ -371,30 +292,22 @@ class TestEMLLMIntegrator(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["events"][0].tokens, ["token_a", "token_b"])
 
 
-class TestAgentCoreRouting(unittest.TestCase):
-    def setUp(self):
-        self.core = AgentCore(
-            llm_manager=MagicMock(),
-            tool_manager=MagicMock(),
-            memory_system=MagicMock(),
-        )
-
-    def test_route_stats_commands(self):
-        state = {"input": "/em_stats"}
-        # Assuming direct_answer if command not explicitly handled in default routing now,
-        # or mock check. The original test had some assumptions.
-        # But if we just want to ensure it runs:
-        try:
-            _ = self.core.route_by_command(state)
-        except Exception:
-            pass  # noqa: S110
-        # Not verifying exact return as routing logic depends on constants we might not have mocked fully,
-        # but preserving the test class structure.
-        pass
-
+class TestGraphRouting(unittest.TestCase):
     def test_route_defaults_to_direct_answer(self):
-        state = {"input": "hello there"}
-        self.assertEqual(self.core.route_by_command(state), "direct_answer")
+        state = {"mode": InputMode.DIRECT}
+        self.assertEqual(route_by_command(state), GraphRoutes.DIRECT_ANSWER)
+
+    def test_route_search(self):
+        state = {"mode": InputMode.SEARCH}
+        self.assertEqual(route_by_command(state), GraphRoutes.SEARCH)
+
+    def test_route_agent_mode(self):
+        state = {"mode": InputMode.AGENT}
+        self.assertEqual(route_by_command(state), GraphRoutes.AGENT_MODE)
+
+    def test_route_stats(self):
+        state = {"mode": InputMode.STATS}
+        self.assertEqual(route_by_command(state), GraphRoutes.STATS)
 
 
 if __name__ == "__main__":

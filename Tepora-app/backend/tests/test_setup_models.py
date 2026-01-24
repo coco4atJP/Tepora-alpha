@@ -23,8 +23,8 @@ from src.tepora_server.app_factory import create_app
 
 @pytest.fixture
 def mock_core_app():
-    """Mock the heavy TeporaCoreApp."""
-    with patch("src.tepora_server.state.TeporaCoreApp") as mock_class:
+    """Mock the heavy TeporaApp (V2-only)."""
+    with patch("src.tepora_server.state.TeporaApp") as mock_class:
         mock_instance = mock_class.return_value
 
         async def async_init():

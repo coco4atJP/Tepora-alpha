@@ -1,4 +1,4 @@
-# core_v2 - Modular Architecture for Tepora
+# Core - Modular Architecture for Tepora
 
 """
 Tepora V2 Core - モジュラーアーキテクチャ

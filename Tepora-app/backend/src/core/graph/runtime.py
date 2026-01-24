@@ -1,7 +1,8 @@
 """
 TeporaGraph Runtime - Main Router and Orchestrator
 
-Main graph runtime that routes between chat, search, and agent modes.
+Main graph runtime that routes between chat, search, and agent modes,
+and integrates EM-LLM memory retrieval/formation.
 """
 
 from __future__ import annotations
@@ -12,14 +13,21 @@ from typing import TYPE_CHECKING, Any
 
 from langgraph.graph import END, StateGraph
 
-from .constants import GraphNodes, GraphRoutes, InputMode
-from .nodes import ChatNode, SearchNode
+from .. import config
+from .constants import GraphNodes, GraphRoutes
+from .nodes.chat import ChatNode
+from .nodes.em_llm import EMMemoryNodes
+from .nodes.react import ReActNodes
+from .nodes.search import SearchNode
+from .nodes.search_pipeline import SearchPipelineNodes
+from .routing import route_by_command, should_continue_react_loop
 from .state import AgentState, create_initial_state
 
 if TYPE_CHECKING:
     from src.core.context import ContextWindowManager
     from src.core.llm import LLMService
     from src.core.rag import RAGContextBuilder, RAGEngine
+    from src.core.em_llm import EMLLMIntegrator
     from src.core.tools import ToolManager
 
 logger = logging.getLogger(__name__)
@@ -54,6 +62,9 @@ class TeporaGraph:
         rag_engine: RAGEngine,
         context_builder: RAGContextBuilder,
         tool_manager: ToolManager | None = None,
+        *,
+        char_em_llm_integrator: EMLLMIntegrator | None = None,
+        prof_em_llm_integrator: EMLLMIntegrator | None = None,
     ):
         """
         Initialize TeporaGraph.
@@ -71,86 +82,174 @@ class TeporaGraph:
         self.context_builder = context_builder
         self.tool_manager = tool_manager
 
-        # Initialize nodes
-        self._chat_node = ChatNode(
-            llm_service=llm_service,
-            context_manager=context_manager,
-        )
+        # Node implementations (V2)
+        self._chat_node = ChatNode(llm_service=llm_service, context_manager=context_manager)
         self._search_node = SearchNode(
             llm_service=llm_service,
             context_manager=context_manager,
             rag_engine=rag_engine,
             context_builder=context_builder,
         )
-
-        # Build compiled graph
-        self._graph = self._build_graph()
+        self._search_pipeline = (
+            SearchPipelineNodes(llm_service=llm_service, tool_manager=tool_manager)
+            if tool_manager
+            else None
+        )
+        self._react_nodes = (
+            ReActNodes(llm_service=llm_service, tool_manager=tool_manager) if tool_manager else None
+        )
+        self._em_nodes = (
+            EMMemoryNodes(char_em_llm_integrator, prof_em_llm_integrator)
+            if char_em_llm_integrator
+            else None
+        )
 
         logger.info("TeporaGraph initialized")
 
+        self._graph = self._build_graph()
+
     def _build_graph(self):
-        """Build and compile the LangGraph workflow."""
+        """Build and compile the LangGraph workflow (V2 full pipeline)."""
         workflow = StateGraph(AgentState)
 
-        # Register nodes
+        # --- Nodes ---
+        workflow.add_node(GraphNodes.EM_MEMORY_RETRIEVAL, self._em_memory_retrieval_wrapper)
         workflow.add_node(GraphNodes.DIRECT_ANSWER, self._direct_answer_wrapper)
-        workflow.add_node(
-            GraphNodes.SUMMARIZE_SEARCH_RESULT,
-            self._summarize_search_wrapper,
-        )
+        workflow.add_node(GraphNodes.GENERATE_SEARCH_QUERY, self._generate_search_query_wrapper)
+        workflow.add_node(GraphNodes.EXECUTE_SEARCH, self._execute_search_wrapper)
+        workflow.add_node(GraphNodes.SUMMARIZE_SEARCH_RESULT, self._summarize_search_wrapper)
+        workflow.add_node(GraphNodes.GENERATE_ORDER, self._generate_order_wrapper)
+        workflow.add_node(GraphNodes.AGENT_REASONING, self._agent_reasoning_wrapper)
+        workflow.add_node(GraphNodes.TOOL_NODE, self._tool_executor_wrapper)
+        workflow.add_node(GraphNodes.UPDATE_SCRATCHPAD, self._update_scratchpad_wrapper)
+        workflow.add_node(GraphNodes.SYNTHESIZE_FINAL_RESPONSE, self._synthesize_final_response_wrapper)
+        workflow.add_node(GraphNodes.EM_MEMORY_FORMATION, self._em_memory_formation_wrapper)
+        workflow.add_node(GraphNodes.EM_STATS, self._em_stats_wrapper)
 
-        # Entry point with router
-        workflow.set_conditional_entry_point(
-            self._route_by_mode,
+        # --- Edges ---
+        workflow.set_entry_point(GraphNodes.EM_MEMORY_RETRIEVAL)
+
+        workflow.add_conditional_edges(
+            GraphNodes.EM_MEMORY_RETRIEVAL,
+            route_by_command,
             {
+                GraphRoutes.AGENT_MODE: GraphNodes.GENERATE_ORDER,
+                GraphRoutes.SEARCH: GraphNodes.GENERATE_SEARCH_QUERY,
                 GraphRoutes.DIRECT_ANSWER: GraphNodes.DIRECT_ANSWER,
-                GraphRoutes.SEARCH: GraphNodes.SUMMARIZE_SEARCH_RESULT,
-                # Agent mode falls through to direct for now (Phase 3 skeleton)
-                GraphRoutes.AGENT_MODE: GraphNodes.DIRECT_ANSWER,
+                GraphRoutes.STATS: GraphNodes.EM_STATS,
             },
         )
 
-        # All paths end
-        workflow.add_edge(GraphNodes.DIRECT_ANSWER, END)
-        workflow.add_edge(GraphNodes.SUMMARIZE_SEARCH_RESULT, END)
+        # Direct
+        workflow.add_edge(GraphNodes.DIRECT_ANSWER, GraphNodes.EM_MEMORY_FORMATION)
+
+        # Search
+        workflow.add_edge(GraphNodes.GENERATE_SEARCH_QUERY, GraphNodes.EXECUTE_SEARCH)
+        workflow.add_edge(GraphNodes.EXECUTE_SEARCH, GraphNodes.SUMMARIZE_SEARCH_RESULT)
+        workflow.add_edge(GraphNodes.SUMMARIZE_SEARCH_RESULT, GraphNodes.EM_MEMORY_FORMATION)
+
+        # Agent (ReAct)
+        workflow.add_edge(GraphNodes.GENERATE_ORDER, GraphNodes.AGENT_REASONING)
+        workflow.add_conditional_edges(
+            GraphNodes.AGENT_REASONING,
+            should_continue_react_loop,
+            {"continue": GraphNodes.TOOL_NODE, "end": GraphNodes.SYNTHESIZE_FINAL_RESPONSE},
+        )
+        workflow.add_edge(GraphNodes.TOOL_NODE, GraphNodes.UPDATE_SCRATCHPAD)
+        workflow.add_edge(GraphNodes.UPDATE_SCRATCHPAD, GraphNodes.AGENT_REASONING)
+        workflow.add_edge(GraphNodes.SYNTHESIZE_FINAL_RESPONSE, GraphNodes.EM_MEMORY_FORMATION)
+
+        # End
+        workflow.add_edge(GraphNodes.EM_MEMORY_FORMATION, GraphNodes.EM_STATS)
+        workflow.add_edge(GraphNodes.EM_STATS, END)
 
         logger.info("Graph construction complete")
         return workflow.compile()
 
-    def _route_by_mode(self, state: AgentState) -> str:
-        """Route based on input mode."""
-        mode = state.get("mode", "direct")
-
-        if mode == InputMode.SEARCH or mode == "search":
-            return GraphRoutes.SEARCH
-        elif mode == InputMode.AGENT or mode == "agent":
-            # Phase 3 skeleton: agent mode falls back to direct
-            logger.info("Agent mode requested (Phase 3 skeleton -> direct answer)")
-            return GraphRoutes.AGENT_MODE
-        else:
-            return GraphRoutes.DIRECT_ANSWER
+    # --- Wrappers (inject prompts/dependencies) ---
 
     async def _direct_answer_wrapper(self, state: AgentState) -> dict[str, Any]:
-        """Wrapper for chat node."""
-        # TODO: Get persona/prompt from config
+        persona, _ = config.get_persona_prompt_for_profile()
+        system_prompt = config.get_prompt_for_profile(
+            "direct_answer",
+            base=config.resolve_system_prompt("direct_answer"),
+        )
         return await self._chat_node.direct_answer_node(
             state,
-            persona="",
-            system_prompt="",
+            persona=persona or "",
+            system_prompt=system_prompt,
         )
+
+    async def _generate_search_query_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._search_pipeline:
+            logger.warning("SearchPipelineNodes not available (tool_manager missing).")
+            return {"search_queries": []}
+        return await self._search_pipeline.generate_search_query_node(state)
+
+    async def _execute_search_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._search_pipeline:
+            logger.warning("SearchPipelineNodes not available (tool_manager missing).")
+            return {"search_results": []}
+        return await self._search_pipeline.execute_search_node(state)
 
     async def _summarize_search_wrapper(self, state: AgentState) -> dict[str, Any]:
-        """Wrapper for search node."""
-        tool_executor = None
-        if self.tool_manager:
-            tool_executor = self.tool_manager.aexecute_tool
+        persona, _ = config.get_persona_prompt_for_profile()
+        system_template = config.get_prompt_for_profile(
+            "search_summary",
+            base=config.resolve_system_prompt("search_summary"),
+        )
 
+        tool_executor = self.tool_manager.aexecute_tool if self.tool_manager else None
         return await self._search_node.summarize_search_result_node(
             state,
-            persona="",
-            system_template="",
+            persona=persona or "",
+            system_template=system_template,
             tool_executor=tool_executor,
         )
+
+    async def _generate_order_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._react_nodes:
+            logger.warning("ReActNodes not available (tool_manager missing).")
+            return {"order": {}, "task_input": None}
+        return await self._react_nodes.generate_order_node(state)
+
+    async def _agent_reasoning_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._react_nodes:
+            logger.warning("ReActNodes not available (tool_manager missing).")
+            return {"agent_outcome": "agent_not_available"}
+        return await self._react_nodes.agent_reasoning_node(state)
+
+    async def _tool_executor_wrapper(self, state: AgentState, config: dict | None = None) -> dict[str, Any]:
+        if not self._react_nodes:
+            logger.warning("ReActNodes not available (tool_manager missing).")
+            return {}
+        return await self._react_nodes.unified_tool_executor_node(state, config)
+
+    def _update_scratchpad_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._react_nodes:
+            return {}
+        return self._react_nodes.update_scratchpad_node(state)
+
+    async def _synthesize_final_response_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._react_nodes:
+            logger.warning("ReActNodes not available (tool_manager missing).")
+            return {"messages": []}
+        return await self._react_nodes.synthesize_final_response_node(state)
+
+    def _em_memory_retrieval_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._em_nodes:
+            return {"recalled_episodes": [], "synthesized_memory": "No memory system available."}
+        return self._em_nodes.em_memory_retrieval_node(state)
+
+    async def _em_memory_formation_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._em_nodes:
+            return {}
+        return await self._em_nodes.em_memory_formation_node(state)
+
+    def _em_stats_wrapper(self, state: AgentState) -> dict[str, Any]:
+        if not self._em_nodes:
+            return {}
+        return self._em_nodes.em_stats_node(state)
 
     async def process(
         self,
@@ -174,46 +273,32 @@ class TeporaGraph:
         Yields:
             Response text chunks
         """
-        logger.info(
-            "Processing message for session %s (mode=%s)",
-            session_id,
-            mode,
-        )
-
-        # Create initial state
-        state = create_initial_state(
+        initial_state = create_initial_state(
             session_id=session_id,
             user_input=message,
             mode=mode,
             chat_history=chat_history,
         )
-
-        # Add any additional kwargs to state
         for key, value in kwargs.items():
-            if key in state:
-                state[key] = value
+            if key in initial_state:
+                initial_state[key] = value
 
-        # Use streaming nodes directly for better control
-        if mode == "search":
-            tool_executor = None
-            if self.tool_manager:
-                tool_executor = self.tool_manager.aexecute_tool
+        run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        async for event in self.astream_events(initial_state, run_config=run_config):
+            if event.get("event") != config.STREAM_EVENT_CHAT_MODEL:
+                continue
+            chunk = (event.get("data") or {}).get("chunk")
+            if chunk is not None and getattr(chunk, "content", None):
+                yield str(chunk.content)
 
-            async for chunk in self._search_node.stream_search_summary(
-                state,
-                persona="",
-                system_template="",
-                tool_executor=tool_executor,
-            ):
-                yield chunk
-        else:
-            # Default to direct answer
-            async for chunk in self._chat_node.stream_direct_answer(
-                state,
-                persona="",
-                system_prompt="",
-            ):
-                yield chunk
+    async def astream_events(
+        self, initial_state: AgentState, *, run_config: dict[str, Any] | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Stream LangGraph events (V1-compatible event dicts)."""
+        cfg = run_config or {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        assert self._graph is not None
+        async for event in self._graph.astream_events(initial_state, version="v2", config=cfg):
+            yield event
 
     async def invoke(
         self,
@@ -237,7 +322,7 @@ class TeporaGraph:
         Returns:
             Final agent state
         """
-        state = create_initial_state(
+        initial_state = create_initial_state(
             session_id=session_id,
             user_input=message,
             mode=mode,
@@ -245,11 +330,11 @@ class TeporaGraph:
         )
 
         for key, value in kwargs.items():
-            if key in state:
-                state[key] = value
+            if key in initial_state:
+                initial_state[key] = value
 
-        result = await self._graph.ainvoke(state)
-        return result
+        run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        return await self._graph.ainvoke(initial_state, config=run_config)
 
     def cleanup(self) -> None:
         """Cleanup graph resources."""

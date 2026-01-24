@@ -1,12 +1,12 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 # Add backend/src to sys.path
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from src.core.tool_manager import ToolManager
+from src.core.tools.manager import ToolManager
 from src.core.tools.base import ToolProvider
 
 
@@ -32,18 +32,13 @@ class TestToolManager(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         pass
 
-    @patch("src.core.tool_manager.config.filter_tools_for_profile")
-    @patch("src.core.tool_manager.config.get_active_agent_profile_name", return_value="default")
-    def test_initialize(self, mock_profile, mock_filter):
+    def test_initialize(self):
         # Setup mocks
         mock_native_tool = MagicMock()
         mock_native_tool.name = "native_tool"
 
         mock_mcp_tool = MagicMock()
         mock_mcp_tool.name = "mcp_tool"
-
-        # Mock filter to return all tools
-        mock_filter.side_effect = lambda tools, profile: tools
 
         # Create mock providers
         native_provider = MockToolProvider([mock_native_tool])
@@ -61,12 +56,9 @@ class TestToolManager(unittest.IsolatedAsyncioTestCase):
         # Cleanup
         manager.cleanup()
 
-    @patch("src.core.tool_manager.config.filter_tools_for_profile")
-    @patch("src.core.tool_manager.config.get_active_agent_profile_name", return_value="default")
-    def test_get_tool(self, mock_profile, mock_filter):
+    def test_get_tool(self):
         mock_tool = MagicMock()
         mock_tool.name = "test_tool"
-        mock_filter.side_effect = lambda tools, profile: tools
 
         provider = MockToolProvider([mock_tool])
         manager = ToolManager(providers=[provider])
@@ -80,12 +72,8 @@ class TestToolManager(unittest.IsolatedAsyncioTestCase):
 
         manager.cleanup()
 
-    @patch("src.core.tool_manager.config.filter_tools_for_profile")
-    @patch("src.core.tool_manager.config.get_active_agent_profile_name", return_value="default")
-    def test_execute_tool(self, mock_profile, mock_filter):
+    def test_execute_tool(self):
         # Test the sync bridge
-        mock_filter.side_effect = lambda tools, profile: tools
-
         manager = ToolManager(providers=[])
 
         # Mock aexecute_tool to isolate the bridge logic
@@ -97,14 +85,11 @@ class TestToolManager(unittest.IsolatedAsyncioTestCase):
 
         manager.cleanup()
 
-    @patch("src.core.tool_manager.config.filter_tools_for_profile")
-    @patch("src.core.tool_manager.config.get_active_agent_profile_name", return_value="default")
-    async def test_aexecute_tool(self, mock_profile, mock_filter):
+    async def test_aexecute_tool(self):
         # Test async execution
         mock_tool = MagicMock()
         mock_tool.name = "async_tool"
         mock_tool.ainvoke = AsyncMock(return_value="async_success")
-        mock_filter.side_effect = lambda tools, profile: tools
 
         provider = MockToolProvider([mock_tool])
         manager = ToolManager(providers=[provider])

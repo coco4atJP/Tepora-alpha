@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -40,11 +41,21 @@ async def lifespan(app: FastAPI):
         # Validate Config (Fail-Fast)
         from src.core.app.startup_validator import validate_startup_config
 
-        # Run blocking validation in a thread to avoid blocking the event loop
-        await asyncio.get_running_loop().run_in_executor(
-            None, validate_startup_config, settings, PROJECT_ROOT
-        )
-        logger.info("Startup configuration validated.")
+        # Run blocking validation in a thread to avoid blocking the event loop.
+        # In unit tests we deliberately skip strict startup validation to keep API tests lightweight.
+        env = os.getenv("TEPORA_ENV", "production").lower()
+        skip_validation = os.getenv("TEPORA_SKIP_STARTUP_VALIDATION", "").lower() in {"1", "true", "yes"}
+        if env != "test" and not skip_validation:
+            await asyncio.get_running_loop().run_in_executor(
+                None, validate_startup_config, settings, PROJECT_ROOT
+            )
+            logger.info("Startup configuration validated.")
+        else:
+            logger.info(
+                "Skipping startup configuration validation (env=%s, skip=%s).",
+                env,
+                skip_validation,
+            )
 
         # Initialize Application State
         state = AppState()

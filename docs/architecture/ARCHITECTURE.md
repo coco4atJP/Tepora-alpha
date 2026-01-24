@@ -366,10 +366,9 @@ backend/
         │   ├── prompts.py      # システムプロンプト
         │   └── memory.py       # メモリ関連定数
         │
-        ├── app/                # -------- App Module (V1互換) --------
-        │   ├── core.py         # TeporaCoreApp（V1互換ファサード）
+        ├── app/                # -------- App Utilities --------
         │   ├── startup_validator.py  # 起動バリデーション
-        │   └── utils.py
+        │   └── utils.py        # sanitize_user_input など
         │
         ├── common/             # -------- Common Utilities --------
         │   └── security.py     # セキュリティユーティリティ
@@ -1281,7 +1280,7 @@ USER_DATA_DIR/
 | **RAG** | ConversationNodes内に混在 | `RAGEngine` + `RAGContextBuilder` に分離 |
 | **コンテキスト** | ConversationNodes内に混在 | `ContextWindowManager` に分離 |
 | **状態管理(FE)** | React Context + hooks | Zustand stores |
-| **V1コード** | `src/core/` | `格納/core_v1_archive/` にアーカイブ |
+| **V1コード** | `格納/core_v1_archive/` | 実行経路から除外（V2のみ） |
 
 > [!TIP]
 > V1互換のため、`TeporaApp` には `process_user_request()` や `cleanup()` などのV1互換メソッドが用意されています。

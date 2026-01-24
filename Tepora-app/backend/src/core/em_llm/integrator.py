@@ -20,7 +20,6 @@ from .types import EMConfig, EpisodicEvent
 
 if TYPE_CHECKING:
     from ..embedding_provider import EmbeddingProvider
-    from ..llm_manager import LLMManager
     from ..memory.memory_system import MemorySystem
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ class EMLLMIntegrator:
 
     def __init__(
         self,
-        llm_manager: LLMManager,
+        llm_diagnostics_provider: object | None,
         embedding_provider: EmbeddingProvider,
         config: EMConfig,
         memory_system: MemorySystem,
@@ -48,12 +47,12 @@ class EMLLMIntegrator:
         Initialize EM-LLM integrator.
 
         Args:
-            llm_manager: LLM manager for model access
+            llm_diagnostics_provider: Optional diagnostics provider for LLM config reporting
             embedding_provider: Provider for text embeddings
             config: EM-LLM configuration parameters
             memory_system: ChromaDB-backed memory system
         """
-        self.llm_manager = llm_manager
+        self._llm_diagnostics_provider = llm_diagnostics_provider
         self.embedding_provider = embedding_provider
         self.config = config
         self.memory_system = memory_system
@@ -72,11 +71,12 @@ class EMLLMIntegrator:
         Returns:
             Dictionary with LLM configuration information
         """
-        if self.llm_manager and hasattr(
-            self.llm_manager, "get_current_model_config_for_diagnostics"
-        ):
-            return self.llm_manager.get_current_model_config_for_diagnostics()
-        logger.warning("LLMManager not available or does not have the required diagnostics method.")
+        provider = self._llm_diagnostics_provider
+        if provider and hasattr(provider, "get_current_model_config_for_diagnostics"):
+            try:
+                return provider.get_current_model_config_for_diagnostics()
+            except Exception:
+                logger.debug("LLM diagnostics provider failed.", exc_info=True)
         return {}
 
     async def _finalize_and_store_events(self, events: list[EpisodicEvent]) -> list[EpisodicEvent]:

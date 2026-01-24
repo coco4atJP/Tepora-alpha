@@ -43,7 +43,7 @@ async def health_check(state: AppState = Depends(get_app_state)):
     return {
         "status": "ok",
         "initialized": core.initialized,
-        "core_version": "v2" if state.use_v2 else "v1",
+        "core_version": "v2",
     }
 
 
@@ -73,7 +73,7 @@ async def get_status(state: AppState = Depends(get_app_state)):
 
         return {
             "initialized": core.initialized,
-            "core_version": "v2" if state.use_v2 else "v1",
+            "core_version": "v2",
             "em_llm_enabled": (
                 core.char_em_llm_integrator is not None or core.prof_em_llm_integrator is not None
             ),
@@ -104,6 +104,18 @@ async def get_config():
         # but service.redact_sensitive_values expects a dict.
         # We use model_dump(mode="json") to get a clean dict with all defaults filled.
         full_config = validated_config.model_dump(mode="json")
+
+        # Resolve mcp_config_path to absolute path for checking
+        if "app" in full_config and "mcp_config_path" in full_config["app"]:
+            try:
+                mcp_path = Path(full_config["app"]["mcp_config_path"])
+                # Only resolve if it's a relative path to avoid messing up if somehow it's already absolute
+                # But resolve() handles both well usually.
+                # However, we want to show the absolute path based on CWD or project root.
+                # If it's relative, it's relative to CWD usually.
+                full_config["app"]["mcp_config_path"] = str(mcp_path.resolve())
+            except Exception as e:
+                logger.warning("Failed to resolve absolute path for mcp_config_path: %s", e)
 
         redacted_config = service.redact_sensitive_values(full_config)
         return redacted_config

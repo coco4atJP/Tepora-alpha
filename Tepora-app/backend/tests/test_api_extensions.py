@@ -17,8 +17,8 @@ from src.tepora_server.app_factory import create_app
 
 @pytest.fixture
 def mock_core_app():
-    """Mock the heavy TeporaCoreApp."""
-    with patch("src.tepora_server.state.TeporaCoreApp") as mock_class:
+    """Mock the heavy TeporaApp (V2-only)."""
+    with patch("src.tepora_server.state.TeporaApp") as mock_class:
         mock_instance = mock_class.return_value
 
         # Mock initialize as async
@@ -71,6 +71,11 @@ def test_get_config(client, run_with_auth):
         # Default values should be applied
         assert "max_input_length" in resp_json["app"]
         assert isinstance(resp_json["app"]["max_input_length"], int)
+
+        # Verify mcp_config_path is absolute
+        assert "mcp_config_path" in resp_json["app"]
+        mcp_path = Path(resp_json["app"]["mcp_config_path"])
+        assert mcp_path.is_absolute()
 
 
 def test_get_config_redacts_sensitive_info(client, run_with_auth):

@@ -8,14 +8,12 @@ which path the graph should take based on state.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from langchain_core.messages import AIMessage
 
 from .constants import GraphRoutes, InputMode
-
-if TYPE_CHECKING:
-    from ..state import AgentState
+from .state import AgentState
 
 logger = logging.getLogger(__name__)
 

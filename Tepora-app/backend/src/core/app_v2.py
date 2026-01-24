@@ -5,10 +5,9 @@ TeporaApp - V2 Application Facade
 全てのV2コンポーネントを統合し、統一されたAPIを提供します。
 
 使用例:
-    from core_v2 import TeporaApp
-    from core.config import settings
+    from src.core.app_v2 import TeporaApp
 
-    app = TeporaApp(config=settings.app)
+    app = TeporaApp()
     await app.initialize()
 
     async for chunk in app.process_message("session-1", "Hello!"):
@@ -19,13 +18,22 @@ TeporaApp - V2 Application Facade
 
 from __future__ import annotations
 
+import base64
 import logging
+import re
+from collections.abc import Awaitable, Callable
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from langchain_core.messages import AIMessage, HumanMessage
+
+from . import config as core_config
+from .app.utils import sanitize_user_input
+from .chat_history_manager import ChatHistoryManager
 from .context import ContextWindowManager
 from .graph import TeporaGraph
+from .graph.constants import InputMode
 from .llm import LLMService
 from .rag import RAGContextBuilder, RAGEngine
 from .system import SessionManager, get_logger, setup_logging
@@ -39,6 +47,9 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+# Base64 pattern for detection (standard base64 with optional padding)
+_BASE64_PATTERN = re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
 
 
 @dataclass
@@ -77,6 +88,7 @@ class TeporaApp:
         # Phase 1 コンポーネント
         self._session_manager: SessionManager | None = None
         self._tool_manager: ToolManager | None = None
+        self._history_manager: ChatHistoryManager | None = None
 
         # Phase 2 コンポーネント
         self._llm_service: LLMService | None = None
@@ -91,6 +103,10 @@ class TeporaApp:
 
         # Phase 4 外部依存性
         self._mcp_hub = None
+
+        # --- V1互換フィールド（API/FEが参照するため維持） ---
+        self.char_em_llm_integrator = None
+        self.prof_em_llm_integrator = None
 
     @property
     def is_initialized(self) -> bool:
@@ -107,13 +123,9 @@ class TeporaApp:
         """
         V1互換: 履歴マネージャー
 
-        V1ではChatHistoryManagerを返していたが、V2ではSessionManagerの
-        履歴プロバイダを返す。履歴プロバイダが未設定の場合はNone。
+        V1ではChatHistoryManagerを返していたため、V2でも同一の公開APIを維持する。
         """
-        if self._session_manager:
-            # V2: SessionManagerの履歴プロバイダを返す
-            return self._session_manager._history_provider
-        return None
+        return self._history_manager
 
     @property
     def session_manager(self) -> SessionManager:
@@ -150,13 +162,134 @@ class TeporaApp:
         Returns:
             メモリ統計辞書
         """
+        stats: dict[str, Any] = {"char_memory": {}, "prof_memory": {}}
+
         if not self._initialized:
-            return {"error": "not_initialized"}
-        return {
-            "status": "v2",
-            "sessions": len(self.session_manager.list_active_sessions()),
-            "tools_loaded": len(self._tool_manager.tools) if self._tool_manager else 0,
-        }
+            return {"error": "not_initialized", **stats}
+
+        if self.char_em_llm_integrator:
+            try:
+                stats["char_memory"] = self.char_em_llm_integrator.get_memory_statistics()
+            except Exception as e:  # noqa: BLE001
+                logger.error("Failed to get char memory stats: %s", e, exc_info=True)
+                stats["char_memory"] = {"error": str(e)}
+
+        if self.prof_em_llm_integrator:
+            try:
+                stats["prof_memory"] = self.prof_em_llm_integrator.get_memory_statistics()
+            except Exception as e:  # noqa: BLE001
+                logger.error("Failed to get prof memory stats: %s", e, exc_info=True)
+                stats["prof_memory"] = {"error": str(e)}
+
+        return stats
+
+    @staticmethod
+    def _try_decode_base64(content: str) -> str | None:
+        if len(content) <= 100:
+            return None
+
+        stripped = content.replace("\n", "").replace("\r", "")
+        if not _BASE64_PATTERN.match(stripped):
+            return None
+
+        try:
+            decoded_bytes = base64.b64decode(stripped)
+            return decoded_bytes.decode("utf-8")
+        except Exception:
+            return None
+
+    def _process_attachments(self, attachments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        processed: list[dict[str, Any]] = []
+        safe_limit = int(core_config.SEARCH_ATTACHMENT_SIZE_LIMIT * 1.35)
+
+        for att in attachments:
+            if not isinstance(att, dict):
+                logger.warning("Skipping non-dict attachment: %s", type(att).__name__)
+                continue
+
+            attachment_name = att.get("name")
+            try:
+                content = att.get("content", "")
+
+                # Security: Check size limit FIRST for ALL content types
+                if isinstance(content, str) and len(content) > safe_limit:
+                    logger.warning(
+                        "Attachment '%s' skipped: Size %d exceeds limit %d",
+                        attachment_name,
+                        len(content),
+                        safe_limit,
+                    )
+                    continue
+
+                if isinstance(content, str):
+                    decoded_text = self._try_decode_base64(content)
+                    if decoded_text is not None:
+                        processed.append(
+                            {
+                                "name": attachment_name,
+                                "path": att.get("path"),
+                                "content": decoded_text,
+                                "type": att.get("type"),
+                            }
+                        )
+                        continue
+
+                processed.append(att)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to decode attachment %s: %s", attachment_name, e, exc_info=True
+                )
+                processed.append(att)
+
+        return processed
+
+    async def _initialize_em_llm_integrators(self) -> None:
+        """Initialize EM-LLM integrators (best-effort)."""
+        try:
+            from .em_llm import EMConfig, EMLLMIntegrator
+            from .embedding_provider import EmbeddingProvider
+            from .memory.memory_system import MemorySystem
+
+            if self._llm_service is None:
+                raise RuntimeError("LLMService not initialized")
+
+            embedding_llm = await self._llm_service.get_embedding_client()
+            embedding_provider = EmbeddingProvider(embedding_llm)
+
+            em_config = EMConfig(**core_config.EM_LLM_CONFIG)
+
+            char_db_path = core_config.CHROMA_DB_PATH / "em_llm"
+            char_memory_system = MemorySystem(
+                embedding_provider,
+                db_path=str(char_db_path),
+                collection_name="em_llm_events_char",
+            )
+
+            prof_db_path = core_config.CHROMA_DB_PATH / "em_llm"
+            prof_memory_system = MemorySystem(
+                embedding_provider,
+                db_path=str(prof_db_path),
+                collection_name="em_llm_events_prof",
+            )
+
+            self.char_em_llm_integrator = EMLLMIntegrator(
+                self._llm_service,
+                embedding_provider,
+                em_config,
+                char_memory_system,
+            )
+            self.prof_em_llm_integrator = EMLLMIntegrator(
+                self._llm_service,
+                embedding_provider,
+                em_config,
+                prof_memory_system,
+            )
+
+            logger.info("EM-LLM integrators initialized.")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("EM-LLM initialization failed (system degraded): %s", e, exc_info=True)
+            self.char_em_llm_integrator = None
+            self.prof_em_llm_integrator = None
 
     async def initialize(
         self,
@@ -204,11 +337,24 @@ class TeporaApp:
         self._session_manager = SessionManager()
         logger.debug("SessionManager initialized.")
 
-        # 3. Tool Manager
-        self._tool_manager = ToolManager(
-            providers=self.config.tool_providers,
-            tool_timeout=self.config.tool_timeout,
-        )
+        # 2.5 History Manager (SQLite)
+        self._history_manager = ChatHistoryManager()
+        logger.debug("ChatHistoryManager initialized.")
+
+        # 3. Tool Manager (default providers if none configured)
+        providers = list(self.config.tool_providers)
+        if not providers:
+            from .config.loader import PROJECT_ROOT
+            from .tools.mcp import McpToolProvider
+            from .tools.native import NativeToolProvider
+
+            tool_config_path = PROJECT_ROOT / "config" / "mcp_tools_config.json"
+            providers = [
+                NativeToolProvider(),
+                McpToolProvider(config_path=tool_config_path, hub=mcp_hub),
+            ]
+
+        self._tool_manager = ToolManager(providers=providers, tool_timeout=self.config.tool_timeout)
         self._tool_manager.initialize()
         logger.debug("ToolManager initialized with %d tools.", len(self._tool_manager.tools))
 
@@ -228,13 +374,18 @@ class TeporaApp:
         self._context_builder = RAGContextBuilder()
         logger.debug("RAG Engine and Context Builder initialized.")
 
-        # 7. Graph
+        # 6.5 EM-LLM (best-effort)
+        await self._initialize_em_llm_integrators()
+
+        # 7. Graph (full pipeline)
         self._graph = TeporaGraph(
             llm_service=self._llm_service,
             context_manager=self._context_manager,
             rag_engine=self._rag_engine,
             context_builder=self._context_builder,
             tool_manager=self._tool_manager,
+            char_em_llm_integrator=self.char_em_llm_integrator,
+            prof_em_llm_integrator=self.prof_em_llm_integrator,
         )
         logger.debug("TeporaGraph initialized.")
 
@@ -272,12 +423,20 @@ class TeporaApp:
         _resources = self.session_manager.get_session_resources(session_id)
         logger.info("Processing message for session %s (mode=%s)", session_id, mode)
 
+        chat_history = []
+        if self._history_manager is not None:
+            chat_history = self._history_manager.get_history(
+                session_id=session_id,
+                limit=core_config.DEFAULT_HISTORY_LIMIT,
+            )
+
         # Graph経由でメッセージ処理
         assert self._graph is not None  # Guaranteed by _initialized check
         async for chunk in self._graph.process(
             session_id=session_id,
             message=message,
             mode=mode,
+            chat_history=chat_history,
             **kwargs,
         ):
             yield chunk
@@ -330,6 +489,14 @@ class TeporaApp:
             self._tool_manager.cleanup()
             logger.debug("ToolManager cleaned up.")
 
+        # EM-LLM memory systems
+        for integrator in (self.char_em_llm_integrator, self.prof_em_llm_integrator):
+            if integrator:
+                try:
+                    integrator.memory_system.close()
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("Failed to close memory system: %s", e, exc_info=True)
+
         # Session Manager
         if self._session_manager:
             for session_id in self._session_manager.list_active_sessions():
@@ -356,7 +523,7 @@ class TeporaApp:
         attachments: list[dict] | None = None,
         skip_web_search: bool = False,
         session_id: str = "default",
-        approval_callback=None,
+        approval_callback: Callable[[str, dict], Awaitable[bool]] | None = None,
     ):
         """
         V1互換: ユーザーリクエストを処理する
@@ -375,24 +542,114 @@ class TeporaApp:
         if not self._initialized:
             raise RuntimeError("TeporaApp not initialized. Call initialize() first.")
 
-        logger.info(
-            "V1 compat: process_user_request session=%s mode=%s",
-            session_id,
-            mode,
+        if attachments is None:
+            attachments = []
+
+        logger.info("process_user_request session=%s mode=%s", session_id, mode)
+
+        # 1) Sanitize
+        user_input_sanitized = sanitize_user_input(user_input)
+
+        # 2) Process attachments (best-effort; only used in Search mode)
+        processed_attachments = self._process_attachments(attachments)
+
+        # 3) Prepare search metadata
+        search_metadata: dict[str, Any] = {}
+        final_mode = mode
+        if final_mode == InputMode.SEARCH or final_mode == "search":
+            if not core_config.settings.privacy.allow_web_search:
+                if not skip_web_search:
+                    logger.info("Web search disabled by privacy settings; forcing skip_web_search.")
+                skip_web_search = True
+
+            if processed_attachments:
+                search_metadata["search_attachments"] = processed_attachments
+            if skip_web_search:
+                search_metadata["skip_web_search"] = True
+            # Keep an explicit copy for prompts that use search_query separately.
+            search_metadata["search_query"] = user_input_sanitized
+
+        # 4) Get history
+        if self._history_manager is None:
+            raise RuntimeError("history_manager not initialized")
+
+        recent_history = self._history_manager.get_history(
+            session_id=session_id, limit=core_config.DEFAULT_HISTORY_LIMIT
         )
 
-        # V2のprocess_messageを呼び出し、V1形式のイベントに変換
-        async for chunk in self.process_message(
+        # 5) Run graph and stream events
+        from .graph.state import create_initial_state
+
+        initial_state = create_initial_state(
             session_id=session_id,
-            message=user_input,
-            mode=mode,
-            skip_web_search=skip_web_search,
-        ):
-            # V1形式のイベントとして返す
-            yield {
-                "event": "on_chat_model_stream",
-                "data": {"chunk": type("Chunk", (), {"content": chunk})()},
-            }
+            user_input=user_input_sanitized,
+            mode=final_mode,
+            chat_history=recent_history,
+        )
+        for key, value in search_metadata.items():
+            if key in initial_state:
+                initial_state[key] = value
+
+        run_config: dict[str, Any] = {
+            "recursion_limit": core_config.GRAPH_RECURSION_LIMIT,
+            "configurable": {},
+        }
+        if approval_callback:
+            run_config["configurable"]["approval_callback"] = approval_callback
+
+        full_response = ""
+        final_state = None
+
+        assert self._graph is not None
+        async for event in self._graph.astream_events(initial_state, run_config=run_config):
+            kind = event.get("event")
+            if kind == core_config.STREAM_EVENT_CHAT_MODEL:
+                chunk = (event.get("data") or {}).get("chunk")
+                if chunk is not None and getattr(chunk, "content", None):
+                    full_response += str(chunk.content)
+            elif kind == core_config.STREAM_EVENT_GRAPH_END:
+                final_state = (event.get("data") or {}).get("output")
+
+            yield event
+
+        # 6) Update history (keep mode + timestamp)
+        from datetime import datetime
+
+        now_iso = datetime.now().isoformat()
+
+        def _annotate_message(msg, *, msg_mode: str):
+            if not hasattr(msg, "copy"):
+                return msg
+            kwargs = msg.additional_kwargs if isinstance(getattr(msg, "additional_kwargs", None), dict) else {}
+            merged = {**kwargs}
+            merged.setdefault("mode", msg_mode)
+            merged.setdefault("timestamp", now_iso)
+            return msg.copy(update={"additional_kwargs": merged})
+
+        if isinstance(final_state, dict) and final_state.get("chat_history"):
+            final_history = list(final_state["chat_history"])
+            # Annotate only the tail messages from this request (best effort).
+            tail_start = max(0, len(final_history) - 2)
+            for idx in range(tail_start, len(final_history)):
+                final_history[idx] = _annotate_message(final_history[idx], msg_mode=str(final_mode))
+            self._history_manager.overwrite_history(final_history, session_id=session_id)
+        else:
+            self._history_manager.add_messages(
+                [
+                    HumanMessage(
+                        content=user_input_sanitized,
+                        additional_kwargs={"mode": str(final_mode), "timestamp": now_iso},
+                    ),
+                    AIMessage(
+                        content=full_response,
+                        additional_kwargs={"mode": str(final_mode), "timestamp": now_iso},
+                    ),
+                ],
+                session_id=session_id,
+            )
+
+        self._history_manager.touch_session(session_id)
+        self._history_manager.trim_history(session_id=session_id, keep_last_n=1000)
 
     async def cleanup(self) -> None:
         """V1互換: リソースクリーンアップ（shutdownのエイリアス）"""

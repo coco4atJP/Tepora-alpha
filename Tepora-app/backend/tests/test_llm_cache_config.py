@@ -6,108 +6,64 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add the parent directory to the Python path to allow module imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import importlib.util
-
-# --- Mocks for missing dependencies (Minimal for LLMManager) ---
-if importlib.util.find_spec("torch") is None:
-    sys.modules["torch"] = MagicMock()
-
-if importlib.util.find_spec("langchain_mcp_adapters") is None:
-    sys.modules["langchain_mcp_adapters"] = MagicMock()
-    sys.modules["langchain_mcp_adapters.client"] = MagicMock()
-
-if importlib.util.find_spec("networkx") is None:
-    sys.modules["networkx"] = MagicMock()
-
-if importlib.util.find_spec("sklearn") is None:
-    sys.modules["sklearn"] = MagicMock()
-    sys.modules["sklearn.metrics"] = MagicMock()
-    sys.modules["sklearn.metrics.pairwise"] = MagicMock()
-
-if importlib.util.find_spec("nltk") is None:
-    sys.modules["nltk"] = MagicMock()
-
-from src.core.llm_manager import LLMManager
+from src.core.llm.service import LLMService
 
 
-class TestLLMCacheConfig(unittest.IsolatedAsyncioTestCase):
+class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.registry_patcher = patch("src.core.llm_manager.ModelRegistry")
-        self.process_manager_patcher = patch("src.core.llm_manager.ProcessManager")
-        self.client_factory_patcher = patch("src.core.llm_manager.ClientFactory")
-        # Patch config!
-        self.config_patcher = patch("src.core.llm_manager.config")
-
+        self.registry_patcher = patch("src.core.llm.service.ModelRegistry")
+        self.client_factory_patcher = patch("src.core.llm.service.ClientFactory")
         self.MockRegistry = self.registry_patcher.start()
-        self.MockProcessManager = self.process_manager_patcher.start()
         self.MockClientFactory = self.client_factory_patcher.start()
-        self.mock_config_module = self.config_patcher.start()
 
         # Setup mocks
         self.mock_registry = self.MockRegistry.return_value
-        self.mock_process_manager = self.MockProcessManager.return_value
         self.mock_client_factory = self.MockClientFactory.return_value
 
-        # Common setups
-        self.mock_registry.resolve_model_path.return_value = MagicMock(
-            spec=Path, exists=lambda: True
-        )
-        self.mock_registry.resolve_binary_path.return_value = MagicMock(spec=Path)
-        self.mock_registry.resolve_logs_dir.return_value = MagicMock(spec=Path)
-        self.mock_registry.resolve_logs_dir.return_value.__truediv__.return_value = MagicMock(
-            spec=Path
-        )
+        self.runner = MagicMock()
+        self.runner.start = AsyncMock(side_effect=[8000, 8001, 8002, 8003])
+        self.runner.stop = AsyncMock()
+        self.runner.cleanup = MagicMock()
 
-        # Set perform_health_check_async as AsyncMock for await compatibility
-        self.mock_process_manager.perform_health_check_async = AsyncMock()
+        self.mock_registry.get_model_config.return_value = MagicMock()
+        mock_model_path = MagicMock(spec=Path)
+        mock_model_path.exists.return_value = True
+        self.mock_registry.resolve_model_path.return_value = mock_model_path
 
     def tearDown(self):
         self.registry_patcher.stop()
-        self.process_manager_patcher.stop()
         self.client_factory_patcher.stop()
-        self.config_patcher.stop()
-
-    async def test_cache_size_read_from_config(self):
-        """Test that cache_size is initialized from config."""
-        self.mock_config_module.settings.llm_manager.cache_size = 5
-        manager = LLMManager()
-        self.assertEqual(manager._cache_size, 5)
 
     async def test_cache_eviction_with_size_2(self):
-        """Test proper eviction when cache size is 2."""
-        # Set cache size to 2
-        self.mock_config_module.settings.llm_manager.cache_size = 2
+        """Test FIFO eviction when cache size is 2."""
+        self.mock_client_factory.create_chat_client.side_effect = [
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        ]
 
-        manager = LLMManager()
+        service = LLMService(runner=self.runner, cache_size=2)
 
-        # Mocks for loading
-        self.mock_registry.get_model_config.return_value = MagicMock()
-        self.mock_process_manager.find_free_port.side_effect = [8000, 8001, 8002, 8003]
+        # 1) Load Character (Cache: [Character])
+        await service.get_client("character")
+        self.assertIn("character_model", service._chat_model_cache)
 
-        # 1. Load Character (Cache: [Character])
-        print("Loading Character Model...")
-        await manager.get_character_model()
-        self.assertIn("character_model", manager._chat_model_cache)
-        self.assertEqual(len(manager._chat_model_cache), 1)
+        # 2) Load Executor Default (Cache: [Character, Exec:Default])
+        await service.get_client("executor", task_type="default")
+        self.assertIn("executor_model:default", service._chat_model_cache)
+        self.assertEqual(len(service._chat_model_cache), 2)
 
-        # 2. Load Executor Default (Cache: [Character, Exec:Default])
-        print("Loading Executor Default...")
-        await manager.get_executor_model("default")
-        self.assertIn("executor_model:default", manager._chat_model_cache)
-        self.assertEqual(len(manager._chat_model_cache), 2)
+        # 3) Load Executor Coding (Cache: [Exec:Default, Exec:Coding]) -> Character evicted
+        await service.get_client("executor", task_type="coding")
+        self.assertEqual(len(service._chat_model_cache), 2)
 
-        # Verify Character still there
-        self.assertIn("character_model", manager._chat_model_cache)
+        self.runner.stop.assert_called_with("character_model")
+        self.assertNotIn("character_model", service._chat_model_cache)
+        self.assertIn("executor_model:default", service._chat_model_cache)
+        self.assertIn("executor_model:coding", service._chat_model_cache)
 
-        # 3. Load Executor Coding (Cache: [Exec:Default, Exec:Coding]) -> Character evicted
-        print("Loading Executor Coding...")
-        await manager.get_executor_model("coding")
-        self.assertEqual(len(manager._chat_model_cache), 2)
-
-        # Character was the oldest, should be evicted (assuming simple insertion order dict iteration)
-        self.assertNotIn("character_model", manager._chat_model_cache)
-        self.assertIn("executor_model:default", manager._chat_model_cache)
-        self.assertIn("executor_model:coding", manager._chat_model_cache)
+        service.cleanup()
+        self.runner.cleanup.assert_called_once()
 
 
 if __name__ == "__main__":

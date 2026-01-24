@@ -5,10 +5,8 @@ This package provides a modular implementation of the agent's
 execution graph using LangGraph.
 
 Main components:
-- AgentCore: Main graph orchestrator (V1)
-- EMEnabledAgentCore: EM-LLM integrated graph (V1)
-- TeporaGraph: V2 graph runtime
-- Node implementations: Memory, Conversation, ReAct, EM-LLM
+- TeporaGraph: Graph runtime (V2-only)
+- Node implementations: Chat, Search, ReAct, EM-LLM
 - Routing logic
 - Constants and utilities
 
@@ -26,8 +24,6 @@ from .constants import (
     MemoryLimits,
     RAGConfig,
 )
-from .core import AgentCore
-from .em_llm_core import EMEnabledAgentCore
 from .routing import route_by_command, should_continue_react_loop
 from .runtime import TeporaGraph
 from .state import AgentState, create_initial_state
@@ -41,9 +37,6 @@ from .utils import (
 
 # For backward compatibility with existing imports
 __all__ = [
-    # V1
-    "AgentCore",
-    "EMEnabledAgentCore",
     # V2
     "TeporaGraph",
     "AgentState",

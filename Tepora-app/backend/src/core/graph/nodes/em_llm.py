@@ -16,7 +16,7 @@ from langchain_core.messages import AIMessage
 
 if TYPE_CHECKING:
     from ...em_llm import EMLLMIntegrator
-    from ...state import AgentState
+    from ..state import AgentState
 
 logger = logging.getLogger(__name__)
 

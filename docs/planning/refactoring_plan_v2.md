@@ -194,9 +194,9 @@ We will execute this in 4 phases. Each phase must pass its **Acceptance Criteria
 **Goal**: Switch the Server to use V2.
 
 1.  [x] **App Wrapper**: Finalize `src/core/app_v2.py` (Connect all real modules).
-2.  [x] **Server**: Modify `state.py` to inject V2 app via `TEPORA_USE_V2` flag.
+2.  [x] **Server**: Switch to V2-only runtime (remove `TEPORA_USE_V2` flag and V1 fallback).
 3.  [x] **E2E Test**: Run full regression tests (Chat, History, Settings).
-4.  [ ] **Cleanup**: Archive V1 to `格納/core_v1_archive`.
+4.  [x] **Cleanup**: Archive V1 to `格納/core_v1_archive` and remove V1 from runtime paths.
 
 **Acceptance Criteria (Golden Flow)**:
 *   `test_full_system_e2e`: Send "Hello" via WebSocket (mock auth), Receive Stream, Switch to Agent Mode, Verify Agent routing.

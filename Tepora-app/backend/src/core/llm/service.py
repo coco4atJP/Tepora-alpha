@@ -18,8 +18,10 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage
 
 # Use existing components from core
 from src.core.llm.client_factory import ClientFactory
@@ -69,8 +71,8 @@ class LLMService:
         _client_factory: LangChain client factory
     """
 
-    # Maximum number of cached chat models
-    # P1-3 修正: 複数セッション対応のためキャッシュサイズを増加
+    # Default maximum number of cached chat models.
+    # Configurable via settings.llm_manager.cache_size (or __init__ override).
     _CACHE_SIZE = 3
 
     def __init__(
@@ -78,6 +80,7 @@ class LLMService:
         download_manager: DownloadManager | None = None,
         model_manager: ModelManager | None = None,
         runner: LocalModelRunner | None = None,
+        cache_size: int | None = None,
     ):
         """
         Initialize LLMService.
@@ -104,6 +107,19 @@ class LLMService:
                 logs_dir=logs_dir,
             )
 
+        # Cache size (default: settings.llm_manager.cache_size, fallback: _CACHE_SIZE)
+        try:
+            from src.core.config import settings as _settings
+
+            configured_cache_size = getattr(getattr(_settings, "llm_manager", None), "cache_size", None)
+        except Exception:  # noqa: BLE001
+            configured_cache_size = None
+
+        resolved_cache_size = (
+            cache_size if cache_size is not None else (configured_cache_size or self._CACHE_SIZE)
+        )
+        self._cache_size = max(1, int(resolved_cache_size))
+
         # Client cache: model_key -> (client, port)
         self._chat_model_cache: dict[str, tuple[BaseChatModel, int]] = {}
         self._embedding_client: tuple[Embeddings, int] | None = None
@@ -119,6 +135,77 @@ class LLMService:
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.cleanup()
+
+    async def _count_tokens_via_server(self, text: str, port: int) -> int | None:
+        """Count tokens via llama.cpp server /tokenize endpoint."""
+        if not text:
+            return 0
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"http://127.0.0.1:{port}/tokenize",
+                    json={"content": text},
+                    timeout=5.0,
+                )
+            if response.status_code != 200:
+                logger.debug(
+                    "Tokenize endpoint returned status %s (port=%s)",
+                    response.status_code,
+                    port,
+                )
+                return None
+
+            payload = response.json()
+            tokens = payload.get("tokens", [])
+            if isinstance(tokens, list):
+                return len(tokens)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "Failed to get token count from server (port=%s): %s",
+                port,
+                exc,
+                exc_info=True,
+            )
+        return None
+
+    async def count_tokens(self, messages: list[BaseMessage]) -> int:
+        """
+        Count tokens for a list of messages.
+
+        Used by ContextWindowManager for trimming conversation history.
+        Falls back to rough estimation if tokenize endpoint is unavailable.
+        """
+        if not messages:
+            return 0
+
+        # Prefer character model port (context trimming is for chat prompts).
+        port: int | None = None
+        try:
+            await self.get_client("character")
+        except Exception:
+            port = None
+
+        cached = self._chat_model_cache.get("character_model")
+        if cached:
+            _, port = cached
+
+        total_tokens = 0
+        for msg in messages:
+            content = msg.content if isinstance(msg.content, str) else str(msg.content)
+            if not content:
+                continue
+
+            if port:
+                token_count = await self._count_tokens_via_server(content, port)
+                if token_count is not None:
+                    total_tokens += token_count
+                    continue
+
+            # Fallback estimate: ~4 chars/token
+            total_tokens += max(1, len(content) // 4)
+
+        return total_tokens
 
     async def get_client(
         self,
@@ -247,7 +334,7 @@ class LLMService:
             raise ValueError(f"Model file not found: {model_path}")
 
         # Evict from cache if full
-        if len(self._chat_model_cache) >= self._CACHE_SIZE:
+        if len(self._chat_model_cache) >= self._cache_size:
             await self._evict_oldest_model()
 
         # Start server via runner

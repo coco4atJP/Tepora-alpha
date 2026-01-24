@@ -105,6 +105,14 @@ config.yaml
 __pycache__/
 .uv-cache/
 
+# Pytest temp dirs (local)
+Tepora-app/backend/tmp_cache/
+Tepora-app/backend/tmp_pytest/
+Tepora-app/backend/tmp_test_paths/
+Tepora-app/backend/tmp_test_runs/
+Tepora-app/backend/pytest_tmp*/
+Tepora-app/backend/pytest_cache*/
+
 # Backup directories
 *_bak/
 *.bak
@@ -137,3 +145,4 @@ bin_bak/
 
 # Reference materials (if exists)
 プロジェクト参考資料/
+docs/archives/

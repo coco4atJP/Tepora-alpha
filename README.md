@@ -1,8 +1,8 @@
-このリポジトリは不安定です。
+このリポジトリは開発中のため、予告なく仕様が変更される場合があります。
 
 ![log](https://github.com/coco4atJP/tepora-alpha/blob/main/Tepora_logo.png)
 
-# Tepora （v0.2.0-beta）
+# Tepora （v3.0 beta）
 
 > あなたの隣で、思考し、記憶し、成長する。
 > パーソナルAIエージェント、Teporaへようこそ。
@@ -21,108 +21,74 @@ Teporaの中には、性格の違うふたりのエージェントがいます�
 - **キャラクターエージェントちゃん**: 親しみやすく、日常の何気ないおしゃべりが得意なムードメーカー！
 - **プロフェッショナルエージェントさん**: ツールを華麗に使いこなし、調査や分析などの専門的なタスクを解決するクールな仕事人！
 
-このふたりが力を合わせることで、楽しいおしゃべりから、ちょっと難しいお願いごとまで、幅広く応えてくれます。
-
 #### 🧠 「びっくり！」を記憶するEM-LLMシステム
-ただ会話をログとして覚えるだけじゃないのがTeporaのすごいところ。ICLR 2025で発表された論文のアイデアを元に、会話の中の「驚き」をキャッチして、特に重要だった出来事をエピソードとして記憶します。だから、長く一緒にいればいるほど、あなたのことをもっと深く理解できるようになるんです。
+ICLR 2025で発表された論文のアイデアを元に、会話の中の「驚き（Surprise）」をキャッチして、重要な出来事をエピソードとして記憶します。長く一緒にいればいるほど、あなたのことを深く理解できるようになります。
 
-#### ⚙️ 状況に応じて考えるのが得意！
-「このお願いは、普通に答える？それとも検索？ツールを使うべき？」…そんな複雑な思考プロセスは、`LangGraph`というシステムで、とってもエレガントに管理されています。あなたの言葉の意図を汲み取って、いつでも最適な行動を選びます。
+#### ⚙️ 並行処理に対応したステートレス・コア
+V2アーキテクチャでは、ステートレスな `LLMService` と `TeporaApp` ファサードにより、複数の会話セッションをより安定して並行処理できるようになりました。
 
-#### 🔧 「ツール」で可能性は無限大！
-Web検索やファイル操作など、Teporaにできることは「ツール」を追加することで無限に広がります。Pythonで書かれたネイティブツールはもちろん、外部のプログラムと連携するMCPツールにも対応。あなた好みに、どんどん賢くしてあげてください！
+#### 🔧 MCP対応で無限の可能性
+Web検索やファイル操作などの「ツール」を自由に追加できます。Pythonで書かれたネイティブツールに加え、業界標準の **Model Context Protocol (MCP)** にも対応。あなた好みにどんどん拡張できます。
 
-#### 💻 モダンなWeb UIで快適な対話を！
-美しく使いやすいWebインターフェースを提供しています。リアルタイムでTeporaの返信が見えるストリーミング表示で、スムーズな会話を楽しめます。
+#### 💻 洗練されたデスクトップアプリ
+Tauri を採用したデスクトップアプリとして提供されます。美しく使いやすい UI で、OS と密接に連携した快適な対話を体験できます。
 
 ## 🚀 はじめましてのごあいさつ (Quick Start)
 
 Teporaとお話しするための準備を、ステップバイステップでご案内します。
 
 ### 1. 必要なもの
-- Python 3.10 以上
-- Node.js 18 以上
-- パワフルなCPU、またはGPU（Teporaの頭脳になるGGUFモデルを動かすために必要です）
-- uv（推奨パッケージマネージャ）
+- **Python 3.11** 以上
+- **Node.js 18** 以上
+- **Rust** (Tauriビルドに必要)
+- **uv** (推奨パッケージマネージャ)
+- パワフルなCPU、またはGPU（GGUFモデルを動かすために必要です）
 
 ### 2. お迎えの準備
-```bash
-# TeporaのおうちをあなたのPCに作ります
+```powershell
+# Teporaのリポジトリをクローンします
 git clone https://github.com/coco4atJP/Tepora.git
 cd Tepora
 
-# Tepora専用のお部屋（仮想環境）を用意します
-python -m venv .venv
-.venv\Scripts\activate        # Windowsの場合
-# source .venv/bin/activate   # macOS/Linuxの場合
-
-# バックエンドの依存関係をインストール
-cd backend
+# バックエンドのセットアップ (uv使用を推奨)
+cd Tepora-app/backend
 uv sync
 
-# フロントエンドの依存関係をインストール
+# フロントエンドのセットアップ
 cd ../frontend
 npm install
-cd ..
 ```
 
 ### 3. モデルの配置
-Teporaの頭脳となるGGUFモデルファイルを、`backend/models/` フォルダの中に置いてあげてください。デフォルトでは、以下のモデルたちを待っています。
-
-- **キャラクター担当**: unsloth/gemma-3n-E4B-it-GGUF (`gemma-3n-E4B-it-IQ4_XS.gguf`)
-- **プロフェッショナル担当**: Menlo/Jan-nano-128k-gguf (`jan-nano-128k-iQ4_XS.gguf`)
-- **記憶・埋め込み担当**: Google/embeddinggemma-gguf (`embeddinggemma-300M-Q8_0.gguf`)
+`Tepora-app/backend/models/` フォルダの中に、使用したい GGUF モデルを配置してください。
 
 ### 4. Teporaを起こす (Desktop App)
+推奨される起動方法は、Tauri デスクトップアプリとしての実行です。
 
-推奨される起動方法は、Tauriデスクトップアプリとしての起動です。
-
-```bash
-cd frontend
+```powershell
+cd Tepora-app/frontend
 npm run tauri dev
 ```
-
 これで、バックエンド（Sidecar）とフロントエンドが統合されたデスクトップアプリが起動します。
 
-#### 開発用 Webモード (Legacy/Dev)
-開発目的でWebブラウザから利用したい場合は、以下のスクリプトを使用できます。
+---
 
-```bash
-# ルートディレクトリで実行
-start_app.bat
-```
+## 🛠️ 開発者の方へ
 
-Webモードは `http://localhost:5173` で起動します。
-**注意**: Webモードは現在、開発およびデバッグ用途として位置づけられています。
+Teporaの心臓部は、モジュール化された現代的なアーキテクチャで構成されています。
 
+### 📂 主要ディレクトリ構造
+- **`Tepora-app/backend/src/core/`**: アプリケーションのコアロジック
+    - `llm/`: ステートレスなLLM実行基盤 (`LLMService`)
+    - `graph/`: LangGraph による思考プロセスの制御 (`TeporaGraph`)
+    - `em_llm/`: エピソード記憶の実装
+    - `tools/`: ツールおよび MCP の管理
+- **`Tepora-app/frontend/src/`**: React + TypeScript + Zustand による Web UI
+- **`docs/`**: 詳細なドキュメント
+    - [包括的アーキテクチャ仕様書 (Architecture)](docs/architecture/ARCHITECTURE.md)
+    - [開発者ガイド (Development Guide)](docs/guides/development.md)
 
-## 💬 おはなしのしかた
-Teporaは、あなたの言葉を待っています。Web UIから3つのモードを選択できます。
-
-| モード | Teporaの行動 |
-|:---|:---|
-| **💬 CHAT** | キャラクターエージェントちゃんとの日常会話 |
-| **🔍 SEARCH** | Webで検索して、結果を分かりやすくまとめてくれます |
-| **🤖 AGENT** | プロさんがツールを駆使して、複雑なタスクに挑戦します |
-
-## 🛠️ もっとTeporaを知りたい開発者さんへ
-
-Teporaの心臓部は、美しく整理されたモジュールで構成されています。
-
-- **`docs/`**: 詳細な設計書や計画書が格納されています。
-  - [包括的アーキテクチャ仕様書 (Architecture)](docs/architecture/ARCHITECTURE.md)
-  - [設計ドキュメント V2 (Design Doc)](docs/architecture/design_document_v2.md)
-  - [開発者ガイド (Development Guide)](docs/guides/development.md)
-  - [リファクタリング計画 (Refactoring Plan)](docs/planning/refactoring_plan.md)
-- **`backend/src/tepora_server/`**: WebサーバーとAPIのエントリーポイント
-- **`backend/src/core/app/`**: Teporaのコアロジックとアプリケーション管理
-- **`backend/src/core/graph/`**: LangGraphを使って、Teporaの思考回路を組み立てています
-- **`backend/src/core/em_llm/`**: 「驚き」を記憶する、Teporaの心とも言える部分です
-- **`backend/src/core/llm_manager.py`**: 複数の頭脳（モデル）を賢く切り替える司令塔です
-- **`backend/src/core/tool_manager.py`**: 新しい能力（ツール）を追加するための入り口です
-- **`backend/src/core/config/`**: モデルの性格や記憶のクセなど、細かい設定ができます
-- **`frontend/`**: React + TypeScript で構築されたモダンなWeb UI
-
+詳細は [包括的アーキテクチャ仕様書](docs/architecture/ARCHITECTURE.md) を参照してください。
 
 ## 📜 ライセンス
 

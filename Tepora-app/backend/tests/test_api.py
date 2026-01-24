@@ -9,8 +9,8 @@ from src.tepora_server.app_factory import create_app
 
 @pytest.fixture
 def mock_core_app():
-    """Mock the heavy TeporaCoreApp."""
-    with patch("src.tepora_server.state.TeporaCoreApp") as mock_class:
+    """Mock the heavy TeporaApp (V2-only)."""
+    with patch("src.tepora_server.state.TeporaApp") as mock_class:
         mock_instance = mock_class.return_value
 
         # Mock initialize as async
@@ -38,6 +38,7 @@ def client(mock_core_app):
     # Create a mock AppState that returns our mock_core_app
     mock_state = MagicMock()
     mock_state.core = mock_core_app
+    mock_state.active_core = mock_core_app
 
     # Override the dependency
     from src.tepora_server.api.dependencies import get_app_state

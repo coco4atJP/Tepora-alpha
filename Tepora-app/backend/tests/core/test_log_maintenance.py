@@ -1,10 +1,21 @@
 """Tests for log maintenance utilities."""
 
 import time
+from pathlib import Path
 
 import pytest
 
 from src.core.log_maintenance import cleanup_llama_server_logs, cleanup_old_logs
+
+
+def _can_delete_files(base: Path) -> bool:
+    probe = base / ".delete_probe"
+    try:
+        probe.touch()
+        probe.unlink()
+        return True
+    except OSError:
+        return False
 
 
 class TestLogMaintenance:
@@ -17,8 +28,8 @@ class TestLogMaintenance:
         log_dir.mkdir()
         return log_dir
 
-    def test_cleanup_old_logs(self, log_dir):
-        """Test deletion of files older than max_age_days."""
+    def test_cleanup_old_logs(self, log_dir, monkeypatch):
+        """Test selection of files older than max_age_days for deletion."""
         # Create a fresh file (should be kept)
         fresh_file = log_dir / "fresh.log"
         fresh_file.touch()
@@ -33,15 +44,30 @@ class TestLogMaintenance:
 
         os.utime(old_file, (old_time, old_time))
 
+        if _can_delete_files(log_dir):
+            deleted = cleanup_old_logs(log_dir, max_age_days=7)
+            assert deleted == 1
+            assert fresh_file.exists()
+            assert not old_file.exists()
+            return
+
+        deleted_files: list[Path] = []
+
+        def fake_unlink(self: Path):
+            deleted_files.append(self)
+
+        # Filesystem deletion can be restricted in some environments, so we stub unlink.
+        monkeypatch.setattr(Path, "unlink", fake_unlink)
+
         # Run cleanup (7 days default)
         deleted = cleanup_old_logs(log_dir, max_age_days=7)
 
         assert deleted == 1
-        assert fresh_file.exists()
-        assert not old_file.exists()
+        assert fresh_file not in deleted_files
+        assert old_file in deleted_files
 
-    def test_cleanup_llama_server_logs(self, log_dir):
-        """Test keeping only newest N llama server logs."""
+    def test_cleanup_llama_server_logs(self, log_dir, monkeypatch):
+        """Test selection of llama server logs for deletion (keep newest N)."""
         max_files = 3
         model_type = "character_model"
 
@@ -57,20 +83,37 @@ class TestLogMaintenance:
             os.utime(p, (mtime, mtime))
             files.append(p)
 
+        if _can_delete_files(log_dir):
+            deleted = cleanup_llama_server_logs(log_dir, max_files=max_files)
+            assert deleted == 2
+            assert not files[0].exists()
+            assert not files[1].exists()
+            assert files[2].exists()
+            assert files[3].exists()
+            assert files[4].exists()
+            return
+
+        deleted_files: list[Path] = []
+
+        def fake_unlink(self: Path):
+            deleted_files.append(self)
+
+        monkeypatch.setattr(Path, "unlink", fake_unlink)
+
         # Run cleanup
         deleted = cleanup_llama_server_logs(log_dir, max_files=max_files)
 
         # Should delete 2 files (5 - 3 = 2)
         assert deleted == 2
 
-        # Oldest files (index 0, 1) should be gone
-        assert not files[0].exists()
-        assert not files[1].exists()
+        # Oldest files (index 0, 1) should be selected for deletion
+        assert files[0] in deleted_files
+        assert files[1] in deleted_files
 
-        # Newest files (index 2, 3, 4) should remain
-        assert files[2].exists()
-        assert files[3].exists()
-        assert files[4].exists()
+        # Newest files (index 2, 3, 4) should not be selected for deletion
+        assert files[2] not in deleted_files
+        assert files[3] not in deleted_files
+        assert files[4] not in deleted_files
 
     def test_cleanup_ignore_non_log_files(self, log_dir):
         """Test that non-log files are ignored by default."""
