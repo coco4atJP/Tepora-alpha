@@ -21,24 +21,20 @@ cd tepora
 ```
 
 ### 2. バックエンド (Python) のセットアップ
-```powershell
-cd Tepora-app/backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-**注意**: `llama-cpp-python` のインストールにはC++ビルドツールが必要になる場合があります。GPUサポートを有効にする場合は、適切なビルド引数を指定してください。
+本プロジェクトではパッケージマネージャーとして `uv` を使用します。
 
-**推奨**: `uv` パッケージマネージャーを使用する場合:
 ```powershell
 cd Tepora-app/backend
 uv sync
 ```
+**注意**: `llama-cpp-python` のインストールにはC++ビルドツールが必要になる場合があります。
 
 ### 3. フロントエンド (React + Tauri) のセットアップ
+ピア依存関係の競合を避けるため、`npm ci --legacy-peer-deps` を使用します。
+
 ```powershell
 cd Tepora-app/frontend
-npm install
+npm ci --legacy-peer-deps
 ```
 
 ## 💻 開発時の実行方法 (Running in Development)
@@ -115,7 +111,7 @@ npm run tauri build
 ## 📁 主要なディレクトリ構造
 詳細なアーキテクチャは [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) を参照してください。
 
-- `Tepora-app/backend/src/tepora_server`: FastAPI Webサーバー実装
+- `Tepora-app/backend/server.py`: バックエンドのエントリーポイント
 - `Tepora-app/backend/src/core`: ビジネスロジック (LangGraph, EM-LLM)
 - `Tepora-app/frontend/src`: React コンポーネント
 - `Tepora-app/frontend/src-tauri`: Tauri 設定と Rust コード

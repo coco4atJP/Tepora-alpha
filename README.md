@@ -56,7 +56,7 @@ uv sync
 
 # フロントエンドのセットアップ
 cd ../frontend
-npm install
+npm ci --legacy-peer-deps
 ```
 
 ### 3. モデルの配置
@@ -70,6 +70,15 @@ cd Tepora-app/frontend
 npm run tauri dev
 ```
 これで、バックエンド（Sidecar）とフロントエンドが統合されたデスクトップアプリが起動します。
+
+### 5. 配布用アプリのビルド (Build)
+Tepora を配布可能な形式（.exe, .dmg, .debなど）にビルドするには、以下の手順を実行します。
+
+```powershell
+cd Tepora-app/frontend
+npm run tauri build
+```
+ビルドが完了すると、`Tepora-app/frontend/src-tauri/target/release/bundle/` にインストーラーが生成されます。
 
 ---
 
