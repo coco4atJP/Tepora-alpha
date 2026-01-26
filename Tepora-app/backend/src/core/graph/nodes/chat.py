@@ -75,6 +75,7 @@ class ChatNode:
         # Build hierarchical context
         full_history = state.get("chat_history", [])
         retrieved_memory_str = str(state.get("synthesized_memory") or "No relevant memories found.")
+        thought_process = state.get("thought_process")
 
         # Build unified system message
         system_content_parts = [
@@ -88,6 +89,16 @@ class ChatNode:
             retrieved_memory_str,
             "</retrieved_memory>",
         ]
+
+        if thought_process:
+            system_content_parts.extend(
+                [
+                    "",
+                    "<thought_process>",
+                    thought_process,
+                    "</thought_process>",
+                ]
+            )
 
         # Build local context
         max_local_tokens = MemoryLimits.MAX_LOCAL_CONTEXT_TOKENS
@@ -179,6 +190,7 @@ class ChatNode:
 
         full_history = state.get("chat_history", [])
         retrieved_memory = str(state.get("synthesized_memory") or "No relevant memories found.")
+        thought_process = state.get("thought_process")
 
         system_parts = [
             ATTENTION_SINK_PREFIX,
@@ -191,6 +203,16 @@ class ChatNode:
             retrieved_memory,
             "</retrieved_memory>",
         ]
+
+        if thought_process:
+            system_parts.extend(
+                [
+                    "",
+                    "<thought_process>",
+                    thought_process,
+                    "</thought_process>",
+                ]
+            )
 
         local_context, _ = await self.context_manager.build_local_context(
             full_history,

@@ -21,8 +21,7 @@ from __future__ import annotations
 import base64
 import logging
 import re
-from collections.abc import Awaitable, Callable
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -524,6 +523,7 @@ class TeporaApp:
         skip_web_search: bool = False,
         session_id: str = "default",
         approval_callback: Callable[[str, dict], Awaitable[bool]] | None = None,
+        **kwargs: Any,
     ):
         """
         V1互換: ユーザーリクエストを処理する
@@ -535,6 +535,7 @@ class TeporaApp:
             skip_web_search: Web検索をスキップするか
             session_id: セッションID
             approval_callback: ツール承認コールバック
+            **kwargs: 追加パラメータ（thinking_mode等）
 
         Yields:
             イベント辞書
@@ -590,6 +591,10 @@ class TeporaApp:
             if key in initial_state:
                 initial_state[key] = value
 
+        for key, value in kwargs.items():
+            if key in initial_state:
+                initial_state[key] = value
+
         run_config: dict[str, Any] = {
             "recursion_limit": core_config.GRAPH_RECURSION_LIMIT,
             "configurable": {},
@@ -620,7 +625,11 @@ class TeporaApp:
         def _annotate_message(msg, *, msg_mode: str):
             if not hasattr(msg, "copy"):
                 return msg
-            kwargs = msg.additional_kwargs if isinstance(getattr(msg, "additional_kwargs", None), dict) else {}
+            kwargs = (
+                msg.additional_kwargs
+                if isinstance(getattr(msg, "additional_kwargs", None), dict)
+                else {}
+            )
             merged = {**kwargs}
             merged.setdefault("mode", msg_mode)
             merged.setdefault("timestamp", now_iso)

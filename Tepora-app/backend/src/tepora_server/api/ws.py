@@ -33,6 +33,7 @@ class WSIncomingMessage(BaseModel):
     mode: str = "direct"
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     skipWebSearch: bool = False  # noqa: N815
+    thinkingMode: bool | None = None  # noqa: N815
     # Session management
     sessionId: str | None = None  # noqa: N815
     # Tool confirmation fields
@@ -260,8 +261,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         data.message or "",
                         data.mode,
                         data.attachments,
+                        data.attachments,
                         data.skipWebSearch,
                         session_id,
+                        thinking_mode=data.thinkingMode,
                     )
                 )
 

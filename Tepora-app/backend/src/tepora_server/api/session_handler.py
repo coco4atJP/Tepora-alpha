@@ -41,6 +41,7 @@ class SessionHandler:
         GraphNodes.TOOL_NODE: "Executing external tools...",
         GraphNodes.SYNTHESIZE_FINAL_RESPONSE: "Synthesizing final response...",
         GraphNodes.UPDATE_SCRATCHPAD: "Updating memory...",
+        GraphNodes.THINKING_NODE: "Thinking deeply...",
     }
 
     AGENT_NAMES: dict[str, str] = {
@@ -52,6 +53,7 @@ class SessionHandler:
         GraphNodes.TOOL_NODE: "Tool Handler",
         GraphNodes.SYNTHESIZE_FINAL_RESPONSE: "Synthesizer",
         GraphNodes.UPDATE_SCRATCHPAD: "Memory Manager",
+        GraphNodes.THINKING_NODE: "Thinker",
     }
 
     def __init__(self, websocket: WebSocket, app_state: AppState):
@@ -269,6 +271,7 @@ class SessionHandler:
         attachments: list[dict[str, Any]],
         skip_web_search: bool,
         session_id: str = "default",
+        thinking_mode: bool | None = None,
     ) -> None:
         """
         Process a user message.
@@ -311,6 +314,7 @@ class SessionHandler:
                 skip_web_search=skip_web_search,
                 session_id=session_id,
                 approval_callback=self.request_tool_approval,
+                thinking_mode=thinking_mode,
             ):
                 await self._handle_stream_event(event, mode)
 

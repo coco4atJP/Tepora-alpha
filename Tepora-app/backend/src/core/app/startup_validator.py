@@ -6,8 +6,8 @@ attempting to initialize heavy resources.
 """
 
 import logging
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 from ..config import CHROMA_DB_PATH
 

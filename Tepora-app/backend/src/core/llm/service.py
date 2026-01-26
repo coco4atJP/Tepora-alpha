@@ -111,7 +111,9 @@ class LLMService:
         try:
             from src.core.config import settings as _settings
 
-            configured_cache_size = getattr(getattr(_settings, "llm_manager", None), "cache_size", None)
+            configured_cache_size = getattr(
+                getattr(_settings, "llm_manager", None), "cache_size", None
+            )
         except Exception:  # noqa: BLE001
             configured_cache_size = None
 

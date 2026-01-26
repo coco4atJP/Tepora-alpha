@@ -70,6 +70,10 @@ class AgentState(TypedDict):
     task_input: dict | None
     task_result: dict | None
 
+    # Thinking Mode (CoT)
+    thinking_mode: bool | None
+    thought_process: str | None
+
 
 def create_initial_state(
     session_id: str,
@@ -108,4 +112,6 @@ def create_initial_state(
         order=None,
         task_input=None,
         task_result=None,
+        thinking_mode=None,
+        thought_process=None,
     )

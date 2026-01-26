@@ -44,7 +44,11 @@ async def lifespan(app: FastAPI):
         # Run blocking validation in a thread to avoid blocking the event loop.
         # In unit tests we deliberately skip strict startup validation to keep API tests lightweight.
         env = os.getenv("TEPORA_ENV", "production").lower()
-        skip_validation = os.getenv("TEPORA_SKIP_STARTUP_VALIDATION", "").lower() in {"1", "true", "yes"}
+        skip_validation = os.getenv("TEPORA_SKIP_STARTUP_VALIDATION", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         if env != "test" and not skip_validation:
             await asyncio.get_running_loop().run_in_executor(
                 None, validate_startup_config, settings, PROJECT_ROOT

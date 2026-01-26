@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+
 # --- 1. Path Setup ---
 # Add 'backend' to sys.path so 'src' module can be found
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,7 @@ def tmp_path(request):  # noqa: D103
     path = base_root / f"{safe_name}_{uuid.uuid4().hex}"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
 
 # --- 3. Mock External Dependencies (Optional/Global) ---
 # Example: If you want to prevent ANY real network calls or Heavy loads

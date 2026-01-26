@@ -317,6 +317,10 @@ backend/
         │   ├── manager.py      # ToolManager（統合管理）
         │   ├── base.py         # ToolProvider基底
         │   ├── native.py       # ネイティブツール（Web検索等）
+        │   ├── search/         # -------- Search Tools --------
+        │   │   ├── base.py     # SearchEngine基底
+        │   │   ├── tool.py     # SearchToolラッパー
+        │   │   └── providers/  # 検索エンジン実装
         │   └── mcp.py          # McpToolProvider
         │
         ├── em_llm/             # -------- EM-LLM Module --------
@@ -560,6 +564,15 @@ graph LR
 | `ChatNode` | `nodes/chat.py` | 直接対話応答を生成 |
 | `SearchNode` | `nodes/search.py` | Web検索実行 → RAGコンテキスト構築 → 要約生成 |
 | `AgentNode` | `nodes/react.py` | ReActループ（思考→行動→観察） |
+| `ThinkingNode` | `nodes/thinking.py` | CoT（Chain of Thought）思考プロセス生成 |
+
+### Thinking Mode (CoT)
+
+V2では、複雑な推論を必要とするリクエストに対して **Thinking Mode (CoT)** をサポートしています。
+
+- **動作**: `ThinkingNode` が最終回答の前に実行され、ステップバイステップの思考プロセスを生成します。
+- **統合**: 生成された思考プロセス（`<thought_process>`）は `AgentState` に保存され、`ChatNode` のシステムプロンプトに注入されます。
+- **制御**: クライアントからのリクエストパラメータ `thinking_mode: true` で有効化されます。
 
 ### AgentState（グラフ状態）
 
@@ -651,7 +664,7 @@ class LLMService:
 |--------------|----------|------|
 | `LocalModelRunner` | `runner.py` | ローカルLLM実行の抽象インターフェース（Protocol） |
 | `LlamaServerRunner` | `llama_runner.py` | llama.cpp実装（ProcessManagerをラップ） |
-| `OllamaRunner` | `ollama_runner.py` | Ollama実装（将来対応用スケルトン） |
+| `OllamaRunner` | `ollama_runner.py` | Ollama API接続実装（モデル名ベース管理） |
 | `ProcessManager` | `process_manager.py` | llama-serverプロセスの起動・停止・監視 |
 | `ClientFactory` | `client_factory.py` | LangChain互換クライアント生成 |
 | `ModelRegistry` | `model_registry.py` | 設定からモデルパスを解決 |

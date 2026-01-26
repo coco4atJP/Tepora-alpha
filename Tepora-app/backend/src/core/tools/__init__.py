@@ -17,8 +17,6 @@ from .mcp import (  # noqa: E402
 
 # V1 native tools
 from .native import (  # noqa: E402
-    GoogleCustomSearchInput,
-    GoogleCustomSearchTool,
     NativeToolProvider,
     WebFetchInput,
     WebFetchTool,
@@ -30,8 +28,6 @@ __all__ = [
     # V2
     "ToolManager",
     # V1 native
-    "GoogleCustomSearchInput",
-    "GoogleCustomSearchTool",
     "WebFetchInput",
     "WebFetchTool",
     "NativeToolProvider",
@@ -40,4 +36,3 @@ __all__ = [
     "load_connections_from_config",
     "load_mcp_tools_robust",
 ]
-

@@ -175,6 +175,26 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 							</div>
 						)}
 
+						{/* Thinking Process */}
+						{message.thinking && (
+							<details className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2">
+								<summary className="flex items-center gap-2 px-3 py-2 text-xs font-mono text-gray-400 cursor-pointer hover:bg-white/5 transition-colors select-none">
+									<Bot className="w-3 h-3 text-purple-400" />
+									<span className="opacity-80">Thinking Process</span>
+									<div className="flex-1" />
+									<span className="text-[10px] opacity-50 group-open/thinking:hidden">
+										Click to expand
+									</span>
+								</summary>
+								<div className="px-3 pt-2 text-xs font-mono text-gray-400/80 leading-relaxed whitespace-pre-wrap border-t border-white/5">
+									{message.thinking}
+									{!message.isComplete && !message.content && (
+										<span className="animate-pulse inline-block ml-1">...</span>
+									)}
+								</div>
+							</details>
+						)}
+
 						<div
 							className={`markdown-content prose prose-theme max-w-none break-words whitespace-pre-wrap
                                 prose-p:leading-7 prose-p:my-3

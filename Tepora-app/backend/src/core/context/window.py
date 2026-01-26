@@ -8,7 +8,7 @@ Decoupled from LLMManager to allow flexible token counting strategies.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.messages import BaseMessage
@@ -47,7 +47,7 @@ class ContextWindowManager:
         self,
         full_history: list[BaseMessage],
         max_tokens: int | None = None,
-        token_counter: Callable[[list[BaseMessage]], int] | None = None,
+        token_counter: Callable[[list[BaseMessage]], Awaitable[int]] | None = None,
     ) -> tuple[list[BaseMessage], int]:
         """
         Build local context from full history within token limits.

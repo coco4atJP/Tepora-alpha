@@ -7,6 +7,7 @@ export interface Message {
 	mode?: "direct" | "search" | "agent";
 	agentName?: string;
 	nodeId?: string;
+	thinking?: string; // Chain of Thought content
 	isComplete?: boolean; // ストリーミングメッセージの完了フラグ
 }
 
@@ -80,6 +81,7 @@ export type WebSocketOutgoingMessage =
 			mode: ChatMode;
 			attachments?: Attachment[];
 			skipWebSearch?: boolean;
+			thinkingMode?: boolean; // Toggle Chain of Thought
 			sessionId?: string;
 	  }
 	| { type: "stop" }

@@ -123,7 +123,9 @@ class SearchPipelineNodes:
         for query in queries:
             logger.info("Executing search for query: '%s'", query)
 
-            raw_result = await self.tool_manager.aexecute_tool("native_google_search", {"query": query})
+            raw_result = await self.tool_manager.aexecute_tool(
+                "native_google_search", {"query": query}
+            )
 
             if not isinstance(raw_result, str):
                 logger.warning(
@@ -134,7 +136,9 @@ class SearchPipelineNodes:
                 aggregated_results.append(
                     {
                         "query": query,
-                        "results": [{"error": "Received unexpected result format from search tool."}],
+                        "results": [
+                            {"error": "Received unexpected result format from search tool."}
+                        ],
                     }
                 )
                 continue
@@ -159,7 +163,9 @@ class SearchPipelineNodes:
                 continue
 
             if not isinstance(parsed, dict):
-                logger.warning("Unexpected search payload for query '%s': %s", query, type(parsed).__name__)
+                logger.warning(
+                    "Unexpected search payload for query '%s': %s", query, type(parsed).__name__
+                )
                 aggregated_results.append(
                     {"query": query, "results": [{"error": "Unexpected search response format."}]}
                 )

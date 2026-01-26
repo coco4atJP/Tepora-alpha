@@ -173,22 +173,58 @@ export const useChatStore = create<ChatStore>()(
 				const state = get();
 				const currentMetadata = state._streamMetadata;
 
-				// If node changed, flush existing buffer first
+				// Special handling for Thinking -> Response transition:
+				// If we are switching nodes, but staying within the same "Response" lifecycle (e.g. Thinking -> Final Answer),
+				// we should NOT close the stream, but instead flush the buffer to the appropriate field and switch target.
+
+				const isThinkingNode = (id?: string) => id === "thinking";
+
+				// Check if we should split the message (standard behavior) or keep merged (transactional behavior)
+				// We merge if:
+				// 1. Current was Thinking, New is NOT Thinking (Thinking -> Answer)
+				// 2. We are already streaming and just switching generic nodes (legacy behavior might separate them, but let's try to keep them together if role is assistant)
+
+				// Simplified Logic:
+				// If nodeId changes, we flush the buffer.
+				// If the message is NOT complete, we check if we can continue appending to it (different field).
+
+				// Check if node changed
 				if (currentMetadata && currentMetadata.nodeId !== metadata.nodeId) {
+					// FLUSH current buffer before switching
 					get().flushStreamBuffer();
 
-					// Close the previous streaming message
+					const lastMessage = state.messages[state.messages.length - 1];
+
+					// Decision: Do we close the current message or continue it?
+					// Continue if: Last message is assistant, not complete, and we are just switching phases (e.g. Thinking -> Answer)
+					const shouldContinueMessage =
+						lastMessage?.role === "assistant" &&
+						!lastMessage.isComplete &&
+						(isThinkingNode(currentMetadata.nodeId) ||
+							isThinkingNode(metadata.nodeId));
+
+					if (shouldContinueMessage) {
+						// We are keeping the same message, just updating metadata so future chunks go to right place
+						set(
+							{
+								_streamMetadata: metadata,
+								_streamBuffer: "",
+							},
+							false,
+							"switchStreamNode",
+						);
+						return;
+					}
+
+					// Standard behavior: Close previous message
 					set(
 						(s) => {
-							const lastMessage = s.messages[s.messages.length - 1];
-							if (
-								lastMessage?.role === "assistant" &&
-								!lastMessage.isComplete
-							) {
+							const msg = s.messages[s.messages.length - 1];
+							if (msg?.role === "assistant" && !msg.isComplete) {
 								return {
 									messages: [
 										...s.messages.slice(0, -1),
-										{ ...lastMessage, isComplete: true },
+										{ ...msg, isComplete: true },
 									],
 								};
 							}
@@ -198,20 +234,22 @@ export const useChatStore = create<ChatStore>()(
 						"closeStreamMessage",
 					);
 
-					// Start new message for new node
+					// Start new message
 					const newMessage: Message = {
 						id: Date.now().toString(),
 						role: "assistant",
-						content,
+						content: isThinkingNode(metadata.nodeId) ? "" : content,
+						thinking: isThinkingNode(metadata.nodeId) ? content : undefined,
 						timestamp: new Date(),
 						isComplete: false,
 						...metadata,
 					};
+
 					set(
 						(s) => ({
 							messages: [...s.messages, newMessage],
 							_streamMetadata: metadata,
-							_streamBuffer: "",
+							_streamBuffer: "", // Content already added to newMessage
 						}),
 						false,
 						"startNewStreamMessage",
@@ -219,15 +257,13 @@ export const useChatStore = create<ChatStore>()(
 					return;
 				}
 
-				// Same node - buffer the content
+				// SAME NODE - buffer the content
 				const newBuffer = state._streamBuffer + content;
 
-				// Clear existing timeout
 				if (state._flushTimeout) {
 					clearTimeout(state._flushTimeout);
 				}
 
-				// Set new timeout for flush
 				const timeout = setTimeout(() => {
 					get().flushStreamBuffer();
 				}, CHUNK_FLUSH_INTERVAL);
@@ -235,7 +271,7 @@ export const useChatStore = create<ChatStore>()(
 				set(
 					{
 						_streamBuffer: newBuffer,
-						_streamMetadata: metadata,
+						_streamMetadata: metadata, // Ensure metadata is set
 						_flushTimeout: timeout,
 					},
 					false,
@@ -245,28 +281,36 @@ export const useChatStore = create<ChatStore>()(
 
 			flushStreamBuffer: () => {
 				const state = get();
-				if (!state._streamBuffer) return;
+				if (!state._streamBuffer && !state._streamMetadata) return;
 
 				const bufferedContent = state._streamBuffer;
 				const metadata = state._streamMetadata;
+				const isThinking = metadata?.nodeId === "thinking";
 
 				set(
 					(s) => {
 						const lastMessage = s.messages[s.messages.length - 1];
 
 						// Append to existing streaming message
-						if (
-							lastMessage?.role === "assistant" &&
-							!lastMessage.isComplete &&
-							lastMessage.nodeId === metadata?.nodeId
-						) {
+						if (lastMessage?.role === "assistant" && !lastMessage.isComplete) {
+							// Check if we should append to thinking or content based on CURRENT metadata
+							// Note: We use the metadata from store because that tracks where the buffer belongs
+
 							return {
 								messages: [
 									...s.messages.slice(0, -1),
 									{
 										...lastMessage,
-										content: lastMessage.content + bufferedContent,
+										content: isThinking
+											? lastMessage.content
+											: lastMessage.content + bufferedContent,
+										thinking: isThinking
+											? (lastMessage.thinking || "") + bufferedContent
+											: lastMessage.thinking,
+										// Update top-level mode/agentName if changed
 										mode: metadata?.mode || lastMessage.mode,
+										agentName: metadata?.agentName || lastMessage.agentName,
+										nodeId: metadata?.nodeId || lastMessage.nodeId,
 									},
 								],
 								_streamBuffer: "",
@@ -274,11 +318,12 @@ export const useChatStore = create<ChatStore>()(
 							};
 						}
 
-						// Start new streaming message
+						// Start new streaming message (Fallback if no active message found)
 						const newMessage: Message = {
 							id: Date.now().toString(),
 							role: "assistant",
-							content: bufferedContent,
+							content: isThinking ? "" : bufferedContent,
+							thinking: isThinking ? bufferedContent : undefined,
 							timestamp: new Date(),
 							isComplete: false,
 							...metadata,

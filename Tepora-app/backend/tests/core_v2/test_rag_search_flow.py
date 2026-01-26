@@ -369,7 +369,9 @@ class TestRAGSearchGoldenFlow:
         mock_embedding = MagicMock()
         # Return consistent embeddings for semantic similarity
         mock_embedding.embed_query.return_value = [0.5] * 64
-        mock_embedding.embed_documents.return_value = [[0.5 + i * 0.01] * 64 for i in range(len(chunk_texts))]
+        mock_embedding.embed_documents.return_value = [
+            [0.5 + i * 0.01] * 64 for i in range(len(chunk_texts))
+        ]
 
         rag_context = context_builder.build_context(
             chunk_texts=chunk_texts,
@@ -384,6 +386,5 @@ class TestRAGSearchGoldenFlow:
 
         # Verify context contains relevant content
         assert any(
-            keyword in rag_context.lower()
-            for keyword in ["tepora", "modular", "memory", "agent"]
+            keyword in rag_context.lower() for keyword in ["tepora", "modular", "memory", "agent"]
         ), "Context should include relevant keywords from document"

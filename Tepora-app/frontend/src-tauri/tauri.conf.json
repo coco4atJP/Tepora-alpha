@@ -37,9 +37,7 @@
 	},
 	"bundle": {
 		"active": true,
-		"targets": [
-			"nsis"
-		],
+		"targets": ["nsis"],
 		"publisher": "Tepora",
 		"shortDescription": "Tepora Desktop",
 		"icon": [
@@ -49,11 +47,7 @@
 			"icons/icon.icns",
 			"icons/icon.ico"
 		],
-		"externalBin": [
-			"binaries/tepora-backend"
-		],
-		"resources": [
-			"resources/llama-cpu-fallback/*"
-		]
+		"externalBin": ["binaries/tepora-backend"],
+		"resources": ["resources/llama-cpu-fallback/*"]
 	}
 }

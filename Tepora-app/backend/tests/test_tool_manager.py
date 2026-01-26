@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 # Add backend/src to sys.path
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from src.core.tools.manager import ToolManager
 from src.core.tools.base import ToolProvider
+from src.core.tools.manager import ToolManager
 
 
 class MockToolProvider(ToolProvider):

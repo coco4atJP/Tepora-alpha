@@ -43,6 +43,7 @@ interface WebSocketActions {
 		mode: ChatMode,
 		attachments?: Attachment[],
 		skipWebSearch?: boolean,
+		thinkingMode?: boolean,
 	) => void;
 	sendRaw: (data: object) => void;
 
@@ -109,6 +110,7 @@ const AGENT_MAPPING: Record<string, string> = {
 	tool_node: "Tool Handler",
 	synthesize_final_response: "Synthesizer",
 	update_scratchpad: "Memory Manager",
+	thinking: "Deep Thinker",
 };
 
 // ============================================================================
@@ -388,6 +390,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					mode,
 					attachments = [],
 					skipWebSearch = false,
+					thinkingMode = false,
 				) => {
 					const { socket, isConnected } = get();
 					const chatStore = useChatStore.getState();
@@ -409,6 +412,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							mode,
 							attachments,
 							skipWebSearch,
+							thinkingMode,
 							sessionId: sessionStore.currentSessionId,
 						}),
 					);

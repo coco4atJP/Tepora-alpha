@@ -302,4 +302,3 @@ class TestTeporaAppWithLLM:
 
             await app.shutdown()
             assert not app.is_initialized
-

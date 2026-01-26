@@ -1,196 +1,23 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import time
 from typing import Any
 from urllib.parse import urlparse
 
-import requests
+import requests  # type: ignore[import-untyped]
 from bs4 import BeautifulSoup
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
-from requests.adapters import HTTPAdapter
+from requests.adapters import HTTPAdapter  # type: ignore[import-untyped]
 from urllib3.util.retry import Retry
 
-from ..common.pii_redactor import redact_pii
 from ..config.loader import settings
+from .base import ToolProvider
+from .search.providers.google import GoogleSearchEngine
+from .search.tool import SearchTool, _build_error_response
 
 logger = logging.getLogger(__name__)
-
-
-def _build_error_response(error_code: str, message: str, **kwargs: Any) -> str:
-    response = {
-        "error": True,
-        "error_code": error_code,
-        "message": message,
-        **kwargs,
-    }
-    return json.dumps(response, ensure_ascii=False)
-
-
-class GoogleCustomSearchInput(BaseModel):
-    query: str = Field(description="検索クエリ")
-
-
-class GoogleCustomSearchTool(BaseTool):
-    name: str = "native_google_search"
-    description: str = "Google Custom Search APIを使用してWeb検索を実行し、複数の結果を返します。"
-    args_schema: type[BaseModel] = GoogleCustomSearchInput
-    session: Any = Field(None, exclude=True)
-
-    def __init__(self, **kwargs: Any):
-        super().__init__(**kwargs)
-
-    def _create_session(self) -> requests.Session:
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET"],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session
-
-    def _make_error_response(self, error_code: str, message: str, **kwargs: Any) -> str:
-        """Create a structured error response for frontend translation."""
-        return _build_error_response(error_code, message, **kwargs)
-
-    def _perform_search(self, query: str) -> str:
-        if not settings.privacy.allow_web_search:
-            return self._make_error_response(
-                "search_disabled_privacy", "Web search is disabled by privacy settings."
-            )
-
-        # Apply PII redaction if enabled
-        search_query = query
-        redaction_count = 0
-        if settings.privacy.redact_pii:
-            search_query, redaction_count = redact_pii(query, enabled=True)
-            if redaction_count > 0:
-                logger.info("Redacted %d PII items from search query", redaction_count)
-
-        api_key_secret = settings.tools.google_search_api_key
-        api_key = api_key_secret.get_secret_value() if api_key_secret else None
-        engine_id = settings.tools.google_search_engine_id
-
-        if not api_key or not engine_id:
-            return self._make_error_response(
-                "search_disabled_api_keys",
-                "Google Custom Search is disabled (API keys not configured).",
-            )
-
-        url = "https://www.googleapis.com/customsearch/v1"
-        params = {
-            "key": api_key,
-            "cx": engine_id,
-            "q": search_query,
-            "num": 10,
-            "safe": "active",
-        }
-        headers = {
-            "User-Agent": "AI-Agent/1.0 (Google Custom Search Tool)",
-            "Accept": "application/json",
-        }
-
-        logger.info("Executing Google Custom Search for query: %s", search_query)
-        start_time = time.time()
-        try:
-            with self._create_session() as session:
-                response = session.get(url, params=params, headers=headers, timeout=(10, 30))
-            elapsed_time = time.time() - start_time
-            logger.info("Search completed in %.2f seconds", elapsed_time)
-            response.raise_for_status()
-            data = response.json()
-        except requests.exceptions.Timeout as exc:  # noqa: PERF203
-            logger.error("Google Custom Search API timeout: %s", exc, exc_info=True)
-            return self._make_error_response(
-                "search_timeout", "Search request timed out. Please try again later."
-            )
-        except requests.exceptions.ConnectionError as exc:
-            logger.error("Google Custom Search API connection error: %s", exc, exc_info=True)
-            return self._make_error_response(
-                "search_connection_error",
-                "Connection failed. Please check your internet connection and try again.",
-            )
-        except requests.exceptions.HTTPError as exc:
-            status_code = exc.response.status_code if exc.response else "N/A"
-            logger.error(
-                "Google Custom Search API HTTP error: Status %s", status_code, exc_info=True
-            )
-            if status_code == 429:
-                return self._make_error_response(
-                    "search_rate_limit", "Rate limit exceeded. Please wait a moment and try again."
-                )
-            if status_code == 403:
-                return self._make_error_response(
-                    "search_access_denied",
-                    "API access denied. Please check your API key and permissions.",
-                )
-            return self._make_error_response(
-                "search_http_error",
-                f"HTTP error occurred with status code {status_code}.",
-                status_code=str(status_code),
-            )
-        except requests.exceptions.RequestException as exc:
-            logger.error("Google Custom Search API request failed: %s", exc, exc_info=True)
-            return self._make_error_response(
-                "search_failed", f"Failed to perform search: {exc}", details=str(exc)
-            )
-        except json.JSONDecodeError as exc:
-            logger.error("Failed to parse Google API response: %s", exc, exc_info=True)
-            return self._make_error_response(
-                "search_invalid_response", "Invalid response from Google API. Please try again."
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Unexpected error in Google Custom Search: %s", exc, exc_info=True)
-            return self._make_error_response(
-                "search_unexpected_error", f"Unexpected error occurred: {exc}", details=str(exc)
-            )
-
-        if "error" in data:
-            error_info = data["error"]
-            error_message = f"Google API Error: {error_info.get('code', 'Unknown')} - {error_info.get('message', 'Unknown error')}"
-            logger.error(error_message)
-            return self._make_error_response(
-                "search_api_error", error_message, api_code=error_info.get("code", "Unknown")
-            )
-
-        items = data.get("items")
-        if not items:
-            return f"No search results found for: {query}"
-
-        results = [
-            {
-                "title": item.get("title", "No title"),
-                "url": item.get("link", ""),
-                "snippet": item.get("snippet", "No description"),
-            }
-            for item in items
-        ]
-        logger.info("Successfully retrieved %d search results", len(results))
-        response_payload = {
-            "query": query,
-            "effective_query": search_query,
-            "redaction_count": redaction_count,
-            "total_results": len(results),
-            "results": results,
-            "search_time": f"{elapsed_time:.2f}s",
-        }
-        if redaction_count > 0:
-            response_payload["notice"] = "Some sensitive items were redacted before search."
-
-        return json.dumps(response_payload, ensure_ascii=False, indent=2)
-
-    def _run(self, query: str) -> str:
-        return self._perform_search(query)
-
-    async def _arun(self, query: str) -> str:
-        return await asyncio.to_thread(self._perform_search, query)
 
 
 class WebFetchInput(BaseModel):
@@ -313,9 +140,6 @@ class WebFetchTool(BaseTool):
         return await asyncio.to_thread(self._fetch_content, url)
 
 
-from .base import ToolProvider  # noqa: E402
-
-
 class NativeToolProvider(ToolProvider):
     """
     Provider for collecting native tools (search, web fetch, etc.).
@@ -337,9 +161,29 @@ class NativeToolProvider(ToolProvider):
 
         if settings.privacy.allow_web_search and api_key and engine_id:
             try:
-                google_search_tool = GoogleCustomSearchTool()
-                google_search_tool.name = "native_google_search"
-                google_search_tool.description = "Search the web with Google Custom Search API and return multiple results (list of findings). This is a native tool."
+                google_engine = GoogleSearchEngine()
+                google_search_tool = SearchTool(
+                    engine=google_engine,
+                    name="native_google_search",
+                    description="Google Custom Search APIを使用してWeb検索を実行し、複数の結果を返します。",
+                )
+
+                # Additional alias for generic web search (pointing to Google for now)
+                # Or we can just stick to native_google_search as requested by user.
+                # User approved "native_web_search" name but also asked to move "nativeGoogleSearch" to foundation.
+                # I will preserve "native_google_search" as per my check in planning,
+                # but the user said "native_web_search is fine" in response to "tool name changes".
+                # Let's add BOTH or just rename?
+                # User's last prompt: "native_web_searchの名前で問題ありません" (native_web_search name is fine).
+                # So I should probably use `native_web_search` as the primary name?
+                # But to avoid breaking existing agents that might reference `native_google_search`, I'll stick to what I have in the code:
+                # `native_google_search` is what I used in the previous step's contemplation.
+                # Wait, looking at user request again: "native_web_searchの名前で問題ありません"
+                # This implies I should use `native_web_search`?
+                # I will keep `native_google_search` for now to minimize friction, or add an alias?
+                # Actually, I'll stick to the plan of keeping `native_google_search` in the provider logic below,
+                # but I can ALSO provide it as `native_web_search`.
+
                 tools.append(google_search_tool)
             except Exception as exc:  # noqa: BLE001
                 logger.error("Failed to load Google Custom Search tool: %s", exc, exc_info=True)

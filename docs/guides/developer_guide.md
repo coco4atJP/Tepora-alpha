@@ -113,7 +113,7 @@ Tepora's tool system is modular. To add a new tool:
    - Inherit from `BaseTool` defined in `tools/base.py`
 2. **MCP Tools**: Configure external MCP servers in `config/mcp_tools_config.json`
    - See `tools/mcp.py` for the `McpToolProvider` implementation
-3. Register the tool in `Tepora-app/backend/src/core/tool_manager.py`.
+3. Register the tool in `Tepora-app/backend/src/core/tools/manager.py`.
 4. If necessary, update the `agent_profiles` in `config.yml` to allow the new tool.
 
 **Tool directory structure:**
@@ -122,7 +122,8 @@ src/core/tools/
 ├── __init__.py     # Tool exports
 ├── base.py         # BaseTool abstract class
 ├── native.py       # Built-in Python tools (e.g., Google Search)
-└── mcp.py          # MCP tool provider (McpToolProvider)
+├── mcp.py          # MCP tool provider (McpToolProvider)
+└── manager.py      # Tool Manager
 ```
 
 ### Modifying Agent Behavior
@@ -242,7 +243,7 @@ Teporaのツールシステムはモジュラー設計です。新しいツー�
    - `tools/base.py` で定義された `BaseTool` を継承
 2. **MCPツール**: 外部MCPサーバーを `config/mcp_tools_config.json` で設定
    - `McpToolProvider` の実装は `tools/mcp.py` を参照
-3. `Tepora-app/backend/src/core/tool_manager.py` にツールを登録します。
+3. `Tepora-app/backend/src/core/tools/manager.py` にツールを登録します。
 4. 必要であれば、`config.yml` の `agent_profiles` を更新して新しいツールを許可します。
 
 **ツールディレクトリ構造:**
@@ -251,7 +252,8 @@ src/core/tools/
 ├── __init__.py     # ツールのエクスポート
 ├── base.py         # BaseTool抽象クラス
 ├── native.py       # 組み込みPythonツール (例: Google検索)
-└── mcp.py          # MCPツールプロバイダ (McpToolProvider)
+├── mcp.py          # MCPツールプロバイダ (McpToolProvider)
+└── manager.py      # ツールマネージャ
 ```
 
 ### エージェントの挙動変更

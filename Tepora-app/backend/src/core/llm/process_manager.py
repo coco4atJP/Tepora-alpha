@@ -6,7 +6,8 @@ from pathlib import Path
 import psutil
 
 from .. import config
-from . import launch_server, perform_health_check_async
+from .health import perform_health_check_async
+from .process import launch_server
 
 logger = logging.getLogger(__name__)
 

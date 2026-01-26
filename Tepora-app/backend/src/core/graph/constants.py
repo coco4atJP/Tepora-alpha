@@ -22,6 +22,7 @@ class GraphNodes:
     EM_MEMORY_RETRIEVAL = "em_memory_retrieval"
     EM_MEMORY_FORMATION = "em_memory_formation"
     EM_STATS = "em_stats_node"
+    THINKING_NODE = "thinking"
 
 
 class GraphRoutes:

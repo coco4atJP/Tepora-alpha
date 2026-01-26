@@ -20,14 +20,15 @@ from .nodes.em_llm import EMMemoryNodes
 from .nodes.react import ReActNodes
 from .nodes.search import SearchNode
 from .nodes.search_pipeline import SearchPipelineNodes
+from .nodes.thinking import ThinkingNode
 from .routing import route_by_command, should_continue_react_loop
 from .state import AgentState, create_initial_state
 
 if TYPE_CHECKING:
     from src.core.context import ContextWindowManager
+    from src.core.em_llm import EMLLMIntegrator
     from src.core.llm import LLMService
     from src.core.rag import RAGContextBuilder, RAGEngine
-    from src.core.em_llm import EMLLMIntegrator
     from src.core.tools import ToolManager
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,7 @@ class TeporaGraph:
             if char_em_llm_integrator
             else None
         )
+        self._thinking_node = ThinkingNode(llm_service=llm_service)
 
         logger.info("TeporaGraph initialized")
 
@@ -114,6 +116,7 @@ class TeporaGraph:
 
         # --- Nodes ---
         workflow.add_node(GraphNodes.EM_MEMORY_RETRIEVAL, self._em_memory_retrieval_wrapper)
+        workflow.add_node(GraphNodes.THINKING_NODE, self._thinking_node_wrapper)
         workflow.add_node(GraphNodes.DIRECT_ANSWER, self._direct_answer_wrapper)
         workflow.add_node(GraphNodes.GENERATE_SEARCH_QUERY, self._generate_search_query_wrapper)
         workflow.add_node(GraphNodes.EXECUTE_SEARCH, self._execute_search_wrapper)
@@ -122,7 +125,9 @@ class TeporaGraph:
         workflow.add_node(GraphNodes.AGENT_REASONING, self._agent_reasoning_wrapper)
         workflow.add_node(GraphNodes.TOOL_NODE, self._tool_executor_wrapper)
         workflow.add_node(GraphNodes.UPDATE_SCRATCHPAD, self._update_scratchpad_wrapper)
-        workflow.add_node(GraphNodes.SYNTHESIZE_FINAL_RESPONSE, self._synthesize_final_response_wrapper)
+        workflow.add_node(
+            GraphNodes.SYNTHESIZE_FINAL_RESPONSE, self._synthesize_final_response_wrapper
+        )
         workflow.add_node(GraphNodes.EM_MEMORY_FORMATION, self._em_memory_formation_wrapper)
         workflow.add_node(GraphNodes.EM_STATS, self._em_stats_wrapper)
 
@@ -135,12 +140,13 @@ class TeporaGraph:
             {
                 GraphRoutes.AGENT_MODE: GraphNodes.GENERATE_ORDER,
                 GraphRoutes.SEARCH: GraphNodes.GENERATE_SEARCH_QUERY,
-                GraphRoutes.DIRECT_ANSWER: GraphNodes.DIRECT_ANSWER,
+                GraphRoutes.DIRECT_ANSWER: GraphNodes.THINKING_NODE,
                 GraphRoutes.STATS: GraphNodes.EM_STATS,
             },
         )
 
         # Direct
+        workflow.add_edge(GraphNodes.THINKING_NODE, GraphNodes.DIRECT_ANSWER)
         workflow.add_edge(GraphNodes.DIRECT_ANSWER, GraphNodes.EM_MEMORY_FORMATION)
 
         # Search
@@ -179,6 +185,9 @@ class TeporaGraph:
             persona=persona or "",
             system_prompt=system_prompt,
         )
+
+    async def _thinking_node_wrapper(self, state: AgentState) -> dict[str, Any]:
+        return await self._thinking_node.thinking_node(state)
 
     async def _generate_search_query_wrapper(self, state: AgentState) -> dict[str, Any]:
         if not self._search_pipeline:
@@ -219,7 +228,9 @@ class TeporaGraph:
             return {"agent_outcome": "agent_not_available"}
         return await self._react_nodes.agent_reasoning_node(state)
 
-    async def _tool_executor_wrapper(self, state: AgentState, config: dict | None = None) -> dict[str, Any]:
+    async def _tool_executor_wrapper(
+        self, state: AgentState, config: dict | None = None
+    ) -> dict[str, Any]:
         if not self._react_nodes:
             logger.warning("ReActNodes not available (tool_manager missing).")
             return {}

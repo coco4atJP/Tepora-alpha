@@ -1,37 +1,13 @@
 {
-    "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
-    "files": {
-        "include": [
-            "src",
-            "src-tauri",
-            "package.json",
-            "tsconfig.json"
-        ]
-    },
-    "formatter": {
-        "enabled": true,
-        "indentStyle": "tab"
-    },
-    "linter": {
-        "enabled": true,
-        "rules": {
-            "recommended": true
-        }
-    },
-    "overrides": [
-        {
-            "include": [
-                "dist",
-                "node_modules",
-                "src-tauri/target",
-                "src-tauri/gen"
-            ],
-            "linter": {
-                "enabled": false
-            },
-            "formatter": {
-                "enabled": false
-            }
-        }
-    ]
+	"$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab"
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true
+		}
+	}
 }

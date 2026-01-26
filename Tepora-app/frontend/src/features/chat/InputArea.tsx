@@ -1,4 +1,4 @@
-import { Send, Square } from "lucide-react";
+import { Brain, Send, Square } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ const InputArea: React.FC = () => {
 
 	const { t } = useTranslation();
 	const [message, setMessage] = useState("");
+	const [isThinkingMode, setIsThinkingMode] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	// Stores
@@ -23,7 +24,13 @@ const InputArea: React.FC = () => {
 
 	const handleSend = () => {
 		if (message.trim() && !isProcessing && isConnected) {
-			sendMessage(message, currentMode, attachments, skipWebSearch);
+			sendMessage(
+				message,
+				currentMode,
+				attachments,
+				skipWebSearch,
+				isThinkingMode,
+			);
 			clearAttachments();
 			setMessage("");
 			if (textareaRef.current) {
@@ -88,7 +95,22 @@ const InputArea: React.FC = () => {
 					style={{ maxHeight: "200px" }}
 				/>
 
-				<div className="flex items-center gap-1 mb-1 mr-1">
+				<div className="flex items-center gap-2 mb-1 mr-1">
+					{/* Thinking Toggle */}
+					<button
+						type="button"
+						onClick={() => setIsThinkingMode(!isThinkingMode)}
+						disabled={isProcessing}
+						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center ${
+							isThinkingMode
+								? "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
+								: "text-gray-500 hover:text-purple-400 hover:bg-purple-500/10"
+						}`}
+						title={t("chat.input.thinking_mode")}
+					>
+						<Brain className="w-4 h-4" />
+					</button>
+
 					{/* Send / Stop Button */}
 					{isProcessing ? (
 						<button

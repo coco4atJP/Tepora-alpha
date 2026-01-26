@@ -139,7 +139,9 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
         self.mock_registry.get_model_config.assert_called_with("embedding_model")
         self.mock_registry.resolve_model_path.assert_called_with("embedding_model")
         self.runner.start.assert_called_once()
-        self.mock_client_factory.create_embedding_client.assert_called_once_with("embedding_model", 12345)
+        self.mock_client_factory.create_embedding_client.assert_called_once_with(
+            "embedding_model", 12345
+        )
         self.assertEqual(llm, mock_embedding_client)
 
     async def test_cache_eviction_when_size_1(self):
