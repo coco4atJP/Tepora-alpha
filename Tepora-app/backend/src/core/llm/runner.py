@@ -161,6 +161,43 @@ class LocalModelRunner(Protocol):
         """
         ...
 
+    async def count_tokens(self, text: str, model_key: str) -> int:
+        """
+        指定されたテキストのトークン数をカウントする
+
+        Args:
+            text: テキスト
+            model_key: モデルの識別子
+
+        Returns:
+            トークン数
+        """
+        ...
+
+    def get_base_url(self, model_key: str) -> str | None:
+        """
+        クライアント接続用のBase URLを取得する
+
+        Args:
+            model_key: モデルの識別子
+
+        Returns:
+            Base URL (http://locahost:port 等)
+        """
+        ...
+
+    async def get_capabilities(self, model_key: str) -> dict[str, Any]:
+        """
+        モデルのケーパビリティ（能力）情報を取得する
+
+        Args:
+            model_key: モデルの識別子
+
+        Returns:
+            ケーパビリティ情報（vision, tools, etc.）
+        """
+        ...
+
     def cleanup(self) -> None:
         """
         全てのリソースを解放する

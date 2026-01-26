@@ -27,6 +27,9 @@ import logging
 import re
 import time
 from pathlib import Path
+from typing import Any
+
+import httpx
 
 from .process import build_server_command
 from .process_manager import ProcessManager
@@ -261,3 +264,84 @@ class LlamaServerRunner:
         self._port_map.clear()
 
         logger.info("LlamaServerRunner cleanup complete")
+
+    async def count_tokens(self, text: str, model_key: str) -> int:
+        """llama.cpp サーバーの /tokenize エンドポイントを使用してトークン数をカウントする"""
+        if not text:
+            return 0
+
+        port = self.get_port(model_key)
+        if port is None:
+            # サーバーが起動していない場合は概算（フォールバック）
+            return len(text) // 4
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"http://127.0.0.1:{port}/tokenize",
+                    json={"content": text},
+                    timeout=5.0,
+                )
+            if response.status_code != 200:
+                logger.debug(
+                    "Tokenize endpoint returned status %s (port=%s)",
+                    response.status_code,
+                    port,
+                )
+                return len(text) // 4
+
+            payload = response.json()
+            tokens = payload.get("tokens", [])
+            if isinstance(tokens, list):
+                return len(tokens)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "Failed to get token count from server (port=%s): %s",
+                port,
+                exc,
+            )
+
+        # フォールバック
+        return len(text) // 4
+
+    def get_base_url(self, model_key: str) -> str | None:
+        """localhostのURLを返す"""
+        port = self.get_port(model_key)
+        if port is None:
+            return None
+        return f"http://127.0.0.1:{port}"
+
+    async def get_capabilities(self, model_key: str) -> dict[str, Any]:
+        """GET /props からモデル情報を取得する"""
+        port = self.get_port(model_key)
+        if port is None:
+            return {}
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"http://127.0.0.1:{port}/props",
+                    timeout=5.0,
+                )
+            if response.status_code != 200:
+                logger.warning("Failed to get props from server: %s", response.status_code)
+                return {}
+
+            props = response.json()
+            # props = {
+            #   "model_path": "...",
+            #   "chat_template": "...",
+            #   "modalities": { "vision": bool },
+            #   ...
+            # }
+            modalities = props.get("modalities", {})
+            return {
+                "vision": modalities.get("vision", False),
+                "chat_template": props.get("chat_template"),
+                "model_path": props.get("model_path"),
+                "raw_props": props,  # 将来のため生データも保持
+            }
+
+        except Exception as exc:
+            logger.warning("Failed to get capabilities: %s", exc)
+            return {}

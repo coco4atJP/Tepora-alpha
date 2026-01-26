@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .types import ModelConfig, ModelPool
+from .types import ModelConfig, ModelModality
 
 if TYPE_CHECKING:
     from .manager import ModelManager
@@ -30,45 +30,29 @@ class ModelConfigResolver:
     def resolve_model_path(self, key: str, task_type: str = "default") -> Path | None:
         """
         指定キーのモデルファイルパスを解決
-
-        Args:
-            key: モデルキー ("text_model", "embedding_model", "character_model", "executor_model")
-            task_type: エグゼキューターモデルのタスクタイプ
-
-        Returns:
-            モデルファイルのパス。見つからない場合は None
         """
         if not self._model_manager:
             return self._resolve_from_config(key)
 
-        # ModelManager からパスを解決
+        # ModelManager からパスを解決 (V3)
         if key == "character_model":
-            path = self._model_manager.get_character_model_path()
-            if path and path.exists():
-                return path
-            # フォールバック: TEXT プールのアクティブモデル
-            path = self._model_manager.get_model_path(ModelPool.TEXT)
-            if path and path.exists():
-                return path
+            return self._model_manager.get_character_model_path()
 
         elif key == "executor_model":
-            path = self._model_manager.get_executor_model_path(task_type)
-            if path and path.exists():
-                return path
-            # フォールバック: TEXT プールのアクティブモデル
-            path = self._model_manager.get_model_path(ModelPool.TEXT)
-            if path and path.exists():
-                return path
+            return self._model_manager.get_executor_model_path(task_type)
+        
+        elif key == "embedding_model":
+             # V3 Manager logic: Use embedding role
+             mid = self._model_manager.get_assigned_model_id("embedding")
+             if mid:
+                 m = self._model_manager.get_model(mid)
+                 if m and m.path:
+                     return Path(m.path)
+             return None
 
         elif key == "text_model":
-            path = self._model_manager.get_model_path(ModelPool.TEXT)
-            if path and path.exists():
-                return path
-
-        elif key == "embedding_model":
-            path = self._model_manager.get_model_path(ModelPool.EMBEDDING)
-            if path and path.exists():
-                return path
+            # Fallback for generic text model -> use character model
+             return self._model_manager.get_character_model_path()
 
         # フォールバック: config.yml から解決
         return self._resolve_from_config(key)

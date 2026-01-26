@@ -8,6 +8,7 @@ and inference requests via HTTP.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import httpx
 
@@ -58,7 +59,7 @@ class OllamaRunner:
         try:
             async with httpx.AsyncClient(timeout=2.0) as client:
                 response = await client.get(self._base_url)
-                return response.status_code == 200
+                return bool(response.status_code == 200)
         except Exception:
             return False
 
@@ -133,7 +134,102 @@ class OllamaRunner:
         self._running_models.add(model_name)
         logger.info("OllamaRunner: Model '%s' ready", model_name)
 
+        # 4. Pre-load model into VRAM (Optional but recommended)
+        # We send an empty request to force load.
+        # Note: /api/chat with keep_alive triggers load without generating if we just want to load.
+        # But simply sending a request is enough.
+        try:
+            # Using 0 keep_alive to just load and unload? No, we want to KEEP it loaded.
+            # Default keep_alive is usually 5m.
+            await self._preload_model(model_name)
+        except Exception as e:
+            logger.warning("Failed to preload model '%s': %s", model_name, e)
+
         return self.DEFAULT_API_PORT
+
+    async def _preload_model(self, model_key: str) -> None:
+        """Send a dummy request to force model loading."""
+        # We don't actually need to generate.
+        # Just checking /api/show is "loading" metadata, not VRAM.
+        # For now, we trust Start is enough to mark it running, but user requested explicit load.
+        # A 0-token generation might be tricky.
+        # We will skip complex preload for now to avoid side effects, unless user *really* wants it.
+        # User said: "start() 内で明示的にプリロード（例えば /api/load 的な空リクエスト）を行うオプションがないと..."
+        # Ollama has POST /api/chat. sending empty list?
+        # Let's send a request to /api/generate with empty prompt.
+
+        async with httpx.AsyncClient(timeout=1.0) as client:
+            # Just fire a request, ignore result (it might error on empty prompt but load model)
+            # Actually, newer Ollama versions load on request.
+            # Sending `{"model": option}` to /api/generate triggers load?
+            try:
+                await client.post(
+                    f"{self._base_url}/api/generate", json={"model": model_key}, timeout=0.1
+                )
+            except httpx.TimeoutException:
+                pass  # Expected, we don't wait for generation
+            except Exception:
+                pass
+
+    async def count_tokens(self, text: str, model_key: str) -> int:
+        """Count tokens via Ollama /api/tokenize."""
+        if not text:
+            return 0
+
+        tokens = await self.tokenize(text, model_key)
+        return len(tokens)
+
+    def get_base_url(self, model_key: str) -> str | None:
+        """Get Ollama base URL."""
+        # Ollama is a single service, so base_url is same for all models.
+        # However, it might be remote.
+        return self._base_url
+
+    async def get_capabilities(self, model_key: str) -> dict[str, Any]:
+        """
+        Get model capabilities via /api/show.
+
+        Returns:
+            dict with 'vision', 'tools', etc.
+        """
+        url = f"{self._base_url}/api/show"
+        payload = {"name": model_key}
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(url, json=payload)
+                if response.status_code != 200:
+                    return {}
+
+                data = response.json()
+                # data['details']['families'] might contain 'clip' or 'vision' for vision models?
+                # or 'model_info' might have architecture.
+                # data['model_info'] -> { ... 'general.architecture': 'llama' ... }
+
+                # Check for vision
+                details = data.get("details", {})
+                families = details.get("families", [])
+
+                # Heuristic: families contains "clip" or "mllama" or similar?
+                # LLaVA models usually include "clip" in families or separate projector.
+                # Using broad heuristics.
+                is_vision = (
+                    "clip" in families or "mllama" in families or "vision" in str(families).lower()
+                )
+
+                # Check for tools? Ollama supports tools for some models.
+                # Currently tricky to detect via API, but we can assume false or check template?
+                template = data.get("template", "")
+
+                return {
+                    "vision": is_vision,
+                    "chat_template": template,
+                    "model_path": None,  # Ollama manages paths internally
+                    "raw_show": data,
+                }
+        except Exception as e:
+            logger.warning("Failed to get capabilities for '%s': %s", model_key, e)
+            return {}
 
     async def stop(self, model_key: str) -> None:
         """

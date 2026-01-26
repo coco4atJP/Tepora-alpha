@@ -11,14 +11,19 @@ class ClientFactory:
     LangChainのクライアント(ChatOpenAI, OpenAIEmbeddings)を生成するファクトリクラス。
     """
 
-    def create_chat_client(self, model_key: str, port: int, model_config: Any) -> ChatOpenAI:
+    def create_chat_client(self, model_key: str, base_url: str, model_config: Any) -> ChatOpenAI:
         """
         ChatOpenAIクライアントを生成する。
         """
-        base_url = f"http://localhost:{port}/v1"
+        # base_urlが /v1 で終わっていない場合は追加
+        if not base_url.endswith("/v1"):
+            api_base = f"{base_url}/v1"
+        else:
+            api_base = base_url
+
         init_kwargs = {
             "model": model_key,
-            "base_url": base_url,
+            "base_url": api_base,
             "api_key": "dummy-key",
             "streaming": True,
         }
@@ -61,14 +66,19 @@ class ClientFactory:
         logger.info("Creating ChatOpenAI client for '%s' at %s", model_key, base_url)
         return ChatOpenAI(**init_kwargs)
 
-    def create_embedding_client(self, model_key: str, port: int) -> OpenAIEmbeddings:
+    def create_embedding_client(self, model_key: str, base_url: str) -> OpenAIEmbeddings:
         """
         OpenAIEmbeddingsクライアントを生成する。
         """
-        base_url = f"http://localhost:{port}/v1"
-        logger.info("Creating OpenAIEmbeddings client for '%s' at %s", model_key, base_url)
+        # base_urlが /v1 で終わっていない場合は追加
+        if not base_url.endswith("/v1"):
+            api_base = f"{base_url}/v1"
+        else:
+            api_base = base_url
+
+        logger.info("Creating OpenAIEmbeddings client for '%s' at %s", model_key, api_base)
         return OpenAIEmbeddings(
             model=model_key,
-            base_url=base_url,
+            base_url=api_base,
             api_key="dummy-key",
         )

@@ -4,72 +4,33 @@ Model Types - モデル管理の型定義
 モデル管理で使用するデータクラス、Enum、型定義
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
 
-class ModelPool(Enum):
-    """モデルプール（モーダル別分類）
-
-    モデルを主要なモダリティで分類：
-    - TEXT: テキスト生成モデル（LLM）- 会話とツール実行に使用
-    - EMBEDDING: 埋め込みモデル - 記憶と検索に使用
-
-    将来拡張予定:
-    - IMAGE: 画像生成モデル
-    - AUDIO: 音声モデル
-    """
-
-    TEXT = "text"  # テキスト生成モデル（旧: CHARACTER + EXECUTOR）
-    EMBEDDING = "embedding"  # 埋め込みモデル
+class ModelLoader(str, Enum):
+    """モデル実行ローダー"""
+    LLAMA_CPP = "llama_cpp"
+    OLLAMA = "ollama"
 
 
-# 後方互換性のためのエイリアス（非推奨、将来削除予定）
-ModelRole = ModelPool
-
-
-@dataclass
-class ModelInfo:
-    """モデル情報"""
-
-    id: str  # 内部ID (e.g., "gemma-3n-e4b-iq4xs")
-    display_name: str  # 表示名
-    role: ModelRole  # 用途
-    file_path: Path  # ファイルパス
-    file_size: int  # ファイルサイズ（バイト）
-    source: str  # "huggingface" | "local"
-    repo_id: str | None = None  # HuggingFace repo (オプション)
-    filename: str | None = None  # HuggingFaceファイル名
-    revision: str | None = None  # HuggingFace revision (commit hash)
-    sha256: str | None = None  # File SHA256 (if verified)
-    is_active: bool = False  # 現在選択中か
-    added_at: datetime | None = None
-
-
-@dataclass
-class ModelRegistry:
-    """モデルレジストリデータ"""
-
-    version: int = 2  # スキーマバージョン更新
-    models: list[ModelInfo] = field(default_factory=list)
-    active: dict = field(default_factory=dict)  # role -> model_id
-
-    # ロールベースモデル選択
-    character_model_id: str | None = None  # 会話用モデルID
-    executor_model_map: dict = field(default_factory=dict)
-    # 例: {"default": "model-a", "coding": "model-b", "browser": "model-c"}
+class ModelModality(str, Enum):
+    """モデルモダリティ"""
+    TEXT = "text"
+    EMBEDDING = "embedding"
+    VISION = "vision"
+    AUDIO = "audio"
 
 
 @dataclass
 class ModelConfig:
     """モデル実行設定
-
-    llama.cpp サーバー起動時に使用するパラメータ
+    
+    共通の実行パラメータ。
+    ローダーによっては無視される項目もある。
     """
-
     n_ctx: int = 8192
     n_gpu_layers: int = -1
     temperature: float = 0.7
@@ -77,13 +38,50 @@ class ModelConfig:
     top_k: int = 40
     repeat_penalty: float = 1.1
     logprobs: bool = True
+    
+    # 追加パラメータ用
+    extra_args: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ModelInfo:
+    """モデル情報"""
+    
+    # 基本情報
+    id: str         # 固有ID (UUID)
+    name: str       # モデル名 (表示用)
+    loader: ModelLoader
+    path: str       # ファイルパス または Ollamaタグ
+    modality: ModelModality
+    
+    # メタデータ
+    description: str | None = None
+    source: str | None = None  # "huggingface", "local", "ollama_library"
+    repo_id: str | None = None # HuggingFace repo
+    filename: str | None = None # HuggingFace filename
+    size_bytes: int = 0
+    added_at: datetime | None = None
+
+    # モデル個別の推奨設定
+    config: ModelConfig = field(default_factory=ModelConfig)
+
+
+@dataclass
+class ModelRegistry:
+    """モデルレジストリデータ - models.json の構造"""
+    
+    version: int = 3  # Schema version update
+    models: list[ModelInfo] = field(default_factory=list)
+    
+    # Role assignments (Role Name -> Model ID)
+    # 例: "character" -> "uuid-...", "embedding" -> "uuid-..."
+    roles: dict[str, str] = field(default_factory=dict) 
 
 
 # 進捗コールバック型（download パッケージと共有）
 @dataclass
 class ProgressEvent:
     """進捗イベント"""
-
     status: str  # DownloadStatus の値
     progress: float  # 0.0 - 1.0
     message: str
@@ -93,5 +91,3 @@ class ProgressEvent:
     speed_bps: float = 0.0
     eta_seconds: float = 0.0
 
-
-ProgressCallback = Callable[[ProgressEvent], None]

@@ -1,0 +1,91 @@
+F841 Local variable `url` is assigned to but never used
+   --> src\core\llm\ollama_runner.py:152:9
+    |
+150 |     async def _preload_model(self, model_key: str) -> None:
+151 |         """Send a dummy request to force model loading."""
+152 |         url = f"{self._base_url}/api/chat"
+    |         ^^^
+153 |         # empty messages to just trigger load? Or minimal prompt.
+154 |         # Ollama might error on empty messages.
+    |
+help: Remove assignment to unused variable `url`
+
+F841 Local variable `payload` is assigned to but never used
+   --> src\core\llm\ollama_runner.py:158:9
+    |
+156 |         # Actually /api/chat with validation might be enough.
+157 |         # Let's try to send a very short request with keep_alive=-1 (indefinite) or default.
+158 |         payload = {
+    |         ^^^^^^^
+159 |             "model": model_key,
+160 |             "messages": [],  # empty might be rejected
+    |
+help: Remove assignment to unused variable `payload`
+
+N806 Variable `MockPM` in function should be lowercase
+  --> tests\src\core\llm\test_runners.py:11:63
+   |
+ 9 | @pytest.fixture
+10 | def mock_process_manager():
+11 |     with patch("src.core.llm.llama_runner.ProcessManager") as MockPM:
+   |                                                               ^^^^^^
+12 |         yield MockPM.return_value
+   |
+
+N806 Variable `MockClient` in function should be lowercase
+  --> tests\src\core\llm\test_runners.py:30:40
+   |
+28 | @pytest.mark.asyncio
+29 | async def test_llama_runner_count_tokens(llama_runner):
+30 |     with patch("httpx.AsyncClient") as MockClient:
+   |                                        ^^^^^^^^^^
+31 |         mock_instance = MockClient.return_value
+32 |         mock_instance.__aenter__.return_value = mock_instance
+   |
+
+N806 Variable `MockClient` in function should be lowercase
+  --> tests\src\core\llm\test_runners.py:52:40
+   |
+50 | @pytest.mark.asyncio
+51 | async def test_llama_runner_get_capabilities(llama_runner):
+52 |     with patch("httpx.AsyncClient") as MockClient:
+   |                                        ^^^^^^^^^^
+53 |         mock_instance = MockClient.return_value
+54 |         mock_instance.__aenter__.return_value = mock_instance
+   |
+
+N806 Variable `MockClient` in function should be lowercase
+  --> tests\src\core\llm\test_runners.py:75:40
+   |
+73 | @pytest.mark.asyncio
+74 | async def test_ollama_runner_count_tokens(ollama_runner):
+75 |     with patch("httpx.AsyncClient") as MockClient:
+   |                                        ^^^^^^^^^^
+76 |         mock_instance = MockClient.return_value
+77 |         mock_instance.__aenter__.return_value = mock_instance
+   |
+
+N806 Variable `MockClient` in function should be lowercase
+  --> tests\src\core\llm\test_runners.py:95:40
+   |
+93 | @pytest.mark.asyncio
+94 | async def test_ollama_runner_get_capabilities(ollama_runner):
+95 |     with patch("httpx.AsyncClient") as MockClient:
+   |                                        ^^^^^^^^^^
+96 |         mock_instance = MockClient.return_value
+97 |         mock_instance.__aenter__.return_value = mock_instance
+   |
+
+N806 Variable `MockClient` in function should be lowercase
+   --> tests\src\core\llm\test_runners.py:118:40
+    |
+116 | @pytest.mark.asyncio
+117 | async def test_ollama_runner_preload(ollama_runner):
+118 |     with patch("httpx.AsyncClient") as MockClient:
+    |                                        ^^^^^^^^^^
+119 |         mock_instance = MockClient.return_value
+120 |         mock_instance.__aenter__.return_value = mock_instance
+    |
+
+Found 8 errors.
+No fixes available (2 hidden fixes can be enabled with the `--unsafe-fixes` option).

@@ -112,6 +112,7 @@ explicit_package_bases = true
 dev = [
     "pyinstaller>=6.18.0",
     "respx>=0.22.0",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 # PyTorch settings removed to use standard PyPI (supports CUDA on Windows/Linux)
 
