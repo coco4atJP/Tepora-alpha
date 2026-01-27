@@ -1,62 +1,79 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { startSidecar } from "../../../utils/sidecar";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mocks
-vi.mock("../../../utils/sidecar", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../../../utils/sidecar")>();
-	return {
-		...actual,
-		isDesktop: vi.fn(),
-		// Mock other dependencies to avoid side effects
-		setDynamicPort: vi.fn(),
-		getAuthHeadersAsync: vi.fn(),
-		checkBackendHealth: vi.fn(),
-	};
-});
+// Mock dependencies
+vi.mock("../../../utils/api", () => ({
+	getApiBase: vi.fn(),
+	getAuthHeadersAsync: vi.fn(),
+	setDynamicPort: vi.fn(),
+}));
 
-// Import the mocked module to access the mock function
-import { isDesktop } from "../../../utils/sidecar";
+vi.mock("@tauri-apps/api/window", () => ({
+	getCurrentWindow: vi.fn(),
+}));
 
-describe("startSidecar", () => {
+vi.mock("@tauri-apps/plugin-process", () => ({
+	exit: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/plugin-shell", () => ({
+	Command: {
+		sidecar: vi.fn(),
+	},
+}));
+
+describe("sidecar utils", () => {
 	beforeEach(() => {
+		vi.resetModules();
+		vi.clearAllMocks();
+		// Reset window.__TAURI_INTERNALS__ to undefined (Web mode default)
+
+		delete window.__TAURI_INTERNALS__;
+	});
+
+	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("should reset sidecarStarting flag when returning early in non-desktop mode", async () => {
-		// Setup: Mock isDesktop to return false (Web mode)
-		vi.mocked(isDesktop).mockReturnValue(false);
+	it("should resolve backendReady with default port 8000 in Web mode", async () => {
+		// Ensure Web mode
 
-		// First call: Should log "Not running in Desktop mode" and return
-		// We can't easily spy on the internal sidecarStarting variable,
-		// but we can check if a second call works or is ignored.
+		expect(window.__TAURI_INTERNALS__).toBeUndefined();
 
-		// Spy on console.log to verify behavior
-		const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+		// Dynamically import to get a fresh module instance
+		const { startSidecar, backendReady } = await import(
+			"../../../utils/sidecar"
+		);
 
-		// 1. Call startSidecar first time
+		// Start sidecar
 		await startSidecar();
 
-		// Verify it hit the non-desktop path
+		// Verify backendReady resolves to 8000
+		await expect(backendReady).resolves.toBe(8000);
+	});
+
+	it("should reset sidecarStarting flag when returning early in Web mode", async () => {
+		// Ensure Web mode
+
+		expect(window.__TAURI_INTERNALS__).toBeUndefined();
+
+		const { startSidecar } = await import("../../../utils/sidecar");
+
+		const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => { });
+
+		// First call
+		await startSidecar();
 		expect(consoleSpy).toHaveBeenCalledWith(
 			expect.stringContaining("Not running in Desktop mode"),
 		);
+
 		consoleSpy.mockClear();
 
-		// 2. Call startSidecar second time
-		// If the bug exists (flag not reset), this will verify the "Already starting" log or just simply not hit the "Not running" log again?
-		// Actually, if the bug exists, sidecarStarting remains true.
-		// The function checks `if (sidecarStarting) ... return;` at the very top.
-		// So checking if we hit "Not running in Desktop mode" again is a valid test.
-
+		// Second call - should not be blocked by "Already starting" check
 		await startSidecar();
 
-		// Expectation: It should NOT log "Already starting"
 		expect(consoleSpy).not.toHaveBeenCalledWith(
 			expect.stringContaining("Already starting"),
 		);
-
-		// Expectation: It SHOULD log "Not running in Desktop mode" again because the flag should have been reset
 		expect(consoleSpy).toHaveBeenCalledWith(
 			expect.stringContaining("Not running in Desktop mode"),
 		);
