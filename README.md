@@ -1,6 +1,6 @@
-このリポジトリは開発中のため、予告なく仕様が変更される場合があります。
+このリポジトリは開発中のため、予告なく仕様が変更される場合があります。とても不安定です。
 
-![log](https://github.com/coco4atJP/tepora-alpha/blob/main/image/Tepora_logo.png)
+![log](https://github.com/coco4atJP/tepora-alpha/blob/main/image/Tepora_log.png)
 
 # Tepora （v3.0 beta）
 
