@@ -116,10 +116,12 @@ class LLMService:
         self._chat_model_cache: dict[str, BaseChatModel] = {}
         self._embedding_client: Embeddings | None = None
         self._current_embedding_model_id: str | None = None
+        self._current_embedding_runner_key: str | None = None
 
         # Locks
         self._model_locks: dict[str, asyncio.Lock] = {}
         self._cache_lock = asyncio.Lock()
+        self._embedding_lock = asyncio.Lock()
 
         logger.info("LLMService initialized")
 
@@ -167,6 +169,8 @@ class LLMService:
 
         # key for runner
         key = model_id if model_id else "character_model"
+        if model and model.loader == ModelLoader.OLLAMA and model.path:
+            key = model.path
 
         for msg in messages:
             content = msg.content if isinstance(msg.content, str) else str(msg.content)
@@ -246,41 +250,61 @@ class LLMService:
         if not target_model_id:
             raise ValueError("No embedding model assigned")
 
-        async with self._cache_lock:
-            # Use a lock for embedding init?
-            pass
+        async with self._embedding_lock:
+            # Re-check within the lock in case another task initialized it.
+            if self._embedding_client and self._current_embedding_model_id == target_model_id:
+                return self._embedding_client
 
-        # Simple check - if already loaded and same ID
-        if self._embedding_client and self._current_embedding_model_id == target_model_id:
-            return self._embedding_client
+            model_info = self._model_manager.get_model(target_model_id)
+            if not model_info:
+                raise ValueError(f"Embedding model {target_model_id} not found")
 
-        model_info = self._model_manager.get_model(target_model_id)
-        if not model_info:
-            raise ValueError(f"Embedding model {target_model_id} not found")
+            previous_model_id = self._current_embedding_model_id
+            previous_runner_key = self._current_embedding_runner_key
 
-        runner = self._get_runner(model_info.loader)
+            runner = self._get_runner(model_info.loader)
+            runner_key = model_info.id
+            if model_info.loader == ModelLoader.OLLAMA and model_info.path:
+                runner_key = model_info.path
 
-        # Start
-        port = await runner.start(
-            RunnerConfig(
-                model_key=model_info.id,
-                model_path=model_info.path if model_info.loader == ModelLoader.LLAMA_CPP else None,
-                port=0,
-                extra_args=["--embedding"]
-                if model_info.loader == ModelLoader.LLAMA_CPP
-                else [],  # Ollama doesn't need --embedding flag usually?
-                model_config=model_info.config,
+            # Start
+            port = await runner.start(
+                RunnerConfig(
+                    model_key=runner_key,
+                    model_path=model_info.path
+                    if model_info.loader == ModelLoader.LLAMA_CPP
+                    else None,
+                    port=0,
+                    extra_args=["--embedding"]
+                    if model_info.loader == ModelLoader.LLAMA_CPP
+                    else [],  # Ollama doesn't need --embedding flag usually?
+                    model_config=model_info.config,
+                )
             )
-        )
 
-        base_url = runner.get_base_url(model_info.id) or f"http://localhost:{port}"
+            base_url = runner.get_base_url(runner_key) or f"http://localhost:{port}"
 
-        client = self._client_factory.create_embedding_client(model_info.id, base_url)
-        self._embedding_client = client
-        self._current_embedding_model_id = target_model_id
+            model_key = model_info.id
+            if model_info.loader == ModelLoader.OLLAMA and model_info.path:
+                model_key = model_info.path
 
-        logger.info("Embedding model loaded: %s", target_model_id)
-        return client
+            client = self._client_factory.create_embedding_client(model_key, base_url)
+            self._embedding_client = client
+            self._current_embedding_model_id = target_model_id
+            self._current_embedding_runner_key = runner_key
+
+            if (
+                previous_model_id
+                and previous_model_id != target_model_id
+                and previous_runner_key
+            ):
+                previous_model = self._model_manager.get_model(previous_model_id)
+                if previous_model:
+                    previous_runner = self._get_runner(previous_model.loader)
+                    await previous_runner.stop(previous_runner_key)
+
+            logger.info("Embedding model loaded: %s", target_model_id)
+            return client
 
     async def _load_model(self, model_info: ModelInfo) -> BaseChatModel:
         """Internal load logic"""
@@ -330,7 +354,13 @@ class LLMService:
 
         base_url = runner.get_base_url(runner_key) or f"http://localhost:{port}"
 
-        client = self._client_factory.create_chat_client(model_info.id, base_url, model_info.config)
+        client_model_key = model_info.id
+        if model_info.loader == ModelLoader.OLLAMA and model_info.path:
+            client_model_key = model_info.path
+
+        client = self._client_factory.create_chat_client(
+            client_model_key, base_url, model_info.config
+        )
         self._chat_model_cache[model_info.id] = client
         logger.info("Chat model loaded: %s via %s", model_info.id, model_info.loader)
         return client
@@ -364,6 +394,7 @@ class LLMService:
         self._chat_model_cache.clear()
         self._embedding_client = None
         self._current_embedding_model_id = None
+        self._current_embedding_runner_key = None
         logger.info("Cleanup complete")
 
     def get_model_config_for_diagnostics(self, role: str = "character") -> dict[str, Any]:
