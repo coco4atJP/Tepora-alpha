@@ -156,9 +156,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 								</header>
 
 								{/* Scrollable Body */}
-								<main className="flex-1 overflow-y-auto overflow-x-hidden">
+								<main className="settings-main">
 									<div
-										className={`${activeSection === "general" ? "max-w-full" : "max-w-4xl"} mx-auto space-y-8 pb-20 p-8`}
+										className={`${activeSection === "general" ? "max-w-full" : "max-w-4xl"} mx-auto space-y-8 pb-20`}
 									>
 										{activeSection === "general" && <GeneralSettings />}
 										{activeSection === "privacy" && (

@@ -460,6 +460,7 @@
 				},
 				"detail": {
 					"changes_note": "Changes to model parameters will apply on next load.",
+					"dials_hint": "Drag dials to adjust values",
 					"temp_desc": "Controls randomness.",
 					"top_p_desc": "Nucleus sampling.",
 					"n_ctx": "Context Window (n_ctx)",

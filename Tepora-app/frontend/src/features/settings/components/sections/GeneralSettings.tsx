@@ -11,6 +11,7 @@ import {
 	FormGroup,
 	FormInput,
 	FormSelect,
+	FormSwitch,
 	SettingsSection,
 } from "../SettingsComponents";
 
@@ -117,6 +118,20 @@ const GeneralSettings: React.FC = () => {
 					<ThemeSelector />
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<FormGroup
+							label={t("settings.fields.nsfw.label") || "NSFW Enabled"}
+							description={
+								t("settings.fields.nsfw.description") ||
+								"Allow generation of NSFW content (use with caution)"
+							}
+							isDirty={isDirty("nsfw_enabled")}
+						>
+							<FormSwitch
+								checked={appConfig.nsfw_enabled}
+								onChange={(checked) => updateApp("nsfw_enabled", checked)}
+							/>
+						</FormGroup>
+
 						<FormGroup
 							label={t("settings.fields.language.label")}
 							description={t("settings.fields.language.description")}
