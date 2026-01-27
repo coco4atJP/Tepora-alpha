@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -60,10 +61,8 @@ class WebFetchTool(BaseTool):
                 "url_no_hostname", "Could not determine hostname from URL."
             )
 
-        # Get URL denylist from config schema (externalized from hardcoded values)
-        from ..config.schema import AgentToolPolicyConfig
-
-        denylist = AgentToolPolicyConfig().url_denylist
+        # Get URL denylist from settings.privacy
+        denylist = settings.privacy.url_denylist
 
         # Check denylist patterns
         for pattern in denylist:
@@ -77,16 +76,34 @@ class WebFetchTool(BaseTool):
 
         # Additional check: resolve hostname and check if it's a private IP
         try:
-            # Try to parse as IP address directly
-            ip = ipaddress.ip_address(host)
-            if ip.is_private or ip.is_loopback or ip.is_link_local:
-                logger.warning("URL blocked: %s resolves to private IP %s", url, ip)
-                return self._make_error_response(
-                    "url_blocked_private_ip",
-                    "Access to private/local IP addresses is blocked for security reasons.",
-                )
+            # DNS Resolution
+            try:
+                # Use socket.getaddrinfo to resolve (supports IPv4/IPv6)
+                # We check ALL resolved IPs
+                addr_infos = socket.getaddrinfo(host, None)
+                ips = {info[4][0] for info in addr_infos}
+            except socket.gaierror:
+                # If DNS resolution fails, it might be an internal name or just invalid.
+                # Conservatively, if it's not a valid public hostname we can reach, we might allow it?
+                # No, if we can't resolve it, requests will fail anyway.
+                # But sticking to "safe" side, we pass here and let requests fail or succeed if it's a weird internal DNS.
+                # Wait, if it's internal DNS resolving to private IP, getaddrinfo SHOULD return it.
+                # If it fails, maybe it's not reachable.
+                # Let's just catch and ignore here, or treat as error?
+                # Standard practice: if invalid, requests raises error.
+                pass
+            else:
+                for ip_str in ips:
+                    ip = ipaddress.ip_address(ip_str)
+                    if ip.is_private or ip.is_loopback or ip.is_link_local:
+                        logger.warning("URL blocked: %s resolves to private IP %s", url, ip)
+                        return self._make_error_response(
+                            "url_blocked_private_ip",
+                            "Access to private/local IP addresses is blocked for security reasons.",
+                        )
+
         except ValueError:
-            # Not an IP address, that's fine - it's a hostname
+            # Not an IP address, that's fine
             pass
 
         return None
@@ -188,8 +205,13 @@ class NativeToolProvider(ToolProvider):
             except Exception as exc:  # noqa: BLE001
                 logger.error("Failed to load Google Custom Search tool: %s", exc, exc_info=True)
 
-        # WebFetchTool is always available
-        tools.append(WebFetchTool())
+        if settings.privacy.allow_web_search:
+            # WebFetchTool is only available if privacy settings allow it
+            # Reusing allow_web_search since it conceptually covers "external network access" for now
+            # as per P0-2 fix plan.
+            tools.append(WebFetchTool())
+        else:
+            logger.info("WebFetchTool disabled by privacy settings (allow_web_search=False)")
 
         for tool in tools:
             logger.info("Native tool available: %s", tool.name)

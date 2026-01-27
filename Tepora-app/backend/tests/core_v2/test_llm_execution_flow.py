@@ -35,16 +35,16 @@ class TestLLMService:
     def test_initialization(self) -> None:
         """Test LLMService initializes without errors"""
         with (
-            patch("src.core.llm.service.ModelRegistry") as MockRegistry,
-            patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
-            patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+            patch("src.core.llm.service.ModelRegistry") as mock_registry,  # noqa: N806
+            patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
+            patch("src.core.llm.service.ClientFactory") as mock_client_factory,  # noqa: N806
         ):
             service = LLMService()
 
             # Verify components are initialized
-            MockRegistry.assert_called_once()
-            MockRunner.assert_called_once()
-            MockClientFactory.assert_called_once()
+            mock_registry.assert_called_once()
+            mock_runner.assert_called_once()
+            mock_client_factory.assert_called_once()
 
             # Verify no current model key state
             assert not hasattr(service, "_current_model_key")
@@ -59,14 +59,14 @@ class TestLLMService:
     async def test_get_client_with_mock(self) -> None:
         """Get mock client, send prompt, receive response"""
         with (
-            patch("src.core.llm.service.ModelRegistry") as MockRegistry,
-            patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
-            patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+            patch("src.core.llm.service.ModelRegistry") as mock_registry,  # noqa: N806
+            patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
+            patch("src.core.llm.service.ClientFactory") as mock_client_factory,  # noqa: N806
         ):
             # Setup mocks
-            mock_registry = MockRegistry.return_value
-            mock_runner = MockRunner.return_value
-            mock_client_factory = MockClientFactory.return_value
+            mock_registry = mock_registry.return_value
+            mock_runner = mock_runner.return_value
+            mock_client_factory = mock_client_factory.return_value
 
             # Model config mock
             mock_config = MagicMock()
@@ -134,10 +134,10 @@ class TestLLMService:
         """Test cleanup clears caches and stops processes"""
         with (
             patch("src.core.llm.service.ModelRegistry"),
-            patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+            patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
             patch("src.core.llm.service.ClientFactory"),
         ):
-            mock_runner = MockRunner.return_value
+            mock_runner = mock_runner.return_value
 
             service = LLMService()
 
@@ -173,8 +173,8 @@ class TestSessionHistory:
 
     def test_get_messages(self) -> None:
         """Test getting messages from history"""
-        with patch("src.core.context.history.ChatHistoryManager") as MockCHM:
-            mock_manager = MockCHM.return_value
+        with patch("src.core.context.history.ChatHistoryManager") as mock_chm:  # noqa: N806
+            mock_manager = mock_chm.return_value
             mock_manager.get_history.return_value = []
 
             history = SessionHistory("test-session")
@@ -219,14 +219,14 @@ class TestLLMExecutionGoldenFlow:
         This is the Phase 2 acceptance criteria test.
         """
         with (
-            patch("src.core.llm.service.ModelRegistry") as MockRegistry,
-            patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
-            patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+            patch("src.core.llm.service.ModelRegistry") as mock_registry,  # noqa: N806
+            patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
+            patch("src.core.llm.service.ClientFactory") as mock_client_factory,  # noqa: N806
         ):
             # Setup all mocks
-            mock_registry = MockRegistry.return_value
-            mock_runner = MockRunner.return_value
-            mock_client_factory = MockClientFactory.return_value
+            mock_registry = mock_registry.return_value
+            mock_runner = mock_runner.return_value
+            mock_client_factory = mock_client_factory.return_value
 
             mock_config = MagicMock()
             mock_config.n_ctx = 8192

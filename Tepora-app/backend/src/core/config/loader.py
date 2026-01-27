@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 

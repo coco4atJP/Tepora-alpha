@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .types import ModelConfig, ModelModality
+from .types import ModelConfig
 
 if TYPE_CHECKING:
     from .manager import ModelManager
@@ -40,19 +40,19 @@ class ModelConfigResolver:
 
         elif key == "executor_model":
             return self._model_manager.get_executor_model_path(task_type)
-        
+
         elif key == "embedding_model":
-             # V3 Manager logic: Use embedding role
-             mid = self._model_manager.get_assigned_model_id("embedding")
-             if mid:
-                 m = self._model_manager.get_model(mid)
-                 if m and m.path:
-                     return Path(m.path)
-             return None
+            # V3 Manager logic: Use embedding role
+            mid = self._model_manager.get_assigned_model_id("embedding")
+            if mid:
+                m = self._model_manager.get_model(mid)
+                if m and m.path:
+                    return Path(m.path)
+            return None
 
         elif key == "text_model":
             # Fallback for generic text model -> use character model
-             return self._model_manager.get_character_model_path()
+            return self._model_manager.get_character_model_path()
 
         # フォールバック: config.yml から解決
         return self._resolve_from_config(key)

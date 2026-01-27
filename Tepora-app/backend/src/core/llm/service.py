@@ -27,7 +27,7 @@ from src.core.llm.llama_runner import LlamaServerRunner
 from src.core.llm.ollama_runner import OllamaRunner
 from src.core.llm.runner import LocalModelRunner, RunnerConfig
 from src.core.models.config import ModelConfigResolver
-from src.core.models.types import ModelLoader, ModelModality, ModelInfo
+from src.core.models.types import ModelInfo, ModelLoader
 
 if TYPE_CHECKING:
     from src.core.download import DownloadManager
@@ -48,9 +48,9 @@ class LLMService:
 
     def __init__(
         self,
-        download_manager: DownloadManager | None = None, # Legacy compatibility
+        download_manager: DownloadManager | None = None,  # Legacy compatibility
         model_manager: ModelManager | None = None,
-        runner: LocalModelRunner | None = None, # Optional override for testing
+        runner: LocalModelRunner | None = None,  # Optional override for testing
         cache_size: int | None = None,
     ):
         """
@@ -58,19 +58,19 @@ class LLMService:
         """
         # We generally expect model_manager to be provided in V3
         self._model_manager = model_manager
-        
+
         # Config resolver for backward compatibility or extra configs
         self._config_resolver = ModelConfigResolver(model_manager)
-        
+
         self._client_factory = ClientFactory()
 
         # Runners
         # If a generic runner is passed (testing), we use it for both?
         # For production, we instantiate specific runners.
         if runner:
-             # Test mode usually
+            # Test mode usually
             self._llama_runner = runner
-            self._ollama_runner = runner # Mock or same runner
+            self._ollama_runner = runner  # Mock or same runner
             self._is_test_runner = True
         else:
             # Llama.cpp Runner
@@ -79,25 +79,31 @@ class LLMService:
             if self._model_manager:
                 binary_path = self._model_manager.get_binary_path()
                 logs_dir = self._model_manager.get_logs_dir()
-            
+
             if not binary_path:
-                 # Fallback?
-                 from src.core.config import MODEL_BASE_PATH
-                 from pathlib import Path
-                 binary_path = find_server_executable(Path(MODEL_BASE_PATH) / "bin" / "llama.cpp")
+                # Fallback?
+                from pathlib import Path
+
+                from src.core.config import MODEL_BASE_PATH
+
+                binary_path = find_server_executable(Path(MODEL_BASE_PATH) / "bin" / "llama.cpp")
 
             if not logs_dir:
-                 from pathlib import Path
-                 logs_dir = Path.cwd() / "logs"
+                from pathlib import Path
+
+                logs_dir = Path.cwd() / "logs"
 
             self._llama_runner = LlamaServerRunner(binary_path=binary_path, logs_dir=logs_dir)
-            self._ollama_runner = OllamaRunner() # Assumes default localhost:11434 config
+            self._ollama_runner = OllamaRunner()  # Assumes default localhost:11434 config
             self._is_test_runner = False
 
         # Cache configuration
         try:
             from src.core.config import settings as _settings
-            configured_cache_size = getattr(getattr(_settings, "llm_manager", None), "cache_size", None)
+
+            configured_cache_size = getattr(
+                getattr(_settings, "llm_manager", None), "cache_size", None
+            )
         except Exception:
             configured_cache_size = None
 
@@ -142,23 +148,23 @@ class LLMService:
         model_id = None
         if self._model_manager:
             model_id = self._model_manager.get_assigned_model_id("character")
-        
+
         # If no model managed, we can't count reliably?
         # Fallback to a default if testing
         if not model_id and not self._is_test_runner:
-             logger.warning("No character model assigned for token counting.")
-             return 0
+            logger.warning("No character model assigned for token counting.")
+            return 0
 
         total_tokens = 0
-        
+
         # We need the model info to know the loader
         model = self._model_manager.get_model(model_id) if model_id else None
         if not model and not self._is_test_runner:
-             return 0
-             
+            return 0
+
         # Mock logic compatibility: if test runner, allow missing model
         runner = self._get_runner(model.loader if model else ModelLoader.LLAMA_CPP)
-        
+
         # key for runner
         key = model_id if model_id else "character_model"
 
@@ -189,31 +195,31 @@ class LLMService:
         """
         # 1. Resolve Model ID
         target_model_id = model_id
-        
+
         if not target_model_id:
             # Resolve from role via Manager
             if not self._model_manager:
                 raise RuntimeError("ModelManager not available to resolve role")
-            
+
             lookup_key = role
             if role == "executor":
                 lookup_key = f"executor:{task_type}" if task_type != "default" else "executor"
-                
+
             target_model_id = self._model_manager.get_assigned_model_id(lookup_key)
             if not target_model_id and role == "executor" and task_type != "default":
-                 # Fallback to default executor
-                 target_model_id = self._model_manager.get_assigned_model_id("executor")
-            
+                # Fallback to default executor
+                target_model_id = self._model_manager.get_assigned_model_id("executor")
+
             if not target_model_id:
-                 # Legacy fallback for tests or bad config?
-                 # If role is character, maybe we have a model?
-                 # For V3 strictness, we should fail or return a helpful error.
-                 raise ValueError(f"No model assigned for role '{role}' (task: {task_type})")
+                # Legacy fallback for tests or bad config?
+                # If role is character, maybe we have a model?
+                # For V3 strictness, we should fail or return a helpful error.
+                raise ValueError(f"No model assigned for role '{role}' (task: {task_type})")
 
         # 2. Get Model Info
         model_info = self._model_manager.get_model(target_model_id)
         if not model_info:
-             raise ValueError(f"Model ID '{target_model_id}' not found in registry")
+            raise ValueError(f"Model ID '{target_model_id}' not found in registry")
 
         # 3. Cache / Lock
         async with self._cache_lock:
@@ -236,13 +242,13 @@ class LLMService:
         target_model_id = None
         if self._model_manager:
             target_model_id = self._model_manager.get_assigned_model_id("embedding")
-        
+
         if not target_model_id:
-             raise ValueError("No embedding model assigned")
+            raise ValueError("No embedding model assigned")
 
         async with self._cache_lock:
             # Use a lock for embedding init?
-             pass 
+            pass
 
         # Simple check - if already loaded and same ID
         if self._embedding_client and self._current_embedding_model_id == target_model_id:
@@ -253,50 +259,53 @@ class LLMService:
             raise ValueError(f"Embedding model {target_model_id} not found")
 
         runner = self._get_runner(model_info.loader)
-        
+
         # Start
         port = await runner.start(
             RunnerConfig(
                 model_key=model_info.id,
                 model_path=model_info.path if model_info.loader == ModelLoader.LLAMA_CPP else None,
                 port=0,
-                extra_args=["--embedding"] if model_info.loader == ModelLoader.LLAMA_CPP else [], # Ollama doesn't need --embedding flag usually?
+                extra_args=["--embedding"]
+                if model_info.loader == ModelLoader.LLAMA_CPP
+                else [],  # Ollama doesn't need --embedding flag usually?
                 model_config=model_info.config,
             )
         )
 
         base_url = runner.get_base_url(model_info.id) or f"http://localhost:{port}"
-        
+
         client = self._client_factory.create_embedding_client(model_info.id, base_url)
         self._embedding_client = client
         self._current_embedding_model_id = target_model_id
-        
+
         logger.info("Embedding model loaded: %s", target_model_id)
         return client
 
     async def _load_model(self, model_info: ModelInfo) -> BaseChatModel:
         """Internal load logic"""
-        
+
         # Evict if full
         if len(self._chat_model_cache) >= self._cache_size:
             await self._evict_oldest_model()
 
         runner = self._get_runner(model_info.loader)
-        
+
         # Determine Path (For Llama.cpp) or Tag (Ollama)
         path = None
         if model_info.loader == ModelLoader.LLAMA_CPP:
             from pathlib import Path
+
             path = Path(model_info.path)
             if not path.exists():
-                 raise ValueError(f"Model file not found: {path}")
+                raise ValueError(f"Model file not found: {path}")
 
         # Start Server
         # NOTE: Ollama runner config expects model_key to be the TAG name?
         # My OllieRunner says: `model_name = config.model_key` and expects it to be the tag.
         # But `model_info.id` is a uuid. `model_info.path` holds the TAG for ollama (from my types.py plan).
         # "path: str # File path or Ollama tag"
-        
+
         # So:
         # If llama_cpp: key=id, path=path
         # If ollama: key=path(tag), path=None?
@@ -304,11 +313,11 @@ class LLMService:
         # LLMService tracks by `model_id` (UUID).
         # Runner tracks by `model_key`.
         # OllamaRunner tracks by `model_key` which it assumes is the model name.
-        
+
         runner_key = model_info.id
         if model_info.loader == ModelLoader.OLLAMA:
-             runner_key = model_info.path # Use the tag name for Ollama runner
-        
+            runner_key = model_info.path  # Use the tag name for Ollama runner
+
         port = await runner.start(
             RunnerConfig(
                 model_key=runner_key,
@@ -345,7 +354,7 @@ class LLMService:
                 if model.loader == ModelLoader.OLLAMA:
                     key = model.path
                 await runner.stop(key)
-        
+
         del self._chat_model_cache[oldest_id]
 
     def cleanup(self) -> None:
@@ -360,8 +369,8 @@ class LLMService:
     def get_model_config_for_diagnostics(self, role: str = "character") -> dict[str, Any]:
         """Diagnostic info"""
         if not self._model_manager:
-             return {"error": "No manager"}
-        
+            return {"error": "No manager"}
+
         mid = self._model_manager.get_assigned_model_id(role)
         if not mid:
             # Try direct ID?
@@ -370,11 +379,11 @@ class LLMService:
         model = self._model_manager.get_model(mid)
         if not model:
             return {"error": f"Model not found for {role}"}
-            
+
         return {
             "model_id": model.id,
             "name": model.name,
             "loader": model.loader,
             "path": model.path,
-            "cached": model.id in self._chat_model_cache
+            "cached": model.id in self._chat_model_cache,
         }

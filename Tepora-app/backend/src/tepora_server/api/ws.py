@@ -261,7 +261,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         data.message or "",
                         data.mode,
                         data.attachments,
-                        data.attachments,
                         data.skipWebSearch,
                         session_id,
                         thinking_mode=data.thinkingMode,

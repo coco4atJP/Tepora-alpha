@@ -1,9 +1,10 @@
 import pytest
-import respx
 from httpx import Response
 
 from src.core.llm.ollama_runner import OllamaRunner
 from src.core.llm.runner import RunnerConfig
+
+respx = pytest.importorskip("respx")
 
 
 @pytest.mark.asyncio

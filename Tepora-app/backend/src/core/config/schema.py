@@ -140,32 +140,6 @@ class AgentToolPolicyConfig(BaseModel):
     deny: list[str] = []
     # A+C Hybrid: dangerous tools require confirmation (first time only, then auto-approved)
     require_confirmation: list[str] = ["native_web_fetch", "native_google_search"]
-    # URL restrictions for web fetch tools
-    url_denylist: list[str] = [
-        "localhost",
-        "127.0.0.1",
-        "0.0.0.0",
-        "192.168.*",
-        "10.*",
-        "172.16.*",
-        "172.17.*",
-        "172.18.*",
-        "172.19.*",
-        "172.20.*",
-        "172.21.*",
-        "172.22.*",
-        "172.23.*",
-        "172.24.*",
-        "172.25.*",
-        "172.26.*",
-        "172.27.*",
-        "172.28.*",
-        "172.29.*",
-        "172.30.*",
-        "172.31.*",
-        "169.254.*",  # Link-local
-        "::1",  # IPv6 localhost
-    ]
 
 
 class AgentProfileConfig(BaseModel):
@@ -247,6 +221,33 @@ class ToolsConfig(BaseModel):
 class PrivacyConfig(BaseModel):
     allow_web_search: bool = False
     redact_pii: bool = True
+
+    # URL restrictions for web fetch tools
+    url_denylist: list[str] = [
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+        "192.168.*",
+        "10.*",
+        "172.16.*",
+        "172.17.*",
+        "172.18.*",
+        "172.19.*",
+        "172.20.*",
+        "172.21.*",
+        "172.22.*",
+        "172.23.*",
+        "172.24.*",
+        "172.25.*",
+        "172.26.*",
+        "172.27.*",
+        "172.28.*",
+        "172.29.*",
+        "172.30.*",
+        "172.31.*",
+        "169.254.*",  # Link-local
+        "::1",  # IPv6 localhost
+    ]
 
     model_config = {"extra": "ignore"}
 

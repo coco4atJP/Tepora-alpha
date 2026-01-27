@@ -22,10 +22,11 @@ import pytest
 from langchain_core.tools import BaseTool
 
 # Test imports from core_v2
-from src.core.app_v2 import TeporaApp, TeporaAppConfig
-from src.core.system import SessionManager, get_logger
-from src.core.system.logging import PIIFilter
-from src.core.tools import ToolManager, ToolProvider
+# result of sys.path modification or similar)
+from src.core.app_v2 import TeporaApp, TeporaAppConfig  # noqa: E402
+from src.core.system import SessionManager, get_logger  # noqa: E402
+from src.core.system.logging import PIIFilter  # noqa: E402
+from src.core.tools import ToolManager, ToolProvider  # noqa: E402
 
 # ============================================================
 # Mock Tool for Testing
@@ -262,8 +263,8 @@ class TestTeporaApp:
         config = TeporaAppConfig(tool_providers=[MockToolProvider()])
 
         # Mock the entire TeporaGraph to avoid complex LLM mocking
-        with patch("src.core.app_v2.TeporaGraph") as MockGraph:
-            mock_graph_instance = MockGraph.return_value
+        with patch("src.core.app_v2.TeporaGraph") as mock_graph_cls:  # noqa: N806
+            mock_graph_instance = mock_graph_cls.return_value
             mock_graph_instance.cleanup = MagicMock()
 
             # Mock the process method to yield strings
@@ -274,8 +275,8 @@ class TestTeporaApp:
             mock_graph_instance.process = mock_process
 
             # Also mock LLMService to prevent initialization errors
-            with patch("src.core.app_v2.LLMService") as MockLLMService:
-                mock_llm = MockLLMService.return_value
+            with patch("src.core.app_v2.LLMService") as mock_llm_cls:  # noqa: N806
+                mock_llm = mock_llm_cls.return_value
                 mock_llm.cleanup = MagicMock()
 
                 async with TeporaApp(config=config) as app:

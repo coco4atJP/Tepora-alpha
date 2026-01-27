@@ -1,91 +1,404 @@
-F841 Local variable `url` is assigned to but never used
-   --> src\core\llm\ollama_runner.py:152:9
+I001 [*] Import block is un-sorted or un-formatted
+ --> tests\core\tools\test_native_privacy.py:2:1
+  |
+2 | / import pytest
+3 | | from unittest.mock import patch, MagicMock
+4 | | from src.core.tools.native import NativeToolProvider, WebFetchTool
+  | |__________________________________________________________________^
+5 |
+6 |   @pytest.mark.asyncio
+  |
+help: Organize imports
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+ --> tests\core\tools\test_native_privacy.py:3:34
+  |
+2 | import pytest
+3 | from unittest.mock import patch, MagicMock
+  |                                  ^^^^^^^^^
+4 | from src.core.tools.native import NativeToolProvider, WebFetchTool
+  |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:9:1
+   |
+ 7 | async def test_native_tool_provider_respects_privacy():
+ 8 |     """Test that WebFetchTool is only registered when privacy.allow_web_search is True."""
+ 9 |     
+   | ^^^^
+10 |     # Case 1: Privacy blocked
+11 |     with patch("src.core.tools.native.settings") as mock_settings:
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:14:1
+   |
+12 |         mock_settings.privacy.allow_web_search = False
+13 |         mock_settings.tools.google_search_api_key = None
+14 |         
+   | ^^^^^^^^
+15 |         provider = NativeToolProvider()
+16 |         tools = await provider.load_tools()
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:17:1
+   |
+15 |         provider = NativeToolProvider()
+16 |         tools = await provider.load_tools()
+17 |         
+   | ^^^^^^^^
+18 |         tool_names = [t.name for t in tools]
+19 |         assert "native_web_fetch" not in tool_names
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:25:1
+   |
+23 |         mock_settings.privacy.allow_web_search = True
+24 |         mock_settings.tools.google_search_api_key = None
+25 |         
+   | ^^^^^^^^
+26 |         provider = NativeToolProvider()
+27 |         tools = await provider.load_tools()
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:28:1
+   |
+26 |         provider = NativeToolProvider()
+27 |         tools = await provider.load_tools()
+28 |         
+   | ^^^^^^^^
+29 |         tool_names = [t.name for t in tools]
+30 |         assert "native_web_fetch" in tool_names
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:36:1
+   |
+34 |     with patch("src.core.tools.native.settings") as mock_settings:
+35 |         mock_settings.privacy.url_denylist = ["localhost", "127.0.0.1"]
+36 |         
+   | ^^^^^^^^
+37 |         tool = WebFetchTool()
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:38:1
+   |
+37 |         tool = WebFetchTool()
+38 |         
+   | ^^^^^^^^
+39 |         # Should be blocked
+40 |         assert tool._validate_url("http://localhost/foo") is not None
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:42:1
+   |
+40 |         assert tool._validate_url("http://localhost/foo") is not None
+41 |         assert tool._validate_url("http://127.0.0.1/bar") is not None
+42 |         
+   | ^^^^^^^^
+43 |         # Should pass
+44 |         assert tool._validate_url("http://google.com") is None
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:50:1
+   |
+48 |     with patch("src.core.tools.native.settings") as mock_settings:
+49 |         mock_settings.privacy.url_denylist = []
+50 |         
+   | ^^^^^^^^
+51 |         tool = WebFetchTool()
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:52:1
+   |
+51 |         tool = WebFetchTool()
+52 |         
+   | ^^^^^^^^
+53 |         with patch("socket.getaddrinfo") as mock_dns:
+54 |             # Simulate private IP resolution
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> tests\core\tools\test_native_privacy.py:59:1
+   |
+57 |             assert error is not None
+58 |             assert "blocked" in error or "private" in error
+59 |             
+   | ^^^^^^^^^^^^
+60 |             # Simulate public IP resolution
+61 |             mock_dns.return_value = [(2, 1, 6, '', ('8.8.8.8', 80))]
+   |
+help: Remove whitespace from blank line
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_foundation_flow.py:21:1
+   |
+21 | import pytest
+   | ^^^^^^^^^^^^^
+22 | from langchain_core.tools import BaseTool
+   |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_foundation_flow.py:22:1
+   |
+21 | import pytest
+22 | from langchain_core.tools import BaseTool
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |
+24 | # Test imports from core_v2
+   |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_foundation_flow.py:25:1
+   |
+24 | # Test imports from core_v2
+25 | from src.core.app_v2 import TeporaApp, TeporaAppConfig
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 | from src.core.system import SessionManager, get_logger
+27 | from src.core.system.logging import PIIFilter
+   |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_foundation_flow.py:26:1
+   |
+24 | # Test imports from core_v2
+25 | from src.core.app_v2 import TeporaApp, TeporaAppConfig
+26 | from src.core.system import SessionManager, get_logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 | from src.core.system.logging import PIIFilter
+28 | from src.core.tools import ToolManager, ToolProvider
+   |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_foundation_flow.py:27:1
+   |
+25 | from src.core.app_v2 import TeporaApp, TeporaAppConfig
+26 | from src.core.system import SessionManager, get_logger
+27 | from src.core.system.logging import PIIFilter
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | from src.core.tools import ToolManager, ToolProvider
+   |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_foundation_flow.py:28:1
+   |
+26 | from src.core.system import SessionManager, get_logger
+27 | from src.core.system.logging import PIIFilter
+28 | from src.core.tools import ToolManager, ToolProvider
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 |
+30 | # ============================================================
+   |
+
+N806 Variable `MockGraph` in function should be lowercase
+   --> tests\core_v2\test_foundation_flow.py:265:54
     |
-150 |     async def _preload_model(self, model_key: str) -> None:
-151 |         """Send a dummy request to force model loading."""
-152 |         url = f"{self._base_url}/api/chat"
-    |         ^^^
-153 |         # empty messages to just trigger load? Or minimal prompt.
-154 |         # Ollama might error on empty messages.
-    |
-help: Remove assignment to unused variable `url`
-
-F841 Local variable `payload` is assigned to but never used
-   --> src\core\llm\ollama_runner.py:158:9
-    |
-156 |         # Actually /api/chat with validation might be enough.
-157 |         # Let's try to send a very short request with keep_alive=-1 (indefinite) or default.
-158 |         payload = {
-    |         ^^^^^^^
-159 |             "model": model_key,
-160 |             "messages": [],  # empty might be rejected
-    |
-help: Remove assignment to unused variable `payload`
-
-N806 Variable `MockPM` in function should be lowercase
-  --> tests\src\core\llm\test_runners.py:11:63
-   |
- 9 | @pytest.fixture
-10 | def mock_process_manager():
-11 |     with patch("src.core.llm.llama_runner.ProcessManager") as MockPM:
-   |                                                               ^^^^^^
-12 |         yield MockPM.return_value
-   |
-
-N806 Variable `MockClient` in function should be lowercase
-  --> tests\src\core\llm\test_runners.py:30:40
-   |
-28 | @pytest.mark.asyncio
-29 | async def test_llama_runner_count_tokens(llama_runner):
-30 |     with patch("httpx.AsyncClient") as MockClient:
-   |                                        ^^^^^^^^^^
-31 |         mock_instance = MockClient.return_value
-32 |         mock_instance.__aenter__.return_value = mock_instance
-   |
-
-N806 Variable `MockClient` in function should be lowercase
-  --> tests\src\core\llm\test_runners.py:52:40
-   |
-50 | @pytest.mark.asyncio
-51 | async def test_llama_runner_get_capabilities(llama_runner):
-52 |     with patch("httpx.AsyncClient") as MockClient:
-   |                                        ^^^^^^^^^^
-53 |         mock_instance = MockClient.return_value
-54 |         mock_instance.__aenter__.return_value = mock_instance
-   |
-
-N806 Variable `MockClient` in function should be lowercase
-  --> tests\src\core\llm\test_runners.py:75:40
-   |
-73 | @pytest.mark.asyncio
-74 | async def test_ollama_runner_count_tokens(ollama_runner):
-75 |     with patch("httpx.AsyncClient") as MockClient:
-   |                                        ^^^^^^^^^^
-76 |         mock_instance = MockClient.return_value
-77 |         mock_instance.__aenter__.return_value = mock_instance
-   |
-
-N806 Variable `MockClient` in function should be lowercase
-  --> tests\src\core\llm\test_runners.py:95:40
-   |
-93 | @pytest.mark.asyncio
-94 | async def test_ollama_runner_get_capabilities(ollama_runner):
-95 |     with patch("httpx.AsyncClient") as MockClient:
-   |                                        ^^^^^^^^^^
-96 |         mock_instance = MockClient.return_value
-97 |         mock_instance.__aenter__.return_value = mock_instance
-   |
-
-N806 Variable `MockClient` in function should be lowercase
-   --> tests\src\core\llm\test_runners.py:118:40
-    |
-116 | @pytest.mark.asyncio
-117 | async def test_ollama_runner_preload(ollama_runner):
-118 |     with patch("httpx.AsyncClient") as MockClient:
-    |                                        ^^^^^^^^^^
-119 |         mock_instance = MockClient.return_value
-120 |         mock_instance.__aenter__.return_value = mock_instance
+264 |         # Mock the entire TeporaGraph to avoid complex LLM mocking
+265 |         with patch("src.core.app_v2.TeporaGraph") as MockGraph:
+    |                                                      ^^^^^^^^^
+266 |             mock_graph_instance = MockGraph.return_value
+267 |             mock_graph_instance.cleanup = MagicMock()
     |
 
-Found 8 errors.
-No fixes available (2 hidden fixes can be enabled with the `--unsafe-fixes` option).
+N806 Variable `MockLLMService` in function should be lowercase
+   --> tests\core_v2\test_foundation_flow.py:277:57
+    |
+276 |             # Also mock LLMService to prevent initialization errors
+277 |             with patch("src.core.app_v2.LLMService") as MockLLMService:
+    |                                                         ^^^^^^^^^^^^^^
+278 |                 mock_llm = MockLLMService.return_value
+279 |                 mock_llm.cleanup = MagicMock()
+    |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_llm_execution_flow.py:24:1
+   |
+23 | # Test imports
+24 | from src.core.context import SessionHistory
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 | from src.core.llm import LLMService
+   |
+
+E402 Module level import not at top of file
+  --> tests\core_v2\test_llm_execution_flow.py:25:1
+   |
+23 | # Test imports
+24 | from src.core.context import SessionHistory
+25 | from src.core.llm import LLMService
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 |
+27 | # ============================================================
+   |
+
+N806 Variable `MockRegistry` in function should be lowercase
+  --> tests\core_v2\test_llm_execution_flow.py:38:60
+   |
+36 |         """Test LLMService initializes without errors"""
+37 |         with (
+38 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+   |                                                            ^^^^^^^^^^^^
+39 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+40 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+   |
+
+N806 Variable `MockRunner` in function should be lowercase
+  --> tests\core_v2\test_llm_execution_flow.py:39:64
+   |
+37 |         with (
+38 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+39 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+   |                                                                ^^^^^^^^^^
+40 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+41 |         ):
+   |
+
+N806 Variable `MockClientFactory` in function should be lowercase
+  --> tests\core_v2\test_llm_execution_flow.py:40:60
+   |
+38 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+39 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+40 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+   |                                                            ^^^^^^^^^^^^^^^^^
+41 |         ):
+42 |             service = LLMService()
+   |
+
+N806 Variable `MockRegistry` in function should be lowercase
+  --> tests\core_v2\test_llm_execution_flow.py:62:60
+   |
+60 |         """Get mock client, send prompt, receive response"""
+61 |         with (
+62 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+   |                                                            ^^^^^^^^^^^^
+63 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+64 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+   |
+
+N806 Variable `MockRunner` in function should be lowercase
+  --> tests\core_v2\test_llm_execution_flow.py:63:64
+   |
+61 |         with (
+62 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+63 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+   |                                                                ^^^^^^^^^^
+64 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+65 |         ):
+   |
+
+N806 Variable `MockClientFactory` in function should be lowercase
+  --> tests\core_v2\test_llm_execution_flow.py:64:60
+   |
+62 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+63 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+64 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+   |                                                            ^^^^^^^^^^^^^^^^^
+65 |         ):
+66 |             # Setup mocks
+   |
+
+N806 Variable `MockRunner` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:137:64
+    |
+135 |         with (
+136 |             patch("src.core.llm.service.ModelRegistry"),
+137 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+    |                                                                ^^^^^^^^^^
+138 |             patch("src.core.llm.service.ClientFactory"),
+139 |         ):
+    |
+
+N806 Variable `MockCHM` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:166:70
+    |
+164 |     def test_initialization(self) -> None:
+165 |         """Test SessionHistory initializes correctly"""
+166 |         with patch("src.core.context.history.ChatHistoryManager") as MockCHM:
+    |                                                                      ^^^^^^^
+167 |             mock_manager = MockCHM.return_value
+    |
+
+N806 Variable `MockCHM` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:176:70
+    |
+174 |     def test_get_messages(self) -> None:
+175 |         """Test getting messages from history"""
+176 |         with patch("src.core.context.history.ChatHistoryManager") as MockCHM:
+    |                                                                      ^^^^^^^
+177 |             mock_manager = MockCHM.return_value
+178 |             mock_manager.get_history.return_value = []
+    |
+
+N806 Variable `MockCHM` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:193:70
+    |
+191 |         from langchain_core.messages import HumanMessage
+192 |
+193 |         with patch("src.core.context.history.ChatHistoryManager") as MockCHM:
+    |                                                                      ^^^^^^^
+194 |             mock_manager = MockCHM.return_value
+    |
+
+N806 Variable `MockRegistry` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:222:60
+    |
+220 |         """
+221 |         with (
+222 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+    |                                                            ^^^^^^^^^^^^
+223 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+224 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+    |
+
+N806 Variable `MockRunner` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:223:64
+    |
+221 |         with (
+222 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+223 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+    |                                                                ^^^^^^^^^^
+224 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+225 |         ):
+    |
+
+N806 Variable `MockClientFactory` in function should be lowercase
+   --> tests\core_v2\test_llm_execution_flow.py:224:60
+    |
+222 |             patch("src.core.llm.service.ModelRegistry") as MockRegistry,
+223 |             patch("src.core.llm.service.LlamaServerRunner") as MockRunner,
+224 |             patch("src.core.llm.service.ClientFactory") as MockClientFactory,
+    |                                                            ^^^^^^^^^^^^^^^^^
+225 |         ):
+226 |             # Setup all mocks
+    |
+
+F841 Local variable `client` is assigned to but never used
+  --> tests\test_llm_service_v3.py:91:9
+   |
+90 |         # Execute
+91 |         client = await self.service.get_client(role="unused", model_id=model_id)
+   |         ^^^^^^
+92 |
+93 |         # Verify
+   |
+help: Remove assignment to unused variable `client`
+
+Found 37 errors.
+[*] 13 fixable with the `--fix` option (1 hidden fix can be enabled with the `--unsafe-fixes` option).

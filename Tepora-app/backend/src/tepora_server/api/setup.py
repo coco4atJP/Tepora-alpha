@@ -458,17 +458,29 @@ async def get_models():
         dm = _get_download_manager()
         models = dm.model_manager.get_available_models()
 
+        active_text_id = (
+            dm.model_manager.get_character_model_id() or dm.model_manager.get_executor_model_id()
+        )
+        active_embedding_id = dm.model_manager.get_assigned_model_id("embedding")
+
         result = []
         for model in models:
+            role_value = model.role.value if hasattr(model.role, "value") else str(model.role)
+            is_active = False
+            if role_value == "text":
+                is_active = model.id == active_text_id
+            elif role_value == "embedding":
+                is_active = model.id == active_embedding_id
+
             result.append(
                 {
                     "id": model.id,
                     "display_name": model.display_name or model.id,
-                    "role": model.role.value if hasattr(model.role, "value") else str(model.role),
+                    "role": role_value,
                     "file_size": model.file_size or 0,
                     "filename": model.filename,
                     "source": model.repo_id or "local",
-                    "is_active": getattr(model, "is_active", False),
+                    "is_active": is_active,
                 }
             )
 
@@ -587,6 +599,42 @@ async def reorder_models(request: ReorderRequest):
     except Exception as e:
         logger.error("Failed to reorder models: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class ActiveModelRequest(BaseModel):
+    model_id: str
+    role: str
+
+
+@router.post("/model/active")
+async def set_active_model(request: ActiveModelRequest):
+    """
+    Legacy endpoint: set active model for a pool.
+
+    Frontend uses this for embedding selection; V3 stores this as a role assignment.
+    """
+    try:
+        dm = _get_download_manager()
+        pool = _resolve_model_pool(request.role)
+
+        if pool.value == "embedding":
+            success = dm.model_manager.set_role_model("embedding", request.model_id)
+        else:
+            # TEXT pool maps to "character" role
+            success = dm.model_manager.set_character_model(request.model_id)
+
+        if not success:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Failed to set active model"},
+            )
+
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to set active model: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
 # --- Binary Update Endpoints ---
