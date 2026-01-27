@@ -7,7 +7,7 @@
 
 以下のツールがインストールされている必要があります。
 
-- **Python**: 3.10 以上
+- **Python**: 3.13 以上
 - **Node.js**: 18.0.0 以上
 - **Rust**: 最新の安定版 (Tauriのビルドに必要)
 - **Visual Studio Code** (推奨エディタ)
@@ -16,8 +16,8 @@
 
 ### 1. リポジトリのクローン
 ```bash
-git clone https://github.com/your-org/tepora.git
-cd tepora
+git clone https://github.com/coco4atJP/Tepora.git
+cd Tepora
 ```
 
 ### 2. バックエンド (Python) のセットアップ
