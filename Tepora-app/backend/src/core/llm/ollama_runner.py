@@ -108,13 +108,13 @@ class OllamaRunner:
         Raises:
             RuntimeError: If Ollama is not close or model is missing.
         """
-        # 1. Check connectivity
+        # Check connectivity
         if not await self._check_connection():
             raise RuntimeError(f"Cannot connect to Ollama at {self._base_url}. Is it running?")
 
         model_name = config.model_key
 
-        # 2. Check model existence
+        # Check model existence
         # Note: We match loosely because "llama3" might match "llama3:latest"
         available_models = await self._list_models()
         if model_name not in available_models and f"{model_name}:latest" not in available_models:
@@ -128,13 +128,13 @@ class OllamaRunner:
             )
             # In future: trigger pull here if missing
 
-        # 3. "Start" (Mark as active)
+        # "Start" (Mark as active)
         # We can optionally trigger a simple preload here via /api/generate with empty prompt?
         # For now, just mark it.
         self._running_models.add(model_name)
         logger.info("OllamaRunner: Model '%s' ready", model_name)
 
-        # 4. Pre-load model into VRAM (Optional but recommended)
+        # Pre-load model into VRAM (Optional but recommended)
         # We send an empty request to force load.
         # Note: /api/chat with keep_alive triggers load without generating if we just want to load.
         # But simply sending a request is enough.
