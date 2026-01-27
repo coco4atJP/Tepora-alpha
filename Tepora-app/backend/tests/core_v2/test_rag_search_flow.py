@@ -291,7 +291,11 @@ class TestBaseAgent:
             "task_result": None,
         }
 
-        result = await agent.execute(state)
+        from typing import cast
+
+        from src.core.graph.state import AgentState
+
+        result = await agent.execute(cast(AgentState, state))
 
         assert "messages" in result
         assert "agent_outcome" in result

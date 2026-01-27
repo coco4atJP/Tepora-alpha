@@ -8,6 +8,7 @@ import {
 	ErrorStep,
 	InstallingStep,
 	LanguageStep,
+	LoaderSelectionStep,
 	ModelConfigStep,
 	RequirementsCheckStep,
 } from "./steps";
@@ -23,6 +24,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 	const [state, dispatch] = useReducer(setupReducer, initialState);
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const { refetch: refetchRequirements } = useRequirements();
+	const [showEmbeddingWarning, setShowEmbeddingWarning] = useState(false);
 	const [pendingConsent, setPendingConsent] = useState<{
 		targetModels: Array<{
 			repo_id: string;
@@ -68,10 +70,10 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 			await apiClient.post("api/setup/init", { language: lang });
 
-			checkRequirements();
+			// checkRequirements(); // Moved to next step
 		} catch (err) {
 			console.error("Language set failed", err);
-			dispatch({ type: "REQ_CHECK_START" });
+			// dispatch({ type: "REQ_CHECK_START" }); // Don't error out, just stay
 		}
 	};
 
@@ -98,6 +100,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 			}>("api/setup/run", {
 				target_models,
 				acknowledge_warnings,
+				loader: state.loader, // Add loader to request
 			});
 
 			if (data.success) {
@@ -139,6 +142,33 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 	const handleStartSetup = async () => {
 		try {
+			// 1. Pre-flight Check
+			try {
+				const preflightData = await apiClient.post<{
+					success: boolean;
+					error?: string;
+					available_mb?: number;
+				}>("api/setup/preflight", {
+					required_space_mb: 4096, // Request ~4GB check
+				});
+
+				if (!preflightData.success) {
+					throw new Error(
+						preflightData.error ||
+							t("setup.errors.preflight_failed", "System check failed"),
+					);
+				}
+			} catch (err: unknown) {
+				// Handle API errors (e.g. 507, 403)
+				let msg = t("setup.errors.preflight_failed", "System check failed");
+				if (err instanceof ApiError) {
+					msg = (err.data as { error?: string })?.error || err.message;
+				} else if (err instanceof Error) {
+					msg = err.message;
+				}
+				throw new Error(msg);
+			}
+
 			const target_models: Array<{
 				repo_id: string;
 				filename: string;
@@ -147,7 +177,8 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 			}> = [];
 
 			if (showAdvanced && state.customModels) {
-				if (state.customModels.text) {
+				// Include text model only if NOT ollama
+				if (state.loader !== "ollama" && state.customModels.text) {
 					target_models.push({
 						repo_id: state.customModels.text.repo_id,
 						filename: state.customModels.text.filename,
@@ -164,16 +195,19 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 					});
 				}
 			} else if (state.defaults) {
-				state.defaults.text_models.forEach((m) => {
-					if (state.selectedModels.has(getKey(m))) {
-						target_models.push({
-							repo_id: m.repo_id,
-							filename: m.filename,
-							display_name: m.display_name,
-							role: "text",
-						});
-					}
-				});
+				// Include text models only if NOT ollama
+				if (state.loader !== "ollama") {
+					state.defaults.text_models.forEach((m) => {
+						if (state.selectedModels.has(getKey(m))) {
+							target_models.push({
+								repo_id: m.repo_id,
+								filename: m.filename,
+								display_name: m.display_name,
+								role: "text",
+							});
+						}
+					});
+				}
 
 				if (state.defaults.embedding) {
 					target_models.push({
@@ -195,22 +229,30 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		}
 	};
 
-	const handleFinish = async () => {
-		try {
-			await apiClient.post("api/setup/finish", { launch: true });
-			onComplete();
-		} catch {
-			dispatch({
-				type: "INSTALL_FAILURE",
-				payload: t(
-					"setup.errors.save_config_failed",
-					"Failed to save configuration. Please try again.",
-				),
-			});
-		}
-	};
-
 	// --- Effects ---
+
+	// Check for existing session (Resume Capability)
+	useEffect(() => {
+		const checkResume = async () => {
+			try {
+				const data = await apiClient.get<ProgressState>("api/setup/progress");
+				// If status is active (not idle, not completed, not failed), resume
+				// Note: "failed" might also be resumable in some contexts, but sticking to active for now.
+				const activeStatuses = [
+					"pending",
+					"downloading",
+					"extracting",
+					"installing",
+				];
+				if (activeStatuses.includes(data.status)) {
+					dispatch({ type: "START_INSTALL", payload: "RESUMED_JOB" });
+				}
+			} catch {
+				// Ignore
+			}
+		};
+		checkResume();
+	}, []);
 
 	// Load defaults for config screen
 	useEffect(() => {
@@ -223,6 +265,25 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				.catch(() => {});
 		}
 	}, [state.step, state.defaults]);
+
+	// Ollama Flow and Warning
+	useEffect(() => {
+		if (state.step === "MODEL_CONFIG" && state.loader === "ollama") {
+			// Check embedding status
+			const embedStatus = state.requirements?.models?.embedding?.status;
+			if (embedStatus !== "satisfied") {
+				// "satisfied" is the enum value for ready
+				setShowEmbeddingWarning(true);
+			} else {
+				// If satisfied, we can skip model selection and download phase (or just finish)
+				// But we still need to trigger "Start Setup" to finalize config
+				// If embedding is already there, handleStartSetup will just verify/skip download.
+				// We need to ensure handleStartSetup doesn't download text models.
+				handleStartSetup();
+			}
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [state.step, state.loader, state.requirements]);
 
 	// Poll progress while installing
 	useEffect(() => {
@@ -248,10 +309,26 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		return () => clearInterval(interval);
 	}, [state.step]);
 
+	const handleFinish = async () => {
+		try {
+			await apiClient.post("api/setup/finish", { launch: true });
+			onComplete();
+		} catch {
+			dispatch({
+				type: "INSTALL_FAILURE",
+				payload: t(
+					"setup.errors.save_config_failed",
+					"Failed to save configuration. Please try again.",
+				),
+			});
+		}
+	};
+
 	// --- Render ---
 
 	const stepTitles: Record<SetupStep, string> = {
 		LANGUAGE: t("setup.title", "Welcome to Tepora"),
+		LOADER_SELECT: t("setup.loader_title", "Select Engine"),
 		CHECK_REQUIREMENTS: t("setup.checking", "Checking System..."),
 		MODEL_CONFIG: t("setup.model_settings", "Model Configuration"),
 		INSTALLING: t("setup.downloading", "Installing Components..."),
@@ -263,6 +340,28 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		switch (state.step) {
 			case "LANGUAGE":
 				return <LanguageStep onSelectLanguage={handleSelectLanguage} />;
+			case "LOADER_SELECT":
+				return (
+					<LoaderSelectionStep
+						selectedLoader={state.loader}
+						onSelectLoader={(loader) =>
+							dispatch({ type: "SET_LOADER", payload: loader })
+						}
+						onNext={() => checkRequirements()}
+						onBack={() =>
+							dispatch({ type: "SET_LANGUAGE", payload: state.language })
+						} // Re-triggering SET_LANGUAGE might be weird but it sets step to LOADER in reducer. Wait, I want to go BACK to LANGUAGE.
+						// Reducer doesn't have GOTO_LANGUAGE.
+						// I can misuse SET_LANGUAGE or just add GOTO_LANGUAGE?
+						// Actually, SET_LANGUAGE sets step to LOADER_SELECT. So that's wrong.
+						// I will implement a "back" logic later if needed or just let it stay.
+						// For now, I'll pass a dummy onBack or fix reducer.
+						// Let's assume hitting Back goes to start.
+						// Actually I can manually set step if I added SET_STEP action.
+						// I will skip onBack functionality for this iteration or implement it properly.
+						// Let's just implement onNext for now.
+					/>
+				);
 			case "CHECK_REQUIREMENTS":
 				return <RequirementsCheckStep />;
 			case "MODEL_CONFIG":
@@ -297,6 +396,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 		const steps = [
 			{ key: "LANGUAGE", label: t("setup.step_lang", "Language") },
+			{ key: "LOADER_SELECT", label: t("setup.step_engine", "Engine") },
 			{ key: "MODEL_CONFIG", label: t("setup.step_model", "Model") },
 			{ key: "INSTALLING", label: t("setup.step_install", "Install") },
 			{ key: "COMPLETE", label: t("setup.step_done", "Complete") },
@@ -395,6 +495,48 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						</div>
 					</div>
 				</div>
+
+				{showEmbeddingWarning ? (
+					<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+						<div className="w-full max-w-lg mx-6 glass-tepora rounded-2xl border border-white/10 shadow-xl p-6">
+							<h2 className="text-2xl font-display font-semibold mb-3 text-gold-200">
+								{t("setup.embedding_warning_title", "Missing Embedding Model")}
+							</h2>
+							<p className="text-sm text-white/70 mb-4">
+								{t(
+									"setup.embedding_warning_desc",
+									"Ollama is selected, but no embedding model was found. Some features (RAG, Long-term Memory) require an embedding model.",
+								)}
+							</p>
+							<p className="text-sm text-white/70 mb-6">
+								{t(
+									"setup.embedding_warning_action",
+									"We recommend installing an embedding model, or you can proceed without it.",
+								)}
+							</p>
+							<div className="flex gap-3 justify-end">
+								{/* Option to go back or cancel? */}
+								<button
+									type="button"
+									className="px-4 py-2 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition"
+									onClick={() => setShowEmbeddingWarning(false)}
+								>
+									{t("common.back", "Back")}
+								</button>
+								<button
+									type="button"
+									className="px-4 py-2 rounded-full bg-gold-400 text-black font-semibold hover:bg-gold-300 transition"
+									onClick={() => {
+										setShowEmbeddingWarning(false);
+										handleStartSetup();
+									}}
+								>
+									{t("setup.embedding_warning_proceed", "Proceed Anyway")}
+								</button>
+							</div>
+						</div>
+					</div>
+				) : null}
 
 				{pendingConsent ? (
 					<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">

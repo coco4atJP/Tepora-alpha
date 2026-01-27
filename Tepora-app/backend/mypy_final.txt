@@ -1,0 +1,17 @@
+src\core\rag\manager.py:57: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+tests\core\test_log_maintenance.py:54: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+tests\core\test_log_maintenance.py:96: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src\core\config\loader.py:8: error: Library stubs not installed for "yaml"  [import-untyped]
+src\core\config\loader.py:8: note: Hint: "python3 -m pip install types-PyYAML"
+src\core\config\loader.py:8: note: (or run "mypy --install-types" to install all missing stub packages)
+src\core\config\loader.py:8: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+src\core\agent\registry.py:70: error: Returning Any from function declared to return "CustomAgentConfig | None"  [no-any-return]
+src\core\em_llm\integrator.py:77: error: Returning Any from function declared to return "dict[Any, Any]"  [no-any-return]
+src\core\llm\process_manager.py:22: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+tests\test_llm_service_v3.py:47: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src\tepora_server\api\setup.py:34: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src\tepora_server\api\setup.py:35: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src\tepora_server\api\setup.py:36: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src\tepora_server\api\setup.py:37: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src\tepora_server\state.py:32: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+Found 3 errors in 3 files (checked 149 source files)

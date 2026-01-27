@@ -628,7 +628,10 @@
 				"commandPreview": "実行コマンド",
 				"securityWarnings": "セキュリティ警告",
 				"envVars": "環境変数",
-				"confirmInstall": "インストール実行"
+				"confirmInstall": "インストール実行",
+				"pagination": "{{total}}件中 {{from}}-{{to}}件（{{page}}/{{totalPages}}ページ）",
+				"prevPage": "前のページ",
+				"nextPage": "次のページ"
 			},
 			"config_path": {
 				"label": "MCP構成ファイル",

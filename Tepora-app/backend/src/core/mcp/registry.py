@@ -27,8 +27,12 @@ REGISTRY_API_URL = "https://registry.modelcontextprotocol.io/v0.1/servers"
 # Cache duration (1 hour)
 CACHE_DURATION = timedelta(hours=1)
 
-# Default page size when syncing the whole registry (cursor-based API)
-DEFAULT_API_LIMIT = 200
+# Official MCP Registry (v0.1) enforces `limit` in the range 1..100.
+OFFICIAL_REGISTRY_MAX_LIMIT = 100
+
+# Default page size when syncing the whole registry (cursor-based API).
+# Official MCP Registry (v0.1) currently enforces `limit` in the range 1..100.
+DEFAULT_API_LIMIT = OFFICIAL_REGISTRY_MAX_LIMIT
 
 # Reduce duplicates by requesting only the latest version per server (official extension)
 DEFAULT_VERSION_FILTER = "latest"
@@ -167,6 +171,7 @@ class McpRegistry:
         limit: int = DEFAULT_API_LIMIT,
     ) -> list[McpRegistryServer]:
         """Fetch servers from the registry API (cursor-based pagination)."""
+        limit = max(1, min(limit, OFFICIAL_REGISTRY_MAX_LIMIT))
         servers: list[McpRegistryServer] = []
         cursor: str | None = None
         seen_cursors: set[str] = set()

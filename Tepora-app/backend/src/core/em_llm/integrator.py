@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -64,7 +64,7 @@ class EMLLMIntegrator:
 
         logger.info("EM-LLM Integrator initialized")
 
-    def get_current_llm_config_for_diagnostics(self) -> dict:
+    def get_current_llm_config_for_diagnostics(self) -> dict[str, Any]:
         """
         Get current LLM configuration for diagnostics.
 
@@ -74,7 +74,7 @@ class EMLLMIntegrator:
         provider = self._llm_diagnostics_provider
         if provider and hasattr(provider, "get_current_model_config_for_diagnostics"):
             try:
-                return provider.get_current_model_config_for_diagnostics()
+                return cast(dict[str, Any], provider.get_current_model_config_for_diagnostics())
             except Exception:
                 logger.debug("LLM diagnostics provider failed.", exc_info=True)
         return {}

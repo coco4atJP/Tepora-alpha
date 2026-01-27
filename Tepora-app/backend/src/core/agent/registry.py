@@ -40,12 +40,13 @@ class CustomAgentRegistry:
     """
 
     _instance: CustomAgentRegistry | None = None
+    _initialized: bool
 
     def __new__(cls) -> CustomAgentRegistry:
         """Singleton pattern."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
+            cls._instance._initialized = False  # type: ignore
         return cls._instance
 
     def __init__(self) -> None:
@@ -66,7 +67,8 @@ class CustomAgentRegistry:
         Returns:
             CustomAgentConfig if found, None otherwise
         """
-        return settings.custom_agents.get(agent_id)
+        from typing import cast
+        return cast(CustomAgentConfig | None, settings.custom_agents.get(agent_id))
 
     def list_agents(self, enabled_only: bool = False) -> list[CustomAgentConfig]:
         """

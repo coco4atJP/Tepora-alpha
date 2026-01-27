@@ -774,7 +774,8 @@ class ModelManager:
                 if entry_repo_id == repo_id and (
                     entry_filename is None or entry_filename == filename
                 ):
-                    return entry
+                    from typing import cast
+                    return cast(object, entry)
             return None
         except Exception:
             return None
@@ -793,7 +794,7 @@ class ModelManager:
             return DownloadPolicyDecision(True, True, ["Config unavailable"], None, None)
 
         allowlist_entry = self._find_allowlist_entry(repo_id, filename)
-        warnings = []
+        warnings: list[str] = []
         revision = None
         expected_sha256 = None
         verify_sha256 = download_config.require_sha256

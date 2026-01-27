@@ -577,7 +577,10 @@
 				"commandPreview": "命令预览",
 				"securityWarnings": "安全警告",
 				"envVars": "环境变量",
-				"confirmInstall": "确认安装"
+				"confirmInstall": "确认安装",
+				"pagination": "显示 {{from}}-{{to}} / {{total}}（第 {{page}}/{{totalPages}} 页）",
+				"prevPage": "上一页",
+				"nextPage": "下一页"
 			}
 		},
 		"memory": {

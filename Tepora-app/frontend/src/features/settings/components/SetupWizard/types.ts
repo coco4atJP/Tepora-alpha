@@ -2,15 +2,19 @@
 
 export type SetupStep =
 	| "LANGUAGE"
+	| "LOADER_SELECT"
 	| "CHECK_REQUIREMENTS"
 	| "MODEL_CONFIG"
 	| "INSTALLING"
 	| "COMPLETE"
 	| "ERROR";
 
+export type SetupLoader = "llama_cpp" | "ollama";
+
 export interface SetupState {
 	step: SetupStep;
 	language: string;
+	loader: SetupLoader;
 	requirements: RequirementsStatus | null;
 	defaults: DefaultModelsResponse | null;
 	selectedModels: Set<string>;
@@ -22,6 +26,7 @@ export interface SetupState {
 
 export type SetupAction =
 	| { type: "SET_LANGUAGE"; payload: string }
+	| { type: "SET_LOADER"; payload: SetupLoader }
 	| { type: "REQ_CHECK_START" }
 	| { type: "REQ_CHECK_SUCCESS"; payload: RequirementsStatus }
 	| { type: "REQ_CHECK_FAILURE"; payload: string }

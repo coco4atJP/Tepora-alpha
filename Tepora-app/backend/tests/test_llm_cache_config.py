@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import tempfile
+
 from src.core.llm.service import LLMService
 from src.core.models import ModelManager
 from src.core.models.types import ModelConfig, ModelInfo, ModelLoader, ModelModality

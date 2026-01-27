@@ -8,6 +8,7 @@ import type {
 export const initialState: SetupState = {
 	step: "LANGUAGE",
 	language: "en",
+	loader: "llama_cpp",
 	requirements: null,
 	defaults: null,
 	selectedModels: new Set(),
@@ -40,7 +41,10 @@ export function setupReducer(
 ): SetupState {
 	switch (action.type) {
 		case "SET_LANGUAGE":
-			return { ...state, language: action.payload };
+			return { ...state, language: action.payload, step: "LOADER_SELECT" };
+
+		case "SET_LOADER":
+			return { ...state, loader: action.payload };
 
 		case "REQ_CHECK_START":
 			return { ...state, step: "CHECK_REQUIREMENTS", error: null };

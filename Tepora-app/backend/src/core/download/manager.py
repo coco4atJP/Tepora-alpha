@@ -304,6 +304,7 @@ class DownloadManager:
         target_models: list[dict[str, Any]] | None = None,
         consent_provided: bool = False,
         custom_models: dict[str, dict[str, str]] | None = None,
+        loader: str = "llama_cpp",
     ) -> SetupResult:
         """
         初回セットアップを実行
@@ -314,10 +315,15 @@ class DownloadManager:
             target_models: ダウンロード対象モデルの明示的なリスト。
                            [{repo_id, filename, role, display_name}, ...]
             custom_models: 旧形式のモデル指定。target_modelsが空の場合にのみ使用。
+            loader: LLMローダータイプ ("llama_cpp" | "ollama")
         """
         errors: list[str] = []
         binary_installed = False
         models_installed: list[str] = []
+
+        if loader == "ollama":
+            install_binary = False
+            logger.info("Loader is ollama, skipping binary installation.")
 
         # 1. バイナリのインストール
         if install_binary:
@@ -369,6 +375,11 @@ class DownloadManager:
                 pool_enum = _normalize_model_pool(role_val)
                 if not pool_enum:
                     logger.warning("Skipping model with invalid role: %s", role_val)
+                    continue
+
+                # Ollama: Skip TEXT models
+                if loader == "ollama" and pool_enum == ModelPool.TEXT:
+                    logger.info("Loader is ollama, skipping text model: %s", filename)
                     continue
 
                 display_name = model_cfg.get("display_name") or f"{pool_enum.value} Model"
@@ -450,3 +461,36 @@ class DownloadManager:
     def get_executor_model_path(self, task_type: str = "default") -> Path | None:
         """エグゼキューターモデルのパスを取得"""
         return self.model_manager.get_executor_model_path(task_type)
+
+    def get_disk_free_space(self, path: Path | None = None) -> int:
+        """
+        指定パス（省略時はユーザーデータディレクトリ）の空き容量をバイト単位で取得
+        """
+        target = path or self.user_data_dir
+        # Ensure directory exists or use parent if it doesn't (to check volume space)
+        if not target.exists():
+            target = target.parent
+            if not target.exists():
+                # Fallback to current working directory root
+                target = Path(".")
+
+        import shutil
+
+        try:
+            total, used, free = shutil.disk_usage(target)
+            return free
+        except Exception as e:
+            logger.error("Failed to check disk space: %s", e)
+            return 0
+
+    def check_write_permission(self, path: Path | None = None) -> bool:
+        """
+        指定パス（省略時はユーザーデータディレクトリ）への書き込み権限を確認
+        """
+        target = path or self.user_data_dir
+        try:
+            if not target.exists():
+                target.mkdir(parents=True, exist_ok=True)
+            return os.access(target, os.W_OK)
+        except Exception:
+            return False

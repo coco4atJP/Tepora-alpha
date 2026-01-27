@@ -92,6 +92,7 @@ class LLMManagerConfig(BaseModel):
     health_check_interval: float = 1.0
     tokenizer_model_key: str = "text_model"
     cache_size: int = 3
+    loader: str = "llama_cpp"
 
     # Optional: allow extra fields
     model_config = {"extra": "ignore"}

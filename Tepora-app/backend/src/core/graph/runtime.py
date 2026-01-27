@@ -290,9 +290,11 @@ class TeporaGraph:
             mode=mode,
             chat_history=chat_history,
         )
+        from typing import cast
+
         for key, value in kwargs.items():
             if key in initial_state:
-                initial_state[key] = value
+                cast(dict, initial_state)[key] = value
 
         run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
         async for event in self.astream_events(initial_state, run_config=run_config):
@@ -340,12 +342,15 @@ class TeporaGraph:
             chat_history=chat_history,
         )
 
+        from typing import cast
+
         for key, value in kwargs.items():
             if key in initial_state:
-                initial_state[key] = value
+                cast(dict, initial_state)[key] = value
 
         run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
-        return await self._graph.ainvoke(initial_state, config=run_config)
+        result = await self._graph.ainvoke(initial_state, config=run_config)
+        return cast(dict[str, Any], result)
 
     def cleanup(self) -> None:
         """Cleanup graph resources."""

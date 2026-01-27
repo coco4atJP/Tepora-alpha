@@ -345,13 +345,15 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 	const {
 		storeServers,
 		loading,
-		loadingMore,
 		error,
 		searchQuery,
 		setSearchQuery,
 		total,
-		hasMore,
-		loadMore,
+		page,
+		pageSize,
+		totalPages,
+		nextPage,
+		prevPage,
 		previewInstall,
 		confirmInstall,
 	} = useMcpStore();
@@ -590,22 +592,33 @@ const McpStoreModal: React.FC<McpStoreModalProps> = ({
 									<div className="pt-3">
 										{total > 0 && (
 											<p className="text-center text-xs text-gray-500 mb-3">
-												{storeServers.length} / {total}
+												{t("settings.mcp.store.pagination", {
+													from: (page - 1) * pageSize + 1,
+													to: Math.min(page * pageSize, total),
+													total,
+													page,
+													totalPages,
+												})}
 											</p>
 										)}
-										{hasMore && (
+										<div className="flex items-center gap-2">
 											<button
 												type="button"
-												onClick={loadMore}
-												disabled={loadingMore || loading}
-												className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-sm disabled:opacity-50"
+												onClick={prevPage}
+												disabled={loading || page <= 1}
+												className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-sm disabled:opacity-50"
 											>
-												{loadingMore && (
-													<Loader2 className="animate-spin" size={16} />
-												)}
-												{t("common.load_more")}
+												{t("settings.mcp.store.prevPage")}
 											</button>
-										)}
+											<button
+												type="button"
+												onClick={nextPage}
+												disabled={loading || page >= totalPages}
+												className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-sm disabled:opacity-50"
+											>
+												{t("settings.mcp.store.nextPage")}
+											</button>
+										</div>
 									</div>
 								</>
 							)}

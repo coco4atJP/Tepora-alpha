@@ -39,7 +39,7 @@ async def main():
     # Check if thought process was captured in history
     history = app.history_manager.get_history("verify-2")
     if history:
-         print(f"\n[History Verified] {len(history)} messages found.")
+        print(f"\n[History Verified] {len(history)} messages found.")
     # We can't easily check internal state "thought_process" here without modifying return,
     # but we can check if the response seems reasoned or check logs.
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.embeddings import Embeddings
@@ -160,6 +161,8 @@ class LLMService:
         total_tokens = 0
 
         # We need the model info to know the loader
+        if not self._model_manager:
+            return 0
         model = self._model_manager.get_model(model_id) if model_id else None
         if not model and not self._is_test_runner:
             return 0
@@ -221,6 +224,8 @@ class LLMService:
                 raise ValueError(f"No model assigned for role '{role}' (task: {task_type})")
 
         # 2. Get Model Info
+        if not self._model_manager:
+            raise RuntimeError("ModelManager not available")
         model_info = self._model_manager.get_model(target_model_id)
         if not model_info:
             raise ValueError(f"Model ID '{target_model_id}' not found in registry")
@@ -255,6 +260,9 @@ class LLMService:
             if self._embedding_client and self._current_embedding_model_id == target_model_id:
                 return self._embedding_client
 
+            if not self._model_manager:
+                raise RuntimeError("ModelManager not available")
+
             model_info = self._model_manager.get_model(target_model_id)
             if not model_info:
                 raise ValueError(f"Embedding model {target_model_id} not found")
@@ -271,7 +279,7 @@ class LLMService:
             port = await runner.start(
                 RunnerConfig(
                     model_key=runner_key,
-                    model_path=model_info.path
+                    model_path=Path(model_info.path)
                     if model_info.loader == ModelLoader.LLAMA_CPP
                     else None,
                     port=0,
@@ -293,12 +301,11 @@ class LLMService:
             self._current_embedding_model_id = target_model_id
             self._current_embedding_runner_key = runner_key
 
-            if (
-                previous_model_id
-                and previous_model_id != target_model_id
-                and previous_runner_key
-            ):
-                previous_model = self._model_manager.get_model(previous_model_id)
+            if previous_model_id and previous_model_id != target_model_id and previous_runner_key:
+                if self._model_manager:
+                     previous_model = self._model_manager.get_model(previous_model_id)
+                else:
+                     previous_model = None
                 if previous_model:
                     previous_runner = self._get_runner(previous_model.loader)
                     await previous_runner.stop(previous_runner_key)

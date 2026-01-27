@@ -17,7 +17,7 @@ import httpx
 import pytest
 
 from src.core.mcp.models import McpRegistryServer
-from src.core.mcp.registry import CACHE_DURATION, McpRegistry
+from src.core.mcp.registry import CACHE_DURATION, OFFICIAL_REGISTRY_MAX_LIMIT, McpRegistry
 
 
 @pytest.fixture
@@ -338,6 +338,31 @@ class TestMcpRegistryApiFallback:
                 result = await registry.fetch_servers()
                 assert len(result) == 1
                 assert result[0].id == "api-server"
+        finally:
+            await registry.close()
+
+
+class TestMcpRegistryApiSpecCompliance:
+    """Tests that enforce official registry API constraints."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_from_api_clamps_limit_to_official_max(self, temp_seed_file: Path):
+        """Official MCP Registry (v0.1) rejects limits > 100, so we must clamp."""
+        registry = McpRegistry(seed_path=temp_seed_file)
+        try:
+            class _FakeResponse:
+                def raise_for_status(self) -> None:
+                    return None
+
+                def json(self) -> dict:
+                    return {"servers": [], "metadata": {}}
+
+            with patch.object(registry._http_client, "get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = _FakeResponse()
+                await registry._fetch_from_api(limit=999)
+
+                _args, kwargs = mock_get.call_args
+                assert kwargs["params"]["limit"] == OFFICIAL_REGISTRY_MAX_LIMIT
         finally:
             await registry.close()
 

@@ -187,7 +187,7 @@ graph TD
 | **ASGIサーバー** | Uvicorn | - | 非同期サーバー |
 | **ステートマシン** | LangGraph | - | エージェント制御フロー |
 | **LLMフレームワーク** | LangChain | - | LLM統合 |
-| **推論エンジン** | llama.cpp | - | GGUF推論 |
+| **推論エンジン** | llama.cpp / Ollama | - | GGUF推論 / Ollama API |
 | **ベクトルDB** | ChromaDB | - | エピソード記憶 / RAG |
 | **リレーショナルDB** | SQLite | - | チャット履歴 / セッション |
 | **設定管理** | PyYAML + Pydantic | - | 設定スキーマ / バリデーション |
@@ -288,7 +288,7 @@ backend/
         │   ├── service.py      # LLMService（ステートレスファクトリ）
         │   ├── runner.py       # LocalModelRunner Protocol
         │   ├── llama_runner.py # LlamaServerRunner（llama.cpp用）
-        │   ├── ollama_runner.py # OllamaRunner（将来対応）
+        │   ├── ollama_runner.py # OllamaRunner（Ollama API用）
         │   ├── process_manager.py  # llama-serverプロセス管理
         │   ├── client_factory.py   # LangChainクライアント生成
         │   ├── model_registry.py   # モデルパス解決

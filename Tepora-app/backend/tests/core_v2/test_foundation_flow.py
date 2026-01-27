@@ -18,8 +18,8 @@ if str(_src_dir) not in sys.path:
     sys.path.insert(0, str(_src_dir))
 
 
-import pytest
-from langchain_core.tools import BaseTool
+import pytest  # noqa: E402
+from langchain_core.tools import BaseTool  # noqa: E402
 
 # Test imports from core_v2
 # result of sys.path modification or similar)

@@ -300,25 +300,19 @@ export function useMcpServers(pollInterval = 5000) {
 export function useMcpStore() {
 	const [storeServers, setStoreServers] = useState<McpStoreServer[]>([]);
 	const [loading, setLoading] = useState(false);
-	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [page, setPage] = useState(1);
 	const [pageSize] = useState(DEFAULT_STORE_PAGE_SIZE);
 	const [total, setTotal] = useState(0);
-	const [hasMore, setHasMore] = useState(false);
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	const fetchStore = useCallback(
-		async (opts?: { search?: string; page?: number; append?: boolean }) => {
+		async (opts?: { search?: string; page?: number }) => {
 			const nextSearch = opts?.search;
 			const nextPage = opts?.page ?? 1;
-			const append = Boolean(opts?.append);
 
-			if (append) {
-				setLoadingMore(true);
-			} else {
-				setLoading(true);
-			}
+			setLoading(true);
 
 			try {
 				const data = await fetchMcpStorePaged({
@@ -326,18 +320,14 @@ export function useMcpStore() {
 					page: nextPage,
 					pageSize,
 				});
-				setStoreServers((prev) =>
-					append ? [...prev, ...(data.servers || [])] : data.servers || [],
-				);
+				setStoreServers(data.servers || []);
 				setTotal(data.total || 0);
-				setHasMore(Boolean(data.has_more));
 				setPage(data.page || nextPage);
 				setError(null);
 			} catch (err) {
 				setError(getApiErrorMessage(err, "Failed to fetch store"));
 			} finally {
 				setLoading(false);
-				setLoadingMore(false);
 			}
 		},
 		[pageSize],
@@ -347,19 +337,29 @@ export function useMcpStore() {
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			// Reset pagination when search changes
-			fetchStore({ search: searchQuery || undefined, page: 1, append: false });
+			fetchStore({ search: searchQuery || undefined, page: 1 });
 		}, SEARCH_DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [searchQuery, fetchStore]);
 
-	const loadMore = useCallback(async () => {
-		if (loading || loadingMore || !hasMore) return;
-		await fetchStore({
-			search: searchQuery || undefined,
-			page: page + 1,
-			append: true,
-		});
-	}, [fetchStore, hasMore, loading, loadingMore, page, searchQuery]);
+	const goToPage = useCallback(
+		async (nextPage: number) => {
+			if (loading) return;
+			const clamped = Math.max(1, Math.min(nextPage, totalPages));
+			await fetchStore({ search: searchQuery || undefined, page: clamped });
+		},
+		[fetchStore, loading, searchQuery, totalPages],
+	);
+
+	const nextPage = useCallback(async () => {
+		if (page >= totalPages) return;
+		await goToPage(page + 1);
+	}, [goToPage, page, totalPages]);
+
+	const prevPage = useCallback(async () => {
+		if (page <= 1) return;
+		await goToPage(page - 1);
+	}, [goToPage, page]);
 
 	const previewInstall = useCallback(
 		async (
@@ -380,15 +380,17 @@ export function useMcpStore() {
 	return {
 		storeServers,
 		loading,
-		loadingMore,
 		error,
 		searchQuery,
 		setSearchQuery,
 		total,
-		hasMore,
-		loadMore,
-		refresh: () =>
-			fetchStore({ search: searchQuery || undefined, page: 1, append: false }),
+		page,
+		pageSize,
+		totalPages,
+		goToPage,
+		nextPage,
+		prevPage,
+		refresh: () => fetchStore({ search: searchQuery || undefined, page }),
 		previewInstall,
 		confirmInstall,
 	};

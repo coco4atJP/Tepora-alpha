@@ -28,7 +28,7 @@ class TestLogMaintenance:
         log_dir.mkdir()
         return log_dir
 
-    def test_cleanup_old_logs(self, log_dir, monkeypatch):
+    def test_cleanup_old_logs(self, log_dir, monkeypatch) -> None:
         """Test selection of files older than max_age_days for deletion."""
         # Create a fresh file (should be kept)
         fresh_file = log_dir / "fresh.log"
@@ -66,7 +66,7 @@ class TestLogMaintenance:
         assert fresh_file not in deleted_files
         assert old_file in deleted_files
 
-    def test_cleanup_llama_server_logs(self, log_dir, monkeypatch):
+    def test_cleanup_llama_server_logs(self, log_dir, monkeypatch) -> None:
         """Test selection of llama server logs for deletion (keep newest N)."""
         max_files = 3
         model_type = "character_model"
@@ -115,7 +115,7 @@ class TestLogMaintenance:
         assert files[3] not in deleted_files
         assert files[4] not in deleted_files
 
-    def test_cleanup_ignore_non_log_files(self, log_dir):
+    def test_cleanup_ignore_non_log_files(self, log_dir) -> None:
         """Test that non-log files are ignored by default."""
         # Create an old text file
         old_txt = log_dir / "old.txt"

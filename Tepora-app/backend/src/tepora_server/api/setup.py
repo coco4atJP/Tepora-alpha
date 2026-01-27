@@ -21,19 +21,86 @@ logger = logging.getLogger("tepora.server.api.setup")
 router = APIRouter(prefix="/api/setup", tags=["setup"], dependencies=[Depends(get_api_key)])
 
 
+# imports must be delayed or structured differently if E402 persists, but simpler to suppress for this file structure
+import json  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+
 # --- In-Memory Setup State ---
 # セットアップ中の設定を一時保持する（完了するまでconfig.ymlには書き込まない）
+# v0.3.0: 永続化をサポートし、再起動後も状態を復元できるように変更
 class SetupSession:
     def __init__(self):
         self.language: str = "en"
+        self.loader: str = "llama_cpp"
         self.job_id: str | None = None
         self._progress: dict[str, Any] = {"status": "idle", "progress": 0.0, "message": ""}
+        self.state_file: Path = USER_DATA_DIR / "setup_state.json"
+
+        # 起動時に以前の状態があればロード
+        self._load_state()
 
     def update_progress(self, status: str, progress: float, message: str):
         self._progress = {"status": status, "progress": progress, "message": message}
+        if self.job_id:
+            self._save_state()
+
+    def set_language(self, language: str):
+        self.language = language
+        self._save_state()
+
+    def set_loader(self, loader: str):
+        self.loader = loader
+        self._save_state()
+
+    def set_job_id(self, job_id: str):
+        self.job_id = job_id
+        self._save_state()
 
     def get_progress(self):
         return self._progress
+
+    def _save_state(self):
+        try:
+            data = {
+                "language": self.language,
+                "loader": self.loader,
+                "job_id": self.job_id,
+                "progress": self._progress,
+            }
+            with open(self.state_file, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+        except Exception as e:
+            logger.warning(f"Failed to save setup state: {e}")
+
+    def _load_state(self):
+        if not self.state_file.exists():
+            return
+
+        try:
+            with open(self.state_file, encoding="utf-8") as f:
+                data = json.load(f)
+                self.language = data.get("language", "en")
+                self.loader = data.get("loader", "llama_cpp")
+                self.job_id = data.get("job_id")
+                self._progress = data.get(
+                    "progress", {"status": "idle", "progress": 0.0, "message": ""}
+                )
+                logger.info(
+                    f"Restored setup session: job_id={self.job_id}, status={self._progress.get('status')}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load setup state: {e}")
+
+    def clear_state(self):
+        """セットアップ完了時に状態ファイルを削除"""
+        self.job_id = None
+        self._progress = {"status": "idle", "progress": 0.0, "message": ""}
+        try:
+            if self.state_file.exists():
+                self.state_file.unlink()
+        except Exception as e:
+            logger.warning(f"Failed to delete setup state file: {e}")
 
 
 _setup_session = SetupSession()
@@ -50,6 +117,7 @@ class SetupRunRequest(BaseModel):
     # Each item is {repo_id, filename, role, display_name}
     target_models: list[dict[str, Any]] | None = None
     acknowledge_warnings: bool = False
+    loader: str = "llama_cpp"
 
 
 class ModelDownloadRequest(BaseModel):
@@ -147,9 +215,52 @@ async def init_setup(request: InitSetupRequest):
     ステップ1: セットアップセッションの初期化（言語設定など）
     ここではまだファイルには書き込まない。
     """
-    _setup_session.language = request.language
+    _setup_session.set_language(request.language)
     logger.info("Setup session initialized with language: %s", request.language)
     return {"success": True, "language": _setup_session.language}
+
+
+class PreflightRequest(BaseModel):
+    required_space_mb: int = 4096  # Default ~4GB
+
+
+@router.post("/preflight")
+async def check_preflight(request: PreflightRequest):
+    """
+    セットアップ開始前の事前チェック (ディスク容量、権限)
+    """
+    try:
+        dm = _get_download_manager()
+
+        # 1. Permission Check
+        has_permission = dm.check_write_permission()
+        if not has_permission:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "Write permission denied for user data directory.",
+                },
+            )
+
+        # 2. Disk Space Check
+        free_bytes = dm.get_disk_free_space()
+        required_bytes = request.required_space_mb * 1024 * 1024
+
+        if free_bytes < required_bytes:
+            return JSONResponse(
+                status_code=507,  # Insufficient Storage
+                content={
+                    "success": False,
+                    "error": f"Insufficient disk space. Required: {request.required_space_mb}MB, Available: {free_bytes // (1024 * 1024)}MB",
+                },
+            )
+
+        return {"success": True, "available_mb": free_bytes // (1024 * 1024)}
+
+    except Exception as e:
+        logger.error("Preflight check failed: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.get("/requirements")
@@ -214,10 +325,12 @@ async def run_setup_job(request: SetupRunRequest):
     # ここではシンプルに新規ジョブを開始する
 
     job_id = str(uuid.uuid4())
-    _setup_session.job_id = job_id
+    _setup_session.set_job_id(job_id)
     _setup_session.update_progress("pending", 0.0, "Starting setup...")
 
     # モデル設定を保存（セッション）
+    _setup_session.set_loader(request.loader)
+
     # SetupRunRequest now sends a list of target models to install directly.
     target_models = request.target_models
 
@@ -225,19 +338,27 @@ async def run_setup_job(request: SetupRunRequest):
     try:
         dm = _get_download_manager()
         targets_for_policy = target_models or []
-        if not targets_for_policy:
+        if not targets_for_policy and request.loader != "ollama":
+             # Defaults fallbacks only if NOT ollama (since ollama skips text models)
+             # Actually logic inside download manager handles defaults building
+             # Checking policy for defaults:
             defaults = settings.default_models
             if defaults.embedding:
-                targets_for_policy = [
-                    {
-                        "repo_id": defaults.embedding.repo_id,
-                        "filename": defaults.embedding.filename,
-                        "role": "embedding",
-                        "display_name": defaults.embedding.display_name,
-                    }
-                ]
+                targets_for_policy.append({
+                    "repo_id": defaults.embedding.repo_id,
+                    "filename": defaults.embedding.filename,
+                    "role": "embedding",
+                    "display_name": defaults.embedding.display_name,
+                })
+             # If NOT ollama, add text models? Frontend sends target_models.
+             # If frontend sent empty, it means defaults.
+             # But if ollama, frontend sends empty or just embedding.
+             # We can rely on targets_for_policy being what is requested.
+
         warnings = _evaluate_model_download_warnings(dm, targets_for_policy)
         if warnings and not request.acknowledge_warnings:
+            # Consents required, so we clear the speculative job ID to avoid "pending" state on resume
+            _setup_session.set_job_id(None) # type: ignore
             return JSONResponse(
                 status_code=409,
                 content={
@@ -247,8 +368,10 @@ async def run_setup_job(request: SetupRunRequest):
                 },
             )
     except HTTPException:
+        _setup_session.set_job_id(None) # type: ignore
         raise
     except Exception as e:
+        _setup_session.set_job_id(None) # type: ignore
         logger.error("Preflight model policy check failed: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -268,10 +391,11 @@ async def run_setup_job(request: SetupRunRequest):
                 logger.info("Starting setup job %s with models: %s", job_id, target_models)
 
                 result = await dm.run_initial_setup(
-                    install_binary=True,
+                    install_binary=True, # Will be overridden inside if loader is ollama
                     download_default_models=True,
                     target_models=target_models,
                     consent_provided=request.acknowledge_warnings,
+                    loader=request.loader,
                 )
 
                 if result.success:
@@ -294,6 +418,7 @@ async def run_setup_job(request: SetupRunRequest):
         return {"success": True, "job_id": job_id}
 
     except Exception as e:
+        _setup_session.set_job_id(None)  # type: ignore
         logger.error("Failed to start setup job: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -314,7 +439,7 @@ async def finish_setup(request: SetupFinishRequest):
     2. 必要ならアプリの再起動やリロード指示
     """
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         # 保存すべき設定データの構築
         config_data = {"app": {"language": _setup_session.language, "setup_completed": True}}
@@ -330,6 +455,11 @@ async def finish_setup(request: SetupFinishRequest):
                         existing["app"] = {}
                     existing["app"]["language"] = _setup_session.language
                     existing["app"]["setup_completed"] = True
+
+                    if "llm_manager" not in existing:
+                        existing["llm_manager"] = {}
+                    existing["llm_manager"]["loader"] = _setup_session.loader
+
                     config_data = existing
             except Exception as e:
                 logger.warning("Failed to read existing config, overwriting: %s", e, exc_info=True)
@@ -345,6 +475,9 @@ async def finish_setup(request: SetupFinishRequest):
             config_manager.load_config(force_reload=True)
         except Exception as e:
             logger.warning("Failed to reload config after setup: %s", e, exc_info=True)
+
+        # 完了したので一時ステートファイルを削除
+        _setup_session.clear_state()
 
         return {"success": True, "path": str(config_path)}
 
@@ -681,7 +814,7 @@ async def update_binary(request: BinaryUpdateRequest):
     llama.cppを更新（バックグラウンドジョブ）
     """
     job_id = str(uuid.uuid4())
-    _setup_session.job_id = job_id
+    _setup_session.set_job_id(job_id)
     _setup_session.update_progress("pending", 0.0, "Starting binary update...")
 
     try:

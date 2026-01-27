@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
 from .loader import PROJECT_ROOT, SECRETS_PATH, USER_DATA_DIR

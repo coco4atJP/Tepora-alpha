@@ -562,7 +562,10 @@
 				"commandPreview": "Vista previa del comando",
 				"securityWarnings": "Advertencias de seguridad",
 				"envVars": "Variables de entorno",
-				"confirmInstall": "Confirmar instalación"
+				"confirmInstall": "Confirmar instalación",
+				"pagination": "Mostrando {{from}}-{{to}} de {{total}} (Página {{page}}/{{totalPages}})",
+				"prevPage": "Página anterior",
+				"nextPage": "Página siguiente"
 			}
 		},
 		"memory": {

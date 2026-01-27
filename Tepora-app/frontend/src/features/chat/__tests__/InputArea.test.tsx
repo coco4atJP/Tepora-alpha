@@ -73,7 +73,13 @@ describe("InputArea", () => {
 		expect(input).toHaveValue("Hello");
 
 		fireEvent.click(sendButton);
-		expect(mockSendMessage).toHaveBeenCalledWith("Hello", "direct", [], false, false);
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"Hello",
+			"direct",
+			[],
+			false,
+			false,
+		);
 		expect(input).toHaveValue("");
 	});
 

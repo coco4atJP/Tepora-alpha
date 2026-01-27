@@ -22,10 +22,10 @@ if str(_src_dir) not in sys.path:
     sys.path.insert(0, str(_src_dir))
 
 # Test imports
-from src.core.context import SessionHistory
-from src.core.llm import LLMService
-from src.core.models import ModelManager
-from src.core.models.types import ModelConfig, ModelInfo, ModelLoader, ModelModality
+from src.core.context import SessionHistory  # noqa: E402
+from src.core.llm import LLMService  # noqa: E402
+from src.core.models import ModelManager  # noqa: E402
+from src.core.models.types import ModelConfig, ModelInfo, ModelLoader, ModelModality  # noqa: E402
 
 # ============================================================
 # LLMService Tests
@@ -85,7 +85,7 @@ class TestLLMService:
                 loader=ModelLoader.LLAMA_CPP,
                 path=self.temp_model_path,
                 modality=ModelModality.TEXT,
-                config=mock_config
+                config=mock_config,
             )
 
             mock_model_manager.get_assigned_model_id.return_value = "character_model"
@@ -168,8 +168,8 @@ class TestSessionHistory:
 
     def test_initialization(self) -> None:
         """Test SessionHistory initializes correctly"""
-        with patch("src.core.context.history.ChatHistoryManager") as MockCHM:
-            mock_manager = MockCHM.return_value
+        with patch("src.core.context.history.ChatHistoryManager") as mock_chm:
+            mock_manager = mock_chm.return_value
 
             history = SessionHistory("test-session-123")
 
@@ -195,8 +195,8 @@ class TestSessionHistory:
         """Test adding a message"""
         from langchain_core.messages import HumanMessage
 
-        with patch("src.core.context.history.ChatHistoryManager") as MockCHM:
-            mock_manager = MockCHM.return_value
+        with patch("src.core.context.history.ChatHistoryManager") as mock_chm:
+            mock_manager = mock_chm.return_value
 
             history = SessionHistory("test-session")
             msg = HumanMessage(content="Hello")
@@ -249,7 +249,7 @@ class TestLLMExecutionGoldenFlow:
                 loader=ModelLoader.LLAMA_CPP,
                 path=self.temp_model_path,
                 modality=ModelModality.TEXT,
-                config=mock_config
+                config=mock_config,
             )
 
             mock_model_manager.get_assigned_model_id.return_value = "character_model"

@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage, HumanMessage
 
+from src.core.models import ModelManager
+
 from . import config as core_config
 from .app.utils import sanitize_user_input
 from .chat_history_manager import ChatHistoryManager
@@ -104,8 +106,9 @@ class TeporaApp:
         self._mcp_hub = None
 
         # --- V1互換フィールド（API/FEが参照するため維持） ---
-        self.char_em_llm_integrator = None
-        self.prof_em_llm_integrator = None
+        from .em_llm import EMLLMIntegrator
+        self.char_em_llm_integrator: EMLLMIntegrator | None = None
+        self.prof_em_llm_integrator: EMLLMIntegrator | None = None
 
     @property
     def is_initialized(self) -> bool:
@@ -357,6 +360,13 @@ class TeporaApp:
         self._tool_manager.initialize()
         logger.debug("ToolManager initialized with %d tools.", len(self._tool_manager.tools))
 
+        # 3.5 Model Manager
+        from pathlib import Path
+
+        if not self._model_manager:
+            self._model_manager = ModelManager(models_dir=Path(core_config.MODEL_BASE_PATH))
+            logger.debug("ModelManager initialized.")
+
         # 4. LLM Service
         self._llm_service = LLMService(
             download_manager=self._download_manager,
@@ -587,13 +597,16 @@ class TeporaApp:
             mode=final_mode,
             chat_history=recent_history,
         )
+        # Use cast to satisfy MyPy for dynamic TypedDict assignment
+        from typing import cast
+
         for key, value in search_metadata.items():
             if key in initial_state:
-                initial_state[key] = value
+                cast(dict, initial_state)[key] = value
 
         for key, value in kwargs.items():
             if key in initial_state:
-                initial_state[key] = value
+                cast(dict, initial_state)[key] = value
 
         run_config: dict[str, Any] = {
             "recursion_limit": core_config.GRAPH_RECURSION_LIMIT,

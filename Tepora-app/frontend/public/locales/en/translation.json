@@ -612,7 +612,10 @@
 				"commandPreview": "Command Preview",
 				"securityWarnings": "Security Warnings",
 				"envVars": "Environment Variables",
-				"confirmInstall": "Confirm Install"
+				"confirmInstall": "Confirm Install",
+				"pagination": "Showing {{from}}-{{to}} of {{total}} (Page {{page}}/{{totalPages}})",
+				"prevPage": "Previous page",
+				"nextPage": "Next page"
 			},
 			"config_path": {
 				"label": "MCP Configuration File",
