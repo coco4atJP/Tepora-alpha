@@ -298,10 +298,13 @@ class LLMService:
                 and previous_model_id != target_model_id
                 and previous_runner_key
             ):
-                previous_model = self._model_manager.get_model(previous_model_id)
-                if previous_model:
-                    previous_runner = self._get_runner(previous_model.loader)
-                    await previous_runner.stop(previous_runner_key)
+                if previous_runner_key != runner_key and not self._is_runner_key_in_use(
+                    previous_runner_key
+                ):
+                    previous_model = self._model_manager.get_model(previous_model_id)
+                    if previous_model:
+                        previous_runner = self._get_runner(previous_model.loader)
+                        await previous_runner.stop(previous_runner_key)
 
             logger.info("Embedding model loaded: %s", target_model_id)
             return client
@@ -364,6 +367,29 @@ class LLMService:
         self._chat_model_cache[model_info.id] = client
         logger.info("Chat model loaded: %s via %s", model_info.id, model_info.loader)
         return client
+
+    def _runner_key_for_model(self, model: ModelInfo) -> str:
+        if model.loader == ModelLoader.OLLAMA and model.path:
+            return model.path
+        return model.id
+
+    def _is_runner_key_in_use(self, runner_key: str) -> bool:
+        if not self._model_manager:
+            return False
+
+        for role, model_id in self._model_manager.registry.roles.items():
+            if role == "embedding":
+                continue
+            model = self._model_manager.get_model(model_id)
+            if model and self._runner_key_for_model(model) == runner_key:
+                return True
+
+        for model_id in self._chat_model_cache:
+            model = self._model_manager.get_model(model_id)
+            if model and self._runner_key_for_model(model) == runner_key:
+                return True
+
+        return False
 
     async def _evict_oldest_model(self) -> None:
         if not self._chat_model_cache:
