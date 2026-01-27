@@ -75,6 +75,7 @@ export interface Config {
 	tools: {
 		google_search_api_key?: string;
 		google_search_engine_id?: string;
+		search_provider?: "google" | "duckduckgo";
 	};
 
 	privacy: {

@@ -66,44 +66,71 @@ const GeneralSettings: React.FC = () => {
 				{/* Inference Engine Update */}
 				<InferenceEngineUpdate />
 
-				{/* Google Search Configuration */}
+				{/* Search Tool Configuration */}
 				<div className="space-y-4">
 					<h3 className="text-lg font-medium text-white">
-						{t("settings.sections.general.google_search.title")}
+						{t("settings.sections.general.search_tool.title")}
 					</h3>
+
 					<FormGroup
-						label={t("settings.sections.general.google_search.api_key_label")}
-						description={t(
-							"settings.sections.general.google_search.api_key_desc",
-						)}
-						isDirty={isToolsDirty("google_search_api_key")}
+						label={t("settings.sections.general.search_tool.provider_label")}
+						description={t("settings.sections.general.search_tool.provider_desc")}
+						isDirty={isToolsDirty("search_provider")}
 					>
-						<FormInput
-							type="password"
-							value={toolsConfig.google_search_api_key || ""}
+						<FormSelect
+							value={toolsConfig.search_provider || "google"}
 							onChange={(value) =>
-								updateTools("google_search_api_key", value as string)
+								updateTools("search_provider", value as "google" | "duckduckgo")
 							}
-							placeholder="AIza..."
+							options={[
+								{ value: "google", label: "Google Custom Search" },
+								{ value: "duckduckgo", label: "DuckDuckGo" },
+							]}
 						/>
 					</FormGroup>
 
-					<FormGroup
-						label={t("settings.sections.general.google_search.engine_id_label")}
-						description={t(
-							"settings.sections.general.google_search.engine_id_desc",
-						)}
-						isDirty={isToolsDirty("google_search_engine_id")}
-					>
-						<FormInput
-							type="text"
-							value={toolsConfig.google_search_engine_id || ""}
-							onChange={(value) =>
-								updateTools("google_search_engine_id", value as string)
-							}
-							placeholder="0123456789..."
-						/>
-					</FormGroup>
+					{(toolsConfig.search_provider === "google" ||
+						!toolsConfig.search_provider) && (
+						<>
+							<FormGroup
+								label={t(
+									"settings.sections.general.google_search.api_key_label",
+								)}
+								description={t(
+									"settings.sections.general.google_search.api_key_desc",
+								)}
+								isDirty={isToolsDirty("google_search_api_key")}
+							>
+								<FormInput
+									type="password"
+									value={toolsConfig.google_search_api_key || ""}
+									onChange={(value) =>
+										updateTools("google_search_api_key", value as string)
+									}
+									placeholder="AIza..."
+								/>
+							</FormGroup>
+
+							<FormGroup
+								label={t(
+									"settings.sections.general.google_search.engine_id_label",
+								)}
+								description={t(
+									"settings.sections.general.google_search.engine_id_desc",
+								)}
+								isDirty={isToolsDirty("google_search_engine_id")}
+							>
+								<FormInput
+									type="text"
+									value={toolsConfig.google_search_engine_id || ""}
+									onChange={(value) =>
+										updateTools("google_search_engine_id", value as string)
+									}
+									placeholder="0123456789..."
+								/>
+							</FormGroup>
+						</>
+					)}
 				</div>
 
 				<div className="border-t border-white/10 my-4" />

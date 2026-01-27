@@ -53,6 +53,7 @@ dependencies = [
     "networkx==3.6.1",
     # HuggingFace Hub (for model downloads)
     "huggingface-hub>=0.25.0",
+    "duckduckgo-search>=8.1.1",
 ]
 
 [project.optional-dependencies]
