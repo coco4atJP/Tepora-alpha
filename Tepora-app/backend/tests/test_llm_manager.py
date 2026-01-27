@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -59,18 +60,15 @@ from src.core.em_llm import EMConfig, EMEventSegmenter, EMLLMIntegrator
 from src.core.graph import GraphRoutes, InputMode, route_by_command
 from src.core.llm.service import LLMService
 from src.core.memory.memory_system import MemorySystem
+from src.core.models import ModelManager
+from src.core.models.types import ModelConfig, ModelInfo, ModelLoader, ModelModality
 
 
 class TestLLMService(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         """Set up a fresh LLMService instance with mocked components."""
-        self.registry_patcher = patch("src.core.llm.service.ModelRegistry")
         self.client_factory_patcher = patch("src.core.llm.service.ClientFactory")
-
-        self.MockRegistry = self.registry_patcher.start()
         self.MockClientFactory = self.client_factory_patcher.start()
-
-        self.mock_registry = self.MockRegistry.return_value
         self.mock_client_factory = self.MockClientFactory.return_value
 
         self.runner = MagicMock()
@@ -78,30 +76,50 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
         self.runner.stop = AsyncMock()
         self.runner.cleanup = MagicMock()
 
-        mock_config = MagicMock()
-        mock_config.n_ctx = 1024
-        mock_config.n_gpu_layers = -1
-        self.mock_registry.get_model_config.return_value = mock_config
+        self.mock_model_manager = MagicMock(spec=ModelManager)
 
-        mock_model_path = MagicMock(spec=Path)
-        mock_model_path.exists.return_value = True
-        mock_model_path.__str__.return_value = "fake/model.gguf"
-        self.mock_registry.resolve_model_path.return_value = mock_model_path
+        # Create a dummy model file
+        self.temp_model_file = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_model_path = self.temp_model_file.name
+        self.temp_model_file.close()
 
-        self.service = LLMService(runner=self.runner, cache_size=3)
+        # Setup common model info
+        self.mock_config = ModelConfig(n_ctx=1024, n_gpu_layers=-1)
+
+        def get_model_side_effect(model_id):
+            return ModelInfo(
+                id=model_id,
+                name=f"Mock Model {model_id}",
+                loader=ModelLoader.LLAMA_CPP,
+                path=self.temp_model_path,
+                modality=ModelModality.TEXT
+                if "embedding" not in model_id
+                else ModelModality.EMBEDDING,
+                config=self.mock_config,
+            )
+
+        self.mock_model_manager.get_model.side_effect = get_model_side_effect
+
+        # Setup role assignments
+        self.mock_model_manager.get_assigned_model_id.side_effect = lambda role: f"{role}_id"
+        self.mock_model_manager.get_binary_path.return_value = Path("/usr/bin/llama-server")
+        self.mock_model_manager.get_logs_dir.return_value = Path("/tmp/logs")
+
+        self.service = LLMService(
+            runner=self.runner, model_manager=self.mock_model_manager, cache_size=3
+        )
 
     def tearDown(self):
         """Clean up by stopping the patchers."""
         self.service.cleanup()
-        self.registry_patcher.stop()
         self.client_factory_patcher.stop()
+        Path(self.temp_model_path).unlink(missing_ok=True)
 
     def test_initialization(self):
         """Test that the LLMService initializes with mocked components."""
         self.assertEqual(self.service._chat_model_cache, {})
         self.assertIsNone(self.service._embedding_client)
         # Components should be initialized
-        self.MockRegistry.assert_called_once()
         self.MockClientFactory.assert_called_once()
 
     async def test_load_character_client_success(self):
@@ -112,16 +130,16 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
         # Action
         llm = await self.service.get_client("character")
 
-        self.mock_registry.get_model_config.assert_called_with("character_model")
-        self.mock_registry.resolve_model_path.assert_called_with(
-            "character_model", task_type="default"
-        )
+        # Verify calls
+        self.mock_model_manager.get_assigned_model_id.assert_called_with("character")
+        self.mock_model_manager.get_model.assert_called_with("character_id")
+
         self.runner.start.assert_called_once()
-        self.mock_client_factory.create_chat_client.assert_called_once_with(
-            "character_model",
-            12345,
-            self.mock_registry.get_model_config.return_value,
-        )
+        self.mock_client_factory.create_chat_client.assert_called_once()
+        # Check args to create_chat_client
+        args = self.mock_client_factory.create_chat_client.call_args
+        self.assertEqual(args[0][0], "character_id")  # model_key
+
         self.assertEqual(llm, mock_client)
 
         # Cached call should not start runner again
@@ -136,12 +154,12 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
 
         llm = await self.service.get_embedding_client()
 
-        self.mock_registry.get_model_config.assert_called_with("embedding_model")
-        self.mock_registry.resolve_model_path.assert_called_with("embedding_model")
+        self.mock_model_manager.get_assigned_model_id.assert_called_with("embedding")
+        self.mock_model_manager.get_model.assert_called_with("embedding_id")
+
         self.runner.start.assert_called_once()
-        self.mock_client_factory.create_embedding_client.assert_called_once_with(
-            "embedding_model", 12345
-        )
+        self.mock_client_factory.create_embedding_client.assert_called_once()
+
         self.assertEqual(llm, mock_embedding_client)
 
     async def test_cache_eviction_when_size_1(self):
@@ -151,18 +169,35 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
         runner.stop = AsyncMock()
         runner.cleanup = MagicMock()
 
+        # We need a fresh service with size 1 and our mock manager
         self.mock_client_factory.create_chat_client.side_effect = [MagicMock(), MagicMock()]
 
-        service = LLMService(runner=runner, cache_size=1)
+        # Reset side effects for get_assigned_model_id to distinguish roles
+        def role_mapper(role):
+            if role == "character":
+                return "char_id"
+            if role == "executor":
+                return "exec_id"
+            return f"{role}_id"
+
+        self.mock_model_manager.get_assigned_model_id.side_effect = role_mapper
+
+        service = LLMService(runner=runner, model_manager=self.mock_model_manager, cache_size=1)
+
+        # 1. Load Character
         await service.get_client("character")
+        self.assertIn("char_id", service._chat_model_cache)
+
+        # 2. Load Executor
         await service.get_client("executor", task_type="default")
 
-        runner.stop.assert_called_with("character_model")
-        self.assertNotIn("character_model", service._chat_model_cache)
-        self.assertIn("executor_model:default", service._chat_model_cache)
+        # Character should be evicted
+        runner.stop.assert_called_with("char_id")
+        self.assertNotIn("char_id", service._chat_model_cache)
+        self.assertIn("exec_id", service._chat_model_cache)
 
         service.cleanup()
-        runner.cleanup.assert_called_once()
+        self.assertEqual(runner.cleanup.call_count, 2)
 
 
 # --- The rest of the tests (MemorySystem, EMEventSegmenter, etc.) are preserved below ---

@@ -10,6 +10,7 @@ Acceptance Criteria:
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -23,6 +24,8 @@ if str(_src_dir) not in sys.path:
 # Test imports
 from src.core.context import SessionHistory
 from src.core.llm import LLMService
+from src.core.models import ModelManager
+from src.core.models.types import ModelConfig, ModelInfo, ModelLoader, ModelModality
 
 # ============================================================
 # LLMService Tests
@@ -32,17 +35,23 @@ from src.core.llm import LLMService
 class TestLLMService:
     """LLMService unit tests"""
 
+    def setup_method(self):
+        self.temp_model_file = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_model_path = self.temp_model_file.name
+        self.temp_model_file.close()
+
+    def teardown_method(self):
+        Path(self.temp_model_path).unlink(missing_ok=True)
+
     def test_initialization(self) -> None:
         """Test LLMService initializes without errors"""
         with (
-            patch("src.core.llm.service.ModelRegistry") as mock_registry,  # noqa: N806
             patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
             patch("src.core.llm.service.ClientFactory") as mock_client_factory,  # noqa: N806
         ):
             service = LLMService()
 
             # Verify components are initialized
-            mock_registry.assert_called_once()
             mock_runner.assert_called_once()
             mock_client_factory.assert_called_once()
 
@@ -59,32 +68,30 @@ class TestLLMService:
     async def test_get_client_with_mock(self) -> None:
         """Get mock client, send prompt, receive response"""
         with (
-            patch("src.core.llm.service.ModelRegistry") as mock_registry,  # noqa: N806
             patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
             patch("src.core.llm.service.ClientFactory") as mock_client_factory,  # noqa: N806
         ):
             # Setup mocks
-            mock_registry = mock_registry.return_value
             mock_runner = mock_runner.return_value
             mock_client_factory = mock_client_factory.return_value
 
-            # Model config mock
-            mock_config = MagicMock()
-            mock_config.n_ctx = 8192
-            mock_config.n_gpu_layers = -1
-            mock_registry.get_model_config.return_value = mock_config
+            # Setup ModelManager Mock
+            mock_model_manager = MagicMock(spec=ModelManager)
+            mock_config = ModelConfig(n_ctx=8192, n_gpu_layers=-1)
 
-            # Path mocks
-            mock_model_path = MagicMock(spec=Path)
-            mock_model_path.exists.return_value = True
-            mock_registry.resolve_model_path.return_value = mock_model_path
+            mock_model_info = ModelInfo(
+                id="character_model",
+                name="Mock Model",
+                loader=ModelLoader.LLAMA_CPP,
+                path=self.temp_model_path,
+                modality=ModelModality.TEXT,
+                config=mock_config
+            )
 
-            mock_server_path = MagicMock(spec=Path)
-            mock_registry.resolve_binary_path.return_value = mock_server_path
-
-            mock_logs_dir = MagicMock(spec=Path)
-            mock_logs_dir.__truediv__.return_value = MagicMock(spec=Path)
-            mock_registry.resolve_logs_dir.return_value = mock_logs_dir
+            mock_model_manager.get_assigned_model_id.return_value = "character_model"
+            mock_model_manager.get_model.return_value = mock_model_info
+            mock_model_manager.get_binary_path.return_value = Path("/bin/true")
+            mock_model_manager.get_logs_dir.return_value = Path("/tmp")
 
             # Runner mock - returns port
             mock_runner.start = AsyncMock(return_value=12345)
@@ -95,7 +102,7 @@ class TestLLMService:
             mock_client_factory.create_chat_client.return_value = mock_client
 
             # Test
-            service = LLMService()
+            service = LLMService(model_manager=mock_model_manager)
             client = await service.get_client("character")
 
             # Verify client creation
@@ -115,7 +122,6 @@ class TestLLMService:
     async def test_stateless_design(self) -> None:
         """Verify no _current_model_key state (stateless design)"""
         with (
-            patch("src.core.llm.service.ModelRegistry"),
             patch("src.core.llm.service.LlamaServerRunner"),
             patch("src.core.llm.service.ClientFactory"),
         ):
@@ -133,7 +139,6 @@ class TestLLMService:
     def test_cleanup(self) -> None:
         """Test cleanup clears caches and stops processes"""
         with (
-            patch("src.core.llm.service.ModelRegistry"),
             patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
             patch("src.core.llm.service.ClientFactory"),
         ):
@@ -211,6 +216,14 @@ class TestSessionHistory:
 class TestLLMExecutionGoldenFlow:
     """Phase 2 Acceptance Criteria: Golden Flow Test"""
 
+    def setup_method(self):
+        self.temp_model_file = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_model_path = self.temp_model_file.name
+        self.temp_model_file.close()
+
+    def teardown_method(self):
+        Path(self.temp_model_path).unlink(missing_ok=True)
+
     @pytest.mark.asyncio
     async def test_llm_execution_flow(self) -> None:
         """
@@ -219,30 +232,30 @@ class TestLLMExecutionGoldenFlow:
         This is the Phase 2 acceptance criteria test.
         """
         with (
-            patch("src.core.llm.service.ModelRegistry") as mock_registry,  # noqa: N806
             patch("src.core.llm.service.LlamaServerRunner") as mock_runner,  # noqa: N806
             patch("src.core.llm.service.ClientFactory") as mock_client_factory,  # noqa: N806
         ):
             # Setup all mocks
-            mock_registry = mock_registry.return_value
             mock_runner = mock_runner.return_value
             mock_client_factory = mock_client_factory.return_value
 
-            mock_config = MagicMock()
-            mock_config.n_ctx = 8192
-            mock_config.n_gpu_layers = -1
-            mock_registry.get_model_config.return_value = mock_config
+            # Setup ModelManager Mock
+            mock_model_manager = MagicMock(spec=ModelManager)
+            mock_config = ModelConfig(n_ctx=8192, n_gpu_layers=-1)
 
-            mock_model_path = MagicMock(spec=Path)
-            mock_model_path.exists.return_value = True
-            mock_registry.resolve_model_path.return_value = mock_model_path
+            mock_model_info = ModelInfo(
+                id="character_model",
+                name="Mock Model",
+                loader=ModelLoader.LLAMA_CPP,
+                path=self.temp_model_path,
+                modality=ModelModality.TEXT,
+                config=mock_config
+            )
 
-            mock_server_path = MagicMock(spec=Path)
-            mock_registry.resolve_binary_path.return_value = mock_server_path
-
-            mock_logs_dir = MagicMock(spec=Path)
-            mock_logs_dir.__truediv__.return_value = MagicMock(spec=Path)
-            mock_registry.resolve_logs_dir.return_value = mock_logs_dir
+            mock_model_manager.get_assigned_model_id.return_value = "character_model"
+            mock_model_manager.get_model.return_value = mock_model_info
+            mock_model_manager.get_binary_path.return_value = Path("/bin/true")
+            mock_model_manager.get_logs_dir.return_value = Path("/tmp")
 
             # Runner mock - returns port
             mock_runner.start = AsyncMock(return_value=8080)
@@ -252,7 +265,7 @@ class TestLLMExecutionGoldenFlow:
             mock_client_factory.create_chat_client.return_value = mock_client
 
             # 1. Initialize LLMService (stateless)
-            service = LLMService()
+            service = LLMService(model_manager=mock_model_manager)
 
             # Verify stateless design
             assert not hasattr(service, "_current_model_key")
@@ -287,7 +300,6 @@ class TestTeporaAppWithLLM:
         from src.core.app_v2 import TeporaApp, TeporaAppConfig
 
         with (
-            patch("src.core.llm.service.ModelRegistry"),
             patch("src.core.llm.service.LlamaServerRunner"),
             patch("src.core.llm.service.ClientFactory"),
         ):
