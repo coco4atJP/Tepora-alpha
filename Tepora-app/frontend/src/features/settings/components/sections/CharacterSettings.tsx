@@ -57,9 +57,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const { config: settingsConfig } = useSettings();
-	const [activeTab, setActiveTab] = useState<"characters" | "professionals">(
-		"characters",
-	);
+	// Professionals tab removed for unification with Custom Agents (Multi-Agent definitions)
+	// const [activeTab, setActiveTab] = useState<"characters" | "professionals">("characters");
 
 	// Model Options
 	const modelOptions = settingsConfig?.models_gguf
@@ -140,13 +139,10 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	};
 
 	const handleStartAdd = () => {
-		const isChar = activeTab === "characters";
 		setEditState({
 			key: "",
 			profile: {
-				label: isChar
-					? t("settings.sections.agents.default_name", "New Agent")
-					: "New Pro",
+				label: t("settings.sections.agents.default_name", "New Agent"),
 				description: "",
 				persona: {
 					prompt: t(
@@ -155,12 +151,12 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 					),
 				},
 				tool_policy: {
-					allow: isChar ? [] : ["*"], // Defaults
+					allow: [], // Characters don't have tools by default
 					deny: [],
 				},
 			},
 			model_config_name: "",
-			type: isChar ? "character" : "professional",
+			type: "character",
 			isNew: true,
 		});
 		setNewKeyInput("");
@@ -365,54 +361,17 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			icon={<Users size={18} />}
 			description={t("settings.sections.agents.description")}
 		>
-			{/* Tabs */}
-			<div className="flex gap-4 mb-6 border-b border-white/10">
-				<button
-					type="button"
-					onClick={() => setActiveTab("characters")}
-					className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
-						activeTab === "characters"
-							? "text-gold-400"
-							: "text-gray-400 hover:text-white"
-					}`}
-				>
-					<span className="flex items-center gap-2">
-						<Users size={16} />
-						{t("settings.sections.agents.tab.characters")}
-					</span>
-					{activeTab === "characters" && (
-						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-gold-400" />
-					)}
-				</button>
-				<button
-					type="button"
-					onClick={() => setActiveTab("professionals")}
-					className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
-						activeTab === "professionals"
-							? "text-gold-400"
-							: "text-gray-400 hover:text-white"
-					}`}
-				>
-					<span className="flex items-center gap-2">
-						<Briefcase size={16} />
-						{t("settings.sections.agents.tab.professionals")}
-					</span>
-					{activeTab === "professionals" && (
-						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-gold-400" />
-					)}
-				</button>
-			</div>
-
+			{/* Tabs removed: Unified into separate sections */}
 			{/* Content Area */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-				{activeTab === "characters" &&
-					profiles &&
+				{/* Characters */}
+				{profiles &&
 					Object.entries(profiles).map(([key, config]) =>
 						renderCard(key, characterToAgentProfile(config), "character"),
 					)}
 
-				{activeTab === "professionals" &&
-					professionals &&
+				{/* Professionals (Unified Display) */}
+				{professionals &&
 					Object.entries(professionals).map(([key, config]) =>
 						renderCard(key, professionalToAgentProfile(config), "professional"),
 					)}

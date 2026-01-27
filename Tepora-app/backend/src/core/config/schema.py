@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -215,6 +215,7 @@ class CustomAgentConfig(BaseModel):
 class ToolsConfig(BaseModel):
     google_search_api_key: SecretStr | None = None
     google_search_engine_id: str | None = None
+    search_provider: Literal["google", "duckduckgo"] = "google"
 
     model_config = {"extra": "allow"}
 

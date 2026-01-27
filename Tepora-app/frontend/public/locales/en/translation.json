@@ -247,6 +247,11 @@
 				"label": "General",
 				"title": "Application",
 				"description": "Core application settings and safety limits.",
+				"search_tool": {
+					"title": "Search Tool Settings",
+					"provider_label": "Search Provider",
+					"provider_desc": "Select the search engine to use for native search capabilities."
+				},
 				"google_search": {
 					"title": "Google Search Settings",
 					"api_key_label": "Google Search API Key",
@@ -347,9 +352,9 @@
 				"nsfw_desc": "Allows generation of sensitive content. Use with caution."
 			},
 			"custom_agents": {
-				"label": "Custom Agents",
-				"title": "Custom Agents",
-				"description": "Create GPTs/Gems-style custom agents with specific tools and prompts.",
+				"label": "Agents",
+				"title": "Agents",
+				"description": "Create agents with specific tools and prompts.",
 				"add_new": "Add New Agent",
 				"no_description": "No description",
 				"default_name": "New Agent",
@@ -361,8 +366,8 @@
 				"error_empty_prompt": "Please enter a system prompt.",
 				"error_duplicate_id": "This ID is already in use.",
 				"modal": {
-					"title_add": "Add Custom Agent",
-					"title_edit": "Edit Custom Agent",
+					"title_add": "Add Agent",
+					"title_edit": "Edit Agent",
 					"id_label": "Agent ID",
 					"id_desc": "Unique identifier (lowercase, no spaces)",
 					"icon_label": "Icon",
@@ -460,6 +465,7 @@
 				},
 				"detail": {
 					"changes_note": "Changes to model parameters will apply on next load.",
+					"dials_hint": "Drag dials to adjust values",
 					"temp_desc": "Controls randomness.",
 					"top_p_desc": "Nucleus sampling.",
 					"n_ctx": "Context Window (n_ctx)",

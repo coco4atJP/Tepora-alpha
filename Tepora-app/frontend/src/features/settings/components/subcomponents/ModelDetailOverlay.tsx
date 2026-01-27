@@ -3,6 +3,7 @@ import type React from "react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { DialControl } from "../../../../components/ui/DialControl";
 import { FormGroup, FormInput } from "../SettingsComponents";
 
 interface ModelConfig {
@@ -53,7 +54,8 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 				if (e.target === e.currentTarget) onClose();
 			}}
 		>
-			<div className="glass-tepora rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+			<div className="glass-tepora rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 bg-[#0A0A0C]/90">
+				{/* Header */}
 				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
 					<h3
 						id="model-detail-overlay-title"
@@ -72,101 +74,96 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 					</button>
 				</div>
 
-				<div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-					{/* Primary Settings */}
-					<div className="space-y-6">
-						<div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs text-purple-200 flex items-center gap-2">
-							<Sliders size={14} />
-							{t("settings.sections.models.detail.changes_note") ||
-								"Changes to model parameters will apply on next load."}
-						</div>
+				<div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+					{/* Primary Settings (Dials) */}
+					{!isEmbedding && (
+						<div className="space-y-6">
+							<div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs text-purple-200 flex items-center gap-2">
+								<Sliders size={14} />
+								{t("settings.sections.models.detail.changes_note") ||
+									"Changes to model parameters will apply on next load."}
+							</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-							{!isEmbedding && (
-								<>
-									<FormGroup
-										label={
-											t("settings.models_settings.configurations.temp") ||
-											"Temperature"
-										}
-										description={
-											t("settings.sections.models.detail.temp_desc") ||
-											"Controls randomness."
-										}
-									>
-										<div className="flex items-center gap-4">
-											<input
-												type="range"
-												min="0"
-												max="2"
-												step="0.1"
-												value={config.temperature ?? 0.7}
-												onChange={(e) =>
-													update("temperature", parseFloat(e.target.value))
-												}
-												className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
-											/>
-											<FormInput
-												type="number"
-												value={config.temperature ?? 0.7}
-												onChange={(v) => update("temperature", v as number)}
-												step={0.1}
-												className="w-20 text-center"
-											/>
-										</div>
-									</FormGroup>
-									<FormGroup
-										label={
-											t("settings.models_settings.configurations.top_p") ||
-											"Top P"
-										}
-										description={
-											t("settings.sections.models.detail.top_p_desc") ||
-											"Nucleus sampling."
-										}
-									>
-										<div className="flex items-center gap-4">
-											<input
-												type="range"
-												min="0"
-												max="1"
-												step="0.05"
-												value={config.top_p ?? 0.9}
-												onChange={(e) =>
-													update("top_p", parseFloat(e.target.value))
-												}
-												className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
-											/>
-											<FormInput
-												type="number"
-												value={config.top_p ?? 0.9}
-												onChange={(v) => update("top_p", v as number)}
-												step={0.05}
-												className="w-20 text-center"
-											/>
-										</div>
-									</FormGroup>
-								</>
-							)}
-							<div className="col-span-1 md:col-span-2">
-								<FormGroup
+							<div className="flex flex-wrap justify-center gap-12 p-8 bg-black/20 rounded-2xl border border-white/5">
+								<DialControl
 									label={
-										t("settings.sections.models.detail.n_ctx") ||
-										"Context Window (n_ctx)"
+										t("settings.models_settings.configurations.temp") ||
+										"Temperature"
 									}
-									description={
-										t("settings.sections.models.detail.n_ctx_desc") ||
-										"Maximum number of tokens the model can process at once."
+									value={config.temperature ?? 0.7}
+									min={0}
+									max={2.0}
+									step={0.1}
+									onChange={(v) => update("temperature", v)}
+									className="scale-110"
+								/>
+
+								<DialControl
+									label={
+										t("settings.models_settings.configurations.top_p") ||
+										"Top P"
 									}
-								>
+									value={config.top_p ?? 0.9}
+									min={0}
+									max={1.0}
+									step={0.05}
+									onChange={(v) => update("top_p", v)}
+									className="scale-110"
+								/>
+
+								<DialControl
+									label={
+										t(
+											"settings.models_settings.configurations.repeat_penalty",
+										) || "Repeat Penalty"
+									}
+									value={config.repeat_penalty ?? 1.1}
+									min={1.0}
+									max={2.0}
+									step={0.05}
+									onChange={(v) => update("repeat_penalty", v)}
+									className="scale-110"
+								/>
+							</div>
+
+							<div className="text-center text-xs text-gray-500 italic">
+								{t("settings.sections.models.detail.dials_hint") || "Drag dials to adjust values"}
+							</div>
+						</div>
+					)}
+
+					{/* Context Window & Advanced */}
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="col-span-1 md:col-span-2">
+							<FormGroup
+								label={
+									t("settings.sections.models.detail.n_ctx") ||
+									"Context Window (n_ctx)"
+								}
+								description={
+									t("settings.sections.models.detail.n_ctx_desc") ||
+									"Maximum number of tokens the model can process at once."
+								}
+							>
+								<div className="flex gap-4 items-center">
+									<input
+										type="range"
+										min="2048"
+										max="32768"
+										step="1024"
+										value={config.n_ctx}
+										onChange={(e) => update("n_ctx", parseInt(e.target.value))}
+										className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+									/>
 									<FormInput
 										type="number"
 										value={config.n_ctx}
 										onChange={(v) => update("n_ctx", v as number)}
-										step={512}
+										step={1024}
+										className="w-24 text-center font-mono"
 									/>
-								</FormGroup>
-							</div>
+								</div>
+							</FormGroup>
 						</div>
 					</div>
 

@@ -247,6 +247,11 @@
 				"label": "一般",
 				"title": "アプリケーション",
 				"description": "基本設定と安全制限を設定します。",
+				"search_tool": {
+					"title": "検索ツール設定",
+					"provider_label": "検索プロバイダー",
+					"provider_desc": "ネイティブ検索機能に使用する検索エンジンを選択してください。"
+				},
 				"google_search": {
 					"title": "Google検索設定",
 					"api_key_label": "Google Search API Key",
@@ -347,9 +352,9 @@
 				"nsfw_desc": "機密性の高いコンテンツの生成を許可します。注意して使用してください。"
 			},
 			"custom_agents": {
-				"label": "カスタムエージェント",
-				"title": "カスタムエージェント",
-				"description": "GPTs/Gems形式のカスタムエージェントを作成し、特定のツールとプロンプトを設定できます。",
+				"label": "エージェント",
+				"title": "エージェント",
+				"description": "特定のツールとプロンプトを持つエージェントを作成できます。",
 				"add_new": "新規エージェント追加",
 				"no_description": "説明なし",
 				"default_name": "新しいエージェント",
@@ -361,8 +366,8 @@
 				"error_empty_prompt": "システムプロンプトを入力してください。",
 				"error_duplicate_id": "このIDは既に使用されています。",
 				"modal": {
-					"title_add": "カスタムエージェントを追加",
-					"title_edit": "カスタムエージェントを編集",
+					"title_add": "エージェントを追加",
+					"title_edit": "エージェントを編集",
 					"id_label": "エージェントID",
 					"id_desc": "一意の識別子（小文字、スペースなし）",
 					"icon_label": "アイコン",
@@ -460,6 +465,7 @@
 				},
 				"detail": {
 					"changes_note": "モデルパラメータの変更は次回読み込み時に適用されます。",
+					"dials_hint": "ダイヤルをドラッグして値を調整します",
 					"temp_desc": "ランダム性を制御します。",
 					"top_p_desc": "核サンプリング。",
 					"n_ctx": "コンテキストウィンドウ (n_ctx)",

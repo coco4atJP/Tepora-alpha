@@ -18,6 +18,13 @@ from .base import ToolProvider
 from .search.providers.google import GoogleSearchEngine
 from .search.tool import SearchTool, _build_error_response
 
+try:
+    from .search.providers.duckduckgo import DuckDuckGoSearchEngine
+
+    HAS_DDG = True
+except ImportError:
+    HAS_DDG = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -171,39 +178,52 @@ class NativeToolProvider(ToolProvider):
         logger.info("Loading native tools via Provider...")
         tools: list[BaseTool] = []
 
-        # Check if Google Search is enabled
-        api_key_secret = settings.tools.google_search_api_key
-        api_key = api_key_secret.get_secret_value() if api_key_secret else None
-        engine_id = settings.tools.google_search_engine_id
+        # Check configured search provider
+        if settings.privacy.allow_web_search:
+            search_engine = None
+            provider = settings.tools.search_provider
 
-        if settings.privacy.allow_web_search and api_key and engine_id:
             try:
-                google_engine = GoogleSearchEngine()
-                google_search_tool = SearchTool(
-                    engine=google_engine,
-                    name="native_google_search",
-                    description="Google Custom Search APIを使用してWeb検索を実行し、複数の結果を返します。",
-                )
+                if provider == "google":
+                    api_key_secret = settings.tools.google_search_api_key
+                    api_key = api_key_secret.get_secret_value() if api_key_secret else None
+                    engine_id = settings.tools.google_search_engine_id
 
-                # Additional alias for generic web search (pointing to Google for now)
-                # Or we can just stick to native_google_search as requested by user.
-                # User approved "native_web_search" name but also asked to move "nativeGoogleSearch" to foundation.
-                # I will preserve "native_google_search" as per my check in planning,
-                # but the user said "native_web_search is fine" in response to "tool name changes".
-                # Let's add BOTH or just rename?
-                # User's last prompt: "native_web_searchの名前で問題ありません" (native_web_search name is fine).
-                # So I should probably use `native_web_search` as the primary name?
-                # But to avoid breaking existing agents that might reference `native_google_search`, I'll stick to what I have in the code:
-                # `native_google_search` is what I used in the previous step's contemplation.
-                # Wait, looking at user request again: "native_web_searchの名前で問題ありません"
-                # This implies I should use `native_web_search`?
-                # I will keep `native_google_search` for now to minimize friction, or add an alias?
-                # Actually, I'll stick to the plan of keeping `native_google_search` in the provider logic below,
-                # but I can ALSO provide it as `native_web_search`.
+                    if api_key and engine_id:
+                        search_engine = GoogleSearchEngine()
+                    else:
+                        logger.warning("Google Search selected but keys are missing.")
 
-                tools.append(google_search_tool)
+                elif provider == "duckduckgo":
+                    if HAS_DDG:
+                        search_engine = DuckDuckGoSearchEngine()
+                    else:
+                        logger.error(
+                            "DuckDuckGo Search selected but duckduckgo-search package is missing."
+                        )
+
+                if search_engine:
+                    # Primary tool name: native_web_search
+                    web_search_tool = SearchTool(
+                        engine=search_engine,
+                        name="native_web_search",
+                        description=f"{provider.capitalize()} Searchを使用してWeb検索を実行し、複数の結果を返します。",
+                    )
+                    tools.append(web_search_tool)
+
+                    # Legacy alias: native_google_search (points to the same engine)
+                    # Maintains compatibility with prompts asking for 'native_google_search'
+                    legacy_tool = SearchTool(
+                        engine=search_engine,
+                        name="native_google_search",
+                        description=f"(Legacy Alias) {provider.capitalize()} Searchを使用してWeb検索を実行します。",
+                    )
+                    tools.append(legacy_tool)
+
             except Exception as exc:  # noqa: BLE001
-                logger.error("Failed to load Google Custom Search tool: %s", exc, exc_info=True)
+                logger.error(
+                    "Failed to load search tool (%s): %s", provider, exc, exc_info=True
+                )
 
         if settings.privacy.allow_web_search:
             # WebFetchTool is only available if privacy settings allow it
