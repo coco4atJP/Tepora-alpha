@@ -6,18 +6,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add the parent directory to the Python path to allow module imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import tempfile
 from src.core.llm.service import LLMService
+from src.core.models import ModelManager
+from src.core.models.types import ModelConfig, ModelInfo, ModelLoader, ModelModality
 
 
 class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.registry_patcher = patch("src.core.llm.service.ModelRegistry")
         self.client_factory_patcher = patch("src.core.llm.service.ClientFactory")
-        self.MockRegistry = self.registry_patcher.start()
         self.MockClientFactory = self.client_factory_patcher.start()
-
-        # Setup mocks
-        self.mock_registry = self.MockRegistry.return_value
         self.mock_client_factory = self.MockClientFactory.return_value
 
         self.runner = MagicMock()
@@ -25,14 +23,44 @@ class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
         self.runner.stop = AsyncMock()
         self.runner.cleanup = MagicMock()
 
-        self.mock_registry.get_model_config.return_value = MagicMock()
-        mock_model_path = MagicMock(spec=Path)
-        mock_model_path.exists.return_value = True
-        self.mock_registry.resolve_model_path.return_value = mock_model_path
+        self.mock_model_manager = MagicMock(spec=ModelManager)
+
+        # Create a dummy model file
+        self.temp_model_file = tempfile.NamedTemporaryFile(delete=False)
+        self.temp_model_path = self.temp_model_file.name
+        self.temp_model_file.close()
+
+        self.mock_config = ModelConfig()
+
+        def get_model_side_effect(model_id):
+            return ModelInfo(
+                id=model_id,
+                name=f"Mock Model {model_id}",
+                loader=ModelLoader.LLAMA_CPP,
+                path=self.temp_model_path,
+                modality=ModelModality.TEXT,
+                config=self.mock_config,
+            )
+
+        self.mock_model_manager.get_model.side_effect = get_model_side_effect
+
+        def role_mapper(role):
+            if role == "character":
+                return "character_model"
+            if role == "executor":
+                return "executor_model:default"
+            if role == "executor:coding":
+                return "executor_model:coding"
+            return f"{role}_model"
+
+        self.mock_model_manager.get_assigned_model_id.side_effect = role_mapper
+
+        self.mock_model_manager.get_binary_path.return_value = Path("/bin/true")
+        self.mock_model_manager.get_logs_dir.return_value = Path("/tmp")
 
     def tearDown(self):
-        self.registry_patcher.stop()
         self.client_factory_patcher.stop()
+        Path(self.temp_model_path).unlink(missing_ok=True)
 
     async def test_cache_eviction_with_size_2(self):
         """Test FIFO eviction when cache size is 2."""
@@ -42,7 +70,9 @@ class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
             MagicMock(),
         ]
 
-        service = LLMService(runner=self.runner, cache_size=2)
+        service = LLMService(
+            runner=self.runner, model_manager=self.mock_model_manager, cache_size=2
+        )
 
         # 1) Load Character (Cache: [Character])
         await service.get_client("character")
@@ -63,7 +93,7 @@ class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
         self.assertIn("executor_model:coding", service._chat_model_cache)
 
         service.cleanup()
-        self.runner.cleanup.assert_called_once()
+        self.assertEqual(self.runner.cleanup.call_count, 2)
 
 
 if __name__ == "__main__":

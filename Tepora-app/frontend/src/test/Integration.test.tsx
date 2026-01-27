@@ -128,6 +128,7 @@ describe("ChatInterface Integration", () => {
 			"chat",
 			[],
 			false,
+			false,
 		);
 	});
 
