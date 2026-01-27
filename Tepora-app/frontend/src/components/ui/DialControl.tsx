@@ -26,6 +26,12 @@ export const DialControl: React.FC<DialControlProps> = ({
 }) => {
 	const [isDragging, setIsDragging] = useState(false);
 	const dialRef = useRef<HTMLDivElement>(null);
+	const valueRef = useRef(value);
+
+	// Update ref when value changes to avoid stale closures in listeners
+	useEffect(() => {
+		valueRef.current = value;
+	}, [value]);
 
 	// Configuration
 	const startAngle = 135;
@@ -82,7 +88,8 @@ export const DialControl: React.FC<DialControlProps> = ({
 		// Clamp value
 		newValue = Math.min(Math.max(newValue, min), max);
 
-		if (newValue !== value) {
+		// Compare against current ref value to avoid stale closure issues
+		if (newValue !== valueRef.current) {
 			onChange(newValue);
 		}
 	};

@@ -364,9 +364,16 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			{/* Tabs removed: Unified into separate sections */}
 			{/* Content Area */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				{/* Characters */}
 				{profiles &&
 					Object.entries(profiles).map(([key, config]) =>
 						renderCard(key, characterToAgentProfile(config), "character"),
+					)}
+
+				{/* Professionals (Unified Display) */}
+				{professionals &&
+					Object.entries(professionals).map(([key, config]) =>
+						renderCard(key, professionalToAgentProfile(config), "professional"),
 					)}
 
 				{renderAddCard()}
