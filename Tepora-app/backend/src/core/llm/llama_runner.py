@@ -6,13 +6,13 @@ LocalModelRunner プロトコルを実装しており、LLMService から使用�
 
 Usage:
     runner = LlamaServerRunner(
-        binary_path=Path("/path/to/llama-server"),
+        binary_path=Path("bin/llama-server"),
         logs_dir=Path("logs"),
     )
 
     port = await runner.start(RunnerConfig(
         model_key="character_model",
-        model_path=Path("/path/to/model.gguf"),
+        model_path=Path("models/model.gguf"),
         model_config=model_config,
     ))
 
