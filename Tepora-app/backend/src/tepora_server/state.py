@@ -98,19 +98,7 @@ class AppState:
         policy_path = PROJECT_ROOT / "config" / "mcp_policy.json"
 
         # Initialize Registry
-        # Prefer the local registry seed (if present in project reference materials),
-        # otherwise fall back to the bundled seed.json.
-        repo_root = PROJECT_ROOT.parents[1]  # backend -> Tepora-app -> Tepora_Project
-        local_seed = (
-            repo_root
-            / "プロジェクト参考資料"
-            / "MCP関連"
-            / "registry-main"
-            / "registry-main"
-            / "data"
-            / "seed.json"
-        )
-        self._mcp_registry = McpRegistry(seed_path=local_seed if local_seed.exists() else None)
+        self._mcp_registry = McpRegistry()
         logger.info("MCP Registry initialized")
 
         # Initialize Policy Manager (Phase 4)
