@@ -44,7 +44,7 @@ tasks:
     desc: "Start backend server"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python server.py
+      - uv run -s server.py
 
   dev-frontend:
     desc: "Start frontend dev server"
@@ -69,7 +69,7 @@ tasks:
     desc: "Run backend tests"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - pytest tests/ -v
+      - uv run pytest tests/ -v
 
   test-frontend:
     desc: "Run frontend tests"
@@ -88,7 +88,7 @@ tasks:
     desc: "Lint backend code with ruff"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python -m ruff check src/
+      - uv run ruff check src/
     ignore_error: true
 
   lint-frontend:
@@ -109,7 +109,7 @@ tasks:
     desc: "Type check backend with mypy"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python -m mypy src/
+      - uv run mypy src/
     ignore_error: true
 
   typecheck-frontend:
@@ -130,7 +130,7 @@ tasks:
     desc: "Build PyInstaller sidecar for Tauri"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python scripts/build_sidecar.py
+      - uv run scripts/build_sidecar.py
 
   build-frontend:
     desc: "Build frontend for production"
@@ -155,7 +155,7 @@ tasks:
     desc: "Install frontend dependencies"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
-      - npm install
+      - npm ci --legacy-peer-deps
 
   # === Cleanup ===
   clean:

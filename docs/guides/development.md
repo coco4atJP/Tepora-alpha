@@ -27,20 +27,12 @@ Teporaではパッケージ管理に `uv` を使用します。
 cd Tepora-app/backend
 uv sync
 ```
-
-**代替手順 (手動 venv)**:
-```powershell
-cd Tepora-app/backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
 **注意**: `llama-cpp-python` のインストールにはC++ビルドツールが必要になる場合があります。GPUサポートを有効にする場合は、適切なビルド引数を指定してください。
 
 ### 3. フロントエンド (React + Tauri) のセットアップ
 ```powershell
 cd Tepora-app/frontend
-npm install
+npm ci --legacy-peer-deps
 ```
 
 ## 💻 開発時の実行方法 (Running in Development)

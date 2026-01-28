@@ -35,15 +35,13 @@ TeporaがWebインターフェースに対応しました！モダンで使い�
 ```bash
 cd Tepora-app/backend
 uv sync
-# または
-pip install -r requirements.txt
 ```
 
 ### 2. フロントエンド依存関係のインストール
 
 ```bash
 cd Tepora-app/frontend
-npm install
+npm ci --legacy-peer-deps
 ```
 
 ## 🚀 起動方法
@@ -154,7 +152,7 @@ $env:PORT="8001"; uv run server.py
 # node_modulesを削除して再インストール
 cd Tepora-app/frontend
 rm -rf node_modules
-npm install
+npm ci --legacy-peer-deps
 ```
 
 ## 🚢 本番環境デプロイ
