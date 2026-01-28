@@ -26,7 +26,7 @@ export const useMessageBuffer = (
 		): Message[] => {
 			const lastMessage = prevMessages[prevMessages.length - 1];
 
-			// 1. Same node: Append to existing
+			// Same node: Append to existing
 			if (
 				lastMessage?.role === "assistant" &&
 				!lastMessage.isComplete &&
@@ -41,7 +41,7 @@ export const useMessageBuffer = (
 					},
 				];
 			}
-			// 2. Different node but still assistant processing: Close previous, start new
+			// Different node but still assistant processing: Close previous, start new
 			else if (lastMessage?.role === "assistant" && !lastMessage.isComplete) {
 				return [
 					...prevMessages.slice(0, -1),
@@ -56,7 +56,7 @@ export const useMessageBuffer = (
 					},
 				];
 			}
-			// 3. New message (start)
+			// New message (start)
 			else {
 				return [
 					...prevMessages,

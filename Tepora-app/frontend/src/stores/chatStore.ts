@@ -181,8 +181,8 @@ export const useChatStore = create<ChatStore>()(
 
 				// Check if we should split the message (standard behavior) or keep merged (transactional behavior)
 				// We merge if:
-				// 1. Current was Thinking, New is NOT Thinking (Thinking -> Answer)
-				// 2. We are already streaming and just switching generic nodes (legacy behavior might separate them, but let's try to keep them together if role is assistant)
+				// - Current was Thinking, New is NOT Thinking (Thinking -> Answer)
+				// - We are already streaming and just switching generic nodes (legacy behavior might separate them, but let's try to keep them together if role is assistant)
 
 				// Simplified Logic:
 				// If nodeId changes, we flush the buffer.

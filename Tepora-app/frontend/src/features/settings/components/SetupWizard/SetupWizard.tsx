@@ -4,6 +4,10 @@ import { useRequirements } from "../../../../hooks/useServerConfig";
 import { ApiError, apiClient } from "../../../../utils/api-client";
 import { getKey, initialState, setupReducer } from "./reducer";
 import {
+	ConsentWarningModal,
+	EmbeddingWarningModal,
+} from "./SetupWarnings";
+import {
 	CompleteStep,
 	ErrorStep,
 	InstallingStep,
@@ -142,7 +146,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 	const handleStartSetup = async () => {
 		try {
-			// 1. Pre-flight Check
+			// Pre-flight Check
 			try {
 				const preflightData = await apiClient.post<{
 					success: boolean;
@@ -350,16 +354,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						onNext={() => checkRequirements()}
 						onBack={() =>
 							dispatch({ type: "SET_LANGUAGE", payload: state.language })
-						} // Re-triggering SET_LANGUAGE might be weird but it sets step to LOADER in reducer. Wait, I want to go BACK to LANGUAGE.
-						// Reducer doesn't have GOTO_LANGUAGE.
-						// I can misuse SET_LANGUAGE or just add GOTO_LANGUAGE?
-						// Actually, SET_LANGUAGE sets step to LOADER_SELECT. So that's wrong.
-						// I will implement a "back" logic later if needed or just let it stay.
-						// For now, I'll pass a dummy onBack or fix reducer.
-						// Let's assume hitting Back goes to start.
-						// Actually I can manually set step if I added SET_STEP action.
-						// I will skip onBack functionality for this iteration or implement it properly.
-						// Let's just implement onNext for now.
+						}
 					/>
 				);
 			case "CHECK_REQUIREMENTS":
@@ -403,8 +398,6 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		] as const;
 
 		const currentIdx = steps.findIndex((s) => s.key === state.step);
-		// If current step is NOT in the list (e.g. ERROR), default to -1 or handle appropriately
-		// However, looking at the code, ERROR is a step. We'll handle visual state below.
 
 		return (
 			<div className="w-full px-12 py-6">
@@ -412,7 +405,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 					{/* Line Background */}
 					<div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-white/10" />
 
-					{/* Active Line (Progress) - approximate width based on steps */}
+					{/* Active Line (Progress) */}
 					<div
 						className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-gold-400/50 transition-all duration-500 ease-out"
 						style={{
@@ -496,109 +489,32 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 					</div>
 				</div>
 
-				{showEmbeddingWarning ? (
-					<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-						<div className="w-full max-w-lg mx-6 glass-tepora rounded-2xl border border-white/10 shadow-xl p-6">
-							<h2 className="text-2xl font-display font-semibold mb-3 text-gold-200">
-								{t("setup.embedding_warning_title", "Missing Embedding Model")}
-							</h2>
-							<p className="text-sm text-white/70 mb-4">
-								{t(
-									"setup.embedding_warning_desc",
-									"Ollama is selected, but no embedding model was found. Some features (RAG, Long-term Memory) require an embedding model.",
-								)}
-							</p>
-							<p className="text-sm text-white/70 mb-6">
-								{t(
-									"setup.embedding_warning_action",
-									"We recommend installing an embedding model, or you can proceed without it.",
-								)}
-							</p>
-							<div className="flex gap-3 justify-end">
-								{/* Option to go back or cancel? */}
-								<button
-									type="button"
-									className="px-4 py-2 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition"
-									onClick={() => setShowEmbeddingWarning(false)}
-								>
-									{t("common.back", "Back")}
-								</button>
-								<button
-									type="button"
-									className="px-4 py-2 rounded-full bg-gold-400 text-black font-semibold hover:bg-gold-300 transition"
-									onClick={() => {
-										setShowEmbeddingWarning(false);
-										handleStartSetup();
-									}}
-								>
-									{t("setup.embedding_warning_proceed", "Proceed Anyway")}
-								</button>
-							</div>
-						</div>
-					</div>
-				) : null}
+				<EmbeddingWarningModal
+					isOpen={showEmbeddingWarning}
+					onBack={() => setShowEmbeddingWarning(false)}
+					onProceed={() => {
+						setShowEmbeddingWarning(false);
+						handleStartSetup();
+					}}
+				/>
 
-				{pendingConsent ? (
-					<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-						<div className="w-full max-w-lg mx-6 glass-tepora rounded-2xl border border-white/10 shadow-xl p-6">
-							<h2 className="text-2xl font-display font-semibold mb-3 text-gold-200">
-								{t("setup.download_warning_title", "Confirm Model Download")}
-							</h2>
-							<p className="text-sm text-white/70 mb-4">
-								{t(
-									"setup.download_warning_desc",
-									"Some models are not in the allowlist. Please review the warnings and confirm to proceed.",
-								)}
-							</p>
-							<div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-								{pendingConsent.warnings.map((warning) => (
-									<div
-										key={`${warning.repo_id}:${warning.filename}`}
-										className="rounded-lg bg-white/5 border border-white/10 p-3"
-									>
-										<div className="text-sm font-semibold text-white mb-1">
-											{warning.repo_id} / {warning.filename}
-										</div>
-										<ul className="text-xs text-white/70 space-y-1">
-											{warning.warnings.map((msg, idx) => (
-												<li key={`${warning.repo_id}:${idx}`}>- {msg}</li>
-											))}
-										</ul>
-									</div>
-								))}
-							</div>
-							<div className="mt-5 flex gap-3 justify-end">
-								<button
-									type="button"
-									className="px-4 py-2 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition"
-									onClick={() => setPendingConsent(null)}
-								>
-									{t("setup.download_warning_cancel", "Cancel")}
-								</button>
-								<button
-									type="button"
-									className="px-4 py-2 rounded-full bg-gold-400 text-black font-semibold hover:bg-gold-300 transition"
-									onClick={async () => {
-										if (!pendingConsent) return;
-										const { targetModels } = pendingConsent;
-										setPendingConsent(null);
-										try {
-											await runSetup(targetModels, true);
-										} catch (err) {
-											dispatch({
-												type: "INSTALL_FAILURE",
-												payload:
-													err instanceof Error ? err.message : "Start failed",
-											});
-										}
-									}}
-								>
-									{t("setup.download_warning_confirm", "Proceed")}
-								</button>
-							</div>
-						</div>
-					</div>
-				) : null}
+				<ConsentWarningModal
+					pendingConsent={pendingConsent}
+					onCancel={() => setPendingConsent(null)}
+					onConfirm={async () => {
+						if (!pendingConsent) return;
+						const { targetModels } = pendingConsent;
+						setPendingConsent(null);
+						try {
+							await runSetup(targetModels, true);
+						} catch (err) {
+							dispatch({
+								type: "INSTALL_FAILURE",
+								payload: err instanceof Error ? err.message : "Start failed",
+							});
+						}
+					}}
+				/>
 			</div>
 		</div>
 	);

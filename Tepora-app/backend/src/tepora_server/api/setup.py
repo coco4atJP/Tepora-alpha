@@ -232,7 +232,7 @@ async def check_preflight(request: PreflightRequest):
     try:
         dm = _get_download_manager()
 
-        # 1. Permission Check
+        # Permission Check
         has_permission = dm.check_write_permission()
         if not has_permission:
             return JSONResponse(
@@ -243,7 +243,7 @@ async def check_preflight(request: PreflightRequest):
                 },
             )
 
-        # 2. Disk Space Check
+        # Disk Space Check
         free_bytes = dm.get_disk_free_space()
         required_bytes = request.required_space_mb * 1024 * 1024
 

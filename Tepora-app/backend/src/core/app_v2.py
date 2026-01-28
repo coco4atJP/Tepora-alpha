@@ -327,7 +327,7 @@ class TeporaApp:
         self._download_manager = download_manager
         self._mcp_hub = mcp_hub
 
-        # 1. Logging設定
+        # Logging configuration
         if self.config.log_dir:
             setup_logging(
                 log_dir=self.config.log_dir,
@@ -335,15 +335,15 @@ class TeporaApp:
                 pii_redaction=self.config.pii_redaction,
             )
 
-        # 2. Session Manager
+        # Session Manager initialization
         self._session_manager = SessionManager()
         logger.debug("SessionManager initialized.")
 
-        # 2.5 History Manager (SQLite)
+        # History Manager (SQLite) initialization
         self._history_manager = ChatHistoryManager()
         logger.debug("ChatHistoryManager initialized.")
 
-        # 3. Tool Manager (default providers if none configured)
+        # Tool Manager initialization (default providers if none configured)
         providers = list(self.config.tool_providers)
         if not providers:
             from .config.loader import PROJECT_ROOT
@@ -360,33 +360,33 @@ class TeporaApp:
         self._tool_manager.initialize()
         logger.debug("ToolManager initialized with %d tools.", len(self._tool_manager.tools))
 
-        # 3.5 Model Manager
+        # Model Manager initialization
         from pathlib import Path
 
         if not self._model_manager:
             self._model_manager = ModelManager(models_dir=Path(core_config.MODEL_BASE_PATH))
             logger.debug("ModelManager initialized.")
 
-        # 4. LLM Service
+        # LLM Service initialization
         self._llm_service = LLMService(
             download_manager=self._download_manager,
             model_manager=self._model_manager,
         )
         logger.debug("LLMService initialized (stateless mode).")
 
-        # 5. Context Manager
+        # Context Manager initialization
         self._context_manager = ContextWindowManager()
         logger.debug("ContextWindowManager initialized.")
 
-        # 6. RAG Engine & Context Builder
+        # RAG Engine & Context Builder initialization
         self._rag_engine = RAGEngine()
         self._context_builder = RAGContextBuilder()
         logger.debug("RAG Engine and Context Builder initialized.")
 
-        # 6.5 EM-LLM (best-effort)
+        # EM-LLM (best-effort) initialization
         await self._initialize_em_llm_integrators()
 
-        # 7. Graph (full pipeline)
+        # Graph initialization (full pipeline)
         self._graph = TeporaGraph(
             llm_service=self._llm_service,
             context_manager=self._context_manager,

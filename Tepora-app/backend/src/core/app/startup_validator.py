@@ -34,7 +34,7 @@ def validate_startup_config(config, project_root: Path) -> None:
     """
     errors: list[str] = []
 
-    # --- 1. Validate GGUF Models ---
+    # Validate GGUF Models
     # Note: Pydantic schema ensures types, we only validate existence/constraints.
     models_config = config.models_gguf
     if not models_config:
@@ -42,16 +42,6 @@ def validate_startup_config(config, project_root: Path) -> None:
             "models_gguf section is missing or empty in configuration (allowed before initial setup)"
         )
     else:
-        # Prepare Registry for path resolution
-        try:
-            from ..llm.model_registry import ModelRegistry
-
-            registry = ModelRegistry()
-        except ImportError:
-            # Check safely if modules exist but fail to import
-            # Fallback to naive check if core modules are missing (unlikely in prod)
-            registry = None
-
         for model_key, model_cfg in models_config.items():
             # model_cfg is ModelGGUFConfig object
 
@@ -60,26 +50,13 @@ def validate_startup_config(config, project_root: Path) -> None:
                 errors.append(f"[models_gguf.{model_key}.path] is missing")
                 continue
 
-            # Resolve path using Registry (correct way) or fallback
-            model_path = None
-            if registry:
-                try:
-                    model_path = registry.resolve_model_path(model_key)
-                except Exception as exc:
-                    # If registry fails (e.g. config missing), it might raise
-                    logger.debug(
-                        "Model registry resolution failed for '%s': %s",
-                        model_key,
-                        exc,
-                        exc_info=True,
-                    )
-
-            if not model_path:
-                # Fallback/Original check
+            # Resolve path (Naive check relative to project root or absolute)
+            model_path = Path(model_path_str)
+            if not model_path.is_absolute():
                 model_path = project_root / model_path_str
 
             if not model_path.exists():
-                # 警告のみ: 初回セットアップ前やモデルダウンロード前の起動を許可
+                # Warning only: Allow startup before initial model download
                 logger.warning(
                     "[models_gguf.%s.path] Model file not found at: %s (Key: %s)",
                     model_key,
@@ -97,7 +74,7 @@ def validate_startup_config(config, project_root: Path) -> None:
                         f"[models_gguf.{model_key}.port] must be an integer between 1024 and 65535"
                     )
 
-    # --- 2. Validate EM-LLM Config ---
+    # Validate EM-LLM Config
     # Config is already validated by Pydantic schema types.
     # We only check logical constraints (min < max, range).
     em_config = config.em_llm
@@ -110,7 +87,7 @@ def validate_startup_config(config, project_root: Path) -> None:
         if em_config.min_event_size > em_config.max_event_size:
             errors.append("[em_llm.min_event_size] cannot be greater than [em_llm.max_event_size]")
 
-    # --- 3. Validate ChromaDB Path ---
+    # Validate ChromaDB Path
     # Use CHROMA_DB_PATH from config (unified USER_DATA_DIR)
     chroma_db_path = CHROMA_DB_PATH / "em_llm"
     try:
@@ -130,7 +107,7 @@ def validate_startup_config(config, project_root: Path) -> None:
     except OSError as e:
         errors.append(f"[ChromaDB] Cannot access directory {chroma_db_path}: {e}")
 
-    # --- Raise all errors at once ---
+    # Raise all errors at once
     if errors:
         error_message = "Startup validation failed:\n  - " + "\n  - ".join(errors)
         logger.critical(error_message)
