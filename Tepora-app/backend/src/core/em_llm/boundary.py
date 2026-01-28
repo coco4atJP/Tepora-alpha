@@ -48,7 +48,7 @@ class EMBoundaryRefiner:
             Similarity matrix (seq_len, seq_len)
         """
         # Use cosine similarity (paper uses dot product, but normalization is more stable)
-        return cosine_similarity(vectors)
+        return np.asarray(cosine_similarity(vectors))
 
     def calculate_modularity(self, similarity_matrix: np.ndarray, boundaries: list[int]) -> float:
         """

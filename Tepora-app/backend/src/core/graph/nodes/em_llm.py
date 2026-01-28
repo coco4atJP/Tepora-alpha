@@ -9,6 +9,7 @@ This module provides nodes for EM-LLM integration:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -237,7 +238,14 @@ class EMMemoryNodes:
             (msg for msg in reversed(state.get("chat_history", [])) if isinstance(msg, AIMessage)),
             None,
         )
-        ai_response = ai_response_message.content if ai_response_message else None
+        raw_response = ai_response_message.content if ai_response_message else None
+        ai_response: str | None
+        if raw_response is None:
+            ai_response = None
+        elif isinstance(raw_response, str):
+            ai_response = raw_response
+        else:
+            ai_response = json.dumps(raw_response, ensure_ascii=False)
 
         if not ai_response:
             logger.warning(

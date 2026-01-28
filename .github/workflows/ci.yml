@@ -27,6 +27,12 @@ jobs:
     - name: Install Dependencies
       run: uv sync --frozen --extra dev
 
+    - name: Run Ruff (lint)
+      run: uv run ruff check .
+
+    - name: Run Mypy (typecheck)
+      run: uv run mypy src
+
     - name: Run Backend Tests
       run: uv run pytest tests/ -v
 
@@ -48,6 +54,12 @@ jobs:
 
     - name: Install Dependencies
       run: npm ci
+
+    - name: Run Frontend Lint
+      run: npm run lint
+
+    - name: Run Frontend Typecheck
+      run: npm run typecheck
 
     - name: Run Frontend Tests
       run: npm test

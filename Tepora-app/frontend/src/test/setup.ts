@@ -70,4 +70,4 @@ class MockWebSocket {
 	constructor(public url: string) {}
 }
 
-globalThis.WebSocket = MockWebSocket as any;
+globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;

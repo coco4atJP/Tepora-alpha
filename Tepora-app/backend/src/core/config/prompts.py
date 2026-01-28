@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Final
+from typing import Any, Final
 
 from langchain_core.tools import BaseTool
+from pydantic import BaseModel
 
 __all__ = [
     "ACTIVE_PERSONA",
@@ -174,14 +175,22 @@ def format_tools_for_react_prompt(tools: Iterable[BaseTool]) -> str:
 
     tool_strings: list[str] = []
     for tool in tools:
-        if hasattr(tool, "args_schema") and hasattr(tool.args_schema, "model_json_schema"):
-            schema = tool.args_schema.model_json_schema()
+        args_repr = ""
+        args_schema = getattr(tool, "args_schema", None)
+        schema: dict[str, Any] | None = None
+        if isinstance(args_schema, dict):
+            schema = args_schema
+        elif isinstance(args_schema, type) and issubclass(args_schema, BaseModel):
+            schema = args_schema.model_json_schema()
+
+        if schema:
             properties = schema.get("properties", {})
-            args_repr = ", ".join(
-                f"{name}: {prop.get('type', 'any')}" for name, prop in properties.items()
-            )
-        else:
-            args_repr = ""
+            if isinstance(properties, dict):
+                args_repr = ", ".join(
+                    f"{name}: {prop.get('type', 'any')}"
+                    for name, prop in properties.items()
+                    if isinstance(prop, dict)
+                )
         tool_strings.append(f"  - {tool.name}({args_repr}): {tool.description}")
 
     return "\n".join(tool_strings)

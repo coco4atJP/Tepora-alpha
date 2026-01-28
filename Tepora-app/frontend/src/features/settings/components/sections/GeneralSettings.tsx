@@ -74,7 +74,9 @@ const GeneralSettings: React.FC = () => {
 
 					<FormGroup
 						label={t("settings.sections.general.search_tool.provider_label")}
-						description={t("settings.sections.general.search_tool.provider_desc")}
+						description={t(
+							"settings.sections.general.search_tool.provider_desc",
+						)}
 						isDirty={isToolsDirty("search_provider")}
 					>
 						<FormSelect

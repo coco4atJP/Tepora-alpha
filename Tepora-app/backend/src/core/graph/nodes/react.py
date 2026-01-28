@@ -132,7 +132,13 @@ class ReActNodes:
         )
 
         try:
-            order_json = json.loads(response_message.content)
+            raw_content = response_message.content
+            if isinstance(raw_content, str):
+                order_json = json.loads(raw_content)
+            elif isinstance(raw_content, (dict, list)):
+                order_json = raw_content
+            else:
+                order_json = json.loads(str(raw_content))
 
             task_msg = self._build_task_message(
                 order_json,
@@ -238,7 +244,13 @@ class ReActNodes:
 
         try:
             # Parse CoT + JSON format output
-            thought_text, parsed_json = self._parse_react_response(response_message.content)
+            raw_content = response_message.content
+            response_text = (
+                raw_content
+                if isinstance(raw_content, str)
+                else json.dumps(raw_content, ensure_ascii=False)
+            )
+            thought_text, parsed_json = self._parse_react_response(response_text)
             logger.debug("Parsed CoT Output:")
             logger.debug("Thought: %s", thought_text)
             logger.debug("Parsed JSON successfully:")
@@ -484,7 +496,10 @@ class ReActNodes:
             config={"configurable": {"model_kwargs": {"logprobs": True, "cache_prompt": True}}},
         ):
             if hasattr(chunk, "content") and chunk.content:
-                full_response += chunk.content
+                content = chunk.content
+                full_response += (
+                    content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+                )
             # Extract logprobs from response metadata if available
             if hasattr(chunk, "response_metadata") and chunk.response_metadata:
                 chunk_logprobs = chunk.response_metadata.get("logprobs")

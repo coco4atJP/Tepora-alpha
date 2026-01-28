@@ -58,7 +58,7 @@ describe("sidecar utils", () => {
 
 		const { startSidecar } = await import("../../../utils/sidecar");
 
-		const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => { });
+		const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
 		// First call
 		await startSidecar();

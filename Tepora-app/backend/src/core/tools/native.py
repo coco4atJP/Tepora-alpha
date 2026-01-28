@@ -15,6 +15,7 @@ from urllib3.util.retry import Retry
 
 from ..config.loader import settings
 from .base import ToolProvider
+from .search.base import SearchEngine
 from .search.providers.google import GoogleSearchEngine
 from .search.tool import SearchTool, _build_error_response
 
@@ -180,7 +181,7 @@ class NativeToolProvider(ToolProvider):
 
         # Check configured search provider
         if settings.privacy.allow_web_search:
-            search_engine = None
+            search_engine: SearchEngine | None = None
             provider = settings.tools.search_provider
 
             try:

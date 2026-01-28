@@ -56,15 +56,25 @@ def format_scratchpad(scratchpad: list[BaseMessage]) -> str:
                 logger.debug("    AI Message with tool call: %s", tool_name)
             else:
                 # AI message without tool call (e.g., error)
-                string_messages.append(message.content)
-                logger.debug("    AI Message without tool call: %s...", message.content[:50])
+                content = message.content
+                content_str = (
+                    content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+                )
+                string_messages.append(content_str)
+                logger.debug("    AI Message without tool call: %s...", content_str[:50])
 
         elif isinstance(message, ToolMessage):
             # Tool execution result
             observation_obj = {"observation": message.content}
             formatted_msg = json.dumps(observation_obj, ensure_ascii=False)
             string_messages.append(formatted_msg)
-            logger.debug("    Tool Message: %s...", message.content[:50])
+            tool_content = message.content
+            tool_content_str = (
+                tool_content
+                if isinstance(tool_content, str)
+                else json.dumps(tool_content, ensure_ascii=False)
+            )
+            logger.debug("    Tool Message: %s...", tool_content_str[:50])
 
     # Join each step with newline
     result = "\n".join(string_messages)
@@ -99,7 +109,9 @@ def clone_message_with_timestamp(message: BaseMessage) -> BaseMessage:
     """
     if not getattr(message, "content", ""):
         return message
-    updated_content = append_context_timestamp(message.content)
+    content = message.content
+    content_str = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    updated_content = append_context_timestamp(content_str)
     return message.copy(update={"content": updated_content})
 
 

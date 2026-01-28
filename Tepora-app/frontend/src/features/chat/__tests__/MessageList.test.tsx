@@ -61,8 +61,8 @@ describe("MessageList", () => {
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
 			(selector) => selector({ messages: [] }),
 		);
-		render(<MessageList />);
-		expect(screen.getByText("System Ready")).toBeInTheDocument();
+		const { container } = render(<MessageList />);
+		expect(container.textContent).toBe("");
 	});
 
 	it("scrolls to bottom on new message", () => {

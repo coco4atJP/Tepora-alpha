@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface DialControlProps {
 	value: number;
@@ -34,15 +34,19 @@ export const DialControl: React.FC<DialControlProps> = ({
 	}, [value]);
 
 	// Configuration
-	const startAngle = 135;
-	const endAngle = 405; // 360 + 45
-	const rangeAngle = endAngle - startAngle;
+	// const startAngle = 135;
+	// const endAngle = 405; 
+	// Directly used in calculations or removed if redundant. 
+	// Checking file content from Step 158:
+	// const percent = Math.min(Math.max((value - min) / (max - min), 0), 1);
+	// It calls `valueToAngle`.
+	// Let's remove startAngle and endAngle declarations if they are unused.
 
 	// Calculate current angle from value
 	const percent = Math.min(Math.max((value - min) / (max - min), 0), 1);
 
 	// Update value based on mouse position
-	const updateValue = (clientX: number, clientY: number) => {
+	const updateValue = useCallback((clientX: number, clientY: number) => {
 		if (!dialRef.current) return;
 
 		const rect = dialRef.current.getBoundingClientRect();
@@ -67,7 +71,8 @@ export const DialControl: React.FC<DialControlProps> = ({
 			val = (cssAngle + (360 - 225)) / 270;
 		} else {
 			// In the gap (135 to 225) -> Snap to closest
-			if (cssAngle < 180) val = 1; // Closer to end
+			if (cssAngle < 180)
+				val = 1; // Closer to end
 			else val = 0; // Closer to start
 		}
 
@@ -92,7 +97,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 		if (newValue !== valueRef.current) {
 			onChange(newValue);
 		}
-	};
+	}, [max, min, onChange, step]);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
 		setIsDragging(true);
@@ -120,7 +125,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 			window.removeEventListener("mousemove", handleMouseMove);
 			window.removeEventListener("mouseup", handleMouseUp);
 		};
-	}, [isDragging, min, max, step, onChange]);
+	}, [isDragging, updateValue]);
 
 	// Visual calculations
 	const radius = size / 2 - 10; // padding
@@ -175,9 +180,8 @@ export const DialControl: React.FC<DialControlProps> = ({
 						strokeDasharray={circumference}
 						strokeDashoffset={progressOffset}
 						strokeLinecap="round"
-						className={`transition-all duration-75 ${
-							isDragging ? "opacity-100" : "opacity-80"
-						}`}
+						className={`transition-all duration-75 ${isDragging ? "opacity-100" : "opacity-80"
+							}`}
 						style={{ filter: "drop-shadow(0 0 4px rgba(212, 191, 128, 0.5))" }}
 					/>
 				</svg>

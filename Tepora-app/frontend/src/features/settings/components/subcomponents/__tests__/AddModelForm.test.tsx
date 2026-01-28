@@ -76,7 +76,7 @@ describe("AddModelForm", () => {
 		});
 
 		// Setup Download Mock
-		fetchMock.mockImplementation(async (url, _opts: any) => {
+		fetchMock.mockImplementation(async (url: RequestInfo | URL) => {
 			const u = String(url);
 			if (u.includes("check"))
 				return { ok: true, json: async () => ({ exists: true }) };
@@ -120,7 +120,7 @@ describe("AddModelForm", () => {
 		});
 
 		// Setup 409 Mock
-		fetchMock.mockImplementation(async (url, _opts: any) => {
+		fetchMock.mockImplementation(async (url: RequestInfo | URL) => {
 			const u = String(url);
 			if (u.includes("check"))
 				return { ok: true, json: async () => ({ exists: true }) };
@@ -171,13 +171,15 @@ describe("AddModelForm", () => {
 		});
 
 		// Setup Complex Mock
-		fetchMock.mockImplementation(async (url, opts: any) => {
+		fetchMock.mockImplementation(
+			async (url: RequestInfo | URL, opts?: RequestInit) => {
 			const u = String(url);
 			if (u.includes("/check"))
 				return { ok: true, json: async () => ({ exists: true }) };
 
 			if (u.includes("download")) {
-				const body = JSON.parse(opts.body);
+				const bodyStr = typeof opts?.body === "string" ? opts.body : "{}";
+				const body = JSON.parse(bodyStr) as { acknowledge_warnings?: boolean };
 				if (body.acknowledge_warnings === true) {
 					return {
 						ok: true,
@@ -197,7 +199,8 @@ describe("AddModelForm", () => {
 				}
 			}
 			return { ok: false };
-		});
+		},
+		);
 
 		fireEvent.click(downloadBtn);
 
@@ -241,7 +244,7 @@ describe("AddModelForm", () => {
 		});
 
 		// Setup Mock
-		fetchMock.mockImplementation(async (url, _opts: any) => {
+		fetchMock.mockImplementation(async (url: RequestInfo | URL) => {
 			const u = String(url);
 			if (u.includes("check"))
 				return { ok: true, json: async () => ({ exists: true }) };

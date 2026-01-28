@@ -13,10 +13,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from langchain_core.tools import BaseTool
-from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.client import MultiServerMCPClient, SSEConnection, StdioConnection
 
 from .models import ConnectionStatus, McpServerConfig, McpServerStatus, TransportType
 
@@ -132,15 +132,21 @@ class McpConnectionManager:
                     await asyncio.sleep(delay)
 
                 # Build connection dict for MultiServerMCPClient
-                connection: dict[str, Any] = {
-                    "transport": config.transport.value,
-                    "command": config.command,
-                    "args": config.args,
-                }
-                if config.env:
-                    connection["env"] = dict(config.env)
-                if config.url and config.transport == TransportType.SSE:
-                    connection["url"] = config.url
+                connection: StdioConnection | SSEConnection
+                if config.transport == TransportType.STDIO:
+                    connection = {
+                        "transport": "stdio",
+                        "command": config.command,
+                        "args": config.args,
+                    }
+                    if config.env:
+                        connection["env"] = dict(config.env)
+                elif config.transport == TransportType.SSE:
+                    if not config.url:
+                        raise ValueError(f"MCP server '{name}' uses SSE transport but has no URL")
+                    connection = {"transport": "sse", "url": config.url}
+                else:
+                    raise ValueError(f"Unsupported MCP transport: {config.transport.value}")
 
                 # Create client
                 client = MultiServerMCPClient(connections={name: connection})

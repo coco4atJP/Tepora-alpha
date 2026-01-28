@@ -10,7 +10,9 @@
 		"build:app": "npm run build:sidecar && tauri build",
 		"preview": "vite preview",
 		"lint": "eslint . --max-warnings 0",
+		"typecheck": "tsc --noEmit",
 		"test": "vitest",
+		"tauri:dev": "tauri dev --config src-tauri/tauri.conf.dev.json",
 		"tauri": "tauri"
 	},
 	"dependencies": {

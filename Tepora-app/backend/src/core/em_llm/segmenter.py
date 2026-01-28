@@ -274,5 +274,4 @@ class EMEventSegmenter:
             Similarity matrix (seq_len, seq_len)
         """
         # Use cosine similarity (paper uses dot product, but normalization is more stable)
-        similarity_matrix = cosine_similarity(attention_keys)
-        return similarity_matrix
+        return np.asarray(cosine_similarity(attention_keys))

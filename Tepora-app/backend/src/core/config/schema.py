@@ -433,6 +433,10 @@ Tone: Archaic, haughty but caring. Uses "Ja/Nou". First person: "Warawa" (妾).
 }
 
 
+def _default_security() -> dict[str, SecretStr | None]:
+    return {"api_key": None}
+
+
 class TeporaSettings(BaseSettings):
     """
     Root configuration object using pydantic-settings.
@@ -472,7 +476,7 @@ class TeporaSettings(BaseSettings):
 
     # Security
     # Uses SecretStr for automatic redaction during serialization
-    security: dict[str, SecretStr | None] | None = Field(default_factory=lambda: {"api_key": None})
+    security: dict[str, SecretStr | None] = Field(default_factory=_default_security)
 
     @field_validator("characters", mode="before")
     @classmethod
@@ -500,17 +504,25 @@ class TeporaSettings(BaseSettings):
     @classmethod
     def set_security_default(cls, v: Any) -> dict[str, SecretStr | None]:
         if v is None:
-            return {"api_key": None}
-        if isinstance(v, dict):
-            # Convert string values to SecretStr if needed
-            result = {}
-            for key, value in v.items():
-                if isinstance(value, str):
-                    result[key] = SecretStr(value)
-                else:
-                    result[key] = value
-            return result
-        return dict(v)
+            return _default_security()
+        if not isinstance(v, dict):
+            # Best-effort fallback: preserve default shape
+            return _default_security()
+
+        result: dict[str, SecretStr | None] = {}
+        for raw_key, value in v.items():
+            key = str(raw_key)
+            if value is None:
+                result[key] = None
+            elif isinstance(value, SecretStr):
+                result[key] = value
+            elif isinstance(value, str):
+                result[key] = SecretStr(value)
+            else:
+                # Coerce unknown types into a redacted secret string
+                result[key] = SecretStr(str(value))
+
+        return result
 
     @property
     def cors_origins(self) -> list[str]:

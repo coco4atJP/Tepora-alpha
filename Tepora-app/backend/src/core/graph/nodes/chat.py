@@ -6,11 +6,12 @@ Handles direct chat responses with context window management.
 
 from __future__ import annotations
 
+import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import TYPE_CHECKING, Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from ..constants import ATTENTION_SINK_PREFIX, MemoryLimits
@@ -103,10 +104,10 @@ class ChatNode:
         # Build local context
         max_local_tokens = MemoryLimits.MAX_LOCAL_CONTEXT_TOKENS
 
-        async def token_counter(msgs: list) -> int:
+        async def token_counter(msgs: Sequence[BaseMessage]) -> int:
             # Use LLMService token counting if available
             if hasattr(self.llm_service, "count_tokens"):
-                return await self.llm_service.count_tokens(msgs)
+                return await self.llm_service.count_tokens(list(msgs))
             # Fallback to estimation
             return sum(len(str(m.content)) // 4 for m in msgs)
 
@@ -158,7 +159,10 @@ class ChatNode:
             config={"configurable": {"model_kwargs": {"logprobs": True}}},
         ):
             if hasattr(chunk, "content") and chunk.content:
-                full_response += chunk.content
+                content = chunk.content
+                full_response += (
+                    content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+                )
             if hasattr(chunk, "response_metadata") and chunk.response_metadata:
                 chunk_logprobs = chunk.response_metadata.get("logprobs")
                 if chunk_logprobs:
@@ -238,4 +242,7 @@ class ChatNode:
             }
         ):
             if hasattr(chunk, "content") and chunk.content:
-                yield chunk.content
+                content = chunk.content
+                yield (
+                    content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+                )

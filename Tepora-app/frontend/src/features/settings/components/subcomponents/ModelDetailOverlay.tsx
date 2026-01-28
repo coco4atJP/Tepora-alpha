@@ -127,7 +127,8 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 							</div>
 
 							<div className="text-center text-xs text-gray-500 italic">
-								{t("settings.sections.models.detail.dials_hint") || "Drag dials to adjust values"}
+								{t("settings.sections.models.detail.dials_hint") ||
+									"Drag dials to adjust values"}
 							</div>
 						</div>
 					)}

@@ -61,7 +61,7 @@ const initialState: SessionState = {
 export const useSessionStore = create<SessionStore>()(
 	devtools(
 		persist(
-			(set, _get) => ({
+			(set) => ({
 				...initialState,
 
 				// ------------------------------------------------------------------

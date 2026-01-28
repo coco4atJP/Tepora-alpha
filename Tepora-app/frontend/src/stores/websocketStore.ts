@@ -134,6 +134,8 @@ export const useWebSocketStore = create<WebSocketStore>()(
 		(set, get) => {
 			// Track mounting state
 			let isMounted = true;
+			let shouldReconnect = true;
+			let isConnecting = false;
 			let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 			let tokenCache: string | null = null;
 
@@ -272,7 +274,28 @@ export const useWebSocketStore = create<WebSocketStore>()(
 				// ------------------------------------------------------------------
 
 				connect: async () => {
-					if (!isMounted) return;
+					// Allow reconnect after a previous disconnect/unmount
+					isMounted = true;
+					shouldReconnect = true;
+
+					// Idempotent: don't create multiple sockets
+					const existing = get().socket;
+					if (
+						existing &&
+						(existing.readyState === WebSocket.OPEN ||
+							existing.readyState === WebSocket.CONNECTING)
+					) {
+						return;
+					}
+
+					// Coalesce concurrent connect() calls
+					if (isConnecting) return;
+					isConnecting = true;
+
+					if (reconnectTimeout) {
+						clearTimeout(reconnectTimeout);
+						reconnectTimeout = null;
+					}
 
 					try {
 						// Wait for backend in desktop mode
@@ -349,7 +372,8 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						console.error("WebSocket connection failed:", error);
 						set({ isConnected: false }, false, "connectionFailed");
 
-						// Retry on failure
+						// Retry on failure (unless explicitly disconnected)
+						if (!shouldReconnect) return;
 						const attempts = get().reconnectAttempts;
 						const delay = calculateBackoff(attempts);
 						reconnectTimeout = setTimeout(() => {
@@ -362,13 +386,17 @@ export const useWebSocketStore = create<WebSocketStore>()(
 								get().connect();
 							}
 						}, delay);
+					} finally {
+						isConnecting = false;
 					}
 				},
 
 				disconnect: () => {
+					shouldReconnect = false;
 					isMounted = false;
 					if (reconnectTimeout) {
 						clearTimeout(reconnectTimeout);
+						reconnectTimeout = null;
 					}
 					const { socket } = get();
 					if (socket) {
@@ -513,15 +541,3 @@ export const useWebSocketStore = create<WebSocketStore>()(
 		{ name: "websocket-store" },
 	),
 );
-
-// ============================================================================
-// Auto-connect on import (for convenience)
-// ============================================================================
-
-// Initialize connection when the module loads
-if (typeof window !== "undefined") {
-	// Delay to ensure other stores are ready
-	setTimeout(() => {
-		useWebSocketStore.getState().connect();
-	}, 0);
-}

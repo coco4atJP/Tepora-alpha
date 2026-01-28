@@ -42,8 +42,9 @@ def run_with_auth(client):
 @pytest.mark.asyncio
 async def test_manager_run_initial_setup_ollama_skips_binary():
     """Test that loader='ollama' skips binary installation."""
-    with patch("src.core.download.manager.BinaryManager") as MockBM, \
-         patch("src.core.download.manager.ModelManager") as MockMM:
+    with patch("src.core.download.manager.BinaryManager"), patch(
+        "src.core.download.manager.ModelManager"
+    ):
 
         dm = DownloadManager()
         dm.binary_manager.download_and_install = AsyncMock(return_value=MagicMock(success=True))
@@ -59,8 +60,9 @@ async def test_manager_run_initial_setup_ollama_skips_binary():
 @pytest.mark.asyncio
 async def test_manager_run_initial_setup_llama_cpp_installs_binary():
     """Test that loader='llama_cpp' performs binary installation."""
-    with patch("src.core.download.manager.BinaryManager") as MockBM, \
-         patch("src.core.download.manager.ModelManager") as MockMM:
+    with patch("src.core.download.manager.BinaryManager"), patch(
+        "src.core.download.manager.ModelManager"
+    ):
 
         dm = DownloadManager()
         dm.binary_manager.download_and_install = AsyncMock(return_value=MagicMock(success=True))
@@ -76,9 +78,11 @@ async def test_manager_run_initial_setup_llama_cpp_installs_binary():
 @pytest.mark.asyncio
 async def test_manager_run_initial_setup_ollama_skips_text_defaults():
     """Test that loader='ollama' skips text models from defaults."""
-    with patch("src.core.download.manager.BinaryManager"), \
-         patch("src.core.download.manager.ModelManager") as MockMM, \
-         patch("src.core.download.manager._build_default_model_targets") as mock_build_defaults:
+    with patch("src.core.download.manager.BinaryManager"), patch(
+        "src.core.download.manager.ModelManager"
+    ), patch(
+        "src.core.download.manager._build_default_model_targets"
+    ) as mock_build_defaults:
 
         dm = DownloadManager()
         dm.model_manager.download_from_huggingface = AsyncMock(return_value=MagicMock(success=True))

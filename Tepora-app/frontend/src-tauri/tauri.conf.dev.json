@@ -28,7 +28,7 @@
 				"minHeight": 600,
 				"resizable": true,
 				"fullscreen": false,
-				"devtools": false
+				"devtools": true
 			}
 		],
 		"security": {
@@ -51,3 +51,4 @@
 		"resources": ["resources/llama-cpu-fallback/*"]
 	}
 }
+

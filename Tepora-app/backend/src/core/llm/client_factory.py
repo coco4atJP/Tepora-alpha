@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from pydantic import SecretStr
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,10 @@ class ClientFactory:
         else:
             api_base = base_url
 
-        init_kwargs = {
+        init_kwargs: dict[str, Any] = {
             "model": model_key,
             "base_url": api_base,
-            "api_key": "dummy-key",
+            "api_key": SecretStr("dummy-key"),
             "streaming": True,
         }
 
@@ -35,7 +36,7 @@ class ClientFactory:
                 init_kwargs[param] = getattr(model_config, param)
 
         # Llama.cpp固有パラメータのためのextra_body構築
-        extra_body = {}
+        extra_body: dict[str, Any] = {}
 
         # repeat_penalty
         if hasattr(model_config, "repeat_penalty") and model_config.repeat_penalty is not None:
@@ -80,5 +81,5 @@ class ClientFactory:
         return OpenAIEmbeddings(
             model=model_key,
             base_url=api_base,
-            api_key="dummy-key",
+            api_key=SecretStr("dummy-key"),
         )

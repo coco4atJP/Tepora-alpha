@@ -19,6 +19,7 @@ TeporaApp - V2 Application Facade
 from __future__ import annotations
 
 import base64
+import binascii
 import logging
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -107,6 +108,7 @@ class TeporaApp:
 
         # --- V1互換フィールド（API/FEが参照するため維持） ---
         from .em_llm import EMLLMIntegrator
+
         self.char_em_llm_integrator: EMLLMIntegrator | None = None
         self.prof_em_llm_integrator: EMLLMIntegrator | None = None
 
@@ -172,14 +174,14 @@ class TeporaApp:
         if self.char_em_llm_integrator:
             try:
                 stats["char_memory"] = self.char_em_llm_integrator.get_memory_statistics()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error("Failed to get char memory stats: %s", e, exc_info=True)
                 stats["char_memory"] = {"error": str(e)}
 
         if self.prof_em_llm_integrator:
             try:
                 stats["prof_memory"] = self.prof_em_llm_integrator.get_memory_statistics()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error("Failed to get prof memory stats: %s", e, exc_info=True)
                 stats["prof_memory"] = {"error": str(e)}
 
@@ -197,7 +199,7 @@ class TeporaApp:
         try:
             decoded_bytes = base64.b64decode(stripped)
             return decoded_bytes.decode("utf-8")
-        except Exception:
+        except (binascii.Error, ValueError, UnicodeDecodeError):
             return None
 
     def _process_attachments(self, attachments: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -237,7 +239,10 @@ class TeporaApp:
                         continue
 
                 processed.append(att)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
+                # We catch generic Exception here because attachment processing handles
+                # untrusted user input and can fail in unpredictable ways (e.g. malformed data).
+                # We log the error but allow processing to continue for other attachments.
                 logger.warning(
                     "Failed to decode attachment %s: %s", attachment_name, e, exc_info=True
                 )
@@ -288,8 +293,25 @@ class TeporaApp:
             )
 
             logger.info("EM-LLM integrators initialized.")
-        except Exception as e:  # noqa: BLE001
-            logger.warning("EM-LLM initialization failed (system degraded): %s", e, exc_info=True)
+
+        except ImportError as e:
+            logger.warning(
+                "EM-LLM initialization skipped: Missing required dependencies (%s). "
+                "This is expected if EM-LLM features are not installed.",
+                e,
+            )
+            self.char_em_llm_integrator = None
+            self.prof_em_llm_integrator = None
+        except RuntimeError as e:
+            logger.error("EM-LLM initialization failed due to configuration error: %s", e)
+            self.char_em_llm_integrator = None
+            self.prof_em_llm_integrator = None
+        except Exception as e:
+            logger.error(
+                "EM-LLM initialization failed unexpectedly (system degraded): %s",
+                e,
+                exc_info=True,
+            )
             self.char_em_llm_integrator = None
             self.prof_em_llm_integrator = None
 
@@ -346,11 +368,12 @@ class TeporaApp:
         # Tool Manager initialization (default providers if none configured)
         providers = list(self.config.tool_providers)
         if not providers:
-            from .config.loader import PROJECT_ROOT
+            from .mcp.paths import ensure_mcp_config_exists, resolve_mcp_config_path
             from .tools.mcp import McpToolProvider
             from .tools.native import NativeToolProvider
 
-            tool_config_path = PROJECT_ROOT / "config" / "mcp_tools_config.json"
+            tool_config_path = mcp_hub.config_path if mcp_hub is not None else resolve_mcp_config_path()
+            ensure_mcp_config_exists(tool_config_path)
             providers = [
                 NativeToolProvider(),
                 McpToolProvider(config_path=tool_config_path, hub=mcp_hub),

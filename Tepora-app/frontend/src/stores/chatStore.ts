@@ -129,7 +129,7 @@ export const useChatStore = create<ChatStore>()(
 				);
 			},
 
-			addUserMessage: (content, mode, _attachments) => {
+			addUserMessage: (content, mode) => {
 				const message: Message = {
 					id: Date.now().toString(),
 					role: "user",

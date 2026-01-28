@@ -13,8 +13,12 @@ import logging
 from fastapi import Request, WebSocket
 
 from src.core.app_v2 import TeporaApp
-from src.core.config.loader import PROJECT_ROOT
 from src.core.mcp.hub import McpHub
+from src.core.mcp.paths import (
+    ensure_mcp_config_exists,
+    resolve_mcp_config_path,
+    resolve_mcp_policy_path,
+)
 from src.core.mcp.registry import McpRegistry
 
 logger = logging.getLogger(__name__)
@@ -94,8 +98,9 @@ class AppState:
     async def _initialize_mcp(self) -> None:
         """Initialize MCP Hub and Registry."""
         # Determine config paths
-        config_path = PROJECT_ROOT / "config" / "mcp_tools_config.json"
-        policy_path = PROJECT_ROOT / "config" / "mcp_policy.json"
+        config_path = resolve_mcp_config_path()
+        ensure_mcp_config_exists(config_path)
+        policy_path = resolve_mcp_policy_path(config_path=config_path)
 
         # Initialize Registry
         self._mcp_registry = McpRegistry()

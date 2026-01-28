@@ -3,10 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useRequirements } from "../../../../hooks/useServerConfig";
 import { ApiError, apiClient } from "../../../../utils/api-client";
 import { getKey, initialState, setupReducer } from "./reducer";
-import {
-	ConsentWarningModal,
-	EmbeddingWarningModal,
-} from "./SetupWarnings";
+import { ConsentWarningModal, EmbeddingWarningModal } from "./SetupWarnings";
 import {
 	CompleteStep,
 	ErrorStep,

@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, cast
 
 import chromadb
 
@@ -41,7 +41,10 @@ class ChromaVectorStore(VectorStore):
         metadatas: list[dict[str, Any]],
     ) -> None:
         self.collection.upsert(
-            ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas
+            ids=ids,
+            embeddings=cast(Any, embeddings),
+            documents=documents,
+            metadatas=cast(Any, metadatas),
         )
 
     def query(
@@ -51,7 +54,7 @@ class ChromaVectorStore(VectorStore):
         where: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         result = self.collection.query(
-            query_embeddings=query_embeddings, n_results=n_results, where=where
+            query_embeddings=cast(Any, query_embeddings), n_results=n_results, where=where
         )
         return dict(result)
 
@@ -90,13 +93,25 @@ class ChromaVectorStore(VectorStore):
 
         # Current practical limit for metadata-only fetch in RAM:
         data = self.collection.get(include=["metadatas"])
-        if not data or not data["ids"]:
+        ids = list(data.get("ids") or [])
+        metadatas = data.get("metadatas") or []
+        if not ids:
             return []
 
-        items = []
-        for i, meta in enumerate(data["metadatas"]):
-            ts = meta.get("created_ts", 0.0) if meta else 0.0
-            items.append((data["ids"][i], ts))
+        items: list[tuple[str, float]] = []
+        for i, meta in enumerate(metadatas):
+            if i >= len(ids):
+                break
+            ts_raw = meta.get("created_ts") if meta else None
+            ts = 0.0
+            if isinstance(ts_raw, (int, float)):
+                ts = float(ts_raw)
+            elif isinstance(ts_raw, str):
+                try:
+                    ts = float(ts_raw)
+                except ValueError:
+                    ts = 0.0
+            items.append((ids[i], ts))
 
         # Sort by timestamp (oldest first)
         items.sort(key=lambda x: x[1])

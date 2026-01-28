@@ -221,7 +221,10 @@ Provide a comprehensive answer with citations where applicable.""",
             config={"configurable": {"model_kwargs": {"logprobs": True}}},
         ):
             if hasattr(chunk, "content") and chunk.content:
-                full_response += chunk.content
+                content = chunk.content
+                full_response += (
+                    content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+                )
             if hasattr(chunk, "response_metadata") and chunk.response_metadata:
                 chunk_logprobs = chunk.response_metadata.get("logprobs")
                 if chunk_logprobs:
@@ -335,4 +338,7 @@ Provide a comprehensive answer with citations where applicable.""",
             }
         ):
             if hasattr(chunk, "content") and chunk.content:
-                yield chunk.content
+                content = chunk.content
+                yield (
+                    content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+                )

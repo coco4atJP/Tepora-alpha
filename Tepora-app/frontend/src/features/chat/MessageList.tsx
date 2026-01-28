@@ -1,7 +1,8 @@
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SkeletonLoader } from "../../components/ui/SkeletonLoader";
 import { useChatStore } from "../../stores";
 import MessageBubble from "./MessageBubble";
 
@@ -43,7 +44,7 @@ const MessageList: React.FC = () => {
 	useEffect(() => {
 		// ストリーミング中は「最下部にいる場合のみ」追従する
 		if (!isAtBottom) return;
-		endOfMessagesRef.current?.scrollIntoView({ behavior: "auto" });
+		endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [isAtBottom, lastMessageContent]);
 
 	// Get the last message for screen reader announcement
@@ -84,40 +85,34 @@ const MessageList: React.FC = () => {
 				onScroll={checkIfAtBottom}
 				className="h-full w-full overflow-y-auto overflow-x-hidden px-2 md:px-4 py-4 space-y-4 md:space-y-6 custom-scrollbar scroll-smooth"
 			>
-				{messages.length === 0 ? (
-					<div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60 pointer-events-none select-none">
-						<div className="text-4xl mb-4 text-tea-400 font-display font-light">
-							TEPORA
-						</div>
-						<p className="text-sm font-light tracking-widest uppercase">
-							{t("chat.empty", "System Ready")}
-						</p>
+				{messages.map((msg, index) => (
+					<div
+						key={msg.id || index}
+						className={`transition-all duration-500 ease-out ${index === messages.length - 1 ? "animate-slide-up-fade" : ""
+							}`}
+					>
+						<MessageBubble message={msg} />
 					</div>
-				) : (
-					// biome-ignore lint/complexity/noUselessFragments: <explanation>
-					<>
-						{messages.map((msg, index) => (
-							<div
-								key={msg.id || index}
-								className={`transition-all duration-500 ease-out ${
-									index === messages.length - 1 ? "animate-slide-up-fade" : ""
-								}`}
-							>
-								<MessageBubble message={msg} />
-							</div>
-						))}
-					</>
-				)}
+				))}
 
 				{/* Processing Indicator */}
 				{messages.length > 0 &&
 					messages[messages.length - 1].role === "user" && (
-						<div className="flex justify-start animate-fade-in pl-4">
-							<div className="bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
-								<Loader2 className="w-4 h-4 text-gold-400 animate-spin" />
-								<span className="text-xs text-gray-400 tracking-wider font-mono uppercase">
-									{t("chat.processing", "Processing...")}
-								</span>
+						<div className="flex justify-start animate-fade-in px-4 py-2">
+							<div className="max-w-[80%] space-y-2">
+								<div className="flex items-center gap-2 mb-2">
+									<div className="w-6 h-6 rounded-sm bg-gradient-to-tr from-gold-400 to-amber-600 flex items-center justify-center shadow-lg">
+										<span className="text-[10px] font-bold text-black">AI</span>
+									</div>
+									<span className="text-xs text-gold-400 font-medium">
+										Tepora
+									</span>
+								</div>
+								<SkeletonLoader
+									variant="text"
+									count={3}
+									className="w-64 opacity-50"
+								/>
 							</div>
 						</div>
 					)}

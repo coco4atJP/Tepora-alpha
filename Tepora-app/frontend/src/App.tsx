@@ -7,12 +7,14 @@ import {
 	Route,
 	RouterProvider,
 } from "react-router-dom";
+import { ToastProvider } from "./context/ToastContext";
 import ChatInterface from "./features/chat/ChatInterface";
 import Layout from "./features/navigation/Layout";
 import SetupWizard from "./features/settings/components/SetupWizard";
 import { useRequirements, useServerConfig } from "./hooks/useServerConfig";
 import Logs from "./pages/Logs";
 import Memory from "./pages/Memory";
+import { useWebSocketStore } from "./stores";
 
 // ルーターをコンポーネント外で一度だけ作成
 const router = createBrowserRouter(
@@ -35,6 +37,13 @@ const router = createBrowserRouter(
 function App() {
 	const { t, i18n } = useTranslation();
 	const [isSkipped, setIsSkipped] = useState(false);
+
+	// Manage WebSocket lifecycle explicitly (avoid import-time side effects)
+	useEffect(() => {
+		const { connect, disconnect } = useWebSocketStore.getState();
+		connect();
+		return () => disconnect();
+	}, []);
 
 	const {
 		data: requirements,
@@ -131,7 +140,11 @@ function App() {
 	}
 
 	// Ready
-	return <RouterProvider router={router} />;
+	return (
+		<ToastProvider>
+			<RouterProvider router={router} />
+		</ToastProvider>
+	);
 }
 
 export default App;

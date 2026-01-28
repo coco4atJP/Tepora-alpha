@@ -15,17 +15,22 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
 	if (!response.ok) {
-		let errorData: any;
+		let errorData: unknown;
 		try {
 			errorData = await response.json();
 		} catch {
 			errorData = { message: response.statusText };
 		}
-		throw new ApiError(
-			errorData.message || "API request failed",
-			response.status,
-			errorData,
-		);
+
+		const message =
+			typeof errorData === "object" &&
+			errorData !== null &&
+			"message" in errorData &&
+			typeof (errorData as { message?: unknown }).message === "string"
+				? (errorData as { message: string }).message
+				: response.statusText || "API request failed";
+
+		throw new ApiError(message, response.status, errorData);
 	}
 
 	if (response.status === 204) {

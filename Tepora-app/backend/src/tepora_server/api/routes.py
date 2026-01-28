@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from src.core import config as core_config
 from src.core.common.security import SecurityUtils
 from src.core.config.loader import LOG_DIR
 from src.core.config.schema import TeporaSettings
@@ -109,10 +110,8 @@ async def get_config():
         if "app" in full_config and "mcp_config_path" in full_config["app"]:
             try:
                 mcp_path = Path(full_config["app"]["mcp_config_path"])
-                # Only resolve if it's a relative path to avoid messing up if somehow it's already absolute
-                # But resolve() handles both well usually.
-                # However, we want to show the absolute path based on CWD or project root.
-                # If it's relative, it's relative to CWD usually.
+                if not mcp_path.is_absolute():
+                    mcp_path = core_config.USER_DATA_DIR / mcp_path
                 full_config["app"]["mcp_config_path"] = str(mcp_path.resolve())
             except Exception as e:
                 logger.warning("Failed to resolve absolute path for mcp_config_path: %s", e)

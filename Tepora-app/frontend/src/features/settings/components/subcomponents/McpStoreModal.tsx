@@ -1,10 +1,8 @@
 import {
 	AlertCircle,
-	CheckCircle,
 	ExternalLink,
 	Loader2,
 	Search,
-	XCircle,
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
@@ -131,10 +129,10 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 	const handleBack = () => {
 		const runtimeCount = selectedServer
 			? new Set(
-					selectedServer.packages
-						.map((p) => p.runtimeHint || "npx")
-						.filter(Boolean),
-				).size
+				selectedServer.packages
+					.map((p) => p.runtimeHint || "npx")
+					.filter(Boolean),
+			).size
 			: 0;
 
 		if (step === "preview") {
@@ -333,11 +331,10 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 										handlePreview(selectedServer, rt);
 									}
 								}}
-								className={`w-full p-4 text-left border rounded-xl transition-all ${
-									selectedRuntime === rt
-										? "border-purple-500 bg-purple-500/10"
-										: "border-white/10 hover:border-white/20 bg-black/20"
-								}`}
+								className={`w-full p-4 text-left border rounded-xl transition-all ${selectedRuntime === rt
+									? "border-purple-500 bg-purple-500/10"
+									: "border-white/10 hover:border-white/20 bg-black/20"
+									}`}
 							>
 								<div className="font-medium text-gray-100">{rt}</div>
 								<div className="text-sm text-gray-400">

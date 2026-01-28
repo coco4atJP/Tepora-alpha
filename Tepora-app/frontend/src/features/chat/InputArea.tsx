@@ -70,11 +70,10 @@ const InputArea: React.FC = () => {
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
 			<div
-				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-tepora transition-all duration-500 ${
-					isProcessing
-						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
-						: "hover:shadow-[0_0_30px_-5px_rgba(0,0,0,0.1)] hover:bg-theme-overlay shadow-2xl"
-				}`}
+				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-tepora transition-all duration-500 ${isProcessing
+					? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
+					: "hover:shadow-[0_0_30px_-5px_rgba(0,0,0,0.1)] hover:bg-theme-overlay shadow-2xl"
+					}`}
 			>
 				{/* Persona Switcher */}
 				<div className="shrink-0 mb-1 ml-1">
@@ -101,11 +100,10 @@ const InputArea: React.FC = () => {
 						type="button"
 						onClick={() => setIsThinkingMode(!isThinkingMode)}
 						disabled={isProcessing}
-						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center ${
-							isThinkingMode
-								? "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
-								: "text-gray-500 hover:text-purple-400 hover:bg-purple-500/10"
-						}`}
+						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 ${isThinkingMode
+							? "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
+							: "text-gray-500 hover:text-purple-400 hover:bg-purple-500/10"
+							}`}
 						title={t("chat.input.thinking_mode")}
 					>
 						<Brain className="w-4 h-4" />
@@ -130,11 +128,10 @@ const InputArea: React.FC = () => {
 							type="button"
 							onClick={handleSend}
 							disabled={!message.trim() || !isConnected}
-							className={`w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
-								message.trim()
-									? "bg-gradient-to-br from-gold-400 to-coffee-600 text-white shadow-lg hover:scale-105 hover:shadow-gold-500/30 hover:to-gold-600 border border-gold-400/20"
-									: "bg-white/5 text-gray-600 border border-white/5 cursor-not-allowed"
-							}`}
+							className={`w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${message.trim()
+								? "bg-gradient-to-br from-gold-400 to-coffee-600 text-white shadow-lg hover:scale-105 hover:shadow-gold-500/30 hover:to-gold-600 border border-gold-400/20 active:scale-95"
+								: "bg-white/5 text-gray-600 border border-white/5 cursor-not-allowed"
+								}`}
 							title={t("chat.input.send")}
 							aria-label={t("chat.input.send_message")}
 						>
