@@ -44,7 +44,7 @@ tasks:
     desc: "Start backend server"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run server.py
+      - uv run -s server.py
 
   dev-frontend:
     desc: "Start frontend dev server"
