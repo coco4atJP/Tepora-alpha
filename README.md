@@ -56,7 +56,7 @@ uv sync
 
 # フロントエンドのセットアップ
 cd ../frontend
-npm install
+npm ci --legacy-peer-deps
 ```
 
 ### 3. モデルの配置

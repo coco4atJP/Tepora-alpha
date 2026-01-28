@@ -1210,11 +1210,14 @@ characters:
     description: "..."
     system_prompt: "..."
 
-professionals:
-  professional:
-    name: "Professional"
-    description: "..."
-    system_prompt: "..."
+# Custom Agents (replaces professionals)
+custom_agents:
+  my_agent:
+    id: "agent-001"
+    name: "My Custom Agent"
+    description: "Helpful agent..."
+    system_prompt: "You are a helpful agent..."
+    enabled: true
 ```
 
 ### 実行時データ配置
