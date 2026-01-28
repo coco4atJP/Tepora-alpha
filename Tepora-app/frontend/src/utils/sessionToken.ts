@@ -17,7 +17,7 @@ let tokenLoadPromise: Promise<string | null> | null = null;
  * Note: Uses invoke API if available, otherwise falls back to environment
  */
 async function readTokenFromFile(): Promise<string | null> {
-	if (!isDesktop) {
+	if (!isDesktop()) {
 		return null;
 	}
 

@@ -70,4 +70,3 @@ def ensure_mcp_config_exists(config_path: Path) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Failed to create default MCP config at %s: %s", config_path, exc)
-

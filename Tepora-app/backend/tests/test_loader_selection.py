@@ -1,4 +1,3 @@
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +8,7 @@ from src.tepora_server.api.security import get_api_key
 from src.tepora_server.app_factory import create_app
 
 # --- Fixtures ---
+
 
 @pytest.fixture
 def mock_core_app():
@@ -23,12 +23,14 @@ def mock_core_app():
         mock_instance.initialized = True
         yield mock_instance
 
+
 @pytest.fixture
 def client(mock_core_app):
     app = create_app()
     with TestClient(app) as c:
         c.app.state.app_state._core = mock_core_app
         yield c
+
 
 @pytest.fixture
 def run_with_auth(client):
@@ -37,15 +39,17 @@ def run_with_auth(client):
     yield
     app.dependency_overrides = {}
 
+
 # --- Unit Tests for DownloadManager ---
+
 
 @pytest.mark.asyncio
 async def test_manager_run_initial_setup_ollama_skips_binary():
     """Test that loader='ollama' skips binary installation."""
-    with patch("src.core.download.manager.BinaryManager"), patch(
-        "src.core.download.manager.ModelManager"
+    with (
+        patch("src.core.download.manager.BinaryManager"),
+        patch("src.core.download.manager.ModelManager"),
     ):
-
         dm = DownloadManager()
         dm.binary_manager.download_and_install = AsyncMock(return_value=MagicMock(success=True))
         # Fix: Mock model manager async methods
@@ -57,13 +61,14 @@ async def test_manager_run_initial_setup_ollama_skips_binary():
         # Assert
         dm.binary_manager.download_and_install.assert_not_called()
 
+
 @pytest.mark.asyncio
 async def test_manager_run_initial_setup_llama_cpp_installs_binary():
     """Test that loader='llama_cpp' performs binary installation."""
-    with patch("src.core.download.manager.BinaryManager"), patch(
-        "src.core.download.manager.ModelManager"
+    with (
+        patch("src.core.download.manager.BinaryManager"),
+        patch("src.core.download.manager.ModelManager"),
     ):
-
         dm = DownloadManager()
         dm.binary_manager.download_and_install = AsyncMock(return_value=MagicMock(success=True))
         dm.model_manager.download_from_huggingface = AsyncMock(return_value=MagicMock(success=True))
@@ -78,27 +83,33 @@ async def test_manager_run_initial_setup_llama_cpp_installs_binary():
 @pytest.mark.asyncio
 async def test_manager_run_initial_setup_ollama_skips_text_defaults():
     """Test that loader='ollama' skips text models from defaults."""
-    with patch("src.core.download.manager.BinaryManager"), patch(
-        "src.core.download.manager.ModelManager"
-    ), patch(
-        "src.core.download.manager._build_default_model_targets"
-    ) as mock_build_defaults:
-
+    with (
+        patch("src.core.download.manager.BinaryManager"),
+        patch("src.core.download.manager.ModelManager"),
+        patch("src.core.download.manager._build_default_model_targets") as mock_build_defaults,
+    ):
         dm = DownloadManager()
         dm.model_manager.download_from_huggingface = AsyncMock(return_value=MagicMock(success=True))
 
         # Setup defaults containing one text and one embedding model
         mock_build_defaults.return_value = [
-            {"repo_id": "text-model", "filename": "text.gguf", "role": "text", "display_name": "Text"},
-            {"repo_id": "embed-model", "filename": "embed.gguf", "role": "embedding", "display_name": "Embed"},
+            {
+                "repo_id": "text-model",
+                "filename": "text.gguf",
+                "role": "text",
+                "display_name": "Text",
+            },
+            {
+                "repo_id": "embed-model",
+                "filename": "embed.gguf",
+                "role": "embedding",
+                "display_name": "Embed",
+            },
         ]
 
         # Act
         await dm.run_initial_setup(
-            install_binary=True,
-            download_default_models=True,
-            target_models=None,
-            loader="ollama"
+            install_binary=True, download_default_models=True, target_models=None, loader="ollama"
         )
 
         # Assert
@@ -112,20 +123,18 @@ async def test_manager_run_initial_setup_ollama_skips_text_defaults():
 
 # --- API Endpoint Tests ---
 
+
 def test_run_setup_job_passes_loader(client, run_with_auth):
     """Test that POST /api/setup/run passes loader to manager."""
-    with patch("src.tepora_server.api.setup._get_download_manager") as mock_get_dm, \
-         patch("src.tepora_server.api.setup._setup_session") as mock_session:
-
+    with (
+        patch("src.tepora_server.api.setup._get_download_manager") as mock_get_dm,
+        patch("src.tepora_server.api.setup._setup_session") as mock_session,
+    ):
         mock_dm = MagicMock()
         mock_dm.run_initial_setup = AsyncMock(return_value=MagicMock(success=True))
         mock_get_dm.return_value = mock_dm
 
-        payload = {
-            "target_models": [],
-            "acknowledge_warnings": False,
-            "loader": "ollama"
-        }
+        payload = {"target_models": [], "acknowledge_warnings": False, "loader": "ollama"}
 
         response = client.post("/api/setup/run", json=payload)
 
@@ -144,4 +153,3 @@ def test_run_setup_job_passes_loader(client, run_with_auth):
         # However, verifying session loader setting is synchronous.
 
         mock_session.set_loader.assert_called_with("ollama")
-

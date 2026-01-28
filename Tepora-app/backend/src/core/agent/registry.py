@@ -68,6 +68,7 @@ class CustomAgentRegistry:
             CustomAgentConfig if found, None otherwise
         """
         from typing import cast
+
         return cast(CustomAgentConfig | None, settings.custom_agents.get(agent_id))
 
     def list_agents(self, enabled_only: bool = False) -> list[CustomAgentConfig]:

@@ -350,6 +350,7 @@ class TestMcpRegistryApiSpecCompliance:
         """Official MCP Registry (v0.1) rejects limits > 100, so we must clamp."""
         registry = McpRegistry(seed_path=temp_seed_file)
         try:
+
             class _FakeResponse:
                 def raise_for_status(self) -> None:
                     return None

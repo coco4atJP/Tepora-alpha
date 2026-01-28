@@ -196,7 +196,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 								</main>
 
 								{/* Fixed Footer */}
-								<div className="flex-none px-8 py-4 border-t border-white/5 bg-[#0A0A0C]/90 backdrop-blur-sm">
+								<div className="flex-none px-8 py-4 glass-tepora border-x-0 border-b-0 rounded-t-none">
 									<div className="flex items-center justify-end">
 										<div className="text-xs text-gray-500 mr-auto">
 											{hasChanges ? t("settings.save_bar.unsaved") : ""}
@@ -215,10 +215,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onClick={handleSave}
 												className={`
 													px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
-													${
-														hasChanges
-															? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-															: "bg-white/5 text-gray-400 cursor-not-allowed"
+													${hasChanges
+														? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+														: "bg-white/5 text-gray-400 cursor-not-allowed"
 													}
 												`}
 												disabled={!hasChanges || saving}

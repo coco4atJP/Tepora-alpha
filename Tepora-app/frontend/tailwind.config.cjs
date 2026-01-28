@@ -4,7 +4,17 @@ module.exports = {
 	theme: {
 		extend: {
 			fontFamily: {
-				sans: ["Outfit", "sans-serif"],
+				sans: [
+					"Outfit",
+					"Microsoft YaHei",
+					"SimHei",
+					"WenQuanYi Micro Hei",
+					"PingFang SC",
+					"Noto Sans SC",
+					"Yu Gothic",
+					"Meiryo",
+					"sans-serif",
+				],
 				display: ["Cinzel", "serif"],
 				mono: ["JetBrains Mono", "monospace"],
 			},

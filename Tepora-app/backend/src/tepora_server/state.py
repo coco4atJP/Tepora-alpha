@@ -38,6 +38,7 @@ class AppState:
         self._mcp_hub = None
         self._mcp_registry = None
         self._mcp_policy_manager = None
+        self._mcp_init_error: str | None = None
 
     @property
     def download_manager(self):
@@ -80,12 +81,19 @@ class AppState:
         """Get McpPolicyManager instance (may be None if not initialized)."""
         return self._mcp_policy_manager
 
+    @property
+    def mcp_init_error(self) -> str | None:
+        """Get the last MCP initialization error (if any)."""
+        return self._mcp_init_error
+
     async def initialize(self) -> bool:
         """Initialize the core app and MCP infrastructure."""
         # Initialize MCP Hub first so the core ToolManager can reuse it (no duplicate connections).
         try:
             await self._initialize_mcp()
+            self._mcp_init_error = None
         except Exception as e:
+            self._mcp_init_error = f"{type(e).__name__}: {e}"
             logger.error("Failed to initialize MCP Hub: %s", e, exc_info=True)
             # Don't fail initialization - MCP is optional
 

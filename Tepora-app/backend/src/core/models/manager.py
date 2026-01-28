@@ -775,6 +775,7 @@ class ModelManager:
                     entry_filename is None or entry_filename == filename
                 ):
                     from typing import cast
+
                     return cast(object, entry)
             return None
         except Exception:

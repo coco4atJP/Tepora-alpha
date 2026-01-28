@@ -59,12 +59,16 @@ const GeneralSettings: React.FC = () => {
 		>
 			<div className="space-y-6">
 				{/* App Updater */}
-				<Updater />
+				<div className="delay-0 settings-form-group">
+					<Updater />
+				</div>
 
 				<div className="border-t border-white/10 my-4" />
 
 				{/* Inference Engine Update */}
-				<InferenceEngineUpdate />
+				<div className="delay-100 settings-form-group">
+					<InferenceEngineUpdate />
+				</div>
 
 				{/* Search Tool Configuration */}
 				<div className="space-y-4">
@@ -78,6 +82,7 @@ const GeneralSettings: React.FC = () => {
 							"settings.sections.general.search_tool.provider_desc",
 						)}
 						isDirty={isToolsDirty("search_provider")}
+						className="delay-200"
 					>
 						<FormSelect
 							value={toolsConfig.search_provider || "google"}
@@ -93,46 +98,48 @@ const GeneralSettings: React.FC = () => {
 
 					{(toolsConfig.search_provider === "google" ||
 						!toolsConfig.search_provider) && (
-						<>
-							<FormGroup
-								label={t(
-									"settings.sections.general.google_search.api_key_label",
-								)}
-								description={t(
-									"settings.sections.general.google_search.api_key_desc",
-								)}
-								isDirty={isToolsDirty("google_search_api_key")}
-							>
-								<FormInput
-									type="password"
-									value={toolsConfig.google_search_api_key || ""}
-									onChange={(value) =>
-										updateTools("google_search_api_key", value as string)
-									}
-									placeholder="AIza..."
-								/>
-							</FormGroup>
+							<>
+								<FormGroup
+									label={t(
+										"settings.sections.general.google_search.api_key_label",
+									)}
+									description={t(
+										"settings.sections.general.google_search.api_key_desc",
+									)}
+									isDirty={isToolsDirty("google_search_api_key")}
+									className="delay-300"
+								>
+									<FormInput
+										type="password"
+										value={toolsConfig.google_search_api_key || ""}
+										onChange={(value) =>
+											updateTools("google_search_api_key", value as string)
+										}
+										placeholder="AIza..."
+									/>
+								</FormGroup>
 
-							<FormGroup
-								label={t(
-									"settings.sections.general.google_search.engine_id_label",
-								)}
-								description={t(
-									"settings.sections.general.google_search.engine_id_desc",
-								)}
-								isDirty={isToolsDirty("google_search_engine_id")}
-							>
-								<FormInput
-									type="text"
-									value={toolsConfig.google_search_engine_id || ""}
-									onChange={(value) =>
-										updateTools("google_search_engine_id", value as string)
-									}
-									placeholder="0123456789..."
-								/>
-							</FormGroup>
-						</>
-					)}
+								<FormGroup
+									label={t(
+										"settings.sections.general.google_search.engine_id_label",
+									)}
+									description={t(
+										"settings.sections.general.google_search.engine_id_desc",
+									)}
+									isDirty={isToolsDirty("google_search_engine_id")}
+									className="delay-400"
+								>
+									<FormInput
+										type="text"
+										value={toolsConfig.google_search_engine_id || ""}
+										onChange={(value) =>
+											updateTools("google_search_engine_id", value as string)
+										}
+										placeholder="0123456789..."
+									/>
+								</FormGroup>
+							</>
+						)}
 				</div>
 
 				<div className="border-t border-white/10 my-4" />
@@ -144,7 +151,9 @@ const GeneralSettings: React.FC = () => {
 					</h3>
 
 					{/* Theme Selection */}
-					<ThemeSelector />
+					<div className="delay-500 settings-form-group">
+						<ThemeSelector />
+					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<FormGroup
@@ -353,7 +362,7 @@ const InferenceEngineUpdate: React.FC = () => {
 			setUpdating(true);
 			setStatus(
 				t("settings.sections.general.inference_engine.starting") ||
-					"Starting update...",
+				"Starting update...",
 			);
 			const data = await apiClient.post<{ job_id?: string }>(
 				"api/setup/binary/update",
@@ -377,7 +386,7 @@ const InferenceEngineUpdate: React.FC = () => {
 						setUpdating(false);
 						setStatus(
 							t("settings.sections.general.inference_engine.completed") ||
-								"Update completed!",
+							"Update completed!",
 						);
 						checkUpdate();
 					} else if (progData.status === "failed") {
@@ -393,7 +402,7 @@ const InferenceEngineUpdate: React.FC = () => {
 				setUpdating(false);
 				setStatus(
 					t("settings.sections.general.inference_engine.start_failed") ||
-						"Failed to start update",
+					"Failed to start update",
 				);
 			}
 		} catch (e) {
@@ -401,7 +410,7 @@ const InferenceEngineUpdate: React.FC = () => {
 			setUpdating(false);
 			setStatus(
 				t("settings.sections.general.inference_engine.error") ||
-					"Error starting update",
+				"Error starting update",
 			);
 		}
 	};
@@ -479,10 +488,10 @@ const InferenceEngineUpdate: React.FC = () => {
 							>
 								{checking
 									? t("settings.sections.general.inference_engine.checking") ||
-										"Checking..."
+									"Checking..."
 									: t(
-											"settings.sections.general.inference_engine.check_updates",
-										) || "Check for Updates"}
+										"settings.sections.general.inference_engine.check_updates",
+									) || "Check for Updates"}
 							</button>
 						)}
 					</div>

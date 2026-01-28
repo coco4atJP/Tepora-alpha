@@ -50,7 +50,7 @@ class SourceManager:
         sources = manager.get_sources(session_id="session-123")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize source manager."""
         # In-memory store for documents (Phase 3 skeleton)
         # Future: integrate with ChromaDB or similar vector store

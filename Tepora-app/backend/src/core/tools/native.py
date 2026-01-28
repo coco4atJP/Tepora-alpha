@@ -222,9 +222,7 @@ class NativeToolProvider(ToolProvider):
                     tools.append(legacy_tool)
 
             except Exception as exc:  # noqa: BLE001
-                logger.error(
-                    "Failed to load search tool (%s): %s", provider, exc, exc_info=True
-                )
+                logger.error("Failed to load search tool (%s): %s", provider, exc, exc_info=True)
 
         if settings.privacy.allow_web_search:
             # WebFetchTool is only available if privacy settings allow it

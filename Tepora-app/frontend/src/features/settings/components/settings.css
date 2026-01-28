@@ -45,19 +45,15 @@
 	width: 100%;
 	background-color: var(--s-bg-dark);
 	background-image:
-		radial-gradient(
-			circle at 15% 50%,
+		radial-gradient(circle at 15% 50%,
 			rgba(212, 191, 128, 0.03),
-			transparent 25%
-		),
-		radial-gradient(
-			circle at 85% 30%,
+			transparent 25%),
+		radial-gradient(circle at 85% 30%,
 			rgba(255, 255, 255, 0.02),
-			transparent 25%
-		);
+			transparent 25%);
 	color: var(--s-text-primary);
 	overflow: hidden;
-	font-family: "Outfit", sans-serif;
+	font-family: "Outfit", "Microsoft YaHei", "SimHei", "PingFang SC", "Noto Sans SC", "Yu Gothic", "Meiryo", sans-serif;
 	position: relative;
 }
 
@@ -511,11 +507,9 @@
 .settings-agent-card--active {
 	border-color: var(--s-accent);
 	box-shadow: 0 0 0 1px var(--s-accent-glow);
-	background: linear-gradient(
-		to bottom right,
-		rgba(212, 191, 128, 0.05),
-		var(--s-bg-card)
-	);
+	background: linear-gradient(to bottom right,
+			rgba(212, 191, 128, 0.05),
+			var(--s-bg-card));
 }
 
 .settings-agent-card__active-btn {
@@ -665,4 +659,71 @@
 	backdrop-filter: blur(16px);
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Staggered Animation Delays */
+.delay-0 {
+	animation-delay: 0ms;
+}
+
+.delay-100 {
+	animation-delay: 100ms;
+}
+
+.delay-200 {
+	animation-delay: 200ms;
+}
+
+.delay-300 {
+	animation-delay: 300ms;
+}
+
+.delay-400 {
+	animation-delay: 400ms;
+}
+
+.delay-500 {
+	animation-delay: 500ms;
+}
+
+/* Enhanced Form Group Animation */
+.settings-form-group {
+	margin-bottom: 1.5rem;
+	opacity: 0;
+	/* Start hidden for animation */
+	animation: slideInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Refined Sidebar Active State */
+.settings-sidebar__item--active {
+	color: var(--s-accent);
+	background: linear-gradient(90deg, rgba(212, 191, 128, 0.1) 0%, transparent 100%);
+	font-weight: 500;
+	box-shadow: inset 2px 0 0 0 var(--s-accent);
+}
+
+.settings-sidebar__item--active::before {
+	/* Removed the old before element in favor of box-shadow or kept if preferred. 
+	   Let's keep the glowy bar but make it nicer. */
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	height: 24px;
+	width: 3px;
+	background: var(--s-accent);
+	border-radius: 0 4px 4px 0;
+	box-shadow: 0 0 12px var(--s-accent);
+}
+
+/* Refined Input Focus */
+.settings-input:focus,
+.settings-select:focus {
+	outline: none;
+	border-color: var(--s-accent);
+	box-shadow:
+		0 0 0 1px rgba(212, 191, 128, 0.2),
+		0 0 15px rgba(212, 191, 128, 0.1);
+	background: rgba(0, 0, 0, 0.8);
 }

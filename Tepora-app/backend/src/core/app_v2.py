@@ -372,7 +372,9 @@ class TeporaApp:
             from .tools.mcp import McpToolProvider
             from .tools.native import NativeToolProvider
 
-            tool_config_path = mcp_hub.config_path if mcp_hub is not None else resolve_mcp_config_path()
+            tool_config_path = (
+                mcp_hub.config_path if mcp_hub is not None else resolve_mcp_config_path()
+            )
             ensure_mcp_config_exists(tool_config_path)
             providers = [
                 NativeToolProvider(),

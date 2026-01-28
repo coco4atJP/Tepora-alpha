@@ -3,6 +3,8 @@
 
 import type React from "react";
 
+import { FitText } from "../../../../components/ui/FitText";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -34,14 +36,18 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
 			<nav>
 				<ul className="settings-sidebar__nav">
 					{items.map((item) => (
-						<li key={item.id}>
+						<li key={item.id} className="w-full">
 							<button
 								type="button"
 								onClick={() => onSelect(item.id)}
 								className={`settings-sidebar__item ${activeItem === item.id ? "settings-sidebar__item--active" : ""}`}
 							>
-								{item.icon}
-								{item.label}
+								<span className="shrink-0">{item.icon}</span>
+								<div className="flex-1 min-w-0 h-[24px] flex items-center">
+									<FitText maxFontSize={15} minFontSize={10}>
+										{item.label}
+									</FitText>
+								</div>
 							</button>
 						</li>
 					))}
@@ -74,8 +80,16 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
 }) => (
 	<section className={`settings-section ${className || ""}`} style={style}>
 		<div className="settings-section__header">
-			{icon && <span className="settings-section__icon">{icon}</span>}
-			<h2 className="settings-section__title">{title}</h2>
+			{icon && <span className="settings-section__icon shrink-0">{icon}</span>}
+			<div className="flex-1 min-w-0 h-[28px] flex items-center">
+				<FitText
+					className="settings-section__title"
+					maxFontSize={18} // 1.125rem
+					minFontSize={12}
+				>
+					{title}
+				</FitText>
+			</div>
 		</div>
 		{description && (
 			<p className="settings-section__description">{description}</p>

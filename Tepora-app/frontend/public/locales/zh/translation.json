@@ -81,22 +81,7 @@
 	},
 	"logs": {
 		"title": "日志文件",
-		"refresh": "刷新状态",
-		"policy": {
-			"title": "安全策略",
-			"mode": {
-				"label": "连接模式",
-				"description": "控制允许连接的服务器范围。",
-				"local_only": "仅本地 (推荐)",
-				"stdio_only": "仅标准输入输出 (最安全)",
-				"allowlist": "仅允许列表"
-			},
-			"confirmation": {
-				"label": "工具执行确认",
-				"description": "在执行工具前请求用户批准。"
-			}
-		},
-		"addServer": "添加服务器",
+		"refresh": "刷新列表",
 		"refresh_content": "刷新内容",
 		"loading_logs": "正在加载日志...",
 		"loading_content": "正在加载内容...",
@@ -288,6 +273,11 @@
 				"label": "常规",
 				"title": "应用程序",
 				"description": "核心应用程序设置和安全限制。",
+				"search_tool": {
+					"title": "搜索工具设置",
+					"provider_label": "搜索提供商",
+					"provider_desc": "选择用于本机搜索功能的搜索引擎。"
+				},
 				"google_search": {
 					"title": "谷歌搜索设置",
 					"api_key_label": "谷歌搜索 API 密钥",
@@ -311,9 +301,7 @@
 					"failed": "更新失败",
 					"start_failed": "无法开始更新",
 					"error": "开始更新时出错"
-				},
-				"nsfw_label": "解锁受限内容",
-				"nsfw_desc": "允许生成敏感内容。请谨慎使用。"
+				}
 			},
 			"updater": {
 				"title": "软件更新",
@@ -417,6 +405,7 @@
 					"top_p_desc": "核心采样。",
 					"n_ctx": "上下文窗口（n_ctx）",
 					"n_ctx_desc": "模型一次可以处理的最大令牌数。",
+					"dials_hint": "拖动拨号盘以调整值",
 					"show_advanced": "显示高级设置",
 					"hide_advanced": "隐藏高级设置"
 				}
@@ -426,6 +415,9 @@
 				"title": "代理",
 				"description": "定义角色和工具策略。",
 				"add_new_profile": "添加新档案",
+				"new_profile_key_placeholder": "档案 ID (字母数字和下划线)",
+				"add": "添加",
+				"cancel": "取消",
 				"cannot_delete_active": "无法删除当前激活的档案",
 				"confirm_delete": "删除此档案？",
 				"default_name": "新建代理",
@@ -440,6 +432,9 @@
 					"title_edit": "编辑角色",
 					"key_label": "ID (键)",
 					"key_desc": "系统内部使用的唯一标识符。",
+					"name_label": "显示名称",
+					"desc_label": "说明",
+					"prompt_label": "系统提示",
 					"model_label": "模型",
 					"model_desc": "选择此代理使用的模型配置。"
 				},
@@ -450,6 +445,8 @@
 					"characters": "角色",
 					"professionals": "专业"
 				},
+				"professionals_coming_soon_title": "专业代理即将推出...",
+				"professionals_coming_soon_desc": "用于专门任务执行的代理目前正在开发中。",
 				"card": {
 					"label": "标签",
 					"label_placeholder": "代理名称",
@@ -459,6 +456,7 @@
 					"persona_description": "定义代理的个性和角色。",
 					"preset_key": "预设键",
 					"preset_key_placeholder": "例如：default（可选）",
+					"select_preset": "选择预设...",
 					"custom_prompt": "自定义提示（覆盖）",
 					"custom_prompt_placeholder": "你是一个有用的 AI 助手...",
 					"allowed_tools": "允许的工具",
@@ -468,7 +466,38 @@
 					"currently_active": "当前活动",
 					"set_active": "设为活动",
 					"active": "活动",
-					"set_active_short": "设置"
+					"set_active_short": "设置",
+					"delete": "删除"
+				}
+			},
+			"custom_agents": {
+				"label": "代理",
+				"title": "代理",
+				"description": "创建具有特定工具和提示的代理。",
+				"add_new": "添加新代理",
+				"no_description": "无说明",
+				"default_name": "新代理",
+				"default_prompt": "你是一个有用的助手。",
+				"confirm_delete": "确定要删除此代理吗？",
+				"delete_confirm_title": "删除代理",
+				"error_empty_id": "请输入 ID。",
+				"error_empty_name": "请输入名称。",
+				"error_empty_prompt": "请输入系统提示。",
+				"error_duplicate_id": "此 ID 已在使用中。",
+				"modal": {
+					"title_add": "添加代理",
+					"title_edit": "编辑代理",
+					"id_label": "代理 ID",
+					"id_desc": "唯一标识符（小写，无空格）",
+					"icon_label": "图标",
+					"name_label": "名称",
+					"description_label": "说明",
+					"prompt_label": "系统提示",
+					"prompt_desc": "定义代理的行为和个性。",
+					"model_label": "模型",
+					"enabled_label": "启用",
+					"tools_label": "工具权限",
+					"no_tools": "无可用工具"
 				}
 			},
 			"memory": {
@@ -505,6 +534,11 @@
 				"label": "网页抓取最大字符数",
 				"description": "从网页获取的最大字符数。"
 			},
+			"dangerous_patterns": {
+				"label": "危险模式",
+				"description": "为安全起见，阻止用户输入的正则表达式模式。",
+				"placeholder": "添加正则表达式模式 (例如 system\\s*:)"
+			},
 			"cache_size": "模型缓存数量"
 		},
 		"descriptions": {
@@ -521,6 +555,21 @@
 			"redact_pii": {
 				"label": "保护个人信息",
 				"description": "自动从日志中删除个人信息（电子邮件地址、电话号码等），并在发送到外部服务之前从网页搜索查询中删除个人信息。"
+			}
+		},
+		"mcp_content": {
+			"info": {
+				"title": "配置信息",
+				"description": "MCP (模型上下文协议) 工具允许 AI 与外部数据和服务交互。目前，MCP 配置通过本地 JSON 配置文件进行管理。"
+			},
+			"servers": {
+				"title": "检测到的服务器",
+				"active": "活跃"
+			},
+			"config_path": {
+				"title": "配置路径",
+				"readonly": "只读",
+				"helper": "要添加新的 MCP 服务器，请直接编辑此文件并重启后端。"
 			}
 		},
 		"mcp": {
@@ -550,7 +599,6 @@
 			"delete": "删除",
 			"confirmDelete": "确认删除",
 			"cancelDelete": "取消删除",
-			"remove": "移除",
 			"noServers": {
 				"title": "没有 MCP 服务器",
 				"description": "点击“添加服务器”从官方注册表安装服务器。"

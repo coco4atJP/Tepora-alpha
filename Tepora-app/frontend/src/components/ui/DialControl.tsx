@@ -35,8 +35,8 @@ export const DialControl: React.FC<DialControlProps> = ({
 
 	// Configuration
 	// const startAngle = 135;
-	// const endAngle = 405; 
-	// Directly used in calculations or removed if redundant. 
+	// const endAngle = 405;
+	// Directly used in calculations or removed if redundant.
 	// Checking file content from Step 158:
 	// const percent = Math.min(Math.max((value - min) / (max - min), 0), 1);
 	// It calls `valueToAngle`.
@@ -46,58 +46,61 @@ export const DialControl: React.FC<DialControlProps> = ({
 	const percent = Math.min(Math.max((value - min) / (max - min), 0), 1);
 
 	// Update value based on mouse position
-	const updateValue = useCallback((clientX: number, clientY: number) => {
-		if (!dialRef.current) return;
+	const updateValue = useCallback(
+		(clientX: number, clientY: number) => {
+			if (!dialRef.current) return;
 
-		const rect = dialRef.current.getBoundingClientRect();
-		const centerX = rect.left + rect.width / 2;
-		const centerY = rect.top + rect.height / 2;
+			const rect = dialRef.current.getBoundingClientRect();
+			const centerX = rect.left + rect.width / 2;
+			const centerY = rect.top + rect.height / 2;
 
-		const dx = clientX - centerX;
-		const dy = clientY - centerY;
+			const dx = clientX - centerX;
+			const dy = clientY - centerY;
 
-		// Calculate angle relative to center, 0 at top.
-		let cssAngle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-		if (cssAngle < 0) cssAngle += 360;
+			// Calculate angle relative to center, 0 at top.
+			let cssAngle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+			if (cssAngle < 0) cssAngle += 360;
 
-		// Map angle to 0..1 based on start/end positions
-		// Start: 225 deg (Bottom Left), End: 135 deg (Bottom Right)
-		// Gap is at the bottom (135 to 225)
+			// Map angle to 0..1 based on start/end positions
+			// Start: 225 deg (Bottom Left), End: 135 deg (Bottom Right)
+			// Gap is at the bottom (135 to 225)
 
-		let val = 0;
-		if (cssAngle >= 225) {
-			val = (cssAngle - 225) / 270;
-		} else if (cssAngle <= 135) {
-			val = (cssAngle + (360 - 225)) / 270;
-		} else {
-			// In the gap (135 to 225) -> Snap to closest
-			if (cssAngle < 180)
-				val = 1; // Closer to end
-			else val = 0; // Closer to start
-		}
+			let val = 0;
+			if (cssAngle >= 225) {
+				val = (cssAngle - 225) / 270;
+			} else if (cssAngle <= 135) {
+				val = (cssAngle + (360 - 225)) / 270;
+			} else {
+				// In the gap (135 to 225) -> Snap to closest
+				if (cssAngle < 180)
+					val = 1; // Closer to end
+				else val = 0; // Closer to start
+			}
 
-		// Clamp
-		val = Math.min(Math.max(val, 0), 1);
+			// Clamp
+			val = Math.min(Math.max(val, 0), 1);
 
-		// Calculate new value
-		let newValue = min + val * (max - min);
+			// Calculate new value
+			let newValue = min + val * (max - min);
 
-		// Step
-		if (step) {
-			newValue = Math.round(newValue / step) * step;
-		}
+			// Step
+			if (step) {
+				newValue = Math.round(newValue / step) * step;
+			}
 
-		// Precision fix
-		newValue = Number.parseFloat(newValue.toFixed(2));
+			// Precision fix
+			newValue = Number.parseFloat(newValue.toFixed(2));
 
-		// Clamp value
-		newValue = Math.min(Math.max(newValue, min), max);
+			// Clamp value
+			newValue = Math.min(Math.max(newValue, min), max);
 
-		// Compare against current ref value to avoid stale closure issues
-		if (newValue !== valueRef.current) {
-			onChange(newValue);
-		}
-	}, [max, min, onChange, step]);
+			// Compare against current ref value to avoid stale closure issues
+			if (newValue !== valueRef.current) {
+				onChange(newValue);
+			}
+		},
+		[max, min, onChange, step],
+	);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
 		setIsDragging(true);
@@ -180,8 +183,9 @@ export const DialControl: React.FC<DialControlProps> = ({
 						strokeDasharray={circumference}
 						strokeDashoffset={progressOffset}
 						strokeLinecap="round"
-						className={`transition-all duration-75 ${isDragging ? "opacity-100" : "opacity-80"
-							}`}
+						className={`transition-all duration-75 ${
+							isDragging ? "opacity-100" : "opacity-80"
+						}`}
 						style={{ filter: "drop-shadow(0 0 4px rgba(212, 191, 128, 0.5))" }}
 					/>
 				</svg>

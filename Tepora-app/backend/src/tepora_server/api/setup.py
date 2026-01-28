@@ -339,26 +339,28 @@ async def run_setup_job(request: SetupRunRequest):
         dm = _get_download_manager()
         targets_for_policy = target_models or []
         if not targets_for_policy and request.loader != "ollama":
-             # Defaults fallbacks only if NOT ollama (since ollama skips text models)
-             # Actually logic inside download manager handles defaults building
-             # Checking policy for defaults:
+            # Defaults fallbacks only if NOT ollama (since ollama skips text models)
+            # Actually logic inside download manager handles defaults building
+            # Checking policy for defaults:
             defaults = settings.default_models
             if defaults.embedding:
-                targets_for_policy.append({
-                    "repo_id": defaults.embedding.repo_id,
-                    "filename": defaults.embedding.filename,
-                    "role": "embedding",
-                    "display_name": defaults.embedding.display_name,
-                })
-             # If NOT ollama, add text models? Frontend sends target_models.
-             # If frontend sent empty, it means defaults.
-             # But if ollama, frontend sends empty or just embedding.
-             # We can rely on targets_for_policy being what is requested.
+                targets_for_policy.append(
+                    {
+                        "repo_id": defaults.embedding.repo_id,
+                        "filename": defaults.embedding.filename,
+                        "role": "embedding",
+                        "display_name": defaults.embedding.display_name,
+                    }
+                )
+            # If NOT ollama, add text models? Frontend sends target_models.
+            # If frontend sent empty, it means defaults.
+            # But if ollama, frontend sends empty or just embedding.
+            # We can rely on targets_for_policy being what is requested.
 
         warnings = _evaluate_model_download_warnings(dm, targets_for_policy)
         if warnings and not request.acknowledge_warnings:
             # Consents required, so we clear the speculative job ID to avoid "pending" state on resume
-            _setup_session.set_job_id(None) # type: ignore
+            _setup_session.set_job_id(None)  # type: ignore
             return JSONResponse(
                 status_code=409,
                 content={
@@ -368,10 +370,10 @@ async def run_setup_job(request: SetupRunRequest):
                 },
             )
     except HTTPException:
-        _setup_session.set_job_id(None) # type: ignore
+        _setup_session.set_job_id(None)  # type: ignore
         raise
     except Exception as e:
-        _setup_session.set_job_id(None) # type: ignore
+        _setup_session.set_job_id(None)  # type: ignore
         logger.error("Preflight model policy check failed: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -391,7 +393,7 @@ async def run_setup_job(request: SetupRunRequest):
                 logger.info("Starting setup job %s with models: %s", job_id, target_models)
 
                 result = await dm.run_initial_setup(
-                    install_binary=True, # Will be overridden inside if loader is ollama
+                    install_binary=True,  # Will be overridden inside if loader is ollama
                     download_default_models=True,
                     target_models=target_models,
                     consent_provided=request.acknowledge_warnings,

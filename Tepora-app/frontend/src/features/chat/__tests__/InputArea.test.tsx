@@ -118,6 +118,41 @@ describe("InputArea", () => {
 		expect(getSendButton()).toBeDisabled();
 	});
 
+	it("prevents sending empty messages without attachments", () => {
+		render(<InputArea />);
+		const sendButton = getSendButton();
+		const input = getTextbox();
+
+		// Empty input
+		fireEvent.change(input, { target: { value: "   " } });
+		fireEvent.click(sendButton);
+
+		expect(mockSendMessage).not.toHaveBeenCalled();
+	});
+
+	it("allows sending empty message if it has attachments", () => {
+		(useOutletContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+			currentMode: "direct",
+			attachments: ["file1.txt"],
+			clearAttachments: vi.fn(),
+			skipWebSearch: false,
+		});
+
+		render(<InputArea />);
+		const sendButton = getSendButton();
+
+		// Empty input but has attachments
+		fireEvent.click(sendButton);
+
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"",
+			"direct",
+			["file1.txt"],
+			false,
+			false,
+		);
+	});
+
 	it("sends message with correct mode", () => {
 		(useOutletContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
 			currentMode: "search",

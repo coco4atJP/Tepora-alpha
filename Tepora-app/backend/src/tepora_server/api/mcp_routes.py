@@ -116,7 +116,13 @@ async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, 
     try:
         hub = _get_mcp_hub(state, required=False)
         if hub is None:
-            return {"servers": {}, "error": "MCP Hub not initialized"}
+            init_error = getattr(state, "mcp_init_error", None)
+            init_error = init_error if isinstance(init_error, str) and init_error.strip() else None
+            return {
+                "servers": {},
+                "initialized": False,
+                "error": init_error or "MCP Hub not initialized",
+            }
 
         status_dict = hub.get_connection_status()
 
@@ -130,7 +136,12 @@ async def get_mcp_status(state: AppState = Depends(get_app_state)) -> dict[str, 
                 "last_connected": status.last_connected,
             }
 
-        return {"servers": result}
+        return {
+            "servers": result,
+            "initialized": bool(getattr(hub, "initialized", False)),
+            "config_path": str(getattr(hub, "config_path", "")),
+            "error": None,
+        }
 
     except Exception as e:
         logger.error("Failed to get MCP status: %s", e, exc_info=True)
@@ -148,7 +159,13 @@ async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, 
     try:
         hub = _get_mcp_hub(state, required=False)
         if hub is None:
-            return {"mcpServers": {}}
+            init_error = getattr(state, "mcp_init_error", None)
+            init_error = init_error if isinstance(init_error, str) and init_error.strip() else None
+            return {
+                "mcpServers": {},
+                "initialized": False,
+                "error": init_error or "MCP Hub not initialized",
+            }
 
         config = hub.get_config()
 
@@ -160,10 +177,14 @@ async def get_mcp_config(state: AppState = Depends(get_app_state)) -> dict[str, 
                     "args": server.args,
                     "env": server.env or {},
                     "enabled": server.enabled,
+                    "transport": getattr(server.transport, "value", server.transport),
+                    "url": getattr(server, "url", None),
                     "metadata": server.metadata.model_dump() if server.metadata else None,
                 }
                 for name, server in config.mcpServers.items()
-            }
+            },
+            "initialized": bool(getattr(hub, "initialized", False)),
+            "config_path": str(getattr(hub, "config_path", "")),
         }
 
     except Exception as e:
@@ -531,7 +552,9 @@ async def get_mcp_policy(state: AppState = Depends(get_app_state)) -> dict[str, 
     try:
         hub = _get_mcp_hub(state, required=False)
         if hub is None:
-            return {}
+            init_error = getattr(state, "mcp_init_error", None)
+            init_error = init_error if isinstance(init_error, str) and init_error.strip() else None
+            return {"error": init_error or "MCP Hub not initialized"}
 
         policy_manager = hub.policy_manager
         if not policy_manager:

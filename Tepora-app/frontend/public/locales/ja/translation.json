@@ -513,23 +513,7 @@
 				"description": "セキュリティのためにブロックする正規表現パターン。",
 				"placeholder": "正規表現を追加 (例: system\\s*:)"
 			},
-			"cache_size": "モデルキャッシュ数",
-			"tokenizer_model": {
-				"label": "トークナイザーモデル",
-				"description": "トークンカウントに使用するモデルキー。"
-			},
-			"process_terminate_timeout": {
-				"label": "終了タイムアウト",
-				"description": "プロセス終了を待機する秒数。"
-			},
-			"health_check_timeout": {
-				"label": "ヘルスチェックタイムアウト",
-				"description": "ヘルスチェックリクエストのタイムアウト秒数。"
-			},
-			"health_check_interval": {
-				"label": "ヘルスチェック間隔",
-				"description": "ヘルスチェックを実行する間隔（秒）。"
-			}
+			"cache_size": "モデルキャッシュ数"
 		},
 		"descriptions": {
 			"cache_size": "メモリに保持するモデルの最大数。"

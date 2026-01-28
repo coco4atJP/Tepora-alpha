@@ -24,8 +24,12 @@ class ChatHistoryManager:
     @staticmethod
     def _serialize_message(message: BaseMessage, session_id: str) -> tuple:
         additional_kwargs = (
-            message.additional_kwargs if isinstance(message.additional_kwargs, dict) else {}
+            message.additional_kwargs.copy() if isinstance(message.additional_kwargs, dict) else {}
         )
+
+        if isinstance(message, ToolMessage) and hasattr(message, "tool_call_id"):
+            additional_kwargs["tool_call_id"] = message.tool_call_id
+
         try:
             kwargs_payload = json.dumps(additional_kwargs, ensure_ascii=False, default=str)
         except (TypeError, ValueError) as exc:

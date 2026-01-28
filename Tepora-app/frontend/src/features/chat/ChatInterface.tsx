@@ -9,9 +9,9 @@ import { useSessions } from "../../hooks/useSessions";
 import { useChatStore, useWebSocketStore } from "../../stores";
 import type { Attachment, ChatMode } from "../../types";
 import { EmptyState } from "./components/EmptyState";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import InputArea from "./InputArea";
 import MessageList from "./MessageList";
-import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import ToolConfirmationDialog from "./ToolConfirmationDialog";
 
 export interface ChatInterfaceContext {
@@ -145,10 +145,11 @@ const ChatInterface: React.FC = () => {
 					</span>
 					<div className="flex items-center gap-2">
 						<div
-							className={`w-2 h-2 rounded-full ${isConnected
-								? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
-								: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-								}`}
+							className={`w-2 h-2 rounded-full ${
+								isConnected
+									? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+									: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+							}`}
 							aria-hidden="true"
 						/>
 						<span className="hidden md:inline text-xs text-gray-400">

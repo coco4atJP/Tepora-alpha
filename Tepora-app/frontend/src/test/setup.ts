@@ -47,13 +47,13 @@ vi.mock("react-i18next", () => ({
 		t: (key: string, defaultValue?: string) =>
 			translations[key] || defaultValue || key,
 		i18n: {
-			changeLanguage: () => new Promise(() => {}),
+			changeLanguage: () => new Promise(() => { }),
 			language: "en",
 		},
 	}),
 	initReactI18next: {
 		type: "3rdParty",
-		init: () => {},
+		init: () => { },
 	},
 	Trans: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -67,7 +67,14 @@ class MockWebSocket {
 	send = vi.fn();
 	close = vi.fn();
 	readyState = 0;
-	constructor(public url: string) {}
+	constructor(public url: string) { }
 }
 
 globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+
+// Mock ResizeObserver
+globalThis.ResizeObserver = class ResizeObserver {
+	observe() { }
+	unobserve() { }
+	disconnect() { }
+};

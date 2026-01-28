@@ -7,8 +7,12 @@
  */
 
 // Tauriアプリかどうかを判定
-export const isDesktop =
-	typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
+export function isDesktop(): boolean {
+	return (
+		typeof window !== "undefined" &&
+		!!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+	);
+}
 
 // 動的ポート格納用（sidecarから設定される）
 let dynamicPort: number | null = null;
@@ -74,7 +78,7 @@ export async function getAuthHeadersAsync(): Promise<Record<string, string>> {
  * - Web の場合: '' (相対パス、Vite のプロキシを使用)
  */
 export function getApiBase(): string {
-	if (isDesktop) {
+	if (isDesktop()) {
 		return `http://127.0.0.1:${getApiPort()}`;
 	}
 	return "";
@@ -86,7 +90,7 @@ export function getApiBase(): string {
  * - Web の場合: '' (相対パス、Vite のプロキシを使用)
  */
 export function getWsBase(): string {
-	if (isDesktop) {
+	if (isDesktop()) {
 		return `ws://127.0.0.1:${getApiPort()}`;
 	}
 	return "";

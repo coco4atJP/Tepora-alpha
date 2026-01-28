@@ -303,9 +303,9 @@ class LLMService:
 
             if previous_model_id and previous_model_id != target_model_id and previous_runner_key:
                 if self._model_manager:
-                     previous_model = self._model_manager.get_model(previous_model_id)
+                    previous_model = self._model_manager.get_model(previous_model_id)
                 else:
-                     previous_model = None
+                    previous_model = None
                 if previous_model:
                     previous_runner = self._get_runner(previous_model.loader)
                     await previous_runner.stop(previous_runner_key)

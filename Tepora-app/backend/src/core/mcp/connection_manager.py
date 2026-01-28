@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from langchain_core.tools import BaseTool
@@ -113,6 +115,27 @@ class McpConnectionManager:
             )
             if not allowed:
                 _mark_error(f"Connection blocked by policy: {reason}")
+                return False
+
+        # Preflight: STDIO transport needs an executable command available on PATH (or an absolute path).
+        if config.transport == TransportType.STDIO:
+            command = (config.command or "").strip()
+            command_path = Path(command) if command else None
+            command_exists = bool(command) and (
+                (command_path is not None and command_path.is_file())
+                or (shutil.which(command) is not None)
+            )
+            if not command_exists:
+                cmd = command or "<empty>"
+                hint = ""
+                lower = cmd.lower()
+                if lower in {"npx", "npx.cmd", "npx.exe"}:
+                    hint = " (Hint: install Node.js so 'npx' is available on PATH.)"
+                elif lower in {"uvx", "uvx.exe"}:
+                    hint = " (Hint: install 'uv' so 'uvx' is available on PATH.)"
+                elif lower in {"docker", "docker.exe"}:
+                    hint = " (Hint: install Docker Desktop so 'docker' is available on PATH.)"
+                _mark_error(f"MCP command not found: '{cmd}'.{hint}")
                 return False
 
         last_error: str | None = None

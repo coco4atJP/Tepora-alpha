@@ -25,14 +25,31 @@ vi.mock("react-i18next", () => ({
 }));
 
 // Mock API utils
-vi.mock("../../../../utils/api", () => ({
-	getApiBase: () => "http://localhost:8000",
-	getAuthHeaders: () => ({ Authorization: "Bearer test" }),
+vi.mock("../../../../utils/api-client", () => ({
+	apiClient: {
+		get: vi.fn(),
+		post: vi.fn(),
+		delete: vi.fn(),
+	},
+	ApiError: class extends Error {
+		status: number;
+		data: any;
+		constructor(status: number, data: any) {
+			super("ApiError");
+			this.status = status;
+			this.data = data;
+		}
+	},
 }));
 
 // Mock fetch
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
+
+// Mock Tauri Dialog
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+	open: vi.fn(),
+}));
 
 describe("AddModelForm", () => {
 	const mockOnModelAdded = vi.fn();
@@ -129,7 +146,6 @@ describe("AddModelForm", () => {
 					ok: false,
 					status: 409,
 					json: async () => ({
-						success: false,
 						requires_consent: true,
 						warnings: ["Warning 1", "Warning 2"],
 					}),
@@ -173,33 +189,35 @@ describe("AddModelForm", () => {
 		// Setup Complex Mock
 		fetchMock.mockImplementation(
 			async (url: RequestInfo | URL, opts?: RequestInit) => {
-			const u = String(url);
-			if (u.includes("/check"))
-				return { ok: true, json: async () => ({ exists: true }) };
+				const u = String(url);
+				if (u.includes("/check"))
+					return { ok: true, json: async () => ({ exists: true }) };
 
-			if (u.includes("download")) {
-				const bodyStr = typeof opts?.body === "string" ? opts.body : "{}";
-				const body = JSON.parse(bodyStr) as { acknowledge_warnings?: boolean };
-				if (body.acknowledge_warnings === true) {
-					return {
-						ok: true,
-						status: 200,
-						json: async () => ({ success: true }),
+				if (u.includes("download")) {
+					const bodyStr = typeof opts?.body === "string" ? opts.body : "{}";
+					const body = JSON.parse(bodyStr) as {
+						acknowledge_warnings?: boolean;
 					};
-				} else {
-					return {
-						ok: false,
-						status: 409,
-						json: async () => ({
-							success: false,
-							requires_consent: true,
-							warnings: ["Big File"],
-						}),
-					};
+					if (body.acknowledge_warnings === true) {
+						return {
+							ok: true,
+							status: 200,
+							json: async () => ({ success: true }),
+						};
+					} else {
+						return {
+							ok: false,
+							status: 409,
+							json: async () => ({
+								success: false,
+								requires_consent: true,
+								warnings: ["Big File"],
+							}),
+						};
+					}
 				}
-			}
-			return { ok: false };
-		},
+				return { ok: false };
+			},
 		);
 
 		fireEvent.click(downloadBtn);
@@ -273,4 +291,6 @@ describe("AddModelForm", () => {
 			expect(screen.queryByText("Confirm Download")).not.toBeInTheDocument();
 		});
 	});
+
+
 });

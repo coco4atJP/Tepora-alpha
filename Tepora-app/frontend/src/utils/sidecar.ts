@@ -1,13 +1,10 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { exit } from "@tauri-apps/plugin-process";
 import { type Child, Command } from "@tauri-apps/plugin-shell";
-import { getApiBase, getAuthHeadersAsync, setDynamicPort } from "./api";
+import { getApiBase, getAuthHeadersAsync, isDesktop, setDynamicPort } from "./api";
 import { ENDPOINTS } from "./endpoints";
 
-// Helper to detect if running in Tauri
-export const isDesktop = () => {
-	return typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
-};
+export { isDesktop };
 
 // Backend ready promise for coordinated startup
 let backendReadyResolve: ((port: number) => void) | null = null;

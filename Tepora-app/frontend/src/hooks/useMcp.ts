@@ -107,18 +107,26 @@ export interface McpInstallPreview {
 
 // --- API Functions ---
 
-async function fetchMcpStatus(): Promise<Record<string, McpServerStatus>> {
-	const data = await apiClient.get<{
-		servers?: Record<string, McpServerStatus>;
-	}>("api/mcp/status");
-	return data.servers || {};
+type McpStatusResponse = {
+	servers?: Record<string, McpServerStatus>;
+	initialized?: boolean;
+	config_path?: string;
+	error?: string | null;
+};
+
+type McpConfigResponse = {
+	mcpServers?: Record<string, McpServerConfig>;
+	initialized?: boolean;
+	config_path?: string;
+	error?: string | null;
+};
+
+async function fetchMcpStatus(): Promise<McpStatusResponse> {
+	return apiClient.get<McpStatusResponse>("api/mcp/status");
 }
 
-async function fetchMcpConfig(): Promise<Record<string, McpServerConfig>> {
-	const data = await apiClient.get<{
-		mcpServers?: Record<string, McpServerConfig>;
-	}>("api/mcp/config");
-	return data.mcpServers || {};
+async function fetchMcpConfig(): Promise<McpConfigResponse> {
+	return apiClient.get<McpConfigResponse>("api/mcp/config");
 }
 
 async function updateMcpConfig(
@@ -216,19 +224,31 @@ export function useMcpServers(pollInterval = 5000) {
 	const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const fetchData = useCallback(async () => {
+		setLoading(true);
+		let nextError: string | null = null;
+
 		try {
-			const [configData, statusData] = await Promise.all([
-				fetchMcpConfig(),
-				fetchMcpStatus(),
-			]);
-			setServers(configData);
-			setStatus(statusData);
-			setError(null);
+			const configRes = await fetchMcpConfig();
+			setServers(configRes.mcpServers || {});
+			if (configRes.error) {
+				nextError = configRes.error;
+			}
 		} catch (err) {
-			setError(getApiErrorMessage(err, "Unknown error"));
-		} finally {
-			setLoading(false);
+			nextError = getApiErrorMessage(err, "Failed to fetch MCP config");
 		}
+
+		try {
+			const statusRes = await fetchMcpStatus();
+			setStatus(statusRes.servers || {});
+			if (statusRes.error) {
+				nextError = statusRes.error;
+			}
+		} catch (err) {
+			nextError = getApiErrorMessage(err, "Failed to fetch MCP status");
+		}
+
+		setError(nextError);
+		setLoading(false);
 	}, []);
 
 	// Initial fetch
@@ -241,8 +261,8 @@ export function useMcpServers(pollInterval = 5000) {
 		if (pollInterval > 0) {
 			pollingRef.current = setInterval(async () => {
 				try {
-					const statusData = await fetchMcpStatus();
-					setStatus(statusData);
+					const statusRes = await fetchMcpStatus();
+					setStatus(statusRes.servers || {});
 				} catch {
 					// Silent fail for polling
 				}

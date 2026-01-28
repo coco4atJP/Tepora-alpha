@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import {
 	AlertTriangle,
 	CheckCircle,
@@ -16,6 +17,12 @@ interface AddModelFormProps {
 	onModelAdded: () => void;
 }
 
+interface LocalFile {
+	name: string;
+	path: string;
+	size?: number;
+}
+
 export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 	const { t } = useTranslation();
 	const [mode, setMode] = useState<"hf" | "local">("hf");
@@ -31,7 +38,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 
 	// Local State
 	const [dragActive, setDragActive] = useState(false);
-	const [localFile, setLocalFile] = useState<File | null>(null);
+	const [localFile, setLocalFile] = useState<LocalFile | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// Consent Warning State
@@ -83,6 +90,34 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 
 	const [selectedRole, setSelectedRole] = useState("text");
 
+	// Dialog Handler
+	const handleOpenDialog = async () => {
+		try {
+			const selected = await open({
+				multiple: false,
+				filters: [
+					{
+						name: "GGUF Models",
+						extensions: ["gguf"],
+					},
+				],
+			});
+
+			if (selected && typeof selected === "string") {
+				// Provide a fallback name if parsing fails, though path usually has separators
+				const name = selected.split(/[\\/]/).pop() || selected;
+				setLocalFile({
+					name,
+					path: selected,
+					// Size is unknown unless we use fs stat, but that requires extra permissions/calls.
+					// UI handles missing size gracefully.
+				});
+			}
+		} catch (e) {
+			console.error("Failed to open dialog:", e);
+		}
+	};
+
 	// Drag and Drop
 	const handleDrag = (e: React.DragEvent) => {
 		e.preventDefault();
@@ -102,11 +137,25 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		if (e.dataTransfer.files?.[0]) {
 			const file = e.dataTransfer.files[0];
 			if (file.name.endsWith(".gguf")) {
-				setLocalFile(file);
+				// Attempt to get path from File object (Tauri/Electron extension)
+				// @ts-expect-error - path property might exist
+				const path = file.path;
+				if (path) {
+					setLocalFile({
+						name: file.name,
+						path: path,
+						size: file.size,
+					});
+				} else {
+					alert(
+						t("settings.sections.models.add_modal.dnd_no_path") ||
+						"Cannot resolve file path from Drop. Please use the click-to-browse option.",
+					);
+				}
 			} else {
 				alert(
 					t("settings.sections.models.add_modal.invalid_file") ||
-						"Only .gguf files are supported",
+					"Only .gguf files are supported",
 				);
 			}
 		}
@@ -116,11 +165,24 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		if (e.target.files?.[0]) {
 			const file = e.target.files[0];
 			if (file.name.endsWith(".gguf")) {
-				setLocalFile(file);
+				// @ts-expect-error - path property might exist
+				const path = file.path;
+				if (path) {
+					setLocalFile({
+						name: file.name,
+						path: path,
+						size: file.size,
+					});
+				} else {
+					// Fallback if hidden input is somehow used but no path
+					alert(
+						"Cannot resolve file path. Please use the main click area to browse.",
+					);
+				}
 			} else {
 				alert(
 					t("settings.sections.models.add_modal.invalid_file") ||
-						"Only .gguf files are supported",
+					"Only .gguf files are supported",
 				);
 			}
 		}
@@ -132,12 +194,12 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		if (!localFile) return;
 
 		try {
-			// @ts-expect-error - Electron/Tauri adds path property to File objects
+			// We now have the path in the state object
 			const path = localFile.path;
 			if (!path) {
 				alert(
 					t("settings.sections.models.add_modal.path_required") ||
-						"Cannot resolve file path. This feature requires a desktop environment.",
+					"Cannot resolve file path.",
 				);
 				return;
 			}
@@ -311,17 +373,16 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								key={r}
 								onClick={() => setSelectedRole(r)}
 								disabled={downloading}
-								className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-									selectedRole === r
-										? "bg-gold-500/20 border-gold-400 text-gold-100"
-										: "border-white/10 text-gray-400 hover:border-white/20"
-								} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
+								className={`px-3 py-1 text-xs rounded-full border transition-colors ${selectedRole === r
+									? "bg-gold-500/20 border-gold-400 text-gold-100"
+									: "border-white/10 text-gray-400 hover:border-white/20"
+									} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
 							>
 								{r === "text"
 									? t("settings.sections.models.add_modal.role_text") ||
-										"Text Model"
+									"Text Model"
 									: t("settings.sections.models.add_modal.role_embedding") ||
-										"Embedding Model"}
+									"Embedding Model"}
 							</button>
 						))}
 					</div>
@@ -412,11 +473,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										type="button"
 										disabled={checkStatus !== "valid"}
 										onClick={() => handleDownload()}
-										className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${
-											checkStatus === "valid"
-												? "bg-gold-500 hover:bg-gold-400 text-black shadow-lg shadow-gold-500/20"
-												: "bg-white/5 text-gray-500 cursor-not-allowed"
-										}`}
+										className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${checkStatus === "valid"
+											? "bg-gold-500 hover:bg-gold-400 text-black shadow-lg shadow-gold-500/20"
+											: "bg-white/5 text-gray-500 cursor-not-allowed"
+											}`}
 									>
 										<Download size={18} />
 										{t("settings.sections.models.add_modal.download") ||
@@ -465,16 +525,15 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 						</div>
 					) : (
 						<div
-							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-								dragActive
-									? "border-gold-400 bg-gold-400/5"
-									: "border-white/10 hover:border-white/20 hover:bg-white/5"
-							}`}
+							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive
+								? "border-gold-400 bg-gold-400/5"
+								: "border-white/10 hover:border-white/20 hover:bg-white/5"
+								}`}
 							onDragEnter={handleDrag}
 							onDragLeave={handleDrag}
 							onDragOver={handleDrag}
 							onDrop={handleDrop}
-							onClick={() => !localFile && fileInputRef.current?.click()}
+							onClick={() => handleOpenDialog()}
 						>
 							<input
 								ref={fileInputRef}
@@ -492,7 +551,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									</p>
 									<p className="text-gray-500 text-xs">
 										{t("settings.sections.models.add_modal.drop_zone_hint") ||
-											"or use the file picker"}
+											"or click to browse"}
 									</p>
 								</div>
 							) : (
@@ -500,13 +559,16 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									<div className="flex items-center justify-center gap-2 text-green-400 font-medium">
 										<CheckCircle size={18} />
 										<span>
-											{localFile.name} (
-											{(localFile.size / 1024 / 1024).toFixed(1)} MB)
+											{localFile.name}{" "}
+											{localFile.size && `(${(localFile.size / 1024 / 1024).toFixed(1)} MB)`}
 										</span>
 									</div>
 									<button
 										type="button"
-										onClick={handleLocalSubmit}
+										onClick={(e) => {
+											e.stopPropagation();
+											handleLocalSubmit();
+										}}
 										className="px-6 py-2 bg-gold-500 text-black rounded-lg hover:bg-gold-400 transition-colors font-medium"
 									>
 										{t("settings.sections.models.add_modal.add_local") ||
@@ -514,7 +576,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									</button>
 									<button
 										type="button"
-										onClick={() => setLocalFile(null)}
+										onClick={(e) => {
+											e.stopPropagation();
+											setLocalFile(null);
+										}}
 										className="block mx-auto text-xs text-red-400 hover:text-red-300 mt-2"
 									>
 										{t("common.cancel") || "Cancel"}

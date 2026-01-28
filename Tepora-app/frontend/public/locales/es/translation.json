@@ -273,6 +273,11 @@
 				"label": "General",
 				"title": "Aplicación",
 				"description": "Configuración principal de la aplicación y límites de seguridad.",
+				"search_tool": {
+					"title": "Configuración de herramienta de búsqueda",
+					"provider_label": "Proveedor de búsqueda",
+					"provider_desc": "Seleccione el motor de búsqueda para usar con las capacidades de búsqueda nativas."
+				},
 				"google_search": {
 					"title": "Configuración de búsqueda de Google",
 					"api_key_label": "Clave de API de búsqueda de Google",
@@ -296,9 +301,7 @@
 					"failed": "Actualización fallida",
 					"start_failed": "No se pudo iniciar la actualización",
 					"error": "Error al iniciar la actualización"
-				},
-				"nsfw_label": "Desbloquear contenido restringido",
-				"nsfw_desc": "Permite la generación de contenido sensible. Úselo con precaución."
+				}
 			},
 			"updater": {
 				"title": "Actualización de software",
@@ -402,6 +405,7 @@
 					"top_p_desc": "Muestreo de núcleo.",
 					"n_ctx": "Ventana de contexto (n_ctx)",
 					"n_ctx_desc": "Número máximo de tokens que el modelo puede procesar a la vez.",
+					"dials_hint": "Arrastre los diales para ajustar los valores",
 					"show_advanced": "Mostrar configuración avanzada",
 					"hide_advanced": "Ocultar configuración avanzada"
 				}
@@ -411,6 +415,9 @@
 				"title": "Agentes",
 				"description": "Definir personas y políticas de herramientas.",
 				"add_new_profile": "Agregar nuevo perfil",
+				"new_profile_key_placeholder": "ID del perfil (alfanumérico y guiones bajos)",
+				"add": "Agregar",
+				"cancel": "Cancelar",
 				"cannot_delete_active": "No se puede eliminar el perfil activo",
 				"confirm_delete": "¿Eliminar este perfil?",
 				"default_name": "Nuevo agente",
@@ -425,6 +432,9 @@
 					"title_edit": "Editar personaje",
 					"key_label": "ID (Clave)",
 					"key_desc": "Identificador único usado internamente.",
+					"name_label": "Nombre para mostrar",
+					"desc_label": "Descripción",
+					"prompt_label": "Prompt del sistema",
 					"model_label": "Modelo",
 					"model_desc": "Seleccione la configuración de modelo para este agente."
 				},
@@ -435,6 +445,8 @@
 					"characters": "Personajes",
 					"professionals": "Profesionales"
 				},
+				"professionals_coming_soon_title": "Agentes profesionales próximamente...",
+				"professionals_coming_soon_desc": "Los agentes para la ejecución de tareas especializadas están actualmente en desarrollo.",
 				"card": {
 					"label": "Etiqueta",
 					"label_placeholder": "Nombre del agente",
@@ -444,6 +456,7 @@
 					"persona_description": "Definir la personalidad y el rol del agente.",
 					"preset_key": "Clave preestablecida",
 					"preset_key_placeholder": "ej. default (Opcional)",
+					"select_preset": "Seleccionar preajuste...",
 					"custom_prompt": "Prompt personalizado (Anular)",
 					"custom_prompt_placeholder": "Eres un asistente de IA útil...",
 					"allowed_tools": "Herramientas permitidas",
@@ -453,7 +466,38 @@
 					"currently_active": "Actualmente activo",
 					"set_active": "Establecer como activo",
 					"active": "Activo",
-					"set_active_short": "Activar"
+					"set_active_short": "Activar",
+					"delete": "Eliminar"
+				}
+			},
+			"custom_agents": {
+				"label": "Agentes",
+				"title": "Agentes",
+				"description": "Cree agentes con herramientas y prompts específicos.",
+				"add_new": "Agregar nuevo agente",
+				"no_description": "Sin descripción",
+				"default_name": "Nuevo agente",
+				"default_prompt": "Eres un asistente útil.",
+				"confirm_delete": "¿Está seguro de que desea eliminar este agente?",
+				"delete_confirm_title": "Eliminar agente",
+				"error_empty_id": "Por favor ingrese un ID.",
+				"error_empty_name": "Por favor ingrese un nombre.",
+				"error_empty_prompt": "Por favor ingrese un prompt del sistema.",
+				"error_duplicate_id": "Este ID ya está en uso.",
+				"modal": {
+					"title_add": "Agregar agente",
+					"title_edit": "Editar agente",
+					"id_label": "ID del agente",
+					"id_desc": "Identificador único (minúsculas, sin espacios)",
+					"icon_label": "Icono",
+					"name_label": "Nombre",
+					"description_label": "Descripción",
+					"prompt_label": "Prompt del sistema",
+					"prompt_desc": "Defina el comportamiento y la personalidad del agente.",
+					"model_label": "Modelo",
+					"enabled_label": "Habilitado",
+					"tools_label": "Permisos de herramientas",
+					"no_tools": "No hay herramientas disponibles"
 				}
 			},
 			"memory": {
@@ -490,6 +534,11 @@
 				"label": "Máximo de caracteres en web fetch",
 				"description": "Máximo de caracteres a obtener de una página web."
 			},
+			"dangerous_patterns": {
+				"label": "Patrones peligrosos",
+				"description": "Patrones de expresiones regulares para bloquear en la entrada del usuario por seguridad.",
+				"placeholder": "Agregar patrón regex (ej. system\\s*:)"
+			},
 			"cache_size": "Límite de caché de modelos"
 		},
 		"descriptions": {
@@ -506,6 +555,21 @@
 			"redact_pii": {
 				"label": "Proteger información personal",
 				"description": "Elimina automáticamente información personal (direcciones de correo electrónico, números de teléfono, etc.) de los registros y de las consultas de búsqueda web antes de enviarlas a servicios externos."
+			}
+		},
+		"mcp_content": {
+			"info": {
+				"title": "Información de configuración",
+				"description": "Las herramientas MCP (Protocolo de Contexto de Modelo) permiten que la IA interactúe con datos y servicios externos. Actualmente, la configuración de MCP se gestiona a través de un archivo de configuración JSON local."
+			},
+			"servers": {
+				"title": "Servidores detectados",
+				"active": "Activo"
+			},
+			"config_path": {
+				"title": "Ruta de configuración",
+				"readonly": "Solo lectura",
+				"helper": "Para agregar nuevos servidores MCP, edite este archivo directamente y reinicie el backend."
 			}
 		},
 		"mcp": {
@@ -535,7 +599,6 @@
 			"delete": "Eliminar",
 			"confirmDelete": "Confirmar eliminacion",
 			"cancelDelete": "Cancelar",
-			"remove": "Eliminar",
 			"noServers": {
 				"title": "No hay servidores MCP",
 				"description": "Haga clic en 'Anadir Servidor' para instalar servidores del registro oficial."

@@ -35,6 +35,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 						label={t("settings.privacy.web_search.label")}
 						description={t("settings.privacy.web_search.description")}
 						orientation="horizontal"
+						className="delay-0"
 					>
 						<FormSwitch
 							checked={privacyConfig?.allow_web_search ?? false}
@@ -44,7 +45,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 
 					{/* Data Sharing Explanation Panel */}
 					{privacyConfig?.allow_web_search && (
-						<div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+						<div className="delay-100 settings-form-group bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
 							<div className="flex items-start gap-3">
 								<AlertTriangle
 									className="text-yellow-400 shrink-0 mt-0.5"
@@ -77,6 +78,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 					label={t("settings.privacy.redact_pii.label")}
 					description={t("settings.privacy.redact_pii.description")}
 					orientation="horizontal"
+					className="delay-200"
 				>
 					<div className="flex items-center gap-3">
 						<Eye className="text-gray-400" size={18} />
