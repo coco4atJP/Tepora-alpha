@@ -131,6 +131,18 @@ class ModelRegistry:
 
         return active
 
+    @property
+    def professional_model_map(self) -> dict[str, str]:
+        """Legacy V2 map of professional roles to model IDs."""
+        professional_map: dict[str, str] = {}
+        for role_key, model_id in self.roles.items():
+            if role_key == "professional":
+                professional_map["default"] = model_id
+            elif role_key.startswith("professional:"):
+                task = role_key.split(":", 1)[1]
+                professional_map[task] = model_id
+        return professional_map
+
 
 # 進捗コールバック型（download パッケージと共有）
 @dataclass

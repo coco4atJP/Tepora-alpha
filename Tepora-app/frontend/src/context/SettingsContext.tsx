@@ -148,18 +148,24 @@ export const SettingsContext = createContext<SettingsContextValue | null>(null);
 // ============================================================================
 
 function normalizeConfig(data: Config): Config {
-	if (!data.models_gguf || data.models_gguf.text_model) {
+	if (!data.models_gguf) {
 		return data;
 	}
 
 	const modelsGguf = { ...data.models_gguf } as Record<string, unknown>;
-	const legacyChar = modelsGguf.character_model as ModelConfig | undefined;
+	const legacyCharacter = modelsGguf.character_model as ModelConfig | undefined;
+	const legacyProfessional = modelsGguf.professional as ModelConfig | undefined;
+	const legacyTextSource = legacyCharacter ?? legacyProfessional;
+	const hasTextModel = "text_model" in modelsGguf;
 
-	const textModel = legacyChar;
-	if (!textModel) {
-		return data;
+	if (legacyTextSource && !hasTextModel) {
+		modelsGguf.text_model = legacyTextSource;
 	}
-	modelsGguf.text_model = textModel;
+
+	if (legacyCharacter || legacyProfessional) {
+		delete modelsGguf.character_model;
+		delete modelsGguf.professional;
+	}
 
 	return {
 		...data,
