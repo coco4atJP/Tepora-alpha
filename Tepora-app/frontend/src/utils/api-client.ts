@@ -22,13 +22,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
 			errorData = { message: response.statusText };
 		}
 
+		const errorPayload =
+			typeof errorData === "object" && errorData !== null
+				? (errorData as {
+						message?: unknown;
+						error?: unknown;
+						detail?: unknown;
+					})
+				: null;
 		const message =
-			typeof errorData === "object" &&
-			errorData !== null &&
-			"message" in errorData &&
-			typeof (errorData as { message?: unknown }).message === "string"
-				? (errorData as { message: string }).message
-				: response.statusText || "API request failed";
+			(typeof errorPayload?.message === "string" && errorPayload.message) ||
+			(typeof errorPayload?.error === "string" && errorPayload.error) ||
+			(typeof errorPayload?.detail === "string" && errorPayload.detail) ||
+			response.statusText ||
+			"API request failed";
 
 		throw new ApiError(message, response.status, errorData);
 	}
