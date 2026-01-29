@@ -69,7 +69,6 @@ const createMockSettings = (
 				system_prompt: "You are a friendly barista.",
 			},
 		},
-		professionals: {},
 		active_agent_profile: activeProfile,
 		tools: {
 			google_search_api_key: "",
@@ -96,9 +95,6 @@ const createMockSettings = (
 	updateCharacter: vi.fn(),
 	addCharacter: vi.fn(),
 	deleteCharacter: vi.fn(),
-	updateProfessional: vi.fn(),
-	addProfessional: vi.fn(),
-	deleteProfessional: vi.fn(),
 	updateCustomAgent: vi.fn(),
 	addCustomAgent: vi.fn(),
 	deleteCustomAgent: vi.fn(),

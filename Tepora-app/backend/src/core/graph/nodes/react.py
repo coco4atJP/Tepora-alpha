@@ -193,24 +193,19 @@ class ReActNodes:
             state["agent_scratchpad"] = []
 
         # Build hierarchical prompt (EM-LLM compliant)
-        # 1. Attention sink
         attention_sink_prefix = PROFESSIONAL_ATTENTION_SINK
 
-        # 2. System prompt
         tools_str = config.format_tools_for_react_prompt(self.tool_manager.tools)
         system_prompt = config.BASE_SYSTEM_PROMPTS["react_professional"].replace(
             "{tools}", tools_str
         )
 
-        # 3. Order
         order_plan_str = self._build_order_plan(state)
 
-        # 4. Long-term memory (retrieved from EM-LLM)
         long_term_memory_str = state.get(
             "synthesized_memory", "No relevant long-term memories found."
         )
 
-        # 5. Short-term memory (ReAct loop work history)
         short_term_memory_str = format_scratchpad(state["agent_scratchpad"])
 
         # Build prompt template

@@ -159,16 +159,6 @@ class CharacterConfig(BaseModel):
     model_config = {"extra": "ignore"}
 
 
-class ProfessionalConfig(BaseModel):
-    name: str
-    description: str = ""
-    system_prompt: str
-    tools: list[str] = []
-    model_config_name: str | None = None
-
-    model_config = {"extra": "ignore"}
-
-
 class CustomAgentToolPolicy(BaseModel):
     """カスタムエージェント用ツールポリシー"""
 
@@ -461,7 +451,6 @@ class TeporaSettings(BaseSettings):
     characters: dict[str, CharacterConfig] = Field(
         default_factory=lambda: DEFAULT_CHARACTERS.copy()
     )
-    professionals: dict[str, ProfessionalConfig] = Field(default_factory=dict)
 
     # Custom Agents (GPTs/Gems-style user-defined agents)
     custom_agents: dict[str, CustomAgentConfig] = Field(default_factory=dict)

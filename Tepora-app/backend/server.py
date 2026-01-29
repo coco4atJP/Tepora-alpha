@@ -100,7 +100,6 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    # 1. Early Port Allocation
     # Bind a socket immediately to get a port and print it to stdout so the Sidecar can see it ASAP
     # This prevents timeouts if create_app() takes a long time (e.g. model loading)
     port = int(os.getenv("PORT", "0"))
@@ -120,7 +119,6 @@ if __name__ == "__main__":
     # Keeping the socket open prevents other processes from claiming the port
     # while create_app() is initializing (which can take significant time for model loading).
 
-    # 2. App Initialization (Heavy Lift)
     try:
         # Lazy import to allow port to be printed ASAP
         from src.tepora_server.app_factory import create_app
@@ -132,7 +130,6 @@ if __name__ == "__main__":
         logging.critical(f"Failed to create app: {e}", exc_info=True)
         sys.exit(1)
 
-    # 3. Start Server using the pre-bound socket
     # Pass only the file descriptor to uvicorn - do NOT specify host/port when using fd
     # as that would cause uvicorn to attempt rebinding which conflicts with our socket
     fd = sock.fileno()

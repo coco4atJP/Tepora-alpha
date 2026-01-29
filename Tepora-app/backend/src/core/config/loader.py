@@ -23,16 +23,13 @@ def _find_project_root() -> Path:
     3. Search for pyproject.toml from current file upwards.
     4. Fixed relative path from this file (fallback).
     """
-    # 1. Environment Variable Override
     env_root = os.getenv("TEPORA_ROOT")
     if env_root:
         return Path(env_root).resolve()
 
-    # 2. Frozen/PyInstaller environment
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
 
-    # 3. Search for pyproject.toml from this file upwards (robust method)
     current = Path(__file__).resolve().parent
     for _ in range(10):  # Max 10 levels up to prevent infinite loop
         if (current / "pyproject.toml").exists():
@@ -41,7 +38,6 @@ def _find_project_root() -> Path:
             break
         current = current.parent
 
-    # 4. Fixed relative path fallback (src/core/config/loader.py -> backend)
     # backend/src/core/config/loader.py -> parents[3] is backend
     try:
         relative_root = Path(__file__).resolve().parents[3]
@@ -151,9 +147,6 @@ class ConfigManager:
 
         # Determine config path
         # Priority:
-        # 1. TEPORA_CONFIG_PATH env var
-        # 2. USER_DATA_DIR / config.yml
-        # 3. PROJECT_ROOT / config.yml (Fallback)
 
         env_config = os.getenv("TEPORA_CONFIG_PATH")
         if env_config:

@@ -41,11 +41,9 @@ class TestSecurityUtils:
         safe_file = base / "test.log"
         safe_file.touch()
 
-        # 1. Valid access
         resolved = SecurityUtils.safe_path_join(base, "test.log")
         assert resolved == safe_file
 
-        # 2. Traversal
         with pytest.raises(ValueError):
             SecurityUtils.safe_path_join(base, "../outside.txt")
 

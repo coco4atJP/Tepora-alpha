@@ -147,14 +147,11 @@ class EMLLMIntegrator:
                 )
                 return []
 
-            # 1. Calculate surprise scores
             surprise_scores = self.segmenter.calculate_surprise_from_logprobs(normalized_entries)
             tokens = [item["token"] for item in normalized_entries]
 
-            # 2. Identify boundaries based on surprise
             boundaries = self.segmenter._identify_event_boundaries(surprise_scores)
 
-            # 3. Build events from boundaries
             events = []
             for i in range(len(boundaries) - 1):
                 start, end = boundaries[i], boundaries[i + 1]

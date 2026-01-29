@@ -159,14 +159,6 @@ export interface CharacterConfig {
 	model_config_name?: string;
 }
 
-export interface ProfessionalConfig {
-	name: string;
-	description: string;
-	system_prompt: string;
-	tools: string[];
-	model_config_name?: string;
-}
-
 // Custom Agent Types (GPTs/Gems-style)
 export interface CustomAgentToolPolicy {
 	allowed_tools: string[];

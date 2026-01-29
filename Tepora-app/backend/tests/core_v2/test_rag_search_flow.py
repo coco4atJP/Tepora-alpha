@@ -320,11 +320,9 @@ class TestRAGSearchGoldenFlow:
         from src.core.graph import create_initial_state
         from src.core.rag import DocumentSource, RAGContextBuilder, RAGEngine, SourceManager
 
-        # 1. Create session resources
         session_id = "test-session-123"
         source_manager = SourceManager()
 
-        # 2. Add dummy PDF source
         doc = DocumentSource(
             source_id="pdf-1",
             session_id=session_id,
@@ -345,7 +343,6 @@ class TestRAGSearchGoldenFlow:
         assert len(sources) == 1
         assert sources[0].name == "test_document.pdf"
 
-        # 3. Create state for search mode
         state = create_initial_state(
             session_id=session_id,
             user_input="What are the key features of Tepora?",
@@ -355,7 +352,6 @@ class TestRAGSearchGoldenFlow:
         assert state["session_id"] == session_id
         assert state["mode"] == "search"
 
-        # 4. Collect RAG chunks from the source
         rag_engine = RAGEngine()
         attachments = [{"name": doc.name, "content": doc.content, "path": doc.name}]
 
@@ -367,7 +363,6 @@ class TestRAGSearchGoldenFlow:
         assert len(chunk_texts) > 0, "Should have chunks from document"
         assert any("test_document.pdf" in src for src in chunk_sources)
 
-        # 5. Build RAG context with mock embeddings
         context_builder = RAGContextBuilder(top_k=3)
 
         mock_embedding = MagicMock()
@@ -384,7 +379,6 @@ class TestRAGSearchGoldenFlow:
             embedding_model=mock_embedding,
         )
 
-        # 6. Verify answer cites the source
         assert "[Source:" in rag_context, "RAG context should include source citations"
         assert "file:" in rag_context, "Should cite file source"
 

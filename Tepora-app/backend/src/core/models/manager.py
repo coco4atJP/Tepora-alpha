@@ -331,7 +331,6 @@ class ModelManager:
         models: list[ModelInfo] = []
         roles: dict[str, str] = {}
 
-        # 1. Models Migration
         for entry in data.get("models", []):
             try:
                 # Map Role -> Modality
@@ -375,7 +374,6 @@ class ModelManager:
             except Exception:
                 logger.warning("Migration failed for entry: %s", entry)
 
-        # 2. Roles Migration
         # character_model_id
         char_id = data.get("character_model_id")
         if char_id:
@@ -541,12 +539,6 @@ class ModelManager:
             role_key = "embedding"
 
         mid = self.get_assigned_model_id(role_key)
-        if not mid and modality == ModelModality.TEXT:
-            # Fallback to professional
-            mid = self.get_assigned_model_id("professional")
-            # If still None, check legacy executor key (should be migrated, but just in case)
-            if not mid:
-                mid = self.get_assigned_model_id("executor")
         return self.get_model(mid) if mid else None
 
     def get_model_path(self, pool: Any) -> Path | None:
@@ -637,21 +629,6 @@ class ModelManager:
     def set_character_model(self, model_id: str) -> bool:
         return self.set_role_model("character", model_id)
 
-    def set_professional_model(self, task_type: str, model_id: str) -> bool:
-        key = "professional" if task_type == "default" else f"professional:{task_type}"
-        return self.set_role_model(key, model_id)
-
-    def remove_professional_model(self, task_type: str) -> bool:
-        if task_type == "default":
-            return False
-        key = f"professional:{task_type}"
-        self._registry = self.registry
-        if key not in self._registry.roles:
-            return False
-        del self._registry.roles[key]
-        self._save_registry(self._registry)
-        return True
-
     def check_huggingface_update(
         self,
         repo_id: str,
@@ -732,7 +709,6 @@ class ModelManager:
             # Classification Logic
             modality = ModelModality.TEXT
 
-            # 1. Embedding Check
             # Families: bert, nomic-bert
             # Name: embed (heuristic)
             is_embedding = False
@@ -746,7 +722,6 @@ class ModelManager:
             if is_embedding:
                 modality = ModelModality.EMBEDDING
 
-            # 2. Vision Check
             if not is_embedding:
                 # Families: clip, mllama
                 # Capabilities: vision (if provided by newer Ollama versions)
@@ -761,7 +736,6 @@ class ModelManager:
                 if is_vision:
                     modality = ModelModality.VISION
 
-            # 3. Filtering / Safety Check
             # If we detect families that are purely image generation (e.g. latent-diffusion not supported by our current UI)
             # or if it seems to be a tool/adapter only?
             # For now, we assume if it's in `ollama list`, it's runnable.
@@ -849,10 +823,6 @@ class ModelManager:
     def get_character_model_id(self) -> str | None:
         return self.get_assigned_model_id("character")
 
-    def get_professional_model_id(self, task_type: str = "default") -> str | None:
-        key = "professional" if task_type == "default" else f"professional:{task_type}"
-        return self.registry.roles.get(key)
-
     def get_character_model_path(self) -> Path | None:
         mid = self.get_character_model_id()
         if not mid:
@@ -861,18 +831,6 @@ class ModelManager:
         if m and m.loader == ModelLoader.LLAMA_CPP:
             return Path(m.path)
         return None
-
-    def get_professional_model_path(self, task_type: str = "default") -> Path | None:
-        mid = self.get_professional_model_id(task_type)
-        if not mid:
-            return None
-        m = self.get_model(mid)
-        if m and m.loader == ModelLoader.LLAMA_CPP:
-            return Path(m.path)
-        return None
-
-    def get_executor_model_path(self, task_type: str = "default") -> Path | None:
-        return self.get_professional_model_path(task_type)
 
     # -------------------------------------------------------------------------
     # HuggingFace Integration

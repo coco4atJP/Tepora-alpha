@@ -325,7 +325,6 @@ class DownloadManager:
             install_binary = False
             logger.info("Loader is ollama, skipping binary installation.")
 
-        # 1. バイナリのインストール
         if install_binary:
             self._emit_progress(
                 ProgressEvent(
@@ -349,7 +348,6 @@ class DownloadManager:
                 else:
                     errors.append(f"Binary installation failed: {result.error_message}")
 
-        # 2. デフォルトモデルのダウンロード
         if download_default_models:
             # ターゲットモデルリストの構築
             # 引数 target_models があればそれを優先。
@@ -457,10 +455,6 @@ class DownloadManager:
     def get_character_model_path(self) -> Path | None:
         """キャラクターモデルのパスを取得"""
         return self.model_manager.get_character_model_path()
-
-    def get_executor_model_path(self, task_type: str = "default") -> Path | None:
-        """エグゼキューターモデルのパスを取得"""
-        return self.model_manager.get_executor_model_path(task_type)
 
     def get_disk_free_space(self, path: Path | None = None) -> int:
         """

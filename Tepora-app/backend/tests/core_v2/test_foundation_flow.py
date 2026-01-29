@@ -314,32 +314,25 @@ class TestFoundationGoldenFlow:
 
         This is the Phase 1 acceptance criteria test.
         """
-        # 1. Load settings (verify core/config is importable)
         from src.core.config import settings
 
         assert settings is not None
 
-        # 2. Prepare ToolProvider
         provider = MockToolProvider()
 
-        # 3. Initialize TeporaApp
         config = TeporaAppConfig(
             tool_providers=[provider],
             tool_timeout=10,
         )
 
         async with TeporaApp(config=config) as app:
-            # 4. Verify ToolManager is initialized
             assert app.tool_manager is not None
             assert len(app.tool_manager.tools) > 0
 
-            # 5. Execute tool
             result = await app.execute_tool("mock_tool", {"query": "golden flow test"})
             assert "mock" in str(result).lower() or "golden flow test" in str(result)
 
-            # 6. Session management
             resources = app.session_manager.get_session_resources("golden-test")
             assert resources.session_id == "golden-test"
 
-        # 7. Verify cleanup
         assert not app.is_initialized

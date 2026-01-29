@@ -43,24 +43,19 @@ def test_websocket_contract():
     This ensures that backend changes don't silently break frontend assumptions.
     """
 
-    # 1. Chunk
     chunk_data = {"type": "chunk", "text": "Hello"}
     assert ChunkMessage(**chunk_data).text == "Hello"
 
-    # 2. Done
     done_data = {"type": "done"}
     assert DoneMessage(**done_data).type == "done"
 
-    # 3. Stats
     stats_data = {"type": "stats", "token_count": 100, "processing_time": 1.5, "model": "gpt-4"}
     stats = StatsMessage(**stats_data)
     assert stats.token_count == 100
 
-    # 4. Activity
     activity_data = {"type": "activity", "content": "Thinking..."}
     assert ActivityMessage(**activity_data).content == "Thinking..."
 
-    # 5. Search Results
     search_data = {
         "type": "search_results",
         "results": [{"title": "Test", "url": "http://example.com", "snippet": "content"}],

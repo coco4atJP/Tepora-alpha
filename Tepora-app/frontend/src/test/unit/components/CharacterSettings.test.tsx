@@ -13,7 +13,6 @@ vi.mock("lucide-react", () => ({
 	X: () => <span data-testid="icon-close" />,
 	Save: () => <span data-testid="icon-save" />,
 	Bot: () => <span data-testid="icon-bot" />,
-	Briefcase: () => <span data-testid="icon-briefcase" />,
 	ChevronDown: () => <span data-testid="icon-chevron-down" />,
 	ChevronRight: () => <span data-testid="icon-chevron-right" />,
 	HelpCircle: () => <span data-testid="icon-help-circle" />,
@@ -56,10 +55,6 @@ describe("CharacterSettings", () => {
 		onSetActive: vi.fn(),
 		onAddProfile: vi.fn(),
 		onDeleteProfile: vi.fn(),
-		professionals: {},
-		onUpdateProfessional: vi.fn(),
-		onAddProfessional: vi.fn(),
-		onDeleteProfessional: vi.fn(),
 	};
 
 	it("renders character profiles", () => {

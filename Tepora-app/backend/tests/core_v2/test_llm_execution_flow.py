@@ -264,24 +264,19 @@ class TestLLMExecutionGoldenFlow:
             mock_client.ainvoke = AsyncMock(return_value="Mock LLM response")
             mock_client_factory.create_chat_client.return_value = mock_client
 
-            # 1. Initialize LLMService (stateless)
             service = LLMService(model_manager=mock_model_manager)
 
             # Verify stateless design
             assert not hasattr(service, "_current_model_key")
 
-            # 2. Get client for role
             client = await service.get_client("character")
             assert client is not None
 
-            # 3. Send "Hello" prompt
             response = await client.ainvoke("Hello")
             assert "Mock" in str(response)
 
-            # 4. Verify runner was called correctly
             mock_runner.start.assert_called_once()
 
-            # 5. Cleanup
             service.cleanup()
             mock_runner.cleanup.assert_called_once()
 

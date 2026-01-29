@@ -14,9 +14,7 @@ from .types import (
     DownloadResult,
     DownloadStatus,
     InstallResult,
-    ModelInfo,
     ModelPool,
-    ModelRegistry,
     ModelRole,  # 後方互換エイリアス
     ProgressCallback,
     ProgressEvent,
@@ -42,8 +40,6 @@ __all__ = [
     "ProgressEvent",
     "BinaryVersionInfo",
     "UpdateInfo",
-    "ModelInfo",
-    "ModelRegistry",
     "BinaryRegistry",
     "RequirementsStatus",
     "DownloadResult",

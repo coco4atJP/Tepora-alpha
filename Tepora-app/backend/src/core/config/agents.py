@@ -17,28 +17,28 @@ _active_profile_override: str | None = None
 
 def _get_profiles() -> dict[str, Any]:
     """
-    Return dict of all profiles (merged characters and professionals).
+    Return dict of all profiles (merged characters and custom agents).
     If a key exists in both, character takes precedence (though keys should ideally be unique).
     """
     profiles = {}
-    if settings.professionals:
-        profiles.update({k: v.model_dump() for k, v in settings.professionals.items()})
+    if settings.custom_agents:
+        profiles.update({k: v.model_dump() for k, v in settings.custom_agents.items()})
     if settings.characters:
         profiles.update({k: v.model_dump() for k, v in settings.characters.items()})
     return profiles
 
 
 def get_agent_profile(name: str) -> dict | None:
-    """Return the configuration for a single agent profile (Character or Professional)."""
+    """Return the configuration for a single agent profile (Character or Custom Agent)."""
     # Try Character first
     char = settings.characters.get(name)
     if char:
         return dict(char.model_dump())
 
-    # Then Professional
-    prof = settings.professionals.get(name)
-    if prof:
-        return dict(prof.model_dump())
+    # Then Custom Agent
+    agent = settings.custom_agents.get(name)
+    if agent:
+        return dict(agent.model_dump())
 
     return None
 
@@ -48,8 +48,8 @@ def get_agent_profile_names() -> list[str]:
     keys = set()
     if settings.characters:
         keys.update(settings.characters.keys())
-    if settings.professionals:
-        keys.update(settings.professionals.keys())
+    if settings.custom_agents:
+        keys.update(settings.custom_agents.keys())
     return list(keys)
 
 
@@ -72,7 +72,7 @@ def set_active_agent_profile(name: str) -> None:
 
     # Check if exists in either
     if (settings.characters and name in settings.characters) or (
-        settings.professionals and name in settings.professionals
+        settings.custom_agents and name in settings.custom_agents
     ):
         _active_profile_override = name
         logger.info("Active agent profile set to: %s", name)
@@ -85,25 +85,33 @@ def set_active_agent_profile(name: str) -> None:
 def filter_tools_for_profile(tools: list[BaseTool], profile_name: str) -> list[BaseTool]:
     """
     Filter a list of tools based on the profile type.
-    - Characters: Access to all tools (default behavior for now).
-    - Professionals: Access ONLY to tools listed in 'tools' config.
+    - Characters: Access to all tools (default behavior).
+    - Custom Agents: Follow tool_policy.
     """
-    # Check Professional first (strict tool usage)
-    prof = settings.professionals.get(profile_name) if settings.professionals else None
-    if prof:
-        allowed_names = set(prof.tools)
-        return [tool for tool in tools if tool.name in allowed_names]
+    # Check Custom Agent
+    agent = settings.custom_agents.get(profile_name) if settings.custom_agents else None
+    if agent and agent.tool_policy:
+        allowed = set(agent.tool_policy.allowed_tools)
+        denied = set(agent.tool_policy.denied_tools)
 
-    # Check Character
+        filtered = []
+        for tool in tools:
+            # Deny list takes precedence
+            if tool.name in denied:
+                continue
+
+            # Allow list ('*' means all)
+            if '*' in allowed or tool.name in allowed:
+                filtered.append(tool)
+
+        return filtered
+
+    # Check Character (or fallback)
     char = settings.characters.get(profile_name) if settings.characters else None
     if char:
-        # Characters generally delegate to professionals or use basic tools.
-        # For legacy compatibility, we allow all tools for characters unless we define a policy.
-        # Future: Add allow/deny lists to CharacterConfig if needed.
+        # Characters typically have access to all tools unless restricted in future
         return tools
 
-    # Profile not found? Log warning and return empty or all?
-    # Safer to return all for backward compat during migration, or empty for security.
-    # Given we removed 'agent_profiles', let's return all to avoid breaking everything if key is missing.
+    # Profile not found
     logger.warning("Profile '%s' not found for tool filtering. Returning all tools.", profile_name)
     return tools
