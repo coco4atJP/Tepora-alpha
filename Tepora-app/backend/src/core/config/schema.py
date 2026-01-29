@@ -469,17 +469,28 @@ class TeporaSettings(BaseSettings):
 
     @field_validator("models_gguf", mode="before")
     @classmethod
-    def migrate_legacy_professional_config(cls, v: Any) -> Any:
+    def migrate_legacy_model_configs(cls, v: Any) -> Any:
         """
-        Migrate legacy 'professional' key in models_gguf to 'text_model'.
-        If 'text_model' is missing but 'professional' exists, rename it.
+        Migrate legacy keys ('professional', 'character_model') in models_gguf to 'text_model'.
+        Prioritizes 'character_model', then 'professional'.
+        Removes legacy keys to prevent them from persisting.
         """
         if isinstance(v, dict):
-            if "professional" in v and "text_model" not in v:
-                v["text_model"] = v["professional"]
-            # We can leave 'professional' there or remove it; pydantic extra="ignore" handles it if not defined
-            # But since ModelGGUFConfig allows extra, we might end up with both.
-            # To be clean, we can copy it.
+            # 1. Identify potential legacy text model source
+            legacy_text_source = None
+            if "character_model" in v:
+                legacy_text_source = v["character_model"]
+            elif "professional" in v:
+                legacy_text_source = v["professional"]
+
+            # 2. Assign to 'text_model' if not already present
+            if legacy_text_source and "text_model" not in v:
+                v["text_model"] = legacy_text_source
+
+            # 3. Clean up legacy keys to avoid confusion or shadowing
+            v.pop("character_model", None)
+            v.pop("professional", None)
+
         return v
 
     @field_validator("characters", mode="before")
