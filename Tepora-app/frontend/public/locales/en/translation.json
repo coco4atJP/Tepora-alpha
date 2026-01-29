@@ -77,6 +77,7 @@
 		"unknownError": "An unknown error occurred.",
 		"connectionErrorTitle": "Connection Error",
 		"retryButton": "Retry Connection",
+		"viewLogsButton": "View Logs",
 		"troubleshootHint": "Make sure the backend server is running on the expected port."
 	},
 	"logs": {
