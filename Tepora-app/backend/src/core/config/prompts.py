@@ -222,10 +222,16 @@ def get_persona_prompt_for_profile(
     character = settings.characters.get(active_key)
 
     if not character:
-        # Fallback check: is it a professional? (For future compatibility)
-        professional = settings.professionals.get(active_key)
-        if professional:
-            return professional.system_prompt, active_key
+        # Fallback check: is it a custom agent?
+        custom_agent = settings.custom_agents.get(active_key)
+        if custom_agent:
+            return custom_agent.system_prompt, active_key
+
+        # Legacy fallback check (safe guard)
+        if hasattr(settings, "professionals"):
+            professional = settings.professionals.get(active_key)
+            if professional:
+                return professional.system_prompt, active_key
 
         # Strict error handling as requested
         raise ValueError(f"Active agent profile '{active_key}' not found in configuration.")
