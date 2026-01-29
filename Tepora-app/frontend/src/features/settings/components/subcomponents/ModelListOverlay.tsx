@@ -136,8 +136,8 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 							onClick={handleCheckUpdates}
 							disabled={isChecking}
 							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isChecking
-									? "bg-white/5 text-gray-500 cursor-not-allowed"
-									: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
+								? "bg-white/5 text-gray-500 cursor-not-allowed"
+								: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
 								}`}
 						>
 							<RefreshCw
@@ -152,7 +152,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 							type="button"
 							onClick={onClose}
 							className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-							aria-label="Close"
+							aria-label={t("common.aria.close")}
 						>
 							<X size={20} />
 						</button>
@@ -166,8 +166,8 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 							key={role}
 							onClick={() => setActiveTab(role)}
 							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${activeTab === role
-									? "text-gold-400 border-gold-400"
-									: "text-gray-500 border-transparent hover:text-gray-300"
+								? "text-gold-400 border-gold-400"
+								: "text-gray-500 border-transparent hover:text-gray-300"
 								}`}
 						>
 							{role.charAt(0).toUpperCase() + role.slice(1)} (
@@ -244,7 +244,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										onClick={() => move(index, "up")}
 										disabled={index === 0}
 										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white transition-colors"
-										aria-label="Move up"
+										aria-label={t("common.aria.move_up")}
 									>
 										<ArrowUp size={16} />
 									</button>
@@ -253,7 +253,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										onClick={() => move(index, "down")}
 										disabled={index === filteredModels.length - 1}
 										className="p-2 hover:bg-white/10 rounded-full disabled:opacity-30 text-gray-400 hover:text-white transition-colors"
-										aria-label="Move down"
+										aria-label={t("common.aria.move_down")}
 									>
 										<ArrowDown size={16} />
 									</button>
@@ -262,7 +262,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 										type="button"
 										onClick={() => onDelete(model.id)}
 										className="p-2 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-full transition-colors"
-										aria-label="Delete model"
+										aria-label={t("common.aria.delete")}
 									>
 										<Trash2 size={16} />
 									</button>

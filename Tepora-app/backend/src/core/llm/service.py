@@ -314,8 +314,9 @@ class LLMService:
         """Internal load logic"""
 
         # Evict if full
-        if len(self._chat_model_cache) >= self._cache_size:
-            await self._evict_oldest_model()
+        async with self._cache_lock:
+            if len(self._chat_model_cache) >= self._cache_size:
+                await self._evict_oldest_model_locked()
 
         runner = self._get_runner(model_info.loader)
 
@@ -365,11 +366,18 @@ class LLMService:
         client = self._client_factory.create_chat_client(
             client_model_key, base_url, model_info.config
         )
-        self._chat_model_cache[model_info.id] = client
+        async with self._cache_lock:
+            self._chat_model_cache[model_info.id] = client
+            while len(self._chat_model_cache) > self._cache_size:
+                await self._evict_oldest_model_locked()
         logger.info("Chat model loaded: %s via %s", model_info.id, model_info.loader)
         return client
 
     async def _evict_oldest_model(self) -> None:
+        async with self._cache_lock:
+            await self._evict_oldest_model_locked()
+
+    async def _evict_oldest_model_locked(self) -> None:
         if not self._chat_model_cache:
             return
 

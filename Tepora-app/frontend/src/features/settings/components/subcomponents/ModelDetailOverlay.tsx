@@ -80,7 +80,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 						type="button"
 						onClick={onClose}
 						className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-						aria-label="Close"
+						aria-label={t("common.aria.close")}
 					>
 						<X size={20} />
 					</button>

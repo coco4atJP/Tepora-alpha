@@ -23,6 +23,7 @@
 		"downloading": "正在下载...",
 		"steps": {
 			"language": "选择语言",
+			"select_language": "选择语言",
 			"binary": "推理引擎 (llama.cpp)",
 			"models": "模型"
 		},
@@ -32,6 +33,9 @@
 			"outdated": "可用更新",
 			"installed": "已安装",
 			"not_downloaded": "未下载"
+		},
+		"accessibility": {
+			"progress": "进度"
 		},
 		"download_warning_title": "确认模型下载",
 		"download_warning_desc": "某些模型不在允许列表中。请查看警告并确认继续。",
@@ -146,7 +150,16 @@
 		"yesterday": "昨天",
 		"daysAgo": "{{count}}天前",
 		"confirm": "确认",
-		"delete": "删除"
+		"delete": "删除",
+		"aria": {
+			"close": "关闭",
+			"move_up": "上移",
+			"move_down": "下移",
+			"delete": "删除",
+			"add_item": "添加项",
+			"remove_item": "移除项",
+			"cancel": "取消"
+		}
 	},
 	"chat": {
 		"clear_history": "清除历史记录",
@@ -165,6 +178,9 @@
 			"system_ready": "系统就绪",
 			"system_ready_hint": "请选择一个模式开始",
 			"disconnected": "已断开连接",
+			"status": {
+				"thinking": "思考过程"
+			},
 			"web_search": "网络搜索",
 			"web_search_toggle": "网页搜索: {{state}}",
 			"attach_file": "附加文件",
@@ -232,6 +248,9 @@
 	"settings": {
 		"title": "设置",
 		"subtitle": "管理 AI 配置",
+		"appearance": {
+			"title": "外观"
+		},
 		"confirm_discard": "有未保存的更改。要放弃吗？",
 		"toast": {
 			"save_success": "设置已保存！",

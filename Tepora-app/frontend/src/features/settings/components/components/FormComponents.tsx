@@ -5,6 +5,7 @@ import { ChevronDown, HelpCircle, Plus, Trash2 } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 
 // ============================================================================
 // FormGroup
@@ -287,6 +288,7 @@ export const FormList: React.FC<FormListProps> = ({
 	onChange,
 	placeholder = "Add item...",
 }) => {
+	const { t } = useTranslation();
 	const [newItem, setNewItem] = useState("");
 
 	const handleAdd = () => {
@@ -318,7 +320,7 @@ export const FormList: React.FC<FormListProps> = ({
 							type="button"
 							onClick={() => handleRemove(index)}
 							className="settings-list__item-remove"
-							aria-label="Remove item"
+							aria-label={t("common.aria.remove_item")}
 						>
 							<Trash2 size={14} />
 						</button>
@@ -338,7 +340,7 @@ export const FormList: React.FC<FormListProps> = ({
 					type="button"
 					onClick={handleAdd}
 					className="settings-list__add-button"
-					aria-label="Add item"
+					aria-label={t("common.aria.add_item")}
 				>
 					<Plus size={16} />
 				</button>

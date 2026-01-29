@@ -389,8 +389,12 @@ class TeporaApp:
         from pathlib import Path
 
         if not self._model_manager:
-            self._model_manager = ModelManager(models_dir=Path(core_config.MODEL_BASE_PATH))
-            logger.debug("ModelManager initialized.")
+            if self._download_manager is not None:
+                self._model_manager = self._download_manager.model_manager
+                logger.debug("ModelManager initialized from DownloadManager.")
+            else:
+                self._model_manager = ModelManager(models_dir=Path(core_config.MODEL_BASE_PATH))
+                logger.debug("ModelManager initialized.")
 
         # LLM Service initialization
         self._llm_service = LLMService(

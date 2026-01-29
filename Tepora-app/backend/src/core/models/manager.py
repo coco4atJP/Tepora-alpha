@@ -12,11 +12,14 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import shutil
+import tempfile
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from threading import RLock
 from typing import Any
 from urllib.parse import urlparse
 
@@ -197,6 +200,7 @@ class ModelManager:
         self._registry: ModelRegistry | None = None
         self._registry_mtime: float | None = None
         self._progress_callbacks: list[ProgressCallback] = []
+        self._registry_lock = RLock()
 
     @staticmethod
     def _coerce_modality(value: Any | None) -> ModelModality:
@@ -403,44 +407,58 @@ class ModelManager:
 
     def _save_registry(self, registry: ModelRegistry) -> None:
         """レジストリを保存 (V3 format)"""
-        self._ensure_dirs()
-        registry_path = self._get_registry_path()
+        with self._registry_lock:
+            self._ensure_dirs()
+            registry_path = self._get_registry_path()
 
-        models_data = []
-        for m in registry.models:
-            models_data.append(
-                {
-                    "id": m.id,
-                    "name": m.name,
-                    "loader": m.loader.value,
-                    "path": m.path,
-                    "modality": m.modality.value,
-                    "description": m.description,
-                    "source": m.source,
-                    "repo_id": m.repo_id,
-                    "filename": m.filename,
-                    "revision": m.revision,
-                    "sha256": m.sha256,
-                    "size_bytes": m.size_bytes,
-                    "added_at": m.added_at.isoformat() if m.added_at else None,
-                    "config": asdict(m.config),
-                }
-            )
+            models_data = []
+            for m in registry.models:
+                models_data.append(
+                    {
+                        "id": m.id,
+                        "name": m.name,
+                        "loader": m.loader.value,
+                        "path": m.path,
+                        "modality": m.modality.value,
+                        "description": m.description,
+                        "source": m.source,
+                        "repo_id": m.repo_id,
+                        "filename": m.filename,
+                        "revision": m.revision,
+                        "sha256": m.sha256,
+                        "size_bytes": m.size_bytes,
+                        "added_at": m.added_at.isoformat() if m.added_at else None,
+                        "config": asdict(m.config),
+                    }
+                )
 
-        data = {"version": 3, "models": models_data, "roles": registry.roles}
+            data = {"version": 3, "models": models_data, "roles": registry.roles}
 
-        with open(registry_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        self._registry_mtime = self._get_registry_mtime()
+            tmp_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    "w", encoding="utf-8", dir=registry_path.parent, delete=False
+                ) as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                    f.flush()
+                    os.fsync(f.fileno())
+                    tmp_path = Path(f.name)
+                os.replace(tmp_path, registry_path)
+            finally:
+                if tmp_path and tmp_path.exists() and tmp_path != registry_path:
+                    tmp_path.unlink(missing_ok=True)
+
+            self._registry_mtime = self._get_registry_mtime()
 
     @property
     def registry(self) -> ModelRegistry:
-        current_mtime = self._get_registry_mtime()
-        if self._registry is None or (
-            self._registry_mtime and current_mtime != self._registry_mtime
-        ):
-            self._registry = self._load_registry()
-        return self._registry
+        with self._registry_lock:
+            current_mtime = self._get_registry_mtime()
+            if self._registry is None or (
+                self._registry_mtime and current_mtime != self._registry_mtime
+            ):
+                self._registry = self._load_registry()
+            return self._registry
 
     def on_progress(self, callback: ProgressCallback) -> None:
         """進捗コールバックを登録"""
@@ -474,28 +492,29 @@ class ModelManager:
 
     def _register_model_info(self, model_info: ModelInfo) -> None:
         """Persist a new model in the registry."""
-        self._registry = self.registry  # ensure loaded
+        with self._registry_lock:
+            self._registry = self.registry  # ensure loaded
 
-        # Update in-place if same ID exists (preserve ordering)
-        for idx, existing in enumerate(self._registry.models):
-            if existing.id == model_info.id:
-                self._registry.models[idx] = model_info
-                break
-        else:
-            self._registry.models.append(model_info)
+            # Update in-place if same ID exists (preserve ordering)
+            for idx, existing in enumerate(self._registry.models):
+                if existing.id == model_info.id:
+                    self._registry.models[idx] = model_info
+                    break
+            else:
+                self._registry.models.append(model_info)
 
-        # Auto-assign roles if first of its kind
-        if model_info.modality == ModelModality.TEXT:
-            if "character" not in self._registry.roles:
-                self._registry.roles["character"] = model_info.id
-                logger.info("Auto-assigned 'character' role to %s", model_info.id)
+            # Auto-assign roles if first of its kind
+            if model_info.modality == ModelModality.TEXT:
+                if "character" not in self._registry.roles:
+                    self._registry.roles["character"] = model_info.id
+                    logger.info("Auto-assigned 'character' role to %s", model_info.id)
 
-        elif model_info.modality == ModelModality.EMBEDDING:
-            if "embedding" not in self._registry.roles:
-                self._registry.roles["embedding"] = model_info.id
-                logger.info("Auto-assigned 'embedding' role to %s", model_info.id)
+            elif model_info.modality == ModelModality.EMBEDDING:
+                if "embedding" not in self._registry.roles:
+                    self._registry.roles["embedding"] = model_info.id
+                    logger.info("Auto-assigned 'embedding' role to %s", model_info.id)
 
-        self._save_registry(self._registry)
+            self._save_registry(self._registry)
 
     # -------------------------------------------------------------------------
     # Public Model Management API
@@ -522,22 +541,23 @@ class ModelManager:
         if not model:
             logger.error("Model ID %s not found", model_id)
             return False
-
-        self._registry = self.registry
-        self._registry.roles[role] = model_id
-        self._save_registry(self._registry)
-        logger.info("Assigned role '%s' to model %s", role, model_id)
-        return True
+        with self._registry_lock:
+            self._registry = self.registry
+            self._registry.roles[role] = model_id
+            self._save_registry(self._registry)
+            logger.info("Assigned role '%s' to model %s", role, model_id)
+            return True
 
     def remove_role_assignment(self, role: str) -> bool:
         """Remove a role assignment"""
-        self._registry = self.registry
-        if role in self._registry.roles:
-            del self._registry.roles[role]
-            self._save_registry(self._registry)
-            logger.info("Removed role assignment '%s'", role)
-            return True
-        return False
+        with self._registry_lock:
+            self._registry = self.registry
+            if role in self._registry.roles:
+                del self._registry.roles[role]
+                self._save_registry(self._registry)
+                logger.info("Removed role assignment '%s'", role)
+                return True
+            return False
 
     def get_active_model(self, pool: Any) -> ModelInfo | None:
         """Legacy helper: return the "active" model for a pool."""
@@ -565,32 +585,33 @@ class ModelManager:
 
     def reorder_models(self, pool: Any, model_ids: list[str]) -> bool:
         """Reorder models within a pool (preserves other pools order)."""
-        modality = self._coerce_modality(pool)
+        with self._registry_lock:
+            modality = self._coerce_modality(pool)
 
-        self._registry = self.registry
-        pool_models = [m for m in self._registry.models if m.modality == modality]
-        if not pool_models:
-            return False
+            self._registry = self.registry
+            pool_models = [m for m in self._registry.models if m.modality == modality]
+            if not pool_models:
+                return False
 
-        pool_model_by_id = {m.id: m for m in pool_models}
-        requested_ids = [mid for mid in model_ids if mid in pool_model_by_id]
-        requested_set = set(requested_ids)
+            pool_model_by_id = {m.id: m for m in pool_models}
+            requested_ids = [mid for mid in model_ids if mid in pool_model_by_id]
+            requested_set = set(requested_ids)
 
-        new_pool_order = [pool_model_by_id[mid] for mid in requested_ids] + [
-            m for m in pool_models if m.id not in requested_set
-        ]
+            new_pool_order = [pool_model_by_id[mid] for mid in requested_ids] + [
+                m for m in pool_models if m.id not in requested_set
+            ]
 
-        replacement_iter = iter(new_pool_order)
-        new_models: list[ModelInfo] = []
-        for m in self._registry.models:
-            if m.modality == modality:
-                new_models.append(next(replacement_iter))
-            else:
-                new_models.append(m)
+            replacement_iter = iter(new_pool_order)
+            new_models: list[ModelInfo] = []
+            for m in self._registry.models:
+                if m.modality == modality:
+                    new_models.append(next(replacement_iter))
+                else:
+                    new_models.append(m)
 
-        self._registry.models = new_models
-        self._save_registry(self._registry)
-        return True
+            self._registry.models = new_models
+            self._save_registry(self._registry)
+            return True
 
     async def register_local_model(
         self,
@@ -817,18 +838,19 @@ class ModelManager:
                     logger.warning("Failed to delete model file: %s", e, exc_info=True)
 
         # Update registry
-        self._registry = self.registry
-        self._registry.models = [m for m in self._registry.models if m.id != model_id]
+        with self._registry_lock:
+            self._registry = self.registry
+            self._registry.models = [m for m in self._registry.models if m.id != model_id]
 
-        # Remove from roles
-        roles_to_remove = [r for r, mid in self._registry.roles.items() if mid == model_id]
-        for r in roles_to_remove:
-            del self._registry.roles[r]
+            # Remove from roles
+            roles_to_remove = [r for r, mid in self._registry.roles.items() if mid == model_id]
+            for r in roles_to_remove:
+                del self._registry.roles[r]
 
-            # Try to auto-fill fallback
-            # (Simplified logic: just leave empty or user must re-assign)
+                # Try to auto-fill fallback
+                # (Simplified logic: just leave empty or user must re-assign)
 
-        self._save_registry(self._registry)
+            self._save_registry(self._registry)
         return True
 
     # -------------------------------------------------------------------------
@@ -850,9 +872,6 @@ class ModelManager:
     # -------------------------------------------------------------------------
     # HuggingFace Integration
     # -------------------------------------------------------------------------
-
-    # ... allowlist methods (omitted / simplified for brevity if unchanged, but I need to keep them) ...
-    # Since I'm overwriting, I should include them.
 
     def _find_allowlist_entry(self, repo_id: str, filename: str) -> object | None:
         try:
@@ -877,11 +896,6 @@ class ModelManager:
             return None
 
     def evaluate_download_policy(self, repo_id: str, filename: str) -> DownloadPolicyDecision:
-        # Simplified for brevity - reuse existing logic structure
-        # In a real implementation I would copy the full logic.
-        # For now I will blindly allow if config fails, or copy logic properly.
-        # I'll paste the previous logic condensed.
-
         try:
             from ..config.loader import settings
 
@@ -913,24 +927,25 @@ class ModelManager:
             o.lower() for o in download_config.allow_repo_owners
         ]
 
+        requires_consent = False
         if owner_allowed:
             warnings.append(f"Owner '{owner}' allowed; consent required.")
             requires_consent = True
         else:
             if download_config.require_allowlist:
                 return DownloadPolicyDecision(False, False, ["Not allowlisted"], None, None)
-            requires_consent = download_config.warn_on_unlisted
-            if requires_consent:
+            if download_config.warn_on_unlisted:
                 warnings.append("Not allowlisted; consent required.")
+                requires_consent = True
 
         if download_config.require_revision or verify_sha256:
             metadata = _fetch_hf_file_metadata(repo_id, filename)
-            if download_config.require_revision and not metadata.get("revision"):
-                return DownloadPolicyDecision(False, False, ["Cannot resolve revision"], None, None)
-            if verify_sha256 and not metadata.get("sha256"):
-                return DownloadPolicyDecision(False, False, ["Cannot resolve sha256"], None, None)
             revision = metadata.get("revision")
             expected_sha256 = metadata.get("sha256") if verify_sha256 else None
+            if download_config.require_revision and not revision:
+                return DownloadPolicyDecision(False, False, ["Cannot resolve revision"], None, None)
+            if verify_sha256 and not expected_sha256:
+                return DownloadPolicyDecision(False, False, ["Cannot resolve sha256"], None, None)
 
         return DownloadPolicyDecision(True, requires_consent, warnings, revision, expected_sha256)
 

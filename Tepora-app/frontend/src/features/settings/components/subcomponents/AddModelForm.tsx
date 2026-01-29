@@ -148,14 +148,12 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 					});
 				} else {
 					alert(
-						t("settings.sections.models.add_modal.dnd_no_path") ||
-						"Cannot resolve file path from Drop. Please use the click-to-browse option.",
+						t("settings.sections.models.add_modal.dnd_no_path"),
 					);
 				}
 			} else {
 				alert(
-					t("settings.sections.models.add_modal.invalid_file") ||
-					"Only .gguf files are supported",
+					t("settings.sections.models.add_modal.invalid_file"),
 				);
 			}
 		}
@@ -181,8 +179,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 				}
 			} else {
 				alert(
-					t("settings.sections.models.add_modal.invalid_file") ||
-					"Only .gguf files are supported",
+					t("settings.sections.models.add_modal.invalid_file"),
 				);
 			}
 		}
@@ -198,8 +195,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			const path = localFile.path;
 			if (!path) {
 				alert(
-					t("settings.sections.models.add_modal.path_required") ||
-					"Cannot resolve file path.",
+					t("settings.sections.models.add_modal.path_required"),
 				);
 				return;
 			}
@@ -271,8 +267,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		setProgressData({
 			progress: 0,
 			message:
-				t("settings.sections.models.add_modal.starting") ||
-				"Starting download...",
+				t("settings.sections.models.add_modal.starting"),
 			current_bytes: 0,
 			total_bytes: 0,
 			speed_bps: 0,
@@ -351,7 +346,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 				<div className="flex items-center gap-2 font-medium text-gold-200">
 					<Database size={18} />
 					<span>
-						{t("settings.sections.models.add_modal.title") || "モデルを追加"}
+						{t("settings.sections.models.add_modal.title")}
 					</span>
 				</div>
 				{isExpanded ? (
@@ -379,10 +374,8 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
 							>
 								{r === "text"
-									? t("settings.sections.models.add_modal.role_text") ||
-									"Text Model"
-									: t("settings.sections.models.add_modal.role_embedding") ||
-									"Embedding Model"}
+									? t("settings.sections.models.add_modal.role_text")
+									: t("settings.sections.models.add_modal.role_embedding")}
 							</button>
 						))}
 					</div>
@@ -395,8 +388,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							className={`flex-1 pb-2 text-sm font-medium transition-colors ${mode === "hf" ? "text-white border-b-2 border-gold-400" : "text-gray-500 hover:text-gray-300"} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
 							onClick={() => setMode("hf")}
 						>
-							{t("settings.sections.models.add_modal.tab_huggingface") ||
-								"Hugging Face"}
+							{t("settings.sections.models.add_modal.tab_huggingface")}
 						</button>
 						<button
 							type="button"
@@ -404,8 +396,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							className={`flex-1 pb-2 text-sm font-medium transition-colors ${mode === "local" ? "text-white border-b-2 border-gold-400" : "text-gray-500 hover:text-gray-300"} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
 							onClick={() => setMode("local")}
 						>
-							{t("settings.sections.models.add_modal.tab_local") ||
-								"Local File"}
+							{t("settings.sections.models.add_modal.tab_local")}
 						</button>
 					</div>
 
@@ -416,8 +407,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									<div className="flex flex-col gap-4">
 										<FormGroup
 											label={
-												t("settings.sections.models.add_modal.repo_id") ||
-												"Repo ID"
+												t("settings.sections.models.add_modal.repo_id")
 											}
 										>
 											<FormInput
@@ -426,15 +416,14 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 												placeholder={
 													t(
 														"settings.sections.models.add_modal.repo_id_placeholder",
-													) || "user/repo"
+													)
 												}
 												className="h-12 text-lg"
 											/>
 										</FormGroup>
 										<FormGroup
 											label={
-												t("settings.sections.models.add_modal.filename") ||
-												"Filename"
+												t("settings.sections.models.add_modal.filename")
 											}
 										>
 											<div className="relative">
@@ -444,7 +433,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 													placeholder={
 														t(
 															"settings.sections.models.add_modal.filename_placeholder",
-														) || "model-Q4_K_M.gguf"
+														)
 													}
 													className="h-12 text-lg"
 												/>
@@ -479,16 +468,14 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 											}`}
 									>
 										<Download size={18} />
-										{t("settings.sections.models.add_modal.download") ||
-											"Download Model"}
+										{t("settings.sections.models.add_modal.download")}
 									</button>
 								</>
 							) : (
 								<div className="space-y-3 bg-white/5 rounded-lg p-4 border border-white/10">
 									<div className="flex justify-between text-xs text-gray-400">
 										<span>
-											{t("settings.sections.models.add_modal.downloading") ||
-												"Downloading..."}
+											{t("settings.sections.models.add_modal.downloading")}
 										</span>
 										<span>
 											{progressData
@@ -552,12 +539,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								<div className="space-y-2">
 									<FileUp size={32} className="mx-auto text-gray-400" />
 									<p className="text-gray-300 font-medium">
-										{t("settings.sections.models.add_modal.drop_zone") ||
-											"Drag & Drop .gguf file here"}
+										{t("settings.sections.models.add_modal.drop_zone")}
 									</p>
 									<p className="text-gray-500 text-xs">
-										{t("settings.sections.models.add_modal.drop_zone_hint") ||
-											"or click to browse"}
+										{t("settings.sections.models.add_modal.drop_zone_hint")}
 									</p>
 								</div>
 							) : (
@@ -578,8 +563,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										}}
 										className="px-6 py-2 bg-gold-500 text-black rounded-lg hover:bg-gold-400 transition-colors font-medium"
 									>
-										{t("settings.sections.models.add_modal.add_local") ||
-											"Register Model"}
+										{t("settings.sections.models.add_modal.add_local")}
 									</button>
 									<button
 										type="button"
@@ -589,7 +573,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										}}
 										className="block mx-auto text-xs text-red-400 hover:text-red-300 mt-2"
 									>
-										{t("common.cancel") || "Cancel"}
+										{t("common.cancel")}
 									</button>
 								</div>
 							)}
@@ -607,14 +591,12 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								<AlertTriangle size={24} className="text-amber-400" />
 							</div>
 							<h3 className="text-lg font-semibold text-white">
-								{t("settings.sections.models.consent_dialog.title") ||
-									"Confirm Download"}
+								{t("settings.sections.models.consent_dialog.title")}
 							</h3>
 						</div>
 
 						<p className="text-gray-300 text-sm mb-4">
-							{t("settings.sections.models.consent_dialog.description") ||
-								"This download requires your confirmation before proceeding:"}
+							{t("settings.sections.models.consent_dialog.description")}
 						</p>
 
 						<div className="bg-black/30 rounded-lg p-3 mb-6 max-h-32 overflow-y-auto">
@@ -638,15 +620,14 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								onClick={handleCancelConsent}
 								className="flex-1 py-2 px-4 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 transition-colors"
 							>
-								{t("common.cancel") || "Cancel"}
+								{t("common.cancel")}
 							</button>
 							<button
 								type="button"
 								onClick={handleConfirmDownload}
 								className="flex-1 py-2 px-4 rounded-lg bg-gold-500 text-black font-medium hover:bg-gold-400 transition-colors"
 							>
-								{t("settings.sections.models.consent_dialog.confirm") ||
-									"Proceed"}
+								{t("settings.sections.models.consent_dialog.confirm")}
 							</button>
 						</div>
 					</div>

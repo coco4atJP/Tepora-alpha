@@ -1,4 +1,5 @@
 import { ChevronRight, Globe } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { LanguageStepProps } from "../types";
 
 const languages = [
@@ -9,13 +10,17 @@ const languages = [
 ] as const;
 
 export default function LanguageStep({ onSelectLanguage }: LanguageStepProps) {
+	const { t } = useTranslation();
+
 	return (
 		<div className="flex flex-col items-center justify-center h-full py-4 space-y-8 animate-slide-up">
 			<div className="text-center space-y-2">
 				<div className="inline-flex items-center justify-center p-3 rounded-full bg-gold-500/10 mb-4 ring-1 ring-gold-500/30">
 					<Globe className="w-8 h-8 text-gold-400" />
 				</div>
-				<h2 className="text-2xl font-medium text-white">Select Language</h2>
+				<h2 className="text-2xl font-medium text-white">
+					{t("setup.steps.select_language")}
+				</h2>
 				<p className="text-gray-400">
 					Choose your preferred language to customize Tepora.
 				</p>

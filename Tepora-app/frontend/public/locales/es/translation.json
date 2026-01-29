@@ -23,6 +23,7 @@
 		"downloading": "Descargando...",
 		"steps": {
 			"language": "Selección de idioma",
+			"select_language": "Seleccionar idioma",
 			"binary": "Motor de inferencia (llama.cpp)",
 			"models": "Modelos"
 		},
@@ -32,6 +33,9 @@
 			"outdated": "Actualización disponible",
 			"installed": "Instalado",
 			"not_downloaded": "No descargado"
+		},
+		"accessibility": {
+			"progress": "Progreso"
 		},
 		"download_warning_title": "Confirmar descarga de modelo",
 		"download_warning_desc": "Algunos modelos no están en la lista de permitidos. Revise las advertencias y confirme para continuar.",
@@ -146,7 +150,16 @@
 		"yesterday": "Ayer",
 		"daysAgo": "Hace {{count}} días",
 		"confirm": "Confirmar",
-		"delete": "Eliminar"
+		"delete": "Eliminar",
+		"aria": {
+			"close": "Cerrar",
+			"move_up": "Mover arriba",
+			"move_down": "Mover abajo",
+			"delete": "Eliminar",
+			"add_item": "Agregar ítem",
+			"remove_item": "Eliminar ítem",
+			"cancel": "Cancelar"
+		}
 	},
 	"chat": {
 		"clear_history": "Borrar historial",
@@ -165,6 +178,9 @@
 			"system_ready": "Sistema listo",
 			"system_ready_hint": "Seleccione un modo del dial para comenzar",
 			"disconnected": "Desconectado",
+			"status": {
+				"thinking": "Proceso de pensamiento"
+			},
 			"web_search": "Búsqueda web",
 			"web_search_toggle": "Búsqueda web: {{state}}",
 			"attach_file": "Adjuntar archivo",
@@ -232,6 +248,9 @@
 	"settings": {
 		"title": "Configuración",
 		"subtitle": "Administrar configuración de IA",
+		"appearance": {
+			"title": "Apariencia"
+		},
 		"confirm_discard": "Tiene cambios sin guardar. ¿Desea descartarlos?",
 		"toast": {
 			"save_success": "¡Configuración guardada correctamente!",

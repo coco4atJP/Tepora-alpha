@@ -23,6 +23,7 @@
 		"downloading": "Downloading...",
 		"steps": {
 			"language": "Language Selection",
+			"select_language": "Select Language",
 			"binary": "Inference Engine (llama.cpp)",
 			"models": "Models"
 		},
@@ -32,6 +33,9 @@
 			"outdated": "Update Available",
 			"installed": "Installed",
 			"not_downloaded": "Not Downloaded"
+		},
+		"accessibility": {
+			"progress": "Progress"
 		},
 		"download_warning_title": "Confirm Model Download",
 		"download_warning_desc": "Some models are not in the allowlist. Please review the warnings and confirm to proceed.",
@@ -146,7 +150,16 @@
 		"yesterday": "Yesterday",
 		"daysAgo": "{{count}} days ago",
 		"confirm": "Confirm",
-		"delete": "Delete"
+		"delete": "Delete",
+		"aria": {
+			"close": "Close",
+			"move_up": "Move up",
+			"move_down": "Move down",
+			"delete": "Delete",
+			"add_item": "Add item",
+			"remove_item": "Remove item",
+			"cancel": "Cancel"
+		}
 	},
 	"chat": {
 		"clear_history": "Clear History",
@@ -165,6 +178,9 @@
 			"system_ready": "System Ready",
 			"system_ready_hint": "Select a mode from the dial to begin",
 			"disconnected": "Disconnected",
+			"status": {
+				"thinking": "Thinking Process"
+			},
 			"web_search": "Web Search",
 			"web_search_toggle": "Web Search: {{state}}",
 			"attach_file": "Attach File",
@@ -232,6 +248,9 @@
 	"settings": {
 		"title": "Settings",
 		"subtitle": "Manage your AI configuration",
+		"appearance": {
+			"title": "Appearance"
+		},
 		"confirm_discard": "You have unsaved changes. Discard them?",
 		"toast": {
 			"save_success": "Settings saved successfully!",

@@ -1,5 +1,6 @@
 import { AlertCircle, Bot, User } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -109,6 +110,7 @@ const MARKDOWN_DEBOUNCE_MS = 150;
 // --- Main Component ---
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+	const { t } = useTranslation();
 	const modeLabel =
 		message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
 
@@ -180,7 +182,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 							<details className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2">
 								<summary className="flex items-center gap-2 px-3 py-2 text-xs font-mono text-gray-400 cursor-pointer hover:bg-white/5 transition-colors select-none">
 									<Bot className="w-3 h-3 text-purple-400" />
-									<span className="opacity-80">Thinking Process</span>
+									<span className="opacity-80">
+										{t("chat.status.thinking") || "Thinking Process"}
+									</span>
 									<div className="flex-1" />
 									<span className="text-[10px] opacity-50 group-open/thinking:hidden">
 										Click to expand

@@ -28,9 +28,9 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 							className="absolute inset-0 w-full h-full -rotate-90"
 							viewBox="0 0 100 100"
 							role="img"
-							aria-label="Progress"
+							aria-label={t("setup.accessibility.progress")}
 						>
-							<title>Progress</title>
+							<title>{t("setup.accessibility.progress")}</title>
 							<circle
 								cx="50"
 								cy="50"

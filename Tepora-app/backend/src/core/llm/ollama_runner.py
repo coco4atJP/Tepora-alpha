@@ -106,7 +106,7 @@ class OllamaRunner:
             Ollama API port (11434)
 
         Raises:
-            RuntimeError: If Ollama is not close or model is missing.
+            RuntimeError: If Ollama is not reachable.
         """
         # Check connectivity
         if not await self._check_connection():
@@ -119,8 +119,7 @@ class OllamaRunner:
         available_models = await self._list_models()
         if model_name not in available_models and f"{model_name}:latest" not in available_models:
             # Try exact match or match with latest tag.
-            # If strictly not found, we warn but maybe don't fail hard if it supports pull-on-demand?
-            # For now, let's fail to ensure safety.
+            # If strictly not found, warn and proceed (Ollama may auto-pull if configured).
             logger.warning(
                 "Model '%s' not found in Ollama list (%s). Attempting to proceed (Ollama might auto-pull if configured)...",
                 model_name,
@@ -149,15 +148,8 @@ class OllamaRunner:
 
     async def _preload_model(self, model_key: str) -> None:
         """Send a dummy request to force model loading."""
-        # We don't actually need to generate.
-        # Just checking /api/show is "loading" metadata, not VRAM.
-        # For now, we trust Start is enough to mark it running, but user requested explicit load.
-        # A 0-token generation might be tricky.
-        # We will skip complex preload for now to avoid side effects, unless user *really* wants it.
-        # User said: "start() 内で明示的にプリロード（例えば /api/load 的な空リクエスト）を行うオプションがないと..."
-        # Ollama has POST /api/chat. sending empty list?
-        # Let's send a request to /api/generate with empty prompt.
-
+        # We don't actually need to generate. A short /api/generate call is enough
+        # to hint Ollama to load the model into memory.
         async with httpx.AsyncClient(timeout=1.0) as client:
             # Just fire a request, ignore result (it might error on empty prompt but load model)
             # Actually, newer Ollama versions load on request.

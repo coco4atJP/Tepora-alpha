@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from pathlib import Path
 
 import httpx
@@ -32,8 +33,11 @@ async def perform_health_check_async(
     timeout_config_key = (
         "embedding_health_check_timeout" if "embedding" in key else "health_check_timeout"
     )
-    max_retries = config.LLAMA_CPP_CONFIG.get(timeout_config_key, 20)
-    retry_interval = config.LLAMA_CPP_CONFIG.get("health_check_interval", 1.0)
+    timeout_seconds = float(config.LLAMA_CPP_CONFIG.get(timeout_config_key, 20))
+    retry_interval = float(config.LLAMA_CPP_CONFIG.get("health_check_interval", 1.0))
+    if retry_interval <= 0:
+        retry_interval = 1.0
+    max_retries = max(1, int(math.ceil(timeout_seconds / retry_interval)))
 
     logger.info("Performing health check for '%s' on %s", key, health_check_url)
 

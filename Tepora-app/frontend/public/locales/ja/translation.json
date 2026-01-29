@@ -23,6 +23,7 @@
 		"downloading": "ダウンロード中...",
 		"steps": {
 			"language": "言語選択",
+			"select_language": "言語を選択",
 			"binary": "推論エンジン (llama.cpp)",
 			"models": "モデル"
 		},
@@ -32,6 +33,9 @@
 			"outdated": "更新あり",
 			"installed": "インストール済み",
 			"not_downloaded": "未ダウンロード"
+		},
+		"accessibility": {
+			"progress": "進捗"
 		},
 		"download_warning_title": "モデルダウンロードの確認",
 		"download_warning_desc": "一部のモデルは許可リストに含まれていません。警告を確認して続行してください。",
@@ -132,7 +136,16 @@
 		"yesterday": "昨日",
 		"daysAgo": "{{count}}日前",
 		"confirm": "確認",
-		"delete": "削除"
+		"delete": "削除",
+		"aria": {
+			"close": "閉じる",
+			"move_up": "上へ移動",
+			"move_down": "下へ移動",
+			"delete": "削除",
+			"add_item": "項目を追加",
+			"remove_item": "項目を削除",
+			"cancel": "キャンセル"
+		}
 	},
 	"session_history": {
 		"title": "セッション履歴",
@@ -165,6 +178,9 @@
 			"system_ready": "システム準備完了",
 			"system_ready_hint": "ダイヤルからモードを選択して開始してください",
 			"disconnected": "未接続",
+			"status": {
+				"thinking": "思考プロセス"
+			},
 			"web_search": "Web検索",
 			"web_search_toggle": "Web検索: {{state}}",
 			"attach_file": "ファイルを添付",
@@ -232,6 +248,9 @@
 	"settings": {
 		"title": "設定",
 		"subtitle": "AIの設定を管理します",
+		"appearance": {
+			"title": "外観"
+		},
 		"confirm_discard": "未保存の変更があります。破棄しますか？",
 		"toast": {
 			"save_success": "設定を保存しました！",

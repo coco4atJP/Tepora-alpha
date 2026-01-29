@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { Coffee, Monitor, Moon, Sun } from "lucide-react";
 import type React from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 
 export const ThemeSelector: React.FC = () => {
+	const { t } = useTranslation();
 	const { theme, setTheme } = useTheme();
 
 	const options = [
@@ -14,7 +16,9 @@ export const ThemeSelector: React.FC = () => {
 
 	return (
 		<div className="flex flex-col space-y-3">
-			<span className="text-sm font-medium text-theme-subtext">Appearance</span>
+			<span className="text-sm font-medium text-theme-subtext">
+				{t("settings.appearance.title")}
+			</span>
 			<div className="flex p-1 space-x-1 bg-black/20 rounded-lg border border-theme-border">
 				{options.map((option) => {
 					const Icon = option.icon;
