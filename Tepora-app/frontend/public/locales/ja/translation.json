@@ -77,6 +77,7 @@
 		"unknownError": "不明なエラーが発生しました。",
 		"connectionErrorTitle": "接続エラー",
 		"retryButton": "再試行",
+		"viewLogsButton": "ログを表示",
 		"troubleshootHint": "バックエンドサーバーが予期されたポートで実行されているか確認してください。"
 	},
 	"logs": {

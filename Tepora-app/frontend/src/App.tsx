@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
 	createBrowserRouter,
 	createRoutesFromElements,
+	Link,
 	Route,
 	RouterProvider,
 } from "react-router-dom";
@@ -109,6 +110,13 @@ function App() {
 						>
 							{t("errors.retryButton", "Retry Connection")}
 						</button>
+						<Link
+							to="/logs"
+							className="w-full inline-flex items-center justify-center px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-gray-950"
+							aria-label={t("errors.viewLogsButton", "View logs")}
+						>
+							{t("errors.viewLogsButton", "View Logs")}
+						</Link>
 						<p className="text-gray-500 text-sm">
 							{t(
 								"errors.troubleshootHint",
