@@ -18,6 +18,7 @@ import type {
 	CustomAgentToolPolicy,
 	ToolInfo,
 } from "../../../../types";
+import { ApiError, apiClient } from "../../../../utils/api-client";
 import { FormGroup, SettingsSection } from "../SettingsComponents";
 
 interface CustomAgentSettingsProps {
@@ -54,6 +55,11 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
 
+	const showError = useCallback((message: string) => {
+		setErrorMessage(message);
+		setTimeout(() => setErrorMessage(null), 4000);
+	}, []);
+
 	// Model options from config
 	const modelOptions = settingsConfig?.models_gguf
 		? Object.keys(settingsConfig.models_gguf).map((key) => ({
@@ -66,26 +72,21 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	useEffect(() => {
 		const fetchTools = async () => {
 			try {
-				const response = await fetch("/api/tools", {
-					headers: {
-						"Content-Type": "application/json",
-					},
-				});
-				if (response.ok) {
-					const data = await response.json();
-					setAvailableTools(data.tools || []);
-				}
+				const data = await apiClient.get<{ tools?: ToolInfo[] }>("/api/tools");
+				setAvailableTools(Array.isArray(data.tools) ? data.tools : []);
 			} catch (error) {
 				console.error("Failed to fetch tools:", error);
+				const errorDetails =
+					error instanceof ApiError
+						? error.message
+						: error instanceof Error
+							? error.message
+							: "Unknown error";
+				showError(`Failed to fetch tools: ${errorDetails}`);
 			}
 		};
 		fetchTools();
-	}, []);
-
-	const showError = useCallback((message: string) => {
-		setErrorMessage(message);
-		setTimeout(() => setErrorMessage(null), 4000);
-	}, []);
+	}, [showError]);
 
 	const handleStartAdd = () => {
 		const newAgent: CustomAgentConfig = {
