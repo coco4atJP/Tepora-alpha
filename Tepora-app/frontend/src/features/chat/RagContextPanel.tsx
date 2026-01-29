@@ -67,10 +67,11 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 					<button
 						type="button"
 						onClick={onToggleWebSearch}
-						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${!skipWebSearch
-							? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
-							: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
-							}`}
+						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${
+							!skipWebSearch
+								? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
+								: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
+						}`}
 						title={
 							skipWebSearch
 								? `${t("chat.input.web_search")}: OFF`

@@ -76,6 +76,7 @@ install_log*.txt
 # Test output logs
 Tepora-app/frontend/test_report.txt
 Tepora-app/backend/pytest_full*.txt
+Tepora-app/*_errors.txt
 
 # Database files
 *.db

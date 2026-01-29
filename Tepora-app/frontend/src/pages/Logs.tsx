@@ -95,10 +95,11 @@ const Logs: React.FC = () => {
 							type="button"
 							key={log}
 							onClick={() => setSelectedLog(log)}
-							className={`w-full text-left px-4 py-3 text-sm truncate transition-colors ${selectedLog === log
+							className={`w-full text-left px-4 py-3 text-sm truncate transition-colors ${
+								selectedLog === log
 									? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
 									: "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-								}`}
+							}`}
 						>
 							{log}
 						</button>

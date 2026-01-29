@@ -637,18 +637,25 @@ class TeporaApp:
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
 
-        run_config: dict[str, Any] = {
-            "recursion_limit": core_config.GRAPH_RECURSION_LIMIT,
-            "configurable": {},
-        }
+        from langchain_core.runnables import RunnableConfig
+
+        run_config_typed: RunnableConfig = cast(
+            RunnableConfig,
+            {
+                "recursion_limit": core_config.GRAPH_RECURSION_LIMIT,
+                "configurable": {},
+            },
+        )
         if approval_callback:
-            run_config["configurable"]["approval_callback"] = approval_callback
+            if "configurable" not in run_config_typed:
+                run_config_typed["configurable"] = {}  # type: ignore
+            run_config_typed["configurable"]["approval_callback"] = approval_callback
 
         full_response = ""
         final_state = None
 
         assert self._graph is not None
-        async for event in self._graph.astream_events(initial_state, run_config=run_config):
+        async for event in self._graph.astream_events(initial_state, run_config=run_config_typed):
             kind = event.get("event")
             if kind == core_config.STREAM_EVENT_CHAT_MODEL:
                 chunk = (event.get("data") or {}).get("chunk")

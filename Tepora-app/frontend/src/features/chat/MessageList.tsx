@@ -71,11 +71,7 @@ const MessageList: React.FC = () => {
 	return (
 		<div className="relative h-full w-full min-h-0 min-w-0">
 			{/* Announcer for Screen Readers */}
-			<output
-				className="sr-only"
-				aria-live="polite"
-				aria-atomic="true"
-			>
+			<output className="sr-only" aria-live="polite" aria-atomic="true">
 				{announcementText}
 			</output>
 
@@ -87,8 +83,9 @@ const MessageList: React.FC = () => {
 				{messages.map((msg, index) => (
 					<div
 						key={msg.id || index}
-						className={`transition-all duration-500 ease-out ${index === messages.length - 1 ? "animate-slide-up-fade" : ""
-							}`}
+						className={`transition-all duration-500 ease-out ${
+							index === messages.length - 1 ? "animate-slide-up-fade" : ""
+						}`}
 					>
 						<MessageBubble message={msg} />
 					</div>

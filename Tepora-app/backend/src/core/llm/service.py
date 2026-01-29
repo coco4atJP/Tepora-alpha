@@ -209,7 +209,9 @@ class LLMService:
 
             lookup_key = role
             if role == "professional":
-                lookup_key = f"professional:{task_type}" if task_type != "default" else "professional"
+                lookup_key = (
+                    f"professional:{task_type}" if task_type != "default" else "professional"
+                )
 
             target_model_id = self._model_manager.get_assigned_model_id(lookup_key)
             if not target_model_id and role == "professional" and task_type != "default":

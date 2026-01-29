@@ -10,6 +10,7 @@ V2-only runtime:
 
 import asyncio
 import logging
+from typing import Any
 
 from fastapi import Request, WebSocket
 
@@ -35,10 +36,10 @@ class AppState:
 
     def __init__(self):
         self._core: TeporaApp | None = None
-        self._download_manager = None
-        self._mcp_hub = None
-        self._mcp_registry = None
-        self._mcp_policy_manager = None
+        self._download_manager: Any | None = None
+        self._mcp_hub: McpHub | None = None
+        self._mcp_registry: McpRegistry | None = None
+        self._mcp_policy_manager: Any | None = None
         self._mcp_init_error: str | None = None
 
     @property

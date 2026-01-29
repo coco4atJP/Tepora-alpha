@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 
 from ... import config
 from ...a2a import A2AMessage, MessageType
@@ -348,7 +349,7 @@ class ReActNodes:
         return {"agent_scratchpad": new_scratchpad}
 
     async def unified_tool_executor_node(
-        self, state: AgentState, config: dict | None = None
+        self, state: AgentState, config: RunnableConfig | None = None
     ) -> dict:
         """
         Async node that delegates tool execution to ToolManager.

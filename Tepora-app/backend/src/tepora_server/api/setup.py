@@ -53,7 +53,7 @@ class SetupSession:
         self.loader = loader
         self._save_state()
 
-    def set_job_id(self, job_id: str):
+    def set_job_id(self, job_id: str | None):
         self.job_id = job_id
         self._save_state()
 
@@ -371,10 +371,10 @@ async def run_setup_job(request: SetupRunRequest):
                 },
             )
     except HTTPException:
-        _setup_session.set_job_id(None)  # type: ignore
+        _setup_session.set_job_id(None)
         raise
     except Exception as e:
-        _setup_session.set_job_id(None)  # type: ignore
+        _setup_session.set_job_id(None)
         logger.error("Preflight model policy check failed: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -421,7 +421,7 @@ async def run_setup_job(request: SetupRunRequest):
         return {"success": True, "job_id": job_id}
 
     except Exception as e:
-        _setup_session.set_job_id(None)  # type: ignore
+        _setup_session.set_job_id(None)
         logger.error("Failed to start setup job: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -595,7 +595,8 @@ async def get_models():
         models = dm.model_manager.get_available_models()
 
         active_text_id = (
-            dm.model_manager.get_character_model_id() or dm.model_manager.get_assigned_model_id("professional")
+            dm.model_manager.get_character_model_id()
+            or dm.model_manager.get_assigned_model_id("professional")
         )
         active_embedding_id = dm.model_manager.get_assigned_model_id("embedding")
 

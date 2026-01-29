@@ -101,7 +101,7 @@ def filter_tools_for_profile(tools: list[BaseTool], profile_name: str) -> list[B
                 continue
 
             # Allow list ('*' means all)
-            if '*' in allowed or tool.name in allowed:
+            if "*" in allowed or tool.name in allowed:
                 filtered.append(tool)
 
         return filtered

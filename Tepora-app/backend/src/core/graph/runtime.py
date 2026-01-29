@@ -11,6 +11,7 @@ import logging
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
 from .. import config
@@ -229,7 +230,7 @@ class TeporaGraph:
         return await self._react_nodes.agent_reasoning_node(state)
 
     async def _tool_executor_wrapper(
-        self, state: AgentState, config: dict | None = None
+        self, state: AgentState, config: RunnableConfig
     ) -> dict[str, Any]:
         if not self._react_nodes:
             logger.warning("ReActNodes not available (tool_manager missing).")
@@ -296,7 +297,7 @@ class TeporaGraph:
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
 
-        run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        run_config: RunnableConfig = cast(RunnableConfig, {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}})
         async for event in self.astream_events(initial_state, run_config=run_config):
             if event.get("event") != config.STREAM_EVENT_CHAT_MODEL:
                 continue
@@ -305,10 +306,12 @@ class TeporaGraph:
                 yield str(chunk.content)
 
     async def astream_events(
-        self, initial_state: AgentState, *, run_config: dict[str, Any] | None = None
+        self, initial_state: AgentState, *, run_config: RunnableConfig | None = None
     ) -> AsyncIterator[dict[str, Any]]:
         """Stream LangGraph events (V1-compatible event dicts)."""
-        cfg = run_config or {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        from typing import cast
+
+        cfg: RunnableConfig = cast(RunnableConfig, run_config or {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}})
         assert self._graph is not None
         async for event in self._graph.astream_events(initial_state, version="v2", config=cfg):
             yield event
@@ -348,7 +351,7 @@ class TeporaGraph:
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
 
-        run_config = {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        run_config: RunnableConfig = cast(RunnableConfig, {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}})
         result = await self._graph.ainvoke(initial_state, config=run_config)
         return cast(dict[str, Any], result)
 

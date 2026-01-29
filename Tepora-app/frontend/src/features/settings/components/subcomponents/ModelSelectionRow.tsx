@@ -128,16 +128,17 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 					type="button"
 					onClick={() => setIsDetailOpen(true)}
 					disabled={!config}
-					className={`p-3 border rounded-xl transition-colors ${!config
+					className={`p-3 border rounded-xl transition-colors ${
+						!config
 							? "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed"
 							: "bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-gray-400"
-						}`}
+					}`}
 					title={
 						config
 							? t("settings.sections.models.selection.configure") ||
-							"Model Configurations"
+								"Model Configurations"
 							: t("settings.sections.models.selection.no_config") ||
-							"No configuration available"
+								"No configuration available"
 					}
 				>
 					<Settings size={20} />

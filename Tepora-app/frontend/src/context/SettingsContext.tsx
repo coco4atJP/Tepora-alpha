@@ -9,10 +9,7 @@ import {
 	useState,
 } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
-import type {
-	CharacterConfig,
-	CustomAgentConfig,
-} from "../types";
+import type { CharacterConfig, CustomAgentConfig } from "../types";
 import { apiClient } from "../utils/api-client";
 
 // ============================================================================

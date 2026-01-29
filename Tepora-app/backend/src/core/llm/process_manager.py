@@ -70,7 +70,7 @@ class ProcessManager:
         プロセスのヘルスチェックを非同期で行う。
         """
 
-        def get_process_ref():
+        def get_process_ref() -> subprocess.Popen | None:
             return self._active_processes.get(key)
 
         process_ref = get_process_ref

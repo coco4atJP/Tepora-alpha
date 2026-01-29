@@ -116,10 +116,11 @@ const DialControl: React.FC<DialControlProps> = ({
 						onMouseEnter={(e) => handleMouseEnter(e, m.label)}
 						onMouseLeave={handleMouseLeave}
 						style={positionStyle}
-						className={`absolute cursor-pointer transition-all duration-300 z-20 group border-none bg-transparent p-0 ${isSelected
-							? "text-gold-400 scale-110 drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
-							: "text-coffee-200/50 hover:text-gold-200 hover:scale-110"
-							}`}
+						className={`absolute cursor-pointer transition-all duration-300 z-20 group border-none bg-transparent p-0 ${
+							isSelected
+								? "text-gold-400 scale-110 drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
+								: "text-coffee-200/50 hover:text-gold-200 hover:scale-110"
+						}`}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" || e.key === " ") handleModeClick(m.mode);
 						}}

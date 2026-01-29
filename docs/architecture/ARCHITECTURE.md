@@ -1,7 +1,7 @@
 # Tepora Project - 包括的アーキテクチャ仕様書
 
 **バージョン**: 3.0  
-**最終更新日**: 2026-01-22  
+**最終更新日**: 2026-01-29  
 **プロジェクト概要**: ローカル環境で動作するパーソナルAIエージェントシステム
 
 ---
@@ -393,6 +393,8 @@ frontend/
 ├── vite.config.ts              # Vite設定
 ├── tailwind.config.cjs         # Tailwind設定
 ├── index.html
+├── public/
+│   └── locales/            # 翻訳json (en, ja, es, zh)
 │
 ├── src/
 │   ├── main.tsx                # Reactエントリーポイント
@@ -431,7 +433,7 @@ frontend/
 │   │   │   └── sections/       # 設定セクション
 │   │   │
 │   │   ├── chat/               # チャット関連パーツ
-│   │   └── ui/                 # 汎用UIパーツ
+│   │   └── ui/                 # 汎用UIパーツ (Button.tsx等)
 │   │
 │   ├── hooks/                  # ========== カスタムフック ==========
 │   │   ├── useSettings.ts      # 設定管理
@@ -683,9 +685,10 @@ GGUFファイル（ローカル）とOllamaモデル（API）を統一的に扱�
     - 既存のインストール状態確認
 2.  **Setup Session**:
     - セットアップ中の状態（言語、ローダー選択、進捗）を一時ファイル（`setup_state.json`）に保持。
+    - **Loader Selection**: `llama_cpp` (デフォルト) または `ollama` を選択可能。
     - アプリ再起動後もセットアップ途中から再開可能。
 3.  **Background Jobs**:
-    - バイナリダウンロードやモデルダウンロードは非同期バックグラウンドジョブとして実行。
+    - バイナリダウンロード（llama.cpp選択時のみ）やモデルダウンロードは非同期バックグラウンドジョブとして実行。
     - ポーリングAPI (`/api/setup/progress`) で進捗をUIに反映。
 
 ### RAGEngine + RAGContextBuilder
@@ -1213,6 +1216,7 @@ model_download:
 
 llm_manager:
   health_check_timeout: 60
+  loader: "llama_cpp"   # "llama_cpp" or "ollama"
 
 models_gguf:
   gemma_3n:

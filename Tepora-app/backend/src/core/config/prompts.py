@@ -182,6 +182,7 @@ def format_tools_for_react_prompt(tools: Iterable[BaseTool]) -> str:
             schema = args_schema
         elif isinstance(args_schema, type) and issubclass(args_schema, BaseModel):
             from typing import cast
+
             model_class = cast(type[BaseModel], args_schema)
             schema = model_class.model_json_schema()
 

@@ -219,7 +219,10 @@ function AdvancedModelSelection({
 
 			{(["text", "embedding"] as const).map((role) => (
 				<div key={role} className="space-y-2">
-					<label htmlFor={`model-${role}-repo`} className="text-sm font-medium text-gray-300 capitalize flex items-center gap-2">
+					<label
+						htmlFor={`model-${role}-repo`}
+						className="text-sm font-medium text-gray-300 capitalize flex items-center gap-2"
+					>
 						{role === "text" ? (
 							<Cpu className="w-4 h-4" />
 						) : (

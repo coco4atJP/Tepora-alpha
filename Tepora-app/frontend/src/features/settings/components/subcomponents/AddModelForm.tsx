@@ -147,14 +147,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 						size: file.size,
 					});
 				} else {
-					alert(
-						t("settings.sections.models.add_modal.dnd_no_path"),
-					);
+					alert(t("settings.sections.models.add_modal.dnd_no_path"));
 				}
 			} else {
-				alert(
-					t("settings.sections.models.add_modal.invalid_file"),
-				);
+				alert(t("settings.sections.models.add_modal.invalid_file"));
 			}
 		}
 	};
@@ -178,9 +174,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 					);
 				}
 			} else {
-				alert(
-					t("settings.sections.models.add_modal.invalid_file"),
-				);
+				alert(t("settings.sections.models.add_modal.invalid_file"));
 			}
 		}
 		// Reset input value to allow re-selecting same file
@@ -194,9 +188,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			// We now have the path in the state object
 			const path = localFile.path;
 			if (!path) {
-				alert(
-					t("settings.sections.models.add_modal.path_required"),
-				);
+				alert(t("settings.sections.models.add_modal.path_required"));
 				return;
 			}
 
@@ -266,8 +258,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		setDownloading(true);
 		setProgressData({
 			progress: 0,
-			message:
-				t("settings.sections.models.add_modal.starting"),
+			message: t("settings.sections.models.add_modal.starting"),
 			current_bytes: 0,
 			total_bytes: 0,
 			speed_bps: 0,
@@ -345,9 +336,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			>
 				<div className="flex items-center gap-2 font-medium text-gold-200">
 					<Database size={18} />
-					<span>
-						{t("settings.sections.models.add_modal.title")}
-					</span>
+					<span>{t("settings.sections.models.add_modal.title")}</span>
 				</div>
 				{isExpanded ? (
 					<span className="text-xl rotate-45 transform transition-transform">
@@ -368,10 +357,11 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								key={r}
 								onClick={() => setSelectedRole(r)}
 								disabled={downloading}
-								className={`px-3 py-1 text-xs rounded-full border transition-colors ${selectedRole === r
-									? "bg-gold-500/20 border-gold-400 text-gold-100"
-									: "border-white/10 text-gray-400 hover:border-white/20"
-									} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
+								className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+									selectedRole === r
+										? "bg-gold-500/20 border-gold-400 text-gold-100"
+										: "border-white/10 text-gray-400 hover:border-white/20"
+								} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
 							>
 								{r === "text"
 									? t("settings.sections.models.add_modal.role_text")
@@ -406,35 +396,27 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								<>
 									<div className="flex flex-col gap-4">
 										<FormGroup
-											label={
-												t("settings.sections.models.add_modal.repo_id")
-											}
+											label={t("settings.sections.models.add_modal.repo_id")}
 										>
 											<FormInput
 												value={repoId}
 												onChange={(v) => handleInput("repo", v as string)}
-												placeholder={
-													t(
-														"settings.sections.models.add_modal.repo_id_placeholder",
-													)
-												}
+												placeholder={t(
+													"settings.sections.models.add_modal.repo_id_placeholder",
+												)}
 												className="h-12 text-lg"
 											/>
 										</FormGroup>
 										<FormGroup
-											label={
-												t("settings.sections.models.add_modal.filename")
-											}
+											label={t("settings.sections.models.add_modal.filename")}
 										>
 											<div className="relative">
 												<FormInput
 													value={filename}
 													onChange={(v) => handleInput("file", v as string)}
-													placeholder={
-														t(
-															"settings.sections.models.add_modal.filename_placeholder",
-														)
-													}
+													placeholder={t(
+														"settings.sections.models.add_modal.filename_placeholder",
+													)}
 													className="h-12 text-lg"
 												/>
 												<div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -462,10 +444,11 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										type="button"
 										disabled={checkStatus !== "valid"}
 										onClick={() => handleDownload()}
-										className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${checkStatus === "valid"
-											? "bg-gold-500 hover:bg-gold-400 text-black shadow-lg shadow-gold-500/20"
-											: "bg-white/5 text-gray-500 cursor-not-allowed"
-											}`}
+										className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${
+											checkStatus === "valid"
+												? "bg-gold-500 hover:bg-gold-400 text-black shadow-lg shadow-gold-500/20"
+												: "bg-white/5 text-gray-500 cursor-not-allowed"
+										}`}
 									>
 										<Download size={18} />
 										{t("settings.sections.models.add_modal.download")}
@@ -518,10 +501,11 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							onKeyDown={(e) => {
 								if (e.key === "Enter" || e.key === " ") handleOpenDialog();
 							}}
-							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive
-								? "border-gold-400 bg-gold-400/5"
-								: "border-white/10 hover:border-white/20 hover:bg-white/5"
-								}`}
+							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+								dragActive
+									? "border-gold-400 bg-gold-400/5"
+									: "border-white/10 hover:border-white/20 hover:bg-white/5"
+							}`}
 							onDragEnter={handleDrag}
 							onDragLeave={handleDrag}
 							onDragOver={handleDrag}

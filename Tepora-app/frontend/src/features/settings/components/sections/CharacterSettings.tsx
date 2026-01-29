@@ -1,11 +1,4 @@
-import {
-	AlertCircle,
-	Check,
-	Edit2,
-	Plus,
-	Trash2,
-	Users,
-} from "lucide-react";
+import { AlertCircle, Check, Edit2, Plus, Trash2, Users } from "lucide-react";
 import type React from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -51,9 +44,9 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	// Model Options
 	const modelOptions = settingsConfig?.models_gguf
 		? Object.keys(settingsConfig.models_gguf).map((key) => ({
-			value: key,
-			label: key,
-		}))
+				value: key,
+				label: key,
+			}))
 		: [];
 
 	// Edit Modal State
@@ -164,10 +157,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		setEditState(null);
 	};
 
-	const handleDelete = (
-		key: string,
-		e: React.MouseEvent,
-	) => {
+	const handleDelete = (key: string, e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (key === activeProfileId) {
 			showError(t("settings.sections.agents.cannot_delete_active"));
@@ -189,23 +179,20 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 
 	// --- Render Helpers ---
 
-	const renderCard = (
-		key: string,
-		profile: AgentProfile,
-	) => {
+	const renderCard = (key: string, profile: AgentProfile) => {
 		const isActive = activeProfileId === key;
 
 		return (
-			<div
-				role="button"
-				tabIndex={0}
+			<button
+				type="button"
 				key={key}
 				aria-pressed={isActive}
 				className={`
 					relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
-					${isActive
-						? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-						: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
+					${
+						isActive
+							? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+							: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
 					}
 					focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950
 				`}
@@ -265,7 +252,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</div>
+			</button>
 		);
 	};
 
@@ -318,7 +305,10 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						{/* Key Input for New Agents */}
 						{editState.isNew && (
 							<div className="p-4 bg-white/5 rounded-xl border border-white/10 mb-4">
-								<label htmlFor="agent-key-input" className="block text-sm font-medium text-gray-300 mb-1">
+								<label
+									htmlFor="agent-key-input"
+									className="block text-sm font-medium text-gray-300 mb-1"
+								>
 									{t("settings.sections.agents.modal.key_label")}
 								</label>
 								<p className="text-xs text-gray-500 mb-2">
@@ -368,9 +358,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 							id={editState.key || newKeyInput || "new_agent"}
 							profile={editState.profile}
 							onChange={(p) => setEditState({ ...editState, profile: p })}
-							isActive={
-								activeProfileId === editState.key
-							}
+							isActive={activeProfileId === editState.key}
 							onSetActive={() => {
 								if (editState.key) {
 									onSetActive(editState.key);

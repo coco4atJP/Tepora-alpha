@@ -168,7 +168,13 @@ export const DialControl: React.FC<DialControlProps> = ({
 				{/* Background Glow */}
 				<div className="absolute inset-0 bg-gold-400/5 rounded-full blur-xl group-hover:bg-gold-400/10 transition-all duration-300" />
 
-				<svg width={size} height={size} className="transform rotate-[135deg]" aria-label={label} role="img">
+				<svg
+					width={size}
+					height={size}
+					className="transform rotate-[135deg]"
+					aria-label={label}
+					role="img"
+				>
 					<title>{label}</title>
 					{/* Track */}
 					<circle
@@ -193,8 +199,9 @@ export const DialControl: React.FC<DialControlProps> = ({
 						strokeDasharray={circumference}
 						strokeDashoffset={progressOffset}
 						strokeLinecap="round"
-						className={`transition-all duration-75 ${isDragging ? "opacity-100" : "opacity-80"
-							}`}
+						className={`transition-all duration-75 ${
+							isDragging ? "opacity-100" : "opacity-80"
+						}`}
 						style={{ filter: "drop-shadow(0 0 4px rgba(212, 191, 128, 0.5))" }}
 					/>
 				</svg>

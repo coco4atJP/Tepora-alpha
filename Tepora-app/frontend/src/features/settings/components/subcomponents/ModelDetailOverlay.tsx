@@ -191,9 +191,9 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 						>
 							{showAdvanced
 								? t("settings.sections.models.detail.hide_advanced") ||
-								"Hide Advanced Settings"
+									"Hide Advanced Settings"
 								: t("settings.sections.models.detail.show_advanced") ||
-								"Show Advanced Settings"}
+									"Show Advanced Settings"}
 						</button>
 
 						{/* Advanced Settings */}
@@ -232,7 +232,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 									>
 										<FormInput
 											value={config.path}
-											onChange={() => { }}
+											onChange={() => {}}
 											disabled
 											className="opacity-50 font-mono text-xs bg-black/40"
 										/>

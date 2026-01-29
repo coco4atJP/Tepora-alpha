@@ -78,68 +78,71 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		}
 	};
 
-	const runSetup = useCallback(async (
-		target_models: Array<{
-			repo_id: string;
-			filename: string;
-			display_name: string;
-			role: string;
-		}>,
-		acknowledge_warnings: boolean,
-	) => {
-		try {
-			const data = await apiClient.post<{
-				success?: boolean;
-				job_id?: string;
-				error?: string;
-				requires_consent?: boolean;
-				warnings?: Array<{
-					repo_id: string;
-					filename: string;
-					warnings: string[];
-				}>;
-			}>("api/setup/run", {
-				target_models,
-				acknowledge_warnings,
-				loader: state.loader, // Add loader to request
-			});
-
-			if (data.success) {
-				dispatch({ type: "START_INSTALL", payload: data.job_id || "" });
-			} else {
-				throw new Error(
-					data.error ||
-					t("setup.errors.setup_failed_start", "Setup failed to start"),
-				);
-			}
-		} catch (err) {
-			if (err instanceof ApiError && err.status === 409) {
-				const data = err.data as {
+	const runSetup = useCallback(
+		async (
+			target_models: Array<{
+				repo_id: string;
+				filename: string;
+				display_name: string;
+				role: string;
+			}>,
+			acknowledge_warnings: boolean,
+		) => {
+			try {
+				const data = await apiClient.post<{
+					success?: boolean;
+					job_id?: string;
+					error?: string;
 					requires_consent?: boolean;
 					warnings?: Array<{
 						repo_id: string;
 						filename: string;
 						warnings: string[];
 					}>;
-				};
-				if (data?.requires_consent) {
-					setPendingConsent({
-						targetModels: target_models,
-						warnings: data.warnings || [],
-					});
-					return;
-				}
-			}
+				}>("api/setup/run", {
+					target_models,
+					acknowledge_warnings,
+					loader: state.loader, // Add loader to request
+				});
 
-			const errorMessage =
-				err instanceof ApiError
-					? (err.data as { error?: string })?.error || err.message
-					: err instanceof Error
-						? err.message
-						: t("setup.errors.start_failed", "Failed to start setup");
-			throw new Error(errorMessage);
-		}
-	}, [state.loader, t]);
+				if (data.success) {
+					dispatch({ type: "START_INSTALL", payload: data.job_id || "" });
+				} else {
+					throw new Error(
+						data.error ||
+							t("setup.errors.setup_failed_start", "Setup failed to start"),
+					);
+				}
+			} catch (err) {
+				if (err instanceof ApiError && err.status === 409) {
+					const data = err.data as {
+						requires_consent?: boolean;
+						warnings?: Array<{
+							repo_id: string;
+							filename: string;
+							warnings: string[];
+						}>;
+					};
+					if (data?.requires_consent) {
+						setPendingConsent({
+							targetModels: target_models,
+							warnings: data.warnings || [],
+						});
+						return;
+					}
+				}
+
+				const errorMessage =
+					err instanceof ApiError
+						? (err.data as { error?: string })?.error || err.message
+						: err instanceof Error
+							? err.message
+							: t("setup.errors.start_failed", "Failed to start setup");
+				throw new Error(errorMessage);
+			}
+		},
+		[state.loader, t],
+	);
 
 	const handleStartSetup = useCallback(async () => {
 		try {
@@ -156,7 +159,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				if (!preflightData.success) {
 					throw new Error(
 						preflightData.error ||
-						t("setup.errors.preflight_failed", "System check failed"),
+							t("setup.errors.preflight_failed", "System check failed"),
 					);
 				}
 			} catch (err: unknown) {
@@ -228,7 +231,15 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				payload: err instanceof Error ? err.message : "Start failed",
 			});
 		}
-	}, [runSetup, showAdvanced, state.customModels, state.defaults, state.loader, state.selectedModels, t]);
+	}, [
+		runSetup,
+		showAdvanced,
+		state.customModels,
+		state.defaults,
+		state.loader,
+		state.selectedModels,
+		t,
+	]);
 
 	// --- Effects ---
 
@@ -263,7 +274,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				.then((data) => {
 					dispatch({ type: "SET_DEFAULTS", payload: data });
 				})
-				.catch(() => { });
+				.catch(() => {});
 		}
 	}, [state.step, state.defaults]);
 
@@ -427,20 +438,22 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 								className="relative z-10 flex flex-col items-center gap-2 group"
 							>
 								<div
-									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${isActive
+									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${
+										isActive
 											? "bg-gold-400 border-gold-400 scale-125 shadow-[0_0_15px_rgba(250,227,51,0.6)]"
 											: isDone
 												? "bg-gold-500/80 border-gold-500/80"
 												: "bg-[#050201] border-white/20"
-										}`}
+									}`}
 								/>
 								<span
-									className={`absolute top-6 w-24 left-1/2 -translate-x-1/2 text-center text-xs font-medium tracking-wide transition-colors duration-300 leading-tight ${isActive
+									className={`absolute top-6 w-24 left-1/2 -translate-x-1/2 text-center text-xs font-medium tracking-wide transition-colors duration-300 leading-tight ${
+										isActive
 											? "text-gold-100"
 											: isDone
 												? "text-gray-400"
 												: "text-gray-600"
-										}`}
+									}`}
 								>
 									{s.label}
 								</span>

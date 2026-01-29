@@ -1,2 +1,6 @@
 **/*.css
 src/**/*.css
+dist/**
+**/dist/**
+src-tauri/target/**
+**/src-tauri/target/**
