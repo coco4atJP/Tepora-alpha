@@ -48,10 +48,10 @@ class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
         def role_mapper(role):
             if role == "character":
                 return "character_model"
-            if role == "executor":
-                return "executor_model:default"
-            if role == "executor:coding":
-                return "executor_model:coding"
+            if role == "professional":
+                return "professional_model:default"
+            if role == "professional:coding":
+                return "professional_model:coding"
             return f"{role}_model"
 
         self.mock_model_manager.get_assigned_model_id.side_effect = role_mapper
@@ -79,19 +79,19 @@ class TestLLMServiceCacheConfig(unittest.IsolatedAsyncioTestCase):
         await service.get_client("character")
         self.assertIn("character_model", service._chat_model_cache)
 
-        # 2) Load Executor Default (Cache: [Character, Exec:Default])
-        await service.get_client("executor", task_type="default")
-        self.assertIn("executor_model:default", service._chat_model_cache)
+        # 2) Load Professional Default (Cache: [Character, Prof:Default])
+        await service.get_client("professional", task_type="default")
+        self.assertIn("professional_model:default", service._chat_model_cache)
         self.assertEqual(len(service._chat_model_cache), 2)
 
-        # 3) Load Executor Coding (Cache: [Exec:Default, Exec:Coding]) -> Character evicted
-        await service.get_client("executor", task_type="coding")
+        # 3) Load Professional Coding (Cache: [Prof:Default, Prof:Coding]) -> Character evicted
+        await service.get_client("professional", task_type="coding")
         self.assertEqual(len(service._chat_model_cache), 2)
 
         self.runner.stop.assert_called_with("character_model")
         self.assertNotIn("character_model", service._chat_model_cache)
-        self.assertIn("executor_model:default", service._chat_model_cache)
-        self.assertIn("executor_model:coding", service._chat_model_cache)
+        self.assertIn("professional_model:default", service._chat_model_cache)
+        self.assertIn("professional_model:coding", service._chat_model_cache)
 
         service.cleanup()
         self.assertEqual(self.runner.cleanup.call_count, 2)

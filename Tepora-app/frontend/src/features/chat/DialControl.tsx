@@ -109,24 +109,28 @@ const DialControl: React.FC<DialControlProps> = ({
 				const Icon = m.icon;
 
 				return (
-					<div
+					<button
 						key={m.mode}
+						type="button"
 						onClick={() => handleModeClick(m.mode)}
 						onMouseEnter={(e) => handleMouseEnter(e, m.label)}
 						onMouseLeave={handleMouseLeave}
 						style={positionStyle}
-						className={`absolute cursor-pointer transition-all duration-300 z-20 group ${
-							isSelected
-								? "text-gold-400 scale-110 drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
-								: "text-coffee-200/50 hover:text-gold-200 hover:scale-110"
-						}`}
+						className={`absolute cursor-pointer transition-all duration-300 z-20 group border-none bg-transparent p-0 ${isSelected
+							? "text-gold-400 scale-110 drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
+							: "text-coffee-200/50 hover:text-gold-200 hover:scale-110"
+							}`}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") handleModeClick(m.mode);
+						}}
+						aria-label={m.label}
 					>
 						<div
 							className={`p-2 rounded-full transition-all duration-300 ${isSelected ? "bg-gold-500/10" : "group-hover:bg-white/5"}`}
 						>
 							<Icon size={24} strokeWidth={2} />
 						</div>
-					</div>
+					</button>
 				);
 			})}
 
@@ -159,6 +163,7 @@ const DialControl: React.FC<DialControlProps> = ({
 
 				{[...Array(12)].map((_, i) => (
 					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: Static decorative elements
 						key={i}
 						className={`absolute w-0.5 ${i % 3 === 0 ? "h-1.5 bg-white/20" : "h-1 bg-white/5"}`}
 						style={{

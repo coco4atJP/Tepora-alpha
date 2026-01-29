@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { FitText } from "./FitText";
 
 interface ModalProps {
 	isOpen: boolean;
@@ -22,7 +23,7 @@ const Modal: React.FC<ModalProps> = ({
 	size = "md",
 	customContent = false,
 }) => {
-	const overlayRef = useRef<HTMLDivElement>(null);
+	const overlayRef = useRef<HTMLButtonElement>(null);
 
 	// Close on Escape key
 	useEffect(() => {
@@ -64,10 +65,15 @@ const Modal: React.FC<ModalProps> = ({
 			aria-modal="true"
 		>
 			{/* Backdrop */}
-			<div
+			<button
 				ref={overlayRef}
-				className="fixed inset-0 bg-theme-overlay backdrop-blur-sm transition-opacity"
+				type="button"
+				className="fixed inset-0 bg-theme-overlay backdrop-blur-sm transition-opacity w-full h-full cursor-default"
 				onClick={handleBackdropClick}
+				onKeyDown={(e) => {
+					if (e.key === "Escape") onClose();
+				}}
+				aria-label="Close modal"
 			/>
 
 			{/* Modal Container */}
@@ -80,9 +86,18 @@ const Modal: React.FC<ModalProps> = ({
                 `}
 			>
 				{/* Header */}
-				<div className="flex items-center justify-between p-4 border-b border-theme-border">
-					<h3 className="text-lg font-semibold text-theme-text">{title}</h3>
+				<div className="flex items-center justify-between p-4 border-b border-theme-border gap-3">
+					<div className="flex-1 min-w-0 h-7 flex items-center">
+						<FitText
+							className="text-lg font-semibold text-theme-text"
+							minFontSize={12}
+							maxFontSize={18}
+						>
+							{title || ""}
+						</FitText>
+					</div>
 					<button
+						type="button"
 						onClick={onClose}
 						className="p-1 rounded-md text-theme-subtext hover:text-theme-text hover:bg-theme-glass-highlight transition-colors"
 						aria-label="Close"

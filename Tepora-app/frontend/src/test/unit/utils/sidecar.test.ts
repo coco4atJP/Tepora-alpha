@@ -5,7 +5,8 @@ vi.mock("../../../utils/api", () => ({
 	getApiBase: vi.fn(),
 	getAuthHeadersAsync: vi.fn(),
 	isDesktop: () =>
-		typeof window !== "undefined" && !!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__,
+		typeof window !== "undefined" &&
+		!!(window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__,
 	setDynamicPort: vi.fn(),
 }));
 

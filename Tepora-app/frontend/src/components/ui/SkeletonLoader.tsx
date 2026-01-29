@@ -30,6 +30,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
 		<div className={`space-y-2 ${className} animate-fade-in`}>
 			{loaders.map((_, index) => (
 				<div
+					// biome-ignore lint/suspicious/noArrayIndexKey: Loader skeleton
 					key={index}
 					className={`
             relative overflow-hidden bg-white/5 

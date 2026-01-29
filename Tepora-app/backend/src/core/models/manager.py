@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from ..llm.ollama_runner import OllamaRunner
 from .types import (
     ModelConfig,
     ModelInfo,
@@ -213,7 +214,7 @@ class ModelManager:
 
         raw = getattr(value, "value", value)
         normalized = str(raw).strip().lower()
-        if normalized in {"character", "executor"}:
+        if normalized in {"character", "professional", "executor"}:
             normalized = "text"
 
         try:
@@ -380,13 +381,13 @@ class ModelManager:
         if char_id:
             roles["character"] = char_id
 
-        # executor_model_map -> roles
+        # executor_model_map -> roles (Migrate to professional role)
         exec_map = data.get("executor_model_map", {})
         for task, mid in exec_map.items():
             if task == "default":
-                roles["executor"] = mid  # Default executor
+                roles["professional"] = mid
             else:
-                roles[f"executor:{task}"] = mid
+                roles[f"professional:{task}"] = mid
 
         # active map (V2 legacy active concept)
         active_map = data.get("active", {})
@@ -541,7 +542,11 @@ class ModelManager:
 
         mid = self.get_assigned_model_id(role_key)
         if not mid and modality == ModelModality.TEXT:
-            mid = self.get_assigned_model_id("executor")
+            # Fallback to professional
+            mid = self.get_assigned_model_id("professional")
+            # If still None, check legacy executor key (should be migrated, but just in case)
+            if not mid:
+                mid = self.get_assigned_model_id("executor")
         return self.get_model(mid) if mid else None
 
     def get_model_path(self, pool: Any) -> Path | None:
@@ -596,6 +601,8 @@ class ModelManager:
         model_id = self._generate_model_id(display_name)
         target_dir = self.models_dir / modality.value
         target_dir.mkdir(exist_ok=True)
+        # Use simple name for target file to match expectations if possible, or keep original name?
+        # Using original filename is safer.
         target_path = target_dir / file_path.name
         if target_path.exists():
             target_path = target_dir / f"{model_id}{file_path.suffix}"
@@ -630,14 +637,14 @@ class ModelManager:
     def set_character_model(self, model_id: str) -> bool:
         return self.set_role_model("character", model_id)
 
-    def set_executor_model(self, task_type: str, model_id: str) -> bool:
-        key = "executor" if task_type == "default" else f"executor:{task_type}"
+    def set_professional_model(self, task_type: str, model_id: str) -> bool:
+        key = "professional" if task_type == "default" else f"professional:{task_type}"
         return self.set_role_model(key, model_id)
 
-    def remove_executor_model(self, task_type: str) -> bool:
+    def remove_professional_model(self, task_type: str) -> bool:
         if task_type == "default":
             return False
-        key = f"executor:{task_type}"
+        key = f"professional:{task_type}"
         self._registry = self.registry
         if key not in self._registry.roles:
             return False
@@ -693,6 +700,118 @@ class ModelManager:
             logger.warning("Failed to check HuggingFace update: %s", exc, exc_info=True)
             return {"update_available": False, "reason": "unknown"}
 
+    async def sync_ollama_models(self) -> list[str]:
+        """
+        Sync available Ollama models into the registry.
+        - Fetches full list of models from Ollama.
+        - Classifies them as Text or Embedding based on capabilities/name.
+        - Filters out unsupported models (e.g. image generation).
+        - Registers them.
+        """
+        runner = OllamaRunner()
+        if not await runner._check_connection():
+            logger.info("Ollama is not running, skipping sync.")
+            return []
+
+        model_names = await runner._list_models()
+        synced_ids = []
+
+        for model_tag in model_names:
+            # Check capabilities
+            caps = await runner.get_capabilities(model_tag)
+
+            # Use data from /api/show
+            raw_show = caps.get("raw_show", {})
+            details = raw_show.get("details", {})
+            families = details.get("families", []) or [details.get("family")]
+            # Filter None/Empty from families list
+            families = [f for f in families if f]
+
+            # model_capabilities = caps.get("raw_show", {}).get("capabilities", [])
+
+            # Classification Logic
+            modality = ModelModality.TEXT
+
+            # 1. Embedding Check
+            # Families: bert, nomic-bert
+            # Name: embed (heuristic)
+            is_embedding = False
+            for f in families:
+                if f and f.lower() in ("bert", "nomic-bert"):
+                    is_embedding = True
+                    break
+            if not is_embedding and "embed" in model_tag.lower():
+                is_embedding = True
+
+            if is_embedding:
+                modality = ModelModality.EMBEDDING
+
+            # 2. Vision Check
+            if not is_embedding:
+                # Families: clip, mllama
+                # Capabilities: vision (if provided by newer Ollama versions)
+                is_vision = False
+                for f in families:
+                    if f and f.lower() in ("clip", "mllama"):
+                        is_vision = True
+                        break
+                if _get_attr(caps, "vision") is True:  # Check parsed cap
+                    is_vision = True
+
+                if is_vision:
+                    modality = ModelModality.VISION
+
+            # 3. Filtering / Safety Check
+            # If we detect families that are purely image generation (e.g. latent-diffusion not supported by our current UI)
+            # or if it seems to be a tool/adapter only?
+            # For now, we assume if it's in `ollama list`, it's runnable.
+            # But we explicitly want to exclude image generation models if they don't support text/chat.
+            # Heuristic: if families contains 'diffusion' and NOT 'mllama'/'clip', unlikely to be VLM.
+            is_unsupported = False
+            for f in families:
+                if f and "diffusion" in f.lower():
+                    # Likely image generation model (e.g. stable-diffusion in ollama if supported later)
+                    # or some other non-LLM.
+                    is_unsupported = True
+                    break
+
+            if is_unsupported:
+                logger.info(
+                    "Skipping unsupported Ollama model: %s (families: %s)", model_tag, families
+                )
+                continue
+
+            # Generate ID based on tag (stable for same tag)
+            # We prefix with 'ollama-' to distinguish and collision avoid?
+            # Or just use model_tag as name?
+            # Let's use `ollama-TAG` as ID to avoid collision with local files named same.
+            model_id = f"ollama-{model_tag.replace(':', '-').replace('/', '-')}"
+
+            # Size bytes might be available
+            # size_bytes = _get_attr(_get_attr(raw_show, "model_info"), "general.parameter_count") or 0
+            # actually parameter count is not size in bytes.
+            # For now, 0 or estimates is fine.
+
+            # Register
+            info = ModelInfo(
+                id=model_id,
+                name=model_tag,
+                loader=ModelLoader.OLLAMA,
+                path=model_tag,
+                modality=modality,
+                source="ollama",
+                description=f"Ollama model ({', '.join(families)})",
+                added_at=datetime.now(),
+                config=ModelConfig(),  # Use defaults
+                size_bytes=0,
+            )
+
+            self._register_model_info(info)
+            synced_ids.append(model_id)
+
+        logger.info("Synced %d Ollama models.", len(synced_ids))
+        return synced_ids
+
     async def delete_model(self, model_id: str) -> bool:
         """Delete a model"""
         model = self.get_model(model_id)
@@ -730,9 +849,9 @@ class ModelManager:
     def get_character_model_id(self) -> str | None:
         return self.get_assigned_model_id("character")
 
-    def get_executor_model_id(self, task_type: str = "default") -> str | None:
-        key = "executor" if task_type == "default" else f"executor:{task_type}"
-        return self.get_assigned_model_id(key)
+    def get_professional_model_id(self, task_type: str = "default") -> str | None:
+        key = "professional" if task_type == "default" else f"professional:{task_type}"
+        return self.registry.roles.get(key)
 
     def get_character_model_path(self) -> Path | None:
         mid = self.get_character_model_id()

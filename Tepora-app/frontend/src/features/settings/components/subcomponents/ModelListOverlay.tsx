@@ -13,6 +13,7 @@ import type React from "react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { FitText } from "../../../../components/ui/FitText";
 import { useModelUpdateCheck } from "../../../../hooks/useModelUpdateCheck";
 import { apiClient } from "../../../../utils/api-client";
 
@@ -107,26 +108,37 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onClose();
 			}}
+			onKeyDown={(e) => {
+				if (e.key === "Escape") onClose();
+			}}
 		>
 			<div className="glass-tepora rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
 				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
 					<h3
 						id="model-list-overlay-title"
-						className="text-lg font-medium text-white flex items-center gap-2"
+						className="flex items-center gap-2 min-w-0 flex-1"
 					>
 						<List size={20} className="text-gold-400" />
-						{t("settings.sections.models.manage_models") || "Model Management"}
+						<div className="min-w-0 h-7 flex items-center">
+							<FitText
+								className="text-lg font-medium text-white"
+								minFontSize={12}
+								maxFontSize={18}
+							>
+								{t("settings.sections.models.manage_models") ||
+									"Model Management"}
+							</FitText>
+						</div>
 					</h3>
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
 							onClick={handleCheckUpdates}
 							disabled={isChecking}
-							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-								isChecking
+							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isChecking
 									? "bg-white/5 text-gray-500 cursor-not-allowed"
 									: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
-							}`}
+								}`}
 						>
 							<RefreshCw
 								size={14}
@@ -153,11 +165,10 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 							type="button"
 							key={role}
 							onClick={() => setActiveTab(role)}
-							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
-								activeTab === role
+							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${activeTab === role
 									? "text-gold-400 border-gold-400"
 									: "text-gray-500 border-transparent hover:text-gray-300"
-							}`}
+								}`}
 						>
 							{role.charAt(0).toUpperCase() + role.slice(1)} (
 							{models.filter((m) => m.role === role).length})

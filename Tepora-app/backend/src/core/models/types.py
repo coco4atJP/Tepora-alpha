@@ -118,11 +118,11 @@ class ModelRegistry:
         return self.roles.get("character") or self.active.get("text")
 
     @property
-    def executor_model_map(self) -> dict[str, str]:
+    def professional_model_map(self) -> dict[str, str]:
         mapping: dict[str, str] = {}
-        if self.roles.get("executor"):
-            mapping["default"] = self.roles["executor"]
-        prefix = "executor:"
+        if self.roles.get("professional"):
+            mapping["default"] = self.roles["professional"]
+        prefix = "professional:"
         for role, model_id in self.roles.items():
             if role.startswith(prefix) and len(role) > len(prefix):
                 mapping[role[len(prefix) :]] = model_id
@@ -136,8 +136,8 @@ class ModelRegistry:
         # V3 prefers explicit roles, so map them deterministically.
         if self.roles.get("character"):
             active["text"] = self.roles["character"]
-        elif self.roles.get("executor"):
-            active["text"] = self.roles["executor"]
+        elif self.roles.get("professional"):
+            active["text"] = self.roles["professional"]
 
         if self.roles.get("embedding"):
             active["embedding"] = self.roles["embedding"]

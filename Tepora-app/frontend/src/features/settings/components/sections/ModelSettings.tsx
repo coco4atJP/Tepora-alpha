@@ -4,6 +4,7 @@ import {
 	List,
 	MessageSquare,
 	Plus,
+	RefreshCw,
 	Settings2,
 	Wrench,
 } from "lucide-react";
@@ -48,7 +49,7 @@ interface ModelInfo {
 
 interface ModelRoles {
 	character_model_id: string | null;
-	executor_model_map: Record<string, string>;
+	professional_model_map: Record<string, string>;
 }
 
 const ModelSettings: React.FC = () => {
@@ -57,9 +58,10 @@ const ModelSettings: React.FC = () => {
 		useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [modelRoles, setModelRoles] = useState<ModelRoles>({
 		character_model_id: null,
-		executor_model_map: {},
+		professional_model_map: {},
 	});
 	const [newTaskType, setNewTaskType] = useState("");
 
@@ -128,12 +130,12 @@ const ModelSettings: React.FC = () => {
 		}
 	};
 
-	const handleSelectExecutorModel = async (
+	const handleSelectProfessionalModel = async (
 		taskType: string,
 		modelId: string,
 	) => {
 		try {
-			await apiClient.post("api/setup/model/roles/executor", {
+			await apiClient.post("api/setup/model/roles/professional", {
 				task_type: taskType,
 				model_id: modelId,
 			});
@@ -143,10 +145,10 @@ const ModelSettings: React.FC = () => {
 		}
 	};
 
-	const handleRemoveExecutorMapping = async (taskType: string) => {
+	const handleRemoveProfessionalMapping = async (taskType: string) => {
 		try {
 			await apiClient.delete(
-				`api/setup/model/roles/executor/${encodeURIComponent(taskType)}`,
+				`api/setup/model/roles/professional/${encodeURIComponent(taskType)}`,
 			);
 			await fetchModelRoles();
 		} catch (e) {
@@ -158,8 +160,8 @@ const ModelSettings: React.FC = () => {
 		if (!newTaskType.trim()) return;
 		setModelRoles((prev) => ({
 			...prev,
-			executor_model_map: {
-				...prev.executor_model_map,
+			professional_model_map: {
+				...prev.professional_model_map,
 				[newTaskType.trim()]: "",
 			},
 		}));
@@ -192,6 +194,18 @@ const ModelSettings: React.FC = () => {
 			fetchModels();
 		} catch (e) {
 			console.error(e);
+		}
+	};
+
+	const handleRefreshOllama = async () => {
+		setIsRefreshing(true);
+		try {
+			await apiClient.post("api/setup/models/ollama/refresh");
+			await fetchModels();
+		} catch (e) {
+			console.error("Failed to refresh Ollama models", e);
+		} finally {
+			setIsRefreshing(false);
 		}
 	};
 
@@ -238,17 +252,34 @@ const ModelSettings: React.FC = () => {
 				<div className="space-y-4">
 					<AddModelForm onModelAdded={fetchModels} />
 
-					<button
-						type="button"
-						onClick={() => setIsOverlayOpen(true)}
-						className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
-					>
-						<List size={18} />
-						<span>
-							{t("settings.sections.models.manage_models") ||
-								"Manage Models (Delete / Reorder)"}
-						</span>
-					</button>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={() => setIsOverlayOpen(true)}
+							className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
+						>
+							<List size={18} />
+							<span>
+								{t("settings.sections.models.manage_models") || "Manage Models"}
+							</span>
+						</button>
+
+						<button
+							type="button"
+							onClick={handleRefreshOllama}
+							disabled={isRefreshing}
+							className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
+							title={
+								t("settings.sections.models.refresh_ollama") ||
+								"Refresh Ollama Models"
+							}
+						>
+							<RefreshCw
+								size={18}
+								className={isRefreshing ? "animate-spin" : ""}
+							/>
+						</button>
+					</div>
 				</div>
 			</SettingsSection>
 
@@ -278,11 +309,11 @@ const ModelSettings: React.FC = () => {
 				/>
 			</SettingsSection>
 
-			{/* 3. Executor Models Selection (Task Type based) */}
+			{/* 3. Professional Models Selection (Task Type based) */}
 			<SettingsSection
 				title={
 					t("settings.sections.models.executor_models_title") ||
-					"Executor Models"
+					"Professional Models"
 				}
 				icon={<Wrench size={18} />}
 				description={
@@ -291,7 +322,7 @@ const ModelSettings: React.FC = () => {
 				}
 			>
 				<div className="space-y-4">
-					{Object.entries(modelRoles.executor_model_map).map(
+					{Object.entries(modelRoles.professional_model_map).map(
 						([taskType, modelId]) => (
 							<ModelSelectionRow
 								key={taskType}
@@ -307,12 +338,12 @@ const ModelSettings: React.FC = () => {
 								}
 								selectedModelId={modelId}
 								models={textModels}
-								onSelect={(id) => handleSelectExecutorModel(taskType, id)}
+								onSelect={(id) => handleSelectProfessionalModel(taskType, id)}
 								config={textModelConfig}
 								onUpdateConfig={(c) => updateModel("text_model", c)}
 								onDelete={
 									taskType !== "default"
-										? () => handleRemoveExecutorMapping(taskType)
+										? () => handleRemoveProfessionalMapping(taskType)
 										: undefined
 								}
 								icon={<Wrench size={20} />}

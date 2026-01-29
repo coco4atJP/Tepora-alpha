@@ -27,7 +27,10 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 						<svg
 							className="absolute inset-0 w-full h-full -rotate-90"
 							viewBox="0 0 100 100"
+							role="img"
+							aria-label="Progress"
 						>
+							<title>Progress</title>
 							<circle
 								cx="50"
 								cy="50"
@@ -84,6 +87,7 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 			{/* Logs Toggle */}
 			<div className="w-full">
 				<button
+					type="button"
 					onClick={() => setShowLogs(!showLogs)}
 					className="flex items-center gap-2 text-xs text-gray-500 hover:text-white transition-colors mx-auto mb-2"
 				>

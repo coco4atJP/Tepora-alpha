@@ -57,6 +57,7 @@ export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({
 				<div className="p-6 space-y-4">
 					{shortcuts.map((shortcut, index) => (
 						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: Static list
 							key={index}
 							className="flex items-center justify-between group"
 						>
@@ -69,6 +70,7 @@ export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({
 							<div className="flex items-center gap-1">
 								{shortcut.keys.map((key, keyIndex) => (
 									<kbd
+										// biome-ignore lint/suspicious/noArrayIndexKey: Static list
 										key={keyIndex}
 										className="px-2 py-1 min-w-[1.5rem] text-center text-xs font-mono font-bold text-gray-400 bg-white/5 border border-white/10 rounded shadow-sm"
 									>

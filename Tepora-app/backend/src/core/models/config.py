@@ -38,8 +38,8 @@ class ModelConfigResolver:
         if key == "character_model":
             return self._model_manager.get_character_model_path()
 
-        elif key == "executor_model":
-            return self._model_manager.get_executor_model_path(task_type)
+        elif key == "professional_model":
+            return self._model_manager.get_professional_model_path(task_type)
 
         elif key == "embedding_model":
             # V3 Manager logic: Use embedding role
@@ -118,6 +118,8 @@ class ModelConfigResolver:
             if key == "text_model":
                 if "character_model" in settings.models_gguf:
                     return settings.models_gguf["character_model"]
+                if "professional_model" in settings.models_gguf:
+                    return settings.models_gguf["professional_model"]
                 if "executor_model" in settings.models_gguf:
                     return settings.models_gguf["executor_model"]
             elif key == "character_model":

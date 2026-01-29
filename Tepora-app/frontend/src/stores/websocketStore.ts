@@ -106,7 +106,7 @@ const AGENT_MAPPING: Record<string, string> = {
 	generate_search_query: "Search Analyst",
 	execute_search: "Search Tool",
 	summarize_search_result: "Researcher",
-	agent_reasoning: "Executor",
+	agent_reasoning: "Professional Agent",
 	tool_node: "Tool Handler",
 	synthesize_final_response: "Synthesizer",
 	update_scratchpad: "Memory Manager",

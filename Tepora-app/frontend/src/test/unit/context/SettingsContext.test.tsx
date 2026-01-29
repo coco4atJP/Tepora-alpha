@@ -216,8 +216,8 @@ describe("SettingsContext", () => {
 			result.current.addCharacter("new_char");
 		});
 
-		expect(result.current.config?.characters["new_char"]).toBeDefined();
-		expect(result.current.config?.characters["new_char"].name).toBe("new_char");
+		expect(result.current.config?.characters.new_char).toBeDefined();
+		expect(result.current.config?.characters.new_char.name).toBe("new_char");
 	});
 
 	it("deletes a character", async () => {
@@ -252,6 +252,6 @@ describe("SettingsContext", () => {
 			result.current.deleteCharacter("char1");
 		});
 
-		expect(result.current.config?.characters["char1"]).toBeUndefined();
+		expect(result.current.config?.characters.char1).toBeUndefined();
 	});
 });

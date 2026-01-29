@@ -3,6 +3,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
+import { Button } from "../../components/ui/Button";
 import { useChatStore, useWebSocketStore } from "../../stores";
 import type { ChatInterfaceContext } from "./ChatInterface";
 import PersonaSwitcher from "./PersonaSwitcher";
@@ -74,10 +75,10 @@ const InputArea: React.FC = () => {
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
 			<div
-				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-tepora transition-all duration-500 ${
+				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-input transition-all duration-500 ${
 					isProcessing
 						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
-						: "hover:shadow-[0_0_30px_-5px_rgba(0,0,0,0.1)] hover:bg-theme-overlay shadow-2xl"
+						: "hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:bg-theme-overlay shadow-2xl"
 				}`}
 			>
 				{/* Persona Switcher */}
@@ -117,38 +118,37 @@ const InputArea: React.FC = () => {
 
 					{/* Send / Stop Button */}
 					{isProcessing ? (
-						<button
-							type="button"
+						<Button
+							variant="danger"
+							size="icon"
 							onClick={() => stopGeneration()}
-							className="w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500 shadow-lg hover:shadow-red-500/40 active:scale-95 group/stop"
-							title={t("chat.input.stop")}
 							aria-label={t("chat.input.stop_generation")}
+							className="rounded-full w-10 h-10 shadow-lg"
 						>
-							<Square
-								className="w-4 h-4 fill-current group-hover/stop:scale-110 transition-transform"
-								aria-hidden="true"
-							/>
-						</button>
+							<Square className="w-4 h-4 fill-current" aria-hidden="true" />
+						</Button>
 					) : (
-						<button
-							type="button"
+						<Button
+							variant={
+								message.trim() || attachments.length > 0 ? "primary" : "ghost"
+							}
+							size="icon"
 							onClick={handleSend}
 							disabled={
 								(!message.trim() && attachments.length === 0) || !isConnected
 							}
-							className={`w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${
-								message.trim() || attachments.length > 0
-									? "bg-gradient-to-br from-gold-400 to-coffee-600 text-white shadow-lg hover:scale-105 hover:shadow-gold-500/30 hover:to-gold-600 border border-gold-400/20 active:scale-95"
-									: "bg-white/5 text-gray-600 border border-white/5 cursor-not-allowed"
-							}`}
-							title={t("chat.input.send")}
 							aria-label={t("chat.input.send_message")}
+							className={`rounded-full w-10 h-10 transition-all duration-300 ${
+								message.trim() || attachments.length > 0
+									? "shadow-[0_0_20px_rgba(234,179,8,0.4)]"
+									: "opacity-50"
+							}`}
 						>
 							<Send
 								className={`w-4 h-4 ${message.trim() || attachments.length > 0 ? "ml-0.5" : ""}`}
 								aria-hidden="true"
 							/>
-						</button>
+						</Button>
 					)}
 				</div>
 			</div>

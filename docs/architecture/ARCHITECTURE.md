@@ -85,6 +85,7 @@ graph TB
                 Context[ContextWindowManager]
                 Tools[ToolManager]
                 Session[SessionManager]
+                ModelsMgr[ModelManager]
             end
             
             subgraph Memory["Memory Systems"]
@@ -124,6 +125,8 @@ graph TB
     TeporaGraph <--> Tools
     TeporaApp <--> Session
     TeporaApp <--> EMLLM
+    TeporaApp <--> ModelsMgr
+    LLM <--> ModelsMgr
     LLM <--> Llama
     Llama <--> Models
     EMLLM <--> MemSys
@@ -615,9 +618,9 @@ class AgentState(TypedDict):
 
 V1の `LLMManager` からの主な変更点:
 - `_current_model_key` 状態を排除
-- リクエストごとにモデル選択（ステートレス）
-- 並行セッションをサポート
-- **モデルキー単位の排他制御**（`asyncio.Lock`）でレースコンディション防止
+- `ModelManager` を使用した統一的なモデルID/パス解決
+- Ollama サポートの追加 (`OllamaRunner`)
+- **モデルキー単位の排他制御**（`asyncio.Lock`）
 - **キャッシュサイズ3**で複数モデルの同時保持が可能
 
 ```python
@@ -625,14 +628,12 @@ class LLMService:
     """
     Stateless LLM Service - Factory pattern for model clients
     
-    Key differences from V1 LLMManager:
-    1. No `_current_model_key` state
-    2. Model selection happens per-request
+    Key features:
+    1. Supports multiple loaders: llama.cpp (GGUF) and Ollama (API)
+    2. Per-request model selection via ModelManager
     3. Thread-safe for concurrent sessions
-    4. Per-model-key locking prevents race conditions
+    4. Auto-eviction mechanism (LRU-like)
     """
-    
-    _CACHE_SIZE = 3  # 複数セッション対応
     
     async def get_client(
         self,
@@ -641,22 +642,8 @@ class LLMService:
         task_type: str = "default",
         model_id: str | None = None,
     ) -> BaseChatModel:
-        """指定されたロールのチャットモデルクライアントを取得"""
-    
-    async def get_embedding_client(self) -> Embeddings:
-        """埋め込みモデルクライアントを取得"""
-    
-    def cleanup(self) -> None:
-        """全リソースをクリーンアップ"""
+        """指定されたロールまたはIDのチャットモデルクライアントを取得"""
 ```
-
-**並行性戦略**:
-
-| 機能 | 実装 |
-|-----|------|
-| モデル起動の排他制御 | モデルキー単位の`asyncio.Lock`で二重起動を防止 |
-| キャッシュ管理 | LRU風の追い出し（FIFO）、最大3モデル保持 |
-| スレッドセーフ | `_cache_lock`でキャッシュアクセスを保護 |
 
 **内部コンポーネント**:
 
@@ -664,10 +651,42 @@ class LLMService:
 |--------------|----------|------|
 | `LocalModelRunner` | `runner.py` | ローカルLLM実行の抽象インターフェース（Protocol） |
 | `LlamaServerRunner` | `llama_runner.py` | llama.cpp実装（ProcessManagerをラップ） |
-| `OllamaRunner` | `ollama_runner.py` | Ollama API接続実装（モデル名ベース管理） |
-| `ProcessManager` | `process_manager.py` | llama-serverプロセスの起動・停止・監視 |
+| `OllamaRunner` | `ollama_runner.py` | Ollama API接続実装（仮想的なStart/Stop、トークナイズ） |
 | `ClientFactory` | `client_factory.py` | LangChain互換クライアント生成 |
-| `ModelRegistry` | `model_registry.py` | 設定からモデルパスを解決 |
+| `ModelConfigResolver`| `src/core/models/config.py` | モデル設定の解決 |
+
+### Model Management
+
+**ファイル**: `src/core/models/manager.py`
+
+GGUFファイル（ローカル）とOllamaモデル（API）を統一的に扱うためのマネージャーです。
+
+- **責務**:
+    - 利用可能なモデルの発見（`models/` ディレクトリ + Ollama API）
+    - モデルメタデータ（`ModelInfo`）の管理
+    - ロール（character, executor, embedding）へのモデル割り当て
+    - モデルのダウンロード（HuggingFace）と更新チェック
+
+**モデルプール**:
+- `TEXT`: テキスト生成用（GGUF, Ollama）
+- `EMBEDDING`: ベクトル埋め込み用（GGUFのみ/Ollamaは将来対応）
+
+### Setup System
+
+**ファイル**: `src/tepora_server/api/setup.py`, `src/core/download/manager.py`
+
+初回起動時の環境構築を行うステートフルなシステムです。
+
+1.  **Pre-flight Checks**:
+    - ディスク容量チェック
+    - 書き込み権限チェック
+    - 既存のインストール状態確認
+2.  **Setup Session**:
+    - セットアップ中の状態（言語、ローダー選択、進捗）を一時ファイル（`setup_state.json`）に保持。
+    - アプリ再起動後もセットアップ途中から再開可能。
+3.  **Background Jobs**:
+    - バイナリダウンロードやモデルダウンロードは非同期バックグラウンドジョブとして実行。
+    - ポーリングAPI (`/api/setup/progress`) で進捗をUIに反映。
 
 ### RAGEngine + RAGContextBuilder
 
@@ -1130,12 +1149,14 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 | メソッド | エンドポイント | 説明 |
 |---------|---------------|------|
 | `POST` | `/api/setup/init` | セットアップ初期化 |
+| `POST` | `/api/setup/preflight` | 事前チェック（容量・権限） |
 | `GET` | `/api/setup/requirements` | 要件チェック |
 | `GET` | `/api/setup/default-models` | 推奨モデルリスト |
 | `POST` | `/api/setup/run` | セットアップ開始 |
 | `GET` | `/api/setup/progress` | 進捗確認 |
 | `POST` | `/api/setup/finish` | セットアップ完了 |
 | `GET` | `/api/setup/models` | 利用可能モデル一覧 |
+| `POST` | `/api/models/ollama/refresh` | Ollamaモデル同期 |
 | `POST` | `/api/setup/model/download` | モデルダウンロード |
 | `DELETE` | `/api/setup/model/{id}` | モデル削除 |
 

@@ -176,8 +176,8 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
         def role_mapper(role):
             if role == "character":
                 return "char_id"
-            if role == "executor":
-                return "exec_id"
+            if role == "professional":
+                return "prof_id"
             return f"{role}_id"
 
         self.mock_model_manager.get_assigned_model_id.side_effect = role_mapper
@@ -188,13 +188,13 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
         await service.get_client("character")
         self.assertIn("char_id", service._chat_model_cache)
 
-        # 2. Load Executor
-        await service.get_client("executor", task_type="default")
+        # 2. Load Professional
+        await service.get_client("professional", task_type="default")
 
         # Character should be evicted
         runner.stop.assert_called_with("char_id")
         self.assertNotIn("char_id", service._chat_model_cache)
-        self.assertIn("exec_id", service._chat_model_cache)
+        self.assertIn("prof_id", service._chat_model_cache)
 
         service.cleanup()
         self.assertEqual(runner.cleanup.call_count, 2)

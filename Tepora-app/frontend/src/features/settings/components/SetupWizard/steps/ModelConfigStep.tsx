@@ -75,7 +75,8 @@ function DefaultModelSelection({
 					const key = getKey(m);
 					const isSelected = state.selectedModels.has(key);
 					return (
-						<div
+						<button
+							type="button"
 							key={key}
 							className={`setup-card relative cursor-pointer group flex flex-col h-full ${isSelected ? "active border-gold-500/50" : "opacity-80 hover:opacity-100"}`}
 							onClick={() => dispatch({ type: "TOGGLE_MODEL", payload: key })}
@@ -84,8 +85,7 @@ function DefaultModelSelection({
 									dispatch({ type: "TOGGLE_MODEL", payload: key });
 								}
 							}}
-							role="button"
-							tabIndex={0}
+							aria-pressed={isSelected}
 						>
 							<div className="absolute top-4 right-4 z-10">
 								{isSelected ? (
@@ -117,7 +117,7 @@ function DefaultModelSelection({
 									{t("setup.approx_vram")}
 								</span>
 							</div>
-						</div>
+						</button>
 					);
 				})}
 				{state.defaults?.text_models.length === 0 && (
@@ -219,7 +219,7 @@ function AdvancedModelSelection({
 
 			{(["text", "embedding"] as const).map((role) => (
 				<div key={role} className="space-y-2">
-					<label className="text-sm font-medium text-gray-300 capitalize flex items-center gap-2">
+					<label htmlFor={`model-${role}-repo`} className="text-sm font-medium text-gray-300 capitalize flex items-center gap-2">
 						{role === "text" ? (
 							<Cpu className="w-4 h-4" />
 						) : (
@@ -231,6 +231,7 @@ function AdvancedModelSelection({
 					</label>
 					<div className="grid grid-cols-2 gap-3">
 						<input
+							id={`model-${role}-repo`}
 							placeholder={t("setup.custom_repo_placeholder")}
 							className="glass-input text-sm w-full"
 							value={state.customModels?.[role]?.repo_id || ""}
@@ -239,6 +240,7 @@ function AdvancedModelSelection({
 							}
 						/>
 						<input
+							aria-label={t("setup.custom_filename_placeholder")}
 							placeholder={t("setup.custom_filename_placeholder")}
 							className="glass-input text-sm w-full"
 							value={state.customModels?.[role]?.filename || ""}

@@ -196,8 +196,8 @@ class LLMService:
         Get a chat model client.
 
         Args:
-            role: Model role ("character", "executor") - USED ONLY IF model_id IS NONE
-            task_type: Task type for executor role
+            role: Model role ("character", "professional") - USED ONLY IF model_id IS NONE
+            task_type: Task type for professional role
             model_id: Specific model ID to load (overrides role lookup)
         """
         # 1. Resolve Model ID
@@ -209,13 +209,13 @@ class LLMService:
                 raise RuntimeError("ModelManager not available to resolve role")
 
             lookup_key = role
-            if role == "executor":
-                lookup_key = f"executor:{task_type}" if task_type != "default" else "executor"
+            if role == "professional":
+                lookup_key = f"professional:{task_type}" if task_type != "default" else "professional"
 
             target_model_id = self._model_manager.get_assigned_model_id(lookup_key)
-            if not target_model_id and role == "executor" and task_type != "default":
-                # Fallback to default executor
-                target_model_id = self._model_manager.get_assigned_model_id("executor")
+            if not target_model_id and role == "professional" and task_type != "default":
+                # Fallback to default professional
+                target_model_id = self._model_manager.get_assigned_model_id("professional")
 
             if not target_model_id:
                 # Legacy fallback for tests or bad config?
@@ -412,7 +412,7 @@ class LLMService:
         mid = self._model_manager.get_assigned_model_id(role)
         if not mid:
             # Try direct ID?
-            mid = self._model_manager.get_assigned_model_id(f"executor:{role}") or role
+            mid = self._model_manager.get_assigned_model_id(f"professional:{role}") or role
 
         model = self._model_manager.get_model(mid)
         if not model:

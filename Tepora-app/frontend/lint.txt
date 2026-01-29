@@ -1,0 +1,417 @@
+src\components\ui\ConfirmDialog.tsx:36:4 lint/a11y/noStaticElementInteractions 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Static Elements should not be interactive.
+  
+    34 笏・	return (
+    35 笏・		<div className="fixed inset-0 bg-theme-overlay backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+  > 36 笏・			<div
+       笏・			^^^^
+  > 37 笏・				className="bg-theme-panel border border-theme-border rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200"
+  > 38 笏・				onClick={(e) => e.stopPropagation()}
+  > 39 笏・			>
+       笏・			^
+    40 笏・				{title && (
+    41 笏・					<h3 className="text-lg font-semibold text-theme-text mb-2">
+  
+  i To add interactivity such as a mouse or key event listener to a static element, give the element an appropriate role value.
+  
+
+src\components\ui\ConfirmDialog.tsx:36:4 lint/a11y/useKeyWithClickEvents 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Enforce to have the onClick mouse event with the onKeyUp, the onKeyDown, or the onKeyPress keyboard event.
+  
+    34 笏・	return (
+    35 笏・		<div className="fixed inset-0 bg-theme-overlay backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+  > 36 笏・			<div
+       笏・			^^^^
+  > 37 笏・				className="bg-theme-panel border border-theme-border rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200"
+  > 38 笏・				onClick={(e) => e.stopPropagation()}
+  > 39 笏・			>
+       笏・			^
+    40 笏・				{title && (
+    41 笏・					<h3 className="text-lg font-semibold text-theme-text mb-2">
+  
+  i Actions triggered using mouse events should have corresponding keyboard events to account for keyboard-only navigation.
+  
+
+src\components\ui\ConfirmDialog.tsx:49:6 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    47 笏・				</p>
+    48 笏・				<div className="flex justify-end gap-3">
+  > 49 笏・					<button
+       笏・					^^^^^^^
+  > 50 笏・						className="px-4 py-2 rounded-lg text-sm font-medium text-theme-subtext hover:text-theme-text hover:bg-theme-glass-highlight transition-colors"
+  > 51 笏・						onClick={onCancel}
+  > 52 笏・					>
+       笏・					^
+    53 笏・						{cancelLabel || t("common.cancel", "繧ｭ繝｣繝ｳ繧ｻ繝ｫ")}
+    54 笏・					</button>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\components\ui\ConfirmDialog.tsx:55:6 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    53 笏・						{cancelLabel || t("common.cancel", "繧ｭ繝｣繝ｳ繧ｻ繝ｫ")}
+    54 笏・					</button>
+  > 55 笏・					<button
+       笏・					^^^^^^^
+  > 56 笏・						className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+        ...
+  > 61 笏・						onClick={onConfirm}
+  > 62 笏・					>
+       笏・					^
+    63 笏・						{confirmLabel || t("common.confirm", "遒ｺ隱・)}
+    64 笏・					</button>
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\components\ui\DialControl.tsx:153:4 lint/a11y/noStaticElementInteractions 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Static Elements should not be interactive.
+  
+    151 笏・			style={{ width: size }}
+    152 笏・		>
+  > 153 笏・			<div
+        笏・			^^^^
+  > 154 笏・				ref={dialRef}
+  > 155 笏・				className="relative cursor-pointer group"
+  > 156 笏・				onMouseDown={handleMouseDown}
+  > 157 笏・				style={{ width: size, height: size }}
+  > 158 笏・			>
+        笏・			^
+    159 笏・				{/* Background Glow */}
+    160 笏・				<div className="absolute inset-0 bg-gold-400/5 rounded-full blur-xl group-hover:bg-gold-400/10 transition-all duration-300" />
+  
+  i To add interactivity such as a mouse or key event listener to a static element, give the element an appropriate role value.
+  
+
+src\components\ui\DialControl.tsx:162:5 lint/a11y/noSvgWithoutTitle 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Alternative text title element cannot be empty
+  
+    160 笏・				<div className="absolute inset-0 bg-gold-400/5 rounded-full blur-xl group-hover:bg-gold-400/10 transition-all duration-300" />
+    161 笏・
+  > 162 笏・				<svg width={size} height={size} className="transform rotate-[135deg]">
+        笏・				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    163 笏・					{/* Track */}
+    164 笏・					<circle
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided via title element. If the svg element has role="img", you should add the aria-label or aria-labelledby attribute.
+  
+
+src\components\ui\Modal.tsx:68:4 lint/a11y/noStaticElementInteractions 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Static Elements should not be interactive.
+  
+    66 笏・		>
+    67 笏・			{/* Backdrop */}
+  > 68 笏・			<div
+       笏・			^^^^
+  > 69 笏・				ref={overlayRef}
+  > 70 笏・				className="fixed inset-0 bg-theme-overlay backdrop-blur-sm transition-opacity"
+  > 71 笏・				onClick={handleBackdropClick}
+  > 72 笏・			/>
+       笏・			^^
+    73 笏・
+    74 笏・			{/* Modal Container */}
+  
+  i To add interactivity such as a mouse or key event listener to a static element, give the element an appropriate role value.
+  
+
+src\components\ui\Modal.tsx:68:4 lint/a11y/useKeyWithClickEvents 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Enforce to have the onClick mouse event with the onKeyUp, the onKeyDown, or the onKeyPress keyboard event.
+  
+    66 笏・		>
+    67 笏・			{/* Backdrop */}
+  > 68 笏・			<div
+       笏・			^^^^
+  > 69 笏・				ref={overlayRef}
+  > 70 笏・				className="fixed inset-0 bg-theme-overlay backdrop-blur-sm transition-opacity"
+  > 71 笏・				onClick={handleBackdropClick}
+  > 72 笏・			/>
+       笏・			^^
+    73 笏・
+    74 笏・			{/* Modal Container */}
+  
+  i Actions triggered using mouse events should have corresponding keyboard events to account for keyboard-only navigation.
+  
+
+src\components\ui\SkeletonLoader.tsx:33:11 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    31 笏・			{loaders.map((_, index) => (
+    32 笏・				<div
+  > 33 笏・					key={index}
+       笏・					     ^^^^^
+    34 笏・					className={`
+    35 笏・            relative overflow-hidden bg-white/5ﾂｷ
+  
+  i This is the source of the key value.
+  
+    29 笏・	return (
+    30 笏・		<div className={`space-y-2 ${className} animate-fade-in`}>
+  > 31 笏・			{loaders.map((_, index) => (
+       笏・			                 ^^^^^
+    32 笏・				<div
+    33 笏・					key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\AgentStatus.tsx:49:17 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    47 笏・				) : (
+    48 笏・					recentActivities.map((step, index) => (
+  > 49 笏・						<div key={index} className="relative pl-6 group">
+       笏・						          ^^^^^
+    50 笏・							{/* Timeline Line */}
+    51 笏・							{index !== recentActivities.length - 1 && (
+  
+  i This is the source of the key value.
+  
+    46 笏・					</div>
+    47 笏・				) : (
+  > 48 笏・					recentActivities.map((step, index) => (
+       笏・					                            ^^^^^
+    49 笏・						<div key={index} className="relative pl-6 group">
+    50 笏・							{/* Timeline Line */}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\DialControl.tsx:112:6 lint/a11y/noStaticElementInteractions 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Static Elements should not be interactive.
+  
+    111 笏・				return (
+  > 112 笏・					<div
+        笏・					^^^^
+  > 113 笏・						key={m.mode}
+         ...
+  > 122 笏・						}`}
+  > 123 笏・					>
+        笏・					^
+    124 笏・						<div
+    125 笏・							className={`p-2 rounded-full transition-all duration-300 ${isSelected ? "bg-gold-500/10" : "group-hover:bg-white/5"}`}
+  
+  i To add interactivity such as a mouse or key event listener to a static element, give the element an appropriate role value.
+  
+
+src\features\chat\DialControl.tsx:112:6 lint/a11y/useKeyWithClickEvents 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Enforce to have the onClick mouse event with the onKeyUp, the onKeyDown, or the onKeyPress keyboard event.
+  
+    111 笏・				return (
+  > 112 笏・					<div
+        笏・					^^^^
+  > 113 笏・						key={m.mode}
+         ...
+  > 122 笏・						}`}
+  > 123 笏・					>
+        笏・					^
+    124 笏・						<div
+    125 笏・							className={`p-2 rounded-full transition-all duration-300 ${isSelected ? "bg-gold-500/10" : "group-hover:bg-white/5"}`}
+  
+  i Actions triggered using mouse events should have corresponding keyboard events to account for keyboard-only navigation.
+  
+
+src\features\chat\DialControl.tsx:162:12 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    160 笏・				{[...Array(12)].map((_, i) => (
+    161 笏・					<div
+  > 162 笏・						key={i}
+        笏・						     ^
+    163 笏・						className={`absolute w-0.5 ${i % 3 === 0 ? "h-1.5 bg-white/20" : "h-1 bg-white/5"}`}
+    164 笏・						style={{
+  
+  i This is the source of the key value.
+  
+    158 笏・				</button>
+    159 笏・
+  > 160 笏・				{[...Array(12)].map((_, i) => (
+        笏・				                        ^
+    161 笏・					<div
+    162 笏・						key={i}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\MessageList.tsx:76:5 lint/a11y/useSemanticElements 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・The elements with this role can be changed to the following elements:
+    <output>
+  
+    74 笏・			<div
+    75 笏・				className="sr-only"
+  > 76 笏・				role="status"
+       笏・				^^^^^^^^^^^^^
+    77 笏・				aria-live="polite"
+    78 笏・				aria-atomic="true"
+  
+  i For examples and more information, see WAI-ARIA Roles
+  
+
+src\features\chat\RagContextPanel.tsx:181:32 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    179 笏・								return (
+    180 笏・									<a
+  > 181 笏・										key={`${targetUrl}-${index}`}
+        笏・										                     ^^^^^
+    182 笏・										href={targetUrl}
+    183 笏・										target="_blank"
+  
+  i This is the source of the key value.
+  
+    175 笏・						</div>
+    176 笏・						<div className="space-y-3">
+  > 177 笏・							{searchResults?.map((result, index) => {
+        笏・							                             ^^^^^
+    178 笏・								const targetUrl = getValidUrl(result);
+    179 笏・								return (
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\SearchResults.tsx:67:29 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    65 笏・					return (
+    66 笏・						<a
+  > 67 笏・							key={`${targetUrl}-${index}`}
+       笏・							                     ^^^^^
+    68 笏・							href={targetUrl}
+    69 笏・							target="_blank"
+  
+  i This is the source of the key value.
+  
+    61 笏・			{/* Scrollable List */}
+    62 笏・			<div className="overflow-y-auto custom-scrollbar flex-1 min-h-0 -mr-2 pr-2 space-y-3">
+  > 63 笏・				{results.map((result, index) => {
+       笏・				                      ^^^^^
+    64 笏・					const targetUrl = getValidUrl(result);
+    65 笏・					return (
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\components\EmptyState.tsx:70:6 lint/a11y/useButtonType 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Provide an explicit type prop for the button element.
+  
+    68 笏・			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full px-4">
+    69 笏・				{capabilities.map((cap, index) => (
+  > 70 笏・					<button
+       笏・					^^^^^^^
+  > 71 笏・						key={index}
+  > 72 笏・						onClick={() => onPromptSelect(cap.prompt)}
+  > 73 笏・						className={`group relative p-6 rounded-xl border ${cap.border} ${cap.bg} backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-lg text-left overflow-hidden`}
+  > 74 笏・					>
+       笏・					^
+    75 笏・						<div
+    76 笏・							className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-br from-white to-transparent`}
+  
+  i The default type of a button is submit, which causes the submission of a form when placed inside a `form` element. This is likely not the behaviour that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+src\features\chat\components\EmptyState.tsx:71:12 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    69 笏・				{capabilities.map((cap, index) => (
+    70 笏・					<button
+  > 71 笏・						key={index}
+       笏・						     ^^^^^
+    72 笏・						onClick={() => onPromptSelect(cap.prompt)}
+    73 笏・						className={`group relative p-6 rounded-xl border ${cap.border} ${cap.bg} backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-lg text-left overflow-hidden`}
+  
+  i This is the source of the key value.
+  
+    67 笏・			{/* Capability Cards */}
+    68 笏・			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full px-4">
+  > 69 笏・				{capabilities.map((cap, index) => (
+       笏・				                        ^^^^^
+    70 笏・					<button
+    71 笏・						key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\components\ShortcutsDialog.tsx:60:13 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    58 笏・					{shortcuts.map((shortcut, index) => (
+    59 笏・						<div
+  > 60 笏・							key={index}
+       笏・							     ^^^^^
+    61 笏・							className="flex items-center justify-between group"
+    62 笏・						>
+  
+  i This is the source of the key value.
+  
+    56 笏・				{/* Content */}
+    57 笏・				<div className="p-6 space-y-4">
+  > 58 笏・					{shortcuts.map((shortcut, index) => (
+       笏・					                          ^^^^^
+    59 笏・						<div
+    60 笏・							key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src\features\chat\components\ShortcutsDialog.tsx:72:16 lint/suspicious/noArrayIndexKey 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Avoid using the index of an array as key property in an element.
+  
+    70 笏・								{shortcut.keys.map((key, keyIndex) => (
+    71 笏・									<kbd
+  > 72 笏・										key={keyIndex}
+       笏・										     ^^^^^^^^
+    73 笏・										className="px-2 py-1 min-w-[1.5rem] text-center text-xs font-mono font-bold text-gray-400 bg-white/5 border border-white/10 rounded shadow-sm"
+    74 笏・									>
+  
+  i This is the source of the key value.
+  
+    68 笏・							</div>
+    69 笏・							<div className="flex items-center gap-1">
+  > 70 笏・								{shortcut.keys.map((key, keyIndex) => (
+       笏・								                         ^^^^^^^^
+    71 笏・									<kbd
+    72 笏・										key={keyIndex}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 35.
+Checked 116 files in 40ms. No fixes applied.
+Found 49 errors.
+Found 6 warnings.
+lint 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Some errors were emitted while running checks.
+  
+

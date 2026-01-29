@@ -28,16 +28,10 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 					{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
 					{title}
 					{description && (
-						<div
+						<button
+							type="button"
 							className="group relative"
 							onClick={(e) => e.stopPropagation()} // Prevent collapse when clicking tooltip
-							role="button"
-							tabIndex={0}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" || e.key === " ") {
-									e.stopPropagation();
-								}
-							}}
 						>
 							<HelpCircle
 								size={14}
@@ -46,7 +40,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 							<div className="absolute top-full left-0 mt-2 w-64 p-2 bg-gray-900 border border-white/10 rounded-md shadow-xl text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
 								{description}
 							</div>
-						</div>
+						</button>
 					)}
 				</div>
 			</button>

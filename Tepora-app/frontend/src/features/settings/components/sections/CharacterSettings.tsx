@@ -63,9 +63,9 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	// Model Options
 	const modelOptions = settingsConfig?.models_gguf
 		? Object.keys(settingsConfig.models_gguf).map((key) => ({
-				value: key,
-				label: key,
-			}))
+			value: key,
+			label: key,
+		}))
 		: [];
 
 	// Edit Modal State
@@ -181,9 +181,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 
 			// Check duplicates
 			const exists =
-				editState.type === "character"
-					? profiles && profiles[key]
-					: professionals && professionals[key];
+				editState.type === "character" ? profiles?.[key] : professionals?.[key];
 
 			if (exists) {
 				showError(t("settings.sections.agents.error_duplicate_key"));
@@ -258,17 +256,15 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		const isActive = activeProfileId === key && type === "character";
 
 		return (
-			<div
+			<button
+				type="button"
 				key={key}
-				role="button"
-				tabIndex={0}
 				aria-pressed={isActive}
 				className={`
 					relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
-					${
-						isActive
-							? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-							: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
+					${isActive
+						? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+						: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
 					}
 					focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950
 				`}
@@ -336,7 +332,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</div>
+			</button>
 		);
 	};
 
@@ -395,13 +391,14 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						{/* Key Input for New Agents */}
 						{editState.isNew && (
 							<div className="p-4 bg-white/5 rounded-xl border border-white/10 mb-4">
-								<label className="block text-sm font-medium text-gray-300 mb-1">
+								<label htmlFor="agent-key-input" className="block text-sm font-medium text-gray-300 mb-1">
 									{t("settings.sections.agents.modal.key_label")}
 								</label>
 								<p className="text-xs text-gray-500 mb-2">
 									{t("settings.sections.agents.modal.key_desc")}
 								</p>
 								<input
+									id="agent-key-input"
 									type="text"
 									value={newKeyInput}
 									onChange={(e) => setNewKeyInput(e.target.value)}

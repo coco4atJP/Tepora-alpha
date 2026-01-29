@@ -191,6 +191,7 @@ def _resolve_model_pool(role: str):
     pool_map = {
         "text": ModelPool.TEXT,
         "character": ModelPool.TEXT,
+        "professional": ModelPool.TEXT,
         "executor": ModelPool.TEXT,
         "embedding": ModelPool.EMBEDDING,
     }
@@ -594,7 +595,7 @@ async def get_models():
         models = dm.model_manager.get_available_models()
 
         active_text_id = (
-            dm.model_manager.get_character_model_id() or dm.model_manager.get_executor_model_id()
+            dm.model_manager.get_character_model_id() or dm.model_manager.get_assigned_model_id("professional")
         )
         active_embedding_id = dm.model_manager.get_assigned_model_id("embedding")
 
@@ -695,6 +696,20 @@ async def register_local_model(request: LocalModelRequest):
         raise
     except Exception as e:
         logger.error("Failed to register local model: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.post("/models/ollama/refresh")
+async def refresh_ollama_models():
+    """
+    Refresh list of Ollama models from the running Ollama instance.
+    """
+    try:
+        dm = _get_download_manager()
+        synced_ids = await dm.model_manager.sync_ollama_models()
+        return {"success": True, "synced_models": synced_ids}
+    except Exception as e:
+        logger.error("Failed to sync Ollama models: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -940,7 +955,7 @@ class SetCharacterModelRequest(BaseModel):
     model_id: str
 
 
-class SetExecutorModelRequest(BaseModel):
+class ProfessionalRoleRequest(BaseModel):
     task_type: str
     model_id: str
 
@@ -955,7 +970,7 @@ async def get_model_roles():
 
         return {
             "character_model_id": dm.model_manager.get_character_model_id(),
-            "executor_model_map": dm.model_manager.registry.executor_model_map,
+            "professional_model_map": dm.model_manager.registry.professional_model_map,
         }
     except Exception as e:
         logger.error("Failed to get model roles: %s", e, exc_info=True)
@@ -983,45 +998,33 @@ async def set_character_model(request: SetCharacterModelRequest):
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
-@router.post("/model/roles/executor")
-async def set_executor_model(request: SetExecutorModelRequest):
+@router.post("/model/roles/professional")
+async def update_professional_role(request: ProfessionalRoleRequest):
     """
-    エグゼキューターモデルを設定（タスクタイプごと）
-    """
-    try:
-        dm = _get_download_manager()
-        success = dm.model_manager.set_executor_model(request.task_type, request.model_id)
-
-        if not success:
-            return JSONResponse(
-                status_code=400, content={"success": False, "error": "Failed to set executor model"}
-            )
-
-        return {"success": True}
-    except Exception as e:
-        logger.error("Failed to set executor model: %s", e, exc_info=True)
-        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
-
-@router.delete("/model/roles/executor/{task_type}")
-async def remove_executor_model(task_type: str):
-    """
-    エグゼキューターモデルマッピングを削除
+    プロフェッショナルモデル（旧Executor）の割り当て更新
     """
     try:
         dm = _get_download_manager()
-        success = dm.model_manager.remove_executor_model(task_type)
-
+        success = dm.model_manager.set_professional_model(request.task_type, request.model_id)
         if not success:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "Cannot remove default or non-existent mapping",
-                },
-            )
-
+            raise HTTPException(status_code=400, detail="Failed to set professional model")
         return {"success": True}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Failed to remove executor model: %s", e, exc_info=True)
-        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+        logger.error("Failed to set professional model: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.delete("/model/roles/professional/{task_type}")
+async def remove_professional_role(task_type: str):
+    """
+    プロフェッショナルモデルの割り当て解除
+    """
+    try:
+        dm = _get_download_manager()
+        success = dm.model_manager.remove_professional_model(task_type)
+        return {"success": success}
+    except Exception as e:
+        logger.error("Failed to remove professional model: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})

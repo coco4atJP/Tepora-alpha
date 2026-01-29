@@ -524,7 +524,13 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							)}
 						</div>
 					) : (
+						// biome-ignore lint/a11y/useSemanticElements: Cannot use button due to nested interactive elements
 						<div
+							role="button"
+							tabIndex={0}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") handleOpenDialog();
+							}}
 							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive
 								? "border-gold-400 bg-gold-400/5"
 								: "border-white/10 hover:border-white/20 hover:bg-white/5"
@@ -560,7 +566,8 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										<CheckCircle size={18} />
 										<span>
 											{localFile.name}{" "}
-											{localFile.size && `(${(localFile.size / 1024 / 1024).toFixed(1)} MB)`}
+											{localFile.size &&
+												`(${(localFile.size / 1024 / 1024).toFixed(1)} MB)`}
 										</span>
 									</div>
 									<button
@@ -614,6 +621,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							<ul className="space-y-2">
 								{consentWarnings.map((warning, idx) => (
 									<li
+										// biome-ignore lint/suspicious/noArrayIndexKey: Static list for display
 										key={idx}
 										className="text-amber-200 text-sm flex items-start gap-2"
 									>

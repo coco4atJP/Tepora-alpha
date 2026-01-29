@@ -64,6 +64,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 					const targetUrl = getValidUrl(result);
 					return (
 						<a
+							// biome-ignore lint/suspicious/noArrayIndexKey: Search results need index
 							key={`${targetUrl}-${index}`}
 							href={targetUrl}
 							target="_blank"

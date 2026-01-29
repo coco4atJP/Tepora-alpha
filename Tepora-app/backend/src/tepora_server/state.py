@@ -8,6 +8,7 @@ V2-only runtime:
 - V1 execution paths are removed.
 """
 
+import asyncio
 import logging
 
 from fastapi import Request, WebSocket
@@ -98,10 +99,20 @@ class AppState:
             # Don't fail initialization - MCP is optional
 
         logger.info("Initializing core (V2-only, TeporaApp)...")
+        asyncio.create_task(self._sync_ollama_safely())
+
         return await self.core.initialize(
             mcp_hub=self._mcp_hub,
             download_manager=self.download_manager,
         )
+
+    async def _sync_ollama_safely(self):
+        """Helper to sync ollama models without crashing startup."""
+        try:
+            logger.info("Starting background Ollama model sync...")
+            await self.download_manager.model_manager.sync_ollama_models()
+        except Exception as e:
+            logger.warning("Background Ollama sync failed: %s", e)
 
     async def _initialize_mcp(self) -> None:
         """Initialize MCP Hub and Registry."""

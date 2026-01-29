@@ -2,6 +2,7 @@ import { Loader2, RotateCcw, Save } from "lucide-react";
 import type React from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FitText } from "../../../components/ui/FitText";
 import Modal from "../../../components/ui/Modal";
 import { useSettings } from "../../../hooks/useSettings";
 import { SettingsSidebar } from "./SettingsComponents";
@@ -147,12 +148,24 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 							<>
 								{/* Fixed Header */}
 								<header className="flex-none px-8 py-6 border-b border-white/5 flex flex-col gap-1">
-									<h2 className="text-2xl font-light text-white tracking-tight">
-										{getSectionLabel(activeSection)}
-									</h2>
-									<p className="text-sm text-gray-400">
-										{t("settings.subtitle")}
-									</p>
+									<div className="h-8 flex items-center min-w-0">
+										<FitText
+											className="text-2xl font-light text-white tracking-tight"
+											minFontSize={14}
+											maxFontSize={24}
+										>
+											{getSectionLabel(activeSection)}
+										</FitText>
+									</div>
+									<div className="h-5 flex items-center min-w-0">
+										<FitText
+											className="text-sm text-gray-400"
+											minFontSize={10}
+											maxFontSize={14}
+										>
+											{t("settings.subtitle")}
+										</FitText>
+									</div>
 								</header>
 
 								{/* Scrollable Body */}
@@ -215,9 +228,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onClick={handleSave}
 												className={`
 													px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
-													${hasChanges
-														? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-														: "bg-white/5 text-gray-400 cursor-not-allowed"
+													${
+														hasChanges
+															? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+															: "bg-white/5 text-gray-400 cursor-not-allowed"
 													}
 												`}
 												disabled={!hasChanges || saving}

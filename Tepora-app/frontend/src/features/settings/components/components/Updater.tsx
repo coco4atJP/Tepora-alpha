@@ -106,6 +106,7 @@ const Updater: React.FC = () => {
 				<div className="flex items-center gap-4">
 					{status === "idle" || status === "uptodate" || status === "error" ? (
 						<button
+							type="button"
 							onClick={checkForUpdates}
 							className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-md transition-colors text-sm font-medium text-white"
 						>
@@ -115,6 +116,7 @@ const Updater: React.FC = () => {
 						</button>
 					) : status === "available" ? (
 						<button
+							type="button"
 							onClick={installUpdate}
 							className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-sm font-medium text-white"
 						>

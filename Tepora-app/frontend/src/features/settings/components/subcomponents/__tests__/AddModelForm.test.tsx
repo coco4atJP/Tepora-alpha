@@ -33,8 +33,8 @@ vi.mock("../../../../utils/api-client", () => ({
 	},
 	ApiError: class extends Error {
 		status: number;
-		data: any;
-		constructor(status: number, data: any) {
+		data: unknown;
+		constructor(status: number, data: unknown) {
 			super("ApiError");
 			this.status = status;
 			this.data = data;
@@ -291,6 +291,4 @@ describe("AddModelForm", () => {
 			expect(screen.queryByText("Confirm Download")).not.toBeInTheDocument();
 		});
 	});
-
-
 });

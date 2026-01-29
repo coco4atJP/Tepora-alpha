@@ -9,6 +9,7 @@ import type React from "react";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
+import { Button } from "../../components/ui/Button";
 import DynamicBackground from "../../components/ui/DynamicBackground";
 import { useTheme } from "../../context/ThemeContext";
 import { useChatStore, useWebSocketStore } from "../../stores";
@@ -36,21 +37,23 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({
 	isActive,
 	onClick,
 }) => (
-	<button
-		type="button"
+	<Button
+		variant={isActive ? "primary" : "ghost"}
 		onClick={() => onClick(mode)}
-		className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-300 ${
-			isActive
-				? "text-gold-400 bg-white/10"
-				: "text-gray-400 hover:text-gray-200"
-		} focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950`}
+		className={`flex flex-col items-center justify-center p-2 h-auto w-full rounded-lg transition-all duration-300 ${
+			isActive ? "bg-white/10" : ""
+		}`}
 	>
 		<Icon
 			size={20}
 			className={isActive ? "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" : ""}
 		/>
-		<span className="text-[10px] mt-1 font-medium tracking-wide">{label}</span>
-	</button>
+		<span
+			className={`text-[10px] mt-1 font-medium tracking-wide ${isActive ? "text-gold-400" : ""}`}
+		>
+			{label}
+		</span>
+	</Button>
 );
 
 const Layout: React.FC = () => {
@@ -292,16 +295,16 @@ const Layout: React.FC = () => {
 						onClick={handleModeChange}
 					/>
 
-					<button
-						type="button"
+					<Button
+						variant="ghost"
 						onClick={() => setIsSettingsOpen(true)}
-						className="flex flex-col items-center justify-center p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950"
+						className="flex flex-col items-center justify-center p-2 h-auto w-full rounded-lg text-gray-400 hover:text-gray-200"
 					>
 						<SettingsIcon size={20} />
 						<span className="text-[10px] mt-1 font-medium tracking-wide">
 							{t("common.settings")}
 						</span>
-					</button>
+					</Button>
 				</div>
 			</div>
 

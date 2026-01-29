@@ -66,9 +66,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onPromptSelect }) => {
 
 			{/* Capability Cards */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full px-4">
-				{capabilities.map((cap, index) => (
+				{capabilities.map((cap) => (
 					<button
-						key={index}
+						type="button"
+						key={cap.prompt}
 						onClick={() => onPromptSelect(cap.prompt)}
 						className={`group relative p-6 rounded-xl border ${cap.border} ${cap.bg} backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-lg text-left overflow-hidden`}
 					>

@@ -1,0 +1,500 @@
+[
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SettingsComponents.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SettingsConstants.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SettingsDialog.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SettingsLayout.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\SetupWarnings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\SetupWizard.tsx",
+		"messages": [],
+		"suppressedMessages": [
+			{
+				"ruleId": "react-hooks/exhaustive-deps",
+				"severity": 1,
+				"message": "React Hook useEffect has a missing dependency: 'handleStartSetup'. Either include it or remove the dependency array.",
+				"line": 287,
+				"column": 5,
+				"nodeType": "ArrayExpression",
+				"endLine": 287,
+				"endColumn": 51,
+				"suggestions": [
+					{
+						"desc": "Update the dependencies array to be: [state.step, state.loader, state.requirements, handleStartSetup]",
+						"fix": {
+							"range": [8080, 8126],
+							"text": "[state.step, state.loader, state.requirements, handleStartSetup]"
+						}
+					}
+				],
+				"suppressions": [{ "kind": "directive", "justification": "" }]
+			}
+		],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\__tests__\\SetupWizard.test.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\index.ts",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\reducer.ts",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\CompleteStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\ErrorStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\InstallingStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\LanguageStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\LoaderSelectionStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\ModelConfigStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\RequirementsCheckStep.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\steps\\index.ts",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\SetupWizard\\types.ts",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\CardComponents.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\CollapsibleSection.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\FormComponents.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\LayoutComponents.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\ThemeSelector.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\Updater.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\components\\index.ts",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\CharacterSettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\CustomAgentSettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\GeneralSettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\McpSettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\MemorySettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\ModelSettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\sections\\PrivacySettings.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\AddModelForm.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\McpStoreModal.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\ModelDetailOverlay.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\ModelListOverlay.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\ModelSelectionRow.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\__tests__\\AddModelForm.test.tsx",
+		"messages": [
+			{
+				"ruleId": "@typescript-eslint/no-explicit-any",
+				"severity": 2,
+				"message": "Unexpected any. Specify a different type.",
+				"line": 36,
+				"column": 9,
+				"nodeType": "TSAnyKeyword",
+				"messageId": "unexpectedAny",
+				"endLine": 36,
+				"endColumn": 12,
+				"suggestions": [
+					{
+						"messageId": "suggestUnknown",
+						"fix": { "range": [1191, 1194], "text": "unknown" },
+						"desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+					},
+					{
+						"messageId": "suggestNever",
+						"fix": { "range": [1191, 1194], "text": "never" },
+						"desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+					}
+				]
+			},
+			{
+				"ruleId": "@typescript-eslint/no-explicit-any",
+				"severity": 2,
+				"message": "Unexpected any. Specify a different type.",
+				"line": 37,
+				"column": 37,
+				"nodeType": "TSAnyKeyword",
+				"messageId": "unexpectedAny",
+				"endLine": 37,
+				"endColumn": 40,
+				"suggestions": [
+					{
+						"messageId": "suggestUnknown",
+						"fix": { "range": [1232, 1235], "text": "unknown" },
+						"desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+					},
+					{
+						"messageId": "suggestNever",
+						"fix": { "range": [1232, 1235], "text": "never" },
+						"desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+					}
+				]
+			}
+		],
+		"suppressedMessages": [],
+		"errorCount": 2,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"source": "import { fireEvent, render, screen, waitFor } from \"@testing-library/react\";\nimport { beforeEach, describe, expect, it, vi } from \"vitest\";\nimport { AddModelForm } from \"../AddModelForm\";\n\n// Mock react-i18next\nvi.mock(\"react-i18next\", () => ({\n\tuseTranslation: () => ({\n\t\tt: (key: string) => {\n\t\t\tconst map: Record<string, string> = {\n\t\t\t\t\"settings.sections.models.add_modal.title\": \"Add Model\",\n\t\t\t\t\"settings.sections.models.add_modal.check\": \"Check\",\n\t\t\t\t\"settings.sections.models.add_modal.download\": \"Download Model\",\n\t\t\t\t\"settings.sections.models.consent_dialog.title\": \"Confirm Download\",\n\t\t\t\t\"settings.sections.models.consent_dialog.description\":\n\t\t\t\t\t\"Confirmation required\",\n\t\t\t\t\"settings.sections.models.consent_dialog.confirm\": \"Proceed\",\n\t\t\t\t\"settings.sections.models.add_modal.repo_id_placeholder\": \"user/repo\",\n\t\t\t\t\"settings.sections.models.add_modal.filename_placeholder\":\n\t\t\t\t\t\"model-Q4_K_M.gguf\",\n\t\t\t\t\"common.cancel\": \"Cancel\",\n\t\t\t};\n\t\t\treturn map[key] || key;\n\t\t},\n\t}),\n}));\n\n// Mock API utils\nvi.mock(\"../../../../utils/api-client\", () => ({\n\tapiClient: {\n\t\tget: vi.fn(),\n\t\tpost: vi.fn(),\n\t\tdelete: vi.fn(),\n\t},\n\tApiError: class extends Error {\n\t\tstatus: number;\n\t\tdata: any;\n\t\tconstructor(status: number, data: any) {\n\t\t\tsuper(\"ApiError\");\n\t\t\tthis.status = status;\n\t\t\tthis.data = data;\n\t\t}\n\t},\n}));\n\n// Mock fetch\nconst fetchMock = vi.fn();\nglobalThis.fetch = fetchMock;\n\n// Mock Tauri Dialog\nvi.mock(\"@tauri-apps/plugin-dialog\", () => ({\n\topen: vi.fn(),\n}));\n\ndescribe(\"AddModelForm\", () => {\n\tconst mockOnModelAdded = vi.fn();\n\n\tbeforeEach(() => {\n\t\tvi.resetAllMocks();\n\t\tmockOnModelAdded.mockClear();\n\t\t// Default Implementation\n\t\tfetchMock.mockImplementation(async (url) => {\n\t\t\t// Safe string conversion\n\t\t\tconst u = String(url);\n\t\t\tif (u.includes(\"check\")) {\n\t\t\t\treturn {\n\t\t\t\t\tok: true,\n\t\t\t\t\tjson: async () => ({ exists: true, size: 100 }),\n\t\t\t\t};\n\t\t\t}\n\t\t\treturn { ok: false, status: 404 };\n\t\t});\n\t});\n\n\tconst expandForm = async () => {\n\t\tconst toggleButton = screen.getByText(\"Add Model\");\n\t\tfireEvent.click(toggleButton);\n\t\tawait screen.findByPlaceholderText(\"user/repo\");\n\t};\n\n\tit(\"triggers normal download when no warning\", async () => {\n\t\trender(<AddModelForm onModelAdded={mockOnModelAdded} />);\n\n\t\tawait expandForm();\n\t\tconst repoInput = screen.getByPlaceholderText(\"user/repo\");\n\t\tconst fileInput = screen.getByPlaceholderText(\"model-Q4_K_M.gguf\");\n\n\t\tfireEvent.change(repoInput, { target: { value: \"valid/repo\" } });\n\t\tfireEvent.change(fileInput, { target: { value: \"valid.gguf\" } });\n\n\t\tconst downloadBtn = screen.getByText(\"Download Model\");\n\t\tawait waitFor(() => expect(downloadBtn).not.toBeDisabled(), {\n\t\t\ttimeout: 3000,\n\t\t});\n\n\t\t// Setup Download Mock\n\t\tfetchMock.mockImplementation(async (url: RequestInfo | URL) => {\n\t\t\tconst u = String(url);\n\t\t\tif (u.includes(\"check\"))\n\t\t\t\treturn { ok: true, json: async () => ({ exists: true }) };\n\t\t\tif (u.includes(\"download\")) {\n\t\t\t\treturn {\n\t\t\t\t\tok: true,\n\t\t\t\t\tstatus: 200,\n\t\t\t\t\tjson: async () => ({ success: true }),\n\t\t\t\t};\n\t\t\t}\n\t\t\treturn { ok: false };\n\t\t});\n\n\t\tfireEvent.click(downloadBtn);\n\n\t\t// Verify API call\n\t\tawait waitFor(() => {\n\t\t\texpect(fetchMock).toHaveBeenCalledWith(\n\t\t\t\texpect.stringContaining(\"download\"),\n\t\t\t\texpect.objectContaining({\n\t\t\t\t\tmethod: \"POST\",\n\t\t\t\t\tbody: expect.stringContaining('\"acknowledge_warnings\":false'),\n\t\t\t\t}),\n\t\t\t);\n\t\t});\n\t});\n\n\tit(\"shows consent dialog on 409 response\", async () => {\n\t\trender(<AddModelForm onModelAdded={mockOnModelAdded} />);\n\n\t\tawait expandForm();\n\t\tconst repoInput = screen.getByPlaceholderText(\"user/repo\");\n\t\tconst fileInput = screen.getByPlaceholderText(\"model-Q4_K_M.gguf\");\n\n\t\tfireEvent.change(repoInput, { target: { value: \"warn/repo\" } });\n\t\tfireEvent.change(fileInput, { target: { value: \"warn.gguf\" } });\n\n\t\tconst downloadBtn = screen.getByText(\"Download Model\");\n\t\tawait waitFor(() => expect(downloadBtn).not.toBeDisabled(), {\n\t\t\ttimeout: 3000,\n\t\t});\n\n\t\t// Setup 409 Mock\n\t\tfetchMock.mockImplementation(async (url: RequestInfo | URL) => {\n\t\t\tconst u = String(url);\n\t\t\tif (u.includes(\"check\"))\n\t\t\t\treturn { ok: true, json: async () => ({ exists: true }) };\n\t\t\tif (u.includes(\"download\")) {\n\t\t\t\treturn {\n\t\t\t\t\tok: false,\n\t\t\t\t\tstatus: 409,\n\t\t\t\t\tjson: async () => ({\n\t\t\t\t\t\trequires_consent: true,\n\t\t\t\t\t\twarnings: [\"Warning 1\", \"Warning 2\"],\n\t\t\t\t\t}),\n\t\t\t\t};\n\t\t\t}\n\t\t\treturn { ok: false };\n\t\t});\n\n\t\tfireEvent.click(downloadBtn);\n\n\t\t// Verify download was called\n\t\tawait waitFor(() => {\n\t\t\texpect(fetchMock).toHaveBeenCalledWith(\n\t\t\t\texpect.stringContaining(\"download\"),\n\t\t\t\texpect.anything(),\n\t\t\t);\n\t\t});\n\n\t\t// Expect Dialog to appear\n\t\tawait waitFor(() => {\n\t\t\texpect(screen.getByText(\"Confirm Download\")).toBeInTheDocument();\n\t\t\texpect(screen.getByText(\"Warning 1\")).toBeInTheDocument();\n\t\t\texpect(screen.getByText(\"Warning 2\")).toBeInTheDocument();\n\t\t});\n\t});\n\n\tit(\"resends with acknowledge_warnings: true when Proceed is clicked\", async () => {\n\t\trender(<AddModelForm onModelAdded={mockOnModelAdded} />);\n\n\t\tawait expandForm();\n\t\tconst repoInput = screen.getByPlaceholderText(\"user/repo\");\n\t\tconst fileInput = screen.getByPlaceholderText(\"model-Q4_K_M.gguf\");\n\t\tfireEvent.change(repoInput, { target: { value: \"warn/repo\" } });\n\t\tfireEvent.change(fileInput, { target: { value: \"warn.gguf\" } });\n\n\t\tconst downloadBtn = screen.getByText(\"Download Model\");\n\t\tawait waitFor(() => expect(downloadBtn).not.toBeDisabled(), {\n\t\t\ttimeout: 3000,\n\t\t});\n\n\t\t// Setup Complex Mock\n\t\tfetchMock.mockImplementation(\n\t\t\tasync (url: RequestInfo | URL, opts?: RequestInit) => {\n\t\t\t\tconst u = String(url);\n\t\t\t\tif (u.includes(\"/check\"))\n\t\t\t\t\treturn { ok: true, json: async () => ({ exists: true }) };\n\n\t\t\t\tif (u.includes(\"download\")) {\n\t\t\t\t\tconst bodyStr = typeof opts?.body === \"string\" ? opts.body : \"{}\";\n\t\t\t\t\tconst body = JSON.parse(bodyStr) as {\n\t\t\t\t\t\tacknowledge_warnings?: boolean;\n\t\t\t\t\t};\n\t\t\t\t\tif (body.acknowledge_warnings === true) {\n\t\t\t\t\t\treturn {\n\t\t\t\t\t\t\tok: true,\n\t\t\t\t\t\t\tstatus: 200,\n\t\t\t\t\t\t\tjson: async () => ({ success: true }),\n\t\t\t\t\t\t};\n\t\t\t\t\t} else {\n\t\t\t\t\t\treturn {\n\t\t\t\t\t\t\tok: false,\n\t\t\t\t\t\t\tstatus: 409,\n\t\t\t\t\t\t\tjson: async () => ({\n\t\t\t\t\t\t\t\tsuccess: false,\n\t\t\t\t\t\t\t\trequires_consent: true,\n\t\t\t\t\t\t\t\twarnings: [\"Big File\"],\n\t\t\t\t\t\t\t}),\n\t\t\t\t\t\t};\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\treturn { ok: false };\n\t\t\t},\n\t\t);\n\n\t\tfireEvent.click(downloadBtn);\n\n\t\t// Wait for Dialog\n\t\tawait waitFor(() =>\n\t\t\texpect(screen.getByText(\"Confirm Download\")).toBeInTheDocument(),\n\t\t);\n\n\t\t// Click Proceed\n\t\tconst proceedBtn = screen.getByText(\"Proceed\");\n\t\tfireEvent.click(proceedBtn);\n\n\t\t// Verify retry logic\n\t\tawait waitFor(() => {\n\t\t\tconst calls = fetchMock.mock.calls;\n\t\t\tconst downloadCalls = calls.filter((c) =>\n\t\t\t\tString(c[0]).includes(\"download\"),\n\t\t\t);\n\t\t\texpect(downloadCalls.length).toBeGreaterThanOrEqual(2);\n\n\t\t\tconst lastCall = downloadCalls[downloadCalls.length - 1];\n\t\t\tconst body = JSON.parse(lastCall[1].body);\n\t\t\texpect(body.acknowledge_warnings).toBe(true);\n\t\t});\n\n\t\texpect(screen.queryByText(\"Confirm Download\")).not.toBeInTheDocument();\n\t});\n\n\tit(\"closes dialog on Cancel\", async () => {\n\t\trender(<AddModelForm onModelAdded={mockOnModelAdded} />);\n\n\t\tawait expandForm();\n\t\tconst repoInput = screen.getByPlaceholderText(\"user/repo\");\n\t\tconst fileInput = screen.getByPlaceholderText(\"model-Q4_K_M.gguf\");\n\t\tfireEvent.change(repoInput, { target: { value: \"warn/repo\" } });\n\t\tfireEvent.change(fileInput, { target: { value: \"warn.gguf\" } });\n\n\t\tconst downloadBtn = screen.getByText(\"Download Model\");\n\t\tawait waitFor(() => expect(downloadBtn).not.toBeDisabled(), {\n\t\t\ttimeout: 3000,\n\t\t});\n\n\t\t// Setup Mock\n\t\tfetchMock.mockImplementation(async (url: RequestInfo | URL) => {\n\t\t\tconst u = String(url);\n\t\t\tif (u.includes(\"check\"))\n\t\t\t\treturn { ok: true, json: async () => ({ exists: true }) };\n\t\t\tif (u.includes(\"download\")) {\n\t\t\t\treturn {\n\t\t\t\t\tok: false,\n\t\t\t\t\tstatus: 409,\n\t\t\t\t\tjson: async () => ({\n\t\t\t\t\t\trequires_consent: true,\n\t\t\t\t\t\twarnings: [\"Check me\"],\n\t\t\t\t\t}),\n\t\t\t\t};\n\t\t\t}\n\t\t\treturn { ok: false };\n\t\t});\n\n\t\tfireEvent.click(downloadBtn);\n\t\tawait waitFor(() =>\n\t\t\texpect(screen.getByText(\"Confirm Download\")).toBeInTheDocument(),\n\t\t);\n\n\t\t// Click Cancel\n\t\tfireEvent.click(screen.getByText(\"Cancel\"));\n\n\t\tawait waitFor(() => {\n\t\t\texpect(screen.queryByText(\"Confirm Download\")).not.toBeInTheDocument();\n\t\t});\n\t});\n});\n",
+		"usedDeprecatedRules": []
+	},
+	{
+		"filePath": "E:\\Tepora_Project\\Tepora-app\\frontend\\src\\features\\settings\\components\\subcomponents\\__tests__\\ModelListOverlay.test.tsx",
+		"messages": [],
+		"suppressedMessages": [],
+		"errorCount": 0,
+		"fatalErrorCount": 0,
+		"warningCount": 0,
+		"fixableErrorCount": 0,
+		"fixableWarningCount": 0,
+		"usedDeprecatedRules": []
+	}
+]

@@ -46,7 +46,11 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 					</div>
 				) : (
 					recentActivities.map((step, index) => (
-						<div key={index} className="relative pl-6 group">
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: Log history
+							key={index}
+							className="relative pl-6 group"
+						>
 							{/* Timeline Line */}
 							{index !== recentActivities.length - 1 && (
 								<div className="absolute left-[9px] top-6 bottom-[-24px] w-px bg-white/5 group-hover:bg-tea-500/20 transition-colors"></div>
@@ -54,13 +58,12 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 
 							{/* Node Indicator */}
 							<div
-								className={`absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center bg-black/50 z-10 transition-colors duration-300 ${
-									step.status === "completed"
-										? "border-green-500/50 text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
-										: step.status === "processing"
-											? "border-tea-500 text-tea-500 shadow-[0_0_10px_rgba(233,122,58,0.3)]"
-											: "border-gray-600 text-gray-600"
-								}`}
+								className={`absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center bg-black/50 z-10 transition-colors duration-300 ${step.status === "completed"
+									? "border-green-500/50 text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
+									: step.status === "processing"
+										? "border-tea-500 text-tea-500 shadow-[0_0_10px_rgba(233,122,58,0.3)]"
+										: "border-gray-600 text-gray-600"
+									}`}
 							>
 								{step.status === "completed" && (
 									<CheckCircle2 className="w-3 h-3" />
@@ -73,21 +76,19 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 
 							{/* Content Card */}
 							<div
-								className={`p-3 rounded-lg border backdrop-blur-sm transition-all duration-300 ${
-									step.status === "processing"
-										? "bg-tea-900/10 border-tea-500/30 shadow-[0_0_15px_rgba(0,0,0,0.3)]"
-										: "bg-black/20 border-white/5 hover:bg-white/5"
-								}`}
+								className={`p-3 rounded-lg border backdrop-blur-sm transition-all duration-300 ${step.status === "processing"
+									? "bg-tea-900/10 border-tea-500/30 shadow-[0_0_15px_rgba(0,0,0,0.3)]"
+									: "bg-black/20 border-white/5 hover:bg-white/5"
+									}`}
 							>
 								<div className="flex justify-between items-start gap-2 mb-1">
 									<span
-										className={`text-[10px] font-bold uppercase tracking-wider ${
-											step.agent_name.includes("Planner")
-												? "text-purple-400"
-												: step.agent_name.includes("Search")
-													? "text-cyan-400"
-													: "text-tea-400"
-										}`}
+										className={`text-[10px] font-bold uppercase tracking-wider ${step.agent_name.includes("Planner")
+											? "text-purple-400"
+											: step.agent_name.includes("Search")
+												? "text-cyan-400"
+												: "text-tea-400"
+											}`}
 									>
 										{step.agent_name}
 									</span>
@@ -97,11 +98,10 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 								</div>
 
 								<div
-									className={`text-xs leading-relaxed ${
-										step.status === "completed"
-											? "text-gray-400"
-											: "text-gray-200"
-									}`}
+									className={`text-xs leading-relaxed ${step.status === "completed"
+										? "text-gray-400"
+										: "text-gray-200"
+										}`}
 								>
 									<div
 										className={`break-words ${step.status === "processing" ? "text-tea-100 font-semibold" : ""}`}

@@ -81,7 +81,7 @@ describe("CharacterSettings", () => {
 
 		const addButton = screen.getByTestId("icon-plus").closest("button");
 		expect(addButton).toBeInTheDocument();
-		fireEvent.click(addButton!);
+		if (addButton) fireEvent.click(addButton);
 
 		// Check for modal title or content
 		// Title uses translation key: settings.sections.agents.modal.title_add
@@ -95,13 +95,13 @@ describe("CharacterSettings", () => {
 
 		// Open add modal
 		const addButton = screen.getByTestId("icon-plus").closest("button");
-		fireEvent.click(addButton!);
+		if (addButton) fireEvent.click(addButton);
 
 		// Find save button
 		const saveButton = screen.getByText("common.save").closest("button");
 
 		// Click save without key
-		fireEvent.click(saveButton!);
+		if (saveButton) fireEvent.click(saveButton);
 
 		// Expect error message
 		expect(
@@ -115,7 +115,7 @@ describe("CharacterSettings", () => {
 
 		// Open add modal
 		const addButton = screen.getByTestId("icon-plus").closest("button");
-		fireEvent.click(addButton!);
+		if (addButton) fireEvent.click(addButton);
 
 		// Fill key input
 		// We need to find the correct input. Based on code it might be the one with placeholder or label
@@ -130,7 +130,7 @@ describe("CharacterSettings", () => {
 
 		// Find save button
 		const saveButton = screen.getByText("common.save").closest("button");
-		fireEvent.click(saveButton!);
+		if (saveButton) fireEvent.click(saveButton);
 
 		expect(mockProps.onAddProfile).toHaveBeenCalledWith("new_hero");
 		// update is also called immediately in the component logic

@@ -92,13 +92,13 @@ const Logs: React.FC = () => {
 				<div className="flex-1 overflow-y-auto">
 					{logs.map((log) => (
 						<button
+							type="button"
 							key={log}
 							onClick={() => setSelectedLog(log)}
-							className={`w-full text-left px-4 py-3 text-sm truncate transition-colors ${
-								selectedLog === log
+							className={`w-full text-left px-4 py-3 text-sm truncate transition-colors ${selectedLog === log
 									? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
 									: "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-							}`}
+								}`}
 						>
 							{log}
 						</button>
@@ -124,6 +124,7 @@ const Logs: React.FC = () => {
 					</h2>
 					{selectedLog && (
 						<button
+							type="button"
 							onClick={() => fetchLogContent(selectedLog)}
 							className="text-sm text-gray-400 hover:text-white px-3 py-1 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
 						>

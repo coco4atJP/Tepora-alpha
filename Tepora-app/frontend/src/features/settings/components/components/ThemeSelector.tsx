@@ -22,15 +22,15 @@ export const ThemeSelector: React.FC = () => {
 
 					return (
 						<button
+							type="button"
 							key={option.id}
 							onClick={() => setTheme(option.id)}
 							className={`
                                 flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm transition-all duration-200
-                                ${
-																	isActive
-																		? "bg-theme-glass-highlight border border-theme-border-highlight text-theme-accent shadow-sm"
-																		: "text-theme-subtext hover:text-theme-text hover:bg-white/5"
-																}
+                                ${isActive
+									? "bg-theme-glass-highlight border border-theme-border-highlight text-theme-accent shadow-sm"
+									: "text-theme-subtext hover:text-theme-text hover:bg-white/5"
+								}
                             `}
 						>
 							<Icon size={16} />

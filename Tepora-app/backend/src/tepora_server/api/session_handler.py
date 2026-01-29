@@ -49,7 +49,7 @@ class SessionHandler:
         GraphNodes.GENERATE_SEARCH_QUERY: "Search Analyst",
         GraphNodes.EXECUTE_SEARCH: "Search Tool",
         GraphNodes.SUMMARIZE_SEARCH_RESULT: "Researcher",
-        GraphNodes.AGENT_REASONING: "Executor",
+        GraphNodes.AGENT_REASONING: "Professional Agent",
         GraphNodes.TOOL_NODE: "Tool Handler",
         GraphNodes.SYNTHESIZE_FINAL_RESPONSE: "Synthesizer",
         GraphNodes.UPDATE_SCRATCHPAD: "Memory Manager",

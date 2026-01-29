@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { DialControl } from "../../../../components/ui/DialControl";
+import { FitText } from "../../../../components/ui/FitText";
 import { FormGroup, FormInput } from "../SettingsComponents";
 
 interface ModelConfig {
@@ -53,16 +54,27 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onClose();
 			}}
+			onKeyDown={(e) => {
+				if (e.key === "Escape") onClose();
+			}}
 		>
 			<div className="glass-tepora rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 bg-[#0A0A0C]/90">
 				{/* Header */}
 				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
 					<h3
 						id="model-detail-overlay-title"
-						className="text-lg font-medium text-white flex items-center gap-2"
+						className="flex items-center gap-2 min-w-0 flex-1"
 					>
 						<Sliders size={20} className="text-gold-400" />
-						{title}
+						<div className="min-w-0 h-7 flex items-center">
+							<FitText
+								className="text-lg font-medium text-white"
+								minFontSize={12}
+								maxFontSize={18}
+							>
+								{title}
+							</FitText>
+						</div>
 					</h3>
 					<button
 						type="button"
@@ -153,7 +165,9 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 										max="32768"
 										step="1024"
 										value={config.n_ctx}
-										onChange={(e) => update("n_ctx", parseInt(e.target.value))}
+										onChange={(e) =>
+											update("n_ctx", parseInt(e.target.value, 10))
+										}
 										className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
 									/>
 									<FormInput
@@ -177,9 +191,9 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 						>
 							{showAdvanced
 								? t("settings.sections.models.detail.hide_advanced") ||
-									"Hide Advanced Settings"
+								"Hide Advanced Settings"
 								: t("settings.sections.models.detail.show_advanced") ||
-									"Show Advanced Settings"}
+								"Show Advanced Settings"}
 						</button>
 
 						{/* Advanced Settings */}
@@ -218,7 +232,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 									>
 										<FormInput
 											value={config.path}
-											onChange={() => {}}
+											onChange={() => { }}
 											disabled
 											className="opacity-50 font-mono text-xs bg-black/40"
 										/>

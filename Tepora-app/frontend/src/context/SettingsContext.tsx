@@ -161,7 +161,7 @@ function normalizeConfig(data: Config): Config {
 
 	const modelsGguf = { ...data.models_gguf } as Record<string, unknown>;
 	const legacyChar = modelsGguf.character_model as ModelConfig | undefined;
-	const legacyExec = modelsGguf.executor_model as ModelConfig | undefined;
+	const legacyExec = modelsGguf.professional as ModelConfig | undefined;
 
 	const textModel = legacyChar || legacyExec;
 	if (!textModel) {

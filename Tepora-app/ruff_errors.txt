@@ -1,0 +1,130 @@
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:716:1
+    |
+714 |             # Check capabilities
+715 |             caps = await runner.get_capabilities(model_tag)
+716 |             
+    | ^^^^^^^^^^^^
+717 |             # Use data from /api/show
+718 |             raw_show = caps.get("raw_show", {})
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:723:1
+    |
+721 |             # Filter None/Empty from families list
+722 |             families = [f for f in families if f]
+723 |             
+    | ^^^^^^^^^^^^
+724 |             model_capabilities = caps.get("raw_show", {}).get("capabilities", [])
+    |
+help: Remove whitespace from blank line
+
+F841 Local variable `model_capabilities` is assigned to but never used
+   --> backend\src\core\models\manager.py:724:13
+    |
+722 |             families = [f for f in families if f]
+723 |             
+724 |             model_capabilities = caps.get("raw_show", {}).get("capabilities", [])
+    |             ^^^^^^^^^^^^^^^^^^
+725 |
+726 |             # Classification Logic
+    |
+help: Remove assignment to unused variable `model_capabilities`
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:728:1
+    |
+726 |             # Classification Logic
+727 |             modality = ModelModality.TEXT
+728 |             
+    | ^^^^^^^^^^^^
+729 |             # 1. Embedding Check
+730 |             # Families: bert, nomic-bert
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:739:1
+    |
+737 |             if not is_embedding and "embed" in model_tag.lower():
+738 |                 is_embedding = True
+739 |             
+    | ^^^^^^^^^^^^
+740 |             if is_embedding:
+741 |                 modality = ModelModality.EMBEDDING
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:754:1
+    |
+752 |                 if _get_attr(caps, "vision") is True: # Check parsed cap
+753 |                     is_vision = True
+754 |                 
+    | ^^^^^^^^^^^^^^^^
+755 |                 if is_vision:
+756 |                     modality = ModelModality.VISION
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:771:1
+    |
+769 |                     is_unsupported = True
+770 |                     break
+771 |             
+    | ^^^^^^^^^^^^
+772 |             if is_unsupported:
+773 |                 logger.info("Skipping unsupported Ollama model: %s (families: %s)", model_tag, families)
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:781:1
+    |
+779 |             # Let's use `ollama-TAG` as ID to avoid collision with local files named same.
+780 |             model_id = f"ollama-{model_tag.replace(':', '-').replace('/', '-')}"
+781 |             
+    | ^^^^^^^^^^^^
+782 |             # Size bytes might be available
+783 |             size_bytes = _get_attr(_get_attr(raw_show, "model_info"), "general.parameter_count") or 0
+    |
+help: Remove whitespace from blank line
+
+F841 Local variable `size_bytes` is assigned to but never used
+   --> backend\src\core\models\manager.py:783:13
+    |
+782 |             # Size bytes might be available
+783 |             size_bytes = _get_attr(_get_attr(raw_show, "model_info"), "general.parameter_count") or 0
+    |             ^^^^^^^^^^
+784 |              # Actually size on disk is in 'size' field of /api/tags (list), but here we are inside loop.
+785 |              # We could get size from list_models if we returned dicts.
+    |
+help: Remove assignment to unused variable `size_bytes`
+
+W293 [*] Blank line contains whitespace
+   --> backend\src\core\models\manager.py:800:1
+    |
+798 |                 config=ModelConfig(), # Use defaults
+799 |             )
+800 |             
+    | ^^^^^^^^^^^^
+801 |             self._register_model_info(info)
+802 |             synced_ids.append(model_id)
+    |
+help: Remove whitespace from blank line
+
+F821 Undefined name `asyncio`
+   --> backend\src\tepora_server\state.py:101:9
+    |
+100 |         logger.info("Initializing core (V2-only, TeporaApp)...")
+101 |         asyncio.create_task(self._sync_ollama_safely())
+    |         ^^^^^^^
+102 |
+103 |         return await self.core.initialize(
+    |
+
+Found 11 errors.
+[*] 8 fixable with the `--fix` option (2 hidden fixes can be enabled with the `--unsafe-fixes` option).
