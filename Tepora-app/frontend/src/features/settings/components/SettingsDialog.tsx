@@ -38,9 +38,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 		saveConfig,
 
 		resetConfig,
-		updateProfessional,
-		addProfessional,
-		deleteProfessional,
 
 		// Custom Agent functions
 		updateCustomAgent,
@@ -188,10 +185,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onSetActive={setActiveAgent}
 												onAddProfile={addCharacter}
 												onDeleteProfile={deleteCharacter}
-												professionals={config.professionals}
-												onUpdateProfessional={updateProfessional}
-												onAddProfessional={addProfessional}
-												onDeleteProfessional={deleteProfessional}
 											/>
 										)}
 										{activeSection === "custom_agents" && (

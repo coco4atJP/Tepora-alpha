@@ -159,16 +159,6 @@ class CharacterConfig(BaseModel):
     model_config = {"extra": "ignore"}
 
 
-class ProfessionalConfig(BaseModel):
-    name: str
-    description: str = ""
-    system_prompt: str
-    tools: list[str] = []
-    model_config_name: str | None = None
-
-    model_config = {"extra": "ignore"}
-
-
 class CustomAgentToolPolicy(BaseModel):
     """カスタムエージェント用ツールポリシー"""
 
@@ -461,7 +451,6 @@ class TeporaSettings(BaseSettings):
     characters: dict[str, CharacterConfig] = Field(
         default_factory=lambda: DEFAULT_CHARACTERS.copy()
     )
-    professionals: dict[str, ProfessionalConfig] = Field(default_factory=dict)
 
     # Custom Agents (GPTs/Gems-style user-defined agents)
     custom_agents: dict[str, CustomAgentConfig] = Field(default_factory=dict)
@@ -477,6 +466,32 @@ class TeporaSettings(BaseSettings):
     # Security
     # Uses SecretStr for automatic redaction during serialization
     security: dict[str, SecretStr | None] = Field(default_factory=_default_security)
+
+    @field_validator("models_gguf", mode="before")
+    @classmethod
+    def migrate_legacy_model_configs(cls, v: Any) -> Any:
+        """
+        Migrate legacy keys ('professional', 'character_model') in models_gguf to 'text_model'.
+        Prioritizes 'character_model', then 'professional'.
+        Removes legacy keys to prevent them from persisting.
+        """
+        if isinstance(v, dict):
+            # 1. Identify potential legacy text model source
+            legacy_text_source = None
+            if "character_model" in v:
+                legacy_text_source = v["character_model"]
+            elif "professional" in v:
+                legacy_text_source = v["professional"]
+
+            # 2. Assign to 'text_model' if not already present
+            if legacy_text_source and "text_model" not in v:
+                v["text_model"] = legacy_text_source
+
+            # 3. Clean up legacy keys to avoid confusion or shadowing
+            v.pop("character_model", None)
+            v.pop("professional", None)
+
+        return v
 
     @field_validator("characters", mode="before")
     @classmethod

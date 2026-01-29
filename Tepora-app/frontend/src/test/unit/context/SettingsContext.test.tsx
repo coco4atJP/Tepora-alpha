@@ -48,7 +48,6 @@ const mockConfig = {
 		},
 	},
 	characters: {},
-	professionals: {},
 	active_agent_profile: "default",
 	tools: {},
 };

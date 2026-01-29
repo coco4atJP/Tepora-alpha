@@ -128,7 +128,6 @@ class TestLLMServiceV3(unittest.IsolatedAsyncioTestCase):
         """Test eviction works across different loaders."""
         self.service._cache_size = 1
 
-        # 1. Load Llama
         id1 = "llama-1"
         info1 = ModelInfo(
             id=id1,
@@ -142,7 +141,6 @@ class TestLLMServiceV3(unittest.IsolatedAsyncioTestCase):
         await self.service.get_client(role="u", model_id=id1)
         self.mock_llama_runner.start.assert_called_once()
 
-        # 2. Load Ollama (should evict Llama)
         id2 = "ollama-2"
         info2 = ModelInfo(
             id=id2, name="O2", loader=ModelLoader.OLLAMA, path="p2", modality=ModelModality.TEXT

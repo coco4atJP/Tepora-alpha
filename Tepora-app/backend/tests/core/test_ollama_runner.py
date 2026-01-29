@@ -13,9 +13,7 @@ async def test_ollama_runner_start_success():
     runner = OllamaRunner()
 
     async with respx.mock:
-        # 1. Connection check
         respx.get("http://localhost:11434").mock(return_value=Response(200))
-        # 2. List models
         respx.get("http://localhost:11434/api/tags").mock(
             return_value=Response(
                 200, json={"models": [{"name": "llama3:latest"}, {"name": "mistral"}]}

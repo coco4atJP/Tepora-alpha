@@ -280,15 +280,21 @@
 
     /* Primary Panel - "Tea Tray" Look */
     .glass-tepora {
-        @apply glass-base;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
         background: var(--glass-gradient-tepora);
+        border: 1px solid var(--glass-border-color);
         border-top: 1px solid rgba(255, 255, 255, 0.12);
         /* Subtle highlight */
         box-shadow: var(--glass-shadow-tepora);
     }
 
     .glass-panel {
-        @apply glass-base;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: var(--glass-gradient-base);
+        border: 1px solid var(--glass-border-color);
+        box-shadow: var(--glass-shadow);
         border-radius: 1rem;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }

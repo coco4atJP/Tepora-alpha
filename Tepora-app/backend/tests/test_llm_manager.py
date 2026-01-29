@@ -184,11 +184,9 @@ class TestLLMService(unittest.IsolatedAsyncioTestCase):
 
         service = LLMService(runner=runner, model_manager=self.mock_model_manager, cache_size=1)
 
-        # 1. Load Character
         await service.get_client("character")
         self.assertIn("char_id", service._chat_model_cache)
 
-        # 2. Load Professional
         await service.get_client("professional", task_type="default")
 
         # Character should be evicted

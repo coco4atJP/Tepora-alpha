@@ -135,7 +135,6 @@ class EMEventSegmenter:
         if not text or not embedding_provider:
             return [], None
 
-        # 1. Split text into sentences
         sentences = self._split_into_sentences(text)
         if not sentences or len(sentences) < 2:
             logger.info("Text too short for semantic segmentation, treating as a single event.")
@@ -148,7 +147,6 @@ class EMEventSegmenter:
             )
             return [event], None
 
-        # 2. Convert each sentence to embeddings
         try:
             sentence_embeddings = np.array(embedding_provider.encode(sentences))
         except Exception as exc:  # noqa: BLE001
@@ -168,7 +166,6 @@ class EMEventSegmenter:
             )
             return [], None
 
-        # 3. Calculate cosine distance between adjacent sentences
         distances = [
             cosine_distances(
                 sentence_embeddings[i].reshape(1, -1), sentence_embeddings[i + 1].reshape(1, -1)
@@ -178,10 +175,8 @@ class EMEventSegmenter:
         # First sentence has change score of 0
         semantic_change_scores = [0.0] + distances
 
-        # 4. Identify boundaries based on semantic change scores
         boundary_indices = self._identify_event_boundaries(semantic_change_scores, sentences)
 
-        # 5. Build events from boundaries
         events = []
         total_token_offset = 0
         for i in range(len(boundary_indices) - 1):

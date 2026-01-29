@@ -12,7 +12,6 @@ import { useServerConfig } from "../hooks/useServerConfig";
 import type {
 	CharacterConfig,
 	CustomAgentConfig,
-	ProfessionalConfig,
 } from "../types";
 import { apiClient } from "../utils/api-client";
 
@@ -67,7 +66,6 @@ export interface Config {
 	models_gguf: Record<string, ModelConfig>;
 	// Refactored Agent Config
 	characters: Record<string, CharacterConfig>;
-	professionals: Record<string, ProfessionalConfig>;
 	// Custom Agents (GPTs/Gems-style)
 	custom_agents?: Record<string, CustomAgentConfig>;
 	active_agent_profile: string;
@@ -132,11 +130,6 @@ export interface SettingsContextValue {
 
 	deleteCharacter: (key: string) => void;
 
-	// Professional Actions
-	updateProfessional: (key: string, config: ProfessionalConfig) => void;
-	addProfessional: (key: string) => void;
-	deleteProfessional: (key: string) => void;
-
 	// Custom Agent Actions
 	updateCustomAgent: (id: string, agent: CustomAgentConfig) => void;
 	addCustomAgent: (agent: CustomAgentConfig) => void;
@@ -161,9 +154,8 @@ function normalizeConfig(data: Config): Config {
 
 	const modelsGguf = { ...data.models_gguf } as Record<string, unknown>;
 	const legacyChar = modelsGguf.character_model as ModelConfig | undefined;
-	const legacyExec = modelsGguf.professional as ModelConfig | undefined;
 
-	const textModel = legacyChar || legacyExec;
+	const textModel = legacyChar;
 	if (!textModel) {
 		return data;
 	}
@@ -354,47 +346,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 		});
 	}, []);
 
-	// Professional Management
-	const updateProfessional = useCallback(
-		(key: string, profConfig: ProfessionalConfig) => {
-			setConfig((prev) =>
-				prev
-					? {
-							...prev,
-							professionals: { ...prev.professionals, [key]: profConfig },
-						}
-					: prev,
-			);
-		},
-		[],
-	);
-
-	const addProfessional = useCallback((key: string) => {
-		const defaultProf: ProfessionalConfig = {
-			name: key,
-			description: "",
-			system_prompt: "You are a helpful professional assistant.",
-			tools: [],
-		};
-		setConfig((prev) =>
-			prev
-				? {
-						...prev,
-						professionals: { ...prev.professionals, [key]: defaultProf },
-					}
-				: prev,
-		);
-	}, []);
-
-	const deleteProfessional = useCallback((key: string) => {
-		setConfig((prev) => {
-			if (!prev) return prev;
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			const { [key]: _, ...rest } = prev.professionals;
-			return { ...prev, professionals: rest };
-		});
-	}, []);
-
 	// Custom Agent Management
 	const updateCustomAgent = useCallback(
 		(id: string, agent: CustomAgentConfig) => {
@@ -484,10 +435,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			addCharacter,
 			deleteCharacter,
 
-			updateProfessional,
-			addProfessional,
-			deleteProfessional,
-
 			updateCustomAgent,
 			addCustomAgent,
 			deleteCustomAgent,
@@ -515,10 +462,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
-
-			updateProfessional,
-			addProfessional,
-			deleteProfessional,
 
 			updateCustomAgent,
 			addCustomAgent,

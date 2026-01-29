@@ -200,7 +200,6 @@ class LLMService:
             task_type: Task type for professional role
             model_id: Specific model ID to load (overrides role lookup)
         """
-        # 1. Resolve Model ID
         target_model_id = model_id
 
         if not target_model_id:
@@ -223,14 +222,12 @@ class LLMService:
                 # For V3 strictness, we should fail or return a helpful error.
                 raise ValueError(f"No model assigned for role '{role}' (task: {task_type})")
 
-        # 2. Get Model Info
         if not self._model_manager:
             raise RuntimeError("ModelManager not available")
         model_info = self._model_manager.get_model(target_model_id)
         if not model_info:
             raise ValueError(f"Model ID '{target_model_id}' not found in registry")
 
-        # 3. Cache / Lock
         async with self._cache_lock:
             if target_model_id not in self._model_locks:
                 self._model_locks[target_model_id] = asyncio.Lock()

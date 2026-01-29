@@ -256,7 +256,6 @@ class EMTwoStageRetrieval:
         if kc <= 0 or not similarity_events:
             return []
 
-        # 1. Build filter list combining multiple search conditions
         or_filters = []
         for event in similarity_events:
             # Previous event: end_position matches current start_position
@@ -267,7 +266,6 @@ class EMTwoStageRetrieval:
         if not or_filters:
             return []
 
-        # 2. Query using $or for batch retrieval
         combined_filter = {"$or": or_filters}
         results = self.memory_system.collection.get(
             where=combined_filter, include=["metadatas", "documents"]
@@ -276,7 +274,6 @@ class EMTwoStageRetrieval:
         if not results or not results["ids"]:
             return []
 
-        # 3. Extract results that don't overlap with similarity search
         similarity_positions = {(e.start_position, e.end_position) for e in similarity_events}
 
         contiguity_results = []
@@ -305,7 +302,6 @@ class EMTwoStageRetrieval:
                 }
             )
 
-        # 4. Convert to EpisodicEvent and deduplicate
         contiguity_events = self._results_to_events(contiguity_results)
         unique_contiguity_events = self._deduplicate_events(contiguity_events)
         logger.debug("Found %d contiguous events via batch query.", len(unique_contiguity_events))

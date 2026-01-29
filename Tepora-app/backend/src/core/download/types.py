@@ -119,38 +119,6 @@ class UpdateInfo:
 
 
 @dataclass
-class ModelInfo:
-    """モデル情報"""
-
-    id: str  # 内部ID (e.g., "gemma-3n-e4b-iq4xs")
-    display_name: str  # 表示名
-    role: ModelRole  # 用途
-    file_path: Path  # ファイルパス
-    file_size: int  # ファイルサイズ（バイト）
-    source: str  # "huggingface" | "local"
-    repo_id: str | None = None  # HuggingFace repo (オプション)
-    filename: str | None = None  # HuggingFaceファイル名
-    revision: str | None = None  # HuggingFace revision (commit hash)
-    sha256: str | None = None  # File SHA256 (if verified)
-    is_active: bool = False  # 現在選択中か
-    added_at: datetime | None = None
-
-
-@dataclass
-class ModelRegistry:
-    """モデルレジストリデータ"""
-
-    version: int = 2  # スキーマバージョン更新
-    models: list[ModelInfo] = field(default_factory=list)
-    active: dict = field(default_factory=dict)  # role -> model_id
-
-    # ロールベースモデル選択
-    character_model_id: str | None = None  # 会話用モデルID
-    executor_model_map: dict = field(default_factory=dict)
-    # 例: {"default": "model-a", "coding": "model-b", "browser": "model-c"}
-
-
-@dataclass
 class BinaryRegistry:
     """バイナリレジストリデータ"""
 

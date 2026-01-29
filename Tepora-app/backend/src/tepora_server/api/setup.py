@@ -967,10 +967,20 @@ async def get_model_roles():
     """
     try:
         dm = _get_download_manager()
+        roles = dm.model_manager.registry.roles
+
+        # Reconstruct legacy professional map from V3 roles
+        professional_map = {}
+        for role_key, model_id in roles.items():
+            if role_key == "professional":
+                professional_map["default"] = model_id
+            elif role_key.startswith("professional:"):
+                task = role_key.split(":", 1)[1]
+                professional_map[task] = model_id
 
         return {
             "character_model_id": dm.model_manager.get_character_model_id(),
-            "professional_model_map": dm.model_manager.registry.professional_model_map,
+            "professional_model_map": professional_map,
         }
     except Exception as e:
         logger.error("Failed to get model roles: %s", e, exc_info=True)
@@ -1005,7 +1015,12 @@ async def update_professional_role(request: ProfessionalRoleRequest):
     """
     try:
         dm = _get_download_manager()
-        success = dm.model_manager.set_professional_model(request.task_type, request.model_id)
+
+        role_key = "professional"
+        if request.task_type and request.task_type != "default":
+            role_key = f"professional:{request.task_type}"
+
+        success = dm.model_manager.set_role_model(role_key, request.model_id)
         if not success:
             raise HTTPException(status_code=400, detail="Failed to set professional model")
         return {"success": True}
@@ -1023,7 +1038,12 @@ async def remove_professional_role(task_type: str):
     """
     try:
         dm = _get_download_manager()
-        success = dm.model_manager.remove_professional_model(task_type)
+
+        role_key = "professional"
+        if task_type and task_type != "default":
+            role_key = f"professional:{task_type}"
+
+        success = dm.model_manager.remove_role_assignment(role_key)
         return {"success": success}
     except Exception as e:
         logger.error("Failed to remove professional model: %s", e, exc_info=True)
