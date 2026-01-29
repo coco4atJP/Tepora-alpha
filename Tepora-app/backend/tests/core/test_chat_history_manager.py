@@ -165,7 +165,7 @@ def test_serialization_failure_handling(chat_manager):
     msg = HumanMessage(content="Fail", additional_kwargs={"bad": Unserializable()})
 
     # Should not raise exception, but log warning and use empty dict
-    with patch("src.core.chat_history_manager.logger") as mock_logger:
+    with patch("src.core.chat_history_manager.logger"):
         chat_manager.add_message(msg)
         # Verify it serialized with empty dict substitute
         history = chat_manager.get_history()
