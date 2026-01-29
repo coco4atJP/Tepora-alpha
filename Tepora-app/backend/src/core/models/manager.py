@@ -529,6 +529,16 @@ class ModelManager:
         logger.info("Assigned role '%s' to model %s", role, model_id)
         return True
 
+    def remove_role_assignment(self, role: str) -> bool:
+        """Remove a role assignment"""
+        self._registry = self.registry
+        if role in self._registry.roles:
+            del self._registry.roles[role]
+            self._save_registry(self._registry)
+            logger.info("Removed role assignment '%s'", role)
+            return True
+        return False
+
     def get_active_model(self, pool: Any) -> ModelInfo | None:
         """Legacy helper: return the "active" model for a pool."""
         modality = self._coerce_modality(pool)
