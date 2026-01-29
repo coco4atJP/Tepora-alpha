@@ -79,6 +79,9 @@ Tepora-app/backend/pytest_full*.txt
 
 # Database files
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # ChromaDB directories
 chroma_db/
@@ -109,9 +112,11 @@ __pycache__/
 Tepora-app/backend/tmp_cache/
 Tepora-app/backend/tmp_pytest/
 Tepora-app/backend/tmp_test_paths/
+Tepora-app/backend/tmp_test_dir/
 Tepora-app/backend/tmp_test_runs/
 Tepora-app/backend/pytest_tmp*/
 Tepora-app/backend/pytest_cache*/
+Tepora-app/backend/sqlite_*/
 
 # Backup directories
 *_bak/

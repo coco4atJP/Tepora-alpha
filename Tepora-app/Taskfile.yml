@@ -22,8 +22,9 @@ tasks:
 
   # === Development ===
   dev:
-    desc: "Start both backend and frontend in development mode (parallel)"
-    deps: [dev-backend, dev-frontend]
+    desc: "Start both backend and frontend in development mode (port + token synchronized)"
+    cmds:
+      - task: dev-sync
 
   dev-backend:
     desc: "Start backend server"

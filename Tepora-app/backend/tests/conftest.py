@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -30,7 +31,13 @@ def tmp_path(request):  # noqa: D103
     # Rationale: upstream pytest creates tmp directories with mode=0o700. On this environment/FS,
     # that can produce non-listable directories (WinError 5). We create a writable per-test dir
     # ourselves using default permissions.
-    base_root = BACKEND_ROOT / "tmp_test_paths"
+    # NOTE: Some environments/filesystems fail SQLite writes or behave oddly with permissions
+    # when using workspace-local temp dirs. Prefer the OS temp dir by default.
+    tmp_root_env = os.getenv("TEPORA_TEST_TMP_ROOT")
+    if tmp_root_env:
+        base_root = Path(tmp_root_env)
+    else:
+        base_root = Path(tempfile.gettempdir()) / "tepora_test_paths"
     base_root.mkdir(parents=True, exist_ok=True)
 
     safe_name = re.sub(r"[\\W]", "_", request.node.name)[:50]

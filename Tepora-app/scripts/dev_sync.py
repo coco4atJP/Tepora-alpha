@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import signal
+import secrets
 import threading
 from pathlib import Path
 
@@ -100,6 +101,10 @@ def main():
         signal.signal(signal.SIGBREAK, cleanup_processes)
     
     print("[dev-sync] Starting backend server (dynamic port)...", flush=True)
+
+    # Generate a shared session token so both backend + frontend can authenticate.
+    # This avoids relying on ~/.tepora/.session_token and makes web-mode dev work out of the box.
+    session_token = secrets.token_urlsafe(32)
     
     # Event to signal when port is captured
     port_captured = threading.Event()
@@ -113,6 +118,7 @@ def main():
     # Start backend without PORT env (let it pick dynamically)
     backend_env = os.environ.copy()
     backend_env.pop("PORT", None)  # Ensure dynamic allocation
+    backend_env["TEPORA_SESSION_TOKEN"] = session_token
     
     backend_process = subprocess.Popen(
         [sys.executable, "server.py"],
@@ -150,6 +156,9 @@ def main():
     # Start frontend with captured port
     frontend_env = os.environ.copy()
     frontend_env["VITE_API_PORT"] = str(port)
+    # Make token available for both sync (getAuthHeaders) and async (getSessionToken) flows.
+    frontend_env["VITE_API_KEY"] = session_token
+    frontend_env["VITE_SESSION_TOKEN"] = session_token
     
     # Use npm on Windows, npm on Unix
     npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
@@ -175,6 +184,7 @@ def main():
     print(f"[dev-sync] Development servers running:", flush=True)
     print(f"           Backend:  http://localhost:{port}", flush=True)
     print(f"           Frontend: http://localhost:5173", flush=True)
+    print(f"           Auth:     session token injected via env", flush=True)
     print(f"           Press Ctrl+C to stop", flush=True)
     
     # Wait for either process to exit
