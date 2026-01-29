@@ -283,7 +283,6 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				handleStartSetup();
 			}
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		state.step,
 		state.loader,

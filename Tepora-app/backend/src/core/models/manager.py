@@ -862,14 +862,17 @@ class ModelManager:
             return Path(m.path)
         return None
 
-    def get_executor_model_path(self, task_type: str = "default") -> Path | None:
-        mid = self.get_executor_model_id(task_type)
+    def get_professional_model_path(self, task_type: str = "default") -> Path | None:
+        mid = self.get_professional_model_id(task_type)
         if not mid:
             return None
         m = self.get_model(mid)
         if m and m.loader == ModelLoader.LLAMA_CPP:
             return Path(m.path)
         return None
+
+    def get_executor_model_path(self, task_type: str = "default") -> Path | None:
+        return self.get_professional_model_path(task_type)
 
     # -------------------------------------------------------------------------
     # HuggingFace Integration
