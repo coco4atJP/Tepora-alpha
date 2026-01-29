@@ -549,6 +549,11 @@ class ModelManager:
             role_key = "embedding"
 
         mid = self.get_assigned_model_id(role_key)
+
+        # Fallback: if text/character is missing, check professional (default)
+        if not mid and modality == ModelModality.TEXT:
+            mid = self.get_assigned_model_id("professional") or self.get_assigned_model_id("professional:default")
+
         return self.get_model(mid) if mid else None
 
     def get_model_path(self, pool: Any) -> Path | None:

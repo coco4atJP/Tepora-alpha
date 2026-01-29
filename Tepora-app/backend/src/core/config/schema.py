@@ -467,6 +467,21 @@ class TeporaSettings(BaseSettings):
     # Uses SecretStr for automatic redaction during serialization
     security: dict[str, SecretStr | None] = Field(default_factory=_default_security)
 
+    @field_validator("models_gguf", mode="before")
+    @classmethod
+    def migrate_legacy_professional_config(cls, v: Any) -> Any:
+        """
+        Migrate legacy 'professional' key in models_gguf to 'text_model'.
+        If 'text_model' is missing but 'professional' exists, rename it.
+        """
+        if isinstance(v, dict):
+            if "professional" in v and "text_model" not in v:
+                v["text_model"] = v["professional"]
+            # We can leave 'professional' there or remove it; pydantic extra="ignore" handles it if not defined
+            # But since ModelGGUFConfig allows extra, we might end up with both.
+            # To be clean, we can copy it.
+        return v
+
     @field_validator("characters", mode="before")
     @classmethod
     def ensure_characters_not_empty(cls, v: Any) -> dict[str, Any]:
