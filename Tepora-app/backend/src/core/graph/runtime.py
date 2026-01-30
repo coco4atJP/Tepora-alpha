@@ -44,7 +44,7 @@ class TeporaGraph:
     Main graph runtime for V2 architecture.
 
     Routes between:
-    - chat (direct): Simple Q&A
+    - chat: Simple Q&A (formerly direct)
     - search: Web search with RAG
     - agent: ReAct loop (skeleton in Phase 3)
 
@@ -363,7 +363,7 @@ class TeporaGraph:
         session_id: str,
         message: str,
         *,
-        mode: str = "direct",
+        mode: str = "chat",
         chat_history: list | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
@@ -421,7 +421,7 @@ class TeporaGraph:
         session_id: str,
         message: str,
         *,
-        mode: str = "direct",
+        mode: str = "chat",
         chat_history: list | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:

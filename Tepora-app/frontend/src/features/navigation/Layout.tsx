@@ -57,7 +57,7 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({
 );
 
 const Layout: React.FC = () => {
-	const [currentMode, setCurrentMode] = useState<ChatMode>("direct");
+	const [currentMode, setCurrentMode] = useState<ChatMode>("chat");
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 	const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -165,9 +165,9 @@ const Layout: React.FC = () => {
 					{/* Left Column: Chat Interface */}
 					<div className="h-full flex flex-col min-h-0 order-1 w-full overflow-hidden">
 						<div className="flex-1 glass-tepora rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 ring-1 ring-white/5 min-h-0 flex flex-col">
-							{/* Chat View - Visible on Desktop OR when mode is 'direct' on Mobile */}
+							{/* Chat View - Visible on Desktop OR when mode is 'chat' on Mobile */}
 							<div
-								className={`absolute inset-0 z-0 flex flex-col ${currentMode !== "direct" ? "hidden lg:flex" : "flex"}`}
+								className={`absolute inset-0 z-0 flex flex-col ${currentMode !== "chat" ? "hidden lg:flex" : "flex"}`}
 							>
 								<Outlet
 									context={{
@@ -203,7 +203,7 @@ const Layout: React.FC = () => {
 							)}
 
 							{/* Mobile Status Indicator (Visible only on small screens) */}
-							{currentMode !== "direct" && (
+							{currentMode !== "chat" && (
 								<div className="lg:hidden absolute top-2 right-2 z-20 pointer-events-none">
 									<div
 										className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"}`}
@@ -242,7 +242,7 @@ const Layout: React.FC = () => {
 							)}
 
 							{/* System Status Panel (Visible in Chat mode) */}
-							{currentMode === "direct" && (
+							{currentMode === "chat" && (
 								<>
 									{/* Session History Button & System Status */}
 									<div className="flex-1 min-h-0 flex flex-col justify-end">
@@ -274,10 +274,10 @@ const Layout: React.FC = () => {
 			<div className="lg:hidden relative z-20 glass-panel border-t border-white/10 pb-safe">
 				<div className="flex justify-around items-center p-3">
 					<MobileNavButton
-						mode="direct"
+						mode="chat"
 						icon={MessageSquare}
 						label={t("dial.chat")}
-						isActive={currentMode === "direct"}
+						isActive={currentMode === "chat"}
 						onClick={handleModeChange}
 					/>
 					<MobileNavButton

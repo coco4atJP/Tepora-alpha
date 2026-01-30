@@ -31,7 +31,7 @@ const DialControl: React.FC<DialControlProps> = ({
 	}[] = useMemo(
 		() => [
 			{
-				mode: "direct",
+				mode: "chat",
 				label: t("dial.chat"),
 				angle: -90,
 				icon: MessageSquare,
@@ -93,7 +93,7 @@ const DialControl: React.FC<DialControlProps> = ({
 						left: "50%",
 						transform: "translate(-50%, -50%)",
 					};
-				else if (m.mode === "direct")
+				else if (m.mode === "chat")
 					positionStyle = {
 						top: "50%",
 						left: "15%",

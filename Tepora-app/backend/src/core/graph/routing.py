@@ -23,9 +23,9 @@ ROUTING_TAG_MAP: dict[str, str] = {
     "planning": "high",
     "high": "high",
     "fast": "fast",
-    "direct": "direct",
+    "direct": "direct",  # Agent mode direct
+    "chat": "chat",      # Chat mode
 }
-
 
 def extract_routing_tag(user_input: str) -> tuple[str, str | None]:
     """
@@ -35,7 +35,8 @@ def extract_routing_tag(user_input: str) -> tuple[str, str | None]:
       <planning>...</planning> -> high
       <high>...</high> -> high
       <fast>...</fast> -> fast
-      <direct>...</direct> -> direct
+      <direct>...</direct> -> direct (agent mode)
+      <chat>...</chat> -> chat
 
     Returns:
         (cleaned_input, agent_mode_hint)
@@ -78,7 +79,8 @@ def route_by_command(
         logger.info("Route: stats (EM diagnostics)")
         return GraphRoutes.STATS
     else:
-        logger.info("Route: direct_answer")
+        # Fallback to direct answer (chat)
+        logger.info("Route: direct_answer (chat)")
         return GraphRoutes.DIRECT_ANSWER
 
 

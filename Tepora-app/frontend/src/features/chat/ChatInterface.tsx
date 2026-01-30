@@ -103,7 +103,7 @@ const ChatInterface: React.FC = () => {
 	};
 
 	const modeLabel =
-		currentMode === "direct"
+		currentMode === "chat"
 			? t("dial.chat")
 			: currentMode === "search"
 				? t("dial.search")

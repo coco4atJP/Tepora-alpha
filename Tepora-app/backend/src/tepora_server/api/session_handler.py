@@ -375,7 +375,7 @@ class SessionHandler:
                         "content": msg.content,
                         "timestamp": msg.additional_kwargs.get("timestamp")
                         or datetime.now().isoformat(),
-                        "mode": msg.additional_kwargs.get("mode", "direct"),
+                        "mode": msg.additional_kwargs.get("mode", "chat"),
                     }
                 )
 

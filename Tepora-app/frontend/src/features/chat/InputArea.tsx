@@ -44,7 +44,7 @@ const InputArea: React.FC = () => {
 				skipWebSearch,
 				isThinkingMode,
 				selectedAgentId || undefined,
-				selectedAgentMode || undefined,
+				(selectedAgentMode as import("../../types").AgentMode) || undefined,
 			);
 			clearAttachments();
 			setMessage("");

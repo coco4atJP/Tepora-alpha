@@ -30,7 +30,7 @@ class WSIncomingMessage(BaseModel):
 
     type: str | None = None
     message: str | None = None
-    mode: str = "direct"
+    mode: str = "chat"
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     skipWebSearch: bool = False  # noqa: N815
     thinkingMode: bool | None = None  # noqa: N815

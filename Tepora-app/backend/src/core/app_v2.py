@@ -436,7 +436,7 @@ class TeporaApp:
         session_id: str,
         message: str,
         *,
-        mode: str = "direct",
+        mode: str = "chat",
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """
@@ -445,7 +445,7 @@ class TeporaApp:
         Args:
             session_id: セッションID
             message: ユーザーメッセージ
-            mode: 処理モード ("direct", "search", "agent")
+            mode: 処理モード ("chat", "search", "agent")
             **kwargs: 追加パラメータ
 
         Yields:
@@ -557,7 +557,7 @@ class TeporaApp:
     async def process_user_request(
         self,
         user_input: str,
-        mode: str = "direct",
+        mode: str = "chat",
         attachments: list[dict] | None = None,
         skip_web_search: bool = False,
         session_id: str = "default",

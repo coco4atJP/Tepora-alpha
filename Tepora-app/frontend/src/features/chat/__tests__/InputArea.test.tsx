@@ -48,7 +48,7 @@ describe("InputArea", () => {
 			}),
 		);
 		(useOutletContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-			currentMode: "direct",
+			currentMode: "chat",
 			attachments: [],
 			clearAttachments: vi.fn(),
 			skipWebSearch: false,
@@ -79,7 +79,7 @@ describe("InputArea", () => {
 		fireEvent.click(sendButton);
 		expect(mockSendMessage).toHaveBeenCalledWith(
 			"Hello",
-			"direct",
+			"chat",
 			[],
 			false,
 			false,
@@ -138,7 +138,7 @@ describe("InputArea", () => {
 
 	it("allows sending empty message if it has attachments", () => {
 		(useOutletContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-			currentMode: "direct",
+			currentMode: "chat",
 			attachments: ["file1.txt"],
 			clearAttachments: vi.fn(),
 			skipWebSearch: false,
@@ -152,7 +152,7 @@ describe("InputArea", () => {
 
 		expect(mockSendMessage).toHaveBeenCalledWith(
 			"",
-			"direct",
+			"chat",
 			["file1.txt"],
 			false,
 			false,

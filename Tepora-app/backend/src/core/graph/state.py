@@ -85,7 +85,7 @@ class AgentState(TypedDict):
 def create_initial_state(
     session_id: str,
     user_input: str,
-    mode: str = "direct",
+    mode: str = "chat",
     chat_history: list | None = None,
 ) -> AgentState:
     """

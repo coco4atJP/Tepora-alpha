@@ -87,8 +87,8 @@ function getModeLabel(mode: Message["mode"]): string | null {
 			return "🔍 Search";
 		case "agent":
 			return "🤖 Agent";
-		case "direct":
-			return "💬 Direct";
+		case "chat":
+			return "💬 Chat";
 		default:
 			return null;
 	}

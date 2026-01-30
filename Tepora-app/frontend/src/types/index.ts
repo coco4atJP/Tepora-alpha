@@ -4,7 +4,7 @@ export interface Message {
 	role: "user" | "assistant" | "system";
 	content: string;
 	timestamp: Date;
-	mode?: "direct" | "search" | "agent";
+	mode?: "chat" | "search" | "agent";
 	agentName?: string;
 	nodeId?: string;
 	thinking?: string; // Chain of Thought content
@@ -144,7 +144,7 @@ export interface Session {
 }
 
 // チャットモード
-export type ChatMode = "direct" | "search" | "agent";
+export type ChatMode = "chat" | "search" | "agent";
 export type AgentMode = "high" | "fast" | "direct";
 
 // 添付ファイル

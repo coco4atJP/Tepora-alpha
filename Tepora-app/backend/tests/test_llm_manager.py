@@ -329,7 +329,7 @@ class TestEMLLMIntegrator(unittest.IsolatedAsyncioTestCase):
 
 class TestGraphRouting(unittest.TestCase):
     def test_route_defaults_to_direct_answer(self):
-        state = {"mode": InputMode.DIRECT}
+        state = {"mode": InputMode.CHAT}
         self.assertEqual(route_by_command(state), GraphRoutes.DIRECT_ANSWER)
 
     def test_route_search(self):

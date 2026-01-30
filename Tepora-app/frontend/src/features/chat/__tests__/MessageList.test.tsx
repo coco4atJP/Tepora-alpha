@@ -33,7 +33,7 @@ describe("MessageList", () => {
 			role: "assistant",
 			content: 'Hi there! Here is some code:\n```python\nprint("hello") \n```',
 			timestamp: new Date("2023-01-01T10:00:01"),
-			mode: "direct",
+			mode: "chat",
 			isComplete: true,
 		},
 	];

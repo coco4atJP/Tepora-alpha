@@ -44,7 +44,7 @@ PROFESSIONAL_ATTENTION_SINK = "System: Initialize professional agent."
 class InputMode(str, Enum):
     """User-facing input modes."""
 
-    DIRECT = "direct"
+    CHAT = "chat"
     SEARCH = "search"
     AGENT = "agent"
     STATS = "stats"

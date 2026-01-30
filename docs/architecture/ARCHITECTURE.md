@@ -533,7 +533,7 @@ class TeporaApp:
         session_id: str,
         message: str,
         *,
-        mode: str = "direct",
+        mode: str = "chat",
         **kwargs,
     ) -> AsyncIterator[str]:
         """メッセージを処理し、ストリーミング応答を返す"""
@@ -649,7 +649,7 @@ class AgentState(TypedDict):
     
     # Core input and history
     input: str
-    mode: str | None  # "direct" | "search" | "agent"
+    mode: str | None  # "chat" | "search" | "agent"
     chat_history: list[HumanMessage | AIMessage]
     
     # Hierarchical agent routing (NEW in Multi-Agent V1)
