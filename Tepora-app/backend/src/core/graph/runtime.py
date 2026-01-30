@@ -306,20 +306,24 @@ class TeporaGraph:
             tool_executor=tool_executor,
         )
 
-    async def _generate_order_wrapper(self, state: AgentState) -> dict[str, Any]:
+    async def _generate_order_wrapper(
+        self, state: AgentState, config: RunnableConfig
+    ) -> dict[str, Any]:
         if not self._react_nodes:
             logger.warning("ReActNodes not available (tool_manager missing).")
             return {"order": {}, "task_input": None}
-        result = await self._react_nodes.generate_order_node(state)
+        result = await self._react_nodes.generate_order_node(state, run_config=config)
         shared_context = state.get("shared_context") or {}
         shared_context["current_plan"] = result.get("order")
         return {**result, "shared_context": shared_context}
 
-    async def _agent_reasoning_wrapper(self, state: AgentState) -> dict[str, Any]:
+    async def _agent_reasoning_wrapper(
+        self, state: AgentState, config: RunnableConfig
+    ) -> dict[str, Any]:
         if not self._react_nodes:
             logger.warning("ReActNodes not available (tool_manager missing).")
             return {"agent_outcome": "agent_not_available"}
-        return await self._react_nodes.agent_reasoning_node(state)
+        return await self._react_nodes.agent_reasoning_node(state, run_config=config)
 
     async def _tool_executor_wrapper(
         self, state: AgentState, config: RunnableConfig
