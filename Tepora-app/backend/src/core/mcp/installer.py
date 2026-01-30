@@ -214,6 +214,7 @@ class McpInstaller:
 
             return env_str + " ".join(parts)
         except Exception as e:
+            logger.warning("Error generating command preview: %s", e)
             return f"Error generating command: {e}"
 
     @staticmethod

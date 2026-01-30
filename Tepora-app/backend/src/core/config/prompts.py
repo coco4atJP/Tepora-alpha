@@ -146,8 +146,11 @@ def resolve_system_prompt(prompt_key: str, *, current_time: str | None = None) -
             from .loader import settings
 
             nsfw_enabled = settings.app.nsfw_enabled
-        except Exception:
+        except Exception as e:
             # Fallback if config service is unavailable
+            from logging import getLogger
+
+            getLogger(__name__).warning("Failed to access settings for safety policy: %s", e)
             nsfw_enabled = False
 
         if nsfw_enabled:

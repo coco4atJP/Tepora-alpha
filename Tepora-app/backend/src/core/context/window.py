@@ -79,8 +79,11 @@ class ContextWindowManager:
             if token_counter is not None:
                 try:
                     msg_tokens = await token_counter([msg])
-                except Exception:
+                except Exception as e:
                     # Fallback to estimation if counter fails
+                    logger.debug(
+                        "Token counting failed for message, falling back to estimation: %s", e
+                    )
                     msg_tokens = self._estimate_tokens(msg)
             else:
                 msg_tokens = self._estimate_tokens(msg)

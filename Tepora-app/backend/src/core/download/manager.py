@@ -486,5 +486,6 @@ class DownloadManager:
             if not target.exists():
                 target.mkdir(parents=True, exist_ok=True)
             return os.access(target, os.W_OK)
-        except Exception:
+        except Exception as e:
+            logger.debug("Write permission check failed for %s: %s", target, e)
             return False

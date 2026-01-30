@@ -105,7 +105,8 @@ class LLMService:
             configured_cache_size = getattr(
                 getattr(_settings, "llm_manager", None), "cache_size", None
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to load llm_manager settings: %s", e)
             configured_cache_size = None
 
         resolved_cache_size = (

@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-900 text-gray-100;
-  }
+	body {
+		@apply bg-gray-900 text-gray-100;
+	}
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+	width: 8px;
+	height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-900;
+	@apply bg-gray-900;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
+	@apply bg-gray-700 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
+	@apply bg-gray-600;
 }

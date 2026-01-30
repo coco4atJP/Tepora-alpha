@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import React, { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isDesktop } from "../../../../utils/api";
 import { ApiError, apiClient } from "../../../../utils/api-client";
 import { FormGroup, FormInput } from "../SettingsComponents";
 
@@ -40,6 +41,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 	const [dragActive, setDragActive] = useState(false);
 	const [localFile, setLocalFile] = useState<LocalFile | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const dropZoneRef = useRef<HTMLDivElement>(null);
 
 	// Consent Warning State
 	const [showConsentDialog, setShowConsentDialog] = useState(false);
@@ -119,6 +121,26 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 	};
 
 	// Drag and Drop
+	const setLocalFileFromPath = useCallback((path: string, size?: number) => {
+		const name = path.split(/[\\/]/).pop() || path;
+		setLocalFile({ name, path, size });
+	}, []);
+
+	const isPointInDropZone = useCallback(
+		(position: { x: number; y: number }) => {
+			const zone = dropZoneRef.current;
+			if (!zone) return false;
+			const rect = zone.getBoundingClientRect();
+			const scale = window.devicePixelRatio || 1;
+			const x = position.x / scale;
+			const y = position.y / scale;
+			return (
+				x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+			);
+		},
+		[],
+	);
+
 	const handleDrag = (e: React.DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -141,13 +163,9 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 				// @ts-expect-error - path property might exist
 				const path = file.path;
 				if (path) {
-					setLocalFile({
-						name: file.name,
-						path: path,
-						size: file.size,
-					});
+					setLocalFileFromPath(path, file.size);
 				} else {
-					alert(t("settings.sections.models.add_modal.dnd_no_path"));
+					alert(t("settings.sections.models.add_modal.path_required"));
 				}
 			} else {
 				alert(t("settings.sections.models.add_modal.invalid_file"));
@@ -162,16 +180,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 				// @ts-expect-error - path property might exist
 				const path = file.path;
 				if (path) {
-					setLocalFile({
-						name: file.name,
-						path: path,
-						size: file.size,
-					});
+					setLocalFileFromPath(path, file.size);
 				} else {
 					// Fallback if hidden input is somehow used but no path
-					alert(
-						"Cannot resolve file path. Please use the main click area to browse.",
-					);
+					alert(t("settings.sections.models.add_modal.path_required"));
 				}
 			} else {
 				alert(t("settings.sections.models.add_modal.invalid_file"));
@@ -251,6 +263,62 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			);
 		};
 	}, [onModelAdded]);
+
+	React.useEffect(() => {
+		if (!isDesktop() || !isExpanded || mode !== "local") {
+			return;
+		}
+
+		let didCancel = false;
+		let unlisten: (() => void) | undefined;
+
+		const setupDragDrop = async () => {
+			try {
+				const { getCurrentWindow } = await import("@tauri-apps/api/window");
+				const stopListening = await getCurrentWindow().onDragDropEvent(
+					(event) => {
+						if (didCancel) return;
+						const payload = event.payload;
+						if (payload.type === "leave") {
+							setDragActive(false);
+							return;
+						}
+
+						if (payload.type === "enter" || payload.type === "over") {
+							setDragActive(isPointInDropZone(payload.position));
+							return;
+						}
+
+						if (payload.type === "drop") {
+							setDragActive(false);
+							if (!isPointInDropZone(payload.position)) return;
+							const path = payload.paths?.[0];
+							if (!path) return;
+							if (!path.toLowerCase().endsWith(".gguf")) {
+								alert(t("settings.sections.models.add_modal.invalid_file"));
+								return;
+							}
+							setLocalFileFromPath(path);
+						}
+					},
+				);
+				if (didCancel) {
+					stopListening();
+				} else {
+					unlisten = stopListening;
+				}
+			} catch (e) {
+				console.error("Failed to register drag-and-drop listener:", e);
+			}
+		};
+
+		setupDragDrop();
+
+		return () => {
+			didCancel = true;
+			if (unlisten) unlisten();
+		};
+	}, [isExpanded, isPointInDropZone, mode, setLocalFileFromPath, t]);
 
 	const handleDownload = async (acknowledgeWarnings = false) => {
 		if (checkStatus !== "valid") return;
@@ -496,6 +564,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 					) : (
 						// biome-ignore lint/a11y/useSemanticElements: Cannot use button due to nested interactive elements
 						<div
+							ref={dropZoneRef}
 							role="button"
 							tabIndex={0}
 							onKeyDown={(e) => {

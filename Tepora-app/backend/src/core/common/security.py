@@ -46,5 +46,10 @@ class SecurityUtils:
             base = Path(base_path).resolve()
             target = Path(path).resolve()
             return target.is_relative_to(base)
-        except Exception:
+        except Exception as e:
+            # Import logger here to avoid circular imports if necessary, or use print if logger not available
+            # But we can assume logger is configured in this project structure
+            import logging
+
+            logging.getLogger(__name__).debug("Path validation failed for '%s': %s", path, e)
             return False

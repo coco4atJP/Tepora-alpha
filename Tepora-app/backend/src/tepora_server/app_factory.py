@@ -166,8 +166,9 @@ def create_app() -> FastAPI:
 
                     if file_path.exists() and file_path.is_file():
                         return FileResponse(str(file_path))
-                except Exception:
+                except Exception as e:
                     # Catch security validation errors or path errors
+                    logger.warning("Static file serving error: %s", e)
                     return JSONResponse(status_code=404, content={"error": "Not Found"})
 
                 # SPA Fallback

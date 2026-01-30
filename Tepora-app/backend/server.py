@@ -55,8 +55,10 @@ try:
     # Load settings before installing the log redaction filter to avoid recursion
     # (settings initialization emits logs).
     config_manager.load_config()
-except Exception:
-    pass
+except Exception as e:
+    # Log warning but proceed, as we might be running in a context where full config isn't needed yet
+    # or to allow logging to initialize partially.
+    print(f"Warning: Failed to load config early: {e}", file=sys.stderr)
 
 
 class PiiRedactionFilter(logging.Filter):
@@ -70,8 +72,9 @@ class PiiRedactionFilter(logging.Filter):
             redacted, _ = redact_pii(message, enabled=True, log_redactions=False)
             record.msg = redacted
             record.args = ()
-        except Exception:
-            # Never block logging due to redaction errors.
+        except Exception as e:
+            # Never block logging due to redaction errors, but record the issue.
+            print(f"[PII Filter] Redaction error (ignored): {e}", file=sys.stderr)
             return True
         return True
 

@@ -119,6 +119,7 @@ dev = [
     "pyinstaller>=6.18.0",
     "respx>=0.22.0",
     "types-pyyaml>=6.0.12.20250915",
+    "types-requests>=2.32.4.20260107",
 ]
 # PyTorch settings removed to use standard PyPI (supports CUDA on Windows/Linux)
 

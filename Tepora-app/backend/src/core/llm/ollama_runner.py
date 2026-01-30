@@ -60,7 +60,8 @@ class OllamaRunner:
             async with httpx.AsyncClient(timeout=2.0) as client:
                 response = await client.get(self._base_url)
                 return bool(response.status_code == 200)
-        except Exception:
+        except Exception as e:
+            logger.debug("Ollama connection check failed: %s", e)
             return False
 
     async def _list_models(self) -> list[str]:
@@ -160,8 +161,8 @@ class OllamaRunner:
                 )
             except httpx.TimeoutException:
                 pass  # Expected, we don't wait for generation
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Ollama preload request failed (ignorable): %s", e)
 
     async def count_tokens(self, text: str, model_key: str) -> int:
         """Count tokens via Ollama /api/tokenize."""

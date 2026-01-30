@@ -53,8 +53,8 @@ class TestLLMServiceV3(unittest.IsolatedAsyncioTestCase):
         for p in self._tmp_files:
             try:
                 Path(p).unlink(missing_ok=True)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error deleting temp file {p}: {e}", file=sys.stderr)
 
     def _tmp_gguf(self) -> str:
         f = tempfile.NamedTemporaryFile(delete=False, suffix=".gguf")

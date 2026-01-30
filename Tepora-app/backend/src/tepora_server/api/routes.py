@@ -307,6 +307,7 @@ async def create_custom_agent(agent_data: dict[str, Any]):
         try:
             agent = CustomAgentConfig(**agent_data)
         except Exception as e:
+            logger.warning("Custom agent validation failed in create: %s", e)
             return JSONResponse(status_code=400, content={"error": f"Invalid agent data: {e}"})
 
         # Update config
@@ -352,6 +353,7 @@ async def update_custom_agent(agent_id: str, agent_data: dict[str, Any]):
         try:
             agent = CustomAgentConfig(**updated_data)
         except Exception as e:
+            logger.warning("Custom agent validation failed in update: %s", e)
             return JSONResponse(status_code=400, content={"error": f"Invalid agent data: {e}"})
 
         # Update config

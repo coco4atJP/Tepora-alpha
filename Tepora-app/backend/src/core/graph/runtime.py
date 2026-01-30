@@ -297,7 +297,9 @@ class TeporaGraph:
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
 
-        run_config: RunnableConfig = cast(RunnableConfig, {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}})
+        run_config: RunnableConfig = cast(
+            RunnableConfig, {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        )
         async for event in self.astream_events(initial_state, run_config=run_config):
             if event.get("event") != config.STREAM_EVENT_CHAT_MODEL:
                 continue
@@ -311,7 +313,10 @@ class TeporaGraph:
         """Stream LangGraph events (V1-compatible event dicts)."""
         from typing import cast
 
-        cfg: RunnableConfig = cast(RunnableConfig, run_config or {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}})
+        cfg: RunnableConfig = cast(
+            RunnableConfig,
+            run_config or {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}},
+        )
         assert self._graph is not None
         async for event in self._graph.astream_events(initial_state, version="v2", config=cfg):
             yield event
@@ -351,7 +356,9 @@ class TeporaGraph:
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
 
-        run_config: RunnableConfig = cast(RunnableConfig, {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}})
+        run_config: RunnableConfig = cast(
+            RunnableConfig, {"recursion_limit": config.GRAPH_RECURSION_LIMIT, "configurable": {}}
+        )
         result = await self._graph.ainvoke(initial_state, config=run_config)
         return cast(dict[str, Any], result)
 
