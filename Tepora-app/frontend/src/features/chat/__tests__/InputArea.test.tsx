@@ -23,6 +23,10 @@ vi.mock("../PersonaSwitcher", () => ({
 	default: () => <div data-testid="persona-switcher" />,
 }));
 
+vi.mock("../../../hooks/useSettings", () => ({
+	useSettings: () => ({ config: { custom_agents: {} } }),
+}));
+
 import { useOutletContext } from "react-router-dom";
 import { useChatStore, useWebSocketStore } from "../../../stores";
 
@@ -79,6 +83,8 @@ describe("InputArea", () => {
 			[],
 			false,
 			false,
+			undefined,
+			undefined,
 		);
 		expect(input).toHaveValue("");
 	});
@@ -150,6 +156,8 @@ describe("InputArea", () => {
 			["file1.txt"],
 			false,
 			false,
+			undefined,
+			undefined,
 		);
 	});
 
@@ -175,6 +183,8 @@ describe("InputArea", () => {
 			[],
 			false,
 			false,
+			undefined,
+			undefined,
 		);
 	});
 });

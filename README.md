@@ -72,6 +72,7 @@ git clone https://github.com/coco4atJP/Tepora.git
 ```
 
 セットアップの詳細は、[開発者ガイド (docs/guides/development.md)](docs/guides/development.md) をご覧ください。
+一般ユーザー向けのマニュアルは [ユーザーガイド (docs/user_guide.md)](docs/user_guide.md) を参照してください。
 
 ---
 

@@ -86,11 +86,13 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 								<div className="flex justify-between items-start gap-2 mb-1">
 									<span
 										className={`text-[10px] font-bold uppercase tracking-wider ${
-											step.agent_name.includes("Planner")
-												? "text-purple-400"
-												: step.agent_name.includes("Search")
-													? "text-cyan-400"
-													: "text-tea-400"
+											step.agent_name.includes("Supervisor")
+												? "text-amber-400"
+												: step.agent_name.includes("Planner")
+													? "text-purple-400"
+													: step.agent_name.includes("Search")
+														? "text-cyan-400"
+														: "text-tea-400"
 										}`}
 									>
 										{step.agent_name}

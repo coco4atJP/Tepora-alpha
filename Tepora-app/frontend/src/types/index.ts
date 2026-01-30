@@ -30,6 +30,7 @@ export interface ActivityLogEntry {
 	id: string;
 	status: "pending" | "processing" | "done" | "error";
 	message: string;
+	agentName?: string;
 }
 
 // Tool Confirmation Request (from backend)
@@ -83,6 +84,8 @@ export type WebSocketOutgoingMessage =
 			skipWebSearch?: boolean;
 			thinkingMode?: boolean; // Toggle Chain of Thought
 			sessionId?: string;
+			agentId?: string;
+			agentMode?: AgentMode;
 	  }
 	| { type: "stop" }
 	| { type: "get_stats" }
@@ -142,6 +145,7 @@ export interface Session {
 
 // チャットモード
 export type ChatMode = "direct" | "search" | "agent";
+export type AgentMode = "high" | "fast" | "direct";
 
 // 添付ファイル
 export interface Attachment {

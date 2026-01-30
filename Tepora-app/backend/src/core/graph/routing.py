@@ -8,6 +8,7 @@ which path the graph should take based on state.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Literal
 
 from langchain_core.messages import AIMessage
@@ -16,6 +17,40 @@ from .constants import GraphRoutes, InputMode
 from .state import AgentState
 
 logger = logging.getLogger(__name__)
+
+
+ROUTING_TAG_MAP: dict[str, str] = {
+    "planning": "high",
+    "high": "high",
+    "fast": "fast",
+    "direct": "direct",
+}
+
+
+def extract_routing_tag(user_input: str) -> tuple[str, str | None]:
+    """
+    Extract routing tag from user input.
+
+    Supported tags:
+      <planning>...</planning> -> high
+      <high>...</high> -> high
+      <fast>...</fast> -> fast
+      <direct>...</direct> -> direct
+
+    Returns:
+        (cleaned_input, agent_mode_hint)
+    """
+    cleaned = user_input
+
+    for tag, mode in ROUTING_TAG_MAP.items():
+        open_tag = re.compile(rf"<{tag}>", re.IGNORECASE)
+        close_tag = re.compile(rf"</{tag}>", re.IGNORECASE)
+        if open_tag.search(cleaned) and close_tag.search(cleaned):
+            cleaned = open_tag.sub("", cleaned)
+            cleaned = close_tag.sub("", cleaned)
+            return cleaned.strip(), mode
+
+    return cleaned, None
 
 
 def route_by_command(
@@ -81,3 +116,22 @@ def should_continue_react_loop(state: AgentState) -> Literal["continue", "end"]:
     else:
         logger.info("Decision: End ReAct loop (empty scratchpad).")
         return "end"
+
+
+def route_from_supervisor(state: AgentState) -> str:
+    """
+    Determine route from Supervisor node.
+
+    Returns:
+        "planner" or the selected agent_id.
+    """
+    route = state.get("supervisor_route")
+    if route == "planner":
+        return "planner"
+
+    selected_agent = state.get("selected_agent_id")
+    if selected_agent:
+        return selected_agent
+
+    # Fallback to planner if no agent selected
+    return "planner"

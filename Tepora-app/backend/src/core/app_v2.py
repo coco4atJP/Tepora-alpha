@@ -590,12 +590,25 @@ class TeporaApp:
         # 1) Sanitize
         user_input_sanitized = sanitize_user_input(user_input)
 
+        # 1.5) Extract routing tags (XML-style) for agent mode overrides
+        from .graph.routing import extract_routing_tag
+
+        user_input_sanitized, tag_agent_mode = extract_routing_tag(user_input_sanitized)
+
         # 2) Process attachments (best-effort; only used in Search mode)
         processed_attachments = self._process_attachments(attachments)
 
         # 3) Prepare search metadata
         search_metadata: dict[str, Any] = {}
         final_mode = mode
+        agent_mode = kwargs.pop("agent_mode", None) or kwargs.pop("agentMode", None)
+
+        if tag_agent_mode:
+            final_mode = InputMode.AGENT
+            agent_mode = tag_agent_mode
+
+        if final_mode == InputMode.AGENT and not agent_mode:
+            agent_mode = "fast"
         if final_mode == InputMode.SEARCH or final_mode == "search":
             if not core_config.settings.privacy.allow_web_search:
                 if not skip_web_search:
@@ -632,6 +645,9 @@ class TeporaApp:
         for key, value in search_metadata.items():
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
+
+        if agent_mode:
+            kwargs["agent_mode"] = agent_mode
 
         for key, value in kwargs.items():
             if key in initial_state:

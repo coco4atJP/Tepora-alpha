@@ -10,7 +10,12 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { Attachment, ChatMode, ToolConfirmationRequest } from "../types";
+import type {
+	AgentMode,
+	Attachment,
+	ChatMode,
+	ToolConfirmationRequest,
+} from "../types";
 import { getWsBase } from "../utils/api";
 import { getSessionToken, refreshSessionToken } from "../utils/sessionToken";
 import { backendReady, isDesktop } from "../utils/sidecar";
@@ -44,6 +49,8 @@ interface WebSocketActions {
 		attachments?: Attachment[],
 		skipWebSearch?: boolean,
 		thinkingMode?: boolean,
+		agentId?: string,
+		agentMode?: AgentMode,
 	) => void;
 	sendRaw: (data: object) => void;
 
@@ -111,6 +118,7 @@ const AGENT_MAPPING: Record<string, string> = {
 	synthesize_final_response: "Synthesizer",
 	update_scratchpad: "Memory Manager",
 	thinking: "Deep Thinker",
+	supervisor: "Supervisor",
 };
 
 // ============================================================================
@@ -193,7 +201,10 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						case "activity":
 							if (data.data) {
 								const rawEntry = data.data;
-								const agentName = AGENT_MAPPING[rawEntry.id] || rawEntry.id;
+								const agentName =
+									rawEntry.agentName ||
+									AGENT_MAPPING[rawEntry.id] ||
+									rawEntry.id;
 								const statusMap: Record<
 									string,
 									"pending" | "processing" | "completed" | "error"
@@ -419,6 +430,8 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					attachments = [],
 					skipWebSearch = false,
 					thinkingMode = false,
+					agentId,
+					agentMode,
 				) => {
 					const { socket, isConnected } = get();
 					const chatStore = useChatStore.getState();
@@ -441,6 +454,8 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							attachments,
 							skipWebSearch,
 							thinkingMode,
+							agentId,
+							agentMode,
 							sessionId: sessionStore.currentSessionId,
 						}),
 					);

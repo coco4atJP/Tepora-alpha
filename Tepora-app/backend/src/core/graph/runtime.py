@@ -15,14 +15,18 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
 from .. import config
+from ..agent.registry import custom_agent_registry
+from ..config.schema import CustomAgentConfig, CustomAgentToolPolicy
 from .constants import GraphNodes, GraphRoutes
 from .nodes.chat import ChatNode
+from .nodes.custom_agent import CustomAgentNode
 from .nodes.em_llm import EMMemoryNodes
 from .nodes.react import ReActNodes
 from .nodes.search import SearchNode
 from .nodes.search_pipeline import SearchPipelineNodes
+from .nodes.supervisor import SupervisorNode
 from .nodes.thinking import ThinkingNode
-from .routing import route_by_command, should_continue_react_loop
+from .routing import route_by_command, route_from_supervisor
 from .state import AgentState, create_initial_state
 
 if TYPE_CHECKING:
@@ -107,6 +111,20 @@ class TeporaGraph:
         )
         self._thinking_node = ThinkingNode(llm_service=llm_service)
 
+        # Dynamic agents (custom + default)
+        self._custom_agent_registry = custom_agent_registry
+        self._agent_configs = self._load_agent_configs()
+        self._default_agent_id = self._resolve_default_agent_id(self._agent_configs)
+        self._supervisor_node = SupervisorNode(
+            self._agent_configs,
+            self._default_agent_id,
+            llm_service=llm_service,
+        )
+        self._custom_agent_nodes = self._build_custom_agent_nodes(
+            self._agent_configs,
+            prof_em_llm_integrator=prof_em_llm_integrator,
+        )
+
         logger.info("TeporaGraph initialized")
 
         self._graph = self._build_graph()
@@ -129,6 +147,10 @@ class TeporaGraph:
         workflow.add_node(
             GraphNodes.SYNTHESIZE_FINAL_RESPONSE, self._synthesize_final_response_wrapper
         )
+        workflow.add_node(GraphNodes.SUPERVISOR, self._supervisor_wrapper)
+
+        for agent_id, agent_node in self._custom_agent_nodes.items():
+            workflow.add_node(self._agent_node_name(agent_id), agent_node.execute)
         workflow.add_node(GraphNodes.EM_MEMORY_FORMATION, self._em_memory_formation_wrapper)
         workflow.add_node(GraphNodes.EM_STATS, self._em_stats_wrapper)
 
@@ -139,7 +161,7 @@ class TeporaGraph:
             GraphNodes.EM_MEMORY_RETRIEVAL,
             route_by_command,
             {
-                GraphRoutes.AGENT_MODE: GraphNodes.GENERATE_ORDER,
+                GraphRoutes.AGENT_MODE: GraphNodes.SUPERVISOR,
                 GraphRoutes.SEARCH: GraphNodes.GENERATE_SEARCH_QUERY,
                 GraphRoutes.DIRECT_ANSWER: GraphNodes.THINKING_NODE,
                 GraphRoutes.STATS: GraphNodes.EM_STATS,
@@ -155,15 +177,25 @@ class TeporaGraph:
         workflow.add_edge(GraphNodes.EXECUTE_SEARCH, GraphNodes.SUMMARIZE_SEARCH_RESULT)
         workflow.add_edge(GraphNodes.SUMMARIZE_SEARCH_RESULT, GraphNodes.EM_MEMORY_FORMATION)
 
-        # Agent (ReAct)
-        workflow.add_edge(GraphNodes.GENERATE_ORDER, GraphNodes.AGENT_REASONING)
+        # Agent (Hierarchical)
+        route_map = {"planner": GraphNodes.GENERATE_ORDER}
+        for agent_id in self._custom_agent_nodes:
+            route_map[agent_id] = self._agent_node_name(agent_id)
+
         workflow.add_conditional_edges(
-            GraphNodes.AGENT_REASONING,
-            should_continue_react_loop,
-            {"continue": GraphNodes.TOOL_NODE, "end": GraphNodes.SYNTHESIZE_FINAL_RESPONSE},
+            GraphNodes.SUPERVISOR,
+            route_from_supervisor,
+            route_map,
         )
-        workflow.add_edge(GraphNodes.TOOL_NODE, GraphNodes.UPDATE_SCRATCHPAD)
-        workflow.add_edge(GraphNodes.UPDATE_SCRATCHPAD, GraphNodes.AGENT_REASONING)
+
+        workflow.add_edge(GraphNodes.GENERATE_ORDER, GraphNodes.SUPERVISOR)
+
+        for agent_id in self._custom_agent_nodes:
+            workflow.add_edge(
+                self._agent_node_name(agent_id),
+                GraphNodes.SYNTHESIZE_FINAL_RESPONSE,
+            )
+
         workflow.add_edge(GraphNodes.SYNTHESIZE_FINAL_RESPONSE, GraphNodes.EM_MEMORY_FORMATION)
 
         # End
@@ -172,6 +204,63 @@ class TeporaGraph:
 
         logger.info("Graph construction complete")
         return workflow.compile()
+
+    def _agent_node_name(self, agent_id: str) -> str:
+        return f"agent_{agent_id}"
+
+    def _resolve_default_agent_id(self, agents: list[CustomAgentConfig]) -> str:
+        for agent in agents:
+            if agent.id.startswith("__default_"):
+                return agent.id
+        return agents[0].id if agents else "__default_professional__"
+
+    def _load_agent_configs(self) -> list[CustomAgentConfig]:
+        agents = self._custom_agent_registry.list_agents(enabled_only=True)
+
+        default_id = "__default_professional__"
+        if not any(agent.id == default_id for agent in agents):
+            agents.append(
+                CustomAgentConfig(
+                    id=default_id,
+                    name="Professional Agent",
+                    description="Default professional agent",
+                    icon="A",
+                    system_prompt="You are a professional agent.",
+                    tool_policy=CustomAgentToolPolicy(),
+                    enabled=True,
+                )
+            )
+        return agents
+
+    def _build_custom_agent_nodes(
+        self,
+        agents: list[CustomAgentConfig],
+        *,
+        prof_em_llm_integrator: Any | None = None,
+    ) -> dict[str, Any]:
+        nodes: dict[str, Any] = {}
+
+        if not self.tool_manager:
+            # Fallback stubs when tools are unavailable
+            class _UnavailableAgent:
+                async def execute(
+                    self, _state: AgentState, _config: RunnableConfig | None = None
+                ) -> dict[str, Any]:
+                    return {"agent_outcome": "Agent tools are not available."}
+
+            for agent in agents:
+                nodes[agent.id] = _UnavailableAgent()  # type: ignore[assignment]
+            return nodes
+
+        for agent in agents:
+            nodes[agent.id] = CustomAgentNode(
+                llm_service=self.llm_service,
+                tool_manager=self.tool_manager,
+                agent_config=agent,
+                registry=self._custom_agent_registry,
+                prof_em_llm_integrator=prof_em_llm_integrator,
+            )
+        return nodes
 
     # --- Wrappers (inject prompts/dependencies) ---
 
@@ -221,7 +310,10 @@ class TeporaGraph:
         if not self._react_nodes:
             logger.warning("ReActNodes not available (tool_manager missing).")
             return {"order": {}, "task_input": None}
-        return await self._react_nodes.generate_order_node(state)
+        result = await self._react_nodes.generate_order_node(state)
+        shared_context = state.get("shared_context") or {}
+        shared_context["current_plan"] = result.get("order")
+        return {**result, "shared_context": shared_context}
 
     async def _agent_reasoning_wrapper(self, state: AgentState) -> dict[str, Any]:
         if not self._react_nodes:
@@ -236,6 +328,9 @@ class TeporaGraph:
             logger.warning("ReActNodes not available (tool_manager missing).")
             return {}
         return await self._react_nodes.unified_tool_executor_node(state, config)
+
+    async def _supervisor_wrapper(self, state: AgentState) -> dict[str, Any]:
+        return await self._supervisor_node.supervise(state)
 
     def _update_scratchpad_wrapper(self, state: AgentState) -> dict[str, Any]:
         if not self._react_nodes:

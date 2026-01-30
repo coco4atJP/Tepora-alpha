@@ -45,6 +45,9 @@ function getBubbleClass(message: Message): string {
 	// Assistant role
 	if (message.nodeId) {
 		// Agent/Tool specific styling
+		if (message.agentName === "Supervisor") {
+			return `${baseClasses} bg-amber-900/60 border-amber-500/50 text-amber-100`;
+		}
 		if (message.agentName === "Planner") {
 			return `${baseClasses} bg-purple-900/60 border-purple-500/50 text-purple-100`;
 		}
@@ -69,6 +72,7 @@ function getBubbleClass(message: Message): string {
  * Get the agent header color class.
  */
 function getAgentHeaderClass(agentName: string): string {
+	if (agentName === "Supervisor") return "text-amber-400";
 	if (agentName === "Planner") return "text-purple-400";
 	if (agentName.includes("Search")) return "text-cyan-400";
 	return "text-gold-400";

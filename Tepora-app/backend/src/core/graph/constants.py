@@ -23,6 +23,7 @@ class GraphNodes:
     EM_MEMORY_FORMATION = "em_memory_formation"
     EM_STATS = "em_stats_node"
     THINKING_NODE = "thinking"
+    SUPERVISOR = "supervisor"
 
 
 class GraphRoutes:

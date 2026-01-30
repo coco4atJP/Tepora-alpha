@@ -14,11 +14,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 
 from ... import config
 from ...a2a import A2AMessage, MessageType
@@ -83,7 +85,15 @@ class ReActNodes:
             ],
         )
 
-    def _build_order_plan(self, state: AgentState) -> str:
+    def _build_order_plan(self, state: AgentState, order_override: dict | None = None) -> str:
+        if order_override is not None:
+            return json.dumps(order_override, indent=2, ensure_ascii=False)
+
+        shared_context = state.get("shared_context") or {}
+        current_plan = shared_context.get("current_plan")
+        if current_plan:
+            return json.dumps(current_plan, indent=2, ensure_ascii=False)
+
         task_input = state.get("task_input")
         if task_input:
             task_msg = A2AMessage.from_dict(task_input)
@@ -92,7 +102,12 @@ class ReActNodes:
 
         return json.dumps(state.get("order", {}), indent=2, ensure_ascii=False)
 
-    async def generate_order_node(self, state: AgentState) -> dict:
+    async def generate_order_node(
+        self,
+        state: AgentState,
+        *,
+        tools: list[BaseTool] | None = None,
+    ) -> dict:
         """
         Character Agent (Gemma) converts user request into a professional "Order".
 
@@ -124,11 +139,12 @@ class ReActNodes:
         )
         chain = prompt | llm
 
+        tools_for_prompt = tools or self.tool_manager.tools
         response_message = await chain.ainvoke(
             {
                 "input": state["input"],
                 "synthesized_memory": state.get("synthesized_memory", "No relevant context."),
-                "tools": config.format_tools_for_react_prompt(self.tool_manager.tools),
+                "tools": config.format_tools_for_react_prompt(tools_for_prompt),
             }
         )
 
@@ -166,7 +182,17 @@ class ReActNodes:
 
             return {"order": fallback_order, "task_input": task_msg.to_dict()}
 
-    async def agent_reasoning_node(self, state: AgentState) -> dict:
+    async def agent_reasoning_node(
+        self,
+        state: AgentState,
+        *,
+        tools: list[BaseTool] | None = None,
+        system_prompt: str | None = None,
+        attention_sink: str | None = None,
+        long_term_memory: str | None = None,
+        order_plan: str | None = None,
+        model_id: str | None = None,
+    ) -> dict:
         """
         Core ReAct loop node. Prompts LLM for thought and tool use, decides next action.
 
@@ -187,24 +213,31 @@ class ReActNodes:
         """
         logger.info("--- Node: Agent Reasoning (using Jan-nano) ---")
         logger.debug("Starting ReAct loop...")
-        llm = await self.llm_service.get_client("executor", task_type="default")
+        llm = await self.llm_service.get_client("executor", task_type="default", model_id=model_id)
 
         if not state["agent_scratchpad"]:
             logger.debug("Initializing agent_scratchpad for new ReAct loop")
             state["agent_scratchpad"] = []
 
         # Build hierarchical prompt (EM-LLM compliant)
-        attention_sink_prefix = PROFESSIONAL_ATTENTION_SINK
+        attention_sink_prefix = attention_sink or PROFESSIONAL_ATTENTION_SINK
 
-        tools_str = config.format_tools_for_react_prompt(self.tool_manager.tools)
-        system_prompt = config.BASE_SYSTEM_PROMPTS["react_professional"].replace(
-            "{tools}", tools_str
-        )
+        tools_for_prompt = tools or self.tool_manager.tools
+        tools_str = config.format_tools_for_react_prompt(tools_for_prompt)
+        base_system_prompt = system_prompt or config.BASE_SYSTEM_PROMPTS["react_professional"]
+        if "{tools}" in base_system_prompt:
+            resolved_system_prompt = base_system_prompt.replace("{tools}", tools_str)
+        else:
+            resolved_system_prompt = (
+                f"{base_system_prompt}\n\n<tools_schema>\n{tools_str}\n</tools_schema>"
+            )
 
-        order_plan_str = self._build_order_plan(state)
+        order_plan_str = order_plan or self._build_order_plan(state)
 
-        long_term_memory_str = state.get(
-            "synthesized_memory", "No relevant long-term memories found."
+        long_term_memory_str = (
+            long_term_memory
+            if long_term_memory is not None
+            else state.get("synthesized_memory", "No relevant long-term memories found.")
         )
 
         short_term_memory_str = format_scratchpad(state["agent_scratchpad"])
@@ -212,7 +245,7 @@ class ReActNodes:
         # Build prompt template
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", f"{attention_sink_prefix}\n\n{system_prompt}"),
+                ("system", f"{attention_sink_prefix}\n\n{resolved_system_prompt}"),
                 (
                     "human",
                     "You must now execute the following order. Use the provided memories and your reasoning abilities to complete the task.\n\n"
@@ -349,7 +382,13 @@ class ReActNodes:
         return {"agent_scratchpad": new_scratchpad}
 
     async def unified_tool_executor_node(
-        self, state: AgentState, config: RunnableConfig | None = None
+        self,
+        state: AgentState,
+        config: RunnableConfig | None = None,
+        *,
+        allowed_tools: set[str] | None = None,
+        require_confirmation: set[str] | None = None,
+        require_confirmation_fn: Callable[[str], bool] | None = None,
     ) -> dict:
         """
         Async node that delegates tool execution to ToolManager.
@@ -395,8 +434,24 @@ class ReActNodes:
             logger.debug("Arguments: %s", json.dumps(tool_args, indent=2, ensure_ascii=False))
             logger.debug("Call ID: %s", tool_call_id)
 
+            if allowed_tools is not None and tool_name not in allowed_tools:
+                logger.info("Tool '%s' blocked by agent policy", tool_name)
+                tool_messages.append(
+                    ToolMessage(
+                        content=f"Tool '{tool_name}' is not allowed by agent policy.",
+                        tool_call_id=tool_call_id,
+                    )
+                )
+                continue
+
+            needs_confirmation = tool_name in dangerous_tools
+            if require_confirmation:
+                needs_confirmation = needs_confirmation or tool_name in require_confirmation
+            if require_confirmation_fn:
+                needs_confirmation = needs_confirmation or require_confirmation_fn(tool_name)
+
             # Request approval for dangerous tools
-            if tool_name in dangerous_tools and approval_callback:
+            if needs_confirmation and approval_callback:
                 logger.info("Requesting user approval for dangerous tool: %s", tool_name)
                 approved = await approval_callback(tool_name, tool_args)
                 if not approved:

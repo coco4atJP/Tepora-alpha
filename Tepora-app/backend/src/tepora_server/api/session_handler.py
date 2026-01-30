@@ -33,6 +33,7 @@ class SessionHandler:
     """
 
     NODE_DESCRIPTIONS: dict[str, str] = {
+        GraphNodes.SUPERVISOR: "Routing request...",
         GraphNodes.GENERATE_ORDER: "Analyzing user request...",
         GraphNodes.GENERATE_SEARCH_QUERY: "Identifying necessary tools...",
         GraphNodes.EXECUTE_SEARCH: "Executing search query...",
@@ -45,6 +46,7 @@ class SessionHandler:
     }
 
     AGENT_NAMES: dict[str, str] = {
+        GraphNodes.SUPERVISOR: "Supervisor",
         GraphNodes.GENERATE_ORDER: "Planner",
         GraphNodes.GENERATE_SEARCH_QUERY: "Search Analyst",
         GraphNodes.EXECUTE_SEARCH: "Search Tool",
@@ -253,16 +255,21 @@ class SessionHandler:
         return approved
 
     async def _send_activity_update(
-        self, node_name: str, status: str, message_override: str | None = None
+        self,
+        node_name: str,
+        status: str,
+        message_override: str | None = None,
+        agent_name: str | None = None,
     ) -> None:
         """Send an activity update to the client."""
         if node_name not in self.NODE_DESCRIPTIONS and not message_override:
             return
 
         desc = message_override or self.NODE_DESCRIPTIONS.get(node_name, "Processing...")
-        await self.send_json(
-            {"type": "activity", "data": {"id": node_name, "status": status, "message": desc}}
-        )
+        payload = {"id": node_name, "status": status, "message": desc}
+        if agent_name:
+            payload["agentName"] = agent_name
+        await self.send_json({"type": "activity", "data": payload})
 
     async def process_message(
         self,
@@ -272,6 +279,8 @@ class SessionHandler:
         skip_web_search: bool,
         session_id: str = "default",
         thinking_mode: bool | None = None,
+        agent_id: str | None = None,
+        agent_mode: str | None = None,
     ) -> None:
         """
         Process a user message.
@@ -282,6 +291,7 @@ class SessionHandler:
             attachments: List of attachments.
             skip_web_search: Whether to skip web search.
             session_id: The session ID for chat history.
+            agent_id: Optional direct agent selection.
         """
         try:
             if not user_input and not attachments:
@@ -315,6 +325,8 @@ class SessionHandler:
                 session_id=session_id,
                 approval_callback=self.request_tool_approval,
                 thinking_mode=thinking_mode,
+                agent_id=agent_id,
+                agent_mode=agent_mode,
             ):
                 await self._handle_stream_event(event, mode)
 
@@ -402,15 +414,85 @@ class SessionHandler:
 
         elif kind == "on_chain_start":
             node_name = event.get("name")
-            if node_name in self.NODE_DESCRIPTIONS:
-                self._current_node_id = node_name
-                self._current_agent_name = self.AGENT_NAMES.get(node_name, "System")
-                await self._send_activity_update(node_name, "processing")
+            if node_name:
+                if node_name.startswith("agent:"):
+                    agent_id = node_name.split("agent:", 1)[1]
+                    agent = settings.custom_agents.get(agent_id)
+                    agent_name = (
+                        agent.name
+                        if agent
+                        else (
+                            "Professional Agent" if agent_id.startswith("__default_") else agent_id
+                        )
+                    )
+                    self._current_node_id = node_name
+                    self._current_agent_name = agent_name
+                    await self._send_activity_update(
+                        node_name,
+                        "processing",
+                        message_override=f"Delegated to {agent_name}",
+                        agent_name=agent_name,
+                    )
+                elif node_name in self.NODE_DESCRIPTIONS:
+                    self._current_node_id = node_name
+                    self._current_agent_name = self.AGENT_NAMES.get(node_name, "System")
+                    await self._send_activity_update(
+                        node_name,
+                        "processing",
+                        agent_name=self._current_agent_name,
+                    )
 
         elif kind == "on_chain_end":
             node_name = event.get("name")
-            if node_name in self.NODE_DESCRIPTIONS:
-                await self._send_activity_update(node_name, "done")
+            if node_name:
+                if node_name == GraphNodes.SUPERVISOR:
+                    output = (event.get("data") or {}).get("output") or {}
+                    route = output.get("supervisor_route")
+                    selected_agent_id = output.get("selected_agent_id")
+                    agent_name = None
+                    if selected_agent_id:
+                        agent = settings.custom_agents.get(selected_agent_id)
+                        agent_name = (
+                            agent.name
+                            if agent
+                            else (
+                                "Professional Agent"
+                                if selected_agent_id.startswith("__default_")
+                                else selected_agent_id
+                            )
+                        )
+                    message = None
+                    if route == "planner":
+                        message = "Supervisor: routing to Planner"
+                    elif agent_name:
+                        message = f"Supervisor: delegating to {agent_name}"
+                    await self._send_activity_update(
+                        node_name,
+                        "done",
+                        message_override=message,
+                        agent_name=self.AGENT_NAMES.get(node_name, "Supervisor"),
+                    )
+                elif node_name.startswith("agent:"):
+                    agent_id = node_name.split("agent:", 1)[1]
+                    agent = settings.custom_agents.get(agent_id)
+                    agent_name = (
+                        agent.name
+                        if agent
+                        else (
+                            "Professional Agent" if agent_id.startswith("__default_") else agent_id
+                        )
+                    )
+                    await self._send_activity_update(
+                        node_name,
+                        "done",
+                        agent_name=agent_name,
+                    )
+                elif node_name in self.NODE_DESCRIPTIONS:
+                    await self._send_activity_update(
+                        node_name,
+                        "done",
+                        agent_name=self.AGENT_NAMES.get(node_name, "System"),
+                    )
 
             # Handle search results specifically
             if node_name == GraphNodes.EXECUTE_SEARCH:

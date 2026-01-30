@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { useSettings } from "../../hooks/useSettings";
 import { useChatStore, useWebSocketStore } from "../../stores";
 import type { ChatInterfaceContext } from "./ChatInterface";
 import PersonaSwitcher from "./PersonaSwitcher";
@@ -15,6 +16,8 @@ const InputArea: React.FC = () => {
 	const { t } = useTranslation();
 	const [message, setMessage] = useState("");
 	const [isThinkingMode, setIsThinkingMode] = useState(false);
+	const [selectedAgentId, setSelectedAgentId] = useState("");
+	const [selectedAgentMode, setSelectedAgentMode] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	// Stores
@@ -22,6 +25,11 @@ const InputArea: React.FC = () => {
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
+	const { config } = useSettings();
+
+	const availableAgents = Object.values(config?.custom_agents || {}).filter(
+		(agent) => agent.enabled,
+	);
 
 	const handleSend = () => {
 		if (
@@ -35,6 +43,8 @@ const InputArea: React.FC = () => {
 				attachments,
 				skipWebSearch,
 				isThinkingMode,
+				selectedAgentId || undefined,
+				selectedAgentMode || undefined,
 			);
 			clearAttachments();
 			setMessage("");
@@ -72,6 +82,13 @@ const InputArea: React.FC = () => {
 		}
 	}, [message]);
 
+	useEffect(() => {
+		if (currentMode !== "agent") {
+			setSelectedAgentId("");
+			setSelectedAgentMode("");
+		}
+	}, [currentMode]);
+
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
 			<div
@@ -85,6 +102,51 @@ const InputArea: React.FC = () => {
 				<div className="shrink-0 mb-1 ml-1">
 					<PersonaSwitcher />
 				</div>
+
+				{/* Agent Controls (Agent Mode Only) */}
+				{currentMode === "agent" && (
+					<>
+						<div className="shrink-0 mb-1">
+							<select
+								value={selectedAgentMode}
+								onChange={(e) => setSelectedAgentMode(e.target.value)}
+								disabled={isProcessing}
+								className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus:border-tea-500"
+								title={t("chat.input.agent_mode", "Agent mode")}
+							>
+								<option value="">
+									{t("chat.input.agent_mode_fast", "Fast (Auto)")}
+								</option>
+								<option value="high">
+									{t("chat.input.agent_mode_high", "High (Planning)")}
+								</option>
+								<option value="direct">
+									{t("chat.input.agent_mode_direct", "Direct")}
+								</option>
+							</select>
+						</div>
+						{availableAgents.length > 0 && (
+							<div className="shrink-0 mb-1">
+								<select
+									value={selectedAgentId}
+									onChange={(e) => setSelectedAgentId(e.target.value)}
+									disabled={isProcessing}
+									className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus:border-tea-500"
+									title={t("chat.input.select_agent", "Select agent")}
+								>
+									<option value="">
+										{t("chat.input.agent_auto", "Auto (Supervisor)")}
+									</option>
+									{availableAgents.map((agent) => (
+										<option key={agent.id} value={agent.id}>
+											{agent.icon} {agent.name}
+										</option>
+									))}
+								</select>
+							</div>
+						)}
+					</>
+				)}
 
 				{/* Text Input */}
 				<textarea

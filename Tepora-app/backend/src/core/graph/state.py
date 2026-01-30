@@ -42,6 +42,13 @@ class AgentState(TypedDict):
     mode: str | None
     chat_history: list[HumanMessage | AIMessage]
 
+    # Hierarchical agent routing
+    agent_id: str | None  # Direct agent selection from user/UI
+    agent_mode: str | None  # "high" | "fast" | "direct"
+    selected_agent_id: str | None  # Agent chosen by supervisor
+    supervisor_route: str | None  # "planner" | agent_id
+    shared_context: dict | None  # Shared workspace across agents
+
     # Agent ReAct loop state
     agent_scratchpad: list[BaseMessage]
     messages: list[BaseMessage]
@@ -98,6 +105,15 @@ def create_initial_state(
         input=user_input,
         mode=mode,
         chat_history=chat_history or [],
+        agent_id=None,
+        agent_mode=None,
+        selected_agent_id=None,
+        supervisor_route=None,
+        shared_context={
+            "current_plan": None,
+            "artifacts": [],
+            "notes": [],
+        },
         agent_scratchpad=[],
         messages=[],
         agent_outcome=None,

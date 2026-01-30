@@ -281,9 +281,11 @@ backend/
         │       ├── __init__.py
         │       ├── chat.py     # ChatNode（直接対話）
         │       ├── search.py   # SearchNode（検索+要約）
+        │       ├── supervisor.py   # SupervisorNode（階層的ルーティング）
+        │       ├── custom_agent.py # CustomAgentNode（カスタムエージェント実行）
         │       ├── memory.py   # メモリノード
-        │       ├── conversation.py  # 会話ノード（V1互換）
         │       ├── react.py    # ReActノード
+        │       ├── thinking.py # Thinkingモード（CoT）
         │       └── em_llm.py   # EM-LLMノード
         │
         ├── llm/                # -------- LLM Module --------
@@ -313,7 +315,7 @@ backend/
         ├── agent/              # -------- Agent Module --------
         │   ├── __init__.py
         │   ├── base.py         # BaseAgent（エージェント基底）
-        │   └── registry.py     # AgentRegistry（エージェント登録）
+        │   └── registry.py     # CustomAgentRegistry（ツールフィルタリング、スキルロード）
         │
         ├── tools/              # -------- Tools Module --------
         │   ├── __init__.py
@@ -541,25 +543,38 @@ class TeporaApp:
         """リソースをクリーンアップ"""
 ```
 
-### TeporaGraph（オーケストレーター）
+### TeporaGraphオーケストレーター
 
 `TeporaGraph` はLangGraphベースのメインオーケストレーターです。入力モードに基づいてChat、Search、Agentノードにルーティングします。
 
 **ファイル**: `src/core/graph/runtime.py`
 
 ```mermaid
-graph LR
-    START([START]) --> ROUTER{モード判定}
+graph TD
+    START([START]) --> EM[EM Memory<br/>Retrieval]
+    EM --> ROUTER{Mode Router}
     
-    ROUTER -->|direct| CHAT[ChatNode<br/>直接回答]
-    ROUTER -->|search| SEARCH[SearchNode<br/>Web検索+要約]
-    ROUTER -->|agent| AGENT[AgentNode<br/>ReActループ]
+    ROUTER -->|direct| THINK[ThinkingNode]
+    THINK --> CHAT[ChatNode<br/>Direct Answer]
     
-    CHAT --> END([END])
-    SEARCH --> END
-    AGENT --> TOOL[Tool Execution]
-    TOOL --> AGENT
-    AGENT --> END
+    ROUTER -->|search| SEARCH_Q[Generate<br/>Search Query]
+    SEARCH_Q --> SEARCH_EX[Execute Search]
+    SEARCH_EX --> SEARCH_SUM[Summarize<br/>Results]
+    
+    ROUTER -->|agent| SUPERVISOR{Supervisor}
+    
+    SUPERVISOR -->|planner| PLANNER[Generate<br/>Order/Plan]
+    PLANNER --> SUPERVISOR
+    
+    SUPERVISOR -->|agent_id| CUSTOM_AGENT[Custom Agent<br/>ReAct Loop]
+    CUSTOM_AGENT --> SYNTH[Synthesize<br/>Final Response]
+    
+    CHAT --> EM_FORM[EM Memory<br/>Formation]
+    SEARCH_SUM --> EM_FORM
+    SYNTH --> EM_FORM
+    
+    EM_FORM --> STATS[EM Stats]
+    STATS --> END([END])
 ```
 
 **ノード詳細**:
@@ -568,8 +583,50 @@ graph LR
 |--------|----------|------|
 | `ChatNode` | `nodes/chat.py` | 直接対話応答を生成 |
 | `SearchNode` | `nodes/search.py` | Web検索実行 → RAGコンテキスト構築 → 要約生成 |
-| `AgentNode` | `nodes/react.py` | ReActループ（思考→行動→観察） |
+| `SupervisorNode` | `nodes/supervisor.py` | 階層的ルーティング（PlannerまたはCustom Agentへ） |
+| `CustomAgentNode` | `nodes/custom_agent.py` | カスタムエージェントのReActループ実行 |
 | `ThinkingNode` | `nodes/thinking.py` | CoT（Chain of Thought）思考プロセス生成 |
+
+### Hierarchical Multi-Agent Architecture
+
+V2では、`agent`モードに階層的マルチエージェントアーキテクチャを導入しています。
+
+```mermaid
+graph TD
+    subgraph "Supervisor Layer"
+        SUP[SupervisorNode]
+    end
+    
+    subgraph "Planning Layer"
+        PLAN[Planner/Order Generator]
+    end
+    
+    subgraph "Execution Layer"
+        A1[Custom Agent 1]
+        A2[Custom Agent 2]
+        AN[Custom Agent N]
+    end
+    
+    SUP -->|high mode| PLAN
+    PLAN -->|plan| SUP
+    SUP -->|fast/direct mode| A1
+    SUP --> A2
+    SUP --> AN
+```
+
+**ルーティングモード**:
+
+| モード | 動作 |
+|--------|------|
+| `high` | 必ずPlannerを経由して計画を立ててからCustom Agentを実行 |
+| `fast` | SupervisorがLLMで判断し、単純なタスクは直接Agentへ、複雑なものはPlannerへ |
+| `direct` | 指定されたCustom Agentに直接ルーティング（UIからの選択） |
+
+**メモリ分離**:
+
+- **Character Memory**: Supervisorのみがアクセス（ユーザープリファレンス、ペルソナ）
+- **Professional Memory**: 共有タスク学習（過去の計画、ツール使用パターン）
+- **Shared Context**: タスク実行中の共有ワークスペース（`AgentState.shared_context`）
 
 ### Thinking Mode (CoT)
 
@@ -579,7 +636,7 @@ V2では、複雑な推論を必要とするリクエストに対して **Thinki
 - **統合**: 生成された思考プロセス（`<thought_process>`）は `AgentState` に保存され、`ChatNode` のシステムプロンプトに注入されます。
 - **制御**: クライアントからのリクエストパラメータ `thinking_mode: true` で有効化されます。
 
-### AgentState（グラフ状態）
+### AgentStateグラフ状態
 
 **ファイル**: `src/core/graph/state.py`
 
@@ -594,6 +651,13 @@ class AgentState(TypedDict):
     input: str
     mode: str | None  # "direct" | "search" | "agent"
     chat_history: list[HumanMessage | AIMessage]
+    
+    # Hierarchical agent routing (NEW in Multi-Agent V1)
+    agent_id: str | None           # Direct agent selection from user/UI
+    agent_mode: str | None         # "high" | "fast" | "direct"
+    selected_agent_id: str | None  # Agent chosen by supervisor
+    supervisor_route: str | None   # "planner" | agent_id
+    shared_context: dict | None    # Shared workspace across agents
     
     # Agent ReAct loop state
     agent_scratchpad: list[BaseMessage]
@@ -612,6 +676,17 @@ class AgentState(TypedDict):
     
     # Generation metadata
     generation_logprobs: dict | list[dict] | None
+```
+
+**Shared Context構造**:
+
+```python
+shared_context = {
+    "current_plan": str | None,        # Plannerが生成した計画
+    "artifacts": list[dict],           # コードスニペット、検索結果等
+    "notes": list[str],                # エージェント用スクラッチパッド
+    "professional_memory": str | None, # 取得したプロフェッショナルメモリ
+}
 ```
 
 ### LLMService（ステートレスファクトリ）
