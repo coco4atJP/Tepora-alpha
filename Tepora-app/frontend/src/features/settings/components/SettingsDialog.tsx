@@ -15,6 +15,7 @@ import McpSettings from "./sections/McpSettings";
 import MemorySettings from "./sections/MemorySettings";
 import ModelSettings from "./sections/ModelSettings";
 import PrivacySettings from "./sections/PrivacySettings";
+import SystemLogsSettings from "./sections/SystemLogsSettings";
 
 interface SettingsDialogProps {
 	isOpen: boolean;
@@ -92,6 +93,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			mcp: "settings.sections.mcp.label",
 			models: "settings.sections.models.label",
 			memory: "settings.sections.memory.label",
+			logs: "settings.sections.logs.label",
 		};
 		return t(keyMap[id] || id);
 	};
@@ -198,6 +200,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 										{activeSection === "mcp" && <McpSettings />}
 										{activeSection === "models" && <ModelSettings />}
 										{activeSection === "memory" && <MemorySettings />}
+										{activeSection === "logs" && <SystemLogsSettings />}
 									</div>
 								</main>
 

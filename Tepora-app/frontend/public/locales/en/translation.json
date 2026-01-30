@@ -499,6 +499,11 @@
 				"title": "EM-LLM (Episodic Memory)",
 				"description": "Configure episodic memory and history limits."
 			},
+			"logs": {
+				"label": "System Logs",
+				"title": "System Logs",
+				"description": "View backend execution logs."
+			},
 			"chat_history": {
 				"title": "Chat History"
 			}

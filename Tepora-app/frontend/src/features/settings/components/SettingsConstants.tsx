@@ -3,6 +3,7 @@ import {
 	Brain,
 	Cpu,
 	Database,
+	Scroll,
 	Settings,
 	Shield,
 	Users,
@@ -17,4 +18,5 @@ export const NAV_ITEMS: NavItem[] = [
 	{ id: "mcp", label: "MCP Tools", icon: <Database size={18} /> },
 	{ id: "models", label: "Models", icon: <Cpu size={18} /> },
 	{ id: "memory", label: "Memory", icon: <Brain size={18} /> },
+	{ id: "logs", label: "Logs", icon: <Scroll size={18} /> },
 ];

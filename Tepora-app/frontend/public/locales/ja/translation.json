@@ -499,6 +499,11 @@
 				"title": "EM-LLM (エピソード記憶)",
 				"description": "エピソード記憶と履歴の上限を設定します。"
 			},
+			"logs": {
+				"label": "システムログ",
+				"title": "システムログ",
+				"description": "バックエンドの実行ログを確認します。"
+			},
 			"chat_history": {
 				"title": "チャット履歴"
 			}
