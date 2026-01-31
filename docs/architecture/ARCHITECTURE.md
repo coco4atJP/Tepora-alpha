@@ -44,7 +44,7 @@ Teporaは「**コンシューマーハードウェアで動作する、真のパ
 
 | 機能 | 説明 |
 |------|------|
-| **3つの動作モード** | Chat（直接対話）/ Search（Web検索+RAG）/ Agent（ツール使用） |
+| **3つの動作モード** | Chat（AIとの自由対話）/ Search（Web検索+RAG）/ Agent（ツール使用） |
 | **EM-LLM** | ICLR 2025採択論文に基づくエピソード記憶システム |
 | **MCP対応** | Model Context Protocolによる拡張可能なツールシステム |
 | **RAG** | Retrieval-Augmented Generationによるコンテキスト拡張 |
@@ -281,6 +281,7 @@ backend/
         │       ├── __init__.py
         │       ├── chat.py     # ChatNode（直接対話）
         │       ├── search.py   # SearchNode（検索+要約）
+        │       ├── search_pipeline.py # SearchPipeline (検索フロー制御)
         │       ├── supervisor.py   # SupervisorNode（階層的ルーティング）
         │       ├── custom_agent.py # CustomAgentNode（カスタムエージェント実行）
         │       ├── memory.py   # メモリノード
@@ -410,32 +411,19 @@ frontend/
 │   │   ├── sessionStore.ts     # セッション状態（一覧、現在のセッション）
 │   │   └── websocketStore.ts   # WebSocket接続状態
 │   │
-│   ├── components/             # ========== UIコンポーネント ==========
-│   │   ├── Layout.tsx          # メインレイアウト
-│   │   ├── ChatInterface.tsx   # チャットビュー
-│   │   ├── MessageList.tsx     # メッセージリスト
-│   │   ├── MessageBubble.tsx   # メッセージバブル
-│   │   ├── InputArea.tsx       # 入力エリア
-│   │   ├── DialControl.tsx     # モード切替ダイアル
-│   │   ├── PersonaSwitcher.tsx # ペルソナ切替
-│   │   ├── AgentStatus.tsx     # エージェント状態表示
-│   │   ├── StatusBar.tsx       # ステータスバー
-│   │   ├── SearchResults.tsx   # 検索結果表示
-│   │   ├── SystemStatusPanel.tsx  # システム詳細パネル
-│   │   ├── RagContextPanel.tsx    # RAGコンテキストパネル
-│   │   │
-│   │   ├── SetupWizard/        # セットアップウィザード
-│   │   │   ├── SetupWizard.tsx
-│   │   │   └── steps/          # ステップコンポーネント
-│   │   │
-│   │   ├── SessionHistory/     # セッション履歴
-│   │   │
-│   │   ├── settings/           # 設定画面
-│   │   │   ├── components/     # 設定UIコンポーネント
-│   │   │   └── sections/       # 設定セクション
-│   │   │
-│   │   ├── chat/               # チャット関連パーツ
-│   │   └── ui/                 # 汎用UIパーツ (Button.tsx等)
+│   ├── features/               # ========== Features (FSD Like Structure) ==========
+│   │   ├── chat/               # Chat Feature
+│   │   │   ├── ChatInterface.tsx
+│   │   │   ├── InputArea.tsx
+│   │   │   ├── MessageList.tsx
+│   │   │   └── ...
+│   │   ├── settings/           # Settings Feature
+│   │   ├── session/            # Session Management Feature
+│   │   └── navigation/         # Navigation Feature
+│   │
+│   ├── components/             # ========== Shared UI Components ==========
+│   │   ├── ui/                 # 汎用UIパーツ (Button.tsx等)
+│   │   └── ...
 │   │
 │   ├── hooks/                  # ========== カスタムフック ==========
 │   │   ├── useSettings.ts      # 設定管理
@@ -620,7 +608,7 @@ graph TD
 |--------|------|
 | `high` | 必ずPlannerを経由して計画を立ててからCustom Agentを実行 |
 | `fast` | SupervisorがLLMで判断し、単純なタスクは直接Agentへ、複雑なものはPlannerへ |
-| `direct` | 指定されたCustom Agentに直接ルーティング（UIからの選択） |
+| `direct` | 指定されたCustom Agentに直接ルーティング（UIからの選択 / Chat Mode） |
 
 **メモリ分離**:
 
