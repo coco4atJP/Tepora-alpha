@@ -16,7 +16,7 @@ const Logs: React.FC = () => {
 	const fetchLogs = useCallback(async () => {
 		try {
 			const data = await apiClient.get<{ logs: string[] }>("api/logs");
-			setLogs(data.logs);
+			setLogs(data?.logs || []);
 			setLoading(false);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("logs.unknown_error", "An error occurred"));
