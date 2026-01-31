@@ -1,13 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
-import {
-	AlertCircle,
-	CheckCircle,
-	Download,
-	RefreshCw,
-	RotateCw,
-} from "lucide-react";
+import { AlertCircle, CheckCircle, Download, RefreshCw, RotateCw } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -82,18 +76,14 @@ const Updater: React.FC = () => {
 	return (
 		<CollapsibleSection
 			title={t("settings.sections.updater.title") || "Software Update"}
-			description={
-				t("settings.sections.updater.description") ||
-				"Check for application updates"
-			}
+			description={t("settings.sections.updater.description") || "Check for application updates"}
 			defaultOpen={true}
 		>
 			<div className="flex flex-col gap-4">
 				<div className="flex items-center justify-between">
 					<div className="text-sm text-gray-300">
-						{t("settings.sections.updater.current_version") ||
-							"Current Version"}
-						: <span className="font-mono text-white">{currentVersion}</span>
+						{t("settings.sections.updater.current_version") || "Current Version"}:{" "}
+						<span className="font-mono text-white">{currentVersion}</span>
 					</div>
 					{status === "available" && (
 						<div className="text-sm text-green-400 font-medium">
@@ -111,8 +101,7 @@ const Updater: React.FC = () => {
 							className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-md transition-colors text-sm font-medium text-white"
 						>
 							<RefreshCw size={16} />
-							{t("settings.sections.updater.check_button") ||
-								"Check for Updates"}
+							{t("settings.sections.updater.check_button") || "Check for Updates"}
 						</button>
 					) : status === "available" ? (
 						<button
@@ -126,16 +115,13 @@ const Updater: React.FC = () => {
 					) : (
 						<div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-md text-sm text-gray-300 cursor-not-allowed">
 							<RotateCw size={16} className="animate-spin" />
-							{status === "checking" &&
-								(t("settings.sections.updater.checking") || "Checking...")}
+							{status === "checking" && (t("settings.sections.updater.checking") || "Checking...")}
 							{status === "downloading" &&
-								(t("settings.sections.updater.downloading") ||
-									"Downloading...")}
+								(t("settings.sections.updater.downloading") || "Downloading...")}
 							{status === "installing" &&
 								(t("settings.sections.updater.installing") || "Installing...")}
 							{status === "relaunching" &&
-								(t("settings.sections.updater.relaunching") ||
-									"Relaunching...")}
+								(t("settings.sections.updater.relaunching") || "Relaunching...")}
 						</div>
 					)}
 				</div>
@@ -150,9 +136,7 @@ const Updater: React.FC = () => {
 				{status === "error" && (
 					<div className="flex items-center gap-2 text-sm text-red-400">
 						<AlertCircle size={16} />
-						{t("settings.sections.updater.error") ||
-							"Error checking for updates"}
-						: {errorMsg}
+						{t("settings.sections.updater.error") || "Error checking for updates"}: {errorMsg}
 					</div>
 				)}
 			</div>

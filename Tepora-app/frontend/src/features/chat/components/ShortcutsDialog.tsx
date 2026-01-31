@@ -7,10 +7,7 @@ interface ShortcutsDialogProps {
 	onClose: () => void;
 }
 
-export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({
-	isOpen,
-	onClose,
-}) => {
+export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({ isOpen, onClose }) => {
 	const { t } = useTranslation();
 
 	if (!isOpen) return null;

@@ -65,8 +65,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 
 		if (days === 0) return t("common.today", "Today");
 		if (days === 1) return t("common.yesterday", "Yesterday");
-		if (days < 7)
-			return t("common.daysAgo", "{{count}} days ago", { count: days });
+		if (days < 7) return t("common.daysAgo", "{{count}} days ago", { count: days });
 		return date.toLocaleDateString();
 	};
 
@@ -133,10 +132,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 											if (e.key === "Escape") handleCancelEdit();
 										}}
 										className="flex-1 px-2 py-1.5 border border-[var(--text-accent)] rounded bg-[var(--bg-overlay)] text-[var(--text-primary)] text-sm outline-none"
-										aria-label={t(
-											"session_history.edit_title",
-											"Edit session title",
-										)}
+										aria-label={t("session_history.edit_title", "Edit session title")}
 										// biome-ignore lint/a11y/noAutofocus: user initiated edit
 										autoFocus
 									/>
@@ -163,9 +159,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 										type="button"
 										className="flex-1 flex flex-col items-start px-3 py-2.5 border-none bg-transparent text-inherit cursor-pointer text-left min-w-0"
 										onClick={() => onSelectSession(session.id)}
-										aria-current={
-											session.id === currentSessionId ? "true" : "false"
-										}
+										aria-current={session.id === currentSessionId ? "true" : "false"}
 									>
 										<div className="text-[13px] font-medium text-[var(--text-primary)] whitespace-nowrap overflow-hidden text-ellipsis w-full">
 											{session.title}
@@ -174,8 +168,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 											<span>{formatDate(session.updated_at)}</span>
 											{session.message_count !== undefined && (
 												<span>
-													{session.message_count}{" "}
-													{t("session_history.messages", "msgs")}
+													{session.message_count} {t("session_history.messages", "msgs")}
 												</span>
 											)}
 										</div>

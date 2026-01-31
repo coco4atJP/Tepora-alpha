@@ -31,9 +31,7 @@ async function readTokenFromFile(): Promise<string | null> {
 		// Invoke command not registered or failed - fall back to env
 		// This is expected for new installations or web mode
 		if (import.meta.env.DEV) {
-			console.debug(
-				"[SessionToken] Tauri invoke not available, using env fallback",
-			);
+			console.debug("[SessionToken] Tauri invoke not available, using env fallback");
 		}
 		return null;
 	}
@@ -43,8 +41,7 @@ async function readTokenFromFile(): Promise<string | null> {
  * Get session token from environment variable (web mode fallback)
  */
 function getTokenFromEnv(): string | null {
-	const token =
-		import.meta.env.VITE_API_KEY || import.meta.env.VITE_SESSION_TOKEN;
+	const token = import.meta.env.VITE_API_KEY || import.meta.env.VITE_SESSION_TOKEN;
 	return token || null;
 }
 
@@ -53,9 +50,8 @@ function getTokenFromEnv(): string | null {
  */
 function updateWindowCache(token: string | null): void {
 	if (typeof window !== "undefined") {
-		(
-			window as unknown as { __tepora_session_token?: string }
-		).__tepora_session_token = token ?? undefined;
+		(window as unknown as { __tepora_session_token?: string }).__tepora_session_token =
+			token ?? undefined;
 	}
 }
 

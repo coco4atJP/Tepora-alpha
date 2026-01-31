@@ -10,8 +10,7 @@
 export function isDesktop(): boolean {
 	return (
 		typeof window !== "undefined" &&
-		!!(window as unknown as { __TAURI_INTERNALS__?: unknown })
-			.__TAURI_INTERNALS__
+		!!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 	);
 }
 
@@ -46,8 +45,7 @@ export function getAuthHeaders(): Record<string, string> {
 	// Token must be loaded via getAuthHeadersAsync() first for this to work
 	const cachedToken =
 		typeof window !== "undefined"
-			? (window as unknown as { __tepora_session_token?: string })
-					.__tepora_session_token
+			? (window as unknown as { __tepora_session_token?: string }).__tepora_session_token
 			: undefined;
 	if (cachedToken) {
 		return { "x-api-key": cachedToken };

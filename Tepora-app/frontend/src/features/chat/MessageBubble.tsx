@@ -31,15 +31,14 @@ function getIconBgClass(message: Message): string {
  * Get the message bubble class based on message role, agentName, nodeId, and mode.
  */
 function getBubbleClass(message: Message): string {
-	const baseClasses =
-		"rounded-2xl p-4 shadow-lg backdrop-blur-md border min-w-0 transition-all";
+	const baseClasses = "rounded-2xl p-4 shadow-lg backdrop-blur-md border min-w-0 transition-all";
 
 	if (message.role === "user") {
 		return `${baseClasses} bg-tea-600/70 border-tea-400/50 text-cream-100 rounded-tr-none`;
 	}
 
 	if (message.role === "system") {
-		return `${baseClasses} bg-red-900/60 border-red-500/50 text-red-200`;
+		return `${baseClasses} bg-semantic-error/10 border-semantic-error/50 text-semantic-error`;
 	}
 
 	// Assistant role
@@ -102,7 +101,7 @@ function renderIcon(role: Message["role"]): React.ReactNode {
 		case "user":
 			return <User className="w-4 h-4 text-white" />;
 		case "system":
-			return <AlertCircle className="w-4 h-4 text-red-400" />;
+			return <AlertCircle className="w-4 h-4 text-semantic-error" />;
 		default:
 			return <Bot className="w-4 h-4 text-gold-400" />;
 	}
@@ -115,19 +114,14 @@ const MARKDOWN_DEBOUNCE_MS = 150;
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 	const { t } = useTranslation();
-	const modeLabel =
-		message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
+	const modeLabel = message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
 
 	// Debounced content for performance optimization during streaming
 	const [debouncedContent, setDebouncedContent] = useState(message.content);
 
 	useEffect(() => {
 		// Completed or user/system messages reflect immediately
-		if (
-			message.isComplete ||
-			message.role === "user" ||
-			message.role === "system"
-		) {
+		if (message.isComplete || message.role === "user" || message.role === "system") {
 			setDebouncedContent(message.content);
 			return;
 		}
@@ -167,9 +161,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 					)}
 
 					{/* Message Bubble */}
-					<div
-						className={`${getBubbleClass(message)} relative overflow-hidden`}
-					>
+					<div className={`${getBubbleClass(message)} relative overflow-hidden`}>
 						{/* Shimmer Effect for AI Messages during streaming */}
 						{message.role !== "user" && !message.isComplete && (
 							<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />

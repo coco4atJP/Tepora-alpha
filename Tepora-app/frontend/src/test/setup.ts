@@ -44,8 +44,7 @@ const translations: Record<string, string> = {
 vi.mock("react-i18next", () => ({
 	// this mock makes sure any components using the translate hook can use it without a warning being shown
 	useTranslation: () => ({
-		t: (key: string, defaultValue?: string) =>
-			translations[key] || defaultValue || key,
+		t: (key: string, defaultValue?: string) => translations[key] || defaultValue || key,
 		i18n: {
 			changeLanguage: () => new Promise(() => {}),
 			language: "en",

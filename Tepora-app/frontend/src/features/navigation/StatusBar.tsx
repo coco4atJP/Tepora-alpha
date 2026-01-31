@@ -19,16 +19,12 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 				{isConnected ? (
 					<>
 						<Wifi className="w-4 h-4 text-green-500" />
-						<span className="text-green-500">
-							{t("status.connected", "接続済み")}
-						</span>
+						<span className="text-green-500">{t("status.connected", "接続済み")}</span>
 					</>
 				) : (
 					<>
 						<WifiOff className="w-4 h-4 text-red-500" />
-						<span className="text-red-500">
-							{t("status.disconnected", "未接続")}
-						</span>
+						<span className="text-red-500">{t("status.disconnected", "未接続")}</span>
 					</>
 				)}
 			</div>

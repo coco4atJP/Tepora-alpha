@@ -1,13 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
+import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
 import type { CharacterConfig, CustomAgentConfig } from "../types";
 import { apiClient } from "../utils/api-client";
@@ -88,10 +81,7 @@ export interface SettingsContextValue {
 	saving: boolean;
 	// Actions
 	fetchConfig: () => Promise<void>;
-	updateApp: <K extends keyof Config["app"]>(
-		field: K,
-		value: Config["app"][K],
-	) => void;
+	updateApp: <K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => void;
 	updateLlmManager: <K extends keyof Config["llm_manager"]>(
 		field: K,
 		value: Config["llm_manager"][K],
@@ -100,26 +90,14 @@ export interface SettingsContextValue {
 		field: K,
 		value: Config["chat_history"][K],
 	) => void;
-	updateEmLlm: <K extends keyof Config["em_llm"]>(
-		field: K,
-		value: Config["em_llm"][K],
-	) => void;
-	updateModel: (
-		modelKey: keyof Config["models_gguf"],
-		modelConfig: ModelConfig,
-	) => void;
+	updateEmLlm: <K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => void;
+	updateModel: (modelKey: keyof Config["models_gguf"], modelConfig: ModelConfig) => void;
 
 	// Tools Actions
-	updateTools: <K extends keyof Config["tools"]>(
-		field: K,
-		value: Config["tools"][K],
-	) => void;
+	updateTools: <K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => void;
 
 	// Privacy Actions
-	updatePrivacy: <K extends keyof Config["privacy"]>(
-		field: K,
-		value: Config["privacy"][K],
-	) => void;
+	updatePrivacy: <K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => void;
 
 	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
@@ -174,9 +152,7 @@ interface SettingsProviderProps {
 	children: ReactNode;
 }
 
-export const SettingsProvider: React.FC<SettingsProviderProps> = ({
-	children,
-}) => {
+export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
 	const queryClient = useQueryClient();
 	const {
 		data: serverConfig,
@@ -196,9 +172,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 
 	const error = useMemo(() => {
 		if (!serverError) return null;
-		return serverError instanceof Error
-			? serverError.message
-			: "An error occurred";
+		return serverError instanceof Error ? serverError.message : "An error occurred";
 	}, [serverError]);
 
 	const loading = isConfigLoading || (!config && isConfigFetching);
@@ -223,32 +197,22 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	// Update functions
 	const updateApp = useCallback(
 		<K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => {
-			setConfig((prev) =>
-				prev ? { ...prev, app: { ...prev.app, [field]: value } } : prev,
-			);
+			setConfig((prev) => (prev ? { ...prev, app: { ...prev.app, [field]: value } } : prev));
 		},
 		[],
 	);
 
 	const updateLlmManager = useCallback(
-		<K extends keyof Config["llm_manager"]>(
-			field: K,
-			value: Config["llm_manager"][K],
-		) => {
+		<K extends keyof Config["llm_manager"]>(field: K, value: Config["llm_manager"][K]) => {
 			setConfig((prev) =>
-				prev
-					? { ...prev, llm_manager: { ...prev.llm_manager, [field]: value } }
-					: prev,
+				prev ? { ...prev, llm_manager: { ...prev.llm_manager, [field]: value } } : prev,
 			);
 		},
 		[],
 	);
 
 	const updateChatHistory = useCallback(
-		<K extends keyof Config["chat_history"]>(
-			field: K,
-			value: Config["chat_history"][K],
-		) => {
+		<K extends keyof Config["chat_history"]>(field: K, value: Config["chat_history"][K]) => {
 			setConfig((prev) =>
 				prev
 					? {
@@ -262,13 +226,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	);
 
 	const updateEmLlm = useCallback(
-		<K extends keyof Config["em_llm"]>(
-			field: K,
-			value: Config["em_llm"][K],
-		) => {
-			setConfig((prev) =>
-				prev ? { ...prev, em_llm: { ...prev.em_llm, [field]: value } } : prev,
-			);
+		<K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => {
+			setConfig((prev) => (prev ? { ...prev, em_llm: { ...prev.em_llm, [field]: value } } : prev));
 		},
 		[],
 	);
@@ -289,18 +248,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 
 	const updateTools = useCallback(
 		<K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => {
-			setConfig((prev) =>
-				prev ? { ...prev, tools: { ...prev.tools, [field]: value } } : prev,
-			);
+			setConfig((prev) => (prev ? { ...prev, tools: { ...prev.tools, [field]: value } } : prev));
 		},
 		[],
 	);
 
 	const updatePrivacy = useCallback(
-		<K extends keyof Config["privacy"]>(
-			field: K,
-			value: Config["privacy"][K],
-		) => {
+		<K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => {
 			setConfig((prev) =>
 				prev ? { ...prev, privacy: { ...prev.privacy, [field]: value } } : prev,
 			);
@@ -309,19 +263,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	);
 
 	// Character Management
-	const updateCharacter = useCallback(
-		(key: string, charConfig: CharacterConfig) => {
-			setConfig((prev) =>
-				prev
-					? {
-							...prev,
-							characters: { ...prev.characters, [key]: charConfig },
-						}
-					: prev,
-			);
-		},
-		[],
-	);
+	const updateCharacter = useCallback((key: string, charConfig: CharacterConfig) => {
+		setConfig((prev) =>
+			prev
+				? {
+						...prev,
+						characters: { ...prev.characters, [key]: charConfig },
+					}
+				: prev,
+		);
+	}, []);
 
 	const addCharacter = useCallback((key: string) => {
 		const defaultChar: CharacterConfig = {
@@ -350,19 +301,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 	}, []);
 
 	// Custom Agent Management
-	const updateCustomAgent = useCallback(
-		(id: string, agent: CustomAgentConfig) => {
-			setConfig((prev) =>
-				prev
-					? {
-							...prev,
-							custom_agents: { ...prev.custom_agents, [id]: agent },
-						}
-					: prev,
-			);
-		},
-		[],
-	);
+	const updateCustomAgent = useCallback((id: string, agent: CustomAgentConfig) => {
+		setConfig((prev) =>
+			prev
+				? {
+						...prev,
+						custom_agents: { ...prev.custom_agents, [id]: agent },
+					}
+				: prev,
+		);
+	}, []);
 
 	const addCustomAgent = useCallback((agent: CustomAgentConfig) => {
 		setConfig((prev) =>
@@ -476,9 +424,5 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 		],
 	);
 
-	return (
-		<SettingsContext.Provider value={value}>
-			{children}
-		</SettingsContext.Provider>
-	);
+	return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };

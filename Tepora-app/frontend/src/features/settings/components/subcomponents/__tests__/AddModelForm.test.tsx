@@ -11,12 +11,10 @@ vi.mock("react-i18next", () => ({
 				"settings.sections.models.add_modal.check": "Check",
 				"settings.sections.models.add_modal.download": "Download Model",
 				"settings.sections.models.consent_dialog.title": "Confirm Download",
-				"settings.sections.models.consent_dialog.description":
-					"Confirmation required",
+				"settings.sections.models.consent_dialog.description": "Confirmation required",
 				"settings.sections.models.consent_dialog.confirm": "Proceed",
 				"settings.sections.models.add_modal.repo_id_placeholder": "user/repo",
-				"settings.sections.models.add_modal.filename_placeholder":
-					"model-Q4_K_M.gguf",
+				"settings.sections.models.add_modal.filename_placeholder": "model-Q4_K_M.gguf",
 				"common.cancel": "Cancel",
 			};
 			return map[key] || key;
@@ -95,8 +93,7 @@ describe("AddModelForm", () => {
 		// Setup Download Mock
 		fetchMock.mockImplementation(async (url: RequestInfo | URL) => {
 			const u = String(url);
-			if (u.includes("check"))
-				return { ok: true, json: async () => ({ exists: true }) };
+			if (u.includes("check")) return { ok: true, json: async () => ({ exists: true }) };
 			if (u.includes("download")) {
 				return {
 					ok: true,
@@ -139,8 +136,7 @@ describe("AddModelForm", () => {
 		// Setup 409 Mock
 		fetchMock.mockImplementation(async (url: RequestInfo | URL) => {
 			const u = String(url);
-			if (u.includes("check"))
-				return { ok: true, json: async () => ({ exists: true }) };
+			if (u.includes("check")) return { ok: true, json: async () => ({ exists: true }) };
 			if (u.includes("download")) {
 				return {
 					ok: false,
@@ -187,45 +183,40 @@ describe("AddModelForm", () => {
 		});
 
 		// Setup Complex Mock
-		fetchMock.mockImplementation(
-			async (url: RequestInfo | URL, opts?: RequestInit) => {
-				const u = String(url);
-				if (u.includes("/check"))
-					return { ok: true, json: async () => ({ exists: true }) };
+		fetchMock.mockImplementation(async (url: RequestInfo | URL, opts?: RequestInit) => {
+			const u = String(url);
+			if (u.includes("/check")) return { ok: true, json: async () => ({ exists: true }) };
 
-				if (u.includes("download")) {
-					const bodyStr = typeof opts?.body === "string" ? opts.body : "{}";
-					const body = JSON.parse(bodyStr) as {
-						acknowledge_warnings?: boolean;
+			if (u.includes("download")) {
+				const bodyStr = typeof opts?.body === "string" ? opts.body : "{}";
+				const body = JSON.parse(bodyStr) as {
+					acknowledge_warnings?: boolean;
+				};
+				if (body.acknowledge_warnings === true) {
+					return {
+						ok: true,
+						status: 200,
+						json: async () => ({ success: true }),
 					};
-					if (body.acknowledge_warnings === true) {
-						return {
-							ok: true,
-							status: 200,
-							json: async () => ({ success: true }),
-						};
-					} else {
-						return {
-							ok: false,
-							status: 409,
-							json: async () => ({
-								success: false,
-								requires_consent: true,
-								warnings: ["Big File"],
-							}),
-						};
-					}
+				} else {
+					return {
+						ok: false,
+						status: 409,
+						json: async () => ({
+							success: false,
+							requires_consent: true,
+							warnings: ["Big File"],
+						}),
+					};
 				}
-				return { ok: false };
-			},
-		);
+			}
+			return { ok: false };
+		});
 
 		fireEvent.click(downloadBtn);
 
 		// Wait for Dialog
-		await waitFor(() =>
-			expect(screen.getByText("Confirm Download")).toBeInTheDocument(),
-		);
+		await waitFor(() => expect(screen.getByText("Confirm Download")).toBeInTheDocument());
 
 		// Click Proceed
 		const proceedBtn = screen.getByText("Proceed");
@@ -234,9 +225,7 @@ describe("AddModelForm", () => {
 		// Verify retry logic
 		await waitFor(() => {
 			const calls = fetchMock.mock.calls;
-			const downloadCalls = calls.filter((c) =>
-				String(c[0]).includes("download"),
-			);
+			const downloadCalls = calls.filter((c) => String(c[0]).includes("download"));
 			expect(downloadCalls.length).toBeGreaterThanOrEqual(2);
 
 			const lastCall = downloadCalls[downloadCalls.length - 1];
@@ -264,8 +253,7 @@ describe("AddModelForm", () => {
 		// Setup Mock
 		fetchMock.mockImplementation(async (url: RequestInfo | URL) => {
 			const u = String(url);
-			if (u.includes("check"))
-				return { ok: true, json: async () => ({ exists: true }) };
+			if (u.includes("check")) return { ok: true, json: async () => ({ exists: true }) };
 			if (u.includes("download")) {
 				return {
 					ok: false,
@@ -280,9 +268,7 @@ describe("AddModelForm", () => {
 		});
 
 		fireEvent.click(downloadBtn);
-		await waitFor(() =>
-			expect(screen.getByText("Confirm Download")).toBeInTheDocument(),
-		);
+		await waitFor(() => expect(screen.getByText("Confirm Download")).toBeInTheDocument());
 
 		// Click Cancel
 		fireEvent.click(screen.getByText("Cancel"));

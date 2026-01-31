@@ -110,9 +110,7 @@ const Modal: React.FC<ModalProps> = ({
 				{customContent ? (
 					children
 				) : (
-					<div className="p-4 overflow-y-auto max-h-[80vh] text-theme-text">
-						{children}
-					</div>
+					<div className="p-4 overflow-y-auto max-h-[80vh] text-theme-text">{children}</div>
 				)}
 			</div>
 		</div>

@@ -13,10 +13,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onPromptSelect }) => {
 		{
 			icon: Search,
 			title: t("empty.capability.search.title", "Web Search"),
-			description: t(
-				"empty.capability.search.desc",
-				"Search the internet for real-time info",
-			),
+			description: t("empty.capability.search.desc", "Search the internet for real-time info"),
 			prompt: "Search for the latest news on AI technology",
 			color: "text-blue-400",
 			bg: "bg-blue-500/10",
@@ -25,10 +22,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onPromptSelect }) => {
 		{
 			icon: Code2,
 			title: t("empty.capability.code.title", "Code Analysis"),
-			description: t(
-				"empty.capability.code.desc",
-				"Analyze, refactor, and explain code",
-			),
+			description: t("empty.capability.code.desc", "Analyze, refactor, and explain code"),
 			prompt: "Analyze the current project structure and suggest improvements",
 			color: "text-green-400",
 			bg: "bg-green-500/10",
@@ -37,10 +31,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onPromptSelect }) => {
 		{
 			icon: MessageSquare,
 			title: t("empty.capability.chat.title", "Natural Chat"),
-			description: t(
-				"empty.capability.chat.desc",
-				"Have a fluid conversation about any topic",
-			),
+			description: t("empty.capability.chat.desc", "Have a fluid conversation about any topic"),
 			prompt: "Let's brainstorm some ideas for a new feature",
 			color: "text-gold-400",
 			bg: "bg-gold-500/10",
@@ -57,10 +48,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onPromptSelect }) => {
 					TEPORA
 				</h1>
 				<p className="text-gray-400 text-lg md:text-xl font-light tracking-wide max-w-lg mx-auto leading-relaxed">
-					{t(
-						"empty.hero.subtitle",
-						"Your intelligent AI companion for code and creativity",
-					)}
+					{t("empty.hero.subtitle", "Your intelligent AI companion for code and creativity")}
 				</p>
 			</div>
 

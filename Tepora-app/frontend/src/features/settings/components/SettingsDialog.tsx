@@ -51,13 +51,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 		type: "success" | "error";
 	} | null>(null);
 
-	const showToast = useCallback(
-		(message: string, type: "success" | "error") => {
-			setToast({ message, type });
-			setTimeout(() => setToast(null), 3000);
-		},
-		[],
-	);
+	const showToast = useCallback((message: string, type: "success" | "error") => {
+		setToast({ message, type });
+		setTimeout(() => setToast(null), 3000);
+	}, []);
 
 	const handleSave = useCallback(async () => {
 		const success = await saveConfig();
@@ -155,11 +152,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 										</FitText>
 									</div>
 									<div className="h-5 flex items-center min-w-0">
-										<FitText
-											className="text-sm text-gray-400"
-											minFontSize={10}
-											maxFontSize={14}
-										>
+										<FitText className="text-sm text-gray-400" minFontSize={10} maxFontSize={14}>
 											{t("settings.subtitle")}
 										</FitText>
 									</div>
@@ -172,10 +165,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 									>
 										{activeSection === "general" && <GeneralSettings />}
 										{activeSection === "privacy" && (
-											<PrivacySettings
-												privacyConfig={config.privacy}
-												onUpdate={updatePrivacy}
-											/>
+											<PrivacySettings privacyConfig={config.privacy} onUpdate={updatePrivacy} />
 										)}
 										{activeSection === "agents" && (
 											<CharacterSettings
@@ -234,9 +224,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												) : (
 													<Save size={16} />
 												)}
-												{saving
-													? t("settings.save_bar.saving")
-													: t("settings.save_bar.save")}
+												{saving ? t("settings.save_bar.saving") : t("settings.save_bar.save")}
 											</button>
 										</div>
 									</div>
@@ -248,9 +236,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 
 				{/* Toast Notification */}
 				{toast && (
-					<div className={`settings-toast settings-toast--${toast.type}`}>
-						{toast.message}
-					</div>
+					<div className={`settings-toast settings-toast--${toast.type}`}>{toast.message}</div>
 				)}
 			</SettingsLayout>
 		</Modal>

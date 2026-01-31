@@ -79,6 +79,14 @@ module.exports = {
 					"glass-border": "var(--glass-border)",
 					"glass-highlight": "var(--glass-highlight)",
 				},
+				// Semantic Palette (Mapped to Theme)
+				semantic: {
+					success: "#4fffc0", // Tepora Accent (Cyber Leaf)
+					error: "#ef4444", // Standard Red (Clear Error)
+					warning: "#d4bf80", // Gold 500
+					info: "#bd4b26", // Tea 500
+					thinking: "#a855f7", // Purple 500
+				},
 			},
 			animation: {
 				"pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",

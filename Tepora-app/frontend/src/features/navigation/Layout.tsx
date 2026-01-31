@@ -1,10 +1,4 @@
-import {
-	Bot,
-	History,
-	MessageSquare,
-	Search,
-	Settings as SettingsIcon,
-} from "lucide-react";
+import { Bot, History, MessageSquare, Search, Settings as SettingsIcon } from "lucide-react";
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -44,10 +38,7 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({
 			isActive ? "bg-white/10" : ""
 		}`}
 	>
-		<Icon
-			size={20}
-			className={isActive ? "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" : ""}
-		/>
+		<Icon size={20} className={isActive ? "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" : ""} />
 		<span
 			className={`text-[10px] mt-1 font-medium tracking-wide ${isActive ? "text-gold-400" : ""}`}
 		>
@@ -237,9 +228,7 @@ const Layout: React.FC = () => {
 									onToggleWebSearch={() => setSkipWebSearch(!skipWebSearch)}
 								/>
 							)}
-							{currentMode === "agent" && (
-								<AgentStatus activityLog={activityLog} />
-							)}
+							{currentMode === "agent" && <AgentStatus activityLog={activityLog} />}
 
 							{/* System Status Panel (Visible in Chat mode) */}
 							{currentMode === "chat" && (
@@ -257,10 +246,7 @@ const Layout: React.FC = () => {
 											</button>
 										</div>
 										<div className="shrink-0">
-											<SystemStatusPanel
-												isConnected={isConnected}
-												memoryStats={memoryStats}
-											/>
+											<SystemStatusPanel isConnected={isConnected} memoryStats={memoryStats} />
 										</div>
 									</div>
 								</>
@@ -309,16 +295,10 @@ const Layout: React.FC = () => {
 			</div>
 
 			{/* Settings Dialog */}
-			<SettingsDialog
-				isOpen={isSettingsOpen}
-				onClose={() => setIsSettingsOpen(false)}
-			/>
+			<SettingsDialog isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
 			{/* Session History Modal */}
-			<SessionHistoryModal
-				isOpen={isHistoryOpen}
-				onClose={() => setIsHistoryOpen(false)}
-			/>
+			<SessionHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 		</div>
 	);
 };

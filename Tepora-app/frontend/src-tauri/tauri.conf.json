@@ -12,9 +12,7 @@
 	"plugins": {
 		"updater": {
 			"active": false,
-			"endpoints": [
-				"https://github.com/coco4atJP/Tepora/releases/latest/download/latest.json"
-			],
+			"endpoints": ["https://github.com/coco4atJP/Tepora/releases/latest/download/latest.json"],
 			"pubkey": ""
 		}
 	},

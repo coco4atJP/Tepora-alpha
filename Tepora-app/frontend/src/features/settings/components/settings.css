@@ -45,21 +45,13 @@
 	width: 100%;
 	background-color: var(--s-bg-dark);
 	background-image:
-		radial-gradient(
-			circle at 15% 50%,
-			rgba(212, 191, 128, 0.03),
-			transparent 25%
-		),
-		radial-gradient(
-			circle at 85% 30%,
-			rgba(255, 255, 255, 0.02),
-			transparent 25%
-		);
+		radial-gradient(circle at 15% 50%, rgba(212, 191, 128, 0.03), transparent 25%),
+		radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.02), transparent 25%);
 	color: var(--s-text-primary);
 	overflow: hidden;
 	font-family:
-		"Outfit", "Microsoft YaHei", "SimHei", "PingFang SC", "Noto Sans SC",
-		"Yu Gothic", "Meiryo", sans-serif;
+		"Outfit", "Microsoft YaHei", "SimHei", "PingFang SC", "Noto Sans SC", "Yu Gothic", "Meiryo",
+		sans-serif;
 	position: relative;
 }
 
@@ -513,11 +505,7 @@
 .settings-agent-card--active {
 	border-color: var(--s-accent);
 	box-shadow: 0 0 0 1px var(--s-accent-glow);
-	background: linear-gradient(
-		to bottom right,
-		rgba(212, 191, 128, 0.05),
-		var(--s-bg-card)
-	);
+	background: linear-gradient(to bottom right, rgba(212, 191, 128, 0.05), var(--s-bg-card));
 }
 
 .settings-agent-card__active-btn {
@@ -705,11 +693,7 @@
 /* Refined Sidebar Active State */
 .settings-sidebar__item--active {
 	color: var(--s-accent);
-	background: linear-gradient(
-		90deg,
-		rgba(212, 191, 128, 0.1) 0%,
-		transparent 100%
-	);
+	background: linear-gradient(90deg, rgba(212, 191, 128, 0.1) 0%, transparent 100%);
 	font-weight: 500;
 	box-shadow: inset 2px 0 0 0 var(--s-accent);
 }

@@ -28,9 +28,7 @@ export const useSessions = (): UseSessionsReturn => {
 	} = useQuery({
 		queryKey: ["sessions"],
 		queryFn: async () => {
-			const data = await apiClient.get<{ sessions: Session[] }>(
-				ENDPOINTS.SESSIONS.LIST,
-			);
+			const data = await apiClient.get<{ sessions: Session[] }>(ENDPOINTS.SESSIONS.LIST);
 			return data.sessions || [];
 		},
 		staleTime: 1000 * 60, // 1 minute
@@ -40,10 +38,7 @@ export const useSessions = (): UseSessionsReturn => {
 		mutationFn: (title?: string) =>
 			apiClient.post<{ session: Session }>(ENDPOINTS.SESSIONS.LIST, { title }),
 		onSuccess: (data) => {
-			queryClient.setQueryData(["sessions"], (old: Session[] = []) => [
-				data.session,
-				...old,
-			]);
+			queryClient.setQueryData(["sessions"], (old: Session[] = []) => [data.session, ...old]);
 		},
 	});
 

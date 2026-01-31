@@ -91,9 +91,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
 				</FitText>
 			</div>
 		</div>
-		{description && (
-			<p className="settings-section__description">{description}</p>
-		)}
+		{description && <p className="settings-section__description">{description}</p>}
 		{children}
 	</section>
 );

@@ -100,10 +100,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				label: t("settings.sections.agents.default_name", "New Agent"),
 				description: "",
 				persona: {
-					prompt: t(
-						"settings.sections.agents.default_prompt",
-						"You are a helpful assistant.",
-					),
+					prompt: t("settings.sections.agents.default_prompt", "You are a helpful assistant."),
 				},
 				tool_policy: {
 					allow: [], // Characters don't have tools by default
@@ -209,13 +206,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				{/* Active Indicator */}
 				<div className="flex justify-between items-start mb-2">
 					<div className="flex items-center gap-2">
-						<Users
-							size={18}
-							className={isActive ? "text-gold-400" : "text-gray-400"}
-						/>
-						<h3
-							className={`font-medium ${isActive ? "text-gold-100" : "text-gray-200"}`}
-						>
+						<Users size={18} className={isActive ? "text-gold-400" : "text-gray-400"} />
+						<h3 className={`font-medium ${isActive ? "text-gold-100" : "text-gray-200"}`}>
 							{profile.label || key}
 						</h3>
 					</div>
@@ -342,10 +334,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 									options={[
 										{
 											value: "",
-											label: t(
-												"settings.sections.models.defaults.global",
-												"Global Default",
-											),
+											label: t("settings.sections.models.defaults.global", "Global Default"),
 										},
 										...modelOptions,
 									]}
@@ -390,10 +379,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			{/* Delete Confirmation Dialog */}
 			<ConfirmDialog
 				isOpen={deleteConfirm?.isOpen || false}
-				title={t(
-					"settings.sections.agents.delete_confirm_title",
-					"Delete Profile",
-				)}
+				title={t("settings.sections.agents.delete_confirm_title", "Delete Profile")}
 				message={t("settings.sections.agents.confirm_delete")}
 				confirmLabel={t("common.delete", "Delete")}
 				cancelLabel={t("common.cancel")}
@@ -420,10 +406,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 							"Allows generation of sensitive content. Use with caution.",
 						)}
 					>
-						{t(
-							"settings.sections.agents.nsfw_label",
-							"Unlock Restricted Content",
-						)}
+						{t("settings.sections.agents.nsfw_label", "Unlock Restricted Content")}
 					</span>
 					<NsfwToggle />
 				</div>

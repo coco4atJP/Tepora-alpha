@@ -3,21 +3,14 @@ import type React from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "../../../../components/ui/Modal";
-import {
-	type McpInstallPreview,
-	type McpStoreServer,
-	useMcpStore,
-} from "../../../../hooks/useMcp";
+import { type McpInstallPreview, type McpStoreServer, useMcpStore } from "../../../../hooks/useMcp";
 
 interface McpStoreModalProps {
 	onClose: () => void;
 	onInstalled: () => void;
 }
 
-export const McpStoreModal: React.FC<McpStoreModalProps> = ({
-	onClose,
-	onInstalled,
-}) => {
+export const McpStoreModal: React.FC<McpStoreModalProps> = ({ onClose, onInstalled }) => {
 	const { t } = useTranslation();
 	const {
 		storeServers,
@@ -35,19 +28,15 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 		confirmInstall,
 	} = useMcpStore();
 
-	const [selectedServer, setSelectedServer] = useState<McpStoreServer | null>(
-		null,
+	const [selectedServer, setSelectedServer] = useState<McpStoreServer | null>(null);
+	const [step, setStep] = useState<"browse" | "runtime" | "config" | "preview" | "installing">(
+		"browse",
 	);
-	const [step, setStep] = useState<
-		"browse" | "runtime" | "config" | "preview" | "installing"
-	>("browse");
 	const [selectedRuntime, setSelectedRuntime] = useState<string>("");
 	const [envValues, setEnvValues] = useState<Record<string, string>>({});
 	const [installing, setInstalling] = useState(false);
 	const [installError, setInstallError] = useState<string | null>(null);
-	const [previewData, setPreviewData] = useState<McpInstallPreview | null>(
-		null,
-	);
+	const [previewData, setPreviewData] = useState<McpInstallPreview | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 
 	const handleSelectServer = (server: McpStoreServer) => {
@@ -56,9 +45,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 
 		// Auto-select runtime if only one
 		const runtimes = [
-			...new Set(
-				server.packages.map((p) => p.runtimeHint || "npx").filter(Boolean),
-			),
+			...new Set(server.packages.map((p) => p.runtimeHint || "npx").filter(Boolean)),
 		];
 		if (runtimes.length === 1) {
 			setSelectedRuntime(runtimes[0]);
@@ -93,9 +80,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 			setPreviewData(preview);
 			setStep("preview");
 		} catch (err) {
-			setInstallError(
-				err instanceof Error ? err.message : "Failed to preview installation",
-			);
+			setInstallError(err instanceof Error ? err.message : "Failed to preview installation");
 		} finally {
 			setPreviewLoading(false);
 		}
@@ -113,9 +98,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 			onInstalled();
 			onClose();
 		} catch (err) {
-			setInstallError(
-				err instanceof Error ? err.message : "Installation failed",
-			);
+			setInstallError(err instanceof Error ? err.message : "Installation failed");
 		} finally {
 			setInstalling(false);
 		}
@@ -123,11 +106,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 
 	const handleBack = () => {
 		const runtimeCount = selectedServer
-			? new Set(
-					selectedServer.packages
-						.map((p) => p.runtimeHint || "npx")
-						.filter(Boolean),
-				).size
+			? new Set(selectedServer.packages.map((p) => p.runtimeHint || "npx").filter(Boolean)).size
 			: 0;
 
 		if (step === "preview") {
@@ -216,9 +195,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 										>
 											<div className="flex items-start justify-between gap-4">
 												<div className="flex-1 min-w-0">
-													<h4 className="font-medium text-gray-100">
-														{server.name}
-													</h4>
+													<h4 className="font-medium text-gray-100">{server.name}</h4>
 													<p className="text-xs text-gray-500 mt-0.5">
 														{server.id}
 														{server.version ? ` · v${server.version}` : ""}
@@ -231,9 +208,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 													<div className="flex items-center gap-2 mt-2">
 														{[
 															...new Set(
-																server.packages
-																	.map((p) => p.runtimeHint || "npx")
-																	.filter(Boolean),
+																server.packages.map((p) => p.runtimeHint || "npx").filter(Boolean),
 															),
 														].map((rt) => (
 															<span
@@ -244,9 +219,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 															</span>
 														))}
 														{server.vendor && (
-															<span className="text-xs text-gray-500">
-																by {server.vendor}
-															</span>
+															<span className="text-xs text-gray-500">by {server.vendor}</span>
 														)}
 													</div>
 												</div>
@@ -305,14 +278,10 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 
 				{step === "runtime" && selectedServer && (
 					<div className="space-y-4">
-						<p className="text-gray-400 mb-4">
-							{t("settings.mcp.store.runtimeDescription")}
-						</p>
+						<p className="text-gray-400 mb-4">{t("settings.mcp.store.runtimeDescription")}</p>
 						{[
 							...new Set(
-								selectedServer.packages
-									.map((p) => p.runtimeHint || "npx")
-									.filter(Boolean),
+								selectedServer.packages.map((p) => p.runtimeHint || "npx").filter(Boolean),
 							),
 						].map((rt) => (
 							<button
@@ -334,9 +303,8 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 							>
 								<div className="font-medium text-gray-100">{rt}</div>
 								<div className="text-sm text-gray-400">
-									{selectedServer.packages.find(
-										(p) => (p.runtimeHint || "npx") === rt,
-									)?.name || selectedServer.id}
+									{selectedServer.packages.find((p) => (p.runtimeHint || "npx") === rt)?.name ||
+										selectedServer.id}
 								</div>
 							</button>
 						))}
@@ -345,28 +313,18 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 
 				{step === "config" && selectedServer && (
 					<div className="space-y-4">
-						<p className="text-gray-400 mb-4">
-							{t("settings.mcp.store.configDescription")}
-						</p>
+						<p className="text-gray-400 mb-4">{t("settings.mcp.store.configDescription")}</p>
 						{selectedServer.environmentVariables.map((env) => (
 							<div key={env.name}>
 								<div className="block text-sm font-medium text-gray-300 mb-1">
 									{env.name}
-									{env.isRequired && (
-										<span className="text-red-400 ml-1">*</span>
-									)}
+									{env.isRequired && <span className="text-red-400 ml-1">*</span>}
 								</div>
-								{env.description && (
-									<p className="text-xs text-gray-500 mb-2">
-										{env.description}
-									</p>
-								)}
+								{env.description && <p className="text-xs text-gray-500 mb-2">{env.description}</p>}
 								<input
 									type={env.isSecret ? "password" : "text"}
 									value={envValues[env.name] || env.default || ""}
-									onChange={(e) =>
-										setEnvValues({ ...envValues, [env.name]: e.target.value })
-									}
+									onChange={(e) => setEnvValues({ ...envValues, [env.name]: e.target.value })}
 									placeholder={env.default || ""}
 									className="w-full px-4 py-2 bg-black/30 border border-white/10 rounded-lg text-white focus:outline-none focus:border-purple-500 transition-colors"
 								/>
@@ -386,9 +344,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 								disabled={previewLoading}
 								className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors disabled:opacity-50"
 							>
-								{previewLoading && (
-									<Loader2 className="animate-spin" size={16} />
-								)}
+								{previewLoading && <Loader2 className="animate-spin" size={16} />}
 								{t("common.next")}
 							</button>
 						</div>
@@ -399,13 +355,9 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 					<div className="space-y-4">
 						{/* Server Info */}
 						<div className="bg-black/30 border border-white/10 rounded-xl p-4">
-							<h4 className="font-medium text-gray-100 mb-2">
-								{previewData.server_name}
-							</h4>
+							<h4 className="font-medium text-gray-100 mb-2">{previewData.server_name}</h4>
 							{previewData.description && (
-								<p className="text-sm text-gray-400 mb-4">
-									{previewData.description}
-								</p>
+								<p className="text-sm text-gray-400 mb-4">{previewData.description}</p>
 							)}
 							<div className="flex items-center gap-2 text-sm text-gray-400">
 								<span className="font-medium">Runtime:</span>

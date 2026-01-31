@@ -6,20 +6,14 @@ import { FormGroup, FormSwitch, SettingsSection } from "../SettingsComponents";
 
 interface PrivacySettingsProps {
 	privacyConfig: Config["privacy"];
-	onUpdate: <K extends keyof Config["privacy"]>(
-		field: K,
-		value: Config["privacy"][K],
-	) => void;
+	onUpdate: <K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => void;
 }
 
 /**
  * Privacy Settings Section.
  * Controls for web search consent and data privacy options.
  */
-const PrivacySettings: React.FC<PrivacySettingsProps> = ({
-	privacyConfig,
-	onUpdate,
-}) => {
+const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpdate }) => {
 	const { t } = useTranslation();
 
 	return (
@@ -47,10 +41,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 					{privacyConfig?.allow_web_search && (
 						<div className="delay-100 settings-form-group bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
 							<div className="flex items-start gap-3">
-								<AlertTriangle
-									className="text-yellow-400 shrink-0 mt-0.5"
-									size={20}
-								/>
+								<AlertTriangle className="text-yellow-400 shrink-0 mt-0.5" size={20} />
 								<div>
 									<h4 className="font-medium text-yellow-300 mb-2">
 										{t("settings.privacy.web_search.warning_title")}

@@ -146,10 +146,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 	// CSS rotation to place the gap at the bottom (135 deg)
 
 	return (
-		<div
-			className={`flex flex-col items-center select-none ${className}`}
-			style={{ width: size }}
-		>
+		<div className={`flex flex-col items-center select-none ${className}`} style={{ width: size }}>
 			<div
 				ref={dialRef}
 				className="relative cursor-pointer group"
@@ -199,18 +196,14 @@ export const DialControl: React.FC<DialControlProps> = ({
 						strokeDasharray={circumference}
 						strokeDashoffset={progressOffset}
 						strokeLinecap="round"
-						className={`transition-all duration-75 ${
-							isDragging ? "opacity-100" : "opacity-80"
-						}`}
+						className={`transition-all duration-75 ${isDragging ? "opacity-100" : "opacity-80"}`}
 						style={{ filter: "drop-shadow(0 0 4px rgba(212, 191, 128, 0.5))" }}
 					/>
 				</svg>
 
 				{/* Center Display */}
 				<div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transform">
-					<span className="text-2xl font-light text-white tracking-tighter">
-						{value}
-					</span>
+					<span className="text-2xl font-light text-white tracking-tighter">{value}</span>
 					{unit && <span className="text-xs text-gray-500 -mt-1">{unit}</span>}
 				</div>
 			</div>

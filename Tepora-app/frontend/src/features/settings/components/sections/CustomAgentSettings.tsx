@@ -1,23 +1,11 @@
-import {
-	AlertCircle,
-	Bot,
-	Check,
-	Edit2,
-	Plus,
-	Settings2,
-	Trash2,
-} from "lucide-react";
+import { AlertCircle, Bot, Check, Edit2, Plus, Settings2, Trash2 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
 import Modal from "../../../../components/ui/Modal";
 import { useSettings } from "../../../../hooks/useSettings";
-import type {
-	CustomAgentConfig,
-	CustomAgentToolPolicy,
-	ToolInfo,
-} from "../../../../types";
+import type { CustomAgentConfig, CustomAgentToolPolicy, ToolInfo } from "../../../../types";
 import { ApiError, apiClient } from "../../../../utils/api-client";
 import { FormGroup, SettingsSection } from "../SettingsComponents";
 
@@ -233,8 +221,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 			<p className="text-xs text-gray-500 font-mono mb-2">@{agent.id}</p>
 
 			<p className="text-sm text-gray-400 line-clamp-2 mb-4 h-10">
-				{agent.description ||
-					t("settings.sections.custom_agents.no_description")}
+				{agent.description || t("settings.sections.custom_agents.no_description")}
 			</p>
 
 			<div className="mt-auto flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
@@ -312,9 +299,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 							{editState.isNew && (
 								<FormGroup
 									label={t("settings.sections.custom_agents.modal.id_label")}
-									description={t(
-										"settings.sections.custom_agents.modal.id_desc",
-									)}
+									description={t("settings.sections.custom_agents.modal.id_desc")}
 								>
 									<input
 										type="text"
@@ -334,22 +319,16 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 							)}
 
 							<div className="grid grid-cols-[auto_1fr] gap-3">
-								<FormGroup
-									label={t("settings.sections.custom_agents.modal.icon_label")}
-								>
+								<FormGroup label={t("settings.sections.custom_agents.modal.icon_label")}>
 									<input
 										type="text"
 										value={editState.agent.icon}
-										onChange={(e) =>
-											updateEditAgent({ icon: e.target.value.slice(0, 2) })
-										}
+										onChange={(e) => updateEditAgent({ icon: e.target.value.slice(0, 2) })}
 										className="settings-input w-16 text-center text-2xl"
 										maxLength={2}
 									/>
 								</FormGroup>
-								<FormGroup
-									label={t("settings.sections.custom_agents.modal.name_label")}
-								>
+								<FormGroup label={t("settings.sections.custom_agents.modal.name_label")}>
 									<input
 										type="text"
 										value={editState.agent.name}
@@ -359,23 +338,15 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 								</FormGroup>
 							</div>
 
-							<FormGroup
-								label={t(
-									"settings.sections.custom_agents.modal.description_label",
-								)}
-							>
+							<FormGroup label={t("settings.sections.custom_agents.modal.description_label")}>
 								<textarea
 									value={editState.agent.description}
-									onChange={(e) =>
-										updateEditAgent({ description: e.target.value })
-									}
+									onChange={(e) => updateEditAgent({ description: e.target.value })}
 									className="settings-input w-full h-16 resize-none"
 								/>
 							</FormGroup>
 
-							<FormGroup
-								label={t("settings.sections.custom_agents.modal.model_label")}
-							>
+							<FormGroup label={t("settings.sections.custom_agents.modal.model_label")}>
 								<select
 									value={editState.agent.model_config_name || ""}
 									onChange={(e) =>
@@ -385,9 +356,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 									}
 									className="settings-input w-full"
 								>
-									<option value="">
-										{t("settings.sections.models.defaults.global")}
-									</option>
+									<option value="">{t("settings.sections.models.defaults.global")}</option>
 									{modelOptions.map((opt) => (
 										<option key={opt.value} value={opt.value}>
 											{opt.label}
@@ -396,17 +365,13 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 								</select>
 							</FormGroup>
 
-							<FormGroup
-								label={t("settings.sections.custom_agents.modal.enabled_label")}
-							>
+							<FormGroup label={t("settings.sections.custom_agents.modal.enabled_label")}>
 								<label className="relative inline-flex items-center cursor-pointer">
 									<input
 										type="checkbox"
 										className="sr-only peer"
 										checked={editState.agent.enabled}
-										onChange={(e) =>
-											updateEditAgent({ enabled: e.target.checked })
-										}
+										onChange={(e) => updateEditAgent({ enabled: e.target.checked })}
 									/>
 									<div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-tea-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tea-600" />
 								</label>
@@ -417,15 +382,11 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 						<div className="bg-white/5 p-4 rounded-xl border border-white/10">
 							<FormGroup
 								label={t("settings.sections.custom_agents.modal.prompt_label")}
-								description={t(
-									"settings.sections.custom_agents.modal.prompt_desc",
-								)}
+								description={t("settings.sections.custom_agents.modal.prompt_desc")}
 							>
 								<textarea
 									value={editState.agent.system_prompt}
-									onChange={(e) =>
-										updateEditAgent({ system_prompt: e.target.value })
-									}
+									onChange={(e) => updateEditAgent({ system_prompt: e.target.value })}
 									className="settings-input w-full h-40 resize-none font-mono text-sm"
 								/>
 							</FormGroup>
@@ -458,13 +419,9 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 												className="mt-1 rounded border-gray-600 text-tea-500 focus:ring-tea-500/20"
 											/>
 											<div className="flex-1 min-w-0">
-												<span className="text-sm font-mono text-gray-200">
-													{tool.name}
-												</span>
+												<span className="text-sm font-mono text-gray-200">{tool.name}</span>
 												{tool.description && (
-													<p className="text-xs text-gray-500 truncate">
-														{tool.description}
-													</p>
+													<p className="text-xs text-gray-500 truncate">{tool.description}</p>
 												)}
 											</div>
 										</label>

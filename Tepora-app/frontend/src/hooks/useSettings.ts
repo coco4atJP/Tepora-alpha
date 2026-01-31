@@ -1,8 +1,5 @@
 import { useContext } from "react";
-import {
-	SettingsContext,
-	type SettingsContextValue,
-} from "../context/SettingsContext";
+import { SettingsContext, type SettingsContextValue } from "../context/SettingsContext";
 
 /**
  * Hook to access settings context.

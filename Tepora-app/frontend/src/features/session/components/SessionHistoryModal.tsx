@@ -9,10 +9,7 @@ interface SessionHistoryModalProps {
 	onClose: () => void;
 }
 
-export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
-	isOpen,
-	onClose,
-}) => {
+export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClose }) => {
 	const { t } = useTranslation();
 	const modalRef = useRef<HTMLDivElement>(null);
 

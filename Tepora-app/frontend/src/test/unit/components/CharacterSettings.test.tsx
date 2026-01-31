@@ -80,9 +80,7 @@ describe("CharacterSettings", () => {
 
 		// Check for modal title or content
 		// Title uses translation key: settings.sections.agents.modal.title_add
-		expect(
-			screen.getByText("settings.sections.agents.modal.title_add"),
-		).toBeInTheDocument();
+		expect(screen.getByText("settings.sections.agents.modal.title_add")).toBeInTheDocument();
 	});
 
 	it("validates new character key", async () => {
@@ -99,9 +97,7 @@ describe("CharacterSettings", () => {
 		if (saveButton) fireEvent.click(saveButton);
 
 		// Expect error message
-		expect(
-			screen.getByText("settings.sections.agents.error_empty_key"),
-		).toBeInTheDocument();
+		expect(screen.getByText("settings.sections.agents.error_empty_key")).toBeInTheDocument();
 		expect(mockProps.onAddProfile).not.toHaveBeenCalled();
 	});
 

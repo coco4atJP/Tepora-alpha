@@ -32,11 +32,7 @@ const InputArea: React.FC = () => {
 	);
 
 	const handleSend = () => {
-		if (
-			(message.trim() || attachments.length > 0) &&
-			!isProcessing &&
-			isConnected
-		) {
+		if ((message.trim() || attachments.length > 0) && !isProcessing && isConnected) {
 			sendMessage(
 				message,
 				currentMode,
@@ -114,15 +110,9 @@ const InputArea: React.FC = () => {
 								className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus:border-tea-500"
 								title={t("chat.input.agent_mode", "Agent mode")}
 							>
-								<option value="">
-									{t("chat.input.agent_mode_fast", "Fast (Auto)")}
-								</option>
-								<option value="high">
-									{t("chat.input.agent_mode_high", "High (Planning)")}
-								</option>
-								<option value="direct">
-									{t("chat.input.agent_mode_direct", "Direct")}
-								</option>
+								<option value="">{t("chat.input.agent_mode_fast", "Fast (Auto)")}</option>
+								<option value="high">{t("chat.input.agent_mode_high", "High (Planning)")}</option>
+								<option value="direct">{t("chat.input.agent_mode_direct", "Direct")}</option>
 							</select>
 						</div>
 						{availableAgents.length > 0 && (
@@ -134,9 +124,7 @@ const InputArea: React.FC = () => {
 									className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus:border-tea-500"
 									title={t("chat.input.select_agent", "Select agent")}
 								>
-									<option value="">
-										{t("chat.input.agent_auto", "Auto (Supervisor)")}
-									</option>
+									<option value="">{t("chat.input.agent_auto", "Auto (Supervisor)")}</option>
 									{availableAgents.map((agent) => (
 										<option key={agent.id} value={agent.id}>
 											{agent.icon} {agent.name}
@@ -170,8 +158,8 @@ const InputArea: React.FC = () => {
 						disabled={isProcessing}
 						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 ${
 							isThinkingMode
-								? "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
-								: "text-gray-500 hover:text-purple-400 hover:bg-purple-500/10"
+								? "bg-semantic-thinking/20 text-semantic-thinking ring-1 ring-semantic-thinking/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
+								: "text-gray-500 hover:text-semantic-thinking hover:bg-semantic-thinking/10"
 						}`}
 						title={t("chat.input.thinking_mode")}
 					>
@@ -191,14 +179,10 @@ const InputArea: React.FC = () => {
 						</Button>
 					) : (
 						<Button
-							variant={
-								message.trim() || attachments.length > 0 ? "primary" : "ghost"
-							}
+							variant={message.trim() || attachments.length > 0 ? "primary" : "ghost"}
 							size="icon"
 							onClick={handleSend}
-							disabled={
-								(!message.trim() && attachments.length === 0) || !isConnected
-							}
+							disabled={(!message.trim() && attachments.length === 0) || !isConnected}
 							aria-label={t("chat.input.send_message")}
 							className={`rounded-full w-10 h-10 transition-all duration-300 ${
 								message.trim() || attachments.length > 0

@@ -1,10 +1,4 @@
-import {
-	BrainCircuit,
-	CheckCircle2,
-	Circle,
-	Clock,
-	Loader2,
-} from "lucide-react";
+import { BrainCircuit, CheckCircle2, Circle, Clock, Loader2 } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import type { AgentActivity } from "../../types";
@@ -26,13 +20,12 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 				<h3 className="text-xs font-bold uppercase tracking-[0.2em] font-display">
 					{t("agent.title")}
 				</h3>
-				{activityLog.length > 0 &&
-					activityLog[activityLog.length - 1].status === "processing" && (
-						<span className="ml-auto flex h-2 w-2 relative">
-							<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tea-400 opacity-75"></span>
-							<span className="relative inline-flex rounded-full h-2 w-2 bg-tea-500"></span>
-						</span>
-					)}
+				{activityLog.length > 0 && activityLog[activityLog.length - 1].status === "processing" && (
+					<span className="ml-auto flex h-2 w-2 relative">
+						<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tea-400 opacity-75"></span>
+						<span className="relative inline-flex rounded-full h-2 w-2 bg-tea-500"></span>
+					</span>
+				)}
 			</div>
 
 			{/* Timeline */}
@@ -60,18 +53,16 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 							<div
 								className={`absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border flex items-center justify-center bg-black/50 z-10 transition-colors duration-300 ${
 									step.status === "completed"
-										? "border-green-500/50 text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
+										? "border-semantic-success/50 text-semantic-success shadow-[0_0_10px_rgba(79,255,192,0.2)]"
 										: step.status === "processing"
 											? "border-tea-500 text-tea-500 shadow-[0_0_10px_rgba(233,122,58,0.3)]"
 											: "border-gray-600 text-gray-600"
 								}`}
 							>
 								{step.status === "completed" && (
-									<CheckCircle2 className="w-3 h-3" />
+									<CheckCircle2 className="w-3 h-3 text-semantic-success" />
 								)}
-								{step.status === "processing" && (
-									<Loader2 className="w-3 h-3 animate-spin" />
-								)}
+								{step.status === "processing" && <Loader2 className="w-3 h-3 animate-spin" />}
 								{step.status === "pending" && <Circle className="w-3 h-3" />}
 							</div>
 
@@ -104,9 +95,7 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 
 								<div
 									className={`text-xs leading-relaxed ${
-										step.status === "completed"
-											? "text-gray-400"
-											: "text-gray-200"
+										step.status === "completed" ? "text-gray-400" : "text-gray-200"
 									}`}
 								>
 									<div

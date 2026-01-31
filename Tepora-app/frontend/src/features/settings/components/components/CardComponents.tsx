@@ -30,12 +30,7 @@ export interface ModelCardProps {
 	isEmbedding?: boolean;
 }
 
-export const ModelCard: React.FC<ModelCardProps> = ({
-	name,
-	config,
-	onChange,
-	isEmbedding,
-}) => {
+export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, isEmbedding }) => {
 	const { t } = useTranslation();
 	const { originalConfig } = useSettings();
 	const originalModelConfig = originalConfig?.models_gguf[name];
@@ -143,9 +138,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 							/>
 						</FormGroup>
 						<FormGroup
-							label={t(
-								"settings.models_settings.configurations.repeat_penalty",
-							)}
+							label={t("settings.models_settings.configurations.repeat_penalty")}
 							isDirty={isDirty("repeat_penalty")}
 						>
 							<FormInput
@@ -198,10 +191,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 	onSetActive,
 }) => {
 	const { t } = useTranslation();
-	const updateField = <K extends keyof AgentProfile>(
-		field: K,
-		value: AgentProfile[K],
-	) => {
+	const updateField = <K extends keyof AgentProfile>(field: K, value: AgentProfile[K]) => {
 		onChange({ ...profile, [field]: value });
 	};
 
@@ -210,9 +200,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 	};
 
 	return (
-		<div
-			className={`settings-agent-card ${isActive ? "settings-agent-card--active" : ""}`}
-		>
+		<div className={`settings-agent-card ${isActive ? "settings-agent-card--active" : ""}`}>
 			<div className="settings-agent-card__header">
 				<div className="flex items-center gap-2 flex-1">
 					<Users size={18} className="text-gold-400" />
@@ -247,9 +235,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 					<FormInput
 						value={profile.description}
 						onChange={(v) => updateField("description", v as string)}
-						placeholder={t(
-							"settings.sections.agents.card.description_placeholder",
-						)}
+						placeholder={t("settings.sections.agents.card.description_placeholder")}
 					/>
 				</FormGroup>
 			</div>
@@ -266,9 +252,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 						<FormInput
 							value={profile.persona.key || ""}
 							onChange={(v) => updatePersona("key", v as string)}
-							placeholder={t(
-								"settings.sections.agents.card.preset_key_placeholder",
-							)}
+							placeholder={t("settings.sections.agents.card.preset_key_placeholder")}
 							className="font-mono text-sm"
 						/>
 					</div>
@@ -281,9 +265,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 							onChange={(e) => updatePersona("prompt", e.target.value)}
 							className="settings-input settings-input--textarea w-full font-sans leading-relaxed text-sm p-3 bg-black/20 rounded border border-white/10"
 							rows={3}
-							placeholder={t(
-								"settings.sections.agents.card.custom_prompt_placeholder",
-							)}
+							placeholder={t("settings.sections.agents.card.custom_prompt_placeholder")}
 						/>
 					</div>
 				</div>
@@ -293,9 +275,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<FormGroup
 						label={t("settings.sections.agents.card.allowed_tools")}
-						description={t(
-							"settings.sections.agents.card.allowed_tools_description",
-						)}
+						description={t("settings.sections.agents.card.allowed_tools_description")}
 					>
 						<FormList
 							items={profile.tool_policy.allow}

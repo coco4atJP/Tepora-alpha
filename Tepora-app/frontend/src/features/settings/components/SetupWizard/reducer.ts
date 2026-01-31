@@ -1,9 +1,4 @@
-import type {
-	DefaultModelsResponse,
-	ModelConfig,
-	SetupAction,
-	SetupState,
-} from "./types";
+import type { DefaultModelsResponse, ModelConfig, SetupAction, SetupState } from "./types";
 
 export const initialState: SetupState = {
 	step: "LANGUAGE",
@@ -22,9 +17,7 @@ export const initialState: SetupState = {
 export const getKey = (m: ModelConfig) => `${m.repo_id}:${m.filename}`;
 
 /** Get default selected models from defaults response */
-const getDefaultSelectedModels = (
-	defaults: DefaultModelsResponse,
-): Set<string> => {
+const getDefaultSelectedModels = (defaults: DefaultModelsResponse): Set<string> => {
 	const recommended = new Set<string>();
 	if (defaults.text_models.length > 0) {
 		recommended.add(getKey(defaults.text_models[0]));
@@ -35,10 +28,7 @@ const getDefaultSelectedModels = (
 	return recommended;
 };
 
-export function setupReducer(
-	state: SetupState,
-	action: SetupAction,
-): SetupState {
+export function setupReducer(state: SetupState, action: SetupAction): SetupState {
 	switch (action.type) {
 		case "SET_LANGUAGE":
 			return { ...state, language: action.payload, step: "LOADER_SELECT" };

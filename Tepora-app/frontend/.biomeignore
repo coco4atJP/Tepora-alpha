@@ -1,6 +1,10 @@
+node_modules
+dist
+dist/
+**/dist
+build
+coverage
+public
 **/*.css
 src/**/*.css
-dist/**
-**/dist/**
-src-tauri/target/**
-**/src-tauri/target/**
+src-tauri/target

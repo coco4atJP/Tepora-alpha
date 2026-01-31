@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ChatMode, Message, WebSocketMessage } from "../../types";
 
-export const useMessageBuffer = (
-	setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
-) => {
+export const useMessageBuffer = (setMessages: React.Dispatch<React.SetStateAction<Message[]>>) => {
 	const chunkBufferRef = useRef<string>("");
 	const chunkMetadataRef = useRef<{
 		mode?: ChatMode;
@@ -80,9 +78,7 @@ export const useMessageBuffer = (
 		const bufferedContent = chunkBufferRef.current;
 		const bufferedMeta = chunkMetadataRef.current;
 
-		setMessages((prev) =>
-			applyBufferedContent(prev, bufferedContent, bufferedMeta),
-		);
+		setMessages((prev) => applyBufferedContent(prev, bufferedContent, bufferedMeta));
 
 		chunkBufferRef.current = "";
 		flushTimeoutRef.current = null;
@@ -99,10 +95,7 @@ export const useMessageBuffer = (
 			};
 
 			// If node changed, flush immediately
-			if (
-				chunkMetadataRef.current &&
-				chunkMetadataRef.current.nodeId !== newMetadata.nodeId
-			) {
+			if (chunkMetadataRef.current && chunkMetadataRef.current.nodeId !== newMetadata.nodeId) {
 				// Flush existing buffer
 				if (chunkBufferRef.current) {
 					const oldContent = chunkBufferRef.current;

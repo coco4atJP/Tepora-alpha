@@ -43,9 +43,7 @@ describe("MessageBubble", () => {
 		};
 
 		render(<MessageBubble message={message} />);
-		expect(
-			screen.getByText("Search query with special chars: @#$%"),
-		).toBeInTheDocument();
+		expect(screen.getByText("Search query with special chars: @#$%")).toBeInTheDocument();
 	});
 
 	it("renders message content as markdown", () => {

@@ -35,12 +35,10 @@ describe("InputArea", () => {
 		vi.resetAllMocks();
 
 		// Default store implementation
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ isProcessing: false }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ isProcessing: false }),
 		);
-		(
-			useWebSocketStore as unknown as ReturnType<typeof vi.fn>
-		).mockImplementation((selector) =>
+		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
 				isConnected: true,
 				sendMessage: mockSendMessage,
@@ -56,10 +54,8 @@ describe("InputArea", () => {
 	});
 
 	const getTextbox = () => screen.getByRole("textbox");
-	const getSendButton = () =>
-		screen.getByRole("button", { name: /send message/i });
-	const getStopButton = () =>
-		screen.getByRole("button", { name: /stop generation/i });
+	const getSendButton = () => screen.getByRole("button", { name: /send message/i });
+	const getStopButton = () => screen.getByRole("button", { name: /stop generation/i });
 
 	it("renders correctly", () => {
 		render(<InputArea />);
@@ -91,25 +87,21 @@ describe("InputArea", () => {
 
 	it("disables input when processing", () => {
 		// Mock processing state
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ isProcessing: true }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ isProcessing: true }),
 		);
 
 		render(<InputArea />);
 
 		// When processing, Textbox disabled, Send button replaced by Stop button
 		expect(getTextbox()).toBeDisabled();
-		expect(
-			screen.queryByRole("button", { name: /send message/i }),
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /send message/i })).not.toBeInTheDocument();
 		expect(getStopButton()).toBeInTheDocument();
 	});
 
 	it("disables input when disconnected", () => {
 		// Mock disconnected state
-		(
-			useWebSocketStore as unknown as ReturnType<typeof vi.fn>
-		).mockImplementation((selector) =>
+		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
 				isConnected: false,
 				sendMessage: mockSendMessage,

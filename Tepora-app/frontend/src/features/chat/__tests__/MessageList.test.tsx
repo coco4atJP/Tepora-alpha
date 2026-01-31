@@ -39,8 +39,8 @@ describe("MessageList", () => {
 	];
 
 	it("renders messages correctly", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ messages: mockMessages }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ messages: mockMessages }),
 		);
 		render(<MessageList />);
 
@@ -49,8 +49,8 @@ describe("MessageList", () => {
 	});
 
 	it("renders code content in messages", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ messages: mockMessages }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ messages: mockMessages }),
 		);
 		const { container } = render(<MessageList />);
 
@@ -58,8 +58,8 @@ describe("MessageList", () => {
 	});
 
 	it("renders empty state", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ messages: [] }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ messages: [] }),
 		);
 		const { container } = render(<MessageList />);
 		expect(container.textContent).toBe("");
@@ -67,16 +67,16 @@ describe("MessageList", () => {
 
 	it("scrolls to bottom on new message", () => {
 		// Initial render with empty
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ messages: [] }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ messages: [] }),
 		);
 		const { rerender } = render(<MessageList />);
 
 		scrollIntoViewMock.mockClear();
 
 		// Update store and rerender
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) => selector({ messages: mockMessages }),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({ messages: mockMessages }),
 		);
 		rerender(<MessageList />);
 

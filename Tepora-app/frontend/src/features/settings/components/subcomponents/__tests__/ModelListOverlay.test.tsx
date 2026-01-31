@@ -67,9 +67,7 @@ describe("ModelListOverlay", () => {
 			json: async () => ({}),
 		});
 		(
-			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<
-				typeof vi.fn
-			>
+			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<typeof vi.fn>
 		).mockReturnValue(defaultHookValues);
 	});
 
@@ -92,9 +90,7 @@ describe("ModelListOverlay", () => {
 	it("triggers checkAllModels when Check Updates is clicked", async () => {
 		const checkAllModelsMock = vi.fn();
 		(
-			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<
-				typeof vi.fn
-			>
+			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<typeof vi.fn>
 		).mockReturnValue({
 			...defaultHookValues,
 			checkAllModels: checkAllModelsMock,
@@ -118,9 +114,7 @@ describe("ModelListOverlay", () => {
 
 	it("displays 'Update Available' badge when update is available", () => {
 		(
-			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<
-				typeof vi.fn
-			>
+			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<typeof vi.fn>
 		).mockReturnValue({
 			...defaultHookValues,
 			updateStatus: {
@@ -148,9 +142,7 @@ describe("ModelListOverlay", () => {
 
 	it("displays 'Up to date' when model is up to date", () => {
 		(
-			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<
-				typeof vi.fn
-			>
+			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<typeof vi.fn>
 		).mockReturnValue({
 			...defaultHookValues,
 			updateStatus: {
@@ -176,9 +168,7 @@ describe("ModelListOverlay", () => {
 
 	it("calls download API when Update button is clicked", async () => {
 		(
-			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<
-				typeof vi.fn
-			>
+			useModelUpdateCheckHook.useModelUpdateCheck as unknown as ReturnType<typeof vi.fn>
 		).mockReturnValue({
 			...defaultHookValues,
 			updateStatus: {

@@ -113,10 +113,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 							<span className="settings-form-group__label">{label}</span>
 							{tooltip && (
 								<Tooltip text={tooltip} className="align-text-bottom ml-1">
-									<HelpCircle
-										size={14}
-										className="text-gray-500 hover:text-gray-300"
-									/>
+									<HelpCircle size={14} className="text-gray-500 hover:text-gray-300" />
 								</Tooltip>
 							)}
 							{isDirty && (
@@ -125,11 +122,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 								</span>
 							)}
 						</div>
-						{description && (
-							<p className="settings-form-group__description mt-1">
-								{description}
-							</p>
-						)}
+						{description && <p className="settings-form-group__description mt-1">{description}</p>}
 					</div>
 				</div>
 				<div className="settings-form-group__content shrink-0">{children}</div>
@@ -146,10 +139,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 					<span className="settings-form-group__label">{label}</span>
 					{tooltip && (
 						<Tooltip text={tooltip} className="ml-1">
-							<HelpCircle
-								size={14}
-								className="text-gray-500 hover:text-gray-300"
-							/>
+							<HelpCircle size={14} className="text-gray-500 hover:text-gray-300" />
 						</Tooltip>
 					)}
 					{isDirty && (
@@ -158,9 +148,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 						</span>
 					)}
 				</div>
-				{description && (
-					<p className="settings-form-group__description">{description}</p>
-				)}
+				{description && <p className="settings-form-group__description">{description}</p>}
 			</div>
 			<div className="settings-form-group__content mt-auto">{children}</div>
 			{error && <p className="settings-form-group__error">{error}</p>}
@@ -198,11 +186,7 @@ export const FormInput: React.FC<FormInputProps> = ({
 	<input
 		type={type}
 		value={value}
-		onChange={(e) =>
-			onChange(
-				type === "number" ? parseFloat(e.target.value) || 0 : e.target.value,
-			)
-		}
+		onChange={(e) => onChange(type === "number" ? parseFloat(e.target.value) || 0 : e.target.value)}
 		placeholder={placeholder}
 		min={min}
 		max={max}
@@ -222,11 +206,7 @@ export interface FormSwitchProps {
 	disabled?: boolean;
 }
 
-export const FormSwitch: React.FC<FormSwitchProps> = ({
-	checked,
-	onChange,
-	disabled = false,
-}) => (
+export const FormSwitch: React.FC<FormSwitchProps> = ({ checked, onChange, disabled = false }) => (
 	<button
 		type="button"
 		role="switch"

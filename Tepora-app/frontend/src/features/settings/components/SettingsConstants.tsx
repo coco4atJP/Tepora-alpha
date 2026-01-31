@@ -1,12 +1,4 @@
-import {
-	Bot,
-	Brain,
-	Cpu,
-	Database,
-	Settings,
-	Shield,
-	Users,
-} from "lucide-react";
+import { Bot, Brain, Cpu, Database, Settings, Shield, Users } from "lucide-react";
 import type { NavItem } from "./SettingsComponents";
 
 export const NAV_ITEMS: NavItem[] = [

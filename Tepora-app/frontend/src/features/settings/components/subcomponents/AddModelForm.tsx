@@ -32,9 +32,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 	// HF State
 	const [repoId, setRepoId] = useState("");
 	const [filename, setFilename] = useState("");
-	const [checkStatus, setCheckStatus] = useState<
-		"idle" | "checking" | "valid" | "invalid"
-	>("idle");
+	const [checkStatus, setCheckStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
 	const [downloading, setDownloading] = useState(false);
 
 	// Local State
@@ -57,13 +55,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 
 		setCheckStatus("checking");
 		try {
-			const data = await apiClient.post<{ exists: boolean }>(
-				"api/setup/model/check",
-				{
-					repo_id: r,
-					filename: f,
-				},
-			);
+			const data = await apiClient.post<{ exists: boolean }>("api/setup/model/check", {
+				repo_id: r,
+				filename: f,
+			});
 			setCheckStatus(data.exists ? "valid" : "invalid");
 		} catch (e) {
 			console.error(e);
@@ -81,10 +76,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current);
 
 		if (newRepo && newFile) {
-			checkTimeoutRef.current = setTimeout(
-				() => handleCheck(newRepo, newFile),
-				800,
-			);
+			checkTimeoutRef.current = setTimeout(() => handleCheck(newRepo, newFile), 800);
 		} else {
 			setCheckStatus("idle");
 		}
@@ -126,20 +118,15 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		setLocalFile({ name, path, size });
 	}, []);
 
-	const isPointInDropZone = useCallback(
-		(position: { x: number; y: number }) => {
-			const zone = dropZoneRef.current;
-			if (!zone) return false;
-			const rect = zone.getBoundingClientRect();
-			const scale = window.devicePixelRatio || 1;
-			const x = position.x / scale;
-			const y = position.y / scale;
-			return (
-				x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
-			);
-		},
-		[],
-	);
+	const isPointInDropZone = useCallback((position: { x: number; y: number }) => {
+		const zone = dropZoneRef.current;
+		if (!zone) return false;
+		const rect = zone.getBoundingClientRect();
+		const scale = window.devicePixelRatio || 1;
+		const x = position.x / scale;
+		const y = position.y / scale;
+		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+	}, []);
 
 	const handleDrag = (e: React.DragEvent) => {
 		e.preventDefault();
@@ -252,15 +239,9 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			}
 		};
 
-		window.addEventListener(
-			"download-progress",
-			handleProgress as EventListener,
-		);
+		window.addEventListener("download-progress", handleProgress as EventListener);
 		return () => {
-			window.removeEventListener(
-				"download-progress",
-				handleProgress as EventListener,
-			);
+			window.removeEventListener("download-progress", handleProgress as EventListener);
 		};
 	}, [onModelAdded]);
 
@@ -275,33 +256,31 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		const setupDragDrop = async () => {
 			try {
 				const { getCurrentWindow } = await import("@tauri-apps/api/window");
-				const stopListening = await getCurrentWindow().onDragDropEvent(
-					(event) => {
-						if (didCancel) return;
-						const payload = event.payload;
-						if (payload.type === "leave") {
-							setDragActive(false);
+				const stopListening = await getCurrentWindow().onDragDropEvent((event) => {
+					if (didCancel) return;
+					const payload = event.payload;
+					if (payload.type === "leave") {
+						setDragActive(false);
+						return;
+					}
+
+					if (payload.type === "enter" || payload.type === "over") {
+						setDragActive(isPointInDropZone(payload.position));
+						return;
+					}
+
+					if (payload.type === "drop") {
+						setDragActive(false);
+						if (!isPointInDropZone(payload.position)) return;
+						const path = payload.paths?.[0];
+						if (!path) return;
+						if (!path.toLowerCase().endsWith(".gguf")) {
+							alert(t("settings.sections.models.add_modal.invalid_file"));
 							return;
 						}
-
-						if (payload.type === "enter" || payload.type === "over") {
-							setDragActive(isPointInDropZone(payload.position));
-							return;
-						}
-
-						if (payload.type === "drop") {
-							setDragActive(false);
-							if (!isPointInDropZone(payload.position)) return;
-							const path = payload.paths?.[0];
-							if (!path) return;
-							if (!path.toLowerCase().endsWith(".gguf")) {
-								alert(t("settings.sections.models.add_modal.invalid_file"));
-								return;
-							}
-							setLocalFileFromPath(path);
-						}
-					},
-				);
+						setLocalFileFromPath(path);
+					}
+				});
 				if (didCancel) {
 					stopListening();
 				} else {
@@ -358,9 +337,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 						}
 					}
 					setConsentWarnings(
-						warnings.length > 0
-							? warnings
-							: ["This download requires your confirmation."],
+						warnings.length > 0 ? warnings : ["This download requires your confirmation."],
 					);
 					setShowConsentDialog(true);
 					setDownloading(false);
@@ -407,9 +384,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 					<span>{t("settings.sections.models.add_modal.title")}</span>
 				</div>
 				{isExpanded ? (
-					<span className="text-xl rotate-45 transform transition-transform">
-						+
-					</span>
+					<span className="text-xl rotate-45 transform transition-transform">+</span>
 				) : (
 					<span className="text-xl transition-transform">+</span>
 				)}
@@ -463,36 +438,25 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							{!downloading ? (
 								<>
 									<div className="flex flex-col gap-4">
-										<FormGroup
-											label={t("settings.sections.models.add_modal.repo_id")}
-										>
+										<FormGroup label={t("settings.sections.models.add_modal.repo_id")}>
 											<FormInput
 												value={repoId}
 												onChange={(v) => handleInput("repo", v as string)}
-												placeholder={t(
-													"settings.sections.models.add_modal.repo_id_placeholder",
-												)}
+												placeholder={t("settings.sections.models.add_modal.repo_id_placeholder")}
 												className="h-12 text-lg"
 											/>
 										</FormGroup>
-										<FormGroup
-											label={t("settings.sections.models.add_modal.filename")}
-										>
+										<FormGroup label={t("settings.sections.models.add_modal.filename")}>
 											<div className="relative">
 												<FormInput
 													value={filename}
 													onChange={(v) => handleInput("file", v as string)}
-													placeholder={t(
-														"settings.sections.models.add_modal.filename_placeholder",
-													)}
+													placeholder={t("settings.sections.models.add_modal.filename_placeholder")}
 													className="h-12 text-lg"
 												/>
 												<div className="absolute right-3 top-1/2 -translate-y-1/2">
 													{checkStatus === "checking" && (
-														<Loader2
-															size={16}
-															className="animate-spin text-gray-400"
-														/>
+														<Loader2 size={16} className="animate-spin text-gray-400" />
 													)}
 													{checkStatus === "valid" && (
 														<CheckCircle
@@ -525,15 +489,8 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							) : (
 								<div className="space-y-3 bg-white/5 rounded-lg p-4 border border-white/10">
 									<div className="flex justify-between text-xs text-gray-400">
-										<span>
-											{t("settings.sections.models.add_modal.downloading")}
-										</span>
-										<span>
-											{progressData
-												? Math.round(progressData.progress * 100)
-												: 0}
-											%
-										</span>
+										<span>{t("settings.sections.models.add_modal.downloading")}</span>
+										<span>{progressData ? Math.round(progressData.progress * 100) : 0}%</span>
 									</div>
 
 									<div className="h-2 bg-black/40 rounded-full overflow-hidden">
@@ -546,9 +503,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									</div>
 
 									<div className="flex justify-between items-end text-xs">
-										<div className="text-gray-300">
-											{progressData?.message || "Preparing..."}
-										</div>
+										<div className="text-gray-300">{progressData?.message || "Preparing..."}</div>
 										<div className="text-right text-gray-500">
 											{progressData && (
 												<div>
@@ -604,8 +559,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										<CheckCircle size={18} />
 										<span>
 											{localFile.name}{" "}
-											{localFile.size &&
-												`(${(localFile.size / 1024 / 1024).toFixed(1)} MB)`}
+											{localFile.size && `(${(localFile.size / 1024 / 1024).toFixed(1)} MB)`}
 										</span>
 									</div>
 									<button

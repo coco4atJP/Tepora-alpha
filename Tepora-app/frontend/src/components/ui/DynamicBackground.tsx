@@ -190,14 +190,7 @@ const DynamicBackground: React.FC = () => {
 				// Draw with efficient gradient glow
 				// Create a radial gradient for each particle to mimic a glow
 				const glowRadius = p.size * 4; // Glow extends beyond the physical size
-				const grad = ctx.createRadialGradient(
-					p.x,
-					p.y,
-					0,
-					p.x,
-					p.y,
-					glowRadius,
-				);
+				const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius);
 
 				// Parse color to add opacity
 				// Assuming hex colors #RRGGBB
@@ -206,10 +199,7 @@ const DynamicBackground: React.FC = () => {
 				const b = parseInt(p.color.slice(5, 7), 16);
 
 				grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${currentOpacity})`); // Core
-				grad.addColorStop(
-					0.4,
-					`rgba(${r}, ${g}, ${b}, ${currentOpacity * 0.4})`,
-				); // Mid glow
+				grad.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${currentOpacity * 0.4})`); // Mid glow
 				grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`); // Fade out
 
 				ctx.fillStyle = grad;
@@ -258,10 +248,7 @@ const DynamicBackground: React.FC = () => {
 	if (!isEnabled) return null;
 
 	return (
-		<canvas
-			ref={canvasRef}
-			className="fixed inset-0 w-full h-full pointer-events-none -z-10"
-		/>
+		<canvas ref={canvasRef} className="fixed inset-0 w-full h-full pointer-events-none -z-10" />
 	);
 };
 

@@ -11,15 +11,7 @@ interface ToolConfirmationDialogProps {
 	onDeny: (requestId: string) => void;
 }
 
-const TOOL_NAME_ACRONYMS = new Set([
-	"API",
-	"HTTP",
-	"HTTPS",
-	"JSON",
-	"LLM",
-	"MCP",
-	"URL",
-]);
+const TOOL_NAME_ACRONYMS = new Set(["API", "HTTP", "HTTPS", "JSON", "LLM", "MCP", "URL"]);
 
 const toTitleWord = (token: string) => {
 	const upper = token.toUpperCase();
@@ -39,11 +31,7 @@ const humanizeToolName = (toolName: string) => {
 	return spaced.split(" ").map(toTitleWord).join(" ");
 };
 
-const replaceToolName = (
-	text: string,
-	toolName: string,
-	displayName: string,
-) => {
+const replaceToolName = (text: string, toolName: string, displayName: string) => {
 	if (!text || !toolName) return text;
 	return text.split(toolName).join(displayName);
 };
@@ -68,16 +56,13 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 			? translatedName
 			: humanizeToolName(request.toolName);
 
-	const translatedDescription = t(
-		`tool_confirmation.descriptions.${request.toolName}`,
-	);
+	const translatedDescription = t(`tool_confirmation.descriptions.${request.toolName}`);
 	const fallbackDescription = t(
 		"tool_confirmation.description",
 		"このツールを実行しようとしています。",
 	);
 	const description =
-		translatedDescription !==
-		`tool_confirmation.descriptions.${request.toolName}`
+		translatedDescription !== `tool_confirmation.descriptions.${request.toolName}`
 			? translatedDescription
 			: request.description
 				? replaceToolName(request.description, request.toolName, displayName)
@@ -97,9 +82,7 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 						<AlertTriangle className="w-6 h-6 text-amber-400" />
 					</div>
 					<div>
-						<h3 className="text-lg font-semibold text-white mb-1">
-							{displayName}
-						</h3>
+						<h3 className="text-lg font-semibold text-white mb-1">{displayName}</h3>
 						<p className="text-gray-400 text-sm">{description}</p>
 					</div>
 				</div>
@@ -115,13 +98,12 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 				</div>
 
 				{/* URL Preview for web_fetch */}
-				{request.toolName === "native_web_fetch" &&
-					typeof request.toolArgs.url === "string" && (
-						<div className="flex items-center gap-2 text-sm text-blue-400">
-							<ExternalLink className="w-4 h-4" />
-							<span className="truncate">{request.toolArgs.url}</span>
-						</div>
-					)}
+				{request.toolName === "native_web_fetch" && typeof request.toolArgs.url === "string" && (
+					<div className="flex items-center gap-2 text-sm text-blue-400">
+						<ExternalLink className="w-4 h-4" />
+						<span className="truncate">{request.toolArgs.url}</span>
+					</div>
+				)}
 
 				{/* Remember Choice */}
 				<label className="flex items-center gap-3 cursor-pointer group">
@@ -132,10 +114,7 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 						className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-gold-500 focus:ring-gold-500/50"
 					/>
 					<span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-						{t(
-							"tool_confirmation.allow_session",
-							"このセッション中は同じツールを自動的に許可する",
-						)}
+						{t("tool_confirmation.allow_session", "このセッション中は同じツールを自動的に許可する")}
 					</span>
 				</label>
 

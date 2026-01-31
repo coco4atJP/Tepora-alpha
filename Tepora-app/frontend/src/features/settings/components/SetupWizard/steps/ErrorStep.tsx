@@ -11,9 +11,7 @@ export default function ErrorStep({ error, onRetry, onSkip }: ErrorStepProps) {
 				<X className="w-10 h-10 text-red-400" />
 			</div>
 			<div>
-				<h2 className="text-xl font-bold text-white mb-2">
-					{t("setup.failed", "Setup Failed")}
-				</h2>
+				<h2 className="text-xl font-bold text-white mb-2">{t("setup.failed", "Setup Failed")}</h2>
 				<p className="text-red-300 bg-red-900/20 p-3 rounded-lg border border-red-500/20 text-sm max-w-sm mx-auto">
 					{error}
 				</p>

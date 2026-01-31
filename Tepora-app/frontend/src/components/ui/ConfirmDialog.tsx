@@ -40,14 +40,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 				role="dialog"
 				aria-modal="true"
 			>
-				{title && (
-					<h3 className="text-lg font-semibold text-theme-text mb-2">
-						{title}
-					</h3>
-				)}
-				<p className="text-theme-subtext text-sm mb-6 leading-relaxed">
-					{message}
-				</p>
+				{title && <h3 className="text-lg font-semibold text-theme-text mb-2">{title}</h3>}
+				<p className="text-theme-subtext text-sm mb-6 leading-relaxed">{message}</p>
 				<div className="flex justify-end gap-3">
 					<button
 						type="button"
@@ -60,7 +54,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 						type="button"
 						className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 ${
 							variant === "danger"
-								? "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500"
+								? "bg-semantic-error hover:brightness-110 text-white focus:ring-semantic-error"
 								: "bg-gold-500 hover:bg-gold-600 text-black focus:ring-gold-500"
 						}`}
 						onClick={onConfirm}

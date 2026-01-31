@@ -19,11 +19,7 @@ const Logs: React.FC = () => {
 			setLogs(data.logs);
 			setLoading(false);
 		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: t("logs.unknown_error", "An error occurred"),
-			);
+			setError(err instanceof Error ? err.message : t("logs.unknown_error", "An error occurred"));
 			setLoading(false);
 		}
 	}, [t]);
@@ -32,9 +28,7 @@ const Logs: React.FC = () => {
 		async (filename: string) => {
 			setContentLoading(true);
 			try {
-				const data = await apiClient.get<{ content: string }>(
-					`api/logs/${filename}`,
-				);
+				const data = await apiClient.get<{ content: string }>(`api/logs/${filename}`);
 				setLogContent(data.content);
 				setContentLoading(false);
 			} catch (err) {
@@ -66,20 +60,14 @@ const Logs: React.FC = () => {
 	}, [selectedLog, fetchLogContent]);
 
 	if (loading)
-		return (
-			<div className="p-8 text-white">
-				{t("logs.loading_logs", "Loading logs...")}
-			</div>
-		);
+		return <div className="p-8 text-white">{t("logs.loading_logs", "Loading logs...")}</div>;
 
 	return (
 		<div className="flex h-full bg-gray-900">
 			{/* Sidebar List */}
 			<div className="w-64 border-r border-gray-800 bg-gray-900/50 flex flex-col">
 				<div className="p-4 border-b border-gray-800">
-					<h2 className="text-xl font-bold text-white">
-						{t("logs.title", "Log Files")}
-					</h2>
+					<h2 className="text-xl font-bold text-white">{t("logs.title", "Log Files")}</h2>
 					<button
 						type="button"
 						onClick={fetchLogs}
@@ -137,17 +125,11 @@ const Logs: React.FC = () => {
 				<div className="flex-1 p-4 overflow-hidden relative">
 					{contentLoading && (
 						<div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-10 backdrop-blur-sm">
-							<div className="text-blue-400">
-								{t("logs.loading_content", "Loading content...")}
-							</div>
+							<div className="text-blue-400">{t("logs.loading_content", "Loading content...")}</div>
 						</div>
 					)}
 					<div className="h-full bg-black/30 rounded-lg border border-gray-800 p-4 overflow-auto font-mono text-xs text-gray-300 whitespace-pre-wrap">
-						{logContent ||
-							t(
-								"logs.select_to_view",
-								"Select a log file to view its content.",
-							)}
+						{logContent || t("logs.select_to_view", "Select a log file to view its content.")}
 					</div>
 				</div>
 			</div>

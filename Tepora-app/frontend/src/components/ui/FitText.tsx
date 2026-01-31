@@ -54,10 +54,7 @@ export const FitText: React.FC<FitTextProps> = ({
 				const mid = (low + high) / 2;
 				text.style.fontSize = `${mid}px`;
 
-				if (
-					text.scrollWidth <= containerWidth &&
-					text.scrollHeight <= containerHeight
-				) {
+				if (text.scrollWidth <= containerWidth && text.scrollHeight <= containerHeight) {
 					bestSize = mid;
 					low = mid + safeStep;
 				} else {

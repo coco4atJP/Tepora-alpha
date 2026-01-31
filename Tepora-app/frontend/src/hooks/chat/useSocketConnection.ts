@@ -49,9 +49,7 @@ export const useSocketConnection = ({
 }: UseSocketConnectionProps = {}) => {
 	const [isConnected, setIsConnected] = useState(false);
 	const wsRef = useRef<WebSocket | null>(null);
-	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-		undefined,
-	);
+	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const isMounted = useRef(true);
 	const retryCountRef = useRef(0); // Use ref to avoid triggering re-render/re-creation of connect
 	const tokenRef = useRef<string | null>(null); // Cache token for reconnection

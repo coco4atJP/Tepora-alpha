@@ -23,10 +23,7 @@ export function LoaderSelectionStep({
 					{t("setup.loader_select_title", "Select LLM Loader")}
 				</h2>
 				<p className="text-white/60">
-					{t(
-						"setup.loader_select_desc",
-						"Choose how you want to run the AI models.",
-					)}
+					{t("setup.loader_select_desc", "Choose how you want to run the AI models.")}
 				</p>
 			</div>
 
@@ -44,9 +41,7 @@ export function LoaderSelectionStep({
 					<div className="flex items-center gap-4">
 						<div
 							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-								selectedLoader === "llama_cpp"
-									? "border-gold-400 bg-gold-400"
-									: "border-white/30"
+								selectedLoader === "llama_cpp" ? "border-gold-400 bg-gold-400" : "border-white/30"
 							}`}
 						>
 							{selectedLoader === "llama_cpp" && (
@@ -56,9 +51,7 @@ export function LoaderSelectionStep({
 						<div>
 							<h3
 								className={`text-lg font-semibold mb-1 transition-colors ${
-									selectedLoader === "llama_cpp"
-										? "text-gold-100"
-										: "text-white"
+									selectedLoader === "llama_cpp" ? "text-gold-100" : "text-white"
 								}`}
 							>
 								llama.cpp (Bundled)
@@ -86,14 +79,10 @@ export function LoaderSelectionStep({
 					<div className="flex items-center gap-4">
 						<div
 							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-								selectedLoader === "ollama"
-									? "border-gold-400 bg-gold-400"
-									: "border-white/30"
+								selectedLoader === "ollama" ? "border-gold-400 bg-gold-400" : "border-white/30"
 							}`}
 						>
-							{selectedLoader === "ollama" && (
-								<div className="w-2.5 h-2.5 rounded-full bg-black" />
-							)}
+							{selectedLoader === "ollama" && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
 						</div>
 						<div>
 							<h3

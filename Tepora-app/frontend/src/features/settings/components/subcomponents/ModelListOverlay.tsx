@@ -88,10 +88,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 
 		if (swapIndex < 0 || swapIndex >= newModels.length) return;
 
-		[newModels[index], newModels[swapIndex]] = [
-			newModels[swapIndex],
-			newModels[index],
-		];
+		[newModels[index], newModels[swapIndex]] = [newModels[swapIndex], newModels[index]];
 
 		onReorder(
 			activeTab,
@@ -114,19 +111,11 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 		>
 			<div className="glass-tepora rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
 				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
-					<h3
-						id="model-list-overlay-title"
-						className="flex items-center gap-2 min-w-0 flex-1"
-					>
+					<h3 id="model-list-overlay-title" className="flex items-center gap-2 min-w-0 flex-1">
 						<List size={20} className="text-gold-400" />
 						<div className="min-w-0 h-7 flex items-center">
-							<FitText
-								className="text-lg font-medium text-white"
-								minFontSize={12}
-								maxFontSize={18}
-							>
-								{t("settings.sections.models.manage_models") ||
-									"Model Management"}
+							<FitText className="text-lg font-medium text-white" minFontSize={12} maxFontSize={18}>
+								{t("settings.sections.models.manage_models") || "Model Management"}
 							</FitText>
 						</div>
 					</h3>
@@ -141,10 +130,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 									: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
 							}`}
 						>
-							<RefreshCw
-								size={14}
-								className={isChecking ? "animate-spin" : ""}
-							/>
+							<RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
 							{isChecking
 								? t("settings.sections.models.checking")
 								: t("settings.sections.models.check_updates")}
@@ -181,8 +167,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 				<div className="flex-1 overflow-y-auto p-6 space-y-2 custom-scrollbar">
 					{filteredModels.length === 0 ? (
 						<div className="text-center text-gray-500 py-10">
-							{t("settings.sections.models.no_models_for_role") ||
-								"No models found for this role."}
+							{t("settings.sections.models.no_models_for_role") || "No models found for this role."}
 						</div>
 					) : (
 						filteredModels.map((model, index) => (
@@ -191,12 +176,10 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 								className="bg-black/20 p-4 rounded-lg flex items-center justify-between group hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
 							>
 								<div>
-									<div className="font-medium text-white">
-										{model.display_name}
-									</div>
+									<div className="font-medium text-white">{model.display_name}</div>
 									<div className="text-xs text-gray-500">
-										{model.filename || model.source} •{" "}
-										{(model.file_size / 1024 / 1024).toFixed(1)} MB
+										{model.filename || model.source} • {(model.file_size / 1024 / 1024).toFixed(1)}{" "}
+										MB
 									</div>
 								</div>
 

@@ -45,11 +45,8 @@ const GeneralSettings: React.FC = () => {
 	};
 
 	const configLanguage = normalizeLanguage(appConfig.language) ?? "en";
-	const uiLanguage =
-		normalizeLanguage(i18n.resolvedLanguage || i18n.language) ?? configLanguage;
-	const languageSelectValue = appConfig.setup_completed
-		? configLanguage
-		: uiLanguage;
+	const uiLanguage = normalizeLanguage(i18n.resolvedLanguage || i18n.language) ?? configLanguage;
+	const languageSelectValue = appConfig.setup_completed ? configLanguage : uiLanguage;
 
 	return (
 		<SettingsSection
@@ -78,17 +75,13 @@ const GeneralSettings: React.FC = () => {
 
 					<FormGroup
 						label={t("settings.sections.general.search_tool.provider_label")}
-						description={t(
-							"settings.sections.general.search_tool.provider_desc",
-						)}
+						description={t("settings.sections.general.search_tool.provider_desc")}
 						isDirty={isToolsDirty("search_provider")}
 						className="delay-200"
 					>
 						<FormSelect
 							value={toolsConfig.search_provider || "google"}
-							onChange={(value) =>
-								updateTools("search_provider", value as "google" | "duckduckgo")
-							}
+							onChange={(value) => updateTools("search_provider", value as "google" | "duckduckgo")}
 							options={[
 								{ value: "google", label: "Google Custom Search" },
 								{ value: "duckduckgo", label: "DuckDuckGo" },
@@ -96,45 +89,32 @@ const GeneralSettings: React.FC = () => {
 						/>
 					</FormGroup>
 
-					{(toolsConfig.search_provider === "google" ||
-						!toolsConfig.search_provider) && (
+					{(toolsConfig.search_provider === "google" || !toolsConfig.search_provider) && (
 						<>
 							<FormGroup
-								label={t(
-									"settings.sections.general.google_search.api_key_label",
-								)}
-								description={t(
-									"settings.sections.general.google_search.api_key_desc",
-								)}
+								label={t("settings.sections.general.google_search.api_key_label")}
+								description={t("settings.sections.general.google_search.api_key_desc")}
 								isDirty={isToolsDirty("google_search_api_key")}
 								className="delay-300"
 							>
 								<FormInput
 									type="password"
 									value={toolsConfig.google_search_api_key || ""}
-									onChange={(value) =>
-										updateTools("google_search_api_key", value as string)
-									}
+									onChange={(value) => updateTools("google_search_api_key", value as string)}
 									placeholder="AIza..."
 								/>
 							</FormGroup>
 
 							<FormGroup
-								label={t(
-									"settings.sections.general.google_search.engine_id_label",
-								)}
-								description={t(
-									"settings.sections.general.google_search.engine_id_desc",
-								)}
+								label={t("settings.sections.general.google_search.engine_id_label")}
+								description={t("settings.sections.general.google_search.engine_id_desc")}
 								isDirty={isToolsDirty("google_search_engine_id")}
 								className="delay-400"
 							>
 								<FormInput
 									type="text"
 									value={toolsConfig.google_search_engine_id || ""}
-									onChange={(value) =>
-										updateTools("google_search_engine_id", value as string)
-									}
+									onChange={(value) => updateTools("google_search_engine_id", value as string)}
 									placeholder="0123456789..."
 								/>
 							</FormGroup>
@@ -193,19 +173,14 @@ const GeneralSettings: React.FC = () => {
 						</FormGroup>
 
 						<FormGroup
-							label={
-								t("settings.fields.max_input_length.label") ||
-								"Max Input Length"
-							}
+							label={t("settings.fields.max_input_length.label") || "Max Input Length"}
 							description={t("settings.fields.max_input_length.description")}
 							isDirty={isDirty("max_input_length")}
 						>
 							<FormInput
 								type="number"
 								value={appConfig.max_input_length}
-								onChange={(value) =>
-									updateApp("max_input_length", value as number)
-								}
+								onChange={(value) => updateApp("max_input_length", value as number)}
 								min={1000}
 								max={100000}
 								step={1000}
@@ -214,10 +189,7 @@ const GeneralSettings: React.FC = () => {
 					</div>
 
 					<CollapsibleSection
-						title={
-							t("settings.sections.general.advanced_settings") ||
-							"Advanced Settings"
-						}
+						title={t("settings.sections.general.advanced_settings") || "Advanced Settings"}
 						description={
 							t("settings.sections.general.advanced_settings_desc") ||
 							"Recursion limits and fetch constraints"
@@ -225,19 +197,14 @@ const GeneralSettings: React.FC = () => {
 					>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 							<FormGroup
-								label={
-									t("settings.fields.graph_recursion_limit.label") ||
-									"Graph Recursion Limit"
-								}
+								label={t("settings.fields.graph_recursion_limit.label") || "Graph Recursion Limit"}
 								tooltip={t("settings.fields.graph_recursion_limit.description")}
 								isDirty={isDirty("graph_recursion_limit")}
 							>
 								<FormInput
 									type="number"
 									value={appConfig.graph_recursion_limit}
-									onChange={(value) =>
-										updateApp("graph_recursion_limit", value as number)
-									}
+									onChange={(value) => updateApp("graph_recursion_limit", value as number)}
 									min={1}
 									max={200}
 									step={1}
@@ -245,19 +212,14 @@ const GeneralSettings: React.FC = () => {
 							</FormGroup>
 
 							<FormGroup
-								label={
-									t("settings.fields.web_fetch_max_chars.label") ||
-									"Web Fetch Max Chars"
-								}
+								label={t("settings.fields.web_fetch_max_chars.label") || "Web Fetch Max Chars"}
 								tooltip={t("settings.fields.web_fetch_max_chars.description")}
 								isDirty={isDirty("web_fetch_max_chars")}
 							>
 								<FormInput
 									type="number"
 									value={appConfig.web_fetch_max_chars}
-									onChange={(value) =>
-										updateApp("web_fetch_max_chars", value as number)
-									}
+									onChange={(value) => updateApp("web_fetch_max_chars", value as number)}
 									min={1000}
 									max={50000}
 									step={1000}
@@ -271,29 +233,19 @@ const GeneralSettings: React.FC = () => {
 
 				{/* Timeout Settings (Collapsible) */}
 				<CollapsibleSection
-					title={
-						t("settings.sections.general.timeout_settings") ||
-						"Timeout Settings"
-					}
+					title={t("settings.sections.general.timeout_settings") || "Timeout Settings"}
 					defaultOpen={false}
 				>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<FormGroup
-							label={
-								t("settings.fields.tool_execution_timeout.label") ||
-								"Tool Execution Timeout"
-							}
-							description={t(
-								"settings.fields.tool_execution_timeout.description",
-							)}
+							label={t("settings.fields.tool_execution_timeout.label") || "Tool Execution Timeout"}
+							description={t("settings.fields.tool_execution_timeout.description")}
 							isDirty={isDirty("tool_execution_timeout")}
 						>
 							<FormInput
 								type="number"
 								value={appConfig.tool_execution_timeout}
-								onChange={(value) =>
-									updateApp("tool_execution_timeout", value as number)
-								}
+								onChange={(value) => updateApp("tool_execution_timeout", value as number)}
 								min={10}
 								max={600}
 								step={10}
@@ -301,21 +253,14 @@ const GeneralSettings: React.FC = () => {
 						</FormGroup>
 
 						<FormGroup
-							label={
-								t("settings.fields.tool_approval_timeout.label") ||
-								"Tool Approval Timeout"
-							}
-							description={t(
-								"settings.fields.tool_approval_timeout.description",
-							)}
+							label={t("settings.fields.tool_approval_timeout.label") || "Tool Approval Timeout"}
+							description={t("settings.fields.tool_approval_timeout.description")}
 							isDirty={isDirty("tool_approval_timeout")}
 						>
 							<FormInput
 								type="number"
 								value={appConfig.tool_approval_timeout}
-								onChange={(value) =>
-									updateApp("tool_approval_timeout", value as number)
-								}
+								onChange={(value) => updateApp("tool_approval_timeout", value as number)}
 								min={30}
 								max={1800}
 								step={30}
@@ -360,16 +305,10 @@ const InferenceEngineUpdate: React.FC = () => {
 	const doUpdate = async () => {
 		try {
 			setUpdating(true);
-			setStatus(
-				t("settings.sections.general.inference_engine.starting") ||
-					"Starting update...",
-			);
-			const data = await apiClient.post<{ job_id?: string }>(
-				"api/setup/binary/update",
-				{
-					variant: "auto",
-				},
-			);
+			setStatus(t("settings.sections.general.inference_engine.starting") || "Starting update...");
+			const data = await apiClient.post<{ job_id?: string }>("api/setup/binary/update", {
+				variant: "auto",
+			});
 
 			if (data.job_id) {
 				// Poll progress
@@ -385,8 +324,7 @@ const InferenceEngineUpdate: React.FC = () => {
 						pollRef.current = null;
 						setUpdating(false);
 						setStatus(
-							t("settings.sections.general.inference_engine.completed") ||
-								"Update completed!",
+							t("settings.sections.general.inference_engine.completed") || "Update completed!",
 						);
 						checkUpdate();
 					} else if (progData.status === "failed") {
@@ -401,17 +339,13 @@ const InferenceEngineUpdate: React.FC = () => {
 			} else {
 				setUpdating(false);
 				setStatus(
-					t("settings.sections.general.inference_engine.start_failed") ||
-						"Failed to start update",
+					t("settings.sections.general.inference_engine.start_failed") || "Failed to start update",
 				);
 			}
 		} catch (e) {
 			console.error(e);
 			setUpdating(false);
-			setStatus(
-				t("settings.sections.general.inference_engine.error") ||
-					"Error starting update",
-			);
+			setStatus(t("settings.sections.general.inference_engine.error") || "Error starting update");
 		}
 	};
 
@@ -429,8 +363,7 @@ const InferenceEngineUpdate: React.FC = () => {
 	return (
 		<CollapsibleSection
 			title={
-				t("settings.sections.general.inference_engine.title") ||
-				"Inference Engine (llama.cpp)"
+				t("settings.sections.general.inference_engine.title") || "Inference Engine (llama.cpp)"
 			}
 			description={
 				t("settings.sections.general.inference_engine.description") ||
@@ -442,9 +375,7 @@ const InferenceEngineUpdate: React.FC = () => {
 				<div className="flex items-center justify-between">
 					<div>
 						<div className="text-sm text-gray-400 mb-1">
-							{t(
-								"settings.sections.general.inference_engine.current_version",
-							) || "Current Version"}
+							{t("settings.sections.general.inference_engine.current_version") || "Current Version"}
 						</div>
 						<div className="font-mono text-green-400">
 							{updateInfo?.current_version || "Unknown"}
@@ -455,13 +386,10 @@ const InferenceEngineUpdate: React.FC = () => {
 						{updateInfo?.has_update && (
 							<div className="text-right">
 								<div className="text-xs text-yellow-400">
-									{t(
-										"settings.sections.general.inference_engine.new_available",
-									) || "New Version Available"}
+									{t("settings.sections.general.inference_engine.new_available") ||
+										"New Version Available"}
 								</div>
-								<div className="font-mono text-white text-sm">
-									{updateInfo.latest_version}
-								</div>
+								<div className="font-mono text-white text-sm">{updateInfo.latest_version}</div>
 							</div>
 						)}
 
@@ -487,11 +415,9 @@ const InferenceEngineUpdate: React.FC = () => {
 								className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-sm transition-colors"
 							>
 								{checking
-									? t("settings.sections.general.inference_engine.checking") ||
-										"Checking..."
-									: t(
-											"settings.sections.general.inference_engine.check_updates",
-										) || "Check for Updates"}
+									? t("settings.sections.general.inference_engine.checking") || "Checking..."
+									: t("settings.sections.general.inference_engine.check_updates") ||
+										"Check for Updates"}
 							</button>
 						)}
 					</div>

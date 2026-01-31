@@ -9,9 +9,7 @@ import { fireEvent, render, screen } from "../../../test/test-utils";
 import PersonaSwitcher from "../PersonaSwitcher";
 
 // Mock SettingsContext value with full type compliance
-const createMockSettings = (
-	activeProfile = "default",
-): SettingsContextValue => ({
+const createMockSettings = (activeProfile = "default"): SettingsContextValue => ({
 	config: {
 		app: {
 			max_input_length: 4096,

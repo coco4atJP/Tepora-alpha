@@ -25,8 +25,7 @@ export interface ChatInterfaceContext {
 }
 
 const ChatInterface: React.FC = () => {
-	const { currentMode, attachments, skipWebSearch } =
-		useOutletContext<ChatInterfaceContext>();
+	const { currentMode, attachments, skipWebSearch } = useOutletContext<ChatInterfaceContext>();
 	const { t } = useTranslation();
 	const { createSession } = useSessions();
 	const { showToast } = useToast();
@@ -46,12 +45,8 @@ const ChatInterface: React.FC = () => {
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const pendingToolConfirmation = useWebSocketStore(
-		(state) => state.pendingToolConfirmation,
-	);
-	const handleToolConfirmation = useWebSocketStore(
-		(state) => state.handleToolConfirmation,
-	);
+	const pendingToolConfirmation = useWebSocketStore((state) => state.pendingToolConfirmation);
+	const handleToolConfirmation = useWebSocketStore((state) => state.handleToolConfirmation);
 	const setSession = useWebSocketStore((state) => state.setSession);
 
 	const [showShortcuts, setShowShortcuts] = useState(false);
@@ -85,13 +80,7 @@ const ChatInterface: React.FC = () => {
 
 	const handlePromptSelect = (prompt: string) => {
 		if (isConnected) {
-			sendMessage(
-				prompt,
-				currentMode,
-				attachments,
-				skipWebSearch || false,
-				false,
-			);
+			sendMessage(prompt, currentMode, attachments, skipWebSearch || false, false);
 		}
 	};
 
@@ -111,17 +100,12 @@ const ChatInterface: React.FC = () => {
 
 	return (
 		<div className="flex flex-col h-full w-full relative">
-			<ShortcutsDialog
-				isOpen={showShortcuts}
-				onClose={() => setShowShortcuts(false)}
-			/>
+			<ShortcutsDialog isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
 			{/* Tool Confirmation Dialog */}
 			<ToolConfirmationDialog
 				request={pendingToolConfirmation}
-				onAllow={(requestId, remember) =>
-					handleToolConfirmation(requestId, true, remember)
-				}
+				onAllow={(requestId, remember) => handleToolConfirmation(requestId, true, remember)}
 				onDeny={(requestId) => handleToolConfirmation(requestId, false, false)}
 			/>
 
@@ -136,9 +120,7 @@ const ChatInterface: React.FC = () => {
 					aria-label={t("newSession", "New Session")}
 				>
 					<Plus className="w-4 h-4" />
-					<span className="hidden sm:inline">
-						{t("newSession", "New Session")}
-					</span>
+					<span className="hidden sm:inline">{t("newSession", "New Session")}</span>
 				</Button>
 
 				<div className="ml-auto flex items-center gap-2">
@@ -149,8 +131,8 @@ const ChatInterface: React.FC = () => {
 						<div
 							className={`w-2 h-2 rounded-full ${
 								isConnected
-									? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
-									: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+									? "bg-semantic-success shadow-[0_0_8px_rgba(79,255,192,0.6)]"
+									: "bg-semantic-error shadow-[0_0_8px_rgba(239,68,68,0.6)]"
 							}`}
 							aria-hidden="true"
 						/>

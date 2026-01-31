@@ -11,11 +11,8 @@ interface SessionHistoryPanelProps {
 	onSessionSelect?: () => void;
 }
 
-export const SessionHistoryPanel: React.FC<SessionHistoryPanelProps> = ({
-	onSessionSelect,
-}) => {
-	const { sessions, loading, createSession, deleteSession, renameSession } =
-		useSessions();
+export const SessionHistoryPanel: React.FC<SessionHistoryPanelProps> = ({ onSessionSelect }) => {
+	const { sessions, loading, createSession, deleteSession, renameSession } = useSessions();
 
 	// Get currentSessionId from Stores
 	const currentSessionId = useSessionStore((state) => state.currentSessionId);

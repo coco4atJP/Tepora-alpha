@@ -1,11 +1,4 @@
-import {
-	CheckCircle,
-	ChevronRight,
-	Cpu,
-	Download,
-	Globe,
-	HardDrive,
-} from "lucide-react";
+import { CheckCircle, ChevronRight, Cpu, Download, Globe, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getKey } from "../reducer";
 import type { ModelConfigStepProps } from "../types";
@@ -25,9 +18,7 @@ export default function ModelConfigStep({
 			<div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-3 flex gap-3 text-xs text-blue-200/80 mb-2">
 				<HardDrive className="w-4 h-4 shrink-0 mt-0.5" />
 				<div>
-					<span className="font-medium text-blue-200">
-						{t("setup.storage_requirement_label")}
-					</span>{" "}
+					<span className="font-medium text-blue-200">{t("setup.storage_requirement_label")}</span>{" "}
 					{t("setup.storage_requirement_hint")}
 				</div>
 			</div>
@@ -97,9 +88,7 @@ function DefaultModelSelection({
 
 							<div className="mb-4">
 								<div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center mb-3 group-hover:shadow-glow transition-shadow">
-									<Cpu
-										className={`w-5 h-5 ${isSelected ? "text-gold-400" : "text-gray-400"}`}
-									/>
+									<Cpu className={`w-5 h-5 ${isSelected ? "text-gold-400" : "text-gray-400"}`} />
 								</div>
 								<div
 									className={`font-display text-lg font-bold mb-1 line-clamp-2 ${isSelected ? "text-gold-100" : "text-gray-300"}`}
@@ -208,11 +197,7 @@ function AdvancedModelSelection({
 				<h3 className="text-lg font-medium text-white">
 					{t("setup.custom_models", "Custom Models")}
 				</h3>
-				<button
-					type="button"
-					onClick={onBack}
-					className="text-xs text-gold-400 hover:underline"
-				>
+				<button type="button" onClick={onBack} className="text-xs text-gold-400 hover:underline">
 					{t("common.back", "Back to Recommendations")}
 				</button>
 			</div>
@@ -223,14 +208,8 @@ function AdvancedModelSelection({
 						htmlFor={`model-${role}-repo`}
 						className="text-sm font-medium text-gray-300 capitalize flex items-center gap-2"
 					>
-						{role === "text" ? (
-							<Cpu className="w-4 h-4" />
-						) : (
-							<Globe className="w-4 h-4" />
-						)}
-						{role === "text"
-							? t("setup.model_role_text")
-							: t("setup.model_role_embedding")}
+						{role === "text" ? <Cpu className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+						{role === "text" ? t("setup.model_role_text") : t("setup.model_role_embedding")}
 					</label>
 					<div className="grid grid-cols-2 gap-3">
 						<input
@@ -238,18 +217,14 @@ function AdvancedModelSelection({
 							placeholder={t("setup.custom_repo_placeholder")}
 							className="glass-input text-sm w-full"
 							value={state.customModels?.[role]?.repo_id || ""}
-							onChange={(e) =>
-								handleInputChange(role, "repo_id", e.target.value)
-							}
+							onChange={(e) => handleInputChange(role, "repo_id", e.target.value)}
 						/>
 						<input
 							aria-label={t("setup.custom_filename_placeholder")}
 							placeholder={t("setup.custom_filename_placeholder")}
 							className="glass-input text-sm w-full"
 							value={state.customModels?.[role]?.filename || ""}
-							onChange={(e) =>
-								handleInputChange(role, "filename", e.target.value)
-							}
+							onChange={(e) => handleInputChange(role, "filename", e.target.value)}
 						/>
 					</div>
 				</div>

@@ -92,26 +92,19 @@ const MessageList: React.FC = () => {
 				))}
 
 				{/* Processing Indicator */}
-				{messages.length > 0 &&
-					messages[messages.length - 1].role === "user" && (
-						<div className="flex justify-start animate-fade-in px-4 py-2">
-							<div className="max-w-[80%] space-y-2">
-								<div className="flex items-center gap-2 mb-2">
-									<div className="w-6 h-6 rounded-sm bg-gradient-to-tr from-gold-400 to-amber-600 flex items-center justify-center shadow-lg">
-										<span className="text-[10px] font-bold text-black">AI</span>
-									</div>
-									<span className="text-xs text-gold-400 font-medium">
-										Tepora
-									</span>
+				{messages.length > 0 && messages[messages.length - 1].role === "user" && (
+					<div className="flex justify-start animate-fade-in px-4 py-2">
+						<div className="max-w-[80%] space-y-2">
+							<div className="flex items-center gap-2 mb-2">
+								<div className="w-6 h-6 rounded-sm bg-gradient-to-tr from-gold-400 to-amber-600 flex items-center justify-center shadow-lg">
+									<span className="text-[10px] font-bold text-black">AI</span>
 								</div>
-								<SkeletonLoader
-									variant="text"
-									count={3}
-									className="w-64 opacity-50"
-								/>
+								<span className="text-xs text-gold-400 font-medium">Tepora</span>
 							</div>
+							<SkeletonLoader variant="text" count={3} className="w-64 opacity-50" />
 						</div>
-					)}
+					</div>
+				)}
 
 				{/* Invisible element to scroll to */}
 				<div ref={endOfMessagesRef} aria-hidden="true" className="h-[1px]" />

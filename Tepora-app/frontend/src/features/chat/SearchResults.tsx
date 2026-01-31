@@ -36,9 +36,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 	};
 
 	// Helper to get valid URL
-	const getValidUrl = (
-		result: SearchResult | { url?: string; link?: string },
-	) => {
+	const getValidUrl = (result: SearchResult | { url?: string; link?: string }) => {
 		// Fallback to 'link' if 'url' is missing (backend inconsistency fix)
 		if ("url" in result && result.url) return result.url;
 		if ("link" in result && result.link) return result.link;
@@ -86,9 +84,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 
 								<div className="flex items-center gap-1.5 text-[10px] text-tea-500/60 font-mono">
 									<Globe className="w-2.5 h-2.5" />
-									<span className="truncate max-w-[150px]">
-										{getHostname(targetUrl)}
-									</span>
+									<span className="truncate max-w-[150px]">{getHostname(targetUrl)}</span>
 								</div>
 							</div>
 

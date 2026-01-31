@@ -65,9 +65,7 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 					<h3 className="text-2xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
 						{getStatusText()}
 					</h3>
-					<p className="text-sm text-gray-500 max-w-md mx-auto">
-						{t("setup.installing_desc")}
-					</p>
+					<p className="text-sm text-gray-500 max-w-md mx-auto">{t("setup.installing_desc")}</p>
 				</div>
 			</div>
 
@@ -75,12 +73,8 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 			<div className="w-full bg-white/5 border border-white/10 rounded-xl p-6 flex items-start gap-4 backdrop-blur-sm">
 				<Sparkles className="w-6 h-6 text-gold-400 shrink-0 mt-1" />
 				<div>
-					<h4 className="font-medium text-gold-100 mb-1">
-						{t("setup.did_you_know")}
-					</h4>
-					<p className="text-sm text-gray-400 leading-relaxed">
-						{t("setup.offline_privacy_tip")}
-					</p>
+					<h4 className="font-medium text-gold-100 mb-1">{t("setup.did_you_know")}</h4>
+					<p className="text-sm text-gray-400 leading-relaxed">{t("setup.offline_privacy_tip")}</p>
 				</div>
 			</div>
 
@@ -91,11 +85,7 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 					onClick={() => setShowLogs(!showLogs)}
 					className="flex items-center gap-2 text-xs text-gray-500 hover:text-white transition-colors mx-auto mb-2"
 				>
-					{showLogs ? (
-						<ChevronDown className="w-3 h-3" />
-					) : (
-						<ChevronRight className="w-3 h-3" />
-					)}
+					{showLogs ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
 					{showLogs ? t("setup.hide_logs") : t("setup.show_logs")}
 				</button>
 

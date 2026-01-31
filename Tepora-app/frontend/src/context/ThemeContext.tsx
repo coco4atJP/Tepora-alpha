@@ -17,18 +17,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 		return (saved as Theme) || "tepora"; // Default to Tepora if nothing saved
 	});
 
-	const [activeTheme, setActiveTheme] = useState<"tepora" | "light" | "dark">(
-		"tepora",
-	);
+	const [activeTheme, setActiveTheme] = useState<"tepora" | "light" | "dark">("tepora");
 
 	useEffect(() => {
 		localStorage.setItem("tepora-theme", theme);
 
 		const updateActiveTheme = () => {
 			if (theme === "system") {
-				const isDark = window.matchMedia(
-					"(prefers-color-scheme: dark)",
-				).matches;
+				const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 				// If system is dark, we default to Tepora as the "Dark" experience for this app unless specified otherwise
 				// But the plan said "Dark" -> Tepora. Let's stick to that.
 				setActiveTheme(isDark ? "tepora" : "light");

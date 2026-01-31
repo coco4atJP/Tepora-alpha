@@ -18,12 +18,8 @@ export default function LanguageStep({ onSelectLanguage }: LanguageStepProps) {
 				<div className="inline-flex items-center justify-center p-3 rounded-full bg-gold-500/10 mb-4 ring-1 ring-gold-500/30">
 					<Globe className="w-8 h-8 text-gold-400" />
 				</div>
-				<h2 className="text-2xl font-medium text-white">
-					{t("setup.steps.select_language")}
-				</h2>
-				<p className="text-gray-400">
-					Choose your preferred language to customize Tepora.
-				</p>
+				<h2 className="text-2xl font-medium text-white">{t("setup.steps.select_language")}</h2>
+				<p className="text-gray-400">Choose your preferred language to customize Tepora.</p>
 			</div>
 
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">

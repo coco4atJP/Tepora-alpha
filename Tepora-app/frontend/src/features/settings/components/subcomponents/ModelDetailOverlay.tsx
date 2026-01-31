@@ -61,17 +61,10 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 			<div className="glass-tepora rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 bg-[#0A0A0C]/90">
 				{/* Header */}
 				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
-					<h3
-						id="model-detail-overlay-title"
-						className="flex items-center gap-2 min-w-0 flex-1"
-					>
+					<h3 id="model-detail-overlay-title" className="flex items-center gap-2 min-w-0 flex-1">
 						<Sliders size={20} className="text-gold-400" />
 						<div className="min-w-0 h-7 flex items-center">
-							<FitText
-								className="text-lg font-medium text-white"
-								minFontSize={12}
-								maxFontSize={18}
-							>
+							<FitText className="text-lg font-medium text-white" minFontSize={12} maxFontSize={18}>
 								{title}
 							</FitText>
 						</div>
@@ -98,10 +91,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 
 							<div className="flex flex-wrap justify-center gap-12 p-8 bg-black/20 rounded-2xl border border-white/5">
 								<DialControl
-									label={
-										t("settings.models_settings.configurations.temp") ||
-										"Temperature"
-									}
+									label={t("settings.models_settings.configurations.temp") || "Temperature"}
 									value={config.temperature ?? 0.7}
 									min={0}
 									max={2.0}
@@ -111,10 +101,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 								/>
 
 								<DialControl
-									label={
-										t("settings.models_settings.configurations.top_p") ||
-										"Top P"
-									}
+									label={t("settings.models_settings.configurations.top_p") || "Top P"}
 									value={config.top_p ?? 0.9}
 									min={0}
 									max={1.0}
@@ -125,9 +112,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 
 								<DialControl
 									label={
-										t(
-											"settings.models_settings.configurations.repeat_penalty",
-										) || "Repeat Penalty"
+										t("settings.models_settings.configurations.repeat_penalty") || "Repeat Penalty"
 									}
 									value={config.repeat_penalty ?? 1.1}
 									min={1.0}
@@ -139,8 +124,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 							</div>
 
 							<div className="text-center text-xs text-gray-500 italic">
-								{t("settings.sections.models.detail.dials_hint") ||
-									"Drag dials to adjust values"}
+								{t("settings.sections.models.detail.dials_hint") || "Drag dials to adjust values"}
 							</div>
 						</div>
 					)}
@@ -149,10 +133,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<div className="col-span-1 md:col-span-2">
 							<FormGroup
-								label={
-									t("settings.sections.models.detail.n_ctx") ||
-									"Context Window (n_ctx)"
-								}
+								label={t("settings.sections.models.detail.n_ctx") || "Context Window (n_ctx)"}
 								description={
 									t("settings.sections.models.detail.n_ctx_desc") ||
 									"Maximum number of tokens the model can process at once."
@@ -165,9 +146,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 										max="32768"
 										step="1024"
 										value={config.n_ctx}
-										onChange={(e) =>
-											update("n_ctx", parseInt(e.target.value, 10))
-										}
+										onChange={(e) => update("n_ctx", parseInt(e.target.value, 10))}
 										className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
 									/>
 									<FormInput
@@ -190,10 +169,8 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 							className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-gray-300 uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
 						>
 							{showAdvanced
-								? t("settings.sections.models.detail.hide_advanced") ||
-									"Hide Advanced Settings"
-								: t("settings.sections.models.detail.show_advanced") ||
-									"Show Advanced Settings"}
+								? t("settings.sections.models.detail.hide_advanced") || "Hide Advanced Settings"
+								: t("settings.sections.models.detail.show_advanced") || "Show Advanced Settings"}
 						</button>
 
 						{/* Advanced Settings */}
@@ -212,11 +189,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 										min={-1}
 									/>
 								</FormGroup>
-								<FormGroup
-									label={
-										t("settings.models_settings.configurations.port") || "Port"
-									}
-								>
+								<FormGroup label={t("settings.models_settings.configurations.port") || "Port"}>
 									<FormInput
 										type="number"
 										value={config.port}
@@ -226,8 +199,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 								<div className="col-span-1 md:col-span-2">
 									<FormGroup
 										label={
-											t("settings.models_settings.configurations.path") ||
-											"File Path (Read-only)"
+											t("settings.models_settings.configurations.path") || "File Path (Read-only)"
 										}
 									>
 										<FormInput

@@ -9,16 +9,12 @@ interface SystemStatusPanelProps {
 	memoryStats: MemoryStats | null;
 }
 
-const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
-	isConnected,
-	memoryStats,
-}) => {
+const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memoryStats }) => {
 	const { t } = useTranslation();
 	const { data: systemStatus } = useSystemStatus();
 
 	const totalMemoryEvents =
-		(memoryStats?.char_memory?.total_events || 0) +
-		(memoryStats?.prof_memory?.total_events || 0);
+		(memoryStats?.char_memory?.total_events || 0) + (memoryStats?.prof_memory?.total_events || 0);
 
 	return (
 		<div className="glass-panel p-5 w-full rounded-2xl animate-fade-in mt-auto backdrop-blur-xl border border-gold-500/10 shadow-2xl">
@@ -40,22 +36,16 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
 					<div className="flex items-center gap-2.5">
 						<div
 							className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-								isConnected
-									? "bg-green-500/10 text-green-400"
-									: "bg-red-500/10 text-red-400"
+								isConnected ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
 							}`}
 						>
 							<Cpu className="w-3.5 h-3.5" />
 						</div>
-						<span className="text-[11px] text-gray-400 font-medium">
-							{t("status.network")}
-						</span>
+						<span className="text-[11px] text-gray-400 font-medium">{t("status.network")}</span>
 					</div>
 					<span
 						className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
-							isConnected
-								? "text-green-400 bg-green-500/10"
-								: "text-red-400 bg-red-500/10"
+							isConnected ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
 						}`}
 					>
 						{isConnected ? t("status.connected") : t("status.disconnected")}
@@ -86,9 +76,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
 									: "text-gray-400 bg-gray-500/10"
 							}`}
 						>
-							{systemStatus.initialized
-								? t("status.ready")
-								: t("status.loading")}
+							{systemStatus.initialized ? t("status.ready") : t("status.loading")}
 						</span>
 					</div>
 				)}
@@ -100,9 +88,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
 							<div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
 								<Database className="w-3.5 h-3.5" />
 							</div>
-							<span className="text-[11px] text-gray-400 font-medium">
-								EM-LLM
-							</span>
+							<span className="text-[11px] text-gray-400 font-medium">EM-LLM</span>
 						</div>
 						<span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
 							{systemStatus.memory_events} {t("status.events")}
@@ -117,9 +103,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
 							<div className="w-7 h-7 rounded-lg bg-gold-500/10 text-gold-400 flex items-center justify-center">
 								<MessageSquare className="w-3.5 h-3.5" />
 							</div>
-							<span className="text-[11px] text-gray-400 font-medium">
-								{t("status.messages")}
-							</span>
+							<span className="text-[11px] text-gray-400 font-medium">{t("status.messages")}</span>
 						</div>
 						<span className="text-[11px] font-bold text-gold-400 bg-gold-500/10 px-2 py-0.5 rounded">
 							{systemStatus.total_messages}

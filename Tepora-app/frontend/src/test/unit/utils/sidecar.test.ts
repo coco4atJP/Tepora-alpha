@@ -43,9 +43,7 @@ describe("sidecar utils", () => {
 		expect(window.__TAURI_INTERNALS__).toBeUndefined();
 
 		// Dynamically import to get a fresh module instance
-		const { startSidecar, backendReady } = await import(
-			"../../../utils/sidecar"
-		);
+		const { startSidecar, backendReady } = await import("../../../utils/sidecar");
 
 		// Start sidecar
 		await startSidecar();
@@ -65,20 +63,14 @@ describe("sidecar utils", () => {
 
 		// First call
 		await startSidecar();
-		expect(consoleSpy).toHaveBeenCalledWith(
-			expect.stringContaining("Not running in Desktop mode"),
-		);
+		expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Not running in Desktop mode"));
 
 		consoleSpy.mockClear();
 
 		// Second call - should not be blocked by "Already starting" check
 		await startSidecar();
 
-		expect(consoleSpy).not.toHaveBeenCalledWith(
-			expect.stringContaining("Already starting"),
-		);
-		expect(consoleSpy).toHaveBeenCalledWith(
-			expect.stringContaining("Not running in Desktop mode"),
-		);
+		expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("Already starting"));
+		expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Not running in Desktop mode"));
 	});
 });

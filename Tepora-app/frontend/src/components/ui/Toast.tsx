@@ -20,19 +20,13 @@ const icons = {
 };
 
 const styles = {
-	success: "bg-green-500/10 text-green-400 border-green-500/20",
-	error: "bg-red-500/10 text-red-400 border-red-500/20",
-	info: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-	warning: "bg-gold-500/10 text-gold-400 border-gold-500/20",
+	success: "bg-semantic-success/10 text-semantic-success border-semantic-success/20",
+	error: "bg-semantic-error/10 text-semantic-error border-semantic-error/20",
+	info: "bg-semantic-info/10 text-semantic-info border-semantic-info/20",
+	warning: "bg-semantic-warning/10 text-semantic-warning border-semantic-warning/20",
 };
 
-export const Toast: React.FC<ToastProps> = ({
-	id,
-	type,
-	message,
-	duration = 5000,
-	onDismiss,
-}) => {
+export const Toast: React.FC<ToastProps> = ({ id, type, message, duration = 5000, onDismiss }) => {
 	const Icon = icons[type];
 	const [isVisible, setIsVisible] = useState(false);
 

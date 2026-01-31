@@ -1,10 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-	SettingsContext,
-	type SettingsContextValue,
-} from "../../../context/SettingsContext";
+import { SettingsContext, type SettingsContextValue } from "../../../context/SettingsContext";
 import { useSettings } from "../../../hooks/useSettings";
 
 describe("useSettings", () => {
@@ -48,9 +45,7 @@ describe("useSettings", () => {
 		};
 
 		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<SettingsContext.Provider value={mockContextValue}>
-				{children}
-			</SettingsContext.Provider>
+			<SettingsContext.Provider value={mockContextValue}>{children}</SettingsContext.Provider>
 		);
 
 		const { result } = renderHook(() => useSettings(), { wrapper });

@@ -11,9 +11,7 @@ export default function CompleteStep({ onFinish }: CompleteStepProps) {
 				<Check className="w-10 h-10 text-green-400" />
 			</div>
 			<div>
-				<h2 className="text-2xl font-bold text-white mb-2">
-					{t("setup.all_set", "All Set!")}
-				</h2>
+				<h2 className="text-2xl font-bold text-white mb-2">{t("setup.all_set", "All Set!")}</h2>
 				<p className="text-gray-400">
 					{t("setup.ready_desc", "Tepora is ready to be your AI companion.")}
 				</p>

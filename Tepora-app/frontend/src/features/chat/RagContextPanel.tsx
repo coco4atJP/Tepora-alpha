@@ -1,12 +1,4 @@
-import {
-	ChevronRight,
-	ExternalLink,
-	FileText,
-	Globe,
-	Plus,
-	Search,
-	X,
-} from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, Globe, Plus, Search, X } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import type { Attachment, SearchResult } from "../../types";
@@ -41,9 +33,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 	};
 
 	// Helper to get valid URL
-	const getValidUrl = (
-		result: SearchResult | { url?: string; link?: string },
-	) => {
+	const getValidUrl = (result: SearchResult | { url?: string; link?: string }) => {
 		if ("url" in result && result.url) return result.url;
 		if ("link" in result && result.link) return result.link;
 		return "#";
@@ -126,14 +116,9 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 
 									<div className="relative z-10 flex items-center gap-3 flex-1 min-w-0">
 										<div className="p-1.5 bg-gold-500/10 rounded-lg shrink-0">
-											<FileText
-												className="w-4 h-4 text-gold-400"
-												aria-hidden="true"
-											/>
+											<FileText className="w-4 h-4 text-gold-400" aria-hidden="true" />
 										</div>
-										<span className="text-xs font-medium text-tea-200 truncate">
-											{att.name}
-										</span>
+										<span className="text-xs font-medium text-tea-200 truncate">{att.name}</span>
 									</div>
 
 									<button
@@ -159,9 +144,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 					className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-white/10 hover:border-tea-500/30 hover:bg-white/5 text-gray-400 hover:text-tea-300 transition-all duration-300 group"
 				>
 					<Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-					<span className="text-xs font-medium">
-						{t("rag_context.add_file", "Add File")}
-					</span>
+					<span className="text-xs font-medium">{t("rag_context.add_file", "Add File")}</span>
 				</button>
 
 				{/* Search Results Section */}
@@ -169,8 +152,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">
 							<span className="text-[10px] font-bold uppercase tracking-wider text-tea-300/80">
-								{t("rag_context.web_results", "Web Results")} (
-								{searchResults?.length ?? 0})
+								{t("rag_context.web_results", "Web Results")} ({searchResults?.length ?? 0})
 							</span>
 						</div>
 						<div className="space-y-3">
@@ -200,9 +182,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 
 											<div className="flex items-center gap-1.5 text-[10px] text-tea-500/60 font-mono">
 												<Globe className="w-2.5 h-2.5" />
-												<span className="truncate max-w-[150px]">
-													{getHostname(targetUrl)}
-												</span>
+												<span className="truncate max-w-[150px]">{getHostname(targetUrl)}</span>
 											</div>
 										</div>
 

@@ -3,12 +3,7 @@ import { apiClient } from "../utils/api-client";
 
 export interface UpdateCheckResult {
 	update_available: boolean;
-	reason:
-		| "revision_mismatch"
-		| "sha256_mismatch"
-		| "up_to_date"
-		| "insufficient_data"
-		| "unknown";
+	reason: "revision_mismatch" | "sha256_mismatch" | "up_to_date" | "insufficient_data" | "unknown";
 	current_revision?: string;
 	latest_revision?: string;
 	current_sha256?: string;
@@ -23,26 +18,21 @@ interface UseModelUpdateCheck {
 }
 
 export const useModelUpdateCheck = (): UseModelUpdateCheck => {
-	const [updateStatus, setUpdateStatus] = useState<
-		Record<string, UpdateCheckResult>
-	>({});
+	const [updateStatus, setUpdateStatus] = useState<Record<string, UpdateCheckResult>>({});
 	const [isChecking, setIsChecking] = useState(false);
 
-	const checkUpdate = useCallback(
-		async (modelId: string): Promise<UpdateCheckResult | null> => {
-			try {
-				const result = await apiClient.get<UpdateCheckResult>(
-					`api/setup/model/update-check?model_id=${encodeURIComponent(modelId)}`,
-				);
-				setUpdateStatus((prev) => ({ ...prev, [modelId]: result }));
-				return result;
-			} catch (error) {
-				console.error(`Error checking update for model ${modelId}:`, error);
-				return null;
-			}
-		},
-		[],
-	);
+	const checkUpdate = useCallback(async (modelId: string): Promise<UpdateCheckResult | null> => {
+		try {
+			const result = await apiClient.get<UpdateCheckResult>(
+				`api/setup/model/update-check?model_id=${encodeURIComponent(modelId)}`,
+			);
+			setUpdateStatus((prev) => ({ ...prev, [modelId]: result }));
+			return result;
+		} catch (error) {
+			console.error(`Error checking update for model ${modelId}:`, error);
+			return null;
+		}
+	}, []);
 
 	const checkAllModels = useCallback(
 		async (modelIds: string[]) => {

@@ -1,12 +1,7 @@
 import { Loader2 } from "lucide-react";
 import React from "react";
 
-export type ButtonVariant =
-	| "primary"
-	| "secondary"
-	| "ghost"
-	| "icon"
-	| "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "icon" | "danger";
 export type ButtonSize = "sm" | "md" | "lg" | "icon";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -40,11 +35,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 				"bg-gradient-to-br from-gold-400 to-tea-600 text-white shadow-[0_4px_14px_0_rgba(189,75,38,0.39)] hover:shadow-[0_6px_20px_rgba(219,89,37,0.23)] hover:brightness-110 border border-white/10",
 			secondary:
 				"glass-button text-theme-text border-theme-border hover:bg-theme-overlay hover:border-text-accent backdrop-blur-md",
-			ghost:
-				"bg-transparent text-theme-subtext hover:text-theme-text hover:bg-white/5",
+			ghost: "bg-transparent text-theme-subtext hover:text-theme-text hover:bg-white/5",
 			icon: "p-0 bg-transparent text-theme-subtext hover:text-theme-text hover:bg-white/5 rounded-full aspect-square",
 			danger:
-				"bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white shadow-lg shadow-red-500/10",
+				"bg-semantic-error/10 text-semantic-error border border-semantic-error/30 hover:bg-semantic-error hover:text-white shadow-lg shadow-semantic-error/10",
 		};
 
 		const sizes: Record<ButtonSize, string> = {

@@ -55,19 +55,16 @@ describe("ChatInterface Integration", () => {
 		vi.clearAllMocks();
 
 		// Default Store State
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) =>
-				selector({
-					isProcessing: false,
-					messages: [],
-					error: null,
-					clearError: mockClearError,
-				}),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isProcessing: false,
+				messages: [],
+				error: null,
+				clearError: mockClearError,
+			}),
 		);
 
-		(
-			useWebSocketStore as unknown as ReturnType<typeof vi.fn>
-		).mockImplementation((selector) =>
+		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
 				isConnected: true,
 				sendMessage: mockSendMessage,
@@ -80,27 +77,26 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("renders initial state correctly", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) =>
-				selector({
-					isProcessing: false,
-					messages: [
-						{
-							id: "1",
-							role: "user",
-							content: "Hello",
-							timestamp: new Date(1000),
-						},
-						{
-							id: "2",
-							role: "assistant",
-							content: "Hi there",
-							timestamp: new Date(1001),
-						},
-					],
-					error: null,
-					clearError: mockClearError,
-				}),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isProcessing: false,
+				messages: [
+					{
+						id: "1",
+						role: "user",
+						content: "Hello",
+						timestamp: new Date(1000),
+					},
+					{
+						id: "2",
+						role: "assistant",
+						content: "Hi there",
+						timestamp: new Date(1001),
+					},
+				],
+				error: null,
+				clearError: mockClearError,
+			}),
 		);
 
 		render(<ChatInterface />);
@@ -139,14 +135,13 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("displays error toast when error occurs", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) =>
-				selector({
-					isProcessing: false,
-					messages: [],
-					error: "Connection Failed",
-					clearError: mockClearError,
-				}),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isProcessing: false,
+				messages: [],
+				error: "Connection Failed",
+				clearError: mockClearError,
+			}),
 		);
 
 		render(<ChatInterface />);
@@ -160,14 +155,13 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("disables input when processing", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			(selector) =>
-				selector({
-					isProcessing: true,
-					messages: [],
-					error: null,
-					clearError: mockClearError,
-				}),
+		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isProcessing: true,
+				messages: [],
+				error: null,
+				clearError: mockClearError,
+			}),
 		);
 
 		render(<ChatInterface />);

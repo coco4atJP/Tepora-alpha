@@ -10,10 +10,7 @@ interface ErrorBoundaryState {
 	error: Error | null;
 }
 
-export default class ErrorBoundary extends React.Component<
-	ErrorBoundaryProps,
-	ErrorBoundaryState
-> {
+export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
 	state: ErrorBoundaryState = {
 		hasError: false,
 		error: null,
@@ -38,10 +35,7 @@ export default class ErrorBoundary extends React.Component<
 			<div className="min-h-screen w-full flex items-center justify-center bg-[#050201] text-white p-6">
 				<div className="w-full max-w-lg glass-tepora rounded-2xl border border-white/10 shadow-2xl p-6">
 					<div className="flex items-center gap-3 mb-3">
-						<AlertTriangle
-							className="w-6 h-6 text-red-400"
-							aria-hidden="true"
-						/>
+						<AlertTriangle className="w-6 h-6 text-semantic-error" aria-hidden="true" />
 						<h1 className="text-lg font-semibold">Something went wrong</h1>
 					</div>
 
@@ -51,9 +45,7 @@ export default class ErrorBoundary extends React.Component<
 
 					{this.state.error && (
 						<details className="mt-4 text-xs text-gray-300 bg-black/30 rounded-xl border border-white/10 p-3">
-							<summary className="cursor-pointer select-none text-gray-400">
-								Error details
-							</summary>
+							<summary className="cursor-pointer select-none text-gray-400">Error details</summary>
 							<pre className="mt-2 whitespace-pre-wrap break-words font-mono">
 								{this.state.error.message}
 							</pre>

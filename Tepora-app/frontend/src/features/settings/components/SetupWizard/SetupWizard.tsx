@@ -47,19 +47,14 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		try {
 			const result = await refetchRequirements();
 			if (result.error || !result.data) {
-				throw new Error(
-					t("setup.errors.req_check_failed", "Requirements check failed"),
-				);
+				throw new Error(t("setup.errors.req_check_failed", "Requirements check failed"));
 			}
 			const data = result.data;
 			dispatch({ type: "REQ_CHECK_SUCCESS", payload: data });
 		} catch (err) {
 			dispatch({
 				type: "REQ_CHECK_FAILURE",
-				payload:
-					err instanceof Error
-						? err.message
-						: t("setup.errors.unknown", "Unknown error"),
+				payload: err instanceof Error ? err.message : t("setup.errors.unknown", "Unknown error"),
 			});
 		}
 	}, [refetchRequirements, t]);
@@ -109,8 +104,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 					dispatch({ type: "START_INSTALL", payload: data.job_id || "" });
 				} else {
 					throw new Error(
-						data.error ||
-							t("setup.errors.setup_failed_start", "Setup failed to start"),
+						data.error || t("setup.errors.setup_failed_start", "Setup failed to start"),
 					);
 				}
 			} catch (err) {
@@ -158,8 +152,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
 				if (!preflightData.success) {
 					throw new Error(
-						preflightData.error ||
-							t("setup.errors.preflight_failed", "System check failed"),
+						preflightData.error || t("setup.errors.preflight_failed", "System check failed"),
 					);
 				}
 			} catch (err: unknown) {
@@ -250,12 +243,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				const data = await apiClient.get<ProgressState>("api/setup/progress");
 				// If status is active (not idle, not completed, not failed), resume
 				// Note: "failed" might also be resumable in some contexts, but sticking to active for now.
-				const activeStatuses = [
-					"pending",
-					"downloading",
-					"extracting",
-					"installing",
-				];
+				const activeStatuses = ["pending", "downloading", "extracting", "installing"];
 				if (activeStatuses.includes(data.status)) {
 					dispatch({ type: "START_INSTALL", payload: "RESUMED_JOB" });
 				}
@@ -363,13 +351,9 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				return (
 					<LoaderSelectionStep
 						selectedLoader={state.loader}
-						onSelectLoader={(loader) =>
-							dispatch({ type: "SET_LOADER", payload: loader })
-						}
+						onSelectLoader={(loader) => dispatch({ type: "SET_LOADER", payload: loader })}
 						onNext={() => checkRequirements()}
-						onBack={() =>
-							dispatch({ type: "SET_LANGUAGE", payload: state.language })
-						}
+						onBack={() => dispatch({ type: "SET_LANGUAGE", payload: state.language })}
 					/>
 				);
 			case "CHECK_REQUIREMENTS":
@@ -433,10 +417,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						const isDone = i < currentIdx;
 
 						return (
-							<div
-								key={s.key}
-								className="relative z-10 flex flex-col items-center gap-2 group"
-							>
+							<div key={s.key} className="relative z-10 flex flex-col items-center gap-2 group">
 								<div
 									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${
 										isActive
@@ -448,11 +429,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 								/>
 								<span
 									className={`absolute top-6 w-24 left-1/2 -translate-x-1/2 text-center text-xs font-medium tracking-wide transition-colors duration-300 leading-tight ${
-										isActive
-											? "text-gold-100"
-											: isDone
-												? "text-gray-400"
-												: "text-gray-600"
+										isActive ? "text-gold-100" : isDone ? "text-gray-400" : "text-gray-600"
 									}`}
 								>
 									{s.label}

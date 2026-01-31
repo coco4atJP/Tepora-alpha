@@ -103,9 +103,7 @@ export const useSessionStore = create<SessionStore>()(
 							sessions: state.sessions.filter((s) => s.id !== sessionId),
 							// Reset to default if current session is deleted
 							currentSessionId:
-								state.currentSessionId === sessionId
-									? "default"
-									: state.currentSessionId,
+								state.currentSessionId === sessionId ? "default" : state.currentSessionId,
 						}),
 						false,
 						"removeSession",
@@ -115,9 +113,7 @@ export const useSessionStore = create<SessionStore>()(
 				updateSession: (sessionId, updates) => {
 					set(
 						(state) => ({
-							sessions: state.sessions.map((s) =>
-								s.id === sessionId ? { ...s, ...updates } : s,
-							),
+							sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
 						}),
 						false,
 						"updateSession",

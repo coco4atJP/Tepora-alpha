@@ -48,11 +48,7 @@ interface ChatState {
 interface ChatActions {
 	// Message actions
 	addMessage: (message: Message) => void;
-	addUserMessage: (
-		content: string,
-		mode: ChatMode,
-		attachments?: Attachment[],
-	) => void;
+	addUserMessage: (content: string, mode: ChatMode, attachments?: Attachment[]) => void;
 	setMessages: (messages: Message[]) => void;
 	clearMessages: () => void;
 
@@ -200,8 +196,7 @@ export const useChatStore = create<ChatStore>()(
 					const shouldContinueMessage =
 						lastMessage?.role === "assistant" &&
 						!lastMessage.isComplete &&
-						(isThinkingNode(currentMetadata.nodeId) ||
-							isThinkingNode(metadata.nodeId));
+						(isThinkingNode(currentMetadata.nodeId) || isThinkingNode(metadata.nodeId));
 
 					if (shouldContinueMessage) {
 						// We are keeping the same message, just updating metadata so future chunks go to right place
@@ -222,10 +217,7 @@ export const useChatStore = create<ChatStore>()(
 							const msg = s.messages[s.messages.length - 1];
 							if (msg?.role === "assistant" && !msg.isComplete) {
 								return {
-									messages: [
-										...s.messages.slice(0, -1),
-										{ ...msg, isComplete: true },
-									],
+									messages: [...s.messages.slice(0, -1), { ...msg, isComplete: true }],
 								};
 							}
 							return {};

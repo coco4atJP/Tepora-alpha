@@ -34,42 +34,27 @@ const Memory: React.FC = () => {
 					</h2>
 					{memoryStats?.char_memory ? (
 						<div className="space-y-4">
-							<StatItem
-								label="Total Events"
-								value={memoryStats.char_memory.total_events}
-							/>
+							<StatItem label="Total Events" value={memoryStats.char_memory.total_events} />
 							<StatItem
 								label="Total Tokens"
 								value={memoryStats.char_memory.total_tokens_in_memory}
 							/>
 							<StatItem
 								label="Mean Event Size"
-								value={
-									memoryStats.char_memory.mean_event_size?.toFixed(1) || "0.0"
-								}
+								value={memoryStats.char_memory.mean_event_size?.toFixed(1) || "0.0"}
 							/>
 							{memoryStats.char_memory.surprise_statistics && (
 								<>
 									<div className="mt-4 pt-4 border-t border-gray-700">
-										<p className="text-sm text-gray-400 mb-2">
-											Surprise Statistics
-										</p>
+										<p className="text-sm text-gray-400 mb-2">Surprise Statistics</p>
 									</div>
 									<StatItem
 										label="Mean Surprise"
-										value={
-											memoryStats.char_memory.surprise_statistics.mean?.toFixed(
-												3,
-											) || "N/A"
-										}
+										value={memoryStats.char_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
 									/>
 									<StatItem
 										label="Max Surprise"
-										value={
-											memoryStats.char_memory.surprise_statistics.max?.toFixed(
-												3,
-											) || "N/A"
-										}
+										value={memoryStats.char_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
 									/>
 								</>
 							)}
@@ -86,42 +71,27 @@ const Memory: React.FC = () => {
 					</h2>
 					{memoryStats?.prof_memory ? (
 						<div className="space-y-4">
-							<StatItem
-								label="Total Events"
-								value={memoryStats.prof_memory.total_events}
-							/>
+							<StatItem label="Total Events" value={memoryStats.prof_memory.total_events} />
 							<StatItem
 								label="Total Tokens"
 								value={memoryStats.prof_memory.total_tokens_in_memory}
 							/>
 							<StatItem
 								label="Mean Event Size"
-								value={
-									memoryStats.prof_memory.mean_event_size?.toFixed(1) || "0.0"
-								}
+								value={memoryStats.prof_memory.mean_event_size?.toFixed(1) || "0.0"}
 							/>
 							{memoryStats.prof_memory.surprise_statistics && (
 								<>
 									<div className="mt-4 pt-4 border-t border-gray-700">
-										<p className="text-sm text-gray-400 mb-2">
-											Surprise Statistics
-										</p>
+										<p className="text-sm text-gray-400 mb-2">Surprise Statistics</p>
 									</div>
 									<StatItem
 										label="Mean Surprise"
-										value={
-											memoryStats.prof_memory.surprise_statistics.mean?.toFixed(
-												3,
-											) || "N/A"
-										}
+										value={memoryStats.prof_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
 									/>
 									<StatItem
 										label="Max Surprise"
-										value={
-											memoryStats.prof_memory.surprise_statistics.max?.toFixed(
-												3,
-											) || "N/A"
-										}
+										value={memoryStats.prof_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
 									/>
 								</>
 							)}
@@ -135,10 +105,7 @@ const Memory: React.FC = () => {
 	);
 };
 
-const StatItem: React.FC<{ label: string; value: number | string }> = ({
-	label,
-	value,
-}) => (
+const StatItem: React.FC<{ label: string; value: number | string }> = ({ label, value }) => (
 	<div className="flex justify-between items-center border-b border-gray-700/50 pb-2 last:border-0">
 		<span className="text-gray-400">{label}</span>
 		<span className="text-white font-mono font-bold">{value}</span>

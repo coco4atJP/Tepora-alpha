@@ -12,8 +12,7 @@ import {
 
 const MemorySettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateEmLlm, updateChatHistory } =
-		useSettings();
+	const { config, originalConfig, updateEmLlm, updateChatHistory } = useSettings();
 
 	if (!config) return null;
 
@@ -34,10 +33,7 @@ const MemorySettings: React.FC = () => {
 
 	return (
 		<div className="space-y-6">
-			<SettingsSection
-				title={t("settings.sections.chat_history.title")}
-				icon={<Clock size={18} />}
-			>
+			<SettingsSection title={t("settings.sections.chat_history.title")} icon={<Clock size={18} />}>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<FormGroup
 						label={t("settings.memory.max_tokens.label")}
@@ -76,13 +72,9 @@ const MemorySettings: React.FC = () => {
 				description={t("settings.sections.memory.description")}
 			>
 				<CollapsibleSection
-					title={
-						t("settings.memory.episodic_params_title") ||
-						"Episodic Memory Parameters"
-					}
+					title={t("settings.memory.episodic_params_title") || "Episodic Memory Parameters"}
 					description={
-						t("settings.memory.episodic_params_desc") ||
-						"Advanced configuration for EM-LLM"
+						t("settings.memory.episodic_params_desc") || "Advanced configuration for EM-LLM"
 					}
 					defaultOpen={true}
 				>
@@ -135,9 +127,7 @@ const MemorySettings: React.FC = () => {
 							<FormInput
 								type="number"
 								value={emConfig.total_retrieved_events}
-								onChange={(v) =>
-									updateEmLlm("total_retrieved_events", v as number)
-								}
+								onChange={(v) => updateEmLlm("total_retrieved_events", v as number)}
 								min={1}
 								max={50}
 							/>
@@ -168,9 +158,7 @@ const MemorySettings: React.FC = () => {
 										onChange={(v) => updateEmLlm("use_boundary_refinement", v)}
 									/>
 									<span className="text-sm text-gray-400">
-										{emConfig.use_boundary_refinement
-											? t("common.enabled")
-											: t("common.disabled")}
+										{emConfig.use_boundary_refinement ? t("common.enabled") : t("common.disabled")}
 									</span>
 								</div>
 							</FormGroup>

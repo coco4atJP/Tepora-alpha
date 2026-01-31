@@ -54,8 +54,7 @@ interface ModelRoles {
 
 const ModelSettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateLlmManager, updateModel } =
-		useSettings();
+	const { config, originalConfig, updateLlmManager, updateModel } = useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [isOverlayOpen, setIsOverlayOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -68,9 +67,7 @@ const ModelSettings: React.FC = () => {
 	// Fetch available models from backend
 	const fetchModels = useCallback(async () => {
 		try {
-			const data = await apiClient.get<{ models?: ModelInfo[] }>(
-				"api/setup/models",
-			);
+			const data = await apiClient.get<{ models?: ModelInfo[] }>("api/setup/models");
 			setModels(data.models || []);
 		} catch (e) {
 			console.error("Failed to fetch models", e);
@@ -130,10 +127,7 @@ const ModelSettings: React.FC = () => {
 		}
 	};
 
-	const handleSelectProfessionalModel = async (
-		taskType: string,
-		modelId: string,
-	) => {
+	const handleSelectProfessionalModel = async (taskType: string, modelId: string) => {
 		try {
 			await apiClient.post("api/setup/model/roles/professional", {
 				task_type: taskType,
@@ -147,9 +141,7 @@ const ModelSettings: React.FC = () => {
 
 	const handleRemoveProfessionalMapping = async (taskType: string) => {
 		try {
-			await apiClient.delete(
-				`api/setup/model/roles/professional/${encodeURIComponent(taskType)}`,
-			);
+			await apiClient.delete(`api/setup/model/roles/professional/${encodeURIComponent(taskType)}`);
 			await fetchModelRoles();
 		} catch (e) {
 			console.error(e);
@@ -232,17 +224,13 @@ const ModelSettings: React.FC = () => {
 
 	const textModels = models.filter((m) => m.role === "text");
 	const embeddingModels = models.filter((m) => m.role === "embedding");
-	const getActiveId = (role: string) =>
-		models.find((m) => m.role === role && m.is_active)?.id;
+	const getActiveId = (role: string) => models.find((m) => m.role === role && m.is_active)?.id;
 
 	return (
 		<div className="space-y-6">
 			{/* 1. Model Management Section */}
 			<SettingsSection
-				title={
-					t("settings.models_settings.download_manager.title") ||
-					"Model Management"
-				}
+				title={t("settings.models_settings.download_manager.title") || "Model Management"}
 				icon={<HardDrive size={18} />}
 				description={
 					t("settings.models_settings.download_manager.description") ||
@@ -259,9 +247,7 @@ const ModelSettings: React.FC = () => {
 							className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
 						>
 							<List size={18} />
-							<span>
-								{t("settings.sections.models.manage_models") || "Manage Models"}
-							</span>
+							<span>{t("settings.sections.models.manage_models") || "Manage Models"}</span>
 						</button>
 
 						<button
@@ -269,15 +255,9 @@ const ModelSettings: React.FC = () => {
 							onClick={handleRefreshOllama}
 							disabled={isRefreshing}
 							className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
-							title={
-								t("settings.sections.models.refresh_ollama") ||
-								"Refresh Ollama Models"
-							}
+							title={t("settings.sections.models.refresh_ollama") || "Refresh Ollama Models"}
 						>
-							<RefreshCw
-								size={18}
-								className={isRefreshing ? "animate-spin" : ""}
-							/>
+							<RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
 						</button>
 					</div>
 				</div>
@@ -285,10 +265,7 @@ const ModelSettings: React.FC = () => {
 
 			{/* 2. Character Model Selection */}
 			<SettingsSection
-				title={
-					t("settings.sections.models.character_model_title") ||
-					"Character Model"
-				}
+				title={t("settings.sections.models.character_model_title") || "Character Model"}
 				icon={<MessageSquare size={18} />}
 				description={
 					t("settings.sections.models.character_model_desc") ||
@@ -296,10 +273,7 @@ const ModelSettings: React.FC = () => {
 				}
 			>
 				<ModelSelectionRow
-					label={
-						t("settings.sections.models.character_model_label") ||
-						"Character Model"
-					}
+					label={t("settings.sections.models.character_model_label") || "Character Model"}
 					selectedModelId={modelRoles.character_model_id || undefined}
 					models={textModels}
 					onSelect={handleSelectCharacterModel}
@@ -311,10 +285,7 @@ const ModelSettings: React.FC = () => {
 
 			{/* 3. Professional Models Selection (Task Type based) */}
 			<SettingsSection
-				title={
-					t("settings.sections.models.executor_models_title") ||
-					"Professional Models"
-				}
+				title={t("settings.sections.models.executor_models_title") || "Professional Models"}
 				icon={<Wrench size={18} />}
 				description={
 					t("settings.sections.models.executor_models_desc") ||
@@ -322,35 +293,31 @@ const ModelSettings: React.FC = () => {
 				}
 			>
 				<div className="space-y-4">
-					{Object.entries(modelRoles.professional_model_map).map(
-						([taskType, modelId]) => (
-							<ModelSelectionRow
-								key={taskType}
-								label={t("settings.sections.models.executor_label", {
-									taskType,
-								})}
-								description={
-									taskType === "default"
-										? t("settings.sections.models.executor_default_desc")
-										: t("settings.sections.models.executor_task_desc", {
-												taskType,
-											})
-								}
-								selectedModelId={modelId}
-								models={textModels}
-								onSelect={(id) => handleSelectProfessionalModel(taskType, id)}
-								config={textModelConfig}
-								onUpdateConfig={(c) => updateModel("text_model", c)}
-								onDelete={
-									taskType !== "default"
-										? () => handleRemoveProfessionalMapping(taskType)
-										: undefined
-								}
-								icon={<Wrench size={20} />}
-								modelRole="text"
-							/>
-						),
-					)}
+					{Object.entries(modelRoles.professional_model_map).map(([taskType, modelId]) => (
+						<ModelSelectionRow
+							key={taskType}
+							label={t("settings.sections.models.executor_label", {
+								taskType,
+							})}
+							description={
+								taskType === "default"
+									? t("settings.sections.models.executor_default_desc")
+									: t("settings.sections.models.executor_task_desc", {
+											taskType,
+										})
+							}
+							selectedModelId={modelId}
+							models={textModels}
+							onSelect={(id) => handleSelectProfessionalModel(taskType, id)}
+							config={textModelConfig}
+							onUpdateConfig={(c) => updateModel("text_model", c)}
+							onDelete={
+								taskType !== "default" ? () => handleRemoveProfessionalMapping(taskType) : undefined
+							}
+							icon={<Wrench size={20} />}
+							modelRole="text"
+						/>
+					))}
 
 					{/* Add new task type */}
 					<div className="flex gap-2">
@@ -380,10 +347,7 @@ const ModelSettings: React.FC = () => {
 
 			{/* 4. Embedding Model Selection */}
 			<SettingsSection
-				title={
-					t("settings.sections.models.embedding_model_title") ||
-					"Embedding Model"
-				}
+				title={t("settings.sections.models.embedding_model_title") || "Embedding Model"}
 				icon={<Cpu size={18} />}
 				description={
 					t("settings.sections.models.embedding_model_desc") ||
@@ -403,10 +367,7 @@ const ModelSettings: React.FC = () => {
 
 			{/* 5. Global LLM Manager Settings */}
 			<SettingsSection
-				title={
-					t("settings.models_settings.global_manager.title") ||
-					"LLM Manager Settings"
-				}
+				title={t("settings.models_settings.global_manager.title") || "LLM Manager Settings"}
 				icon={<Settings2 size={18} />}
 				description={
 					t("settings.models_settings.global_manager.description") ||
@@ -416,66 +377,54 @@ const ModelSettings: React.FC = () => {
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 					<FormGroup
 						label={
-							t("settings.models_settings.global_manager.terminate_timeout") ||
-							"Terminate Timeout"
+							t("settings.models_settings.global_manager.terminate_timeout") || "Terminate Timeout"
 						}
 						isDirty={isLlmDirty("process_terminate_timeout")}
 					>
 						<FormInput
 							type="number"
 							value={llmConfig.process_terminate_timeout}
-							onChange={(v) =>
-								updateLlmManager("process_terminate_timeout", v as number)
-							}
+							onChange={(v) => updateLlmManager("process_terminate_timeout", v as number)}
 							min={1}
 						/>
 					</FormGroup>
 					<FormGroup
 						label={
-							t(
-								"settings.models_settings.global_manager.health_check_timeout",
-							) || "Health Check Timeout"
+							t("settings.models_settings.global_manager.health_check_timeout") ||
+							"Health Check Timeout"
 						}
 						isDirty={isLlmDirty("health_check_timeout")}
 					>
 						<FormInput
 							type="number"
 							value={llmConfig.health_check_timeout}
-							onChange={(v) =>
-								updateLlmManager("health_check_timeout", v as number)
-							}
+							onChange={(v) => updateLlmManager("health_check_timeout", v as number)}
 							min={1}
 						/>
 					</FormGroup>
 					<FormGroup
 						label={
-							t(
-								"settings.models_settings.global_manager.health_check_interval",
-							) || "Health Check Interval"
+							t("settings.models_settings.global_manager.health_check_interval") ||
+							"Health Check Interval"
 						}
 						isDirty={isLlmDirty("health_check_interval")}
 					>
 						<FormInput
 							type="number"
 							value={llmConfig.health_check_interval}
-							onChange={(v) =>
-								updateLlmManager("health_check_interval", v as number)
-							}
+							onChange={(v) => updateLlmManager("health_check_interval", v as number)}
 							step={0.1}
 						/>
 					</FormGroup>
 					<FormGroup
 						label={
-							t("settings.models_settings.global_manager.tokenizer_model") ||
-							"Tokenizer Model"
+							t("settings.models_settings.global_manager.tokenizer_model") || "Tokenizer Model"
 						}
 						isDirty={isLlmDirty("tokenizer_model_key")}
 					>
 						<FormSelect
 							value={llmConfig.tokenizer_model_key}
-							onChange={(v) =>
-								updateLlmManager("tokenizer_model_key", v as string)
-							}
+							onChange={(v) => updateLlmManager("tokenizer_model_key", v as string)}
 							options={[
 								{ value: "text_model", label: "Text" },
 								{ value: "embedding_model", label: "Embedding" },
@@ -485,13 +434,9 @@ const ModelSettings: React.FC = () => {
 				</div>
 
 				<CollapsibleSection
-					title={
-						t("settings.sections.models.advanced_title") ||
-						"Advanced Manager Settings"
-					}
+					title={t("settings.sections.models.advanced_title") || "Advanced Manager Settings"}
 					description={
-						t("settings.sections.models.advanced_description") ||
-						"Cache and resource settings"
+						t("settings.sections.models.advanced_description") || "Cache and resource settings"
 					}
 				>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">

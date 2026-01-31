@@ -40,7 +40,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
             before:-translate-x-full
             before:animate-[shimmer_2s_infinite]
             before:bg-gradient-to-r
-            before:from-transparent before:via-white/5 before:to-transparent
+            before:from-transparent before:via-gold-100/10 before:to-transparent
           `}
 					style={{
 						animationDelay: `${index * 150}ms`,

@@ -14,9 +14,7 @@ vi.mock("react-i18next", () => ({
 // Mock requirements hook to avoid QueryClient dependency in unit tests
 vi.mock("../../../../../hooks/useServerConfig", () => ({
 	useRequirements: () => ({
-		refetch: vi
-			.fn()
-			.mockResolvedValue({ data: { is_ready: true }, error: null }),
+		refetch: vi.fn().mockResolvedValue({ data: { is_ready: true }, error: null }),
 	}),
 }));
 
@@ -103,9 +101,7 @@ describe("SetupWizard Steps", () => {
 			render(<CompleteStep onFinish={onFinish} />);
 
 			expect(screen.getByText("All Set!")).toBeInTheDocument();
-			expect(
-				screen.getByText("Tepora is ready to be your AI companion."),
-			).toBeInTheDocument();
+			expect(screen.getByText("Tepora is ready to be your AI companion.")).toBeInTheDocument();
 		});
 
 		it("calls onFinish when button is clicked", () => {
@@ -120,13 +116,7 @@ describe("SetupWizard Steps", () => {
 	describe("ErrorStep", () => {
 		it("renders error message", () => {
 			const onRetry = vi.fn();
-			render(
-				<ErrorStep
-					error="Something went wrong"
-					onRetry={onRetry}
-					onSkip={undefined}
-				/>,
-			);
+			render(<ErrorStep error="Something went wrong" onRetry={onRetry} onSkip={undefined} />);
 
 			expect(screen.getByText("Setup Failed")).toBeInTheDocument();
 			expect(screen.getByText("Something went wrong")).toBeInTheDocument();
@@ -134,9 +124,7 @@ describe("SetupWizard Steps", () => {
 
 		it("calls onRetry when retry button is clicked", () => {
 			const onRetry = vi.fn();
-			render(
-				<ErrorStep error="Test error" onRetry={onRetry} onSkip={undefined} />,
-			);
+			render(<ErrorStep error="Test error" onRetry={onRetry} onSkip={undefined} />);
 
 			fireEvent.click(screen.getByText("Retry"));
 			expect(onRetry).toHaveBeenCalled();
@@ -145,9 +133,7 @@ describe("SetupWizard Steps", () => {
 		it("renders skip button when onSkip is provided", () => {
 			const onRetry = vi.fn();
 			const onSkip = vi.fn();
-			render(
-				<ErrorStep error="Test error" onRetry={onRetry} onSkip={onSkip} />,
-			);
+			render(<ErrorStep error="Test error" onRetry={onRetry} onSkip={onSkip} />);
 
 			expect(screen.getByText("Skip")).toBeInTheDocument();
 			fireEvent.click(screen.getByText("Skip"));
@@ -156,9 +142,7 @@ describe("SetupWizard Steps", () => {
 
 		it("does not render skip button when onSkip is not provided", () => {
 			const onRetry = vi.fn();
-			render(
-				<ErrorStep error="Test error" onRetry={onRetry} onSkip={undefined} />,
-			);
+			render(<ErrorStep error="Test error" onRetry={onRetry} onSkip={undefined} />);
 
 			expect(screen.queryByText("Skip")).not.toBeInTheDocument();
 		});

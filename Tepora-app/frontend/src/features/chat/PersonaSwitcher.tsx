@@ -1,13 +1,4 @@
-import {
-	Check,
-	Edit2,
-	Plus,
-	RefreshCw,
-	Save,
-	Trash2,
-	User,
-	X,
-} from "lucide-react";
+import { Check, Edit2, Plus, RefreshCw, Save, Trash2, User, X } from "lucide-react";
 import type React from "react";
 import { useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,8 +13,7 @@ const PersonaSwitcher: React.FC = () => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editingKey, setEditingKey] = useState<string | null>(null);
-	const [editingCharacter, setEditingCharacter] =
-		useState<CharacterConfig | null>(null);
+	const [editingCharacter, setEditingCharacter] = useState<CharacterConfig | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCreating, setIsCreating] = useState(false);
 	const [newKey, setNewKey] = useState("");
@@ -34,14 +24,8 @@ const PersonaSwitcher: React.FC = () => {
 		return null; // Or a loading spinner
 	}
 
-	const {
-		config,
-		setActiveAgent,
-		updateCharacter,
-		addCharacter,
-		deleteCharacter,
-		saveConfig,
-	} = settings;
+	const { config, setActiveAgent, updateCharacter, addCharacter, deleteCharacter, saveConfig } =
+		settings;
 
 	const characters = config.characters || {};
 	const currentPersonaId = config.active_agent_profile;
@@ -60,11 +44,7 @@ const PersonaSwitcher: React.FC = () => {
 		setIsOpen(false);
 	};
 
-	const handleEdit = (
-		key: string,
-		character: CharacterConfig,
-		e: React.MouseEvent,
-	) => {
+	const handleEdit = (key: string, character: CharacterConfig, e: React.MouseEvent) => {
 		e.stopPropagation();
 		setEditingKey(key);
 		setError(null);
@@ -109,9 +89,7 @@ const PersonaSwitcher: React.FC = () => {
 	const handleSave = async () => {
 		if (!editingCharacter || !editingCharacter.name) return;
 
-		const key = isCreating
-			? newKey.trim().toLowerCase().replace(/\s+/g, "_")
-			: editingKey;
+		const key = isCreating ? newKey.trim().toLowerCase().replace(/\s+/g, "_") : editingKey;
 		if (!key) return;
 
 		setIsLoading(true);
@@ -167,10 +145,7 @@ const PersonaSwitcher: React.FC = () => {
 					<>
 						{/* biome-ignore lint/a11y/useKeyWithClickEvents: handled by global key listener */}
 						{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop close */}
-						<div
-							className="fixed inset-0 z-40"
-							onClick={() => setIsOpen(false)}
-						/>
+						<div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 						<div className="absolute bottom-full left-0 mb-2 w-max min-w-[16rem] max-w-sm glass-panel rounded-xl overflow-hidden animate-fade-in z-50">
 							<div className="p-3 border-b border-white/5 flex justify-between items-center bg-black/40">
 								<h3 className="text-xs font-bold text-tea-200 uppercase tracking-wider">
@@ -220,9 +195,7 @@ const PersonaSwitcher: React.FC = () => {
 											}
 										}}
 										className={`group w-full text-left flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-											currentPersonaId === key
-												? "bg-white/10"
-												: "hover:bg-white/5"
+											currentPersonaId === key ? "bg-white/10" : "hover:bg-white/5"
 										}`}
 									>
 										<div className="flex items-center gap-3 overflow-hidden">
@@ -238,9 +211,7 @@ const PersonaSwitcher: React.FC = () => {
 											<div className="min-w-0">
 												<div
 													className={`text-sm font-medium break-words ${
-														currentPersonaId === key
-															? "text-gold-300"
-															: "text-gray-200"
+														currentPersonaId === key ? "text-gold-300" : "text-gray-200"
 													}`}
 												>
 													{character.name}
@@ -333,9 +304,7 @@ const PersonaSwitcher: React.FC = () => {
 									type="text"
 									value={editingCharacter?.name || ""}
 									onChange={(e) =>
-										setEditingCharacter((prev) =>
-											prev ? { ...prev, name: e.target.value } : null,
-										)
+										setEditingCharacter((prev) => (prev ? { ...prev, name: e.target.value } : null))
 									}
 									className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
 									placeholder="e.g. Coding Assistant"
@@ -395,11 +364,7 @@ const PersonaSwitcher: React.FC = () => {
 							<button
 								type="button"
 								onClick={handleSave}
-								disabled={
-									isLoading ||
-									!editingCharacter?.name ||
-									(isCreating && !newKey.trim())
-								}
+								disabled={isLoading || !editingCharacter?.name || (isCreating && !newKey.trim())}
 								className="glass-button px-6 py-2 flex items-center gap-2 bg-tea-600/20 text-tea-300 hover:bg-tea-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{isLoading ? (

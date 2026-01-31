@@ -13,18 +13,9 @@ import {
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	type McpServerStatus,
-	useMcpPolicy,
-	useMcpServers,
-} from "../../../../hooks/useMcp";
+import { type McpServerStatus, useMcpPolicy, useMcpServers } from "../../../../hooks/useMcp";
 import { useSettings } from "../../../../hooks/useSettings";
-import {
-	FormGroup,
-	FormInput,
-	FormSwitch,
-	SettingsSection,
-} from "../SettingsComponents";
+import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { McpStoreModal } from "../subcomponents/McpStoreModal";
 
 /**
@@ -34,21 +25,8 @@ import { McpStoreModal } from "../subcomponents/McpStoreModal";
 const McpSettings: React.FC = () => {
 	const { t } = useTranslation();
 	const { config, updateApp } = useSettings();
-	const {
-		policy,
-		loading: policyLoading,
-		saving: policySaving,
-		updatePolicy,
-	} = useMcpPolicy();
-	const {
-		servers,
-		status,
-		loading,
-		error,
-		refresh,
-		toggleServer,
-		removeServer,
-	} = useMcpServers();
+	const { policy, loading: policyLoading, saving: policySaving, updatePolicy } = useMcpPolicy();
+	const { servers, status, loading, error, refresh, toggleServer, removeServer } = useMcpServers();
 	const [showStore, setShowStore] = useState(false);
 	const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -148,9 +126,7 @@ const McpSettings: React.FC = () => {
 			<div className="bg-gray-800/50 rounded-xl p-4 mb-6 border border-white/10">
 				<div className="flex items-center gap-2 mb-4">
 					<Shield size={20} className="text-blue-400" />
-					<h3 className="font-medium text-white">
-						{t("settings.mcp.policy.title")}
-					</h3>
+					<h3 className="font-medium text-white">{t("settings.mcp.policy.title")}</h3>
 				</div>
 
 				{policyLoading ? (
@@ -169,15 +145,9 @@ const McpSettings: React.FC = () => {
 								disabled={policySaving}
 								className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors"
 							>
-								<option value="local_only">
-									{t("settings.mcp.policy.mode.local_only")}
-								</option>
-								<option value="stdio_only">
-									{t("settings.mcp.policy.mode.stdio_only")}
-								</option>
-								<option value="allowlist">
-									{t("settings.mcp.policy.mode.allowlist")}
-								</option>
+								<option value="local_only">{t("settings.mcp.policy.mode.local_only")}</option>
+								<option value="stdio_only">{t("settings.mcp.policy.mode.stdio_only")}</option>
+								<option value="allowlist">{t("settings.mcp.policy.mode.allowlist")}</option>
 							</select>
 						</FormGroup>
 
@@ -189,9 +159,7 @@ const McpSettings: React.FC = () => {
 						>
 							<FormSwitch
 								checked={policy?.require_tool_confirmation ?? true}
-								onChange={(val: boolean) =>
-									updatePolicy({ require_tool_confirmation: val })
-								}
+								onChange={(val: boolean) => updatePolicy({ require_tool_confirmation: val })}
 							/>
 						</FormGroup>
 					</div>
@@ -207,120 +175,103 @@ const McpSettings: React.FC = () => {
 				) : serverList.length === 0 ? (
 					<div className="text-center py-12 text-gray-400">
 						<Database size={48} className="mx-auto mb-4 opacity-50" />
-						<p className="text-lg font-medium mb-2">
-							{t("settings.mcp.noServers.title")}
-						</p>
+						<p className="text-lg font-medium mb-2">{t("settings.mcp.noServers.title")}</p>
 						<p className="text-sm">{t("settings.mcp.noServers.description")}</p>
 					</div>
 				) : (
-					serverList.map(
-						({ name, config: serverConfig, status: serverStatus }) => (
-							<div
-								key={name}
-								className="bg-black/20 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
-							>
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3 flex-1 min-w-0">
-										{/* Status Icon */}
-										<div className="shrink-0">
-											{getStatusIcon(serverStatus)}
+					serverList.map(({ name, config: serverConfig, status: serverStatus }) => (
+						<div
+							key={name}
+							className="bg-black/20 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
+						>
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-3 flex-1 min-w-0">
+									{/* Status Icon */}
+									<div className="shrink-0">{getStatusIcon(serverStatus)}</div>
+
+									{/* Server Info */}
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-2">
+											<h4 className="font-medium text-gray-100 truncate">
+												{serverConfig.metadata?.name || name}
+											</h4>
+											{!serverConfig.enabled && (
+												<span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-400 rounded">
+													{t("settings.mcp.disabled")}
+												</span>
+											)}
 										</div>
-
-										{/* Server Info */}
-										<div className="flex-1 min-w-0">
-											<div className="flex items-center gap-2">
-												<h4 className="font-medium text-gray-100 truncate">
-													{serverConfig.metadata?.name || name}
-												</h4>
-												{!serverConfig.enabled && (
-													<span className="px-2 py-0.5 text-xs bg-gray-700 text-gray-400 rounded">
-														{t("settings.mcp.disabled")}
-													</span>
-												)}
-											</div>
-											<p className="text-xs text-gray-500 truncate">
-												{serverConfig.command} {serverConfig.args.join(" ")}
-											</p>
-											<p className="text-xs text-gray-400 mt-1">
-												{getStatusText(serverStatus)}
-											</p>
-										</div>
-									</div>
-
-									{/* Actions */}
-									<div className="flex items-center gap-2 ml-4">
-										{/* Toggle */}
-										<button
-											type="button"
-											onClick={() => toggleServer(name, !serverConfig.enabled)}
-											className={`p-2 rounded-lg transition-colors ${
-												serverConfig.enabled
-													? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-													: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-											}`}
-											aria-label={
-												serverConfig.enabled
-													? t("settings.mcp.disable")
-													: t("settings.mcp.enable")
-											}
-											title={
-												serverConfig.enabled
-													? t("settings.mcp.disable")
-													: t("settings.mcp.enable")
-											}
-										>
-											<Power size={16} />
-										</button>
-
-										{/* Delete */}
-										{deleteConfirm === name ? (
-											<div className="flex items-center gap-1">
-												<button
-													type="button"
-													onClick={() => {
-														removeServer(name);
-														setDeleteConfirm(null);
-													}}
-													className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
-													aria-label={t("settings.mcp.confirmDelete")}
-												>
-													<CheckCircle size={16} />
-												</button>
-												<button
-													type="button"
-													onClick={() => setDeleteConfirm(null)}
-													className="p-2 bg-gray-700 text-gray-400 hover:bg-gray-600 rounded-lg transition-colors"
-													aria-label={t("settings.mcp.cancelDelete")}
-												>
-													<XCircle size={16} />
-												</button>
-											</div>
-										) : (
-											<button
-												type="button"
-												onClick={() => setDeleteConfirm(name)}
-												className="p-2 bg-gray-700 text-gray-400 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
-												aria-label={t("settings.mcp.delete")}
-												title={t("settings.mcp.delete")}
-											>
-												<Trash2 size={16} />
-											</button>
-										)}
+										<p className="text-xs text-gray-500 truncate">
+											{serverConfig.command} {serverConfig.args.join(" ")}
+										</p>
+										<p className="text-xs text-gray-400 mt-1">{getStatusText(serverStatus)}</p>
 									</div>
 								</div>
+
+								{/* Actions */}
+								<div className="flex items-center gap-2 ml-4">
+									{/* Toggle */}
+									<button
+										type="button"
+										onClick={() => toggleServer(name, !serverConfig.enabled)}
+										className={`p-2 rounded-lg transition-colors ${
+											serverConfig.enabled
+												? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+												: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+										}`}
+										aria-label={
+											serverConfig.enabled ? t("settings.mcp.disable") : t("settings.mcp.enable")
+										}
+										title={
+											serverConfig.enabled ? t("settings.mcp.disable") : t("settings.mcp.enable")
+										}
+									>
+										<Power size={16} />
+									</button>
+
+									{/* Delete */}
+									{deleteConfirm === name ? (
+										<div className="flex items-center gap-1">
+											<button
+												type="button"
+												onClick={() => {
+													removeServer(name);
+													setDeleteConfirm(null);
+												}}
+												className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
+												aria-label={t("settings.mcp.confirmDelete")}
+											>
+												<CheckCircle size={16} />
+											</button>
+											<button
+												type="button"
+												onClick={() => setDeleteConfirm(null)}
+												className="p-2 bg-gray-700 text-gray-400 hover:bg-gray-600 rounded-lg transition-colors"
+												aria-label={t("settings.mcp.cancelDelete")}
+											>
+												<XCircle size={16} />
+											</button>
+										</div>
+									) : (
+										<button
+											type="button"
+											onClick={() => setDeleteConfirm(name)}
+											className="p-2 bg-gray-700 text-gray-400 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors"
+											aria-label={t("settings.mcp.delete")}
+											title={t("settings.mcp.delete")}
+										>
+											<Trash2 size={16} />
+										</button>
+									)}
+								</div>
 							</div>
-						),
-					)
+						</div>
+					))
 				)}
 			</div>
 
 			{/* Store Modal */}
-			{showStore && (
-				<McpStoreModal
-					onClose={() => setShowStore(false)}
-					onInstalled={refresh}
-				/>
-			)}
+			{showStore && <McpStoreModal onClose={() => setShowStore(false)} onInstalled={refresh} />}
 		</SettingsSection>
 	);
 };

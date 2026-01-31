@@ -57,24 +57,17 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 	return (
 		<div className="bg-black/20 rounded-xl p-6 border border-white/5 space-y-4">
 			<div className="flex items-center gap-3 mb-2">
-				<div className="p-2 bg-white/5 rounded-lg text-gold-400">
-					{icon || <Cpu size={20} />}
-				</div>
+				<div className="p-2 bg-white/5 rounded-lg text-gold-400">{icon || <Cpu size={20} />}</div>
 				<div className="flex-1">
 					<h3 className="text-lg font-medium text-white">{label}</h3>
-					{description && (
-						<p className="text-sm text-gray-500">{description}</p>
-					)}
+					{description && <p className="text-sm text-gray-500">{description}</p>}
 				</div>
 				{onDelete && (
 					<button
 						type="button"
 						onClick={onDelete}
 						className="p-2 text-gray-400 hover:text-red-400 transition-colors opacity-60 hover:opacity-100"
-						title={
-							t("settings.sections.models.selection.remove_mapping") ||
-							"Remove Mapping"
-						}
+						title={t("settings.sections.models.selection.remove_mapping") || "Remove Mapping"}
 					>
 						<Trash2 size={18} />
 					</button>
@@ -89,8 +82,7 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 						className="w-full appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 pr-10 text-white font-medium transition-colors focus:outline-none focus:border-gold-400/50"
 					>
 						<option value="" disabled>
-							{t("settings.sections.models.selection.select_model") ||
-								"Select a model..."}
+							{t("settings.sections.models.selection.select_model") || "Select a model..."}
 						</option>
 						{availableModels.map((m) => (
 							<option key={m.id} value={m.id} className="bg-gray-900">
@@ -99,8 +91,7 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 						))}
 						{availableModels.length === 0 && (
 							<option value="" disabled>
-								{t("settings.sections.models.selection.no_models") ||
-									"No models available"}
+								{t("settings.sections.models.selection.no_models") || "No models available"}
 							</option>
 						)}
 					</select>
@@ -135,10 +126,8 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 					}`}
 					title={
 						config
-							? t("settings.sections.models.selection.configure") ||
-								"Model Configurations"
-							: t("settings.sections.models.selection.no_config") ||
-								"No configuration available"
+							? t("settings.sections.models.selection.configure") || "Model Configurations"
+							: t("settings.sections.models.selection.no_config") || "No configuration available"
 					}
 				>
 					<Settings size={20} />

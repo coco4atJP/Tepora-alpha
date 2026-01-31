@@ -20,9 +20,7 @@ const getApiErrorMessage = (err: unknown, fallback: string) => {
 			error?: string;
 			message?: string;
 		} | null;
-		return (
-			data?.detail || data?.error || data?.message || err.message || fallback
-		);
+		return data?.detail || data?.error || data?.message || err.message || fallback;
 	}
 	if (err instanceof Error) {
 		return err.message || fallback;
@@ -129,9 +127,7 @@ async function fetchMcpConfig(): Promise<McpConfigResponse> {
 	return apiClient.get<McpConfigResponse>("api/mcp/config");
 }
 
-async function updateMcpConfig(
-	config: Record<string, McpServerConfig>,
-): Promise<void> {
+async function updateMcpConfig(config: Record<string, McpServerConfig>): Promise<void> {
 	try {
 		await apiClient.post("api/mcp/config", { mcpServers: config });
 	} catch (err) {
@@ -196,15 +192,11 @@ async function confirmMcpInstall(
 }
 
 async function enableServer(serverName: string): Promise<void> {
-	await apiClient.post(
-		`api/mcp/servers/${encodeURIComponent(serverName)}/enable`,
-	);
+	await apiClient.post(`api/mcp/servers/${encodeURIComponent(serverName)}/enable`);
 }
 
 async function disableServer(serverName: string): Promise<void> {
-	await apiClient.post(
-		`api/mcp/servers/${encodeURIComponent(serverName)}/disable`,
-	);
+	await apiClient.post(`api/mcp/servers/${encodeURIComponent(serverName)}/disable`);
 }
 
 async function deleteServer(serverName: string): Promise<void> {
@@ -423,21 +415,18 @@ export function useMcpConfig() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const saveConfig = useCallback(
-		async (config: Record<string, McpServerConfig>) => {
-			setSaving(true);
-			setError(null);
-			try {
-				await updateMcpConfig(config);
-			} catch (err) {
-				setError(getApiErrorMessage(err, "Failed to save config"));
-				throw err;
-			} finally {
-				setSaving(false);
-			}
-		},
-		[],
-	);
+	const saveConfig = useCallback(async (config: Record<string, McpServerConfig>) => {
+		setSaving(true);
+		setError(null);
+		try {
+			await updateMcpConfig(config);
+		} catch (err) {
+			setError(getApiErrorMessage(err, "Failed to save config"));
+			throw err;
+		} finally {
+			setSaving(false);
+		}
+	}, []);
 
 	return {
 		saving,

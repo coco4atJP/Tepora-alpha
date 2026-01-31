@@ -10,12 +10,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type {
-	AgentMode,
-	Attachment,
-	ChatMode,
-	ToolConfirmationRequest,
-} from "../types";
+import type { AgentMode, Attachment, ChatMode, ToolConfirmationRequest } from "../types";
 import { getWsBase } from "../utils/api";
 import { getSessionToken, refreshSessionToken } from "../utils/sessionToken";
 import { backendReady, isDesktop } from "../utils/sidecar";
@@ -61,11 +56,7 @@ interface WebSocketActions {
 
 	// Tool confirmation
 	setPendingToolConfirmation: (request: ToolConfirmationRequest | null) => void;
-	handleToolConfirmation: (
-		requestId: string,
-		approved: boolean,
-		remember: boolean,
-	) => void;
+	handleToolConfirmation: (requestId: string, approved: boolean, remember: boolean) => void;
 	isToolApproved: (toolName: string) => boolean;
 	approveToolForSession: (toolName: string) => void;
 }
@@ -99,10 +90,7 @@ const getWsUrl = (token: string | null = null): string => {
 };
 
 const calculateBackoff = (attempt: number): number => {
-	const delay = Math.min(
-		BASE_RECONNECT_DELAY * 2 ** attempt,
-		MAX_RECONNECT_DELAY,
-	);
+	const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY);
 	const jitter = delay * 0.1 * (Math.random() * 2 - 1);
 	return delay + jitter;
 };
@@ -201,19 +189,14 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						case "activity":
 							if (data.data) {
 								const rawEntry = data.data;
-								const agentName =
-									rawEntry.agentName ||
-									AGENT_MAPPING[rawEntry.id] ||
-									rawEntry.id;
-								const statusMap: Record<
-									string,
-									"pending" | "processing" | "completed" | "error"
-								> = {
-									done: "completed",
-									processing: "processing",
-									pending: "pending",
-									error: "error",
-								};
+								const agentName = rawEntry.agentName || AGENT_MAPPING[rawEntry.id] || rawEntry.id;
+								const statusMap: Record<string, "pending" | "processing" | "completed" | "error"> =
+									{
+										done: "completed",
+										processing: "processing",
+										pending: "pending",
+										error: "error",
+									};
 								chatStore.updateActivity({
 									status: statusMap[rawEntry.status] || "processing",
 									agent_name: agentName,
@@ -235,11 +218,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 										approved: true,
 									});
 								} else {
-									set(
-										{ pendingToolConfirmation: request },
-										false,
-										"setToolConfirmation",
-									);
+									set({ pendingToolConfirmation: request }, false, "setToolConfirmation");
 								}
 							}
 							break;
@@ -265,9 +244,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 						case "download_progress":
 							if (data.data) {
-								window.dispatchEvent(
-									new CustomEvent("download-progress", { detail: data.data }),
-								);
+								window.dispatchEvent(new CustomEvent("download-progress", { detail: data.data }));
 							}
 							break;
 					}
@@ -293,8 +270,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					const existing = get().socket;
 					if (
 						existing &&
-						(existing.readyState === WebSocket.OPEN ||
-							existing.readyState === WebSocket.CONNECTING)
+						(existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
 					) {
 						return;
 					}
@@ -327,11 +303,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 								ws.close();
 								return;
 							}
-							set(
-								{ isConnected: true, socket: ws, reconnectAttempts: 0 },
-								false,
-								"connected",
-							);
+							set({ isConnected: true, socket: ws, reconnectAttempts: 0 }, false, "connected");
 							useChatStore.getState().setIsProcessing(false);
 							useChatStore.getState().setError(null);
 
@@ -361,17 +333,11 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							// Reconnect with backoff
 							const attempts = get().reconnectAttempts;
 							const delay = calculateBackoff(attempts);
-							console.log(
-								`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms`,
-							);
+							console.log(`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms`);
 
 							reconnectTimeout = setTimeout(() => {
 								if (isMounted) {
-									set(
-										{ reconnectAttempts: attempts + 1 },
-										false,
-										"reconnectAttempt",
-									);
+									set({ reconnectAttempts: attempts + 1 }, false, "reconnectAttempt");
 									get().connect();
 								}
 							}, delay);
@@ -389,11 +355,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						const delay = calculateBackoff(attempts);
 						reconnectTimeout = setTimeout(() => {
 							if (isMounted) {
-								set(
-									{ reconnectAttempts: attempts + 1 },
-									false,
-									"reconnectAttempt",
-								);
+								set({ reconnectAttempts: attempts + 1 }, false, "reconnectAttempt");
 								get().connect();
 							}
 						}, delay);
@@ -505,11 +467,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 				// ------------------------------------------------------------------
 
 				setPendingToolConfirmation: (request) => {
-					set(
-						{ pendingToolConfirmation: request },
-						false,
-						"setPendingToolConfirmation",
-					);
+					set({ pendingToolConfirmation: request }, false, "setPendingToolConfirmation");
 				},
 
 				handleToolConfirmation: (requestId, approved, remember) => {
@@ -531,11 +489,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						state.approveToolForSession(pendingToolConfirmation.toolName);
 					}
 
-					set(
-						{ pendingToolConfirmation: null },
-						false,
-						"clearToolConfirmation",
-					);
+					set({ pendingToolConfirmation: null }, false, "clearToolConfirmation");
 				},
 
 				isToolApproved: (toolName) => {
