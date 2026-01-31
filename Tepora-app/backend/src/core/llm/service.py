@@ -5,9 +5,9 @@ Provides thread-safe, stateless access to LLM models.
 Model selection happens per-request, enabling concurrent multi-session usage.
 
 Key changes in V3:
-1. ID-based model management via ModelManager
-2. Support for multiple loaders (llama.cpp, ollama)
-3. Removed legacy ModelRegistry class usage
+- ID-based model management via ModelManager
+- Support for multiple loaders (llama.cpp, ollama)
+- Removed legacy ModelRegistry class usage
 """
 
 from __future__ import annotations

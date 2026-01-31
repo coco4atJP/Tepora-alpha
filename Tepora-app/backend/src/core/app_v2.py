@@ -24,9 +24,11 @@ import logging
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 
 from src.core.models import ModelManager
 
@@ -36,6 +38,8 @@ from .chat_history_manager import ChatHistoryManager
 from .context import ContextWindowManager
 from .graph import TeporaGraph
 from .graph.constants import InputMode
+from .graph.routing import extract_routing_tag
+from .graph.state import create_initial_state
 from .llm import LLMService
 from .rag import RAGContextBuilder, RAGEngine
 from .system import SessionManager, get_logger, setup_logging
@@ -587,18 +591,16 @@ class TeporaApp:
 
         logger.info("process_user_request session=%s mode=%s", session_id, mode)
 
-        # 1) Sanitize
+        # Sanitize
         user_input_sanitized = sanitize_user_input(user_input)
 
-        # 1.5) Extract routing tags (XML-style) for agent mode overrides
-        from .graph.routing import extract_routing_tag
-
+        # Extract routing tags (XML-style) for agent mode overrides
         user_input_sanitized, tag_agent_mode = extract_routing_tag(user_input_sanitized)
 
-        # 2) Process attachments (best-effort; only used in Search mode)
+        # Process attachments (best-effort; only used in Search mode)
         processed_attachments = self._process_attachments(attachments)
 
-        # 3) Prepare search metadata
+        # Prepare search metadata
         search_metadata: dict[str, Any] = {}
         final_mode = mode
         agent_mode = kwargs.pop("agent_mode", None) or kwargs.pop("agentMode", None)
@@ -622,7 +624,7 @@ class TeporaApp:
             # Keep an explicit copy for prompts that use search_query separately.
             search_metadata["search_query"] = user_input_sanitized
 
-        # 4) Get history
+        # Get history
         if self._history_manager is None:
             raise RuntimeError("history_manager not initialized")
 
@@ -630,9 +632,7 @@ class TeporaApp:
             session_id=session_id, limit=core_config.DEFAULT_HISTORY_LIMIT
         )
 
-        # 5) Run graph and stream events
-        from .graph.state import create_initial_state
-
+        # Run graph and stream events
         initial_state = create_initial_state(
             session_id=session_id,
             user_input=user_input_sanitized,
@@ -640,8 +640,6 @@ class TeporaApp:
             chat_history=recent_history,
         )
         # Use cast to satisfy MyPy for dynamic TypedDict assignment
-        from typing import cast
-
         for key, value in search_metadata.items():
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
@@ -652,8 +650,6 @@ class TeporaApp:
         for key, value in kwargs.items():
             if key in initial_state:
                 cast(dict, initial_state)[key] = value
-
-        from langchain_core.runnables import RunnableConfig
 
         run_config_typed: RunnableConfig = cast(
             RunnableConfig,
@@ -682,9 +678,7 @@ class TeporaApp:
 
             yield event
 
-        # 6) Update history (keep mode + timestamp)
-        from datetime import datetime
-
+        # Update history (keep mode + timestamp)
         now_iso = datetime.now().isoformat()
 
         def _annotate_message(msg, *, msg_mode: str):

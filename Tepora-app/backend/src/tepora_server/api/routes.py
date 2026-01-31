@@ -238,15 +238,12 @@ async def list_custom_agents(enabled_only: bool = False):
     Args:
         enabled_only: If True, only return enabled agents
     """
-    from src.core.config.loader import settings
-
     try:
-        agents = list(settings.custom_agents.values())
-        if enabled_only:
-            agents = [a for a in agents if a.enabled]
+        service = get_config_service()
+        agents = service.list_custom_agents(enabled_only=enabled_only)
 
-        # Convert to dicts for JSON serialization
-        return {"agents": [a.model_dump() for a in agents]}
+        # Convert to dicts for JSON serialization (service already returns dicts)
+        return {"agents": agents}
     except Exception as e:
         logger.error("Failed to list custom agents: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -255,14 +252,13 @@ async def list_custom_agents(enabled_only: bool = False):
 @router.get("/api/custom-agents/{agent_id}", dependencies=[Depends(get_api_key)])
 async def get_custom_agent(agent_id: str):
     """Get a single custom agent by ID."""
-    from src.core.config.loader import settings
-
     try:
-        agent = settings.custom_agents.get(agent_id)
+        service = get_config_service()
+        agent = service.get_custom_agent(agent_id)
         if not agent:
             return JSONResponse(status_code=404, content={"error": "Agent not found"})
 
-        return agent.model_dump()
+        return agent
     except Exception as e:
         logger.error("Failed to get custom agent %s: %s", agent_id, e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -275,54 +271,26 @@ async def create_custom_agent(agent_data: dict[str, Any]):
 
     Required fields: id, name, system_prompt
     """
-    from datetime import datetime
-
-    from src.core.config.schema import CustomAgentConfig
-
     try:
-        # Validate required fields
-        if not agent_data.get("id"):
-            return JSONResponse(status_code=400, content={"error": "Agent ID is required"})
-        if not agent_data.get("name"):
-            return JSONResponse(status_code=400, content={"error": "Agent name is required"})
-        if not agent_data.get("system_prompt"):
-            return JSONResponse(status_code=400, content={"error": "System prompt is required"})
-
-        agent_id = agent_data["id"]
-
-        # Check for duplicate ID
         service = get_config_service()
-        current_config = service.load_config()
-        custom_agents = current_config.get("custom_agents", {})
-
-        if agent_id in custom_agents:
-            return JSONResponse(status_code=409, content={"error": "Agent ID already exists"})
-
-        # Add timestamps
-        now = datetime.now(UTC).isoformat()
-        agent_data["created_at"] = now
-        agent_data["updated_at"] = now
-
-        # Validate with Pydantic
-        try:
-            agent = CustomAgentConfig(**agent_data)
-        except Exception as e:
-            logger.warning("Custom agent validation failed in create: %s", e)
-            return JSONResponse(status_code=400, content={"error": f"Invalid agent data: {e}"})
-
-        # Update config
-        custom_agents[agent_id] = agent.model_dump()
-        success, errors = service.update_config({"custom_agents": custom_agents}, merge=True)
+        success, result = service.create_custom_agent(agent_data)
 
         if not success:
-            return JSONResponse(
-                status_code=400, content={"error": "Failed to save agent", "details": errors}
-            )
+            # Result is error message string
+            # Check for specific error messages to determine status code
+            if "Agent ID already exists" in str(result):
+                return JSONResponse(status_code=409, content={"error": result})
+            elif "required" in str(result):
+                return JSONResponse(status_code=400, content={"error": result})
+            else:
+                return JSONResponse(
+                    status_code=400, content={"error": "Failed to create agent", "details": result}
+                )
 
         _reload_config_manager()
-        logger.info("Created custom agent: %s", agent_id)
+        logger.info("Created custom agent: %s", agent_data.get("id"))
 
-        return {"status": "success", "agent": agent.model_dump()}
+        return {"status": "success", "agent": result}
     except Exception as e:
         logger.error("Failed to create custom agent: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -331,44 +299,21 @@ async def create_custom_agent(agent_data: dict[str, Any]):
 @router.put("/api/custom-agents/{agent_id}", dependencies=[Depends(get_api_key)])
 async def update_custom_agent(agent_id: str, agent_data: dict[str, Any]):
     """Update an existing custom agent."""
-    from datetime import datetime
-
-    from src.core.config.schema import CustomAgentConfig
-
     try:
         service = get_config_service()
-        current_config = service.load_config()
-        custom_agents = current_config.get("custom_agents", {})
-
-        if agent_id not in custom_agents:
-            return JSONResponse(status_code=404, content={"error": "Agent not found"})
-
-        # Merge with existing data
-        existing = custom_agents[agent_id]
-        updated_data = {**existing, **agent_data}
-        updated_data["id"] = agent_id  # Ensure ID cannot be changed
-        updated_data["updated_at"] = datetime.now(UTC).isoformat()
-
-        # Validate with Pydantic
-        try:
-            agent = CustomAgentConfig(**updated_data)
-        except Exception as e:
-            logger.warning("Custom agent validation failed in update: %s", e)
-            return JSONResponse(status_code=400, content={"error": f"Invalid agent data: {e}"})
-
-        # Update config
-        custom_agents[agent_id] = agent.model_dump()
-        success, errors = service.update_config({"custom_agents": custom_agents}, merge=True)
+        success, result = service.update_custom_agent(agent_id, agent_data)
 
         if not success:
+            if "Agent not found" in str(result):
+                return JSONResponse(status_code=404, content={"error": "Agent not found"})
             return JSONResponse(
-                status_code=400, content={"error": "Failed to update agent", "details": errors}
+                status_code=400, content={"error": "Failed to update agent", "details": result}
             )
 
         _reload_config_manager()
         logger.info("Updated custom agent: %s", agent_id)
 
-        return {"status": "success", "agent": agent.model_dump()}
+        return {"status": "success", "agent": result}
     except Exception as e:
         logger.error("Failed to update custom agent %s: %s", agent_id, e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -379,18 +324,13 @@ async def delete_custom_agent(agent_id: str):
     """Delete a custom agent."""
     try:
         service = get_config_service()
-        current_config = service.load_config()
-        custom_agents = current_config.get("custom_agents", {})
-
-        if agent_id not in custom_agents:
-            return JSONResponse(status_code=404, content={"error": "Agent not found"})
-
-        del custom_agents[agent_id]
-        success, errors = service.update_config({"custom_agents": custom_agents}, merge=True)
+        success, result = service.delete_custom_agent(agent_id)
 
         if not success:
+            if "Agent not found" in str(result):
+                return JSONResponse(status_code=404, content={"error": "Agent not found"})
             return JSONResponse(
-                status_code=400, content={"error": "Failed to delete agent", "details": errors}
+                status_code=400, content={"error": "Failed to delete agent", "details": result}
             )
 
         _reload_config_manager()

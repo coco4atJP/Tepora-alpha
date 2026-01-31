@@ -476,18 +476,18 @@ class TeporaSettings(BaseSettings):
         Removes legacy keys to prevent them from persisting.
         """
         if isinstance(v, dict):
-            # 1. Identify potential legacy text model source
+            # Identify potential legacy text model source
             legacy_text_source = None
             if "character_model" in v:
                 legacy_text_source = v["character_model"]
             elif "professional" in v:
                 legacy_text_source = v["professional"]
 
-            # 2. Assign to 'text_model' if not already present
+            # Assign to 'text_model' if not already present
             if legacy_text_source and "text_model" not in v:
                 v["text_model"] = legacy_text_source
 
-            # 3. Clean up legacy keys to avoid confusion or shadowing
+            # Clean up legacy keys to avoid confusion or shadowing
             v.pop("character_model", None)
             v.pop("professional", None)
 
