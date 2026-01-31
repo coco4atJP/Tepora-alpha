@@ -83,16 +83,17 @@ jobs:
     - name: Install pip-audit
       run: uv pip install pip-audit
 
+    - name: Export requirements
+      run: uv export --no-hashes --format requirements-txt --no-emit-project --output-file requirements.txt
+
     - name: Run pip-audit
-      run: uv run pip-audit --strict
+      run: uv run pip-audit -r requirements.txt --strict
       continue-on-error: true  # Report but don't fail
 
     - name: Check for Secrets
       uses: trufflesecurity/trufflehog@main
       with:
         path: ./
-        base: ${{ github.event.repository.default_branch }}
-        head: HEAD
         extra_args: --only-verified
 
   # ============================================
