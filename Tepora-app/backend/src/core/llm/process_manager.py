@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import socket
 import subprocess
@@ -117,10 +118,8 @@ class ProcessManager:
             if alive:
                 logger.warning("%s didn't terminate gracefully, forcing kill...", context_title)
                 for p in alive:
-                    try:
+                    with contextlib.suppress(psutil.NoSuchProcess):
                         p.kill()
-                    except psutil.NoSuchProcess:
-                        pass
                 _, alive = psutil.wait_procs(alive, timeout=5)
                 if alive:
                     logger.error("Failed to kill %s processes: %s", context_title, alive)

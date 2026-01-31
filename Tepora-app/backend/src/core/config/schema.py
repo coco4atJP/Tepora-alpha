@@ -218,7 +218,7 @@ class PrivacyConfig(BaseModel):
     url_denylist: list[str] = [
         "localhost",
         "127.0.0.1",
-        "0.0.0.0",
+        "0.0.0.0",  # noqa: S104
         "192.168.*",
         "10.*",
         "172.16.*",

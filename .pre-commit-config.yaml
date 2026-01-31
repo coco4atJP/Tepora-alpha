@@ -1,0 +1,86 @@
+# Tepora Quality Gates - Pre-commit Configuration
+# https://pre-commit.com/
+#
+# Installation:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Manual run:
+#   pre-commit run --all-files
+
+repos:
+  # General checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: detect-private-key
+
+  # Python - Ruff (lint + format)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^Tepora-app/backend/
+      - id: ruff-format
+        files: ^Tepora-app/backend/
+
+  # Python - Type checking (Mypy)
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        entry: bash -c 'cd Tepora-app/backend && uv run mypy src/'
+        language: system
+        types: [python]
+        files: ^Tepora-app/backend/src/
+        pass_filenames: false
+
+  # JavaScript/TypeScript - Biome
+  - repo: local
+    hooks:
+      - id: biome
+        name: biome (frontend)
+        entry: bash -c 'cd Tepora-app/frontend && npx biome check --write src/'
+        language: system
+        types_or: [javascript, jsx, typescript, tsx, json]
+        files: ^Tepora-app/frontend/src/
+        pass_filenames: false
+
+  # TypeScript type check
+  - repo: local
+    hooks:
+      - id: typescript
+        name: typescript (frontend)
+        entry: bash -c 'cd Tepora-app/frontend && npm run typecheck'
+        language: system
+        types_or: [typescript, tsx]
+        files: ^Tepora-app/frontend/src/
+        pass_filenames: false
+
+  # Secrets detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock\.json|uv\.lock
+
+# CI-specific settings
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+  autofix_prs: true
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [mypy, typescript]  # These require environment setup

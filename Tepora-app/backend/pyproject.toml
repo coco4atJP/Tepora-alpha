@@ -68,6 +68,7 @@ dev = [
     "pytest-cov==7.0.0",
     "ruff==0.14.9",
     "mypy==1.19.1",
+    "pip-audit>=2.8.0",
 ]
 
 [project.urls]
@@ -95,8 +96,26 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP"]
-ignore = ["E501"]  # Line length handled separately
+# E: pycodestyle errors, F: Pyflakes, W: pycodestyle warnings
+# I: isort, N: pep8-naming, UP: pyupgrade
+# B: bugbear (common bugs), S: bandit (security), Q: quotes
+# C4: flake8-comprehensions, SIM: simplify
+select = ["E", "F", "W", "I", "N", "UP", "B", "S", "Q", "C4", "SIM"]
+ignore = [
+    "E501",   # Line length handled separately
+    "S101",   # Allow assert in tests
+    "S603",   # subprocess calls (checked manually)
+    "S607",   # subprocess partial path
+    "B008",   # FastAPI Depends() pattern - standard in FastAPI
+    "B904",   # Exception chaining - reviewed per case
+    "B007",   # Unused loop variable - often intentional
+    "SIM102", # Nested if - sometimes clearer than combined
+    "SIM108", # Ternary operator - sometimes less readable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106"]  # Allow asserts and hardcoded secrets in tests
+"src/tepora_server/api/*.py" = ["B008"]    # FastAPI routes use Depends() pattern
 
 [tool.mypy]
 python_version = "3.11"

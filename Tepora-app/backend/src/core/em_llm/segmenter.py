@@ -253,7 +253,7 @@ class EMEventSegmenter:
         boundaries.append(len(scores))  # Last position is also a boundary
 
         # Remove duplicates and sort
-        boundaries = sorted(list(set(boundaries)))
+        boundaries = sorted(set(boundaries))
         logger.info("Identified %d initial events from surprise", len(boundaries) - 1)
 
         return boundaries

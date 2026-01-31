@@ -9,6 +9,7 @@ Model Manager - GGUFモデルの管理
 """
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -302,10 +303,8 @@ class ModelManager:
 
                 added_at = None
                 if entry.get("added_at"):
-                    try:
+                    with contextlib.suppress(ValueError):
                         added_at = datetime.fromisoformat(entry.get("added_at"))
-                    except ValueError:
-                        pass
 
                 models.append(
                     ModelInfo(
@@ -349,10 +348,8 @@ class ModelManager:
 
                 added_at = None
                 if entry.get("added_at"):
-                    try:
+                    with contextlib.suppress(ValueError):
                         added_at = datetime.fromisoformat(entry.get("added_at"))
-                    except ValueError:
-                        pass
 
                 path = entry.get("file_path")
                 if not path:

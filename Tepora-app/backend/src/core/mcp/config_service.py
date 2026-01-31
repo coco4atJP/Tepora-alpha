@@ -11,6 +11,7 @@ Responsibilities:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -214,10 +215,8 @@ class McpConfigService:
         """Stop the config file watcher."""
         if self._watcher_task:
             self._watcher_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._watcher_task
-            except asyncio.CancelledError:
-                pass
             self._watcher_task = None
             logger.info("Stopped config file watcher")
 

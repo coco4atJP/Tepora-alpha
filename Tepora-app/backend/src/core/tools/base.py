@@ -24,7 +24,7 @@ class ToolProvider(ABC):
         """
         pass
 
-    def cleanup(self):
+    def cleanup(self):  # noqa: B027
         """
         Perform any necessary cleanup when the application shuts down.
         Default implementation does nothing.

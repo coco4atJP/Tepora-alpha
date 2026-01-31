@@ -1406,3 +1406,47 @@ USER_DATA_DIR/
 - **Agent Module**: 専門エージェント（Coding, Research）のSubGraph実装
 - **A2A Protocol**: Agent-to-Agent通信機能
 - **Session-Scoped RAG**: メタデータフィルタリングによるセッション分離
+
+---
+
+## 11. 品質保証と開発プロセス
+
+プロジェクトのコード品質と信頼性を維持するために、厳格な品質ゲートシステムを導入しています。
+
+### 品質ゲートの構成
+
+開発プロセス全体を通して、以下の3つの段階で品質チェックが行われます。
+
+1.  **ローカル開発 (Pre-commit)**
+    - ココミット時にコードフォーマット、Lint、基本的な検証を自動実行
+    - 使用ツール: \Ruff\ (Lint/Format), \Biome\ (Frontend Lint), \detect-secrets\
+
+2.  **検証フェーズ (Task Runner)**
+    - 開発者が任意のタイミングで実行可能な統合チェックコマンド
+    - \	ask quality\: 全体の品質チェック（Backend/Frontend/Security）
+    - \	ask quality:fix\: 自動修正を含むチェック
+
+3.  **CI/CD (GitHub Actions)**
+    - プルリクエストおよびプッシュ時に厳格な検証を実行
+    - マトリックスビルドによる品質保証
+    - セキュリティスキャン (\pip-audit\, \
+pm audit\)
+
+### 採用している静的解析ツール
+
+| 領域 | ツール | 目的 |
+|------|--------|------|
+| **Backend** | Ruff | PythonコードのLintおよびフォーマット (Flake8, Isort, Black互換) |
+| **Backend** | Mypy | 静的型チェック（Strictモード） |
+| **Frontend** | Biome | 高速なLintおよびフォーマット |
+| **Frontend** | TypeScript | 型安全性チェック (\	sc\) |
+| **Security** | pip-audit | Python依存関係の脆弱性スキャン |
+| **Security** | npm audit | Node.js依存関係の脆弱性スキャン |
+| **Security** | detect-secrets | シークレット情報の混入検知 |
+
+### テスト戦略
+
+- **Backend**: \pytest\ によるユニットテストおよび統合テスト
+- **Frontend**: \itest\ によるコンポーネントおよびロジックのテスト
+- **カバレッジ**: コードカバレッジの計測と維持（Codecov連携）
+

@@ -188,10 +188,7 @@ class McpPolicyManager:
 
     def is_command_blocked(self, command: str) -> bool:
         """Check if a command contains blocked patterns."""
-        for blocked in self._config.blocked_commands:
-            if blocked.lower() in command.lower():
-                return True
-        return False
+        return any(blocked.lower() in command.lower() for blocked in self._config.blocked_commands)
 
     def requires_confirmation(self, server_name: str, is_first_use: bool = False) -> bool:
         """Check if tool execution requires user confirmation."""

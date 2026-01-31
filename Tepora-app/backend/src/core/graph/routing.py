@@ -24,8 +24,9 @@ ROUTING_TAG_MAP: dict[str, str] = {
     "high": "high",
     "fast": "fast",
     "direct": "direct",  # Agent mode direct
-    "chat": "chat",      # Chat mode
+    "chat": "chat",  # Chat mode
 }
+
 
 def extract_routing_tag(user_input: str) -> tuple[str, str | None]:
     """

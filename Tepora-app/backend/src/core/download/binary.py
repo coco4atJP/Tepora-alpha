@@ -685,7 +685,7 @@ class BinaryManager:
                         else:
                             # Legacy support or warning
                             # members are validated above
-                            tf.extractall(version_dir, members=safe_members)  # nosec B202
+                            tf.extractall(version_dir, members=safe_members)  # noqa: S202 # nosec B202
                 else:
                     # zip
                     with zipfile.ZipFile(target_path, "r") as zf:

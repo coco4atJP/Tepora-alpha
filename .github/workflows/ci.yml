@@ -6,8 +6,16 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
 
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
 jobs:
-  backend-test:
+  # ============================================
+  # Backend Quality Gate
+  # ============================================
+  backend-quality:
+    name: Backend Quality Gate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,22 +29,77 @@ jobs:
       with:
         enable-cache: true
 
-    - name: Set up Python 3.11
-      run: uv python install 3.11
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
 
     - name: Install Dependencies
       run: uv sync --frozen --extra dev
 
-    - name: Run Ruff (lint)
-      run: uv run ruff check .
+    - name: Ruff Lint
+      run: uv run ruff check src/
 
-    - name: Run Mypy (typecheck)
-      run: uv run mypy src
+    - name: Ruff Format Check
+      run: uv run ruff format --check src/
 
-    - name: Run Backend Tests
-      run: uv run pytest tests/ -v
+    - name: Mypy Type Check
+      run: uv run mypy src/
 
-  frontend-test:
+    - name: Run Tests with Coverage
+      run: |
+        uv run pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term-missing
+
+    - name: Upload Coverage Report
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ./Tepora-app/backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  # ============================================
+  # Backend Security Scan
+  # ============================================
+  backend-security:
+    name: Backend Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app/backend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+
+    - name: Install Dependencies
+      run: uv sync --frozen --extra dev
+
+    - name: Install pip-audit
+      run: uv pip install pip-audit
+
+    - name: Run pip-audit
+      run: uv run pip-audit --strict
+      continue-on-error: true  # Report but don't fail
+
+    - name: Check for Secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --only-verified
+
+  # ============================================
+  # Frontend Quality Gate
+  # ============================================
+  frontend-quality:
+    name: Frontend Quality Gate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,18 +111,105 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: Tepora-app/frontend/package-lock.json
 
     - name: Install Dependencies
-      run: npm ci
+      run: npm ci --legacy-peer-deps
 
-    - name: Run Frontend Lint
-      run: npm run lint
-
-    - name: Run Frontend Typecheck
+    - name: TypeScript Check
       run: npm run typecheck
 
-    - name: Run Frontend Tests
-      run: npm test
+    - name: Biome Lint & Format
+      run: npx biome check src/
+
+    - name: ESLint
+      run: npm run lint
+
+    - name: Run Tests with Coverage
+      run: npm test -- --run --coverage
+
+    - name: Upload Coverage Report
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ./Tepora-app/frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # ============================================
+  # Frontend Security Scan
+  # ============================================
+  frontend-security:
+    name: Frontend Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app/frontend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: Tepora-app/frontend/package-lock.json
+
+    - name: Install Dependencies
+      run: npm ci --legacy-peer-deps
+
+    - name: npm audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true  # Report but don't fail
+
+  # ============================================
+  # Quality Gate Summary
+  # ============================================
+  quality-gate-summary:
+    name: Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [backend-quality, frontend-quality, backend-security, frontend-security]
+    if: always()
+
+    steps:
+    - name: Check Quality Gate Status
+      run: |
+        echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ needs.backend-quality.result }}" == "success" ]; then
+          echo "✅ Backend Quality: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Backend Quality: FAILED" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.frontend-quality.result }}" == "success" ]; then
+          echo "✅ Frontend Quality: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Frontend Quality: FAILED" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.backend-security.result }}" == "success" ]; then
+          echo "✅ Backend Security: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Backend Security: WARNINGS" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.frontend-security.result }}" == "success" ]; then
+          echo "✅ Frontend Security: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Frontend Security: WARNINGS" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Fail if quality checks failed
+        if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ]; then
+          echo "❌ **QUALITY GATE FAILED**" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ **QUALITY GATE PASSED**" >> $GITHUB_STEP_SUMMARY
+        fi

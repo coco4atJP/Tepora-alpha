@@ -1,15 +1,38 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+	"organizeImports": {
+		"enabled": true
+	},
 	"formatter": {
 		"enabled": true,
-		"indentStyle": "tab"
+		"indentStyle": "tab",
+		"lineWidth": 100
 	},
 	"linter": {
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"correctness": {
+				"noUnusedVariables": "error",
+				"noUnusedImports": "error",
+				"useExhaustiveDependencies": "warn"
+			},
 			"suspicious": {
-				"noUnknownAtRules": "off"
+				"noUnknownAtRules": "off",
+				"noExplicitAny": "warn",
+				"noArrayIndexKey": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "warn",
+				"useConst": "error"
+			},
+			"complexity": {
+				"noForEach": "off",
+				"useLiteralKeys": "warn"
+			},
+			"a11y": {
+				"useKeyWithClickEvents": "warn",
+				"useButtonType": "warn"
 			}
 		}
 	},
@@ -17,5 +40,13 @@
 		"parser": {
 			"tailwindDirectives": true
 		}
+	},
+	"files": {
+		"ignore": [
+			"node_modules",
+			"dist",
+			"*.min.js",
+			"coverage"
+		]
 	}
 }

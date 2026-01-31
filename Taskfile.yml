@@ -5,6 +5,9 @@
 #   task dev          - Start both backend and frontend
 #   task test         - Run all tests
 #   task lint         - Run linters
+#   task quality      - Run quality gate (all checks)
+#   task quality:strict - Run strict quality gate
+#   task security     - Run security scans
 #   task build-sidecar - Build PyInstaller sidecar
 
 version: '3'
@@ -181,3 +184,81 @@ tasks:
         platforms: [linux, darwin]
       - cmd: if exist dist rmdir /s /q dist
         platforms: [windows]
+
+  # === Quality Gate ===
+  quality:
+    desc: "Run all quality checks (lint, typecheck, test)"
+    cmds:
+      - python Tepora-app/scripts/quality_gate.py
+
+  quality:strict:
+    desc: "Run strict quality checks (warnings = failures)"
+    cmds:
+      - python Tepora-app/scripts/quality_gate.py --strict
+
+  quality:fix:
+    desc: "Run quality checks with auto-fix"
+    cmds:
+      - python Tepora-app/scripts/quality_gate.py --fix
+
+  quality:backend:
+    desc: "Run backend quality checks only"
+    cmds:
+      - python Tepora-app/scripts/quality_gate.py --backend-only
+
+  quality:frontend:
+    desc: "Run frontend quality checks only"
+    cmds:
+      - python Tepora-app/scripts/quality_gate.py --frontend-only
+
+  # === Security ===
+  security:
+    desc: "Run security scans (pip-audit, npm audit)"
+    cmds:
+      - python Tepora-app/scripts/quality_gate.py --security
+
+  security-backend:
+    desc: "Run backend security scan (pip-audit)"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run pip-audit
+    ignore_error: true
+
+  security-frontend:
+    desc: "Run frontend security scan (npm audit)"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm audit --audit-level=moderate
+    ignore_error: true
+
+  # === Coverage ===
+  coverage:
+    desc: "Run tests with coverage report"
+    cmds:
+      - task: coverage-backend
+      - task: coverage-frontend
+
+  coverage-backend:
+    desc: "Run backend tests with coverage"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run pytest tests/ -v --cov=src --cov-report=html --cov-report=term-missing
+
+  coverage-frontend:
+    desc: "Run frontend tests with coverage"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm test -- --run --coverage
+
+  # === Pre-commit ===
+  pre-commit:
+    desc: "Run pre-commit checks on all files"
+    cmds:
+      - pre-commit run --all-files
+
+  pre-commit:install:
+    desc: "Install pre-commit hooks"
+    cmds:
+      - pip install pre-commit
+      - pre-commit install
+

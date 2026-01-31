@@ -98,7 +98,7 @@ class CustomAgentNode:
             try:
                 if Path(model.path).resolve() == target:
                     return str(model.id)
-            except Exception:
+            except Exception:  # noqa: S112
                 continue
 
         return None
