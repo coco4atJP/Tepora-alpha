@@ -47,8 +47,7 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 				) : (
 					recentActivities.map((step, index) => (
 						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: Log history
-							key={index}
+							key={`${step.step}-${step.agent_name}`}
 							className="relative pl-6 group"
 						>
 							{/* Timeline Line */}

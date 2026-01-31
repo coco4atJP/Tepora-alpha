@@ -60,12 +60,12 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 
 			{/* Scrollable List */}
 			<div className="overflow-y-auto custom-scrollbar flex-1 min-h-0 -mr-2 pr-2 space-y-3">
-				{results.map((result, index) => {
+				{results.map((result) => {
 					const targetUrl = getValidUrl(result);
+					const resultKey = `${targetUrl}-${result.title}-${result.snippet}`;
 					return (
 						<a
-							// biome-ignore lint/suspicious/noArrayIndexKey: Search results need index
-							key={`${targetUrl}-${index}`}
+							key={resultKey}
 							href={targetUrl}
 							target="_blank"
 							rel="noopener noreferrer"

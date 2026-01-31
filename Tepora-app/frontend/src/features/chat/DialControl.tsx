@@ -41,6 +41,10 @@ const DialControl: React.FC<DialControlProps> = ({
 		],
 		[t],
 	);
+	const tickMarks = useMemo(
+		() => Array.from({ length: 12 }, (_, index) => ({ id: `tick-${index}`, index })),
+		[],
+	);
 
 	useEffect(() => {
 		const targetMode = MODES.find((m) => m.mode === currentMode);
@@ -162,16 +166,15 @@ const DialControl: React.FC<DialControlProps> = ({
 					<Settings className="w-6 h-6 text-gold-200/60 group-hover:text-gold-100 group-hover:rotate-90 transition-all duration-700" />
 				</button>
 
-				{[...Array(12)].map((_, i) => (
+				{tickMarks.map((mark) => (
 					<div
-						// biome-ignore lint/suspicious/noArrayIndexKey: Static decorative elements
-						key={i}
-						className={`absolute w-0.5 ${i % 3 === 0 ? "h-1.5 bg-white/20" : "h-1 bg-white/5"}`}
+						key={mark.id}
+						className={`absolute w-0.5 ${mark.index % 3 === 0 ? "h-1.5 bg-white/20" : "h-1 bg-white/5"}`}
 						style={{
 							top: "4px",
 							left: "50%",
 							transformOrigin: "0 52px", // Adjusted for smaller size (28*4 / 2 = 56 - padding) -> approx
-							transform: `translateX(-50%) rotate(${i * 30}deg)`,
+							transform: `translateX(-50%) rotate(${mark.index * 30}deg)`,
 						}}
 					/>
 				))}

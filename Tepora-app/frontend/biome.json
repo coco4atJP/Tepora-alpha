@@ -20,7 +20,7 @@
 			"suspicious": {
 				"noUnknownAtRules": "off",
 				"noExplicitAny": "warn",
-				"noArrayIndexKey": "off"
+				"noArrayIndexKey": "warn"
 			},
 			"style": {
 				"noNonNullAssertion": "warn",
@@ -31,11 +31,8 @@
 				"useLiteralKeys": "warn"
 			},
 			"a11y": {
-				"noStaticElementInteractions": "off",
-				"useKeyWithClickEvents": "off",
-				"useButtonType": "off",
-				"useSemanticElements": "off",
-				"noSvgWithoutTitle": "off"
+				"useKeyWithClickEvents": "warn",
+				"useButtonType": "warn"
 			}
 		}
 	},

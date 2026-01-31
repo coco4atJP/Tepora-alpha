@@ -1,4 +1,5 @@
 import type React from "react";
+import { useMemo } from "react";
 
 interface SkeletonLoaderProps {
 	className?: string;
@@ -11,7 +12,11 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
 	count = 1,
 	variant = "text",
 }) => {
-	const loaders = Array(count).fill(0);
+	const loaderIds = useMemo(
+		() =>
+			Array.from({ length: count }, (_, index) => `skeleton-${variant}-${index}`),
+		[count, variant],
+	);
 
 	const getVariantClasses = () => {
 		switch (variant) {
@@ -28,10 +33,9 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
 
 	return (
 		<div className={`space-y-2 ${className} animate-fade-in`}>
-			{loaders.map((_, index) => (
+			{loaderIds.map((id, index) => (
 				<div
-					// biome-ignore lint/suspicious/noArrayIndexKey: Loader skeleton
-					key={index}
+					key={id}
 					className={`
             relative overflow-hidden bg-white/5 
             ${getVariantClasses()}

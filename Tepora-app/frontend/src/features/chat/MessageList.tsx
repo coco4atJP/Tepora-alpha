@@ -82,7 +82,7 @@ const MessageList: React.FC = () => {
 			>
 				{messages.map((msg, index) => (
 					<div
-						key={msg.id || index}
+						key={msg.id}
 						className={`transition-all duration-500 ease-out ${
 							index === messages.length - 1 ? "animate-slide-up-fade" : ""
 						}`}

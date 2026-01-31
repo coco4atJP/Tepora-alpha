@@ -654,10 +654,9 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 
 						<div className="bg-black/30 rounded-lg p-3 mb-6 max-h-32 overflow-y-auto">
 							<ul className="space-y-2">
-								{consentWarnings.map((warning, idx) => (
+								{consentWarnings.map((warning) => (
 									<li
-										// biome-ignore lint/suspicious/noArrayIndexKey: Static list for display
-										key={idx}
+										key={warning}
 										className="text-amber-200 text-sm flex items-start gap-2"
 									>
 										<span className="text-amber-400 mt-0.5">•</span>

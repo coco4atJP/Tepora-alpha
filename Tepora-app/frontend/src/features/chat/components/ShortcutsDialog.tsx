@@ -55,10 +55,9 @@ export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({
 
 				{/* Content */}
 				<div className="p-6 space-y-4">
-					{shortcuts.map((shortcut, index) => (
+					{shortcuts.map((shortcut) => (
 						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: Static list
-							key={index}
+							key={shortcut.description}
 							className="flex items-center justify-between group"
 						>
 							<div className="flex items-center gap-3 text-gray-300">
@@ -68,10 +67,9 @@ export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({
 								<span className="text-sm">{shortcut.description}</span>
 							</div>
 							<div className="flex items-center gap-1">
-								{shortcut.keys.map((key, keyIndex) => (
+								{shortcut.keys.map((key) => (
 									<kbd
-										// biome-ignore lint/suspicious/noArrayIndexKey: Static list
-										key={keyIndex}
+										key={key}
 										className="px-2 py-1 min-w-[1.5rem] text-center text-xs font-mono font-bold text-gray-400 bg-white/5 border border-white/10 rounded shadow-sm"
 									>
 										{key}
@@ -91,12 +89,11 @@ export const ShortcutsDialog: React.FC<ShortcutsDialogProps> = ({
 			</div>
 
 			{/* Backdrop click handler */}
-			<div
-				className="absolute inset-0 z-[-1]"
+			<button
+				type="button"
+				className="absolute inset-0 z-[-1] cursor-default bg-transparent"
 				onClick={onClose}
-				onKeyUp={(e) => e.key === "Enter" && onClose()}
-				/* tabIndex requires interactivity logic but div backdrop usually just click */
-				aria-hidden="true"
+				aria-label={t("shortcuts.close", "Close shortcuts dialog")}
 			/>
 		</div>
 	);

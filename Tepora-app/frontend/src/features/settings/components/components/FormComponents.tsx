@@ -313,8 +313,7 @@ export const FormList: React.FC<FormListProps> = ({
 		<div className="settings-list">
 			<div className="settings-list__items">
 				{items.map((item, index) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: Simple string list, index needed for uniqueness
-					<div key={`${item}-${index}`} className="settings-list__item">
+					<div key={item} className="settings-list__item">
 						<code className="settings-list__item-text">{item}</code>
 						<button
 							type="button"

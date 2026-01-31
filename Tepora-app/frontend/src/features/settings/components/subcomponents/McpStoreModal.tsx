@@ -433,9 +433,8 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({
 									{t("settings.mcp.store.securityWarnings")}
 								</h5>
 								<ul className="text-sm text-yellow-200 space-y-1">
-									{previewData.warnings.map((warning, i) => (
-										// biome-ignore lint/suspicious/noArrayIndexKey: warning is string
-										<li key={i} className="flex items-start gap-2">
+									{previewData.warnings.map((warning) => (
+										<li key={warning} className="flex items-start gap-2">
 											<span className="text-yellow-400">•</span>
 											{warning}
 										</li>

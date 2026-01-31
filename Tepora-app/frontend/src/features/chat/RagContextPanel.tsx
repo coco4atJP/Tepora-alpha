@@ -115,12 +115,15 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 							</span>
 						</div>
 						<div className="space-y-2">
-							{attachments.map((att, index) => (
-								<div
-									// biome-ignore lint/suspicious/noArrayIndexKey: file order matters
-									key={index}
-									className="group relative flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 hover:border-tea-500/30 transition-all duration-300"
-								>
+							{attachments.map((att, index) => {
+								const attachmentKey = `${
+									att.path ?? att.name
+								}-${att.type}-${att.content.length}`;
+								return (
+									<div
+										key={attachmentKey}
+										className="group relative flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 hover:border-tea-500/30 transition-all duration-300"
+									>
 									{/* Hover Glow */}
 									<div className="absolute inset-0 rounded-xl bg-tea-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
@@ -147,7 +150,8 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 										<X className="w-3.5 h-3.5" aria-hidden="true" />
 									</button>
 								</div>
-							))}
+								);
+							})}
 						</div>
 					</div>
 				)}
@@ -174,12 +178,12 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 							</span>
 						</div>
 						<div className="space-y-3">
-							{searchResults?.map((result, index) => {
+							{searchResults?.map((result) => {
 								const targetUrl = getValidUrl(result);
+								const resultKey = `${targetUrl}-${result.title}-${result.snippet}`;
 								return (
 									<a
-										// biome-ignore lint/suspicious/noArrayIndexKey: Search results need index if url duplicates
-										key={`${targetUrl}-${index}`}
+										key={resultKey}
 										href={targetUrl}
 										target="_blank"
 										rel="noopener noreferrer"
