@@ -180,8 +180,9 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		const isActive = activeProfileId === key;
 
 		return (
-			<button
-				type="button"
+			<div
+				role="button"
+				tabIndex={0}
 				key={key}
 				aria-pressed={isActive}
 				className={`
@@ -244,7 +245,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</button>
+			</div>
 		);
 	};
 
