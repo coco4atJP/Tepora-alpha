@@ -105,6 +105,7 @@ class ReActNodes:
     async def generate_order_node(
         self,
         state: AgentState,
+        run_config: RunnableConfig | None = None,
         *,
         tools: list[BaseTool] | None = None,
     ) -> dict:
@@ -113,6 +114,7 @@ class ReActNodes:
 
         Args:
             state: Current agent state
+            run_config: LangChain runnable config
 
         Returns:
             Dictionary with order JSON
@@ -145,7 +147,8 @@ class ReActNodes:
                 "input": state["input"],
                 "synthesized_memory": state.get("synthesized_memory", "No relevant context."),
                 "tools": config.format_tools_for_react_prompt(tools_for_prompt),
-            }
+            },
+            config=run_config,
         )
 
         try:
@@ -185,6 +188,7 @@ class ReActNodes:
     async def agent_reasoning_node(
         self,
         state: AgentState,
+        run_config: RunnableConfig | None = None,
         *,
         tools: list[BaseTool] | None = None,
         system_prompt: str | None = None,
@@ -207,6 +211,7 @@ class ReActNodes:
 
         Args:
             state: Current agent state
+            run_config: LangChain runnable config
 
         Returns:
             Updated agent_scratchpad and messages, or agent_outcome if finished
@@ -265,7 +270,8 @@ class ReActNodes:
                 "order_plan": order_plan_str,
                 "long_term_memory": long_term_memory_str,
                 "short_term_memory": short_term_memory_str,
-            }
+            },
+            config=run_config,
         )
 
         logger.debug("LLM Raw Output:")

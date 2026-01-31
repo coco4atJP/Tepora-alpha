@@ -145,6 +145,7 @@ class CustomAgentNode:
                 system_prompt=system_prompt,
                 long_term_memory=prof_memory_str,
                 model_id=model_id,
+                run_config=config,
             )
 
             agent_state.update(reasoning_result)
