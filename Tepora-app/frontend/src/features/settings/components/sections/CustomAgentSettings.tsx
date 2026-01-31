@@ -238,6 +238,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 						e.stopPropagation();
 						handleEdit(agent);
 					}}
+					onKeyDown={(e) => e.stopPropagation()}
 					className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
 					title={t("common.edit")}
 				>
@@ -246,6 +247,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 				<button
 					type="button"
 					onClick={(e) => handleDelete(agent.id, e)}
+					onKeyDown={(e) => e.stopPropagation()}
 					className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
 					title={t("common.delete")}
 				>

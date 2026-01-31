@@ -39,6 +39,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 							type="button"
 							className="group relative"
 							onClick={(e) => e.stopPropagation()} // Prevent collapse when clicking tooltip
+							onKeyDown={(e) => e.stopPropagation()} // Prevent triggering parent collapse on Enter/Space
 						>
 							<HelpCircle size={14} className="text-gray-500 hover:text-gray-300" />
 							<div className="absolute top-full left-0 mt-2 w-64 p-2 bg-gray-900 border border-white/10 rounded-md shadow-xl text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">

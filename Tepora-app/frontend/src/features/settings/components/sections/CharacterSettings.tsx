@@ -229,6 +229,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 							e.stopPropagation();
 							handleEditCharacter(key, profiles[key]);
 						}}
+						onKeyDown={(e) => e.stopPropagation()}
 						className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
 						title={t("settings.sections.agents.edit")}
 					>
@@ -238,6 +239,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						<button
 							type="button"
 							onClick={(e) => handleDelete(key, e)}
+							onKeyDown={(e) => e.stopPropagation()}
 							className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
 							title={t("settings.sections.agents.delete")}
 						>
