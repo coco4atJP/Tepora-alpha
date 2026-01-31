@@ -128,12 +128,12 @@ jobs:
     - name: ESLint
       run: npm run lint
 
-    - name: Run Tests with Coverage
-      run: npm test -- --run --coverage
+    - name: Run Tests
+      run: npm test -- --run
 
     - name: Upload Coverage Report
       uses: codecov/codecov-action@v4
-      if: always()
+      if: always() && hashFiles('Tepora-app/frontend/coverage/lcov.info') != ''
       with:
         files: ./Tepora-app/frontend/coverage/lcov.info
         flags: frontend
