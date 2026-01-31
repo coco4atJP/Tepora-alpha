@@ -1,6 +1,8 @@
 
 import pytest
+
 from src.core.config.service import ConfigService
+
 
 @pytest.fixture
 def config_service(tmp_path):

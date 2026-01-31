@@ -1,7 +1,6 @@
 import logging
 import os
 import signal
-from datetime import UTC
 from pathlib import Path
 from typing import Any
 
