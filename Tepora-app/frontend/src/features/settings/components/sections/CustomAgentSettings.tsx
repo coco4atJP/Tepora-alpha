@@ -197,8 +197,9 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	};
 
 	const renderAgentCard = (agent: CustomAgentConfig) => (
-		<button
-			type="button"
+		<div
+			role="button"
+			tabIndex={0}
 			key={agent.id}
 			className={`
 				relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
@@ -209,6 +210,12 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 				}
 			`}
 			onClick={() => handleEdit(agent)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					handleEdit(agent);
+				}
+			}}
 		>
 			<div className="flex justify-between items-start mb-2">
 				<div className="flex items-center gap-2">
@@ -225,33 +232,27 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 			</p>
 
 			<div className="mt-auto flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-				{/* biome-ignore lint/a11y/useSemanticElements: Nested interactive element inside button card */}
-				<span
+				<button
+					type="button"
 					onClick={(e) => {
 						e.stopPropagation();
 						handleEdit(agent);
 					}}
-					onKeyDown={(e) => e.stopPropagation()}
 					className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
 					title={t("common.edit")}
-					role="button"
-					tabIndex={0}
 				>
 					<Edit2 size={14} />
-				</span>
-				{/* biome-ignore lint/a11y/useSemanticElements: Nested interactive element inside button card */}
-				<span
+				</button>
+				<button
+					type="button"
 					onClick={(e) => handleDelete(agent.id, e)}
-					onKeyDown={(e) => e.stopPropagation()}
 					className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
 					title={t("common.delete")}
-					role="button"
-					tabIndex={0}
 				>
 					<Trash2 size={14} />
-				</span>
+				</button>
 			</div>
-		</button>
+		</div>
 	);
 
 	const renderAddCard = () => (
