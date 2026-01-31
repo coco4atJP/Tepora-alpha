@@ -57,7 +57,7 @@ UIの調整だけを高速に行いたい場合、ブラウザモードが便利
 **推奨: Taskfileを使用**
 プロジェクトルートで `task` コマンドを使用します。
 ```powershell
-task dev-sync
+task dev
 ```
 
 **代替: 個別起動 (手動)**
@@ -76,6 +76,12 @@ cd Tepora-app/frontend
 npm run dev
 ```
 ブラウザで `http://localhost:5173` にアクセスします。
+
+### C. Windows 開発者モードの有効化 (Windows)
+
+Windows 環境で未署名のビルド済みアプリ(.msi/.exe)をテストする場合や、一部の権限を使用する場合、Windows 開発者モードの有効化が必要になることがあります。
+
+Windowsの「設定」アプリから「プライバシーとセキュリティ」>「開発者向け」を開き、「開発者モード」を有効にしてください。
 
 ## 🧪 テストの実行 (Testing)
 
@@ -97,7 +103,7 @@ Tauri アプリケーションとしてインストーラーを作成します�
 
 ```powershell
 cd Tepora-app/frontend
-npm run tauri build
+npm run build:app
 ```
 このコマンドは以下の処理を行います：
 1. React アプリのビルド (`frontend/dist` 生成)
