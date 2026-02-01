@@ -20,37 +20,37 @@ classifiers = [
 ]
 dependencies = [
     # LangChain ecosystem
-    "langchain-openai==1.1.4",
-    "langchain-community==0.4.1",
+    "langchain-openai>=1.1.4",
+    "langchain-community>=0.4.1",
     "langchain-core>=1.2.5",
-    "langgraph==1.0.5",
-    "langchain-text-splitters==1.1.0",
-    "langchain-mcp-adapters==0.2.1",
+    "langgraph>=1.0.5",
+    "langchain-text-splitters>=1.1.0",
+    "langchain-mcp-adapters>=0.2.1",
     "mcp>=1.23.0",
     # Web framework and utilities
-    "fastapi==0.124.4",
-    "pydantic==2.12.5",
-    "uvicorn[standard]==0.38.0",
-    "websockets==15.0.1",
+    "fastapi>=0.124.4",
+    "pydantic>=2.12.5",
+    "uvicorn[standard]>=0.38.0",
+    "websockets>=15.0.1",
     # Vector database
-    "chromadb==1.3.7",
+    "chromadb>=1.3.7",
     # CLI and system utilities
-    "psutil==7.1.3",
+    "psutil>=7.1.3",
     # HTTP and configuration
-    "requests==2.32.5",
+    "requests>=2.32.5",
     "urllib3>=2.6.3",
-    "httpx==0.28.1",
-    "python-dotenv==1.2.1",
-    "PyYAML==6.0.3",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.2.1",
+    "PyYAML>=6.0.3",
     # Web scraping and HTML parsing
-    "beautifulsoup4==4.14.3",
+    "beautifulsoup4>=4.14.3",
     # Configuration
     "pydantic-settings>=2.10.1",
     # NLP and scientific computing
-    "nltk==3.9.2",
-    "numpy==2.3.5",
-    "scikit-learn==1.6.0",
-    "networkx==3.6.1",
+    "nltk>=3.9.2",
+    "numpy>=2.3.5",
+    "scikit-learn>=1.6.0",
+    "networkx>=3.6.1",
     # HuggingFace Hub (for model downloads)
     "huggingface-hub>=0.25.0",
     "duckduckgo-search>=8.1.1",
@@ -63,11 +63,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest==9.0.2",
-    "pytest-asyncio==1.3.0",
-    "pytest-cov==7.0.0",
-    "ruff==0.14.9",
-    "mypy==1.19.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.9",
+    "mypy>=1.19.1",
     "pip-audit>=2.8.0",
 ]
 
