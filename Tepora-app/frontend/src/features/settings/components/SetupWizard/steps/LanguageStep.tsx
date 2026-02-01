@@ -19,16 +19,16 @@ export default function LanguageStep({ onSelectLanguage }: LanguageStepProps) {
 					<Globe className="w-8 h-8 text-gold-400" />
 				</div>
 				<h2 className="text-2xl font-medium text-white">{t("setup.steps.select_language")}</h2>
-				<p className="text-gray-400">Choose your preferred language to customize Tepora.</p>
+				<p className="text-gray-400">{t("setup.steps.language_desc")}</p>
 			</div>
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
+			<div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
 				{languages.map((lang) => (
 					<button
 						key={lang.code}
 						type="button"
 						onClick={() => onSelectLanguage(lang.code)}
-						className="setup-card group relative p-6 flex items-center gap-4 text-left hover:border-gold-400/50"
+						className="setup-card group relative p-6 flex items-center gap-4 text-left hover:border-gold-400/50 h-[100px]"
 					>
 						<span className="text-4xl filter drop-shadow-lg group-hover:scale-110 transition-transform duration-300">
 							{lang.flag}

@@ -25,7 +25,8 @@
 			"language": "Language Selection",
 			"select_language": "Select Language",
 			"binary": "Inference Engine (llama.cpp)",
-			"models": "Models"
+			"models": "Models",
+			"language_desc": "Choose your preferred language to customize Tepora."
 		},
 		"status": {
 			"satisfied": "Installed",
@@ -194,7 +195,9 @@
 		},
 		"messages_aria_label": "Chat messages",
 		"jump_to_latest": "Jump to latest message",
-		"jump_to_latest_short": "Latest"
+		"jump_to_latest_short": "Latest",
+		"newMessageFrom": "New message from {{role}}",
+		"scrollToBottom": "Scroll to bottom"
 	},
 	"agent": {
 		"title": "Agent Activity",
@@ -242,6 +245,7 @@
 		"loading": "Loading",
 		"events": "events",
 		"messages": "Messages",
+		"events_suffix": "events",
 		"char": "Char",
 		"prof": "Prof"
 	},
@@ -250,6 +254,18 @@
 		"subtitle": "Manage your AI configuration",
 		"appearance": {
 			"title": "Appearance"
+		},
+		"placeholders": {
+			"mcp_config": "config/mcp_tools_config.json",
+			"google_api_key": "AIza...",
+			"google_engine_id": "0123456789...",
+			"regex": "RegEx pattern (e.g. system\\s*:)"
+		},
+		"search": {
+			"providers": {
+				"google": "Google Custom Search",
+				"duckduckgo": "DuckDuckGo"
+			}
 		},
 		"confirm_discard": "You have unsaved changes. Discard them?",
 		"toast": {

@@ -27,23 +27,17 @@
 	--glass-border-color: rgba(255, 255, 255, 0.08);
 	--glass-highlight: rgba(219, 89, 37, 0.1);
 
-	--glass-gradient-base: linear-gradient(
-		135deg,
-		rgba(20, 22, 28, 0.6) 0%,
-		rgba(10, 5, 3, 0.8) 100%
-	);
+	--glass-gradient-base: linear-gradient(135deg,
+			rgba(20, 22, 28, 0.6) 0%,
+			rgba(10, 5, 3, 0.8) 100%);
 	--glass-gradient-tepora:
-		radial-gradient(
-			circle at 50% 0%,
+		radial-gradient(circle at 50% 0%,
 			rgba(219, 89, 37, 0.1) 0%,
-			transparent 60%
-		),
-		linear-gradient(
-			135deg,
+			transparent 60%),
+		linear-gradient(135deg,
 			rgba(63, 21, 11, 0.9),
 			rgba(145, 52, 29, 0.7),
-			rgba(212, 200, 32, 0.2)
-		);
+			rgba(212, 200, 32, 0.2));
 
 	--glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 	--glass-shadow-tepora:
@@ -85,17 +79,13 @@
 	/* Cleaner white border */
 	--glass-highlight: rgba(219, 89, 37, 0.06);
 
-	--glass-gradient-base: linear-gradient(
-		135deg,
-		rgba(255, 255, 255, 0.8) 0%,
-		rgba(248, 246, 242, 0.9) 100%
-	);
-	--glass-gradient-tepora: linear-gradient(
-		135deg,
-		rgba(255, 252, 248, 0.95),
-		rgba(255, 245, 240, 0.8),
-		rgba(250, 245, 200, 0.3)
-	);
+	--glass-gradient-base: linear-gradient(135deg,
+			rgba(255, 255, 255, 0.8) 0%,
+			rgba(248, 246, 242, 0.9) 100%);
+	--glass-gradient-tepora: linear-gradient(135deg,
+			rgba(255, 252, 248, 0.95),
+			rgba(255, 245, 240, 0.8),
+			rgba(250, 245, 200, 0.3));
 	/* Softer, tea-tinted light */
 
 	--glass-shadow: 0 4px 20px 0 rgba(40, 30, 20, 0.05);
@@ -132,17 +122,13 @@
 	--glass-border-color: rgba(255, 255, 255, 0.06);
 	--glass-highlight: rgba(255, 255, 255, 0.03);
 
-	--glass-gradient-base: linear-gradient(
-		135deg,
-		rgba(30, 41, 59, 0.8),
-		rgba(15, 23, 42, 0.9)
-	);
-	--glass-gradient-tepora: linear-gradient(
-		135deg,
-		rgba(30, 41, 59, 0.9),
-		rgba(51, 65, 85, 0.7),
-		rgba(71, 85, 105, 0.4)
-	);
+	--glass-gradient-base: linear-gradient(135deg,
+			rgba(30, 41, 59, 0.8),
+			rgba(15, 23, 42, 0.9));
+	--glass-gradient-tepora: linear-gradient(135deg,
+			rgba(30, 41, 59, 0.9),
+			rgba(51, 65, 85, 0.7),
+			rgba(71, 85, 105, 0.4));
 
 	--glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 	--glass-shadow-tepora: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
@@ -263,6 +249,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
 	.animate-fade-in,
 	.animate-modal-enter,
 	.animate-message-in {
@@ -412,17 +399,16 @@
 }
 
 .animate-shimmer {
-	background: linear-gradient(
-		90deg,
-		transparent,
-		var(--border-highlight),
-		transparent
-	);
+	background: linear-gradient(90deg,
+			transparent,
+			var(--border-highlight),
+			transparent);
 	background-size: 200% 100%;
 	animation: shimmer 2s infinite linear;
 }
 
 @keyframes float-gentle {
+
 	0%,
 	100% {
 		transform: translateY(0);
@@ -435,4 +421,8 @@
 
 .animate-float-gentle {
 	animation: float-gentle 4s ease-in-out infinite;
+}
+
+.scrollbar-stable {
+	scrollbar-gutter: stable;
 }

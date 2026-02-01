@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "npm run build:sidecar && tsc && vite build",
-		"build:sidecar": "python ../scripts/build_sidecar.py",
+		"build:sidecar": "uv run --directory ../backend ../scripts/build_sidecar.py",
 		"build:app": "npm run build:sidecar && tauri build",
 		"preview": "vite preview",
 		"lint": "eslint . --max-warnings 0",

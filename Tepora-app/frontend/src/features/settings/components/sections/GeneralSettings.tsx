@@ -54,7 +54,7 @@ const GeneralSettings: React.FC = () => {
 			icon={<Settings size={18} />}
 			description={t("settings.sections.general.description")}
 		>
-			<div className="space-y-6">
+			<div className="space-y-6 w-full">
 				{/* App Updater */}
 				<div className="delay-0 settings-form-group">
 					<Updater />
@@ -83,8 +83,8 @@ const GeneralSettings: React.FC = () => {
 							value={toolsConfig.search_provider || "google"}
 							onChange={(value) => updateTools("search_provider", value as "google" | "duckduckgo")}
 							options={[
-								{ value: "google", label: "Google Custom Search" },
-								{ value: "duckduckgo", label: "DuckDuckGo" },
+								{ value: "google", label: t("settings.search.providers.google") },
+								{ value: "duckduckgo", label: t("settings.search.providers.duckduckgo") },
 							]}
 						/>
 					</FormGroup>
@@ -101,7 +101,7 @@ const GeneralSettings: React.FC = () => {
 									type="password"
 									value={toolsConfig.google_search_api_key || ""}
 									onChange={(value) => updateTools("google_search_api_key", value as string)}
-									placeholder="AIza..."
+									placeholder={t("settings.placeholders.google_api_key")}
 								/>
 							</FormGroup>
 
@@ -115,7 +115,7 @@ const GeneralSettings: React.FC = () => {
 									type="text"
 									value={toolsConfig.google_search_engine_id || ""}
 									onChange={(value) => updateTools("google_search_engine_id", value as string)}
-									placeholder="0123456789..."
+									placeholder={t("settings.placeholders.google_engine_id")}
 								/>
 							</FormGroup>
 						</>
@@ -417,7 +417,7 @@ const InferenceEngineUpdate: React.FC = () => {
 								{checking
 									? t("settings.sections.general.inference_engine.checking") || "Checking..."
 									: t("settings.sections.general.inference_engine.check_updates") ||
-										"Check for Updates"}
+									"Check for Updates"}
 							</button>
 						)}
 					</div>

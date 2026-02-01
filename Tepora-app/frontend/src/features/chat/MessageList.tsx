@@ -61,7 +61,7 @@ const MessageList: React.FC = () => {
 
 		// Only announce the first 100 chars to avoid noise
 		const contentPreview = lastMessage.content.slice(0, 100);
-		return `${t("chat.newMessageFrom", "New message from")} ${roleLabel}: ${contentPreview}`;
+		return `${t("chat.newMessageFrom", { role: roleLabel })}: ${contentPreview}`;
 	}, [messages, t]);
 
 	const scrollToBottom = () => {
@@ -78,14 +78,13 @@ const MessageList: React.FC = () => {
 			<div
 				ref={scrollContainerRef}
 				onScroll={checkIfAtBottom}
-				className="h-full w-full overflow-y-auto overflow-x-hidden px-2 md:px-4 py-4 space-y-4 md:space-y-6 custom-scrollbar scroll-smooth"
+				className="h-full w-full overflow-y-auto overflow-x-hidden px-2 md:px-4 py-4 space-y-4 md:space-y-6 custom-scrollbar scrollbar-stable scroll-smooth"
 			>
 				{messages.map((msg, index) => (
 					<div
 						key={msg.id || index}
-						className={`transition-all duration-500 ease-out ${
-							index === messages.length - 1 ? "animate-slide-up-fade" : ""
-						}`}
+						className={`transition-all duration-500 ease-out ${index === messages.length - 1 ? "animate-slide-up-fade" : ""
+							}`}
 					>
 						<MessageBubble message={msg} />
 					</div>
@@ -117,8 +116,8 @@ const MessageList: React.FC = () => {
 						type="button"
 						onClick={scrollToBottom}
 						className="bg-gold-500 hover:bg-gold-400 text-black rounded-full p-2 shadow-lg transition-transform hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black"
-						title={t("chat.scrollToBottom", "Scroll to bottom")}
-						aria-label={t("chat.scrollToBottom", "Scroll to bottom")}
+						title={t("chat.scrollToBottom")}
+						aria-label={t("chat.scrollToBottom")}
 					>
 						<ChevronDown className="w-5 h-5" />
 					</button>

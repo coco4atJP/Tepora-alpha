@@ -109,7 +109,7 @@ const McpSettings: React.FC = () => {
 					<FormInput
 						value={config?.app.mcp_config_path || ""}
 						onChange={(v) => updateApp("mcp_config_path", v as string)}
-						placeholder="config/mcp_tools_config.json"
+						placeholder={t("settings.placeholders.mcp_config")}
 					/>
 				</FormGroup>
 			</div>
@@ -214,11 +214,10 @@ const McpSettings: React.FC = () => {
 									<button
 										type="button"
 										onClick={() => toggleServer(name, !serverConfig.enabled)}
-										className={`p-2 rounded-lg transition-colors ${
-											serverConfig.enabled
+										className={`p-2 rounded-lg transition-colors ${serverConfig.enabled
 												? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 												: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-										}`}
+											}`}
 										aria-label={
 											serverConfig.enabled ? t("settings.mcp.disable") : t("settings.mcp.enable")
 										}

@@ -188,34 +188,41 @@ tasks:
   # === Quality Gate ===
   quality:
     desc: "Run all quality checks (lint, typecheck, test)"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python Tepora-app/scripts/quality_gate.py
+      - uv run ../scripts/quality_gate.py
+
 
   quality:strict:
     desc: "Run strict quality checks (warnings = failures)"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python Tepora-app/scripts/quality_gate.py --strict
+      - uv run ../scripts/quality_gate.py --strict
 
   quality:fix:
     desc: "Run quality checks with auto-fix"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python Tepora-app/scripts/quality_gate.py --fix
+      - uv run ../scripts/quality_gate.py --fix
 
   quality:backend:
     desc: "Run backend quality checks only"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python Tepora-app/scripts/quality_gate.py --backend-only
+      - uv run ../scripts/quality_gate.py --backend-only
 
   quality:frontend:
     desc: "Run frontend quality checks only"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python Tepora-app/scripts/quality_gate.py --frontend-only
+      - uv run ../scripts/quality_gate.py --frontend-only
 
   # === Security ===
   security:
     desc: "Run security scans (pip-audit, npm audit)"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python Tepora-app/scripts/quality_gate.py --security
+      - uv run ../scripts/quality_gate.py --security
 
   security-backend:
     desc: "Run backend security scan (pip-audit)"

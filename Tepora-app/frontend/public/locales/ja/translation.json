@@ -25,7 +25,8 @@
 			"language": "言語選択",
 			"select_language": "言語を選択",
 			"binary": "推論エンジン (llama.cpp)",
-			"models": "モデル"
+			"models": "モデル",
+			"language_desc": "Tepora をカスタマイズするため、言語を選択してください。"
 		},
 		"status": {
 			"satisfied": "インストール済み",
@@ -194,7 +195,9 @@
 		},
 		"messages_aria_label": "チャットメッセージ",
 		"jump_to_latest": "最新のメッセージへ移動",
-		"jump_to_latest_short": "最新"
+		"jump_to_latest_short": "最新",
+		"newMessageFrom": "{{role}} からの新しいメッセージ",
+		"scrollToBottom": "最下部へスクロール"
 	},
 	"agent": {
 		"title": "エージェント状況",
@@ -242,6 +245,7 @@
 		"loading": "読み込み中",
 		"events": "イベント",
 		"messages": "メッセージ",
+		"events_suffix": "イベント",
 		"char": "Char",
 		"prof": "Prof"
 	},
@@ -250,6 +254,18 @@
 		"subtitle": "AIの設定を管理します",
 		"appearance": {
 			"title": "外観"
+		},
+		"placeholders": {
+			"mcp_config": "config/mcp_tools_config.json",
+			"google_api_key": "AIza...",
+			"google_engine_id": "0123456789...",
+			"regex": "正規表現 (例: system\\s*:)"
+		},
+		"search": {
+			"providers": {
+				"google": "Google カスタム検索",
+				"duckduckgo": "DuckDuckGo"
+			}
 		},
 		"confirm_discard": "未保存の変更があります。破棄しますか？",
 		"toast": {

@@ -120,14 +120,15 @@
 	padding: 2rem;
 	position: relative;
 	min-height: 0;
+	scrollbar-gutter: stable;
 }
 
 /* Sidebar
    ------------------------------------------------------------------------- */
 .settings-sidebar {
-	width: 220px;
-	min-width: 220px;
-	max-width: 220px;
+	width: 260px;
+	min-width: 260px;
+	max-width: 260px;
 	flex-shrink: 0;
 	background: rgba(0, 0, 0, 0.2);
 	border-right: 1px solid var(--s-border);

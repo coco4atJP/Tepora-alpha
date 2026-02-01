@@ -45,7 +45,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 				<div className="text-gray-500 text-xs">
 					{(memoryStats.char_memory?.total_events || 0) +
 						(memoryStats.prof_memory?.total_events || 0)}{" "}
-					events
+					{t("status.events_suffix")}
 				</div>
 			)}
 		</div>
