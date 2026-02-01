@@ -297,7 +297,6 @@ backend/
         │   ├── ollama_runner.py # OllamaRunner（Ollama API用）
         │   ├── process_manager.py  # llama-serverプロセス管理
         │   ├── client_factory.py   # LangChainクライアント生成
-        │   ├── model_registry.py   # モデルパス解決
         │   ├── executable.py   # 実行形式管理
         │   ├── health.py       # ヘルスチェック
         │   └── process.py      # プロセス定義
@@ -350,9 +349,13 @@ backend/
         ├── mcp/                # -------- MCP Module --------
         │   ├── __init__.py
         │   ├── hub.py          # McpHub（API/管理用）
+        │   ├── connection_manager.py # ConnectionManager
+        │   ├── config_service.py # McpConfigService
+        │   ├── mcp_policy.py   # McpPolicy
         │   ├── installer.py    # MCPインストーラー
         │   ├── registry.py     # MCPレジストリ
         │   ├── models.py       # MCPデータモデル
+        │   ├── paths.py        # パス定義
         │   └── seed.json       # デフォルトMCPサーバー定義
         │
         ├── download/           # -------- Download Module --------
