@@ -249,7 +249,8 @@
 		"title": "Configuración",
 		"subtitle": "Administrar configuración de IA",
 		"appearance": {
-			"title": "Apariencia"
+			"title": "Tema",
+			"description": "Elige tu tema preferido."
 		},
 		"confirm_discard": "Tiene cambios sin guardar. ¿Desea descartarlos?",
 		"toast": {
@@ -294,7 +295,8 @@
 				"title": "Aplicación",
 				"description": "Configuración principal de la aplicación y límites de seguridad.",
 				"search_tool": {
-					"title": "Configuración de herramienta de búsqueda",
+					"title": "Motor de búsqueda",
+					"description": "Configura el motor de búsqueda y las credenciales.",
 					"provider_label": "Proveedor de búsqueda",
 					"provider_desc": "Seleccione el motor de búsqueda para usar con las capacidades de búsqueda nativas."
 				},
@@ -306,8 +308,8 @@
 					"engine_id_desc": "Ingrese el ID del motor de búsqueda programable."
 				},
 				"app_settings": "Configuración de la aplicación",
-				"advanced_settings": "Configuración avanzada",
-				"advanced_settings_desc": "Límites de recursión y restricciones de búsqueda",
+				"advanced_settings": "Configuración del agente",
+				"advanced_settings_desc": "Ajusta límites de intentos y seguridad.",
 				"timeout_settings": "Configuración de tiempo de espera",
 				"inference_engine": {
 					"title": "Motor de inferencia (llama.cpp)",
@@ -345,7 +347,14 @@
 			"mcp": {
 				"label": "Herramientas MCP",
 				"title": "Herramientas MCP",
-				"description": "Administrar servidores del Protocolo de Contexto de Modelo."
+				"description": "Administrar servidores del Protocolo de Contexto de Modelo.",
+				"config_title": "Ruta de configuración",
+				"config_description": "Configura la ruta del archivo de configuración MCP.",
+				"store_title": "Tienda MCP",
+				"store_description": "Explora e instala servidores MCP.",
+				"store_hint": "Busca en el registro e instala servidores.",
+				"registered_title": "Servidores registrados",
+				"registered_description": "Inicia/detén servidores y revisa su configuración."
 			},
 			"models": {
 				"label": "Modelos",
@@ -353,8 +362,13 @@
 				"description": "Configurar rutas y parámetros de LLM.",
 				"manager_title": "Configuración del administrador de LLM",
 				"manager_description": "Configurar cómo el sistema gestiona los procesos y recursos de LLM.",
-				"list_title": "Configuraciones de modelos",
-				"list_description": "Configurar parámetros individuales del modelo como tamaño de contexto y capas de GPU.",
+				"add_title": "Agregar modelo",
+				"add_description": "Agrega y registra modelos locales.",
+				"list_title": "Lista de modelos (gestión)",
+				"list_description": "Gestiona, elimina y reordena modelos registrados.",
+				"defaults_title": "Modelos predeterminados",
+				"defaults_description": "Asignar modelos por defecto por rol.",
+				"cache_title": "Tamaño de caché de modelos",
 				"advanced_title": "Configuración avanzada del administrador",
 				"advanced_description": "Configuración de caché y recursos",
 				"add_new_model": "Agregar nuevo modelo",
@@ -365,16 +379,16 @@
 				"text_model_title": "Modelo de texto",
 				"text_model_desc": "Seleccione el modelo utilizado para la generación de texto.",
 				"text_model_label": "Modelo de texto",
-				"character_model_title": "Modelo de personaje",
-				"character_model_desc": "Seleccione el modelo utilizado para conversación y respuestas basadas en persona.",
+				"character_model_title": "Modelo predeterminado de personaje",
+				"character_model_desc": "Selecciona el modelo predeterminado para personajes.",
 				"character_model_label": "Modelo de personaje",
 				"embedding_model_title": "Modelo de incrustación",
 				"embedding_model_desc": "Seleccione el modelo utilizado para memoria y recuperación.",
-				"executor_label": "Executor: {{taskType}}",
-				"executor_default_desc": "Modelo de ejecución predeterminado.",
-				"executor_task_desc": "Modelo especializado para tareas de {{taskType}}.",
-				"executor_models_title": "Modelos de ejecutor",
-				"executor_models_desc": "Configure modelos para diferentes tipos de tareas. Cada tarea puede usar un modelo especializado.",
+				"executor_label": "Profesional: {{taskType}}",
+				"executor_default_desc": "Modelo profesional predeterminado.",
+				"executor_task_desc": "Modelo profesional para tareas de {{taskType}}.",
+				"executor_models_title": "Modelos predeterminados profesionales",
+				"executor_models_desc": "Asigna modelos predeterminados por tipo de tarea.",
 				"add_task_placeholder": "Agregar tipo de tarea (p. ej., coding, browser)...",
 				"defaults": {
 					"global": "Predeterminado global"
@@ -431,16 +445,16 @@
 				}
 			},
 			"agents": {
-				"label": "Agentes",
-				"title": "Agentes",
-				"description": "Definir personas y políticas de herramientas.",
+				"label": "Personajes",
+				"title": "Lista de personajes",
+				"description": "Gestiona prompts de personajes y modelos por defecto.",
 				"add_new_profile": "Agregar nuevo perfil",
 				"new_profile_key_placeholder": "ID del perfil (alfanumérico y guiones bajos)",
 				"add": "Agregar",
 				"cancel": "Cancelar",
 				"cannot_delete_active": "No se puede eliminar el perfil activo",
 				"confirm_delete": "¿Eliminar este perfil?",
-				"default_name": "Nuevo agente",
+				"default_name": "Nuevo personaje",
 				"default_prompt": "Eres un asistente de IA útil.",
 				"delete": "Eliminar",
 				"delete_confirm_title": "Eliminar perfil",
@@ -459,8 +473,8 @@
 					"model_desc": "Seleccione la configuración de modelo para este agente."
 				},
 				"no_description": "Sin descripción",
-				"nsfw_label": "Desbloquear contenido restringido",
-				"nsfw_desc": "Permite generar contenido sensible. Úselo con precaución.",
+				"nsfw_label": "Permitir contenido restringido (nsf)",
+				"nsfw_desc": "Permite generar contenido restringido. Úselo con precaución.",
 				"tab": {
 					"characters": "Personajes",
 					"professionals": "Profesionales"
@@ -491,23 +505,23 @@
 				}
 			},
 			"custom_agents": {
-				"label": "Agentes",
-				"title": "Agentes",
-				"description": "Cree agentes con herramientas y prompts específicos.",
-				"add_new": "Agregar nuevo agente",
+				"label": "Profesional",
+				"title": "Lista de profesionales",
+				"description": "Gestiona prompts profesionales, herramientas permitidas y modelos por defecto.",
+				"add_new": "Agregar profesional",
 				"no_description": "Sin descripción",
-				"default_name": "Nuevo agente",
+				"default_name": "Nuevo profesional",
 				"default_prompt": "Eres un asistente útil.",
-				"confirm_delete": "¿Está seguro de que desea eliminar este agente?",
-				"delete_confirm_title": "Eliminar agente",
+				"confirm_delete": "¿Está seguro de que desea eliminar este profesional?",
+				"delete_confirm_title": "Eliminar profesional",
 				"error_empty_id": "Por favor ingrese un ID.",
 				"error_empty_name": "Por favor ingrese un nombre.",
 				"error_empty_prompt": "Por favor ingrese un prompt del sistema.",
 				"error_duplicate_id": "Este ID ya está en uso.",
 				"modal": {
-					"title_add": "Agregar agente",
-					"title_edit": "Editar agente",
-					"id_label": "ID del agente",
+					"title_add": "Agregar profesional",
+					"title_edit": "Editar profesional",
+					"id_label": "ID profesional",
 					"id_desc": "Identificador único (minúsculas, sin espacios)",
 					"icon_label": "Icono",
 					"name_label": "Nombre",
@@ -516,8 +530,20 @@
 					"prompt_desc": "Defina el comportamiento y la personalidad del agente.",
 					"model_label": "Modelo",
 					"enabled_label": "Habilitado",
-					"tools_label": "Permisos de herramientas",
+					"tools_label": "Herramientas permitidas",
 					"no_tools": "No hay herramientas disponibles"
+				}
+			},
+			"other": {
+				"label": "Otros",
+				"updates": {
+					"title": "Actualizaciones",
+					"description": "Gestiona actualizaciones de la aplicación y el motor de inferencia."
+				},
+				"timeouts": {
+					"description": "Configura límites de ejecución y tiempo de espera.",
+					"model_manager": "Gestor de modelos",
+					"tools": "Herramientas"
 				}
 			},
 			"memory": {
@@ -526,8 +552,11 @@
 				"description": "Configurar memoria episódica y límites de historial."
 			},
 			"chat_history": {
-				"title": "Historial de chat"
+				"title": "Ventana de contexto local"
 			}
+		},
+		"groups": {
+			"custom": "Personalizado"
 		},
 		"fields": {
 			"language": {
@@ -539,8 +568,8 @@
 				"description": "Máximo de caracteres permitidos en la entrada del usuario."
 			},
 			"graph_recursion_limit": {
-				"label": "Límite de recursión del grafo",
-				"description": "Profundidad máxima para el recorrido del grafo de agentes (freno de seguridad)."
+				"label": "Máximo de intentos",
+				"description": "Número máximo de intentos del agente (freno de seguridad)."
 			},
 			"tool_execution_timeout": {
 				"label": "Tiempo de espera de ejecución de herramientas",
@@ -566,14 +595,14 @@
 		},
 		"privacy": {
 			"web_search": {
-				"label": "Habilitar búsqueda web",
+				"label": "Permitir acceso a internet",
 				"description": "Permitir que la IA use búsqueda en internet para recuperar información.",
 				"warning_title": "Aviso de intercambio de datos",
 				"warning_query": "Las consultas de búsqueda se enviarán a la API de Google",
 				"warning_api": "Se utilizará su clave API configurada para las solicitudes de búsqueda"
 			},
 			"redact_pii": {
-				"label": "Proteger información personal",
+				"label": "Protección de datos personales",
 				"description": "Elimina automáticamente información personal (direcciones de correo electrónico, números de teléfono, etc.) de los registros y de las consultas de búsqueda web antes de enviarlas a servicios externos."
 			}
 		},
@@ -594,6 +623,30 @@
 		},
 		"mcp": {
 			"refresh": "Actualizar Estado",
+			"details": {
+				"open": "Abrir detalles",
+				"title": "Detalles del servidor: {{name}}",
+				"autorun": {
+					"label": "Ejecución automática",
+					"description": "Habilita este servidor al iniciar la aplicación."
+				},
+				"command": {
+					"label": "Comando",
+					"description": "Ejecutable usado para iniciar el servidor MCP."
+				},
+				"args": {
+					"label": "Argumentos",
+					"description": "Un argumento por línea."
+				},
+				"env": {
+					"label": "Variables de entorno",
+					"description": "Formato KEY=VALUE, una por línea."
+				},
+				"env_invalid": "Usa el formato KEY=VALUE.",
+				"command_required": "El comando es obligatorio.",
+				"save_failed": "No se pudo guardar la configuración.",
+				"saving": "Guardando..."
+			},
 			"policy": {
 				"title": "Política de Seguridad",
 				"mode": {
@@ -653,8 +706,8 @@
 		},
 		"memory": {
 			"max_tokens": {
-				"label": "Max Tokens",
-				"description": "Límite para la ventana de contexto de conversación activa."
+				"label": "Ventana de contexto local",
+				"description": "Máximo de tokens del contexto activo."
 			},
 			"surprise_gamma": {
 				"label": "Surprise Gamma",
@@ -681,8 +734,13 @@
 				"description": "Mejorar la precisión de la segmentación de eventos."
 			},
 			"default_limit": {
-				"label": "Límite de historial predeterminado",
+				"label": "Cantidad de mensajes",
 				"description": "Número predeterminado de mensajes para recuperar del historial."
+			},
+			"explorer": {
+				"title": "Eventos guardados",
+				"description": "Ver y gestionar eventos guardados.",
+				"button": "Abrir lista"
 			},
 			"episodic_params_title": "Parámetros de Memoria Episódica",
 			"episodic_params_desc": "Configuración avanzada para EM-LLM"

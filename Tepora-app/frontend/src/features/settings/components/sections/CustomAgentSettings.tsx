@@ -51,9 +51,9 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	// Model options from config
 	const modelOptions = settingsConfig?.models_gguf
 		? Object.keys(settingsConfig.models_gguf).map((key) => ({
-				value: key,
-				label: key,
-			}))
+			value: key,
+			label: key,
+		}))
 		: [];
 
 	// Fetch available tools
@@ -197,25 +197,17 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	};
 
 	const renderAgentCard = (agent: CustomAgentConfig) => (
-		<div
-			role="button"
-			tabIndex={0}
+		<button
+			type="button"
 			key={agent.id}
 			className={`
 				relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
-				${
-					agent.enabled
-						? "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
-						: "bg-white/3 border-white/5 opacity-60"
+				${agent.enabled
+					? "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
+					: "bg-white/3 border-white/5 opacity-60"
 				}
 			`}
 			onClick={() => handleEdit(agent)}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					handleEdit(agent);
-				}
-			}}
 		>
 			<div className="flex justify-between items-start mb-2">
 				<div className="flex items-center gap-2">
@@ -254,7 +246,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 					<Trash2 size={14} />
 				</button>
 			</div>
-		</div>
+		</button>
 	);
 
 	const renderAddCard = () => (

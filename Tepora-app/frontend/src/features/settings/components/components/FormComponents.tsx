@@ -20,6 +20,7 @@ export interface FormGroupProps {
 	isDirty?: boolean;
 	className?: string;
 	orientation?: "vertical" | "horizontal";
+	glass?: boolean;
 }
 
 interface TooltipProps {
@@ -99,13 +100,15 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 	isDirty,
 	className,
 	orientation = "vertical",
+	glass = false,
 }) => {
 	const isHorizontal = orientation === "horizontal";
+	const glassClass = glass ? "glass-panel p-4" : "";
 
 	if (isHorizontal) {
 		return (
 			<div
-				className={`settings-form-group flex items-center justify-between gap-4 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${className || ""}`}
+				className={`settings-form-group flex items-center justify-between gap-4 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
 			>
 				<div className="flex-1 min-w-0">
 					<div className="settings-form-group__header !mb-0">
@@ -132,7 +135,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 
 	return (
 		<div
-			className={`settings-form-group h-full flex flex-col ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${className || ""}`}
+			className={`settings-form-group h-full flex flex-col ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
 		>
 			<div className="settings-form-group__header">
 				<div>
@@ -192,7 +195,7 @@ export const FormInput: React.FC<FormInputProps> = ({
 		max={max}
 		step={step}
 		disabled={disabled}
-		className={`settings-input ${className || ""}`}
+		className={`settings-input glass-input focus:ring-1 focus:ring-tepora-accent/50 ${className || ""}`}
 	/>
 );
 
@@ -244,12 +247,12 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 			className="settings-select"
 		>
 			{options.map((opt) => (
-				<option key={opt.value} value={opt.value}>
+				<option key={opt.value} value={opt.value} className="bg-[#0f1115] text-gray-200">
 					{opt.label}
 				</option>
 			))}
 		</select>
-		<ChevronDown className="settings-select__icon" size={16} />
+		<ChevronDown className="settings-select__icon pointer-events-none text-gray-400" size={16} />
 	</div>
 );
 
@@ -314,12 +317,12 @@ export const FormList: React.FC<FormListProps> = ({
 					onChange={(e) => setNewItem(e.target.value)}
 					onKeyDown={handleKeyDown}
 					placeholder={placeholder}
-					className="settings-input settings-list__add-input"
+					className="settings-input settings-list__add-input glass-input focus:ring-1 focus:ring-tepora-accent/50"
 				/>
 				<button
 					type="button"
 					onClick={handleAdd}
-					className="settings-list__add-button"
+					className="settings-list__add-button glass-button hover:bg-white/10"
 					aria-label={t("common.aria.add_item")}
 				>
 					<Plus size={16} />

@@ -46,10 +46,10 @@ export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, is
 		onChange({ ...config, [f]: v });
 
 	return (
-		<div className="settings-model-card">
-			<div className="settings-model-card__header">
-				<Cpu size={18} className="text-purple-400" />
-				<h3 className="settings-model-card__title">{name}</h3>
+		<div className="settings-model-card glass-panel p-4 hover:border-tepora-accent/50 transition-all duration-300 hover:-translate-y-1">
+			<div className="settings-model-card__header flex items-center gap-2 mb-4">
+				<Cpu size={18} className="text-gold-400" />
+				<h3 className="settings-model-card__title font-semibold text-gray-200">{name}</h3>
 			</div>
 			<div className="settings-model-card__grid">
 				<FormGroup
@@ -60,7 +60,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, is
 						value={config.path}
 						onChange={(v) => update("path", v as string)}
 						placeholder="models/*.gguf"
-						className="font-mono text-xs"
+						className="font-mono text-xs glass-input"
 					/>
 				</FormGroup>
 				<FormGroup
@@ -200,8 +200,10 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 	};
 
 	return (
-		<div className={`settings-agent-card ${isActive ? "settings-agent-card--active" : ""}`}>
-			<div className="settings-agent-card__header">
+		<div
+			className={`settings-agent-card glass-panel p-4 transition-all duration-300 hover:border-tepora-accent/50 ${isActive ? "settings-agent-card--active border-tepora-accent bg-tepora-accent/5" : ""}`}
+		>
+			<div className="settings-agent-card__header flex items-center justify-between mb-4">
 				<div className="flex items-center gap-2 flex-1">
 					<Users size={18} className="text-gold-400" />
 					<h3 className="settings-agent-card__title">{profile.label || id}</h3>
@@ -209,7 +211,11 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 				<button
 					type="button"
 					onClick={onSetActive}
-					className={`settings-agent-card__active-btn ${isActive ? "settings-agent-card__active-btn--active" : ""}`}
+					className={`settings-agent-card__active-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+						isActive
+							? "bg-tepora-accent text-black hover:bg-tepora-accent/90"
+							: "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+					}`}
 					title={
 						isActive
 							? t("settings.sections.agents.card.currently_active")
@@ -263,7 +269,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 						<textarea
 							value={profile.persona.prompt || ""}
 							onChange={(e) => updatePersona("prompt", e.target.value)}
-							className="settings-input settings-input--textarea w-full font-sans leading-relaxed text-sm p-3 bg-black/20 rounded border border-white/10"
+							className="settings-input settings-input--textarea w-full font-sans leading-relaxed text-sm p-3 glass-input rounded border border-white/10 focus:ring-1 focus:ring-tepora-accent/50"
 							rows={3}
 							placeholder={t("settings.sections.agents.card.custom_prompt_placeholder")}
 						/>

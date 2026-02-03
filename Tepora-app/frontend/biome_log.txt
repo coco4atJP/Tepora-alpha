@@ -1,0 +1,251 @@
+src\features\settings\components\components\CollapsibleSection.tsx format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Formatter would have printed the following content:
+  
+    43 43 笏・  				</div>
+    44 44 笏・  			</button>
+    45    笏・- 竊・竊・竊・{
+    46    笏・- 竊・竊・竊・竊・isOpenﾂｷ&&ﾂｷ(
+    47    笏・- 竊・竊・竊・竊・竊・<divﾂｷclassName="p-4ﾂｷborder-tﾂｷborder-white/5ﾂｷanimate-inﾂｷslide-in-from-top-2ﾂｷduration-200">
+    48    笏・- 竊・竊・竊・竊・竊・竊・{children}
+    49    笏・- 竊・竊・竊・竊・竊・</div>
+    50    笏・- 竊・竊・竊・竊・)
+    51    笏・- 竊・竊・竊・}
+    52    笏・- 竊・竊・</divﾂｷ>
+       45 笏・+ 竊・竊・竊・{isOpenﾂｷ&&ﾂｷ(
+       46 笏・+ 竊・竊・竊・竊・<divﾂｷclassName="p-4ﾂｷborder-tﾂｷborder-white/5ﾂｷanimate-inﾂｷslide-in-from-top-2ﾂｷduration-200">
+       47 笏・+ 竊・竊・竊・竊・竊・{children}
+       48 笏・+ 竊・竊・竊・竊・</div>
+       49 笏・+ 竊・竊・竊・)}
+       50 笏・+ 竊・竊・</div>
+    53 51 笏・  	);
+    54 52 笏・  };
+  
+
+src\features\settings\components\sections\CharacterSettings.tsx:184:5 lint/a11y/useSemanticElements 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・The elements with this role can be changed to the following elements:
+    <button>
+  
+    182 笏・		return (
+    183 笏・			<div
+  > 184 笏・				role="button"
+        笏・				^^^^^^^^^^^^^
+    185 笏・				tabIndex={0}
+    186 笏・				key={key}
+  
+  i For examples and more information, see WAI-ARIA Roles
+  
+
+src\features\settings\components\sections\CustomAgentSettings.tsx:201:4 lint/a11y/useSemanticElements 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・The elements with this role can be changed to the following elements:
+    <button>
+  
+    199 笏・	const renderAgentCard = (agent: CustomAgentConfig) => (
+    200 笏・		<div
+  > 201 笏・			role="button"
+        笏・			^^^^^^^^^^^^^
+    202 笏・			tabIndex={0}
+    203 笏・			key={agent.id}
+  
+  i For examples and more information, see WAI-ARIA Roles
+  
+
+src\index.css:2:2 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    1 笏・@import "tailwindcss";
+  > 2 笏・@config "../tailwind.config.cjs";
+      笏・ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    3 笏・
+    4 笏・/*ﾂｷ
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\index.css:2:2 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    1 笏・@import "tailwindcss";
+  > 2 笏・@config "../tailwind.config.cjs";
+      笏・ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    3 笏・
+    4 笏・/*ﾂｷ
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\index.css format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Code formatting aborted due to parsing errors. To format code with errors, enable the 'formatter.formatWithErrors' option.
+  
+
+src\styles\index.css:7:4 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    5 笏・@layer base {
+    6 笏・	body {
+  > 7 笏・		@apply bg-gray-900 text-gray-100;
+      笏・		 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    8 笏・	}
+    9 笏・}
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:18:3 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    17 笏・::-webkit-scrollbar-track {
+  > 18 笏・	@apply bg-gray-900;
+       笏・	 ^^^^^^^^^^^^^^^^^^
+    19 笏・}
+    20 笏・
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:22:3 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    21 笏・::-webkit-scrollbar-thumb {
+  > 22 笏・	@apply bg-gray-700 rounded-full;
+       笏・	 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    23 笏・}
+    24 笏・
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:26:3 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    25 笏・::-webkit-scrollbar-thumb:hover {
+  > 26 笏・	@apply bg-gray-600;
+       笏・	 ^^^^^^^^^^^^^^^^^^
+    27 笏・}
+    28 笏・
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:1:2 lint/suspicious/noUnknownAtRules 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Unexpected unknown at-rule: tailwind 
+  
+  > 1 笏・@tailwind base;
+      笏・ ^^^^^^^^
+    2 笏・@tailwind components;
+    3 笏・@tailwind utilities;
+  
+  i tailwind is not a standard CSS at-rule, which may lead to unexpected styling results or failure to interpret the styles as intended.
+  
+  i See MDN web docs for a known list of at-rules.
+  
+  i To fix this issue, consider removing the unknown at-rule.
+  
+
+src\styles\index.css:2:2 lint/suspicious/noUnknownAtRules 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Unexpected unknown at-rule: tailwind 
+  
+    1 笏・@tailwind base;
+  > 2 笏・@tailwind components;
+      笏・ ^^^^^^^^
+    3 笏・@tailwind utilities;
+    4 笏・
+  
+  i tailwind is not a standard CSS at-rule, which may lead to unexpected styling results or failure to interpret the styles as intended.
+  
+  i See MDN web docs for a known list of at-rules.
+  
+  i To fix this issue, consider removing the unknown at-rule.
+  
+
+src\styles\index.css:3:2 lint/suspicious/noUnknownAtRules 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Unexpected unknown at-rule: tailwind 
+  
+    1 笏・@tailwind base;
+    2 笏・@tailwind components;
+  > 3 笏・@tailwind utilities;
+      笏・ ^^^^^^^^
+    4 笏・
+    5 笏・@layer base {
+  
+  i tailwind is not a standard CSS at-rule, which may lead to unexpected styling results or failure to interpret the styles as intended.
+  
+  i See MDN web docs for a known list of at-rules.
+  
+  i To fix this issue, consider removing the unknown at-rule.
+  
+
+src\styles\index.css:7:4 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏・
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    5 笏・@layer base {
+    6 笏・	body {
+  > 7 笏・		@apply bg-gray-900 text-gray-100;
+      笏・		 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    8 笏・	}
+    9 笏・}
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:18:3 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    17 笏・::-webkit-scrollbar-track {
+  > 18 笏・	@apply bg-gray-900;
+       笏・	 ^^^^^^^^^^^^^^^^^^
+    19 笏・}
+    20 笏・
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:22:3 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    21 笏・::-webkit-scrollbar-thumb {
+  > 22 笏・	@apply bg-gray-700 rounded-full;
+       笏・	 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    23 笏・}
+    24 笏・
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css:26:3 parse 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Tailwind-specific syntax is disabled.
+  
+    25 笏・::-webkit-scrollbar-thumb:hover {
+  > 26 笏・	@apply bg-gray-600;
+       笏・	 ^^^^^^^^^^^^^^^^^^
+    27 笏・}
+    28 笏・
+  
+  i Enable `tailwindDirectives` in the css parser options, or remove this if you are not using Tailwind CSS.
+  
+
+src\styles\index.css format 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Code formatting aborted due to parsing errors. To format code with errors, enable the 'formatter.formatWithErrors' option.
+  
+
+Checked 117 files in 54ms. No fixes applied.
+Found 18 errors.
+check 笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤笏≫煤
+
+  ﾃ・Some errors were emitted while running checks.
+  
+

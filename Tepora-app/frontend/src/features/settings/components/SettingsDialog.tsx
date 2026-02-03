@@ -14,6 +14,7 @@ import GeneralSettings from "./sections/GeneralSettings";
 import McpSettings from "./sections/McpSettings";
 import MemorySettings from "./sections/MemorySettings";
 import ModelSettings from "./sections/ModelSettings";
+import { default as OtherSettings } from "./sections/OtherSettings";
 import PrivacySettings from "./sections/PrivacySettings";
 
 interface SettingsDialogProps {
@@ -89,6 +90,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			mcp: "settings.sections.mcp.label",
 			models: "settings.sections.models.label",
 			memory: "settings.sections.memory.label",
+			other: "settings.sections.other.label",
 		};
 		return t(keyMap[id] || id);
 	};
@@ -109,6 +111,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 						items={NAV_ITEMS.map((item) => ({
 							...item,
 							label: t(`settings.sections.${item.id}.label`),
+							// Translate group name if exists
+							group: item.group ? t(`settings.groups.${item.group}`) : undefined,
 						}))}
 						activeItem={activeSection}
 						onSelect={setActiveSection}
@@ -188,6 +192,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 										{activeSection === "mcp" && <McpSettings />}
 										{activeSection === "models" && <ModelSettings />}
 										{activeSection === "memory" && <MemorySettings />}
+										{activeSection === "other" && <OtherSettings />}
 									</div>
 								</main>
 
@@ -211,9 +216,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onClick={handleSave}
 												className={`
 													px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
-													${hasChanges
-														? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-														: "bg-white/5 text-gray-400 cursor-not-allowed"
+													${
+														hasChanges
+															? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+															: "bg-white/5 text-gray-400 cursor-not-allowed"
 													}
 												`}
 												disabled={!hasChanges || saving}

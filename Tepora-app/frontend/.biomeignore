@@ -7,4 +7,6 @@ coverage
 public
 **/*.css
 src/**/*.css
+src/index.css
+src/styles/index.css
 src-tauri/target

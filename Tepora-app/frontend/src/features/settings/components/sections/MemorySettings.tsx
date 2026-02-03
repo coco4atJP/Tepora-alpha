@@ -71,6 +71,30 @@ const MemorySettings: React.FC = () => {
 				icon={<Brain size={18} />}
 				description={t("settings.sections.memory.description")}
 			>
+				{/* Link to Memory Explorer */}
+				<div className="mb-6 p-4 bg-teal-500/10 border border-teal-500/20 rounded-xl flex items-center justify-between">
+					<div>
+						<h3 className="text-teal-300 font-medium mb-1">
+							{t("settings.memory.explorer.title", "Memory Explorer")}
+						</h3>
+						<p className="text-sm text-teal-400/70">
+							{t(
+								"settings.memory.explorer.description",
+								"View and manage all saved episodic events",
+							)}
+						</p>
+					</div>
+					<a
+						href="/memory"
+						target="_blank"
+						className="px-4 py-2 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+						rel="noopener"
+					>
+						<Brain size={16} />
+						{t("settings.memory.explorer.button", "Open Explorer")}
+					</a>
+				</div>
+
 				<CollapsibleSection
 					title={t("settings.memory.episodic_params_title") || "Episodic Memory Parameters"}
 					description={

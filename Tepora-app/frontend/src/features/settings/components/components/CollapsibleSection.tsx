@@ -19,17 +19,10 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 
 	return (
 		<div className="border border-white/5 rounded-lg overflow-hidden my-4 bg-white/2">
-			<div
-				role="button"
-				tabIndex={0}
+			<button
+				type="button"
 				onClick={() => setIsOpen(!isOpen)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						setIsOpen(!isOpen);
-					}
-				}}
-				className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+				className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer text-left focus:outline-none focus:bg-white/10"
 			>
 				<div className="flex items-center gap-2 text-sm font-medium text-gray-200">
 					{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -48,12 +41,14 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 						</button>
 					)}
 				</div>
-			</div>
-			{isOpen && (
-				<div className="p-4 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
-					{children}
-				</div>
-			)}
+			</button>
+			{
+				isOpen && (
+					<div className="p-4 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+						{children}
+					</div>
+				)
+			}
 		</div>
 	);
 };

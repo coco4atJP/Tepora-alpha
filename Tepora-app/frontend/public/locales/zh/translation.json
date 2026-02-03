@@ -249,7 +249,8 @@
 		"title": "设置",
 		"subtitle": "管理 AI 配置",
 		"appearance": {
-			"title": "外观"
+			"title": "主题",
+			"description": "选择偏好的主题。"
 		},
 		"confirm_discard": "有未保存的更改。要放弃吗？",
 		"toast": {
@@ -294,7 +295,8 @@
 				"title": "应用程序",
 				"description": "核心应用程序设置和安全限制。",
 				"search_tool": {
-					"title": "搜索工具设置",
+					"title": "搜索引擎",
+					"description": "设置搜索引擎与凭据。",
 					"provider_label": "搜索提供商",
 					"provider_desc": "选择用于本机搜索功能的搜索引擎。"
 				},
@@ -306,8 +308,8 @@
 					"engine_id_desc": "输入 Programmable Search Engine ID。"
 				},
 				"app_settings": "应用程序设置",
-				"advanced_settings": "高级设置",
-				"advanced_settings_desc": "递归限制和提取约束",
+				"advanced_settings": "代理设置",
+				"advanced_settings_desc": "调整尝试次数与安全限制。",
 				"timeout_settings": "超时设置",
 				"inference_engine": {
 					"title": "推理引擎 (llama.cpp)",
@@ -345,7 +347,14 @@
 			"mcp": {
 				"label": "MCP 工具",
 				"title": "MCP 工具",
-				"description": "管理模型上下文协议服务器。"
+				"description": "管理模型上下文协议服务器。",
+				"config_title": "配置路径",
+				"config_description": "设置 MCP 配置文件路径。",
+				"store_title": "MCP 商店",
+				"store_description": "从商店浏览并安装 MCP 服务器。",
+				"store_hint": "搜索注册表并安装服务器。",
+				"registered_title": "已注册服务器",
+				"registered_description": "启动/停止服务器并查看配置详情。"
 			},
 			"models": {
 				"label": "模型",
@@ -353,8 +362,13 @@
 				"description": "配置 LLM 路径和参数。",
 				"manager_title": "LLM 管理器设置",
 				"manager_description": "配置系统如何管理 LLM 进程和资源。",
-				"list_title": "模型配置",
-				"list_description": "配置各个模型参数，如上下文大小和 GPU 层。",
+				"add_title": "添加模型",
+				"add_description": "添加并注册本地模型。",
+				"list_title": "模型列表（管理）",
+				"list_description": "管理已注册模型的删除与排序。",
+				"defaults_title": "模型默认值",
+				"defaults_description": "为不同用途设置默认模型。",
+				"cache_title": "模型缓存数",
 				"advanced_title": "高级管理器设置",
 				"advanced_description": "缓存和资源设置",
 				"add_new_model": "添加新模型",
@@ -365,16 +379,16 @@
 				"text_model_title": "文本模型",
 				"text_model_desc": "选择用于文本生成的模型。",
 				"text_model_label": "文本模型",
-				"character_model_title": "角色模型",
-				"character_model_desc": "选择用于对话和人设回复的模型。",
+				"character_model_title": "角色默认模型",
+				"character_model_desc": "选择用于角色的默认模型。",
 				"character_model_label": "角色模型",
 				"embedding_model_title": "向量嵌入模型",
 				"embedding_model_desc": "选择用于记忆和检索的模型。",
-				"executor_label": "执行器: {{taskType}}",
-				"executor_default_desc": "默认的回退执行器模型。",
-				"executor_task_desc": "{{taskType}}任务的专用模型。",
-				"executor_models_title": "执行器模型",
-				"executor_models_desc": "为不同任务类型配置模型，每个任务可使用专用模型。",
+				"executor_label": "专业: {{taskType}}",
+				"executor_default_desc": "默认的专业模型。",
+				"executor_task_desc": "{{taskType}} 任务的专业模型。",
+				"executor_models_title": "专业默认模型",
+				"executor_models_desc": "为不同任务类型设置默认模型。",
 				"add_task_placeholder": "添加任务类型（例如：coding, browser）...",
 				"defaults": {
 					"global": "全局默认"
@@ -431,16 +445,16 @@
 				}
 			},
 			"agents": {
-				"label": "代理",
-				"title": "代理",
-				"description": "定义角色和工具策略。",
+				"label": "角色",
+				"title": "角色列表",
+				"description": "管理角色提示词与默认模型。",
 				"add_new_profile": "添加新档案",
 				"new_profile_key_placeholder": "档案 ID (字母数字和下划线)",
 				"add": "添加",
 				"cancel": "取消",
 				"cannot_delete_active": "无法删除当前激活的档案",
 				"confirm_delete": "删除此档案？",
-				"default_name": "新建代理",
+				"default_name": "新角色",
 				"default_prompt": "你是一个有帮助的助手。",
 				"delete": "删除",
 				"delete_confirm_title": "删除档案",
@@ -459,8 +473,8 @@
 					"model_desc": "选择此代理使用的模型配置。"
 				},
 				"no_description": "无描述",
-				"nsfw_label": "解锁受限内容",
-				"nsfw_desc": "允许生成敏感内容，请谨慎使用。",
+				"nsfw_label": "允许受限内容(nsf)",
+				"nsfw_desc": "允许生成受限内容，请谨慎使用。",
 				"tab": {
 					"characters": "角色",
 					"professionals": "专业"
@@ -491,23 +505,23 @@
 				}
 			},
 			"custom_agents": {
-				"label": "代理",
-				"title": "代理",
-				"description": "创建具有特定工具和提示的代理。",
-				"add_new": "添加新代理",
+				"label": "专业",
+				"title": "专业列表",
+				"description": "管理专业提示词、允许工具与默认模型。",
+				"add_new": "新增专业",
 				"no_description": "无说明",
-				"default_name": "新代理",
+				"default_name": "新专业",
 				"default_prompt": "你是一个有用的助手。",
-				"confirm_delete": "确定要删除此代理吗？",
-				"delete_confirm_title": "删除代理",
+				"confirm_delete": "确定要删除此专业吗？",
+				"delete_confirm_title": "删除专业",
 				"error_empty_id": "请输入 ID。",
 				"error_empty_name": "请输入名称。",
 				"error_empty_prompt": "请输入系统提示。",
 				"error_duplicate_id": "此 ID 已在使用中。",
 				"modal": {
-					"title_add": "添加代理",
-					"title_edit": "编辑代理",
-					"id_label": "代理 ID",
+					"title_add": "添加专业",
+					"title_edit": "编辑专业",
+					"id_label": "专业 ID",
 					"id_desc": "唯一标识符（小写，无空格）",
 					"icon_label": "图标",
 					"name_label": "名称",
@@ -516,8 +530,20 @@
 					"prompt_desc": "定义代理的行为和个性。",
 					"model_label": "模型",
 					"enabled_label": "启用",
-					"tools_label": "工具权限",
+					"tools_label": "允许工具",
 					"no_tools": "无可用工具"
+				}
+			},
+			"other": {
+				"label": "其他",
+				"updates": {
+					"title": "更新",
+					"description": "管理应用和推理引擎更新。"
+				},
+				"timeouts": {
+					"description": "设置执行限制与超时。",
+					"model_manager": "模型管理器",
+					"tools": "工具"
 				}
 			},
 			"memory": {
@@ -526,8 +552,11 @@
 				"description": "配置情景记忆和历史限制。"
 			},
 			"chat_history": {
-				"title": "聊天历史"
+				"title": "本地上下文窗口"
 			}
+		},
+		"groups": {
+			"custom": "自定义"
 		},
 		"fields": {
 			"language": {
@@ -539,8 +568,8 @@
 				"description": "用户输入允许的最大字符数。"
 			},
 			"graph_recursion_limit": {
-				"label": "图递归限制",
-				"description": "代理图遍历的最大深度（安全限制）。"
+				"label": "最大尝试次数",
+				"description": "代理可尝试的最大次数（安全限制）。"
 			},
 			"tool_execution_timeout": {
 				"label": "工具执行超时",
@@ -566,14 +595,14 @@
 		},
 		"privacy": {
 			"web_search": {
-				"label": "启用网络搜索",
+				"label": "允许联网",
 				"description": "允许AI使用互联网搜索来检索信息。",
 				"warning_title": "数据共享通知",
 				"warning_query": "搜索查询将发送到Google API",
 				"warning_api": "您配置的API密钥将用于搜索请求"
 			},
 			"redact_pii": {
-				"label": "保护个人信息",
+				"label": "个人信息保护",
 				"description": "自动从日志中删除个人信息（电子邮件地址、电话号码等），并在发送到外部服务之前从网页搜索查询中删除个人信息。"
 			}
 		},
@@ -594,6 +623,30 @@
 		},
 		"mcp": {
 			"refresh": "刷新状态",
+			"details": {
+				"open": "打开详情",
+				"title": "服务器详情：{{name}}",
+				"autorun": {
+					"label": "自动运行许可",
+					"description": "应用启动时自动启用此服务器。"
+				},
+				"command": {
+					"label": "命令",
+					"description": "用于启动 MCP 服务器的可执行命令。"
+				},
+				"args": {
+					"label": "参数",
+					"description": "每行一个参数。"
+				},
+				"env": {
+					"label": "环境变量",
+					"description": "使用 KEY=VALUE 格式，每行一个。"
+				},
+				"env_invalid": "环境变量需使用 KEY=VALUE 格式。",
+				"command_required": "命令为必填项。",
+				"save_failed": "保存配置失败。",
+				"saving": "保存中..."
+			},
 			"policy": {
 				"title": "安全策略",
 				"mode": {
@@ -653,8 +706,8 @@
 		},
 		"memory": {
 			"max_tokens": {
-				"label": "最大 Token",
-				"description": "活动对话上下文窗口的限制。"
+				"label": "本地上下文窗口",
+				"description": "活动对话上下文的最大令牌数。"
 			},
 			"surprise_gamma": {
 				"label": "惊奇 Gamma",
@@ -681,8 +734,13 @@
 				"description": "提高事件分割精度。"
 			},
 			"default_limit": {
-				"label": "默认历史限制",
+				"label": "消息数量",
 				"description": "从历史记录中检索的默认消息数。"
+			},
+			"explorer": {
+				"title": "已保存事件",
+				"description": "查看并管理已保存的事件。",
+				"button": "打开列表"
 			},
 			"episodic_params_title": "情景记忆参数",
 			"episodic_params_desc": "EM-LLM 的高级配置"

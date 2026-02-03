@@ -253,7 +253,8 @@
 		"title": "設定",
 		"subtitle": "AIの設定を管理します",
 		"appearance": {
-			"title": "外観"
+			"title": "テーマ",
+			"description": "テーマを選択します。"
 		},
 		"placeholders": {
 			"mcp_config": "config/mcp_tools_config.json",
@@ -284,7 +285,8 @@
 				"title": "アプリケーション",
 				"description": "基本設定と安全制限を設定します。",
 				"search_tool": {
-					"title": "検索ツール設定",
+					"title": "検索エンジン",
+					"description": "検索エンジンと認証情報を設定します。",
 					"provider_label": "検索プロバイダー",
 					"provider_desc": "ネイティブ検索機能に使用する検索エンジンを選択してください。"
 				},
@@ -296,8 +298,8 @@
 					"engine_id_desc": "Programmable Search EngineのIDを入力してください。"
 				},
 				"app_settings": "アプリケーション設定",
-				"advanced_settings": "詳細設定",
-				"advanced_settings_desc": "再帰制限とフェッチ制約",
+				"advanced_settings": "エージェント設定",
+				"advanced_settings_desc": "試行回数と安全制限を調整します。",
 				"timeout_settings": "タイムアウト設定",
 				"inference_engine": {
 					"title": "推論エンジン (llama.cpp)",
@@ -329,8 +331,8 @@
 			},
 			"agents": {
 				"label": "キャラクター",
-				"title": "キャラクター",
-				"description": "エージェント（人格とツール）を定義します。",
+				"title": "キャラクターリスト",
+				"description": "キャラクタープロンプトと使用モデルを管理します。",
 				"add_new_profile": "新規プロファイル追加",
 				"new_profile_key_placeholder": "プロファイルID (英数字とアンダースコア)",
 				"add": "追加",
@@ -384,27 +386,27 @@
 				"no_description": "説明なし",
 				"default_name": "新しいキャラクター",
 				"default_prompt": "あなたは親切なAIアシスタントです。",
-				"nsfw_label": "制限付きコンテンツのロック解除",
-				"nsfw_desc": "機密性の高いコンテンツの生成を許可します。注意して使用してください。"
+				"nsfw_label": "制限付きコンテンツ(nsf)許可",
+				"nsfw_desc": "制限付きコンテンツの生成を許可します。注意して使用してください。"
 			},
 			"custom_agents": {
-				"label": "エージェント",
-				"title": "エージェント",
-				"description": "特定のツールとプロンプトを持つエージェントを作成できます。",
-				"add_new": "新規エージェント追加",
+				"label": "プロフェッショナル",
+				"title": "プロフェッショナルリスト",
+				"description": "専門タスク向けエージェントのプロンプト、許可ツール、使用モデルを管理します。",
+				"add_new": "新規プロフェッショナル追加",
 				"no_description": "説明なし",
-				"default_name": "新しいエージェント",
+				"default_name": "新しいプロフェッショナル",
 				"default_prompt": "あなたは親切なアシスタントです。",
-				"confirm_delete": "このエージェントを削除してもよろしいですか？",
-				"delete_confirm_title": "エージェントを削除",
+				"confirm_delete": "このプロフェッショナルを削除してもよろしいですか？",
+				"delete_confirm_title": "プロフェッショナルを削除",
 				"error_empty_id": "IDを入力してください。",
 				"error_empty_name": "名前を入力してください。",
 				"error_empty_prompt": "システムプロンプトを入力してください。",
 				"error_duplicate_id": "このIDは既に使用されています。",
 				"modal": {
-					"title_add": "エージェントを追加",
-					"title_edit": "エージェントを編集",
-					"id_label": "エージェントID",
+					"title_add": "プロフェッショナルを追加",
+					"title_edit": "プロフェッショナルを編集",
+					"id_label": "プロフェッショナルID",
 					"id_desc": "一意の識別子（小文字、スペースなし）",
 					"icon_label": "アイコン",
 					"name_label": "名前",
@@ -413,7 +415,7 @@
 					"prompt_desc": "エージェントの動作と性格を定義します。",
 					"model_label": "使用モデル",
 					"enabled_label": "有効",
-					"tools_label": "ツール権限",
+					"tools_label": "許可ツール",
 					"no_tools": "利用可能なツールがありません"
 				}
 			},
@@ -425,7 +427,14 @@
 			"mcp": {
 				"label": "MCPツール",
 				"title": "MCPツール",
-				"description": "Model Context Protocolサーバーを管理します。"
+				"description": "Model Context Protocolサーバーを管理します。",
+				"config_title": "コンフィグパス",
+				"config_description": "MCP構成ファイルのパスを設定します。",
+				"store_title": "MCPストア",
+				"store_description": "ストアからMCPサーバーを検索・追加します。",
+				"store_hint": "ストアで検索し、サーバーをインストールできます。",
+				"registered_title": "登録済みサーバーリスト",
+				"registered_description": "登録済みサーバーの起動停止と詳細を管理します。"
 			},
 			"models": {
 				"label": "モデル",
@@ -439,8 +448,13 @@
 				"update_btn": "モデルを更新",
 				"manager_title": "LLMマネージャー設定",
 				"manager_description": "システムがLLMプロセスとリソースを管理する方法を設定します。",
-				"list_title": "モデル構成",
-				"list_description": "コンテキストサイズやGPUレイヤーなど、個々のモデルパラメータを設定します。",
+				"add_title": "モデル追加",
+				"add_description": "ローカルモデルを追加して登録します。",
+				"list_title": "モデルリスト（管理）",
+				"list_description": "登録済みモデルの削除や並び替えを行います。",
+				"defaults_title": "モデル規定値",
+				"defaults_description": "用途ごとの既定モデルを指定します。",
+				"cache_title": "モデルキャッシュ数",
 				"advanced_title": "高度なマネージャー設定",
 				"advanced_description": "キャッシュとリソース設定",
 				"add_new_model": "新規モデル追加",
@@ -455,11 +469,11 @@
 				"executor_label": "プロフェッショナル: {{taskType}}",
 				"executor_default_desc": "デフォルトのフォールバックプロフェッショナルモデル。",
 				"executor_task_desc": "{{taskType}}タスク専用のモデル。",
-				"character_model_title": "キャラクターモデル",
-				"character_model_desc": "会話やペルソナ応答に使用するモデルを選択します。",
+				"character_model_title": "キャラクター規定モデル",
+				"character_model_desc": "キャラクターに使用する既定モデルを選択します。",
 				"character_model_label": "キャラクターモデル",
-				"executor_models_title": "プロフェッショナルモデル",
-				"executor_models_desc": "タスクタイプごとにモデルを設定します。各タスクに専用モデルを割り当てられます。",
+				"executor_models_title": "プロフェッショナル規定モデル",
+				"executor_models_desc": "タスクタイプごとに既定モデルを設定します。各タスクに専用モデルを割り当てられます。",
 				"add_task_placeholder": "タスクタイプを追加 (例: coding, browser)...",
 				"no_models_for_role": "この役割のモデルが見つかりません。",
 				"defaults": {
@@ -510,14 +524,29 @@
 					"hide_advanced": "詳細設定を隠す"
 				}
 			},
+			"other": {
+				"label": "その他",
+				"updates": {
+					"title": "アップデート",
+					"description": "アプリと推論エンジンの更新を管理します。"
+				},
+				"timeouts": {
+					"description": "実行上限とタイムアウトを設定します。",
+					"model_manager": "モデルマネージャ",
+					"tools": "ツール"
+				}
+			},
 			"memory": {
 				"label": "メモリ",
 				"title": "EM-LLM (エピソード記憶)",
 				"description": "エピソード記憶と履歴の上限を設定します。"
 			},
 			"chat_history": {
-				"title": "チャット履歴"
+				"title": "ローカルコンテキストウィンドウ"
 			}
+		},
+		"groups": {
+			"custom": "カスタム"
 		},
 		"fields": {
 			"language": {
@@ -529,8 +558,8 @@
 				"description": "ユーザー入力の最大文字数。"
 			},
 			"graph_recursion_limit": {
-				"label": "再帰制限",
-				"description": "エージェントグラフ探索の最大深度（安全装置）。"
+				"label": "最大試行回数",
+				"description": "エージェントが試行できる上限回数（安全装置）。"
 			},
 			"tool_execution_timeout": {
 				"label": "ツール実行タイムアウト",
@@ -556,8 +585,8 @@
 		},
 		"memory": {
 			"max_tokens": {
-				"label": "最大トークン数",
-				"description": "アクティブな会話コンテキストウィンドウの制限。"
+				"label": "ローカルコンテキストウィンドウ",
+				"description": "アクティブな会話コンテキストの最大トークン数。"
 			},
 			"surprise_gamma": {
 				"label": "Surprise Gamma",
@@ -584,8 +613,13 @@
 				"description": "イベント分割の精度を向上させます。"
 			},
 			"default_limit": {
-				"label": "デフォルト履歴制限",
+				"label": "メッセージ数",
 				"description": "履歴から取得するデフォルトのメッセージ数。"
+			},
+			"explorer": {
+				"title": "保存イベント一覧",
+				"description": "保存されたエピソードイベントを確認・管理します。",
+				"button": "一覧を開く"
 			},
 			"episodic_params_title": "エピソード記憶パラメータ",
 			"episodic_params_desc": "EM-LLMの詳細設定"
@@ -607,6 +641,30 @@
 		},
 		"mcp": {
 			"refresh": "ステータス更新",
+			"details": {
+				"open": "詳細を開く",
+				"title": "サーバー詳細: {{name}}",
+				"autorun": {
+					"label": "オート実行許可",
+					"description": "アプリ起動時にこのサーバーを自動で有効化します。"
+				},
+				"command": {
+					"label": "コマンド",
+					"description": "サーバー起動に使用する実行コマンド。"
+				},
+				"args": {
+					"label": "引数",
+					"description": "1行に1つずつ指定します。"
+				},
+				"env": {
+					"label": "環境変数",
+					"description": "KEY=VALUE 形式で1行ずつ指定します。"
+				},
+				"env_invalid": "環境変数は KEY=VALUE 形式で入力してください。",
+				"command_required": "コマンドは必須です。",
+				"save_failed": "コンフィグの保存に失敗しました。",
+				"saving": "保存中..."
+			},
 			"policy": {
 				"title": "セキュリティポリシー",
 				"mode": {
@@ -692,14 +750,14 @@
 		},
 		"privacy": {
 			"web_search": {
-				"label": "Web検索を有効にする",
+				"label": "インターネット接続を許可",
 				"description": "AIがインターネット検索を使用して情報を取得することを許可します。",
 				"warning_title": "データ共有について",
 				"warning_query": "検索クエリがGoogle APIに送信されます",
 				"warning_api": "設定したAPIキーが検索リクエストに使用されます"
 			},
 			"redact_pii": {
-				"label": "個人情報の保護",
+				"label": "個人情報保護",
 				"description": "ログ、およびWeb検索クエリに含まれる個人情報（メールアドレス、電話番号等）を自動的に伏字化します。"
 			}
 		}

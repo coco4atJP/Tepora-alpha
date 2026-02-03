@@ -253,7 +253,8 @@
 		"title": "Settings",
 		"subtitle": "Manage your AI configuration",
 		"appearance": {
-			"title": "Appearance"
+			"title": "Theme",
+			"description": "Choose your preferred theme."
 		},
 		"placeholders": {
 			"mcp_config": "config/mcp_tools_config.json",
@@ -284,7 +285,8 @@
 				"title": "Application",
 				"description": "Core application settings and safety limits.",
 				"search_tool": {
-					"title": "Search Tool Settings",
+					"title": "Search Engine",
+					"description": "Configure the search engine and credentials.",
 					"provider_label": "Search Provider",
 					"provider_desc": "Select the search engine to use for native search capabilities."
 				},
@@ -296,8 +298,8 @@
 					"engine_id_desc": "Enter Programmable Search Engine ID."
 				},
 				"app_settings": "Application Settings",
-				"advanced_settings": "Advanced Settings",
-				"advanced_settings_desc": "Recursion limits and fetch constraints",
+				"advanced_settings": "Agent Settings",
+				"advanced_settings_desc": "Adjust attempt limits and safety constraints.",
 				"timeout_settings": "Timeout Settings",
 				"inference_engine": {
 					"title": "Inference Engine (llama.cpp)",
@@ -329,8 +331,8 @@
 			},
 			"agents": {
 				"label": "Characters",
-				"title": "Characters",
-				"description": "Define agent personas and tool policies.",
+				"title": "Character List",
+				"description": "Manage character prompts and default models.",
 				"add_new_profile": "Add New Profile",
 				"new_profile_key_placeholder": "Profile ID (alphanumeric and underscores)",
 				"add": "Add",
@@ -384,27 +386,27 @@
 				"no_description": "No description",
 				"default_name": "New Character",
 				"default_prompt": "You are a helpful assistant.",
-				"nsfw_label": "Unlock Restricted Content",
-				"nsfw_desc": "Allows generation of sensitive content. Use with caution."
+				"nsfw_label": "Allow Restricted Content (nsf)",
+				"nsfw_desc": "Allow generation of restricted content. Use with caution."
 			},
 			"custom_agents": {
-				"label": "Agents",
-				"title": "Agents",
-				"description": "Create agents with specific tools and prompts.",
-				"add_new": "Add New Agent",
+				"label": "Professional",
+				"title": "Professional List",
+				"description": "Manage professional prompts, allowed tools, and default models.",
+				"add_new": "Add New Professional",
 				"no_description": "No description",
-				"default_name": "New Agent",
+				"default_name": "New Professional",
 				"default_prompt": "You are a helpful assistant.",
-				"confirm_delete": "Are you sure you want to delete this agent?",
-				"delete_confirm_title": "Delete Agent",
+				"confirm_delete": "Are you sure you want to delete this professional?",
+				"delete_confirm_title": "Delete Professional",
 				"error_empty_id": "Please enter an ID.",
 				"error_empty_name": "Please enter a name.",
 				"error_empty_prompt": "Please enter a system prompt.",
 				"error_duplicate_id": "This ID is already in use.",
 				"modal": {
-					"title_add": "Add Agent",
-					"title_edit": "Edit Agent",
-					"id_label": "Agent ID",
+					"title_add": "Add Professional",
+					"title_edit": "Edit Professional",
+					"id_label": "Professional ID",
 					"id_desc": "Unique identifier (lowercase, no spaces)",
 					"icon_label": "Icon",
 					"name_label": "Name",
@@ -413,7 +415,7 @@
 					"prompt_desc": "Define the agent's behavior and personality.",
 					"model_label": "Model",
 					"enabled_label": "Enabled",
-					"tools_label": "Tool Permissions",
+					"tools_label": "Allowed Tools",
 					"no_tools": "No tools available"
 				}
 			},
@@ -425,7 +427,14 @@
 			"mcp": {
 				"label": "MCP Tools",
 				"title": "MCP Tools",
-				"description": "Manage Model Context Protocol servers."
+				"description": "Manage Model Context Protocol servers.",
+				"config_title": "Config Path",
+				"config_description": "Set the MCP configuration file path.",
+				"store_title": "MCP Store",
+				"store_description": "Browse and install MCP servers from the store.",
+				"store_hint": "Search the registry and install servers.",
+				"registered_title": "Registered Servers",
+				"registered_description": "Start/stop servers and inspect configuration details."
 			},
 			"models": {
 				"label": "Models",
@@ -439,8 +448,13 @@
 				"update_btn": "Update Model",
 				"manager_title": "LLM Manager Settings",
 				"manager_description": "Configure how the system manages LLM processes and resources.",
-				"list_title": "Model Configurations",
-				"list_description": "Configure individual model parameters like context size and GPU layers.",
+				"add_title": "Add Model",
+				"add_description": "Add new models to your local library.",
+				"list_title": "Model List (Manage)",
+				"list_description": "Manage, delete, and reorder registered models.",
+				"defaults_title": "Model Defaults",
+				"defaults_description": "Assign default models for each role.",
+				"cache_title": "Model Cache Limit",
 				"advanced_title": "Advanced Manager Settings",
 				"advanced_description": "Cache and resource settings",
 				"add_new_model": "Add New Model",
@@ -452,14 +466,14 @@
 				"text_model_label": "Text Model",
 				"embedding_model_title": "Embedding Model",
 				"embedding_model_desc": "Select the model used for memory and retrieval.",
-				"executor_label": "Executor: {{taskType}}",
-				"executor_default_desc": "Default fallback executor model.",
-				"executor_task_desc": "Specialized model for {{taskType}} tasks.",
-				"character_model_title": "Character Model",
-				"character_model_desc": "Select the model used for conversation and persona-based responses.",
+				"executor_label": "Professional: {{taskType}}",
+				"executor_default_desc": "Default fallback professional model.",
+				"executor_task_desc": "Professional model for {{taskType}} tasks.",
+				"character_model_title": "Character Default Model",
+				"character_model_desc": "Select the default model used for characters.",
 				"character_model_label": "Character Model",
-				"executor_models_title": "Executor Models",
-				"executor_models_desc": "Configure models for different task types. Each task can use a specialized model.",
+				"executor_models_title": "Professional Default Models",
+				"executor_models_desc": "Assign default models for each professional task type.",
 				"add_task_placeholder": "Add task type (e.g., coding, browser)...",
 				"no_models_for_role": "No models found for this role.",
 				"defaults": {
@@ -510,14 +524,29 @@
 					"hide_advanced": "Hide Advanced Settings"
 				}
 			},
+			"other": {
+				"label": "Other",
+				"updates": {
+					"title": "Updates",
+					"description": "Manage application and inference engine updates."
+				},
+				"timeouts": {
+					"description": "Configure execution limits and timeouts.",
+					"model_manager": "Model Manager",
+					"tools": "Tools"
+				}
+			},
 			"memory": {
 				"label": "Memory",
 				"title": "EM-LLM (Episodic Memory)",
 				"description": "Configure episodic memory and history limits."
 			},
 			"chat_history": {
-				"title": "Chat History"
+				"title": "Local Context Window"
 			}
+		},
+		"groups": {
+			"custom": "Custom"
 		},
 		"fields": {
 			"language": {
@@ -529,8 +558,8 @@
 				"description": "Maximum characters allowed in user input."
 			},
 			"graph_recursion_limit": {
-				"label": "Graph Recursion Limit",
-				"description": "Maximum depth for agent graph traversal (safety brake)."
+				"label": "Max Attempts",
+				"description": "Maximum number of attempts for an agent (safety brake)."
 			},
 			"tool_execution_timeout": {
 				"label": "Tool Execution Timeout",
@@ -556,8 +585,8 @@
 		},
 		"memory": {
 			"max_tokens": {
-				"label": "Max Tokens",
-				"description": "Limit for active conversation context window."
+				"label": "Local Context Window",
+				"description": "Maximum tokens for the active conversation context."
 			},
 			"surprise_gamma": {
 				"label": "Surprise Gamma",
@@ -584,8 +613,13 @@
 				"description": "Improve event segmentation accuracy."
 			},
 			"default_limit": {
-				"label": "Default History Limit",
+				"label": "Message Count",
 				"description": "Default number of messages to retrieve from history."
+			},
+			"explorer": {
+				"title": "Saved Events",
+				"description": "View and manage saved episodic events.",
+				"button": "Open List"
 			},
 			"episodic_params_title": "Episodic Memory Parameters",
 			"episodic_params_desc": "Advanced configuration for EM-LLM"
@@ -607,6 +641,30 @@
 		},
 		"mcp": {
 			"refresh": "Refresh Status",
+			"details": {
+				"open": "Open details",
+				"title": "Server Details: {{name}}",
+				"autorun": {
+					"label": "Auto-run",
+					"description": "Enable this server on application startup."
+				},
+				"command": {
+					"label": "Command",
+					"description": "Executable used to launch the MCP server."
+				},
+				"args": {
+					"label": "Arguments",
+					"description": "One argument per line."
+				},
+				"env": {
+					"label": "Environment Variables",
+					"description": "Use KEY=VALUE format, one per line."
+				},
+				"env_invalid": "Use KEY=VALUE format for env vars.",
+				"command_required": "Command is required.",
+				"save_failed": "Failed to save config.",
+				"saving": "Saving..."
+			},
 			"policy": {
 				"title": "Security Policy",
 				"mode": {
@@ -692,14 +750,14 @@
 		},
 		"privacy": {
 			"web_search": {
-				"label": "Enable Web Search",
+				"label": "Allow Internet Access",
 				"description": "Allow the AI to use internet search to retrieve information.",
 				"warning_title": "Data Sharing Notice",
 				"warning_query": "Search queries will be sent to Google API",
 				"warning_api": "Your configured API key will be used for search requests"
 			},
 			"redact_pii": {
-				"label": "Protect Personal Information",
+				"label": "Personal Data Protection",
 				"description": "Automatically redact personal information (email addresses, phone numbers, etc.) from logs, and from web search queries before they are sent to external services."
 			}
 		}

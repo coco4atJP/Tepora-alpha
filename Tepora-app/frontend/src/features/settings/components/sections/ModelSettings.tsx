@@ -1,25 +1,10 @@
-import {
-	Cpu,
-	HardDrive,
-	List,
-	MessageSquare,
-	Plus,
-	RefreshCw,
-	Settings2,
-	Wrench,
-} from "lucide-react";
+import { Cpu, Database, HardDrive, List, MessageSquare, Plus, RefreshCw, Wrench } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { apiClient } from "../../../../utils/api-client";
-import {
-	CollapsibleSection,
-	FormGroup,
-	FormInput,
-	FormSelect,
-	SettingsSection,
-} from "../SettingsComponents";
+import { FormGroup, FormInput, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
 import { ModelListOverlay } from "../subcomponents/ModelListOverlay";
 import { ModelSelectionRow } from "../subcomponents/ModelSelectionRow";
@@ -228,124 +213,134 @@ const ModelSettings: React.FC = () => {
 
 	return (
 		<div className="space-y-6">
-			{/* 1. Model Management Section */}
+			{/* 1. Model Add */}
 			<SettingsSection
-				title={t("settings.models_settings.download_manager.title") || "Model Management"}
+				title={t("settings.sections.models.add_title", "Add Model")}
 				icon={<HardDrive size={18} />}
+				description={t(
+					"settings.sections.models.add_description",
+					"Add new models to your local library.",
+				)}
+			>
+				<AddModelForm onModelAdded={fetchModels} />
+			</SettingsSection>
+
+			{/* 2. Model List */}
+			<SettingsSection
+				title={t("settings.sections.models.list_title") || "Model List"}
+				icon={<List size={18} />}
 				description={
-					t("settings.models_settings.download_manager.description") ||
-					"Manage your local model library."
+					t("settings.sections.models.list_description") ||
+					"Manage, delete, and reorder registered models."
 				}
 			>
-				<div className="space-y-4">
-					<AddModelForm onModelAdded={fetchModels} />
+				<div className="flex gap-2">
+					<button
+						type="button"
+						onClick={() => setIsOverlayOpen(true)}
+						className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
+					>
+						<List size={18} />
+						<span>{t("settings.sections.models.manage_models") || "Manage Models"}</span>
+					</button>
 
-					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={() => setIsOverlayOpen(true)}
-							className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
-						>
-							<List size={18} />
-							<span>{t("settings.sections.models.manage_models") || "Manage Models"}</span>
-						</button>
-
-						<button
-							type="button"
-							onClick={handleRefreshOllama}
-							disabled={isRefreshing}
-							className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
-							title={t("settings.sections.models.refresh_ollama") || "Refresh Ollama Models"}
-						>
-							<RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
-						</button>
-					</div>
+					<button
+						type="button"
+						onClick={handleRefreshOllama}
+						disabled={isRefreshing}
+						className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
+						title={t("settings.sections.models.refresh_ollama") || "Refresh Ollama Models"}
+					>
+						<RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+					</button>
 				</div>
 			</SettingsSection>
 
-			{/* 2. Character Model Selection */}
+			{/* 3. Model Defaults */}
 			<SettingsSection
-				title={t("settings.sections.models.character_model_title") || "Character Model"}
+				title={t("settings.sections.models.defaults_title", "Model Defaults")}
 				icon={<MessageSquare size={18} />}
-				description={
-					t("settings.sections.models.character_model_desc") ||
-					"Select the model used for conversation and persona-based responses."
-				}
+				description={t(
+					"settings.sections.models.defaults_description",
+					"Assign default models for characters and professional tasks.",
+				)}
 			>
-				<ModelSelectionRow
-					label={t("settings.sections.models.character_model_label") || "Character Model"}
-					selectedModelId={modelRoles.character_model_id || undefined}
-					models={textModels}
-					onSelect={handleSelectCharacterModel}
-					config={textModelConfig}
-					onUpdateConfig={(c) => updateModel("text_model", c)}
-					modelRole="text"
-				/>
-			</SettingsSection>
-
-			{/* 3. Professional Models Selection (Task Type based) */}
-			<SettingsSection
-				title={t("settings.sections.models.executor_models_title") || "Professional Models"}
-				icon={<Wrench size={18} />}
-				description={
-					t("settings.sections.models.executor_models_desc") ||
-					"Configure models for different task types. Each task can use a specialized model."
-				}
-			>
-				<div className="space-y-4">
-					{Object.entries(modelRoles.professional_model_map).map(([taskType, modelId]) => (
+				<div className="space-y-6">
+					<div className="space-y-3">
+						<h3 className="text-sm font-medium text-gray-300">
+							{t("settings.sections.models.character_model_title")}
+						</h3>
 						<ModelSelectionRow
-							key={taskType}
-							label={t("settings.sections.models.executor_label", {
-								taskType,
-							})}
-							description={
-								taskType === "default"
-									? t("settings.sections.models.executor_default_desc")
-									: t("settings.sections.models.executor_task_desc", {
-											taskType,
-										})
-							}
-							selectedModelId={modelId}
+							label={t("settings.sections.models.character_model_label") || "Character Model"}
+							selectedModelId={modelRoles.character_model_id || undefined}
 							models={textModels}
-							onSelect={(id) => handleSelectProfessionalModel(taskType, id)}
+							onSelect={handleSelectCharacterModel}
 							config={textModelConfig}
 							onUpdateConfig={(c) => updateModel("text_model", c)}
-							onDelete={
-								taskType !== "default" ? () => handleRemoveProfessionalMapping(taskType) : undefined
-							}
-							icon={<Wrench size={20} />}
 							modelRole="text"
 						/>
-					))}
+					</div>
 
-					{/* Add new task type */}
-					<div className="flex gap-2">
-						<input
-							type="text"
-							value={newTaskType}
-							onChange={(e) => setNewTaskType(e.target.value)}
-							placeholder={
-								t("settings.sections.models.add_task_placeholder") ||
-								"Add task type (e.g., coding, browser)..."
-							}
-							className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-gold-400/50"
-							onKeyDown={(e) => e.key === "Enter" && handleAddTaskType()}
-						/>
-						<button
-							type="button"
-							onClick={handleAddTaskType}
-							disabled={!newTaskType.trim()}
-							className="px-4 py-2.5 bg-gold-400/20 text-gold-400 rounded-xl hover:bg-gold-400/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-						>
-							<Plus size={18} />
-							<span>{t("common.add") || "Add"}</span>
-						</button>
+					<div className="border-t border-white/10" />
+
+					<div className="space-y-4">
+						<h3 className="text-sm font-medium text-gray-300">
+							{t("settings.sections.models.executor_models_title")}
+						</h3>
+						{Object.entries(modelRoles.professional_model_map).map(([taskType, modelId]) => (
+							<ModelSelectionRow
+								key={taskType}
+								label={t("settings.sections.models.executor_label", {
+									taskType,
+								})}
+								description={
+									taskType === "default"
+										? t("settings.sections.models.executor_default_desc")
+										: t("settings.sections.models.executor_task_desc", {
+												taskType,
+											})
+								}
+								selectedModelId={modelId}
+								models={textModels}
+								onSelect={(id) => handleSelectProfessionalModel(taskType, id)}
+								config={textModelConfig}
+								onUpdateConfig={(c) => updateModel("text_model", c)}
+								onDelete={
+									taskType !== "default" ? () => handleRemoveProfessionalMapping(taskType) : undefined
+								}
+								icon={<Wrench size={20} />}
+								modelRole="text"
+							/>
+						))}
+
+						{/* Add new task type */}
+						<div className="flex gap-2">
+							<input
+								type="text"
+								value={newTaskType}
+								onChange={(e) => setNewTaskType(e.target.value)}
+								placeholder={
+									t("settings.sections.models.add_task_placeholder") ||
+									"Add task type (e.g., coding, browser)..."
+								}
+								className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-gold-400/50"
+								onKeyDown={(e) => e.key === "Enter" && handleAddTaskType()}
+							/>
+							<button
+								type="button"
+								onClick={handleAddTaskType}
+								disabled={!newTaskType.trim()}
+								className="px-4 py-2.5 bg-gold-400/20 text-gold-400 rounded-xl hover:bg-gold-400/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+							>
+								<Plus size={18} />
+								<span>{t("common.add") || "Add"}</span>
+							</button>
+						</div>
 					</div>
 				</div>
 			</SettingsSection>
 
-			{/* 4. Embedding Model Selection */}
+			{/* 4. Embedding Model */}
 			<SettingsSection
 				title={t("settings.sections.models.embedding_model_title") || "Embedding Model"}
 				icon={<Cpu size={18} />}
@@ -365,100 +360,29 @@ const ModelSettings: React.FC = () => {
 				/>
 			</SettingsSection>
 
-			{/* 5. Global LLM Manager Settings */}
+			{/* 5. Model Cache */}
 			<SettingsSection
-				title={t("settings.models_settings.global_manager.title") || "LLM Manager Settings"}
-				icon={<Settings2 size={18} />}
-				description={
-					t("settings.models_settings.global_manager.description") ||
-					"Process management and health check settings."
-				}
+				title={t("settings.sections.models.cache_title", "Model Cache")}
+				icon={<Database size={18} />}
+				description={t(
+					"settings.descriptions.cache_size",
+					"Number of models to keep loaded in memory.",
+				)}
 			>
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-					<FormGroup
-						label={
-							t("settings.models_settings.global_manager.terminate_timeout") || "Terminate Timeout"
-						}
-						isDirty={isLlmDirty("process_terminate_timeout")}
-					>
-						<FormInput
-							type="number"
-							value={llmConfig.process_terminate_timeout}
-							onChange={(v) => updateLlmManager("process_terminate_timeout", v as number)}
-							min={1}
-						/>
-					</FormGroup>
-					<FormGroup
-						label={
-							t("settings.models_settings.global_manager.health_check_timeout") ||
-							"Health Check Timeout"
-						}
-						isDirty={isLlmDirty("health_check_timeout")}
-					>
-						<FormInput
-							type="number"
-							value={llmConfig.health_check_timeout}
-							onChange={(v) => updateLlmManager("health_check_timeout", v as number)}
-							min={1}
-						/>
-					</FormGroup>
-					<FormGroup
-						label={
-							t("settings.models_settings.global_manager.health_check_interval") ||
-							"Health Check Interval"
-						}
-						isDirty={isLlmDirty("health_check_interval")}
-					>
-						<FormInput
-							type="number"
-							value={llmConfig.health_check_interval}
-							onChange={(v) => updateLlmManager("health_check_interval", v as number)}
-							step={0.1}
-						/>
-					</FormGroup>
-					<FormGroup
-						label={
-							t("settings.models_settings.global_manager.tokenizer_model") || "Tokenizer Model"
-						}
-						isDirty={isLlmDirty("tokenizer_model_key")}
-					>
-						<FormSelect
-							value={llmConfig.tokenizer_model_key}
-							onChange={(v) => updateLlmManager("tokenizer_model_key", v as string)}
-							options={[
-								{ value: "text_model", label: "Text" },
-								{ value: "embedding_model", label: "Embedding" },
-							]}
-						/>
-					</FormGroup>
-				</div>
-
-				<CollapsibleSection
-					title={t("settings.sections.models.advanced_title") || "Advanced Manager Settings"}
-					description={
-						t("settings.sections.models.advanced_description") || "Cache and resource settings"
-					}
+				<FormGroup
+					label={t("settings.fields.cache_size") || "Model Cache Limit"}
+					description={t("settings.descriptions.cache_size")}
+					isDirty={isLlmDirty("cache_size")}
 				>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-						<FormGroup
-							label={t("settings.fields.cache_size") || "Model Cache Limit"}
-							description={
-								t("settings.descriptions.cache_size") ||
-								"Number of models to keep loaded in memory."
-							}
-							isDirty={isLlmDirty("cache_size")}
-						>
-							<FormInput
-								type="number"
-								value={llmConfig.cache_size ?? 1}
-								onChange={(v) => updateLlmManager("cache_size", v as number)}
-								min={1}
-								max={5}
-								step={1}
-							/>
-						</FormGroup>
-					</div>
-				</CollapsibleSection>
+					<FormInput
+						type="number"
+						value={llmConfig.cache_size ?? 1}
+						onChange={(v) => updateLlmManager("cache_size", v as number)}
+						min={1}
+						max={5}
+						step={1}
+					/>
+				</FormGroup>
 			</SettingsSection>
 
 			<ModelListOverlay

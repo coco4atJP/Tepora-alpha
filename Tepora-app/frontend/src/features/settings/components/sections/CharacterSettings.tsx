@@ -44,9 +44,9 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	// Model Options
 	const modelOptions = settingsConfig?.models_gguf
 		? Object.keys(settingsConfig.models_gguf).map((key) => ({
-				value: key,
-				label: key,
-			}))
+			value: key,
+			label: key,
+		}))
 		: [];
 
 	// Edit Modal State
@@ -180,28 +180,20 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		const isActive = activeProfileId === key;
 
 		return (
-			<div
-				role="button"
-				tabIndex={0}
+			<button
+				type="button"
 				key={key}
 				aria-pressed={isActive}
 				className={`
 					relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
-					${
-						isActive
-							? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-							: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
+					${isActive
+						? "bg-gold-500/10 border-gold-500/50 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+						: "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10"
 					}
 					focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950
 				`}
 				onClick={() => {
 					onSetActive(key);
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						onSetActive(key);
-					}
 				}}
 			>
 				{/* Active Indicator */}
@@ -247,7 +239,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</div>
+			</button>
 		);
 	};
 
