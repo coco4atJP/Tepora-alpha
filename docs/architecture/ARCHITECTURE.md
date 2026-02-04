@@ -284,7 +284,6 @@ backend/
         │       ├── search_pipeline.py # SearchPipeline (検索フロー制御)
         │       ├── supervisor.py   # SupervisorNode（階層的ルーティング）
         │       ├── custom_agent.py # CustomAgentNode（カスタムエージェント実行）
-        │       ├── memory.py   # メモリノード
         │       ├── react.py    # ReActノード
         │       ├── thinking.py # Thinkingモード（CoT）
         │       └── em_llm.py   # EM-LLMノード
@@ -367,7 +366,10 @@ backend/
         │   └── types.py        # 型定義
         │
         ├── models/             # -------- Model Management --------
-        │   └── ...             # モデル管理ロジック
+        │   ├── __init__.py
+        │   ├── config.py       # モデル設定解決
+        │   ├── manager.py      # ModelManager（モデル管理）
+        │   └── types.py        # モデル型定義
         │
         ├── config/             # -------- Config Module --------
         │   ├── __init__.py     # 公開API
