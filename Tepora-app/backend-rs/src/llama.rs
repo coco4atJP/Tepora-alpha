@@ -329,7 +329,7 @@ impl LlamaService {
         let binary_path = guard
             .binary_path
             .clone()
-            .ok_or_else(|| ApiError::ServiceUnavailable)?;
+            .ok_or(ApiError::ServiceUnavailable)?;
         if let Some(port) = guard.get_running_port(&config.model_key) {
             return Ok(port);
         }
@@ -368,17 +368,14 @@ impl LlamaService {
         let retries = (HEALTH_TIMEOUT_SECS / HEALTH_RETRY_SECS).max(1);
 
         for _ in 0..retries {
-            match self.client.get(&url).send().await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        if let Ok(payload) = response.json::<Value>().await {
-                            if payload.get("status").and_then(|v| v.as_str()) == Some("ok") {
-                                return Ok(());
-                            }
+            if let Ok(response) = self.client.get(&url).send().await {
+                if response.status().is_success() {
+                    if let Ok(payload) = response.json::<Value>().await {
+                        if payload.get("status").and_then(|v| v.as_str()) == Some("ok") {
+                            return Ok(());
                         }
                     }
                 }
-                Err(_) => {}
             }
             sleep(Duration::from_secs(HEALTH_RETRY_SECS)).await;
         }

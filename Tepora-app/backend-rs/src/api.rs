@@ -7,7 +7,7 @@ use std::time::Duration;
 use axum::extract::{Path, Query, State};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, patch, post, put};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
@@ -406,7 +406,6 @@ struct McpApproveRequest {
 }
 
 struct PendingConsent {
-    payload: Value,
     expires_at: chrono::DateTime<Utc>,
     request: McpInstallPreviewRequest,
     server: McpRegistryServer,
@@ -514,12 +513,14 @@ async fn create_custom_agent(
         .get("name")
         .and_then(|v| v.as_str())
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("Agent name is required".to_string()))?;
+        .ok_or_else(|| ApiError::BadRequest("Agent name is required".to_string()))?
+        .to_string();
     let system_prompt = payload
         .get("system_prompt")
         .and_then(|v| v.as_str())
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("System prompt is required".to_string()))?;
+        .ok_or_else(|| ApiError::BadRequest("System prompt is required".to_string()))?
+        .to_string();
 
     let mut config = state.config.load_config()?;
     let mut agents = config
@@ -535,10 +536,10 @@ async fn create_custom_agent(
     let now = Utc::now().to_rfc3339();
     if let Some(obj) = payload.as_object_mut() {
         obj.insert("id".to_string(), Value::String(id.clone()));
-        obj.insert("name".to_string(), Value::String(name.to_string()));
+        obj.insert("name".to_string(), Value::String(name.clone()));
         obj.insert(
             "system_prompt".to_string(),
-            Value::String(system_prompt.to_string()),
+            Value::String(system_prompt.clone()),
         );
         obj.insert("created_at".to_string(), Value::String(now.clone()));
         obj.insert("updated_at".to_string(), Value::String(now.clone()));
@@ -840,13 +841,14 @@ async fn setup_run(
         let total = target_models.len().max(1) as f32;
         for (idx, model) in target_models.into_iter().enumerate() {
             let base_progress = idx as f32 / total;
-            let progress_cb = |p: f32, message: &str| {
-                let _ = state_clone.setup.update_progress(
+            let state_for_progress = state_clone.clone();
+            let progress_cb = Arc::new(move |p: f32, message: &str| {
+                let _ = state_for_progress.setup.update_progress(
                     "downloading",
                     base_progress + (p / total),
                     message,
                 );
-            };
+            });
 
             let result = state_clone
                 .models
@@ -856,7 +858,7 @@ async fn setup_run(
                     &model.role,
                     &model.display_name,
                     payload.acknowledge_warnings.unwrap_or(false),
-                    Some(&progress_cb),
+                    Some(progress_cb),
                 )
                 .await;
 
@@ -1023,9 +1025,10 @@ fn collect_default_models(config: &Value) -> Vec<ModelDownloadSpec> {
 async fn setup_finish(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(_payload): Json<SetupFinishRequest>,
+    Json(payload): Json<SetupFinishRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
+    let _ = payload.launch;
     let snapshot = state.setup.snapshot()?;
     let mut config = state.config.load_config()?;
     ensure_object_path(&mut config, &["app", "setup_completed"], Value::Bool(true));
@@ -1372,9 +1375,10 @@ struct BinaryUpdateRequest {
 async fn setup_binary_update(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(_payload): Json<BinaryUpdateRequest>,
+    Json(payload): Json<BinaryUpdateRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
+    let _ = payload.variant;
     Ok(Json(
         json!({"success": false, "job_id": Uuid::new_v4().to_string()}),
     ))
@@ -1453,12 +1457,7 @@ async fn mcp_store(
         page = 1;
     }
     let mut page_size = params.page_size.unwrap_or(50);
-    if page_size < 1 {
-        page_size = 1;
-    }
-    if page_size > 200 {
-        page_size = 200;
-    }
+    page_size = page_size.clamp(1, 200);
 
     let refresh = params.refresh.unwrap_or(false);
     let search = params.search.as_deref();
@@ -1471,17 +1470,14 @@ async fn mcp_store(
 
     if let Some(runtime) = params.runtime.as_ref() {
         let runtime_lower = runtime.to_lowercase();
-        servers = servers
-            .into_iter()
-            .filter(|server| {
-                server.packages.iter().any(|pkg| {
-                    pkg.runtime_hint
-                        .as_ref()
-                        .map(|hint| hint.to_lowercase() == runtime_lower)
-                        .unwrap_or(false)
-                })
+        servers.retain(|server| {
+            server.packages.iter().any(|pkg| {
+                pkg.runtime_hint
+                    .as_ref()
+                    .map(|hint| hint.to_lowercase() == runtime_lower)
+                    .unwrap_or(false)
             })
-            .collect();
+        });
     }
 
     servers.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -1512,6 +1508,7 @@ async fn mcp_store(
                 source_url,
                 homepage,
                 website_url,
+                license,
                 packages,
                 environment_variables,
                 icon,
@@ -1554,6 +1551,7 @@ async fn mcp_store(
                 "environmentVariables": env_json,
                 "icon": icon,
                 "category": category,
+                "license": license,
                 "sourceUrl": source_url,
                 "homepage": homepage,
                 "websiteUrl": website_url,
@@ -1595,7 +1593,6 @@ async fn mcp_install_preview(
     let expires_at = Utc::now() + ChronoDuration::seconds(MCP_CONSENT_TTL_SECS);
 
     let pending = PendingConsent {
-        payload: consent_payload.clone(),
         expires_at,
         request: payload.clone(),
         server,

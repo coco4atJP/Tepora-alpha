@@ -46,6 +46,7 @@ pub struct AppPaths {
     pub user_data_dir: PathBuf,
     pub log_dir: PathBuf,
     pub db_path: PathBuf,
+    #[allow(dead_code)]
     pub chroma_dir: PathBuf,
     pub secrets_path: PathBuf,
 }
@@ -140,6 +141,7 @@ impl ConfigService {
         Self { paths }
     }
 
+    #[allow(dead_code)]
     pub fn paths(&self) -> &AppPaths {
         &self.paths
     }

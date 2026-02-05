@@ -11,7 +11,7 @@ pub fn normalize_server_key(raw: &str) -> String {
         return "mcp_server".to_string();
     }
 
-    let base = raw.split('/').last().unwrap_or(raw);
+    let base = raw.split('/').next_back().unwrap_or(raw);
     let sanitized: String = base
         .chars()
         .map(|ch| if is_safe_key_char(ch) { ch } else { '_' })
@@ -129,10 +129,12 @@ pub fn preview_command(
     Ok(parts.join(" "))
 }
 
+#[allow(dead_code)]
 pub fn extract_env_schema(server: &McpRegistryServer) -> Vec<McpEnvVar> {
     server.environment_variables.clone()
 }
 
+#[allow(dead_code)]
 pub fn get_available_runtimes(server: &McpRegistryServer) -> Vec<String> {
     let mut runtimes = Vec::new();
     for pkg in &server.packages {
