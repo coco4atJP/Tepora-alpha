@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use chrono::Utc;
 use futures_util::StreamExt;
@@ -58,6 +59,8 @@ pub struct ModelDownloadResult {
     pub error_message: Option<String>,
     pub model_id: Option<String>,
 }
+
+type ProgressCallback = Arc<dyn Fn(f32, &str) + Send + Sync>;
 
 #[derive(Clone)]
 pub struct ModelManager {
@@ -157,7 +160,7 @@ impl ModelManager {
         role: &str,
         display_name: &str,
         consent_provided: bool,
-        progress_cb: Option<&dyn Fn(f32, &str)>,
+        progress_cb: Option<ProgressCallback>,
     ) -> Result<ModelDownloadResult, ApiError> {
         let policy = self.evaluate_download_policy(repo_id, filename);
         if !policy.allowed {
@@ -208,7 +211,7 @@ impl ModelManager {
             file.write_all(&data).map_err(ApiError::internal)?;
             hasher.update(&data);
             downloaded += data.len() as u64;
-            if let Some(cb) = progress_cb {
+            if let Some(cb) = progress_cb.as_ref() {
                 let progress = if total > 0 {
                     downloaded as f32 / total as f32
                 } else {
@@ -357,7 +360,7 @@ impl ModelManager {
     }
 
     pub fn evaluate_download_policy(&self, repo_id: &str, _filename: &str) -> ModelDownloadPolicy {
-        let config = self.config.load_config().unwrap_or_else(|_| Value::Null);
+        let config = self.config.load_config().unwrap_or(Value::Null);
         let allowlist = config
             .get("model_download")
             .and_then(|v| v.get("allow_repo_owners"))
@@ -431,18 +434,19 @@ impl ModelManager {
         };
 
         let mut config = self.config.load_config()?;
-        let models_gguf = config
-            .get_mut("models_gguf")
-            .and_then(|v| v.as_object_mut())
-            .unwrap_or_else(|| {
-                config
-                    .as_object_mut()
-                    .expect("config root")
-                    .entry("models_gguf")
-                    .or_insert_with(|| Value::Object(Default::default()))
-                    .as_object_mut()
+        let models_gguf = match config.get_mut("models_gguf") {
+            Some(Value::Object(map)) => map,
+            _ => {
+                let root = config.as_object_mut().expect("config root");
+                root.insert(
+                    "models_gguf".to_string(),
+                    Value::Object(Default::default()),
+                );
+                root.get_mut("models_gguf")
+                    .and_then(|value| value.as_object_mut())
                     .expect("models_gguf map")
-            });
+            }
+        };
 
         let key = if role == "embedding" {
             "embedding_model"
@@ -482,6 +486,7 @@ impl ModelManager {
         Ok(base.join(filename))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_model_entry(
         &self,
         repo_id: &str,

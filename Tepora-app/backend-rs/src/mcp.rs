@@ -7,9 +7,8 @@ use std::sync::{Arc, RwLock as StdRwLock};
 use chrono::Utc;
 use reqwest::Url;
 use rmcp::model::CallToolRequestParams;
-use rmcp::service::{RoleClient, Service};
+use rmcp::service::{serve_client, RoleClient, RunningService};
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
-use rmcp::ServiceExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use tokio::process::Command;
@@ -107,7 +106,7 @@ pub struct McpToolInfo {
 
 #[derive(Clone)]
 struct McpClientEntry {
-    service: Arc<Service<RoleClient>>,
+    service: Arc<RunningService<RoleClient, ()>>,
     tools: Vec<Value>,
 }
 
@@ -252,13 +251,15 @@ impl McpManager {
 
         let arguments = build_tool_arguments(args);
         let params = CallToolRequestParams {
-            name: short_name,
+            meta: None,
+            name: short_name.clone().into(),
             arguments,
-            ..Default::default()
+            task: None,
         };
 
         let result = entry
             .service
+            .peer()
             .call_tool(params)
             .await
             .map_err(ApiError::internal)?;
@@ -519,9 +520,7 @@ impl McpManager {
         name: &str,
         server: &McpServerConfig,
     ) -> Result<McpClientEntry, String> {
-        if let Err(reason) = self.policy_allows_connection(name, server) {
-            return Err(reason);
-        }
+        self.policy_allows_connection(name, server)?;
 
         let transport_name = server.transport.to_lowercase();
         let service = if transport_name == "stdio" || transport_name.is_empty() {
@@ -534,9 +533,11 @@ impl McpManager {
             if !server.env.is_empty() {
                 cmd.envs(&server.env);
             }
-            let transport = TokioChildProcess::new(cmd.configure(|cmd| cmd))
+            let transport = TokioChildProcess::new(cmd.configure(|cmd| {
+                let _ = cmd;
+            }))
                 .map_err(|err| format!("Failed to spawn MCP server '{}': {}", name, err))?;
-            ().serve(transport)
+            serve_client((), transport)
                 .await
                 .map_err(|err| format!("Failed to connect MCP server '{}': {}", name, err))?
         } else if transport_name == "streamable_http"
@@ -550,9 +551,10 @@ impl McpManager {
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| "MCP server URL is required for HTTP transport".to_string())?;
 
-            let transport = StreamableHttpClientTransport::from_uri(url)
-                .map_err(|err| format!("Failed to build HTTP transport for '{}': {}", name, err))?;
-            ().serve(transport)
+            let parsed = Url::parse(url)
+                .map_err(|err| format!("Invalid MCP server URL '{}': {}", url, err))?;
+            let transport = StreamableHttpClientTransport::from_uri(parsed.as_str());
+            serve_client((), transport)
                 .await
                 .map_err(|err| format!("Failed to connect MCP server '{}': {}", name, err))?
         } else {
@@ -560,7 +562,8 @@ impl McpManager {
         };
 
         let tools_result = service
-            .list_tools(Default::default())
+            .peer()
+            .list_tools(None)
             .await
             .map_err(|err| format!("Failed to list tools for '{}': {}", name, err))?;
         let tool_values = serde_json::to_value(&tools_result)

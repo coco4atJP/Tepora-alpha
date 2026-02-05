@@ -73,6 +73,7 @@ pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken) -> Result<(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn api_key_optional(headers: &HeaderMap, expected: &SessionToken) -> Option<String> {
     headers
         .get(API_KEY_HEADER)

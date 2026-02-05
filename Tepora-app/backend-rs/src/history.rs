@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, Row};
+use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::errors::ApiError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SessionInfo {
     pub id: String,
     pub title: String,
@@ -17,7 +18,7 @@ pub struct SessionInfo {
     pub preview: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SessionDetail {
     pub id: String,
     pub title: String,
@@ -25,7 +26,7 @@ pub struct SessionDetail {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct HistoryMessage {
     pub message_type: String,
     pub content: String,
@@ -45,6 +46,7 @@ impl HistoryStore {
         Ok(store)
     }
 
+    #[allow(dead_code)]
     pub fn db_path(&self) -> &PathBuf {
         &self.db_path
     }
@@ -92,14 +94,12 @@ impl HistoryStore {
             .map_err(ApiError::internal)?;
 
         let rows = stmt
-            .query_map([], |row| session_info_from_row(row))
+            .query_map([], session_info_from_row)
             .map_err(ApiError::internal)?;
 
         let mut sessions = Vec::new();
-        for row in rows {
-            if let Ok(session) = row {
-                sessions.push(session);
-            }
+        for session in rows.flatten() {
+            sessions.push(session);
         }
         Ok(sessions)
     }
@@ -189,10 +189,8 @@ impl HistoryStore {
             .map_err(ApiError::internal)?;
 
         let mut messages = Vec::new();
-        for row in rows {
-            if let Ok(msg) = row {
-                messages.push(msg);
-            }
+        for msg in rows.flatten() {
+            messages.push(msg);
         }
         Ok(messages)
     }

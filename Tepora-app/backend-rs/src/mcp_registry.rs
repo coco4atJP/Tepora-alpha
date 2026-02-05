@@ -107,7 +107,7 @@ impl McpRegistry {
                 }
                 Ok(servers)
             }
-            Err(err) => {
+            Err(_err) => {
                 let servers = self.load_from_seed().await.unwrap_or_default();
                 if version == DEFAULT_VERSION_FILTER {
                     self.update_cache(&servers).await;

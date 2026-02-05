@@ -275,7 +275,7 @@ async fn handle_message(
         }
     } else if mode == "agent" {
         let agent_response = run_agent_mode(
-            &state,
+            state,
             &config,
             &session_id,
             chat_messages,
@@ -471,6 +471,7 @@ enum AgentDecision {
     ToolCall { name: String, args: Value },
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_agent_mode(
     state: &AppState,
     config: &Value,
@@ -751,12 +752,17 @@ async fn request_tool_approval(
         map.insert(request_id.clone(), tx);
     }
 
+    let tool_args_payload = if tool_args.is_object() {
+        tool_args.clone()
+    } else {
+        json!({ "input": tool_args })
+    };
     let payload = json!({
         "type": "tool_confirmation_request",
         "data": {
             "requestId": request_id,
             "toolName": tool_name,
-            "toolArgs": if tool_args.is_object() { tool_args } else { json!({ "input": tool_args }) },
+            "toolArgs": tool_args_payload,
             "description": format!("Tool '{}' requires your approval to execute.", tool_name),
         }
     });
