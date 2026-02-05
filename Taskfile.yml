@@ -13,7 +13,7 @@
 version: '3'
 
 vars:
-  BACKEND_DIR: Tepora-app/backend
+  BACKEND_DIR: Tepora-app/backend-rs
   FRONTEND_DIR: Tepora-app/frontend
 
 tasks:
@@ -47,7 +47,7 @@ tasks:
     desc: "Start backend server"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run -s server.py
+      - cargo run
 
   dev-frontend:
     desc: "Start frontend dev server"
@@ -72,7 +72,7 @@ tasks:
     desc: "Run backend tests"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run pytest tests/ -v
+      - cargo test
 
   test-frontend:
     desc: "Run frontend tests"
@@ -88,18 +88,17 @@ tasks:
       - task: lint-frontend
 
   lint-backend:
-    desc: "Lint backend code with ruff"
+    desc: "Lint backend code with rustfmt + clippy"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run ruff check src/
-    ignore_error: true
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
 
   lint-frontend:
     desc: "Lint frontend code"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm run lint
-    ignore_error: true
 
   # === Type Checking ===
   typecheck:
@@ -109,18 +108,16 @@ tasks:
       - task: typecheck-frontend
 
   typecheck-backend:
-    desc: "Type check backend with mypy"
+    desc: "Type check backend with cargo"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run mypy src/
-    ignore_error: true
+      - cargo check
 
   typecheck-frontend:
     desc: "Type check frontend"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npx tsc --noEmit
-    ignore_error: true
 
   # === Build ===
   build:
@@ -130,10 +127,10 @@ tasks:
       - task: build-frontend
 
   build-sidecar:
-    desc: "Build PyInstaller sidecar for Tauri"
+    desc: "Build Rust sidecar for Tauri"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run scripts/build_sidecar.py
+      - node ../scripts/build_sidecar.mjs
 
   build-frontend:
     desc: "Build frontend for production"
@@ -149,10 +146,10 @@ tasks:
       - task: install-frontend
 
   install-backend:
-    desc: "Install backend dependencies using uv"
+    desc: "Fetch backend dependencies"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv sync --extra dev
+      - cargo fetch
 
   install-frontend:
     desc: "Install frontend dependencies"
@@ -171,10 +168,7 @@ tasks:
     desc: "Clean backend build artifacts"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - cmd: rm -rf dist build *.egg-info .pytest_cache .mypy_cache .ruff_cache
-        platforms: [linux, darwin]
-      - cmd: if exist dist rmdir /s /q dist & if exist build rmdir /s /q build
-        platforms: [windows]
+      - cargo clean
 
   clean-frontend:
     desc: "Clean frontend build artifacts"
@@ -187,56 +181,63 @@ tasks:
 
   # === Quality Gate ===
   quality:
-    desc: "Run all quality checks (lint, typecheck, test)"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Run all quality checks (backend + frontend)"
     cmds:
-      - uv run ../scripts/quality_gate.py
-
+      - task: quality:backend
+      - task: quality:frontend
 
   quality:strict:
     desc: "Run strict quality checks (warnings = failures)"
-    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run ../scripts/quality_gate.py --strict
+      - task: quality:backend
+      - task: quality:frontend
 
   quality:fix:
     desc: "Run quality checks with auto-fix"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run ../scripts/quality_gate.py --fix
+      - cargo fmt
+      - cargo clippy -- -D warnings
+      - cargo test
 
   quality:backend:
     desc: "Run backend quality checks only"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run ../scripts/quality_gate.py --backend-only
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      - cargo test
 
   quality:frontend:
     desc: "Run frontend quality checks only"
-    dir: "{{.BACKEND_DIR}}"
+    dir: "{{.FRONTEND_DIR}}"
     cmds:
-      - uv run ../scripts/quality_gate.py --frontend-only
+      - npm run typecheck
+      - npx biome check src/
+      - npm run lint
+      - npm test -- --run
 
   # === Security ===
   security:
-    desc: "Run security scans (pip-audit, npm audit)"
+    desc: "Run security scans (cargo audit, npm audit)"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run ../scripts/quality_gate.py --security
+      - cargo generate-lockfile
+      - cargo audit
+      - npm audit --audit-level=moderate --prefix {{.FRONTEND_DIR}}
 
   security-backend:
-    desc: "Run backend security scan (pip-audit)"
+    desc: "Run backend security scan (cargo-audit)"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run pip-audit
-    ignore_error: true
+      - cargo generate-lockfile
+      - cargo audit
 
   security-frontend:
     desc: "Run frontend security scan (npm audit)"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm audit --audit-level=moderate
-    ignore_error: true
 
   # === Coverage ===
   coverage:
@@ -249,7 +250,7 @@ tasks:
     desc: "Run backend tests with coverage"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv run pytest tests/ -v --cov=src --cov-report=html --cov-report=term-missing
+      - cargo test
 
   coverage-frontend:
     desc: "Run frontend tests with coverage"

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMcpServers, useMcpStore } from "../../../hooks/useMcp";
 
@@ -78,7 +78,9 @@ describe("useMcpStore", () => {
 		const { result } = renderHook(() => useMcpStore());
 
 		// Trigger fetch
-		result.current.refresh();
+		await act(async () => {
+			result.current.refresh();
+		});
 
 		await waitFor(() => {
 			expect(result.current.storeServers).toHaveLength(1);

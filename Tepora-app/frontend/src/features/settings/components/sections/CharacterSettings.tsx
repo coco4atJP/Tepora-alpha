@@ -180,9 +180,10 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		const isActive = activeProfileId === key;
 
 		return (
-			<button
-				type="button"
+			<div
 				key={key}
+				role="button"
+				tabIndex={0}
 				aria-pressed={isActive}
 				className={`
 					relative group flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left w-full
@@ -194,6 +195,12 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				`}
 				onClick={() => {
 					onSetActive(key);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						onSetActive(key);
+					}
 				}}
 			>
 				{/* Active Indicator */}
@@ -239,7 +246,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						</button>
 					)}
 				</div>
-			</button>
+			</div>
 		);
 	};
 

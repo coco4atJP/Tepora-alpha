@@ -6,7 +6,7 @@
 
 ```
 Tepora-app/
-├── backend/          # Python FastAPI バックエンドサーバー
+├── backend-rs/       # Rust バックエンドサーバー
 ├── frontend/         # React + Vite フロントエンド（Tauri デスクトップアプリ含む）
 ├── scripts/          # ビルド・デプロイ用スクリプト
 └── Taskfile.yml      # タスクランナー設定
@@ -16,9 +16,8 @@ Tepora-app/
 
 ### 前提条件
 
-- **Python 3.11+** + [`uv`](https://github.com/astral-sh/uv)
+- **Rust** (バックエンド / Tauri ビルド)
 - **Node.js 18+** + npm
-- **Rust** (Tauri ビルド時のみ)
 - **Task** ([Taskfile](https://taskfile.dev/))
 
 ### 依存関係のインストール
@@ -35,6 +34,7 @@ task dev
 ```
 
 これにより、バックエンド (http://localhost:8000) とフロントエンド (http://localhost:5173) の両方が起動します。
+バックエンドは動的ポートで起動するため、起動ログに `TEPORA_PORT=xxxx` が表示されます。
 
 ## タスク一覧
 
@@ -53,7 +53,7 @@ task dev
 
 ## ビルドスクリプト
 
-- `scripts/build_sidecar.py` - PyInstaller によるバックエンドのサイドカービルド
-- `scripts/prepare_fallback.py` - フォールバックバイナリの準備
+- `scripts/build_sidecar.mjs` - Rust バックエンドのサイドカービルド
+- `scripts/prepare_fallback.py` - フォールバックバイナリの準備（任意）
 
 詳細なドキュメントは [`../docs/`](../docs/) を参照してください。

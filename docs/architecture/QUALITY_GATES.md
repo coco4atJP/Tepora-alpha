@@ -16,15 +16,15 @@
 
 ## 品質チェック項目
 
-### Backend (Python)
+### Backend (Rust)
 
 | チェック | ツール | コマンド |
 |----------|--------|----------|
-| Lint | Ruff | `uv run ruff check src/` |
-| Format | Ruff | `uv run ruff format --check src/` |
-| Type Check | Mypy | `uv run mypy src/` |
-| Tests | pytest | `uv run pytest tests/ -v` |
-| Security | pip-audit | `uv run pip-audit` |
+| Lint | Clippy | `cargo clippy -- -D warnings` |
+| Format | rustfmt | `cargo fmt -- --check` |
+| Type Check | Rust compiler | `cargo check` |
+| Tests | cargo test | `cargo test` |
+| Security | cargo-audit | `cargo audit` |
 
 ### Frontend (TypeScript/React)
 
@@ -124,17 +124,16 @@ graph TD
 
 ### よくあるエラー
 
-#### Ruff エラー
+#### rustfmt エラー
 
 ```bash
-# 自動修正
-uv run ruff check src/ --fix
-uv run ruff format src/
+# rustfmtでフォーマット
+cargo fmt
 ```
 
-#### Mypy エラー
+#### Clippy エラー
 
-型エラーの場合、適切な型アノテーションを追加してください。
+該当箇所の警告を修正し、`cargo clippy -- -D warnings` で再確認します。
 
 #### Biome エラー
 
@@ -147,9 +146,12 @@ npx biome check --write src/
 
 緊急時のみ、以下のように特定チェックをスキップできます：
 
-```python
-# noqa: E501  # Ruff: 特定の行を無視
-# type: ignore  # Mypy: 型チェック無視
+```rust
+#[allow(clippy::needless_return)] // Clippy: 特定の警告を無視
+```
+
+```ts
+// biome-ignore lint/suspicious/noExplicitAny: 理由を記載
 ```
 
 > [!CAUTION]
@@ -159,7 +161,7 @@ npx biome check --write src/
 
 | ファイル | 用途 |
 |----------|------|
-| `pyproject.toml` | Ruff, Mypy, pytest 設定 |
+| `Cargo.toml` | Rust依存関係 |
 | `biome.json` | Biome lint/format 設定 |
 | `.pre-commit-config.yaml` | Pre-commit フック設定 |
 | `.github/workflows/ci.yml` | CI パイプライン設定 |

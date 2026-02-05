@@ -1,15 +1,14 @@
 # Tepora 開発ガイド
 
 このドキュメントでは、Teporaプロジェクトの開発環境構築、実行方法、テスト方法について解説します。
-本プロジェクトは **Desktop First** (Tauri + Local Python Backend) を主軸としていますが、開発の利便性のためにWebブラウザでの動作も一部サポートしています。
+本プロジェクトは **Desktop First** (Tauri + Local Rust Backend) を主軸としていますが、開発の利便性のためにWebブラウザでの動作も一部サポートしています。
 
 ## 🛠️ 前提条件 (Prerequisites)
 
 以下のツールがインストールされている必要があります。
 
-- **Python**: 3.13 以上
 - **Node.js**: 18.0.0 以上
-- **Rust**: 最新の安定版 (Tauriのビルドに必要)
+- **Rust**: 最新の安定版 (バックエンド / Tauriのビルドに必要)
 - **Visual Studio Code** (推奨エディタ)
 
 ## 🚀 環境構築 (Setup)
@@ -20,14 +19,11 @@ git clone https://github.com/coco4atJP/Tepora.git
 cd Tepora
 ```
 
-### 2. バックエンド (Python) のセットアップ
-**推奨手順 (Using uv)**:
-Teporaではパッケージ管理に `uv` を使用します。
+### 2. バックエンド (Rust) のセットアップ
 ```powershell
-cd Tepora-app/backend
-uv sync
+cd Tepora-app/backend-rs
+cargo fetch
 ```
-**注意**: `llama-cpp-python` のインストールにはC++ビルドツールが必要になる場合があります。GPUサポートを有効にする場合は、適切なビルド引数を指定してください。
 
 ### 3. フロントエンド (React + Tauri) のセットアップ
 ```powershell
@@ -48,7 +44,7 @@ npm run tauri dev
 ```
 このコマンドは以下を自動で行います：
 1. Vite サーバーの起動
-2. Python バックエンドの起動 (Sidecar として)
+2. Rust バックエンドの起動 (Sidecar として)
 3. アプリウィンドウの表示
 
 ### B. Webブラウザで開発 (UI調整向け)
@@ -65,9 +61,9 @@ task dev
 
 **ターミナル1 (バックエンド)**
 ```powershell
-cd Tepora-app/backend
+cd Tepora-app/backend-rs
 # 固定ポートを指定して起動
-$env:PORT="8000"; uv run server.py
+$env:PORT="8000"; cargo run
 ```
 
 **ターミナル2 (フロントエンド)**
@@ -85,10 +81,10 @@ Windowsの「設定」アプリから「プライバシーとセキュリティ�
 
 ## 🧪 テストの実行 (Testing)
 
-### バックエンド (Pytest)
+### バックエンド (Cargo)
 ```powershell
-cd Tepora-app/backend
-uv run pytest tests/
+cd Tepora-app/backend-rs
+cargo test
 ```
 
 ### フロントエンド (Vitest)
@@ -107,7 +103,7 @@ npm run build:app
 ```
 このコマンドは以下の処理を行います：
 1. React アプリのビルド (`frontend/dist` 生成)
-2. Python バックエンドの実行ファイル化 (PyInstaller で `tepora-backend` 生成)
+2. Rust バックエンドのビルド (`tepora-backend` 生成)
 3. Tauri アプリのバンドル (MSI インストーラー等の生成)
 
 生成物は `Tepora-app/frontend/src-tauri/target/release/bundle` に出力されます。
@@ -115,7 +111,6 @@ npm run build:app
 ## 📁 主要なディレクトリ構造
 詳細なアーキテクチャは [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) を参照してください。
 
-- `Tepora-app/backend/src/tepora_server`: FastAPI Webサーバー実装
-- `Tepora-app/backend/src/core`: ビジネスロジック (LangGraph, EM-LLM)
+- `Tepora-app/backend-rs/src`: Rust バックエンド
 - `Tepora-app/frontend/src`: React コンポーネント
 - `Tepora-app/frontend/src-tauri`: Tauri 設定と Rust コード

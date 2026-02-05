@@ -61,7 +61,7 @@ Teporaは会話の中の重要な出来事を自動的に長期記憶として�
 
 ### 必要なもの
 - 少し強めのPC (GPU搭載を推奨)
-- **Python 3.13** / **Node.js 18+**
+- **Rust** / **Node.js 18+**
 - 冒険心
 
 ### 始め方（開発者・アーリーアダプター向け）
@@ -81,7 +81,7 @@ git clone https://github.com/coco4atJP/Tepora.git
 Teporaは、最先端の技術実験場でもあります。
 "Memory-Augmented Generation" の実用化や、美しくモダンなTauriアプリケーションの開発に興味がある方の参加をお待ちしています。
 
-*   **Core:** Python 3.13, LangGraph (Agentic Workflow), EM-LLM (Memory Architecture)
+*   **Core:** Rust, MCP (Tooling), Llama.cpp (Local Inference), EM-LLM (Memory Architecture)
 *   **GUI:** Tauri (Rust), React + TypeScript, Tailwind CSS v4
 
 ### Documentation
@@ -93,7 +93,8 @@ Teporaは、最先端の技術実験場でもあります。
 本プロジェクトは、以下の革新的な技術とコミュニティに深く感謝いたします。
 
 *   **Jan.ai & Community**: ローカルLLMの可能性を広げた先駆者として。
-*   **LangChain / LangGraph**: エージェント構築の基盤として。
+*   **MCP Community**: ツール連携の基盤として。
+*   **Llama.cpp**: ローカル推論の中核として。
 *   **Tauri**: 美しいデスクトップ体験の実現のために。
 *   **Research Authors of EM-LLM**: 私たちの「記憶」の源泉となった論文の著者の皆様。
 

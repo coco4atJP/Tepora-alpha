@@ -6,7 +6,7 @@
 ---
 
 ## 1. Core System Prompts
-定義場所: `backend/src/core/config/prompts.py`
+定義場所: `config.yml`（ユーザーデータ）または `/api/config` の `custom_agents`
 
 ### `direct_answer`
 通常のチャット応答で使用される基本プロンプトです。`{safety_policy_content}` は設定 (`nsfw_enabled`) に応じて動的に置換されます。
@@ -180,7 +180,7 @@ Thought: [Completion reasoning]
 ---
 
 ## 2. Character Personas (System Prompts)
-定義場所: `backend/src/core/config/schema.py`
+定義場所: `config.yml`（ユーザーデータ）
 
 ### `bunny_girl` (マリナ) - Default
 <details>
@@ -295,7 +295,7 @@ Tone: Archaic, haughty but caring. Uses "Ja/Nou". First person: "Warawa" (妾).
 ## 3. Dynamic Prompts
 
 ### `attachment_summary`
-場所: `backend/src/core/graph/nodes/conversation.py` (コード内定義)
+場所: `Tepora-app/backend-rs/src/ws.rs` (コード内定義)
 
 <details>
 <summary>原文 (XML Optimized)</summary>

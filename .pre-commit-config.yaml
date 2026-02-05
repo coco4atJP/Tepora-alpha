@@ -25,25 +25,20 @@ repos:
         args: ['--fix=lf']
       - id: detect-private-key
 
-  # Python - Ruff (lint + format)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
-    hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-        files: ^Tepora-app/backend/
-      - id: ruff-format
-        files: ^Tepora-app/backend/
-
-  # Python - Type checking (Mypy)
+  # Rust - fmt + clippy
   - repo: local
     hooks:
-      - id: mypy
-        name: mypy (backend)
-        entry: bash -c 'cd Tepora-app/backend && uv run mypy src/'
+      - id: cargo-fmt
+        name: cargo fmt (backend)
+        entry: bash -c 'cd Tepora-app/backend-rs && cargo fmt'
         language: system
-        types: [python]
-        files: ^Tepora-app/backend/src/
+        files: ^Tepora-app/backend-rs/
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy (backend)
+        entry: bash -c 'cd Tepora-app/backend-rs && cargo clippy -- -D warnings'
+        language: system
+        files: ^Tepora-app/backend-rs/
         pass_filenames: false
 
   # JavaScript/TypeScript - Biome
@@ -83,4 +78,4 @@ ci:
   autofix_prs: true
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: [mypy, typescript]  # These require environment setup
+  skip: [typescript]  # These require environment setup

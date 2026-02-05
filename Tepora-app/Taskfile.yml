@@ -10,7 +10,7 @@
 version: '3'
 
 vars:
-  BACKEND_DIR: backend
+  BACKEND_DIR: backend-rs
   FRONTEND_DIR: frontend
 
 tasks:
@@ -30,7 +30,7 @@ tasks:
     desc: "Start backend server"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python server.py
+      - cargo run
 
   dev-frontend:
     desc: "Start frontend dev server"
@@ -41,7 +41,7 @@ tasks:
   dev-sync:
     desc: "Start backend and frontend with dynamic port synchronization"
     cmds:
-      - python scripts/dev_sync.py
+      - node scripts/dev_sync.mjs
 
   dev-tauri:
     desc: "Start Tauri app in dev mode"
@@ -60,7 +60,7 @@ tasks:
     desc: "Run backend tests"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - pytest tests/ -v
+      - cargo test
 
   test-frontend:
     desc: "Run frontend tests"
@@ -76,18 +76,17 @@ tasks:
       - task: lint-frontend
 
   lint-backend:
-    desc: "Lint backend code with ruff"
+    desc: "Lint backend code with rustfmt + clippy"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python -m ruff check src/
-    ignore_error: true
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
 
   lint-frontend:
     desc: "Lint frontend code"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm run lint
-    ignore_error: true
 
   # === Type Checking ===
   typecheck:
@@ -97,18 +96,76 @@ tasks:
       - task: typecheck-frontend
 
   typecheck-backend:
-    desc: "Type check backend with mypy"
+    desc: "Type check backend with cargo"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - python -m mypy src/
-    ignore_error: true
+      - cargo check
 
   typecheck-frontend:
     desc: "Type check frontend"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npx tsc --noEmit
-    ignore_error: true
+
+  # === Quality Gate ===
+  quality:
+    desc: "Run all quality checks (backend + frontend)"
+    cmds:
+      - task: quality:backend
+      - task: quality:frontend
+
+  quality:strict:
+    desc: "Run strict quality checks (warnings = failures)"
+    cmds:
+      - task: quality:backend
+      - task: quality:frontend
+
+  quality:fix:
+    desc: "Run quality checks with auto-fix"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo fmt
+      - cargo clippy -- -D warnings
+      - cargo test
+
+  quality:backend:
+    desc: "Run backend quality checks only"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      - cargo test
+
+  quality:frontend:
+    desc: "Run frontend quality checks only"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run typecheck
+      - npx biome check src/
+      - npm run lint
+      - npm test -- --run
+
+  # === Security ===
+  security:
+    desc: "Run security scans (cargo audit, npm audit)"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo generate-lockfile
+      - cargo audit
+      - npm audit --audit-level=moderate --prefix {{.FRONTEND_DIR}}
+
+  security-backend:
+    desc: "Run backend security scan (cargo-audit)"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo generate-lockfile
+      - cargo audit
+
+  security-frontend:
+    desc: "Run frontend security scan (npm audit)"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm audit --audit-level=moderate
 
   # === Build ===
   build:
@@ -118,9 +175,9 @@ tasks:
       - task: build-frontend
 
   build-sidecar:
-    desc: "Build PyInstaller sidecar for Tauri"
+    desc: "Build Rust sidecar for Tauri"
     cmds:
-      - python scripts/build_sidecar.py
+      - node scripts/build_sidecar.mjs
 
   build-frontend:
     desc: "Build frontend for production"
@@ -136,10 +193,10 @@ tasks:
       - task: install-frontend
 
   install-backend:
-    desc: "Install backend dependencies using uv"
+    desc: "Fetch backend dependencies"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - uv sync --extra dev
+      - cargo fetch
 
   install-frontend:
     desc: "Install frontend dependencies"
@@ -158,10 +215,7 @@ tasks:
     desc: "Clean backend build artifacts"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - cmd: rm -rf dist build *.egg-info .pytest_cache .mypy_cache .ruff_cache
-        platforms: [linux, darwin]
-      - cmd: if exist dist rmdir /s /q dist & if exist build rmdir /s /q build
-        platforms: [windows]
+      - cargo clean
 
   clean-frontend:
     desc: "Clean frontend build artifacts"

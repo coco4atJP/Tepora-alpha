@@ -1,9 +1,12 @@
 # Dependencies
 node_modules/
+Tepora-app/frontend/npm-cache-*/
+Tepora-app/frontend/npm-cache/
 **/node_modules/
 
 # Build outputs
 Tepora-app/frontend/dist/
+Installer/
 Tepora-app/backend/logs/
 chroma_db_em_llm/
 
@@ -53,6 +56,7 @@ wheels/
 
 # Logs
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -151,4 +155,5 @@ bin_bak/
 
 # Reference materials (if exists)
 プロジェクト参考資料/
+格納/
 docs/archives/

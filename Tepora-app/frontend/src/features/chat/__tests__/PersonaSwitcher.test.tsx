@@ -1,3 +1,4 @@
+import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
 	type Config,
@@ -131,10 +132,14 @@ describe("PersonaSwitcher", () => {
 		renderWithContext(mockSettings);
 
 		// Open menu
-		fireEvent.click(screen.getByTitle("Switch Persona"));
+		await act(async () => {
+			fireEvent.click(screen.getByTitle("Switch Persona"));
+		});
 
 		// Select Barista
-		fireEvent.click(screen.getByText("Barista"));
+		await act(async () => {
+			fireEvent.click(screen.getByText("Barista"));
+		});
 
 		expect(mockSettings.setActiveAgent).toHaveBeenCalledWith("casual");
 	});
