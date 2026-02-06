@@ -35,7 +35,11 @@ Tepora_Project/
 │   │   │   ├── ws.rs        # WebSocket/ストリーミング
 │   │   │   ├── mcp.rs       # MCP管理
 │   │   │   ├── models.rs    # モデル管理
-│   │   │   └── config.rs    # 設定/パス管理
+│   │   │   ├── config.rs    # 設定/パス管理
+│   │   │   ├── history.rs   # チャット履歴/セッション
+│   │   │   ├── state.rs     # アプリケーション状態
+│   │   │   ├── security.rs  # 認証・セキュリティ
+│   │   │   └── search.rs    # Web検索ロジック
 │   │   └── Cargo.toml
 │   ├── frontend/            # React UI
 │   └── scripts/             # sidecar/dev補助 (Node)
