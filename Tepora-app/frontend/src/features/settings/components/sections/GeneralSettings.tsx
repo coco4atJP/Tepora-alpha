@@ -95,10 +95,12 @@ const GeneralSettings: React.FC = () => {
 					>
 						<FormSelect
 							value={toolsConfig.search_provider || "google"}
-							onChange={(value) => updateTools("search_provider", value as "google" | "duckduckgo")}
+							onChange={(value) => updateTools("search_provider", value as "google" | "duckduckgo" | "brave" | "bing")}
 							options={[
 								{ value: "google", label: t("settings.search.providers.google") },
 								{ value: "duckduckgo", label: t("settings.search.providers.duckduckgo") },
+								{ value: "brave", label: t("settings.search.providers.brave") },
+								{ value: "bing", label: t("settings.search.providers.bing") },
 							]}
 						/>
 					</FormGroup>
@@ -133,6 +135,38 @@ const GeneralSettings: React.FC = () => {
 								/>
 							</FormGroup>
 						</>
+					)}
+
+					{toolsConfig.search_provider === "brave" && (
+						<FormGroup
+							label={t("settings.sections.general.brave_search.api_key_label")}
+							description={t("settings.sections.general.brave_search.api_key_desc")}
+							isDirty={isToolsDirty("brave_search_api_key")}
+							className="delay-300"
+						>
+							<FormInput
+								type="password"
+								value={toolsConfig.brave_search_api_key || ""}
+								onChange={(value) => updateTools("brave_search_api_key", value as string)}
+								placeholder="BSA..."
+							/>
+						</FormGroup>
+					)}
+
+					{toolsConfig.search_provider === "bing" && (
+						<FormGroup
+							label={t("settings.sections.general.bing_search.api_key_label")}
+							description={t("settings.sections.general.bing_search.api_key_desc")}
+							isDirty={isToolsDirty("bing_search_api_key")}
+							className="delay-300"
+						>
+							<FormInput
+								type="password"
+								value={toolsConfig.bing_search_api_key || ""}
+								onChange={(value) => updateTools("bing_search_api_key", value as string)}
+								placeholder="Ocp-Apim-Subscription-Key"
+							/>
+						</FormGroup>
 					)}
 				</div>
 			</SettingsSection>

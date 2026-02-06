@@ -13,6 +13,7 @@ mod security;
 mod setup_state;
 mod state;
 mod tooling;
+mod vector_math;
 mod ws;
 
 use std::env;
@@ -25,7 +26,7 @@ use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let state = AppState::initialize()?;
+    let state = AppState::initialize().await?;
     logging::init(&state.paths);
 
     if let Err(err) = state.mcp.initialize().await {

@@ -265,7 +265,9 @@
 		"search": {
 			"providers": {
 				"google": "Google Custom Search",
-				"duckduckgo": "DuckDuckGo"
+				"duckduckgo": "DuckDuckGo",
+				"brave": "Brave Search",
+				"bing": "Bing Web Search (v7)"
 			}
 		},
 		"confirm_discard": "You have unsaved changes. Discard them?",
@@ -296,6 +298,16 @@
 					"api_key_desc": "Enter API Key for Google Custom Search JSON API.",
 					"engine_id_label": "Search Engine ID",
 					"engine_id_desc": "Enter Programmable Search Engine ID."
+				},
+				"brave_search": {
+					"title": "Brave Search Settings",
+					"api_key_label": "Brave Search API Key",
+					"api_key_desc": "Enter your Brave Search API Key (Subscription Token)."
+				},
+				"bing_search": {
+					"title": "Bing Search Settings",
+					"api_key_label": "Bing Search API Key",
+					"api_key_desc": "Enter your Bing Search v7 Subscription Key."
 				},
 				"app_settings": "Application Settings",
 				"advanced_settings": "Agent Settings",

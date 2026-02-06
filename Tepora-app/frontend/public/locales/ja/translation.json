@@ -265,7 +265,9 @@
 		"search": {
 			"providers": {
 				"google": "Google カスタム検索",
-				"duckduckgo": "DuckDuckGo"
+				"duckduckgo": "DuckDuckGo",
+				"brave": "Brave 検索",
+				"bing": "Bing Web検索 (v7)"
 			}
 		},
 		"confirm_discard": "未保存の変更があります。破棄しますか？",
@@ -296,6 +298,16 @@
 					"api_key_desc": "Google Custom Search JSON APIを利用するためのAPIキーを入力してください。",
 					"engine_id_label": "Search Engine ID",
 					"engine_id_desc": "Programmable Search EngineのIDを入力してください。"
+				},
+				"brave_search": {
+					"title": "Brave検索設定",
+					"api_key_label": "Brave Search API Key",
+					"api_key_desc": "Brave Search APIキー (Subscription Token) を入力してください。"
+				},
+				"bing_search": {
+					"title": "Bing検索設定",
+					"api_key_label": "Bing Search API Key",
+					"api_key_desc": "Bing Search v7 Subscription Key を入力してください。"
 				},
 				"app_settings": "アプリケーション設定",
 				"advanced_settings": "エージェント設定",

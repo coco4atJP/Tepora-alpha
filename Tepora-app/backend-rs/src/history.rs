@@ -1,13 +1,22 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
-use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, Row};
+use chrono::Utc;
+use serde::Serialize;
 use serde_json::Value;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
+use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use uuid::Uuid;
 
 use crate::errors::ApiError;
 
-#[derive(Debug, Clone)]
+const SCHEMA_VERSION: i64 = 2;
+const DEFAULT_SESSION_ID: &str = "default";
+const DEFAULT_SESSION_TITLE: &str = "Default Session";
+const MAX_HISTORY_LIMIT: i64 = 1000;
+const MAX_TITLE_LEN: usize = 160;
+
+#[derive(Debug, Clone, Serialize)]
 pub struct SessionInfo {
     pub id: String,
     pub title: String,
@@ -17,7 +26,7 @@ pub struct SessionInfo {
     pub preview: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SessionDetail {
     pub id: String,
     pub title: String,
@@ -36,12 +45,29 @@ pub struct HistoryMessage {
 #[derive(Debug, Clone)]
 pub struct HistoryStore {
     db_path: PathBuf,
+    pool: SqlitePool,
 }
 
 impl HistoryStore {
-    pub fn new(db_path: PathBuf) -> Result<Self, ApiError> {
-        let store = Self { db_path };
-        store.init_db()?;
+    pub async fn new(db_path: PathBuf) -> Result<Self, ApiError> {
+        let connect_options = SqliteConnectOptions::new()
+            .filename(&db_path)
+            .create_if_missing(true)
+            .journal_mode(SqliteJournalMode::Wal)
+            .synchronous(SqliteSynchronous::Normal)
+            .foreign_keys(true)
+            .busy_timeout(Duration::from_secs(5));
+
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(8)
+            .acquire_timeout(Duration::from_secs(5))
+            .connect_with(connect_options)
+            .await
+            .map_err(ApiError::internal)?;
+
+        let store = Self { db_path, pool };
+        store.init_db().await?;
         Ok(store)
     }
 
@@ -49,233 +75,339 @@ impl HistoryStore {
         &self.db_path
     }
 
-    fn init_db(&self) -> Result<(), ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        conn.execute_batch(
-            "\
-            CREATE TABLE IF NOT EXISTS sessions (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS chat_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL DEFAULT 'default',
-                type TEXT NOT NULL,
-                content TEXT,
-                additional_kwargs TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            );
-            CREATE INDEX IF NOT EXISTS idx_session_id ON chat_history(session_id);
-            INSERT OR IGNORE INTO sessions (id, title) VALUES ('default', 'Default Session');
-        ",
-        )
-        .map_err(ApiError::internal)?;
+    async fn init_db(&self) -> Result<(), ApiError> {
+        let version: i64 = sqlx::query_scalar("PRAGMA user_version")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
+
+        if version != SCHEMA_VERSION {
+            self.rebuild_schema().await?;
+        }
 
         Ok(())
     }
 
-    pub fn list_sessions(&self) -> Result<Vec<SessionInfo>, ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        let mut stmt = conn
-            .prepare(
-                "\
-                SELECT s.id, s.title, s.created_at, s.updated_at,
-                       (SELECT COUNT(*) FROM chat_history WHERE session_id = s.id) as message_count,
-                       (SELECT content FROM chat_history WHERE session_id = s.id ORDER BY id DESC LIMIT 1) as last_message
-                FROM sessions s
-                ORDER BY s.updated_at DESC
-                ",
-            )
+    async fn rebuild_schema(&self) -> Result<(), ApiError> {
+        let mut tx = self.pool.begin().await.map_err(ApiError::internal)?;
+
+        sqlx::query("DROP TABLE IF EXISTS messages")
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::internal)?;
+        sqlx::query("DROP TABLE IF EXISTS chat_history")
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::internal)?;
+        sqlx::query("DROP TABLE IF EXISTS sessions")
+            .execute(&mut *tx)
+            .await
             .map_err(ApiError::internal)?;
 
-        let rows = stmt
-            .query_map([], |row| session_info_from_row(row))
+        sqlx::query(
+            "\
+            CREATE TABLE sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL CHECK(length(trim(title)) > 0),
+                created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            )",
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(ApiError::internal)?;
+
+        sqlx::query(
+            "\
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('human', 'ai', 'system', 'tool')),
+                content TEXT NOT NULL,
+                metadata TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )",
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(ApiError::internal)?;
+
+        sqlx::query("CREATE INDEX idx_sessions_updated_at ON sessions(updated_at DESC)")
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::internal)?;
+        sqlx::query("CREATE INDEX idx_messages_session_id_id ON messages(session_id, id)")
+            .execute(&mut *tx)
+            .await
             .map_err(ApiError::internal)?;
 
-        let mut sessions = Vec::new();
-        for row in rows {
-            if let Ok(session) = row {
-                sessions.push(session);
-            }
-        }
-        Ok(sessions)
+        sqlx::query("INSERT INTO sessions (id, title) VALUES (?1, ?2)")
+            .bind(DEFAULT_SESSION_ID)
+            .bind(DEFAULT_SESSION_TITLE)
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::internal)?;
+
+        let pragma = format!("PRAGMA user_version = {}", SCHEMA_VERSION);
+        sqlx::query(&pragma)
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::internal)?;
+
+        tx.commit().await.map_err(ApiError::internal)?;
+        Ok(())
     }
 
-    pub fn create_session(&self, title: Option<String>) -> Result<String, ApiError> {
-        let session_id = Uuid::new_v4().to_string();
-        let title =
-            title.unwrap_or_else(|| format!("Session {}", Utc::now().format("%Y-%m-%d %H:%M")));
-
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        conn.execute(
-            "INSERT INTO sessions (id, title) VALUES (?1, ?2)",
-            params![session_id, title],
+    pub async fn list_sessions(&self) -> Result<Vec<SessionInfo>, ApiError> {
+        let rows = sqlx::query(
+            "\
+            SELECT s.id, s.title, s.created_at, s.updated_at,
+                   (SELECT COUNT(*) FROM messages WHERE session_id = s.id) as message_count,
+                   (SELECT content FROM messages WHERE session_id = s.id ORDER BY id DESC LIMIT 1) as last_message
+            FROM sessions s
+            ORDER BY s.updated_at DESC",
         )
+        .fetch_all(&self.pool)
+        .await
         .map_err(ApiError::internal)?;
+
+        rows.into_iter()
+            .map(session_info_from_row)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ApiError::internal)
+    }
+
+    pub async fn create_session(&self, title: Option<String>) -> Result<String, ApiError> {
+        let session_id = Uuid::new_v4().to_string();
+        let title = normalize_title(title);
+
+        sqlx::query("INSERT INTO sessions (id, title) VALUES (?1, ?2)")
+            .bind(&session_id)
+            .bind(title)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
 
         Ok(session_id)
     }
 
-    pub fn get_session(&self, session_id: &str) -> Result<Option<SessionDetail>, ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        let mut stmt = conn
-            .prepare("SELECT id, title, created_at, updated_at FROM sessions WHERE id = ?1")
-            .map_err(ApiError::internal)?;
+    pub async fn get_session(&self, session_id: &str) -> Result<Option<SessionDetail>, ApiError> {
+        let row =
+            sqlx::query("SELECT id, title, created_at, updated_at FROM sessions WHERE id = ?1")
+                .bind(session_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(ApiError::internal)?;
 
-        let mut rows = stmt
-            .query(params![session_id])
-            .map_err(ApiError::internal)?;
-        if let Some(row) = rows.next().map_err(ApiError::internal)? {
-            return Ok(Some(SessionDetail {
-                id: row.get(0).unwrap_or_default(),
-                title: row.get(1).unwrap_or_default(),
-                created_at: row.get(2).unwrap_or_default(),
-                updated_at: row.get(3).unwrap_or_default(),
-            }));
-        }
-        Ok(None)
+        row.map(session_detail_from_row)
+            .transpose()
+            .map_err(ApiError::internal)
     }
 
-    pub fn update_session_title(&self, session_id: &str, title: &str) -> Result<bool, ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        let rows = conn
-            .execute(
-                "UPDATE sessions SET title = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
-                params![title, session_id],
-            )
-            .map_err(ApiError::internal)?;
-        Ok(rows > 0)
-    }
+    pub async fn update_session_title(
+        &self,
+        session_id: &str,
+        title: &str,
+    ) -> Result<bool, ApiError> {
+        let title = normalize_title(Some(title.to_string()));
 
-    pub fn delete_session(&self, session_id: &str) -> Result<bool, ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        let rows = conn
-            .execute("DELETE FROM sessions WHERE id = ?1", params![session_id])
-            .map_err(ApiError::internal)?;
-        conn.execute(
-            "DELETE FROM chat_history WHERE session_id = ?1",
-            params![session_id],
+        let result = sqlx::query(
+            "UPDATE sessions SET title = ?1, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?2",
         )
+        .bind(title)
+        .bind(session_id)
+        .execute(&self.pool)
+        .await
         .map_err(ApiError::internal)?;
-        Ok(rows > 0)
+
+        Ok(result.rows_affected() > 0)
     }
 
-    pub fn get_history(
+    pub async fn delete_session(&self, session_id: &str) -> Result<bool, ApiError> {
+        let result = sqlx::query("DELETE FROM sessions WHERE id = ?1")
+            .bind(session_id)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_history(
         &self,
         session_id: &str,
         limit: i64,
     ) -> Result<Vec<HistoryMessage>, ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        let mut stmt = conn
-            .prepare(
-                "\
-                SELECT * FROM (
-                    SELECT type, content, additional_kwargs, created_at
-                    FROM chat_history
-                    WHERE session_id = ?1
-                    ORDER BY id DESC
-                    LIMIT ?2
-                ) ORDER BY rowid ASC",
+        let limit = sanitize_limit(limit);
+
+        let rows = sqlx::query(
+            "\
+            SELECT role, content, metadata, created_at
+            FROM (
+                SELECT id, role, content, metadata, created_at
+                FROM messages
+                WHERE session_id = ?1
+                ORDER BY id DESC
+                LIMIT ?2
             )
-            .map_err(ApiError::internal)?;
+            ORDER BY id ASC",
+        )
+        .bind(session_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(ApiError::internal)?;
 
-        let rows = stmt
-            .query_map(params![session_id, limit], |row| {
-                history_message_from_row(row)
-            })
-            .map_err(ApiError::internal)?;
-
-        let mut messages = Vec::new();
-        for row in rows {
-            if let Ok(msg) = row {
-                messages.push(msg);
-            }
-        }
-        Ok(messages)
+        rows.into_iter()
+            .map(history_message_from_row)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ApiError::internal)
     }
 
-    pub fn get_message_count(&self, session_id: &str) -> Result<i64, ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM chat_history WHERE session_id = ?1",
-                params![session_id],
-                |row| row.get(0),
-            )
-            .map_err(ApiError::internal)?;
-        Ok(count)
+    pub async fn get_message_count(&self, session_id: &str) -> Result<i64, ApiError> {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM messages WHERE session_id = ?1")
+            .bind(session_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(ApiError::internal)
     }
 
-    pub fn add_message(
+    pub async fn add_message(
         &self,
         session_id: &str,
         message_type: &str,
         content: &str,
         additional_kwargs: &Value,
     ) -> Result<(), ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        ensure_session(&conn, session_id)?;
-        let kwargs_payload =
-            serde_json::to_string(additional_kwargs).unwrap_or_else(|_| "{}".to_string());
-        conn.execute(
-            "INSERT INTO chat_history (session_id, type, content, additional_kwargs) VALUES (?1, ?2, ?3, ?4)",
-            params![session_id, message_type, content, kwargs_payload],
+        let mut tx = self.pool.begin().await.map_err(ApiError::internal)?;
+        ensure_session(&mut tx, session_id).await?;
+
+        let role = normalize_role(message_type);
+        let payload = serde_json::to_string(additional_kwargs).map_err(ApiError::internal)?;
+
+        sqlx::query(
+            "\
+            INSERT INTO messages (session_id, role, content, metadata)
+            VALUES (?1, ?2, ?3, ?4)",
         )
+        .bind(session_id)
+        .bind(role)
+        .bind(content)
+        .bind(payload)
+        .execute(&mut *tx)
+        .await
         .map_err(ApiError::internal)?;
+
+        touch_session_tx(&mut tx, session_id).await?;
+
+        tx.commit().await.map_err(ApiError::internal)?;
         Ok(())
     }
 
-    pub fn touch_session(&self, session_id: &str) -> Result<(), ApiError> {
-        let conn = Connection::open(&self.db_path).map_err(ApiError::internal)?;
-        conn.execute(
-            "UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
-            params![session_id],
+    pub async fn touch_session(&self, session_id: &str) -> Result<(), ApiError> {
+        sqlx::query(
+            "UPDATE sessions SET updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
         )
+        .bind(session_id)
+        .execute(&self.pool)
+        .await
         .map_err(ApiError::internal)?;
         Ok(())
     }
 }
 
-fn session_info_from_row(row: &Row) -> rusqlite::Result<SessionInfo> {
-    let last_message: Option<String> = row.get("last_message")?;
+fn session_info_from_row(row: sqlx::sqlite::SqliteRow) -> Result<SessionInfo, sqlx::Error> {
+    let last_message: Option<String> = row.try_get("last_message")?;
     let preview = last_message.unwrap_or_default().chars().take(100).collect();
 
     Ok(SessionInfo {
-        id: row.get("id")?,
-        title: row.get("title")?,
-        created_at: row.get("created_at")?,
-        updated_at: row.get("updated_at")?,
-        message_count: row.get("message_count")?,
+        id: row.try_get("id")?,
+        title: row.try_get("title")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+        message_count: row.try_get("message_count")?,
         preview,
     })
 }
 
-fn history_message_from_row(row: &Row) -> rusqlite::Result<HistoryMessage> {
-    let raw_kwargs: Option<String> = row.get("additional_kwargs")?;
-    let additional_kwargs = raw_kwargs
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or(Value::Object(serde_json::Map::new()));
-
-    Ok(HistoryMessage {
-        message_type: row.get("type")?,
-        content: row.get("content")?,
-        additional_kwargs,
-        created_at: row.get::<_, String>("created_at")?,
+fn session_detail_from_row(row: sqlx::sqlite::SqliteRow) -> Result<SessionDetail, sqlx::Error> {
+    Ok(SessionDetail {
+        id: row.try_get("id")?,
+        title: row.try_get("title")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
     })
 }
 
-fn ensure_session(conn: &Connection, session_id: &str) -> Result<(), ApiError> {
-    conn.execute(
-        "INSERT OR IGNORE INTO sessions (id, title) VALUES (?1, ?2)",
-        params![session_id, "Default Session"],
+fn history_message_from_row(row: sqlx::sqlite::SqliteRow) -> Result<HistoryMessage, sqlx::Error> {
+    let raw_metadata: String = row.try_get("metadata")?;
+    let additional_kwargs =
+        serde_json::from_str(&raw_metadata).unwrap_or(Value::Object(serde_json::Map::new()));
+
+    Ok(HistoryMessage {
+        message_type: row.try_get("role")?,
+        content: row.try_get("content")?,
+        additional_kwargs,
+        created_at: row.try_get("created_at")?,
+    })
+}
+
+async fn ensure_session(
+    tx: &mut Transaction<'_, Sqlite>,
+    session_id: &str,
+) -> Result<(), ApiError> {
+    sqlx::query("INSERT OR IGNORE INTO sessions (id, title) VALUES (?1, ?2)")
+        .bind(session_id)
+        .bind(DEFAULT_SESSION_TITLE)
+        .execute(&mut **tx)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(())
+}
+
+async fn touch_session_tx(
+    tx: &mut Transaction<'_, Sqlite>,
+    session_id: &str,
+) -> Result<(), ApiError> {
+    sqlx::query(
+        "UPDATE sessions SET updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
     )
+    .bind(session_id)
+    .execute(&mut **tx)
+    .await
     .map_err(ApiError::internal)?;
     Ok(())
 }
 
-fn _to_iso(timestamp: DateTime<Utc>) -> String {
-    timestamp.to_rfc3339()
+fn sanitize_limit(limit: i64) -> i64 {
+    if limit <= 0 {
+        return 1;
+    }
+    limit.min(MAX_HISTORY_LIMIT)
+}
+
+fn normalize_role(role: &str) -> &'static str {
+    match role {
+        "human" => "human",
+        "ai" => "ai",
+        "system" => "system",
+        "tool" => "tool",
+        _ => "human",
+    }
+}
+
+fn normalize_title(title: Option<String>) -> String {
+    let fallback = || format!("Session {}", Utc::now().format("%Y-%m-%d %H:%M"));
+
+    let Some(raw) = title else {
+        return fallback();
+    };
+
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return fallback();
+    }
+
+    trimmed.chars().take(MAX_TITLE_LEN).collect()
 }

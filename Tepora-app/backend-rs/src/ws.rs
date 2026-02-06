@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Query, State, WebSocketUpgrade};
+use axum::extract::{State, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use chrono::Utc;
@@ -14,9 +14,13 @@ use uuid::Uuid;
 
 use crate::errors::ApiError;
 use crate::llama::ChatMessage;
-use crate::search;
+use crate::search::{self, SearchResult};
 use crate::state::AppState;
 use crate::tooling::execute_tool;
+use crate::vector_math;
+
+const WS_APP_PROTOCOL: &str = "tepora.v1";
+const WS_TOKEN_PREFIX: &str = "tepora-token.";
 
 #[derive(Debug, Deserialize, Default)]
 struct WsIncomingMessage {
@@ -45,12 +49,12 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
     let origin_ok = validate_origin(&headers, &state);
-    let token_ok = validate_token(&params, &state);
+    let token_ok = validate_token(&headers, &state);
 
-    ws.on_upgrade(move |socket| handle_socket(socket, state, origin_ok, token_ok))
+    ws.protocols([WS_APP_PROTOCOL])
+        .on_upgrade(move |socket| handle_socket(socket, state, origin_ok, token_ok))
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>, origin_ok: bool, token_ok: bool) {
@@ -199,13 +203,17 @@ async fn handle_message(
 
     state
         .history
-        .add_message(&session_id, "human", &message_text, &user_kwargs)?;
-    let _ = state.history.touch_session(&session_id);
+        .add_message(&session_id, "human", &message_text, &user_kwargs)
+        .await?;
+    let _ = state.history.touch_session(&session_id).await;
 
     let config = state.config.load_config()?;
     let system_prompt = extract_system_prompt(&config);
     let history_limit = extract_history_limit(&config);
-    let history_messages = state.history.get_history(&session_id, history_limit)?;
+    let history_messages = state
+        .history
+        .get_history(&session_id, history_limit)
+        .await?;
     let mut chat_messages = Vec::new();
 
     if let Some(prompt) = system_prompt {
@@ -244,10 +252,21 @@ async fn handle_message(
         if allow_search && !skip_search {
             match search::perform_search(&config, &message_text).await {
                 Ok(results) => {
-                    let _ = send_json(sender, json!({ "type": "search_results", "data": results }))
-                        .await;
+                    let reranked_results = rerank_search_results_with_embeddings(
+                        state,
+                        &config,
+                        &message_text,
+                        results,
+                    )
+                    .await;
+                    let _ = send_json(
+                        sender,
+                        json!({ "type": "search_results", "data": reranked_results }),
+                    )
+                    .await;
 
-                    let summary = serde_json::to_string_pretty(&results).unwrap_or_default();
+                    let summary =
+                        serde_json::to_string_pretty(&reranked_results).unwrap_or_default();
                     if !summary.is_empty() {
                         chat_messages.push(ChatMessage {
                             role: "system".to_string(),
@@ -290,7 +309,8 @@ async fn handle_message(
         let assistant_kwargs = json!({"timestamp": timestamp, "mode": mode});
         state
             .history
-            .add_message(&session_id, "ai", &agent_response, &assistant_kwargs)?;
+            .add_message(&session_id, "ai", &agent_response, &assistant_kwargs)
+            .await?;
         return Ok(());
     }
 
@@ -340,9 +360,76 @@ async fn handle_message(
     let assistant_kwargs = json!({"timestamp": timestamp, "mode": mode});
     state
         .history
-        .add_message(&session_id, "ai", &full_response, &assistant_kwargs)?;
+        .add_message(&session_id, "ai", &full_response, &assistant_kwargs)
+        .await?;
 
     Ok(())
+}
+
+async fn rerank_search_results_with_embeddings(
+    state: &Arc<AppState>,
+    config: &Value,
+    query: &str,
+    results: Vec<SearchResult>,
+) -> Vec<SearchResult> {
+    if !embedding_rerank_enabled(config) || query.trim().is_empty() || results.len() < 2 {
+        return results;
+    }
+
+    let mut inputs = Vec::with_capacity(results.len() + 1);
+    inputs.push(query.to_string());
+    for result in &results {
+        inputs.push(format!("{}\n{}", result.title, result.snippet));
+    }
+
+    let embeddings = match state.llama.embed(config, &inputs).await {
+        Ok(vectors) => vectors,
+        Err(err) => {
+            tracing::debug!("Search rerank skipped (embedding unavailable): {}", err);
+            return results;
+        }
+    };
+
+    if embeddings.len() != inputs.len() {
+        tracing::debug!(
+            "Search rerank skipped (embedding size mismatch): {} != {}",
+            embeddings.len(),
+            inputs.len()
+        );
+        return results;
+    }
+
+    let query_embedding = &embeddings[0];
+    let candidate_embeddings = embeddings[1..].to_vec();
+    let ranking =
+        match vector_math::rank_descending_by_cosine(query_embedding, &candidate_embeddings) {
+            Ok(scores) => scores,
+            Err(err) => {
+                tracing::debug!("Search rerank skipped (cosine scoring failed): {}", err);
+                return results;
+            }
+        };
+
+    let mut reranked = Vec::with_capacity(results.len());
+    for (idx, _) in ranking {
+        if let Some(result) = results.get(idx).cloned() {
+            reranked.push(result);
+        }
+    }
+
+    if reranked.len() == results.len() {
+        reranked
+    } else {
+        results
+    }
+}
+
+fn embedding_rerank_enabled(config: &Value) -> bool {
+    config
+        .get("search")
+        .and_then(|v| v.get("embedding_rerank"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
 }
 
 async fn send_history(
@@ -350,7 +437,7 @@ async fn send_history(
     state: &Arc<AppState>,
     session_id: &str,
 ) -> Result<(), ApiError> {
-    let messages = state.history.get_history(session_id, 100)?;
+    let messages = state.history.get_history(session_id, 100).await?;
     let formatted: Vec<Value> = messages
         .into_iter()
         .map(|msg| {
@@ -409,14 +496,24 @@ fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
         .config
         .load_config()
         .ok()
-        .and_then(|cfg| cfg.get("server").cloned())
-        .and_then(|server| server.get("ws_allowed_origins").cloned())
+        .and_then(|cfg| {
+            cfg.get("server")
+                .and_then(|server| server.as_object())
+                .and_then(|server| {
+                    server
+                        .get("ws_allowed_origins")
+                        .or_else(|| server.get("cors_allowed_origins"))
+                        .or_else(|| server.get("allowed_origins"))
+                        .cloned()
+                })
+        })
         .and_then(|list| list.as_array().cloned())
         .unwrap_or_else(|| {
             vec![
                 Value::String("tauri://localhost".to_string()),
                 Value::String("https://tauri.localhost".to_string()),
                 Value::String("http://tauri.localhost".to_string()),
+                Value::String("http://localhost".to_string()),
                 Value::String("http://localhost:5173".to_string()),
                 Value::String("http://localhost:3000".to_string()),
                 Value::String("http://127.0.0.1:5173".to_string()),
@@ -437,12 +534,29 @@ fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
     false
 }
 
-fn validate_token(params: &HashMap<String, String>, state: &AppState) -> bool {
-    let token = params.get("token").cloned().unwrap_or_default();
-    if token.is_empty() {
-        return false;
+fn validate_token(headers: &HeaderMap, state: &AppState) -> bool {
+    extract_token_from_protocol_header(headers)
+        .map(|token| token == state.session_token.value())
+        .unwrap_or(false)
+}
+
+fn extract_token_from_protocol_header(headers: &HeaderMap) -> Option<String> {
+    let protocol_header = headers.get("sec-websocket-protocol")?.to_str().ok()?;
+    for item in protocol_header.split(',') {
+        let protocol = item.trim();
+        let Some(encoded) = protocol.strip_prefix(WS_TOKEN_PREFIX) else {
+            continue;
+        };
+        if encoded.is_empty() {
+            return None;
+        }
+        let bytes = hex::decode(encoded).ok()?;
+        let token = String::from_utf8(bytes).ok()?;
+        if !token.is_empty() {
+            return Some(token);
+        }
     }
-    token == state.session_token.value()
+    None
 }
 
 fn extract_system_prompt(config: &Value) -> Option<String> {
@@ -586,7 +700,8 @@ async fn run_agent_mode(
                     json!({"timestamp": chrono::Utc::now().to_rfc3339(), "tool": name});
                 state
                     .history
-                    .add_message(session_id, "tool", &tool_payload, &tool_kwargs)?;
+                    .add_message(session_id, "tool", &tool_payload, &tool_kwargs)
+                    .await?;
 
                 messages.push(ChatMessage {
                     role: "system".to_string(),

@@ -21,6 +21,12 @@ const DEFAULT_N_GPU_LAYERS: i32 = -1;
 const HEALTH_TIMEOUT_SECS: u64 = 20;
 const HEALTH_RETRY_SECS: u64 = 1;
 
+#[derive(Debug, Clone, Copy)]
+enum ModelRole {
+    Text,
+    Embedding,
+}
+
 #[derive(Debug, Clone)]
 pub struct ModelRuntimeConfig {
     pub model_key: String,
@@ -33,19 +39,39 @@ pub struct ModelRuntimeConfig {
     pub top_k: Option<i64>,
     pub repeat_penalty: Option<f64>,
     pub logprobs: Option<bool>,
+    pub enable_embedding: bool,
 }
 
 impl ModelRuntimeConfig {
-    pub fn from_config(config: &Value) -> Result<Self, ApiError> {
+    pub fn for_chat(config: &Value) -> Result<Self, ApiError> {
+        Self::from_role(config, ModelRole::Text)
+    }
+
+    pub fn for_embedding(config: &Value) -> Result<Self, ApiError> {
+        Self::from_role(config, ModelRole::Embedding)
+    }
+
+    fn from_role(config: &Value, role: ModelRole) -> Result<Self, ApiError> {
         let models = config
             .get("models_gguf")
             .and_then(|v| v.as_object())
             .ok_or_else(|| ApiError::BadRequest("models_gguf not found in config".to_string()))?;
 
-        let model_cfg = models
-            .get("text_model")
-            .or_else(|| models.get("character_model"))
-            .ok_or_else(|| ApiError::BadRequest("text_model not configured".to_string()))?;
+        let (model_key, model_cfg) = match role {
+            ModelRole::Text => (
+                "text_model",
+                models
+                    .get("text_model")
+                    .or_else(|| models.get("character_model"))
+                    .ok_or_else(|| ApiError::BadRequest("text_model not configured".to_string()))?,
+            ),
+            ModelRole::Embedding => (
+                "embedding_model",
+                models.get("embedding_model").ok_or_else(|| {
+                    ApiError::BadRequest("embedding_model not configured".to_string())
+                })?,
+            ),
+        };
 
         let model_path = model_cfg
             .get("path")
@@ -71,7 +97,7 @@ impl ModelRuntimeConfig {
         let logprobs = model_cfg.get("logprobs").and_then(|v| v.as_bool());
 
         Ok(ModelRuntimeConfig {
-            model_key: "text_model".to_string(),
+            model_key: model_key.to_string(),
             model_path: PathBuf::from(model_path),
             port,
             n_ctx,
@@ -81,6 +107,7 @@ impl ModelRuntimeConfig {
             top_k,
             repeat_penalty,
             logprobs,
+            enable_embedding: matches!(role, ModelRole::Embedding),
         })
     }
 }
@@ -132,7 +159,7 @@ impl LlamaService {
         config: &Value,
         messages: Vec<ChatMessage>,
     ) -> Result<String, ApiError> {
-        let model_cfg = ModelRuntimeConfig::from_config(config)?;
+        let model_cfg = ModelRuntimeConfig::for_chat(config)?;
         let port = self.ensure_running(&model_cfg).await?;
         let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
@@ -214,7 +241,7 @@ impl LlamaService {
         config: &Value,
         messages: Vec<ChatMessage>,
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
-        let model_cfg = ModelRuntimeConfig::from_config(config)?;
+        let model_cfg = ModelRuntimeConfig::for_chat(config)?;
         let port = self.ensure_running(&model_cfg).await?;
         let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
@@ -317,6 +344,45 @@ impl LlamaService {
         Ok(rx)
     }
 
+    pub async fn embed(
+        &self,
+        config: &Value,
+        inputs: &[String],
+    ) -> Result<Vec<Vec<f32>>, ApiError> {
+        if inputs.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
+        let port = self.ensure_running(&model_cfg).await?;
+        let url = format!("http://127.0.0.1:{}/v1/embeddings", port);
+
+        let body = serde_json::json!({
+            "model": model_cfg.model_key,
+            "input": inputs,
+        });
+
+        let response = self
+            .client
+            .post(url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(ApiError::internal)?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "Embedding request failed: {} {}",
+                status, text
+            )));
+        }
+
+        let payload: Value = response.json().await.map_err(ApiError::internal)?;
+        parse_embedding_response(&payload)
+    }
+
     async fn ensure_running(&self, config: &ModelRuntimeConfig) -> Result<u16, ApiError> {
         if !config.model_path.exists() {
             return Err(ApiError::BadRequest(format!(
@@ -353,6 +419,10 @@ impl LlamaService {
             .arg(config.n_gpu_layers.to_string())
             .stdout(Stdio::null())
             .stderr(Stdio::from(log_path));
+
+        if config.enable_embedding {
+            command.arg("--embedding");
+        }
 
         let child = command.spawn().map_err(ApiError::internal)?;
         guard.processes.insert(config.model_key.clone(), child);
@@ -499,6 +569,46 @@ fn find_free_port() -> Result<u16, ApiError> {
     Ok(port)
 }
 
+fn parse_embedding_response(payload: &Value) -> Result<Vec<Vec<f32>>, ApiError> {
+    let Some(data) = payload.get("data").and_then(|v| v.as_array()) else {
+        return Err(ApiError::Internal(
+            "Embedding response missing data array".to_string(),
+        ));
+    };
+
+    let mut indexed_embeddings = Vec::with_capacity(data.len());
+    for (fallback_idx, item) in data.iter().enumerate() {
+        let Some(values) = item.get("embedding").and_then(|v| v.as_array()) else {
+            return Err(ApiError::Internal(
+                "Embedding response item missing embedding array".to_string(),
+            ));
+        };
+
+        let mut embedding = Vec::with_capacity(values.len());
+        for value in values {
+            let Some(float_value) = value.as_f64() else {
+                return Err(ApiError::Internal(
+                    "Embedding contains non-numeric value".to_string(),
+                ));
+            };
+            embedding.push(float_value as f32);
+        }
+
+        let index = item
+            .get("index")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+            .unwrap_or(fallback_idx);
+        indexed_embeddings.push((index, embedding));
+    }
+
+    indexed_embeddings.sort_by_key(|(idx, _)| *idx);
+    Ok(indexed_embeddings
+        .into_iter()
+        .map(|(_, embedding)| embedding)
+        .collect())
+}
+
 fn extract_delta(payload: &Value) -> Option<String> {
     let choice = payload
         .get("choices")
@@ -522,4 +632,26 @@ fn extract_delta(payload: &Value) -> Option<String> {
         return Some(text.to_string());
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::parse_embedding_response;
+
+    #[test]
+    fn parse_embedding_response_preserves_input_order_by_index() {
+        let payload = json!({
+            "data": [
+                {"index": 1, "embedding": [0.3, 0.4]},
+                {"index": 0, "embedding": [0.1, 0.2]}
+            ]
+        });
+
+        let parsed = parse_embedding_response(&payload).expect("embedding payload should parse");
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0], vec![0.1_f32, 0.2_f32]);
+        assert_eq!(parsed[1], vec![0.3_f32, 0.4_f32]);
+    }
 }

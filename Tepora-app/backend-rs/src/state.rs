@@ -26,11 +26,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn initialize() -> anyhow::Result<Arc<Self>> {
+    pub async fn initialize() -> anyhow::Result<Arc<Self>> {
         let paths = Arc::new(AppPaths::new());
         let config = ConfigService::new(paths.clone());
         let session_token = init_session_token();
-        let history = HistoryStore::new(paths.db_path.clone())?;
+        let history = HistoryStore::new(paths.db_path.clone()).await?;
         let llama = LlamaService::new(paths.clone())?;
         let mcp = McpManager::new(paths.clone(), config.clone());
         let mcp_registry = McpRegistry::new(&paths);

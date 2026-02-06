@@ -18,7 +18,7 @@ Tepora は **ローカルファースト** を前提としたデスクトップA
 - **Frontend**: React 19, TypeScript, Vite 7, Tailwind CSS v4
 - **Desktop**: Tauri
 - **Backend**: Rust 2021, Axum, Tokio
-- **Storage**: SQLite (rusqlite), ローカルファイル
+- **Storage**: SQLite (sqlx + WAL pool), ローカルファイル
 - **Tooling**: MCP (rmcp client)
 - **Model管理**: GGUF + Llama.cpp 系ワークフロー
 
@@ -70,10 +70,9 @@ Tepora_Project/
 
 ### 5.3 主要データ
 
-- `tepora_chat.db` (SQLite): セッション・チャット履歴
+- `tepora_core.db` (SQLite): セッション・チャット履歴
 - `models.json`: モデル管理メタデータ
 - `logs/`: ログファイル
-- `chroma_db/`: ベクトルストア領域
 
 ---
 
@@ -143,4 +142,3 @@ task quality
 ## 11. レガシー資料
 
 Python/LangChain時代の資料は `docs/legacy/` に保存されています。
-

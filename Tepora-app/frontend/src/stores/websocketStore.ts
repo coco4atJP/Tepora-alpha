@@ -14,6 +14,7 @@ import type { AgentMode, Attachment, ChatMode, ToolConfirmationRequest } from ".
 import { getWsBase } from "../utils/api";
 import { getSessionToken, refreshSessionToken } from "../utils/sessionToken";
 import { backendReady, isDesktop } from "../utils/sidecar";
+import { buildWebSocketProtocols } from "../utils/wsAuth";
 import { useChatStore } from "./chatStore";
 import { useSessionStore } from "./sessionStore";
 
@@ -74,17 +75,12 @@ const BASE_RECONNECT_DELAY = 1000;
 // Helpers
 // ============================================================================
 
-const getWsUrl = (token: string | null = null): string => {
+const getWsUrl = (): string => {
 	let baseUrl: string;
 	if (isDesktop()) {
 		baseUrl = `${getWsBase()}/ws`;
 	} else {
 		baseUrl = import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
-	}
-
-	if (token) {
-		const separator = baseUrl.includes("?") ? "&" : "?";
-		return `${baseUrl}${separator}token=${encodeURIComponent(token)}`;
 	}
 	return baseUrl;
 };
@@ -295,8 +291,8 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							tokenCache = await getSessionToken();
 						}
 
-						const wsUrl = getWsUrl(tokenCache);
-						const ws = new WebSocket(wsUrl);
+						const wsUrl = getWsUrl();
+						const ws = new WebSocket(wsUrl, buildWebSocketProtocols(tokenCache));
 
 						ws.onopen = () => {
 							if (!isMounted) {

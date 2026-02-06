@@ -431,18 +431,14 @@ impl ModelManager {
         };
 
         let mut config = self.config.load_config()?;
-        let models_gguf = config
-            .get_mut("models_gguf")
-            .and_then(|v| v.as_object_mut())
-            .unwrap_or_else(|| {
-                config
-                    .as_object_mut()
-                    .expect("config root")
-                    .entry("models_gguf")
-                    .or_insert_with(|| Value::Object(Default::default()))
-                    .as_object_mut()
-                    .expect("models_gguf map")
-            });
+        let config_root = config
+            .as_object_mut()
+            .ok_or_else(|| ApiError::BadRequest("Invalid root configuration".to_string()))?;
+        let models_gguf = config_root
+            .entry("models_gguf".to_string())
+            .or_insert_with(|| Value::Object(Default::default()))
+            .as_object_mut()
+            .ok_or_else(|| ApiError::BadRequest("Invalid models_gguf configuration".to_string()))?;
 
         let key = if role == "embedding" {
             "embedding_model"

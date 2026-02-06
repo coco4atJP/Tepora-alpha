@@ -30,13 +30,39 @@ repos:
     hooks:
       - id: cargo-fmt
         name: cargo fmt (backend)
-        entry: bash -c 'cd Tepora-app/backend-rs && cargo fmt'
+        entry: cargo
+        args:
+          - fmt
+          - --manifest-path
+          - Tepora-app/backend-rs/Cargo.toml
+          - --all
+          - --
+          - --check
         language: system
         files: ^Tepora-app/backend-rs/
         pass_filenames: false
       - id: cargo-clippy
         name: cargo clippy (backend)
-        entry: bash -c 'cd Tepora-app/backend-rs && cargo clippy -- -D warnings'
+        entry: cargo
+        args:
+          - clippy
+          - --manifest-path
+          - Tepora-app/backend-rs/Cargo.toml
+          - --all-targets
+          - --
+          - -D
+          - warnings
+        language: system
+        files: ^Tepora-app/backend-rs/
+        pass_filenames: false
+      - id: cargo-test
+        name: cargo test (backend)
+        entry: cargo
+        args:
+          - test
+          - --manifest-path
+          - Tepora-app/backend-rs/Cargo.toml
+          - --all-targets
         language: system
         files: ^Tepora-app/backend-rs/
         pass_filenames: false
@@ -46,7 +72,14 @@ repos:
     hooks:
       - id: biome
         name: biome (frontend)
-        entry: bash -c 'cd Tepora-app/frontend && npx biome check --write src/'
+        entry: npx
+        args:
+          - --prefix
+          - Tepora-app/frontend
+          - biome
+          - check
+          - --write
+          - src/
         language: system
         types_or: [javascript, jsx, typescript, tsx, json]
         files: ^Tepora-app/frontend/src/
@@ -57,7 +90,12 @@ repos:
     hooks:
       - id: typescript
         name: typescript (frontend)
-        entry: bash -c 'cd Tepora-app/frontend && npm run typecheck'
+        entry: npm
+        args:
+          - --prefix
+          - Tepora-app/frontend
+          - run
+          - typecheck
         language: system
         types_or: [typescript, tsx]
         files: ^Tepora-app/frontend/src/

@@ -2,23 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getWsBase } from "../../utils/api";
 import { getSessionToken, refreshSessionToken } from "../../utils/sessionToken";
 import { backendReady, isDesktop } from "../../utils/sidecar";
+import { buildWebSocketProtocols } from "../../utils/wsAuth";
 
 /**
- * Build WebSocket URL with optional token query parameter.
- * @param token - Session token to append as query parameter
+ * Build WebSocket URL.
  */
-const getWsUrl = (token: string | null = null) => {
+const getWsUrl = () => {
 	let baseUrl: string;
 	if (isDesktop()) {
 		baseUrl = `${getWsBase()}/ws`;
 	} else {
 		baseUrl = import.meta.env.VITE_WS_URL || `${getWsBase()}/ws`;
-	}
-
-	// Append token as query parameter for authentication
-	if (token) {
-		const separator = baseUrl.includes("?") ? "&" : "?";
-		return `${baseUrl}${separator}token=${encodeURIComponent(token)}`;
 	}
 	return baseUrl;
 };
@@ -87,8 +81,8 @@ export const useSocketConnection = ({
 				}
 			}
 
-			const WS_URL = getWsUrl(tokenRef.current);
-			const ws = new WebSocket(WS_URL);
+			const WS_URL = getWsUrl();
+			const ws = new WebSocket(WS_URL, buildWebSocketProtocols(tokenRef.current));
 
 			ws.onopen = () => {
 				if (!isMounted.current) {

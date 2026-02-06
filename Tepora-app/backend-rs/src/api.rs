@@ -5,14 +5,14 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use axum::extract::{Path, Query, State};
-use axum::http::HeaderMap;
+use axum::http::{header, HeaderMap, HeaderValue, Method};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use uuid::Uuid;
 
 use crate::errors::ApiError;
@@ -24,6 +24,7 @@ use crate::state::AppState;
 use crate::ws::ws_handler;
 
 pub fn router(state: Arc<AppState>) -> Router {
+    let cors_layer = build_cors_layer(&state);
     Router::new()
         .route("/health", get(health))
         .route("/api/status", get(get_status))
@@ -121,7 +122,85 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/mcp/policy", get(mcp_policy).patch(mcp_update_policy))
         .route("/ws", get(ws_handler))
         .with_state(state)
-        .layer(CorsLayer::permissive())
+        .layer(cors_layer)
+}
+
+fn build_cors_layer(state: &Arc<AppState>) -> CorsLayer {
+    let config = state.config.load_config().unwrap_or(Value::Null);
+    let allowed_origins = resolve_allowed_origins(&config)
+        .into_iter()
+        .filter_map(|origin| HeaderValue::from_str(&origin).ok())
+        .collect::<Vec<_>>();
+
+    let allow_origin = if allowed_origins.is_empty() {
+        AllowOrigin::list(
+            default_local_origins()
+                .into_iter()
+                .filter_map(|origin| HeaderValue::from_str(&origin).ok())
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        AllowOrigin::list(allowed_origins)
+    };
+
+    CorsLayer::new()
+        .allow_origin(allow_origin)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            header::ACCEPT,
+            header::CONTENT_TYPE,
+            header::HeaderName::from_static("x-api-key"),
+        ])
+}
+
+fn resolve_allowed_origins(config: &Value) -> Vec<String> {
+    let origins = config
+        .get("server")
+        .and_then(|v| v.as_object())
+        .and_then(|server| {
+            server
+                .get("cors_allowed_origins")
+                .or_else(|| server.get("allowed_origins"))
+                .or_else(|| server.get("ws_allowed_origins"))
+        })
+        .and_then(|value| value.as_array())
+        .map(|list| {
+            list.iter()
+                .filter_map(|item| item.as_str())
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+                .map(|item| item.to_string())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    if origins.is_empty() {
+        return default_local_origins();
+    }
+
+    origins
+}
+
+fn default_local_origins() -> Vec<String> {
+    vec![
+        "tauri://localhost".to_string(),
+        "https://tauri.localhost".to_string(),
+        "http://tauri.localhost".to_string(),
+        "http://localhost".to_string(),
+        "http://localhost:3000".to_string(),
+        "http://localhost:5173".to_string(),
+        "http://127.0.0.1".to_string(),
+        "http://127.0.0.1:3000".to_string(),
+        "http://127.0.0.1:5173".to_string(),
+        "http://127.0.0.1:8000".to_string(),
+    ]
 }
 
 async fn health(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -147,7 +226,11 @@ async fn shutdown(
 }
 
 async fn get_status(State(state): State<Arc<AppState>>) -> Result<impl IntoResponse, ApiError> {
-    let total_messages = state.history.get_message_count("default").unwrap_or(0);
+    let total_messages = state
+        .history
+        .get_message_count("default")
+        .await
+        .unwrap_or(0);
     Ok(Json(json!({
         "initialized": true,
         "core_version": "v2",
@@ -268,7 +351,7 @@ async fn list_sessions(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let sessions = state.history.list_sessions()?;
+    let sessions = state.history.list_sessions().await?;
     let result: Vec<Value> = sessions
         .into_iter()
         .map(|session| {
@@ -291,8 +374,8 @@ async fn create_session(
     Json(payload): Json<CreateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let session_id = state.history.create_session(payload.title)?;
-    let session = state.history.get_session(&session_id)?;
+    let session_id = state.history.create_session(payload.title).await?;
+    let session = state.history.get_session(&session_id).await?;
     Ok(Json(json!({"session": session})))
 }
 
@@ -305,10 +388,11 @@ async fn get_session(
 
     let session = state
         .history
-        .get_session(&session_id)?
+        .get_session(&session_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Session not found".to_string()))?;
 
-    let messages = state.history.get_history(&session_id, 100)?;
+    let messages = state.history.get_history(&session_id, 100).await?;
     let message_payload: Vec<Value> = messages
         .into_iter()
         .map(|msg| {
@@ -336,7 +420,7 @@ async fn get_session_messages(
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(100);
 
-    let messages = state.history.get_history(&session_id, limit)?;
+    let messages = state.history.get_history(&session_id, limit).await?;
 
     let formatted: Vec<Value> = messages
         .into_iter()
@@ -424,7 +508,8 @@ async fn update_session(
     require_api_key(&headers, &state.session_token)?;
     let success = state
         .history
-        .update_session_title(&session_id, &payload.title)?;
+        .update_session_title(&session_id, &payload.title)
+        .await?;
     if !success {
         return Err(ApiError::NotFound("Session not found".to_string()));
     }
@@ -437,7 +522,7 @@ async fn delete_session(
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let success = state.history.delete_session(&session_id)?;
+    let success = state.history.delete_session(&session_id).await?;
     if !success {
         return Err(ApiError::NotFound("Session not found".to_string()));
     }
@@ -1783,12 +1868,16 @@ fn ensure_object_path(config: &mut Value, path: &[&str], value: Value) {
         }
 
         if !current.get(*key).map(|v| v.is_object()).unwrap_or(false) {
-            if let Some(map) = current.as_object_mut() {
-                map.insert((*key).to_string(), Value::Object(Map::new()));
-            }
+            let Some(map) = current.as_object_mut() else {
+                return;
+            };
+            map.insert((*key).to_string(), Value::Object(Map::new()));
         }
 
-        current = current.get_mut(*key).unwrap();
+        let Some(next) = current.get_mut(*key) else {
+            return;
+        };
+        current = next;
     }
 }
 

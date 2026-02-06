@@ -17,27 +17,51 @@ pub async fn perform_search(config: &Value, query: &str) -> Result<Vec<SearchRes
         .and_then(|v| v.as_str())
         .unwrap_or("google");
 
-    let api_key = config
-        .get("tools")
-        .and_then(|v| v.get("google_search_api_key"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let engine_id = config
-        .get("tools")
-        .and_then(|v| v.get("google_search_engine_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-
-    if provider == "google" && !api_key.is_empty() && !engine_id.is_empty() {
-        if let Ok(results) = google_search(query, &api_key, &engine_id).await {
-            if !results.is_empty() {
-                return Ok(results);
+    match provider {
+        "brave" => {
+            let api_key = config
+                .get("tools")
+                .and_then(|v| v.get("brave_search_api_key"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if !api_key.is_empty() {
+                return brave_search(query, api_key).await;
             }
         }
+        "bing" => {
+            let api_key = config
+                .get("tools")
+                .and_then(|v| v.get("bing_search_api_key"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if !api_key.is_empty() {
+                return bing_search(query, api_key).await;
+            }
+        }
+        "google" => {
+            let api_key = config
+                .get("tools")
+                .and_then(|v| v.get("google_search_api_key"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let engine_id = config
+                .get("tools")
+                .and_then(|v| v.get("google_search_engine_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if !api_key.is_empty() && !engine_id.is_empty() {
+                if let Ok(results) = google_search(query, api_key, engine_id).await {
+                    if !results.is_empty() {
+                        return Ok(results);
+                    }
+                }
+            }
+        }
+        _ => {}
     }
 
+    // Fallback or default
     duckduckgo_search(query).await
 }
 
@@ -167,4 +191,100 @@ fn extract_ddg_topics(items: &[Value], results: &mut Vec<SearchResult>) {
             snippet: text.to_string(),
         });
     }
+}
+
+async fn brave_search(query: &str, api_key: &str) -> Result<Vec<SearchResult>, ApiError> {
+    let url = format!(
+        "https://api.search.brave.com/res/v1/web/search?q={}",
+        urlencoding::encode(query)
+    );
+
+    let response = reqwest::Client::new()
+        .get(url)
+        .header("X-Subscription-Token", api_key)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(ApiError::internal)?;
+
+    if !response.status().is_success() {
+        return Err(ApiError::Internal(format!(
+            "Brave search failed: {}",
+            response.status()
+        )));
+    }
+
+    let payload: Value = response.json().await.map_err(ApiError::internal)?;
+    let mut results = Vec::new();
+
+    if let Some(items) = payload
+        .get("web")
+        .and_then(|w| w.get("results"))
+        .and_then(|v| v.as_array())
+    {
+        for item in items {
+            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            let url = item.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            let snippet = item
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if !title.is_empty() && !url.is_empty() {
+                results.push(SearchResult {
+                    title: title.to_string(),
+                    url: url.to_string(),
+                    snippet: snippet.to_string(),
+                });
+            }
+        }
+    }
+
+    Ok(results)
+}
+
+async fn bing_search(query: &str, api_key: &str) -> Result<Vec<SearchResult>, ApiError> {
+    let url = format!(
+        "https://api.bing.microsoft.com/v7.0/search?q={}",
+        urlencoding::encode(query)
+    );
+
+    let response = reqwest::Client::new()
+        .get(url)
+        .header("Ocp-Apim-Subscription-Key", api_key)
+        .send()
+        .await
+        .map_err(ApiError::internal)?;
+
+    if !response.status().is_success() {
+        return Err(ApiError::Internal(format!(
+            "Bing search failed: {}",
+            response.status()
+        )));
+    }
+
+    let payload: Value = response.json().await.map_err(ApiError::internal)?;
+    let mut results = Vec::new();
+
+    if let Some(items) = payload
+        .get("webPages")
+        .and_then(|wp| wp.get("value"))
+        .and_then(|v| v.as_array())
+    {
+        for item in items {
+            let title = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let url = item.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            let snippet = item.get("snippet").and_then(|v| v.as_str()).unwrap_or("");
+
+            if !title.is_empty() && !url.is_empty() {
+                results.push(SearchResult {
+                    title: title.to_string(),
+                    url: url.to_string(),
+                    snippet: snippet.to_string(),
+                });
+            }
+        }
+    }
+
+    Ok(results)
 }

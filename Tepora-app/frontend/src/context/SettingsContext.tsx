@@ -63,7 +63,9 @@ export interface Config {
 	tools: {
 		google_search_api_key?: string;
 		google_search_engine_id?: string;
-		search_provider?: "google" | "duckduckgo";
+		brave_search_api_key?: string;
+		bing_search_api_key?: string;
+		search_provider?: "google" | "duckduckgo" | "brave" | "bing";
 	};
 
 	privacy: {
