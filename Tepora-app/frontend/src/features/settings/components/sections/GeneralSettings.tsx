@@ -227,7 +227,6 @@ const GeneralSettings: React.FC = () => {
 	);
 };
 
-// Sub-component for llama.cpp Update Logic - MOVED TO OtherSettings.tsx
-// const InferenceEngineUpdate = ...
+
 
 export default GeneralSettings;

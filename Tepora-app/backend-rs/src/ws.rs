@@ -189,15 +189,18 @@ async fn handle_message(
         .session_id
         .unwrap_or_else(|| current_session_id.clone());
     let mode = data.mode.unwrap_or_else(|| "chat".to_string());
+    let thinking_mode = data.thinking_mode.unwrap_or(false);
+    let requested_agent_id = data.agent_id.clone();
+    let requested_agent_mode = data.agent_mode.clone();
     let timestamp = Utc::now().to_rfc3339();
 
     let user_kwargs = json!({
         "timestamp": timestamp,
         "mode": mode,
         "attachments": data.attachments,
-        "thinking_mode": data.thinking_mode,
-        "agent_id": data.agent_id,
-        "agent_mode": data.agent_mode,
+        "thinking_mode": thinking_mode,
+        "agent_id": requested_agent_id.clone(),
+        "agent_mode": requested_agent_mode.clone(),
         "skip_web_search": data.skip_web_search,
     });
 
@@ -300,13 +303,22 @@ async fn handle_message(
             chat_messages,
             &message_text,
             &data.attachments,
+            thinking_mode,
+            requested_agent_id.as_deref(),
+            requested_agent_mode.as_deref(),
             sender,
             pending,
             approved_mcp_tools,
         )
         .await?;
 
-        let assistant_kwargs = json!({"timestamp": timestamp, "mode": mode});
+        let assistant_kwargs = json!({
+            "timestamp": timestamp,
+            "mode": mode,
+            "thinking_mode": thinking_mode,
+            "agent_id": requested_agent_id,
+            "agent_mode": requested_agent_mode,
+        });
         state
             .history
             .add_message(&session_id, "ai", &agent_response, &assistant_kwargs)
@@ -585,6 +597,106 @@ enum AgentDecision {
     ToolCall { name: String, args: Value },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RequestedAgentMode {
+    Fast,
+    High,
+    Direct,
+}
+
+impl RequestedAgentMode {
+    fn parse(value: Option<&str>) -> Self {
+        match value
+            .map(|v| v.trim().to_lowercase())
+            .unwrap_or_else(|| "fast".to_string())
+            .as_str()
+        {
+            "high" => RequestedAgentMode::High,
+            "direct" => RequestedAgentMode::Direct,
+            _ => RequestedAgentMode::Fast,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            RequestedAgentMode::Fast => "fast",
+            RequestedAgentMode::High => "high",
+            RequestedAgentMode::Direct => "direct",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CustomToolPolicy {
+    allow_all: bool,
+    allowed_tools: HashSet<String>,
+    denied_tools: HashSet<String>,
+    require_confirmation: HashSet<String>,
+}
+
+impl CustomToolPolicy {
+    fn allow_all_policy() -> Self {
+        Self {
+            allow_all: true,
+            allowed_tools: HashSet::new(),
+            denied_tools: HashSet::new(),
+            require_confirmation: HashSet::new(),
+        }
+    }
+
+    fn from_agent_config(agent: &Value) -> Self {
+        let policy = agent
+            .get("tool_policy")
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
+
+        let allow_defined = policy.contains_key("allowed_tools") || policy.contains_key("allow");
+        let allowed_raw =
+            parse_string_set(policy.get("allowed_tools").or_else(|| policy.get("allow")));
+        let allow_all = !allow_defined || allowed_raw.contains("*");
+
+        let allowed_tools = allowed_raw
+            .into_iter()
+            .filter(|tool| tool != "*")
+            .collect::<HashSet<_>>();
+        let denied_tools =
+            parse_string_set(policy.get("denied_tools").or_else(|| policy.get("deny")));
+        let require_confirmation = parse_string_set(policy.get("require_confirmation"));
+
+        Self {
+            allow_all,
+            allowed_tools,
+            denied_tools,
+            require_confirmation,
+        }
+    }
+
+    fn is_tool_allowed(&self, tool_name: &str) -> bool {
+        if self.denied_tools.contains(tool_name) {
+            return false;
+        }
+        if self.allow_all {
+            return true;
+        }
+        self.allowed_tools.contains(tool_name)
+    }
+
+    fn requires_confirmation(&self, tool_name: &str) -> bool {
+        self.require_confirmation.contains(tool_name)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CustomAgentRuntime {
+    id: String,
+    name: String,
+    description: String,
+    system_prompt: String,
+    model_config_name: Option<String>,
+    tool_policy: CustomToolPolicy,
+}
+
 async fn run_agent_mode(
     state: &AppState,
     config: &Value,
@@ -592,15 +704,73 @@ async fn run_agent_mode(
     mut messages: Vec<ChatMessage>,
     user_input: &str,
     attachments: &[Value],
+    thinking_mode: bool,
+    requested_agent_id: Option<&str>,
+    requested_agent_mode: Option<&str>,
     sender: &mut SplitSink<WebSocket, Message>,
     pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
     approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
 ) -> Result<String, ApiError> {
+    let requested_mode = RequestedAgentMode::parse(requested_agent_mode);
+    let custom_agents = load_enabled_custom_agents(config);
+    let selected_agent = choose_agent(&custom_agents, requested_agent_id, user_input);
+
+    if matches!(requested_mode, RequestedAgentMode::Direct) {
+        if let Some(requested) = requested_agent_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            if !custom_agents.contains_key(requested) {
+                return Err(ApiError::BadRequest(format!(
+                    "Requested agent '{}' is not available or not enabled",
+                    requested
+                )));
+            }
+        }
+    }
+
+    let route_requires_planning = match requested_mode {
+        RequestedAgentMode::High => true,
+        RequestedAgentMode::Fast => requires_fast_mode_planning(user_input),
+        RequestedAgentMode::Direct => false,
+    };
+    let route_label = if route_requires_planning {
+        "planner"
+    } else {
+        "direct"
+    };
+
+    let selected_agent_name = selected_agent
+        .as_ref()
+        .map(|agent| agent.name.clone())
+        .unwrap_or_else(|| "Professional Agent".to_string());
+    send_activity(
+        sender,
+        "supervisor",
+        "processing",
+        "Evaluating request and selecting execution route",
+        "Supervisor",
+    )
+    .await?;
+
+    let routing_message = format!(
+        "Mode={}, route={}, agent={}",
+        requested_mode.as_str(),
+        route_label,
+        selected_agent_name
+    );
+    send_activity(sender, "supervisor", "done", &routing_message, "Supervisor").await?;
+
     let max_steps = config
         .get("app")
         .and_then(|v| v.get("graph_recursion_limit"))
         .and_then(|v| v.as_u64())
         .unwrap_or(6) as usize;
+
+    let active_policy = selected_agent
+        .as_ref()
+        .map(|agent| agent.tool_policy.clone())
+        .unwrap_or_else(CustomToolPolicy::allow_all_policy);
 
     let mut tool_list = vec!["native_web_fetch".to_string(), "native_search".to_string()];
     let mcp_tools = state.mcp.list_tools().await;
@@ -609,9 +779,29 @@ async fn run_agent_mode(
         mcp_tool_set.insert(tool.name.clone());
         tool_list.push(tool.name);
     }
+    tool_list.retain(|tool_name| active_policy.is_tool_allowed(tool_name));
+    tool_list.sort();
+    tool_list.dedup();
+
+    let agent_chat_config = build_agent_chat_config(config, selected_agent.as_ref());
+
+    if let Some(agent) = selected_agent.as_ref() {
+        if !agent.system_prompt.trim().is_empty() {
+            messages.push(ChatMessage {
+                role: "system".to_string(),
+                content: agent.system_prompt.clone(),
+            });
+        }
+    }
+
     messages.push(ChatMessage {
         role: "system".to_string(),
-        content: build_agent_instructions(&tool_list),
+        content: build_agent_instructions(
+            &tool_list,
+            requested_mode,
+            thinking_mode,
+            selected_agent.as_ref(),
+        ),
     });
 
     if let Some(attachment_text) = format_attachments(attachments) {
@@ -621,23 +811,80 @@ async fn run_agent_mode(
         });
     }
 
+    if route_requires_planning {
+        send_activity(
+            sender,
+            "generate_order",
+            "processing",
+            "Generating execution plan",
+            "Planner",
+        )
+        .await?;
+        let plan = generate_execution_plan(
+            state,
+            &agent_chat_config,
+            user_input,
+            selected_agent.as_ref(),
+            thinking_mode,
+        )
+        .await?;
+        send_activity(
+            sender,
+            "generate_order",
+            "done",
+            "Execution plan generated",
+            "Planner",
+        )
+        .await?;
+        messages.push(ChatMessage {
+            role: "system".to_string(),
+            content: format!(
+                "Planner output (follow this unless strong evidence requires adjustment):\n{}",
+                plan
+            ),
+        });
+    }
+
     messages.push(ChatMessage {
         role: "user".to_string(),
         content: user_input.to_string(),
     });
 
     for step in 0..max_steps {
-        let response = state.llama.chat(config, messages.clone()).await?;
+        let step_message = format!("Reasoning step {}/{}", step + 1, max_steps);
+        send_activity(
+            sender,
+            "agent_reasoning",
+            "processing",
+            &step_message,
+            &selected_agent_name,
+        )
+        .await?;
+
+        let response = state
+            .llama
+            .chat(&agent_chat_config, messages.clone())
+            .await?;
         let decision = parse_agent_decision(&response);
 
         match decision {
             AgentDecision::Final(content) => {
+                send_activity(
+                    sender,
+                    "synthesize_final_response",
+                    "done",
+                    "Final response prepared",
+                    &selected_agent_name,
+                )
+                .await?;
                 send_json(
                     sender,
                     json!({
                         "type": "chunk",
                         "message": content,
-                        "mode": "agent"
+                        "mode": "agent",
+                        "agentName": selected_agent_name,
+                        "nodeId": "synthesize_final_response"
                     }),
                 )
                 .await?;
@@ -645,16 +892,37 @@ async fn run_agent_mode(
                 return Ok(content);
             }
             AgentDecision::ToolCall { name, args } => {
+                if !active_policy.is_tool_allowed(&name) {
+                    let rejection =
+                        format!("Tool `{}` is blocked by the selected agent's policy.", name);
+                    send_activity(sender, "tool_guard", "error", &rejection, "Tool Guard").await?;
+                    messages.push(ChatMessage {
+                        role: "system".to_string(),
+                        content: rejection,
+                    });
+                    continue;
+                }
+
+                send_activity(
+                    sender,
+                    "tool_node",
+                    "processing",
+                    &format!("Executing tool `{}`", name),
+                    "Tool Handler",
+                )
+                .await?;
+
+                let mut requires_confirmation = active_policy.requires_confirmation(&name);
                 if mcp_tool_set.contains(&name) {
                     let policy = state.mcp.load_policy().unwrap_or_default();
                     let is_first_use = {
                         let set = approved_mcp_tools.lock().map_err(ApiError::internal)?;
                         !set.contains(&name)
                     };
-                    let requires_confirmation = if is_first_use && policy.first_use_confirmation {
+                    requires_confirmation = if is_first_use && policy.first_use_confirmation {
                         true
                     } else {
-                        policy.require_tool_confirmation
+                        requires_confirmation || policy.require_tool_confirmation
                     };
                     if requires_confirmation {
                         let approved = request_tool_approval(
@@ -667,6 +935,8 @@ async fn run_agent_mode(
                         .await?;
                         if !approved {
                             let denial = format!("Tool `{}` was not approved by the user.", name);
+                            send_activity(sender, "tool_node", "error", &denial, "Tool Handler")
+                                .await?;
                             messages.push(ChatMessage {
                                 role: "system".to_string(),
                                 content: denial.clone(),
@@ -685,9 +955,40 @@ async fn run_agent_mode(
                             set.insert(name.clone());
                         }
                     }
+                } else if requires_confirmation {
+                    let approved = request_tool_approval(
+                        sender,
+                        pending.clone(),
+                        &name,
+                        &args,
+                        approval_timeout(config),
+                    )
+                    .await?;
+                    if !approved {
+                        let denial = format!("Tool `{}` was not approved by the user.", name);
+                        send_activity(sender, "tool_node", "error", &denial, "Tool Handler")
+                            .await?;
+                        messages.push(ChatMessage {
+                            role: "system".to_string(),
+                            content: denial.clone(),
+                        });
+                        continue;
+                    }
                 }
 
-                let execution = execute_tool(config, Some(&state.mcp), &name, &args).await?;
+                let execution = match execute_tool(config, Some(&state.mcp), &name, &args).await {
+                    Ok(value) => value,
+                    Err(err) => {
+                        let failure = format!("Tool `{}` failed: {}", name, err);
+                        send_activity(sender, "tool_node", "error", &failure, "Tool Handler")
+                            .await?;
+                        messages.push(ChatMessage {
+                            role: "system".to_string(),
+                            content: failure,
+                        });
+                        continue;
+                    }
+                };
 
                 if let Some(results) = &execution.search_results {
                     let _ = send_json(sender, json!({ "type": "search_results", "data": results }))
@@ -708,6 +1009,15 @@ async fn run_agent_mode(
                     content: tool_payload,
                 });
 
+                send_activity(
+                    sender,
+                    "tool_node",
+                    "done",
+                    &format!("Tool `{}` finished", name),
+                    "Tool Handler",
+                )
+                .await?;
+
                 let _ = send_json(
                     sender,
                     json!({
@@ -721,12 +1031,22 @@ async fn run_agent_mode(
     }
 
     let fallback = "Agent reached the maximum number of steps without a final answer.".to_string();
+    send_activity(
+        sender,
+        "synthesize_final_response",
+        "error",
+        &fallback,
+        &selected_agent_name,
+    )
+    .await?;
     send_json(
         sender,
         json!({
             "type": "chunk",
             "message": fallback,
-            "mode": "agent"
+            "mode": "agent",
+            "agentName": selected_agent_name,
+            "nodeId": "synthesize_final_response"
         }),
     )
     .await?;
@@ -734,17 +1054,269 @@ async fn run_agent_mode(
     Ok(fallback)
 }
 
-fn build_agent_instructions(tool_names: &[String]) -> String {
-    let tools = tool_names.join(", ");
+fn build_agent_instructions(
+    tool_names: &[String],
+    mode: RequestedAgentMode,
+    thinking_mode: bool,
+    selected_agent: Option<&CustomAgentRuntime>,
+) -> String {
+    let tools = if tool_names.is_empty() {
+        "None (you must solve without tools unless the user asks to change policy)".to_string()
+    } else {
+        tool_names.join(", ")
+    };
+    let selected_agent_text = selected_agent
+        .map(|agent| format!("Selected professional agent: {} ({})", agent.name, agent.id))
+        .unwrap_or_else(|| "Selected professional agent: default".to_string());
+    let thinking_note = if thinking_mode {
+        "Thinking mode is enabled. Reason step-by-step before each tool call."
+    } else {
+        "Thinking mode is disabled. Keep reasoning concise."
+    };
     format!(
-        "You are operating in agent mode. You have access to the following tools: {}.\n\
+        "You are operating in agent mode ({mode}).\n\
+{selected_agent_text}\n\
+{thinking_note}\n\
+You have access to the following tools: {tools}.\n\
 When you need to use a tool, respond ONLY with JSON in this format:\n\
 {{\"type\":\"tool_call\",\"tool_name\":\"<tool>\",\"tool_args\":{{...}}}}\n\
 When you have the final answer, respond ONLY with JSON in this format:\n\
 {{\"type\":\"final\",\"content\":\"...\"}}\n\
 Do not include any extra text outside the JSON.",
-        tools
+        mode = mode.as_str()
     )
+}
+
+async fn generate_execution_plan(
+    state: &AppState,
+    chat_config: &Value,
+    user_input: &str,
+    selected_agent: Option<&CustomAgentRuntime>,
+    thinking_mode: bool,
+) -> Result<String, ApiError> {
+    let selected = selected_agent
+        .map(|agent| format!("{} ({})", agent.name, agent.id))
+        .unwrap_or_else(|| "default".to_string());
+    let detail = if thinking_mode { "detailed" } else { "compact" };
+
+    let planning_messages = vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: "You are a planner for a tool-using AI agent.\n\
+Create a practical execution plan with up to 6 ordered steps.\n\
+Use concise markdown bullets and include fallback actions.\n\
+Do not add any text before or after the plan."
+                .to_string(),
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: format!(
+                "User request:\n{}\n\nPreferred executor:\n{}\n\nDetail level:\n{}",
+                user_input, selected, detail
+            ),
+        },
+    ];
+
+    let plan = state.llama.chat(chat_config, planning_messages).await?;
+    let trimmed = plan.trim();
+    if trimmed.is_empty() {
+        return Ok(
+            "- Clarify objective and constraints\n- Gather required evidence\n- Execute tools safely\n- Synthesize final answer"
+                .to_string(),
+        );
+    }
+    Ok(trimmed.to_string())
+}
+
+fn load_enabled_custom_agents(config: &Value) -> HashMap<String, CustomAgentRuntime> {
+    let mut out = HashMap::new();
+    let Some(agents) = config.get("custom_agents").and_then(|v| v.as_object()) else {
+        return out;
+    };
+
+    for (id, raw_agent) in agents {
+        let enabled = raw_agent
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        if !enabled {
+            continue;
+        }
+
+        let name = raw_agent
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .unwrap_or(id)
+            .to_string();
+        let description = raw_agent
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let system_prompt = raw_agent
+            .get("system_prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let model_config_name = raw_agent
+            .get("model_config_name")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(|v| v.to_string());
+
+        out.insert(
+            id.to_string(),
+            CustomAgentRuntime {
+                id: id.to_string(),
+                name,
+                description,
+                system_prompt,
+                model_config_name,
+                tool_policy: CustomToolPolicy::from_agent_config(raw_agent),
+            },
+        );
+    }
+    out
+}
+
+fn parse_string_set(value: Option<&Value>) -> HashSet<String> {
+    let mut out = HashSet::new();
+    let Some(list) = value.and_then(|v| v.as_array()) else {
+        return out;
+    };
+    for item in list {
+        if let Some(value) = item.as_str().map(str::trim).filter(|v| !v.is_empty()) {
+            out.insert(value.to_string());
+        }
+    }
+    out
+}
+
+fn choose_agent(
+    custom_agents: &HashMap<String, CustomAgentRuntime>,
+    requested_agent_id: Option<&str>,
+    user_input: &str,
+) -> Option<CustomAgentRuntime> {
+    if let Some(requested) = requested_agent_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(agent) = custom_agents.get(requested) {
+            return Some(agent.clone());
+        }
+    }
+
+    if custom_agents.is_empty() {
+        return None;
+    }
+
+    let query = user_input.to_lowercase();
+    let mut ranked = custom_agents.values().cloned().collect::<Vec<_>>();
+    ranked.sort_by(|left, right| {
+        let left_score = score_agent_for_query(left, &query);
+        let right_score = score_agent_for_query(right, &query);
+        right_score
+            .cmp(&left_score)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    ranked.into_iter().next()
+}
+
+fn score_agent_for_query(agent: &CustomAgentRuntime, query: &str) -> usize {
+    let corpus = format!(
+        "{} {} {} {}",
+        agent.id, agent.name, agent.description, agent.system_prompt
+    )
+    .to_lowercase();
+
+    query
+        .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
+        .map(str::trim)
+        .filter(|token| token.len() >= 3)
+        .take(20)
+        .filter(|token| corpus.contains(token))
+        .count()
+}
+
+fn requires_fast_mode_planning(user_input: &str) -> bool {
+    let lowered = user_input.to_lowercase();
+    if lowered.len() > 220 {
+        return true;
+    }
+
+    let indicators = [
+        "step by step",
+        "plan",
+        "roadmap",
+        "architecture",
+        "migration",
+        "strategy",
+        "analysis",
+        "complex",
+        "比較",
+        "分析",
+        "計画",
+        "設計",
+        "段階",
+        "手順",
+        "移行",
+        "包括",
+        "複雑",
+    ];
+    indicators.iter().any(|keyword| lowered.contains(keyword))
+}
+
+fn build_agent_chat_config(config: &Value, selected_agent: Option<&CustomAgentRuntime>) -> Value {
+    let mut overridden = config.clone();
+    let Some(model_key) = selected_agent
+        .and_then(|agent| agent.model_config_name.as_deref())
+        .filter(|value| !value.is_empty())
+    else {
+        return overridden;
+    };
+
+    let model_entry = config
+        .get("models_gguf")
+        .and_then(|v| v.get(model_key))
+        .cloned();
+    let Some(model_entry) = model_entry else {
+        return overridden;
+    };
+
+    if let Some(root) = overridden.as_object_mut() {
+        let models_gguf = root
+            .entry("models_gguf".to_string())
+            .or_insert_with(|| Value::Object(Default::default()));
+        if let Some(models_obj) = models_gguf.as_object_mut() {
+            models_obj.insert("text_model".to_string(), model_entry);
+        }
+    }
+    overridden
+}
+
+async fn send_activity(
+    sender: &mut SplitSink<WebSocket, Message>,
+    id: &str,
+    status: &str,
+    message: &str,
+    agent_name: &str,
+) -> Result<(), ApiError> {
+    send_json(
+        sender,
+        json!({
+            "type": "activity",
+            "data": {
+                "id": id,
+                "status": status,
+                "message": message,
+                "agentName": agent_name,
+            }
+        }),
+    )
+    .await
 }
 
 fn parse_agent_decision(text: &str) -> AgentDecision {
@@ -895,4 +1467,98 @@ fn approval_timeout(config: &Value) -> u64 {
         .and_then(|v| v.get("tool_approval_timeout"))
         .and_then(|v| v.as_u64())
         .unwrap_or(300)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn requested_agent_mode_parses_supported_values() {
+        assert_eq!(
+            RequestedAgentMode::parse(Some("high")),
+            RequestedAgentMode::High
+        );
+        assert_eq!(
+            RequestedAgentMode::parse(Some("direct")),
+            RequestedAgentMode::Direct
+        );
+        assert_eq!(
+            RequestedAgentMode::parse(Some("fast")),
+            RequestedAgentMode::Fast
+        );
+        assert_eq!(RequestedAgentMode::parse(None), RequestedAgentMode::Fast);
+        assert_eq!(
+            RequestedAgentMode::parse(Some("unknown")),
+            RequestedAgentMode::Fast
+        );
+    }
+
+    #[test]
+    fn custom_tool_policy_respects_allow_deny_and_confirmation() {
+        let agent = json!({
+            "tool_policy": {
+                "allowed_tools": ["native_search", "native_web_fetch"],
+                "denied_tools": ["native_web_fetch"],
+                "require_confirmation": ["native_search"]
+            }
+        });
+        let policy = CustomToolPolicy::from_agent_config(&agent);
+
+        assert!(policy.is_tool_allowed("native_search"));
+        assert!(!policy.is_tool_allowed("native_web_fetch"));
+        assert!(policy.requires_confirmation("native_search"));
+        assert!(!policy.requires_confirmation("native_web_fetch"));
+    }
+
+    #[test]
+    fn custom_tool_policy_defaults_to_allow_all_when_not_defined() {
+        let policy = CustomToolPolicy::from_agent_config(&json!({}));
+        assert!(policy.is_tool_allowed("native_search"));
+        assert!(policy.is_tool_allowed("some_mcp_tool"));
+    }
+
+    #[test]
+    fn fast_mode_planning_heuristic_detects_complex_requests() {
+        assert!(requires_fast_mode_planning(
+            "移行計画を段階的に設計して、比較分析も含めてください"
+        ));
+        assert!(!requires_fast_mode_planning("今日の天気を教えて"));
+    }
+
+    #[test]
+    fn choose_agent_prefers_explicit_request() {
+        let mut agents = HashMap::new();
+        agents.insert(
+            "coder".to_string(),
+            CustomAgentRuntime {
+                id: "coder".to_string(),
+                name: "Coder".to_string(),
+                description: "Writes code".to_string(),
+                system_prompt: "Coding expert".to_string(),
+                model_config_name: None,
+                tool_policy: CustomToolPolicy::allow_all_policy(),
+            },
+        );
+        agents.insert(
+            "research".to_string(),
+            CustomAgentRuntime {
+                id: "research".to_string(),
+                name: "Researcher".to_string(),
+                description: "Does web research".to_string(),
+                system_prompt: "Research expert".to_string(),
+                model_config_name: None,
+                tool_policy: CustomToolPolicy::allow_all_policy(),
+            },
+        );
+
+        let selected = choose_agent(
+            &agents,
+            Some("research"),
+            "Need implementation details for Rust.",
+        )
+        .expect("agent should be selected");
+        assert_eq!(selected.id, "research");
+    }
 }

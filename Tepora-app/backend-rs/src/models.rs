@@ -156,17 +156,19 @@ impl ModelManager {
         filename: &str,
         role: &str,
         display_name: &str,
+        revision: Option<&str>,
+        expected_sha256: Option<&str>,
         consent_provided: bool,
         progress_cb: Option<&dyn Fn(f32, &str)>,
     ) -> Result<ModelDownloadResult, ApiError> {
-        let policy = self.evaluate_download_policy(repo_id, filename);
+        let policy = self.evaluate_download_policy(repo_id, filename, revision, expected_sha256);
         if !policy.allowed {
             return Ok(ModelDownloadResult {
                 success: false,
                 requires_consent: false,
                 warnings: policy.warnings,
                 path: None,
-                error_message: Some("Download blocked by policy".to_string()),
+                error_message: Some("Download blocked by policy requirements".to_string()),
                 model_id: None,
             });
         }
@@ -186,7 +188,7 @@ impl ModelManager {
             let _ = fs::create_dir_all(parent);
         }
 
-        let url = hf_resolve_url(repo_id, filename);
+        let url = hf_resolve_url(repo_id, filename, revision);
         let response = self
             .client
             .get(url)
@@ -221,7 +223,28 @@ impl ModelManager {
         let file_size = fs::metadata(&target_path)
             .map_err(ApiError::internal)?
             .len();
-        let sha256 = Some(hex::encode(hasher.finalize()));
+        let actual_sha256 = hex::encode(hasher.finalize());
+        if let Some(expected_hash) = normalize_sha256(expected_sha256) {
+            if actual_sha256 != expected_hash {
+                let _ = fs::remove_file(&target_path);
+                return Ok(ModelDownloadResult {
+                    success: false,
+                    requires_consent: false,
+                    warnings: vec!["SHA256 verification failed".to_string()],
+                    path: None,
+                    error_message: Some(
+                        "Downloaded file SHA256 did not match expected value".to_string(),
+                    ),
+                    model_id: None,
+                });
+            }
+        }
+
+        let normalized_revision = revision
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(|v| v.to_string());
+        let sha256 = Some(actual_sha256.clone());
         let entry = self.add_model_entry(
             repo_id,
             filename,
@@ -229,6 +252,7 @@ impl ModelManager {
             display_name,
             &target_path,
             file_size,
+            normalized_revision,
             sha256.clone(),
         )?;
 
@@ -280,7 +304,7 @@ impl ModelManager {
         repo_id: &str,
         filename: &str,
     ) -> Result<Option<u64>, ApiError> {
-        let url = hf_resolve_url(repo_id, filename);
+        let url = hf_resolve_url(repo_id, filename, None);
         let response = self
             .client
             .head(url)
@@ -295,10 +319,11 @@ impl ModelManager {
         &self,
         repo_id: &str,
         filename: &str,
+        revision: Option<&str>,
         current_sha: Option<&str>,
         current_size: Option<u64>,
     ) -> Result<Value, ApiError> {
-        let url = hf_resolve_url(repo_id, filename);
+        let url = hf_resolve_url(repo_id, filename, revision);
         let response = self
             .client
             .head(url)
@@ -356,72 +381,15 @@ impl ModelManager {
         Ok(true)
     }
 
-    pub fn evaluate_download_policy(&self, repo_id: &str, _filename: &str) -> ModelDownloadPolicy {
+    pub fn evaluate_download_policy(
+        &self,
+        repo_id: &str,
+        _filename: &str,
+        revision: Option<&str>,
+        expected_sha256: Option<&str>,
+    ) -> ModelDownloadPolicy {
         let config = self.config.load_config().unwrap_or_else(|_| Value::Null);
-        let allowlist = config
-            .get("model_download")
-            .and_then(|v| v.get("allow_repo_owners"))
-            .and_then(|v| v.as_array())
-            .map(|list| {
-                list.iter()
-                    .filter_map(|item| item.as_str().map(|s| s.to_string()))
-                    .collect::<Vec<String>>()
-            })
-            .unwrap_or_default();
-
-        let require_allowlist = config
-            .get("model_download")
-            .and_then(|v| v.get("require_allowlist"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let warn_on_unlisted = config
-            .get("model_download")
-            .and_then(|v| v.get("warn_on_unlisted"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true);
-        let require_revision = config
-            .get("model_download")
-            .and_then(|v| v.get("require_revision"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let require_sha256 = config
-            .get("model_download")
-            .and_then(|v| v.get("require_sha256"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        let owner = repo_id.split('/').next().unwrap_or("").to_lowercase();
-        let allowset: HashSet<String> = allowlist.into_iter().map(|s| s.to_lowercase()).collect();
-
-        let mut allowed = true;
-        let mut requires_consent = false;
-        let mut warnings = Vec::new();
-
-        if !owner.is_empty() && !allowset.contains(&owner) {
-            if require_allowlist {
-                allowed = false;
-                warnings.push("Repository owner is not in allowlist".to_string());
-            } else if warn_on_unlisted {
-                requires_consent = true;
-                warnings.push("Repository owner is not in allowlist".to_string());
-            }
-        }
-
-        if require_revision {
-            requires_consent = true;
-            warnings.push("Revision pinning is required for downloads".to_string());
-        }
-
-        if require_sha256 {
-            requires_consent = true;
-            warnings.push("SHA256 verification is required for downloads".to_string());
-        }
-
-        ModelDownloadPolicy {
-            allowed,
-            requires_consent,
-            warnings,
-        }
+        evaluate_download_policy_from_config(&config, repo_id, revision, expected_sha256)
     }
 
     pub fn update_active_model_config(&self, role: &str, model_id: &str) -> Result<(), ApiError> {
@@ -486,6 +454,7 @@ impl ModelManager {
         display_name: &str,
         path: &Path,
         file_size: u64,
+        revision: Option<String>,
         sha256: Option<String>,
     ) -> Result<ModelEntry, ApiError> {
         let mut registry = self.load_registry()?;
@@ -501,7 +470,7 @@ impl ModelManager {
             source: repo_id.to_string(),
             file_path: path.to_string_lossy().to_string(),
             repo_id: Some(repo_id.to_string()),
-            revision: None,
+            revision,
             sha256,
             added_at: Utc::now().to_rfc3339(),
         };
@@ -537,11 +506,171 @@ fn unique_model_id(base: &str, models: &[ModelEntry]) -> String {
     }
 }
 
-fn hf_resolve_url(repo_id: &str, filename: &str) -> String {
+fn evaluate_download_policy_from_config(
+    config: &Value,
+    repo_id: &str,
+    revision: Option<&str>,
+    expected_sha256: Option<&str>,
+) -> ModelDownloadPolicy {
+    let allowlist = config
+        .get("model_download")
+        .and_then(|v| v.get("allow_repo_owners"))
+        .and_then(|v| v.as_array())
+        .map(|list| {
+            list.iter()
+                .filter_map(|item| item.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_default();
+
+    let require_allowlist = config
+        .get("model_download")
+        .and_then(|v| v.get("require_allowlist"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let warn_on_unlisted = config
+        .get("model_download")
+        .and_then(|v| v.get("warn_on_unlisted"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let require_revision = config
+        .get("model_download")
+        .and_then(|v| v.get("require_revision"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let require_sha256 = config
+        .get("model_download")
+        .and_then(|v| v.get("require_sha256"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let owner = repo_id.split('/').next().unwrap_or("").to_lowercase();
+    let allowset: HashSet<String> = allowlist.into_iter().map(|s| s.to_lowercase()).collect();
+
+    let mut allowed = true;
+    let mut requires_consent = false;
+    let mut warnings = Vec::new();
+
+    let normalized_revision = revision.map(str::trim).filter(|value| !value.is_empty());
+    let normalized_sha256 = normalize_sha256(expected_sha256);
+
+    if !owner.is_empty() && !allowset.contains(&owner) {
+        if require_allowlist {
+            allowed = false;
+            warnings.push("Repository owner is not in allowlist".to_string());
+        } else if warn_on_unlisted {
+            requires_consent = true;
+            warnings.push("Repository owner is not in allowlist".to_string());
+        }
+    }
+
+    if require_revision && normalized_revision.is_none() {
+        allowed = false;
+        warnings.push("Revision pinning is required by policy (provide a revision)".to_string());
+    }
+
+    if require_sha256 {
+        if normalized_sha256.is_none() {
+            allowed = false;
+            warnings.push(
+                "SHA256 verification is required by policy (provide expected sha256)".to_string(),
+            );
+        }
+    } else if expected_sha256.is_some() && normalized_sha256.is_none() {
+        allowed = false;
+        warnings.push("Provided SHA256 value is not a valid 64-char hex string".to_string());
+    }
+
+    ModelDownloadPolicy {
+        allowed,
+        requires_consent,
+        warnings,
+    }
+}
+
+fn hf_resolve_url(repo_id: &str, filename: &str, revision: Option<&str>) -> String {
+    let revision = revision
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("main");
     format!(
-        "https://huggingface.co/{}/resolve/main/{}?download=true",
-        repo_id, filename
+        "https://huggingface.co/{}/resolve/{}/{}?download=true",
+        repo_id,
+        urlencoding::encode(revision),
+        filename
     )
+}
+
+fn normalize_sha256(value: Option<&str>) -> Option<String> {
+    let trimmed = value.map(str::trim).filter(|v| !v.is_empty())?;
+    if trimmed.len() != 64 {
+        return None;
+    }
+    if !trimmed.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(trimmed.to_ascii_lowercase())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn policy_requires_revision_and_sha_when_configured() {
+        let config = json!({
+            "model_download": {
+                "require_revision": true,
+                "require_sha256": true,
+                "warn_on_unlisted": false
+            }
+        });
+
+        let blocked = evaluate_download_policy_from_config(&config, "owner/model", None, None);
+        assert!(!blocked.allowed);
+        assert!(blocked
+            .warnings
+            .iter()
+            .any(|w| w.contains("Revision pinning is required")));
+        assert!(blocked
+            .warnings
+            .iter()
+            .any(|w| w.contains("SHA256 verification is required")));
+    }
+
+    #[test]
+    fn policy_accepts_valid_sha_when_required() {
+        let config = json!({
+            "model_download": {
+                "require_revision": true,
+                "require_sha256": true,
+                "warn_on_unlisted": false
+            }
+        });
+        let valid_sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let policy = evaluate_download_policy_from_config(
+            &config,
+            "owner/model",
+            Some("refs/pr/1"),
+            Some(valid_sha),
+        );
+        assert!(policy.allowed);
+    }
+
+    #[test]
+    fn hf_url_uses_revision_when_provided() {
+        let url = hf_resolve_url("owner/model", "file.gguf", Some("abc123"));
+        assert!(url.contains("/resolve/abc123/"));
+    }
+
+    #[test]
+    fn normalize_sha_rejects_invalid_value() {
+        assert!(normalize_sha256(Some("not-a-hash")).is_none());
+        assert!(normalize_sha256(Some("")).is_none());
+        assert!(normalize_sha256(Some("A")).is_none());
+    }
 }
 
 fn content_length(headers: &HeaderMap) -> Option<u64> {

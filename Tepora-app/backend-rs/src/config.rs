@@ -527,10 +527,53 @@ fn validate_config(config: &Value) -> Result<(), ApiError> {
             validate_optional_string_field(entry, &format!("{}.name", path_prefix), "name")?;
             validate_optional_string_field(
                 entry,
+                &format!("{}.description", path_prefix),
+                "description",
+            )?;
+            validate_optional_string_field(entry, &format!("{}.icon", path_prefix), "icon")?;
+            validate_optional_string_field(
+                entry,
                 &format!("{}.system_prompt", path_prefix),
                 "system_prompt",
             )?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.model_config_name", path_prefix),
+                "model_config_name",
+            )?;
+            validate_string_array_field(entry, &format!("{}.skills", path_prefix), "skills")?;
             validate_bool_field(entry, &format!("{}.enabled", path_prefix), "enabled")?;
+
+            if let Some(tool_policy_value) = entry.get("tool_policy") {
+                let tool_policy = tool_policy_value.as_object().ok_or_else(|| {
+                    config_type_error(&format!("{}.tool_policy", path_prefix), "object")
+                })?;
+                validate_string_array_field(
+                    tool_policy,
+                    &format!("{}.tool_policy.allowed_tools", path_prefix),
+                    "allowed_tools",
+                )?;
+                validate_string_array_field(
+                    tool_policy,
+                    &format!("{}.tool_policy.denied_tools", path_prefix),
+                    "denied_tools",
+                )?;
+                validate_string_array_field(
+                    tool_policy,
+                    &format!("{}.tool_policy.require_confirmation", path_prefix),
+                    "require_confirmation",
+                )?;
+                validate_string_array_field(
+                    tool_policy,
+                    &format!("{}.tool_policy.allow", path_prefix),
+                    "allow",
+                )?;
+                validate_string_array_field(
+                    tool_policy,
+                    &format!("{}.tool_policy.deny", path_prefix),
+                    "deny",
+                )?;
+            }
         }
     }
 
@@ -815,6 +858,49 @@ mod tests {
                     "port": 8088,
                     "n_ctx": 4096,
                     "n_gpu_layers": -1
+                }
+            }
+        });
+        let result = validate_config(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_config_rejects_invalid_custom_agent_tool_policy() {
+        let config = json!({
+            "custom_agents": {
+                "coder": {
+                    "id": "coder",
+                    "name": "Coder",
+                    "enabled": true,
+                    "tool_policy": {
+                        "allowed_tools": ["native_search", 42]
+                    }
+                }
+            }
+        });
+        let result = validate_config(&config);
+        assert!(matches!(result, Err(ApiError::BadRequest(_))));
+    }
+
+    #[test]
+    fn validate_config_accepts_custom_agent_tool_policy() {
+        let config = json!({
+            "custom_agents": {
+                "coder": {
+                    "id": "coder",
+                    "name": "Coder",
+                    "description": "Writes code",
+                    "icon": "🤖",
+                    "system_prompt": "You are coder",
+                    "model_config_name": "text_model",
+                    "skills": ["coding", "review"],
+                    "enabled": true,
+                    "tool_policy": {
+                        "allowed_tools": ["native_search"],
+                        "denied_tools": ["native_web_fetch"],
+                        "require_confirmation": ["native_search"]
+                    }
                 }
             }
         });

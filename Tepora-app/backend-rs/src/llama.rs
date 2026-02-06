@@ -154,6 +154,13 @@ impl LlamaService {
         })
     }
 
+    pub async fn refresh_binary_path(&self, paths: &AppPaths) -> Option<PathBuf> {
+        let resolved = resolve_llama_binary(paths);
+        let mut guard = self.inner.lock().await;
+        guard.binary_path = resolved.clone();
+        resolved
+    }
+
     pub async fn chat(
         &self,
         config: &Value,
@@ -429,8 +436,20 @@ impl LlamaService {
         guard.ports.insert(config.model_key.clone(), port);
         drop(guard);
 
-        self.perform_health_check(port).await?;
+        if let Err(err) = self.perform_health_check(port).await {
+            self.terminate_model(&config.model_key).await;
+            return Err(err);
+        }
         Ok(port)
+    }
+
+    async fn terminate_model(&self, model_key: &str) {
+        let mut guard = self.inner.lock().await;
+        if let Some(mut child) = guard.processes.remove(model_key) {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        guard.ports.remove(model_key);
     }
 
     async fn perform_health_check(&self, port: u16) -> Result<(), ApiError> {
