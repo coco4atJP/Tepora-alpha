@@ -31,15 +31,24 @@ Tepora_Project/
 ├── Tepora-app/
 │   ├── backend-rs/          # Rust backend
 │   │   ├── src/
+│   │   │   ├── main.rs      # エントリーポイント
 │   │   │   ├── api.rs       # REST API
 │   │   │   ├── ws.rs        # WebSocket/ストリーミング
 │   │   │   ├── mcp.rs       # MCP管理
+│   │   │   ├── mcp_installer.rs # MCPインストール
+│   │   │   ├── mcp_registry.rs  # MCPレジストリ
 │   │   │   ├── models.rs    # モデル管理
+│   │   │   ├── llama.rs     # LLM推論 (Llama.cpp)
 │   │   │   ├── config.rs    # 設定/パス管理
 │   │   │   ├── history.rs   # チャット履歴/セッション
 │   │   │   ├── state.rs     # アプリケーション状態
+│   │   │   ├── setup_state.rs   # セットアップ状態
 │   │   │   ├── security.rs  # 認証・セキュリティ
-│   │   │   └── search.rs    # Web検索ロジック
+│   │   │   ├── search.rs    # Web検索ロジック
+│   │   │   ├── tooling.rs   # ツール実行基盤
+│   │   │   ├── logging.rs   # ログ設定
+│   │   │   ├── errors.rs    # エラー定義
+│   │   │   └── vector_math.rs   # ベクトル演算
 │   │   └── Cargo.toml
 │   ├── frontend/            # React UI
 │   └── scripts/             # sidecar/dev補助 (Node)
