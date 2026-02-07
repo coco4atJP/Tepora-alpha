@@ -1,6 +1,8 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+#[cfg(windows)]
+use std::process::Command;
 
 use axum::http::HeaderMap;
 use uuid::Uuid;
@@ -45,6 +47,10 @@ pub fn init_session_token() -> SessionToken {
             let _ = fs::set_permissions(&token_path, perms);
         }
     }
+    #[cfg(windows)]
+    {
+        apply_windows_token_acl(&token_path);
+    }
 
     SessionToken { value: token }
 }
@@ -54,6 +60,41 @@ fn session_token_path() -> PathBuf {
         .or_else(|_| env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".to_string());
     PathBuf::from(home).join(".tepora").join(".session_token")
+}
+
+#[cfg(windows)]
+fn apply_windows_token_acl(path: &PathBuf) {
+    let Some(path_str) = path.to_str() else {
+        return;
+    };
+
+    let username = match env::var("USERNAME") {
+        Ok(value) if !value.trim().is_empty() => value,
+        _ => return,
+    };
+    let grant = format!("{}:(F)", username);
+
+    let mut command = Command::new("icacls");
+    command
+        .arg(path_str)
+        .arg("/inheritance:r")
+        .arg("/grant:r")
+        .arg(&grant)
+        .arg("/remove:g")
+        .arg("Users")
+        .arg("Authenticated Users")
+        .arg("Everyone");
+
+    match command.status() {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            tracing::warn!(
+                "Failed to apply Windows ACL to session token (status: {})",
+                status
+            )
+        }
+        Err(err) => tracing::warn!("Failed to run icacls for session token ACL: {}", err),
+    }
 }
 
 pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken) -> Result<(), ApiError> {
@@ -130,5 +171,35 @@ mod tests {
         wrong_headers.insert(API_KEY_HEADER, HeaderValue::from_static("nope"));
         let mismatched = api_key_optional(&wrong_headers, &expected);
         assert_eq!(mismatched, None);
+    }
+
+    #[test]
+    fn require_api_key_rejects_non_utf8_header_value() {
+        let expected = SessionToken {
+            value: "secret".to_string(),
+        };
+        let mut headers = HeaderMap::new();
+        let non_utf8 = HeaderValue::from_bytes(&[0xFF, 0xFE, 0xFD])
+            .expect("header value bytes should be accepted");
+        headers.insert(API_KEY_HEADER, non_utf8);
+
+        let result = require_api_key(&headers, &expected);
+
+        assert!(matches!(result, Err(ApiError::Unauthorized)));
+    }
+
+    #[test]
+    fn api_key_optional_returns_none_for_non_utf8_header() {
+        let expected = SessionToken {
+            value: "secret".to_string(),
+        };
+        let mut headers = HeaderMap::new();
+        let non_utf8 = HeaderValue::from_bytes(&[0xFF, 0xFE, 0xFD])
+            .expect("header value bytes should be accepted");
+        headers.insert(API_KEY_HEADER, non_utf8);
+
+        let result = api_key_optional(&headers, &expected);
+
+        assert_eq!(result, None);
     }
 }

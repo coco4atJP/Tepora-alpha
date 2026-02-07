@@ -1472,6 +1472,7 @@ fn approval_timeout(config: &Value) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::HeaderValue;
     use serde_json::json;
 
     #[test]
@@ -1560,5 +1561,47 @@ mod tests {
         )
         .expect("agent should be selected");
         assert_eq!(selected.id, "research");
+    }
+
+    #[test]
+    fn extract_token_from_protocol_header_parses_token_protocol() {
+        let mut headers = HeaderMap::new();
+        let encoded = hex::encode("secret-token");
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_str(&format!(
+                "{},{}{}",
+                WS_APP_PROTOCOL, WS_TOKEN_PREFIX, encoded
+            ))
+            .expect("header value should be valid"),
+        );
+
+        let token = extract_token_from_protocol_header(&headers);
+        assert_eq!(token.as_deref(), Some("secret-token"));
+    }
+
+    #[test]
+    fn extract_token_from_protocol_header_rejects_invalid_hex() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_str(&format!("{},{}xyz", WS_APP_PROTOCOL, WS_TOKEN_PREFIX))
+                .expect("header value should be valid"),
+        );
+
+        let token = extract_token_from_protocol_header(&headers);
+        assert_eq!(token, None);
+    }
+
+    #[test]
+    fn extract_token_from_protocol_header_returns_none_when_missing() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_static(WS_APP_PROTOCOL),
+        );
+
+        let token = extract_token_from_protocol_header(&headers);
+        assert_eq!(token, None);
     }
 }

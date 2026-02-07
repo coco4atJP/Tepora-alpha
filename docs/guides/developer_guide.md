@@ -48,9 +48,10 @@ Run the full integrated application using Tauri. This mimics the production envi
 
 ```bash
 cd Tepora-app/frontend
+npm run build:sidecar
 npm run tauri dev
 ```
-This command starts the frontend dev server and compiles/runs the Rust backend sidecar.
+This command starts the frontend dev server. Note that you **must build the sidecar** manually before running Tauri dev if you have made changes to the backend, as `tauri dev` does not automatically rebuild the external binary sidecar.
 
 ### Option B: Split Development (Backend & Frontend Separate)
 Useful when focusing on backend logic or frontend UI specifically.
@@ -157,9 +158,10 @@ Tauriを使用して統合されたアプリケーションを実行します。
 
 ```bash
 cd Tepora-app/frontend
+npm run build:sidecar
 npm run tauri dev
 ```
-このコマンドは、フロントエンド開発サーバーを起動し、Rustバックエンド（サイドカー）をコンパイルして実行します。
+このコマンドはフロントエンド開発サーバーを起動します。**注意**: バックエンドに変更を加えた場合、Tauri devを実行する前にサイドカーを手動でビルドする必要があります。`tauri dev` は外部バイナリ（サイドカー）の自動再ビルドを行いません。
 
 ### パターン B: 分割開発 (バックエンド・フロントエンド別々)
 バックエンドロジック、あるいはフロントエンドUIのみに集中したい場合に便利です。

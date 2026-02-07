@@ -5,7 +5,7 @@
 #   task dev          - Start both backend and frontend
 #   task test         - Run all tests
 #   task lint         - Run linters
-#   task build-sidecar - Build PyInstaller sidecar
+#   task build-sidecar - Build Rust sidecar for Tauri
 
 version: '3'
 

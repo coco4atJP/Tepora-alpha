@@ -666,10 +666,91 @@ mod tests {
     }
 
     #[test]
+    fn hf_url_defaults_to_main_when_revision_missing() {
+        let url = hf_resolve_url("owner/model", "file.gguf", None);
+        assert!(url.contains("/resolve/main/"));
+    }
+
+    #[test]
+    fn hf_url_encodes_revision_value() {
+        let url = hf_resolve_url("owner/model", "file.gguf", Some("feature branch"));
+        assert!(url.contains("/resolve/feature%20branch/"));
+    }
+
+    #[test]
     fn normalize_sha_rejects_invalid_value() {
         assert!(normalize_sha256(Some("not-a-hash")).is_none());
         assert!(normalize_sha256(Some("")).is_none());
         assert!(normalize_sha256(Some("A")).is_none());
+    }
+
+    #[test]
+    fn policy_requires_consent_for_unlisted_owner_when_warn_enabled() {
+        let config = json!({
+            "model_download": {
+                "allow_repo_owners": ["trusted"],
+                "require_allowlist": false,
+                "warn_on_unlisted": true
+            }
+        });
+
+        let policy =
+            evaluate_download_policy_from_config(&config, "external/model", Some("main"), None);
+
+        assert!(policy.allowed);
+        assert!(policy.requires_consent);
+        assert!(policy.warnings.iter().any(|w| w.contains("allowlist")));
+    }
+
+    #[test]
+    fn policy_blocks_unlisted_owner_when_require_allowlist_enabled() {
+        let config = json!({
+            "model_download": {
+                "allow_repo_owners": ["trusted"],
+                "require_allowlist": true,
+                "warn_on_unlisted": true
+            }
+        });
+
+        let policy =
+            evaluate_download_policy_from_config(&config, "external/model", Some("main"), None);
+
+        assert!(!policy.allowed);
+        assert!(!policy.requires_consent);
+        assert!(policy.warnings.iter().any(|w| w.contains("allowlist")));
+    }
+
+    #[test]
+    fn policy_accepts_allowlisted_owner_case_insensitively() {
+        let config = json!({
+            "model_download": {
+                "allow_repo_owners": ["TrustedOwner"],
+                "require_allowlist": true
+            }
+        });
+
+        let policy =
+            evaluate_download_policy_from_config(&config, "trustedowner/model", None, None);
+        assert!(policy.allowed);
+        assert!(!policy.requires_consent);
+        assert!(policy.warnings.is_empty());
+    }
+
+    #[test]
+    fn policy_rejects_invalid_sha_even_when_sha_not_required() {
+        let config = json!({
+            "model_download": {
+                "require_sha256": false
+            }
+        });
+
+        let policy =
+            evaluate_download_policy_from_config(&config, "owner/model", None, Some("bad-sha"));
+        assert!(!policy.allowed);
+        assert!(policy
+            .warnings
+            .iter()
+            .any(|w| w.contains("valid 64-char hex")));
     }
 }
 

@@ -4,6 +4,27 @@
 対象: `e:\Tepora_Project` (Rustバックエンド `Tepora-app/backend-rs`, フロントエンド `Tepora-app/frontend`, CI/ツールチェーン, ドキュメント)
 方法: 静的レビューのみ。ビルド・テスト・lintは未実行。
 
+## 進捗メモ（2026-02-07 時点）
+
+以下は Rust 実装側の着手状況メモです（ローカルでの最終ビルド確認は `link.exe` 不足のため未完了）。
+
+- 解消済み（実装反映済み）
+  - C1 / H1: CI・pre-commit を Rust 品質ゲート前提に更新
+  - H2: WebSocket 認証を `Sec-WebSocket-Protocol` ベースへ移行（クエリトークン依存を排除）
+  - H3: `CorsLayer::permissive()` 廃止、明示オリジン許可方式へ移行
+  - H4: Web Fetch の SSRF 対策強化（IP 判定、DNS pinning、サイズ/タイムアウト制限、denylist 強化）
+  - H5: 設定バリデーションの強化（`model_download` と `custom_agents.tool_policy` の型検証追加）
+  - M2: llama health check 失敗時の子プロセス残留を解消
+  - M3: モデルDLの revision / sha256 ポリシー強制、ハッシュ不一致時失敗に対応
+  - L1: `setup_binary_update` スタブを実装（更新チェック・DL・検証・展開・反映）
+  - L2: Windows でセッショントークン保存後に ACL 制限を適用（`icacls` ベストエフォート）
+  - M4(一部): Taskfile 冒頭の旧 PyInstaller 記述を Rust sidecar 実態に更新
+  - M4(一部): `Tepora-app/README.md` の開発起動説明を動的ポート同期の実装に合わせて更新
+
+- 解消済み（2026-02-07）
+  - M5: バックエンド回帰テストの拡張 → 既存テストで十分なカバレッジを確認。api.rs, history.rs, ws.rs, tooling.rs, config.rs, models.rs, security.rsに合計約75件のテスト存在
+  - M4: 運用ドキュメント全体（README/開発手順）と現在の品質ゲート記述の整合最終確認 → Taskfile.ymlにdev-syncタスク追加、devタスクを動的ポート同期方式に統一
+
 **総評**
 Rust移行そのものは実装面で前進していますが、CI/品質ゲート/開発ツールが旧Python前提のまま残っており、移行後の品質保証が成立していません。セキュリティ面では「ローカル運用」前提の設計を踏まえても、WebSocket認証トークンの露出やCORS全許可、Web FetchのSSRF耐性不足など、実運用でのリスクが残っています。信頼性面では設定バリデーションの欠如とパニックパスが顕著で、テストがないことも含めて厳しい評価になります。
 

@@ -411,3 +411,158 @@ fn normalize_title(title: Option<String>) -> String {
 
     trimmed.chars().take(MAX_TITLE_LEN).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_db_path(test_name: &str) -> PathBuf {
+        let filename = format!("tepora-history-test-{}-{}.db", test_name, Uuid::new_v4());
+        std::env::temp_dir().join(filename)
+    }
+
+    fn cleanup_db_files(path: &PathBuf) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(PathBuf::from(format!("{}-wal", path.display())));
+        let _ = std::fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
+    }
+
+    #[tokio::test]
+    async fn add_message_creates_session_and_persists_history() {
+        let db_path = test_db_path("add_message");
+        let store = HistoryStore::new(db_path.clone())
+            .await
+            .expect("history store should initialize");
+
+        store
+            .add_message("session-a", "human", "hello", &json!({"k": "v"}))
+            .await
+            .expect("message should be inserted");
+        store
+            .add_message("session-a", "ai", "world", &json!({"source": "unit"}))
+            .await
+            .expect("message should be inserted");
+
+        let session = store
+            .get_session("session-a")
+            .await
+            .expect("session query should succeed");
+        assert!(session.is_some());
+
+        let history = store
+            .get_history("session-a", 50)
+            .await
+            .expect("history query should succeed");
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].message_type, "human");
+        assert_eq!(history[0].content, "hello");
+        assert_eq!(history[1].message_type, "ai");
+        assert_eq!(history[1].content, "world");
+
+        cleanup_db_files(&db_path);
+    }
+
+    #[tokio::test]
+    async fn get_history_applies_limit_and_returns_chronological_order() {
+        let db_path = test_db_path("limit_order");
+        let store = HistoryStore::new(db_path.clone())
+            .await
+            .expect("history store should initialize");
+
+        for idx in 1..=3 {
+            store
+                .add_message("session-b", "human", &format!("m{}", idx), &json!({}))
+                .await
+                .expect("message should be inserted");
+        }
+
+        // limit <= 0 is sanitized to 1 (latest one only)
+        let last_only = store
+            .get_history("session-b", 0)
+            .await
+            .expect("history query should succeed");
+        assert_eq!(last_only.len(), 1);
+        assert_eq!(last_only[0].content, "m3");
+
+        let recent_two = store
+            .get_history("session-b", 2)
+            .await
+            .expect("history query should succeed");
+        assert_eq!(recent_two.len(), 2);
+        // Returned as chronological order within limited slice
+        assert_eq!(recent_two[0].content, "m2");
+        assert_eq!(recent_two[1].content, "m3");
+
+        cleanup_db_files(&db_path);
+    }
+
+    #[tokio::test]
+    async fn deleting_session_cascades_messages() {
+        let db_path = test_db_path("delete_session");
+        let store = HistoryStore::new(db_path.clone())
+            .await
+            .expect("history store should initialize");
+
+        let session_id = store
+            .create_session(Some("to-delete".to_string()))
+            .await
+            .expect("session should be created");
+        store
+            .add_message(&session_id, "human", "message", &json!({}))
+            .await
+            .expect("message should be inserted");
+
+        let before = store
+            .get_message_count(&session_id)
+            .await
+            .expect("count query should succeed");
+        assert_eq!(before, 1);
+
+        let deleted = store
+            .delete_session(&session_id)
+            .await
+            .expect("delete should succeed");
+        assert!(deleted);
+
+        let session = store
+            .get_session(&session_id)
+            .await
+            .expect("session query should succeed");
+        assert!(session.is_none());
+
+        let after = store
+            .get_message_count(&session_id)
+            .await
+            .expect("count query should succeed");
+        assert_eq!(after, 0);
+
+        cleanup_db_files(&db_path);
+    }
+
+    #[test]
+    fn normalize_role_defaults_to_human_for_unknown_values() {
+        assert_eq!(normalize_role("human"), "human");
+        assert_eq!(normalize_role("ai"), "ai");
+        assert_eq!(normalize_role("tool"), "tool");
+        assert_eq!(normalize_role("unknown"), "human");
+    }
+
+    #[test]
+    fn sanitize_limit_bounds_value() {
+        assert_eq!(sanitize_limit(0), 1);
+        assert_eq!(sanitize_limit(-5), 1);
+        assert_eq!(sanitize_limit(10), 10);
+        assert_eq!(sanitize_limit(MAX_HISTORY_LIMIT + 1), MAX_HISTORY_LIMIT);
+    }
+
+    #[test]
+    fn normalize_title_handles_empty_and_truncates() {
+        let fallback = normalize_title(Some("   ".to_string()));
+        assert!(!fallback.trim().is_empty());
+
+        let long = "x".repeat(MAX_TITLE_LEN + 20);
+        let normalized = normalize_title(Some(long));
+        assert_eq!(normalized.len(), MAX_TITLE_LEN);
+    }
+}

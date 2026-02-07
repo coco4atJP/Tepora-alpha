@@ -1463,47 +1463,96 @@ async fn setup_refresh_ollama_models(
     Ok(Json(json!({"success": true, "synced_models": []})))
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum ModelUpdateCheckTarget<'a> {
+    ModelId(&'a str),
+    RepoFile {
+        repo_id: &'a str,
+        filename: &'a str,
+        revision: Option<&'a str>,
+    },
+}
+
+fn parse_model_update_check_target<'a>(
+    params: &'a HashMap<String, String>,
+) -> Result<ModelUpdateCheckTarget<'a>, ApiError> {
+    let model_id = params
+        .get("model_id")
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(model_id) = model_id {
+        return Ok(ModelUpdateCheckTarget::ModelId(model_id));
+    }
+
+    let repo_id = params
+        .get("repo_id")
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let filename = params
+        .get("filename")
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let (Some(repo_id), Some(filename)) = (repo_id, filename) {
+        let revision = params
+            .get("revision")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        return Ok(ModelUpdateCheckTarget::RepoFile {
+            repo_id,
+            filename,
+            revision,
+        });
+    }
+
+    Err(ApiError::BadRequest(
+        "repo_id and filename are required".to_string(),
+    ))
+}
+
 async fn setup_model_update_check(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    if let Some(model_id) = params.get("model_id") {
-        let registry = state.models.get_registry()?;
-        if let Some(entry) = registry.models.iter().find(|m| &m.id == model_id) {
-            if let Some(repo_id) = entry.repo_id.as_ref() {
-                let result = state
-                    .models
-                    .check_update(
-                        repo_id,
-                        &entry.filename,
-                        entry.revision.as_deref(),
-                        entry.sha256.as_deref(),
-                        Some(entry.file_size),
-                    )
-                    .await?;
-                return Ok(Json(result));
+    match parse_model_update_check_target(&params)? {
+        ModelUpdateCheckTarget::ModelId(model_id) => {
+            let registry = state.models.get_registry()?;
+            if let Some(entry) = registry.models.iter().find(|m| m.id == model_id) {
+                if let Some(repo_id) = entry.repo_id.as_ref() {
+                    let result = state
+                        .models
+                        .check_update(
+                            repo_id,
+                            &entry.filename,
+                            entry.revision.as_deref(),
+                            entry.sha256.as_deref(),
+                            Some(entry.file_size),
+                        )
+                        .await?;
+                    return Ok(Json(result));
+                }
             }
+            Err(ApiError::NotFound("Model not found".to_string()))
         }
-        return Err(ApiError::NotFound("Model not found".to_string()));
+        ModelUpdateCheckTarget::RepoFile {
+            repo_id,
+            filename,
+            revision,
+        } => {
+            let result = state
+                .models
+                .check_update(repo_id, filename, revision, None, None)
+                .await?;
+            Ok(Json(result))
+        }
     }
-
-    if let (Some(repo_id), Some(filename)) = (params.get("repo_id"), params.get("filename")) {
-        let revision = params
-            .get("revision")
-            .map(String::as_str)
-            .filter(|value| !value.trim().is_empty());
-        let result = state
-            .models
-            .check_update(repo_id, filename, revision, None, None)
-            .await?;
-        return Ok(Json(result));
-    }
-
-    Err(ApiError::BadRequest(
-        "repo_id and filename are required".to_string(),
-    ))
 }
 
 async fn setup_binary_update_info(
@@ -2598,12 +2647,25 @@ fn cleanup_expired_consents_locked(store: &mut HashMap<String, PendingConsent>) 
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    use chrono::{Duration as ChronoDuration, Utc};
+    use serde_json::json;
+    use uuid::Uuid;
 
     use super::{
-        is_newer_llama_release, normalize_archive_member_path, normalize_binary_variant,
-        parse_llama_build_number, parse_sha256_digest,
+        absolutize_mcp_path, build_target_models, cleanup_expired_consents_locked,
+        collect_default_models, default_local_origins, ensure_object_path, is_newer_llama_release,
+        merge_objects, normalize_archive_member_path, normalize_binary_variant,
+        parse_llama_build_number, parse_model_update_check_target, parse_sha256_digest,
+        release_asset_patterns, resolve_allowed_origins, resolve_model_path, select_release_asset,
+        GithubRelease, GithubReleaseAsset, McpInstallPreviewRequest, McpRegistryServer,
+        ModelUpdateCheckTarget, PendingConsent,
     };
+    use crate::config::AppPaths;
+    use crate::errors::ApiError;
 
     #[test]
     fn normalize_binary_variant_defaults_to_auto() {
@@ -2617,6 +2679,72 @@ mod tests {
         assert_eq!(parse_llama_build_number("b7813"), Some(7813));
         assert_eq!(parse_llama_build_number("7814"), Some(7814));
         assert_eq!(parse_llama_build_number("v1.0.0"), None);
+    }
+
+    #[test]
+    fn parse_model_update_check_target_prefers_model_id() {
+        let params = HashMap::from([
+            ("model_id".to_string(), "  model-1  ".to_string()),
+            ("repo_id".to_string(), "owner/model".to_string()),
+            ("filename".to_string(), "model.gguf".to_string()),
+        ]);
+        let target = parse_model_update_check_target(&params).expect("target should parse");
+        assert!(matches!(target, ModelUpdateCheckTarget::ModelId("model-1")));
+    }
+
+    #[test]
+    fn parse_model_update_check_target_parses_repo_filename_and_revision() {
+        let params = HashMap::from([
+            ("repo_id".to_string(), "  owner/model  ".to_string()),
+            ("filename".to_string(), "  model.gguf  ".to_string()),
+            ("revision".to_string(), "  refs/pr/42  ".to_string()),
+        ]);
+        let target = parse_model_update_check_target(&params).expect("target should parse");
+        match target {
+            ModelUpdateCheckTarget::RepoFile {
+                repo_id,
+                filename,
+                revision,
+            } => {
+                assert_eq!(repo_id, "owner/model");
+                assert_eq!(filename, "model.gguf");
+                assert_eq!(revision, Some("refs/pr/42"));
+            }
+            _ => panic!("expected RepoFile target"),
+        }
+    }
+
+    #[test]
+    fn parse_model_update_check_target_ignores_blank_model_id() {
+        let params = HashMap::from([
+            ("model_id".to_string(), "   ".to_string()),
+            ("repo_id".to_string(), "owner/model".to_string()),
+            ("filename".to_string(), "model.gguf".to_string()),
+        ]);
+        let target = parse_model_update_check_target(&params).expect("target should parse");
+        assert!(matches!(
+            target,
+            ModelUpdateCheckTarget::RepoFile {
+                repo_id: "owner/model",
+                filename: "model.gguf",
+                revision: None,
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_model_update_check_target_requires_repo_and_filename() {
+        let params = HashMap::from([
+            ("repo_id".to_string(), "owner/model".to_string()),
+            ("filename".to_string(), "  ".to_string()),
+        ]);
+        let err = parse_model_update_check_target(&params).expect_err("target should be invalid");
+        match err {
+            ApiError::BadRequest(message) => {
+                assert_eq!(message, "repo_id and filename are required");
+            }
+            _ => panic!("expected bad request error"),
+        }
     }
 
     #[test]
@@ -2641,6 +2769,8 @@ mod tests {
             parse_sha256_digest(Some(prefixed.as_str())),
             Some("a".repeat(64))
         );
+        assert_eq!(parse_sha256_digest(Some(&hash)), Some("a".repeat(64)));
+        assert_eq!(parse_sha256_digest(None), None);
         assert_eq!(parse_sha256_digest(Some("sha256:xyz")), None);
     }
 
@@ -2654,5 +2784,373 @@ mod tests {
                 .to_string_lossy(),
             "safe/bin/llama-server"
         );
+    }
+
+    #[test]
+    fn select_release_asset_uses_platform_pattern() {
+        let patterns = release_asset_patterns("auto");
+        let expected_pattern = patterns
+            .first()
+            .cloned()
+            .expect("at least one pattern should exist");
+        let release = GithubRelease {
+            tag_name: "b9999".to_string(),
+            body: None,
+            assets: vec![
+                GithubReleaseAsset {
+                    name: "llama-b9999-bin-unrelated.zip".to_string(),
+                    browser_download_url: "https://example.invalid/unrelated.zip".to_string(),
+                    size: Some(1),
+                    digest: None,
+                },
+                GithubReleaseAsset {
+                    name: format!("llama-b9999-bin-{}", expected_pattern),
+                    browser_download_url: "https://example.invalid/matched.zip".to_string(),
+                    size: Some(2),
+                    digest: Some("sha256:".to_string() + &"a".repeat(64)),
+                },
+            ],
+        };
+
+        let selected = select_release_asset(&release, "auto");
+        assert!(selected.is_some());
+        let (_, asset) = selected.expect("asset should be selected");
+        assert!(asset.name.contains(&expected_pattern));
+    }
+
+    #[test]
+    fn select_release_asset_returns_none_when_not_found() {
+        let release = GithubRelease {
+            tag_name: "b9999".to_string(),
+            body: None,
+            assets: vec![GithubReleaseAsset {
+                name: "llama-b9999-bin-other.zip".to_string(),
+                browser_download_url: "https://example.invalid/other.zip".to_string(),
+                size: Some(1),
+                digest: None,
+            }],
+        };
+
+        let selected = select_release_asset(&release, "auto");
+        assert!(selected.is_none());
+    }
+
+    #[test]
+    fn build_target_models_uses_valid_payload_entries_only() {
+        let payload = Some(vec![
+            json!({ "repo_id": "", "filename": "a.gguf" }),
+            json!({ "repo_id": "owner/model", "filename": "", "role": "text" }),
+            json!({
+                "repo_id": "owner/model",
+                "filename": "model.gguf",
+                "role": "embedding",
+                "displayName": "Embedding Model",
+                "revision": "  refs/pr/1  ",
+                "sha256": "  abcdef  "
+            }),
+        ]);
+        let config = json!({});
+
+        let models = build_target_models(payload, &config);
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].repo_id, "owner/model");
+        assert_eq!(models[0].filename, "model.gguf");
+        assert_eq!(models[0].role, "embedding");
+        assert_eq!(models[0].display_name, "Embedding Model");
+        assert_eq!(models[0].revision.as_deref(), Some("refs/pr/1"));
+        assert_eq!(models[0].sha256.as_deref(), Some("abcdef"));
+    }
+
+    #[test]
+    fn build_target_models_falls_back_to_defaults_when_payload_invalid() {
+        let payload = Some(vec![json!({ "repo_id": "", "filename": "" })]);
+        let config = json!({
+            "default_models": {
+                "text_models": [
+                    { "repo_id": "owner/text", "filename": "text.gguf" }
+                ],
+                "embedding": {
+                    "repo_id": "owner/embed",
+                    "filename": "embed.gguf"
+                }
+            }
+        });
+
+        let models = build_target_models(payload, &config);
+        assert_eq!(models.len(), 2);
+        assert!(models
+            .iter()
+            .any(|m| m.repo_id == "owner/text" && m.role == "text"));
+        assert!(models
+            .iter()
+            .any(|m| m.repo_id == "owner/embed" && m.role == "embedding"));
+    }
+
+    #[test]
+    fn collect_default_models_trims_revision_and_sha() {
+        let config = json!({
+            "default_models": {
+                "text_models": [
+                    {
+                        "repo_id": "owner/text",
+                        "filename": "text.gguf",
+                        "revision": "  main  ",
+                        "sha256": "  deadbeef  "
+                    }
+                ],
+                "embedding": {
+                    "repo_id": "owner/embed",
+                    "filename": "embed.gguf",
+                    "revision": "  refs/pr/2  ",
+                    "sha256": "  cafebabe  "
+                }
+            }
+        });
+
+        let models = collect_default_models(&config);
+        assert_eq!(models.len(), 2);
+
+        let text = models
+            .iter()
+            .find(|m| m.role == "text")
+            .expect("text model should exist");
+        assert_eq!(text.revision.as_deref(), Some("main"));
+        assert_eq!(text.sha256.as_deref(), Some("deadbeef"));
+
+        let embedding = models
+            .iter()
+            .find(|m| m.role == "embedding")
+            .expect("embedding model should exist");
+        assert_eq!(embedding.revision.as_deref(), Some("refs/pr/2"));
+        assert_eq!(embedding.sha256.as_deref(), Some("cafebabe"));
+    }
+
+    #[test]
+    fn cleanup_expired_consents_removes_only_expired_entries() {
+        let expired = PendingConsent {
+            payload: json!({}),
+            expires_at: Utc::now() - ChronoDuration::seconds(1),
+            request: McpInstallPreviewRequest {
+                server_id: "expired".to_string(),
+                runtime: None,
+                env_values: None,
+                server_name: None,
+            },
+            server: McpRegistryServer {
+                id: "expired".to_string(),
+                name: "expired".to_string(),
+                title: None,
+                description: None,
+                version: None,
+                vendor: None,
+                source_url: None,
+                homepage: None,
+                website_url: None,
+                license: None,
+                packages: Vec::new(),
+                environment_variables: Vec::new(),
+                icon: None,
+                category: None,
+            },
+        };
+        let alive = PendingConsent {
+            payload: json!({}),
+            expires_at: Utc::now() + ChronoDuration::seconds(60),
+            request: McpInstallPreviewRequest {
+                server_id: "alive".to_string(),
+                runtime: None,
+                env_values: None,
+                server_name: None,
+            },
+            server: McpRegistryServer {
+                id: "alive".to_string(),
+                name: "alive".to_string(),
+                title: None,
+                description: None,
+                version: None,
+                vendor: None,
+                source_url: None,
+                homepage: None,
+                website_url: None,
+                license: None,
+                packages: Vec::new(),
+                environment_variables: Vec::new(),
+                icon: None,
+                category: None,
+            },
+        };
+
+        let mut store = HashMap::new();
+        store.insert("expired".to_string(), expired);
+        store.insert("alive".to_string(), alive);
+
+        cleanup_expired_consents_locked(&mut store);
+
+        assert!(!store.contains_key("expired"));
+        assert!(store.contains_key("alive"));
+    }
+
+    #[test]
+    fn resolve_allowed_origins_defaults_when_not_configured() {
+        let config = json!({});
+        let resolved = resolve_allowed_origins(&config);
+        assert_eq!(resolved, default_local_origins());
+    }
+
+    #[test]
+    fn resolve_allowed_origins_trims_and_filters_values() {
+        let config = json!({
+            "server": {
+                "cors_allowed_origins": [
+                    "  http://localhost:5173  ",
+                    "",
+                    "https://tauri.localhost"
+                ]
+            }
+        });
+        let resolved = resolve_allowed_origins(&config);
+        assert_eq!(
+            resolved,
+            vec![
+                "http://localhost:5173".to_string(),
+                "https://tauri.localhost".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn ensure_object_path_creates_nested_structure() {
+        let mut config = json!({});
+        ensure_object_path(&mut config, &["llm_manager", "loader"], json!("llama_cpp"));
+        assert_eq!(
+            config
+                .get("llm_manager")
+                .and_then(|v| v.get("loader"))
+                .and_then(|v| v.as_str()),
+            Some("llama_cpp")
+        );
+    }
+
+    #[test]
+    fn merge_objects_overlays_top_level_keys() {
+        let base = json!({
+            "a": 1,
+            "b": {"x": true}
+        });
+        let overlay = json!({
+            "b": 2,
+            "c": 3
+        });
+
+        let merged = merge_objects(base, overlay);
+        assert_eq!(merged.get("a").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(merged.get("b").and_then(|v| v.as_i64()), Some(2));
+        assert_eq!(merged.get("c").and_then(|v| v.as_i64()), Some(3));
+    }
+
+    #[test]
+    fn absolutize_mcp_path_converts_relative_path() {
+        let root = temp_test_dir("mcp_path_rel");
+        let paths = make_app_paths(&root);
+        let mut config = json!({
+            "app": {
+                "mcp_config_path": "config/mcp.json"
+            }
+        });
+
+        absolutize_mcp_path(&mut config, &paths);
+
+        let value = config
+            .get("app")
+            .and_then(|v| v.get("mcp_config_path"))
+            .and_then(|v| v.as_str())
+            .expect("mcp_config_path should be present");
+        assert!(value.starts_with(paths.user_data_dir.to_string_lossy().as_ref()));
+
+        cleanup_test_dir(&root);
+    }
+
+    #[test]
+    fn absolutize_mcp_path_keeps_absolute_path() {
+        let root = temp_test_dir("mcp_path_abs");
+        let paths = make_app_paths(&root);
+        let absolute = root.join("already").join("mcp.json");
+        let mut config = json!({
+            "app": {
+                "mcp_config_path": absolute.to_string_lossy().to_string()
+            }
+        });
+
+        absolutize_mcp_path(&mut config, &paths);
+
+        let value = config
+            .get("app")
+            .and_then(|v| v.get("mcp_config_path"))
+            .and_then(|v| v.as_str())
+            .expect("mcp_config_path should be present");
+        assert_eq!(value, absolute.to_string_lossy());
+
+        cleanup_test_dir(&root);
+    }
+
+    #[test]
+    fn resolve_model_path_prefers_user_then_project_then_default_user_candidate() {
+        let root = temp_test_dir("resolve_model_path");
+        let paths = make_app_paths(&root);
+        let rel = PathBuf::from("models").join("test.gguf");
+
+        // user data path takes precedence
+        let user_file = paths.user_data_dir.join(&rel);
+        if let Some(parent) = user_file.parent() {
+            fs::create_dir_all(parent).expect("user parent dir should be created");
+        }
+        fs::write(&user_file, b"user").expect("user file should be written");
+        let resolved_user = resolve_model_path(rel.to_string_lossy().as_ref(), &paths);
+        assert_eq!(resolved_user, user_file);
+
+        // fallback to project root when user file doesn't exist
+        fs::remove_file(&user_file).expect("user file should be removed");
+        let project_file = paths.project_root.join(&rel);
+        if let Some(parent) = project_file.parent() {
+            fs::create_dir_all(parent).expect("project parent dir should be created");
+        }
+        fs::write(&project_file, b"project").expect("project file should be written");
+        let resolved_project = resolve_model_path(rel.to_string_lossy().as_ref(), &paths);
+        assert_eq!(resolved_project, project_file);
+
+        // fallback result is user candidate when nothing exists
+        fs::remove_file(&project_file).expect("project file should be removed");
+        let resolved_default = resolve_model_path(rel.to_string_lossy().as_ref(), &paths);
+        assert_eq!(resolved_default, paths.user_data_dir.join(&rel));
+
+        cleanup_test_dir(&root);
+    }
+
+    fn temp_test_dir(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("tepora-api-test-{}-{}", label, Uuid::new_v4()))
+    }
+
+    fn cleanup_test_dir(path: &PathBuf) {
+        let _ = fs::remove_dir_all(path);
+    }
+
+    fn make_app_paths(root: &PathBuf) -> AppPaths {
+        let project_root = root.join("project");
+        let user_data_dir = root.join("data");
+        let log_dir = user_data_dir.join("logs");
+        let db_path = user_data_dir.join("tepora_core.db");
+        let secrets_path = user_data_dir.join("secrets.yaml");
+
+        fs::create_dir_all(&project_root).expect("project root should be created");
+        fs::create_dir_all(&user_data_dir).expect("user data dir should be created");
+        fs::create_dir_all(&log_dir).expect("log dir should be created");
+
+        AppPaths {
+            project_root,
+            user_data_dir,
+            log_dir,
+            db_path,
+            secrets_path,
+        }
     }
 }

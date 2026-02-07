@@ -8,7 +8,7 @@
 #   task quality      - Run quality gate (all checks)
 #   task quality:strict - Run strict quality gate
 #   task security     - Run security scans
-#   task build-sidecar - Build PyInstaller sidecar
+#   task build-sidecar - Build Rust sidecar for Tauri
 
 version: '3'
 
@@ -40,8 +40,15 @@ tasks:
 
   # === Development ===
   dev:
-    desc: "Start both backend and frontend in development mode (parallel)"
-    deps: [dev-backend, dev-frontend]
+    desc: "Start both backend and frontend in development mode (port + token synchronized)"
+    cmds:
+      - task: dev-sync
+
+  dev-sync:
+    desc: "Start backend and frontend with dynamic port synchronization"
+    dir: "Tepora-app"
+    cmds:
+      - node scripts/dev_sync.mjs
 
   dev-backend:
     desc: "Start backend server"

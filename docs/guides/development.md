@@ -40,12 +40,15 @@ Tauri 環境で実行します。WebViewとネイティブAPIの連携を含め�
 
 ```powershell
 cd Tepora-app/frontend
+npm run build:sidecar
 npm run tauri dev
 ```
-このコマンドは以下を自動で行います：
-1. Vite サーバーの起動
-2. Rust バックエンドの起動 (Sidecar として)
+このコマンドは以下を行います：
+1. Rust バックエンド（サイドカー）のビルド
+2. Vite サーバーの起動
 3. アプリウィンドウの表示
+
+※ `tauri dev` は外部バイナリを自動でリビルドしないため、バックエンド変更時は `npm run build:sidecar` (または `task build-sidecar`) が必要です。
 
 ### B. Webブラウザで開発 (UI調整向け)
 UIの調整だけを高速に行いたい場合、ブラウザモードが便利です。ただし、Tauri固有のAPI (ファイル操作など) は動作しません。

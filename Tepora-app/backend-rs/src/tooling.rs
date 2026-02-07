@@ -1,4 +1,5 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::collections::BTreeSet;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -90,18 +91,25 @@ async fn execute_web_fetch(config: &Value, args: &Value) -> Result<ToolExecution
             "Only http/https URLs are supported".to_string(),
         ));
     }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(ApiError::BadRequest(
+            "URLs with embedded credentials are not supported".to_string(),
+        ));
+    }
 
-    validate_fetch_target(config, &parsed).await?;
+    let resolution = validate_fetch_target(config, &parsed).await?;
 
     let max_chars = web_fetch_max_chars(config);
     let max_bytes = web_fetch_max_bytes(config);
     let timeout_secs = web_fetch_timeout_secs(config);
-    let client = Client::builder()
+    let mut client_builder = Client::builder()
         .redirect(Policy::none())
         .timeout(Duration::from_secs(timeout_secs))
-        .connect_timeout(Duration::from_secs(timeout_secs.min(30)))
-        .build()
-        .map_err(ApiError::internal)?;
+        .connect_timeout(Duration::from_secs(timeout_secs.min(30)));
+    if let Some((host, addrs)) = resolution.pinned_dns() {
+        client_builder = client_builder.resolve_to_addrs(host, addrs);
+    }
+    let client = client_builder.build().map_err(ApiError::internal)?;
 
     let response = client
         .get(parsed)
@@ -113,6 +121,14 @@ async fn execute_web_fetch(config: &Value, args: &Value) -> Result<ToolExecution
             "Fetch failed: {}",
             response.status()
         )));
+    }
+    if let Some(content_length) = response.content_length() {
+        if content_length > max_bytes as u64 {
+            return Err(ApiError::BadRequest(format!(
+                "Fetched content exceeded max size of {} bytes",
+                max_bytes
+            )));
+        }
     }
 
     let mut bytes = Vec::new();
@@ -141,40 +157,78 @@ async fn execute_web_fetch(config: &Value, args: &Value) -> Result<ToolExecution
     })
 }
 
-async fn validate_fetch_target(config: &Value, parsed: &reqwest::Url) -> Result<(), ApiError> {
+async fn validate_fetch_target(
+    config: &Value,
+    parsed: &reqwest::Url,
+) -> Result<FetchResolution, ApiError> {
     let host = parsed
         .host_str()
         .ok_or_else(|| ApiError::BadRequest("URL host is missing".to_string()))?;
+    let normalized_host = normalize_host_for_match(host);
+    if normalized_host.is_empty() {
+        return Err(ApiError::BadRequest("URL host is invalid".to_string()));
+    }
 
     let denylist = url_denylist(config);
     if denylist
         .iter()
-        .any(|pattern| host_matches_pattern(host, pattern))
+        .any(|pattern| host_matches_pattern(&normalized_host, pattern))
     {
         return Err(ApiError::Forbidden);
     }
 
-    if let Ok(ip) = host.parse::<IpAddr>() {
+    if let Ok(ip) = normalized_host.parse::<IpAddr>() {
         ensure_public_ip(ip)?;
-        return Ok(());
+        return Ok(FetchResolution::ip_literal());
     }
 
     let port = parsed.port_or_known_default().unwrap_or(80);
-    let mut has_resolution = false;
+    let mut resolved = BTreeSet::new();
     let addresses = tokio::net::lookup_host((host, port))
         .await
         .map_err(ApiError::internal)?;
     for address in addresses {
-        has_resolution = true;
         ensure_public_ip(address.ip())?;
+        resolved.insert(address);
     }
-    if !has_resolution {
+    if resolved.is_empty() {
         return Err(ApiError::BadRequest(
             "URL host could not be resolved".to_string(),
         ));
     }
 
-    Ok(())
+    Ok(FetchResolution::from_dns(
+        host.to_string(),
+        resolved.into_iter().collect(),
+    ))
+}
+
+#[derive(Debug, Clone)]
+struct FetchResolution {
+    host: Option<String>,
+    addrs: Vec<SocketAddr>,
+}
+
+impl FetchResolution {
+    fn ip_literal() -> Self {
+        Self {
+            host: None,
+            addrs: Vec::new(),
+        }
+    }
+
+    fn from_dns(host: String, addrs: Vec<SocketAddr>) -> Self {
+        Self {
+            host: Some(host),
+            addrs,
+        }
+    }
+
+    fn pinned_dns(&self) -> Option<(&str, &[SocketAddr])> {
+        self.host
+            .as_deref()
+            .map(|host| (host, self.addrs.as_slice()))
+    }
 }
 
 fn ensure_public_ip(ip: IpAddr) -> Result<(), ApiError> {
@@ -277,25 +331,32 @@ fn web_fetch_timeout_secs(config: &Value) -> u64 {
 }
 
 fn url_denylist(config: &Value) -> Vec<String> {
+    let mut out = default_url_denylist();
     if let Some(list) = config
         .get("privacy")
         .and_then(|v| v.get("url_denylist"))
         .and_then(|v| v.as_array())
     {
-        let mut out = Vec::new();
         for entry in list {
             if let Some(item) = entry.as_str() {
-                out.push(item.to_string());
+                let candidate = item.trim();
+                if !candidate.is_empty() {
+                    out.push(candidate.to_string());
+                }
             }
         }
-        if !out.is_empty() {
-            return out;
-        }
     }
+    out
+}
 
+fn default_url_denylist() -> Vec<String> {
     vec![
         "localhost".to_string(),
         "*.localhost".to_string(),
+        "*.local".to_string(),
+        "*.internal".to_string(),
+        "*.home.arpa".to_string(),
+        "metadata.google.internal".to_string(),
         "127.0.0.1".to_string(),
         "0.0.0.0".to_string(),
         "192.168.*".to_string(),
@@ -324,7 +385,7 @@ fn url_denylist(config: &Value) -> Vec<String> {
 }
 
 fn host_matches_pattern(host: &str, pattern: &str) -> bool {
-    let host = host.to_ascii_lowercase();
+    let host = normalize_host_for_match(host);
     let pattern = pattern.to_ascii_lowercase();
 
     if pattern.contains('*') {
@@ -338,9 +399,56 @@ fn host_matches_pattern(host: &str, pattern: &str) -> bool {
     host == pattern
 }
 
+fn normalize_host_for_match(host: &str) -> String {
+    host.trim().trim_end_matches('.').to_ascii_lowercase()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn allow_web_search_defaults_to_false_and_reads_true_flag() {
+        assert!(!allow_web_search(&serde_json::json!({})));
+        assert!(allow_web_search(&serde_json::json!({
+            "privacy": {
+                "allow_web_search": true
+            }
+        })));
+    }
+
+    #[test]
+    fn web_fetch_limits_default_when_missing() {
+        let config = serde_json::json!({});
+        assert_eq!(web_fetch_max_chars(&config), 6000);
+        assert_eq!(web_fetch_max_bytes(&config), 1_000_000);
+        assert_eq!(web_fetch_timeout_secs(&config), 10);
+    }
+
+    #[test]
+    fn web_fetch_limits_are_clamped() {
+        let lower = serde_json::json!({
+            "app": {
+                "web_fetch_max_chars": 1,
+                "web_fetch_max_bytes": 512,
+                "web_fetch_timeout_secs": 0
+            }
+        });
+        assert_eq!(web_fetch_max_chars(&lower), 256);
+        assert_eq!(web_fetch_max_bytes(&lower), 1024);
+        assert_eq!(web_fetch_timeout_secs(&lower), 1);
+
+        let upper = serde_json::json!({
+            "app": {
+                "web_fetch_max_chars": 300000,
+                "web_fetch_max_bytes": 99999999,
+                "web_fetch_timeout_secs": 999
+            }
+        });
+        assert_eq!(web_fetch_max_chars(&upper), 200_000);
+        assert_eq!(web_fetch_max_bytes(&upper), 10_000_000);
+        assert_eq!(web_fetch_timeout_secs(&upper), 120);
+    }
 
     #[test]
     fn blocks_private_and_loopback_ipv4() {
@@ -356,6 +464,14 @@ mod tests {
     }
 
     #[test]
+    fn blocks_non_public_special_ipv4_ranges() {
+        assert!(is_blocked_ip(IpAddr::V4(Ipv4Addr::new(169, 254, 1, 2))));
+        assert!(is_blocked_ip(IpAddr::V4(Ipv4Addr::new(100, 64, 0, 1))));
+        assert!(is_blocked_ip(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 1))));
+        assert!(is_blocked_ip(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10))));
+    }
+
+    #[test]
     fn blocks_private_ipv6_ranges() {
         assert!(is_blocked_ip(IpAddr::V6(Ipv6Addr::LOCALHOST)));
         assert!(is_blocked_ip(IpAddr::V6(
@@ -364,6 +480,9 @@ mod tests {
         assert!(is_blocked_ip(IpAddr::V6(
             "fe80::1".parse().expect("valid IPv6")
         )));
+        assert!(is_blocked_ip(IpAddr::V6(
+            "2001:db8::1".parse().expect("valid IPv6")
+        )));
     }
 
     #[test]
@@ -371,5 +490,37 @@ mod tests {
         assert!(host_matches_pattern("api.localhost", "*.localhost"));
         assert!(host_matches_pattern("192.168.1.10", "192.168.*"));
         assert!(!host_matches_pattern("example.com", "*.localhost"));
+    }
+
+    #[test]
+    fn host_matching_normalizes_trailing_dot() {
+        assert!(host_matches_pattern("LOCALHOST.", "localhost"));
+        assert!(host_matches_pattern("api.localhost.", "*.localhost"));
+    }
+
+    #[test]
+    fn host_matching_is_case_insensitive_for_prefix_patterns() {
+        assert!(host_matches_pattern("FD00::1", "fd*"));
+        assert!(host_matches_pattern("FE80::abcd", "fe80:*"));
+    }
+
+    #[test]
+    fn default_denylist_blocks_internal_suffixes() {
+        let defaults = default_url_denylist();
+        assert!(defaults.contains(&"*.local".to_string()));
+        assert!(defaults.contains(&"*.internal".to_string()));
+        assert!(defaults.contains(&"metadata.google.internal".to_string()));
+    }
+
+    #[test]
+    fn url_denylist_includes_defaults_and_custom_values() {
+        let config = serde_json::json!({
+            "privacy": {
+                "url_denylist": ["example.internal", "  "]
+            }
+        });
+        let list = url_denylist(&config);
+        assert!(list.contains(&"localhost".to_string()));
+        assert!(list.contains(&"example.internal".to_string()));
     }
 }

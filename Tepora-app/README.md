@@ -33,14 +33,21 @@ task install
 task dev
 ```
 
-これにより、バックエンド (http://localhost:8000) とフロントエンド (http://localhost:5173) の両方が起動します。
-バックエンドは動的ポートで起動するため、起動ログに `TEPORA_PORT=xxxx` が表示されます。
+これにより、バックエンド（動的ポート）とフロントエンド (`http://localhost:5173`) の両方が起動します。  
+バックエンド起動時に表示される `TEPORA_PORT=xxxx` が、フロントエンド側に自動同期されます。
+
+固定ポートでバックエンドを起動したい場合は、別ターミナルで次を実行してください。
+
+```bash
+cd Tepora-app/backend-rs
+$env:PORT="8000"; cargo run
+```
 
 ## タスク一覧
 
 | タスク | 説明 |
 |--------|------|
-| `task dev` | 開発サーバー起動（backend + frontend） |
+| `task dev` | 開発サーバー起動（`dev-sync` のエイリアス） |
 | `task dev-backend` | バックエンドのみ起動 |
 | `task dev-frontend` | フロントエンドのみ起動 |
 | `task dev-sync` | 動的ポート同期で開発サーバー起動 |
