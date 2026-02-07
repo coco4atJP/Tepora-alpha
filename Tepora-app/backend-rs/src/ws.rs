@@ -1443,7 +1443,7 @@ async fn request_tool_approval(
         "data": {
             "requestId": request_id,
             "toolName": tool_name,
-            "toolArgs": if tool_args.is_object() { tool_args } else { json!({ "input": tool_args }) },
+            "toolArgs": if tool_args.is_object() { tool_args.clone() } else { json!({ "input": tool_args }) },
             "description": format!("Tool '{}' requires your approval to execute.", tool_name),
         }
     });

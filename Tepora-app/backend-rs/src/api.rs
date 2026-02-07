@@ -8,7 +8,7 @@ use std::time::Duration;
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, HeaderValue, Method};
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, patch, post, put};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use chrono::{Duration as ChronoDuration, Utc};
 use flate2::read::GzDecoder;
@@ -605,12 +605,14 @@ async fn create_custom_agent(
         .get("name")
         .and_then(|v| v.as_str())
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("Agent name is required".to_string()))?;
+        .ok_or_else(|| ApiError::BadRequest("Agent name is required".to_string()))?
+        .to_string();
     let system_prompt = payload
         .get("system_prompt")
         .and_then(|v| v.as_str())
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("System prompt is required".to_string()))?;
+        .ok_or_else(|| ApiError::BadRequest("System prompt is required".to_string()))?
+        .to_string();
 
     let mut config = state.config.load_config()?;
     let mut agents = config
@@ -2309,6 +2311,7 @@ async fn mcp_store(
                 environment_variables,
                 icon,
                 category,
+                license: _,
             } = server;
 
             let packages_json: Vec<Value> = packages

@@ -159,7 +159,7 @@ impl ModelManager {
         revision: Option<&str>,
         expected_sha256: Option<&str>,
         consent_provided: bool,
-        progress_cb: Option<&dyn Fn(f32, &str)>,
+        progress_cb: Option<&(dyn Fn(f32, &str) + Sync)>,
     ) -> Result<ModelDownloadResult, ApiError> {
         let policy = self.evaluate_download_policy(repo_id, filename, revision, expected_sha256);
         if !policy.allowed {
