@@ -1,7 +1,7 @@
 # Tepora Project - アーキテクチャ概要 (Rust版)
 
 **バージョン**: 4.0  
-**最終更新日**: 2026-02-05  
+**最終更新日**: 2026-02-07
 **対象**: Rustバックエンド (`Tepora-app/backend-rs`) への完全移行後
 
 ---
@@ -31,15 +31,24 @@ Tepora_Project/
 ├── Tepora-app/
 │   ├── backend-rs/          # Rust backend
 │   │   ├── src/
+│   │   │   ├── main.rs      # エントリーポイント
 │   │   │   ├── api.rs       # REST API
 │   │   │   ├── ws.rs        # WebSocket/ストリーミング
 │   │   │   ├── mcp.rs       # MCP管理
+│   │   │   ├── mcp_installer.rs # MCPインストーラ
+│   │   │   ├── mcp_registry.rs # MCPレジストリ
 │   │   │   ├── models.rs    # モデル管理
+│   │   │   ├── llama.rs     # GGUF/Llama.cpp 統合
 │   │   │   ├── config.rs    # 設定/パス管理
 │   │   │   ├── history.rs   # チャット履歴/セッション
 │   │   │   ├── state.rs     # アプリケーション状態
+│   │   │   ├── setup_state.rs # セットアップ状態管理
 │   │   │   ├── security.rs  # 認証・セキュリティ
-│   │   │   └── search.rs    # Web検索ロジック
+│   │   │   ├── search.rs    # Web検索ロジック
+│   │   │   ├── tooling.rs   # ツール実行 (Native/MCP)
+│   │   │   ├── vector_math.rs # ベクトル演算 (Embedding)
+│   │   │   ├── logging.rs   # ログ管理
+│   │   │   └── errors.rs    # エラー型定義
 │   │   └── Cargo.toml
 │   ├── frontend/            # React UI
 │   └── scripts/             # sidecar/dev補助 (Node)
