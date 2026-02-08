@@ -22,6 +22,7 @@ pub struct AppState {
     pub mcp_registry: McpRegistry,
     pub models: ModelManager,
     pub setup: SetupState,
+    #[allow(dead_code)]
     pub started_at: DateTime<Utc>,
 }
 

@@ -146,6 +146,7 @@ impl ConfigService {
         Self { paths }
     }
 
+    #[allow(dead_code)]
     pub fn paths(&self) -> &AppPaths {
         &self.paths
     }

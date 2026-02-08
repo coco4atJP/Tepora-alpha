@@ -496,6 +496,7 @@ struct McpApproveRequest {
 }
 
 struct PendingConsent {
+    #[allow(dead_code)]
     payload: Value,
     expires_at: chrono::DateTime<Utc>,
     request: McpInstallPreviewRequest,
@@ -1009,6 +1010,7 @@ async fn setup_progress(
 #[derive(Debug, Deserialize)]
 struct SetupFinishRequest {
     #[serde(default)]
+    #[allow(dead_code)]
     launch: Option<bool>,
 }
 
@@ -2784,7 +2786,8 @@ mod tests {
         assert_eq!(
             normalize_archive_member_path(Path::new("safe/bin/llama-server"))
                 .unwrap()
-                .to_string_lossy(),
+                .to_string_lossy()
+                .replace("\\", "/"),
             "safe/bin/llama-server"
         );
     }
@@ -3068,7 +3071,7 @@ mod tests {
             .and_then(|v| v.get("mcp_config_path"))
             .and_then(|v| v.as_str())
             .expect("mcp_config_path should be present");
-        assert!(value.starts_with(paths.user_data_dir.to_string_lossy().as_ref()));
+        assert!(value.starts_with(paths.user_data_dir.to_string_lossy().as_ref() as &str));
 
         cleanup_test_dir(&root);
     }

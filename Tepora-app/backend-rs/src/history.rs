@@ -44,6 +44,7 @@ pub struct HistoryMessage {
 
 #[derive(Debug, Clone)]
 pub struct HistoryStore {
+    #[allow(dead_code)]
     db_path: PathBuf,
     pool: SqlitePool,
 }
@@ -71,6 +72,7 @@ impl HistoryStore {
         Ok(store)
     }
 
+    #[allow(dead_code)]
     pub fn db_path(&self) -> &PathBuf {
         &self.db_path
     }

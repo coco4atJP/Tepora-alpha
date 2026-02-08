@@ -1,13 +1,19 @@
+mod a2a;
 mod api;
 mod config;
+mod context;
+mod em_llm;
 mod errors;
+mod graph;
 mod history;
 mod llama;
 mod logging;
 mod mcp;
 mod mcp_installer;
 mod mcp_registry;
+mod memory;
 mod models;
+mod rag;
 mod search;
 mod security;
 mod setup_state;
@@ -48,6 +54,12 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Listening on {}", addr);
 
     let app: Router = api::router(state.clone());
+
+    // Initialize graph (check build)
+    match graph::build_tepora_graph() {
+        Ok(_) => tracing::info!("Graph initialized successfully"),
+        Err(e) => tracing::error!("Failed to initialize graph: {}", e),
+    }
 
     axum::serve(listener, app).await.context("Server error")?;
 

@@ -63,7 +63,7 @@ fn session_token_path() -> PathBuf {
 }
 
 #[cfg(windows)]
-fn apply_windows_token_acl(path: &PathBuf) {
+fn apply_windows_token_acl(path: &std::path::Path) {
     let Some(path_str) = path.to_str() else {
         return;
     };
@@ -114,6 +114,7 @@ pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken) -> Result<(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn api_key_optional(headers: &HeaderMap, expected: &SessionToken) -> Option<String> {
     headers
         .get(API_KEY_HEADER)

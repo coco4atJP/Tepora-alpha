@@ -297,7 +297,7 @@ async fn handle_message(
         }
     } else if mode == "agent" {
         let agent_response = run_agent_mode(
-            &state,
+            state,
             &config,
             &session_id,
             chat_messages,
@@ -485,7 +485,7 @@ async fn send_history(
     send_json(sender, json!({"type": "history", "messages": formatted})).await
 }
 
-async fn send_json(
+pub async fn send_json(
     sender: &mut SplitSink<WebSocket, Message>,
     payload: Value,
 ) -> Result<(), ApiError> {

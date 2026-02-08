@@ -59,6 +59,7 @@ pub struct McpRegistryServer {
     pub source_url: Option<String>,
     pub homepage: Option<String>,
     pub website_url: Option<String>,
+    #[allow(dead_code)]
     pub license: Option<String>,
     pub packages: Vec<McpRegistryPackage>,
     pub environment_variables: Vec<McpEnvVar>,

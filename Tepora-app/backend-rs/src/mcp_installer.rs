@@ -129,10 +129,12 @@ pub fn preview_command(
     Ok(parts.join(" "))
 }
 
+#[allow(dead_code)]
 pub fn extract_env_schema(server: &McpRegistryServer) -> Vec<McpEnvVar> {
     server.environment_variables.clone()
 }
 
+#[allow(dead_code)]
 pub fn get_available_runtimes(server: &McpRegistryServer) -> Vec<String> {
     let mut runtimes = Vec::new();
     for pkg in &server.packages {
