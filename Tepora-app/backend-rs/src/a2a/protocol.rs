@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! A2A Protocol message definitions.
 //!
 //! Based on the Agent-to-Agent communication protocol for

@@ -551,9 +551,7 @@ impl McpManager {
         name: &str,
         server: &McpServerConfig,
     ) -> Result<McpClientEntry, String> {
-        if let Err(reason) = self.policy_allows_connection(name, server) {
-            return Err(reason);
-        }
+        self.policy_allows_connection(name, server)?;
 
         let transport_name = server.transport.to_lowercase();
         let service = if transport_name == "stdio" || transport_name.is_empty() {

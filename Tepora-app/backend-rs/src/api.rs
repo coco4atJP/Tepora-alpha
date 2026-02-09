@@ -1931,7 +1931,7 @@ fn extract_zip_archive(archive_path: &FsPath, destination: &FsPath) -> Result<()
     let mut zip = ZipArchive::new(file).map_err(ApiError::internal)?;
     for index in 0..zip.len() {
         let mut entry = zip.by_index(index).map_err(ApiError::internal)?;
-        let Some(relative) = entry.enclosed_name().map(PathBuf::from) else {
+        let Some(relative) = entry.enclosed_name() else {
             return Err(ApiError::BadRequest(format!(
                 "Unsafe archive entry: {}",
                 entry.name()
@@ -2249,13 +2249,7 @@ async fn mcp_store(
     if page < 1 {
         page = 1;
     }
-    let mut page_size = params.page_size.unwrap_or(50);
-    if page_size < 1 {
-        page_size = 1;
-    }
-    if page_size > 200 {
-        page_size = 200;
-    }
+    let page_size = params.page_size.unwrap_or(50).clamp(1, 200);
 
     let refresh = params.refresh.unwrap_or(false);
     let search = params.search.as_deref();
@@ -2268,17 +2262,14 @@ async fn mcp_store(
 
     if let Some(runtime) = params.runtime.as_ref() {
         let runtime_lower = runtime.to_lowercase();
-        servers = servers
-            .into_iter()
-            .filter(|server| {
-                server.packages.iter().any(|pkg| {
-                    pkg.runtime_hint
-                        .as_ref()
-                        .map(|hint| hint.to_lowercase() == runtime_lower)
-                        .unwrap_or(false)
-                })
+        servers.retain(|server| {
+            server.packages.iter().any(|pkg| {
+                pkg.runtime_hint
+                    .as_ref()
+                    .map(|hint| hint.to_lowercase() == runtime_lower)
+                    .unwrap_or(false)
             })
-            .collect();
+        });
     }
 
     servers.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));

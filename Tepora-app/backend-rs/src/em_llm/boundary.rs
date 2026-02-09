@@ -341,11 +341,11 @@ fn assign_communities(n: usize, boundaries: &[usize]) -> Vec<usize> {
     let mut community = vec![0; n];
     let mut current_community = 0;
 
-    for i in 0..n {
+    for (i, comm) in community.iter_mut().enumerate() {
         if boundaries.contains(&i) && i > 0 {
             current_community += 1;
         }
-        community[i] = current_community;
+        *comm = current_community;
     }
 
     community

@@ -188,7 +188,7 @@ impl ContextWindowManager {
 fn estimate_tokens(text: &str) -> usize {
     // Simple estimation: ~4 chars per token for English
     // This is a rough approximation - actual tokenizers needed for accuracy
-    (text.len() + 3) / 4
+    text.len().div_ceil(4)
 }
 
 #[cfg(test)]

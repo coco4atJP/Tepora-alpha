@@ -176,14 +176,7 @@ impl VectorStore for QdrantVectorStore {
                 let document = point
                     .payload
                     .get("document")
-                    .and_then(|v| {
-                        // Extract string from Qdrant Value
-                        if let Some(s) = v.as_str() {
-                            Some(s.to_string())
-                        } else {
-                            None
-                        }
-                    })
+                    .and_then(|v| v.as_str().map(|s| s.to_string()))
                     .unwrap_or_default();
 
                 SearchResult {

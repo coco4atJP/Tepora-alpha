@@ -697,6 +697,7 @@ struct CustomAgentRuntime {
     tool_policy: CustomToolPolicy,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_agent_mode(
     state: &AppState,
     config: &Value,

@@ -1,6 +1,6 @@
 // Tepora Graph Module
 // LangGraph-style StateGraph architecture for Rust
-// #![allow(dead_code, unused_imports, unused_variables)] // TODO: Remove after integration
+#![allow(dead_code, unused_imports, unused_variables)] // TODO: Remove after integration
 
 pub mod builder;
 pub mod node;

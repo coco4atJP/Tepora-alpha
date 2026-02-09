@@ -150,6 +150,7 @@ impl ModelManager {
         Ok(entry)
     }
 
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     pub async fn download_from_huggingface(
         &self,
         repo_id: &str,
@@ -388,7 +389,7 @@ impl ModelManager {
         revision: Option<&str>,
         expected_sha256: Option<&str>,
     ) -> ModelDownloadPolicy {
-        let config = self.config.load_config().unwrap_or_else(|_| Value::Null);
+        let config = self.config.load_config().unwrap_or(Value::Null);
         evaluate_download_policy_from_config(&config, repo_id, revision, expected_sha256)
     }
 
@@ -446,6 +447,7 @@ impl ModelManager {
         Ok(base.join(filename))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_model_entry(
         &self,
         repo_id: &str,
