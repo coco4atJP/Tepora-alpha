@@ -142,6 +142,7 @@ graph TD
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
 | **ベクトルDB**        | Qdrant              | ベクトル検索 (Memory/RAG)  |
+| **テンソル演算**      | Candle              | ベクトル演算 / Embedding   |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -224,11 +225,11 @@ backend-rs/
 │   ├── security.rs             # 認証・セキュリティ
 │   ├── setup_state.rs          # セットアップ状態管理
 │   │
-│   ├── context/                # コンテキスト管理
+│   ├── context/                # コンテキスト管理 (ウィンドウ制御)
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
 │   ├── rag/                    # RAG エンジン
-│   └── a2a/                    # Agent-to-Agent (将来)
+│   └── a2a/                    # Agent-to-Agent (実験的)
 │
 └── Cargo.toml
 ```
@@ -267,8 +268,7 @@ frontend/
 │   └── context/                # React Context
 │
 └── src-tauri/                  # Tauri設定
-    ├── tauri.conf.json
-    └── binaries/               # サイドカーバイナリ
+    └── tauri.conf.json
 ```
 
 ---
