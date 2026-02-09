@@ -1,11 +1,11 @@
 // Graph Builder
 // Constructs the complete Tepora graph using petgraph
 
+use super::node::GraphError;
 use super::nodes::{
     AgentExecutorNode, ChatNode, PlannerNode, RouterNode, SearchNode, SupervisorNode,
     SynthesizerNode, ThinkingNode,
 };
-use super::node::GraphError;
 use super::runtime::{GraphBuilder, GraphRuntime};
 
 /// Build the main Tepora graph

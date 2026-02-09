@@ -62,7 +62,8 @@ impl ContextMessage {
 
     /// Get the estimated token count.
     pub fn tokens(&self) -> usize {
-        self.token_count.unwrap_or_else(|| estimate_tokens(&self.content))
+        self.token_count
+            .unwrap_or_else(|| estimate_tokens(&self.content))
     }
 }
 
@@ -137,7 +138,8 @@ impl ContextWindowManager {
 
         // Always include recent messages
         let min_recent = self.config.min_recent_messages.min(conv_msgs.len());
-        let recent_msgs: Vec<ContextMessage> = conv_msgs.split_off(conv_msgs.len().saturating_sub(min_recent));
+        let recent_msgs: Vec<ContextMessage> =
+            conv_msgs.split_off(conv_msgs.len().saturating_sub(min_recent));
 
         // Calculate tokens needed for recent messages
         let recent_tokens: usize = recent_msgs.iter().map(|m| m.tokens()).sum();

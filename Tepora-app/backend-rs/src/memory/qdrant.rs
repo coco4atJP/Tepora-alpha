@@ -12,9 +12,8 @@
 
 use async_trait::async_trait;
 use qdrant_client::qdrant::{
-    CreateCollectionBuilder, Distance, PointStruct, SearchPointsBuilder,
-    VectorParamsBuilder, UpsertPointsBuilder, DeletePointsBuilder,
-    PointsIdsList, CountPointsBuilder,
+    CountPointsBuilder, CreateCollectionBuilder, DeletePointsBuilder, Distance, PointStruct,
+    PointsIdsList, SearchPointsBuilder, UpsertPointsBuilder, VectorParamsBuilder,
 };
 use qdrant_client::Qdrant;
 use serde_json::Value;
@@ -64,11 +63,9 @@ impl QdrantVectorStore {
 
             self.client
                 .create_collection(
-                    CreateCollectionBuilder::new(&self.config.collection_name)
-                        .vectors_config(VectorParamsBuilder::new(
-                            self.config.dimension as u64,
-                            Distance::Cosine,
-                        )),
+                    CreateCollectionBuilder::new(&self.config.collection_name).vectors_config(
+                        VectorParamsBuilder::new(self.config.dimension as u64, Distance::Cosine),
+                    ),
                 )
                 .await?;
         }
@@ -92,9 +89,8 @@ impl QdrantVectorStore {
             }
         }
 
-        qdrant_client::Payload::try_from(serde_json::Value::Object(
-            map.into_iter().collect()
-        )).unwrap_or_default()
+        qdrant_client::Payload::try_from(serde_json::Value::Object(map.into_iter().collect()))
+            .unwrap_or_default()
     }
 }
 
@@ -175,10 +171,7 @@ impl VectorStore for QdrantVectorStore {
             .result
             .into_iter()
             .map(|point| {
-                let id = point
-                    .id
-                    .map(|pid| format!("{:?}", pid))
-                    .unwrap_or_default();
+                let id = point.id.map(|pid| format!("{:?}", pid)).unwrap_or_default();
 
                 let document = point
                     .payload
@@ -208,11 +201,9 @@ impl VectorStore for QdrantVectorStore {
     async fn delete(&self, id: &str) -> anyhow::Result<()> {
         self.client
             .delete_points(
-                DeletePointsBuilder::new(&self.config.collection_name).points(
-                    PointsIdsList {
-                        ids: vec![id.to_string().into()],
-                    },
-                ),
+                DeletePointsBuilder::new(&self.config.collection_name).points(PointsIdsList {
+                    ids: vec![id.to_string().into()],
+                }),
             )
             .await?;
 
@@ -256,7 +247,10 @@ impl VectorStore for QdrantVectorStore {
 
         self.ensure_collection().await?;
 
-        tracing::info!("Cleared Qdrant collection '{}'", self.config.collection_name);
+        tracing::info!(
+            "Cleared Qdrant collection '{}'",
+            self.config.collection_name
+        );
         Ok(())
     }
 }

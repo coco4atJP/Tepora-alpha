@@ -71,11 +71,7 @@ impl EMTwoStageRetrieval {
     ///
     /// # Returns
     /// List of retrieved episodic events
-    pub fn retrieve_with_k(
-        &self,
-        query_embedding: &[f32],
-        k: Option<usize>,
-    ) -> Vec<EpisodicEvent> {
+    pub fn retrieve_with_k(&self, query_embedding: &[f32], k: Option<usize>) -> Vec<EpisodicEvent> {
         if self.events.is_empty() || query_embedding.is_empty() {
             return vec![];
         }
@@ -244,7 +240,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
         return 0.0;
     }
 
-    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+    let dot: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| (*x as f64) * (*y as f64))
+        .sum();
     let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
     let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
 
@@ -260,13 +260,8 @@ mod tests {
     use super::*;
 
     fn create_test_event(id: &str, embedding: Vec<f32>, seq: u64) -> EpisodicEvent {
-        let mut event = EpisodicEvent::new(
-            id.to_string(),
-            vec!["test".to_string()],
-            0,
-            1,
-            vec![0.5],
-        );
+        let mut event =
+            EpisodicEvent::new(id.to_string(), vec!["test".to_string()], 0, 1, vec![0.5]);
         event.embedding = Some(embedding);
         event.sequence_number = Some(seq);
         event

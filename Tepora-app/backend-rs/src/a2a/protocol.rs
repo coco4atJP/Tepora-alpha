@@ -86,17 +86,18 @@ impl A2AMessage {
         sender: impl Into<String>,
         content: serde_json::Value,
     ) -> Self {
-        let mut msg = Self::new(MessageType::Response, sender, original.sender.clone(), content);
+        let mut msg = Self::new(
+            MessageType::Response,
+            sender,
+            original.sender.clone(),
+            content,
+        );
         msg.reply_to = Some(original.id.clone());
         msg
     }
 
     /// Create an error response.
-    pub fn error(
-        original: &A2AMessage,
-        sender: impl Into<String>,
-        error_message: &str,
-    ) -> Self {
+    pub fn error(original: &A2AMessage, sender: impl Into<String>, error_message: &str) -> Self {
         let mut msg = Self::new(
             MessageType::Error,
             sender,
@@ -154,7 +155,8 @@ mod tests {
     #[test]
     fn test_response_creation() {
         let request = A2AMessage::request("agent1", "agent2", serde_json::json!({"query": "test"}));
-        let response = A2AMessage::response(&request, "agent2", serde_json::json!({"result": "ok"}));
+        let response =
+            A2AMessage::response(&request, "agent2", serde_json::json!({"result": "ok"}));
 
         assert_eq!(response.message_type, MessageType::Response);
         assert_eq!(response.receiver, "agent1");
@@ -163,7 +165,8 @@ mod tests {
 
     #[test]
     fn test_serialization() {
-        let msg = A2AMessage::notification("agent1", "agent2", serde_json::json!({"event": "ready"}));
+        let msg =
+            A2AMessage::notification("agent1", "agent2", serde_json::json!({"event": "ready"}));
 
         let json = msg.to_json().unwrap();
         let parsed = A2AMessage::from_json(&json).unwrap();

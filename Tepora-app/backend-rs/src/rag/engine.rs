@@ -203,7 +203,10 @@ fn strip_html_tags(html: &str) -> String {
             let tag: String = chars_lower[i..i + 7].iter().collect();
             if tag == "<script" {
                 in_script = true;
-            } else if tag == "<style " || (i + 6 < chars.len() && chars_lower[i..i + 6].iter().collect::<String>() == "<style") {
+            } else if tag == "<style "
+                || (i + 6 < chars.len()
+                    && chars_lower[i..i + 6].iter().collect::<String>() == "<style")
+            {
                 in_style = true;
             }
         }
@@ -256,7 +259,7 @@ fn strip_html_tags(html: &str) -> String {
 fn find_sentence_boundary(text: &str) -> String {
     // Look for sentence endings near the end of the chunk
     let sentence_endings = [". ", "! ", "? ", ".\n", "!\n", "?\n"];
-    
+
     // Search in the last 20% of the chunk
     let search_start = (text.len() * 80) / 100;
     let search_text = &text[search_start..];

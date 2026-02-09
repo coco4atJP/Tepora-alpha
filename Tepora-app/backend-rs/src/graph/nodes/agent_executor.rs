@@ -53,10 +53,8 @@ impl Node for AgentExecutorNode {
             .unwrap_or_else(|| "Professional Agent".to_string());
 
         // Build tool list
-        let mut tool_list: Vec<String> = vec![
-            "native_web_fetch".to_string(),
-            "native_search".to_string(),
-        ];
+        let mut tool_list: Vec<String> =
+            vec!["native_web_fetch".to_string(), "native_search".to_string()];
         let mcp_tools = ctx.app_state.mcp.list_tools().await;
         let mcp_tool_set: HashSet<String> = mcp_tools.iter().map(|t| t.name.clone()).collect();
         for tool in mcp_tools {
@@ -170,7 +168,14 @@ impl Node for AgentExecutorNode {
                     .await;
 
                     // Execute tool
-                    let execution = match execute_tool(ctx.config, Some(&ctx.app_state.mcp), &name, &args).await {
+                    let execution = match execute_tool(
+                        ctx.config,
+                        Some(&ctx.app_state.mcp),
+                        &name,
+                        &args,
+                    )
+                    .await
+                    {
                         Ok(value) => value,
                         Err(err) => {
                             let failure = format!("Tool `{}` failed: {}", name, err);
@@ -237,7 +242,8 @@ impl Node for AgentExecutorNode {
         }
 
         // Max steps reached
-        let fallback = "Agent reached the maximum number of steps without a final answer.".to_string();
+        let fallback =
+            "Agent reached the maximum number of steps without a final answer.".to_string();
         state.output = Some(fallback.clone());
 
         let _ = send_json(

@@ -196,13 +196,16 @@ impl GraphRuntime {
         // If explicit next node is provided, use it
         if let Some(next_id) = explicit {
             return self.node_indices.get(next_id).copied().ok_or_else(|| {
-                GraphError::new(current_id, format!("Explicit target node not found: {}", next_id))
+                GraphError::new(
+                    current_id,
+                    format!("Explicit target node not found: {}", next_id),
+                )
             });
         }
 
         // Find matching edge using neighbors and edge weights
         let mut edges_with_targets: Vec<(NodeIndex, &EdgeCondition)> = Vec::new();
-        
+
         for edge_ref in self.graph.edges_directed(current_idx, Direction::Outgoing) {
             let target_idx = edge_ref.target();
             let weight = edge_ref.weight();
@@ -305,8 +308,7 @@ impl GraphBuilder {
 
     pub fn build(mut self) -> Result<GraphRuntime, GraphError> {
         for (from, to, condition) in self.pending_edges {
-            self.runtime
-                .add_conditional_edge(&from, &to, condition)?;
+            self.runtime.add_conditional_edge(&from, &to, condition)?;
         }
         Ok(self.runtime)
     }

@@ -153,12 +153,19 @@ impl<V: VectorStore> MemorySystem<V> {
             })
         });
 
-        let mut results = self.store.search(query_embedding, limit * 2, filter).await?;
+        let mut results = self
+            .store
+            .search(query_embedding, limit * 2, filter)
+            .await?;
 
         // Apply temporality boost if requested
         if temporality_boost > 0.0 {
             apply_recency_boost(&mut results, temporality_boost);
-            results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+            results.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
         }
 
         results.truncate(limit);
@@ -250,7 +257,12 @@ mod tests {
             metadata: Option<serde_json::Value>,
         ) -> anyhow::Result<()> {
             let mut items = self.items.lock().unwrap();
-            items.push((id.to_string(), embedding.to_vec(), document.to_string(), metadata));
+            items.push((
+                id.to_string(),
+                embedding.to_vec(),
+                document.to_string(),
+                metadata,
+            ));
             Ok(())
         }
 
@@ -282,7 +294,11 @@ mod tests {
                     }
                 })
                 .collect();
-            results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+            results.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
             results.truncate(limit);
             Ok(results)
         }
@@ -313,10 +329,18 @@ mod tests {
         if a.len() != b.len() || a.is_empty() {
             return 0.0;
         }
-        let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+        let dot: f64 = a
+            .iter()
+            .zip(b.iter())
+            .map(|(x, y)| (*x as f64) * (*y as f64))
+            .sum();
         let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
         let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-        if norm_a == 0.0 || norm_b == 0.0 { 0.0 } else { dot / (norm_a * norm_b) }
+        if norm_a == 0.0 || norm_b == 0.0 {
+            0.0
+        } else {
+            dot / (norm_a * norm_b)
+        }
     }
 
     #[tokio::test]

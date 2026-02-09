@@ -80,7 +80,7 @@ impl EMLLMIntegrator {
 
         // Select representative tokens and store events
         let finalized_events = self.finalize_events(events, embeddings);
-        
+
         // Store in retrieval system
         self.retrieval.add_events(finalized_events.clone());
 
@@ -108,7 +108,9 @@ impl EMLLMIntegrator {
         }
 
         // Segment by semantic change
-        let boundaries = self.segmenter.segment_by_semantic_change(sentences, embeddings);
+        let boundaries = self
+            .segmenter
+            .segment_by_semantic_change(sentences, embeddings);
 
         // Create events from boundaries
         let mut events = Vec::new();
@@ -245,7 +247,11 @@ impl EMLLMIntegrator {
         indexed_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Return top-k indices, sorted by position
-        let mut top_indices: Vec<usize> = indexed_scores.into_iter().take(topk).map(|(i, _)| i).collect();
+        let mut top_indices: Vec<usize> = indexed_scores
+            .into_iter()
+            .take(topk)
+            .map(|(i, _)| i)
+            .collect();
         top_indices.sort();
         top_indices
     }

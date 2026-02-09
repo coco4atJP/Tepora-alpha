@@ -16,7 +16,10 @@ pub struct ToolNode {
 
 impl ToolNode {
     pub fn new(tool_name: String, tool_args: Value) -> Self {
-        Self { tool_name, tool_args }
+        Self {
+            tool_name,
+            tool_args,
+        }
     }
 }
 

@@ -49,7 +49,11 @@ impl Node for SearchNode {
             .unwrap_or(false);
 
         if !search_enabled || state.skip_web_search {
-            tracing::info!("Search skipped: enabled={}, skip={}", search_enabled, state.skip_web_search);
+            tracing::info!(
+                "Search skipped: enabled={}, skip={}",
+                search_enabled,
+                state.skip_web_search
+            );
             // Add system message about no search
             state.output = Some("Web search is disabled or skipped.".to_string());
             return Ok(NodeOutput::Final);
@@ -83,13 +87,8 @@ impl Node for SearchNode {
         };
 
         // Rerank results using embeddings if available
-        let reranked_results = rerank_with_embeddings(
-            ctx.app_state,
-            ctx.config,
-            &state.input,
-            search_results,
-        )
-        .await;
+        let reranked_results =
+            rerank_with_embeddings(ctx.app_state, ctx.config, &state.input, search_results).await;
 
         // Send search results to client
         let _ = send_json(
@@ -233,10 +232,11 @@ async fn rerank_with_embeddings(
 
     let query_embedding = &embeddings[0];
     let candidate_embeddings = embeddings[1..].to_vec();
-    let ranking = match vector_math::rank_descending_by_cosine(query_embedding, &candidate_embeddings) {
-        Ok(scores) => scores,
-        Err(_) => return results,
-    };
+    let ranking =
+        match vector_math::rank_descending_by_cosine(query_embedding, &candidate_embeddings) {
+            Ok(scores) => scores,
+            Err(_) => return results,
+        };
 
     let mut reranked = Vec::with_capacity(results.len());
     for (idx, _) in ranking {

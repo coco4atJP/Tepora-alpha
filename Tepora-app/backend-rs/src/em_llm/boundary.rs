@@ -195,10 +195,10 @@ impl EMBoundaryRefiner {
         }
 
         let similarity_matrix = self.calculate_similarity_matrix(embeddings);
-        
+
         // Extract current boundaries
         let mut boundaries: Vec<usize> = events.iter().map(|e| e.start_position).collect();
-        
+
         let search_range = self.config.refinement_search_range;
         let use_modularity = self.config.refinement_metric == "modularity";
 
@@ -321,7 +321,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
         return 0.0;
     }
 
-    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+    let dot: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| (*x as f64) * (*y as f64))
+        .sum();
     let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
     let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
 
@@ -354,11 +358,7 @@ mod tests {
     #[test]
     fn test_similarity_matrix() {
         let refiner = EMBoundaryRefiner::new(EMConfig::default());
-        let embeddings = vec![
-            vec![1.0, 0.0],
-            vec![0.9, 0.1],
-            vec![0.0, 1.0],
-        ];
+        let embeddings = vec![vec![1.0, 0.0], vec![0.9, 0.1], vec![0.0, 1.0]];
 
         let sim = refiner.calculate_similarity_matrix(&embeddings);
 
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn test_modularity_calculation() {
         let refiner = EMBoundaryRefiner::new(EMConfig::default());
-        
+
         // Create a similarity matrix with two clear clusters
         let similarity = vec![
             vec![1.0, 0.9, 0.1, 0.1],

@@ -112,11 +112,7 @@ impl EMEventSegmenter {
     ///
     /// # Returns
     /// Vector of EpisodicEvent structures
-    pub fn segment_tokens(
-        &self,
-        tokens: &[String],
-        surprise_scores: &[f64],
-    ) -> Vec<EpisodicEvent> {
+    pub fn segment_tokens(&self, tokens: &[String], surprise_scores: &[f64]) -> Vec<EpisodicEvent> {
         if tokens.is_empty() || tokens.len() != surprise_scores.len() {
             return vec![];
         }
@@ -212,10 +208,7 @@ impl EMEventSegmenter {
             let window_dists: Vec<f64> = distances[window_start..=i].to_vec();
 
             let mean = window_dists.iter().sum::<f64>() / window_dists.len() as f64;
-            let variance = window_dists
-                .iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f64>()
+            let variance = window_dists.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
                 / window_dists.len() as f64;
             let std = variance.sqrt();
 
@@ -239,7 +232,11 @@ fn cosine_distance(a: &[f32], b: &[f32]) -> f64 {
         return 1.0; // Maximum distance for invalid input
     }
 
-    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+    let dot: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| (*x as f64) * (*y as f64))
+        .sum();
     let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
     let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
 

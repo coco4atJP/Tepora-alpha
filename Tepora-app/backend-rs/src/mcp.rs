@@ -8,11 +8,11 @@ use chrono::Utc;
 use reqwest::Url;
 use rmcp::model::CallToolRequestParams;
 use rmcp::service::RoleClient;
+use rmcp::service::RunningService;
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
 use rmcp::ServiceExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use rmcp::service::RunningService;
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
@@ -110,15 +110,28 @@ trait SafeMcpService: Send + Sync {
     fn call_tool_boxed(
         &self,
         params: CallToolRequestParams,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<rmcp::model::CallToolResult, rmcp::ServiceError>> + Send + '_>>;
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<
+                    Output = Result<rmcp::model::CallToolResult, rmcp::ServiceError>,
+                > + Send
+                + '_,
+        >,
+    >;
 }
 
 impl SafeMcpService for RunningService<RoleClient, ()> {
     fn call_tool_boxed(
         &self,
         params: CallToolRequestParams,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<rmcp::model::CallToolResult, rmcp::ServiceError>> + Send + '_>> {
-
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<
+                    Output = Result<rmcp::model::CallToolResult, rmcp::ServiceError>,
+                > + Send
+                + '_,
+        >,
+    > {
         Box::pin(self.call_tool(params))
     }
 }
@@ -553,8 +566,10 @@ impl McpManager {
             if !server.env.is_empty() {
                 cmd.envs(&server.env);
             }
-            let transport = TokioChildProcess::new(cmd.configure(|cmd| { let _ = cmd; }))
-                .map_err(|err| format!("Failed to spawn MCP server '{}': {}", name, err))?;
+            let transport = TokioChildProcess::new(cmd.configure(|cmd| {
+                let _ = cmd;
+            }))
+            .map_err(|err| format!("Failed to spawn MCP server '{}': {}", name, err))?;
             ().serve(transport)
                 .await
                 .map_err(|err| format!("Failed to connect MCP server '{}': {}", name, err))?

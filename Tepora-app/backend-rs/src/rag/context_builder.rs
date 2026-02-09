@@ -93,7 +93,11 @@ impl RAGContextBuilder {
             .collect();
 
         // Sort by score (descending)
-        scored_chunks.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored_chunks.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Take top-k
         scored_chunks.truncate(self.config.top_k);
@@ -110,11 +114,7 @@ impl RAGContextBuilder {
     ///
     /// # Returns
     /// Formatted context string with top-k most relevant chunks
-    pub fn build_context_keyword(
-        &self,
-        chunks: &[TextChunk],
-        query: &str,
-    ) -> String {
+    pub fn build_context_keyword(&self, chunks: &[TextChunk], query: &str) -> String {
         if chunks.is_empty() {
             return String::new();
         }
@@ -140,7 +140,11 @@ impl RAGContextBuilder {
             .filter(|sc| sc.score > 0.0)
             .collect();
 
-        scored_chunks.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored_chunks.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         scored_chunks.truncate(self.config.top_k);
 
         self.format_context(&scored_chunks)
@@ -210,7 +214,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
         return 0.0;
     }
 
-    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+    let dot: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| (*x as f64) * (*y as f64))
+        .sum();
     let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
     let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
 

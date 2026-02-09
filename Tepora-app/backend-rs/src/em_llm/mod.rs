@@ -13,14 +13,14 @@
 //! - `retrieval`: Two-stage retrieval (similarity + contiguity)
 //! - `integrator`: Main integration point for the EM-LLM system
 
-mod types;
-mod segmenter;
 mod boundary;
-mod retrieval;
 mod integrator;
+mod retrieval;
+mod segmenter;
+mod types;
 
-pub use types::{EMConfig, EpisodicEvent};
-pub use segmenter::EMEventSegmenter;
 pub use boundary::EMBoundaryRefiner;
-pub use retrieval::EMTwoStageRetrieval;
 pub use integrator::EMLLMIntegrator;
+pub use retrieval::EMTwoStageRetrieval;
+pub use segmenter::EMEventSegmenter;
+pub use types::{EMConfig, EpisodicEvent};
