@@ -2,7 +2,7 @@
 
 **ドキュメントバージョン**: 4.1
 **アプリケーションバージョン**: 3.0 (Beta) (v0.3.0)
-**最終更新日**: 2026-02-09
+**最終更新日**: 2026-05-21
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -142,6 +142,7 @@ graph TD
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
 | **ベクトルDB**        | Qdrant              | ベクトル検索 (Memory/RAG)  |
+| **Tensor Ops**      | Candle (HuggingFace)| ベクトル演算               |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -195,6 +196,9 @@ backend-rs/
 │   ├── ws.rs                   # WebSocket ハンドラ
 │   ├── state.rs                # AppState (アプリケーション状態)
 │   ├── config.rs               # 設定管理 (ConfigService, AppPaths)
+│   ├── errors.rs               # エラー定義
+│   ├── logging.rs              # ログ設定
+│   ├── vector_math.rs          # ベクトル演算 (Candle)
 │   │
 │   ├── graph/                  # ========== グラフエンジン ==========
 │   │   ├── mod.rs              # モジュール公開
@@ -228,7 +232,7 @@ backend-rs/
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
 │   ├── rag/                    # RAG エンジン
-│   └── a2a/                    # Agent-to-Agent (将来)
+│   └── a2a/                    # Agent-to-Agent プロトコル
 │
 └── Cargo.toml
 ```
@@ -248,6 +252,8 @@ frontend/
 │   ├── App.tsx                 # ルートコンポーネント
 │   ├── index.css               # グローバルスタイル
 │   ├── i18n.ts                 # 国際化設定
+│   ├── pages/                  # ページコンポーネント
+│   ├── styles/                 # スタイル定義
 │   │
 │   ├── stores/                 # ========== Zustand状態管理 ==========
 │   │   ├── chatStore.ts        # チャット状態 (メッセージ、ストリーミング)
