@@ -142,6 +142,8 @@ graph TD
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
 | **ベクトルDB**        | Qdrant              | ベクトル検索 (Memory/RAG)  |
+| **ベクトル演算**      | Candle (candle-core)| Vector / Tensor Math       |
+| **MCP Client**        | rmcp                | MCP実装                    |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -223,9 +225,16 @@ backend-rs/
 │   ├── tooling.rs              # ToolManager (ツール管理)
 │   ├── security.rs             # 認証・セキュリティ
 │   ├── setup_state.rs          # セットアップ状態管理
+│   ├── vector_math.rs          # ベクトル演算ユーティリティ
 │   │
 │   ├── context/                # コンテキスト管理
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
+│   │   ├── mod.rs
+│   │   ├── segmenter.rs        # イベント分割
+│   │   ├── boundary.rs         # 境界検出
+│   │   ├── retrieval.rs        # 記憶検索
+│   │   ├── integrator.rs       # 記憶統合
+│   │   └── types.rs            # 型定義
 │   ├── memory/                 # メモリシステム
 │   ├── rag/                    # RAG エンジン
 │   └── a2a/                    # Agent-to-Agent (将来)
@@ -248,6 +257,10 @@ frontend/
 │   ├── App.tsx                 # ルートコンポーネント
 │   ├── index.css               # グローバルスタイル
 │   ├── i18n.ts                 # 国際化設定
+│   │
+│   ├── pages/                  # ページコンポーネント
+│   ├── styles/                 # スタイル定義
+│   ├── test/                   # テスト関連
 │   │
 │   ├── stores/                 # ========== Zustand状態管理 ==========
 │   │   ├── chatStore.ts        # チャット状態 (メッセージ、ストリーミング)
