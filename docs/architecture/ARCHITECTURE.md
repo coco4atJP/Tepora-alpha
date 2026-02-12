@@ -142,6 +142,7 @@ graph TD
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
 | **ベクトルDB**        | Qdrant              | ベクトル検索 (Memory/RAG)  |
+| **ベクトル演算**      | Candle (v0.9)       | ベクトル埋め込み/類似度計算 |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -152,7 +153,7 @@ graph TD
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
-| **状態管理**       | Zustand        | -          | クライアント状態        |
+| **状態管理**       | Zustand        | 5.x        | クライアント状態        |
 | **データフェッチ** | TanStack Query | 5.x        | サーバー状態/キャッシュ |
 | **スタイリング**   | Tailwind CSS   | 4.x        | ユーティリティCSS       |
 | **ルーティング**   | React Router   | 7.x        | SPA routing             |
@@ -223,12 +224,13 @@ backend-rs/
 │   ├── tooling.rs              # ToolManager (ツール管理)
 │   ├── security.rs             # 認証・セキュリティ
 │   ├── setup_state.rs          # セットアップ状態管理
+│   ├── vector_math.rs          # Candleベースのベクトル演算
 │   │
 │   ├── context/                # コンテキスト管理
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
 │   ├── rag/                    # RAG エンジン
-│   └── a2a/                    # Agent-to-Agent (将来)
+│   └── a2a/                    # Agent-to-Agent プロトコル
 │
 └── Cargo.toml
 ```
