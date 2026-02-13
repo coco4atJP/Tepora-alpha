@@ -2,7 +2,7 @@
 
 **ドキュメントバージョン**: 4.1
 **アプリケーションバージョン**: 3.0 (Beta) (v0.3.0)
-**最終更新日**: 2026-02-09
+**最終更新日**: 2026-02-13
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -152,7 +152,7 @@ graph TD
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
-| **状態管理**       | Zustand        | -          | クライアント状態        |
+| **状態管理**       | Zustand        | 5.x        | クライアント状態        |
 | **データフェッチ** | TanStack Query | 5.x        | サーバー状態/キャッシュ |
 | **スタイリング**   | Tailwind CSS   | 4.x        | ユーティリティCSS       |
 | **ルーティング**   | React Router   | 7.x        | SPA routing             |
@@ -264,11 +264,14 @@ frontend/
 │   ├── hooks/                  # カスタムフック
 │   ├── utils/                  # ユーティリティ
 │   ├── types/                  # 型定義
-│   └── context/                # React Context
+│   ├── context/                # React Context
+│   └── pages/                  # ページコンポーネント
 │
 └── src-tauri/                  # Tauri設定
     ├── tauri.conf.json
-    └── binaries/               # サイドカーバイナリ
+    ├── capabilities/           # 権限設定
+    ├── icons/                  # アプリアイコン
+    └── src/                    # Tauri Rust エントリポイント
 ```
 
 ---
