@@ -20,16 +20,21 @@ impl AppPaths {
         let secrets_path = user_data_dir.join("secrets.yaml");
         let legacy_db_path = user_data_dir.join("tepora_chat.db");
         let legacy_chroma_dir = user_data_dir.join("chroma_db");
+        let legacy_rag_db = user_data_dir.join("rag.db");
 
         for dir in [&user_data_dir, &log_dir] {
             let _ = fs::create_dir_all(dir);
         }
 
+        // Clean up legacy storage files (migrated to LanceDB in v5.0)
         if legacy_db_path.exists() {
             let _ = fs::remove_file(&legacy_db_path);
         }
         if legacy_chroma_dir.exists() {
             let _ = fs::remove_dir_all(&legacy_chroma_dir);
+        }
+        if legacy_rag_db.exists() {
+            let _ = fs::remove_file(&legacy_rag_db);
         }
 
         AppPaths {

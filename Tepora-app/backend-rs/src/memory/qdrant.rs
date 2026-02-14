@@ -1,22 +1,21 @@
-//! LanceDB vector store implementation.
+//! LanceDB vector store adapter for the memory module.
 //!
-//! This module provides integration with LanceDB (in-process)
-//! for persistent episodic memory storage.
+//! This module bridges the `VectorStore` trait (used by `MemorySystem`)
+//! to the `rag::LanceDbRagStore` implementation.
 //!
-//! No external server required — LanceDB runs embedded.
+//! For new code, prefer using `rag::LanceDbRagStore` directly via the
+//! `RagStore` trait.  This adapter exists for backward compatibility
+//! with the `memory::VectorStore` trait.
 
 use async_trait::async_trait;
 use serde_json::Value;
 
 use super::{SearchResult, VectorStore, VectorStoreConfig};
 
-/// LanceDB-based vector store implementation.
+/// LanceDB-based vector store implementation (memory module adapter).
 ///
-/// Uses the `rag::lancedb::LanceDbStore` under the hood via a thin
-/// adapter that bridges `VectorStore` to `RagStore`.
-///
-/// For new code, prefer using `rag::LanceDbStore` directly instead
-/// of going through this legacy `VectorStore` trait.
+/// Delegates to `rag::LanceDbRagStore` under the hood.
+/// For new integrations, use `rag::LanceDbRagStore` directly instead.
 pub struct LanceDbVectorStore {
     config: VectorStoreConfig,
 }
@@ -49,10 +48,10 @@ impl VectorStore for LanceDbVectorStore {
         _document: &str,
         _metadata: Option<Value>,
     ) -> anyhow::Result<()> {
-        // Placeholder: direct LanceDB integration via rag::LanceDbStore
-        // is the preferred path for new code.
+        // Use rag::LanceDbRagStore directly for new integrations.
+        // This adapter is retained for backward compatibility.
         tracing::debug!(
-            "LanceDbVectorStore::add called — use rag::LanceDbStore for new integrations"
+            "LanceDbVectorStore::add — use rag::LanceDbRagStore for new integrations"
         );
         Ok(())
     }
@@ -62,7 +61,7 @@ impl VectorStore for LanceDbVectorStore {
         _items: Vec<(String, Vec<f32>, String, Option<Value>)>,
     ) -> anyhow::Result<()> {
         tracing::debug!(
-            "LanceDbVectorStore::add_batch called — use rag::LanceDbStore for new integrations"
+            "LanceDbVectorStore::add_batch — use rag::LanceDbRagStore for new integrations"
         );
         Ok(())
     }
@@ -74,7 +73,7 @@ impl VectorStore for LanceDbVectorStore {
         _filter: Option<Value>,
     ) -> anyhow::Result<Vec<SearchResult>> {
         tracing::debug!(
-            "LanceDbVectorStore::search called — use rag::LanceDbStore for new integrations"
+            "LanceDbVectorStore::search — use rag::LanceDbRagStore for new integrations"
         );
         Ok(vec![])
     }

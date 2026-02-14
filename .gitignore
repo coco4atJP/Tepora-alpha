@@ -88,10 +88,14 @@ Tepora-app/*_errors.txt
 *.db-wal
 *.db-shm
 
-# ChromaDB directories
+# ChromaDB directories (legacy)
 chroma_db/
 chroma_db_*/
 chroma_db_fallback/
+
+# LanceDB directories
+lancedb/
+*.lance
 
 # Secrets and sensitive files
 secrets.yaml

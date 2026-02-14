@@ -9,6 +9,7 @@ use crate::mcp::McpManager;
 use crate::mcp_registry::McpRegistry;
 use crate::models::ModelManager;
 use crate::core::security::{init_session_token, SessionToken};
+use crate::rag::LanceDbRagStore;
 use crate::setup_state::SetupState;
 use crate::llm::LlmService;
 
@@ -23,6 +24,7 @@ pub struct AppState {
     pub mcp: McpManager,
     pub mcp_registry: McpRegistry,
     pub models: ModelManager,
+    pub rag_store: Arc<LanceDbRagStore>,
     pub setup: SetupState,
     #[allow(dead_code)]
     pub started_at: DateTime<Utc>,
@@ -38,6 +40,11 @@ impl AppState {
         let mcp = McpManager::new(paths.clone(), config.clone());
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
+        let rag_store = Arc::new(
+            LanceDbRagStore::new(&paths)
+                .await
+                .expect("Failed to initialize LanceDB RAG store"),
+        );
         let setup = SetupState::new(&paths);
         let started_at = Utc::now();
 
@@ -62,6 +69,7 @@ impl AppState {
             mcp,
             mcp_registry,
             models,
+            rag_store,
             setup,
             started_at,
         }))

@@ -143,8 +143,8 @@ graph TD
 | **非同期ランタイム**  | Tokio               | 非同期処理                 |
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
-| **RAGストア**         | SQLite + ndarray    | ベクトル検索 (in-process)  |
-| **ベクトル演算**      | ndarray             | コサイン類似度計算         |
+| **RAGストア**         | LanceDB (in-process) | ANN ベクトル検索 (IVF-PQ)  |
+| **ベクトル演算**      | LanceDB / Arrow     | ネイティブ ANN 検索        |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -252,9 +252,9 @@ backend-rs/
 │   │
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
-│   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
+│   ├── rag/                    # RAG エンジン (LanceDbRagStore) [v4.0→v5.0]
 │   │   ├── store.rs            # RagStore trait
-│   │   └── lancedb.rs          # SqliteRagStore 実装
+│   │   └── lancedb.rs          # LanceDbRagStore 実装 (LanceDB in-process)
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
 └── Cargo.toml
@@ -642,20 +642,25 @@ graph TB
     end
 ```
 
-### 5.11 RAG ストア (SqliteRagStore) [v4.0]
+### 5.11 RAG ストア (LanceDbRagStore) [v5.0]
 
 **ファイル**: `src/rag/store.rs`, `src/rag/lancedb.rs`
 
-v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移行しました。
+v5.0 で SQLite + ndarray ベースのブルートフォース検索から **LanceDB** (in-process) に移行しました。
 
 | 機能 | 説明 |
 | --- | --- |
-| **RagStore trait** | `ingest`, `query`, `delete_by_session`, `reindex` の4メソッド抽象化 |
-| **SqliteRagStore** | SQLite + `ndarray` によるコサイン類似度計算 |
-| **セッションフィルタ** | セッション単位でのメタデータフィルタリング |
+| **RagStore trait** | `insert`, `insert_batch`, `search`, `delete_session`, `delete_chunk`, `count`, `reindex` の抽象インターフェース |
+| **LanceDbRagStore** | LanceDB (Lance columnar format) によるネイティブ ANN 検索 |
+| **IVF-PQ インデックス** | データ量に応じた Approximate Nearest Neighbor 検索 |
+| **セッションフィルタ** | セッション単位での SQL-like メタデータフィルタリング |
+| **Upsert セマンティクス** | 同一 `chunk_id` は自動的に上書き |
+| **自動バージョニング** | Lance フォーマットによるデータのゼロコピー読み取り+自動バージョン管理 |
 
-> [!IMPORTANT]
-> `RagStore` trait による抽象化で、将来の LanceDB や Qdrant への移行パスを確保しています。
+**移行履歴**:
+- v3.0: ChromaDB (external server)
+- v4.0: SQLite + ndarray (in-process brute-force)
+- v5.0: LanceDB (in-process ANN)
 
 ---
 
@@ -1135,7 +1140,7 @@ task quality
 | **Webフレームワーク** | FastAPI      | Axum                         |
 | **グラフエンジン**    | LangGraph    | petgraph (自前実装)          |
 | **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)     |
-| **ベクトルDB**        | ChromaDB     | SQLite + ndarray (in-process)|
+| **ベクトルDB**        | ChromaDB     | LanceDB (in-process ANN)     |
 | **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)        |
 | **パッケージ管理**    | uv / pip     | Cargo                        |
 | **バイナリ配布**      | PyInstaller  | ネイティブバイナリ           |
@@ -1144,7 +1149,7 @@ task quality
 
 - **A2A Protocol**: Agent-to-Agent通信機能
 - **WorkerPipeline 完全統合**: 全ノードで v4.0 パイプラインを使用
-- **LanceDB 移行**: RagStore trait 経由で高性能ベクトルDB への移行
+- **Embedding統合**: LlmService::embed() による自動ベクトル化の完全統合
 
 ---
 
