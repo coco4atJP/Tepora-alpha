@@ -1,7 +1,7 @@
 # Tepora Project - アーキテクチャ仕様書
 
 **ドキュメントバージョン**: 5.0
-**アプリケーションバージョン**: 4.0 (Alpha) (v0.4.0)
+**アプリケーションバージョン**: 0.3.0-beta
 **最終更新日**: 2026-02-15
 **対象**: Rust Backend + React Frontend
 
@@ -93,19 +93,17 @@ graph TD
 
 ```mermaid
 graph TD
-    Main[main.rs] --> API[api.rs]
-    Main --> WS[ws.rs]
+    Main[main.rs] --> Server[server/]
     Main --> State[state.rs]
   
-    API --> Graph[graph/]
-    WS --> Graph
+    Server --> Graph[graph/]
+    Server --> Core[core/]
   
     Graph --> Nodes[nodes/]
     Graph --> LLM[llama.rs]
-    Graph --> Tools[tooling.rs]
-    Graph --> Search[search.rs]
+    Graph --> Tools[tools/]
   
-    State --> Config[config.rs]
+    State --> Core
     State --> History[history.rs]
     State --> MCP[mcp.rs]
     State --> Models[models.rs]
@@ -194,10 +192,18 @@ Tepora_Project/
 backend-rs/
 ├── src/
 │   ├── main.rs                 # エントリーポイント
-│   ├── api.rs                  # REST API ルート定義
-│   ├── ws.rs                   # WebSocket ハンドラ
 │   ├── state.rs                # AppState (アプリケーション状態)
-│   ├── config.rs               # 設定管理 (ConfigService, AppPaths)
+│   │
+│   ├── server/                 # ========== APIサーバー ==========
+│   │   ├── router.rs           # REST API ルート定義
+│   │   ├── ws/                 # WebSocket ハンドラ
+│   │   └── handlers/           # APIハンドラ群
+│   │
+│   ├── core/                   # ========== コアモジュール ==========
+│   │   ├── config/             # 設定管理
+│   │   ├── errors.rs           # エラー定義
+│   │   ├── logging.rs          # ログ設定
+│   │   └── security.rs         # セキュリティ (認証等)
 │   │
 │   ├── graph/                  # ========== グラフエンジン ==========
 │   │   ├── mod.rs              # モジュール公開
@@ -245,10 +251,12 @@ backend-rs/
 │   ├── mcp_installer.rs        # MCPサーバーインストーラー
 │   ├── models.rs               # ModelManager (モデル管理)
 │   ├── history.rs              # HistoryStore (チャット履歴)
-│   ├── search.rs               # 検索エンジン統合
-│   ├── tooling.rs              # ToolManager (ツール管理)
-│   ├── security.rs             # 認証・セキュリティ
 │   ├── setup_state.rs          # セットアップ状態管理
+│   │
+│   ├── tools/                  # ========== ツール & 検索 ==========
+│   │   ├── manager.rs          # ToolManager (ツール管理)
+│   │   ├── search.rs           # 検索エンジン統合
+│   │   └── vector_math.rs      # ベクトル演算
 │   │
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
@@ -965,7 +973,7 @@ graph TB
     end
   
     subgraph Defaults["デフォルト定義"]
-        ConfigRs[src/config.rs - Rustスキーマ]
+        ConfigRs[src/core/config/ - Rustスキーマ]
         SeedJson[mcp_seed.json - MCPサーバーカタログ]
     end
   
