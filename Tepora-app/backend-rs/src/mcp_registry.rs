@@ -7,8 +7,8 @@ use semver::Version;
 use serde_json::Value;
 use tokio::sync::RwLock;
 
-use crate::config::AppPaths;
-use crate::errors::ApiError;
+use crate::core::config::AppPaths;
+use crate::core::errors::ApiError;
 
 const REGISTRY_API_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
 const CACHE_DURATION: Duration = Duration::from_secs(60 * 60);

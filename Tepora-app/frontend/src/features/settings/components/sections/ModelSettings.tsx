@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { apiClient } from "../../../../utils/api-client";
+import { loadersApi } from "../../../../api/loaders";
 import { FormGroup, FormInput, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
 import { ModelListOverlay } from "../subcomponents/ModelListOverlay";
@@ -29,6 +30,7 @@ interface ModelInfo {
 	file_size: number;
 	filename?: string;
 	source: string;
+	loader?: string;
 	is_active?: boolean;
 }
 
@@ -43,6 +45,7 @@ const ModelSettings: React.FC = () => {
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [isOverlayOpen, setIsOverlayOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [isRefreshingLmStudio, setIsRefreshingLmStudio] = useState(false);
 	const [modelRoles, setModelRoles] = useState<ModelRoles>({
 		character_model_id: null,
 		professional_model_map: {},
@@ -149,7 +152,7 @@ const ModelSettings: React.FC = () => {
 		if (
 			!confirm(
 				t("settings.sections.models.confirm_delete") ||
-					"Are you sure you want to delete this model?",
+				"Are you sure you want to delete this model?",
 			)
 		)
 			return;
@@ -177,12 +180,24 @@ const ModelSettings: React.FC = () => {
 	const handleRefreshOllama = async () => {
 		setIsRefreshing(true);
 		try {
-			await apiClient.post("api/setup/models/ollama/refresh");
+			await loadersApi.refreshOllamaModels();
 			await fetchModels();
 		} catch (e) {
 			console.error("Failed to refresh Ollama models", e);
 		} finally {
 			setIsRefreshing(false);
+		}
+	};
+
+	const handleRefreshLmStudio = async () => {
+		setIsRefreshingLmStudio(true);
+		try {
+			await loadersApi.refreshLmStudioModels();
+			await fetchModels();
+		} catch (e) {
+			console.error("Failed to refresh LM Studio models", e);
+		} finally {
+			setIsRefreshingLmStudio(false);
 		}
 	};
 
@@ -252,6 +267,18 @@ const ModelSettings: React.FC = () => {
 						title={t("settings.sections.models.refresh_ollama") || "Refresh Ollama Models"}
 					>
 						<RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+						<span className="text-xs">Ollama</span>
+					</button>
+
+					<button
+						type="button"
+						onClick={handleRefreshLmStudio}
+						disabled={isRefreshingLmStudio}
+						className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
+						title={t("settings.sections.models.refresh_lmstudio") || "Refresh LM Studio Models"}
+					>
+						<RefreshCw size={18} className={isRefreshingLmStudio ? "animate-spin" : ""} />
+						<span className="text-xs">LM Studio</span>
 					</button>
 				</div>
 			</SettingsSection>
@@ -297,8 +324,8 @@ const ModelSettings: React.FC = () => {
 									taskType === "default"
 										? t("settings.sections.models.executor_default_desc")
 										: t("settings.sections.models.executor_task_desc", {
-												taskType,
-											})
+											taskType,
+										})
 								}
 								selectedModelId={modelId}
 								models={textModels}

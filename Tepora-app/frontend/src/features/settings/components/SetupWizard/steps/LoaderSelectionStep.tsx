@@ -32,17 +32,15 @@ export function LoaderSelectionStep({
 				<button
 					type="button"
 					onClick={() => onSelectLoader("llama_cpp")}
-					className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left group ${
-						selectedLoader === "llama_cpp"
+					className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left group ${selectedLoader === "llama_cpp"
 							? "bg-gold-500/10 border-gold-400 shadow-[0_0_20px_rgba(250,227,51,0.1)]"
 							: "bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10"
-					}`}
+						}`}
 				>
 					<div className="flex items-center gap-4">
 						<div
-							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-								selectedLoader === "llama_cpp" ? "border-gold-400 bg-gold-400" : "border-white/30"
-							}`}
+							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedLoader === "llama_cpp" ? "border-gold-400 bg-gold-400" : "border-white/30"
+								}`}
 						>
 							{selectedLoader === "llama_cpp" && (
 								<div className="w-2.5 h-2.5 rounded-full bg-black" />
@@ -50,9 +48,8 @@ export function LoaderSelectionStep({
 						</div>
 						<div>
 							<h3
-								className={`text-lg font-semibold mb-1 transition-colors ${
-									selectedLoader === "llama_cpp" ? "text-gold-100" : "text-white"
-								}`}
+								className={`text-lg font-semibold mb-1 transition-colors ${selectedLoader === "llama_cpp" ? "text-gold-100" : "text-white"
+									}`}
 							>
 								llama.cpp (Bundled)
 							</h3>
@@ -70,25 +67,22 @@ export function LoaderSelectionStep({
 				<button
 					type="button"
 					onClick={() => onSelectLoader("ollama")}
-					className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left group ${
-						selectedLoader === "ollama"
+					className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left group ${selectedLoader === "ollama"
 							? "bg-gold-500/10 border-gold-400 shadow-[0_0_20px_rgba(250,227,51,0.1)]"
 							: "bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10"
-					}`}
+						}`}
 				>
 					<div className="flex items-center gap-4">
 						<div
-							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-								selectedLoader === "ollama" ? "border-gold-400 bg-gold-400" : "border-white/30"
-							}`}
+							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedLoader === "ollama" ? "border-gold-400 bg-gold-400" : "border-white/30"
+								}`}
 						>
 							{selectedLoader === "ollama" && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
 						</div>
 						<div>
 							<h3
-								className={`text-lg font-semibold mb-1 transition-colors ${
-									selectedLoader === "ollama" ? "text-gold-100" : "text-white"
-								}`}
+								className={`text-lg font-semibold mb-1 transition-colors ${selectedLoader === "ollama" ? "text-gold-100" : "text-white"
+									}`}
 							>
 								Ollama
 							</h3>
@@ -96,6 +90,39 @@ export function LoaderSelectionStep({
 								{t(
 									"setup.loader_ollama_desc",
 									"Connect to an external Ollama instance. Requires Ollama to be installed and running.",
+								)}
+							</p>
+						</div>
+					</div>
+				</button>
+
+				{/* LM Studio Option */}
+				<button
+					type="button"
+					onClick={() => onSelectLoader("lmstudio")}
+					className={`relative p-6 rounded-xl border-2 transition-all duration-300 text-left group ${selectedLoader === "lmstudio"
+							? "bg-gold-500/10 border-gold-400 shadow-[0_0_20px_rgba(250,227,51,0.1)]"
+							: "bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10"
+						}`}
+				>
+					<div className="flex items-center gap-4">
+						<div
+							className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedLoader === "lmstudio" ? "border-gold-400 bg-gold-400" : "border-white/30"
+								}`}
+						>
+							{selectedLoader === "lmstudio" && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
+						</div>
+						<div>
+							<h3
+								className={`text-lg font-semibold mb-1 transition-colors ${selectedLoader === "lmstudio" ? "text-gold-100" : "text-white"
+									}`}
+							>
+								LM Studio
+							</h3>
+							<p className="text-sm text-white/60">
+								{t(
+									"setup.loader_lmstudio_desc",
+									"Connect to an external LM Studio instance (OpenAI Compatible).",
 								)}
 							</p>
 						</div>

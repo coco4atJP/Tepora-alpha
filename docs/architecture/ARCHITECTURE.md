@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 4.1
-**アプリケーションバージョン**: 3.0 (Beta) (v0.3.0)
-**最終更新日**: 2026-02-09
+**ドキュメントバージョン**: 5.0
+**アプリケーションバージョン**: 4.0 (Alpha) (v0.4.0)
+**最終更新日**: 2026-02-15
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -73,14 +73,15 @@ graph TD
         subgraph Backend Components
             API[Axum API Layer]
             State[AppState Arc]
+            Pipeline[WorkerPipeline]
             Graph[Tepora Graph Engine]
             LLM[LLM Service]
             MCP[MCP Manager]
+            EAM[ExclusiveAgentManager]
         end
       
         Backend <-->|Model Loading| GGUF[GGUF Models]
-        Backend <-->|Persistence| SQL[SQLite DB]
-        Backend <-->|Vector Search| Qdrant[Qdrant Vector DB]
+        Backend <-->|Persistence| SQL[SQLite DB - History + RAG]
       
         MCP <--> ExtTools[External Tools - Node/Python]
     end
@@ -125,7 +126,8 @@ graph TD
 | **通信**               | WebSocket + REST         | リアルタイム双方向通信 + API               |
 | **アプリケーション**   | Axum                     | エンドポイント、ルーティング               |
 | **ビジネスロジック**   | petgraph + GraphRuntime  | ステートマシン、エージェント制御           |
-| **データアクセス**     | sqlx + Qdrant            | リレーショナル + ベクトル検索              |
+| **コンテキスト構築** | WorkerPipeline           | モジュラーなコンテキストエンリッチメント   |
+| **データアクセス**     | sqlx + SQLite            | リレーショナル + ベクトル検索 (in-process) |
 | **推論エンジン**       | llama.cpp                | LLM推論処理                                |
 
 ---
@@ -141,7 +143,8 @@ graph TD
 | **非同期ランタイム**  | Tokio               | 非同期処理                 |
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
-| **ベクトルDB**        | Qdrant              | ベクトル検索 (Memory/RAG)  |
+| **RAGストア**         | SQLite + ndarray    | ベクトル検索 (in-process)  |
+| **ベクトル演算**      | ndarray             | コサイン類似度計算         |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -205,6 +208,7 @@ backend-rs/
 │   │   └── nodes/              # ノード実装
 │   │       ├── chat.rs         # ChatNode (直接対話)
 │   │       ├── search.rs       # SearchNode (検索+要約)
+│   │       ├── search_agentic.rs # AgenticSearchNode (深層検索) [v4.0]
 │   │       ├── thinking.rs     # ThinkingNode (CoT)
 │   │       ├── supervisor.rs   # SupervisorNode (ルーティング)
 │   │       ├── planner.rs      # PlannerNode (計画立案)
@@ -212,6 +216,28 @@ backend-rs/
 │   │       ├── synthesizer.rs  # SynthesizerNode (最終応答生成)
 │   │       ├── router.rs       # RouterNode (モード分岐)
 │   │       └── tool.rs         # ToolNode (ツール実行)
+│   │
+│   ├── agent/                  # ========== エージェント管理 ==========
+│   │   ├── exclusive_manager.rs # ExclusiveAgentManager [v4.0]
+│   │   ├── runtime.rs          # エージェント実行ランタイム
+│   │   ├── modes.rs            # RequestedAgentMode
+│   │   ├── planner.rs          # プランナーロジック
+│   │   ├── policy.rs           # ツールポリシー
+│   │   └── instructions.rs     # エージェント指示テンプレート
+│   │
+│   ├── context/                # ========== コンテキストパイプライン ==========
+│   │   ├── pipeline.rs         # ContextPipeline (レガシー + v4 bridge)
+│   │   ├── pipeline_context.rs # PipelineContext (v4.0 構造体) [v4.0]
+│   │   ├── worker.rs           # ContextWorker trait + WorkerPipeline [v4.0]
+│   │   ├── workers/            # Worker 実装群 [v4.0]
+│   │   │   ├── system_worker.rs
+│   │   │   ├── persona_worker.rs
+│   │   │   ├── memory_worker.rs
+│   │   │   ├── tool_worker.rs
+│   │   │   ├── search_worker.rs
+│   │   │   └── rag_worker.rs
+│   │   ├── prompt.rs           # プロンプト構築
+│   │   └── window.rs           # コンテキストウィンドウ管理
 │   │
 │   ├── llama.rs                # LlamaService (推論サーバー管理)
 │   ├── mcp.rs                  # McpManager (MCP接続管理)
@@ -224,10 +250,11 @@ backend-rs/
 │   ├── security.rs             # 認証・セキュリティ
 │   ├── setup_state.rs          # セットアップ状態管理
 │   │
-│   ├── context/                # コンテキスト管理
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
-│   ├── rag/                    # RAG エンジン
+│   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
+│   │   ├── store.rs            # RagStore trait
+│   │   └── lancedb.rs          # SqliteRagStore 実装
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
 └── Cargo.toml
@@ -351,9 +378,12 @@ pub struct AgentState {
   
     // Hierarchical Agent Routing
     pub agent_id: Option<String>,          // UI選択のエージェント
-    pub agent_mode: AgentMode,             // Fast | High | Direct
+    pub agent_mode: AgentMode,             // Low | High | Direct  [v4.0: Fast→Low]
     pub selected_agent_id: Option<String>, // Supervisorが選択
     pub supervisor_route: Option<SupervisorRoute>,
+  
+    // v4.0 Pipeline Context
+    pub pipeline_context: Option<PipelineContext>,  // [v4.0] WorkerPipeline出力
   
     // Shared Context for Agents
     pub shared_context: SharedContext,     // Artifacts, Notes, Plans
@@ -371,9 +401,6 @@ pub struct AgentState {
     pub search_results: Option<Vec<SearchResult>>,
     pub search_attachments: Vec<Value>,
     pub skip_web_search: bool,
-  
-    // Generation Metadata
-    pub generation_logprobs: Option<Value>,
   
     // Final Output
     pub output: Option<String>,
@@ -401,9 +428,8 @@ graph TD
     ROUTER -->|chat| THINK[ThinkingNode]
     THINK --> CHAT[ChatNode]
   
-    ROUTER -->|search| SEARCH_Q[Generate Search Query]
-    SEARCH_Q --> SEARCH_EX[Execute Search]
-    SEARCH_EX --> SEARCH_SUM[Summarize Results]
+    ROUTER -->|"search (simple)"| SEARCH[SearchNode - Fast]
+    ROUTER -->|"search (complex)"| AGENTIC["AgenticSearchNode - Deep Search [v4.0]"]
   
     ROUTER -->|agent| SUPERVISOR{Supervisor}
   
@@ -414,23 +440,25 @@ graph TD
     AGENT_EXEC --> SYNTH[SynthesizerNode]
   
     CHAT --> END([END])
-    SEARCH_SUM --> END
+    SEARCH --> END
+    AGENTIC --> END
     SYNTH --> END
 ```
 
 ### 5.3 ノード詳細
 
-| ノード              | ファイル                    | 責務                                        |
-| ------------------- | --------------------------- | ------------------------------------------- |
-| `RouterNode`      | `nodes/router.rs`         | 入力モードに基づいてChat/Search/Agentに分岐 |
-| `ThinkingNode`    | `nodes/thinking.rs`       | CoT（Chain of Thought）思考プロセス生成     |
-| `ChatNode`        | `nodes/chat.rs`           | LLMに対して直接対話応答を生成               |
-| `SearchNode`      | `nodes/search.rs`         | Web検索実行 → 再ランク → LLM要約          |
-| `SupervisorNode`  | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）      |
-| `PlannerNode`     | `nodes/planner.rs`        | タスク計画の立案                            |
-| `AgentExecutor`   | `nodes/agent_executor.rs` | ReActループでツールを実行                   |
-| `ToolNode`        | `nodes/tool.rs`           | 個別ツールの実行                            |
-| `SynthesizerNode` | `nodes/synthesizer.rs`    | エージェント結果から最終応答を生成          |
+| ノード                   | ファイル                       | 責務                                               |
+| ------------------------ | ------------------------------ | -------------------------------------------------- |
+| `RouterNode`           | `nodes/router.rs`            | 入力モードに基づいてChat/Search/Agentに分岐        |
+| `ThinkingNode`         | `nodes/thinking.rs`          | CoT（Chain of Thought）思考プロセス生成            |
+| `ChatNode`             | `nodes/chat.rs`              | LLMに対して直接対話応答を生成                      |
+| `SearchNode`           | `nodes/search.rs`            | Web検索実行 → 再ランク → LLM要約 (Fast検索)     |
+| `AgenticSearchNode`   | `nodes/search_agentic.rs`    | 4段階ディープサーチパイプライン **[v4.0]**         |
+| `SupervisorNode`       | `nodes/supervisor.rs`        | 階層的ルーティング（Planner or Agent）             |
+| `PlannerNode`          | `nodes/planner.rs`           | タスク計画の立案                                   |
+| `AgentExecutor`        | `nodes/agent_executor.rs`    | ReActループでツールを実行                          |
+| `ToolNode`             | `nodes/tool.rs`              | 個別ツールの実行                                   |
+| `SynthesizerNode`      | `nodes/synthesizer.rs`       | エージェント結果から最終応答を生成                 |
 
 ### 5.4 階層的マルチエージェントアーキテクチャ
 
@@ -446,7 +474,7 @@ graph TD
         PLAN[PlannerNode]
     end
   
-    subgraph "Execution Layer"
+    subgraph "Execution Layer (ExclusiveAgentManager)"
         A1[Custom Agent 1]
         A2[Custom Agent 2]
         AN[Custom Agent N]
@@ -454,20 +482,74 @@ graph TD
   
     SUP -->|high mode| PLAN
     PLAN -->|plan| SUP
-    SUP -->|fast/direct mode| A1
+    SUP -->|low/direct mode| A1
     SUP --> A2
     SUP --> AN
 ```
 
-**AgentMode (ルーティングモード)**:
+**AgentMode (ルーティングモード)** [v4.0: `Fast` → `Low` にリネーム]:
 
 | モード     | 動作                                                    |
 | ---------- | ------------------------------------------------------- |
 | `high`   | 必ずPlannerを経由して計画を立ててからCustom Agentを実行 |
-| `fast`   | SupervisorがLLMで判断。単純→直接Agent、複雑→Plannerへ |
+| `low`    | SupervisorがLLMで判断。単純→直接Agent、複雑→Plannerへ |
 | `direct` | 指定されたCustom Agentに直接ルーティング                |
 
-### 5.5 Thinking Mode (CoT)
+> [!NOTE]
+> `"fast"` は serde / parse でレガシーエイリアスとして引き続き受け入れられます。
+
+### 5.4.1 ExclusiveAgentManager [v4.0]
+
+**ファイル**: `src/agent/exclusive_manager.rs`
+
+レガシーの `config.yml` 内 `custom_agents` セクションに替わり、独立した `agents.yaml` ファイルでエージェント定義を管理します。
+
+| 機能 | 説明 |
+| --- | --- |
+| **CRUD + ホットリロード** | `agents.yaml` の動的読み込み・書き込み |
+| **エージェント自動選択** | タグマッチング + priority ベースのスコアリング |
+| **ツール名解決** | `web_search` → `native_search`, `mcp:tool` → `tool` |
+| **デフォルト設定生成** | `create_default_config()` で初期 agents.yaml を生成 |
+
+```yaml
+# agents.yaml
+agents:
+  coder:
+    name: "Code Assistant"
+    description: "コーディングに特化"
+    priority: 10
+    tags: ["code", "programming"]
+    tool_policy:
+      allow_all: true
+```
+
+### 5.5 Agentic Search [v4.0]
+
+**ファイル**: `src/graph/nodes/search_agentic.rs`
+
+複雑な検索クエリに対して自動的に起動する4段階ディープサーチパイプラインです。
+
+```mermaid
+graph LR
+    Q[Stage 1: Query生成] --> S[Stage 2: 並列検索+チャンク選択]
+    S --> R[Stage 3: リサーチレポート]
+    R --> A[Stage 4: 最終合成+ストリーミング]
+```
+
+| ステージ | 処理内容 |
+| --- | --- |
+| **Query生成** | LLMでユーザー入力から3〜5個のサブクエリを生成 |
+| **並列検索+チャンク選択** | サブクエリを並列実行、結果を重複排除・リランキング |
+| **リサーチレポート** | 検索結果をLLMで構造化レポートに合成 |
+| **最終合成** | レポート+元コンテキストからストリーミング回答を生成 |
+
+**ルーティング判定** (`RouterNode` 内):
+- 200文字以上の入力 → Agentic
+- 深掘りキーワード検出 (`比較`, `分析`, `詳細`, `違い` 等) → Agentic
+- `search_attachments` 非空 → Agentic
+- それ以外 → Fast (SearchNode)
+
+### 5.6 Thinking Mode (CoT)
 
 複雑な推論を必要とするリクエストに対して **Thinking Mode** をサポートしています。
 
@@ -475,7 +557,34 @@ graph TD
 - **統合**: 生成された思考プロセスは `AgentState.thought_process` に保存
 - **制御**: クライアントからのリクエストパラメータ `thinking_mode: true` で有効化
 
-### 5.6 LlamaService
+### 5.7 コンテキストパイプライン (WorkerPipeline) [v4.0]
+
+**ファイル**: `src/context/worker.rs`, `src/context/pipeline_context.rs`, `src/context/workers/`
+
+v4.0 では、コンテキスト構築をモジュラーな Worker パイプラインで行います。
+
+```mermaid
+graph LR
+    SYS[SystemWorker] --> PER[PersonaWorker]
+    PER --> MEM[MemoryWorker]
+    MEM --> TOOL[ToolWorker]
+    TOOL --> SEARCH[SearchWorker]
+    SEARCH --> RAG[RagWorker]
+    RAG --> CTX[PipelineContext]
+```
+
+| Worker | 責務 |
+| --- | --- |
+| `SystemWorker` | config からシステムプロンプト構築 + モード別コンテキスト注入 |
+| `PersonaWorker` | ペルソナ設定の注入 (モード適格性チェック付き) |
+| `MemoryWorker` | 会話履歴 + 長期記憶のロード |
+| `ToolWorker` | 利用可能ツール定義の注入 (Native + MCP) |
+| `SearchWorker` | Web検索実行 + リランキング |
+| `RagWorker` | RAGストアからのベクトル検索 |
+
+**PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) に基づいて Worker の有効/無効が決定されます。
+
+### 5.8 LlamaService
 
 **ファイル**: `src/llama.rs`
 
@@ -496,7 +605,7 @@ pub struct LlamaService {
 - Chat Completions API の提供
 - ヘルスチェック
 
-### 5.7 MCP (Model Context Protocol)
+### 5.9 MCP (Model Context Protocol)
 
 TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`git`, `filesystem` など）と接続します。
 
@@ -508,7 +617,7 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 | `McpRegistry`   | 利用可能なMCPサーバーのカタログ管理        |
 | `mcp_installer` | `npm` / `pip` を使った自動インストール |
 
-### 5.8 EM-LLM (エピソード記憶)
+### 5.10 EM-LLM (エピソード記憶)
 
 ICLR 2025採択論文「EM-LLM」の実装。人間のエピソード記憶をLLMで再現します。
 
@@ -521,7 +630,7 @@ graph TB
         Segment --> Boundary[境界精密化]
         Boundary --> RepTokens[代表トークン選択]
         RepTokens --> Embed[埋め込み計算]
-        Embed --> Store[Qdrant保存]
+        Embed --> Store[SQLite RAG保存]
     end
   
     subgraph Retrieval["検索フロー"]
@@ -532,6 +641,21 @@ graph TB
         Merge --> Context[コンテキスト注入]
     end
 ```
+
+### 5.11 RAG ストア (SqliteRagStore) [v4.0]
+
+**ファイル**: `src/rag/store.rs`, `src/rag/lancedb.rs`
+
+v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移行しました。
+
+| 機能 | 説明 |
+| --- | --- |
+| **RagStore trait** | `ingest`, `query`, `delete_by_session`, `reindex` の4メソッド抽象化 |
+| **SqliteRagStore** | SQLite + `ndarray` によるコサイン類似度計算 |
+| **セッションフィルタ** | セッション単位でのメタデータフィルタリング |
+
+> [!IMPORTANT]
+> `RagStore` trait による抽象化で、将来の LanceDB や Qdrant への移行パスを確保しています。
 
 ---
 
@@ -892,24 +1016,21 @@ characters:
   bunny_girl:
     name: "Bunny Girl"
     system_prompt: "..."
-
-custom_agents:
-  my_agent:
-    id: "agent-001"
-    name: "My Custom Agent"
-    system_prompt: "..."
-    enabled: true
 ```
+
+> [!NOTE]
+> v4.0 では `custom_agents` セクションは非推奨です。代わりに `agents.yaml` を使用してください。
 
 ### 実行時データ配置
 
 ```
 USER_DATA_DIR/
 ├── config.yml              # ユーザー設定
-├── tepora_core.db          # SQLite: チャット履歴
+├── tepora_core.db          # SQLite: チャット履歴 + RAGベクトル
 ├── logs/                   # アプリログ
 └── config/
-    └── mcp_tools_config.json   # MCP接続設定
+    ├── mcp_tools_config.json   # MCP接続設定
+    └── agents.yaml             # エージェント定義 [v4.0]
 ```
 
 **OS別データディレクトリ**:
@@ -1008,21 +1129,22 @@ task quality
 
 ### Python版からRust版への主な変更点
 
-| 項目                        | Python版     | Rust版                   |
-| --------------------------- | ------------ | ------------------------ |
-| **言語**              | Python 3.10+ | Rust 2021                |
-| **Webフレームワーク** | FastAPI      | Axum                     |
-| **グラフエンジン**    | LangGraph    | petgraph (自前実装)      |
-| **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API) |
-| **ベクトルDB**        | ChromaDB     | Qdrant                   |
-| **パッケージ管理**    | uv / pip     | Cargo                    |
-| **バイナリ配布**      | PyInstaller  | ネイティブバイナリ       |
+| 項目                        | Python版     | Rust版 (v4.0)                |
+| --------------------------- | ------------ | ---------------------------- |
+| **言語**              | Python 3.10+ | Rust 2021                    |
+| **Webフレームワーク** | FastAPI      | Axum                         |
+| **グラフエンジン**    | LangGraph    | petgraph (自前実装)          |
+| **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)     |
+| **ベクトルDB**        | ChromaDB     | SQLite + ndarray (in-process)|
+| **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)        |
+| **パッケージ管理**    | uv / pip     | Cargo                        |
+| **バイナリ配布**      | PyInstaller  | ネイティブバイナリ           |
 
 ### 今後の拡張予定
 
 - **A2A Protocol**: Agent-to-Agent通信機能
-- **Session-Scoped RAG**: メタデータフィルタリングによるセッション分離
-- **Ollama対応**: Ollamaバックエンドのサポート
+- **WorkerPipeline 完全統合**: 全ノードで v4.0 パイプラインを使用
+- **LanceDB 移行**: RagStore trait 経由で高性能ベクトルDB への移行
 
 ---
 

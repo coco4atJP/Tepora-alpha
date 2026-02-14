@@ -1,9 +1,10 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-//! Context management module.
-//!
-//! Provides token window management for LLM context.
-
-mod window;
-
-pub use window::ContextWindowManager;
+#[allow(dead_code)]
+pub mod pipeline;
+#[allow(dead_code)]
+pub mod pipeline_context;
+pub mod prompt;
+pub mod window;
+#[allow(dead_code)]
+pub mod worker;
+#[allow(dead_code)]
+pub mod workers;

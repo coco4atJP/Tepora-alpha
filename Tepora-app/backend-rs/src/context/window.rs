@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Context Window Manager.
 //!
 //! Manages the LLM context window by:

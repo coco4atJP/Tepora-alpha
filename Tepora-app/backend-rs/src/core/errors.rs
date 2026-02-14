@@ -15,6 +15,7 @@ pub enum ApiError {
     #[error("not found: {0}")]
     NotFound(String),
     #[error("not implemented: {0}")]
+    #[allow(dead_code)]
     NotImplemented(String),
     #[error("internal error: {0}")]
     Internal(String),

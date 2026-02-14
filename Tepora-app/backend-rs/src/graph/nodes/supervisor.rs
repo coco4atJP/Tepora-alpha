@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState, SupervisorRoute};
-use crate::ws::send_json;
+use crate::server::ws::handler::send_json;
 
 pub struct SupervisorNode;
 
@@ -58,8 +58,8 @@ impl Node for SupervisorNode {
                 state.supervisor_route = Some(SupervisorRoute::Planner);
                 ("planner", "planner")
             }
-            AgentMode::Fast => {
-                // Check if planning is required
+            AgentMode::Low => {
+                // Low mode: skip planner unless complexity detected
                 if requires_planning(&state.input) {
                     state.supervisor_route = Some(SupervisorRoute::Planner);
                     ("planner", "planner")
@@ -114,7 +114,7 @@ impl Node for SupervisorNode {
     }
 }
 
-/// Determines if planning is required for fast mode
+/// Determines if planning is required for low mode
 fn requires_planning(input: &str) -> bool {
     let lowered = input.to_lowercase();
 

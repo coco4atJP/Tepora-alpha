@@ -157,3 +157,6 @@ bin_bak/
 プロジェクト参考資料/
 格納/
 docs/archives/
+
+.gemini/
+gha-creds-*.json

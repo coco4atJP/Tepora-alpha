@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
-use crate::config::{AppPaths, ConfigService};
+use crate::core::config::{AppPaths, ConfigService};
 use crate::history::HistoryStore;
 use crate::llama::LlamaService;
 use crate::mcp::McpManager;
 use crate::mcp_registry::McpRegistry;
 use crate::models::ModelManager;
-use crate::security::{init_session_token, SessionToken};
+use crate::core::security::{init_session_token, SessionToken};
 use crate::setup_state::SetupState;
+use crate::llm::LlmService;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -18,6 +19,7 @@ pub struct AppState {
     pub session_token: SessionToken,
     pub history: HistoryStore,
     pub llama: LlamaService,
+    pub llm: LlmService,
     pub mcp: McpManager,
     pub mcp_registry: McpRegistry,
     pub models: ModelManager,
@@ -39,12 +41,24 @@ impl AppState {
         let setup = SetupState::new(&paths);
         let started_at = Utc::now();
 
+        // Trigger loader refresh in background
+        let models_clone = models.clone();
+        tokio::spawn(async move {
+            if let Err(e) = models_clone.refresh_all_loader_models().await {
+                tracing::warn!("Failed to refresh loader models on startup: {}", e);
+            }
+        });
+
+        // Initialize LlmService
+        let llm = LlmService::new(models.clone(), llama.clone(), config.clone())?;
+
         Ok(Arc::new(AppState {
             paths,
             config,
             session_token,
             history,
             llama,
+            llm,
             mcp,
             mcp_registry,
             models,

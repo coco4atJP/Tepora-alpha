@@ -6,9 +6,9 @@ use futures_util::StreamExt;
 use reqwest::{redirect::Policy, Client};
 use serde_json::Value;
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 use crate::mcp::McpManager;
-use crate::search::{perform_search, SearchResult};
+use crate::tools::search::{perform_search, SearchResult};
 
 #[derive(Debug, Clone)]
 pub struct ToolExecution {

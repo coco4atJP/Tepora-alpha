@@ -5,11 +5,11 @@
 //! This module provides:
 //! - `VectorStore` trait for abstraction over different vector databases
 //! - `MemorySystem` for high-level episodic memory operations
-//! - Qdrant integration for production use
+//! - LanceDB integration for in-process vector storage
 
 mod qdrant;
 
-pub use qdrant::QdrantVectorStore;
+pub use qdrant::LanceDbVectorStore;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

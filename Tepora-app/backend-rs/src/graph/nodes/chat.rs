@@ -7,7 +7,7 @@ use serde_json::json;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llama::ChatMessage;
-use crate::ws::send_json;
+use crate::server::ws::handler::send_json;
 
 pub struct ChatNode;
 
@@ -69,11 +69,37 @@ impl Node for ChatNode {
             content: state.input.clone(),
         });
 
+        // Resolve model ID
+        let model_id = {
+            let registry = ctx
+                .app_state
+                .models
+                .get_registry()
+                .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            registry
+                .role_assignments
+                .get("character")
+                .cloned()
+                .unwrap_or_else(|| "default".to_string())
+        };
+
+        // Convert messages to LLM type
+        let llm_messages: Vec<crate::llm::types::ChatMessage> = messages
+            .into_iter()
+            .map(|m| crate::llm::types::ChatMessage {
+                role: m.role,
+                content: m.content,
+            })
+            .collect();
+
+        // Build request
+        let request = crate::llm::types::ChatRequest::new(llm_messages).with_config(ctx.config);
+
         // Stream response from LLM
         let mut stream = ctx
             .app_state
-            .llama
-            .stream_chat(ctx.config, messages)
+            .llm
+            .stream_chat(request, &model_id)
             .await
             .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
 

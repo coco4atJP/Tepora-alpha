@@ -8,7 +8,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, S
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use uuid::Uuid;
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 
 const SCHEMA_VERSION: i64 = 2;
 const DEFAULT_SESSION_ID: &str = "default";

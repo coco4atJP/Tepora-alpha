@@ -11,8 +11,31 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::config::{AppPaths, ConfigService};
-use crate::errors::ApiError;
+use crate::core::config::{AppPaths, ConfigService};
+use crate::core::errors::ApiError;
+
+#[derive(Debug, Deserialize)]
+struct OllamaTagsResponse {
+    models: Vec<OllamaModel>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaModel {
+    name: String,
+    size: u64,
+    digest: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiModelsResponse {
+    data: Vec<OpenAiModelInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiModelInfo {
+    id: String,
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelEntry {
@@ -23,6 +46,10 @@ pub struct ModelEntry {
     pub filename: String,
     pub source: String,
     pub file_path: String,
+    #[serde(default)]
+    pub loader: String,
+    #[serde(default)]
+    pub loader_model_name: Option<String>,
     #[serde(default)]
     pub repo_id: Option<String>,
     #[serde(default)]
@@ -49,6 +76,7 @@ pub struct ModelDownloadPolicy {
     pub warnings: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ModelDownloadResult {
     pub success: bool,
@@ -94,6 +122,11 @@ impl ModelManager {
         }
         fs::write(&self.registry_path, data).map_err(ApiError::internal)?;
         Ok(())
+    }
+
+    pub fn get_model(&self, model_id: &str) -> Result<Option<ModelEntry>, ApiError> {
+        let registry = self.load_registry()?;
+        Ok(registry.models.into_iter().find(|m| m.id == model_id))
     }
 
     pub fn register_local_model(
@@ -142,6 +175,8 @@ impl ModelManager {
             revision: None,
             sha256: None,
             added_at: Utc::now().to_rfc3339(),
+            loader: "llama_cpp".to_string(),
+            loader_model_name: None,
         };
 
         let mut registry = self.load_registry()?;
@@ -300,6 +335,7 @@ impl ModelManager {
         Ok(true)
     }
 
+    #[allow(dead_code)]
     pub async fn get_remote_file_size(
         &self,
         repo_id: &str,
@@ -475,11 +511,146 @@ impl ModelManager {
             revision,
             sha256,
             added_at: Utc::now().to_rfc3339(),
+            loader: "llama_cpp".to_string(),
+            loader_model_name: None,
         };
 
         registry.models.push(entry.clone());
         self.save_registry(&registry)?;
         Ok(entry)
+    }
+
+    pub async fn refresh_all_loader_models(&self) -> Result<usize, ApiError> {
+        let mut count = 0;
+        count += self.refresh_ollama_models().await?;
+        count += self.refresh_lmstudio_models().await?;
+        Ok(count)
+    }
+
+    fn get_loader_url(&self, loader: &str, default: &str) -> String {
+        if let Ok(config) = self.config.load_config() {
+             if let Some(loaders) = config.get("loaders") {
+                 if let Some(loader_config) = loaders.get(loader) {
+                     if let Some(url) = loader_config.get("base_url").and_then(|v| v.as_str()) {
+                         return url.trim_end_matches('/').to_string();
+                     }
+                 }
+             }
+        }
+        default.to_string()
+    }
+
+    pub async fn refresh_ollama_models(&self) -> Result<usize, ApiError> {
+        let base_url = self.get_loader_url("ollama", "http://localhost:11434");
+        
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(2))
+            .build()
+            .map_err(ApiError::internal)?;
+            
+        let res = client.get(format!("{}/api/tags", base_url)).send().await;
+
+        let Ok(response) = res else {
+            return Ok(0);
+        };
+
+        if !response.status().is_success() {
+            return Ok(0);
+        }
+
+        let tags: OllamaTagsResponse = response.json().await.map_err(ApiError::internal)?;
+        let mut count = 0;
+        let mut registry = self.load_registry()?;
+        let now = Utc::now().to_rfc3339();
+
+        // Mark existing ollama models as needing verification or just overwrite?
+        // Simple approach: append new ones, ignore existing if logic is idempotent.
+
+        for model in tags.models {
+            let model_id = format!("ollama-{}", model.name);
+            if registry.models.iter().any(|m| m.id == model_id) {
+                continue;
+            }
+
+            let entry = ModelEntry {
+                id: model_id,
+                display_name: format!("{} (Ollama)", model.name),
+                role: "text".to_string(), // Default to text
+                file_size: model.size,
+                filename: model.name.clone(),
+                source: "ollama".to_string(),
+                file_path: format!("ollama://{}", model.name),
+                loader: "ollama".to_string(),
+                loader_model_name: Some(model.name.clone()),
+                repo_id: None,
+                revision: None,
+                sha256: Some(model.digest),
+                added_at: now.clone(),
+            };
+            registry.models.push(entry);
+            count += 1;
+        }
+
+        if count > 0 {
+            self.save_registry(&registry)?;
+        }
+
+        Ok(count)
+    }
+
+    pub async fn refresh_lmstudio_models(&self) -> Result<usize, ApiError> {
+        let base_url = self.get_loader_url("lmstudio", "http://localhost:1234");
+        
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(2))
+            .build()
+            .map_err(ApiError::internal)?;
+            
+        let res = client.get(format!("{}/v1/models", base_url)).send().await;
+
+        let Ok(response) = res else {
+            return Ok(0);
+        };
+
+        if !response.status().is_success() {
+            return Ok(0);
+        }
+
+        let body: OpenAiModelsResponse = response.json().await.map_err(ApiError::internal)?;
+        let mut count = 0;
+        let mut registry = self.load_registry()?;
+        let now = Utc::now().to_rfc3339();
+
+        for model in body.data {
+            let model_id = format!("lmstudio-{}", model.id);
+            if registry.models.iter().any(|m| m.id == model_id) {
+                continue;
+            }
+
+            let entry = ModelEntry {
+                id: model_id,
+                display_name: format!("{} (LM Studio)", model.id),
+                role: "text".to_string(),
+                file_size: 0, // LM Studio doesn't provide size in list
+                filename: model.id.clone(),
+                source: "lmstudio".to_string(),
+                file_path: format!("lmstudio://{}", model.id),
+                loader: "lmstudio".to_string(),
+                loader_model_name: Some(model.id.clone()),
+                repo_id: None,
+                revision: None,
+                sha256: None,
+                added_at: now.clone(),
+            };
+            registry.models.push(entry);
+            count += 1;
+        }
+
+        if count > 0 {
+            self.save_registry(&registry)?;
+        }
+
+        Ok(count)
     }
 
     fn load_registry(&self) -> Result<ModelRegistry, ApiError> {

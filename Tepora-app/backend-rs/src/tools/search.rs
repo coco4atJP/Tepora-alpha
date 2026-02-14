@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchResult {

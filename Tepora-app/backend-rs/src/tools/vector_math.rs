@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
-use candle_core::{Device, Tensor};
+use ndarray::Array1;
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 
 pub fn cosine_similarity(query: &[f32], candidate: &[f32]) -> Result<f32, ApiError> {
     if query.is_empty() || candidate.is_empty() {
@@ -18,22 +18,14 @@ pub fn cosine_similarity(query: &[f32], candidate: &[f32]) -> Result<f32, ApiErr
         )));
     }
 
-    let device = Device::Cpu;
-    let query_tensor =
-        Tensor::from_slice(query, query.len(), &device).map_err(ApiError::internal)?;
-    let candidate_tensor =
-        Tensor::from_slice(candidate, candidate.len(), &device).map_err(ApiError::internal)?;
+    let q = Array1::from_vec(query.to_vec());
+    let c = Array1::from_vec(candidate.to_vec());
 
-    let dot = (&query_tensor * &candidate_tensor)
-        .map_err(ApiError::internal)?
-        .sum_all()
-        .map_err(ApiError::internal)?
-        .to_scalar::<f32>()
-        .map_err(ApiError::internal)?;
-
-    let query_norm = l2_norm(&query_tensor)?;
-    let candidate_norm = l2_norm(&candidate_tensor)?;
+    let dot = q.dot(&c);
+    let query_norm = q.dot(&q).sqrt();
+    let candidate_norm = c.dot(&c).sqrt();
     let denom = query_norm * candidate_norm;
+
     if denom <= f32::EPSILON {
         return Ok(0.0);
     }
@@ -53,13 +45,6 @@ pub fn rank_descending_by_cosine(
 
     scores.sort_by(|left, right| right.1.partial_cmp(&left.1).unwrap_or(Ordering::Equal));
     Ok(scores)
-}
-
-fn l2_norm(tensor: &Tensor) -> Result<f32, ApiError> {
-    let squared = (tensor * tensor).map_err(ApiError::internal)?;
-    let sum = squared.sum_all().map_err(ApiError::internal)?;
-    let norm = sum.sqrt().map_err(ApiError::internal)?;
-    norm.to_scalar::<f32>().map_err(ApiError::internal)
 }
 
 #[cfg(test)]

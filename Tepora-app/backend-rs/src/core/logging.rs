@@ -4,7 +4,7 @@ use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::config::AppPaths;
+use crate::core::config::AppPaths;
 
 static LOG_GUARD: OnceLock<WorkerGuard> = OnceLock::new();
 

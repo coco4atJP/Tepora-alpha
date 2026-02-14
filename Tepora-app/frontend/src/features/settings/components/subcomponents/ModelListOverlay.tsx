@@ -24,6 +24,7 @@ interface ModelInfo {
 	file_size: number;
 	filename?: string;
 	source: string;
+	loader?: string;
 }
 
 interface ModelListOverlayProps {
@@ -124,11 +125,10 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 							type="button"
 							onClick={handleCheckUpdates}
 							disabled={isChecking}
-							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-								isChecking
-									? "bg-white/5 text-gray-500 cursor-not-allowed"
-									: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
-							}`}
+							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isChecking
+								? "bg-white/5 text-gray-500 cursor-not-allowed"
+								: "bg-surface-gold/10 text-gold-400 hover:bg-surface-gold/20"
+								}`}
 						>
 							<RefreshCw size={14} className={isChecking ? "animate-spin" : ""} />
 							{isChecking
@@ -152,11 +152,10 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 							type="button"
 							key={role}
 							onClick={() => setActiveTab(role)}
-							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
-								activeTab === role
-									? "text-gold-400 border-gold-400"
-									: "text-gray-500 border-transparent hover:text-gray-300"
-							}`}
+							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${activeTab === role
+								? "text-gold-400 border-gold-400"
+								: "text-gray-500 border-transparent hover:text-gray-300"
+								}`}
 						>
 							{role.charAt(0).toUpperCase() + role.slice(1)} (
 							{models.filter((m) => m.role === role).length})
@@ -176,7 +175,21 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 								className="bg-black/20 p-4 rounded-lg flex items-center justify-between group hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
 							>
 								<div>
-									<div className="font-medium text-white">{model.display_name}</div>
+									<div className="flex items-center gap-2">
+										<div className="font-medium text-white">{model.display_name}</div>
+										{model.loader && (
+											<span className={`text-[10px] px-1.5 py-0.5 rounded border ${model.loader === "ollama"
+													? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+													: model.loader === "lmstudio"
+														? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+														: "bg-blue-500/10 text-blue-400 border-blue-500/20"
+												}`}>
+												{model.loader === "llama_cpp" ? "Local" :
+													model.loader === "lmstudio" ? "LM Studio" :
+														model.loader === "ollama" ? "Ollama" : model.loader}
+											</span>
+										)}
+									</div>
 									<div className="text-xs text-gray-500">
 										{model.filename || model.source} • {(model.file_size / 1024 / 1024).toFixed(1)}{" "}
 										MB

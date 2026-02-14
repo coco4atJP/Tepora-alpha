@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde_json::{json, Value};
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 use crate::mcp::{McpServerConfig, McpServerMetadata};
 use crate::mcp_registry::{McpEnvVar, McpRegistryPackage, McpRegistryServer};
 

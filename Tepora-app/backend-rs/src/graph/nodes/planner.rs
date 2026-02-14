@@ -7,7 +7,7 @@ use serde_json::json;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llama::ChatMessage;
-use crate::ws::send_json;
+use crate::server::ws::handler::send_json;
 
 pub struct PlannerNode;
 

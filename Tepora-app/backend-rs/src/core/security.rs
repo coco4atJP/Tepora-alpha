@@ -7,7 +7,7 @@ use std::process::Command;
 use axum::http::HeaderMap;
 use uuid::Uuid;
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 
 const API_KEY_HEADER: &str = "x-api-key";
 

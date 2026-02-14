@@ -32,6 +32,7 @@ tar = "0.4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 rmcp = { version = "0.14.0", features = ["client", "transport-child-process", "transport-streamable-http-client", "transport-streamable-http-client-reqwest"] }
 schemars = "1"
-candle-core = "0.9"
-qdrant-client = "1.12"
 ndarray = "0.15"
+
+[dev-dependencies]
+tempfile = "3"

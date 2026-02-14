@@ -3,8 +3,8 @@
 
 use super::node::GraphError;
 use super::nodes::{
-    AgentExecutorNode, ChatNode, PlannerNode, RouterNode, SearchNode, SupervisorNode,
-    SynthesizerNode, ThinkingNode,
+    AgentExecutorNode, AgenticSearchNode, ChatNode, PlannerNode, RouterNode, SearchNode,
+    SupervisorNode, SynthesizerNode, ThinkingNode,
 };
 use super::runtime::{GraphBuilder, GraphRuntime};
 
@@ -18,8 +18,9 @@ pub fn build_tepora_graph() -> Result<GraphRuntime, GraphError> {
         // Chat mode path
         .node(Box::new(ThinkingNode::new()))
         .node(Box::new(ChatNode::new()))
-        // Search mode path
+        // Search mode path (Fast + Agentic)
         .node(Box::new(SearchNode::new()))
+        .node(Box::new(AgenticSearchNode::new()))
         // Agent mode path
         .node(Box::new(SupervisorNode::new()))
         .node(Box::new(PlannerNode::new()))
@@ -29,6 +30,7 @@ pub fn build_tepora_graph() -> Result<GraphRuntime, GraphError> {
         .conditional_edge("router", "thinking", "thinking")
         .conditional_edge("router", "chat", "chat")
         .conditional_edge("router", "search", "search")
+        .conditional_edge("router", "search_agentic", "search_agentic")
         .conditional_edge("router", "supervisor", "supervisor")
         // Thinking -> Chat (default edge)
         .edge("thinking", "chat")

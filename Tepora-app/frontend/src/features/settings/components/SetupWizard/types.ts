@@ -9,7 +9,7 @@ export type SetupStep =
 	| "COMPLETE"
 	| "ERROR";
 
-export type SetupLoader = "llama_cpp" | "ollama";
+export type SetupLoader = "llama_cpp" | "ollama" | "lmstudio";
 
 export interface SetupState {
 	step: SetupStep;

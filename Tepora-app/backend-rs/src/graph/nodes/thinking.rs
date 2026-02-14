@@ -7,7 +7,7 @@ use serde_json::json;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llama::ChatMessage;
-use crate::ws::send_json;
+use crate::server::ws::handler::send_json;
 
 pub struct ThinkingNode;
 
@@ -69,11 +69,37 @@ impl Node for ThinkingNode {
             },
         ];
 
+        // Resolve model ID
+        let model_id = {
+            let registry = ctx
+                .app_state
+                .models
+                .get_registry()
+                .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            registry
+                .role_assignments
+                .get("character") // Or 'thinking' role if separate
+                .cloned()
+                .unwrap_or_else(|| "default".to_string())
+        };
+
+        // Convert messages
+        let llm_messages: Vec<crate::llm::types::ChatMessage> = thinking_messages
+            .into_iter()
+            .map(|m| crate::llm::types::ChatMessage {
+                role: m.role,
+                content: m.content,
+            })
+            .collect();
+
+        // Build request
+        let request = crate::llm::types::ChatRequest::new(llm_messages).with_config(ctx.config);
+
         // Generate thinking process
         let thought = ctx
             .app_state
-            .llama
-            .chat(ctx.config, thinking_messages)
+            .llm
+            .chat(request, &model_id)
             .await
             .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
 

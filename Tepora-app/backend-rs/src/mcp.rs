@@ -16,8 +16,8 @@ use serde_json::{json, Map, Value};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
-use crate::config::{AppPaths, ConfigService};
-use crate::errors::ApiError;
+use crate::core::config::{AppPaths, ConfigService};
+use crate::core::errors::ApiError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct McpToolsConfig {

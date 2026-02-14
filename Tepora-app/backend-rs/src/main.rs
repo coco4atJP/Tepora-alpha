@@ -1,26 +1,22 @@
 mod a2a;
-mod api;
-mod config;
+mod agent;
 mod context;
+mod core;
 mod em_llm;
-mod errors;
 mod graph;
 mod history;
 mod llama;
-mod logging;
+mod llm;
 mod mcp;
 mod mcp_installer;
 mod mcp_registry;
 mod memory;
 mod models;
 mod rag;
-mod search;
-mod security;
+mod server;
 mod setup_state;
 mod state;
-mod tooling;
-mod vector_math;
-mod ws;
+mod tools;
 
 use std::env;
 
@@ -33,7 +29,7 @@ use crate::state::AppState;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let state = AppState::initialize().await?;
-    logging::init(&state.paths);
+    core::logging::init(&state.paths);
 
     if let Err(err) = state.mcp.initialize().await {
         tracing::warn!("Failed to initialize MCP: {}", err);
@@ -53,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     println!("TEPORA_PORT={}", addr.port());
     tracing::info!("Listening on {}", addr);
 
-    let app: Router = api::router(state.clone());
+    let app: Router = server::router::router(state.clone());
 
     // Initialize graph (check build)
     match graph::build_tepora_graph() {

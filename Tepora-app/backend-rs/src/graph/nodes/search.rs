@@ -7,9 +7,9 @@ use serde_json::json;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llama::ChatMessage;
-use crate::search::perform_search;
-use crate::vector_math;
-use crate::ws::send_json;
+use crate::tools::search::perform_search;
+use crate::tools::vector_math;
+use crate::server::ws::handler::send_json;
 
 pub struct SearchNode;
 
@@ -145,11 +145,37 @@ impl Node for SearchNode {
             content: state.input.clone(),
         });
 
+        // Resolve model ID
+        let model_id = {
+            let registry = ctx
+                .app_state
+                .models
+                .get_registry()
+                .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            registry
+                .role_assignments
+                .get("character")
+                .cloned()
+                .unwrap_or_else(|| "default".to_string())
+        };
+
+        // Convert messages
+        let llm_messages: Vec<crate::llm::types::ChatMessage> = messages
+            .into_iter()
+            .map(|m| crate::llm::types::ChatMessage {
+                role: m.role,
+                content: m.content,
+            })
+            .collect();
+
+        // Build request
+        let request = crate::llm::types::ChatRequest::new(llm_messages).with_config(ctx.config);
+
         // Stream response
         let mut stream = ctx
             .app_state
-            .llama
-            .stream_chat(ctx.config, messages)
+            .llm
+            .stream_chat(request, &model_id)
             .await
             .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
 
@@ -203,8 +229,8 @@ async fn rerank_with_embeddings(
     app_state: &crate::state::AppState,
     config: &serde_json::Value,
     query: &str,
-    results: Vec<crate::search::SearchResult>,
-) -> Vec<crate::search::SearchResult> {
+    results: Vec<crate::tools::search::SearchResult>,
+) -> Vec<crate::tools::search::SearchResult> {
     let enabled = config
         .get("search")
         .and_then(|v| v.get("embedding_rerank"))
@@ -215,13 +241,27 @@ async fn rerank_with_embeddings(
         return results;
     }
 
+    // Resolve embedding model ID
+    let model_id = match app_state.models.get_registry() {
+        Ok(registry) => registry
+            .role_assignments
+            .get("embedding")
+            .cloned(),
+        Err(_) => None,
+    };
+
+    let model_id = match model_id {
+        Some(id) => id,
+        None => return results, // No embedding model assigned
+    };
+
     let mut inputs = Vec::with_capacity(results.len() + 1);
     inputs.push(query.to_string());
     for result in &results {
         inputs.push(format!("{}\n{}", result.title, result.snippet));
     }
 
-    let embeddings = match app_state.llama.embed(config, &inputs).await {
+    let embeddings = match app_state.llm.embed(&inputs, &model_id).await {
         Ok(vectors) => vectors,
         Err(_) => return results,
     };

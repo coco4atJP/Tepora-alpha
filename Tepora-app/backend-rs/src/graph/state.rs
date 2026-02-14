@@ -5,8 +5,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+use crate::context::pipeline_context::PipelineContext;
 use crate::llama::ChatMessage;
-use crate::search::SearchResult;
+use crate::tools::search::SearchResult;
 
 /// Execution modes for the graph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -37,11 +38,15 @@ impl Mode {
 }
 
 /// Agent execution modes (for Agent mode routing)
+///
+/// - `Low`: Lightweight agent — skips planner unless complexity detected
+/// - `High`: Full planning pipeline — always goes through Planner node
+/// - `Direct`: Bypass supervisor, execute agent directly
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentMode {
     #[default]
-    Fast,
+    Low,
     High,
     Direct,
 }
@@ -51,13 +56,15 @@ impl AgentMode {
         match s.map(|v| v.trim().to_lowercase()).as_deref() {
             Some("high") => AgentMode::High,
             Some("direct") => AgentMode::Direct,
-            _ => AgentMode::Fast,
+            // "fast" is accepted as legacy alias for "low"
+            Some("low" | "fast") => AgentMode::Low,
+            _ => AgentMode::Low,
         }
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            AgentMode::Fast => "fast",
+            AgentMode::Low => "low",
             AgentMode::High => "high",
             AgentMode::Direct => "direct",
         }
@@ -113,6 +120,9 @@ pub struct AgentState {
     // Shared context for agents
     pub shared_context: SharedContext,
 
+    // v4.0: Modular context pipeline output
+    pub pipeline_context: Option<PipelineContext>,
+
     // Agent ReAct loop state
     pub agent_scratchpad: Vec<ChatMessage>,
     pub agent_outcome: Option<String>,
@@ -127,9 +137,6 @@ pub struct AgentState {
     pub search_attachments: Vec<Value>,
     pub skip_web_search: bool,
 
-    // Generation metadata
-    pub generation_logprobs: Option<Value>,
-
     // Final output
     pub output: Option<String>,
     pub error: Option<String>,
@@ -143,10 +150,11 @@ impl AgentState {
             mode,
             chat_history: Vec::new(),
             agent_id: None,
-            agent_mode: AgentMode::Fast,
+            agent_mode: AgentMode::Low,
             selected_agent_id: None,
             supervisor_route: None,
             shared_context: SharedContext::default(),
+            pipeline_context: None,
             agent_scratchpad: Vec::new(),
             agent_outcome: None,
             thinking_enabled: false,
@@ -155,7 +163,6 @@ impl AgentState {
             search_results: None,
             search_attachments: Vec::new(),
             skip_web_search: false,
-            generation_logprobs: None,
             output: None,
             error: None,
         }
@@ -184,6 +191,7 @@ impl AgentState {
             selected_agent_id: None,
             supervisor_route: None,
             shared_context: SharedContext::default(),
+            pipeline_context: None,
             agent_scratchpad: Vec::new(),
             agent_outcome: None,
             thinking_enabled: thinking_mode,
@@ -192,7 +200,6 @@ impl AgentState {
             search_results: None,
             search_attachments: attachments,
             skip_web_search,
-            generation_logprobs: None,
             output: None,
             error: None,
         }

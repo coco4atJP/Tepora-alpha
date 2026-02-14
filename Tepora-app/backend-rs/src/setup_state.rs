@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::config::AppPaths;
-use crate::errors::ApiError;
+use crate::core::config::AppPaths;
+use crate::core::errors::ApiError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetupProgress {

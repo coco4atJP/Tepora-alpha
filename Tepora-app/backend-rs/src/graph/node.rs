@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::errors::ApiError;
+use crate::core::errors::ApiError;
 use crate::state::AppState;
 
 use super::state::AgentState;

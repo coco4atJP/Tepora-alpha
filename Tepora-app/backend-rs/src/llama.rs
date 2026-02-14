@@ -13,8 +13,8 @@ use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use crate::config::AppPaths;
-use crate::errors::ApiError;
+use crate::core::config::AppPaths;
+use crate::core::errors::ApiError;
 
 const DEFAULT_N_CTX: i32 = 8192;
 const DEFAULT_N_GPU_LAYERS: i32 = -1;
