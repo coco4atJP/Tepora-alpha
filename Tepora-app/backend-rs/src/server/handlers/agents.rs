@@ -174,9 +174,7 @@ fn parse_agent_payload(
     let tool_policy = match payload.get("tool_policy") {
         Some(value) => serde_json::from_value::<AgentToolPolicy>(value.clone())
             .map_err(|e| ApiError::BadRequest(format!("Invalid tool_policy: {e}")))?,
-        None => existing
-            .map(|a| a.tool_policy)
-            .unwrap_or_default(),
+        None => existing.map(|a| a.tool_policy).unwrap_or_default(),
     };
 
     Ok(ExecutionAgent {
