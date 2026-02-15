@@ -194,10 +194,35 @@ Tepora_Project/
 backend-rs/
 ├── src/
 │   ├── main.rs                 # エントリーポイント
-│   ├── api.rs                  # REST API ルート定義
-│   ├── ws.rs                   # WebSocket ハンドラ
-│   ├── state.rs                # AppState (アプリケーション状態)
-│   ├── config.rs               # 設定管理 (ConfigService, AppPaths)
+│   │
+│   ├── server/                 # ========== サーバー層 ==========
+│   │   ├── handlers/           # REST API ハンドラ
+│   │   ├── ws/                 # WebSocket ハンドラ
+│   │   ├── router.rs           # ルーティング定義
+│   │   └── mod.rs
+│   │
+│   ├── core/                   # ========== コア機能 ==========
+│   │   ├── config/             # 設定管理
+│   │   ├── security.rs         # 認証・セキュリティ
+│   │   ├── errors.rs           # エラー定義
+│   │   ├── logging.rs          # ログ設定
+│   │   └── mod.rs
+│   │
+│   ├── state/                  # ========== 状態管理 ==========
+│   │   ├── mod.rs              # AppState (アプリケーション状態)
+│   │   └── setup.rs            # セットアップ状態
+│   │
+│   ├── llm/                    # ========== LLM 統合 ==========
+│   │   ├── llama_service.rs    # LlamaService (推論サーバー管理)
+│   │   ├── service.rs          # LlmService (高レベル抽象化)
+│   │   ├── provider.rs         # プロバイダー抽象化
+│   │   └── mod.rs
+│   │
+│   ├── mcp/                    # ========== MCP ==========
+│   │   ├── mod.rs              # McpManager (MCP接続管理)
+│   │   ├── registry.rs         # MCPサーバーカタログ
+│   │   ├── installer.rs        # MCPサーバーインストーラー
+│   │   └── setup.rs            # MCP初期セットアップ
 │   │
 │   ├── graph/                  # ========== グラフエンジン ==========
 │   │   ├── mod.rs              # モジュール公開
@@ -205,56 +230,29 @@ backend-rs/
 │   │   ├── builder.rs          # GraphBuilder (構築ヘルパー)
 │   │   ├── state.rs            # AgentState 定義
 │   │   ├── node.rs             # Node トレイト定義
-│   │   └── nodes/              # ノード実装
-│   │       ├── chat.rs         # ChatNode (直接対話)
-│   │       ├── search.rs       # SearchNode (検索+要約)
-│   │       ├── search_agentic.rs # AgenticSearchNode (深層検索) [v4.0]
-│   │       ├── thinking.rs     # ThinkingNode (CoT)
-│   │       ├── supervisor.rs   # SupervisorNode (ルーティング)
-│   │       ├── planner.rs      # PlannerNode (計画立案)
-│   │       ├── agent_executor.rs # AgentExecutor (ReActループ)
-│   │       ├── synthesizer.rs  # SynthesizerNode (最終応答生成)
-│   │       ├── router.rs       # RouterNode (モード分岐)
-│   │       └── tool.rs         # ToolNode (ツール実行)
+│   │   └── nodes/              # ノード実装 (chat, search, agentic, thinking, etc.)
 │   │
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── exclusive_manager.rs # ExclusiveAgentManager [v4.0]
 │   │   ├── runtime.rs          # エージェント実行ランタイム
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   ├── planner.rs          # プランナーロジック
-│   │   ├── policy.rs           # ツールポリシー
-│   │   └── instructions.rs     # エージェント指示テンプレート
+│   │   └── ...
 │   │
 │   ├── context/                # ========== コンテキストパイプライン ==========
 │   │   ├── pipeline.rs         # ContextPipeline (レガシー + v4 bridge)
 │   │   ├── pipeline_context.rs # PipelineContext (v4.0 構造体) [v4.0]
 │   │   ├── worker.rs           # ContextWorker trait + WorkerPipeline [v4.0]
 │   │   ├── workers/            # Worker 実装群 [v4.0]
-│   │   │   ├── system_worker.rs
-│   │   │   ├── persona_worker.rs
-│   │   │   ├── memory_worker.rs
-│   │   │   ├── tool_worker.rs
-│   │   │   ├── search_worker.rs
-│   │   │   └── rag_worker.rs
-│   │   ├── prompt.rs           # プロンプト構築
-│   │   └── window.rs           # コンテキストウィンドウ管理
+│   │   └── ...
 │   │
-│   ├── llama.rs                # LlamaService (推論サーバー管理)
-│   ├── mcp.rs                  # McpManager (MCP接続管理)
-│   ├── mcp_registry.rs         # MCPサーバーカタログ
-│   ├── mcp_installer.rs        # MCPサーバーインストーラー
-│   ├── models.rs               # ModelManager (モデル管理)
-│   ├── history.rs              # HistoryStore (チャット履歴)
-│   ├── search.rs               # 検索エンジン統合
-│   ├── tooling.rs              # ToolManager (ツール管理)
-│   ├── security.rs             # 認証・セキュリティ
-│   ├── setup_state.rs          # セットアップ状態管理
+│   ├── models/                 # ModelManager (モデル管理)
+│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── search/                 # 検索エンジン統合
+│   ├── tools/                  # ToolManager (ツール管理)
 │   │
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
 │   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
-│   │   ├── store.rs            # RagStore trait
-│   │   └── sqlite.rs           # SqliteRagStore 実装
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
 └── Cargo.toml
@@ -308,7 +306,7 @@ frontend/
 
 `Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。
 
-**ファイル**: `src/state.rs`
+**ファイル**: `src/state/mod.rs`
 
 ```rust
 pub struct AppState {
@@ -316,12 +314,14 @@ pub struct AppState {
     pub config: ConfigService,       // 設定ファイルの読み書き
     pub session_token: SessionToken, // セッショントークン
     pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
-    pub llama: LlamaService,         // 推論サーバー管理
+    pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
+    pub llm: LlmService,             // LLMサービス (高レベル抽象化)
     pub mcp: McpManager,             // MCPクライアント管理
     pub mcp_registry: McpRegistry,   // MCPサーバーカタログ
     pub models: ModelManager,        // モデル管理
     pub setup: SetupState,           // セットアップ状態
     pub started_at: DateTime<Utc>,   // 起動時刻
+    // ...他: exclusive_agents, rag_store, graph_runtime, em_memory_service
 }
 ```
 
@@ -584,11 +584,11 @@ graph LR
 
 **PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) に基づいて Worker の有効/無効が決定されます。
 
-### 5.8 LlamaService
+### 5.8 LlamaService & LlmService
 
-**ファイル**: `src/llama.rs`
+**ファイル**: `src/llm/llama_service.rs`, `src/llm/service.rs`
 
-llama.cpp (llama-server) プロセスを管理するサービスです。
+`LlamaService` は llama.cpp (llama-server) プロセスを管理し、`LlmService` はより高レベルな抽象化を提供します。
 
 ```rust
 pub struct LlamaService {
@@ -609,7 +609,7 @@ pub struct LlamaService {
 
 TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`git`, `filesystem` など）と接続します。
 
-**ファイル**: `src/mcp.rs`, `src/mcp_registry.rs`, `src/mcp_installer.rs`
+**ファイル**: `src/mcp/mod.rs`, `src/mcp/registry.rs`, `src/mcp/installer.rs`
 
 | コンポーネント    | 責務                                       |
 | ----------------- | ------------------------------------------ |
