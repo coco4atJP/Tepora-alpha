@@ -655,7 +655,7 @@ impl McpManager {
             "local_only" => {
                 if !is_local {
                     Err("Policy 'local_only' only allows local servers".to_string())
-                    } else {
+                } else {
                     Ok(())
                 }
             }
@@ -817,16 +817,16 @@ fn format_tool_result(result: &rmcp::model::CallToolResult) -> String {
         let mut msg = String::from("Tool execution error:");
         if !result.content.is_empty() {
             for item in &result.content {
-                 msg.push_str(&format!("\n- {:?}", item));
+                msg.push_str(&format!("\n- {:?}", item));
             }
         }
         return msg;
     }
-    
+
     let msg = String::new();
     if !result.content.is_empty() {
         for item in &result.content {
-             match item {
+            match item {
                 // Match anything for now to bypass ambiguous type error
                 _ => {
                     // TODO: Fix rmcp::model::Content usage

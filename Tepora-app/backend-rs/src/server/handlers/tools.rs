@@ -1,14 +1,14 @@
-use std::sync::Arc;
 use axum::extract::State;
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
-use axum::http::HeaderMap;
 use serde_json::json;
+use std::sync::Arc;
 
-use crate::state::AppState;
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
 use crate::mcp::McpToolInfo;
+use crate::state::AppState;
 
 pub async fn list_tools(
     State(state): State<Arc<AppState>>,

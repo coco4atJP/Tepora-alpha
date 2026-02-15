@@ -5,11 +5,11 @@ use std::path::{Component, Path as FsPath, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::extract::{Query, State, Path};
-use axum::response::IntoResponse;
-use axum::Json;
+use axum::extract::{Path, Query, State};
 use axum::http::header;
 use axum::http::HeaderMap;
+use axum::response::IntoResponse;
+use axum::Json;
 use chrono::Utc;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
@@ -20,10 +20,10 @@ use tar::Archive;
 use uuid::Uuid;
 use zip::ZipArchive;
 
-use crate::state::AppState;
+use super::utils::{ensure_object_path, resolve_model_path};
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use super::utils::{ensure_object_path, resolve_model_path};
+use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct SetupInitRequest {
@@ -542,10 +542,7 @@ pub async fn setup_register_local_model(
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
     let path = std::path::Path::new(&payload.path);
-    let filename = path
-        .file_name()
-        .and_then(|v| v.to_str())
-        .unwrap_or("model");
+    let filename = path.file_name().and_then(|v| v.to_str()).unwrap_or("model");
     let display_name = format!("Local: {}", filename);
     let entry = state
         .models

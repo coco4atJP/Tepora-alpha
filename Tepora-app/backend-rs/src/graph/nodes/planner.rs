@@ -82,7 +82,8 @@ impl Node for PlannerNode {
             state.pipeline_context = Some(pipeline_ctx);
         }
 
-        let selected_agent = resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
+        let selected_agent =
+            resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
         let agent_chat_config = build_agent_chat_config(ctx.config, selected_agent.as_ref());
         let plan = generate_execution_plan(
             ctx.app_state,

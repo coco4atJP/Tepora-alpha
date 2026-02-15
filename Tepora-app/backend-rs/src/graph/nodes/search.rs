@@ -214,7 +214,8 @@ impl Node for SearchNode {
         .await
         .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-        let rag_chunks: Vec<ChunkSearchResult> = parse_json_payload(&rag_execution.output).unwrap_or_default();
+        let rag_chunks: Vec<ChunkSearchResult> =
+            parse_json_payload(&rag_execution.output).unwrap_or_default();
 
         if rag_chunks.is_empty() {
             let fallback_message = if web_failed {

@@ -1,14 +1,14 @@
-use std::sync::Arc;
 use axum::extract::State;
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
-use axum::http::HeaderMap;
 use serde_json::{json, Value};
+use std::sync::Arc;
 
-use crate::state::AppState;
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
 use crate::server::handlers::utils::absolutize_mcp_path;
+use crate::state::AppState;
 
 pub async fn get_config(
     State(state): State<Arc<AppState>>,

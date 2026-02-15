@@ -112,13 +112,8 @@ impl EmMemoryService {
             return Err(ApiError::internal("EM memory embedding is empty"));
         };
 
-        self.ingest_interaction_with_embedding(
-            session_id,
-            user_input,
-            assistant_output,
-            embedding,
-        )
-        .await
+        self.ingest_interaction_with_embedding(session_id, user_input, assistant_output, embedding)
+            .await
     }
 
     pub async fn ingest_interaction_with_embedding(
@@ -162,7 +157,9 @@ impl EmMemoryService {
         let embeddings = llm
             .embed(&[query], embedding_model_id)
             .await
-            .map_err(|err| ApiError::internal(format!("EM memory retrieval embedding failed: {err}")))?;
+            .map_err(|err| {
+                ApiError::internal(format!("EM memory retrieval embedding failed: {err}"))
+            })?;
 
         let Some(query_embedding) = embeddings.first() else {
             return Ok(Vec::new());

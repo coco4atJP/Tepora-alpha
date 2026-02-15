@@ -1,8 +1,8 @@
-use std::sync::Arc;
-use serde_json::Value;
 use crate::state::AppState;
 use crate::tools::search::SearchResult;
 use crate::tools::vector_math;
+use serde_json::Value;
+use std::sync::Arc;
 
 pub async fn rerank_search_results_with_embeddings(
     state: &Arc<AppState>,
@@ -20,9 +20,9 @@ pub async fn rerank_search_results_with_embeddings(
         inputs.push(format!("{}\n{}", result.title, result.snippet));
     }
 
-use crate::models::types::ModelRuntimeConfig;
+    use crate::models::types::ModelRuntimeConfig;
 
-// ... existing imports ...
+    // ... existing imports ...
 
     let model_cfg = match ModelRuntimeConfig::for_embedding(config) {
         Ok(c) => c,

@@ -43,13 +43,23 @@ impl ChatRequest {
             .and_then(|v| v.get("text_model").or_else(|| v.get("character_model")));
 
         if let Some(cfg) = model_cfg {
-            self.temperature = cfg.get("temperature").and_then(|v| v.as_f64()).or(self.temperature);
+            self.temperature = cfg
+                .get("temperature")
+                .and_then(|v| v.as_f64())
+                .or(self.temperature);
             self.top_p = cfg.get("top_p").and_then(|v| v.as_f64()).or(self.top_p);
             self.top_k = cfg.get("top_k").and_then(|v| v.as_i64()).or(self.top_k);
-            self.repeat_penalty = cfg.get("repeat_penalty").and_then(|v| v.as_f64()).or(self.repeat_penalty);
-            self.max_tokens = cfg.get("max_tokens").and_then(|v| v.as_i64()).map(|v| v as i32).or(self.max_tokens);
+            self.repeat_penalty = cfg
+                .get("repeat_penalty")
+                .and_then(|v| v.as_f64())
+                .or(self.repeat_penalty);
+            self.max_tokens = cfg
+                .get("max_tokens")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .or(self.max_tokens);
         }
-        
+
         self
     }
 }

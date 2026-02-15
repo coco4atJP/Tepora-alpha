@@ -18,7 +18,6 @@ impl CustomToolPolicy {
         }
     }
 
-
     pub fn is_tool_allowed(&self, tool_name: &str) -> bool {
         if self.denied_tools.contains(tool_name) {
             return false;
@@ -33,4 +32,3 @@ impl CustomToolPolicy {
         self.require_confirmation.contains(tool_name)
     }
 }
-

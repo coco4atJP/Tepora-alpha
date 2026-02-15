@@ -14,8 +14,8 @@ use crate::graph::state::{AgentState, Artifact};
 use crate::llm::{ChatMessage, ChatRequest};
 use crate::rag::{ChunkSearchResult, StoredChunk};
 use crate::server::ws::handler::send_json;
-use crate::tools::search::SearchResult;
 use crate::tools::execute_tool;
+use crate::tools::search::SearchResult;
 
 pub struct AgenticSearchNode;
 
@@ -120,9 +120,8 @@ impl Node for AgenticSearchNode {
         )
         .await;
 
-        let (selected_chunks, display_results) = self
-            .search_and_select(state, ctx, &sub_queries)
-            .await?;
+        let (selected_chunks, display_results) =
+            self.search_and_select(state, ctx, &sub_queries).await?;
 
         state.search_results = Some(display_results.clone());
         let _ = send_json(
@@ -299,7 +298,9 @@ impl AgenticSearchNode {
             .llm
             .chat(request, &model_id)
             .await
-            .map_err(|err| GraphError::new(self.id(), format!("sub-query generation failed: {err}")))?;
+            .map_err(|err| {
+                GraphError::new(self.id(), format!("sub-query generation failed: {err}"))
+            })?;
 
         let parsed = parse_json_payload::<Vec<String>>(&response).unwrap_or_default();
         let mut queries = vec![state.input.clone()];
@@ -324,7 +325,8 @@ impl AgenticSearchNode {
         for query in sub_queries {
             self.merge_similarity_results(state, ctx, query, &mut merged)
                 .await?;
-            self.merge_text_results(state, ctx, query, &mut merged).await?;
+            self.merge_text_results(state, ctx, query, &mut merged)
+                .await?;
         }
 
         let search_enabled = ctx

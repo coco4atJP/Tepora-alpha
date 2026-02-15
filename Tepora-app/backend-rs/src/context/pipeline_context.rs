@@ -37,7 +37,7 @@ impl PipelineMode {
             PipelineMode::Chat
                 | PipelineMode::SearchFast
                 | PipelineMode::AgentHigh // Synthesis only
-                | PipelineMode::AgentLow  // Synthesis only
+                | PipelineMode::AgentLow // Synthesis only
         )
     }
 
@@ -67,9 +67,7 @@ impl PipelineMode {
     pub fn has_scratchpad(&self) -> bool {
         matches!(
             self,
-            PipelineMode::AgentHigh
-                | PipelineMode::AgentLow
-                | PipelineMode::AgentDirect
+            PipelineMode::AgentHigh | PipelineMode::AgentLow | PipelineMode::AgentDirect
         )
     }
 
@@ -328,9 +326,7 @@ impl PipelineContext {
             if let Ok(json) = serde_json::to_string_pretty(&self.search_results) {
                 out.push(ChatMessage {
                     role: "system".to_string(),
-                    content: format!(
-                        "Web search results (cite as [Source: URL]):\n{json}"
-                    ),
+                    content: format!("Web search results (cite as [Source: URL]):\n{json}"),
                 });
             }
         }
@@ -405,10 +401,7 @@ impl PipelineContext {
         let mut parts = self.system_parts.clone();
         parts.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        let mut sections: Vec<String> = parts
-            .iter()
-            .map(|p| p.content.clone())
-            .collect();
+        let mut sections: Vec<String> = parts.iter().map(|p| p.content.clone()).collect();
 
         // Inject persona if present
         if let Some(persona) = &self.persona {
@@ -430,14 +423,16 @@ impl PipelineContext {
     /// Estimate total tokens in the compiled context.
     pub fn estimate_tokens(&self) -> usize {
         let messages = self.to_messages();
-        messages
-            .iter()
-            .map(|m| m.content.len().div_ceil(4))
-            .sum()
+        messages.iter().map(|m| m.content.len().div_ceil(4)).sum()
     }
 
     /// Add a system part.
-    pub fn add_system_part(&mut self, label: impl Into<String>, content: impl Into<String>, priority: u8) {
+    pub fn add_system_part(
+        &mut self,
+        label: impl Into<String>,
+        content: impl Into<String>,
+        priority: u8,
+    ) {
         self.system_parts.push(SystemPart {
             label: label.into(),
             content: content.into(),

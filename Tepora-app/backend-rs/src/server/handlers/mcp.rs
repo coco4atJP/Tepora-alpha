@@ -1,19 +1,19 @@
-use std::sync::{Arc, Mutex, OnceLock};
-use std::collections::HashMap;
 use axum::extract::{Path, Query, State};
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
-use axum::http::HeaderMap;
+use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use chrono::{Duration as ChronoDuration, Utc};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
 
-use crate::state::AppState;
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use crate::mcp::registry::McpRegistryServer;
 use crate::mcp::installer as mcp_installer;
+use crate::mcp::registry::McpRegistryServer;
+use crate::state::AppState;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct McpStoreQuery {

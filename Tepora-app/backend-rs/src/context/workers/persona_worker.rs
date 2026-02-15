@@ -39,10 +39,7 @@ impl ContextWorker for PersonaWorker {
     ) -> Result<(), WorkerError> {
         // Only inject persona for user-facing modes
         if !ctx.mode.has_persona() {
-            return Err(WorkerError::skipped(
-                "persona",
-                "mode does not use persona",
-            ));
+            return Err(WorkerError::skipped("persona", "mode does not use persona"));
         }
 
         let config = state.config.load_config().unwrap_or_default();
@@ -85,10 +82,7 @@ impl ContextWorker for PersonaWorker {
                 prompt_text,
             });
         } else {
-            return Err(WorkerError::skipped(
-                "persona",
-                "no persona config found",
-            ));
+            return Err(WorkerError::skipped("persona", "no persona config found"));
         }
 
         Ok(())

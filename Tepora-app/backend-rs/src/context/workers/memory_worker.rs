@@ -40,7 +40,9 @@ impl ContextWorker for MemoryWorker {
             .history
             .get_history(&ctx.session_id, self.history_limit)
             .await
-            .map_err(|e| WorkerError::retryable("memory", format!("Failed to load history: {e}")))?;
+            .map_err(|e| {
+                WorkerError::retryable("memory", format!("Failed to load history: {e}"))
+            })?;
 
         let mut chat_messages = Vec::new();
         for msg in history_messages {

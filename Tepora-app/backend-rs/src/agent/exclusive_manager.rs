@@ -78,9 +78,7 @@ pub struct AgentToolPolicy {
 impl AgentToolPolicy {
     /// Convert to the existing `CustomToolPolicy` for compatibility.
     pub fn to_custom_tool_policy(&self) -> CustomToolPolicy {
-        let allow_all = self
-            .allow_all
-            .unwrap_or(self.allowed_tools.is_empty());
+        let allow_all = self.allow_all.unwrap_or(self.allowed_tools.is_empty());
 
         CustomToolPolicy {
             allow_all,
@@ -227,11 +225,7 @@ impl ExclusiveAgentManager {
     /// Get all enabled agents.
     pub fn list_enabled(&self) -> Vec<ExecutionAgent> {
         let guard = self.agents.read().unwrap_or_else(|e| e.into_inner());
-        guard
-            .values()
-            .filter(|a| a.enabled)
-            .cloned()
-            .collect()
+        guard.values().filter(|a| a.enabled).cloned().collect()
     }
 
     /// Get all agents (including disabled).
@@ -260,10 +254,7 @@ impl ExclusiveAgentManager {
         let guard = self.agents.read().unwrap_or_else(|e| e.into_inner());
 
         // 1. Exact ID match
-        if let Some(id) = requested_agent_id
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-        {
+        if let Some(id) = requested_agent_id.map(str::trim).filter(|v| !v.is_empty()) {
             if let Some(agent) = guard.get(id).filter(|a| a.enabled) {
                 return Some(agent.clone());
             }
@@ -424,9 +415,8 @@ fn load_agents_from_file(path: &Path) -> Result<HashMap<String, ExecutionAgent>,
         return Ok(HashMap::new());
     }
 
-    let file: AgentsFile = serde_yaml::from_str(&contents).map_err(|e| {
-        ApiError::internal(format!("Failed to parse agents.yaml: {e}"))
-    })?;
+    let file: AgentsFile = serde_yaml::from_str(&contents)
+        .map_err(|e| ApiError::internal(format!("Failed to parse agents.yaml: {e}")))?;
 
     let mut agents = HashMap::new();
     for (id, entry) in file.agents {
@@ -589,13 +579,19 @@ agents:
         assert_eq!(resolve_tool_name("fetch_url"), "native_web_fetch");
         assert_eq!(resolve_tool_name("rag_search"), "native_rag_search");
         assert_eq!(resolve_tool_name("rag_ingest"), "native_rag_ingest");
-        assert_eq!(resolve_tool_name("rag_text_search"), "native_rag_text_search");
+        assert_eq!(
+            resolve_tool_name("rag_text_search"),
+            "native_rag_text_search"
+        );
         assert_eq!(resolve_tool_name("rag_get_chunk"), "native_rag_get_chunk");
         assert_eq!(
             resolve_tool_name("rag_get_chunk_window"),
             "native_rag_get_chunk_window"
         );
-        assert_eq!(resolve_tool_name("rag_clear_session"), "native_rag_clear_session");
+        assert_eq!(
+            resolve_tool_name("rag_clear_session"),
+            "native_rag_clear_session"
+        );
         assert_eq!(resolve_tool_name("rag_reindex"), "native_rag_reindex");
         assert_eq!(resolve_tool_name("mcp:server_tool"), "server_tool");
         assert_eq!(resolve_tool_name("native_search"), "native_search");

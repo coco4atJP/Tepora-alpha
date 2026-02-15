@@ -7,8 +7,8 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
-use sha2::{Digest, Sha256};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
@@ -460,25 +460,25 @@ impl ModelManager {
 
     fn get_loader_url(&self, loader: &str, default: &str) -> String {
         if let Ok(config) = self.config.load_config() {
-             if let Some(loaders) = config.get("loaders") {
-                 if let Some(loader_config) = loaders.get(loader) {
-                     if let Some(url) = loader_config.get("base_url").and_then(|v| v.as_str()) {
-                         return url.trim_end_matches('/').to_string();
-                     }
-                 }
-             }
+            if let Some(loaders) = config.get("loaders") {
+                if let Some(loader_config) = loaders.get(loader) {
+                    if let Some(url) = loader_config.get("base_url").and_then(|v| v.as_str()) {
+                        return url.trim_end_matches('/').to_string();
+                    }
+                }
+            }
         }
         default.to_string()
     }
 
     pub async fn refresh_ollama_models(&self) -> Result<usize, ApiError> {
         let base_url = self.get_loader_url("ollama", "http://localhost:11434");
-        
+
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
             .map_err(ApiError::internal)?;
-            
+
         let res = client.get(format!("{}/api/tags", base_url)).send().await;
 
         let Ok(response) = res else {
@@ -528,12 +528,12 @@ impl ModelManager {
 
     pub async fn refresh_lmstudio_models(&self) -> Result<usize, ApiError> {
         let base_url = self.get_loader_url("lmstudio", "http://localhost:1234");
-        
+
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
             .map_err(ApiError::internal)?;
-            
+
         let res = client.get(format!("{}/v1/models", base_url)).send().await;
 
         let Ok(response) = res else {

@@ -93,7 +93,10 @@ impl Node for SynthesizerNode {
         });
 
         // Stream response
-        let model_id = state.selected_agent_id.clone().unwrap_or_else(|| "default".to_string());
+        let model_id = state
+            .selected_agent_id
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
         let request = ChatRequest::new(messages).with_config(ctx.config);
 
         let mut stream = ctx

@@ -72,23 +72,18 @@ impl HistoryStore {
         .await
         .map_err(|e| ApiError::internal(format!("Failed to init messages table: {}", e)))?;
 
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id)",
-        )
-        .execute(&pool)
-        .await
-        .map_err(|e| ApiError::internal(format!("Failed to create index: {}", e)))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id)")
+            .execute(&pool)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to create index: {}", e)))?;
 
         Ok(Self { pool })
     }
 
-    pub async fn create_session(
-        &self,
-        title: Option<String>,
-    ) -> Result<String, ApiError> {
+    pub async fn create_session(&self, title: Option<String>) -> Result<String, ApiError> {
         let session_id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
-        
+
         sqlx::query(
             "INSERT INTO sessions (id, title, created_at, updated_at, metadata) VALUES (?, ?, ?, ?, ?)",
         )
@@ -112,9 +107,9 @@ impl HistoryStore {
             .map_err(ApiError::internal)?;
 
         if let Some(row) = row {
-             // Fetch message count and preview potentially?
-             // For now just basic info
-             let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
+            // Fetch message count and preview potentially?
+            // For now just basic info
+            let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
                 .bind(session_id)
                 .fetch_one(&self.pool)
                 .await
@@ -128,16 +123,14 @@ impl HistoryStore {
                 updated_at: row.try_get::<String, _>("updated_at").unwrap_or_default(),
                 metadata: row.try_get::<Option<Value>, _>("metadata").unwrap_or(None),
                 message_count: count,
-                preview: None, 
+                preview: None,
             }))
         } else {
             Ok(None)
         }
     }
 
-    pub async fn list_sessions(
-        &self,
-    ) -> Result<Vec<SessionInfo>, ApiError> {
+    pub async fn list_sessions(&self) -> Result<Vec<SessionInfo>, ApiError> {
         // Assume default limit for now to match old signature (no args)
         let rows = sqlx::query("SELECT * FROM sessions ORDER BY updated_at DESC LIMIT 100")
             .fetch_all(&self.pool)
@@ -147,13 +140,13 @@ impl HistoryStore {
         let mut sessions = Vec::new();
         for row in rows {
             let id: String = row.try_get::<String, _>("id").unwrap_or_default();
-             let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
+            let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
                 .bind(&id)
                 .fetch_one(&self.pool)
                 .await
                 .map(|r| r.get(0))
                 .unwrap_or(0);
-            
+
             sessions.push(SessionInfo {
                 id,
                 title: row.try_get::<Option<String>, _>("title").unwrap_or(None),
@@ -200,7 +193,7 @@ impl HistoryStore {
         additional_kwargs: Option<Value>,
     ) -> Result<i64, ApiError> {
         let now = chrono::Utc::now().to_rfc3339();
-        
+
         // Touch session
         sqlx::query("UPDATE sessions SET updated_at = ? WHERE id = ?")
             .bind(&now)
@@ -227,7 +220,7 @@ impl HistoryStore {
     pub async fn get_history(
         &self,
         session_id: &str,
-        limit: i64
+        limit: i64,
     ) -> Result<Vec<HistoryMessage>, ApiError> {
         let rows = sqlx::query("SELECT * FROM messages WHERE session_id = ? ORDER BY id ASC") // Limit? Old logic didn't usually limit history for context context building needs all, but UI might need limit.
             // If explicit limit needed:
@@ -245,14 +238,16 @@ impl HistoryStore {
                 message_type: row.try_get::<String, _>("role").unwrap_or_default(),
                 content: row.try_get::<String, _>("content").unwrap_or_default(),
                 created_at: row.try_get::<String, _>("created_at").unwrap_or_default(),
-                additional_kwargs: row.try_get::<Option<Value>, _>("additional_kwargs").unwrap_or(None),
+                additional_kwargs: row
+                    .try_get::<Option<Value>, _>("additional_kwargs")
+                    .unwrap_or(None),
             });
         }
-        
+
         // Apply limit in memory if simple
         if limit > 0 && messages.len() > limit as usize {
-             let start = messages.len() - limit as usize;
-             return Ok(messages[start..].to_vec());
+            let start = messages.len() - limit as usize;
+            return Ok(messages[start..].to_vec());
         }
 
         Ok(messages)
@@ -278,5 +273,4 @@ impl HistoryStore {
             .map_err(ApiError::internal)?;
         Ok(())
     }
-
 }

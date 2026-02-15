@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex; 
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -63,7 +63,7 @@ impl LlamaService {
                 return Ok(path);
             }
         }
-        Ok(PathBuf::from("llama-server")) 
+        Ok(PathBuf::from("llama-server"))
     }
 
     pub async fn refresh_binary_path(&self, paths: &AppPaths) -> Result<(), ApiError> {
@@ -74,7 +74,7 @@ impl LlamaService {
 
     pub async fn ensure_running(&self, config: &ModelRuntimeConfig) -> Result<(), ApiError> {
         let mut manager = self.inner.lock().await;
-        
+
         if manager.running.load(Ordering::SeqCst) {
             if let Some(current) = &manager.model_config {
                 if current.model_path == config.model_path {
@@ -103,7 +103,7 @@ impl LlamaService {
         cmd.arg("-m").arg(&config.model_path);
         cmd.arg("--port").arg(port.to_string());
         cmd.arg("-c").arg(config.n_ctx.to_string());
-        
+
         if config.n_gpu_layers >= 0 {
             cmd.arg("-ngl").arg(config.n_gpu_layers.to_string());
         }
@@ -111,9 +111,9 @@ impl LlamaService {
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
-        let mut child = cmd.spawn().map_err(|e| {
-            ApiError::internal(format!("Failed to spawn llama-server: {}", e))
-        })?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| ApiError::internal(format!("Failed to spawn llama-server: {}", e)))?;
 
         let stdout = child.stdout.take().unwrap();
         let stderr = child.stderr.take().unwrap();
@@ -150,7 +150,6 @@ impl LlamaService {
         Ok(())
     }
 
-
     async fn wait_for_health(&self, port: u16) -> Result<(), ApiError> {
         let url = format!("http://localhost:{}/health", port);
         for _ in 0..MAX_SERVER_RETRIES {
@@ -171,7 +170,7 @@ impl LlamaService {
 
         let manager = self.inner.lock().await;
         let url = format!("http://localhost:{}/completion", manager.port);
-        drop(manager); 
+        drop(manager);
 
         let prompt = self.format_chat_prompt(messages);
 
@@ -180,17 +179,22 @@ impl LlamaService {
             "stream": false,
             "n_predict": config.predict_len.unwrap_or(1024),
             "temperature": config.temperature.unwrap_or(0.7),
-            "stop": ["User:", "System:"] 
+            "stop": ["User:", "System:"]
         });
 
-        let res = self.client.post(&url)
+        let res = self
+            .client
+            .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(ApiError::internal)?;
 
         if !res.status().is_success() {
-             return Err(ApiError::internal(format!("Llama server error: {}", res.status())));
+            return Err(ApiError::internal(format!(
+                "Llama server error: {}",
+                res.status()
+            )));
         }
 
         let data: Value = res.json().await.map_err(ApiError::internal)?;
@@ -231,19 +235,19 @@ impl LlamaService {
             };
 
             while let Some(chunk) = res.chunk().await.ok().flatten() {
-                 let text = String::from_utf8_lossy(&chunk);
-                 for line in text.lines() {
-                     if line.starts_with("data: ") {
-                         let json_str = &line[6..];
-                         if let Ok(val) = serde_json::from_str::<Value>(json_str) {
-                             if let Some(content) = val["content"].as_str() {
-                                 if let Err(_) = tx.send(Ok(content.to_string())).await {
-                                     return;
-                                 }
-                             }
-                         }
-                     }
-                 }
+                let text = String::from_utf8_lossy(&chunk);
+                for line in text.lines() {
+                    if line.starts_with("data: ") {
+                        let json_str = &line[6..];
+                        if let Ok(val) = serde_json::from_str::<Value>(json_str) {
+                            if let Some(content) = val["content"].as_str() {
+                                if let Err(_) = tx.send(Ok(content.to_string())).await {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
 
@@ -267,20 +271,25 @@ impl LlamaService {
                 "content": input,
             });
 
-            let res = self.client.post(&url)
+            let res = self
+                .client
+                .post(&url)
                 .json(&body)
                 .send()
                 .await
                 .map_err(ApiError::internal)?;
 
-             if !res.status().is_success() {
-                 return Err(ApiError::internal(format!("Llama server error: {}", res.status())));
-             }
+            if !res.status().is_success() {
+                return Err(ApiError::internal(format!(
+                    "Llama server error: {}",
+                    res.status()
+                )));
+            }
 
-             let data: Value = res.json().await.map_err(ApiError::internal)?;
-             let embedding: Vec<f32> = serde_json::from_value(data["embedding"].clone())
+            let data: Value = res.json().await.map_err(ApiError::internal)?;
+            let embedding: Vec<f32> = serde_json::from_value(data["embedding"].clone())
                 .map_err(|_| ApiError::internal("Invalid embedding response"))?;
-             results.push(embedding);
+            results.push(embedding);
         }
 
         Ok(results)

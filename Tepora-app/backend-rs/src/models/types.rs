@@ -94,30 +94,61 @@ impl ModelRuntimeConfig {
         Self::from_config(config, "text_model")
     }
 
-    pub fn for_embedding(config: &serde_json::Value) -> Result<Self, crate::core::errors::ApiError> {
-         Self::from_config(config, "embedding_model")
+    pub fn for_embedding(
+        config: &serde_json::Value,
+    ) -> Result<Self, crate::core::errors::ApiError> {
+        Self::from_config(config, "embedding_model")
     }
 
-    fn from_config(config: &serde_json::Value, role_key: &str) -> Result<Self, crate::core::errors::ApiError> {
+    fn from_config(
+        config: &serde_json::Value,
+        role_key: &str,
+    ) -> Result<Self, crate::core::errors::ApiError> {
         let models = config.get("models_gguf").and_then(|v| v.as_object());
-        let model_cfg = models.and_then(|m| m.get(role_key)).unwrap_or(&serde_json::Value::Null);
+        let model_cfg = models
+            .and_then(|m| m.get(role_key))
+            .unwrap_or(&serde_json::Value::Null);
 
         let path_str = model_cfg.get("path").and_then(|v| v.as_str()).unwrap_or("");
         if path_str.is_empty() {
-             return Err(crate::core::errors::ApiError::BadRequest(format!("Missing path for {}", role_key)));
+            return Err(crate::core::errors::ApiError::BadRequest(format!(
+                "Missing path for {}",
+                role_key
+            )));
         }
 
         Ok(Self {
             model_key: role_key.to_string(),
             model_path: PathBuf::from(path_str),
             port: model_cfg.get("port").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
-            n_ctx: model_cfg.get("n_ctx").and_then(|v| v.as_u64()).unwrap_or(2048) as usize,
-            n_gpu_layers: model_cfg.get("n_gpu_layers").and_then(|v| v.as_i64()).unwrap_or(-1) as i32,
-            predict_len: model_cfg.get("predict_len").and_then(|v| v.as_u64()).map(|v| v as usize),
-            temperature: model_cfg.get("temperature").and_then(|v| v.as_f64()).map(|v| v as f32),
-            top_p: model_cfg.get("top_p").and_then(|v| v.as_f64()).map(|v| v as f32),
-            top_k: model_cfg.get("top_k").and_then(|v| v.as_i64()).map(|v| v as i32),
-            repeat_penalty: model_cfg.get("repeat_penalty").and_then(|v| v.as_f64()).map(|v| v as f32),
+            n_ctx: model_cfg
+                .get("n_ctx")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(2048) as usize,
+            n_gpu_layers: model_cfg
+                .get("n_gpu_layers")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(-1) as i32,
+            predict_len: model_cfg
+                .get("predict_len")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            temperature: model_cfg
+                .get("temperature")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            top_p: model_cfg
+                .get("top_p")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            top_k: model_cfg
+                .get("top_k")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
+            repeat_penalty: model_cfg
+                .get("repeat_penalty")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
         })
     }
 }

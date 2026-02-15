@@ -79,7 +79,9 @@ pub fn resolve_selected_agent(
         .map(map_selected_agent)
 }
 
-fn map_selected_agent(agent: crate::agent::exclusive_manager::ExecutionAgent) -> SelectedAgentRuntime {
+fn map_selected_agent(
+    agent: crate::agent::exclusive_manager::ExecutionAgent,
+) -> SelectedAgentRuntime {
     SelectedAgentRuntime {
         id: agent.id,
         name: agent.name,
@@ -89,7 +91,10 @@ fn map_selected_agent(agent: crate::agent::exclusive_manager::ExecutionAgent) ->
     }
 }
 
-pub fn build_agent_chat_config(config: &Value, selected_agent: Option<&SelectedAgentRuntime>) -> Value {
+pub fn build_agent_chat_config(
+    config: &Value,
+    selected_agent: Option<&SelectedAgentRuntime>,
+) -> Value {
     let mut overridden = config.clone();
     let Some(model_key) = selected_agent
         .and_then(|agent| agent.model_config_name.as_deref())

@@ -96,12 +96,9 @@ impl Node for ThinkingNode {
         let request = crate::llm::types::ChatRequest::new(llm_messages).with_config(ctx.config);
 
         // Generate thinking process
-        let thought = ctx
-            .app_state
-            .llm
-            .chat(request, &model_id)
-            .await
-            .map_err(|e: crate::core::errors::ApiError| GraphError::new(self.id(), e.to_string()))?;
+        let thought = ctx.app_state.llm.chat(request, &model_id).await.map_err(
+            |e: crate::core::errors::ApiError| GraphError::new(self.id(), e.to_string()),
+        )?;
 
         state.thought_process = Some(thought.clone());
 

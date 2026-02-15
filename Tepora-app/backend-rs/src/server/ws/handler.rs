@@ -169,7 +169,9 @@ async fn handle_message(
         return Ok(());
     }
 
-    let session_id = data.session_id.unwrap_or_else(|| current_session_id.clone());
+    let session_id = data
+        .session_id
+        .unwrap_or_else(|| current_session_id.clone());
     let mode = data.mode.unwrap_or_else(|| "chat".to_string());
     let thinking_mode = data.thinking_mode.unwrap_or(false);
     let requested_agent_id = data.agent_id;

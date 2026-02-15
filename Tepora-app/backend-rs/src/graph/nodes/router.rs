@@ -46,9 +46,7 @@ impl Node for RouterNode {
             Mode::Search => {
                 // Agentic search: when attachments are provided or
                 // the query appears complex enough for deep research
-                if !state.search_attachments.is_empty()
-                    || is_complex_search_query(&state.input)
-                {
+                if !state.search_attachments.is_empty() || is_complex_search_query(&state.input) {
                     "search_agentic"
                 } else {
                     "search"

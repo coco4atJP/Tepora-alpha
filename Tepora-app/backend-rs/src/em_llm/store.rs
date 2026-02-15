@@ -210,10 +210,8 @@ mod tests {
     use super::*;
 
     async fn test_store() -> EmMemoryStore {
-        let tmp = std::env::temp_dir().join(format!(
-            "tepora-em-memory-test-{}.db",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp =
+            std::env::temp_dir().join(format!("tepora-em-memory-test-{}.db", uuid::Uuid::new_v4()));
         EmMemoryStore::with_path(tmp).await.unwrap()
     }
 
@@ -253,14 +251,7 @@ mod tests {
         {
             let store = EmMemoryStore::with_path(tmp.clone()).await.unwrap();
             store
-                .insert_event(
-                    "persist-1",
-                    "s1",
-                    "u",
-                    "a",
-                    "content",
-                    &[0.1, 0.2, 0.3],
-                )
+                .insert_event("persist-1", "s1", "u", "a", "content", &[0.1, 0.2, 0.3])
                 .await
                 .unwrap();
             assert_eq!(store.count_events(None).await.unwrap(), 1);

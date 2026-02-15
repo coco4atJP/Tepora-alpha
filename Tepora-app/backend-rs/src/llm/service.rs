@@ -4,8 +4,8 @@ use tokio::sync::mpsc;
 
 use crate::core::config::ConfigService;
 use crate::core::errors::ApiError;
-use crate::llm::types::{ChatMessage, ChatRequest};
 use crate::llm::llama_service::LlamaService;
+use crate::llm::types::{ChatMessage, ChatRequest};
 use crate::models::types::ModelRuntimeConfig;
 use crate::models::ModelManager;
 
@@ -25,17 +25,17 @@ impl LlmService {
         }
     }
 
-    pub async fn chat(
-        &self,
-        request: ChatRequest,
-        model_id: &str,
-    ) -> Result<String, ApiError> {
+    pub async fn chat(&self, request: ChatRequest, model_id: &str) -> Result<String, ApiError> {
         let config = self.resolve_model_config(model_id, &request)?;
-        
-        let messages = request.messages.iter().map(|m| ChatMessage {
-            role: m.role.clone(),
-            content: m.content.clone(),
-        }).collect();
+
+        let messages = request
+            .messages
+            .iter()
+            .map(|m| ChatMessage {
+                role: m.role.clone(),
+                content: m.content.clone(),
+            })
+            .collect();
 
         self.llama.chat(&config, messages).await
     }
@@ -46,11 +46,15 @@ impl LlmService {
         model_id: &str,
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
         let config = self.resolve_model_config(model_id, &request)?;
-        
-        let messages = request.messages.iter().map(|m| ChatMessage {
-            role: m.role.clone(),
-            content: m.content.clone(),
-        }).collect();
+
+        let messages = request
+            .messages
+            .iter()
+            .map(|m| ChatMessage {
+                role: m.role.clone(),
+                content: m.content.clone(),
+            })
+            .collect();
 
         self.llama.stream_chat(&config, messages).await
     }
@@ -61,9 +65,9 @@ impl LlmService {
         model_id: &str,
     ) -> Result<Vec<Vec<f32>>, ApiError> {
         // Create dummy request to resolve config
-        let request = ChatRequest::new(vec![]); 
+        let request = ChatRequest::new(vec![]);
         let config = self.resolve_model_config(model_id, &request)?;
-        
+
         self.llama.embed(&config, inputs).await
     }
 
@@ -73,15 +77,16 @@ impl LlmService {
         request: &ChatRequest,
     ) -> Result<ModelRuntimeConfig, ApiError> {
         // 1. Get model from registry to find file path
-        let model_entry = self.models.get_model(model_id)?.ok_or_else(|| {
-            ApiError::BadRequest(format!("Model not found: {}", model_id))
-        })?;
+        let model_entry = self
+            .models
+            .get_model(model_id)?
+            .ok_or_else(|| ApiError::BadRequest(format!("Model not found: {}", model_id)))?;
 
         // 2. Load global config defaults
         let app_config = self.config.load_config().unwrap_or(serde_json::Value::Null);
         // We can look at "models_gguf.text_model" to get defaults like n_ctx, gpu params
         // Or just use defaults
-        
+
         let models_config = app_config.get("models_gguf");
         let text_model_defaults = models_config.and_then(|m| m.get("text_model"));
         let embedding_model_defaults = models_config.and_then(|m| m.get("embedding_model"));
@@ -91,12 +96,20 @@ impl LlmService {
         } else {
             text_model_defaults
         };
-        
-        let n_ctx = defaults.and_then(|v| v.get("n_ctx").and_then(|x| x.as_u64())).unwrap_or(2048) as usize;
-        let n_gpu_layers = defaults.and_then(|v| v.get("n_gpu_layers").and_then(|x| x.as_i64())).unwrap_or(-1) as i32;
-        let port = defaults.and_then(|v| v.get("port").and_then(|x| x.as_u64())).unwrap_or(
-            if model_entry.role == "embedding" { 8090 } else { 8088 }
-        ) as u16;
+
+        let n_ctx = defaults
+            .and_then(|v| v.get("n_ctx").and_then(|x| x.as_u64()))
+            .unwrap_or(2048) as usize;
+        let n_gpu_layers = defaults
+            .and_then(|v| v.get("n_gpu_layers").and_then(|x| x.as_i64()))
+            .unwrap_or(-1) as i32;
+        let port = defaults
+            .and_then(|v| v.get("port").and_then(|x| x.as_u64()))
+            .unwrap_or(if model_entry.role == "embedding" {
+                8090
+            } else {
+                8088
+            }) as u16;
 
         // 3. Override with request params
         let predict_len = request.max_tokens.map(|v| v as usize);

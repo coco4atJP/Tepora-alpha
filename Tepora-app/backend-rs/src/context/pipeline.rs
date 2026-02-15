@@ -1,19 +1,19 @@
-use std::sync::Arc;
-use serde_json::Value;
-use crate::state::AppState;
-use crate::llm::ChatMessage;
-use crate::core::errors::ApiError;
-use super::prompt::{extract_system_prompt, extract_history_limit};
-use crate::tools::search::{self, SearchResult};
-use crate::tools::reranker::rerank_search_results_with_embeddings;
 use super::pipeline_context::{PipelineContext, PipelineMode, TokenBudget};
+use super::prompt::{extract_history_limit, extract_system_prompt};
 use super::worker::WorkerPipeline;
-use super::workers::system_worker::SystemWorker;
-use super::workers::persona_worker::PersonaWorker;
 use super::workers::memory_worker::MemoryWorker;
-use super::workers::tool_worker::ToolWorker;
-use super::workers::search_worker::SearchWorker;
+use super::workers::persona_worker::PersonaWorker;
 use super::workers::rag_worker::RagWorker;
+use super::workers::search_worker::SearchWorker;
+use super::workers::system_worker::SystemWorker;
+use super::workers::tool_worker::ToolWorker;
+use crate::core::errors::ApiError;
+use crate::llm::ChatMessage;
+use crate::state::AppState;
+use crate::tools::reranker::rerank_search_results_with_embeddings;
+use crate::tools::search::{self, SearchResult};
+use serde_json::Value;
+use std::sync::Arc;
 
 pub struct ContextResult {
     pub messages: Vec<ChatMessage>,
@@ -49,10 +49,7 @@ impl ContextPipeline {
 
         // 2. History
         let history_limit = extract_history_limit(config);
-        let history_messages = state
-            .history
-            .get_history(session_id, history_limit)
-            .await?;
+        let history_messages = state.history.get_history(session_id, history_limit).await?;
 
         for msg in history_messages {
             let role = match msg.message_type.as_str() {
@@ -84,14 +81,12 @@ impl ContextPipeline {
                 match search::perform_search(config, user_input).await {
                     Ok(results) => {
                         let reranked_results = rerank_search_results_with_embeddings(
-                            state,
-                            config,
-                            user_input,
-                            results,
+                            state, config, user_input, results,
                         )
                         .await;
 
-                        let summary = serde_json::to_string_pretty(&reranked_results).unwrap_or_default();
+                        let summary =
+                            serde_json::to_string_pretty(&reranked_results).unwrap_or_default();
                         if !summary.is_empty() {
                             chat_messages.push(ChatMessage {
                                 role: "system".to_string(),

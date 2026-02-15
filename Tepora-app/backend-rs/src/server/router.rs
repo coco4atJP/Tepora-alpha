@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use axum::http::{header, HeaderValue, Method};
 use axum::routing::{delete, get, post};
 use axum::Router;
-use axum::http::{header, HeaderValue, Method};
-use tower_http::cors::{AllowOrigin, CorsLayer};
 use serde_json::Value;
+use std::sync::Arc;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
-use crate::state::AppState;
 use crate::server::handlers::{agents, config, health, logs, mcp, sessions, setup, tools};
 use crate::server::ws::handler::ws_handler;
+use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let cors_layer = build_cors_layer(&state);
@@ -49,7 +49,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         )
         .route("/api/tools", get(tools::list_tools))
         .route("/api/setup/requirements", get(setup::setup_requirements))
-        .route("/api/setup/default-models", get(setup::setup_default_models))
+        .route(
+            "/api/setup/default-models",
+            get(setup::setup_default_models),
+        )
         .route("/api/setup/init", post(setup::setup_init))
         .route("/api/setup/preflight", post(setup::setup_preflight))
         .route("/api/setup/run", post(setup::setup_run))
@@ -78,7 +81,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(setup::setup_reorder_models),
         )
         .route("/api/setup/model/check", post(setup::setup_check_model))
-        .route("/api/setup/model/download", post(setup::setup_download_model))
+        .route(
+            "/api/setup/model/download",
+            post(setup::setup_download_model),
+        )
         .route(
             "/api/setup/model/local",
             post(setup::setup_register_local_model),
@@ -103,10 +109,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/api/setup/binary/update-info",
             get(setup::setup_binary_update_info),
         )
-        .route(
-            "/api/setup/binary/update",
-            post(setup::setup_binary_update),
-        )
+        .route("/api/setup/binary/update", post(setup::setup_binary_update))
         .route("/api/mcp/status", get(mcp::mcp_status))
         .route(
             "/api/mcp/config",

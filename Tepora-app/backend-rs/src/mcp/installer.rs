@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use serde_json::{json, Value};
 
-use crate::core::errors::ApiError;
-use super::{McpServerConfig, McpServerMetadata};
 use super::registry::{McpEnvVar, McpRegistryPackage, McpRegistryServer};
+use super::{McpServerConfig, McpServerMetadata};
+use crate::core::errors::ApiError;
 
 pub fn normalize_server_key(raw: &str) -> String {
     if raw.trim().is_empty() {

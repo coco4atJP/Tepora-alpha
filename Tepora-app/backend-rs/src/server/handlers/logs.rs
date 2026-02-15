@@ -1,14 +1,14 @@
-use std::sync::Arc;
-use std::fs;
 use axum::extract::{Path, State};
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
-use axum::http::HeaderMap;
 use serde_json::json;
+use std::fs;
+use std::sync::Arc;
 
-use crate::state::AppState;
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
+use crate::state::AppState;
 
 pub async fn get_logs(
     State(state): State<Arc<AppState>>,

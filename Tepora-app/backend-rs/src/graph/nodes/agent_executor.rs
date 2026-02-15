@@ -59,13 +59,15 @@ impl Node for AgentExecutorNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        let selected_agent = resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
+        let selected_agent =
+            resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
         let active_policy = selected_agent
             .as_ref()
             .map(|agent| agent.tool_policy.clone())
             .unwrap_or_else(CustomToolPolicy::allow_all_policy);
 
-        let (tool_list, mcp_tool_set) = build_allowed_tool_list(ctx.app_state, &active_policy).await;
+        let (tool_list, mcp_tool_set) =
+            build_allowed_tool_list(ctx.app_state, &active_policy).await;
         let agent_name = selected_agent
             .as_ref()
             .map(|agent| agent.name.clone())
@@ -265,9 +267,15 @@ impl Node for AgentExecutorNode {
 
                         if !approved {
                             let denial = format!("Tool `{}` was not approved by the user.", name);
-                            send_activity(ctx.sender, "tool_node", "error", &denial, "Tool Handler")
-                                .await
-                                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+                            send_activity(
+                                ctx.sender,
+                                "tool_node",
+                                "error",
+                                &denial,
+                                "Tool Handler",
+                            )
+                            .await
+                            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                             messages.push(ChatMessage {
                                 role: "system".to_string(),
                                 content: denial.clone(),
@@ -303,9 +311,15 @@ impl Node for AgentExecutorNode {
                         Ok(value) => value,
                         Err(err) => {
                             let failure = format!("Tool `{}` failed: {}", name, err);
-                            send_activity(ctx.sender, "tool_node", "error", &failure, "Tool Handler")
-                                .await
-                                .map_err(|send_err| GraphError::new(self.id(), send_err.to_string()))?;
+                            send_activity(
+                                ctx.sender,
+                                "tool_node",
+                                "error",
+                                &failure,
+                                "Tool Handler",
+                            )
+                            .await
+                            .map_err(|send_err| GraphError::new(self.id(), send_err.to_string()))?;
                             messages.push(ChatMessage {
                                 role: "system".to_string(),
                                 content: failure,
@@ -360,7 +374,8 @@ impl Node for AgentExecutorNode {
             }
         }
 
-        let fallback = "Agent reached the maximum number of steps without a final answer.".to_string();
+        let fallback =
+            "Agent reached the maximum number of steps without a final answer.".to_string();
         state.output = Some(fallback.clone());
 
         send_activity(

@@ -446,10 +446,7 @@ mod tests {
     use super::*;
 
     async fn test_store() -> SqliteRagStore {
-        let tmp = std::env::temp_dir().join(format!(
-            "tepora-rag-test-{}.db",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp = std::env::temp_dir().join(format!("tepora-rag-test-{}.db", uuid::Uuid::new_v4()));
         SqliteRagStore::with_path(tmp).await.unwrap()
     }
 
@@ -490,7 +487,10 @@ mod tests {
         let store = test_store().await;
 
         store
-            .insert(make_chunk("c1", "Rust memory safety", "doc", "s1", 0), vec![1.0])
+            .insert(
+                make_chunk("c1", "Rust memory safety", "doc", "s1", 0),
+                vec![1.0],
+            )
             .await
             .unwrap();
         store
@@ -523,10 +523,7 @@ mod tests {
             .await
             .unwrap();
 
-        let window = store
-            .get_chunk_window("c2", 12, Some("s1"))
-            .await
-            .unwrap();
+        let window = store.get_chunk_window("c2", 12, Some("s1")).await.unwrap();
 
         let ids: Vec<String> = window.into_iter().map(|c| c.chunk_id).collect();
         assert_eq!(ids, vec!["c1", "c2", "c3"]);
@@ -552,10 +549,11 @@ mod tests {
         store.reindex_with_model("embed-v2").await.unwrap();
         assert_eq!(store.count(None).await.unwrap(), 0);
 
-        let model: Option<String> = sqlx::query_scalar("SELECT value FROM rag_meta WHERE key = 'embedding_model'")
-            .fetch_optional(&store.pool)
-            .await
-            .unwrap();
+        let model: Option<String> =
+            sqlx::query_scalar("SELECT value FROM rag_meta WHERE key = 'embedding_model'")
+                .fetch_optional(&store.pool)
+                .await
+                .unwrap();
         assert_eq!(model.unwrap_or_default(), "embed-v2");
     }
 }

@@ -1,5 +1,5 @@
-use serde_json::{Map, Value};
 use crate::core::errors::ApiError;
+use serde_json::{Map, Value};
 
 pub fn validate_config(config: &Value) -> Result<(), ApiError> {
     let root = config

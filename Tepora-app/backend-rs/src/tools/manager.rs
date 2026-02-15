@@ -9,10 +9,10 @@ use uuid::Uuid;
 
 use crate::core::errors::ApiError;
 use crate::mcp::McpManager;
+use crate::models::types::ModelRuntimeConfig;
 use crate::rag::{RAGEngine, StoredChunk};
 use crate::state::AppState;
 use crate::tools::search::{perform_search, SearchResult};
-use crate::models::types::ModelRuntimeConfig;
 
 #[derive(Debug, Clone)]
 pub struct ToolExecution {
@@ -42,18 +42,14 @@ pub async fn execute_tool(
         "rag_text_search" | "native_rag_text_search" => {
             execute_rag_text_search(state, session_id, args).await
         }
-        "rag_get_chunk" | "native_rag_get_chunk" => {
-            execute_rag_get_chunk(state, args).await
-        }
+        "rag_get_chunk" | "native_rag_get_chunk" => execute_rag_get_chunk(state, args).await,
         "rag_get_chunk_window" | "native_rag_get_chunk_window" => {
             execute_rag_get_chunk_window(state, session_id, args).await
         }
         "rag_clear_session" | "native_rag_clear_session" => {
             execute_rag_clear_session(state, session_id, args).await
         }
-        "rag_reindex" | "native_rag_reindex" => {
-            execute_rag_reindex(state, args).await
-        }
+        "rag_reindex" | "native_rag_reindex" => execute_rag_reindex(state, args).await,
         _ => {
             if let Some(manager) = mcp {
                 let output = manager.execute_tool(tool_name, args).await?;
@@ -73,9 +69,8 @@ async fn execute_rag_search(
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
 
     let query = args
         .get("query")
@@ -120,9 +115,8 @@ async fn execute_rag_ingest(
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
     let sid = session_id.unwrap_or("default");
 
     let content = args
@@ -154,10 +148,7 @@ async fn execute_rag_ingest(
         ));
     }
 
-    let embedding_inputs: Vec<String> = chunks
-        .iter()
-        .map(|chunk| chunk.text.clone())
-        .collect();
+    let embedding_inputs: Vec<String> = chunks.iter().map(|chunk| chunk.text.clone()).collect();
     let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
     let embeddings = state.llama.embed(&model_cfg, &embedding_inputs).await?;
     if embeddings.len() != chunks.len() {
@@ -214,9 +205,8 @@ async fn execute_rag_text_search(
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
 
     let pattern = args
         .get("pattern")
@@ -254,9 +244,8 @@ async fn execute_rag_get_chunk(
     state: Option<&AppState>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
 
     let chunk_id = args
         .get("chunk_id")
@@ -284,9 +273,8 @@ async fn execute_rag_get_chunk_window(
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
 
     let chunk_id = args
         .get("chunk_id")
@@ -326,9 +314,8 @@ async fn execute_rag_clear_session(
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
 
     let sid = args
         .get("session_id")
@@ -356,9 +343,8 @@ async fn execute_rag_reindex(
     state: Option<&AppState>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
-    let state = state.ok_or_else(|| {
-        ApiError::BadRequest("RAG tool requires application state".to_string())
-    })?;
+    let state = state
+        .ok_or_else(|| ApiError::BadRequest("RAG tool requires application state".to_string()))?;
 
     let embedding_model = args
         .get("embedding_model")

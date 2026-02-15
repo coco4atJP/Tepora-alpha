@@ -49,9 +49,8 @@ impl ContextWorker for ToolWorker {
             tool_definitions.push(
                 "web_search(query: string) — Searches the web and returns results.".to_string(),
             );
-            tool_definitions.push(
-                "fetch_url(url: string) — Fetches content from a URL.".to_string(),
-            );
+            tool_definitions
+                .push("fetch_url(url: string) — Fetches content from a URL.".to_string());
         }
 
         // 2. RAG tools
@@ -60,7 +59,8 @@ impl ContextWorker for ToolWorker {
                 "rag_search(query: string, limit?: int) — Searches the RAG store for similar content.".to_string(),
             );
             tool_definitions.push(
-                "rag_ingest(content: string, source: string) — Ingests content into the RAG store.".to_string(),
+                "rag_ingest(content: string, source: string) — Ingests content into the RAG store."
+                    .to_string(),
             );
             tool_definitions.push(
                 "rag_text_search(pattern: string, limit?: int) — Searches RAG chunks by text pattern.".to_string(),
@@ -72,7 +72,8 @@ impl ContextWorker for ToolWorker {
                 "rag_get_chunk_window(chunk_id: string, chars?: int) — Retrieves neighboring chunks around one chunk.".to_string(),
             );
             tool_definitions.push(
-                "rag_clear_session(session_id?: string) — Clears all RAG chunks in a session.".to_string(),
+                "rag_clear_session(session_id?: string) — Clears all RAG chunks in a session."
+                    .to_string(),
             );
             tool_definitions.push(
                 "rag_reindex(embedding_model?: string) — Rebuilds the RAG index after embedding model changes.".to_string(),
@@ -82,11 +83,7 @@ impl ContextWorker for ToolWorker {
         // 3. MCP tools — enumerate available servers and their tools
         let mcp_tools = state.mcp.list_tools().await;
         for tool in mcp_tools {
-            tool_definitions.push(format!(
-                "mcp:{} — {}",
-                tool.name,
-                tool.description
-            ));
+            tool_definitions.push(format!("mcp:{} — {}", tool.name, tool.description));
         }
 
         // Inject tool information into the context

@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
-use crate::core::errors::ApiError;
 use super::paths::AppPaths;
 use super::validation::validate_config;
+use crate::core::errors::ApiError;
 
 const REDACT_PLACEHOLDER: &str = "****";
 
