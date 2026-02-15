@@ -17,6 +17,7 @@ vi.mock("lucide-react", () => ({
 	ChevronRight: () => <span data-testid="icon-chevron-right" />,
 	HelpCircle: () => <span data-testid="icon-help-circle" />,
 	Cpu: () => <span data-testid="icon-cpu" />,
+	FolderOpen: () => <span data-testid="icon-folder-open" />,
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
