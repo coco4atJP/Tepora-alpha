@@ -1,13 +1,17 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { ChevronDown } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SkeletonLoader } from "../../components/ui/SkeletonLoader";
+import { useSettings } from "../../hooks/useSettings";
 import { useChatStore } from "../../stores";
+import type { Message } from "../../types";
 import MessageBubble from "./MessageBubble";
 
 const MessageList: React.FC = () => {
 	const messages = useChatStore((state) => state.messages);
+	const { config, customAgents } = useSettings();
 	const { t } = useTranslation();
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const endOfMessagesRef = useRef<HTMLDivElement>(null);
@@ -68,6 +72,41 @@ const MessageList: React.FC = () => {
 		endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
 	};
 
+	const getAgentInfo = useCallback(
+		(msg: Message) => {
+			if (msg.role !== "assistant" || !msg.agentName) return {};
+
+			// Character Check
+			if (config?.characters) {
+				const char = Object.values(config.characters).find(
+					(c) => c.name === msg.agentName,
+				);
+				if (char) {
+					return {
+						icon: char.icon,
+						avatar: char.avatar_path
+							? convertFileSrc(char.avatar_path)
+							: undefined,
+					};
+				}
+			}
+
+			// Custom Agent Check
+			if (customAgents) {
+				const agent = Object.values(customAgents).find(
+					(a) => a.name === msg.agentName,
+				);
+				if (agent) {
+					return {
+						icon: agent.icon,
+					};
+				}
+			}
+			return {};
+		},
+		[config, customAgents],
+	);
+
 	return (
 		<div className="relative h-full w-full min-h-0 min-w-0">
 			{/* Announcer for Screen Readers */}
@@ -80,16 +119,19 @@ const MessageList: React.FC = () => {
 				onScroll={checkIfAtBottom}
 				className="h-full w-full overflow-y-auto overflow-x-hidden px-2 md:px-4 py-4 space-y-4 md:space-y-6 custom-scrollbar scrollbar-stable scroll-smooth"
 			>
-				{messages.map((msg, index) => (
-					<div
-						key={msg.id || index}
-						className={`transition-all duration-500 ease-out ${
-							index === messages.length - 1 ? "animate-slide-up-fade" : ""
-						}`}
-					>
-						<MessageBubble message={msg} />
-					</div>
-				))}
+				{messages.map((msg, index) => {
+					const { icon, avatar } = getAgentInfo(msg);
+					return (
+						<div
+							key={msg.id || index}
+							className={`transition-all duration-500 ease-out ${
+								index === messages.length - 1 ? "animate-slide-up-fade" : ""
+							}`}
+						>
+							<MessageBubble message={msg} icon={icon} avatar={avatar} />
+						</div>
+					);
+				})}
 
 				{/* Processing Indicator */}
 				{messages.length > 0 && messages[messages.length - 1].role === "user" && (

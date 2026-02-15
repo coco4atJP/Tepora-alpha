@@ -56,8 +56,6 @@ export interface Config {
 	models_gguf: Record<string, ModelConfig>;
 	// Refactored Agent Config
 	characters: Record<string, CharacterConfig>;
-	// Custom Agents (GPTs/Gems-style)
-	custom_agents?: Record<string, CustomAgentConfig>;
 	active_agent_profile: string;
 
 	tools: {
@@ -77,6 +75,7 @@ export interface Config {
 export interface SettingsContextValue {
 	config: Config | null;
 	originalConfig: Config | null;
+	customAgents: Record<string, CustomAgentConfig>;
 	loading: boolean;
 	error: string | null;
 	hasChanges: boolean;
@@ -108,9 +107,9 @@ export interface SettingsContextValue {
 	deleteCharacter: (key: string) => void;
 
 	// Custom Agent Actions
-	updateCustomAgent: (id: string, agent: CustomAgentConfig) => void;
-	addCustomAgent: (agent: CustomAgentConfig) => void;
-	deleteCustomAgent: (id: string) => void;
+	updateCustomAgent: (id: string, agent: CustomAgentConfig) => Promise<void>;
+	addCustomAgent: (agent: CustomAgentConfig) => Promise<void>;
+	deleteCustomAgent: (id: string) => Promise<void>;
 
 	setActiveAgent: (key: string) => void;
 	saveConfig: (override?: Config) => Promise<boolean>;
@@ -165,6 +164,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	} = useServerConfig();
 	const [config, setConfig] = useState<Config | null>(null);
 	const [originalConfig, setOriginalConfig] = useState<Config | null>(null);
+	const [customAgents, setCustomAgents] = useState<Record<string, CustomAgentConfig>>({});
 	const [saving, setSaving] = useState(false);
 
 	const hasChanges = useMemo(() => {
@@ -179,14 +179,33 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
 	const loading = isConfigLoading || (!config && isConfigFetching);
 
+	const fetchCustomAgents = useCallback(async () => {
+		try {
+			const data = await apiClient.get<{ agents: CustomAgentConfig[] }>("api/custom-agents");
+			const agentsMap: Record<string, CustomAgentConfig> = {};
+			if (data.agents) {
+				for (const agent of data.agents) {
+					agentsMap[agent.id] = agent;
+				}
+			}
+			setCustomAgents(agentsMap);
+		} catch (e) {
+			console.error("Failed to fetch custom agents", e);
+		}
+	}, []);
+
 	const fetchConfig = useCallback(async () => {
-		await refetchConfig();
-	}, [refetchConfig]);
+		await Promise.all([refetchConfig(), fetchCustomAgents()]);
+	}, [refetchConfig, fetchCustomAgents]);
 
 	const normalizedServerConfig = useMemo(() => {
 		if (!serverConfig) return null;
 		return normalizeConfig(serverConfig);
 	}, [serverConfig]);
+
+	useEffect(() => {
+		fetchCustomAgents();
+	}, [fetchCustomAgents]);
 
 	useEffect(() => {
 		if (!normalizedServerConfig) return;
@@ -303,36 +322,44 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	}, []);
 
 	// Custom Agent Management
-	const updateCustomAgent = useCallback((id: string, agent: CustomAgentConfig) => {
-		setConfig((prev) =>
-			prev
-				? {
-						...prev,
-						custom_agents: { ...prev.custom_agents, [id]: agent },
-					}
-				: prev,
-		);
-	}, []);
+	const updateCustomAgent = useCallback(
+		async (id: string, agent: CustomAgentConfig) => {
+			try {
+				await apiClient.put(`api/custom-agents/${id}`, agent);
+				await fetchCustomAgents();
+			} catch (e) {
+				console.error("Failed to update custom agent", e);
+				throw e;
+			}
+		},
+		[fetchCustomAgents],
+	);
 
-	const addCustomAgent = useCallback((agent: CustomAgentConfig) => {
-		setConfig((prev) =>
-			prev
-				? {
-						...prev,
-						custom_agents: { ...prev.custom_agents, [agent.id]: agent },
-					}
-				: prev,
-		);
-	}, []);
+	const addCustomAgent = useCallback(
+		async (agent: CustomAgentConfig) => {
+			try {
+				await apiClient.post("api/custom-agents", agent);
+				await fetchCustomAgents();
+			} catch (e) {
+				console.error("Failed to add custom agent", e);
+				throw e;
+			}
+		},
+		[fetchCustomAgents],
+	);
 
-	const deleteCustomAgent = useCallback((id: string) => {
-		setConfig((prev) => {
-			if (!prev || !prev.custom_agents) return prev;
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			const { [id]: _, ...rest } = prev.custom_agents;
-			return { ...prev, custom_agents: rest };
-		});
-	}, []);
+	const deleteCustomAgent = useCallback(
+		async (id: string) => {
+			try {
+				await apiClient.delete(`api/custom-agents/${id}`);
+				await fetchCustomAgents();
+			} catch (e) {
+				console.error("Failed to delete custom agent", e);
+				throw e;
+			}
+		},
+		[fetchCustomAgents],
+	);
 
 	const setActiveAgent = useCallback((key: string) => {
 		setConfig((prev) => (prev ? { ...prev, active_agent_profile: key } : prev));
@@ -372,6 +399,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	const value = useMemo<SettingsContextValue>(
 		() => ({
 			config,
+			originalConfig,
+			customAgents,
 			loading,
 			error,
 			hasChanges,
@@ -395,11 +424,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			setActiveAgent,
 			saveConfig,
 			resetConfig,
-			originalConfig,
 		}),
 		[
 			config,
 			originalConfig,
+			customAgents,
 			loading,
 			error,
 			hasChanges,

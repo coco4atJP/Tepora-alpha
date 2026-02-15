@@ -22,7 +22,8 @@ interface EditState {
 }
 
 const DEFAULT_TOOL_POLICY: CustomAgentToolPolicy = {
-	allowed_tools: ["*"],
+	allow_all: true,
+	allowed_tools: [],
 	denied_tools: [],
 	require_confirmation: [],
 };
@@ -87,7 +88,8 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 				"You are a helpful assistant.",
 			),
 			tool_policy: { ...DEFAULT_TOOL_POLICY },
-			skills: [],
+			tags: [],
+			priority: 0,
 			enabled: true,
 		};
 		setEditState({ agent: newAgent, isNew: true });
@@ -168,13 +170,32 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	const toggleTool = (toolName: string) => {
 		if (!editState) return;
 		const policy = editState.agent.tool_policy;
-		const isAllowAll = policy.allowed_tools.includes("*");
+		const isAllowAll = policy.allow_all;
 
 		if (isAllowAll) {
-			// Switch to explicit list
-			const allToolNames = availableTools.map((t) => t.name);
-			const newAllowed = allToolNames.filter((t) => t !== toolName);
-			updateToolPolicy({ allowed_tools: newAllowed });
+			// Switch to explicit list: allow all except the one being toggled (which effectively denies it if we switch to allow_all=false)
+			// Wait, logic: if currently Allow All, toggling a tool means "Deny this tool" or "Switch to Allow List mode"?
+			// V4 backend logic:
+			// allow_all: true -> allowed_tools is ignored? No, backend implementation:
+			// let allow_all = self.allow_all.unwrap_or(self.allowed_tools.is_empty());
+			// If allow_all is true, we check denied_tools.
+			// If allow_all is false, we check allowed_tools.
+
+			// Simplified UI logic:
+			// We present a list of checkboxes.
+			// If Allow All is checked, checkboxes are disabled or hidden?
+			// Or:
+			// Checkbox checked = Allowed. Unchecked = Denied.
+			// If user checks ALL tools -> allow_all = true?
+			// This is tricky mapping.
+
+			// Let's stick to explicit allowed list for UI simplicity if possible, OR implement a specific "Allow All Tools" checkbox.
+			// For now, let's just toggle inclusion in `allowed_tools` and set `allow_all` to false if any manipulation happens.
+
+			updateToolPolicy({
+				allow_all: false,
+				allowed_tools: availableTools.map((t) => t.name).filter((t) => t !== toolName),
+			});
 		} else {
 			const isAllowed = policy.allowed_tools.includes(toolName);
 			if (isAllowed) {
@@ -192,7 +213,9 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	const isToolAllowed = (toolName: string): boolean => {
 		if (!editState) return false;
 		const policy = editState.agent.tool_policy;
-		if (policy.allowed_tools.includes("*")) return true;
+		if (policy.allow_all) {
+			return !policy.denied_tools.includes(toolName);
+		}
 		return policy.allowed_tools.includes(toolName);
 	};
 
@@ -211,7 +234,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 		>
 			<div className="flex justify-between items-start mb-2">
 				<div className="flex items-center gap-2">
-					<span className="text-2xl">{agent.icon}</span>
+					<span className="text-2xl">{agent.icon || "🤖"}</span>
 					<h3 className="font-medium text-gray-200">{agent.name}</h3>
 				</div>
 				{agent.enabled && <Check size={16} className="text-green-400" />}
@@ -223,28 +246,37 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 				{agent.description || t("settings.sections.custom_agents.no_description")}
 			</p>
 
-			<div className="mt-auto flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-				<button
-					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						handleEdit(agent);
-					}}
-					onKeyDown={(e) => e.stopPropagation()}
-					className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
-					title={t("common.edit")}
-				>
-					<Edit2 size={14} />
-				</button>
-				<button
-					type="button"
-					onClick={(e) => handleDelete(agent.id, e)}
-					onKeyDown={(e) => e.stopPropagation()}
-					className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
-					title={t("common.delete")}
-				>
-					<Trash2 size={14} />
-				</button>
+			<div className="mt-auto flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+				<div className="flex gap-1">
+					{agent.tags?.slice(0, 2).map(tag => (
+						<span key={tag} className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-gray-400">
+							{tag}
+						</span>
+					))}
+				</div>
+				<div className="flex gap-2">
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							handleEdit(agent);
+						}}
+						onKeyDown={(e) => e.stopPropagation()}
+						className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
+						title={t("common.edit")}
+					>
+						<Edit2 size={14} />
+					</button>
+					<button
+						type="button"
+						onClick={(e) => handleDelete(agent.id, e)}
+						onKeyDown={(e) => e.stopPropagation()}
+						className="p-1.5 hover:bg-red-500/20 rounded-md text-gray-400 hover:text-red-400 transition-colors"
+						title={t("common.delete")}
+					>
+						<Trash2 size={14} />
+					</button>
+				</div>
 			</div>
 		</button>
 	);
@@ -317,10 +349,10 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 								<FormGroup label={t("settings.sections.custom_agents.modal.icon_label")}>
 									<input
 										type="text"
-										value={editState.agent.icon}
-										onChange={(e) => updateEditAgent({ icon: e.target.value.slice(0, 2) })}
-										className="settings-input w-16 text-center text-2xl"
-										maxLength={2}
+										value={editState.agent.icon || ""}
+										onChange={(e) => updateEditAgent({ icon: e.target.value })}
+										className="settings-input w-24 text-center text-xl"
+										placeholder="🤖"
 									/>
 								</FormGroup>
 								<FormGroup label={t("settings.sections.custom_agents.modal.name_label")}>
@@ -328,6 +360,26 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 										type="text"
 										value={editState.agent.name}
 										onChange={(e) => updateEditAgent({ name: e.target.value })}
+										className="settings-input w-full"
+									/>
+								</FormGroup>
+							</div>
+
+							<div className="grid grid-cols-2 gap-3">
+								<FormGroup label={t("settings.sections.custom_agents.modal.tags_label", "Tags")}>
+									<input
+										type="text"
+										value={editState.agent.tags?.join(", ") || ""}
+										onChange={(e) => updateEditAgent({ tags: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+										className="settings-input w-full"
+										placeholder="tag1, tag2"
+									/>
+								</FormGroup>
+								<FormGroup label={t("settings.sections.custom_agents.modal.priority_label", "Priority")}>
+									<input
+										type="number"
+										value={editState.agent.priority}
+										onChange={(e) => updateEditAgent({ priority: parseInt(e.target.value) || 0 })}
 										className="settings-input w-full"
 									/>
 								</FormGroup>
@@ -394,6 +446,18 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 								<h4 className="text-sm font-medium text-gray-200">
 									{t("settings.sections.custom_agents.modal.tools_label")}
 								</h4>
+							</div>
+
+							<div className="mb-3">
+								<label className="flex items-center gap-2 text-sm text-gray-300">
+									<input
+										type="checkbox"
+										checked={editState.agent.tool_policy.allow_all || false}
+										onChange={(e) => updateToolPolicy({ allow_all: e.target.checked })}
+										className="rounded border-gray-600 text-tea-500 focus:ring-tea-500/20"
+									/>
+									Allow All Tools (Blacklist mode)
+								</label>
 							</div>
 
 							<div className="space-y-2 max-h-48 overflow-y-auto">

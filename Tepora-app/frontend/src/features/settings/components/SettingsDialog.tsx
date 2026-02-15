@@ -26,6 +26,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 	const { t } = useTranslation();
 	const {
 		config,
+		customAgents,
 		loading,
 		error,
 		hasChanges,
@@ -183,7 +184,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 										)}
 										{activeSection === "custom_agents" && (
 											<CustomAgentSettings
-												agents={config.custom_agents || {}}
+												agents={customAgents}
 												onUpdateAgent={updateCustomAgent}
 												onAddAgent={addCustomAgent}
 												onDeleteAgent={deleteCustomAgent}
