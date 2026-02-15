@@ -48,6 +48,9 @@ pub struct ExecutionAgent {
     /// Tags for matching user queries to agents.
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Optional icon (emoji or short text) for UI.
+    #[serde(default)]
+    pub icon: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -164,6 +167,8 @@ struct AgentEntry {
     priority: i32,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default)]
+    icon: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +304,7 @@ impl ExclusiveAgentManager {
                     tool_policy: agent.tool_policy.clone(),
                     priority: agent.priority,
                     tags: agent.tags.clone(),
+                    icon: agent.icon.clone(),
                 },
             );
         }
@@ -432,6 +438,7 @@ fn load_agents_from_file(path: &Path) -> Result<HashMap<String, ExecutionAgent>,
                 tool_policy: entry.tool_policy,
                 priority: entry.priority,
                 tags: entry.tags,
+                icon: entry.icon,
             },
         );
     }

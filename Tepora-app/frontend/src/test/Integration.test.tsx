@@ -6,7 +6,7 @@ vi.mock("../features/chat/PersonaSwitcher", () => ({
 }));
 
 vi.mock("../hooks/useSettings", () => ({
-	useSettings: () => ({ config: { custom_agents: {} } }),
+	useSettings: () => ({ config: {}, customAgents: {} }),
 }));
 
 vi.mock("react-router-dom", async () => {

@@ -79,6 +79,7 @@ const createMockSettings = (activeProfile = "default"): SettingsContextValue => 
 		},
 	} as Config,
 	originalConfig: null,
+	customAgents: {},
 	loading: false,
 	error: null,
 	hasChanges: false,

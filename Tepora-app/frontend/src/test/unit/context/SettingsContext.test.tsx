@@ -63,10 +63,16 @@ describe("SettingsContext", () => {
 	});
 
 	it("fetches config on mount", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => mockConfig,
-		} as Response);
+		// Mock responses for fetchConfig (two calls)
+		vi.mocked(fetch)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockConfig,
+			} as Response)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ agents: [] }),
+			} as Response);
 
 		const queryClient = new QueryClient({
 			defaultOptions: { queries: { retry: false } },
@@ -90,7 +96,7 @@ describe("SettingsContext", () => {
 
 		expect(result.current.config).toEqual(mockConfig);
 		expect(result.current.error).toBeNull();
-		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it("handles fetch error", async () => {
@@ -119,10 +125,15 @@ describe("SettingsContext", () => {
 	});
 
 	it("updates app settings", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => mockConfig,
-		} as Response);
+		vi.mocked(fetch)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockConfig,
+			} as Response)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ agents: [] }),
+			} as Response);
 
 		const queryClient = new QueryClient({
 			defaultOptions: { queries: { retry: false } },
@@ -149,10 +160,15 @@ describe("SettingsContext", () => {
 
 	it("saves config", async () => {
 		// Mock initial fetch
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => mockConfig,
-		} as Response);
+		vi.mocked(fetch)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockConfig,
+			} as Response)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ agents: [] }),
+			} as Response);
 
 		const queryClient = new QueryClient({
 			defaultOptions: { queries: { retry: false } },
@@ -169,7 +185,7 @@ describe("SettingsContext", () => {
 			expect(result.current.loading).toBe(false);
 		});
 
-		// Mock save call (second fetch call)
+		// Mock save call
 		vi.mocked(fetch).mockResolvedValueOnce({
 			ok: true,
 			json: async () => ({ success: true }),
@@ -180,7 +196,7 @@ describe("SettingsContext", () => {
 			expect(success).toBe(true);
 		});
 
-		expect(fetch).toHaveBeenCalledTimes(2);
+		expect(fetch).toHaveBeenCalledTimes(3);
 		expect(fetch).toHaveBeenLastCalledWith(
 			expect.stringContaining("/api/config"),
 			expect.objectContaining({
@@ -191,10 +207,15 @@ describe("SettingsContext", () => {
 	});
 
 	it("adds a character", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => mockConfig,
-		} as Response);
+		vi.mocked(fetch)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockConfig,
+			} as Response)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ agents: [] }),
+			} as Response);
 
 		const queryClient = new QueryClient({
 			defaultOptions: { queries: { retry: false } },
@@ -227,10 +248,15 @@ describe("SettingsContext", () => {
 			},
 		};
 
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => configWithChar,
-		} as Response);
+		vi.mocked(fetch)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => configWithChar,
+			} as Response)
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ agents: [] }),
+			} as Response);
 
 		const queryClient = new QueryClient({
 			defaultOptions: { queries: { retry: false } },

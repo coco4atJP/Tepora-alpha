@@ -21,6 +21,7 @@ describe("useSettings", () => {
 		const mockContextValue: SettingsContextValue = {
 			config: null,
 			originalConfig: null,
+			customAgents: {},
 			loading: false,
 			error: null,
 			hasChanges: false,

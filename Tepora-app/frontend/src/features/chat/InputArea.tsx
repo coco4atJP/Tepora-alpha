@@ -25,9 +25,9 @@ const InputArea: React.FC = () => {
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const { config } = useSettings();
+	const { customAgents } = useSettings();
 
-	const availableAgents = Object.values(config?.custom_agents || {}).filter(
+	const availableAgents = Object.values(customAgents).filter(
 		(agent) => agent.enabled,
 	);
 
@@ -127,7 +127,7 @@ const InputArea: React.FC = () => {
 									<option value="">{t("chat.input.agent_auto", "Auto (Supervisor)")}</option>
 									{availableAgents.map((agent) => (
 										<option key={agent.id} value={agent.id}>
-											{agent.icon} {agent.name}
+											{agent.icon || "🤖"} {agent.name}
 										</option>
 									))}
 								</select>

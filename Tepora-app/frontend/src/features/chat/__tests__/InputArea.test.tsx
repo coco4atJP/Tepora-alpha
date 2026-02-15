@@ -24,7 +24,7 @@ vi.mock("../PersonaSwitcher", () => ({
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
-	useSettings: () => ({ config: { custom_agents: {} } }),
+	useSettings: () => ({ config: {}, customAgents: {} }),
 }));
 
 import { useOutletContext } from "react-router-dom";

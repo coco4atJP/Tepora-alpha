@@ -161,10 +161,13 @@ export interface CharacterConfig {
 	description: string;
 	system_prompt: string;
 	model_config_name?: string;
+	icon?: string;
+	avatar_path?: string;
 }
 
 // Custom Agent Types (GPTs/Gems-style)
 export interface CustomAgentToolPolicy {
+	allow_all?: boolean;
 	allowed_tools: string[];
 	denied_tools: string[];
 	require_confirmation: string[];
@@ -174,14 +177,13 @@ export interface CustomAgentConfig {
 	id: string;
 	name: string;
 	description: string;
-	icon: string;
+	icon?: string;
 	system_prompt: string;
 	tool_policy: CustomAgentToolPolicy;
 	model_config_name?: string;
-	skills: string[];
+	tags: string[];
+	priority: number;
 	enabled: boolean;
-	created_at?: string;
-	updated_at?: string;
 }
 
 export interface ToolInfo {

@@ -9,6 +9,10 @@ vi.mock("../../../stores", () => ({
 	useChatStore: vi.fn(),
 }));
 
+vi.mock("../../../hooks/useSettings", () => ({
+	useSettings: () => ({ config: {}, customAgents: {} }),
+}));
+
 import { useChatStore } from "../../../stores";
 
 describe("MessageList", () => {

@@ -73,6 +73,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	const characterToAgentProfile = (config: CharacterConfig): AgentProfile => ({
 		label: config.name,
 		description: config.description,
+		icon: config.icon,
+		avatar_path: config.avatar_path,
 		persona: {
 			prompt: config.system_prompt,
 		},
@@ -99,6 +101,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			profile: {
 				label: t("settings.sections.agents.default_name", "New Agent"),
 				description: "",
+				icon: "👤",
+				avatar_path: "",
 				persona: {
 					prompt: t("settings.sections.agents.default_prompt", "You are a helpful assistant."),
 				},
@@ -148,6 +152,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 			description: editState.profile.description,
 			system_prompt: editState.profile.persona.prompt || "",
 			model_config_name: editState.model_config_name || undefined,
+			icon: editState.profile.icon,
+			avatar_path: editState.profile.avatar_path,
 			// Characters ignore tools
 		});
 
@@ -206,7 +212,11 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				{/* Active Indicator */}
 				<div className="flex justify-between items-start mb-2">
 					<div className="flex items-center gap-2">
-						<Users size={18} className={isActive ? "text-gold-400" : "text-gray-400"} />
+						{profile.icon ? (
+							<span className="text-lg">{profile.icon}</span>
+						) : (
+							<Users size={18} className={isActive ? "text-gold-400" : "text-gray-400"} />
+						)}
 						<h3 className={`font-medium ${isActive ? "text-gold-100" : "text-gray-200"}`}>
 							{profile.label || key}
 						</h3>

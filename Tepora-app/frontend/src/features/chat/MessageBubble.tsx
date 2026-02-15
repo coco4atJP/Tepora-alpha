@@ -9,6 +9,8 @@ import type { Message } from "../../types";
 
 interface MessageBubbleProps {
 	message: Message;
+	icon?: string;
+	avatar?: string;
 }
 
 // --- Helper functions for styling ---
@@ -96,7 +98,24 @@ function getModeLabel(mode: Message["mode"]): string | null {
 /**
  * Render the icon based on message role.
  */
-function renderIcon(role: Message["role"]): React.ReactNode {
+function renderIcon(
+	role: Message["role"],
+	icon?: string,
+	avatar?: string,
+): React.ReactNode {
+	if (avatar) {
+		return (
+			<img
+				src={avatar}
+				alt="Avatar"
+				className="w-full h-full object-cover rounded-full"
+			/>
+		);
+	}
+	if (icon) {
+		return <span className="text-lg leading-none">{icon}</span>;
+	}
+
 	switch (role) {
 		case "user":
 			return <User className="w-4 h-4 text-white" />;
@@ -112,16 +131,25 @@ const MARKDOWN_DEBOUNCE_MS = 150;
 
 // --- Main Component ---
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+	message,
+	icon,
+	avatar,
+}) => {
 	const { t } = useTranslation();
-	const modeLabel = message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
+	const modeLabel =
+		message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
 
 	// Debounced content for performance optimization during streaming
 	const [debouncedContent, setDebouncedContent] = useState(message.content);
 
 	useEffect(() => {
 		// Completed or user/system messages reflect immediately
-		if (message.isComplete || message.role === "user" || message.role === "system") {
+		if (
+			message.isComplete ||
+			message.role === "user" ||
+			message.role === "system"
+		) {
 			setDebouncedContent(message.content);
 			return;
 		}
@@ -145,7 +173,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 				<div
 					className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center mt-1 shadow-xl ring-1 ring-white/10 ${getIconBgClass(message)} transition-transform duration-500 group-hover:scale-110`}
 				>
-					{renderIcon(message.role)}
+					{renderIcon(message.role, icon, avatar)}
 				</div>
 
 				{/* Message Container */}

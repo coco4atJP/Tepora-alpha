@@ -144,6 +144,12 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
                 &format!("{}.system_prompt", path_prefix),
                 "system_prompt",
             )?;
+            validate_optional_string_field(entry, &format!("{}.icon", path_prefix), "icon")?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.avatar_path", path_prefix),
+                "avatar_path",
+            )?;
         }
     }
 

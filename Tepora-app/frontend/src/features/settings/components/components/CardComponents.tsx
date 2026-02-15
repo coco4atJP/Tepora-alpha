@@ -1,7 +1,8 @@
 // Card Components
 // Model and Agent card components for settings pages
 
-import { Check, Cpu, Users } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Check, Cpu, FolderOpen } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
@@ -165,6 +166,8 @@ export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, is
 export interface AgentProfile {
 	label: string;
 	description: string;
+	icon?: string;
+	avatar_path?: string;
 	persona: {
 		key?: string;
 		prompt?: string;
@@ -199,13 +202,27 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 		onChange({ ...profile, persona: { ...profile.persona, [field]: value } });
 	};
 
+	const handleBrowseAvatar = async () => {
+		try {
+			const selected = await open({
+				multiple: false,
+				filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }],
+			});
+			if (selected && typeof selected === "string") {
+				updateField("avatar_path", selected);
+			}
+		} catch (e) {
+			console.error("Failed to open file dialog", e);
+		}
+	};
+
 	return (
 		<div
 			className={`settings-agent-card glass-panel p-4 transition-all duration-300 hover:border-tepora-accent/50 ${isActive ? "settings-agent-card--active border-tepora-accent bg-tepora-accent/5" : ""}`}
 		>
 			<div className="settings-agent-card__header flex items-center justify-between mb-4">
 				<div className="flex items-center gap-2 flex-1">
-					<Users size={18} className="text-gold-400" />
+					<span className="text-xl">{profile.icon || "👤"}</span>
 					<h3 className="settings-agent-card__title">{profile.label || id}</h3>
 				</div>
 				<button
@@ -237,12 +254,44 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 						placeholder={t("settings.sections.agents.card.label_placeholder")}
 					/>
 				</FormGroup>
+				<FormGroup label={t("settings.sections.agents.card.icon")}>
+					<FormInput
+						value={profile.icon || ""}
+						onChange={(v) => updateField("icon", v as string)}
+						placeholder="👤"
+						className="text-center"
+					/>
+				</FormGroup>
+			</div>
+
+			<div className="mb-4">
 				<FormGroup label={t("settings.sections.agents.card.description")}>
 					<FormInput
 						value={profile.description}
 						onChange={(v) => updateField("description", v as string)}
 						placeholder={t("settings.sections.agents.card.description_placeholder")}
 					/>
+				</FormGroup>
+			</div>
+
+			<div className="mb-4">
+				<FormGroup label={t("settings.sections.agents.card.avatar_path")}>
+					<div className="flex gap-2">
+						<FormInput
+							value={profile.avatar_path || ""}
+							onChange={(v) => updateField("avatar_path", v as string)}
+							placeholder="/path/to/avatar.png"
+							className="flex-1"
+						/>
+						<button
+							type="button"
+							onClick={handleBrowseAvatar}
+							className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors border border-white/10"
+							title="Browse"
+						>
+							<FolderOpen size={18} />
+						</button>
+					</div>
 				</FormGroup>
 			</div>
 

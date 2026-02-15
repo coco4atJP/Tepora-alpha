@@ -171,6 +171,14 @@ fn parse_agent_payload(
         .or_else(|| existing.as_ref().map(|a| a.tags.clone()))
         .unwrap_or_default();
 
+    let icon = payload
+        .get("icon")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| existing.as_ref().and_then(|a| a.icon.clone()));
+
     let tool_policy = match payload.get("tool_policy") {
         Some(value) => serde_json::from_value::<AgentToolPolicy>(value.clone())
             .map_err(|e| ApiError::BadRequest(format!("Invalid tool_policy: {e}")))?,
@@ -187,5 +195,6 @@ fn parse_agent_payload(
         tool_policy,
         priority,
         tags,
+        icon,
     })
 }
