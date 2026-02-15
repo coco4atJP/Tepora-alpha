@@ -87,7 +87,7 @@ graph TD
             MCPServers[MCPServers]
         end
         subgraph "RAG"
-            LDB[LanceDB<br/>in-process]
+            LDB[SQLite<br/>in-process]
         end
         API[API Gateway]
         DM[DownloadManager]
@@ -430,7 +430,7 @@ gantt
 
     section Phase C: Agent & RAG
     ExclusiveAgentManager 実装    :c1, after b3, 3w
-    LanceDB RAG 統合              :c2, after c1, 2w
+    SQLite RAG 統合               :c2, after c1, 2w
     Agentic Search 実装           :c3, after c2, 3w
 ```
 
@@ -556,7 +556,17 @@ pub trait RagStore: Send + Sync {
 
 - **チャンク戦略**: 意味分割。ドキュメント単位でも保持
 - **スコープ**: セッション切替でリセット
-- **ストレージ**: **LanceDB** (Rust製、in-process、サーバー不要、ベクトル+全文検索)
+- **ストレージ**: **SQLite + ndarray** (in-process、サーバー不要、ベクトル検索)
+
+> [!IMPORTANT]
+> **実装変更 (2026-02-15)**: 
+> 最終的な実装では、**SQLite + ndarray** (in-process) を採用しました。理由は以下の通りです:
+> 1. **ビルド依存性**: LanceDB は `protoc` (Protocol Buffers コンパイラ) のインストールを要求し、ユーザー環境のセットアップ難易度が上がるため。
+> 2. **依存パッケージ数**: LanceDB の採用により 250 以上の追加クレートが必要となり、バイナリサイズとコンパイル時間が増大するため。
+> 3. **依存競合**: `candle-core` と `lancedb` 間で `half` クレートのバージョン競合が発生したため。
+> 4. **十分な性能**: ローカル単一ユーザーの規模では、最適化された `ndarray` によるコサイン類似度計算で十分な検索速度が得られるため。
+>
+> 将来的なスケーラビリティが必要になった場合は、`RagStore` trait 経由で LanceDB/Qdrant へ移行可能です。
 - **再計算**: 埋め込みモデル変更時に `reindex()` で既存記録を再計算可能
 
 ---
@@ -594,7 +604,7 @@ pub trait RagStore: Send + Sync {
 | 場面 | 方針 |
 |:---|:---|
 | **埋め込み生成失敗** | リトライ可能ならリトライ → 不可ならユーザー通知しスキップ続行 |
-| **LanceDB アクセスエラー** | セッション再作成を試行 |
+| **SQLite アクセスエラー** | セッション再作成を試行 |
 | **WebSearch/fetch 失敗** | RAG のみで回答。RAG が空なら Agent に通知 |
 
 ### パイプライン
@@ -620,7 +630,7 @@ pub trait RagStore: Send + Sync {
 | 8 | State 設計 | Option B: PipelineContext (Ephemeral) |
 | 9 | SearchMode | RAG 中心、NotebookLM 的 UX |
 | 10 | WebSearch | SearchMode / AgentMode 共通設定 |
-| 11 | RAG ストレージ | **LanceDB** (in-process, Rust native) |
+| 11 | RAG ストレージ | **SQLite + ndarray** (in-process, Rust native) |
 | 12 | UI コンセプト | 現状維持（近未来的喫茶店 + 紅茶 + あたたかみ） |
 | 13 | エラーハンドリング | Section 8 に記載 |
 

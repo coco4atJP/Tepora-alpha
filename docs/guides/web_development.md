@@ -197,7 +197,7 @@ npm run build
 ### カスタマイズ
 
 #### システムプロンプトの変更
-`/api/config` 経由で `custom_agents` の `system_prompt` を更新します。
+`agents.yaml` を直接編集してエージェントの `system_prompt` を更新します。
 
 ## 📄 ライセンス
 

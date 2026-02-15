@@ -108,12 +108,14 @@ pub async fn get_session_messages(
             };
             let timestamp = msg
                 .additional_kwargs
-                .get("timestamp")
+                .as_ref()
+                .and_then(|k| k.get("timestamp"))
                 .and_then(|v| v.as_str())
                 .unwrap_or(&msg.created_at);
             let mode = msg
                 .additional_kwargs
-                .get("mode")
+                .as_ref()
+                .and_then(|k| k.get("mode"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("chat");
 
@@ -138,13 +140,11 @@ pub async fn update_session(
     Json(payload): Json<UpdateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let success = state
+    let _ = state
         .history
         .update_session_title(&session_id, &payload.title)
         .await?;
-    if !success {
-        return Err(ApiError::NotFound("Session not found".to_string()));
-    }
+    // if !success check removed as update returns ()
     Ok(Json(json!({"success": true})))
 }
 
@@ -154,9 +154,7 @@ pub async fn delete_session(
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let success = state.history.delete_session(&session_id).await?;
-    if !success {
-        return Err(ApiError::NotFound("Session not found".to_string()));
-    }
+    let _ = state.history.delete_session(&session_id).await?;
+    // if !success check removed
     Ok(Json(json!({"success": true})))
 }

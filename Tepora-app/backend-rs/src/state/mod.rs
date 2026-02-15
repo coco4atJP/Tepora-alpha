@@ -2,15 +2,23 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
+use crate::agent::exclusive_manager::ExclusiveAgentManager;
 use crate::core::config::{AppPaths, ConfigService};
-use crate::history::HistoryStore;
-use crate::llama::LlamaService;
-use crate::mcp::McpManager;
-use crate::mcp_registry::McpRegistry;
-use crate::models::ModelManager;
+use crate::core::errors::ApiError;
 use crate::core::security::{init_session_token, SessionToken};
-use crate::setup_state::SetupState;
+use crate::em_llm::EmMemoryService;
+use crate::graph::{build_tepora_graph, GraphRuntime};
+use crate::history::HistoryStore;
+use crate::llm::LlamaService;
 use crate::llm::LlmService;
+use crate::mcp::registry::McpRegistry;
+use crate::mcp::McpManager;
+use crate::models::ModelManager;
+use crate::rag::{RagStore, SqliteRagStore};
+
+pub mod setup;
+
+use setup::SetupState;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -24,6 +32,10 @@ pub struct AppState {
     pub mcp_registry: McpRegistry,
     pub models: ModelManager,
     pub setup: SetupState,
+    pub exclusive_agents: ExclusiveAgentManager,
+    pub rag_store: Arc<dyn RagStore>,
+    pub graph_runtime: Arc<GraphRuntime>,
+    pub em_memory_service: Arc<EmMemoryService>,
     #[allow(dead_code)]
     pub started_at: DateTime<Utc>,
 }
@@ -39,9 +51,27 @@ impl AppState {
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
+        let exclusive_agents = ExclusiveAgentManager::new(paths.as_ref());
+        if !exclusive_agents.config_path().exists() {
+            if let Err(e) = exclusive_agents.create_default_config() {
+                tracing::warn!("Failed to create default agents.yaml: {}", e);
+            }
+        }
+
+        let rag_store = Arc::new(
+            SqliteRagStore::new(paths.as_ref())
+                .await
+                .map_err(ApiError::internal)?,
+        );
+        let graph_runtime = Arc::new(build_tepora_graph().map_err(ApiError::internal)?);
+        let em_memory_service = Arc::new(
+            EmMemoryService::new(paths.as_ref(), &config)
+                .await
+                .map_err(ApiError::internal)?,
+        );
+
         let started_at = Utc::now();
 
-        // Trigger loader refresh in background
         let models_clone = models.clone();
         tokio::spawn(async move {
             if let Err(e) = models_clone.refresh_all_loader_models().await {
@@ -49,8 +79,7 @@ impl AppState {
             }
         });
 
-        // Initialize LlmService
-        let llm = LlmService::new(models.clone(), llama.clone(), config.clone())?;
+        let llm = LlmService::new(models.clone(), llama.clone(), config.clone());
 
         Ok(Arc::new(AppState {
             paths,
@@ -63,6 +92,10 @@ impl AppState {
             mcp_registry,
             models,
             setup,
+            exclusive_agents,
+            rag_store,
+            graph_runtime,
+            em_memory_service,
             started_at,
         }))
     }

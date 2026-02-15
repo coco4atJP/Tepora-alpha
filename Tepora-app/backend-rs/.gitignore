@@ -1,0 +1,10 @@
+# User requested ignore patterns
+check_output*.txt
+target_codex_*
+
+# Build logs and temporary files
+build_error*
+clippy_*
+
+# Standard Rust ignore (in case root ignore is not sufficient or for standalone use)
+/target

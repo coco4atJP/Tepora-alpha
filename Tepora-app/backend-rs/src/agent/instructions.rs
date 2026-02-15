@@ -1,11 +1,11 @@
+use super::execution::SelectedAgentRuntime;
 use super::modes::RequestedAgentMode;
-use super::runtime::CustomAgentRuntime;
 
 pub fn build_agent_instructions(
     tool_names: &[String],
     mode: RequestedAgentMode,
     thinking_mode: bool,
-    selected_agent: Option<&CustomAgentRuntime>,
+    selected_agent: Option<&SelectedAgentRuntime>,
 ) -> String {
     let tools = if tool_names.is_empty() {
         "None (you must solve without tools unless the user asks to change policy)".to_string()

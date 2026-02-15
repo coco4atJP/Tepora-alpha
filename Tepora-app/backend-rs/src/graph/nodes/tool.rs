@@ -54,8 +54,10 @@ impl Node for ToolNode {
 
         // Execute tool
         let result = execute_tool(
+            Some(ctx.app_state),
             ctx.config,
             Some(&ctx.app_state.mcp),
+            Some(&state.session_id),
             &self.tool_name,
             &self.tool_args,
         )
@@ -73,7 +75,7 @@ impl Node for ToolNode {
                 }
 
                 // Add tool result to scratchpad
-                state.agent_scratchpad.push(crate::llama::ChatMessage {
+                state.agent_scratchpad.push(crate::llm::ChatMessage {
                     role: "system".to_string(),
                     content: format!("Tool `{}` result:\n{}", self.tool_name, execution.output),
                 });
@@ -97,7 +99,7 @@ impl Node for ToolNode {
             Err(err) => {
                 let failure = format!("Tool `{}` failed: {}", self.tool_name, err);
 
-                state.agent_scratchpad.push(crate::llama::ChatMessage {
+                state.agent_scratchpad.push(crate::llm::ChatMessage {
                     role: "system".to_string(),
                     content: failure.clone(),
                 });

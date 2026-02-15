@@ -38,12 +38,17 @@ pub async fn get_status(State(state): State<Arc<AppState>>) -> Result<impl IntoR
         .get_message_count("default")
         .await
         .unwrap_or(0);
+    let memory_stats = state.em_memory_service.stats().await?;
     Ok(Json(json!({
         "initialized": true,
         "core_version": "v2",
-        "em_llm_enabled": false,
-        "degraded": true,
+        "em_llm_enabled": memory_stats.enabled,
+        "degraded": false,
         "total_messages": total_messages,
-        "memory_events": 0
+        "memory_events": memory_stats.total_events,
+        "retrieval": {
+            "limit": memory_stats.retrieval_limit,
+            "min_score": memory_stats.min_score
+        }
     })))
 }

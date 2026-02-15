@@ -62,6 +62,21 @@ impl ContextWorker for ToolWorker {
             tool_definitions.push(
                 "rag_ingest(content: string, source: string) — Ingests content into the RAG store.".to_string(),
             );
+            tool_definitions.push(
+                "rag_text_search(pattern: string, limit?: int) — Searches RAG chunks by text pattern.".to_string(),
+            );
+            tool_definitions.push(
+                "rag_get_chunk(chunk_id: string) — Retrieves a specific RAG chunk.".to_string(),
+            );
+            tool_definitions.push(
+                "rag_get_chunk_window(chunk_id: string, chars?: int) — Retrieves neighboring chunks around one chunk.".to_string(),
+            );
+            tool_definitions.push(
+                "rag_clear_session(session_id?: string) — Clears all RAG chunks in a session.".to_string(),
+            );
+            tool_definitions.push(
+                "rag_reindex(embedding_model?: string) — Rebuilds the RAG index after embedding model changes.".to_string(),
+            );
         }
 
         // 3. MCP tools — enumerate available servers and their tools

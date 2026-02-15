@@ -1,3 +1,8 @@
+---
+name: i18n-auto-key
+description: Streamlines the internationalization workflow by automating the addition of new translation keys and values across multiple language files.
+---
+
 # i18n Auto Key Skill
 
 ## Description

@@ -7,7 +7,8 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::state::AppState;
-use crate::llama::ChatMessage;
+use crate::llm::ChatMessage;
+use crate::models::types::ModelRuntimeConfig;
 use crate::core::errors::ApiError;
 use crate::tools::execute_tool;
 use super::modes::RequestedAgentMode;
@@ -19,7 +20,6 @@ use super::planner::{generate_execution_plan, requires_fast_mode_planning};
 pub struct CustomAgentRuntime {
     pub id: String,
     pub name: String,
-    pub description: String,
     pub system_prompt: String,
     pub model_config_name: Option<String>,
     pub tool_policy: CustomToolPolicy,
@@ -46,15 +46,19 @@ pub async fn run_agent_mode(
     approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
 ) -> Result<String, ApiError> {
     let requested_mode = RequestedAgentMode::parse(requested_agent_mode);
-    let custom_agents = load_enabled_custom_agents(config);
-    let selected_agent = choose_agent(&custom_agents, requested_agent_id, user_input);
+    let selected_agent = choose_agent_from_manager(state, requested_agent_id, user_input);
 
     if matches!(requested_mode, RequestedAgentMode::Direct) {
         if let Some(requested) = requested_agent_id
             .map(str::trim)
             .filter(|value| !value.is_empty())
         {
-            if !custom_agents.contains_key(requested) {
+            let enabled = state
+                .exclusive_agents
+                .get(requested)
+                .map(|agent| agent.enabled)
+                .unwrap_or(false);
+            if !enabled {
                 return Err(ApiError::BadRequest(format!(
                     "Requested agent '{}' is not available or not enabled",
                     requested
@@ -107,6 +111,14 @@ pub async fn run_agent_mode(
         .unwrap_or_else(CustomToolPolicy::allow_all_policy);
 
     let mut tool_list = vec!["native_web_fetch".to_string(), "native_search".to_string()];
+    let rag_tool_requested = active_policy.allowed_tools.contains("native_rag_search")
+        || active_policy.allowed_tools.contains("native_rag_ingest")
+        || active_policy.require_confirmation.contains("native_rag_search")
+        || active_policy.require_confirmation.contains("native_rag_ingest");
+    if rag_tool_requested {
+        tool_list.push("native_rag_search".to_string());
+        tool_list.push("native_rag_ingest".to_string());
+    }
     let mcp_tools = state.mcp.list_tools().await;
     let mut mcp_tool_set = HashSet::new();
     for tool in mcp_tools {
@@ -195,9 +207,10 @@ pub async fn run_agent_mode(
         )
         .await?;
 
+        let model_cfg = ModelRuntimeConfig::for_chat(&agent_chat_config)?;
         let response = state
             .llama
-            .chat(&agent_chat_config, messages.clone())
+            .chat(&model_cfg, messages.clone())
             .await?;
         let decision = parse_agent_decision(&response);
 
@@ -310,7 +323,16 @@ pub async fn run_agent_mode(
                     }
                 }
 
-                let execution = match execute_tool(config, Some(&state.mcp), &name, &args).await {
+                let execution = match execute_tool(
+                    Some(state),
+                    config,
+                    Some(&state.mcp),
+                    Some(session_id),
+                    &name,
+                    &args,
+                )
+                .await
+                {
                     Ok(value) => value,
                     Err(err) => {
                         let failure = format!("Tool `{}` failed: {}", name, err);
@@ -335,7 +357,7 @@ pub async fn run_agent_mode(
                     json!({"timestamp": chrono::Utc::now().to_rfc3339(), "tool": name});
                 state
                     .history
-                    .add_message(session_id, "tool", &tool_payload, &tool_kwargs)
+                    .add_message(session_id, "tool", &tool_payload, Some(tool_kwargs))
                     .await?;
 
                 messages.push(ChatMessage {
@@ -386,106 +408,6 @@ pub async fn run_agent_mode(
     .await?;
     send_json(sender, json!({"type": "done"})).await?;
     Ok(fallback)
-}
-
-fn load_enabled_custom_agents(config: &Value) -> HashMap<String, CustomAgentRuntime> {
-    let mut out = HashMap::new();
-    let Some(agents) = config.get("custom_agents").and_then(|v| v.as_object()) else {
-        return out;
-    };
-
-    for (id, raw_agent) in agents {
-        let enabled = raw_agent
-            .get("enabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true);
-        if !enabled {
-            continue;
-        }
-
-        let name = raw_agent
-            .get("name")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .unwrap_or(id)
-            .to_string();
-        let description = raw_agent
-            .get("description")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let system_prompt = raw_agent
-            .get("system_prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let model_config_name = raw_agent
-            .get("model_config_name")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .map(|v| v.to_string());
-
-        out.insert(
-            id.to_string(),
-            CustomAgentRuntime {
-                id: id.to_string(),
-                name,
-                description,
-                system_prompt,
-                model_config_name,
-                tool_policy: CustomToolPolicy::from_agent_config(raw_agent),
-            },
-        );
-    }
-    out
-}
-
-fn choose_agent(
-    custom_agents: &HashMap<String, CustomAgentRuntime>,
-    requested_agent_id: Option<&str>,
-    user_input: &str,
-) -> Option<CustomAgentRuntime> {
-    if let Some(requested) = requested_agent_id
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        if let Some(agent) = custom_agents.get(requested) {
-            return Some(agent.clone());
-        }
-    }
-
-    if custom_agents.is_empty() {
-        return None;
-    }
-
-    let query = user_input.to_lowercase();
-    let mut ranked = custom_agents.values().cloned().collect::<Vec<_>>();
-    ranked.sort_by(|left, right| {
-        let left_score = score_agent_for_query(left, &query);
-        let right_score = score_agent_for_query(right, &query);
-        right_score
-            .cmp(&left_score)
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    ranked.into_iter().next()
-}
-
-fn score_agent_for_query(agent: &CustomAgentRuntime, query: &str) -> usize {
-    let corpus = format!(
-        "{} {} {} {}",
-        agent.id, agent.name, agent.description, agent.system_prompt
-    )
-    .to_lowercase();
-
-    query
-        .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
-        .map(str::trim)
-        .filter(|token| token.len() >= 3)
-        .take(20)
-        .filter(|token| corpus.contains(token))
-        .count()
 }
 
 fn build_agent_chat_config(config: &Value, selected_agent: Option<&CustomAgentRuntime>) -> Value {
@@ -692,4 +614,21 @@ fn approval_timeout(config: &Value) -> u64 {
         .and_then(|v| v.get("tool_approval_timeout"))
         .and_then(|v| v.as_u64())
         .unwrap_or(300)
+}
+
+fn choose_agent_from_manager(
+    state: &AppState,
+    requested_agent_id: Option<&str>,
+    user_input: &str,
+) -> Option<CustomAgentRuntime> {
+    state
+        .exclusive_agents
+        .choose_agent(requested_agent_id, user_input)
+        .map(|agent| CustomAgentRuntime {
+            id: agent.id,
+            name: agent.name,
+            system_prompt: agent.system_prompt,
+            model_config_name: agent.model_config_name,
+            tool_policy: agent.tool_policy.to_custom_tool_policy(),
+        })
 }

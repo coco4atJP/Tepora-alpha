@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::context::pipeline_context::PipelineContext;
-use crate::llama::ChatMessage;
+use crate::llm::ChatMessage;
 use crate::tools::search::SearchResult;
 
 /// Execution modes for the graph
@@ -16,12 +16,14 @@ pub enum Mode {
     #[default]
     Chat,
     Search,
+    SearchAgentic,
     Agent,
 }
 
 impl Mode {
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
+            "search_agentic" => Mode::SearchAgentic,
             "search" => Mode::Search,
             "agent" => Mode::Agent,
             _ => Mode::Chat,
@@ -32,6 +34,7 @@ impl Mode {
         match self {
             Mode::Chat => "chat",
             Mode::Search => "search",
+            Mode::SearchAgentic => "search_agentic",
             Mode::Agent => "agent",
         }
     }

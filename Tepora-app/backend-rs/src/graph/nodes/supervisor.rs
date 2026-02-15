@@ -1,9 +1,11 @@
 // Supervisor Node
-// Routes agent mode requests based on agent_mode
+// Routes agent requests based on agent_mode and selected execution agent.
 
 use async_trait::async_trait;
 use serde_json::json;
 
+use crate::agent::execution::choose_agent_from_manager;
+use crate::agent::planner::requires_fast_mode_planning;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState, SupervisorRoute};
 use crate::server::ws::handler::send_json;
@@ -51,37 +53,61 @@ impl Node for SupervisorNode {
         )
         .await;
 
-        // Determine route based on agent_mode
+        if matches!(state.agent_mode, AgentMode::Direct) {
+            if let Some(requested) = state
+                .agent_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                let enabled = ctx
+                    .app_state
+                    .exclusive_agents
+                    .get(requested)
+                    .map(|agent| agent.enabled)
+                    .unwrap_or(false);
+                if !enabled {
+                    return Err(GraphError::new(
+                        self.id(),
+                        format!(
+                            "Requested agent '{}' is not available or not enabled",
+                            requested
+                        ),
+                    ));
+                }
+            }
+        }
+
+        let selected_agent =
+            choose_agent_from_manager(ctx.app_state, state.agent_id.as_deref(), &state.input);
+        state.selected_agent_id = selected_agent.as_ref().map(|agent| agent.id.clone());
+
         let (route, route_label) = match state.agent_mode {
             AgentMode::High => {
-                // Always go through planner
                 state.supervisor_route = Some(SupervisorRoute::Planner);
                 ("planner", "planner")
             }
             AgentMode::Low => {
-                // Low mode: skip planner unless complexity detected
-                if requires_planning(&state.input) {
+                if requires_fast_mode_planning(&state.input) {
                     state.supervisor_route = Some(SupervisorRoute::Planner);
                     ("planner", "planner")
                 } else {
-                    state.supervisor_route = Some(SupervisorRoute::Agent(
-                        state.agent_id.clone().unwrap_or_default(),
-                    ));
+                    let selected = state.selected_agent_id.clone().unwrap_or_default();
+                    state.supervisor_route = Some(SupervisorRoute::Agent(selected));
                     ("agent_executor", "direct")
                 }
             }
             AgentMode::Direct => {
-                // Go directly to the specified agent
-                let agent_id = state.agent_id.clone().unwrap_or_default();
-                state.supervisor_route = Some(SupervisorRoute::Agent(agent_id));
+                let selected = state.selected_agent_id.clone().unwrap_or_default();
+                state.supervisor_route = Some(SupervisorRoute::Agent(selected));
                 ("agent_executor", "direct")
             }
         };
 
-        let agent_name = state
-            .selected_agent_id
-            .clone()
-            .unwrap_or_else(|| "Professional Agent".to_string());
+        let agent_name = selected_agent
+            .as_ref()
+            .map(|agent| agent.name.clone())
+            .unwrap_or_else(|| "Default Agent".to_string());
 
         let routing_message = format!(
             "Mode={}, route={}, agent={}",
@@ -104,45 +130,6 @@ impl Node for SupervisorNode {
         )
         .await;
 
-        tracing::info!(
-            "Supervisor: mode={}, routing to {}",
-            state.agent_mode.as_str(),
-            route
-        );
-
         Ok(NodeOutput::Branch(route.to_string()))
     }
-}
-
-/// Determines if planning is required for low mode
-fn requires_planning(input: &str) -> bool {
-    let lowered = input.to_lowercase();
-
-    // Long inputs likely need planning
-    if lowered.len() > 220 {
-        return true;
-    }
-
-    // Check for complexity indicators
-    let indicators = [
-        "step by step",
-        "plan",
-        "roadmap",
-        "architecture",
-        "migration",
-        "strategy",
-        "analysis",
-        "complex",
-        "比較",
-        "分析",
-        "計画",
-        "設計",
-        "段階",
-        "手順",
-        "移行",
-        "包括",
-        "複雑",
-    ];
-
-    indicators.iter().any(|keyword| lowered.contains(keyword))
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use serde_json::Value;
 use crate::state::AppState;
-use crate::llama::ChatMessage;
+use crate::llm::ChatMessage;
 use crate::core::errors::ApiError;
 use super::prompt::{extract_system_prompt, extract_history_limit};
 use crate::tools::search::{self, SearchResult};
@@ -135,6 +135,7 @@ impl ContextPipeline {
         session_id: &str,
         user_input: &str,
         mode: PipelineMode,
+        skip_web_search: bool,
     ) -> Result<PipelineContext, ApiError> {
         let mut pipeline_ctx = PipelineContext::new(
             session_id,
@@ -149,7 +150,7 @@ impl ContextPipeline {
             .add_worker(Box::new(PersonaWorker))
             .add_worker(Box::new(MemoryWorker::default()))
             .add_worker(Box::new(ToolWorker))
-            .add_worker(Box::new(SearchWorker::default()))
+            .add_worker(Box::new(SearchWorker::new(skip_web_search)))
             .add_worker(Box::new(RagWorker::default()));
 
         pipeline

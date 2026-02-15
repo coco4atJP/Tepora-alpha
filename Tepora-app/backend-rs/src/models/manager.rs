@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -7,85 +7,16 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
+use serde_json::Value;
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
 
-#[derive(Debug, Deserialize)]
-struct OllamaTagsResponse {
-    models: Vec<OllamaModel>,
-}
-
-#[derive(Debug, Deserialize)]
-struct OllamaModel {
-    name: String,
-    size: u64,
-    digest: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenAiModelsResponse {
-    data: Vec<OpenAiModelInfo>,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenAiModelInfo {
-    id: String,
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelEntry {
-    pub id: String,
-    pub display_name: String,
-    pub role: String,
-    pub file_size: u64,
-    pub filename: String,
-    pub source: String,
-    pub file_path: String,
-    #[serde(default)]
-    pub loader: String,
-    #[serde(default)]
-    pub loader_model_name: Option<String>,
-    #[serde(default)]
-    pub repo_id: Option<String>,
-    #[serde(default)]
-    pub revision: Option<String>,
-    #[serde(default)]
-    pub sha256: Option<String>,
-    pub added_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ModelRegistry {
-    #[serde(default)]
-    pub models: Vec<ModelEntry>,
-    #[serde(default)]
-    pub role_assignments: HashMap<String, String>,
-    #[serde(default)]
-    pub role_order: HashMap<String, Vec<String>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ModelDownloadPolicy {
-    pub allowed: bool,
-    pub requires_consent: bool,
-    pub warnings: Vec<String>,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct ModelDownloadResult {
-    pub success: bool,
-    pub requires_consent: bool,
-    pub warnings: Vec<String>,
-    pub path: Option<PathBuf>,
-    pub error_message: Option<String>,
-    pub model_id: Option<String>,
-}
+use super::types::{
+    ModelDownloadPolicy, ModelDownloadResult, ModelEntry, ModelRegistry, OllamaTagsResponse,
+    OpenAiModelsResponse,
+};
 
 #[derive(Clone)]
 pub struct ModelManager {
@@ -563,9 +494,6 @@ impl ModelManager {
         let mut registry = self.load_registry()?;
         let now = Utc::now().to_rfc3339();
 
-        // Mark existing ollama models as needing verification or just overwrite?
-        // Simple approach: append new ones, ignore existing if logic is idempotent.
-
         for model in tags.models {
             let model_id = format!("ollama-{}", model.name);
             if registry.models.iter().any(|m| m.id == model_id) {
@@ -785,6 +713,13 @@ fn normalize_sha256(value: Option<&str>) -> Option<String> {
     Some(trimmed.to_ascii_lowercase())
 }
 
+fn content_length(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get("content-length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -925,11 +860,4 @@ mod tests {
             .iter()
             .any(|w| w.contains("valid 64-char hex")));
     }
-}
-
-fn content_length(headers: &HeaderMap) -> Option<u64> {
-    headers
-        .get("content-length")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u64>().ok())
 }

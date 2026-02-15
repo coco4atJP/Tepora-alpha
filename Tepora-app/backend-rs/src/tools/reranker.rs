@@ -20,7 +20,18 @@ pub async fn rerank_search_results_with_embeddings(
         inputs.push(format!("{}\n{}", result.title, result.snippet));
     }
 
-    let embeddings = match state.llama.embed(config, &inputs).await {
+use crate::models::types::ModelRuntimeConfig;
+
+// ... existing imports ...
+
+    let model_cfg = match ModelRuntimeConfig::for_embedding(config) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Reranking skipped (config error): {}", e);
+            return results;
+        }
+    };
+    let embeddings: Vec<Vec<f32>> = match state.llama.embed(&model_cfg, &inputs).await {
         Ok(vectors) => vectors,
         Err(err) => {
             tracing::debug!("Search rerank skipped (embedding unavailable): {}", err);

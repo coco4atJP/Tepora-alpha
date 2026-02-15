@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{State, WebSocketUpgrade};
-use axum::http::{HeaderMap};
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use chrono::Utc;
 use futures_util::stream::SplitSink;
@@ -12,9 +12,9 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::core::errors::ApiError;
+use crate::graph::{AgentState, NodeContext};
 use crate::state::AppState;
-use crate::context::pipeline::ContextPipeline;
-use crate::agent::runtime::run_agent_mode; // Import from agent runtime
+
 use super::protocol::{WsIncomingMessage, WS_APP_PROTOCOL, WS_TOKEN_PREFIX};
 
 pub async fn ws_handler(
@@ -124,11 +124,22 @@ async fn handle_message(
             return Ok(());
         }
         "get_stats" => {
+            let stats = state.em_memory_service.stats().await?;
             send_json(
                 sender,
                 json!({
                     "type": "stats",
-                    "data": {"total_events": 0, "char_memory": {"total_events": 0}, "prof_memory": {"total_events": 0}}
+                    "data": {
+                        "total_events": stats.total_events,
+                        "em_llm_enabled": stats.enabled,
+                        "memory_events": stats.total_events,
+                        "retrieval": {
+                            "limit": stats.retrieval_limit,
+                            "min_score": stats.min_score,
+                        },
+                        "char_memory": {"total_events": stats.total_events},
+                        "prof_memory": {"total_events": 0}
+                    }
                 }),
             )
             .await?;
@@ -153,23 +164,24 @@ async fn handle_message(
     }
 
     let message_text = data.message.unwrap_or_default();
-    if message_text.is_empty() && data.attachments.is_empty() {
+    let attachments = data.attachments;
+    if message_text.is_empty() && attachments.is_empty() {
         return Ok(());
     }
 
-    let session_id = data
-        .session_id
-        .unwrap_or_else(|| current_session_id.clone());
+    let session_id = data.session_id.unwrap_or_else(|| current_session_id.clone());
     let mode = data.mode.unwrap_or_else(|| "chat".to_string());
     let thinking_mode = data.thinking_mode.unwrap_or(false);
-    let requested_agent_id = data.agent_id.clone();
-    let requested_agent_mode = data.agent_mode.clone();
+    let requested_agent_id = data.agent_id;
+    let requested_agent_mode = data.agent_mode;
+    let skip_search = data.skip_web_search.unwrap_or(false);
     let timestamp = Utc::now().to_rfc3339();
+    let attachments_for_history = attachments.clone();
 
     let user_kwargs = json!({
-        "timestamp": timestamp,
-        "mode": mode,
-        "attachments": data.attachments,
+        "timestamp": timestamp.clone(),
+        "mode": mode.clone(),
+        "attachments": attachments_for_history,
         "thinking_mode": thinking_mode,
         "agent_id": requested_agent_id.clone(),
         "agent_mode": requested_agent_mode.clone(),
@@ -178,114 +190,87 @@ async fn handle_message(
 
     state
         .history
-        .add_message(&session_id, "human", &message_text, &user_kwargs)
+        .add_message(&session_id, "human", &message_text, Some(user_kwargs))
         .await?;
     let _ = state.history.touch_session(&session_id).await;
 
     let config = state.config.load_config()?;
-    let skip_search = data.skip_web_search.unwrap_or(false);
 
-    let context_result = ContextPipeline::build_chat_context(
-        state,
-        &config,
-        &session_id,
+    let mut graph_state = AgentState::from_ws_message(
+        session_id.clone(),
         &message_text,
         &mode,
+        requested_agent_id.as_deref(),
+        requested_agent_mode.as_deref(),
+        thinking_mode,
         skip_search,
-    )
-    .await?;
+        attachments,
+        Vec::new(),
+    );
 
-    let chat_messages = context_result.messages;
-
-    if let Some(results) = context_result.search_results {
-        let _ = send_json(
-            sender,
-            json!({ "type": "search_results", "data": results }),
-        )
-        .await;
-    }
-
-    if mode == "agent" {
-        let agent_response = run_agent_mode(
-            state,
-            &config,
-            &session_id,
-            chat_messages,
-            &message_text,
-            &data.attachments,
-            thinking_mode,
-            requested_agent_id.as_deref(),
-            requested_agent_mode.as_deref(),
-            sender,
-            pending,
-            approved_mcp_tools,
-        )
-        .await?;
-
-        let assistant_kwargs = json!({
-            "timestamp": timestamp,
-            "mode": mode,
-            "thinking_mode": thinking_mode,
-            "agent_id": requested_agent_id,
-            "agent_mode": requested_agent_mode,
-        });
-        state
-            .history
-            .add_message(&session_id, "ai", &agent_response, &assistant_kwargs)
-            .await?;
-        return Ok(());
-    }
-
-    let mut stream = match state.llama.stream_chat(&config, chat_messages).await {
-        Ok(rx) => rx,
-        Err(err) => {
-            send_json(
-                sender,
-                json!({"type": "error", "message": format!("{}", err)}),
-            )
-            .await?;
-            return Ok(());
-        }
+    let mut node_ctx = NodeContext {
+        app_state: state,
+        config: &config,
+        sender,
+        pending_approvals: pending,
+        approved_mcp_tools,
     };
 
-    let mut full_response = String::new();
-    while let Some(chunk_result) = stream.recv().await {
-        match chunk_result {
-            Ok(chunk) => {
-                if chunk.is_empty() {
-                    continue;
-                }
-                full_response.push_str(&chunk);
-                send_json(
-                    sender,
-                    json!({
-                        "type": "chunk",
-                        "message": chunk,
-                        "mode": mode,
-                    }),
-                )
-                .await?;
-            }
-            Err(err) => {
-                send_json(
-                    sender,
-                    json!({"type": "error", "message": format!("{}", err)}),
-                )
-                .await?;
-                return Ok(());
-            }
-        }
-    }
+    state
+        .graph_runtime
+        .run(&mut graph_state, &mut node_ctx)
+        .await
+        .map_err(ApiError::from)?;
 
-    send_json(sender, json!({"type": "done"})).await?;
+    let assistant_output = graph_state.output.clone().unwrap_or_default();
 
-    let assistant_kwargs = json!({"timestamp": timestamp, "mode": mode});
+    let assistant_kwargs = json!({
+        "timestamp": timestamp,
+        "mode": mode.clone(),
+        "thinking_mode": thinking_mode,
+        "agent_id": requested_agent_id,
+        "agent_mode": requested_agent_mode,
+    });
     state
         .history
-        .add_message(&session_id, "ai", &full_response, &assistant_kwargs)
+        .add_message(&session_id, "ai", &assistant_output, Some(assistant_kwargs))
         .await?;
 
+    let embedding_model_id = resolve_embedding_model_id(state);
+    let _ = state
+        .em_memory_service
+        .ingest_interaction(
+            &session_id,
+            &message_text,
+            &assistant_output,
+            &state.llm,
+            &embedding_model_id,
+        )
+        .await;
+
     Ok(())
+}
+
+fn resolve_embedding_model_id(state: &AppState) -> String {
+    state
+        .models
+        .get_registry()
+        .ok()
+        .and_then(|registry| {
+            registry
+                .role_assignments
+                .get("embedding")
+                .cloned()
+                .or_else(|| {
+                    registry
+                        .models
+                        .iter()
+                        .find(|model| model.role == "embedding")
+                        .map(|model| model.id.clone())
+                })
+                .or_else(|| registry.models.first().map(|model| model.id.clone()))
+        })
+        .unwrap_or_else(|| "default".to_string())
 }
 
 async fn send_history(
@@ -304,13 +289,15 @@ async fn send_history(
             };
             let timestamp = msg
                 .additional_kwargs
-                .get("timestamp")
+                .as_ref()
+                .and_then(|k| k.get("timestamp"))
                 .and_then(|v| v.as_str())
                 .unwrap_or(&msg.created_at)
                 .to_string();
             let mode = msg
                 .additional_kwargs
-                .get("mode")
+                .as_ref()
+                .and_then(|k| k.get("mode"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("chat")
                 .to_string();

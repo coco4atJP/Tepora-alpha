@@ -1,11 +1,5 @@
 use serde_json::{Value, Map};
 
-pub fn insert_config_section(config: &mut Value, key: &str, section: Value) {
-    if let Some(map) = config.as_object_mut() {
-        map.insert(key.to_string(), section);
-    }
-}
-
 pub fn ensure_object_path(config: &mut Value, path: &[&str], value: Value) {
     if path.is_empty() {
         return;
@@ -34,17 +28,6 @@ pub fn ensure_object_path(config: &mut Value, path: &[&str], value: Value) {
     }
 }
 
-pub fn merge_objects(mut base: Value, overlay: Value) -> Value {
-    match (base.as_object_mut(), overlay.as_object()) {
-        (Some(base_map), Some(overlay_map)) => {
-            for (key, value) in overlay_map {
-                base_map.insert(key.clone(), value.clone());
-            }
-            base
-        }
-        _ => overlay,
-    }
-}
 
 use std::path::PathBuf;
 use crate::core::config::AppPaths;

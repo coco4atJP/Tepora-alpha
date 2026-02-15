@@ -54,6 +54,7 @@ impl Node for RouterNode {
                     "search"
                 }
             }
+            Mode::SearchAgentic => "search_agentic",
             Mode::Agent => "supervisor",
         };
 

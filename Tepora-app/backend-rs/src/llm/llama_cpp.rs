@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 use serde_json::json;
 
 use crate::core::errors::ApiError;
-use crate::llama::LlamaService;
+use crate::llm::LlamaService;
 use crate::models::ModelManager;
 
 
@@ -77,7 +77,7 @@ impl LlmProvider for LlamaCppProvider {
     async fn chat(&self, request: ChatRequest, model_id: &str) -> Result<String, ApiError> {
         let config = self.build_config(model_id, &request)?;
         
-        let messages = request.messages.into_iter().map(|m| crate::llama::ChatMessage {
+        let messages = request.messages.into_iter().map(|m| crate::llm::ChatMessage {
             role: m.role,
             content: m.content,
         }).collect();
@@ -92,7 +92,7 @@ impl LlmProvider for LlamaCppProvider {
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
         let config = self.build_config(model_id, &request)?;
 
-        let messages = request.messages.into_iter().map(|m| crate::llama::ChatMessage {
+        let messages = request.messages.into_iter().map(|m| crate::llm::ChatMessage {
             role: m.role,
             content: m.content,
         }).collect();

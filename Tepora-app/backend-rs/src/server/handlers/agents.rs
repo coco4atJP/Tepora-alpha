@@ -1,16 +1,16 @@
 use std::sync::Arc;
+
 use axum::extract::{Path, Query, State};
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
-use axum::http::HeaderMap;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use chrono::Utc;
 
-use crate::state::AppState;
+use crate::agent::exclusive_manager::{AgentToolPolicy, ExecutionAgent};
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use super::utils::{insert_config_section, merge_objects};
+use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct CustomAgentQuery {
@@ -24,28 +24,14 @@ pub async fn list_custom_agents(
     Query(query): Query<CustomAgentQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let config = state.config.load_config()?;
-    let agents = config
-        .get("custom_agents")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
 
-    let list: Vec<Value> = agents
-        .values()
-        .filter(|agent| {
-            if !query.enabled_only {
-                return true;
-            }
-            agent
-                .get("enabled")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true)
-        })
-        .cloned()
-        .collect();
+    let agents = if query.enabled_only {
+        state.exclusive_agents.list_enabled()
+    } else {
+        state.exclusive_agents.list_all()
+    };
 
-    Ok(Json(json!({"agents": list})))
+    Ok(Json(json!({"agents": agents})))
 }
 
 pub async fn get_custom_agent(
@@ -54,71 +40,38 @@ pub async fn get_custom_agent(
     Path(agent_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let config = state.config.load_config()?;
-    let agent = config
-        .get("custom_agents")
-        .and_then(|v| v.as_object())
-        .and_then(|map| map.get(&agent_id))
-        .cloned()
+
+    let agent = state
+        .exclusive_agents
+        .get(&agent_id)
         .ok_or_else(|| ApiError::NotFound("Agent not found".to_string()))?;
 
-    Ok(Json(agent))
+    Ok(Json(json!(agent)))
 }
 
 pub async fn create_custom_agent(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(mut payload): Json<Value>,
+    Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
 
     let id = payload
         .get("id")
         .and_then(|v| v.as_str())
+        .map(str::trim)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| ApiError::BadRequest("Agent ID is required".to_string()))?
         .to_string();
-    let name = payload
-        .get("name")
-        .and_then(|v| v.as_str())
-        .filter(|v| !v.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("Agent name is required".to_string()))?
-        .to_string();
-    let system_prompt = payload
-        .get("system_prompt")
-        .and_then(|v| v.as_str())
-        .filter(|v| !v.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("System prompt is required".to_string()))?
-        .to_string();
 
-    let mut config = state.config.load_config()?;
-    let mut agents = config
-        .get("custom_agents")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
-
-    if agents.contains_key(&id) {
+    if state.exclusive_agents.get(&id).is_some() {
         return Err(ApiError::BadRequest("Agent ID already exists".to_string()));
     }
 
-    let now = Utc::now().to_rfc3339();
-    if let Some(obj) = payload.as_object_mut() {
-        obj.insert("id".to_string(), Value::String(id.clone()));
-        obj.insert("name".to_string(), Value::String(name.to_string()));
-        obj.insert(
-            "system_prompt".to_string(),
-            Value::String(system_prompt.to_string()),
-        );
-        obj.insert("created_at".to_string(), Value::String(now.clone()));
-        obj.insert("updated_at".to_string(), Value::String(now.clone()));
-    }
+    let agent = parse_agent_payload(id, &payload, None)?;
+    state.exclusive_agents.upsert(agent.clone())?;
 
-    agents.insert(id.clone(), payload.clone());
-    insert_config_section(&mut config, "custom_agents", Value::Object(agents));
-    state.config.update_config(config, false)?;
-
-    Ok(Json(json!({"status": "success", "agent": payload})))
+    Ok(Json(json!({"status": "success", "agent": agent})))
 }
 
 pub async fn update_custom_agent(
@@ -129,32 +82,15 @@ pub async fn update_custom_agent(
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
 
-    let mut config = state.config.load_config()?;
-    let mut agents = config
-        .get("custom_agents")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
-
-    let existing = agents
+    let existing = state
+        .exclusive_agents
         .get(&agent_id)
-        .cloned()
         .ok_or_else(|| ApiError::NotFound("Agent not found".to_string()))?;
 
-    let mut merged = merge_objects(existing, payload);
-    if let Some(obj) = merged.as_object_mut() {
-        obj.insert("id".to_string(), Value::String(agent_id.clone()));
-        obj.insert(
-            "updated_at".to_string(),
-            Value::String(Utc::now().to_rfc3339()),
-        );
-    }
+    let updated = parse_agent_payload(agent_id.clone(), &payload, Some(existing))?;
+    state.exclusive_agents.upsert(updated.clone())?;
 
-    agents.insert(agent_id.clone(), merged.clone());
-    insert_config_section(&mut config, "custom_agents", Value::Object(agents));
-    state.config.update_config(config, false)?;
-
-    Ok(Json(json!({"status": "success", "agent": merged})))
+    Ok(Json(json!({"status": "success", "agent": updated})))
 }
 
 pub async fn delete_custom_agent(
@@ -163,19 +99,95 @@ pub async fn delete_custom_agent(
     Path(agent_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let mut config = state.config.load_config()?;
-    let mut agents = config
-        .get("custom_agents")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
 
-    if agents.remove(&agent_id).is_none() {
+    let removed = state.exclusive_agents.delete(&agent_id)?;
+    if !removed {
         return Err(ApiError::NotFound("Agent not found".to_string()));
     }
 
-    insert_config_section(&mut config, "custom_agents", Value::Object(agents));
-    state.config.update_config(config, false)?;
-
     Ok(Json(json!({"status": "success"})))
+}
+
+fn parse_agent_payload(
+    id: String,
+    payload: &Value,
+    existing: Option<ExecutionAgent>,
+) -> Result<ExecutionAgent, ApiError> {
+    let name = payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| existing.as_ref().map(|a| a.name.clone()))
+        .ok_or_else(|| ApiError::BadRequest("Agent name is required".to_string()))?;
+
+    let system_prompt = payload
+        .get("system_prompt")
+        .and_then(|v| v.as_str())
+        .map(ToString::to_string)
+        .or_else(|| existing.as_ref().map(|a| a.system_prompt.clone()))
+        .ok_or_else(|| ApiError::BadRequest("System prompt is required".to_string()))?;
+
+    let description = payload
+        .get("description")
+        .and_then(|v| v.as_str())
+        .map(ToString::to_string)
+        .or_else(|| existing.as_ref().map(|a| a.description.clone()))
+        .unwrap_or_default();
+
+    let enabled = payload
+        .get("enabled")
+        .and_then(|v| v.as_bool())
+        .or_else(|| existing.as_ref().map(|a| a.enabled))
+        .unwrap_or(true);
+
+    let model_config_name = payload
+        .get("model_config_name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| existing.as_ref().and_then(|a| a.model_config_name.clone()));
+
+    let priority = payload
+        .get("priority")
+        .and_then(|v| v.as_i64())
+        .map(|v| v as i32)
+        .or_else(|| existing.as_ref().map(|a| a.priority))
+        .unwrap_or(0);
+
+    let tags = payload
+        .get("tags")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        })
+        .or_else(|| existing.as_ref().map(|a| a.tags.clone()))
+        .unwrap_or_default();
+
+    let tool_policy = match payload.get("tool_policy") {
+        Some(value) => serde_json::from_value::<AgentToolPolicy>(value.clone())
+            .map_err(|e| ApiError::BadRequest(format!("Invalid tool_policy: {e}")))?,
+        None => existing
+            .map(|a| a.tool_policy)
+            .unwrap_or_else(AgentToolPolicy::default),
+    };
+
+    Ok(ExecutionAgent {
+        id,
+        name,
+        description,
+        enabled,
+        system_prompt,
+        model_config_name,
+        tool_policy,
+        priority,
+        tags,
+    })
 }

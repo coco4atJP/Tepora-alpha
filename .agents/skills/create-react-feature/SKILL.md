@@ -1,3 +1,8 @@
+---
+name: create-react-feature
+description: Generates a complete set of files for a new React feature component, including the implementation, tests, and export definition.
+---
+
 # Create React Feature Skill
 
 ## Description

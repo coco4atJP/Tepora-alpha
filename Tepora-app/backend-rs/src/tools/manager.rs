@@ -5,10 +5,14 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use reqwest::{redirect::Policy, Client};
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::core::errors::ApiError;
 use crate::mcp::McpManager;
+use crate::rag::{RAGEngine, StoredChunk};
+use crate::state::AppState;
 use crate::tools::search::{perform_search, SearchResult};
+use crate::models::types::ModelRuntimeConfig;
 
 #[derive(Debug, Clone)]
 pub struct ToolExecution {
@@ -17,8 +21,10 @@ pub struct ToolExecution {
 }
 
 pub async fn execute_tool(
+    state: Option<&AppState>,
     config: &Value,
     mcp: Option<&McpManager>,
+    session_id: Option<&str>,
     tool_name: &str,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
@@ -26,6 +32,27 @@ pub async fn execute_tool(
         "native_web_fetch" | "native_fetch" | "web_fetch" => execute_web_fetch(config, args).await,
         "native_google_search" | "native_duckduckgo" | "native_search" | "search" => {
             execute_search(config, args).await
+        }
+        "rag_search" | "native_rag_search" => {
+            execute_rag_search(state, config, session_id, args).await
+        }
+        "rag_ingest" | "native_rag_ingest" => {
+            execute_rag_ingest(state, config, session_id, args).await
+        }
+        "rag_text_search" | "native_rag_text_search" => {
+            execute_rag_text_search(state, session_id, args).await
+        }
+        "rag_get_chunk" | "native_rag_get_chunk" => {
+            execute_rag_get_chunk(state, args).await
+        }
+        "rag_get_chunk_window" | "native_rag_get_chunk_window" => {
+            execute_rag_get_chunk_window(state, session_id, args).await
+        }
+        "rag_clear_session" | "native_rag_clear_session" => {
+            execute_rag_clear_session(state, session_id, args).await
+        }
+        "rag_reindex" | "native_rag_reindex" => {
+            execute_rag_reindex(state, args).await
         }
         _ => {
             if let Some(manager) = mcp {
@@ -38,6 +65,321 @@ pub async fn execute_tool(
             Err(ApiError::BadRequest(format!("Unknown tool: {}", tool_name)))
         }
     }
+}
+
+async fn execute_rag_search(
+    state: Option<&AppState>,
+    config: &Value,
+    session_id: Option<&str>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+
+    let query = args
+        .get("query")
+        .or_else(|| args.get("q"))
+        .or_else(|| args.get("input"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if query.is_empty() {
+        return Err(ApiError::BadRequest("RAG query missing".to_string()));
+    }
+
+    let limit = args
+        .get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5)
+        .clamp(1, 20) as usize;
+    let sid = session_id.unwrap_or("default");
+
+    let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
+    let embeddings = state.llama.embed(&model_cfg, &[query]).await?;
+    let query_embedding = embeddings
+        .first()
+        .ok_or_else(|| ApiError::Internal("RAG query embedding is empty".to_string()))?;
+
+    let results = state
+        .rag_store
+        .search(query_embedding, limit, Some(sid))
+        .await?;
+    let output = serde_json::to_string_pretty(&results).unwrap_or_default();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
+}
+
+async fn execute_rag_ingest(
+    state: Option<&AppState>,
+    config: &Value,
+    session_id: Option<&str>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+    let sid = session_id.unwrap_or("default");
+
+    let content = args
+        .get("content")
+        .or_else(|| args.get("text"))
+        .or_else(|| args.get("input"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if content.is_empty() {
+        return Err(ApiError::BadRequest("RAG content missing".to_string()));
+    }
+
+    let source = args
+        .get("source")
+        .or_else(|| args.get("name"))
+        .or_else(|| args.get("url"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("user_input")
+        .trim()
+        .to_string();
+
+    let rag_engine = RAGEngine::default();
+    let chunks = rag_engine.collect_from_text(&content, &source);
+    if chunks.is_empty() {
+        return Err(ApiError::BadRequest(
+            "RAG chunking produced no chunks".to_string(),
+        ));
+    }
+
+    let embedding_inputs: Vec<String> = chunks
+        .iter()
+        .map(|chunk| chunk.text.clone())
+        .collect();
+    let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
+    let embeddings = state.llama.embed(&model_cfg, &embedding_inputs).await?;
+    if embeddings.len() != chunks.len() {
+        return Err(ApiError::Internal(format!(
+            "Embedding/chunk size mismatch: {} != {}",
+            embeddings.len(),
+            chunks.len()
+        )));
+    }
+
+    let user_metadata = args.get("metadata").cloned();
+    let items = chunks
+        .into_iter()
+        .zip(embeddings.into_iter())
+        .map(|(chunk, embedding)| {
+            let metadata = serde_json::json!({
+                "chunk_index": chunk.chunk_index,
+                "start_offset": chunk.start_offset,
+                "user_metadata": user_metadata.clone(),
+            });
+
+            (
+                StoredChunk {
+                    chunk_id: format!("rag-{}", Uuid::new_v4()),
+                    content: chunk.text,
+                    source: chunk.source,
+                    session_id: sid.to_string(),
+                    metadata: Some(metadata),
+                },
+                embedding,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let inserted = items.len();
+    state.rag_store.insert_batch(items).await?;
+
+    let output = serde_json::json!({
+        "status": "ok",
+        "inserted_chunks": inserted,
+        "session_id": sid,
+        "source": source,
+    })
+    .to_string();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
+}
+
+async fn execute_rag_text_search(
+    state: Option<&AppState>,
+    session_id: Option<&str>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+
+    let pattern = args
+        .get("pattern")
+        .or_else(|| args.get("query"))
+        .or_else(|| args.get("q"))
+        .or_else(|| args.get("input"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if pattern.is_empty() {
+        return Err(ApiError::BadRequest("RAG text pattern missing".to_string()));
+    }
+
+    let limit = args
+        .get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10)
+        .clamp(1, 50) as usize;
+    let sid = session_id.unwrap_or("default");
+
+    let results = state
+        .rag_store
+        .text_search(&pattern, limit, Some(sid))
+        .await?;
+    let output = serde_json::to_string_pretty(&results).unwrap_or_default();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
+}
+
+async fn execute_rag_get_chunk(
+    state: Option<&AppState>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+
+    let chunk_id = args
+        .get("chunk_id")
+        .or_else(|| args.get("chunkId"))
+        .or_else(|| args.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if chunk_id.is_empty() {
+        return Err(ApiError::BadRequest("chunk_id is required".to_string()));
+    }
+
+    let result = state.rag_store.get_chunk(&chunk_id).await?;
+    let output = serde_json::to_string_pretty(&result).unwrap_or_default();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
+}
+
+async fn execute_rag_get_chunk_window(
+    state: Option<&AppState>,
+    session_id: Option<&str>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+
+    let chunk_id = args
+        .get("chunk_id")
+        .or_else(|| args.get("chunkId"))
+        .or_else(|| args.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if chunk_id.is_empty() {
+        return Err(ApiError::BadRequest("chunk_id is required".to_string()));
+    }
+
+    let chars = args
+        .get("chars")
+        .or_else(|| args.get("max_chars"))
+        .or_else(|| args.get("maxChars"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1200)
+        .clamp(128, 20000) as usize;
+
+    let sid = session_id.unwrap_or("default");
+    let result = state
+        .rag_store
+        .get_chunk_window(&chunk_id, chars, Some(sid))
+        .await?;
+    let output = serde_json::to_string_pretty(&result).unwrap_or_default();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
+}
+
+async fn execute_rag_clear_session(
+    state: Option<&AppState>,
+    session_id: Option<&str>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+
+    let sid = args
+        .get("session_id")
+        .or_else(|| args.get("sessionId"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| session_id.unwrap_or("default"));
+
+    let deleted = state.rag_store.clear_session(sid).await?;
+    let output = serde_json::json!({
+        "status": "ok",
+        "session_id": sid,
+        "deleted_chunks": deleted,
+    })
+    .to_string();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
+}
+
+async fn execute_rag_reindex(
+    state: Option<&AppState>,
+    args: &Value,
+) -> Result<ToolExecution, ApiError> {
+    let state = state.ok_or_else(|| {
+        ApiError::BadRequest("RAG tool requires application state".to_string())
+    })?;
+
+    let embedding_model = args
+        .get("embedding_model")
+        .or_else(|| args.get("embeddingModel"))
+        .or_else(|| args.get("model"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("default")
+        .trim();
+
+    state.rag_store.reindex_with_model(embedding_model).await?;
+
+    let output = serde_json::json!({
+        "status": "ok",
+        "embedding_model": embedding_model,
+    })
+    .to_string();
+
+    Ok(ToolExecution {
+        output,
+        search_results: None,
+    })
 }
 
 async fn execute_search(config: &Value, args: &Value) -> Result<ToolExecution, ApiError> {

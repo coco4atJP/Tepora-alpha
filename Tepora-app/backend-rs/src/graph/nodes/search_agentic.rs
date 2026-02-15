@@ -1,19 +1,21 @@
 // Agentic Search Node
-// 4-stage deep search pipeline: Query Generate → Chunk Select → Report → Synthesize
-//
-// Provides a multi-step search workflow that generates sub-queries,
-// evaluates and selects the best chunks from search + RAG results,
-// writes an intermediate research report, then synthesizes the final answer.
+// 4-stage pipeline with RAG-centric retrieval and artifact accumulation.
+
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
+use crate::context::pipeline::ContextPipeline;
+use crate::context::pipeline_context::PipelineMode;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
-use crate::graph::state::AgentState;
-use crate::llama::ChatMessage;
+use crate::graph::state::{AgentState, Artifact};
+use crate::llm::{ChatMessage, ChatRequest};
+use crate::rag::{ChunkSearchResult, StoredChunk};
 use crate::server::ws::handler::send_json;
-use crate::tools::search::{perform_search, SearchResult};
-use crate::tools::vector_math;
+use crate::tools::search::SearchResult;
+use crate::tools::execute_tool;
 
 pub struct AgenticSearchNode;
 
@@ -27,6 +29,14 @@ impl Default for AgenticSearchNode {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Debug, Clone)]
+struct RagArtifactChunk {
+    chunk_id: String,
+    source: String,
+    content: String,
+    score: f32,
 }
 
 #[async_trait]
@@ -44,9 +54,26 @@ impl Node for AgenticSearchNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        // ═══════════════════════════════════════════════════════════════════
+        let should_rebuild = state
+            .pipeline_context
+            .as_ref()
+            .map(|pipeline| pipeline.mode != PipelineMode::SearchAgentic)
+            .unwrap_or(true);
+        if should_rebuild {
+            let app_state = Arc::new(ctx.app_state.clone());
+            let pipeline_ctx = ContextPipeline::build_v4(
+                &app_state,
+                &state.session_id,
+                &state.input,
+                PipelineMode::SearchAgentic,
+                true,
+            )
+            .await
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+            state.pipeline_context = Some(pipeline_ctx);
+        }
+
         // Stage 1: Query Generation
-        // ═══════════════════════════════════════════════════════════════════
         let _ = send_json(
             ctx.sender,
             json!({
@@ -78,9 +105,7 @@ impl Node for AgenticSearchNode {
         )
         .await;
 
-        // ═══════════════════════════════════════════════════════════════════
-        // Stage 2: Parallel Search + Chunk Selection
-        // ═══════════════════════════════════════════════════════════════════
+        // Stage 2: RAG-centric retrieval and chunk window expansion
         let _ = send_json(
             ctx.sender,
             json!({
@@ -88,43 +113,62 @@ impl Node for AgenticSearchNode {
                 "data": {
                     "id": "agentic_chunk_select",
                     "status": "processing",
-                    "message": "Searching and selecting relevant chunks...",
+                    "message": "Collecting and selecting relevant chunks...",
                     "agentName": "Agentic Search"
                 }
             }),
         )
         .await;
 
-        let all_results = self
+        let (selected_chunks, display_results) = self
             .search_and_select(state, ctx, &sub_queries)
             .await?;
 
-        // Store the selected chunks as an artifact in shared context
-        let chunk_summary = all_results
-            .iter()
-            .enumerate()
-            .map(|(i, r)| format!("[{}] {} — {}", i + 1, r.title, r.snippet))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        state.shared_context.artifacts.push(
-            crate::graph::state::Artifact {
-                artifact_type: "search_chunks".to_string(),
-                content: chunk_summary,
-                metadata: serde_json::Map::new().into_iter().collect(),
-            },
-        );
-
-        state.search_results = Some(all_results.clone());
-
+        state.search_results = Some(display_results.clone());
         let _ = send_json(
             ctx.sender,
-            json!({
-                "type": "search_results",
-                "data": &all_results
-            }),
+            json!({ "type": "search_results", "data": display_results }),
         )
         .await;
+
+        let chunk_ids = selected_chunks
+            .iter()
+            .map(|chunk| Value::String(chunk.chunk_id.clone()))
+            .collect::<Vec<_>>();
+        let sources = selected_chunks
+            .iter()
+            .map(|chunk| Value::String(chunk.source.clone()))
+            .collect::<Vec<_>>();
+
+        let artifact_text = selected_chunks
+            .iter()
+            .enumerate()
+            .map(|(index, chunk)| {
+                format!(
+                    "[{}] chunk_id={} source={} score={:.3}\n{}",
+                    index + 1,
+                    chunk.chunk_id,
+                    chunk.source,
+                    chunk.score,
+                    chunk.content
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        let mut metadata = HashMap::new();
+        metadata.insert("chunk_ids".to_string(), Value::Array(chunk_ids));
+        metadata.insert("sources".to_string(), Value::Array(sources));
+        metadata.insert(
+            "query_count".to_string(),
+            Value::Number(serde_json::Number::from(sub_queries.len() as u64)),
+        );
+
+        state.shared_context.artifacts.push(Artifact {
+            artifact_type: "search_chunks".to_string(),
+            content: artifact_text,
+            metadata,
+        });
 
         let _ = send_json(
             ctx.sender,
@@ -133,16 +177,14 @@ impl Node for AgenticSearchNode {
                 "data": {
                     "id": "agentic_chunk_select",
                     "status": "done",
-                    "message": format!("Selected {} relevant chunks", all_results.len()),
+                    "message": format!("Selected {} chunks", selected_chunks.len()),
                     "agentName": "Agentic Search"
                 }
             }),
         )
         .await;
 
-        // ═══════════════════════════════════════════════════════════════════
-        // Stage 3: Research Report Generation
-        // ═══════════════════════════════════════════════════════════════════
+        // Stage 3: Artifact-based report
         let _ = send_json(
             ctx.sender,
             json!({
@@ -150,24 +192,20 @@ impl Node for AgenticSearchNode {
                 "data": {
                     "id": "agentic_report",
                     "status": "processing",
-                    "message": "Generating research report...",
+                    "message": "Generating artifact report...",
                     "agentName": "Agentic Search"
                 }
             }),
         )
         .await;
 
-        let report = self
-            .generate_report(state, ctx, &all_results)
-            .await?;
+        let report = self.generate_report(state, ctx, &selected_chunks).await?;
 
-        state.shared_context.artifacts.push(
-            crate::graph::state::Artifact {
-                artifact_type: "research_report".to_string(),
-                content: report.clone(),
-                metadata: serde_json::Map::new().into_iter().collect(),
-            },
-        );
+        state.shared_context.artifacts.push(Artifact {
+            artifact_type: "research_report".to_string(),
+            content: report.clone(),
+            metadata: HashMap::new(),
+        });
 
         let _ = send_json(
             ctx.sender,
@@ -183,9 +221,7 @@ impl Node for AgenticSearchNode {
         )
         .await;
 
-        // ═══════════════════════════════════════════════════════════════════
-        // Stage 4: Final Synthesis (streamed)
-        // ═══════════════════════════════════════════════════════════════════
+        // Stage 4: Persona-enabled final synthesis
         let _ = send_json(
             ctx.sender,
             json!({
@@ -200,9 +236,7 @@ impl Node for AgenticSearchNode {
         )
         .await;
 
-        let final_answer = self
-            .synthesize_answer(state, ctx, &report)
-            .await?;
+        let final_answer = self.synthesize_answer(state, ctx, &report).await?;
 
         let _ = send_json(
             ctx.sender,
@@ -226,7 +260,6 @@ impl Node for AgenticSearchNode {
 }
 
 impl AgenticSearchNode {
-    /// Stage 1: Use LLM to decompose the user query into multiple sub-queries.
     async fn generate_sub_queries(
         &self,
         state: &AgentState,
@@ -250,40 +283,50 @@ impl AgenticSearchNode {
             },
         ];
 
+        let model_id = match ctx.app_state.models.get_registry() {
+            Ok(registry) => registry
+                .role_assignments
+                .get("text")
+                .or_else(|| registry.role_assignments.get("character"))
+                .cloned()
+                .unwrap_or_else(|| "default".to_string()),
+            Err(_) => "default".to_string(),
+        };
+
+        let request = ChatRequest::new(messages).with_config(ctx.config);
         let response = ctx
             .app_state
-            .llama
-            .chat(ctx.config, messages)
+            .llm
+            .chat(request, &model_id)
             .await
-            .map_err(|e| GraphError::new(self.id(), format!("Sub-query generation failed: {e}")))?;
+            .map_err(|err| GraphError::new(self.id(), format!("sub-query generation failed: {err}")))?;
 
-        // Parse JSON array from response
-        let queries = parse_string_array(&response).unwrap_or_else(|| {
-            // Fallback: use original query + a rephrased version
-            vec![state.input.clone()]
-        });
-
-        // Always include original query
-        let mut result = vec![state.input.clone()];
-        for q in queries {
-            let trimmed = q.trim().to_string();
-            if !trimmed.is_empty() && trimmed != state.input {
-                result.push(trimmed);
+        let parsed = parse_json_payload::<Vec<String>>(&response).unwrap_or_default();
+        let mut queries = vec![state.input.clone()];
+        for query in parsed {
+            let query = query.trim().to_string();
+            if !query.is_empty() && !queries.iter().any(|existing| existing == &query) {
+                queries.push(query);
             }
         }
-
-        // Cap at 5 sub-queries
-        result.truncate(5);
-        Ok(result)
+        queries.truncate(5);
+        Ok(queries)
     }
 
-    /// Stage 2: Execute searches for all sub-queries, deduplicate and rerank.
     async fn search_and_select(
         &self,
         state: &AgentState,
         ctx: &mut NodeContext<'_>,
         sub_queries: &[String],
-    ) -> Result<Vec<SearchResult>, GraphError> {
+    ) -> Result<(Vec<RagArtifactChunk>, Vec<SearchResult>), GraphError> {
+        let mut merged: HashMap<String, RagArtifactChunk> = HashMap::new();
+
+        for query in sub_queries {
+            self.merge_similarity_results(state, ctx, query, &mut merged)
+                .await?;
+            self.merge_text_results(state, ctx, query, &mut merged).await?;
+        }
+
         let search_enabled = ctx
             .config
             .get("privacy")
@@ -291,111 +334,227 @@ impl AgenticSearchNode {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
-        if !search_enabled || state.skip_web_search {
-            return Ok(Vec::new());
-        }
+        let mut web_results = Vec::new();
+        if search_enabled && !state.skip_web_search {
+            for query in sub_queries.iter().take(3) {
+                let search = execute_tool(
+                    Some(ctx.app_state),
+                    ctx.config,
+                    Some(&ctx.app_state.mcp),
+                    Some(&state.session_id),
+                    "native_search",
+                    &json!({ "query": query, "limit": 5 }),
+                )
+                .await;
 
-        let mut all_results: Vec<SearchResult> = Vec::new();
-        let mut seen_urls = std::collections::HashSet::new();
+                let Ok(search) = search else {
+                    continue;
+                };
 
-        for query in sub_queries {
-            match perform_search(ctx.config, query).await {
-                Ok(results) => {
-                    for result in results {
-                        if seen_urls.insert(result.url.clone()) {
-                            all_results.push(result);
+                if let Some(results) = search.search_results {
+                    for result in results.iter().take(2) {
+                        web_results.push(result.clone());
+
+                        let fetched = execute_tool(
+                            Some(ctx.app_state),
+                            ctx.config,
+                            Some(&ctx.app_state.mcp),
+                            Some(&state.session_id),
+                            "native_web_fetch",
+                            &json!({ "url": result.url }),
+                        )
+                        .await;
+
+                        let Ok(fetched) = fetched else {
+                            continue;
+                        };
+                        if fetched.output.trim().is_empty() {
+                            continue;
                         }
+
+                        let _ = execute_tool(
+                            Some(ctx.app_state),
+                            ctx.config,
+                            Some(&ctx.app_state.mcp),
+                            Some(&state.session_id),
+                            "native_rag_ingest",
+                            &json!({
+                                "content": fetched.output,
+                                "source": result.url,
+                                "metadata": {
+                                    "title": result.title,
+                                    "snippet": result.snippet,
+                                    "query": query,
+                                }
+                            }),
+                        )
+                        .await;
                     }
                 }
-                Err(err) => {
-                    tracing::warn!("Agentic search sub-query '{}' failed: {}", query, err);
-                }
             }
         }
 
-        // Rerank all results against the original query
-        let reranked = self
-            .rerank_results(ctx, &state.input, all_results)
+        // Re-run similarity search after potential ingest.
+        self.merge_similarity_results(state, ctx, &state.input, &mut merged)
+            .await?;
+
+        // Expand top chunk windows for better artifact quality.
+        let mut ranked = merged.into_values().collect::<Vec<_>>();
+        ranked.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        for chunk in ranked.iter_mut().take(5) {
+            let window = execute_tool(
+                Some(ctx.app_state),
+                ctx.config,
+                Some(&ctx.app_state.mcp),
+                Some(&state.session_id),
+                "native_rag_get_chunk_window",
+                &json!({
+                    "chunk_id": chunk.chunk_id,
+                    "chars": 1500,
+                }),
+            )
             .await;
 
-        // Keep top results (max 15)
-        let limit = 15.min(reranked.len());
-        Ok(reranked[..limit].to_vec())
-    }
-
-    /// Rerank search results using embedding similarity.
-    async fn rerank_results(
-        &self,
-        ctx: &NodeContext<'_>,
-        query: &str,
-        results: Vec<SearchResult>,
-    ) -> Vec<SearchResult> {
-        if results.len() < 2 || query.trim().is_empty() {
-            return results;
-        }
-
-        let model_id = match ctx.app_state.models.get_registry() {
-            Ok(registry) => registry.role_assignments.get("embedding").cloned(),
-            Err(_) => None,
-        };
-
-        let model_id = match model_id {
-            Some(id) => id,
-            None => return results,
-        };
-
-        let mut inputs = Vec::with_capacity(results.len() + 1);
-        inputs.push(query.to_string());
-        for result in &results {
-            inputs.push(format!("{}\n{}", result.title, result.snippet));
-        }
-
-        let embeddings = match ctx.app_state.llm.embed(&inputs, &model_id).await {
-            Ok(vectors) => vectors,
-            Err(_) => return results,
-        };
-
-        if embeddings.len() != inputs.len() {
-            return results;
-        }
-
-        let query_embedding = &embeddings[0];
-        let candidate_embeddings = embeddings[1..].to_vec();
-        let ranking =
-            match vector_math::rank_descending_by_cosine(query_embedding, &candidate_embeddings) {
-                Ok(scores) => scores,
-                Err(_) => return results,
+            let Ok(window) = window else {
+                continue;
             };
+            let Some(window_chunks) = parse_json_payload::<Vec<StoredChunk>>(&window.output) else {
+                continue;
+            };
+            if window_chunks.is_empty() {
+                continue;
+            }
 
-        let mut reranked = Vec::with_capacity(results.len());
-        for (idx, _) in ranking {
-            if let Some(result) = results.get(idx).cloned() {
-                reranked.push(result);
+            let merged_text = window_chunks
+                .iter()
+                .map(|item| item.content.as_str())
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            if !merged_text.trim().is_empty() {
+                chunk.content = merged_text;
             }
         }
 
-        if reranked.len() == results.len() {
-            reranked
-        } else {
-            results
-        }
+        let display_results = ranked
+            .iter()
+            .take(15)
+            .map(|chunk| SearchResult {
+                title: format!("RAG Chunk {}", chunk.chunk_id),
+                url: chunk.source.clone(),
+                snippet: truncate_text(&chunk.content, 240),
+            })
+            .collect::<Vec<_>>();
+
+        Ok((ranked, dedupe_search_results(web_results, display_results)))
     }
 
-    /// Stage 3: Generate an intermediate research report from the chunks.
+    async fn merge_similarity_results(
+        &self,
+        state: &AgentState,
+        ctx: &NodeContext<'_>,
+        query: &str,
+        merged: &mut HashMap<String, RagArtifactChunk>,
+    ) -> Result<(), GraphError> {
+        let result = execute_tool(
+            Some(ctx.app_state),
+            ctx.config,
+            Some(&ctx.app_state.mcp),
+            Some(&state.session_id),
+            "native_rag_search",
+            &json!({ "query": query, "limit": 12 }),
+        )
+        .await
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+
+        let Some(chunks) = parse_json_payload::<Vec<ChunkSearchResult>>(&result.output) else {
+            return Ok(());
+        };
+
+        for item in chunks {
+            let entry = merged
+                .entry(item.chunk.chunk_id.clone())
+                .or_insert_with(|| RagArtifactChunk {
+                    chunk_id: item.chunk.chunk_id.clone(),
+                    source: item.chunk.source.clone(),
+                    content: item.chunk.content.clone(),
+                    score: item.score,
+                });
+
+            if item.score > entry.score {
+                entry.score = item.score;
+                entry.source = item.chunk.source;
+                entry.content = item.chunk.content;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn merge_text_results(
+        &self,
+        state: &AgentState,
+        ctx: &NodeContext<'_>,
+        query: &str,
+        merged: &mut HashMap<String, RagArtifactChunk>,
+    ) -> Result<(), GraphError> {
+        let result = execute_tool(
+            Some(ctx.app_state),
+            ctx.config,
+            Some(&ctx.app_state.mcp),
+            Some(&state.session_id),
+            "native_rag_text_search",
+            &json!({ "pattern": query, "limit": 12 }),
+        )
+        .await
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+
+        let Some(chunks) = parse_json_payload::<Vec<StoredChunk>>(&result.output) else {
+            return Ok(());
+        };
+
+        for chunk in chunks {
+            merged
+                .entry(chunk.chunk_id.clone())
+                .or_insert_with(|| RagArtifactChunk {
+                    chunk_id: chunk.chunk_id,
+                    source: chunk.source,
+                    content: chunk.content,
+                    score: 0.45,
+                });
+        }
+
+        Ok(())
+    }
+
     async fn generate_report(
         &self,
         state: &AgentState,
         ctx: &mut NodeContext<'_>,
-        results: &[SearchResult],
+        chunks: &[RagArtifactChunk],
     ) -> Result<String, GraphError> {
-        if results.is_empty() {
-            return Ok("No search results available for report generation.".to_string());
+        if chunks.is_empty() {
+            return Ok("No RAG chunks available for report generation.".to_string());
         }
 
-        let sources = results
+        let sources = chunks
             .iter()
+            .take(20)
             .enumerate()
-            .map(|(i, r)| format!("[{}] Title: {}\nURL: {}\nSnippet: {}", i + 1, r.title, r.url, r.snippet))
+            .map(|(index, chunk)| {
+                format!(
+                    "[{}] chunk_id={} source={} score={:.3}\n{}",
+                    index + 1,
+                    chunk.chunk_id,
+                    chunk.source,
+                    chunk.score,
+                    chunk.content
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 
@@ -403,61 +562,74 @@ impl AgenticSearchNode {
             ChatMessage {
                 role: "system".to_string(),
                 content: concat!(
-                    "You are a research analyst. Given the user's question and a set of ",
-                    "web search results, write a concise research report that:\n",
-                    "1. Identifies the key facts and insights from the sources\n",
-                    "2. Notes any contradictions or gaps in the information\n",
-                    "3. Cites sources using [N] notation\n",
-                    "4. Is structured with clear sections\n",
-                    "Write the report in the same language as the user's question."
+                    "You are a research analyst. ",
+                    "Generate a concise, evidence-grounded report from chunk artifacts.\n",
+                    "1. Summarize key findings\n",
+                    "2. Note uncertainties or conflicts\n",
+                    "3. Reference chunk IDs as [chunk_id]\n",
+                    "4. Use the user's language"
                 )
                 .to_string(),
             },
             ChatMessage {
                 role: "user".to_string(),
-                content: format!(
-                    "Question: {}\n\nSources:\n{}",
-                    state.input, sources
-                ),
+                content: format!("Question: {}\n\nArtifacts:\n{}", state.input, sources),
             },
         ];
 
+        let model_id = match ctx.app_state.models.get_registry() {
+            Ok(registry) => registry
+                .role_assignments
+                .get("text")
+                .or_else(|| registry.role_assignments.get("character"))
+                .cloned()
+                .unwrap_or_else(|| "default".to_string()),
+            Err(_) => "default".to_string(),
+        };
+
+        let request = ChatRequest::new(messages).with_config(ctx.config);
         ctx.app_state
-            .llama
-            .chat(ctx.config, messages)
+            .llm
+            .chat(request, &model_id)
             .await
-            .map_err(|e| GraphError::new(self.id(), format!("Report generation failed: {e}")))
+            .map_err(|err| GraphError::new(self.id(), format!("report generation failed: {err}")))
     }
 
-    /// Stage 4: Synthesize the final streamed answer from the report.
     async fn synthesize_answer(
         &self,
         state: &AgentState,
         ctx: &mut NodeContext<'_>,
         report: &str,
     ) -> Result<String, GraphError> {
-        let search_context = if let Some(results) = &state.search_results {
-            let urls: Vec<String> = results
-                .iter()
-                .take(10)
-                .map(|r| format!("- [{}]({})", r.title, r.url))
-                .collect();
-            format!("\n\nSources:\n{}", urls.join("\n"))
-        } else {
-            String::new()
-        };
+        // Stage4 is persona-enabled by switching to SearchFast pipeline context.
+        let app_state = Arc::new(ctx.app_state.clone());
+        let stage4_ctx = ContextPipeline::build_v4(
+            &app_state,
+            &state.session_id,
+            &state.input,
+            PipelineMode::SearchFast,
+            true,
+        )
+        .await
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-        let mut messages = state.chat_history.clone();
+        let mut messages = ContextPipeline::pipeline_to_context_result(&stage4_ctx).messages;
+        if let Some(last) = messages.last() {
+            if last.role == "user" && last.content.trim() == state.input.trim() {
+                messages.pop();
+            }
+        }
+
         messages.push(ChatMessage {
             role: "system".to_string(),
             content: format!(
                 concat!(
-                    "You have conducted deep research on the user's question. ",
-                    "Below is your research report. Use it to provide a comprehensive, ",
-                    "well-cited answer. Cite sources as [Source: URL] where appropriate.\n\n",
-                    "Research Report:\n{}\n{}",
+                    "You have completed deep research. ",
+                    "Use the report below to provide the final user-facing answer.\n",
+                    "Keep citations tied to chunk IDs or source URLs when possible.\n\n",
+                    "Research report:\n{}"
                 ),
-                report, search_context
+                report
             ),
         });
         messages.push(ChatMessage {
@@ -465,13 +637,12 @@ impl AgenticSearchNode {
             content: state.input.clone(),
         });
 
-        // Resolve model
         let model_id = {
             let registry = ctx
                 .app_state
                 .models
                 .get_registry()
-                .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
             registry
                 .role_assignments
                 .get("character")
@@ -479,25 +650,15 @@ impl AgenticSearchNode {
                 .unwrap_or_else(|| "default".to_string())
         };
 
-        let llm_messages: Vec<crate::llm::types::ChatMessage> = messages
-            .into_iter()
-            .map(|m| crate::llm::types::ChatMessage {
-                role: m.role,
-                content: m.content,
-            })
-            .collect();
-
-        let request = crate::llm::types::ChatRequest::new(llm_messages).with_config(ctx.config);
-
+        let request = ChatRequest::new(messages).with_config(ctx.config);
         let mut stream = ctx
             .app_state
             .llm
             .stream_chat(request, &model_id)
             .await
-            .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
         let mut full_response = String::new();
-
         while let Some(chunk_result) = stream.recv().await {
             match chunk_result {
                 Ok(chunk) => {
@@ -525,35 +686,51 @@ impl AgenticSearchNode {
     }
 }
 
-/// Parse a JSON array of strings from LLM output.
-fn parse_string_array(text: &str) -> Option<Vec<String>> {
-    let trimmed = text.trim();
-
-    // Try direct parse
-    if let Ok(arr) = serde_json::from_str::<Vec<String>>(trimmed) {
-        return Some(arr);
+fn parse_json_payload<T>(output: &str) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    if let Ok(parsed) = serde_json::from_str::<T>(output) {
+        return Some(parsed);
     }
 
-    // Try extracting JSON array from text
-    if let Some(start) = trimmed.find('[') {
-        if let Some(end) = trimmed.rfind(']') {
-            if let Ok(arr) = serde_json::from_str::<Vec<String>>(&trimmed[start..=end]) {
-                return Some(arr);
-            }
-            // Try parsing as Value array (handles mixed types)
-            if let Ok(val) = serde_json::from_str::<Value>(&trimmed[start..=end]) {
-                if let Some(arr) = val.as_array() {
-                    let strings: Vec<String> = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect();
-                    if !strings.is_empty() {
-                        return Some(strings);
-                    }
-                }
-            }
+    let trimmed = output.trim();
+    let start = trimmed.find(['[', '{'])?;
+    let end = trimmed.rfind([']', '}'])?;
+    if end < start {
+        return None;
+    }
+
+    serde_json::from_str::<T>(&trimmed[start..=end]).ok()
+}
+
+fn truncate_text(text: &str, max_len: usize) -> String {
+    if text.chars().count() <= max_len {
+        return text.to_string();
+    }
+    let mut out = text.chars().take(max_len).collect::<String>();
+    out.push_str("...");
+    out
+}
+
+fn dedupe_search_results(
+    mut web_results: Vec<SearchResult>,
+    mut rag_results: Vec<SearchResult>,
+) -> Vec<SearchResult> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+
+    for item in web_results.drain(..) {
+        if seen.insert(item.url.clone()) {
+            out.push(item);
         }
     }
 
-    None
+    for item in rag_results.drain(..) {
+        if seen.insert(item.url.clone()) {
+            out.push(item);
+        }
+    }
+
+    out
 }

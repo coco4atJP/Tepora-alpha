@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::llama::ChatMessage;
+use crate::llm::ChatMessage;
 use crate::tools::search::SearchResult;
 
 // ---------------------------------------------------------------------------

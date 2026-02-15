@@ -1,12 +1,17 @@
 // Planner Node
-// Generates execution plan for complex tasks
+// Generates execution plan for complex agent tasks.
+
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
 
+use crate::agent::execution::{build_agent_chat_config, resolve_selected_agent};
+use crate::agent::planner::generate_execution_plan;
+use crate::context::pipeline::ContextPipeline;
+use crate::context::pipeline_context::PipelineMode;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
-use crate::graph::state::AgentState;
-use crate::llama::ChatMessage;
+use crate::graph::state::{AgentMode, AgentState};
 use crate::server::ws::handler::send_json;
 
 pub struct PlannerNode;
@@ -52,47 +57,44 @@ impl Node for PlannerNode {
         )
         .await;
 
-        let selected_agent = state
-            .selected_agent_id
-            .clone()
-            .unwrap_or_else(|| "default".to_string());
-
-        let detail = if state.thinking_enabled {
-            "detailed"
-        } else {
-            "compact"
+        let pipeline_mode = match state.agent_mode {
+            AgentMode::High => PipelineMode::AgentHigh,
+            AgentMode::Low => PipelineMode::AgentLow,
+            AgentMode::Direct => PipelineMode::AgentDirect,
         };
 
-        let planning_messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: PLANNING_SYSTEM_PROMPT.to_string(),
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: format!(
-                    "User request:\n{}\n\nPreferred executor:\n{}\n\nDetail level:\n{}",
-                    state.input, selected_agent, detail
-                ),
-            },
-        ];
-
-        let plan = ctx
-            .app_state
-            .llama
-            .chat(ctx.config, planning_messages)
+        let should_rebuild = state
+            .pipeline_context
+            .as_ref()
+            .map(|pipeline| pipeline.mode != pipeline_mode)
+            .unwrap_or(true);
+        if should_rebuild {
+            let app_state = Arc::new(ctx.app_state.clone());
+            let pipeline_ctx = ContextPipeline::build_v4(
+                &app_state,
+                &state.session_id,
+                &state.input,
+                pipeline_mode,
+                state.skip_web_search,
+            )
             .await
-            .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+            state.pipeline_context = Some(pipeline_ctx);
+        }
 
-        let trimmed = plan.trim();
-        let final_plan = if trimmed.is_empty() {
-            DEFAULT_PLAN.to_string()
-        } else {
-            trimmed.to_string()
-        };
+        let selected_agent = resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
+        let agent_chat_config = build_agent_chat_config(ctx.config, selected_agent.as_ref());
+        let plan = generate_execution_plan(
+            ctx.app_state,
+            &agent_chat_config,
+            &state.input,
+            selected_agent.as_ref(),
+            state.thinking_enabled,
+        )
+        .await
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-        // Store plan in shared context
-        state.shared_context.current_plan = Some(final_plan.clone());
+        state.shared_context.current_plan = Some(plan);
 
         let _ = send_json(
             ctx.sender,
@@ -108,19 +110,6 @@ impl Node for PlannerNode {
         )
         .await;
 
-        tracing::info!("Planner: generated plan with {} chars", final_plan.len());
-
-        // Continue to agent executor
         Ok(NodeOutput::Continue(Some("agent_executor".to_string())))
     }
 }
-
-const PLANNING_SYSTEM_PROMPT: &str = r#"You are a planner for a tool-using AI agent.
-Create a practical execution plan with up to 6 ordered steps.
-Use concise markdown bullets and include fallback actions.
-Do not add any text before or after the plan."#;
-
-const DEFAULT_PLAN: &str = r#"- Clarify objective and constraints
-- Gather required evidence
-- Execute tools safely
-- Synthesize final answer"#;

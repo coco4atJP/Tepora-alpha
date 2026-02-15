@@ -1,12 +1,16 @@
 // Chat Node
-// Direct conversation with character
+// Direct conversation with character model.
+
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
 
+use crate::context::pipeline::ContextPipeline;
+use crate::context::pipeline_context::PipelineMode;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
-use crate::llama::ChatMessage;
+use crate::llm::ChatRequest;
 use crate::server::ws::handler::send_json;
 
 pub struct ChatNode;
@@ -38,23 +42,33 @@ impl Node for ChatNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        // Build messages for LLM
-        let mut messages = state.chat_history.clone();
-
-        // Add system prompt if available
-        if let Some(system_prompt) = extract_system_prompt(ctx.config) {
-            messages.insert(
-                0,
-                ChatMessage {
-                    role: "system".to_string(),
-                    content: system_prompt,
-                },
-            );
+        let should_rebuild = state
+            .pipeline_context
+            .as_ref()
+            .map(|pipeline| pipeline.mode != PipelineMode::Chat)
+            .unwrap_or(true);
+        if should_rebuild {
+            let app_state = Arc::new(ctx.app_state.clone());
+            let pipeline_ctx = ContextPipeline::build_v4(
+                &app_state,
+                &state.session_id,
+                &state.input,
+                PipelineMode::Chat,
+                state.skip_web_search,
+            )
+            .await
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+            state.pipeline_context = Some(pipeline_ctx);
         }
 
-        // Add thought process if available (from ThinkingNode)
+        let mut messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+            ContextPipeline::pipeline_to_context_result(pipeline_ctx).messages
+        } else {
+            state.chat_history.clone()
+        };
+
         if let Some(thought) = &state.thought_process {
-            messages.push(ChatMessage {
+            messages.push(crate::llm::ChatMessage {
                 role: "system".to_string(),
                 content: format!(
                     "Your reasoning process (use this to inform your response):\n{}",
@@ -63,19 +77,12 @@ impl Node for ChatNode {
             });
         }
 
-        // Add user input
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: state.input.clone(),
-        });
-
-        // Resolve model ID
         let model_id = {
             let registry = ctx
                 .app_state
                 .models
                 .get_registry()
-                .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
             registry
                 .role_assignments
                 .get("character")
@@ -83,25 +90,14 @@ impl Node for ChatNode {
                 .unwrap_or_else(|| "default".to_string())
         };
 
-        // Convert messages to LLM type
-        let llm_messages: Vec<crate::llm::types::ChatMessage> = messages
-            .into_iter()
-            .map(|m| crate::llm::types::ChatMessage {
-                role: m.role,
-                content: m.content,
-            })
-            .collect();
+        let request = ChatRequest::new(messages).with_config(ctx.config);
 
-        // Build request
-        let request = crate::llm::types::ChatRequest::new(llm_messages).with_config(ctx.config);
-
-        // Stream response from LLM
         let mut stream = ctx
             .app_state
             .llm
             .stream_chat(request, &model_id)
             .await
-            .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
         let mut full_response = String::new();
 
@@ -138,17 +134,4 @@ impl Node for ChatNode {
         state.output = Some(full_response);
         Ok(NodeOutput::Final)
     }
-}
-
-fn extract_system_prompt(config: &serde_json::Value) -> Option<String> {
-    let active = config
-        .get("active_agent_profile")
-        .and_then(|v| v.as_str())
-        .unwrap_or("bunny_girl");
-    config
-        .get("characters")
-        .and_then(|v| v.get(active))
-        .and_then(|v| v.get("system_prompt"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
 }

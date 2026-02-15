@@ -1,6 +1,6 @@
 {
 	"name": "tepora-frontend",
-	"version": "0.3.0-beta",
+	"version": "0.4.0",
 	"description": "Tepora AI Agent Web Interface",
 	"type": "module",
 	"scripts": {

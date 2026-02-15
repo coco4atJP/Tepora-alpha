@@ -1,20 +1,20 @@
 //! RagWorker — Retrieves relevant chunks from the RAG store.
 //!
-//! Queries the RAG store (LanceDB, Phase C) for chunks similar to the user's
-//! input and adds them to the `PipelineContext`.  Until Phase C completes,
-//! this worker operates as a no-op placeholder.
+//! Queries the RAG store for chunks similar to the user's input and adds them
+//! to the `PipelineContext`.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use serde_json::Value;
 
-use crate::context::pipeline_context::PipelineContext;
+use crate::context::pipeline_context::{PipelineContext, RagChunk};
 use crate::context::worker::{ContextWorker, WorkerError};
+use crate::models::types::ModelRuntimeConfig;
 use crate::state::AppState;
 
-/// Worker that retrieves RAG context.
 pub struct RagWorker {
-    /// Maximum number of chunks to retrieve.
     max_chunks: usize,
 }
 
@@ -39,35 +39,55 @@ impl ContextWorker for RagWorker {
     async fn execute(
         &self,
         ctx: &mut PipelineContext,
-        _state: &Arc<AppState>,
+        state: &Arc<AppState>,
     ) -> Result<(), WorkerError> {
-        // Only execute for modes that support RAG
         if !ctx.mode.has_rag() {
             return Err(WorkerError::skipped("rag", "mode does not use RAG"));
         }
 
-        // Phase C placeholder: LanceDB integration will provide the actual
-        // similarity_search here.  For now, check if the AppState will have
-        // a RagStore and skip if not available.
-        //
-        // Once LanceDB is integrated:
-        //
-        // let rag_store = state.rag_store.as_ref().ok_or_else(|| {
-        //     WorkerError::skipped("rag", "RAG store not initialized")
-        // })?;
-        //
-        // let chunks = rag_store
-        //     .similarity_search(&ctx.user_input, self.max_chunks)
-        //     .await
-        //     .map_err(|e| WorkerError::retryable("rag", format!("RAG query failed: {e}")))?;
-        //
-        // ctx.rag_chunks = chunks;
+        let query = ctx.user_input.trim();
+        if query.is_empty() {
+            return Err(WorkerError::skipped("rag", "empty user input"));
+        }
 
-        let _ = self.max_chunks; // suppress unused warning until Phase C
+        let config = state.config.load_config().unwrap_or_default();
+        let model_cfg = ModelRuntimeConfig::for_embedding(&config)
+            .map_err(|e| WorkerError::failed("rag", format!("config error: {e}")))?;
 
-        Err(WorkerError::skipped(
-            "rag",
-            "RAG store not yet integrated (Phase C)",
-        ))
+        let embeddings = state
+            .llama
+            .embed(&model_cfg, &[query.to_string()])
+            .await
+            .map_err(|err| WorkerError::skipped("rag", format!("embedding unavailable: {err}")))?;
+
+        let Some(query_embedding) = embeddings.first() else {
+            return Err(WorkerError::skipped("rag", "embedding response was empty"));
+        };
+
+        let results = state
+            .rag_store
+            .search(query_embedding, self.max_chunks, Some(&ctx.session_id))
+            .await
+            .map_err(|e| WorkerError::retryable("rag", format!("RAG query failed: {e}")))?;
+
+        ctx.rag_chunks = results
+            .into_iter()
+            .map(|result| RagChunk {
+                chunk_id: result.chunk.chunk_id,
+                content: result.chunk.content,
+                source: result.chunk.source,
+                score: result.score,
+                metadata: metadata_to_map(result.chunk.metadata),
+            })
+            .collect();
+
+        Ok(())
+    }
+}
+
+fn metadata_to_map(metadata: Option<Value>) -> HashMap<String, Value> {
+    match metadata {
+        Some(Value::Object(map)) => map.into_iter().collect(),
+        _ => HashMap::new(),
     }
 }

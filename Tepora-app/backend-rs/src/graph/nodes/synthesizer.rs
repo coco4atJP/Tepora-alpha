@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
-use crate::llama::ChatMessage;
+use crate::llm::{ChatMessage, ChatRequest};
 use crate::server::ws::handler::send_json;
 
 pub struct SynthesizerNode;
@@ -93,10 +93,13 @@ impl Node for SynthesizerNode {
         });
 
         // Stream response
+        let model_id = state.selected_agent_id.clone().unwrap_or_else(|| "default".to_string());
+        let request = ChatRequest::new(messages).with_config(ctx.config);
+
         let mut stream = ctx
             .app_state
-            .llama
-            .stream_chat(ctx.config, messages)
+            .llm
+            .stream_chat(request, &model_id)
             .await
             .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
 

@@ -254,7 +254,7 @@ backend-rs/
 │   ├── memory/                 # メモリシステム
 │   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
 │   │   ├── store.rs            # RagStore trait
-│   │   └── lancedb.rs          # SqliteRagStore 実装
+│   │   └── sqlite.rs           # SqliteRagStore 実装
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
 └── Cargo.toml
@@ -644,7 +644,7 @@ graph TB
 
 ### 5.11 RAG ストア (SqliteRagStore) [v4.0]
 
-**ファイル**: `src/rag/store.rs`, `src/rag/lancedb.rs`
+**ファイル**: `src/rag/store.rs`, `src/rag/sqlite.rs`
 
 v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移行しました。
 
@@ -1144,7 +1144,7 @@ task quality
 
 - **A2A Protocol**: Agent-to-Agent通信機能
 - **WorkerPipeline 完全統合**: 全ノードで v4.0 パイプラインを使用
-- **LanceDB 移行**: RagStore trait 経由で高性能ベクトルDB への移行
+- **高機能ベクトルDBへの移行**: RagStore trait 経由で LanceDB や Qdrant への移行を検討
 
 ---
 

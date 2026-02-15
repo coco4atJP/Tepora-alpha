@@ -1,3 +1,8 @@
+---
+name: doc-updater
+description: A comprehensive documentation management skill that ensures project documentation stays synchronized with code changes.
+---
+
 # Doc Updater Skill
 
 ## Description

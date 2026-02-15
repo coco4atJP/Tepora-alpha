@@ -14,7 +14,6 @@ pub struct ChatRequest {
     pub top_k: Option<i64>,
     pub repeat_penalty: Option<f64>,
     pub max_tokens: Option<i32>,
-    pub stop: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,7 +33,6 @@ impl ChatRequest {
             top_k: None,
             repeat_penalty: None,
             max_tokens: None,
-            stop: None,
         }
     }
 

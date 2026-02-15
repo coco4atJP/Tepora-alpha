@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
-use crate::llama::ChatMessage;
+use crate::llm::ChatMessage;
 use crate::server::ws::handler::send_json;
 
 pub struct ThinkingNode;
@@ -101,7 +101,7 @@ impl Node for ThinkingNode {
             .llm
             .chat(request, &model_id)
             .await
-            .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
+            .map_err(|e: crate::core::errors::ApiError| GraphError::new(self.id(), e.to_string()))?;
 
         state.thought_process = Some(thought.clone());
 

@@ -10,10 +10,10 @@
 
 mod context_builder;
 mod engine;
-pub mod lancedb;
+pub mod sqlite;
 pub mod store;
 
 pub use context_builder::RAGContextBuilder;
 pub use engine::RAGEngine;
-pub use lancedb::SqliteRagStore;
+pub use sqlite::SqliteRagStore;
 pub use store::{ChunkSearchResult, RagStore, StoredChunk};

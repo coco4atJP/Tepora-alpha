@@ -12,8 +12,8 @@ use uuid::Uuid;
 use crate::state::AppState;
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use crate::mcp_registry::McpRegistryServer;
-use crate::mcp_installer;
+use crate::mcp::registry::McpRegistryServer;
+use crate::mcp::installer as mcp_installer;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct McpStoreQuery {
@@ -194,7 +194,7 @@ pub async fn mcp_store(
 
             let packages_json: Vec<Value> = packages
                 .iter()
-                .map(|pkg: &crate::mcp_registry::McpRegistryPackage| {
+                .map(|pkg: &crate::mcp::registry::McpRegistryPackage| {
                     json!({
                         "name": pkg.package_name(),
                         "runtimeHint": pkg.runtime_hint.clone(),

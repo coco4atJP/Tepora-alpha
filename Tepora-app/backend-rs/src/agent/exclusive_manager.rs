@@ -126,6 +126,13 @@ fn resolve_tool_name(raw: &str) -> String {
     match trimmed {
         "web_search" | "search" => "native_search".to_string(),
         "fetch_url" | "fetch" | "web_fetch" => "native_web_fetch".to_string(),
+        "rag_search" => "native_rag_search".to_string(),
+        "rag_ingest" => "native_rag_ingest".to_string(),
+        "rag_text_search" => "native_rag_text_search".to_string(),
+        "rag_get_chunk" => "native_rag_get_chunk".to_string(),
+        "rag_get_chunk_window" => "native_rag_get_chunk_window".to_string(),
+        "rag_clear_session" => "native_rag_clear_session".to_string(),
+        "rag_reindex" => "native_rag_reindex".to_string(),
         other => other.to_string(),
     }
 }
@@ -580,6 +587,16 @@ agents:
         assert_eq!(resolve_tool_name("web_search"), "native_search");
         assert_eq!(resolve_tool_name("search"), "native_search");
         assert_eq!(resolve_tool_name("fetch_url"), "native_web_fetch");
+        assert_eq!(resolve_tool_name("rag_search"), "native_rag_search");
+        assert_eq!(resolve_tool_name("rag_ingest"), "native_rag_ingest");
+        assert_eq!(resolve_tool_name("rag_text_search"), "native_rag_text_search");
+        assert_eq!(resolve_tool_name("rag_get_chunk"), "native_rag_get_chunk");
+        assert_eq!(
+            resolve_tool_name("rag_get_chunk_window"),
+            "native_rag_get_chunk_window"
+        );
+        assert_eq!(resolve_tool_name("rag_clear_session"), "native_rag_clear_session");
+        assert_eq!(resolve_tool_name("rag_reindex"), "native_rag_reindex");
         assert_eq!(resolve_tool_name("mcp:server_tool"), "server_tool");
         assert_eq!(resolve_tool_name("native_search"), "native_search");
         assert_eq!(resolve_tool_name("custom_tool"), "custom_tool");

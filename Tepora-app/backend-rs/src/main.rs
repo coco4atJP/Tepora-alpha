@@ -1,3 +1,8 @@
+use axum::http::Method;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 mod a2a;
 mod agent;
 mod context;
@@ -5,59 +10,61 @@ mod core;
 mod em_llm;
 mod graph;
 mod history;
-mod llama;
 mod llm;
 mod mcp;
-mod mcp_installer;
-mod mcp_registry;
 mod memory;
 mod models;
 mod rag;
 mod server;
-mod setup_state;
 mod state;
 mod tools;
-
-use std::env;
-
-use anyhow::Context;
-use axum::Router;
-use tokio::net::TcpListener;
 
 use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let state = AppState::initialize().await?;
-    core::logging::init(&state.paths);
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info,backend_rs=debug".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-    if let Err(err) = state.mcp.initialize().await {
-        tracing::warn!("Failed to initialize MCP: {}", err);
+    tracing::info!("Starting Tepora backend (Rust)...");
+
+    let app_state = AppState::initialize().await?;
+
+    if let Err(e) = app_state.mcp.initialize().await {
+        tracing::warn!("MCP Manager initialization finished with warning: {}", e);
+        if let Some(err_msg) = app_state.mcp.init_error().await {
+            tracing::warn!("MCP Initialization detailed error: {}", err_msg);
+        }
     }
 
-    let port = env::var("PORT")
-        .ok()
-        .and_then(|val| val.parse::<u16>().ok())
-        .unwrap_or(0);
-    let bind_addr = format!("127.0.0.1:{}", port);
+    let app = server::router(app_state.clone())
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any),
+        )
+        .layer(TraceLayer::new_for_http());
 
-    let listener = TcpListener::bind(&bind_addr)
-        .await
-        .with_context(|| format!("Failed to bind to {}", bind_addr))?;
-    let addr = listener.local_addr()?;
+    let host = "127.0.0.1";
+    let port = 3001;
+    let addr = format!("{}:{}", host, port);
 
-    println!("TEPORA_PORT={}", addr.port());
-    tracing::info!("Listening on {}", addr);
+    tracing::info!("Server listening on http://{}", addr);
 
-    let app: Router = server::router::router(state.clone());
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
 
-    // Initialize graph (check build)
-    match graph::build_tepora_graph() {
-        Ok(_) => tracing::info!("Graph initialized successfully"),
-        Err(e) => tracing::error!("Failed to initialize graph: {}", e),
-    }
-
-    axum::serve(listener, app).await.context("Server error")?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
