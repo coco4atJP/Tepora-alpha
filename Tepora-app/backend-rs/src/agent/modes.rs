@@ -6,6 +6,7 @@ pub enum RequestedAgentMode {
 }
 
 impl RequestedAgentMode {
+    #[allow(dead_code)]
     pub fn parse(value: Option<&str>) -> Self {
         match value
             .map(|v| v.trim().to_lowercase())

@@ -176,7 +176,7 @@ fn parse_agent_payload(
             .map_err(|e| ApiError::BadRequest(format!("Invalid tool_policy: {e}")))?,
         None => existing
             .map(|a| a.tool_policy)
-            .unwrap_or_else(AgentToolPolicy::default),
+            .unwrap_or_default(),
     };
 
     Ok(ExecutionAgent {

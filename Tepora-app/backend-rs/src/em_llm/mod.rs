@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! EM-LLM (Episodic Memory for Large Language Models) module.
 //!
 //! This module implements the EM-LLM system based on the ICLR 2025 paper

@@ -237,11 +237,10 @@ impl LlamaService {
             while let Some(chunk) = res.chunk().await.ok().flatten() {
                 let text = String::from_utf8_lossy(&chunk);
                 for line in text.lines() {
-                    if line.starts_with("data: ") {
-                        let json_str = &line[6..];
+                    if let Some(json_str) = line.strip_prefix("data: ") {
                         if let Ok(val) = serde_json::from_str::<Value>(json_str) {
                             if let Some(content) = val["content"].as_str() {
-                                if let Err(_) = tx.send(Ok(content.to_string())).await {
+                                if tx.send(Ok(content.to_string())).await.is_err() {
                                     return;
                                 }
                             }

@@ -825,13 +825,11 @@ fn format_tool_result(result: &rmcp::model::CallToolResult) -> String {
 
     let msg = String::new();
     if !result.content.is_empty() {
-        for item in &result.content {
-            match item {
+        for _item in &result.content {
+            {
                 // Match anything for now to bypass ambiguous type error
-                _ => {
-                    // TODO: Fix rmcp::model::Content usage
-                    // msg.push_str(&format!("{:?}", item));
-                }
+                // TODO: Fix rmcp::model::Content usage
+                // msg.push_str(&format!("{:?}", item));
             }
         }
     }

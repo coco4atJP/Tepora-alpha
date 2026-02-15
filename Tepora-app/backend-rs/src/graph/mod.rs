@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 // Tepora Graph Module
 // LangGraph-style StateGraph architecture for Rust
 

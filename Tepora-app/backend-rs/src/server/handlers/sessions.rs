@@ -140,7 +140,7 @@ pub async fn update_session(
     Json(payload): Json<UpdateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let _ = state
+    state
         .history
         .update_session_title(&session_id, &payload.title)
         .await?;
@@ -154,7 +154,7 @@ pub async fn delete_session(
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let _ = state.history.delete_session(&session_id).await?;
+    state.history.delete_session(&session_id).await?;
     // if !success check removed
     Ok(Json(json!({"success": true})))
 }

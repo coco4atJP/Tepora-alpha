@@ -104,7 +104,7 @@ impl EmMemoryService {
         }
 
         let embeddings = llm
-            .embed(&[content.clone()], embedding_model_id)
+            .embed(std::slice::from_ref(&content), embedding_model_id)
             .await
             .map_err(|err| ApiError::internal(format!("EM memory embedding failed: {err}")))?;
 
