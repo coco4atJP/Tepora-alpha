@@ -216,6 +216,8 @@ backend-rs/
 │   │   ├── llama_service.rs    # LlamaService (推論サーバー管理)
 │   │   ├── service.rs          # LlmService (高レベル抽象化)
 │   │   ├── provider.rs         # プロバイダー抽象化
+│   │   ├── ollama.rs           # Ollama 統合
+│   │   ├── lmstudio.rs         # LM Studio 統合
 │   │   └── mod.rs
 │   │
 │   ├── mcp/                    # ========== MCP ==========
@@ -293,7 +295,7 @@ frontend/
 │
 └── src-tauri/                  # Tauri設定
     ├── tauri.conf.json
-    └── binaries/               # サイドカーバイナリ
+    └── capabilities/           # ケーパビリティ定義 (v2)
 ```
 
 ---
