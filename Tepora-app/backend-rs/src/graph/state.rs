@@ -485,10 +485,7 @@ mod tests {
         let artifact = Artifact {
             artifact_type: "code".to_string(),
             content: "fn main() {}".to_string(),
-            metadata: HashMap::from([(
-                "language".to_string(),
-                serde_json::json!("rust"),
-            )]),
+            metadata: HashMap::from([("language".to_string(), serde_json::json!("rust"))]),
         };
 
         let json = serde_json::to_string(&artifact).unwrap();

@@ -703,10 +703,7 @@ mod tests {
         // Explicit "c" should override the edge to "b"
         let result = runtime.resolve_next_node(idx_a, None, Some("c"));
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            *runtime.node_indices.get("c").unwrap()
-        );
+        assert_eq!(result.unwrap(), *runtime.node_indices.get("c").unwrap());
     }
 
     #[test]
@@ -729,10 +726,7 @@ mod tests {
         let idx_a = *runtime.node_indices.get("a").unwrap();
         let result = runtime.resolve_next_node(idx_a, None, None);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .message
-            .contains("No outgoing edges"));
+        assert!(result.unwrap_err().message.contains("No outgoing edges"));
     }
 
     #[test]
@@ -753,10 +747,7 @@ mod tests {
         // Unmatched condition should fall back to Always edge → c
         let result = runtime.resolve_next_node(idx_a, Some("no_match"), None);
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            *runtime.node_indices.get("c").unwrap()
-        );
+        assert_eq!(result.unwrap(), *runtime.node_indices.get("c").unwrap());
     }
 
     #[test]
@@ -774,10 +765,7 @@ mod tests {
         // "other" doesn't match "specific" and there is no Always edge
         let result = runtime.resolve_next_node(idx_a, Some("other"), None);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .message
-            .contains("No matching edge"));
+        assert!(result.unwrap_err().message.contains("No matching edge"));
     }
 
     // =======================================================================
