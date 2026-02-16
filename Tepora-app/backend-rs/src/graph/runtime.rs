@@ -323,6 +323,67 @@ impl Default for GraphBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
+    use crate::graph::state::{AgentState, Mode};
+    use async_trait::async_trait;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    // -----------------------------------------------------------------------
+    // Mock Node implementations for testing graph execution without real
+    // WebSocket / AppState dependencies.
+    // -----------------------------------------------------------------------
+
+    /// A simple node that records how many times it was called and returns
+    /// a configurable output.
+    struct MockNode {
+        id: &'static str,
+        output: NodeOutput,
+        call_count: Arc<AtomicUsize>,
+    }
+
+    impl MockNode {
+        fn new(id: &'static str, output: NodeOutput) -> Self {
+            Self {
+                id,
+                output,
+                call_count: Arc::new(AtomicUsize::new(0)),
+            }
+        }
+
+        fn with_counter(id: &'static str, output: NodeOutput, counter: Arc<AtomicUsize>) -> Self {
+            Self {
+                id,
+                output,
+                call_count: counter,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Node for MockNode {
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
+        async fn execute(
+            &self,
+            _state: &mut AgentState,
+            _ctx: &mut NodeContext<'_>,
+        ) -> Result<NodeOutput, GraphError> {
+            self.call_count.fetch_add(1, Ordering::SeqCst);
+            Ok(self.output.clone())
+        }
+    }
+
+    /// Helper: create a default AgentState for testing
+    fn test_state() -> AgentState {
+        AgentState::new("test-session".to_string(), "hello".to_string(), Mode::Chat)
+    }
+
+    // =======================================================================
+    // EdgeCondition tests
+    // =======================================================================
 
     #[test]
     fn test_edge_condition_matching() {
@@ -332,5 +393,400 @@ mod tests {
         assert!(EdgeCondition::on("chat").matches(Some("chat")));
         assert!(!EdgeCondition::on("chat").matches(Some("search")));
         assert!(!EdgeCondition::on("chat").matches(None));
+    }
+
+    #[test]
+    fn edge_condition_always_constructor() {
+        let cond = EdgeCondition::always();
+        assert_eq!(cond, EdgeCondition::Always);
+    }
+
+    #[test]
+    fn edge_condition_on_constructor() {
+        let cond = EdgeCondition::on("agent");
+        assert_eq!(cond, EdgeCondition::OnCondition("agent".to_string()));
+    }
+
+    #[test]
+    fn edge_condition_debug_and_clone() {
+        let cond = EdgeCondition::on("test");
+        let cloned = cond.clone();
+        assert_eq!(cond, cloned);
+        // Verify Debug is implemented
+        let debug_str = format!("{:?}", cond);
+        assert!(debug_str.contains("test"));
+    }
+
+    // =======================================================================
+    // GraphRuntime construction tests
+    // =======================================================================
+
+    #[test]
+    fn new_runtime_has_no_nodes() {
+        let runtime = GraphRuntime::new();
+        assert!(runtime.node_ids().is_empty());
+        assert!(!runtime.has_cycle());
+    }
+
+    #[test]
+    fn default_runtime_equals_new() {
+        let runtime = GraphRuntime::default();
+        assert!(runtime.node_ids().is_empty());
+    }
+
+    #[test]
+    fn add_node_returns_index_and_is_retrievable() {
+        let mut runtime = GraphRuntime::new();
+        let node = MockNode::new("alpha", NodeOutput::Final);
+        let _idx = runtime.add_node(Box::new(node));
+
+        assert_eq!(runtime.node_ids().len(), 1);
+        assert!(runtime.get_node("alpha").is_some());
+        assert_eq!(runtime.get_node("alpha").unwrap().id(), "alpha");
+    }
+
+    #[test]
+    fn get_node_returns_none_for_unknown() {
+        let runtime = GraphRuntime::new();
+        assert!(runtime.get_node("nonexistent").is_none());
+    }
+
+    #[test]
+    fn add_multiple_nodes() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("c", NodeOutput::Final)));
+
+        assert_eq!(runtime.node_ids().len(), 3);
+        assert!(runtime.get_node("a").is_some());
+        assert!(runtime.get_node("b").is_some());
+        assert!(runtime.get_node("c").is_some());
+    }
+
+    // =======================================================================
+    // Edge management tests
+    // =======================================================================
+
+    #[test]
+    fn add_edge_succeeds_for_existing_nodes() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+
+        let result = runtime.add_edge("a", "b");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn add_edge_fails_for_missing_source() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+
+        let result = runtime.add_edge("a", "b");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn add_edge_fails_for_missing_target() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+
+        let result = runtime.add_edge("a", "b");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn add_conditional_edge_succeeds() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+
+        let result = runtime.add_conditional_edge("a", "b", EdgeCondition::on("chat"));
+        assert!(result.is_ok());
+    }
+
+    // =======================================================================
+    // Cycle detection tests
+    // =======================================================================
+
+    #[test]
+    fn has_cycle_detects_cycle() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new(
+            "a",
+            NodeOutput::Continue(Some("b".to_string())),
+        )));
+        runtime.add_node(Box::new(MockNode::new(
+            "b",
+            NodeOutput::Continue(Some("a".to_string())),
+        )));
+        runtime.add_edge("a", "b").unwrap();
+        runtime.add_edge("b", "a").unwrap();
+
+        assert!(runtime.has_cycle());
+    }
+
+    #[test]
+    fn has_cycle_returns_false_for_dag() {
+        let mut runtime = GraphRuntime::new();
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("c", NodeOutput::Final)));
+        runtime.add_edge("a", "b").unwrap();
+        runtime.add_edge("b", "c").unwrap();
+
+        assert!(!runtime.has_cycle());
+    }
+
+    // =======================================================================
+    // Builder pattern tests (with_max_steps, with_entry)
+    // =======================================================================
+
+    #[test]
+    fn with_max_steps_sets_value() {
+        let runtime = GraphRuntime::new().with_max_steps(100);
+        assert_eq!(runtime.max_steps, 100);
+    }
+
+    #[test]
+    fn with_entry_sets_entry_node() {
+        let runtime = GraphRuntime::new().with_entry("start");
+        assert_eq!(runtime.entry_node_id, "start");
+    }
+
+    // =======================================================================
+    // GraphBuilder tests
+    // =======================================================================
+
+    #[test]
+    fn graph_builder_default_equals_new() {
+        let builder1 = GraphBuilder::new();
+        let builder2 = GraphBuilder::default();
+        // Both should produce empty runtimes
+        let rt1 = builder1.build();
+        let rt2 = builder2.build();
+        assert!(rt1.is_ok());
+        assert!(rt2.is_ok());
+    }
+
+    #[test]
+    fn graph_builder_builds_simple_graph() {
+        let result = GraphBuilder::new()
+            .entry("start")
+            .max_steps(10)
+            .node(Box::new(MockNode::new("start", NodeOutput::Final)))
+            .node(Box::new(MockNode::new("end", NodeOutput::Final)))
+            .edge("start", "end")
+            .build();
+
+        assert!(result.is_ok());
+        let runtime = result.unwrap();
+        assert_eq!(runtime.node_ids().len(), 2);
+    }
+
+    #[test]
+    fn graph_builder_with_conditional_edges() {
+        let result = GraphBuilder::new()
+            .entry("router")
+            .node(Box::new(MockNode::new(
+                "router",
+                NodeOutput::Branch("chat".to_string()),
+            )))
+            .node(Box::new(MockNode::new("chat", NodeOutput::Final)))
+            .node(Box::new(MockNode::new("search", NodeOutput::Final)))
+            .conditional_edge("router", "chat", "chat")
+            .conditional_edge("router", "search", "search")
+            .build();
+
+        assert!(result.is_ok());
+        let runtime = result.unwrap();
+        assert_eq!(runtime.node_ids().len(), 3);
+    }
+
+    #[test]
+    fn graph_builder_fails_with_missing_node_in_edge() {
+        let result = GraphBuilder::new()
+            .entry("start")
+            .node(Box::new(MockNode::new("start", NodeOutput::Final)))
+            .edge("start", "nonexistent")
+            .build();
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn graph_builder_entry_and_max_steps() {
+        let result = GraphBuilder::new()
+            .entry("first")
+            .max_steps(25)
+            .node(Box::new(MockNode::new("first", NodeOutput::Final)))
+            .build();
+
+        assert!(result.is_ok());
+        let runtime = result.unwrap();
+        assert_eq!(runtime.max_steps, 25);
+        assert_eq!(runtime.entry_node_id, "first");
+    }
+
+    // =======================================================================
+    // GraphRuntime::run() tests
+    //
+    // These tests use a technique: since NodeContext requires a real
+    // WebSocket sender and AppState, our MockNode::execute ignores ctx
+    // entirely, which means we can create a minimal "dummy" NodeContext.
+    // However, NodeContext borrows real types. Instead we test run() logic
+    // indirectly through the builder + resolve_next_node patterns, and
+    // verify the structural correctness that doesn't require async execution.
+    //
+    // For the run() method, we test error conditions that can be checked
+    // without invoking execute().
+    // =======================================================================
+
+    #[test]
+    fn resolve_next_node_finds_always_edge() {
+        let mut runtime = GraphRuntime::new().with_entry("a");
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+        runtime.add_edge("a", "b").unwrap();
+
+        let idx_a = *runtime.node_indices.get("a").unwrap();
+        let result = runtime.resolve_next_node(idx_a, None, None);
+        assert!(result.is_ok());
+
+        let idx_b = *runtime.node_indices.get("b").unwrap();
+        assert_eq!(result.unwrap(), idx_b);
+    }
+
+    #[test]
+    fn resolve_next_node_finds_conditional_edge() {
+        let mut runtime = GraphRuntime::new().with_entry("router");
+        runtime.add_node(Box::new(MockNode::new("router", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("chat", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("search", NodeOutput::Final)));
+
+        runtime
+            .add_conditional_edge("router", "chat", EdgeCondition::on("chat"))
+            .unwrap();
+        runtime
+            .add_conditional_edge("router", "search", EdgeCondition::on("search"))
+            .unwrap();
+
+        let idx_router = *runtime.node_indices.get("router").unwrap();
+
+        // Condition "chat" should resolve to chat node
+        let result_chat = runtime.resolve_next_node(idx_router, Some("chat"), None);
+        assert!(result_chat.is_ok());
+        assert_eq!(
+            result_chat.unwrap(),
+            *runtime.node_indices.get("chat").unwrap()
+        );
+
+        // Condition "search" should resolve to search node
+        let result_search = runtime.resolve_next_node(idx_router, Some("search"), None);
+        assert!(result_search.is_ok());
+        assert_eq!(
+            result_search.unwrap(),
+            *runtime.node_indices.get("search").unwrap()
+        );
+    }
+
+    #[test]
+    fn resolve_next_node_explicit_overrides_edges() {
+        let mut runtime = GraphRuntime::new().with_entry("a");
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("c", NodeOutput::Final)));
+        runtime.add_edge("a", "b").unwrap();
+
+        let idx_a = *runtime.node_indices.get("a").unwrap();
+        // Explicit "c" should override the edge to "b"
+        let result = runtime.resolve_next_node(idx_a, None, Some("c"));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), *runtime.node_indices.get("c").unwrap());
+    }
+
+    #[test]
+    fn resolve_next_node_explicit_fails_for_unknown_node() {
+        let mut runtime = GraphRuntime::new().with_entry("a");
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+        runtime.add_edge("a", "b").unwrap();
+
+        let idx_a = *runtime.node_indices.get("a").unwrap();
+        let result = runtime.resolve_next_node(idx_a, None, Some("nonexistent"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn resolve_next_node_no_outgoing_edges_errors() {
+        let mut runtime = GraphRuntime::new().with_entry("a");
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+
+        let idx_a = *runtime.node_indices.get("a").unwrap();
+        let result = runtime.resolve_next_node(idx_a, None, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("No outgoing edges"));
+    }
+
+    #[test]
+    fn resolve_next_node_unmatched_condition_falls_back_to_always() {
+        let mut runtime = GraphRuntime::new().with_entry("a");
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("c", NodeOutput::Final)));
+
+        // Add a conditional edge and a default (always) edge
+        runtime
+            .add_conditional_edge("a", "b", EdgeCondition::on("match_me"))
+            .unwrap();
+        runtime.add_edge("a", "c").unwrap(); // Always edge (fallback)
+
+        let idx_a = *runtime.node_indices.get("a").unwrap();
+
+        // Unmatched condition should fall back to Always edge → c
+        let result = runtime.resolve_next_node(idx_a, Some("no_match"), None);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), *runtime.node_indices.get("c").unwrap());
+    }
+
+    #[test]
+    fn resolve_next_node_unmatched_condition_no_fallback_errors() {
+        let mut runtime = GraphRuntime::new().with_entry("a");
+        runtime.add_node(Box::new(MockNode::new("a", NodeOutput::Final)));
+        runtime.add_node(Box::new(MockNode::new("b", NodeOutput::Final)));
+
+        runtime
+            .add_conditional_edge("a", "b", EdgeCondition::on("specific"))
+            .unwrap();
+
+        let idx_a = *runtime.node_indices.get("a").unwrap();
+
+        // "other" doesn't match "specific" and there is no Always edge
+        let result = runtime.resolve_next_node(idx_a, Some("other"), None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("No matching edge"));
+    }
+
+    // =======================================================================
+    // GraphError conversion and display tests
+    // =======================================================================
+
+    #[test]
+    fn graph_error_display() {
+        let err = GraphError::new("node1", "something went wrong");
+        let display = format!("{}", err);
+        assert!(display.contains("node1"));
+        assert!(display.contains("something went wrong"));
+    }
+
+    #[test]
+    fn graph_error_converts_to_api_error() {
+        use crate::core::errors::ApiError;
+        let graph_err = GraphError::new("test_node", "failure reason");
+        let api_err: ApiError = graph_err.into();
+        let msg = format!("{}", api_err);
+        assert!(msg.contains("test_node"));
+        assert!(msg.contains("failure reason"));
     }
 }

@@ -208,3 +208,294 @@ impl AgentState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =======================================================================
+    // Mode tests
+    // =======================================================================
+
+    #[test]
+    fn mode_default_is_chat() {
+        assert_eq!(Mode::default(), Mode::Chat);
+    }
+
+    #[test]
+    fn mode_from_str_chat_variants() {
+        assert_eq!(Mode::from_str("chat"), Mode::Chat);
+        assert_eq!(Mode::from_str("CHAT"), Mode::Chat);
+        assert_eq!(Mode::from_str("Chat"), Mode::Chat);
+    }
+
+    #[test]
+    fn mode_from_str_search() {
+        assert_eq!(Mode::from_str("search"), Mode::Search);
+        assert_eq!(Mode::from_str("SEARCH"), Mode::Search);
+    }
+
+    #[test]
+    fn mode_from_str_search_agentic() {
+        assert_eq!(Mode::from_str("search_agentic"), Mode::SearchAgentic);
+        assert_eq!(Mode::from_str("SEARCH_AGENTIC"), Mode::SearchAgentic);
+    }
+
+    #[test]
+    fn mode_from_str_agent() {
+        assert_eq!(Mode::from_str("agent"), Mode::Agent);
+        assert_eq!(Mode::from_str("AGENT"), Mode::Agent);
+    }
+
+    #[test]
+    fn mode_from_str_unknown_defaults_to_chat() {
+        assert_eq!(Mode::from_str("unknown"), Mode::Chat);
+        assert_eq!(Mode::from_str(""), Mode::Chat);
+        assert_eq!(Mode::from_str("random"), Mode::Chat);
+    }
+
+    #[test]
+    fn mode_as_str_roundtrip() {
+        assert_eq!(Mode::Chat.as_str(), "chat");
+        assert_eq!(Mode::Search.as_str(), "search");
+        assert_eq!(Mode::SearchAgentic.as_str(), "search_agentic");
+        assert_eq!(Mode::Agent.as_str(), "agent");
+
+        // Roundtrip: as_str → from_str → same variant
+        for mode in [Mode::Chat, Mode::Search, Mode::SearchAgentic, Mode::Agent] {
+            assert_eq!(Mode::from_str(mode.as_str()), mode);
+        }
+    }
+
+    #[test]
+    fn mode_serialization_lowercase() {
+        let serialized = serde_json::to_string(&Mode::SearchAgentic).unwrap();
+        assert_eq!(serialized, "\"searchagentic\"");
+    }
+
+    // =======================================================================
+    // AgentMode tests
+    // =======================================================================
+
+    #[test]
+    fn agent_mode_default_is_low() {
+        assert_eq!(AgentMode::default(), AgentMode::Low);
+    }
+
+    #[test]
+    fn agent_mode_from_str_low() {
+        assert_eq!(AgentMode::from_str(Some("low")), AgentMode::Low);
+        assert_eq!(AgentMode::from_str(Some("LOW")), AgentMode::Low);
+    }
+
+    #[test]
+    fn agent_mode_from_str_fast_alias() {
+        // "fast" is accepted as a legacy alias for "low"
+        assert_eq!(AgentMode::from_str(Some("fast")), AgentMode::Low);
+        assert_eq!(AgentMode::from_str(Some("FAST")), AgentMode::Low);
+    }
+
+    #[test]
+    fn agent_mode_from_str_high() {
+        assert_eq!(AgentMode::from_str(Some("high")), AgentMode::High);
+        assert_eq!(AgentMode::from_str(Some("HIGH")), AgentMode::High);
+    }
+
+    #[test]
+    fn agent_mode_from_str_direct() {
+        assert_eq!(AgentMode::from_str(Some("direct")), AgentMode::Direct);
+        assert_eq!(AgentMode::from_str(Some("DIRECT")), AgentMode::Direct);
+    }
+
+    #[test]
+    fn agent_mode_from_str_none_defaults_to_low() {
+        assert_eq!(AgentMode::from_str(None), AgentMode::Low);
+    }
+
+    #[test]
+    fn agent_mode_from_str_unknown_defaults_to_low() {
+        assert_eq!(AgentMode::from_str(Some("unknown")), AgentMode::Low);
+        assert_eq!(AgentMode::from_str(Some("")), AgentMode::Low);
+    }
+
+    #[test]
+    fn agent_mode_from_str_trims_whitespace() {
+        assert_eq!(AgentMode::from_str(Some("  high  ")), AgentMode::High);
+        assert_eq!(AgentMode::from_str(Some(" direct ")), AgentMode::Direct);
+    }
+
+    #[test]
+    fn agent_mode_as_str_roundtrip() {
+        assert_eq!(AgentMode::Low.as_str(), "low");
+        assert_eq!(AgentMode::High.as_str(), "high");
+        assert_eq!(AgentMode::Direct.as_str(), "direct");
+
+        for mode in [AgentMode::Low, AgentMode::High, AgentMode::Direct] {
+            assert_eq!(AgentMode::from_str(Some(mode.as_str())), mode);
+        }
+    }
+
+    // =======================================================================
+    // SupervisorRoute tests
+    // =======================================================================
+
+    #[test]
+    fn supervisor_route_serialization() {
+        let planner = SupervisorRoute::Planner;
+        let json = serde_json::to_string(&planner).unwrap();
+        assert_eq!(json, "\"planner\"");
+
+        let agent = SupervisorRoute::Agent("coder".to_string());
+        let json = serde_json::to_string(&agent).unwrap();
+        assert!(json.contains("coder"));
+    }
+
+    #[test]
+    fn supervisor_route_equality() {
+        assert_eq!(SupervisorRoute::Planner, SupervisorRoute::Planner);
+        assert_eq!(
+            SupervisorRoute::Agent("a".to_string()),
+            SupervisorRoute::Agent("a".to_string())
+        );
+        assert_ne!(
+            SupervisorRoute::Agent("a".to_string()),
+            SupervisorRoute::Agent("b".to_string())
+        );
+        assert_ne!(
+            SupervisorRoute::Planner,
+            SupervisorRoute::Agent("planner".to_string())
+        );
+    }
+
+    // =======================================================================
+    // SharedContext tests
+    // =======================================================================
+
+    #[test]
+    fn shared_context_default_is_empty() {
+        let ctx = SharedContext::default();
+        assert!(ctx.current_plan.is_none());
+        assert!(ctx.artifacts.is_empty());
+        assert!(ctx.notes.is_empty());
+        assert!(ctx.professional_memory.is_none());
+    }
+
+    // =======================================================================
+    // AgentState construction tests
+    // =======================================================================
+
+    #[test]
+    fn agent_state_new_initializes_correctly() {
+        let state = AgentState::new(
+            "session-1".to_string(),
+            "test input".to_string(),
+            Mode::Search,
+        );
+
+        assert_eq!(state.session_id, "session-1");
+        assert_eq!(state.input, "test input");
+        assert_eq!(state.mode, Mode::Search);
+        assert!(state.chat_history.is_empty());
+        assert!(state.agent_id.is_none());
+        assert_eq!(state.agent_mode, AgentMode::Low);
+        assert!(state.selected_agent_id.is_none());
+        assert!(state.supervisor_route.is_none());
+        assert!(state.pipeline_context.is_none());
+        assert!(state.agent_scratchpad.is_empty());
+        assert!(state.agent_outcome.is_none());
+        assert!(!state.thinking_enabled);
+        assert!(state.thought_process.is_none());
+        assert!(state.search_queries.is_empty());
+        assert!(state.search_results.is_none());
+        assert!(state.search_attachments.is_empty());
+        assert!(!state.skip_web_search);
+        assert!(state.output.is_none());
+        assert!(state.error.is_none());
+    }
+
+    #[test]
+    fn agent_state_from_ws_message_basic() {
+        let state = AgentState::from_ws_message(
+            "ws-session".to_string(),
+            "hello",
+            "chat",
+            None,
+            None,
+            false,
+            false,
+            Vec::new(),
+            Vec::new(),
+        );
+
+        assert_eq!(state.session_id, "ws-session");
+        assert_eq!(state.input, "hello");
+        assert_eq!(state.mode, Mode::Chat);
+        assert!(state.agent_id.is_none());
+        assert_eq!(state.agent_mode, AgentMode::Low);
+        assert!(!state.thinking_enabled);
+        assert!(!state.skip_web_search);
+    }
+
+    #[test]
+    fn agent_state_from_ws_message_with_all_options() {
+        let attachments = vec![serde_json::json!({"file": "test.txt"})];
+        let state = AgentState::from_ws_message(
+            "ws-session-2".to_string(),
+            "complex query",
+            "agent",
+            Some("coder"),
+            Some("high"),
+            true,
+            true,
+            attachments.clone(),
+            Vec::new(),
+        );
+
+        assert_eq!(state.mode, Mode::Agent);
+        assert_eq!(state.agent_id.as_deref(), Some("coder"));
+        assert_eq!(state.agent_mode, AgentMode::High);
+        assert!(state.thinking_enabled);
+        assert!(state.skip_web_search);
+        assert_eq!(state.search_attachments.len(), 1);
+    }
+
+    #[test]
+    fn agent_state_from_ws_message_fast_alias() {
+        let state = AgentState::from_ws_message(
+            "s".to_string(),
+            "test",
+            "agent",
+            None,
+            Some("fast"),
+            false,
+            false,
+            Vec::new(),
+            Vec::new(),
+        );
+
+        assert_eq!(state.agent_mode, AgentMode::Low);
+    }
+
+    // =======================================================================
+    // Artifact tests
+    // =======================================================================
+
+    #[test]
+    fn artifact_construction_and_serialization() {
+        let artifact = Artifact {
+            artifact_type: "code".to_string(),
+            content: "fn main() {}".to_string(),
+            metadata: HashMap::from([("language".to_string(), serde_json::json!("rust"))]),
+        };
+
+        let json = serde_json::to_string(&artifact).unwrap();
+        assert!(json.contains("code"));
+        assert!(json.contains("fn main"));
+        assert!(json.contains("rust"));
+
+        // Roundtrip
+        let deserialized: Artifact = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.artifact_type, "code");
+        assert_eq!(deserialized.content, "fn main() {}");
+    }
+}
