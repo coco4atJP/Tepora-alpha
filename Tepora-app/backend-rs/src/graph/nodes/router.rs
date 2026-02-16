@@ -118,3 +118,79 @@ fn is_complex_search_query(input: &str) -> bool {
         .iter()
         .any(|keyword| lowered.contains(keyword))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =======================================================================
+    // RouterNode structural tests
+    // =======================================================================
+
+    #[test]
+    fn router_node_id_and_name() {
+        let node = RouterNode::new();
+        assert_eq!(node.id(), "router");
+        assert_eq!(node.name(), "Mode Router");
+    }
+
+    #[test]
+    fn router_node_default() {
+        let node = RouterNode::default();
+        assert_eq!(node.id(), "router");
+    }
+
+    // =======================================================================
+    // is_complex_search_query tests
+    // =======================================================================
+
+    #[test]
+    fn simple_queries_are_not_complex() {
+        assert!(!is_complex_search_query("weather today"));
+        assert!(!is_complex_search_query("rust programming"));
+        assert!(!is_complex_search_query("how to cook pasta"));
+        assert!(!is_complex_search_query(""));
+    }
+
+    #[test]
+    fn english_depth_keywords_trigger_complex() {
+        assert!(is_complex_search_query("compare Rust and Go"));
+        assert!(is_complex_search_query("detailed analysis of market trends"));
+        assert!(is_complex_search_query("comprehensive guide to microservices"));
+        assert!(is_complex_search_query("in-depth review of Tauri framework"));
+        assert!(is_complex_search_query("research on episodic memory in AI"));
+        assert!(is_complex_search_query("investigate the root cause"));
+    }
+
+    #[test]
+    fn japanese_depth_keywords_trigger_complex() {
+        assert!(is_complex_search_query("RustとGoの比較"));
+        assert!(is_complex_search_query("マーケットトレンドの分析"));
+        assert!(is_complex_search_query("詳細なレビュー"));
+        assert!(is_complex_search_query("AIに関する調査"));
+        assert!(is_complex_search_query("包括的なガイド"));
+        assert!(is_complex_search_query("深掘りして教えて"));
+        assert!(is_complex_search_query("最近のニュースまとめ"));
+    }
+
+    #[test]
+    fn long_queries_are_complex() {
+        // 201 characters
+        let long_query = "a".repeat(201);
+        assert!(is_complex_search_query(&long_query));
+    }
+
+    #[test]
+    fn exactly_200_chars_is_not_complex() {
+        // Exactly 200 characters (no keywords)
+        let query = "a".repeat(200);
+        assert!(!is_complex_search_query(&query));
+    }
+
+    #[test]
+    fn keywords_are_case_insensitive() {
+        assert!(is_complex_search_query("COMPARE these two options"));
+        assert!(is_complex_search_query("Detailed Analysis"));
+        assert!(is_complex_search_query("COMPREHENSIVE overview"));
+    }
+}
