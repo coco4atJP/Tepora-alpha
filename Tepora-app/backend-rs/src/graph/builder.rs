@@ -107,10 +107,7 @@ mod tests {
             graph.get_node("agent_executor").unwrap().id(),
             "agent_executor"
         );
-        assert_eq!(
-            graph.get_node("synthesizer").unwrap().id(),
-            "synthesizer"
-        );
+        assert_eq!(graph.get_node("synthesizer").unwrap().id(), "synthesizer");
     }
 
     #[test]

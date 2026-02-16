@@ -155,9 +155,15 @@ mod tests {
     #[test]
     fn english_depth_keywords_trigger_complex() {
         assert!(is_complex_search_query("compare Rust and Go"));
-        assert!(is_complex_search_query("detailed analysis of market trends"));
-        assert!(is_complex_search_query("comprehensive guide to microservices"));
-        assert!(is_complex_search_query("in-depth review of Tauri framework"));
+        assert!(is_complex_search_query(
+            "detailed analysis of market trends"
+        ));
+        assert!(is_complex_search_query(
+            "comprehensive guide to microservices"
+        ));
+        assert!(is_complex_search_query(
+            "in-depth review of Tauri framework"
+        ));
         assert!(is_complex_search_query("research on episodic memory in AI"));
         assert!(is_complex_search_query("investigate the root cause"));
     }

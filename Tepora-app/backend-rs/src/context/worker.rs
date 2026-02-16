@@ -202,7 +202,6 @@ impl Default for WorkerPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context::pipeline_context::PipelineMode;
 
     /// A test worker that always succeeds and adds a system part.
     struct SuccessWorker;
