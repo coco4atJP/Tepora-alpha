@@ -6,7 +6,14 @@ vi.mock("../features/chat/PersonaSwitcher", () => ({
 }));
 
 vi.mock("../hooks/useSettings", () => ({
-	useSettings: () => ({ config: {}, customAgents: {} }),
+	useSettings: () => ({
+		config: {
+			app: {
+				graph_execution_timeout: 300,
+			},
+		},
+		customAgents: {},
+	}),
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -131,6 +138,7 @@ describe("ChatInterface Integration", () => {
 			false,
 			undefined,
 			undefined,
+			300,
 		);
 	});
 

@@ -24,7 +24,14 @@ vi.mock("../PersonaSwitcher", () => ({
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
-	useSettings: () => ({ config: {}, customAgents: {} }),
+	useSettings: () => ({
+		config: {
+			app: {
+				graph_execution_timeout: 300,
+			},
+		},
+		customAgents: {},
+	}),
 }));
 
 import { useOutletContext } from "react-router-dom";
@@ -81,6 +88,7 @@ describe("InputArea", () => {
 			false,
 			undefined,
 			undefined,
+			300,
 		);
 		expect(input).toHaveValue("");
 	});
@@ -150,6 +158,7 @@ describe("InputArea", () => {
 			false,
 			undefined,
 			undefined,
+			300,
 		);
 	});
 
@@ -177,6 +186,7 @@ describe("InputArea", () => {
 			false,
 			undefined,
 			undefined,
+			300,
 		);
 	});
 });

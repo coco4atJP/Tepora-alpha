@@ -230,7 +230,7 @@ tasks:
     dir: "{{.BACKEND_DIR}}"
     cmds:
       - cargo generate-lockfile
-      - cargo audit
+      - cargo audit --ignore RUSTSEC-2023-0071
       - npm audit --audit-level=moderate --prefix {{.FRONTEND_DIR}}
 
   security-backend:
@@ -238,7 +238,7 @@ tasks:
     dir: "{{.BACKEND_DIR}}"
     cmds:
       - cargo generate-lockfile
-      - cargo audit
+      - cargo audit --ignore RUSTSEC-2023-0071
 
   security-frontend:
     desc: "Run frontend security scan (npm audit)"

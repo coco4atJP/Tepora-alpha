@@ -131,10 +131,13 @@ mod tests {
     #[test]
     fn require_api_key_accepts_valid_header() {
         let expected = SessionToken {
-            value: "secret".to_string(),
+            value: "test-secret-token".to_string(),
         };
         let mut headers = HeaderMap::new();
-        headers.insert(API_KEY_HEADER, HeaderValue::from_static("secret"));
+        headers.insert(
+            API_KEY_HEADER,
+            HeaderValue::from_static("test-secret-token"),
+        );
 
         let result = require_api_key(&headers, &expected);
 
@@ -144,7 +147,7 @@ mod tests {
     #[test]
     fn require_api_key_rejects_missing_or_invalid_header() {
         let expected = SessionToken {
-            value: "secret".to_string(),
+            value: "test-secret-token".to_string(),
         };
         let headers = HeaderMap::new();
 
@@ -160,13 +163,16 @@ mod tests {
     #[test]
     fn api_key_optional_only_returns_on_match() {
         let expected = SessionToken {
-            value: "secret".to_string(),
+            value: "test-secret-token".to_string(),
         };
         let mut headers = HeaderMap::new();
-        headers.insert(API_KEY_HEADER, HeaderValue::from_static("secret"));
+        headers.insert(
+            API_KEY_HEADER,
+            HeaderValue::from_static("test-secret-token"),
+        );
 
         let matched = api_key_optional(&headers, &expected);
-        assert_eq!(matched.as_deref(), Some("secret"));
+        assert_eq!(matched.as_deref(), Some("test-secret-token"));
 
         let mut wrong_headers = HeaderMap::new();
         wrong_headers.insert(API_KEY_HEADER, HeaderValue::from_static("nope"));
@@ -177,7 +183,7 @@ mod tests {
     #[test]
     fn require_api_key_rejects_non_utf8_header_value() {
         let expected = SessionToken {
-            value: "secret".to_string(),
+            value: "test-secret-token".to_string(),
         };
         let mut headers = HeaderMap::new();
         let non_utf8 = HeaderValue::from_bytes(&[0xFF, 0xFE, 0xFD])
@@ -192,7 +198,7 @@ mod tests {
     #[test]
     fn api_key_optional_returns_none_for_non_utf8_header() {
         let expected = SessionToken {
-            value: "secret".to_string(),
+            value: "test-secret-token".to_string(),
         };
         let mut headers = HeaderMap::new();
         let non_utf8 = HeaderValue::from_bytes(&[0xFF, 0xFE, 0xFD])
