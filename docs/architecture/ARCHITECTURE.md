@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.0
-**アプリケーションバージョン**: 4.0 (Alpha) (v0.4.0)
-**最終更新日**: 2026-02-15
+**ドキュメントバージョン**: 5.01
+**アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
+**最終更新日**: 2026-02-16
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -69,7 +69,7 @@ graph TD
   
     subgraph "Desktop Boundary (User PC)"
         Frontend <-->|WebSocket / HTTP| Backend[Backend - Rust/Axum]
-      
+    
         subgraph Backend Components
             API[Axum API Layer]
             State[AppState Arc]
@@ -79,10 +79,10 @@ graph TD
             MCP[MCP Manager]
             EAM[ExclusiveAgentManager]
         end
-      
+    
         Backend <-->|Model Loading| GGUF[GGUF Models]
         Backend <-->|Persistence| SQL[SQLite DB - History + RAG]
-      
+    
         MCP <--> ExtTools[External Tools - Node/Python]
     end
   
@@ -126,7 +126,7 @@ graph TD
 | **通信**               | WebSocket + REST         | リアルタイム双方向通信 + API               |
 | **アプリケーション**   | Axum                     | エンドポイント、ルーティング               |
 | **ビジネスロジック**   | petgraph + GraphRuntime  | ステートマシン、エージェント制御           |
-| **コンテキスト構築** | WorkerPipeline           | モジュラーなコンテキストエンリッチメント   |
+| **コンテキスト構築**   | WorkerPipeline           | モジュラーなコンテキストエンリッチメント   |
 | **データアクセス**     | sqlx + SQLite            | リレーショナル + ベクトル検索 (in-process) |
 | **推論エンジン**       | llama.cpp                | LLM推論処理                                |
 
@@ -449,18 +449,18 @@ graph TD
 
 ### 5.3 ノード詳細
 
-| ノード                   | ファイル                       | 責務                                               |
-| ------------------------ | ------------------------------ | -------------------------------------------------- |
-| `RouterNode`           | `nodes/router.rs`            | 入力モードに基づいてChat/Search/Agentに分岐        |
-| `ThinkingNode`         | `nodes/thinking.rs`          | CoT（Chain of Thought）思考プロセス生成            |
-| `ChatNode`             | `nodes/chat.rs`              | LLMに対して直接対話応答を生成                      |
-| `SearchNode`           | `nodes/search.rs`            | Web検索実行 → 再ランク → LLM要約 (Fast検索)     |
-| `AgenticSearchNode`   | `nodes/search_agentic.rs`    | 4段階ディープサーチパイプライン **[v4.0]**         |
-| `SupervisorNode`       | `nodes/supervisor.rs`        | 階層的ルーティング（Planner or Agent）             |
-| `PlannerNode`          | `nodes/planner.rs`           | タスク計画の立案                                   |
-| `AgentExecutor`        | `nodes/agent_executor.rs`    | ReActループでツールを実行                          |
-| `ToolNode`             | `nodes/tool.rs`              | 個別ツールの実行                                   |
-| `SynthesizerNode`      | `nodes/synthesizer.rs`       | エージェント結果から最終応答を生成                 |
+| ノード                | ファイル                    | 責務                                            |
+| --------------------- | --------------------------- | ----------------------------------------------- |
+| `RouterNode`        | `nodes/router.rs`         | 入力モードに基づいてChat/Search/Agentに分岐     |
+| `ThinkingNode`      | `nodes/thinking.rs`       | CoT（Chain of Thought）思考プロセス生成         |
+| `ChatNode`          | `nodes/chat.rs`           | LLMに対して直接対話応答を生成                   |
+| `SearchNode`        | `nodes/search.rs`         | Web検索実行 → 再ランク → LLM要約 (Fast検索)   |
+| `AgenticSearchNode` | `nodes/search_agentic.rs` | 4段階ディープサーチパイプライン**[v4.0]** |
+| `SupervisorNode`    | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）          |
+| `PlannerNode`       | `nodes/planner.rs`        | タスク計画の立案                                |
+| `AgentExecutor`     | `nodes/agent_executor.rs` | ReActループでツールを実行                       |
+| `ToolNode`          | `nodes/tool.rs`           | 個別ツールの実行                                |
+| `SynthesizerNode`   | `nodes/synthesizer.rs`    | エージェント結果から最終応答を生成              |
 
 ### 5.4 階層的マルチエージェントアーキテクチャ
 
@@ -506,12 +506,12 @@ graph TD
 
 レガシーの `config.yml` 内 `custom_agents` セクションに替わり、独立した `agents.yaml` ファイルでエージェント定義を管理します。
 
-| 機能 | 説明 |
-| --- | --- |
-| **CRUD + ホットリロード** | `agents.yaml` の動的読み込み・書き込み |
-| **エージェント自動選択** | タグマッチング + priority ベースのスコアリング |
-| **ツール名解決** | `web_search` → `native_search`, `mcp:tool` → `tool` |
-| **デフォルト設定生成** | `create_default_config()` で初期 agents.yaml を生成 |
+| 機能                            | 説明                                                          |
+| ------------------------------- | ------------------------------------------------------------- |
+| **CRUD + ホットリロード** | `agents.yaml` の動的読み込み・書き込み                      |
+| **エージェント自動選択**  | タグマッチング + priority ベースのスコアリング                |
+| **ツール名解決**          | `web_search` → `native_search`, `mcp:tool` → `tool` |
+| **デフォルト設定生成**    | `create_default_config()` で初期 agents.yaml を生成         |
 
 ```yaml
 # agents.yaml
@@ -538,14 +538,15 @@ graph LR
     R --> A[Stage 4: 最終合成+ストリーミング]
 ```
 
-| ステージ | 処理内容 |
-| --- | --- |
-| **Query生成** | LLMでユーザー入力から3〜5個のサブクエリを生成 |
-| **並列検索+チャンク選択** | サブクエリを並列実行、結果を重複排除・リランキング |
-| **リサーチレポート** | 検索結果をLLMで構造化レポートに合成 |
-| **最終合成** | レポート+元コンテキストからストリーミング回答を生成 |
+| ステージ                        | 処理内容                                            |
+| ------------------------------- | --------------------------------------------------- |
+| **Query生成**             | LLMでユーザー入力から3〜5個のサブクエリを生成       |
+| **並列検索+チャンク選択** | サブクエリを並列実行、結果を重複排除・リランキング  |
+| **リサーチレポート**      | 検索結果をLLMで構造化レポートに合成                 |
+| **最終合成**              | レポート+元コンテキストからストリーミング回答を生成 |
 
 **ルーティング判定** (`RouterNode` 内):
+
 - 200文字以上の入力 → Agentic
 - 深掘りキーワード検出 (`比較`, `分析`, `詳細`, `違い` 等) → Agentic
 - `search_attachments` 非空 → Agentic
@@ -575,14 +576,14 @@ graph LR
     RAG --> CTX[PipelineContext]
 ```
 
-| Worker | 責務 |
-| --- | --- |
-| `SystemWorker` | config からシステムプロンプト構築 + モード別コンテキスト注入 |
-| `PersonaWorker` | ペルソナ設定の注入 (モード適格性チェック付き) |
-| `MemoryWorker` | 会話履歴 + 長期記憶のロード |
-| `ToolWorker` | 利用可能ツール定義の注入 (Native + MCP) |
-| `SearchWorker` | Web検索実行 + リランキング |
-| `RagWorker` | RAGストアからのベクトル検索 |
+| Worker            | 責務                                                         |
+| ----------------- | ------------------------------------------------------------ |
+| `SystemWorker`  | config からシステムプロンプト構築 + モード別コンテキスト注入 |
+| `PersonaWorker` | ペルソナ設定の注入 (モード適格性チェック付き)                |
+| `MemoryWorker`  | 会話履歴 + 長期記憶のロード                                  |
+| `ToolWorker`    | 利用可能ツール定義の注入 (Native + MCP)                      |
+| `SearchWorker`  | Web検索実行 + リランキング                                   |
+| `RagWorker`     | RAGストアからのベクトル検索                                  |
 
 **PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) に基づいて Worker の有効/無効が決定されます。
 
@@ -650,11 +651,11 @@ graph TB
 
 v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移行しました。
 
-| 機能 | 説明 |
-| --- | --- |
-| **RagStore trait** | `ingest`, `query`, `delete_by_session`, `reindex` の4メソッド抽象化 |
-| **SqliteRagStore** | SQLite + `ndarray` によるコサイン類似度計算 |
-| **セッションフィルタ** | セッション単位でのメタデータフィルタリング |
+| 機能                         | 説明                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| **RagStore trait**     | `ingest`, `query`, `delete_by_session`, `reindex` の4メソッド抽象化 |
+| **SqliteRagStore**     | SQLite +`ndarray` によるコサイン類似度計算                                |
+| **セッションフィルタ** | セッション単位でのメタデータフィルタリング                                  |
 
 > [!IMPORTANT]
 > `RagStore` trait による抽象化で、将来の LanceDB や Qdrant への移行パスを確保しています。
@@ -1131,16 +1132,16 @@ task quality
 
 ### Python版からRust版への主な変更点
 
-| 項目                        | Python版     | Rust版 (v4.0)                |
-| --------------------------- | ------------ | ---------------------------- |
-| **言語**              | Python 3.10+ | Rust 2021                    |
-| **Webフレームワーク** | FastAPI      | Axum                         |
-| **グラフエンジン**    | LangGraph    | petgraph (自前実装)          |
-| **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)     |
-| **ベクトルDB**        | ChromaDB     | SQLite + ndarray (in-process)|
-| **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)        |
-| **パッケージ管理**    | uv / pip     | Cargo                        |
-| **バイナリ配布**      | PyInstaller  | ネイティブバイナリ           |
+| 項目                        | Python版     | Rust版 (v4.0)                 |
+| --------------------------- | ------------ | ----------------------------- |
+| **言語**              | Python 3.10+ | Rust 2021                     |
+| **Webフレームワーク** | FastAPI      | Axum                          |
+| **グラフエンジン**    | LangGraph    | petgraph (自前実装)           |
+| **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)      |
+| **ベクトルDB**        | ChromaDB     | SQLite + ndarray (in-process) |
+| **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)         |
+| **パッケージ管理**    | uv / pip     | Cargo                         |
+| **バイナリ配布**      | PyInstaller  | ネイティブバイナリ            |
 
 ### 今後の拡張予定
 
