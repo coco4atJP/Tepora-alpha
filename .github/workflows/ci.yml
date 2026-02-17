@@ -73,7 +73,6 @@ jobs:
 
       - name: Run cargo audit
         run: cargo audit
-        continue-on-error: true  # Report but don't fail
 
       - name: Check for Secrets
         uses: trufflesecurity/trufflehog@main

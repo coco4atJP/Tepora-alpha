@@ -25,4 +25,6 @@ pub struct WsIncomingMessage {
     #[serde(rename = "requestId")]
     pub request_id: Option<String>,
     pub approved: Option<bool>,
+    /// Execution timeout in milliseconds
+    pub timeout: Option<u64>,
 }

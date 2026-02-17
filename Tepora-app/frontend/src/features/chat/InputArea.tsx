@@ -25,7 +25,7 @@ const InputArea: React.FC = () => {
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const { customAgents } = useSettings();
+	const { customAgents, config } = useSettings();
 
 	const availableAgents = Object.values(customAgents).filter(
 		(agent) => agent.enabled,
@@ -41,6 +41,7 @@ const InputArea: React.FC = () => {
 				isThinkingMode,
 				selectedAgentId || undefined,
 				(selectedAgentMode as import("../../types").AgentMode) || undefined,
+				config?.app.graph_execution_timeout,
 			);
 			clearAttachments();
 			setMessage("");
@@ -88,11 +89,10 @@ const InputArea: React.FC = () => {
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
 			<div
-				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-input transition-all duration-500 ${
-					isProcessing
+				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-input transition-all duration-500 ${isProcessing
 						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
 						: "hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:bg-theme-overlay shadow-2xl"
-				}`}
+					}`}
 			>
 				{/* Persona Switcher */}
 				<div className="shrink-0 mb-1 ml-1">
@@ -156,11 +156,10 @@ const InputArea: React.FC = () => {
 						type="button"
 						onClick={() => setIsThinkingMode(!isThinkingMode)}
 						disabled={isProcessing}
-						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 ${
-							isThinkingMode
+						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 ${isThinkingMode
 								? "bg-semantic-thinking/20 text-semantic-thinking ring-1 ring-semantic-thinking/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
 								: "text-gray-500 hover:text-semantic-thinking hover:bg-semantic-thinking/10"
-						}`}
+							}`}
 						title={t("chat.input.thinking_mode")}
 					>
 						<Brain className="w-4 h-4" />
@@ -184,11 +183,10 @@ const InputArea: React.FC = () => {
 							onClick={handleSend}
 							disabled={(!message.trim() && attachments.length === 0) || !isConnected}
 							aria-label={t("chat.input.send_message")}
-							className={`rounded-full w-10 h-10 transition-all duration-300 ${
-								message.trim() || attachments.length > 0
+							className={`rounded-full w-10 h-10 transition-all duration-300 ${message.trim() || attachments.length > 0
 									? "shadow-[0_0_20px_rgba(234,179,8,0.4)]"
 									: "opacity-50"
-							}`}
+								}`}
 						>
 							<Send
 								className={`w-4 h-4 ${message.trim() || attachments.length > 0 ? "ml-0.5" : ""}`}

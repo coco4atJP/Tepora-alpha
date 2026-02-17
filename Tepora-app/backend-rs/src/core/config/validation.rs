@@ -56,6 +56,13 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
             1,
             100_000_000,
         )?;
+        validate_u64_field(
+            app,
+            "app.graph_execution_timeout",
+            "graph_execution_timeout",
+            1_000,
+            3_600_000, // 1 hour
+        )?;
     }
 
     if let Some(server) = expect_optional_object(root, "server")? {

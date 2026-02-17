@@ -46,6 +46,8 @@ pub struct GraphRuntime {
     entry_node_id: String,
     /// Maximum execution steps (recursion limit)
     max_steps: usize,
+    /// Execution timeout
+    execution_timeout: Option<std::time::Duration>,
 }
 
 impl GraphRuntime {
@@ -56,12 +58,19 @@ impl GraphRuntime {
             node_indices: HashMap::new(),
             entry_node_id: String::new(),
             max_steps: 50,
+            execution_timeout: None,
         }
     }
 
     /// Set maximum execution steps
     pub fn with_max_steps(mut self, max_steps: usize) -> Self {
         self.max_steps = max_steps;
+        self
+    }
+
+    /// Set execution timeout
+    pub fn with_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.execution_timeout = Some(timeout);
         self
     }
 
@@ -124,6 +133,28 @@ impl GraphRuntime {
 
     /// Execute the graph
     pub async fn run(
+        &self,
+        state: &mut AgentState,
+        ctx: &mut NodeContext<'_>,
+        timeout_override: Option<std::time::Duration>,
+    ) -> Result<(), GraphError> {
+        let timeout = timeout_override.or(self.execution_timeout);
+
+        if let Some(timeout_duration) = timeout {
+            match tokio::time::timeout(timeout_duration, self.run_steps(state, ctx)).await {
+                Ok(result) => result,
+                Err(_) => Err(GraphError::new(
+                    "runtime",
+                    format!("Graph execution timed out after {:?}", timeout_duration),
+                )),
+            }
+        } else {
+            self.run_steps(state, ctx).await
+        }
+    }
+
+    /// Internal execution loop
+    async fn run_steps(
         &self,
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
@@ -281,6 +312,11 @@ impl GraphBuilder {
 
     pub fn max_steps(mut self, max_steps: usize) -> Self {
         self.runtime.max_steps = max_steps;
+        self
+    }
+
+    pub fn timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.runtime.execution_timeout = Some(timeout);
         self
     }
 
@@ -555,6 +591,13 @@ mod tests {
         assert_eq!(runtime.entry_node_id, "start");
     }
 
+    #[test]
+    fn with_timeout_sets_execution_timeout() {
+        let timeout = std::time::Duration::from_secs(5);
+        let runtime = GraphRuntime::new().with_timeout(timeout);
+        assert_eq!(runtime.execution_timeout, Some(timeout));
+    }
+
     // =======================================================================
     // GraphBuilder tests
     // =======================================================================
@@ -628,6 +671,18 @@ mod tests {
         assert_eq!(runtime.max_steps, 25);
         assert_eq!(runtime.entry_node_id, "first");
     }
+
+    #[test]
+    fn graph_builder_with_timeout() {
+        let timeout = std::time::Duration::from_secs(123);
+        let result = GraphBuilder::new().timeout(timeout).build();
+
+        assert!(result.is_ok());
+        let runtime = result.unwrap();
+        assert_eq!(runtime.execution_timeout, Some(timeout));
+    }
+
+
 
     // =======================================================================
     // GraphRuntime::run() tests

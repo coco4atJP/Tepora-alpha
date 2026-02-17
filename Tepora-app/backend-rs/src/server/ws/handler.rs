@@ -210,6 +210,8 @@ async fn handle_message(
         Vec::new(),
     );
 
+    let timeout_override = data.timeout.map(std::time::Duration::from_millis);
+
     let mut node_ctx = NodeContext {
         app_state: state,
         config: &config,
@@ -220,7 +222,7 @@ async fn handle_message(
 
     state
         .graph_runtime
-        .run(&mut graph_state, &mut node_ctx)
+        .run(&mut graph_state, &mut node_ctx, timeout_override)
         .await
         .map_err(ApiError::from)?;
 

@@ -27,6 +27,7 @@ export interface Config {
 		graph_recursion_limit: number;
 		tool_execution_timeout: number;
 		tool_approval_timeout: number;
+		graph_execution_timeout: number;
 		web_fetch_max_chars: number;
 		dangerous_patterns: string[];
 		language: string;
@@ -237,9 +238,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			setConfig((prev) =>
 				prev
 					? {
-							...prev,
-							chat_history: { ...prev.chat_history, [field]: value },
-						}
+						...prev,
+						chat_history: { ...prev.chat_history, [field]: value },
+					}
 					: prev,
 			);
 		},
@@ -258,9 +259,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			setConfig((prev) =>
 				prev
 					? {
-							...prev,
-							models_gguf: { ...prev.models_gguf, [modelKey]: modelConfig },
-						}
+						...prev,
+						models_gguf: { ...prev.models_gguf, [modelKey]: modelConfig },
+					}
 					: prev,
 			);
 		},
@@ -288,9 +289,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		setConfig((prev) =>
 			prev
 				? {
-						...prev,
-						characters: { ...prev.characters, [key]: charConfig },
-					}
+					...prev,
+					characters: { ...prev.characters, [key]: charConfig },
+				}
 				: prev,
 		);
 	}, []);
@@ -304,9 +305,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		setConfig((prev) =>
 			prev
 				? {
-						...prev,
-						characters: { ...prev.characters, [key]: defaultChar },
-					}
+					...prev,
+					characters: { ...prev.characters, [key]: defaultChar },
+				}
 				: prev,
 		);
 	}, []);

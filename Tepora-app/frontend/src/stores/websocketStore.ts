@@ -47,6 +47,7 @@ interface WebSocketActions {
 		thinkingMode?: boolean,
 		agentId?: string,
 		agentMode?: AgentMode,
+		timeout?: number,
 	) => void;
 	sendRaw: (data: object) => void;
 
@@ -187,12 +188,12 @@ export const useWebSocketStore = create<WebSocketStore>()(
 								const rawEntry = data.data;
 								const agentName = rawEntry.agentName || AGENT_MAPPING[rawEntry.id] || rawEntry.id;
 								const statusMap: Record<string, "pending" | "processing" | "completed" | "error"> =
-									{
-										done: "completed",
-										processing: "processing",
-										pending: "pending",
-										error: "error",
-									};
+								{
+									done: "completed",
+									processing: "processing",
+									pending: "pending",
+									error: "error",
+								};
 								chatStore.updateActivity({
 									status: statusMap[rawEntry.status] || "processing",
 									agent_name: agentName,
@@ -390,6 +391,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					thinkingMode = false,
 					agentId,
 					agentMode,
+					timeout,
 				) => {
 					const { socket, isConnected } = get();
 					const chatStore = useChatStore.getState();
@@ -415,6 +417,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							agentId,
 							agentMode,
 							sessionId: sessionStore.currentSessionId,
+							timeout,
 						}),
 					);
 				},

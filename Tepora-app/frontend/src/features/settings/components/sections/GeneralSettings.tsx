@@ -221,6 +221,21 @@ const GeneralSettings: React.FC = () => {
 							step={1000}
 						/>
 					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.graph_execution_timeout.label", "Graph Execution Timeout (ms)")}
+						tooltip={t("settings.fields.graph_execution_timeout.description", "Maximum time allowed for graph execution (1s - 1h).")}
+						isDirty={isDirty("graph_execution_timeout")}
+					>
+						<FormInput
+							type="number"
+							value={appConfig.graph_execution_timeout || 30000} // Default 30s
+							onChange={(value) => updateApp("graph_execution_timeout", value as number)}
+							min={1000}
+							max={3600000}
+							step={1000}
+						/>
+					</FormGroup>
 				</div>
 			</SettingsSection>
 		</div>
