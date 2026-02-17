@@ -17,6 +17,7 @@ const createMockSettings = (activeProfile = "default"): SettingsContextValue => 
 			graph_recursion_limit: 10,
 			tool_execution_timeout: 30,
 			tool_approval_timeout: 300,
+			graph_execution_timeout: 60,
 			web_fetch_max_chars: 6000,
 			dangerous_patterns: [],
 			language: "ja",

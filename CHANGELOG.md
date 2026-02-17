@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored graph engine to support configurable worker pipelines.
 - Replaced `LlamaService` with a generalized `ModelManager` for multi-backend abstraction.
 - Updated frontend to reflect V4 architecture changes (RAG tab, Agent settings).
+- Improved backend documentation coverage for public APIs and core components (Router, AppState, McpManager).
 
 ## [0.3.0] - 2026-01-23
 

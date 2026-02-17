@@ -9,6 +9,17 @@ use crate::server::handlers::{agents, config, health, logs, mcp, sessions, setup
 use crate::server::ws::handler::ws_handler;
 use crate::state::AppState;
 
+/// Creates the main application router with all routes and middleware.
+///
+/// This function sets up:
+/// - CORS middleware
+/// - Health check endpoints
+/// - API endpoints (config, logs, sessions, custom agents, tools, setup, mcp)
+/// - WebSocket handler
+///
+/// # Arguments
+///
+/// * `state` - Shared application state
 pub fn router(state: Arc<AppState>) -> Router {
     let cors_layer = build_cors_layer(&state);
     Router::new()

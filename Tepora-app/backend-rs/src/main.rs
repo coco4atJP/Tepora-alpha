@@ -1,3 +1,9 @@
+//! Tepora Backend Application
+//!
+//! This is the main entry point for the Tepora backend server.
+//! It sets up the Axum router, initializes the application state,
+//! and starts the HTTP server.
+
 use axum::http::Method;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -22,6 +28,9 @@ mod tools;
 use crate::state::AppState;
 
 #[tokio::main]
+/// Main entry point for the application.
+///
+/// Initializes tracing, application state, and starts the Axum server.
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(

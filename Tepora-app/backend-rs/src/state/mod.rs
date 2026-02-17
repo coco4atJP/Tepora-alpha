@@ -20,6 +20,14 @@ pub mod setup;
 
 use setup::SetupState;
 
+/// Global application state shared across all routes and background tasks.
+///
+/// Contains references to:
+/// - Configuration and paths
+/// - Database connections (History, RAG)
+/// - LLM services and models
+/// - Helper managers (MCP, Exclusive Agents)
+/// - Graph runtime for agent execution
 #[derive(Clone)]
 pub struct AppState {
     pub paths: Arc<AppPaths>,
@@ -41,6 +49,14 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Initializes the application state.
+    ///
+    /// This process includes:
+    /// 1. Setting up paths and loading configuration
+    /// 2. Initializing databases (History, RAG, Memory)
+    /// 3. Setting up LLM services and downloading default models if needed
+    /// 4. Initializing MCP and Exclusive Agent managers
+    /// 5. Building the agent execution graph
     pub async fn initialize() -> anyhow::Result<Arc<Self>> {
         let paths = Arc::new(AppPaths::new());
         let config = ConfigService::new(paths.clone());

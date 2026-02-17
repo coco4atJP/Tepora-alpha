@@ -145,6 +145,13 @@ struct McpClientEntry {
     tools: Vec<Value>,
 }
 
+/// Manages Model Context Protocol (MCP) servers and tools.
+///
+/// Handles:
+/// - Server configuration and connection management
+/// - Tool discovery and execution
+/// - Policy enforcement (permissions, blocked commands)
+/// - Configuration persistence
 #[derive(Clone)]
 pub struct McpManager {
     paths: Arc<AppPaths>,
@@ -159,6 +166,12 @@ pub struct McpManager {
 }
 
 impl McpManager {
+    /// Creates a new McpManager instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `paths` - Application paths
+    /// * `config_service` - Configuration service for loading settings
     pub fn new(paths: Arc<AppPaths>, config_service: ConfigService) -> Self {
         let initial_config = config_service
             .load_config()
@@ -211,6 +224,10 @@ impl McpManager {
         self.init_error.read().await.clone()
     }
 
+    /// Initializes the MCP manager.
+    ///
+    /// Loads configuration, connects to enabled servers, and updates status.
+    /// Failures during connection are recorded but do not stop the initialization.
     pub async fn initialize(&self) -> Result<(), ApiError> {
         let config = self
             .config_service
@@ -245,6 +262,10 @@ impl McpManager {
         self.status.read().await.clone()
     }
 
+    /// Lists all available tools from connected MCP servers.
+    ///
+    /// Tool names are prefixed with the server name (e.g., `server_tool`).
+    /// Returns a list of `McpToolInfo` sorted by name.
     pub async fn list_tools(&self) -> Vec<McpToolInfo> {
         let clients = self.clients.read().await;
         let mut result = Vec::new();
@@ -275,6 +296,16 @@ impl McpManager {
         result
     }
 
+    /// Executes a specific tool.
+    ///
+    /// # Arguments
+    ///
+    /// * `tool_name` - The full name of the tool (including server prefix)
+    /// * `args` - Arguments for the tool execution
+    ///
+    /// # Returns
+    ///
+    /// Returns the tool's output as a formatted string.
     pub async fn execute_tool(&self, tool_name: &str, args: &Value) -> Result<String, ApiError> {
         let (server_name, short_name) = self.resolve_tool_name(tool_name).await?;
         let entry = {

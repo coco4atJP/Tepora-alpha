@@ -86,6 +86,17 @@ impl ConfigService {
         let public_config = load_yaml_file(&self.config_path());
         let secrets_config = load_yaml_file(&self.secrets_path());
         let merged = deep_merge(&public_config, &secrets_config);
+
+        if let Some(obj) = merged.as_object() {
+            if obj.contains_key("custom_agents") {
+                tracing::warn!(
+                    "Legacy 'custom_agents' section detected in config.yml. \
+                    This section is deprecated and ignored in v4.0. \
+                    Please migrate your agents to 'agents.yaml' and remove this section."
+                );
+            }
+        }
+
         Ok(merged)
     }
 

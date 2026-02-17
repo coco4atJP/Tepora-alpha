@@ -129,12 +129,12 @@ Teporaプロジェクト全体のコードレビューを実施しました。Ru
 - **Recommendation**: 
   環境変数または設定ファイルに移行
 
-### Issue 6: 古い設定ファイルの放置
+### Issue 6: 古い設定ファイルの放置 (Resolved)
 - **Files**: `config.yml` の `custom_agents` セクション
 - **Description**: 
   v4.0では `agents.yaml` 使用にに移行したが、レガシーセクションがまだ文件中にある
-- **Recommendation**: 
-  将来のバージョンで完全削除または警告を表示
+- **Resolution**: 
+  起動時に `custom_agents` セクションを検知した場合、警告ログを出力するように変更済み。
 
 ---
 

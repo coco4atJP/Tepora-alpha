@@ -84,7 +84,7 @@ export type ChatStore = ChatState & ChatActions;
 // Constants
 // ============================================================================
 
-const CHUNK_FLUSH_INTERVAL = 50; // ms
+const CHUNK_FLUSH_INTERVAL = Number(import.meta.env.VITE_CHUNK_FLUSH_INTERVAL) || 50; // ms
 
 // ============================================================================
 // Initial State
