@@ -143,7 +143,7 @@ graph TD
 | **非同期ランタイム**  | Tokio               | 非同期処理                 |
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
-| **RAGストア**         | SQLite + ndarray    | ベクトル検索 (in-process)  |
+| **RAGストア**         | SQLite              | ベクトル検索 (in-process)  |
 | **ベクトル演算**      | ndarray             | コサイン類似度計算         |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
@@ -1138,7 +1138,7 @@ task quality
 | **Webフレームワーク** | FastAPI      | Axum                          |
 | **グラフエンジン**    | LangGraph    | petgraph (自前実装)           |
 | **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)      |
-| **ベクトルDB**        | ChromaDB     | SQLite + ndarray (in-process) |
+| **ベクトルDB**        | ChromaDB     | SQLite (in-process)           |
 | **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)         |
 | **パッケージ管理**    | uv / pip     | Cargo                         |
 | **バイナリ配布**      | PyInstaller  | ネイティブバイナリ            |
