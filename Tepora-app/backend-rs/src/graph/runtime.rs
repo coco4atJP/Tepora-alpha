@@ -682,8 +682,6 @@ mod tests {
         assert_eq!(runtime.execution_timeout, Some(timeout));
     }
 
-
-
     // =======================================================================
     // GraphRuntime::run() tests
     //
