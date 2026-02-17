@@ -1,0 +1,6 @@
+[advisories]
+ignore = [
+  "RUSTSEC-2023-0071", # Marvin Attack: potential key recovery through timing sidechannels (rsa crate)
+  # This vulnerability is in the `rsa` crate, which is a dependency of `sqlx-mysql`.
+  # We use SQLite, so the MySQL driver code is not executed in our application context.
+]
