@@ -125,11 +125,13 @@ export const SettingsContext = createContext<SettingsContextValue | null>(null);
 // ============================================================================
 
 function normalizeConfig(data: Config): Config {
+	const modelsGguf = { ...(data.models_gguf || {}) } as Record<string, unknown>;
+
 	if (!data.models_gguf) {
-		return data;
+		// If it was missing, we just return the data with empty models_gguf
+		// But we should still ensure other required fields like tools are present if we are doing that below
 	}
 
-	const modelsGguf = { ...data.models_gguf } as Record<string, unknown>;
 	const legacyCharacter = modelsGguf.character_model as ModelConfig | undefined;
 	const legacyProfessional = modelsGguf.professional as ModelConfig | undefined;
 	const legacyTextSource = legacyCharacter ?? legacyProfessional;
@@ -146,7 +148,8 @@ function normalizeConfig(data: Config): Config {
 
 	return {
 		...data,
-		models_gguf: modelsGguf as Config["models_gguf"],
+		tools: data.tools || {},
+		models_gguf: (modelsGguf as Config["models_gguf"]) || {},
 	};
 }
 

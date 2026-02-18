@@ -111,11 +111,9 @@ Teporaは、最先端の技術実験場でもあります。
 * 他 参考 参照に使用させていただいた皆様。
 
 
-本プロジェクトは100％をバイブコーディングで作成しています。
-
-Gemini (main)、Claude、ChatGPTに深くお礼申し上げます。
-
-また、Antigravity IDE、Jules、Codexに深く感謝をいたします。
+* [X] 本プロジェクトは100％をAgentが作成しています。人間の関与は意思決定と指示出しのみです。
+* [X] Gemini (main)、Claude、ChatGPTに深くお礼申し上げます。
+* [X] また、Antigravity IDE、Jules、Codexとそのチームに深く感謝をいたします。
 
 ---
 

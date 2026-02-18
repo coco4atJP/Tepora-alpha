@@ -1,0 +1,13 @@
+{
+  "policy": "LOCAL_ONLY",
+  "server_permissions": {},
+  "blocked_commands": [
+    "sudo",
+    "rm -rf",
+    "format",
+    "del /f",
+    "shutdown"
+  ],
+  "require_tool_confirmation": true,
+  "first_use_confirmation": true
+}

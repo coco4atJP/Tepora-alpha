@@ -80,7 +80,7 @@ const ModelSettings: React.FC = () => {
 
 	const llmConfig = config.llm_manager;
 	const originalLlmConfig = originalConfig?.llm_manager;
-	const modelsConfig = config.models_gguf;
+	const modelsConfig = config.models_gguf || {};
 
 	const isLlmDirty = (field: keyof typeof llmConfig) => {
 		if (!originalLlmConfig) return false;

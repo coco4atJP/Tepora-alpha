@@ -12,9 +12,9 @@ const GeneralSettings: React.FC = () => {
 	if (!config) return null;
 
 	const appConfig = config.app;
-	const toolsConfig = config.tools;
+	const toolsConfig = config.tools || {};
 	const originalAppConfig = originalConfig?.app;
-	const originalToolsConfig = originalConfig?.tools;
+	const originalToolsConfig = originalConfig?.tools || {};
 
 	// Helper to check dirty state
 	const isDirty = (field: keyof typeof appConfig) => {

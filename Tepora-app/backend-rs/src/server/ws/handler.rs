@@ -25,11 +25,19 @@ pub async fn ws_handler(
     let origin_ok = validate_origin(&headers, &state);
     let token_ok = validate_token(&headers, &state);
 
+    if !origin_ok {
+        tracing::warn!("WebSocket handshake failed: Invalid Origin");
+    }
+    if !token_ok {
+        tracing::warn!("WebSocket handshake failed: Invalid Token");
+    }
+
     ws.protocols([WS_APP_PROTOCOL])
         .on_upgrade(move |socket| handle_socket(socket, state, origin_ok, token_ok))
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>, origin_ok: bool, token_ok: bool) {
+    tracing::info!("WebSocket connection upgraded");
     let (mut sender, mut receiver) = socket.split();
 
     if !origin_ok {
@@ -88,24 +96,40 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, origin_ok: bool,
     let mut current_session_id = "default".to_string();
     let approved_mcp_tools = Arc::new(Mutex::new(HashSet::<String>::new()));
 
-    while let Some(incoming) = rx.recv().await {
-        if let Err(err) = handle_message(
-            &mut sender,
-            &state,
-            &mut current_session_id,
-            pending.clone(),
-            approved_mcp_tools.clone(),
-            incoming,
-        )
-        .await
-        {
-            let _ = send_json(
-                &mut sender,
-                json!({"type": "error", "message": err.to_string()}),
-            )
-            .await;
+    let mut heartbeat_interval = tokio::time::interval(std::time::Duration::from_secs(10));
+    heartbeat_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            Some(incoming) = rx.recv() => {
+                if let Err(err) = handle_message(
+                    &mut sender,
+                    &state,
+                    &mut current_session_id,
+                    pending.clone(),
+                    approved_mcp_tools.clone(),
+                    incoming,
+                )
+                .await
+                {
+                    let _ = send_json(
+                        &mut sender,
+                        json!({"type": "error", "message": err.to_string()}),
+                    )
+                    .await;
+                }
+            }
+            _ = heartbeat_interval.tick() => {
+                if sender.send(Message::Ping(vec![])).await.is_err() {
+                     tracing::warn!("Failed to send heartbeat, closing connection");
+                     break;
+                 }
+                 tracing::debug!("Heartbeat sent");
+            }
+            else => break,
         }
     }
+    tracing::info!("WebSocket connection closed");
 }
 
 async fn handle_message(
@@ -334,6 +358,12 @@ pub async fn send_json(
 
 fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
     let origin = headers.get("origin").and_then(|v| v.to_str().ok());
+    if let Some(o) = origin {
+        tracing::debug!("Checking Origin: {}", o);
+    } else {
+        tracing::debug!("No Origin header found");
+    }
+
     if origin.is_none() {
         let env = std::env::var("TEPORA_ENV").unwrap_or_else(|_| "production".to_string());
         return env != "production";
@@ -378,6 +408,7 @@ fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
             }
         }
     }
+    tracing::warn!("Origin blocked: {}", origin);
     false
 }
 

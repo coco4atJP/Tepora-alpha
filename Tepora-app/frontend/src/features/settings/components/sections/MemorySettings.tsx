@@ -16,8 +16,22 @@ const MemorySettings: React.FC = () => {
 
 	if (!config) return null;
 
-	const emConfig = config.em_llm;
-	const historyConfig = config.chat_history;
+	// Default values to prevent crashes if config is missing sections
+	const defaultEmConfig = {
+		surprise_gamma: 0.1,
+		min_event_size: 3,
+		max_event_size: 5,
+		total_retrieved_events: 10,
+		repr_topk: 3,
+		use_boundary_refinement: true,
+	};
+	const defaultHistoryConfig = {
+		max_tokens: 8192,
+		default_limit: 50,
+	};
+
+	const emConfig = config.em_llm || defaultEmConfig;
+	const historyConfig = config.chat_history || defaultHistoryConfig;
 	const originalEmConfig = originalConfig?.em_llm;
 	const originalHistoryConfig = originalConfig?.chat_history;
 

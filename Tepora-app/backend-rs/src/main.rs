@@ -76,6 +76,15 @@ async fn main() -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
+    // dev_sync.mjs がポートを検出できるよう stdout に出力する
+    // NOTE: tracing は stderr に出力するため、フロントエンド起動トリガーに使えない
+    // stdout がパイプ接続時はバッファリングされるため、明示的にフラッシュする
+    println!("TEPORA_PORT={}", port);
+    {
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+    }
+
     axum::serve(listener, app).await?;
 
     Ok(())

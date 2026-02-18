@@ -1,0 +1,47 @@
+# Tepora Agents Configuration
+# Each agent defines a specialized execution profile with its own
+# system prompt, tool policy, and priority settings.
+
+agents:
+  general:
+    name: "General Assistant"
+    description: "汎用アシスタント。タスクに合わせて柔軟に対応します。"
+    enabled: true
+    system_prompt: ""
+    priority: 0
+    tags: ["general", "default"]
+    tool_policy:
+      allow_all: true
+
+  coder:
+    name: "Code Assistant"
+    description: "コーディングとソフトウェア開発に特化したアシスタント。"
+    enabled: true
+    system_prompt: |
+      You are an expert programmer. When writing code:
+      - Always include proper error handling
+      - Follow best practices for the given language
+      - Write clear, self-documenting code
+      - Consider edge cases
+    priority: 10
+    tags: ["code", "programming", "development", "debug", "fix", "implement"]
+    tool_policy:
+      allow_all: true
+
+  researcher:
+    name: "Research Assistant"
+    description: "情報収集と分析に特化したアシスタント。"
+    enabled: true
+    system_prompt: |
+      You are a thorough researcher. When answering questions:
+      - Cite your sources clearly
+      - Distinguish between facts and inference
+      - Present multiple perspectives when relevant
+      - Use structured formatting for clarity
+    priority: 5
+    tags: ["research", "search", "analyze", "investigate", "study", "learn"]
+    tool_policy:
+      allowed_tools:
+        - web_search
+        - fetch_url
+        - "mcp:*"

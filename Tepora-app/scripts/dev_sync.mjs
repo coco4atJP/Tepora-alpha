@@ -81,11 +81,11 @@ async function main() {
     frontendEnv.VITE_API_KEY = sessionToken;
     frontendEnv.VITE_SESSION_TOKEN = sessionToken;
 
-    const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-    frontendProcess = spawn(npmCmd, ["run", "dev"], {
+    frontendProcess = spawn("npm", ["run", "dev"], {
       cwd: FRONTEND_DIR,
       env: frontendEnv,
       stdio: ["ignore", "pipe", "pipe"],
+      shell: true,
     });
 
     readline.createInterface({ input: frontendProcess.stdout }).on("line", (line) => {
@@ -103,8 +103,7 @@ async function main() {
     log("dev-sync", "Press Ctrl+C to stop");
   }
 
-  backendStdout.on("line", (line) => {
-    log("backend", line);
+  function checkForPort(line) {
     if (!capturedPort) {
       const match = PORT_PATTERN.exec(line);
       if (match) {
@@ -113,10 +112,16 @@ async function main() {
         maybeStartFrontend(capturedPort);
       }
     }
+  }
+
+  backendStdout.on("line", (line) => {
+    log("backend", line);
+    checkForPort(line);
   });
 
   backendStderr.on("line", (line) => {
     log("backend", line);
+    checkForPort(line);
   });
 
   backendProcess.on("exit", () => {

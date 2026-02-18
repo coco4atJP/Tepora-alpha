@@ -1,0 +1,66 @@
+{
+  "models": [
+    {
+      "id": "ollama-GPT-OSS:latest",
+      "display_name": "GPT-OSS:latest (Ollama)",
+      "role": "text",
+      "file_size": 13793441244,
+      "filename": "GPT-OSS:latest",
+      "source": "ollama",
+      "file_path": "ollama://GPT-OSS:latest",
+      "loader": "ollama",
+      "loader_model_name": "GPT-OSS:latest",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7",
+      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+    },
+    {
+      "id": "ollama-embeddinggemma:latest",
+      "display_name": "embeddinggemma:latest (Ollama)",
+      "role": "text",
+      "file_size": 621875917,
+      "filename": "embeddinggemma:latest",
+      "source": "ollama",
+      "file_path": "ollama://embeddinggemma:latest",
+      "loader": "ollama",
+      "loader_model_name": "embeddinggemma:latest",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "85462619ee721b466c5927d109d4cb765861907d5417b9109caebc4e614679f1",
+      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+    },
+    {
+      "id": "ollama-lfm2.5-thinking:latest",
+      "display_name": "lfm2.5-thinking:latest (Ollama)",
+      "role": "text",
+      "file_size": 731163903,
+      "filename": "lfm2.5-thinking:latest",
+      "source": "ollama",
+      "file_path": "ollama://lfm2.5-thinking:latest",
+      "loader": "ollama",
+      "loader_model_name": "lfm2.5-thinking:latest",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "95bd9d45385f33bfe96d8b3651c8569e152f21f5bdb7c19894ffde650e9cf140",
+      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+    },
+    {
+      "id": "ollama-rnj-1:8b",
+      "display_name": "rnj-1:8b (Ollama)",
+      "role": "text",
+      "file_size": 5114440677,
+      "filename": "rnj-1:8b",
+      "source": "ollama",
+      "file_path": "ollama://rnj-1:8b",
+      "loader": "ollama",
+      "loader_model_name": "rnj-1:8b",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "d20e29ab8d0f11423b1e8da33764c8bdafc1d0abbb9971f68edd0f6d4176435f",
+      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+    }
+  ],
+  "role_assignments": {},
+  "role_order": {}
+}
