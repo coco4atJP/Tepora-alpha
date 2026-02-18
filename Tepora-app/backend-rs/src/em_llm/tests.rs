@@ -104,7 +104,12 @@ mod segmenter_tests {
     use crate::em_llm::segmenter::EMEventSegmenter;
     use crate::em_llm::types::EMConfig;
 
-    fn make_segmenter(min_size: usize, max_size: usize, gamma: f64, window: usize) -> EMEventSegmenter {
+    fn make_segmenter(
+        min_size: usize,
+        max_size: usize,
+        gamma: f64,
+        window: usize,
+    ) -> EMEventSegmenter {
         EMEventSegmenter::new(EMConfig {
             surprise_window: window,
             surprise_gamma: gamma,
@@ -240,7 +245,11 @@ mod segmenter_tests {
     #[test]
     fn surprise_from_logprobs_negates_correctly() {
         let seg = make_segmenter(2, 10, 1.0, 4);
-        let logprobs = vec![("a".to_string(), -1.5), ("b".to_string(), -0.0), ("c".to_string(), -3.0)];
+        let logprobs = vec![
+            ("a".to_string(), -1.5),
+            ("b".to_string(), -0.0),
+            ("c".to_string(), -3.0),
+        ];
         let scores = seg.calculate_surprise_from_logprobs(&logprobs);
         assert!((scores[0] - 1.5).abs() < 1e-9);
         assert!((scores[1] - 0.0).abs() < 1e-9);
@@ -370,7 +379,10 @@ mod boundary_tests {
             vec![0.05, 0.05, 0.95, 1.0],
         ];
         let mod_good = r.calculate_modularity(&sim, &[0, 2]);
-        assert!(mod_good > 0.0, "modularity should be positive for well-separated clusters");
+        assert!(
+            mod_good > 0.0,
+            "modularity should be positive for well-separated clusters"
+        );
     }
 
     #[test]
@@ -407,7 +419,11 @@ mod boundary_tests {
             vec![0.01, 0.01, 0.95, 1.0],
         ];
         let cond = r.calculate_conductance(&sim, &[0, 2]);
-        assert!(cond < 0.5, "conductance should be low for well-separated clusters, got {}", cond);
+        assert!(
+            cond < 0.5,
+            "conductance should be low for well-separated clusters, got {}",
+            cond
+        );
     }
 
     #[test]
@@ -421,7 +437,12 @@ mod boundary_tests {
         ];
         let good = r.calculate_conductance(&sim, &[0, 2]);
         let bad = r.calculate_conductance(&sim, &[0, 1]);
-        assert!(good < bad, "good partition conductance ({}) should be less than bad ({})", good, bad);
+        assert!(
+            good < bad,
+            "good partition conductance ({}) should be less than bad ({})",
+            good,
+            bad
+        );
     }
 
     // ---------------------------------------------------------------
@@ -546,7 +567,8 @@ mod retrieval_tests {
     #[test]
     fn retrieve_events_without_embeddings_are_skipped() {
         let mut r = retrieval_with(4, 1.0, 0.0);
-        let mut e = EpisodicEvent::new("no-emb".to_string(), vec!["t".to_string()], 0, 1, vec![0.5]);
+        let mut e =
+            EpisodicEvent::new("no-emb".to_string(), vec!["t".to_string()], 0, 1, vec![0.5]);
         e.embedding = None; // No embedding
         r.add_events(vec![e]);
         let results = r.retrieve(&[1.0, 0.0]);
@@ -594,10 +616,7 @@ mod retrieval_tests {
         let results = r.retrieve(&[1.0, 0.0]);
         assert_eq!(results.len(), 3);
         // Should be sorted by sequence number
-        let seqs: Vec<u64> = results
-            .iter()
-            .filter_map(|e| e.sequence_number)
-            .collect();
+        let seqs: Vec<u64> = results.iter().filter_map(|e| e.sequence_number).collect();
         let mut sorted = seqs.clone();
         sorted.sort();
         assert_eq!(seqs, sorted);
@@ -657,7 +676,10 @@ mod retrieval_tests {
 
         let old_score = events.iter().find(|(e, _)| e.id == "old").unwrap().1;
         let new_score = events.iter().find(|(e, _)| e.id == "new").unwrap().1;
-        assert!(new_score > old_score, "newer event should have higher score after recency boost");
+        assert!(
+            new_score > old_score,
+            "newer event should have higher score after recency boost"
+        );
     }
 }
 
@@ -667,10 +689,8 @@ mod store_tests {
     use crate::em_llm::store::EmMemoryStore;
 
     async fn make_store() -> EmMemoryStore {
-        let path = std::env::temp_dir().join(format!(
-            "tepora-em-store-tests-{}.db",
-            uuid::Uuid::new_v4()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("tepora-em-store-tests-{}.db", uuid::Uuid::new_v4()));
         EmMemoryStore::with_path(path).await.unwrap()
     }
 
@@ -683,17 +703,32 @@ mod store_tests {
     #[tokio::test]
     async fn count_events_increments_on_insert() {
         let store = make_store().await;
-        store.insert_event("a", "s1", "u", "r", "c", &[1.0, 0.0]).await.unwrap();
-        store.insert_event("b", "s1", "u", "r", "c", &[0.0, 1.0]).await.unwrap();
+        store
+            .insert_event("a", "s1", "u", "r", "c", &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .insert_event("b", "s1", "u", "r", "c", &[0.0, 1.0])
+            .await
+            .unwrap();
         assert_eq!(store.count_events(None).await.unwrap(), 2);
     }
 
     #[tokio::test]
     async fn count_events_with_session_filter() {
         let store = make_store().await;
-        store.insert_event("a", "session-A", "u", "r", "c", &[1.0, 0.0]).await.unwrap();
-        store.insert_event("b", "session-A", "u", "r", "c", &[0.9, 0.1]).await.unwrap();
-        store.insert_event("c", "session-B", "u", "r", "c", &[0.0, 1.0]).await.unwrap();
+        store
+            .insert_event("a", "session-A", "u", "r", "c", &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .insert_event("b", "session-A", "u", "r", "c", &[0.9, 0.1])
+            .await
+            .unwrap();
+        store
+            .insert_event("c", "session-B", "u", "r", "c", &[0.0, 1.0])
+            .await
+            .unwrap();
 
         assert_eq!(store.count_events(Some("session-A")).await.unwrap(), 2);
         assert_eq!(store.count_events(Some("session-B")).await.unwrap(), 1);
@@ -703,18 +738,33 @@ mod store_tests {
     #[tokio::test]
     async fn retrieve_similar_without_session_filter_returns_all() {
         let store = make_store().await;
-        store.insert_event("a", "s1", "u", "r", "content-a", &[1.0, 0.0, 0.0]).await.unwrap();
-        store.insert_event("b", "s2", "u", "r", "content-b", &[1.0, 0.0, 0.0]).await.unwrap();
+        store
+            .insert_event("a", "s1", "u", "r", "content-a", &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .insert_event("b", "s2", "u", "r", "content-b", &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
 
-        let results = store.retrieve_similar(&[1.0, 0.0, 0.0], None, 10).await.unwrap();
+        let results = store
+            .retrieve_similar(&[1.0, 0.0, 0.0], None, 10)
+            .await
+            .unwrap();
         assert_eq!(results.len(), 2);
     }
 
     #[tokio::test]
     async fn retrieve_similar_filters_by_session() {
         let store = make_store().await;
-        store.insert_event("a", "sess-1", "u", "r", "c-a", &[1.0, 0.0]).await.unwrap();
-        store.insert_event("b", "sess-2", "u", "r", "c-b", &[1.0, 0.0]).await.unwrap();
+        store
+            .insert_event("a", "sess-1", "u", "r", "c-a", &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .insert_event("b", "sess-2", "u", "r", "c-b", &[1.0, 0.0])
+            .await
+            .unwrap();
 
         let results = store
             .retrieve_similar(&[1.0, 0.0], Some("sess-1"), 10)
@@ -740,10 +790,19 @@ mod store_tests {
     #[tokio::test]
     async fn retrieve_similar_sorted_by_score_descending() {
         let store = make_store().await;
-        store.insert_event("similar", "s1", "u", "r", "c", &[1.0, 0.0, 0.0]).await.unwrap();
-        store.insert_event("dissimilar", "s1", "u", "r", "c", &[0.0, 1.0, 0.0]).await.unwrap();
+        store
+            .insert_event("similar", "s1", "u", "r", "c", &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .insert_event("dissimilar", "s1", "u", "r", "c", &[0.0, 1.0, 0.0])
+            .await
+            .unwrap();
 
-        let results = store.retrieve_similar(&[1.0, 0.0, 0.0], Some("s1"), 10).await.unwrap();
+        let results = store
+            .retrieve_similar(&[1.0, 0.0, 0.0], Some("s1"), 10)
+            .await
+            .unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "similar");
         assert!(results[0].score > results[1].score);
@@ -752,8 +811,14 @@ mod store_tests {
     #[tokio::test]
     async fn insert_or_replace_same_id() {
         let store = make_store().await;
-        store.insert_event("dup", "s1", "u1", "r1", "content1", &[1.0, 0.0]).await.unwrap();
-        store.insert_event("dup", "s1", "u2", "r2", "content2", &[0.0, 1.0]).await.unwrap();
+        store
+            .insert_event("dup", "s1", "u1", "r1", "content1", &[1.0, 0.0])
+            .await
+            .unwrap();
+        store
+            .insert_event("dup", "s1", "u2", "r2", "content2", &[0.0, 1.0])
+            .await
+            .unwrap();
 
         // COUNT should be 1 because INSERT OR REPLACE
         assert_eq!(store.count_events(None).await.unwrap(), 1);
@@ -762,9 +827,15 @@ mod store_tests {
     #[tokio::test]
     async fn retrieve_similar_zero_vector_returns_zero_scores() {
         let store = make_store().await;
-        store.insert_event("e1", "s1", "u", "r", "c", &[1.0, 0.0, 0.0]).await.unwrap();
+        store
+            .insert_event("e1", "s1", "u", "r", "c", &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
 
-        let results = store.retrieve_similar(&[0.0, 0.0, 0.0], Some("s1"), 10).await.unwrap();
+        let results = store
+            .retrieve_similar(&[0.0, 0.0, 0.0], Some("s1"), 10)
+            .await
+            .unwrap();
         assert_eq!(results.len(), 1);
         assert!((results[0].score).abs() < 1e-6);
     }
@@ -778,7 +849,11 @@ mod service_tests {
     use crate::em_llm::service::EmMemoryService;
     use crate::em_llm::store::EmMemoryStore;
 
-    async fn make_service(enabled: bool, retrieval_limit: usize, min_score: f32) -> EmMemoryService {
+    async fn make_service(
+        enabled: bool,
+        retrieval_limit: usize,
+        min_score: f32,
+    ) -> EmMemoryService {
         let path = std::env::temp_dir().join(format!(
             "tepora-em-service-unit-{}.db",
             uuid::Uuid::new_v4()
@@ -884,7 +959,10 @@ mod service_tests {
             .await
             .unwrap();
         // Score ~ 0.0 < 0.9 → should be filtered
-        assert!(results.is_empty(), "low-score results should be filtered by min_score");
+        assert!(
+            results.is_empty(),
+            "low-score results should be filtered by min_score"
+        );
     }
 
     #[tokio::test]

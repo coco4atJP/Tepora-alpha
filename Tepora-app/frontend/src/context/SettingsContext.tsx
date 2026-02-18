@@ -316,8 +316,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		setConfig((prev) => {
 			if (!prev) return prev;
 			if (prev.active_agent_profile === key) return prev; // Can't delete active
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			const { [key]: _, ...rest } = prev.characters;
+			const { [key]: _unused, ...rest } = prev.characters;
 			return { ...prev, characters: rest };
 		});
 	}, []);

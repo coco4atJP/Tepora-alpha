@@ -220,6 +220,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 	};
 
 	const renderAgentCard = (agent: CustomAgentConfig) => (
+		// biome-ignore lint/a11y/useSemanticElements: contains nested interactive buttons
 		<button
 			type="button"
 			key={agent.id}

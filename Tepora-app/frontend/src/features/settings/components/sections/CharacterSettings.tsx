@@ -186,6 +186,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		const isActive = activeProfileId === key;
 
 		return (
+			// biome-ignore lint/a11y/useSemanticElements: contains nested interactive buttons
 			<div
 				key={key}
 				role="button"

@@ -1,4 +1,20 @@
 {
+	"files": {
+		"include": [
+			"src/**/*.ts",
+			"src/**/*.tsx",
+			"src/**/*.js",
+			"src/**/*.jsx"
+		],
+		"ignore": [
+			"**/*.css",
+			"**/*.scss",
+			"node_modules",
+			"dist",
+			"build",
+			"coverage"
+		]
+	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",

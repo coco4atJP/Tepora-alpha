@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-
-
 use crate::agent::exclusive_manager::ExclusiveAgentManager;
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::security::{init_session_token, SessionToken};
@@ -65,7 +63,8 @@ impl AppState {
             .await
             .map_err(|e| InitializationError::History(e.into()))?;
 
-        let llama = LlamaService::new(paths.clone()).map_err(|e| InitializationError::Llm(e.into()))?;
+        let llama =
+            LlamaService::new(paths.clone()).map_err(|e| InitializationError::Llm(e.into()))?;
 
         let mcp = McpManager::new(paths.clone(), config.clone());
         let mcp_registry = McpRegistry::new(&paths);
@@ -85,9 +84,8 @@ impl AppState {
                 .map_err(|e| InitializationError::Rag(e.into()))?,
         );
 
-        let graph_runtime = Arc::new(
-            build_tepora_graph().map_err(|e| InitializationError::Graph(e.into()))?
-        );
+        let graph_runtime =
+            Arc::new(build_tepora_graph().map_err(|e| InitializationError::Graph(e.into()))?);
 
         let em_memory_service = Arc::new(
             EmMemoryService::new(paths.as_ref(), &config)
