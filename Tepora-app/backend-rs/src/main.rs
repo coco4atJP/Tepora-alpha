@@ -65,8 +65,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .layer(TraceLayer::new_for_http());
 
-    let host = "127.0.0.1";
-    let port = 3001;
+    let host = std::env::var("TEPORA_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = std::env::var("TEPORA_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(3001);
     let addr = format!("{}:{}", host, port);
 
     tracing::info!("Server listening on http://{}", addr);

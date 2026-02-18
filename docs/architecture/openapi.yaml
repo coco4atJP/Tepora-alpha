@@ -1,0 +1,292 @@
+openapi: 3.0.3
+info:
+  title: Tepora Backend API
+  description: >-
+    API specification for the Tepora Backend (Rust).
+    
+    This document outlines the available endpoints for managing sessions, configuration, MCP servers, and more.
+    
+    **Note**: This specification is currently manually maintained. Future iterations should aim to generate this automatically using `utoipa` or similar crates from the Rust codebase.
+  version: 0.4.0
+servers:
+  - url: http://localhost:3001
+    description: Local Development Server
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        message_count:
+          type: integer
+        preview:
+          type: string
+          nullable: true
+    CreateSessionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+    UpdateSessionRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        mode:
+          type: string
+    JsonValue:
+      description: Any valid JSON value
+      nullable: true
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns the health status of the server.
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /api/status:
+    get:
+      summary: API Status
+      description: detailed status of the API services
+      responses:
+        '200':
+          description: Status information
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/shutdown:
+    post:
+      summary: Shutdown Server
+      description: Gracefully shuts down the backend server.
+      responses:
+        '200':
+          description: Shutdown initiated
+
+  /api/config:
+    get:
+      summary: Get Configuration
+      description: Retrieves the current application configuration. Sensitive values are redacted.
+      responses:
+        '200':
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonValue'
+    post:
+      summary: Update Configuration completely
+      description: Replaces the current configuration with the provided payload.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonValue'
+      responses:
+        '200':
+          description: Configuration updated
+    patch:
+      summary: Patch Configuration
+      description: Updates specific fields of the configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonValue'
+      responses:
+        '200':
+          description: Configuration patched
+
+  /api/logs:
+    get:
+      summary: List Logs
+      description: Returns a list of available log files.
+      responses:
+        '200':
+          description: List of log filenames
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/logs/{filename}:
+    get:
+      summary: Get Log Content
+      description: Retrieves the content of a specific log file.
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Log file content
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/sessions:
+    get:
+      summary: List Sessions
+      description: Retrieves a list of chat sessions.
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Session'
+    post:
+      summary: Create Session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: '#/components/schemas/Session'
+
+  /api/sessions/{session_id}:
+    parameters:
+      - in: path
+        name: session_id
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get Session details
+      responses:
+        '200':
+          description: Session details and recent messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: '#/components/schemas/Session'
+                  messages:
+                    type: array
+                    items:
+                      type: object # Simplified
+    patch:
+      summary: Update Session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Session updated
+    delete:
+      summary: Delete Session
+      responses:
+        '200':
+          description: Session deleted
+
+  /api/sessions/{session_id}/messages:
+    get:
+      summary: Get Session Messages
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+
+  /api/mcp/status:
+    get:
+      summary: MCP Status
+      responses:
+        '200':
+          description: Status of MCP server connections
+  
+  /api/tools:
+    get:
+      summary: List Tools
+      responses:
+        '200':
+          description: List of available tools

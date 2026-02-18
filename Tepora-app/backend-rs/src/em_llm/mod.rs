@@ -12,6 +12,9 @@ pub mod service;
 pub mod store;
 mod types;
 
+#[cfg(test)]
+mod tests;
+
 pub use boundary::EMBoundaryRefiner;
 pub use integrator::EMLLMIntegrator;
 pub use retrieval::EMTwoStageRetrieval;

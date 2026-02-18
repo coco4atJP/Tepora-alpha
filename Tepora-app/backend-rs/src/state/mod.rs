@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+
 
 use crate::agent::exclusive_manager::ExclusiveAgentManager;
 use crate::core::config::{AppPaths, ConfigService};
-use crate::core::errors::ApiError;
 use crate::core::security::{init_session_token, SessionToken};
 use crate::em_llm::EmMemoryService;
 use crate::graph::{build_tepora_graph, GraphRuntime};
@@ -16,8 +15,10 @@ use crate::mcp::McpManager;
 use crate::models::ModelManager;
 use crate::rag::{RagStore, SqliteRagStore};
 
+pub mod error;
 pub mod setup;
 
+use error::InitializationError;
 use setup::SetupState;
 
 /// Global application state shared across all routes and background tasks.
@@ -44,8 +45,6 @@ pub struct AppState {
     pub rag_store: Arc<dyn RagStore>,
     pub graph_runtime: Arc<GraphRuntime>,
     pub em_memory_service: Arc<EmMemoryService>,
-    #[allow(dead_code)]
-    pub started_at: DateTime<Utc>,
 }
 
 impl AppState {
@@ -57,17 +56,23 @@ impl AppState {
     /// 3. Setting up LLM services and downloading default models if needed
     /// 4. Initializing MCP and Exclusive Agent managers
     /// 5. Building the agent execution graph
-    pub async fn initialize() -> anyhow::Result<Arc<Self>> {
+    pub async fn initialize() -> Result<Arc<Self>, InitializationError> {
         let paths = Arc::new(AppPaths::new());
         let config = ConfigService::new(paths.clone());
         let session_token = init_session_token();
-        let history = HistoryStore::new(paths.db_path.clone()).await?;
-        let llama = LlamaService::new(paths.clone())?;
+
+        let history = HistoryStore::new(paths.db_path.clone())
+            .await
+            .map_err(|e| InitializationError::History(e.into()))?;
+
+        let llama = LlamaService::new(paths.clone()).map_err(|e| InitializationError::Llm(e.into()))?;
+
         let mcp = McpManager::new(paths.clone(), config.clone());
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
         let exclusive_agents = ExclusiveAgentManager::new(paths.as_ref());
+
         if !exclusive_agents.config_path().exists() {
             if let Err(e) = exclusive_agents.create_default_config() {
                 tracing::warn!("Failed to create default agents.yaml: {}", e);
@@ -77,16 +82,18 @@ impl AppState {
         let rag_store = Arc::new(
             SqliteRagStore::new(paths.as_ref())
                 .await
-                .map_err(ApiError::internal)?,
+                .map_err(|e| InitializationError::Rag(e.into()))?,
         );
-        let graph_runtime = Arc::new(build_tepora_graph().map_err(ApiError::internal)?);
+
+        let graph_runtime = Arc::new(
+            build_tepora_graph().map_err(|e| InitializationError::Graph(e.into()))?
+        );
+
         let em_memory_service = Arc::new(
             EmMemoryService::new(paths.as_ref(), &config)
                 .await
-                .map_err(ApiError::internal)?,
+                .map_err(|e| InitializationError::EmMemory(e.into()))?,
         );
-
-        let started_at = Utc::now();
 
         let models_clone = models.clone();
         tokio::spawn(async move {
@@ -112,7 +119,6 @@ impl AppState {
             rag_store,
             graph_runtime,
             em_memory_service,
-            started_at,
         }))
     }
 }
