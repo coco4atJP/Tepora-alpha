@@ -209,10 +209,12 @@ backend-rs/
 │   │   └── mod.rs
 │   │
 │   ├── state/                  # ========== 状態管理 ==========
+│   │   ├── error.rs            # 状態関連エラー
 │   │   ├── mod.rs              # AppState (アプリケーション状態)
 │   │   └── setup.rs            # セットアップ状態
 │   │
 │   ├── llm/                    # ========== LLM 統合 ==========
+│   │   ├── llama_cpp.rs        # llama.cpp バインディング
 │   │   ├── llama_service.rs    # LlamaService (推論サーバー管理)
 │   │   ├── service.rs          # LlmService (高レベル抽象化)
 │   │   ├── provider.rs         # プロバイダー抽象化
@@ -223,8 +225,7 @@ backend-rs/
 │   ├── mcp/                    # ========== MCP ==========
 │   │   ├── mod.rs              # McpManager (MCP接続管理)
 │   │   ├── registry.rs         # MCPサーバーカタログ
-│   │   ├── installer.rs        # MCPサーバーインストーラー
-│   │   └── setup.rs            # MCP初期セットアップ
+│   │   └── installer.rs        # MCPサーバーインストーラー
 │   │
 │   ├── graph/                  # ========== グラフエンジン ==========
 │   │   ├── mod.rs              # モジュール公開
@@ -236,7 +237,8 @@ backend-rs/
 │   │
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── exclusive_manager.rs # ExclusiveAgentManager [v4.0]
-│   │   ├── runtime.rs          # エージェント実行ランタイム
+│   │   ├── execution.rs        # エージェント実行ランタイム
+│   │   ├── planner.rs          # 実行計画生成
 │   │   ├── modes.rs            # RequestedAgentMode
 │   │   └── ...
 │   │
