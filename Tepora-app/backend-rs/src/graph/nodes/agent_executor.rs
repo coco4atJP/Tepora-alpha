@@ -172,7 +172,11 @@ impl Node for AgentExecutorNode {
             let response = ctx
                 .app_state
                 .llama
-                .chat(&model_cfg, messages.clone(), std::time::Duration::from_secs(5))
+                .chat(
+                    &model_cfg,
+                    messages.clone(),
+                    std::time::Duration::from_secs(5),
+                )
                 .await
                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
             let decision = parse_agent_decision(&response);

@@ -231,7 +231,8 @@ fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
 
     match entry.get_password() {
         Ok(hex_key) => {
-            let bytes = hex::decode(hex_key).map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
+            let bytes = hex::decode(hex_key)
+                .map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
             if bytes.len() != 32 {
                 return Err(anyhow::anyhow!("Invalid key length in keyring"));
             }
@@ -253,8 +254,8 @@ fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use rand::Rng;
+    use std::sync::Arc;
 
     use super::*;
     use crate::em_llm::store::EmMemoryStore;
