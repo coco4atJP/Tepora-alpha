@@ -11,20 +11,22 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 	const { t } = useTranslation();
 	// Show only the latest 20 activities to prevent lag
 	const recentActivities = [...activityLog].reverse().slice(0, 20);
+	const isProcessing = activityLog.length > 0 && activityLog[activityLog.length - 1].status === "processing";
 
 	return (
 		<div className="h-full flex flex-col glass-panel p-4 overflow-hidden animate-fade-in transition-all duration-300 border border-tea-500/10">
 			{/* Header */}
 			<div className="flex items-center gap-2 mb-4 text-tea-400 border-b border-white/10 pb-2">
-				<BrainCircuit className="w-4 h-4" />
+				<BrainCircuit className={`w-4 h-4 ${isProcessing ? 'animate-neural-pulse' : ''}`} />
 				<h3 className="text-xs font-bold uppercase tracking-[0.2em] font-display">
 					{t("agent.title")}
 				</h3>
-				{activityLog.length > 0 && activityLog[activityLog.length - 1].status === "processing" && (
-					<span className="ml-auto flex h-2 w-2 relative">
-						<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tea-400 opacity-75"></span>
-						<span className="relative inline-flex rounded-full h-2 w-2 bg-tea-500"></span>
-					</span>
+				{isProcessing && (
+					<div className="ml-auto flex items-end gap-1 h-3 opacity-80" aria-label="Thinking">
+						<div className="w-1 bg-tea-400 rounded-full animate-sound-wave" style={{ animationDelay: "0s" }} />
+						<div className="w-1 bg-tea-400 rounded-full animate-sound-wave" style={{ animationDelay: "0.2s" }} />
+						<div className="w-1 bg-tea-400 rounded-full animate-sound-wave" style={{ animationDelay: "0.4s" }} />
+					</div>
 				)}
 			</div>
 
@@ -70,7 +72,7 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 							<div
 								className={`p-3 rounded-lg border backdrop-blur-sm transition-all duration-300 ${
 									step.status === "processing"
-										? "bg-tea-900/10 border-tea-500/30 shadow-[0_0_15px_rgba(0,0,0,0.3)]"
+										? "bg-tea-900/10 border-tea-500/30 shadow-[0_0_15px_rgba(0,0,0,0.3)] glow-border"
 										: "bg-black/20 border-white/5 hover:bg-white/5"
 								}`}
 							>
@@ -106,10 +108,13 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 								</div>
 
 								{step.status === "processing" && (
-									<div className="flex gap-3 items-center text-tea-500/50 animate-pulse px-2 mt-2">
-										<span className="h-1 w-1 bg-current rounded-full"></span>
-										<span className="h-1 w-1 bg-current rounded-full animation-delay-200"></span>
-										<span className="h-1 w-1 bg-current rounded-full animation-delay-400"></span>
+									<div className="mt-3 flex items-center gap-2 h-4 overflow-hidden">
+										<div className="flex-1 h-[1px] bg-tea-900/50 rounded relative overflow-hidden">
+											<div className="absolute inset-0 bg-gradient-to-r from-transparent via-tea-500 to-transparent w-1/3 animate-[shimmer_1.5s_infinite_linear]" />
+										</div>
+										<span className="text-[9px] font-mono tracking-widest uppercase opacity-60 text-tea-400 animate-pulse">
+											Thinking
+										</span>
 									</div>
 								)}
 							</div>

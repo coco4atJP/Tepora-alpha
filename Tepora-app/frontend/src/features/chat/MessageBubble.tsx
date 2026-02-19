@@ -1,4 +1,4 @@
-import { AlertCircle, Bot, User } from "lucide-react";
+import { AlertCircle, Bot, Check, Copy, Terminal, User } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -126,6 +126,60 @@ function renderIcon(
 	}
 }
 
+const CodeBlock = ({ language, code }: { language: string; code: string }) => {
+	const [copied, setCopied] = React.useState(false);
+
+	const handleCopy = async () => {
+		try {
+			await navigator.clipboard.writeText(code);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch (err) {
+			console.error('Failed to copy!', err);
+		}
+	};
+
+	return (
+		<section
+			aria-label={`${language} code block`}
+			className="grid w-full max-w-full my-4 rounded-xl border border-white/10 shadow-lg group/code glow-border overflow-hidden"
+		>
+			<div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 text-xs text-gray-400 font-mono">
+				<div className="flex items-center gap-2">
+					<Terminal className="w-3.5 h-3.5 opacity-50 text-tea-400" />
+					<span className="uppercase tracking-wider font-bold text-[10px]">{language}</span>
+				</div>
+				<button
+					onClick={handleCopy}
+					className="flex items-center gap-1.5 hover:text-white transition-colors focus:outline-none px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
+					aria-label="Copy code"
+				>
+					{copied ? (
+						<Check className="w-3.5 h-3.5 text-green-400" />
+					) : (
+						<Copy className="w-3.5 h-3.5" />
+					)}
+					<span className="text-[10px] uppercase tracking-widest opacity-70 hidden sm:inline-block">
+						{copied ? "Copied" : "Copy"}
+					</span>
+				</button>
+			</div>
+			<div className="overflow-x-auto custom-scrollbar">
+				<SyntaxHighlighter
+					style={vscDarkPlus}
+					language={language}
+					PreTag="div"
+					className="!bg-black/60 !m-0 !p-4 !font-mono text-sm"
+					wrapLines={true}
+					wrapLongLines={true}
+				>
+					{code}
+				</SyntaxHighlighter>
+			</div>
+		</section>
+	);
+};
+
 // Debounce interval for streaming messages
 const MARKDOWN_DEBOUNCE_MS = 150;
 
@@ -241,24 +295,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 										const match = /language-(\w+)/.exec(className || "");
 										const codeString = String(children).replace(/\n$/, "");
 										return match ? (
-											<section
-												aria-label={`${match[1]} code block`}
-												className="grid overflow-x-auto w-full max-w-full my-4 rounded-xl border border-white/10 shadow-lg group/code"
-											>
-												<div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 text-xs text-gray-400 font-mono">
-													<span>{match[1]}</span>
-												</div>
-												<SyntaxHighlighter
-													style={vscDarkPlus}
-													language={match[1]}
-													PreTag="div"
-													className="!bg-black/60 !m-0 !p-4 !font-mono text-sm"
-													wrapLines={true}
-													wrapLongLines={true}
-												>
-													{codeString}
-												</SyntaxHighlighter>
-											</section>
+											<CodeBlock language={match[1]} code={codeString} />
 										) : (
 											<code {...rest} className={`${className || ""}`}>
 												{children}
