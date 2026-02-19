@@ -98,6 +98,11 @@ export interface Config {
 	};
 
 	loaders?: Record<string, { base_url?: string }>;
+
+	thinking?: {
+		chat_default?: boolean;
+		search_default?: boolean;
+	};
 }
 
 export interface SettingsContextValue {
@@ -139,6 +144,9 @@ export interface SettingsContextValue {
 
 	// Loaders Actions
 	updateLoaderBaseUrl: (loaderName: string, baseUrl: string) => void;
+
+	// Thinking Actions
+	updateThinking: <K extends keyof NonNullable<Config["thinking"]>>(field: K, value: NonNullable<Config["thinking"]>[K]) => void;
 
 	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
@@ -373,6 +381,15 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[],
 	);
 
+	const updateThinking = useCallback(
+		<K extends keyof NonNullable<Config["thinking"]>>(field: K, value: NonNullable<Config["thinking"]>[K]) => {
+			setConfig((prev) =>
+				prev ? { ...prev, thinking: { ...(prev.thinking || {}), [field]: value } } : prev,
+			);
+		},
+		[],
+	);
+
 	// Character Management
 	const updateCharacter = useCallback((key: string, charConfig: CharacterConfig) => {
 		setConfig((prev) =>
@@ -506,6 +523,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateModelDownload,
 			updateServer,
 			updateLoaderBaseUrl,
+			updateThinking,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
@@ -538,6 +556,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateModelDownload,
 			updateServer,
 			updateLoaderBaseUrl,
+			updateThinking,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,

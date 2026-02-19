@@ -82,14 +82,14 @@ function getAgentHeaderClass(agentName: string): string {
 /**
  * Get the mode label for user messages.
  */
-function getModeLabel(mode: Message["mode"]): string | null {
+function getModeLabel(mode: Message["mode"], t: any): string | null {
 	switch (mode) {
 		case "search":
-			return "🔍 Search";
+			return `🔍 ${t("chat.modes.search")}`;
 		case "agent":
-			return "🤖 Agent";
+			return `🤖 ${t("chat.modes.agent")}`;
 		case "chat":
-			return "💬 Chat";
+			return `💬 ${t("chat.modes.chat")}`;
 		default:
 			return null;
 	}
@@ -192,7 +192,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const modeLabel =
-		message.mode && message.role === "user" ? getModeLabel(message.mode) : null;
+		message.mode && message.role === "user" ? getModeLabel(message.mode, t) : null;
 
 	// Debounced content for performance optimization during streaming
 	const [debouncedContent, setDebouncedContent] = useState(message.content);

@@ -23,13 +23,20 @@ vi.mock("../PersonaSwitcher", () => ({
 	default: () => <div data-testid="persona-switcher" />,
 }));
 
+// Mutable config for testing
+const mockConfig = {
+	app: {
+		graph_execution_timeout: 300,
+	},
+	thinking: {
+		chat_default: false,
+		search_default: false,
+	},
+};
+
 vi.mock("../../../hooks/useSettings", () => ({
 	useSettings: () => ({
-		config: {
-			app: {
-				graph_execution_timeout: 300,
-			},
-		},
+		config: mockConfig,
 		customAgents: {},
 	}),
 }));
@@ -40,6 +47,10 @@ import { useChatStore, useWebSocketStore } from "../../../stores";
 describe("InputArea", () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
+
+		// Reset config defaults
+		mockConfig.thinking.chat_default = false;
+		mockConfig.thinking.search_default = false;
 
 		// Default store implementation
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
@@ -184,6 +195,78 @@ describe("InputArea", () => {
 			[],
 			false,
 			false,
+			undefined,
+			undefined,
+			300,
+		);
+	});
+
+	it("initializes thinking mode based on config", () => {
+		mockConfig.thinking.chat_default = true;
+
+		render(<InputArea />);
+		const sendButton = getSendButton();
+		const input = getTextbox();
+
+		fireEvent.change(input, { target: { value: "Thinking test" } });
+		fireEvent.click(sendButton);
+
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"Thinking test",
+			"chat",
+			[],
+			false,
+			true, // Thinking mode should be true
+			undefined,
+			undefined,
+			300,
+		);
+	});
+
+	it("updates thinking mode when mode changes", () => {
+		mockConfig.thinking.chat_default = false;
+		mockConfig.thinking.search_default = true;
+
+		const { rerender } = render(<InputArea />);
+
+		// Initial: Chat mode (default false)
+		let input = getTextbox();
+		let sendButton = getSendButton();
+		fireEvent.change(input, { target: { value: "Chat" } });
+		fireEvent.click(sendButton);
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"Chat",
+			"chat", // currentMode is chat by default in mock
+			[],
+			false,
+			false, // Thinking false
+			undefined,
+			undefined,
+			300,
+		);
+
+		// Change usage of useOutletContext for next render
+		(useOutletContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+			currentMode: "search",
+			attachments: [],
+			clearAttachments: vi.fn(),
+			skipWebSearch: false,
+		});
+
+		// Rerender to trigger effect
+		rerender(<InputArea />);
+
+		input = getTextbox();
+		sendButton = getSendButton();
+		fireEvent.change(input, { target: { value: "Search" } });
+		fireEvent.click(sendButton);
+
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"Search",
+			"search",
+			[],
+			false,
+			true, // Thinking true because search_default is true
 			undefined,
 			undefined,
 			300,

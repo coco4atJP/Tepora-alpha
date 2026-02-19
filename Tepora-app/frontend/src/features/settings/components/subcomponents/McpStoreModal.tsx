@@ -219,7 +219,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({ onClose, onInstall
 															</span>
 														))}
 														{server.vendor && (
-															<span className="text-xs text-gray-500">by {server.vendor}</span>
+															<span className="text-xs text-gray-500">{t("store.by_vendor", { vendor: server.vendor })}</span>
 														)}
 													</div>
 												</div>
@@ -295,11 +295,10 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({ onClose, onInstall
 										handlePreview(selectedServer, rt);
 									}
 								}}
-								className={`w-full p-4 text-left border rounded-xl transition-all ${
-									selectedRuntime === rt
+								className={`w-full p-4 text-left border rounded-xl transition-all ${selectedRuntime === rt
 										? "border-purple-500 bg-purple-500/10"
 										: "border-white/10 hover:border-white/20 bg-black/20"
-								}`}
+									}`}
 							>
 								<div className="font-medium text-gray-100">{rt}</div>
 								<div className="text-sm text-gray-400">

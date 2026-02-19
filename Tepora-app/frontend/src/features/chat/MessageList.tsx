@@ -124,9 +124,8 @@ const MessageList: React.FC = () => {
 					return (
 						<div
 							key={msg.id || index}
-							className={`transition-all duration-500 ease-out ${
-								index === messages.length - 1 ? "animate-slide-up-fade" : ""
-							}`}
+							className={`transition-all duration-500 ease-out ${index === messages.length - 1 ? "animate-slide-up-fade" : ""
+								}`}
 						>
 							<MessageBubble message={msg} icon={icon} avatar={avatar} />
 						</div>
@@ -139,7 +138,7 @@ const MessageList: React.FC = () => {
 						<div className="max-w-[80%] space-y-2">
 							<div className="flex items-center gap-2 mb-2">
 								<div className="w-6 h-6 rounded-sm bg-gradient-to-tr from-gold-400 to-amber-600 flex items-center justify-center shadow-lg">
-									<span className="text-[10px] font-bold text-black">AI</span>
+									<span className="text-[10px] font-bold text-black">{t("common.ai")}</span>
 								</div>
 								<span className="text-xs text-gold-400 font-medium">Tepora</span>
 							</div>

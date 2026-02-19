@@ -84,14 +84,23 @@ const InputArea: React.FC = () => {
 			setSelectedAgentId("");
 			setSelectedAgentMode("");
 		}
-	}, [currentMode]);
+
+		// Apply default thinking mode from settings
+		if (config?.thinking) {
+			if (currentMode === "chat") {
+				setIsThinkingMode(config.thinking.chat_default ?? false);
+			} else if (currentMode === "search") {
+				setIsThinkingMode(config.thinking.search_default ?? false);
+			}
+		}
+	}, [currentMode, config?.thinking]);
 
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
 			<div
 				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-input transition-all duration-500 ${isProcessing
-						? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
-						: "hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:bg-theme-overlay shadow-2xl"
+					? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
+					: "hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:bg-theme-overlay shadow-2xl"
 					}`}
 			>
 				{/* Persona Switcher */}
@@ -157,8 +166,8 @@ const InputArea: React.FC = () => {
 						onClick={() => setIsThinkingMode(!isThinkingMode)}
 						disabled={isProcessing}
 						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 ${isThinkingMode
-								? "bg-semantic-thinking/20 text-semantic-thinking ring-1 ring-semantic-thinking/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
-								: "text-gray-500 hover:text-semantic-thinking hover:bg-semantic-thinking/10"
+							? "bg-semantic-thinking/20 text-semantic-thinking ring-1 ring-semantic-thinking/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
+							: "text-gray-500 hover:text-semantic-thinking hover:bg-semantic-thinking/10"
 							}`}
 						title={t("chat.input.thinking_mode")}
 					>
@@ -184,8 +193,8 @@ const InputArea: React.FC = () => {
 							disabled={(!message.trim() && attachments.length === 0) || !isConnected}
 							aria-label={t("chat.input.send_message")}
 							className={`rounded-full w-10 h-10 transition-all duration-300 ${message.trim() || attachments.length > 0
-									? "shadow-[0_0_20px_rgba(234,179,8,0.4)]"
-									: "opacity-50"
+								? "shadow-[0_0_20px_rgba(234,179,8,0.4)]"
+								: "opacity-50"
 								}`}
 						>
 							<Send

@@ -1,13 +1,13 @@
-import { Languages, Palette, Search, Settings2 } from "lucide-react";
+import { Brain, Languages, Palette, Search, Settings2 } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { ThemeSelector } from "../components/ThemeSelector";
-import { FormGroup, FormInput, FormSelect, SettingsSection } from "../SettingsComponents";
+import { FormGroup, FormInput, FormSelect, FormSwitch, SettingsSection } from "../SettingsComponents";
 
 const GeneralSettings: React.FC = () => {
 	const { t, i18n } = useTranslation();
-	const { config, originalConfig, updateApp, updateTools } = useSettings();
+	const { config, originalConfig, updateApp, updateTools, updateThinking } = useSettings();
 
 	if (!config) return null;
 
@@ -76,6 +76,41 @@ const GeneralSettings: React.FC = () => {
 						]}
 					/>
 				</FormGroup>
+			</SettingsSection>
+
+			<SettingsSection
+				title={t("settings.thinking.title", "Thinking Process")}
+				icon={<Brain size={18} />}
+				description={t("settings.thinking.description", "Configure the default behavior of the thinking process.")}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.thinking.chat_default", "Default: Enable in Chat")}
+						description={t(
+							"settings.thinking.chat_default_desc",
+							"Automatically enable thinking process when starting a new chat session.",
+						)}
+						orientation="horizontal"
+					>
+						<FormSwitch
+							checked={config.thinking?.chat_default ?? false}
+							onChange={(checked) => updateThinking("chat_default", checked)}
+						/>
+					</FormGroup>
+					<FormGroup
+						label={t("settings.thinking.search_default", "Default: Enable in Search")}
+						description={t(
+							"settings.thinking.search_default_desc",
+							"Automatically enable thinking process when starting a new search session.",
+						)}
+						orientation="horizontal"
+					>
+						<FormSwitch
+							checked={config.thinking?.search_default ?? false}
+							onChange={(checked) => updateThinking("search_default", checked)}
+						/>
+					</FormGroup>
+				</div>
 			</SettingsSection>
 
 			<SettingsSection

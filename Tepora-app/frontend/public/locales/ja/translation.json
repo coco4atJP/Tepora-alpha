@@ -1,4 +1,7 @@
 {
+	"store": {
+		"by_vendor": "{{vendor}} 提供"
+	},
 	"setup": {
 		"title": "Tepora セットアップ",
 		"checking": "環境をチェック中...",
@@ -127,6 +130,8 @@
 		"clear": "クリア",
 		"settings": "設定",
 		"close": "閉じる",
+		"preparing": "準備中...",
+		"ai": "AI",
 		"enabled": "有効",
 		"disabled": "無効",
 		"retry": "再試行",
@@ -197,7 +202,12 @@
 		"jump_to_latest": "最新のメッセージへ移動",
 		"jump_to_latest_short": "最新",
 		"newMessageFrom": "{{role}} からの新しいメッセージ",
-		"scrollToBottom": "最下部へスクロール"
+		"scrollToBottom": "最下部へスクロール",
+		"modes": {
+			"search": "検索",
+			"agent": "エージェント",
+			"chat": "チャット"
+		}
 	},
 	"agent": {
 		"title": "エージェント状況",
@@ -255,6 +265,14 @@
 		"appearance": {
 			"title": "テーマ",
 			"description": "テーマを選択します。"
+		},
+		"thinking": {
+			"title": "Thinking プロセス",
+			"description": "Thinking プロセスのデフォルト動作を設定します。",
+			"chat_default": "デフォルト: チャットで有効化",
+			"chat_default_desc": "新規チャットセッション開始時に Thinking プロセスを自動的に有効にします。",
+			"search_default": "デフォルト: 検索で有効化",
+			"search_default_desc": "新規検索セッション開始時に Thinking プロセスを自動的に有効にします。"
 		},
 		"placeholders": {
 			"mcp_config": "config/mcp_tools_config.json",
@@ -428,13 +446,30 @@
 					"model_label": "使用モデル",
 					"enabled_label": "有効",
 					"tools_label": "許可ツール",
-					"no_tools": "利用可能なツールがありません"
+					"no_tools": "利用可能なツールがありません",
+					"allow_all_tools": "全ツールを許可 (ブラックリストモード)"
 				}
 			},
 			"privacy": {
 				"label": "プライバシー",
 				"title": "プライバシー設定",
-				"description": "外部通信とデータ共有の設定を管理します。"
+				"description": "外部通信とデータ共有の設定を管理します。",
+				"web_search": {
+					"label": "インターネット接続を許可",
+					"description": "AIがインターネット検索を使用して情報を取得することを許可します。",
+					"warning_title": "データ共有について",
+					"warning_query": "検索クエリがGoogle APIに送信されます",
+					"warning_api": "設定したAPIキーが検索リクエストに使用されます"
+				},
+				"redact_pii": {
+					"label": "個人情報保護",
+					"description": "ログ、およびWeb検索クエリに含まれる個人情報（メールアドレス、電話番号等）を自動的に伏字化します。"
+				},
+				"url_denylist": {
+					"label": "URL拒否リスト",
+					"description": "Web取得をブロックするドメインまたはパターン。内部/プライベートIPは常にブロックされます。",
+					"placeholder": "例: *.example.com"
+				}
 			},
 			"mcp": {
 				"label": "MCPツール",
@@ -516,7 +551,8 @@
 				"consent_dialog": {
 					"title": "ダウンロードの確認",
 					"description": "このダウンロードを続行するには確認が必要です：",
-					"confirm": "続行"
+					"confirm": "続行",
+					"default_warning": "このダウンロードには確認が必要です。"
 				},
 				"selection": {
 					"select_model": "モデルを選択...",
@@ -526,14 +562,14 @@
 					"no_config": "設定がありません"
 				},
 				"detail": {
-					"changes_note": "モデルパラメータの変更は次回読み込み時に適用されます。",
-					"dials_hint": "ダイヤルをドラッグして値を調整します",
-					"temp_desc": "ランダム性を制御します。",
-					"top_p_desc": "核サンプリング。",
 					"n_ctx": "コンテキストウィンドウ (n_ctx)",
 					"n_ctx_desc": "モデルが一度に処理できる最大トークン数。",
 					"show_advanced": "詳細設定を表示",
-					"hide_advanced": "詳細設定を隠す"
+					"hide_advanced": "詳細設定を隠す",
+					"changes_note": "モデルパラメータの変更は次回読み込み時に適用されます。",
+					"dials_hint": "ダイヤルをドラッグして値を調整します",
+					"temp_desc": "ランダム性を制御します。",
+					"top_p_desc": "核サンプリング。"
 				}
 			},
 			"other": {
@@ -689,6 +725,15 @@
 				"confirmation": {
 					"label": "ツール実行確認",
 					"description": "ツール実行前にユーザーの承認を求めます。"
+				},
+				"first_use": {
+					"label": "初回実行確認",
+					"description": "セッションごとの初回ツール実行時に確認を表示します。"
+				},
+				"blocked_commands": {
+					"label": "ブロックコマンド",
+					"description": "MCPサーバーによる実行を常に拒否するコマンド。",
+					"placeholder": "例: rm -rf"
 				}
 			},
 			"addServer": "サーバー追加",
@@ -753,24 +798,15 @@
 				"path": "パス",
 				"port": "ポート",
 				"context": "コンテキスト",
-				"gpu_layers": "GPUレイヤー",
+				"gpu_layers": "GPUレイヤー (-1で全て)",
 				"temp": "Temp",
 				"top_p": "Top P",
 				"top_k": "Top K",
-				"repeat_penalty": "Rep. Penalty"
-			}
-		},
-		"privacy": {
-			"web_search": {
-				"label": "インターネット接続を許可",
-				"description": "AIがインターネット検索を使用して情報を取得することを許可します。",
-				"warning_title": "データ共有について",
-				"warning_query": "検索クエリがGoogle APIに送信されます",
-				"warning_api": "設定したAPIキーが検索リクエストに使用されます"
-			},
-			"redact_pii": {
-				"label": "個人情報保護",
-				"description": "ログ、およびWeb検索クエリに含まれる個人情報（メールアドレス、電話番号等）を自動的に伏字化します。"
+				"repeat_penalty": "Rep. Penalty",
+				"max_tokens": "最大トークン数",
+				"max_tokens_desc": "応答ごとに生成する最大トークン数。",
+				"predict_len": "予測長 (Predict Length)",
+				"predict_len_desc": "モデルサーバーへの予測長のヒント (0 = 自動)。"
 			}
 		}
 	},

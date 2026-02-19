@@ -457,7 +457,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 										onChange={(e) => updateToolPolicy({ allow_all: e.target.checked })}
 										className="rounded border-gray-600 text-tea-500 focus:ring-tea-500/20"
 									/>
-									Allow All Tools (Blacklist mode)
+									{t("settings.sections.custom_agents.modal.allow_all_tools", "Allow All Tools (Blacklist mode)")}
 								</label>
 							</div>
 

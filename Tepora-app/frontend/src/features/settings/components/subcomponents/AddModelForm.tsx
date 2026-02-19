@@ -337,7 +337,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 						}
 					}
 					setConsentWarnings(
-						warnings.length > 0 ? warnings : ["This download requires your confirmation."],
+						warnings.length > 0 ? warnings : [t("settings.sections.models.consent_dialog.default_warning", "This download requires your confirmation.")],
 					);
 					setShowConsentDialog(true);
 					setDownloading(false);
@@ -400,11 +400,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 								key={r}
 								onClick={() => setSelectedRole(r)}
 								disabled={downloading}
-								className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-									selectedRole === r
+								className={`px-3 py-1 text-xs rounded-full border transition-colors ${selectedRole === r
 										? "bg-gold-500/20 border-gold-400 text-gold-100"
 										: "border-white/10 text-gray-400 hover:border-white/20"
-								} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
+									} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
 							>
 								{r === "text"
 									? t("settings.sections.models.add_modal.role_text")
@@ -476,11 +475,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 										type="button"
 										disabled={checkStatus !== "valid"}
 										onClick={() => handleDownload()}
-										className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${
-											checkStatus === "valid"
+										className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${checkStatus === "valid"
 												? "bg-gold-500 hover:bg-gold-400 text-black shadow-lg shadow-gold-500/20"
 												: "bg-white/5 text-gray-500 cursor-not-allowed"
-										}`}
+											}`}
 									>
 										<Download size={18} />
 										{t("settings.sections.models.add_modal.download")}
@@ -503,7 +501,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 									</div>
 
 									<div className="flex justify-between items-end text-xs">
-										<div className="text-gray-300">{progressData?.message || "Preparing..."}</div>
+										<div className="text-gray-300">{progressData?.message || t("common.preparing", "Preparing...")}</div>
 										<div className="text-right text-gray-500">
 											{progressData && (
 												<div>
@@ -525,11 +523,10 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 							onKeyDown={(e) => {
 								if (e.key === "Enter" || e.key === " ") handleOpenDialog();
 							}}
-							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-								dragActive
+							className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive
 									? "border-gold-400 bg-gold-400/5"
 									: "border-white/10 hover:border-white/20 hover:bg-white/5"
-							}`}
+								}`}
 							onDragEnter={handleDrag}
 							onDragLeave={handleDrag}
 							onDragOver={handleDrag}

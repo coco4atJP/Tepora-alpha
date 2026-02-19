@@ -252,6 +252,14 @@
 			"title": "主题",
 			"description": "选择偏好的主题。"
 		},
+		"thinking": {
+			"title": "思考过程",
+			"description": "配置思考过程的默认行为。",
+			"chat_default": "默认：在聊天中启用",
+			"chat_default_desc": "开始新的聊天会话时自动启用思考过程。",
+			"search_default": "默认：在搜索中启用",
+			"search_default_desc": "开始新的搜索会话时自动启用思考过程。"
+		},
 		"confirm_discard": "有未保存的更改。要放弃吗？",
 		"toast": {
 			"save_success": "设置已保存！",

@@ -1,4 +1,7 @@
 {
+	"store": {
+		"by_vendor": "by {{vendor}}"
+	},
 	"setup": {
 		"title": "Tepora Setup",
 		"checking": "Checking environment...",
@@ -141,6 +144,8 @@
 		"clear": "Clear",
 		"settings": "Settings",
 		"close": "Close",
+		"preparing": "Preparing...",
+		"ai": "AI",
 		"enabled": "Enabled",
 		"disabled": "Disabled",
 		"retry": "Retry",
@@ -197,7 +202,12 @@
 		"jump_to_latest": "Jump to latest message",
 		"jump_to_latest_short": "Latest",
 		"newMessageFrom": "New message from {{role}}",
-		"scrollToBottom": "Scroll to bottom"
+		"scrollToBottom": "Scroll to bottom",
+		"modes": {
+			"search": "Search",
+			"agent": "Agent",
+			"chat": "Chat"
+		}
 	},
 	"agent": {
 		"title": "Agent Activity",
@@ -255,6 +265,14 @@
 		"appearance": {
 			"title": "Theme",
 			"description": "Choose your preferred theme."
+		},
+		"thinking": {
+			"title": "Thinking Process",
+			"description": "Configure the default behavior of the thinking process.",
+			"chat_default": "Default: Enable in Chat",
+			"chat_default_desc": "Automatically enable thinking process when starting a new chat session.",
+			"search_default": "Default: Enable in Search",
+			"search_default_desc": "Automatically enable thinking process when starting a new search session."
 		},
 		"placeholders": {
 			"mcp_config": "config/mcp_tools_config.json",
@@ -428,13 +446,30 @@
 					"model_label": "Model",
 					"enabled_label": "Enabled",
 					"tools_label": "Allowed Tools",
-					"no_tools": "No tools available"
+					"no_tools": "No tools available",
+					"allow_all_tools": "Allow All Tools (Blacklist mode)"
 				}
 			},
 			"privacy": {
 				"label": "Privacy",
 				"title": "Privacy Settings",
-				"description": "Manage external communications and data sharing settings."
+				"description": "Manage external communications and data sharing settings.",
+				"web_search": {
+					"label": "Allow Internet Access",
+					"description": "Allow the AI to use internet search to retrieve information.",
+					"warning_title": "Data Sharing Notice",
+					"warning_query": "Search queries will be sent to Google API",
+					"warning_api": "Your configured API key will be used for search requests"
+				},
+				"redact_pii": {
+					"label": "Personal Data Protection",
+					"description": "Automatically redact personal information (emails, phone numbers, etc.) from logs and web search queries."
+				},
+				"url_denylist": {
+					"label": "URL Deny List",
+					"description": "Domains or patterns blocked from web fetch. Internal/private ranges are always blocked.",
+					"placeholder": "e.g. *.example.com"
+				}
 			},
 			"mcp": {
 				"label": "MCP Tools",
@@ -516,7 +551,8 @@
 				"consent_dialog": {
 					"title": "Confirm Download",
 					"description": "This download requires your confirmation before proceeding:",
-					"confirm": "Proceed"
+					"confirm": "Proceed",
+					"default_warning": "This download requires your confirmation."
 				},
 				"selection": {
 					"select_model": "Select a model...",
@@ -526,14 +562,14 @@
 					"no_config": "No configuration available"
 				},
 				"detail": {
-					"changes_note": "Changes to model parameters will apply on next load.",
-					"dials_hint": "Drag dials to adjust values",
-					"temp_desc": "Controls randomness.",
-					"top_p_desc": "Nucleus sampling.",
 					"n_ctx": "Context Window (n_ctx)",
 					"n_ctx_desc": "Maximum number of tokens the model can process at once.",
 					"show_advanced": "Show Advanced Settings",
-					"hide_advanced": "Hide Advanced Settings"
+					"hide_advanced": "Hide Advanced Settings",
+					"changes_note": "Changes to model parameters will apply on next load.",
+					"dials_hint": "Drag dials to adjust values",
+					"temp_desc": "Controls randomness.",
+					"top_p_desc": "Nucleus sampling."
 				}
 			},
 			"other": {
@@ -689,6 +725,15 @@
 				"confirmation": {
 					"label": "Tool Confirmation",
 					"description": "Ask for permission before executing tools."
+				},
+				"first_use": {
+					"label": "First-use Confirmation",
+					"description": "Show confirmation on first tool invocation per session."
+				},
+				"blocked_commands": {
+					"label": "Blocked Commands",
+					"description": "Commands that MCP servers are never allowed to execute.",
+					"placeholder": "e.g. rm -rf"
 				}
 			},
 			"addServer": "Add Server",
@@ -753,24 +798,15 @@
 				"path": "Path",
 				"port": "Port",
 				"context": "Context",
-				"gpu_layers": "GPU Layers",
+				"gpu_layers": "GPU Layers (-1 for all)",
 				"temp": "Temp",
 				"top_p": "Top P",
 				"top_k": "Top K",
-				"repeat_penalty": "Rep. Penalty"
-			}
-		},
-		"privacy": {
-			"web_search": {
-				"label": "Allow Internet Access",
-				"description": "Allow the AI to use internet search to retrieve information.",
-				"warning_title": "Data Sharing Notice",
-				"warning_query": "Search queries will be sent to Google API",
-				"warning_api": "Your configured API key will be used for search requests"
-			},
-			"redact_pii": {
-				"label": "Personal Data Protection",
-				"description": "Automatically redact personal information (email addresses, phone numbers, etc.) from logs, and from web search queries before they are sent to external services."
+				"repeat_penalty": "Rep. Penalty",
+				"max_tokens": "Max Tokens",
+				"max_tokens_desc": "Maximum number of tokens to generate per response.",
+				"predict_len": "Predict Length",
+				"predict_len_desc": "Prediction length hint for the model server (0 = auto)."
 			}
 		}
 	},

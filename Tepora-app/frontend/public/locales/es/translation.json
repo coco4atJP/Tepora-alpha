@@ -252,6 +252,14 @@
 			"title": "Tema",
 			"description": "Elige tu tema preferido."
 		},
+		"thinking": {
+			"title": "Proceso de Pensamiento",
+			"description": "Configura el comportamiento predeterminado del proceso de pensamiento.",
+			"chat_default": "Predeterminado: Habilitar en Chat",
+			"chat_default_desc": "Habilita automáticamente el proceso de pensamiento al iniciar una nueva sesión de chat.",
+			"search_default": "Predeterminado: Habilitar en Búsqueda",
+			"search_default_desc": "Habilita automáticamente el proceso de pensamiento al iniciar una nueva sesión de búsqueda."
+		},
 		"confirm_discard": "Tiene cambios sin guardar. ¿Desea descartarlos?",
 		"toast": {
 			"save_success": "¡Configuración guardada correctamente!",
