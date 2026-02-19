@@ -449,6 +449,7 @@ export interface McpPolicyUpdate {
 	policy?: string;
 	require_tool_confirmation?: boolean;
 	first_use_confirmation?: boolean;
+	blocked_commands?: string[];
 }
 
 async function fetchMcpPolicy(): Promise<McpPolicyConfig> {

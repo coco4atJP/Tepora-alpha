@@ -19,6 +19,8 @@ export interface ModelConfig {
 	top_k?: number;
 	repeat_penalty?: number;
 	logprobs?: boolean;
+	max_tokens?: number;
+	predict_len?: number;
 }
 
 export interface Config {
@@ -29,6 +31,8 @@ export interface Config {
 		tool_approval_timeout: number;
 		graph_execution_timeout: number;
 		web_fetch_max_chars: number;
+		web_fetch_max_bytes: number;
+		web_fetch_timeout_secs: number;
 		dangerous_patterns: string[];
 		language: string;
 		nsfw_enabled: boolean;
@@ -36,6 +40,7 @@ export interface Config {
 		mcp_config_path: string;
 	};
 	llm_manager: {
+		loader?: string;
 		process_terminate_timeout: number;
 		health_check_timeout: number;
 		health_check_interval: number;
@@ -70,7 +75,29 @@ export interface Config {
 	privacy: {
 		allow_web_search: boolean;
 		redact_pii: boolean;
+		url_denylist?: string[];
 	};
+
+	search?: {
+		embedding_rerank?: boolean;
+	};
+
+	model_download?: {
+		allow_repo_owners?: string[];
+		require_allowlist?: boolean;
+		warn_on_unlisted?: boolean;
+		require_revision?: boolean;
+		require_sha256?: boolean;
+	};
+
+	server?: {
+		host?: string;
+		allowed_origins?: string[];
+		cors_allowed_origins?: string[];
+		ws_allowed_origins?: string[];
+	};
+
+	loaders?: Record<string, { base_url?: string }>;
 }
 
 export interface SettingsContextValue {
@@ -100,6 +127,18 @@ export interface SettingsContextValue {
 
 	// Privacy Actions
 	updatePrivacy: <K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => void;
+
+	// Search Actions
+	updateSearch: <K extends keyof NonNullable<Config["search"]>>(field: K, value: NonNullable<Config["search"]>[K]) => void;
+
+	// Model Download Actions
+	updateModelDownload: <K extends keyof NonNullable<Config["model_download"]>>(field: K, value: NonNullable<Config["model_download"]>[K]) => void;
+
+	// Server Actions
+	updateServer: <K extends keyof NonNullable<Config["server"]>>(field: K, value: NonNullable<Config["server"]>[K]) => void;
+
+	// Loaders Actions
+	updateLoaderBaseUrl: (loaderName: string, baseUrl: string) => void;
 
 	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
@@ -287,6 +326,53 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[],
 	);
 
+	const updateSearch = useCallback(
+		<K extends keyof NonNullable<Config["search"]>>(field: K, value: NonNullable<Config["search"]>[K]) => {
+			setConfig((prev) =>
+				prev ? { ...prev, search: { ...(prev.search || {}), [field]: value } } : prev,
+			);
+		},
+		[],
+	);
+
+	const updateModelDownload = useCallback(
+		<K extends keyof NonNullable<Config["model_download"]>>(field: K, value: NonNullable<Config["model_download"]>[K]) => {
+			setConfig((prev) =>
+				prev ? { ...prev, model_download: { ...(prev.model_download || {}), [field]: value } } : prev,
+			);
+		},
+		[],
+	);
+
+	const updateServer = useCallback(
+		<K extends keyof NonNullable<Config["server"]>>(field: K, value: NonNullable<Config["server"]>[K]) => {
+			setConfig((prev) =>
+				prev ? { ...prev, server: { ...(prev.server || {}), [field]: value } } : prev,
+			);
+		},
+		[],
+	);
+
+	const updateLoaderBaseUrl = useCallback(
+		(loaderName: string, baseUrl: string) => {
+			setConfig((prev) =>
+				prev
+					? {
+						...prev,
+						loaders: {
+							...(prev.loaders || {}),
+							[loaderName]: {
+								...((prev.loaders || {})[loaderName] || {}),
+								base_url: baseUrl,
+							},
+						},
+					}
+					: prev,
+			);
+		},
+		[],
+	);
+
 	// Character Management
 	const updateCharacter = useCallback((key: string, charConfig: CharacterConfig) => {
 		setConfig((prev) =>
@@ -416,6 +502,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateModel,
 			updateTools,
 			updatePrivacy,
+			updateSearch,
+			updateModelDownload,
+			updateServer,
+			updateLoaderBaseUrl,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
@@ -444,6 +534,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateModel,
 			updateTools,
 			updatePrivacy,
+			updateSearch,
+			updateModelDownload,
+			updateServer,
+			updateLoaderBaseUrl,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,

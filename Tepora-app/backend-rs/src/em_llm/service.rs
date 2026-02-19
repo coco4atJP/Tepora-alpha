@@ -3,11 +3,16 @@ use std::sync::Arc;
 use serde::Serialize;
 use serde_json::Value;
 
+use rand::Rng;
+
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
 use crate::llm::LlmService;
 
 use super::store::EmMemoryStore;
+
+const KEYRING_SERVICE: &str = "tepora-backend";
+const KEYRING_USER: &str = "em_memory_encryption_key";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EmMemoryStats {
@@ -58,7 +63,15 @@ impl EmMemoryService {
             .unwrap_or(0.15)
             .clamp(-1.0, 1.0) as f32;
 
-        let store = Arc::new(EmMemoryStore::new(paths).await?);
+        let mut store = EmMemoryStore::new(paths).await?;
+
+        // Initialize encryption key
+        match get_or_create_encryption_key() {
+            Ok(key) => store.set_encryption_key(&key),
+            Err(e) => tracing::warn!("Failed to initialize encryption key: {}", e),
+        }
+
+        let store = Arc::new(store);
 
         Ok(Self {
             store,
@@ -213,9 +226,35 @@ fn build_memory_text(user_input: &str, assistant_output: &str) -> String {
     )
 }
 
+fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER)?;
+
+    match entry.get_password() {
+        Ok(hex_key) => {
+            let bytes = hex::decode(hex_key).map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
+            if bytes.len() != 32 {
+                return Err(anyhow::anyhow!("Invalid key length in keyring"));
+            }
+            let mut key = [0u8; 32];
+            key.copy_from_slice(&bytes);
+            Ok(key)
+        }
+        Err(keyring::Error::NoEntry) => {
+            tracing::info!("No encryption key found, generating new one...");
+            let mut key = [0u8; 32];
+            rand::thread_rng().fill(&mut key);
+            let hex_key = hex::encode(key);
+            entry.set_password(&hex_key)?;
+            Ok(key)
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use rand::Rng;
 
     use super::*;
     use crate::em_llm::store::EmMemoryStore;

@@ -14,8 +14,8 @@ use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
 
 use super::types::{
-    ModelDownloadPolicy, ModelDownloadResult, ModelEntry, ModelRegistry, OllamaTagsResponse,
-    OpenAiModelsResponse,
+    LmStudioV1Response, ModelCapabilities, ModelDownloadPolicy, ModelDownloadResult, ModelEntry,
+    ModelRegistry, OllamaModelDetails, OllamaShowResponse, OllamaTagsResponse,
 };
 
 #[derive(Clone)]
@@ -108,6 +108,17 @@ impl ModelManager {
             added_at: Utc::now().to_rfc3339(),
             loader: "llama_cpp".to_string(),
             loader_model_name: None,
+            parameter_size: None,
+            quantization: None,
+            context_length: None,
+            architecture: None,
+            chat_template: None,
+            stop_tokens: None,
+            default_temperature: None,
+            capabilities: None,
+            publisher: None,
+            description: None,
+            format: Some("gguf".to_string()),
         };
 
         let mut registry = self.load_registry()?;
@@ -444,6 +455,17 @@ impl ModelManager {
             added_at: Utc::now().to_rfc3339(),
             loader: "llama_cpp".to_string(),
             loader_model_name: None,
+            parameter_size: None,
+            quantization: None,
+            context_length: None,
+            architecture: None,
+            chat_template: None,
+            stop_tokens: None,
+            default_temperature: None,
+            capabilities: None,
+            publisher: None,
+            description: None,
+            format: Some("gguf".to_string()),
         };
 
         registry.models.push(entry.clone());
@@ -475,16 +497,15 @@ impl ModelManager {
         let base_url = self.get_loader_url("ollama", "http://localhost:11434");
 
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(2))
+            .timeout(std::time::Duration::from_secs(5))
             .build()
             .map_err(ApiError::internal)?;
 
+        // 1. モデル一覧を取得
         let res = client.get(format!("{}/api/tags", base_url)).send().await;
-
         let Ok(response) = res else {
             return Ok(0);
         };
-
         if !response.status().is_success() {
             return Ok(0);
         }
@@ -496,14 +517,89 @@ impl ModelManager {
 
         for model in tags.models {
             let model_id = format!("ollama-{}", model.name);
-            if registry.models.iter().any(|m| m.id == model_id) {
+
+            // 2. 各モデルの詳細情報を /api/show で取得（失敗しても続行）
+            let show: Option<OllamaShowResponse> = {
+                let res = client
+                    .post(format!("{}/api/show", base_url))
+                    .json(&serde_json::json!({ "name": model.name }))
+                    .send()
+                    .await;
+                match res {
+                    Ok(r) if r.status().is_success() => r.json::<OllamaShowResponse>().await.ok(),
+                    _ => None,
+                }
+            };
+
+            let details = show
+                .as_ref()
+                .map(|s| &s.details)
+                .unwrap_or(&model.details);
+            let role = determine_ollama_role(details);
+
+            // スペック情報を抽出
+            let parameter_size = details.parameter_size.clone();
+            let quantization = details.quantization_level.clone();
+            let format = details.format.clone();
+            let architecture = show.as_ref().and_then(|s| {
+                s.model_info.as_ref().and_then(|info| {
+                    info.get("general.architecture")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
+            });
+            let context_length = show.as_ref().and_then(|s| {
+                extract_context_length(s.model_info.as_ref(), architecture.as_deref())
+            });
+            let chat_template = show.as_ref().and_then(|s| s.template.clone());
+            let (stop_tokens, default_temperature) = show
+                .as_ref()
+                .and_then(|s| s.parameters.as_deref())
+                .map(parse_ollama_parameters)
+                .unwrap_or_default();
+            let capabilities = show.as_ref().and_then(|s| {
+                s.capabilities.as_ref().map(|caps| ModelCapabilities {
+                    completion: caps.iter().any(|c| c == "completion"),
+                    tool_use: caps.iter().any(|c| c == "tools"),
+                    vision: caps.iter().any(|c| c == "vision"),
+                })
+            });
+
+            // 3. 既存エントリは情報を更新、なければ新規追加
+            if let Some(existing) = registry.models.iter_mut().find(|m| m.id == model_id) {
+                let changed = existing.role != role
+                    || existing.parameter_size != parameter_size
+                    || existing.quantization != quantization
+                    || existing.architecture != architecture
+                    || existing.context_length != context_length
+                    || existing.chat_template != chat_template;
+
+                existing.role = role;
+                existing.parameter_size = parameter_size;
+                existing.quantization = quantization;
+                existing.format = format;
+                existing.architecture = architecture;
+                existing.context_length = context_length;
+                existing.chat_template = chat_template;
+                if stop_tokens.is_some() {
+                    existing.stop_tokens = stop_tokens;
+                }
+                if default_temperature.is_some() {
+                    existing.default_temperature = default_temperature;
+                }
+                if capabilities.is_some() {
+                    existing.capabilities = capabilities;
+                }
+                if changed {
+                    count += 1;
+                }
                 continue;
             }
 
             let entry = ModelEntry {
                 id: model_id,
                 display_name: format!("{} (Ollama)", model.name),
-                role: "text".to_string(), // Default to text
+                role,
                 file_size: model.size,
                 filename: model.name.clone(),
                 source: "ollama".to_string(),
@@ -514,6 +610,17 @@ impl ModelManager {
                 revision: None,
                 sha256: Some(model.digest),
                 added_at: now.clone(),
+                parameter_size,
+                quantization,
+                context_length,
+                architecture,
+                chat_template,
+                stop_tokens,
+                default_temperature,
+                capabilities,
+                publisher: None,
+                description: None,
+                format,
             };
             registry.models.push(entry);
             count += 1;
@@ -530,45 +637,101 @@ impl ModelManager {
         let base_url = self.get_loader_url("lmstudio", "http://localhost:1234");
 
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(2))
+            .timeout(std::time::Duration::from_secs(5))
             .build()
             .map_err(ApiError::internal)?;
 
-        let res = client.get(format!("{}/v1/models", base_url)).send().await;
+        // LM Studio 独自の /api/v1/models を使用（詳細情報あり）
+        let res = client
+            .get(format!("{}/api/v1/models", base_url))
+            .send()
+            .await;
 
         let Ok(response) = res else {
             return Ok(0);
         };
-
         if !response.status().is_success() {
             return Ok(0);
         }
 
-        let body: OpenAiModelsResponse = response.json().await.map_err(ApiError::internal)?;
+        let body: LmStudioV1Response = response.json().await.map_err(ApiError::internal)?;
         let mut count = 0;
         let mut registry = self.load_registry()?;
         let now = Utc::now().to_rfc3339();
 
-        for model in body.data {
-            let model_id = format!("lmstudio-{}", model.id);
-            if registry.models.iter().any(|m| m.id == model_id) {
+        for model in body.models {
+            let model_id = format!("lmstudio-{}", model.key);
+
+            // type フィールドから role を直接決定
+            let role = if model.model_type == "embedding" {
+                "embedding".to_string()
+            } else {
+                "text".to_string()
+            };
+
+            let display_name = model
+                .display_name
+                .as_deref()
+                .unwrap_or(&model.key)
+                .to_string();
+            let quantization = model.quantization.as_ref().and_then(|q| q.name.clone());
+            let capabilities = model.capabilities.as_ref().map(|c| ModelCapabilities {
+                completion: role == "text",
+                tool_use: c.trained_for_tool_use,
+                vision: c.vision,
+            });
+
+            // 既存エントリは情報を更新
+            if let Some(existing) = registry.models.iter_mut().find(|m| m.id == model_id) {
+                let changed = existing.role != role
+                    || existing.context_length != model.max_context_length
+                    || existing.quantization != quantization
+                    || existing.parameter_size != model.params_string;
+
+                existing.role = role;
+                existing.display_name = format!("{} (LM Studio)", display_name);
+                existing.file_size = model.size_bytes.unwrap_or(0);
+                existing.parameter_size = model.params_string.clone();
+                existing.quantization = quantization;
+                existing.context_length = model.max_context_length;
+                existing.architecture = model.architecture.clone();
+                existing.publisher = model.publisher.clone();
+                existing.description = model.description.clone();
+                existing.format = model.format.clone();
+                if capabilities.is_some() {
+                    existing.capabilities = capabilities;
+                }
+                if changed {
+                    count += 1;
+                }
                 continue;
             }
 
             let entry = ModelEntry {
                 id: model_id,
-                display_name: format!("{} (LM Studio)", model.id),
-                role: "text".to_string(),
-                file_size: 0, // LM Studio doesn't provide size in list
-                filename: model.id.clone(),
+                display_name: format!("{} (LM Studio)", display_name),
+                role,
+                file_size: model.size_bytes.unwrap_or(0),
+                filename: model.key.clone(),
                 source: "lmstudio".to_string(),
-                file_path: format!("lmstudio://{}", model.id),
+                file_path: format!("lmstudio://{}", model.key),
                 loader: "lmstudio".to_string(),
-                loader_model_name: Some(model.id.clone()),
+                loader_model_name: Some(model.key.clone()),
                 repo_id: None,
                 revision: None,
                 sha256: None,
                 added_at: now.clone(),
+                parameter_size: model.params_string,
+                quantization,
+                context_length: model.max_context_length,
+                architecture: model.architecture,
+                chat_template: None,
+                stop_tokens: None,
+                default_temperature: None,
+                capabilities,
+                publisher: model.publisher,
+                description: model.description,
+                format: model.format,
             };
             registry.models.push(entry);
             count += 1;
@@ -581,6 +744,7 @@ impl ModelManager {
         Ok(count)
     }
 
+
     fn load_registry(&self) -> Result<ModelRegistry, ApiError> {
         if !self.registry_path.exists() {
             return Ok(ModelRegistry::default());
@@ -591,6 +755,90 @@ impl ModelManager {
         }
         serde_json::from_str(&contents).map_err(ApiError::internal)
     }
+}
+
+/// Ollamaモデルのfamilyに基づいてroleを決定する。
+/// Embeddingモデルは特有のfamily名（bert, nomic-bert, clip等）を持つ。
+fn determine_ollama_role(details: &OllamaModelDetails) -> String {
+    const EMBEDDING_FAMILIES: &[&str] = &["bert", "nomic-bert", "clip"];
+
+    let family = details.family.as_deref().unwrap_or("").to_ascii_lowercase();
+    let families = details.families.as_deref().unwrap_or(&[]);
+
+    let is_embedding = EMBEDDING_FAMILIES.iter().any(|&ef| {
+        family == ef || families.iter().any(|f| f.to_ascii_lowercase() == ef)
+    });
+
+    if is_embedding {
+        "embedding".to_string()
+    } else {
+        "text".to_string()
+    }
+}
+
+/// Ollama の `parameters` テキスト（Modelfile 形式）をパースして
+/// ストップトークンのリストとデフォルト温度を抽出する。
+///
+/// 入力例:
+/// ```text
+/// stop "<|start_header_id|>"
+/// stop "<|end_header_id|>"
+/// stop "<|eot_id|>"
+/// temperature 0.2
+/// ```
+fn parse_ollama_parameters(parameters: &str) -> (Option<Vec<String>>, Option<f32>) {
+    let mut stop_tokens: Vec<String> = Vec::new();
+    let mut temperature: Option<f32> = None;
+
+    for line in parameters.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        if let Some(rest) = line.strip_prefix("stop") {
+            // 値は引用符で囲まれている可能性がある: stop "<|eot_id|>"
+            let value = rest.trim().trim_matches('"').to_string();
+            if !value.is_empty() {
+                stop_tokens.push(value);
+            }
+        } else if let Some(rest) = line.strip_prefix("temperature") {
+            if let Ok(t) = rest.trim().parse::<f32>() {
+                temperature = Some(t);
+            }
+        }
+    }
+
+    let stop_tokens = if stop_tokens.is_empty() {
+        None
+    } else {
+        Some(stop_tokens)
+    };
+
+    (stop_tokens, temperature)
+}
+
+/// Ollama の `model_info` マップからコンテキスト長を抽出する。
+/// キー名はアーキテクチャに依存するため、`<arch>.context_length` を優先しつつ
+/// `context_length` を含む任意のキーにフォールバックする。
+fn extract_context_length(
+    model_info: Option<&std::collections::HashMap<String, serde_json::Value>>,
+    architecture: Option<&str>,
+) -> Option<u64> {
+    let info = model_info?;
+
+    // まずアーキテクチャ固有キー（例: "gemma3.context_length"）を試みる
+    if let Some(arch) = architecture {
+        let key = format!("{}.context_length", arch);
+        if let Some(v) = info.get(&key).and_then(|v| v.as_u64()) {
+            return Some(v);
+        }
+    }
+
+    // フォールバック: "context_length" を含む任意のキー
+    info.iter()
+        .filter(|(k, _)| k.contains("context_length"))
+        .find_map(|(_, v)| v.as_u64())
 }
 
 fn unique_model_id(base: &str, models: &[ModelEntry]) -> String {
@@ -859,5 +1107,45 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.contains("valid 64-char hex")));
+    }
+
+    #[test]
+    fn parse_ollama_parameters_extracts_stop_tokens_and_temperature() {
+        let input =
+            "stop \"<|start_header_id|>\"\nstop \"<|end_header_id|>\"\nstop \"<|eot_id|>\"\ntemperature 0.2";
+        let (stops, temp) = parse_ollama_parameters(input);
+        let stops = stops.expect("stop tokens should be present");
+        assert_eq!(stops.len(), 3);
+        assert!(stops.contains(&"<|eot_id|>".to_string()));
+        assert_eq!(temp, Some(0.2));
+    }
+
+    #[test]
+    fn parse_ollama_parameters_returns_none_when_empty() {
+        let (stops, temp) = parse_ollama_parameters("");
+        assert!(stops.is_none());
+        assert!(temp.is_none());
+    }
+
+    #[test]
+    fn extract_context_length_uses_arch_specific_key() {
+        let mut info = std::collections::HashMap::new();
+        info.insert(
+            "gemma3.context_length".to_string(),
+            serde_json::Value::Number(32768.into()),
+        );
+        let result = extract_context_length(Some(&info), Some("gemma3"));
+        assert_eq!(result, Some(32768));
+    }
+
+    #[test]
+    fn extract_context_length_falls_back_to_generic_key() {
+        let mut info = std::collections::HashMap::new();
+        info.insert(
+            "llm.context_length".to_string(),
+            serde_json::Value::Number(4096.into()),
+        );
+        let result = extract_context_length(Some(&info), None);
+        assert_eq!(result, Some(4096));
     }
 }

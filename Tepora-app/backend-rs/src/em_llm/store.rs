@@ -1,10 +1,14 @@
 use std::path::PathBuf;
 
+use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng};
+use aes_gcm::{Aes256Gcm, Key, Nonce};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Row, SqlitePool};
 
 use crate::core::config::AppPaths;
 use crate::core::errors::ApiError;
+
+const ENCRYPTION_PREFIX: &str = "ENC:";
 
 #[derive(Debug, Clone)]
 pub struct RetrievedMemoryRecord {
@@ -20,6 +24,7 @@ pub struct EmMemoryStore {
     pool: SqlitePool,
     #[allow(dead_code)]
     db_path: PathBuf,
+    encryption_key: Option<Key<Aes256Gcm>>,
 }
 
 impl EmMemoryStore {
@@ -43,9 +48,72 @@ impl EmMemoryStore {
             .await
             .map_err(ApiError::internal)?;
 
-        let store = Self { pool, db_path };
+        let store = Self {
+            pool,
+            db_path,
+            encryption_key: None,
+        };
         store.init_schema().await?;
         Ok(store)
+    }
+
+    pub fn set_encryption_key(&mut self, key_bytes: &[u8]) {
+        if key_bytes.len() == 32 {
+            self.encryption_key = Some(*Key::<Aes256Gcm>::from_slice(key_bytes));
+        } else {
+            tracing::warn!("Invalid encryption key length: expected 32 bytes");
+        }
+    }
+
+    fn encrypt(&self, plaintext: &str) -> Result<String, ApiError> {
+        if let Some(key) = &self.encryption_key {
+            let cipher = Aes256Gcm::new(key);
+            let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+            match cipher.encrypt(&nonce, plaintext.as_bytes()) {
+                Ok(ciphertext) => {
+                    Ok(format!("{}{}{}", ENCRYPTION_PREFIX, hex::encode(nonce), hex::encode(ciphertext)))
+                }
+                Err(e) => {
+                    tracing::error!("Encryption failed: {}", e);
+                    Err(ApiError::internal("Encryption failed"))
+                }
+            }
+        } else {
+            Ok(plaintext.to_string())
+        }
+    }
+
+    fn decrypt(&self, text: &str) -> String {
+        if !text.starts_with(ENCRYPTION_PREFIX) {
+            return text.to_string();
+        }
+
+        if let Some(key) = &self.encryption_key {
+            let payload = &text[ENCRYPTION_PREFIX.len()..];
+            if payload.len() < 24 { // Nonce is 12 bytes = 24 hex chars
+                return text.to_string();
+            }
+
+            let (nonce_hex, ciphertext_hex) = payload.split_at(24);
+            
+            let Ok(nonce_bytes) = hex::decode(nonce_hex) else { return text.to_string() };
+            let Ok(ciphertext_bytes) = hex::decode(ciphertext_hex) else { return text.to_string() };
+            
+            let nonce = Nonce::from_slice(&nonce_bytes);
+            let cipher = Aes256Gcm::new(key);
+
+            match cipher.decrypt(nonce, ciphertext_bytes.as_ref()) {
+                Ok(plaintext_bytes) => {
+                    String::from_utf8(plaintext_bytes).unwrap_or_else(|_| text.to_string())
+                }
+                Err(_) => {
+                    // Decryption failed (wrong key or corrupted)
+                    text.to_string()
+                }
+            }
+        } else {
+            text.to_string()
+        }
     }
 
     async fn init_schema(&self) -> Result<(), ApiError> {
@@ -85,6 +153,10 @@ impl EmMemoryStore {
         embedding: &[f32],
     ) -> Result<(), ApiError> {
         let blob = serialize_embedding(embedding);
+        
+        let enc_user_input = self.encrypt(user_input)?;
+        let enc_assistant_output = self.encrypt(assistant_output)?;
+        let enc_content = self.encrypt(content)?;
 
         sqlx::query(
             "INSERT OR REPLACE INTO episodic_events
@@ -93,9 +165,9 @@ impl EmMemoryStore {
         )
         .bind(id)
         .bind(session_id)
-        .bind(user_input)
-        .bind(assistant_output)
-        .bind(content)
+        .bind(enc_user_input)
+        .bind(enc_assistant_output)
+        .bind(enc_content)
         .bind(blob)
         .execute(&self.pool)
         .await
@@ -139,10 +211,13 @@ impl EmMemoryStore {
             let embedding = deserialize_embedding(&embedding_bytes);
             let score = cosine_similarity(query_embedding, &embedding);
 
+            let raw_content: String = row.get("content");
+            let content = self.decrypt(&raw_content);
+
             scored.push(RetrievedMemoryRecord {
                 id: row.get("id"),
                 session_id: row.get("session_id"),
-                content: row.get("content"),
+                content,
                 created_at: row.get("created_at"),
                 score,
             });
@@ -259,5 +334,52 @@ mod tests {
 
         let reloaded = EmMemoryStore::with_path(tmp).await.unwrap();
         assert_eq!(reloaded.count_events(None).await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn encryption_test() {
+        let mut store = test_store().await;
+        // Set a dummy key (32 bytes)
+        let key = [42u8; 32];
+        store.set_encryption_key(&key);
+
+        let content = "This is a secret message";
+        
+        store
+            .insert_event(
+                "enc-1",
+                "s1",
+                "secret input",
+                "secret output",
+                content,
+                &[0.5, 0.5, 0.0],
+            )
+            .await
+            .unwrap();
+
+        // Retrieve and check if decrypted
+        let results = store
+            .retrieve_similar(&[0.5, 0.5, 0.0], Some("s1"), 5)
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content, content);
+
+        // Verify raw data is encrypted by peeking at DB directly (simulated by checking raw text search if we had it, or by checking encryption prefix property via a new test helper or just trust the code)
+        // Since we don't have a raw retrieval method exposed, we can verify encryption by *removing* the key and retrieving.
+        
+        // Re-open store without key
+        let db_path = store.db_path.clone();
+        let store_no_key = EmMemoryStore::with_path(db_path).await.unwrap();
+        
+        let results_enc = store_no_key
+            .retrieve_similar(&[0.5, 0.5, 0.0], Some("s1"), 5)
+            .await
+            .unwrap();
+            
+        assert_eq!(results_enc.len(), 1);
+        assert_ne!(results_enc[0].content, content);
+        assert!(results_enc[0].content.starts_with(ENCRYPTION_PREFIX));
     }
 }

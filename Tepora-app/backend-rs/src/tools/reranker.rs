@@ -31,7 +31,7 @@ pub async fn rerank_search_results_with_embeddings(
             return results;
         }
     };
-    let embeddings: Vec<Vec<f32>> = match state.llama.embed(&model_cfg, &inputs).await {
+    let embeddings: Vec<Vec<f32>> = match state.llama.embed(&model_cfg, &inputs, std::time::Duration::from_secs(5)).await {
         Ok(vectors) => vectors,
         Err(err) => {
             tracing::debug!("Search rerank skipped (embedding unavailable): {}", err);

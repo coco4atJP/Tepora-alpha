@@ -1,11 +1,11 @@
-import { Cpu, Database, HardDrive, List, MessageSquare, Plus, RefreshCw, Wrench } from "lucide-react";
+import { Cpu, Database, HardDrive, List, MessageSquare, Plus, RefreshCw, Shield, Wrench } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { apiClient } from "../../../../utils/api-client";
 import { loadersApi } from "../../../../api/loaders";
-import { FormGroup, FormInput, SettingsSection } from "../SettingsComponents";
+import { FormGroup, FormInput, FormList, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
 import { ModelListOverlay } from "../subcomponents/ModelListOverlay";
 import { ModelSelectionRow } from "../subcomponents/ModelSelectionRow";
@@ -41,7 +41,7 @@ interface ModelRoles {
 
 const ModelSettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateLlmManager, updateModel } = useSettings();
+	const { config, originalConfig, updateLlmManager, updateModel, updateSearch, updateModelDownload, updateLoaderBaseUrl } = useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [isOverlayOpen, setIsOverlayOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -410,6 +410,128 @@ const ModelSettings: React.FC = () => {
 						step={1}
 					/>
 				</FormGroup>
+			</SettingsSection>
+
+			{/* 6. Search Settings */}
+			<SettingsSection
+				title={t("settings.sections.models.search_title", "Search & Reranking")}
+				icon={<Cpu size={18} />}
+				description={t(
+					"settings.sections.models.search_description",
+					"Configure search result reranking with embedding models.",
+				)}
+			>
+				<FormGroup
+					label={t("settings.fields.embedding_rerank.label", "Embedding Rerank")}
+					description={t("settings.fields.embedding_rerank.description", "Use embedding model to rerank search results for better relevance.")}
+					orientation="horizontal"
+				>
+					<FormSwitch
+						checked={config.search?.embedding_rerank ?? false}
+						onChange={(val) => updateSearch("embedding_rerank", val)}
+					/>
+				</FormGroup>
+			</SettingsSection>
+
+			{/* 7. Model Download Policy */}
+			<SettingsSection
+				title={t("settings.sections.models.download_policy_title", "Model Download Policy")}
+				icon={<Shield size={18} />}
+				description={t(
+					"settings.sections.models.download_policy_description",
+					"Security controls for downloading models from remote repositories.",
+				)}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.fields.require_allowlist.label", "Require Allowlist")}
+						description={t("settings.fields.require_allowlist.description", "Only allow downloads from approved repository owners.")}
+						orientation="horizontal"
+					>
+						<FormSwitch
+							checked={config.model_download?.require_allowlist ?? false}
+							onChange={(val) => updateModelDownload("require_allowlist", val)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.warn_on_unlisted.label", "Warn on Unlisted")}
+						description={t("settings.fields.warn_on_unlisted.description", "Show a warning when downloading from an unlisted owner.")}
+						orientation="horizontal"
+					>
+						<FormSwitch
+							checked={config.model_download?.warn_on_unlisted ?? true}
+							onChange={(val) => updateModelDownload("warn_on_unlisted", val)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.require_revision.label", "Require Revision")}
+						description={t("settings.fields.require_revision.description", "Require a specific revision when downloading models.")}
+						orientation="horizontal"
+					>
+						<FormSwitch
+							checked={config.model_download?.require_revision ?? false}
+							onChange={(val) => updateModelDownload("require_revision", val)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.require_sha256.label", "Require SHA256")}
+						description={t("settings.fields.require_sha256.description", "Require SHA256 verification for downloaded models.")}
+						orientation="horizontal"
+					>
+						<FormSwitch
+							checked={config.model_download?.require_sha256 ?? false}
+							onChange={(val) => updateModelDownload("require_sha256", val)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.allow_repo_owners.label", "Allowed Repository Owners")}
+						description={t("settings.fields.allow_repo_owners.description", "List of approved repository owners for model downloads.")}
+					>
+						<FormList
+							items={config.model_download?.allow_repo_owners ?? []}
+							onChange={(items) => updateModelDownload("allow_repo_owners", items)}
+							placeholder={t("settings.fields.allow_repo_owners.placeholder", "e.g. TheBloke")}
+						/>
+					</FormGroup>
+				</div>
+			</SettingsSection>
+
+			{/* 8. Loader Base URLs */}
+			<SettingsSection
+				title={t("settings.sections.models.loaders_title", "Loader Endpoints")}
+				icon={<RefreshCw size={18} />}
+				description={t(
+					"settings.sections.models.loaders_description",
+					"Configure base URLs for external model providers.",
+				)}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.fields.ollama_base_url.label", "Ollama Base URL")}
+						description={t("settings.fields.ollama_base_url.description", "URL of the Ollama server (default: http://localhost:11434).")}
+					>
+						<FormInput
+							value={config.loaders?.ollama?.base_url ?? "http://localhost:11434"}
+							onChange={(v) => updateLoaderBaseUrl("ollama", v as string)}
+							placeholder="http://localhost:11434"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.lmstudio_base_url.label", "LM Studio Base URL")}
+						description={t("settings.fields.lmstudio_base_url.description", "URL of the LM Studio server (default: http://localhost:1234).")}
+					>
+						<FormInput
+							value={config.loaders?.lmstudio?.base_url ?? "http://localhost:1234"}
+							onChange={(v) => updateLoaderBaseUrl("lmstudio", v as string)}
+							placeholder="http://localhost:1234"
+						/>
+					</FormGroup>
+				</div>
 			</SettingsSection>
 
 			<ModelListOverlay

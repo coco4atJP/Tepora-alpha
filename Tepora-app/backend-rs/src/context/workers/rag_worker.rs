@@ -56,7 +56,7 @@ impl ContextWorker for RagWorker {
 
         let embeddings = state
             .llama
-            .embed(&model_cfg, &[query.to_string()])
+            .embed(&model_cfg, &[query.to_string()], std::time::Duration::from_secs(5))
             .await
             .map_err(|err| WorkerError::skipped("rag", format!("embedding unavailable: {err}")))?;
 

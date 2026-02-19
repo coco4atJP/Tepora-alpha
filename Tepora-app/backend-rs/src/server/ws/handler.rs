@@ -204,6 +204,46 @@ async fn handle_message(
     let timestamp = Utc::now().to_rfc3339();
     let attachments_for_history = attachments.clone();
 
+    let config = state.config.load_config()?;
+
+    // Input Validation
+    let max_input_length = config
+        .get("app")
+        .and_then(|app| app.get("max_input_length"))
+        .and_then(|v| v.as_u64())
+        .map(|v| v as usize)
+        .unwrap_or(4096);
+
+    if message_text.len() > max_input_length {
+        return Err(ApiError::BadRequest(format!(
+            "Message length {} exceeds maximum allowed {}",
+            message_text.len(),
+            max_input_length
+        )));
+    }
+
+    let dangerous_patterns = config
+        .get("app")
+        .and_then(|app| app.get("dangerous_patterns"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_default();
+
+    for pattern in dangerous_patterns {
+        if let Ok(re) = regex::Regex::new(&pattern) {
+            if re.is_match(&message_text) {
+                return Err(ApiError::BadRequest(
+                    "Message contains restricted content".to_string(),
+                ));
+            }
+        }
+    }
+
+    // Prepare user kwargs
     let user_kwargs = json!({
         "timestamp": timestamp.clone(),
         "mode": mode.clone(),
@@ -219,8 +259,6 @@ async fn handle_message(
         .add_message(&session_id, "human", &message_text, Some(user_kwargs))
         .await?;
     let _ = state.history.touch_session(&session_id).await;
-
-    let config = state.config.load_config()?;
 
     let mut graph_state = AgentState::from_ws_message(
         session_id.clone(),

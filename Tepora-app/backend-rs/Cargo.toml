@@ -34,6 +34,10 @@ rmcp = { version = "0.14.0", features = ["client", "transport-child-process", "t
 schemars = "1"
 which = "6"
 ndarray = "0.15"
+aes-gcm = "0.10"
+regex = "1"
+keyring = "3.6.3"
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3"

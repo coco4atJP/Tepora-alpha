@@ -17,6 +17,8 @@ interface ModelConfig {
 	top_k?: number;
 	repeat_penalty?: number;
 	logprobs?: boolean;
+	max_tokens?: number;
+	predict_len?: number;
 }
 
 interface ModelDetailOverlayProps {
@@ -121,6 +123,16 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 									onChange={(v) => update("repeat_penalty", v)}
 									className="scale-110"
 								/>
+
+								<DialControl
+									label={t("settings.models_settings.configurations.top_k") || "Top K"}
+									value={config.top_k ?? 40}
+									min={1}
+									max={100}
+									step={1}
+									onChange={(v) => update("top_k", v)}
+									className="scale-110"
+								/>
 							</div>
 
 							<div className="text-center text-xs text-gray-500 italic">
@@ -196,6 +208,32 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 										onChange={(v) => update("port", v as number)}
 									/>
 								</FormGroup>
+								<FormGroup
+									label={t("settings.models_settings.configurations.max_tokens", "Max Tokens")}
+									description={t("settings.models_settings.configurations.max_tokens_desc", "Maximum number of tokens to generate per response.")}
+								>
+									<FormInput
+										type="number"
+										value={config.max_tokens ?? 0}
+										onChange={(v) => update("max_tokens", v as number)}
+										min={0}
+										max={32768}
+										step={64}
+									/>
+								</FormGroup>
+								<FormGroup
+									label={t("settings.models_settings.configurations.predict_len", "Predict Length")}
+									description={t("settings.models_settings.configurations.predict_len_desc", "Prediction length hint for the model server (0 = auto).")}
+								>
+									<FormInput
+										type="number"
+										value={config.predict_len ?? 0}
+										onChange={(v) => update("predict_len", v as number)}
+										min={0}
+										max={32768}
+										step={64}
+									/>
+								</FormGroup>
 								<div className="col-span-1 md:col-span-2">
 									<FormGroup
 										label={
@@ -204,7 +242,7 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 									>
 										<FormInput
 											value={config.path}
-											onChange={() => {}}
+											onChange={() => { }}
 											disabled
 											className="opacity-50 font-mono text-xs bg-black/40"
 										/>

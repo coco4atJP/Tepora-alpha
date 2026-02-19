@@ -72,7 +72,7 @@ impl LlamaService {
         Ok(())
     }
 
-    pub async fn ensure_running(&self, config: &ModelRuntimeConfig) -> Result<(), ApiError> {
+    pub async fn ensure_running(&self, config: &ModelRuntimeConfig, timeout: Duration) -> Result<(), ApiError> {
         let mut manager = self.inner.lock().await;
 
         if manager.running.load(Ordering::SeqCst) {
@@ -81,7 +81,7 @@ impl LlamaService {
                     return Ok(());
                 }
             }
-            self.stop_internal(&mut manager).await?;
+            self.stop_internal(&mut manager, timeout).await?;
         }
 
         self.start_internal(&mut manager, config).await?;
@@ -141,8 +141,9 @@ impl LlamaService {
         Ok(())
     }
 
-    async fn stop_internal(&self, manager: &mut LlamaManager) -> Result<(), ApiError> {
+    async fn stop_internal(&self, manager: &mut LlamaManager, _timeout: Duration) -> Result<(), ApiError> {
         if let Some(mut child) = manager.child_process.take() {
+            // TODO: Implement graceful shutdown with timeout on supported platforms
             let _ = child.kill().await;
         }
         manager.running.store(false, Ordering::SeqCst);
@@ -165,8 +166,9 @@ impl LlamaService {
         &self,
         config: &ModelRuntimeConfig,
         messages: Vec<ChatMessage>,
+        timeout: Duration,
     ) -> Result<String, ApiError> {
-        self.ensure_running(config).await?;
+        self.ensure_running(config, timeout).await?;
 
         let manager = self.inner.lock().await;
         let url = format!("http://localhost:{}/completion", manager.port);
@@ -206,8 +208,9 @@ impl LlamaService {
         &self,
         config: &ModelRuntimeConfig,
         messages: Vec<ChatMessage>,
+        timeout: Duration,
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
-        self.ensure_running(config).await?;
+        self.ensure_running(config, timeout).await?;
 
         let manager = self.inner.lock().await;
         let url = format!("http://localhost:{}/completion", manager.port);
@@ -257,8 +260,9 @@ impl LlamaService {
         &self,
         config: &ModelRuntimeConfig,
         inputs: &[String],
+        timeout: Duration,
     ) -> Result<Vec<Vec<f32>>, ApiError> {
-        self.ensure_running(config).await?;
+        self.ensure_running(config, timeout).await?;
 
         let manager = self.inner.lock().await;
         let url = format!("http://localhost:{}/embedding", manager.port);

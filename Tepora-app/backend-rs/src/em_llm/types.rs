@@ -134,6 +134,10 @@ pub struct EMConfig {
 
     /// Maximum search range for boundary refinement (positions)
     pub refinement_search_range: usize,
+
+    // ===== Security parameters =====
+    /// Whether to encrypt stored memory content
+    pub encryption_enabled: bool,
 }
 
 impl Default for EMConfig {
@@ -156,6 +160,9 @@ impl Default for EMConfig {
             use_boundary_refinement: true,
             refinement_metric: "modularity".to_string(),
             refinement_search_range: 16,
+
+            // Security
+            encryption_enabled: false,
         }
     }
 }

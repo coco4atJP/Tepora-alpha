@@ -27,6 +27,7 @@ impl LlmService {
 
     pub async fn chat(&self, request: ChatRequest, model_id: &str) -> Result<String, ApiError> {
         let config = self.resolve_model_config(model_id, &request)?;
+        let timeout = self.get_process_terminate_timeout();
 
         let messages = request
             .messages
@@ -37,7 +38,7 @@ impl LlmService {
             })
             .collect();
 
-        self.llama.chat(&config, messages).await
+        self.llama.chat(&config, messages, timeout).await
     }
 
     pub async fn stream_chat(
@@ -46,6 +47,7 @@ impl LlmService {
         model_id: &str,
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
         let config = self.resolve_model_config(model_id, &request)?;
+        let timeout = self.get_process_terminate_timeout();
 
         let messages = request
             .messages
@@ -56,7 +58,7 @@ impl LlmService {
             })
             .collect();
 
-        self.llama.stream_chat(&config, messages).await
+        self.llama.stream_chat(&config, messages, timeout).await
     }
 
     pub async fn embed(
@@ -67,8 +69,22 @@ impl LlmService {
         // Create dummy request to resolve config
         let request = ChatRequest::new(vec![]);
         let config = self.resolve_model_config(model_id, &request)?;
+        let timeout = self.get_process_terminate_timeout();
 
-        self.llama.embed(&config, inputs).await
+        self.llama.embed(&config, inputs, timeout).await
+    }
+
+    fn get_process_terminate_timeout(&self) -> std::time::Duration {
+        if let Ok(config) = self.config.load_config() {
+            if let Some(val) = config
+                .get("llm_manager")
+                .and_then(|m| m.get("process_terminate_timeout"))
+                .and_then(|v| v.as_u64())
+            {
+                return std::time::Duration::from_millis(val);
+            }
+        }
+        std::time::Duration::from_secs(5)
     }
 
     fn resolve_model_config(

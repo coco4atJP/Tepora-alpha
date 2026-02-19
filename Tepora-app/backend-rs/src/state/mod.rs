@@ -85,7 +85,7 @@ impl AppState {
         );
 
         let graph_runtime =
-            Arc::new(build_tepora_graph().map_err(|e| InitializationError::Graph(e.into()))?);
+            Arc::new(build_tepora_graph(&config).map_err(|e| InitializationError::Graph(e.into()))?);
 
         let em_memory_service = Arc::new(
             EmMemoryService::new(paths.as_ref(), &config)

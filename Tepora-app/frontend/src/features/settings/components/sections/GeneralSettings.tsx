@@ -223,6 +223,36 @@ const GeneralSettings: React.FC = () => {
 					</FormGroup>
 
 					<FormGroup
+						label={t("settings.fields.web_fetch_max_bytes.label", "Web Fetch Max Bytes")}
+						tooltip={t("settings.fields.web_fetch_max_bytes.description", "Maximum response size in bytes for web fetch (1KB - 10MB).")}
+						isDirty={isDirty("web_fetch_max_bytes")}
+					>
+						<FormInput
+							type="number"
+							value={appConfig.web_fetch_max_bytes || 1000000}
+							onChange={(value) => updateApp("web_fetch_max_bytes", value as number)}
+							min={1024}
+							max={10000000}
+							step={10000}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.fields.web_fetch_timeout_secs.label", "Web Fetch Timeout (sec)")}
+						tooltip={t("settings.fields.web_fetch_timeout_secs.description", "Timeout in seconds for web fetch requests (1 - 120).")}
+						isDirty={isDirty("web_fetch_timeout_secs")}
+					>
+						<FormInput
+							type="number"
+							value={appConfig.web_fetch_timeout_secs || 10}
+							onChange={(value) => updateApp("web_fetch_timeout_secs", value as number)}
+							min={1}
+							max={120}
+							step={1}
+						/>
+					</FormGroup>
+
+					<FormGroup
 						label={t("settings.fields.graph_execution_timeout.label", "Graph Execution Timeout (ms)")}
 						tooltip={t("settings.fields.graph_execution_timeout.description", "Maximum time allowed for graph execution (1s - 1h).")}
 						isDirty={isDirty("graph_execution_timeout")}

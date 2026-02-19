@@ -159,7 +159,16 @@ pub fn router(state: Arc<AppState>) -> Router {
 }
 
 fn build_cors_layer(state: &Arc<AppState>) -> CorsLayer {
-    let config = state.config.load_config().unwrap_or(Value::Null);
+    let config = match state.config.load_config() {
+        Ok(value) => value,
+        Err(err) => {
+            tracing::warn!(
+                "Failed to load config while building CORS layer: {}; using local defaults",
+                err
+            );
+            Value::Null
+        }
+    };
     let allowed_origins = resolve_allowed_origins(&config)
         .into_iter()
         .filter_map(|origin| HeaderValue::from_str(&origin).ok())

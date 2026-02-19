@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Config } from "../../../../context/SettingsContext";
 import { useMcpPolicy } from "../../../../hooks/useMcp";
 import { useSettings } from "../../../../hooks/useSettings";
-import { FormGroup, FormSwitch, SettingsSection } from "../SettingsComponents";
+import { FormGroup, FormList, FormSwitch, SettingsSection } from "../SettingsComponents";
 
 interface PrivacySettingsProps {
 	privacyConfig: Config["privacy"];
@@ -51,6 +51,27 @@ const ToolSecurityPolicy: React.FC = () => {
 						<FormSwitch
 							checked={policy?.require_tool_confirmation ?? true}
 							onChange={(val: boolean) => updatePolicy({ require_tool_confirmation: val })}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.mcp.policy.first_use.label", "First-use Confirmation")}
+						description={t("settings.mcp.policy.first_use.description", "Show confirmation on first tool invocation per session.")}
+					>
+						<FormSwitch
+							checked={policy?.first_use_confirmation ?? false}
+							onChange={(val: boolean) => updatePolicy({ first_use_confirmation: val })}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.mcp.policy.blocked_commands.label", "Blocked Commands")}
+						description={t("settings.mcp.policy.blocked_commands.description", "Commands that MCP servers are never allowed to execute.")}
+					>
+						<FormList
+							items={policy?.blocked_commands ?? []}
+							onChange={(items) => updatePolicy({ blocked_commands: items })}
+							placeholder={t("settings.mcp.policy.blocked_commands.placeholder", "e.g. rm -rf")}
 						/>
 					</FormGroup>
 				</div>
@@ -112,6 +133,19 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 						</div>
 					)}
 				</div>
+
+				{/* URL Denylist */}
+				<FormGroup
+					label={t("settings.privacy.url_denylist.label", "URL Deny List")}
+					description={t("settings.privacy.url_denylist.description", "Domains or patterns blocked from web fetch. Internal/private ranges are always blocked.")}
+					className="delay-100"
+				>
+					<FormList
+						items={privacyConfig?.url_denylist ?? []}
+						onChange={(items) => onUpdate("url_denylist", items)}
+						placeholder={t("settings.privacy.url_denylist.placeholder", "e.g. *.example.com")}
+					/>
+				</FormGroup>
 
 				<div className="border-t border-white/10 my-4" />
 

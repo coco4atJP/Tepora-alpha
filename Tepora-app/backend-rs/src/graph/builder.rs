@@ -8,11 +8,34 @@ use super::nodes::{
 };
 use super::runtime::{GraphBuilder, GraphRuntime};
 
+use crate::core::config::ConfigService;
+
 /// Build the main Tepora graph
-pub fn build_tepora_graph() -> Result<GraphRuntime, GraphError> {
-    GraphBuilder::new()
+pub fn build_tepora_graph(config_service: &ConfigService) -> Result<GraphRuntime, GraphError> {
+    let config = config_service.load_config().unwrap_or_default();
+    
+    let max_steps = config
+        .get("app")
+        .and_then(|app| app.get("graph_recursion_limit"))
+        .and_then(|v| v.as_u64())
+        .map(|v| v as usize)
+        .unwrap_or(50);
+
+    let execution_timeout = config
+        .get("app")
+        .and_then(|app| app.get("graph_execution_timeout"))
+        .and_then(|v| v.as_u64())
+        .map(std::time::Duration::from_secs);
+
+    let mut builder = GraphBuilder::new()
         .entry("router")
-        .max_steps(50)
+        .max_steps(max_steps);
+
+    if let Some(timeout) = execution_timeout {
+        builder = builder.timeout(timeout);
+    }
+
+    builder
         // Entry point
         .node(Box::new(RouterNode::new()))
         // Chat mode path
@@ -46,16 +69,32 @@ pub fn build_tepora_graph() -> Result<GraphRuntime, GraphError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use crate::core::config::{AppPaths, ConfigService};
+
+    fn test_config_service() -> ConfigService {
+        let paths = Arc::new(AppPaths {
+            project_root: PathBuf::from("."),
+            user_data_dir: PathBuf::from("."),
+            log_dir: PathBuf::from("."),
+            db_path: PathBuf::from("."),
+            secrets_path: PathBuf::from("."),
+        });
+        ConfigService::new(paths)
+    }
 
     #[test]
     fn build_tepora_graph_succeeds() {
-        let result = build_tepora_graph();
+        let config = test_config_service();
+        let result = build_tepora_graph(&config);
         assert!(result.is_ok(), "build_tepora_graph() should succeed");
     }
 
     #[test]
     fn tepora_graph_has_all_expected_nodes() {
-        let graph = build_tepora_graph().unwrap();
+        let config = test_config_service();
+        let graph = build_tepora_graph(&config).unwrap();
         let ids = graph.node_ids();
 
         let expected_nodes = [
@@ -90,7 +129,8 @@ mod tests {
 
     #[test]
     fn tepora_graph_nodes_have_correct_ids() {
-        let graph = build_tepora_graph().unwrap();
+        let config = test_config_service();
+        let graph = build_tepora_graph(&config).unwrap();
 
         // Verify each node is retrievable and has the correct id
         assert_eq!(graph.get_node("router").unwrap().id(), "router");
@@ -112,7 +152,8 @@ mod tests {
 
     #[test]
     fn tepora_graph_nodes_have_human_readable_names() {
-        let graph = build_tepora_graph().unwrap();
+        let config = test_config_service();
+        let graph = build_tepora_graph(&config).unwrap();
 
         // All nodes must have a non-empty name
         for node_id in graph.node_ids() {
@@ -130,7 +171,8 @@ mod tests {
         // The Tepora graph is expected to potentially have cycles
         // (e.g., supervisor <-> planner feedback loops, or agent
         // loops). Verify the cycle-detection utility works.
-        let graph = build_tepora_graph().unwrap();
+        let config = test_config_service();
+        let graph = build_tepora_graph(&config).unwrap();
         // Note: This graph does NOT have cycles (all edges go forward).
         // The max_steps guard handles any logical loops in node output.
         assert!(
