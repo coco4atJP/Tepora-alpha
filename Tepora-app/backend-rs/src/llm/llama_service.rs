@@ -72,7 +72,11 @@ impl LlamaService {
         Ok(())
     }
 
-    pub async fn ensure_running(&self, config: &ModelRuntimeConfig, timeout: Duration) -> Result<(), ApiError> {
+    pub async fn ensure_running(
+        &self,
+        config: &ModelRuntimeConfig,
+        timeout: Duration,
+    ) -> Result<(), ApiError> {
         let mut manager = self.inner.lock().await;
 
         if manager.running.load(Ordering::SeqCst) {
@@ -141,7 +145,11 @@ impl LlamaService {
         Ok(())
     }
 
-    async fn stop_internal(&self, manager: &mut LlamaManager, _timeout: Duration) -> Result<(), ApiError> {
+    async fn stop_internal(
+        &self,
+        manager: &mut LlamaManager,
+        _timeout: Duration,
+    ) -> Result<(), ApiError> {
         if let Some(mut child) = manager.child_process.take() {
             // TODO: Implement graceful shutdown with timeout on supported platforms
             let _ = child.kill().await;

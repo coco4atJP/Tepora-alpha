@@ -531,10 +531,7 @@ impl ModelManager {
                 }
             };
 
-            let details = show
-                .as_ref()
-                .map(|s| &s.details)
-                .unwrap_or(&model.details);
+            let details = show.as_ref().map(|s| &s.details).unwrap_or(&model.details);
             let role = determine_ollama_role(details);
 
             // スペック情報を抽出
@@ -744,7 +741,6 @@ impl ModelManager {
         Ok(count)
     }
 
-
     fn load_registry(&self) -> Result<ModelRegistry, ApiError> {
         if !self.registry_path.exists() {
             return Ok(ModelRegistry::default());
@@ -765,9 +761,9 @@ fn determine_ollama_role(details: &OllamaModelDetails) -> String {
     let family = details.family.as_deref().unwrap_or("").to_ascii_lowercase();
     let families = details.families.as_deref().unwrap_or(&[]);
 
-    let is_embedding = EMBEDDING_FAMILIES.iter().any(|&ef| {
-        family == ef || families.iter().any(|f| f.to_ascii_lowercase() == ef)
-    });
+    let is_embedding = EMBEDDING_FAMILIES
+        .iter()
+        .any(|&ef| family == ef || families.iter().any(|f| f.to_ascii_lowercase() == ef));
 
     if is_embedding {
         "embedding".to_string()

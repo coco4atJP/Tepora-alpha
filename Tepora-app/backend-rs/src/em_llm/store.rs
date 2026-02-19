@@ -70,9 +70,12 @@ impl EmMemoryStore {
             let cipher = Aes256Gcm::new(key);
             let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
             match cipher.encrypt(&nonce, plaintext.as_bytes()) {
-                Ok(ciphertext) => {
-                    Ok(format!("{}{}{}", ENCRYPTION_PREFIX, hex::encode(nonce), hex::encode(ciphertext)))
-                }
+                Ok(ciphertext) => Ok(format!(
+                    "{}{}{}",
+                    ENCRYPTION_PREFIX,
+                    hex::encode(nonce),
+                    hex::encode(ciphertext)
+                )),
                 Err(e) => {
                     tracing::error!("Encryption failed: {}", e);
                     Err(ApiError::internal("Encryption failed"))
@@ -90,15 +93,20 @@ impl EmMemoryStore {
 
         if let Some(key) = &self.encryption_key {
             let payload = &text[ENCRYPTION_PREFIX.len()..];
-            if payload.len() < 24 { // Nonce is 12 bytes = 24 hex chars
+            if payload.len() < 24 {
+                // Nonce is 12 bytes = 24 hex chars
                 return text.to_string();
             }
 
             let (nonce_hex, ciphertext_hex) = payload.split_at(24);
-            
-            let Ok(nonce_bytes) = hex::decode(nonce_hex) else { return text.to_string() };
-            let Ok(ciphertext_bytes) = hex::decode(ciphertext_hex) else { return text.to_string() };
-            
+
+            let Ok(nonce_bytes) = hex::decode(nonce_hex) else {
+                return text.to_string();
+            };
+            let Ok(ciphertext_bytes) = hex::decode(ciphertext_hex) else {
+                return text.to_string();
+            };
+
             let nonce = Nonce::from_slice(&nonce_bytes);
             let cipher = Aes256Gcm::new(key);
 
@@ -153,7 +161,7 @@ impl EmMemoryStore {
         embedding: &[f32],
     ) -> Result<(), ApiError> {
         let blob = serialize_embedding(embedding);
-        
+
         let enc_user_input = self.encrypt(user_input)?;
         let enc_assistant_output = self.encrypt(assistant_output)?;
         let enc_content = self.encrypt(content)?;
@@ -344,7 +352,7 @@ mod tests {
         store.set_encryption_key(&key);
 
         let content = "This is a secret message";
-        
+
         store
             .insert_event(
                 "enc-1",
@@ -368,16 +376,16 @@ mod tests {
 
         // Verify raw data is encrypted by peeking at DB directly (simulated by checking raw text search if we had it, or by checking encryption prefix property via a new test helper or just trust the code)
         // Since we don't have a raw retrieval method exposed, we can verify encryption by *removing* the key and retrieving.
-        
+
         // Re-open store without key
         let db_path = store.db_path.clone();
         let store_no_key = EmMemoryStore::with_path(db_path).await.unwrap();
-        
+
         let results_enc = store_no_key
             .retrieve_similar(&[0.5, 0.5, 0.0], Some("s1"), 5)
             .await
             .unwrap();
-            
+
         assert_eq!(results_enc.len(), 1);
         assert_ne!(results_enc[0].content, content);
         assert!(results_enc[0].content.starts_with(ENCRYPTION_PREFIX));

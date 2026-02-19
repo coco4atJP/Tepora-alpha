@@ -38,7 +38,14 @@ Do not add any text before or after the plan."
     ];
 
     let config = ModelRuntimeConfig::for_chat(chat_config)?;
-    let plan = state.llama.chat(&config, planning_messages, std::time::Duration::from_secs(5)).await?;
+    let plan = state
+        .llama
+        .chat(
+            &config,
+            planning_messages,
+            std::time::Duration::from_secs(5),
+        )
+        .await?;
     let trimmed = plan.trim();
     if trimmed.is_empty() {
         return Ok(

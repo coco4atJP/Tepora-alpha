@@ -92,7 +92,10 @@ async fn execute_rag_search(
     let sid = session_id.unwrap_or("default");
 
     let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
-    let embeddings = state.llama.embed(&model_cfg, &[query], std::time::Duration::from_secs(5)).await?;
+    let embeddings = state
+        .llama
+        .embed(&model_cfg, &[query], std::time::Duration::from_secs(5))
+        .await?;
     let query_embedding = embeddings
         .first()
         .ok_or_else(|| ApiError::Internal("RAG query embedding is empty".to_string()))?;
@@ -150,7 +153,14 @@ async fn execute_rag_ingest(
 
     let embedding_inputs: Vec<String> = chunks.iter().map(|chunk| chunk.text.clone()).collect();
     let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
-    let embeddings = state.llama.embed(&model_cfg, &embedding_inputs, std::time::Duration::from_secs(5)).await?;
+    let embeddings = state
+        .llama
+        .embed(
+            &model_cfg,
+            &embedding_inputs,
+            std::time::Duration::from_secs(5),
+        )
+        .await?;
     if embeddings.len() != chunks.len() {
         return Err(ApiError::Internal(format!(
             "Embedding/chunk size mismatch: {} != {}",

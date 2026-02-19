@@ -61,7 +61,7 @@ pub struct LmStudioV1Response {
 #[derive(Debug, Deserialize)]
 pub struct LmStudioV1Model {
     #[serde(rename = "type")]
-    pub model_type: String,            // "llm" | "vlm" | "embedding"
+    pub model_type: String, // "llm" | "vlm" | "embedding"
     pub publisher: Option<String>,
     pub key: String,
     pub display_name: Option<String>,
@@ -70,7 +70,7 @@ pub struct LmStudioV1Model {
     pub size_bytes: Option<u64>,
     pub params_string: Option<String>,
     pub max_context_length: Option<u64>,
-    pub format: Option<String>,        // "gguf" | "mlx" | null
+    pub format: Option<String>, // "gguf" | "mlx" | null
     pub capabilities: Option<LmStudioCapabilities>,
     pub description: Option<String>,
 }
@@ -136,21 +136,21 @@ pub struct ModelEntry {
 
     // --- スペック情報 ---
     #[serde(default)]
-    pub parameter_size: Option<String>,     // "8.3B", "20.9B" 等
+    pub parameter_size: Option<String>, // "8.3B", "20.9B" 等
     #[serde(default)]
-    pub quantization: Option<String>,       // "Q4_K_M", "BF16" 等
+    pub quantization: Option<String>, // "Q4_K_M", "BF16" 等
     #[serde(default)]
-    pub context_length: Option<u64>,        // トークン数
+    pub context_length: Option<u64>, // トークン数
     #[serde(default)]
-    pub architecture: Option<String>,       // "gemma3", "llama", "mistral3" 等
+    pub architecture: Option<String>, // "gemma3", "llama", "mistral3" 等
 
     // --- インターフェース情報 ---
     #[serde(default)]
-    pub chat_template: Option<String>,      // Go template / jinja2 形式
+    pub chat_template: Option<String>, // Go template / jinja2 形式
     #[serde(default)]
-    pub stop_tokens: Option<Vec<String>>,   // ["<|eot_id|>", ...] 等
+    pub stop_tokens: Option<Vec<String>>, // ["<|eot_id|>", ...] 等
     #[serde(default)]
-    pub default_temperature: Option<f32>,   // Ollama Modelfile のデフォルト値
+    pub default_temperature: Option<f32>, // Ollama Modelfile のデフォルト値
 
     // --- 機能情報 ---
     #[serde(default)]
@@ -158,11 +158,11 @@ pub struct ModelEntry {
 
     // --- メタデータ ---
     #[serde(default)]
-    pub publisher: Option<String>,          // "ibm", "mistralai" 等
+    pub publisher: Option<String>, // "ibm", "mistralai" 等
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
-    pub format: Option<String>,             // "gguf", "mlx" 等
+    pub format: Option<String>, // "gguf", "mlx" 等
 }
 
 /// モデルレジストリ（models.json ルート）

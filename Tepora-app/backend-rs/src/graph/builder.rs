@@ -13,7 +13,7 @@ use crate::core::config::ConfigService;
 /// Build the main Tepora graph
 pub fn build_tepora_graph(config_service: &ConfigService) -> Result<GraphRuntime, GraphError> {
     let config = config_service.load_config().unwrap_or_default();
-    
+
     let max_steps = config
         .get("app")
         .and_then(|app| app.get("graph_recursion_limit"))
@@ -27,9 +27,7 @@ pub fn build_tepora_graph(config_service: &ConfigService) -> Result<GraphRuntime
         .and_then(|v| v.as_u64())
         .map(std::time::Duration::from_secs);
 
-    let mut builder = GraphBuilder::new()
-        .entry("router")
-        .max_steps(max_steps);
+    let mut builder = GraphBuilder::new().entry("router").max_steps(max_steps);
 
     if let Some(timeout) = execution_timeout {
         builder = builder.timeout(timeout);
@@ -69,9 +67,9 @@ pub fn build_tepora_graph(config_service: &ConfigService) -> Result<GraphRuntime
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::config::{AppPaths, ConfigService};
     use std::path::PathBuf;
     use std::sync::Arc;
-    use crate::core::config::{AppPaths, ConfigService};
 
     fn test_config_service() -> ConfigService {
         let paths = Arc::new(AppPaths {
