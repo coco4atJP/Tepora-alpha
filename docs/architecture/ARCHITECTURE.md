@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.01
+**ドキュメントバージョン**: 5.02
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-02-16
+**最終更新日**: 2026-02-19
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -49,7 +49,7 @@ Teporaは、ユーザーのローカル環境で完結し、プライバシー�
 
 | 機能                      | 説明                                                               |
 | ------------------------- | ------------------------------------------------------------------ |
-| **3つの動作モード** | Chat（AIとの自由対話）/ Search（Web検索+RAG）/ Agent（ツール使用） |
+| **3つの動作モード** | Chat（AIとの自由対話）/ Search（Fast + Agentic Deep Research）/ Agent（ツール使用） |
 | **EM-LLM**          | ICLR 2025採択論文に基づくエピソード記憶システム                    |
 | **MCP対応**         | Model Context Protocolによる拡張可能なツールシステム               |
 | **RAG**             | Retrieval-Augmented Generationによるコンテキスト拡張               |
@@ -93,25 +93,25 @@ graph TD
 
 ```mermaid
 graph TD
-    Main[main.rs] --> API[api.rs]
-    Main --> WS[ws.rs]
-    Main --> State[state.rs]
-  
-    API --> Graph[graph/]
-    WS --> Graph
-  
-    Graph --> Nodes[nodes/]
-    Graph --> LLM[llama.rs]
-    Graph --> Tools[tooling.rs]
-    Graph --> Search[search.rs]
-  
-    State --> Config[config.rs]
-    State --> History[history.rs]
-    State --> MCP[mcp.rs]
-    State --> Models[models.rs]
-  
-    MCP --> McpRegistry[mcp_registry.rs]
-    MCP --> McpInstaller[mcp_installer.rs]
+    Main[main.rs] --> Router[server/router.rs]
+    Main --> WS[server/ws/handler.rs]
+    Main --> State[state/mod.rs]
+
+    Router --> Handlers[server/handlers/*]
+    WS --> Graph[graph/]
+
+    Graph --> Nodes[graph/nodes/*]
+    Nodes --> Pipeline[context/pipeline.rs]
+    Nodes --> LLM[llm/service.rs]
+    Nodes --> Tools[tools/manager.rs]
+
+    State --> Config[core/config/*]
+    State --> History[history/mod.rs]
+    State --> MCP[mcp/mod.rs]
+    State --> Models[models/manager.rs]
+
+    MCP --> McpRegistry[mcp/registry.rs]
+    MCP --> McpInstaller[mcp/installer.rs]
 ```
 
 > [!IMPORTANT]
@@ -251,8 +251,7 @@ backend-rs/
 │   │
 │   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
-│   ├── search/                 # 検索エンジン統合
-│   ├── tools/                  # ToolManager (ツール管理)
+│   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   │
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
@@ -289,11 +288,15 @@ frontend/
 │   │   ├── session/            # セッション管理
 │   │   └── navigation/         # ナビゲーション
 │   │
+│   ├── pages/                  # ルートページ (logs, memory)
+│   ├── api/                    # ルーターローダー等
 │   ├── components/             # 共有UIコンポーネント
 │   ├── hooks/                  # カスタムフック
 │   ├── utils/                  # ユーティリティ
 │   ├── types/                  # 型定義
-│   └── context/                # React Context
+│   ├── context/                # React Context
+│   ├── styles/                 # スタイル
+│   └── test/                   # テスト
 │
 └── src-tauri/                  # Tauri設定
     ├── tauri.conf.json
@@ -324,8 +327,10 @@ pub struct AppState {
     pub mcp_registry: McpRegistry,   // MCPサーバーカタログ
     pub models: ModelManager,        // モデル管理
     pub setup: SetupState,           // セットアップ状態
-    pub started_at: DateTime<Utc>,   // 起動時刻
-    // ...他: exclusive_agents, rag_store, graph_runtime, em_memory_service
+    pub exclusive_agents: ExclusiveAgentManager, // エージェント定義管理
+    pub rag_store: Arc<dyn RagStore>,            // RAGストア抽象
+    pub graph_runtime: Arc<GraphRuntime>,        // グラフランタイム
+    pub em_memory_service: Arc<EmMemoryService>, // エピソード記憶
 }
 ```
 
@@ -342,9 +347,10 @@ Python版 LangGraph の概念を Rust ネイティブな `petgraph` で再実装
 ```rust
 pub struct GraphRuntime {
     graph: DiGraph<Box<dyn Node>, EdgeCondition>,
-    name_to_index: HashMap<String, NodeIndex>,
-    entry_node: Option<String>,
+    node_indices: HashMap<String, NodeIndex>,
+    entry_node_id: String,
     max_steps: usize,
+    execution_timeout: Option<Duration>,
 }
 ```
 
@@ -362,7 +368,7 @@ pub struct GraphRuntime {
 | `add_node(node)`                            | ノードをグラフに追加 |
 | `add_edge(from, to)`                        | 無条件エッジを追加   |
 | `add_conditional_edge(from, to, condition)` | 条件付きエッジを追加 |
-| `run(state, ctx)`                           | グラフを実行         |
+| `run(state, ctx, timeout_override)`         | グラフを実行         |
 
 #### AgentState (グラフ状態)
 
@@ -377,7 +383,7 @@ pub struct AgentState {
   
     // Core Messaging
     pub input: String,
-    pub mode: Mode,                        // Chat | Search | Agent
+    pub mode: Mode,                        // Chat | Search | SearchAgentic | Agent
     pub chat_history: Vec<ChatMessage>,
   
     // Hierarchical Agent Routing
@@ -438,16 +444,17 @@ graph TD
     ROUTER -->|agent| SUPERVISOR{Supervisor}
   
     SUPERVISOR -->|planner| PLANNER[PlannerNode]
-    PLANNER --> SUPERVISOR
-  
-    SUPERVISOR -->|agent_id| AGENT_EXEC[AgentExecutor - ReAct Loop]
-    AGENT_EXEC --> SYNTH[SynthesizerNode]
+    SUPERVISOR -->|direct| AGENT_EXEC[AgentExecutorNode]
+    PLANNER --> AGENT_EXEC
   
     CHAT --> END([END])
     SEARCH --> END
     AGENTIC --> END
-    SYNTH --> END
+    AGENT_EXEC --> END
 ```
+
+> [!NOTE]
+> `SynthesizerNode` はコード上存在しますが、現行の `build_tepora_graph` デフォルト配線では未接続です。
 
 ### 5.3 ノード詳細
 
@@ -456,13 +463,13 @@ graph TD
 | `RouterNode`        | `nodes/router.rs`         | 入力モードに基づいてChat/Search/Agentに分岐     |
 | `ThinkingNode`      | `nodes/thinking.rs`       | CoT（Chain of Thought）思考プロセス生成         |
 | `ChatNode`          | `nodes/chat.rs`           | LLMに対して直接対話応答を生成                   |
-| `SearchNode`        | `nodes/search.rs`         | Web検索実行 → 再ランク → LLM要約 (Fast検索)   |
+| `SearchNode`        | `nodes/search.rs`         | Web検索 + fetch + RAG投入 + RAG検索 + 応答生成 |
 | `AgenticSearchNode` | `nodes/search_agentic.rs` | 4段階ディープサーチパイプライン**[v4.0]** |
 | `SupervisorNode`    | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）          |
 | `PlannerNode`       | `nodes/planner.rs`        | タスク計画の立案                                |
-| `AgentExecutor`     | `nodes/agent_executor.rs` | ReActループでツールを実行                       |
-| `ToolNode`          | `nodes/tool.rs`           | 個別ツールの実行                                |
-| `SynthesizerNode`   | `nodes/synthesizer.rs`    | エージェント結果から最終応答を生成              |
+| `AgentExecutorNode` | `nodes/agent_executor.rs` | ReActループでツールを実行し最終応答を生成       |
+| `ToolNode`          | `nodes/tool.rs`           | 補助ノード（現行デフォルトグラフ未接続）        |
+| `SynthesizerNode`   | `nodes/synthesizer.rs`    | 補助ノード（現行デフォルトグラフ未接続）        |
 
 ### 5.4 階層的マルチエージェントアーキテクチャ
 
@@ -478,26 +485,24 @@ graph TD
         PLAN[PlannerNode]
     end
   
-    subgraph "Execution Layer (ExclusiveAgentManager)"
-        A1[Custom Agent 1]
-        A2[Custom Agent 2]
-        AN[Custom Agent N]
+    subgraph "Execution Layer"
+        EXEC[AgentExecutorNode]
+        EAM[ExclusiveAgentManager]
     end
   
-    SUP -->|high mode| PLAN
-    PLAN -->|plan| SUP
-    SUP -->|low/direct mode| A1
-    SUP --> A2
-    SUP --> AN
+    SUP -->|high or complex low| PLAN
+    SUP -->|direct / simple low| EXEC
+    PLAN --> EXEC
+    EAM -->|agent definitions| SUP
 ```
 
 **AgentMode (ルーティングモード)** [v4.0: `Fast` → `Low` にリネーム]:
 
 | モード     | 動作                                                    |
 | ---------- | ------------------------------------------------------- |
-| `high`   | 必ずPlannerを経由して計画を立ててからCustom Agentを実行 |
-| `low`    | SupervisorがLLMで判断。単純→直接Agent、複雑→Plannerへ |
-| `direct` | 指定されたCustom Agentに直接ルーティング                |
+| `high`   | 必ずPlannerを経由して計画を立ててから AgentExecutor を実行 |
+| `low`    | SupervisorがLLMで判断。単純→直接実行、複雑→Plannerへ |
+| `direct` | 指定された Custom Agent を選択して直接実行              |
 
 > [!NOTE]
 > `"fast"` は serde / parse でレガシーエイリアスとして引き続き受け入れられます。
@@ -542,15 +547,15 @@ graph LR
 
 | ステージ                        | 処理内容                                            |
 | ------------------------------- | --------------------------------------------------- |
-| **Query生成**             | LLMでユーザー入力から3〜5個のサブクエリを生成       |
-| **並列検索+チャンク選択** | サブクエリを並列実行、結果を重複排除・リランキング  |
+| **Query生成**             | LLMでサブクエリを生成（元クエリ含め最大5件まで）     |
+| **並列検索+チャンク選択** | RAG類似検索 + テキスト検索 + 必要時Web検索を統合     |
 | **リサーチレポート**      | 検索結果をLLMで構造化レポートに合成                 |
 | **最終合成**              | レポート+元コンテキストからストリーミング回答を生成 |
 
 **ルーティング判定** (`RouterNode` 内):
 
 - 200文字以上の入力 → Agentic
-- 深掘りキーワード検出 (`比較`, `分析`, `詳細`, `違い` 等) → Agentic
+- 深掘りキーワード検出 (`比較`, `分析`, `詳細`, `調査`, `深掘り` 等) → Agentic
 - `search_attachments` 非空 → Agentic
 - それ以外 → Fast (SearchNode)
 
@@ -560,7 +565,7 @@ graph LR
 
 - **動作**: `ThinkingNode` が最終回答の前に実行され、ステップバイステップの思考プロセスを生成
 - **統合**: 生成された思考プロセスは `AgentState.thought_process` に保存
-- **制御**: クライアントからのリクエストパラメータ `thinking_mode: true` で有効化
+- **制御**: クライアントからのリクエストパラメータ `thinkingMode: true` で有効化
 
 ### 5.7 コンテキストパイプライン (WorkerPipeline) [v4.0]
 
@@ -587,7 +592,7 @@ graph LR
 | `SearchWorker`  | Web検索実行 + リランキング                                   |
 | `RagWorker`     | RAGストアからのベクトル検索                                  |
 
-**PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) に基づいて Worker の有効/無効が決定されます。
+**PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) に基づいて Worker の有効/無効が決定されます。デフォルトのトークン予算は `max_tokens=12288`, `reserved_output=2048` です。
 
 ### 5.8 LlamaService & LlmService
 
@@ -597,18 +602,19 @@ graph LR
 
 ```rust
 pub struct LlamaService {
-    paths: Arc<AppPaths>,
-    process: Arc<Mutex<Option<Child>>>,
-    port: AtomicU16,
+    inner: Arc<Mutex<LlamaManager>>,
+    client: Client,
 }
 ```
 
 **責務**:
 
 - llama-serverプロセスの起動・停止
-- GGUFモデルのロード
+- モデル切り替え時の自動再起動
 - Chat Completions API の提供
 - ヘルスチェック
+
+`LlmService` は `ModelManager` のレジストリを参照して `ModelRuntimeConfig` を組み立て、`chat` / `stream_chat` / `embed` を高レベルAPIとして提供します。`ModelManager` 側では Ollama / LM Studio のモデル一覧同期（`refresh_*_models`）も実装されています。
 
 ### 5.9 MCP (Model Context Protocol)
 
@@ -621,6 +627,8 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 | `McpManager`    | MCP接続のライフサイクル管理                |
 | `McpRegistry`   | 利用可能なMCPサーバーのカタログ管理        |
 | `mcp_installer` | `npm` / `pip` を使った自動インストール |
+
+`McpManager` は `mcp_tools_config.json` と `mcp_policy.json` を管理し、`LOCAL_ONLY` などの接続ポリシー、ブロックコマンド、初回利用承認を適用します。
 
 ### 5.10 EM-LLM (エピソード記憶)
 
@@ -655,9 +663,9 @@ v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移
 
 | 機能                         | 説明                                                                        |
 | ---------------------------- | --------------------------------------------------------------------------- |
-| **RagStore trait**     | `ingest`, `query`, `delete_by_session`, `reindex` の4メソッド抽象化 |
+| **RagStore trait**     | `insert_batch`, `search`, `text_search`, `get_chunk_window`, `reindex_with_model` 等を抽象化 |
 | **SqliteRagStore**     | SQLite +`ndarray` によるコサイン類似度計算                                |
-| **セッションフィルタ** | セッション単位でのメタデータフィルタリング                                  |
+| **セッションフィルタ** | `session_id` で検索・削除を分離し、会話単位でRAGを運用                      |
 
 > [!IMPORTANT]
 > `RagStore` trait による抽象化で、将来の LanceDB や Qdrant への移行パスを確保しています。
@@ -682,8 +690,9 @@ graph TB
   
     subgraph "TanStack Query (Server State)"
         Config[設定データ]
+        Req[セットアップ要件]
         MCPStatus[MCPステータス]
-        Models[モデル情報]
+        Sys[システムステータス]
     end
   
     subgraph "Components"
@@ -726,9 +735,11 @@ interface ChatState {
 interface ChatActions {
   addMessage: (message: Message) => void;
   addUserMessage: (content: string, mode: ChatMode, attachments?: Attachment[]) => void;
+  setMessages: (messages: Message[]) => void;
+  clearMessages: () => void;
   
   // Streaming
-  handleStreamChunk: (content: string, metadata?: StreamingMetadata) => void;
+  handleStreamChunk: (content: string, metadata: StreamingMetadata) => void;
   flushStreamBuffer: () => void;
   finalizeStream: () => void;
   
@@ -752,16 +763,18 @@ interface ChatActions {
 ```typescript
 interface SessionState {
   sessions: Session[];
-  currentSessionId: string | null;
-  isLoading: boolean;
+  currentSessionId: string;      // default: "default"
+  isLoadingHistory: boolean;
 }
 
 interface SessionActions {
   setSessions: (sessions: Session[]) => void;
-  setCurrentSessionId: (id: string | null) => void;
+  setCurrentSession: (sessionId: string) => void;
   addSession: (session: Session) => void;
-  updateSession: (id: string, updates: Partial<Session>) => void;
-  removeSession: (id: string) => void;
+  removeSession: (sessionId: string) => void;
+  updateSession: (sessionId: string, updates: Partial<Session>) => void;
+  setIsLoadingHistory: (isLoading: boolean) => void;
+  resetToDefault: () => void;
 }
 ```
 
@@ -772,19 +785,30 @@ interface SessionActions {
 ```typescript
 interface WebSocketState {
   isConnected: boolean;
-  isConnecting: boolean;
-  error: string | null;
   socket: WebSocket | null;
-  pendingToolConfirmation: ToolConfirmation | null;
+  reconnectAttempts: number;
+  pendingToolConfirmation: ToolConfirmationRequest | null;
+  approvedTools: Set<string>;
 }
 
 interface WebSocketActions {
-  connect: (url: string, token: string) => void;
+  connect: () => Promise<void>;
   disconnect: () => void;
-  sendMessage: (message: WebSocketMessage) => void;
+  sendMessage: (
+    content: string,
+    mode: ChatMode,
+    attachments?: Attachment[],
+    skipWebSearch?: boolean,
+    thinkingMode?: boolean,
+    agentId?: string,
+    agentMode?: AgentMode,
+    timeout?: number
+  ) => void;
+  sendRaw: (data: object) => void;
   setSession: (sessionId: string) => void;
   stopGeneration: () => void;
-  confirmTool: (requestId: string, approved: boolean) => void;
+  requestStats: () => void;
+  handleToolConfirmation: (requestId: string, approved: boolean, remember: boolean) => void;
 }
 ```
 
@@ -808,6 +832,8 @@ interface WebSocketActions {
 | `DialControl`   | Chat / Search / Agent モード切替 |
 | `AgentStatus`   | エージェント処理状態の表示       |
 | `SetupWizard`   | 初期セットアップフロー           |
+| `Logs`          | ログ閲覧ページ (`/logs`)         |
+| `Memory`        | メモリ統計ページ (`/memory`)     |
 
 ### 6.7 サイドカー連携
 
@@ -815,6 +841,7 @@ Tauriのサイドカー機能により、アプリ起動時にRustバックエ�
 
 - フロントエンドは `localhost` の動的ポートに対してAPIリクエストを行います
 - `src/utils/sidecar.ts` が起動プロセスとポート検知を担当
+- アプリ終了時は `POST /api/shutdown`（`x-api-key` 必須）を送信し、必要に応じて強制終了にフォールバックします
 
 ---
 
@@ -872,32 +899,45 @@ sequenceDiagram
 **接続**:
 
 ```
-ws://127.0.0.1:{port}/ws?token={session_token}
+ws://127.0.0.1:{port}/ws
 ```
+
+**認証/プロトコル**:
+
+- `Sec-WebSocket-Protocol` に `tepora.v1` を指定
+- 同ヘッダーに `tepora-token.{hex(session_token)}` を追加して認証  
+  (クエリパラメータではなくサブプロトコルでトークンを渡す)
 
 **クライアント → サーバー**:
 
 | type                           | 説明           | ペイロード                                                                    |
 | ------------------------------ | -------------- | ----------------------------------------------------------------------------- |
-| `message`                    | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, thinkingMode? }` |
+| `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, thinkingMode?, agentId?, agentMode?, timeout? }` |
 | `stop`                       | 実行キャンセル | `{}`                                                                        |
 | `get_stats`                  | メモリ統計要求 | `{}`                                                                        |
 | `set_session`                | セッション切替 | `{ sessionId }`                                                             |
 | `tool_confirmation_response` | ツール承認応答 | `{ requestId, approved }`                                                   |
+
+> [!NOTE]
+> `mode` は通常 `chat` / `search` / `agent`。内部的に `search_agentic` も受理されます。
 
 **サーバー → クライアント**:
 
 | type                          | 説明               | ペイロード                                      |
 | ----------------------------- | ------------------ | ----------------------------------------------- |
 | `chunk`                     | ストリーミング応答 | `{ message, mode?, nodeId?, agentName? }`     |
-| `status`                    | 処理状態更新       | `{ status, message }`                         |
-| `activity`                  | ノード進捗         | `{ data: { id, status, message } }`           |
+| `status`                    | 処理状態更新       | `{ message }`                                 |
+| `activity`                  | ノード進捗         | `{ data: { id, status, message, agentName? } }` |
 | `history`                   | チャット履歴       | `{ messages: [...] }`                         |
 | `search_results`            | 検索結果           | `{ data: [...] }`                             |
 | `tool_confirmation_request` | ツール承認要求     | `{ data: { requestId, toolName, toolArgs } }` |
 | `done`                      | 処理完了           | `{}`                                          |
 | `error`                     | エラー             | `{ message }`                                 |
 | `stats`                     | メモリ統計         | `{ data: {...} }`                             |
+| `stopped`                   | 停止完了           | `{}`                                          |
+| `session_changed`           | セッション変更通知 | `{ sessionId }`                               |
+| `thought`                   | 思考過程通知       | `{ content }`                                 |
+| `download_progress`         | ダウンロード進捗   | `{ data: {...} }`                             |
 
 ### 8.2 REST API
 
@@ -912,6 +952,7 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 | `PATCH` | `/api/config`          | 設定更新（部分）       |
 | `GET`   | `/api/logs`            | ログファイル一覧       |
 | `GET`   | `/api/logs/{filename}` | ログ内容取得           |
+| `GET`   | `/api/tools`           | 利用可能ツール一覧     |
 | `POST`  | `/api/shutdown`        | サーバーシャットダウン |
 
 #### セッションAPI
@@ -925,6 +966,16 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 | `DELETE` | `/api/sessions/{id}`          | セッション削除     |
 | `GET`    | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 
+#### Custom Agent API
+
+| メソッド   | エンドポイント                | 説明                         |
+| ---------- | ----------------------------- | ---------------------------- |
+| `GET`    | `/api/custom-agents`        | エージェント一覧             |
+| `POST`   | `/api/custom-agents`        | エージェント作成             |
+| `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
+| `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
+| `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
 #### MCP API
 
 | メソッド   | エンドポイント                      | 説明                               |
@@ -937,6 +988,8 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 | `PATCH`  | `/api/mcp/policy`                 | ポリシー更新                       |
 | `POST`   | `/api/mcp/install/preview`        | インストールプレビュー             |
 | `POST`   | `/api/mcp/install/confirm`        | インストール確認                   |
+| `POST`   | `/api/mcp/servers/{name}/approve` | サーバー承認（allowlist更新）      |
+| `POST`   | `/api/mcp/servers/{name}/revoke`  | サーバー承認取り消し               |
 | `POST`   | `/api/mcp/servers/{name}/enable`  | サーバー有効化                     |
 | `POST`   | `/api/mcp/servers/{name}/disable` | サーバー無効化                     |
 | `DELETE` | `/api/mcp/servers/{name}`         | サーバー削除                       |
@@ -953,8 +1006,21 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 | `GET`    | `/api/setup/progress`       | 進捗確認                   |
 | `POST`   | `/api/setup/finish`         | セットアップ完了           |
 | `GET`    | `/api/setup/models`         | 利用可能モデル一覧         |
+| `GET`    | `/api/setup/model/roles`    | 役割ごとのモデル割当取得   |
+| `POST`   | `/api/setup/model/roles/character` | Characterモデル割当設定 |
+| `POST`   | `/api/setup/model/roles/professional` | Professionalモデル割当設定 |
+| `DELETE` | `/api/setup/model/roles/professional/{task_type}` | Professional割当削除 |
+| `POST`   | `/api/setup/model/active`   | アクティブモデル設定       |
+| `POST`   | `/api/setup/model/reorder`  | モデル表示順更新           |
+| `POST`   | `/api/setup/model/check`    | モデル詳細取得             |
 | `POST`   | `/api/setup/model/download` | モデルダウンロード         |
+| `POST`   | `/api/setup/model/local`    | ローカルモデル登録         |
 | `DELETE` | `/api/setup/model/{id}`     | モデル削除                 |
+| `POST`   | `/api/setup/models/ollama/refresh` | Ollamaモデル同期    |
+| `POST`   | `/api/setup/models/lmstudio/refresh` | LM Studioモデル同期 |
+| `GET`    | `/api/setup/model/update-check` | モデル更新確認          |
+| `GET`    | `/api/setup/binary/update-info` | llama.cpp バイナリ更新情報 |
+| `POST`   | `/api/setup/binary/update` | llama.cpp バイナリ更新実行  |
 
 ---
 
@@ -964,18 +1030,27 @@ ws://127.0.0.1:{port}/ws?token={session_token}
 
 ```mermaid
 graph TB
-    subgraph Runtime["ランタイム設定"]
-        ConfigYml[config.yml - メイン設定]
-        McpJson[mcp_tools_config.json - MCP接続設定]
+    subgraph Runtime["ランタイム設定 (USER_DATA_DIR)"]
+        ConfigYml[config.yml - 公開設定]
+        SecretsYml[secrets.yaml - 機密設定]
+        McpJson[config/mcp_tools_config.json - MCP接続設定]
+        McpPolicy[config/mcp_policy.json - MCPポリシー]
+        AgentsYml[config/agents.yaml - Agent定義]
     end
   
-    subgraph Defaults["デフォルト定義"]
-        ConfigRs[src/config.rs - Rustスキーマ]
-        SeedJson[mcp_seed.json - MCPサーバーカタログ]
+    subgraph Services["設定サービス / スキーマ"]
+        ConfigSvc[src/core/config/service.rs]
+        ConfigValidation[src/core/config/validation.rs]
+        McpManager[src/mcp/mod.rs]
+        AgentManager[src/agent/exclusive_manager.rs]
     end
   
-    ConfigRs -->|デフォルト値| ConfigYml
-    SeedJson -->|インストール時コピー| McpJson
+    ConfigYml --> ConfigSvc
+    SecretsYml --> ConfigSvc
+    ConfigValidation --> ConfigSvc
+    McpManager --> McpJson
+    McpManager --> McpPolicy
+    AgentManager --> AgentsYml
 ```
 
 ### config.yml 主要セクション
@@ -984,57 +1059,73 @@ graph TB
 app:
   max_input_length: 10000
   graph_recursion_limit: 50
+  graph_execution_timeout: 60000
   tool_execution_timeout: 120
   tool_approval_timeout: 300
   web_fetch_max_chars: 6000
+  web_fetch_max_bytes: 1000000
+  web_fetch_timeout_secs: 10
+  dangerous_patterns: []
   language: "ja"
+  setup_completed: true
 
 server:
   host: "127.0.0.1"
+  cors_allowed_origins: ["tauri://localhost", "http://127.0.0.1:5173"]
 
 tools:
+  search_provider: "google"
   google_search_api_key: "YOUR_KEY"
   google_search_engine_id: "YOUR_CX"
-  bing_api_key: "YOUR_KEY"
-  brave_api_key: "YOUR_KEY"
+  bing_search_api_key: "YOUR_KEY"
+  brave_search_api_key: "YOUR_KEY"
 
 privacy:
   allow_web_search: false
   redact_pii: true
+  url_denylist: ["localhost", "*.internal"]
 
-llm:
+llm_manager:
   loader: "llama_cpp"
+  process_terminate_timeout: 5000
   health_check_timeout: 60
 
 models_gguf:
-  gemma_3n:
-    path: "models/gemma-3n-E4B-it-IQ4_XS.gguf"
+  text_model:
+    path: "models/text-model.gguf"
     port: 8088
     n_ctx: 8192
     n_gpu_layers: -1
+  embedding_model:
+    path: "models/embedding-model.gguf"
+    port: 8090
+    n_ctx: 4096
+    n_gpu_layers: -1
 
-em_llm:
-  surprise_gamma: 1.0
-  total_retrieved_events: 4
-
-characters:
-  bunny_girl:
-    name: "Bunny Girl"
-    system_prompt: "..."
+model_download:
+  require_allowlist: false
+  warn_on_unlisted: true
+  require_revision: false
+  require_sha256: false
 ```
 
 > [!NOTE]
-> v4.0 では `custom_agents` セクションは非推奨です。代わりに `agents.yaml` を使用してください。
+> `GET /api/config` は機密値を `****` でマスクして返します。保存時は `config.yml` と `secrets.yaml` に分離されます。
 
 ### 実行時データ配置
 
 ```
 USER_DATA_DIR/
-├── config.yml              # ユーザー設定
-├── tepora_core.db          # SQLite: チャット履歴 + RAGベクトル
-├── logs/                   # アプリログ
+├── config.yml                  # ユーザー設定（公開）
+├── secrets.yaml                # APIキー等の機密設定
+├── tepora_core.db              # SQLite: チャット履歴 + RAGベクトル
+├── models.json                 # モデルレジストリ
+├── models/                     # ダウンロード/登録モデル
+├── logs/                       # アプリログ
+├── bin/llama.cpp/current/      # llama.cppバイナリ
 └── config/
     ├── mcp_tools_config.json   # MCP接続設定
+    ├── mcp_policy.json         # MCP接続ポリシー
     └── agents.yaml             # エージェント定義 [v4.0]
 ```
 
@@ -1044,6 +1135,9 @@ USER_DATA_DIR/
 - macOS: `~/Library/Application Support/Tepora`
 - Linux: `~/.local/share/tepora`
 
+> [!NOTE]
+> デバッグビルドでは `USER_DATA_DIR` は `project_root`（`backend-rs` 配下）になる実装です。
+
 ---
 
 ## 10. セキュリティ
@@ -1052,12 +1146,15 @@ USER_DATA_DIR/
 
 | 対象                 | 方式                       | 説明                    |
 | -------------------- | -------------------------- | ----------------------- |
-| **REST API**   | `x-api-key` ヘッダー     | 機密操作に必須          |
-| **WebSocket**  | クエリパラメータ `token` | 接続時に認証            |
+| **REST API**   | `x-api-key` ヘッダー     | `/health` と `/api/status` 以外で必須 |
+| **WebSocket**  | `Sec-WebSocket-Protocol` | `tepora-token.{hex(token)}` で認証 |
 | **Origin検証** | Allowlist                  | WebSocketのOriginを検証 |
 
 > [!NOTE]
-> `TEPORA_ENV=development` の場合、トークン検証はスキップされます。
+> `TEPORA_ENV!=production` の場合に限り、Origin ヘッダー未設定接続を許可します。トークン検証は常に有効です。
+
+> [!NOTE]
+> セッショントークンは `~/.tepora/.session_token` に保存され、REST/WebSocket 共通で使用されます。
 
 ### MCPセキュリティ
 
@@ -1073,18 +1170,19 @@ USER_DATA_DIR/
 
 | 機能                       | 説明                                   |
 | -------------------------- | -------------------------------------- |
-| **PII保護**          | 外部通信前に個人情報を自動リダクション |
-| **ローカル処理**     | 全LLM処理はローカルで完結              |
-| **ログリダクション** | ログファイルからもPIIを削除            |
+| **Web検索許可制御**  | `privacy.allow_web_search` が `false` の場合、外部検索/取得を拒否 |
+| **SSRF防御**         | `native_web_fetch` がローカルIP・private network・denylistドメインをブロック |
+| **入力ガード**       | `app.dangerous_patterns` による危険入力パターン拒否 |
+| **機密設定保護**     | APIキー等は `secrets.yaml` に分離保存 + APIレスポンス時マスク |
 
 ### モデルダウンロードセキュリティ
 
 | 機能                     | 説明                                              |
 | ------------------------ | ------------------------------------------------- |
-| **Allowlist**      | 許可されたリポジトリ/オーナーからのみダウンロード |
-| **リビジョン固定** | 特定リビジョンを指定（タンパリング防止）          |
-| **SHA256検証**     | 提供時はハッシュ検証を実行                        |
-| **未登録警告**     | Allowlist外は警告 + 同意を必須化                  |
+| **Allowlist**      | `model_download.allow_repo_owners` による制御     |
+| **リビジョン固定** | `require_revision=true` で必須化                  |
+| **SHA256検証**     | `require_sha256=true` で必須化                    |
+| **未登録警告**     | `warn_on_unlisted=true` で同意フローを要求        |
 
 ---
 
@@ -1110,8 +1208,10 @@ USER_DATA_DIR/
 | **Backend**  | cargo clippy     | Rustコードの静的解析            |
 | **Backend**  | cargo fmt        | コードフォーマット              |
 | **Backend**  | cargo test       | ユニットテスト                  |
-| **Frontend** | Biome            | 高速Lint/フォーマット           |
+| **Frontend** | ESLint           | TypeScript/React のLint         |
+| **Frontend** | Biome            | 追加コードチェック (`quality:frontend`) |
 | **Frontend** | TypeScript (tsc) | 型安全性チェック                |
+| **Frontend** | Vitest           | ユニット/統合テスト             |
 | **Security** | cargo audit      | Rust依存関係の脆弱性スキャン    |
 | **Security** | npm audit        | Node.js依存関係の脆弱性スキャン |
 
@@ -1121,8 +1221,8 @@ USER_DATA_DIR/
 # 開発モード起動 (Frontend + Sidecar)
 task dev
 
-# バックエンドのみ開発起動 (Watch mode)
-task dev:backend
+# バックエンドのみ開発起動
+task dev-backend
 
 # 品質チェック (Format, Lint, Test)
 task quality
