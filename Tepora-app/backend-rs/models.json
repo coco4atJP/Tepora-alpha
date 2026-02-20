@@ -13,7 +13,22 @@
       "repo_id": null,
       "revision": null,
       "sha256": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7",
-      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+      "added_at": "2026-02-18T13:11:40.004041700+00:00",
+      "parameter_size": "20.9B",
+      "quantization": "MXFP4",
+      "context_length": 131072,
+      "architecture": "gptoss",
+      "chat_template": "<|start|>system<|message|>You are ChatGPT, a large language model trained by OpenAI.\nKnowledge cutoff: 2024-06\nCurrent date: {{ currentDate }}\n{{- if and .IsThinkSet .Think (ne .ThinkLevel \"\") }}\n\nReasoning: {{ .ThinkLevel }}\n{{- else if or (not .IsThinkSet) (and .IsThinkSet .Think) }}\n\nReasoning: medium\n{{- end }}\n\n{{- $hasNonBuiltinTools := false }}\n{{- if .Tools -}}\n{{- $hasBrowserSearch := false }}\n{{- $hasBrowserOpen := false }}\n{{- $hasBrowserFind := false }}\n{{- $hasPython := false }}\n  {{- range .Tools }}\n    {{- if eq .Function.Name \"browser.search\" -}}{{- $hasBrowserSearch = true -}}\n    {{- else if eq .Function.Name \"browser.open\" -}}{{- $hasBrowserOpen = true -}}\n    {{- else if eq .Function.Name \"browser.find\" -}}{{- $hasBrowserFind = true -}}\n    {{- else if eq .Function.Name \"python\" -}}{{- $hasPython = true -}}\n    {{- else }}{{ $hasNonBuiltinTools = true -}}\n    {{- end }}\n  {{- end }}\n{{- if or $hasBrowserSearch $hasBrowserOpen $hasBrowserFind $hasPython }}\n\n# Tools\n{{- if or $hasBrowserSearch $hasBrowserOpen $hasBrowserFind }}\n\n## browser\n\n// Tool for browsing.\n// The `cursor` appears in brackets before each browsing display: `[{cursor}]`.\n// Cite information from the tool using the following format:\n// `【{cursor}†L{line_start}(-L{line_end})?】`, for example: `【6†L9-L11】` or `【8†L3】`.\n// Do not quote more than 10 words directly from the tool output.\n// sources=web (default: web)\nnamespace browser {\n{{- if $hasBrowserSearch }}\n\n// Searches for information related to `query` and displays `topn` results.\ntype search = (_: {\nquery: string,\ntopn?: number, // default: 10\nsource?: string,\n}) => any;\n{{- end }}\n{{- if $hasBrowserOpen }}\n\n// Opens the link `id` from the page indicated by `cursor` starting at line number `loc`, showing `num_lines` lines.\n// Valid link ids are displayed with the formatting: `【{id}†.*】`.\n// If `cursor` is not provided, the most recent page is implied.\n// If `id` is a string, it is treated as a fully qualified URL associated with `source`.\n// If `loc` is not provided, the viewport will be positioned at the beginning of the document or centered on the most relevant passage, if available.\n// Use this function without `id` to scroll to a new location of an opened page.\ntype open = (_: {\nid?: number | string, // default: -1\ncursor?: number, // default: -1\nloc?: number, // default: -1\nnum_lines?: number, // default: -1\nview_source?: boolean, // default: false\nsource?: string,\n}) => any;\n{{- end }}\n{{- if $hasBrowserFind }}\n\n// Finds exact matches of `pattern` in the current page, or the page given by `cursor`.\ntype find = (_: {\npattern: string,\ncursor?: number, // default: -1\n}) => any;\n{{- end }}\n\n} // namespace browser\n{{- end }}{{/* end if has browser tools */}}\n{{- if $hasPython }}\n\n## python\n\nUse this tool to execute Python code in your chain of thought. The code will not be shown to the user. This tool should be used for internal reasoning, but not for code that is intended to be visible to the user (e.g. when creating plots, tables, or files).\n\nWhen you send a message containing Python code to python, it will be executed in a stateful Jupyter notebook environment. python will respond with the output of the execution or time out after 120.0 seconds. The drive at '/mnt/data' can be used to save and persist user files. Internet access for this session is UNKNOWN. Depends on the cluster.\n{{- end }}{{/* end if hasPython */}}\n{{- end }}{{/* end if has any built-in tools */}}\n{{- end }}{{/* end if .Tools */}}\n\n# Valid channels: analysis, commentary, final. Channel must be included for every message.{{ if $hasNonBuiltinTools }}\nCalls to these tools must go to the commentary channel: 'functions'.\n{{- end -}}<|end|>{{/* end of system */ -}}\n{{- if or $hasNonBuiltinTools .System -}}\n<|start|>developer<|message|>{{- if $hasNonBuiltinTools }}# Tools\n\n## functions\n\nnamespace functions {\n{{- range .Tools }}\n{{- if not (or (eq .Function.Name \"browser.search\") (eq .Function.Name \"browser.open\") (eq .Function.Name \"browser.find\") (eq .Function.Name \"python\")) }}\n{{if .Function.Description }}\n// {{ .Function.Description }}\n{{- end }}\n{{- if and .Function.Parameters.Properties (gt (len .Function.Parameters.Properties) 0) }}\ntype {{ .Function.Name }} = (_: {\n{{- range $name, $prop := .Function.Parameters.Properties }}\n{{- if $prop.Description }}\n  // {{ $prop.Description }}\n{{- end }}\n  {{ $name }}: {{ $prop | toTypeScriptType }},\n{{- end }}\n}) => any;\n{{- else }}\ntype {{ .Function.Name }} = () => any;\n{{- end }}\n{{- end }}{{/* end if not browser tool */}}\n{{- end }}{{/* end of range .Tools */}}\n\n} // namespace functions\n{{- end }}{{/* end if hasNonBuiltinTools */}}\n{{- if .System}}\n\n# Instructions\n\n{{ .System }}\n{{- end -}}\n<|end|>\n{{- end -}}\n{{- /* Find the index of the last user message */ -}}\n{{- $lastUserIdx := -1 }}\n{{- $prefillingContent := false }}\n{{- $prefillingThinkingOnly := false }}\n{{- range $i, $msg := .Messages }}\n  {{- $last := eq (len (slice $.Messages $i)) 1 -}}\n  {{- if eq $msg.Role \"user\" }}\n    {{- $lastUserIdx = $i }}\n  {{- end -}}\n  {{- if and $last (eq $msg.Role \"assistant\") (gt (len $msg.Content) 0) }}\n    {{- $prefillingContent = true }}\n  {{- else if and $last (eq $msg.Role \"assistant\") (gt (len $msg.Thinking) 0) }}\n    {{- $prefillingThinkingOnly = true }}\n  {{- end }}\n{{- end -}}\n{{- /* Now render messages */ -}}\n{{- range $i, $msg := .Messages }}\n  {{- $last := eq (len (slice $.Messages $i)) 1 -}}\n  {{- if (ne $msg.Role \"system\") -}}\n    {{- if eq $msg.Role \"tool\" -}}\n      {{- if or (eq $msg.ToolName \"python\") (eq $msg.ToolName \"browser.search\") (eq $msg.ToolName \"browser.open\") (eq $msg.ToolName \"browser.find\") -}}\n        <|start|>{{ $msg.ToolName }} to=assistant<|message|>{{ $msg.Content }}<|end|>\n      {{- else -}}\n        <|start|>functions.{{ $msg.ToolName }} to=assistant<|message|>{{ $msg.Content }}<|end|>\n      {{- end -}}\n    {{- else if eq $msg.Role \"assistant\" -}}\n      {{- if and $msg.Thinking (gt $i $lastUserIdx) -}}{{- /* Show thinking only after last user message */ -}}\n      <|start|>assistant<|channel|>analysis<|message|>{{ $msg.Thinking }}{{- if not $prefillingThinkingOnly -}}<|end|>{{- end -}}\n      {{- end -}}\n      {{- if gt (len $msg.Content) 0 -}}\n        <|start|>assistant<|channel|>final<|message|>{{ $msg.Content }}{{- if not $prefillingContent -}}<|end|>{{- end -}}\n      {{- end -}}\n      {{- if gt (len $msg.ToolCalls) 0 -}}\n        {{- range $j, $toolCall := $msg.ToolCalls -}}\n          {{- $isBuiltin := or (eq $toolCall.Function.Name \"python\") (eq $toolCall.Function.Name \"browser.search\") (eq $toolCall.Function.Name \"browser.open\") (eq $toolCall.Function.Name \"browser.find\") -}}\n          <|start|>assistant<|channel|>{{ if $isBuiltin }}analysis{{ else }}commentary{{ end }} to={{ if not $isBuiltin}}functions.{{end}}{{ $toolCall.Function.Name }} <|constrain|>json<|message|>{{ $toolCall.Function.Arguments }}<|call|>\n        {{- end -}}\n      {{- end -}}\n    {{- else if eq $msg.Role \"user\" -}}\n      <|start|>{{ $msg.Role }}<|message|>{{ $msg.Content }}<|end|>\n    {{- end }}\n  {{- else }}\n  {{- end }}\n{{- end -}}\n{{- if not (or $prefillingContent $prefillingThinkingOnly) -}}\n<|start|>assistant\n{{- end -}}",
+      "stop_tokens": null,
+      "default_temperature": 1.0,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": false
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
     },
     {
       "id": "ollama-embeddinggemma:latest",
@@ -28,7 +43,22 @@
       "repo_id": null,
       "revision": null,
       "sha256": "85462619ee721b466c5927d109d4cb765861907d5417b9109caebc4e614679f1",
-      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+      "added_at": "2026-02-18T13:11:40.004041700+00:00",
+      "parameter_size": "307.58M",
+      "quantization": "BF16",
+      "context_length": 2048,
+      "architecture": "gemma3",
+      "chat_template": "{{ .Prompt }}",
+      "stop_tokens": null,
+      "default_temperature": null,
+      "capabilities": {
+        "completion": false,
+        "tool_use": false,
+        "vision": false
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
     },
     {
       "id": "ollama-lfm2.5-thinking:latest",
@@ -43,7 +73,22 @@
       "repo_id": null,
       "revision": null,
       "sha256": "95bd9d45385f33bfe96d8b3651c8569e152f21f5bdb7c19894ffde650e9cf140",
-      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+      "added_at": "2026-02-18T13:11:40.004041700+00:00",
+      "parameter_size": "1.2B",
+      "quantization": "Q4_K_M",
+      "context_length": 128000,
+      "architecture": "lfm2",
+      "chat_template": "{{ .Prompt }}",
+      "stop_tokens": null,
+      "default_temperature": 0.05,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": false
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
     },
     {
       "id": "ollama-rnj-1:8b",
@@ -58,9 +103,116 @@
       "repo_id": null,
       "revision": null,
       "sha256": "d20e29ab8d0f11423b1e8da33764c8bdafc1d0abbb9971f68edd0f6d4176435f",
-      "added_at": "2026-02-18T13:11:40.004041700+00:00"
+      "added_at": "2026-02-18T13:11:40.004041700+00:00",
+      "parameter_size": "8.3B",
+      "quantization": "Q4_K_M",
+      "context_length": 32768,
+      "architecture": "gemma3",
+      "chat_template": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\nYou are rnj-1, a foundation model trained by Essential AI.\n{{- if .System }}\n\n{{ .System }}\n{{- end }}\n{{- if .Tools }}\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{{- range .Tools }}\n{{ . }}\n{{- end }}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>\n{{- end }}<|eot_id|>\n{{- range $i, $_ := .Messages }}\n{{- if eq .Role \"system\" }}{{ continue }}{{ end }}\n{{- $last := eq (len (slice $.Messages $i)) 1 }}\n{{- if eq .Role \"user\" }}<|start_header_id|>user<|end_header_id|>\n{{ .Content }}<|eot_id|>\n{{- else if eq .Role \"assistant\" }}<|start_header_id|>assistant<|end_header_id|>\n{{ if .Content }}{{ .Content }}{{ end }}\n{{- if .ToolCalls }}\n{{- range .ToolCalls }}\n<tool_call>\n{\"name\": \"{{ .Function.Name }}\", \"arguments\": {{ .Function.Arguments }}}\n</tool_call>\n{{- end }}\n{{- end }}{{ if not $last }}<|eot_id|>{{ end }}\n{{- else if eq .Role \"tool\" }}<|start_header_id|>user<|end_header_id|>\n<tool_response>\n{{ .Content }}\n</tool_response><|eot_id|>\n{{- end }}\n{{- if and (ne .Role \"assistant\") $last }}<|start_header_id|>assistant<|end_header_id|>\n{{ end }}\n{{- end }}",
+      "stop_tokens": [
+        "<|start_header_id|>",
+        "<|end_header_id|>",
+        "<|eot_id|>"
+      ],
+      "default_temperature": 0.2,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": false
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
+    },
+    {
+      "id": "lmstudio-ibm/granite-4-h-tiny",
+      "display_name": "Granite 4 H Tiny (LM Studio)",
+      "role": "text",
+      "file_size": 4231029544,
+      "filename": "ibm/granite-4-h-tiny",
+      "source": "lmstudio",
+      "file_path": "lmstudio://ibm/granite-4-h-tiny",
+      "loader": "lmstudio",
+      "loader_model_name": "ibm/granite-4-h-tiny",
+      "repo_id": null,
+      "revision": null,
+      "sha256": null,
+      "added_at": "2026-02-20T12:49:00.643995100+00:00",
+      "parameter_size": "7B",
+      "quantization": "Q4_K_M",
+      "context_length": 1048576,
+      "architecture": "granitehybrid",
+      "chat_template": null,
+      "stop_tokens": null,
+      "default_temperature": null,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": false
+      },
+      "publisher": "ibm",
+      "description": null,
+      "format": "gguf"
+    },
+    {
+      "id": "lmstudio-mistralai/ministral-3-3b",
+      "display_name": "Ministral 3 3B (LM Studio)",
+      "role": "text",
+      "file_size": 2986817071,
+      "filename": "mistralai/ministral-3-3b",
+      "source": "lmstudio",
+      "file_path": "lmstudio://mistralai/ministral-3-3b",
+      "loader": "lmstudio",
+      "loader_model_name": "mistralai/ministral-3-3b",
+      "repo_id": null,
+      "revision": null,
+      "sha256": null,
+      "added_at": "2026-02-20T12:49:00.643995100+00:00",
+      "parameter_size": "3B",
+      "quantization": "Q4_K_M",
+      "context_length": 262144,
+      "architecture": "mistral3",
+      "chat_template": null,
+      "stop_tokens": null,
+      "default_temperature": null,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": true
+      },
+      "publisher": "mistralai",
+      "description": null,
+      "format": "gguf"
+    },
+    {
+      "id": "lmstudio-text-embedding-nomic-embed-text-v1.5",
+      "display_name": "Nomic Embed Text v1.5 (LM Studio)",
+      "role": "embedding",
+      "file_size": 84106624,
+      "filename": "text-embedding-nomic-embed-text-v1.5",
+      "source": "lmstudio",
+      "file_path": "lmstudio://text-embedding-nomic-embed-text-v1.5",
+      "loader": "lmstudio",
+      "loader_model_name": "text-embedding-nomic-embed-text-v1.5",
+      "repo_id": null,
+      "revision": null,
+      "sha256": null,
+      "added_at": "2026-02-20T12:49:00.643995100+00:00",
+      "parameter_size": null,
+      "quantization": "Q4_K_M",
+      "context_length": 2048,
+      "architecture": null,
+      "chat_template": null,
+      "stop_tokens": null,
+      "default_temperature": null,
+      "capabilities": null,
+      "publisher": "nomic-ai",
+      "description": null,
+      "format": "gguf"
     }
   ],
-  "role_assignments": {},
+  "role_assignments": {
+    "character": "ollama-embeddinggemma:latest"
+  },
   "role_order": {}
 }

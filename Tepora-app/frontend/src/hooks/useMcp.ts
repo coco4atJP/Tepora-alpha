@@ -131,7 +131,7 @@ async function updateMcpConfig(config: Record<string, McpServerConfig>): Promise
 	try {
 		await apiClient.post("api/mcp/config", { mcpServers: config });
 	} catch (err) {
-		throw new Error(getApiErrorMessage(err, "Failed to update config"));
+		throw new Error(getApiErrorMessage(err, "Failed to update config"), { cause: err });
 	}
 }
 
@@ -168,7 +168,7 @@ async function previewMcpInstall(
 			server_name: serverName,
 		});
 	} catch (err) {
-		throw new Error(getApiErrorMessage(err, "Failed to preview install"));
+		throw new Error(getApiErrorMessage(err, "Failed to preview install"), { cause: err });
 	}
 }
 
@@ -187,7 +187,7 @@ async function confirmMcpInstall(
 			consent_id: consentId,
 		});
 	} catch (err) {
-		throw new Error(getApiErrorMessage(err, "Failed to confirm install"));
+		throw new Error(getApiErrorMessage(err, "Failed to confirm install"), { cause: err });
 	}
 }
 
@@ -460,7 +460,7 @@ async function updateMcpPolicy(update: McpPolicyUpdate): Promise<void> {
 	try {
 		await apiClient.patch("api/mcp/policy", update);
 	} catch (err) {
-		throw new Error(getApiErrorMessage(err, "Failed to update policy"));
+		throw new Error(getApiErrorMessage(err, "Failed to update policy"), { cause: err });
 	}
 }
 

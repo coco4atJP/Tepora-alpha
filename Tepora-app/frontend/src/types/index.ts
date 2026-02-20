@@ -48,18 +48,18 @@ export interface ToolConfirmationRequest {
 // Incoming message types (from server)
 export interface WebSocketMessage {
 	type:
-		| "chunk"
-		| "done"
-		| "status"
-		| "error"
-		| "stats"
-		| "search_results"
-		| "activity"
-		| "stopped"
-		| "tool_confirmation_request"
-		| "history"
-		| "session_changed"
-		| "download_progress";
+	| "chunk"
+	| "done"
+	| "status"
+	| "error"
+	| "stats"
+	| "search_results"
+	| "activity"
+	| "stopped"
+	| "tool_confirmation_request"
+	| "history"
+	| "session_changed"
+	| "download_progress";
 	message?: string;
 	messages?: Message[]; // For history loading
 	sessionId?: string; // For session_changed event
@@ -67,34 +67,34 @@ export interface WebSocketMessage {
 	agentName?: string;
 	nodeId?: string;
 	data?:
-		| MemoryStats
-		| Record<string, unknown>
-		| SearchResult[]
-		| AgentActivity[]
-		| ToolConfirmationRequest;
+	| MemoryStats
+	| Record<string, unknown>
+	| SearchResult[]
+	| AgentActivity[]
+	| ToolConfirmationRequest;
 }
 
 // Outgoing message types (to server)
 export type WebSocketOutgoingMessage =
 	| {
-			type?: undefined;
-			message: string;
-			mode: ChatMode;
-			attachments?: Attachment[];
-			skipWebSearch?: boolean;
-			thinkingMode?: boolean; // Toggle Chain of Thought
-			sessionId?: string;
-			agentId?: string;
-			agentMode?: AgentMode;
-	  }
+		type?: undefined;
+		message: string;
+		mode: ChatMode;
+		attachments?: Attachment[];
+		skipWebSearch?: boolean;
+		thinkingMode?: boolean; // Toggle Chain of Thought
+		sessionId?: string;
+		agentId?: string;
+		agentMode?: AgentMode;
+	}
 	| { type: "stop" }
 	| { type: "get_stats" }
 	| { type: "set_session"; sessionId: string }
 	| {
-			type: "tool_confirmation_response";
-			requestId: string;
-			approved: boolean;
-	  };
+		type: "tool_confirmation_response";
+		requestId: string;
+		approved: boolean;
+	};
 
 // システムステータス
 export interface SystemStatus {
@@ -196,4 +196,16 @@ export interface PersonaPreset {
 	key: string;
 	preview: string;
 	name?: string;
+}
+
+// AI Model Types
+export interface ModelInfo {
+	id: string;
+	display_name: string;
+	role: string;
+	file_size: number;
+	filename?: string;
+	source: string;
+	loader?: string;
+	is_active?: boolean;
 }

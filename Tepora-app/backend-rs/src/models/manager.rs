@@ -422,7 +422,10 @@ impl ModelManager {
     fn model_storage_path(&self, role: &str, filename: &str) -> Result<PathBuf, ApiError> {
         let safe_role = role.to_lowercase();
         let base = self.paths.user_data_dir.join("models").join(safe_role);
-        Ok(base.join(filename))
+        // C-3 fix: ファイル名を正規化（親参照 / 絶対パス / パス区切り文字を拒否）
+        let safe_filename = sanitize_model_filename(filename)
+            .ok_or_else(|| ApiError::BadRequest("Invalid model filename".to_string()))?;
+        Ok(base.join(safe_filename))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -851,6 +854,21 @@ fn unique_model_id(base: &str, models: &[ModelEntry]) -> String {
     }
 }
 
+/// モデルファイル名をサニタイズする。ベース名のみ許可し、トラバーサルを拒否。
+fn sanitize_model_filename(filename: &str) -> Option<&str> {
+    if filename.is_empty() {
+        return None;
+    }
+    let base = Path::new(filename)
+        .file_name()
+        .and_then(|n| n.to_str())?;
+    if base == filename {
+        Some(base)
+    } else {
+        None
+    }
+}
+
 fn evaluate_download_policy_from_config(
     config: &Value,
     repo_id: &str,
@@ -1143,5 +1161,30 @@ mod tests {
         );
         let result = extract_context_length(Some(&info), None);
         assert_eq!(result, Some(4096));
+    }
+
+    #[test]
+    fn sanitize_model_filename_accepts_normal_name() {
+        assert_eq!(sanitize_model_filename("model.gguf"), Some("model.gguf"));
+        assert_eq!(sanitize_model_filename("my-model-v2.gguf"), Some("my-model-v2.gguf"));
+    }
+
+    #[test]
+    fn sanitize_model_filename_rejects_traversal() {
+        assert_eq!(sanitize_model_filename("../config.json"), None);
+        assert_eq!(sanitize_model_filename("..\\config.json"), None);
+        assert_eq!(sanitize_model_filename("sub/model.gguf"), None);
+        assert_eq!(sanitize_model_filename("sub\\model.gguf"), None);
+    }
+
+    #[test]
+    fn sanitize_model_filename_rejects_absolute_path() {
+        assert_eq!(sanitize_model_filename("/etc/passwd"), None);
+        assert_eq!(sanitize_model_filename("C:\\Windows\\foo.gguf"), None);
+    }
+
+    #[test]
+    fn sanitize_model_filename_rejects_empty() {
+        assert_eq!(sanitize_model_filename(""), None);
     }
 }

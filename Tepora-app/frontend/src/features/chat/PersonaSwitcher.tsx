@@ -194,25 +194,22 @@ const PersonaSwitcher: React.FC = () => {
 												setIsOpen(false);
 											}
 										}}
-										className={`group w-full text-left flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-											currentPersonaId === key ? "bg-white/10" : "hover:bg-white/5"
-										}`}
+										className={`group w-full text-left flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${currentPersonaId === key ? "bg-white/10" : "hover:bg-white/5"
+											}`}
 									>
 										<div className="flex items-center gap-3 overflow-hidden">
 											<div
-												className={`w-8 h-8 rounded-full flex items-center justify-center ${
-													currentPersonaId === key
+												className={`w-8 h-8 rounded-full flex items-center justify-center ${currentPersonaId === key
 														? "bg-gold-500 text-black"
 														: "bg-tea-800 text-tea-200"
-												} shrink-0`}
+													} shrink-0`}
 											>
 												<User size={14} />
 											</div>
 											<div className="min-w-0">
 												<div
-													className={`text-sm font-medium break-words ${
-														currentPersonaId === key ? "text-gold-300" : "text-gray-200"
-													}`}
+													className={`text-sm font-medium break-words ${currentPersonaId === key ? "text-gold-300" : "text-gray-200"
+														}`}
 												>
 													{character.name}
 												</div>
@@ -288,7 +285,7 @@ const PersonaSwitcher: React.FC = () => {
 										value={newKey}
 										onChange={(e) => setNewKey(e.target.value)}
 										className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
-										placeholder="e.g. coding_assistant"
+										placeholder={t("settings.sections.agents.new_profile_key_placeholder", "e.g. coding_assistant")}
 									/>
 								</div>
 							)}
@@ -307,7 +304,7 @@ const PersonaSwitcher: React.FC = () => {
 										setEditingCharacter((prev) => (prev ? { ...prev, name: e.target.value } : null))
 									}
 									className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
-									placeholder="e.g. Coding Assistant"
+									placeholder={t("settings.sections.agents.card.label_placeholder", "e.g. Coding Assistant")}
 								/>
 							</div>
 
@@ -328,7 +325,7 @@ const PersonaSwitcher: React.FC = () => {
 										)
 									}
 									className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-300 focus:border-tea-500 focus:outline-none"
-									placeholder="Brief description..."
+									placeholder={t("settings.sections.agents.card.description_placeholder", "Brief description...")}
 								/>
 							</div>
 
@@ -348,7 +345,7 @@ const PersonaSwitcher: React.FC = () => {
 										)
 									}
 									className="w-full h-40 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-300 focus:border-tea-500 focus:outline-none resize-none font-mono text-sm"
-									placeholder="You are a helpful AI assistant..."
+									placeholder={t("settings.sections.agents.card.custom_prompt_placeholder", "You are a helpful AI assistant...")}
 								/>
 							</div>
 						</div>

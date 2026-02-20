@@ -131,29 +131,28 @@ impl HistoryStore {
     }
 
     pub async fn list_sessions(&self) -> Result<Vec<SessionInfo>, ApiError> {
-        // Assume default limit for now to match old signature (no args)
-        let rows = sqlx::query("SELECT * FROM sessions ORDER BY updated_at DESC LIMIT 100")
-            .fetch_all(&self.pool)
-            .await
-            .map_err(ApiError::internal)?;
+        let rows = sqlx::query(
+            "SELECT s.id, s.title, s.created_at, s.updated_at, s.metadata, \
+             COUNT(m.id) as msg_count \
+             FROM sessions s \
+             LEFT JOIN messages m ON s.id = m.session_id \
+             GROUP BY s.id \
+             ORDER BY s.updated_at DESC \
+             LIMIT 100",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(ApiError::internal)?;
 
         let mut sessions = Vec::new();
         for row in rows {
-            let id: String = row.try_get::<String, _>("id").unwrap_or_default();
-            let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
-                .bind(&id)
-                .fetch_one(&self.pool)
-                .await
-                .map(|r| r.get(0))
-                .unwrap_or(0);
-
             sessions.push(SessionInfo {
-                id,
+                id: row.try_get::<String, _>("id").unwrap_or_default(),
                 title: row.try_get::<Option<String>, _>("title").unwrap_or(None),
                 created_at: row.try_get::<String, _>("created_at").unwrap_or_default(),
                 updated_at: row.try_get::<String, _>("updated_at").unwrap_or_default(),
                 metadata: row.try_get::<Option<Value>, _>("metadata").unwrap_or(None),
-                message_count: count,
+                message_count: row.try_get::<i64, _>("msg_count").unwrap_or(0),
                 preview: None,
             });
         }
@@ -222,13 +221,22 @@ impl HistoryStore {
         session_id: &str,
         limit: i64,
     ) -> Result<Vec<HistoryMessage>, ApiError> {
-        let rows = sqlx::query("SELECT * FROM messages WHERE session_id = ? ORDER BY id ASC") // Limit? Old logic didn't usually limit history for context context building needs all, but UI might need limit.
-            // If explicit limit needed:
-            // "SELECT * FROM (SELECT * FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id ASC"
+        let rows = if limit > 0 {
+            sqlx::query(
+                "SELECT * FROM (SELECT * FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id ASC",
+            )
             .bind(session_id)
+            .bind(limit)
             .fetch_all(&self.pool)
             .await
-            .map_err(ApiError::internal)?;
+            .map_err(ApiError::internal)?
+        } else {
+            sqlx::query("SELECT * FROM messages WHERE session_id = ? ORDER BY id ASC")
+                .bind(session_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
+        };
 
         let mut messages = Vec::new();
         for row in rows {
@@ -242,12 +250,6 @@ impl HistoryStore {
                     .try_get::<Option<Value>, _>("additional_kwargs")
                     .unwrap_or(None),
             });
-        }
-
-        // Apply limit in memory if simple
-        if limit > 0 && messages.len() > limit as usize {
-            let start = messages.len() - limit as usize;
-            return Ok(messages[start..].to_vec());
         }
 
         Ok(messages)

@@ -324,7 +324,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 									type="text"
 									value={newKeyInput}
 									onChange={(e) => setNewKeyInput(e.target.value)}
-									placeholder="e.g. coding_expert"
+									placeholder={t("settings.sections.agents.modal.key_placeholder", "e.g. coding_expert")}
 									className="settings-input font-mono w-full"
 								/>
 							</div>

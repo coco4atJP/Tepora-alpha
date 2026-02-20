@@ -16,7 +16,8 @@
 			"setup_failed_start": "Setup failed to start",
 			"finalize_failed": "Failed to finalize setup",
 			"save_config_failed": "Failed to save configuration. Please try again.",
-			"unknown": "Unknown error"
+			"unknown": "Unknown error",
+			"preflight_failed": "Preflight failed"
 		},
 		"start": "Start Tepora",
 		"auto_setup": "Auto Setup",
@@ -75,7 +76,17 @@
 		"offline_privacy_tip": "Tepora runs completely offline once installed. Your data stays on your device, ensuring maximum privacy and security.",
 		"hide_logs": "Hide detailed logs",
 		"show_logs": "Show detailed logs",
-		"installer_output": "Installer Output"
+		"installer_output": "Installer Output",
+		"embedding_warning_title": "Embedding warning title",
+		"embedding_warning_proceed": "Embedding warning proceed",
+		"loader_title": "Loader title",
+		"step_lang": "Step lang",
+		"step_engine": "Step engine",
+		"step_model": "Step model",
+		"step_install": "Step install",
+		"step_done": "Step done",
+		"loader_select_title": "Loader select title",
+		"loader_select_desc": "Loader select desc"
 	},
 	"app": {
 		"loading": "Connecting to server...",
@@ -165,7 +176,16 @@
 			"add_item": "Add item",
 			"remove_item": "Remove item",
 			"cancel": "Cancel"
-		}
+		},
+		"browse": "Browse",
+		"active": "Active",
+		"activate": "Activate",
+		"no_data": "No data",
+		"refreshing": "Refreshing",
+		"scan_providers": "Scan providers",
+		"all": "All",
+		"loading": "Loading",
+		"clear_filters": "Clear filters"
 	},
 	"chat": {
 		"clear_history": "Clear History",
@@ -196,7 +216,14 @@
 			"stop": "Stop Generation",
 			"stop_generation": "Stop Generation",
 			"mode_active": "{{mode}} MODE ACTIVE",
-			"aria_label": "Message Input"
+			"aria_label": "Message Input",
+			"agent_mode": "Agent mode",
+			"agent_mode_fast": "Agent mode fast",
+			"agent_mode_high": "Agent mode high",
+			"agent_mode_direct": "Agent mode direct",
+			"select_agent": "Select agent",
+			"agent_auto": "Agent auto",
+			"thinking_mode": "Thinking mode"
 		},
 		"messages_aria_label": "Chat messages",
 		"jump_to_latest": "Jump to latest message",
@@ -207,6 +234,10 @@
 			"search": "Search",
 			"agent": "Agent",
 			"chat": "Chat"
+		},
+		"generationStopped": "GenerationStopped",
+		"status": {
+			"thinking": "Thinking"
 		}
 	},
 	"agent": {
@@ -343,7 +374,8 @@
 					"failed": "Update failed",
 					"start_failed": "Failed to start update",
 					"error": "Error starting update"
-				}
+				},
+				"app_updater": "App updater"
 			},
 			"updater": {
 				"title": "Software Update",
@@ -390,7 +422,11 @@
 					"allowed_tools": "Allowed Tools",
 					"allowed_tools_description": "Use \"*\" for all.",
 					"denied_tools": "Denied Tools",
-					"tool_placeholder": "Tool name..."
+					"tool_placeholder": "Tool name...",
+					"icon": "Icon",
+					"icon_placeholder": "Icon placeholder",
+					"avatar_path": "Avatar path",
+					"avatar_placeholder": "Avatar placeholder"
 				},
 				"tab": {
 					"characters": "Characters",
@@ -407,7 +443,8 @@
 					"desc_label": "Description",
 					"prompt_label": "System Prompt",
 					"model_label": "Model",
-					"model_desc": "Select the model configuration for this agent."
+					"model_desc": "Select the model configuration for this agent.",
+					"key_placeholder": "Key placeholder"
 				},
 				"error_empty_key": "Please enter an ID.",
 				"error_duplicate_key": "This ID is already in use.",
@@ -447,7 +484,9 @@
 					"enabled_label": "Enabled",
 					"tools_label": "Allowed Tools",
 					"no_tools": "No tools available",
-					"allow_all_tools": "Allow All Tools (Blacklist mode)"
+					"allow_all_tools": "Allow All Tools (Blacklist mode)",
+					"tags_label": "Tags label",
+					"priority_label": "Priority label"
 				}
 			},
 			"privacy": {
@@ -570,7 +609,18 @@
 					"dials_hint": "Drag dials to adjust values",
 					"temp_desc": "Controls randomness.",
 					"top_p_desc": "Nucleus sampling."
-				}
+				},
+				"configurations": {
+					"path_placeholder": "Path placeholder"
+				},
+				"refresh_ollama": "Refresh ollama",
+				"refresh_lmstudio": "Refresh lmstudio",
+				"search_title": "Search title",
+				"download_policy_title": "Download policy title",
+				"loaders_title": "Loaders title",
+				"search_description": "Configure search result reranking with embedding models.",
+				"download_policy_description": "Security controls for downloading models from remote repositories.",
+				"loaders_description": "Configure base URLs for external model providers."
 			},
 			"other": {
 				"label": "Other",
@@ -626,7 +676,54 @@
 				"description": "Regex patterns to block from user input for security.",
 				"placeholder": "Add regex pattern (e.g. system\\s*:)"
 			},
-			"cache_size": "Model Cache Limit"
+			"cache_size": "Model Cache Limit",
+			"web_fetch_max_bytes": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"web_fetch_timeout_secs": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"graph_execution_timeout": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"embedding_rerank": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"require_allowlist": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"warn_on_unlisted": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"require_revision": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"require_sha256": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"allow_repo_owners": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			},
+			"ollama_base_url": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			},
+			"lmstudio_base_url": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			}
 		},
 		"descriptions": {
 			"cache_size": "Number of models to keep loaded in memory."
@@ -670,7 +767,19 @@
 				"button": "Open List"
 			},
 			"episodic_params_title": "Episodic Memory Parameters",
-			"episodic_params_desc": "Advanced configuration for EM-LLM"
+			"episodic_params_desc": "Advanced configuration for EM-LLM",
+			"title": "Title",
+			"connecting": "Connecting",
+			"character_memory": "Character memory",
+			"stats": {
+				"total_events": "Total events",
+				"total_tokens": "Total tokens",
+				"mean_event_size": "Mean event size",
+				"surprise_statistics": "Surprise statistics",
+				"mean_surprise": "Mean surprise",
+				"max_surprise": "Max surprise"
+			},
+			"professional_memory": "Professional memory"
 		},
 		"mcp_content": {
 			"info": {
@@ -808,6 +917,24 @@
 				"predict_len": "Predict Length",
 				"predict_len_desc": "Prediction length hint for the model server (0 = auto)."
 			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "Label",
+				"description": "Description",
+				"warning_title": "Warning title",
+				"warning_query": "Warning query",
+				"warning_api": "Warning api"
+			},
+			"url_denylist": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			},
+			"redact_pii": {
+				"label": "Label",
+				"description": "Description"
+			}
 		}
 	},
 	"tool_errors": {
@@ -832,5 +959,97 @@
 		"tool_not_found": "Tool '{{tool_name}}' not found.",
 		"tool_no_method": "Tool '{{tool_name}}' has no callable method.",
 		"tool_execution_error": "Error executing tool '{{tool_name}}': {{details}}"
-	}
+	},
+	"errorBoundary": {
+		"title": "Something went wrong",
+		"message": "The UI encountered an unexpected error. Reload the app to continue.",
+		"details": "Error details",
+		"reload": "Reload"
+	},
+	"Close": "Close",
+	"error": "Error",
+	"info": "Info",
+	"empty": {
+		"capability": {
+			"search": {
+				"title": "Title",
+				"desc": "Desc"
+			},
+			"code": {
+				"title": "Title",
+				"desc": "Desc"
+			},
+			"chat": {
+				"title": "Title",
+				"desc": "Desc"
+			}
+		},
+		"hero": {
+			"subtitle": "Subtitle"
+		}
+	},
+	"shortcuts": {
+		"newSession": "NewSession",
+		"stopGeneration": "StopGeneration",
+		"showHelp": "ShowHelp",
+		"title": "Title",
+		"footer": "Footer"
+	},
+	"": {
+		"": {
+			"/": {
+				"": {
+					"/types": "/types"
+				}
+			}
+		},
+		"/sessionToken": "/sessionToken"
+	},
+	"Italic": "Italic",
+	"test": "Test",
+	"hello": "Hello",
+	"Hello": "Hello",
+	"Tepora": "Tepora",
+	"Barista": "Barista",
+	"検索結果待機中": {
+		"": {
+			"": {
+				"": ""
+			}
+		}
+	},
+	"model": {
+		"role": {
+			"text": "Text",
+			"embedding": "Embedding"
+		}
+	},
+	"modelHub": {
+		"title": "Title",
+		"subtitle": "Subtitle",
+		"search_placeholder": "Search placeholder",
+		"no_models_found": "No models found"
+	},
+	"English": "English",
+	"日本語": "日本語",
+	"Español": "Español",
+	"🇺🇸": "🇺🇸",
+	"🇯🇵": "🇯🇵",
+	"50%": "50%",
+	"75%": "75%",
+	"Retry": "Retry",
+	"Skip": "Skip",
+	"repo": "Repo",
+	"file": "File",
+	"user/repo": "User/repo",
+	"model-Q4_K_M": {
+		"gguf": "Gguf"
+	},
+	"Proceed": "Proceed",
+	"Cancel": "Cancel",
+	"page": "Page",
+	"page_size": "Page size",
+	"runtime": "Runtime",
+	"session-refresh": "Session-refresh",
+	"download-progress": "Download-progress"
 }

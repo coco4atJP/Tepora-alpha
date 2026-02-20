@@ -133,7 +133,7 @@ const McpSettings: React.FC = () => {
 			return;
 		}
 
-		let env: Record<string, string> = {};
+		let env: Record<string, string>;
 		try {
 			env = parseEnvText(draftEnv);
 		} catch (err) {
@@ -302,11 +302,10 @@ const McpSettings: React.FC = () => {
 										<button
 											type="button"
 											onClick={() => toggleServer(name, !serverConfig.enabled)}
-											className={`p-2 rounded-lg transition-all glass-button ${
-												serverConfig.enabled
+											className={`p-2 rounded-lg transition-all glass-button ${serverConfig.enabled
 													? "bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/30"
 													: "bg-white/5 text-gray-400 hover:bg-white/10"
-											}`}
+												}`}
 											aria-label={
 												serverConfig.enabled
 													? t("settings.mcp.disable")

@@ -98,7 +98,7 @@ describe("AddModelForm", () => {
 				return {
 					ok: true,
 					status: 200,
-					json: async () => ({ success: true }),
+					json: async () => ({ success: true, job_id: "test-job-id" }),
 				};
 			}
 			return { ok: false };
@@ -196,7 +196,7 @@ describe("AddModelForm", () => {
 					return {
 						ok: true,
 						status: 200,
-						json: async () => ({ success: true }),
+						json: async () => ({ success: true, job_id: "test-job-id" }),
 					};
 				} else {
 					return {

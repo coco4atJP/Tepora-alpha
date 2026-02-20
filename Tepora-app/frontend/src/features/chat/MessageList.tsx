@@ -140,7 +140,7 @@ const MessageList: React.FC = () => {
 								<div className="w-6 h-6 rounded-sm bg-gradient-to-tr from-gold-400 to-amber-600 flex items-center justify-center shadow-lg">
 									<span className="text-[10px] font-bold text-black">{t("common.ai")}</span>
 								</div>
-								<span className="text-xs text-gold-400 font-medium">Tepora</span>
+								<span className="text-xs text-gold-400 font-medium">{t("common.ai", "Tepora")}</span>
 							</div>
 							<SkeletonLoader variant="text" count={3} className="w-64 opacity-50" />
 						</div>

@@ -97,19 +97,32 @@ pub struct ReorderModelsRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct CheckModelRequest {
-    pub model_id: String,
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub repo_id: Option<String>,
+    #[serde(default)]
+    pub filename: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct DownloadModelRequest {
     pub repo_id: String,
     pub filename: String,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub acknowledge_warnings: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct LocalModelRequest {
+    #[serde(alias = "file_path")]
     pub path: String,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -193,7 +206,7 @@ pub async fn setup_requirements(
     let has_missing = !(text_ok && embedding_ok);
 
     Ok(Json(json!({
-        "is_ready": text_ok,
+        "is_ready": text_ok && embedding_ok,
         "has_missing": has_missing,
         "binary": {"status": "ok", "version": null},
         "models": {
@@ -519,20 +532,100 @@ pub async fn setup_check_model(
     Json(payload): Json<CheckModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let details = state.models.get_model(&payload.model_id)?;
-    Ok(Json(json!(details)))
+
+    // C-1 fix: model_id がある場合は既存のモデル検索、なければ repo_id/filename で存在確認
+    if let Some(model_id) = &payload.model_id {
+        let details = state.models.get_model(model_id)?;
+        return Ok(Json(json!({ "exists": details.is_some(), "model": details })));
+    }
+
+    if let (Some(repo_id), Some(filename)) = (&payload.repo_id, &payload.filename) {
+        // リモートファイルのサイズ取得で存在確認
+        let size = state.models.get_remote_file_size(repo_id, filename).await?;
+        return Ok(Json(json!({ "exists": size.is_some(), "size": size })));
+    }
+
+    Err(ApiError::BadRequest("model_id or repo_id+filename required".to_string()))
 }
 
 pub async fn setup_download_model(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(_payload): Json<DownloadModelRequest>,
+    Json(payload): Json<DownloadModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    // Placeholder for direct download triggering if needed, currently setup_run handles logic
-    // This endpoint was not fully implemented in api.rs but existed in route
-    // We'll mimic setup_run single item behavior if needed, or just return ok
-    Ok(Json(json!({"success": true})))
+
+    // C-1 fix: 単一モデルダウンロードの本実装
+    let role = payload.role.as_deref().unwrap_or("text");
+    let consent = payload.acknowledge_warnings.unwrap_or(false);
+    let display_name = payload.filename.clone();
+
+    // ポリシー確認
+    let policy = state.models.evaluate_download_policy(
+        &payload.repo_id,
+        &payload.filename,
+        None,
+        None,
+    );
+    if !policy.allowed {
+        return Ok(Json(json!({
+            "success": false,
+            "requires_consent": false,
+            "warnings": policy.warnings
+        })));
+    }
+    if policy.requires_consent && !consent {
+        return Err(ApiError::Conflict(json!({
+            "success": false,
+            "requires_consent": true,
+            "warnings": policy.warnings
+        }).to_string()));
+    }
+
+    // 非同期ダウンロード開始
+    let job_id = uuid::Uuid::new_v4().to_string();
+    state.setup.set_job_id(Some(job_id.clone()))?;
+    state.setup.update_progress("pending", 0.0, "Starting download...")?;
+
+    let state_clone = state.clone();
+    let repo_id = payload.repo_id.clone();
+    let filename = payload.filename.clone();
+    let role_owned = role.to_string();
+
+    tokio::spawn(async move {
+        let result = state_clone.models.download_from_huggingface(
+            &repo_id,
+            &filename,
+            &role_owned,
+            &display_name,
+            None,
+            None,
+            consent,
+            Some(&|p: f32, msg: &str| {
+                let _ = state_clone.setup.update_progress("downloading", p, msg);
+            }),
+        ).await;
+
+        match result {
+            Ok(dl_result) if dl_result.success => {
+                if let Some(model_id) = dl_result.model_id.as_deref() {
+                    let role_key = if role_owned == "embedding" { "embedding" } else { "character" };
+                    let _ = state_clone.models.set_role_model(role_key, model_id);
+                    let _ = state_clone.models.update_active_model_config(
+                        if role_owned == "embedding" { "embedding" } else { "text" },
+                        model_id,
+                    );
+                }
+                let _ = state_clone.setup.update_progress("completed", 1.0, "Download completed!");
+            }
+            _ => {
+                let _ = state_clone.setup.update_progress("failed", 0.0, "Download failed");
+            }
+        }
+        let _ = state_clone.setup.set_job_id(None);
+    });
+
+    Ok(Json(json!({"success": true, "job_id": job_id})))
 }
 
 pub async fn setup_register_local_model(
@@ -543,10 +636,15 @@ pub async fn setup_register_local_model(
     require_api_key(&headers, &state.session_token)?;
     let path = std::path::Path::new(&payload.path);
     let filename = path.file_name().and_then(|v| v.to_str()).unwrap_or("model");
-    let display_name = format!("Local: {}", filename);
+    // C-1 fix: フロントから送られる role / display_name を反映
+    let role = payload.role.as_deref().unwrap_or("text");
+    let display_name = payload.display_name
+        .as_deref()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("Local: {}", filename));
     let entry = state
         .models
-        .register_local_model(path, "text", &display_name)?;
+        .register_local_model(path, role, &display_name)?;
     Ok(Json(json!({"success": true, "model_id": entry.id})))
 }
 

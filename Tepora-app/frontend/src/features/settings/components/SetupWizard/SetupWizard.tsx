@@ -132,7 +132,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						: err instanceof Error
 							? err.message
 							: t("setup.errors.start_failed", "Failed to start setup");
-				throw new Error(errorMessage);
+				throw new Error(errorMessage, { cause: err });
 			}
 		},
 		[state.loader, t],
@@ -163,7 +163,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				} else if (err instanceof Error) {
 					msg = err.message;
 				}
-				throw new Error(msg);
+				throw new Error(msg, { cause: err });
 			}
 
 			const target_models: Array<{
@@ -262,7 +262,7 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				.then((data) => {
 					dispatch({ type: "SET_DEFAULTS", payload: data });
 				})
-				.catch(() => {});
+				.catch(() => { });
 		}
 	}, [state.step, state.defaults]);
 
@@ -419,18 +419,16 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						return (
 							<div key={s.key} className="relative z-10 flex flex-col items-center gap-2 group">
 								<div
-									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${
-										isActive
+									className={`w-4 h-4 rounded-full border-2 transition-all duration-500 ${isActive
 											? "bg-gold-400 border-gold-400 scale-125 shadow-[0_0_15px_rgba(250,227,51,0.6)]"
 											: isDone
 												? "bg-gold-500/80 border-gold-500/80"
 												: "bg-[#050201] border-white/20"
-									}`}
+										}`}
 								/>
 								<span
-									className={`absolute top-6 w-24 left-1/2 -translate-x-1/2 text-center text-xs font-medium tracking-wide transition-colors duration-300 leading-tight ${
-										isActive ? "text-gold-100" : isDone ? "text-gray-400" : "text-gray-600"
-									}`}
+									className={`absolute top-6 w-24 left-1/2 -translate-x-1/2 text-center text-xs font-medium tracking-wide transition-colors duration-300 leading-tight ${isActive ? "text-gold-100" : isDone ? "text-gray-400" : "text-gray-600"
+										}`}
 								>
 									{s.label}
 								</span>

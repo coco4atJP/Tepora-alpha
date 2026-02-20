@@ -46,11 +46,11 @@ pub async fn get_log_content(
     require_api_key(&headers, &state.session_token)?;
 
     let log_dir = &state.paths.log_dir;
-    let path = log_dir.join(&filename);
 
-    if !path.starts_with(log_dir) {
-        return Err(ApiError::BadRequest("Invalid log path".to_string()));
-    }
+    // C-2 fix: ファイル名のみ許可（パス区切り / ".." / 絶対パスを拒否）
+    let safe_name = sanitize_log_filename(&filename)
+        .ok_or_else(|| ApiError::BadRequest("Invalid log filename".to_string()))?;
+    let path = log_dir.join(safe_name);
 
     if !path.exists() {
         return Err(ApiError::NotFound("Log file not found".to_string()));
@@ -58,4 +58,46 @@ pub async fn get_log_content(
 
     let content = fs::read_to_string(path).map_err(ApiError::internal)?;
     Ok(content)
+}
+
+/// ログファイル名をサニタイズする。ベース名のみ許可し、トラバーサルを拒否。
+fn sanitize_log_filename(filename: &str) -> Option<&str> {
+    let base = std::path::Path::new(filename)
+        .file_name()
+        .and_then(|n| n.to_str())?;
+    if base == filename && !filename.contains("..") {
+        Some(base)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_accepts_normal_log_filename() {
+        assert_eq!(sanitize_log_filename("app.log"), Some("app.log"));
+        assert_eq!(sanitize_log_filename("debug-2026.log"), Some("debug-2026.log"));
+    }
+
+    #[test]
+    fn sanitize_rejects_parent_traversal() {
+        assert_eq!(sanitize_log_filename("../secret.txt"), None);
+        assert_eq!(sanitize_log_filename("..\\secret.txt"), None);
+        assert_eq!(sanitize_log_filename("foo/../bar.log"), None);
+    }
+
+    #[test]
+    fn sanitize_rejects_absolute_path() {
+        assert_eq!(sanitize_log_filename("/etc/passwd"), None);
+        assert_eq!(sanitize_log_filename("C:\\Windows\\System32\\foo.log"), None);
+    }
+
+    #[test]
+    fn sanitize_rejects_directory_prefix() {
+        assert_eq!(sanitize_log_filename("subdir/app.log"), None);
+        assert_eq!(sanitize_log_filename("subdir\\app.log"), None);
+    }
 }

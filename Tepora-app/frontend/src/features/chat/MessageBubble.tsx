@@ -34,39 +34,39 @@ function getIconBgClass(message: Message): string {
  * Get the message bubble class based on message role, agentName, nodeId, and mode.
  */
 function getBubbleClass(message: Message): string {
-	const baseClasses = "rounded-2xl p-4 shadow-lg backdrop-blur-md border min-w-0 transition-all";
+	const baseClasses = "rounded-[1.25rem] p-4 md:p-5 shadow-lg min-w-0 transition-all border";
 
 	if (message.role === "user") {
-		return `${baseClasses} bg-tea-600/70 border-tea-400/50 text-cream-100 rounded-tr-none`;
+		return `${baseClasses} bg-tea-700/60 border-tea-400/30 text-cream-50 rounded-tr-sm shadow-[0_8px_30px_rgba(189,75,38,0.1)] backdrop-blur-md`;
 	}
 
 	if (message.role === "system") {
-		return `${baseClasses} bg-semantic-error/10 border-semantic-error/50 text-semantic-error`;
+		return `${baseClasses} glass-panel bg-semantic-error/10 border-semantic-error/40 text-semantic-error`;
 	}
 
 	// Assistant role
 	if (message.nodeId) {
 		// Agent/Tool specific styling
 		if (message.agentName === "Supervisor") {
-			return `${baseClasses} bg-amber-900/60 border-amber-500/50 text-amber-100`;
+			return `${baseClasses} glass-panel border-amber-500/30 text-amber-100 shadow-[0_4px_20px_rgba(245,158,11,0.05)]`;
 		}
 		if (message.agentName === "Planner") {
-			return `${baseClasses} bg-purple-900/60 border-purple-500/50 text-purple-100`;
+			return `${baseClasses} glass-panel border-purple-500/30 text-purple-100 shadow-[0_4px_20px_rgba(168,85,247,0.05)]`;
 		}
 		if (message.agentName?.includes("Search")) {
-			return `${baseClasses} bg-cyan-900/60 border-cyan-500/50 text-cyan-100`;
+			return `${baseClasses} glass-panel border-cyan-500/30 text-cyan-100 shadow-[0_4px_20px_rgba(6,182,212,0.05)]`;
 		}
-		return `${baseClasses} bg-gold-900/50 border-gold-500/40 text-gold-100`;
+		return `${baseClasses} glass-panel border-gold-500/30 text-gold-50 shadow-[0_4px_20px_rgba(252,211,77,0.05)]`;
 	}
 
 	// Fallback to mode styling
 	switch (message.mode) {
 		case "search":
-			return `${baseClasses} bg-cyan-950/70 border-cyan-500/40 text-cyan-50`;
+			return `${baseClasses} glass-panel bg-cyan-950/30 border-cyan-500/30 text-cyan-50`;
 		case "agent":
-			return `${baseClasses} bg-tea-900/70 border-gold-500/40 text-gold-50`;
+			return `${baseClasses} glass-tepora border-gold-500/30 text-gold-50 rounded-tl-sm`;
 		default:
-			return `${baseClasses} bg-theme-panel border-theme-border text-theme-text rounded-tl-none`;
+			return `${baseClasses} glass-panel border-border-highlight text-text-primary rounded-tl-sm`;
 	}
 }
 

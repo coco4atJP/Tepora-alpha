@@ -13,7 +13,8 @@
 			"setup_failed_start": "设置无法启动",
 			"finalize_failed": "完成设置失败",
 			"save_config_failed": "保存配置失败。请重试。",
-			"unknown": "未知错误"
+			"unknown": "未知错误",
+			"preflight_failed": "Preflight failed"
 		},
 		"start": "启动 Tepora",
 		"auto_setup": "自动设置",
@@ -71,7 +72,17 @@
 		"offline_privacy_tip": "Tepora 安装后完全离线运行。您的数据保留在您的设备上，确保最大的隐私和安全性。",
 		"hide_logs": "隐藏详细日志",
 		"show_logs": "显示详细日志",
-		"installer_output": "安装程序输出"
+		"installer_output": "安装程序输出",
+		"embedding_warning_title": "Embedding warning title",
+		"embedding_warning_proceed": "Embedding warning proceed",
+		"loader_title": "Loader title",
+		"step_lang": "Step lang",
+		"step_engine": "Step engine",
+		"step_model": "Step model",
+		"step_install": "Step install",
+		"step_done": "Step done",
+		"loader_select_title": "Loader select title",
+		"loader_select_desc": "Loader select desc"
 	},
 	"app": {
 		"loading": "连接服务器中...",
@@ -159,7 +170,16 @@
 			"add_item": "添加项",
 			"remove_item": "移除项",
 			"cancel": "取消"
-		}
+		},
+		"browse": "Browse",
+		"active": "Active",
+		"activate": "Activate",
+		"no_data": "No data",
+		"refreshing": "Refreshing",
+		"scan_providers": "Scan providers",
+		"all": "All",
+		"loading": "Loading",
+		"clear_filters": "Clear filters"
 	},
 	"chat": {
 		"clear_history": "清除历史记录",
@@ -190,11 +210,22 @@
 			"stop": "停止生成",
 			"stop_generation": "停止生成",
 			"mode_active": "{{mode}} 模式已激活",
-			"aria_label": "消息输入"
+			"aria_label": "消息输入",
+			"agent_mode": "Agent mode",
+			"agent_mode_fast": "Agent mode fast",
+			"agent_mode_high": "Agent mode high",
+			"agent_mode_direct": "Agent mode direct",
+			"select_agent": "Select agent",
+			"agent_auto": "Agent auto",
+			"thinking_mode": "Thinking mode"
 		},
 		"messages_aria_label": "聊天消息",
 		"jump_to_latest": "跳转到最新消息",
-		"jump_to_latest_short": "最新"
+		"jump_to_latest_short": "最新",
+		"generationStopped": "GenerationStopped",
+		"status": {
+			"thinking": "Thinking"
+		}
 	},
 	"agent": {
 		"title": "代理活动",
@@ -331,7 +362,8 @@
 					"failed": "更新失败",
 					"start_failed": "无法开始更新",
 					"error": "开始更新时出错"
-				}
+				},
+				"app_updater": "App updater"
 			},
 			"updater": {
 				"title": "软件更新",
@@ -450,7 +482,18 @@
 					"dials_hint": "拖动拨号盘以调整值",
 					"show_advanced": "显示高级设置",
 					"hide_advanced": "隐藏高级设置"
-				}
+				},
+				"configurations": {
+					"path_placeholder": "Path placeholder"
+				},
+				"refresh_ollama": "Refresh ollama",
+				"refresh_lmstudio": "Refresh lmstudio",
+				"search_title": "Search title",
+				"download_policy_title": "Download policy title",
+				"loaders_title": "Loaders title",
+				"search_description": "配置使用嵌入模型进行搜索结果重新排名。",
+				"download_policy_description": "用于从远程库下载模型的安全控制。",
+				"loaders_description": "配置外部模型提供者的基础 URL。"
 			},
 			"agents": {
 				"label": "角色",
@@ -478,7 +521,8 @@
 					"desc_label": "说明",
 					"prompt_label": "系统提示",
 					"model_label": "模型",
-					"model_desc": "选择此代理使用的模型配置。"
+					"model_desc": "选择此代理使用的模型配置。",
+					"key_placeholder": "Key placeholder"
 				},
 				"no_description": "无描述",
 				"nsfw_label": "允许受限内容(nsf)",
@@ -509,7 +553,11 @@
 					"set_active": "设为活动",
 					"active": "活动",
 					"set_active_short": "设置",
-					"delete": "删除"
+					"delete": "删除",
+					"icon": "Icon",
+					"icon_placeholder": "Icon placeholder",
+					"avatar_path": "Avatar path",
+					"avatar_placeholder": "Avatar placeholder"
 				}
 			},
 			"custom_agents": {
@@ -539,7 +587,9 @@
 					"model_label": "模型",
 					"enabled_label": "启用",
 					"tools_label": "允许工具",
-					"no_tools": "无可用工具"
+					"no_tools": "无可用工具",
+					"tags_label": "Tags label",
+					"priority_label": "Priority label"
 				}
 			},
 			"other": {
@@ -596,7 +646,54 @@
 				"description": "为安全起见，阻止用户输入的正则表达式模式。",
 				"placeholder": "添加正则表达式模式 (例如 system\\s*:)"
 			},
-			"cache_size": "模型缓存数量"
+			"cache_size": "模型缓存数量",
+			"web_fetch_max_bytes": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"web_fetch_timeout_secs": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"graph_execution_timeout": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"embedding_rerank": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"require_allowlist": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"warn_on_unlisted": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"require_revision": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"require_sha256": {
+				"label": "Label",
+				"description": "Description"
+			},
+			"allow_repo_owners": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			},
+			"ollama_base_url": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			},
+			"lmstudio_base_url": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
+			}
 		},
 		"descriptions": {
 			"cache_size": "内存中保留的模型数量。"
@@ -612,6 +709,11 @@
 			"redact_pii": {
 				"label": "个人信息保护",
 				"description": "自动从日志中删除个人信息（电子邮件地址、电话号码等），并在发送到外部服务之前从网页搜索查询中删除个人信息。"
+			},
+			"url_denylist": {
+				"label": "Label",
+				"description": "Description",
+				"placeholder": "Placeholder"
 			}
 		},
 		"mcp_content": {
@@ -751,7 +853,19 @@
 				"button": "打开列表"
 			},
 			"episodic_params_title": "情景记忆参数",
-			"episodic_params_desc": "EM-LLM 的高级配置"
+			"episodic_params_desc": "EM-LLM 的高级配置",
+			"title": "Title",
+			"connecting": "Connecting",
+			"character_memory": "Character memory",
+			"stats": {
+				"total_events": "Total events",
+				"total_tokens": "Total tokens",
+				"mean_event_size": "Mean event size",
+				"surprise_statistics": "Surprise statistics",
+				"mean_surprise": "Mean surprise",
+				"max_surprise": "Max surprise"
+			},
+			"professional_memory": "Professional memory"
 		}
 	},
 	"tool_errors": {
@@ -776,5 +890,97 @@
 		"tool_not_found": "未找到工具 '{{tool_name}}'。",
 		"tool_no_method": "工具 '{{tool_name}}' 没有可调用的方法。",
 		"tool_execution_error": "执行工具 '{{tool_name}}' 时出错：{{details}}"
-	}
+	},
+	"errorBoundary": {
+		"title": "发生错误",
+		"message": "用户界面遇到意外错误。请重新加载应用以继续。",
+		"details": "错误详情",
+		"reload": "重新加载"
+	},
+	"Close": "Close",
+	"error": "Error",
+	"info": "Info",
+	"empty": {
+		"capability": {
+			"search": {
+				"title": "Title",
+				"desc": "Desc"
+			},
+			"code": {
+				"title": "Title",
+				"desc": "Desc"
+			},
+			"chat": {
+				"title": "Title",
+				"desc": "Desc"
+			}
+		},
+		"hero": {
+			"subtitle": "Subtitle"
+		}
+	},
+	"shortcuts": {
+		"newSession": "NewSession",
+		"stopGeneration": "StopGeneration",
+		"showHelp": "ShowHelp",
+		"title": "Title",
+		"footer": "Footer"
+	},
+	"": {
+		"": {
+			"/": {
+				"": {
+					"/types": "/types"
+				}
+			}
+		},
+		"/sessionToken": "/sessionToken"
+	},
+	"Italic": "Italic",
+	"test": "Test",
+	"hello": "Hello",
+	"Hello": "Hello",
+	"Tepora": "Tepora",
+	"Barista": "Barista",
+	"検索結果待機中": {
+		"": {
+			"": {
+				"": ""
+			}
+		}
+	},
+	"model": {
+		"role": {
+			"text": "Text",
+			"embedding": "Embedding"
+		}
+	},
+	"modelHub": {
+		"title": "Title",
+		"subtitle": "Subtitle",
+		"search_placeholder": "Search placeholder",
+		"no_models_found": "No models found"
+	},
+	"English": "English",
+	"日本語": "日本語",
+	"Español": "Español",
+	"🇺🇸": "🇺🇸",
+	"🇯🇵": "🇯🇵",
+	"50%": "50%",
+	"75%": "75%",
+	"Retry": "Retry",
+	"Skip": "Skip",
+	"repo": "Repo",
+	"file": "File",
+	"user/repo": "User/repo",
+	"model-Q4_K_M": {
+		"gguf": "Gguf"
+	},
+	"Proceed": "Proceed",
+	"Cancel": "Cancel",
+	"page": "Page",
+	"page_size": "Page size",
+	"runtime": "Runtime",
+	"session-refresh": "Session-refresh",
+	"download-progress": "Download-progress"
 }

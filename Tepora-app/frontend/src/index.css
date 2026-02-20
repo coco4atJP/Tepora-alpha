@@ -9,137 +9,146 @@
 */
 
 :root {
-	/* TEPORA THEME (Default / Dark) */
-	--bg-app: #050201;
-	/* Extremely dark tea/black */
-	--bg-panel: rgba(10, 5, 3, 0.9);
-	--bg-overlay: rgba(15, 5, 2, 0.7);
+	/* TEPORA THEME (Default / Dark - Cafe & Retro-Futurism) */
+	--bg-app: #120c0a;
+	/* Deep warm espresso/tea brown instead of black */
+	--bg-panel: rgba(26, 17, 14, 0.85);
+	--bg-overlay: rgba(20, 12, 10, 0.7);
 
-	--text-primary: #f3f4f6;
-	--text-secondary: #9ca3af;
-	--text-accent: #f0e333;
+	--text-primary: #fdfaf6;
+	/* Soft warm white */
+	--text-secondary: #d1bfae;
+	/* Warm latte/tea text */
+	--text-accent: #fcd34d;
+	/* Soft bright gold (amber-300/gold-400) */
 
-	--border-subtle: rgba(255, 255, 255, 0.08);
-	--border-highlight: rgba(255, 255, 255, 0.15);
+	--border-subtle: rgba(255, 230, 200, 0.08);
+	/* Warm subtle border */
+	--border-highlight: rgba(255, 215, 150, 0.15);
+	/* Warmer highlight */
 
-	/* Glassmorphism Variables - Dark Default */
-	--glass-bg: rgba(15, 5, 2, 0.7);
-	--glass-border-color: rgba(255, 255, 255, 0.08);
-	--glass-highlight: rgba(219, 89, 37, 0.1);
+	/* Added global radius for softness */
+	--radius-base: 1.25rem;
+	--radius-sm: 0.75rem;
+
+	/* Glassmorphism Variables - Dark Default (Warmer, softer glow) */
+	--glass-bg: rgba(26, 17, 14, 0.65);
+	--glass-border-color: rgba(255, 220, 180, 0.1);
+	--glass-highlight: rgba(219, 114, 37, 0.15);
 
 	--glass-gradient-base: linear-gradient(135deg,
-			rgba(20, 22, 28, 0.6) 0%,
-			rgba(10, 5, 3, 0.8) 100%);
+			rgba(38, 24, 20, 0.7) 0%,
+			rgba(20, 12, 10, 0.8) 100%);
 	--glass-gradient-tepora:
 		radial-gradient(circle at 50% 0%,
-			rgba(219, 89, 37, 0.1) 0%,
+			rgba(219, 140, 37, 0.15) 0%,
 			transparent 60%),
 		linear-gradient(135deg,
-			rgba(63, 21, 11, 0.9),
-			rgba(145, 52, 29, 0.7),
-			rgba(212, 200, 32, 0.2));
+			rgba(80, 30, 15, 0.8),
+			rgba(160, 65, 30, 0.6),
+			rgba(240, 200, 50, 0.15));
 
-	--glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+	--glass-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
 	--glass-shadow-tepora:
-		0 20px 40px -5px rgba(0, 0, 0, 0.4),
-		inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+		0 20px 50px -10px rgba(10, 5, 0, 0.6),
+		inset 0 0 0 1px rgba(255, 230, 180, 0.05);
 
-	--input-bg: rgba(10, 5, 3, 0.4);
-	--input-bg-focus: rgba(10, 5, 3, 0.6);
-	--input-border: rgba(255, 255, 255, 0.08);
+	--input-bg: rgba(20, 12, 10, 0.5);
+	--input-bg-focus: rgba(30, 15, 10, 0.7);
+	--input-border: rgba(255, 230, 200, 0.1);
 
-	--button-glass-bg: rgba(255, 255, 255, 0.03);
-	--button-glass-border: rgba(255, 255, 255, 0.08);
+	--button-glass-bg: rgba(255, 240, 220, 0.05);
+	--button-glass-border: rgba(255, 240, 220, 0.1);
 
 	color-scheme: dark;
 }
 
 [data-theme="light"] {
-	/* LIGHT THEME (Porcelain & Tea) */
-	--bg-app: #fdfcfa;
-	/* Warm Porcelain */
-	--bg-panel: rgba(255, 255, 255, 0.9);
-	--bg-overlay: rgba(245, 240, 235, 0.7);
-	/* Slightly warmer overlay */
+	/* LIGHT THEME (Cafe / Milk Tea) */
+	--bg-app: #fcf8f2;
+	/* Milk tea / Porcelain */
+	--bg-panel: rgba(255, 255, 255, 0.85);
+	--bg-overlay: rgba(250, 240, 230, 0.7);
 
-	--text-primary: #2a2725;
-	/* Warm Charcoal */
-	--text-secondary: #6e665f;
-	/* Warm Grey */
-	--text-accent: #bd4b26;
-	/* Tea Red for accent */
+	--text-primary: #3b2f2f;
+	/* Dark cocoa */
+	--text-secondary: #8c7366;
+	/* Milk chocolate text */
+	--text-accent: #d97736;
+	/* Warm Assam tea */
 
-	--border-subtle: rgba(100, 90, 80, 0.12);
-	/* Warm subtle border */
-	--border-highlight: rgba(100, 90, 80, 0.2);
+	--border-subtle: rgba(140, 115, 100, 0.12);
+	--border-highlight: rgba(140, 115, 100, 0.25);
 
-	/* Glassmorphism Variables - Light */
-	--glass-bg: rgba(255, 255, 255, 0.75);
-	--glass-border-color: rgba(255, 255, 255, 0.4);
-	/* Cleaner white border */
-	--glass-highlight: rgba(219, 89, 37, 0.06);
+	--radius-base: 1.25rem;
+	--radius-sm: 0.75rem;
+
+	/* Glassmorphism Variables - Light (Warmer, sweeter) */
+	--glass-bg: rgba(255, 255, 255, 0.7);
+	--glass-border-color: rgba(255, 255, 255, 0.6);
+	--glass-highlight: rgba(219, 140, 37, 0.08);
 
 	--glass-gradient-base: linear-gradient(135deg,
-			rgba(255, 255, 255, 0.8) 0%,
-			rgba(248, 246, 242, 0.9) 100%);
+			rgba(255, 255, 255, 0.9) 0%,
+			rgba(250, 245, 238, 0.8) 100%);
 	--glass-gradient-tepora: linear-gradient(135deg,
 			rgba(255, 252, 248, 0.95),
-			rgba(255, 245, 240, 0.8),
-			rgba(250, 245, 200, 0.3));
-	/* Softer, tea-tinted light */
+			rgba(255, 240, 230, 0.8),
+			rgba(250, 235, 180, 0.4));
 
-	--glass-shadow: 0 4px 20px 0 rgba(40, 30, 20, 0.05);
-	/* Softer, warmer shadow */
+	--glass-shadow: 0 8px 30px 0 rgba(100, 70, 50, 0.06);
 	--glass-shadow-tepora:
-		0 10px 30px -5px rgba(100, 50, 30, 0.1),
-		inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+		0 12px 35px -5px rgba(120, 60, 30, 0.12),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.8);
 
 	--input-bg: rgba(255, 255, 255, 0.6);
-	--input-bg-focus: rgba(255, 255, 255, 0.9);
-	--input-border: rgba(120, 100, 90, 0.15);
+	--input-bg-focus: rgba(255, 255, 255, 0.95);
+	--input-border: rgba(140, 115, 100, 0.15);
 
-	--button-glass-bg: rgba(255, 255, 255, 0.6);
-	--button-glass-border: rgba(120, 100, 90, 0.15);
+	--button-glass-bg: rgba(255, 255, 255, 0.8);
+	--button-glass-border: rgba(140, 115, 100, 0.15);
 
 	color-scheme: light;
 }
 
 [data-theme="dark"] {
-	/* NEUTRAL DARK THEME */
-	--bg-app: #0f1115;
-	--bg-panel: rgba(20, 22, 28, 0.9);
-	--bg-overlay: rgba(10, 10, 12, 0.8);
+	/* NEUTRAL DARK THEME (Slightly warmer off-black) */
+	--bg-app: #121214;
+	--bg-panel: rgba(24, 24, 28, 0.85);
+	--bg-overlay: rgba(15, 15, 18, 0.8);
 
-	--text-primary: #f9fafb;
-	--text-secondary: #9ca3af;
+	--text-primary: #f8fafc;
+	--text-secondary: #94a3b8;
 	--text-accent: #60a5fa;
 
-	--border-subtle: rgba(255, 255, 255, 0.06);
-	--border-highlight: rgba(255, 255, 255, 0.1);
+	--border-subtle: rgba(255, 255, 255, 0.08);
+	--border-highlight: rgba(255, 255, 255, 0.15);
+
+	--radius-base: 1.25rem;
+	--radius-sm: 0.75rem;
 
 	/* Glassmorphism Variables - Neutral Dark */
-	--glass-bg: rgba(20, 22, 28, 0.7);
-	--glass-border-color: rgba(255, 255, 255, 0.06);
-	--glass-highlight: rgba(255, 255, 255, 0.03);
+	--glass-bg: rgba(24, 24, 28, 0.7);
+	--glass-border-color: rgba(255, 255, 255, 0.08);
+	--glass-highlight: rgba(255, 255, 255, 0.05);
 
 	--glass-gradient-base: linear-gradient(135deg,
-			rgba(30, 41, 59, 0.8),
-			rgba(15, 23, 42, 0.9));
+			rgba(35, 40, 50, 0.8),
+			rgba(20, 22, 28, 0.9));
 	--glass-gradient-tepora: linear-gradient(135deg,
-			rgba(30, 41, 59, 0.9),
-			rgba(51, 65, 85, 0.7),
-			rgba(71, 85, 105, 0.4));
+			rgba(40, 48, 65, 0.85),
+			rgba(55, 65, 85, 0.6),
+			rgba(70, 85, 110, 0.3));
 
-	--glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-	--glass-shadow-tepora: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-	/* Standard shadow for neutral */
+	--glass-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+	--glass-shadow-tepora: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
 
-	--input-bg: rgba(20, 22, 28, 0.5);
-	--input-bg-focus: rgba(20, 22, 28, 0.8);
-	--input-border: rgba(255, 255, 255, 0.08);
+	--input-bg: rgba(24, 24, 28, 0.6);
+	--input-bg-focus: rgba(30, 30, 35, 0.9);
+	--input-border: rgba(255, 255, 255, 0.1);
 
 	--button-glass-bg: rgba(255, 255, 255, 0.05);
-	--button-glass-border: rgba(255, 255, 255, 0.08);
+	--button-glass-border: rgba(255, 255, 255, 0.1);
 
 	color-scheme: dark;
 }
@@ -292,7 +301,7 @@
 		box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
 	}
 
-	/* REFACTORED GLASSMORPHISM SYSTEM */
+	/* REFACTORED GLASSMORPHISM SYSTEM (Soft & Warm) */
 
 	/* Base Glass - Optimized for depth */
 	.glass-base {
@@ -301,61 +310,79 @@
 		background: var(--glass-gradient-base);
 		border: 1px solid var(--glass-border-color);
 		box-shadow: var(--glass-shadow);
+		border-radius: var(--radius-base);
 	}
 
 	/* Primary Panel - "Tea Tray" Look */
 	.glass-tepora {
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
 		background: var(--glass-gradient-tepora);
 		border: 1px solid var(--glass-border-color);
-		border-top: 1px solid rgba(255, 255, 255, 0.12);
-		/* Subtle highlight */
+		border-top: 1px solid rgba(255, 255, 255, 0.15);
+		/* Slightly stronger top rim string */
 		box-shadow: var(--glass-shadow-tepora);
+		border-radius: var(--radius-base);
 	}
 
 	.glass-panel {
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
 		background: var(--glass-gradient-base);
 		border: 1px solid var(--glass-border-color);
 		box-shadow: var(--glass-shadow);
-		border-radius: 1rem;
+		border-radius: var(--radius-base);
 		transition:
-			transform 0.3s ease,
-			box-shadow 0.3s ease;
+			transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+			box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+			border-color 0.4s ease;
 	}
 
-	/* Refined Button Style */
+	.glass-panel:hover {
+		box-shadow: var(--glass-shadow-tepora);
+		transform: translateY(-2px);
+		border-color: var(--border-highlight);
+	}
+
+	/* Refined Button Style (Softer, rounder) */
 	.glass-button {
 		background: var(--button-glass-bg);
-		backdrop-filter: blur(10px);
+		backdrop-filter: blur(12px);
 		border: 1px solid var(--button-glass-border);
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.1);
+		border-radius: var(--radius-sm);
+		transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+
+	.glass-button:hover {
+		background: var(--glass-highlight);
+		border-color: var(--text-accent);
+		transform: translateY(-1px);
+		box-shadow: 0 6px 15px -3px rgba(0, 0, 0, 0.15), 0 0 12px var(--glass-highlight);
 	}
 
 	/* Input Fields */
 	.glass-input {
 		background: var(--input-bg);
 		border: 1px solid var(--input-border);
-		backdrop-filter: blur(10px);
+		backdrop-filter: blur(12px);
+		border-radius: var(--radius-sm);
 		transition: all 0.3s ease;
-		box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+		box-shadow: inset 0 2px 6px 0 rgba(0, 0, 0, 0.1);
 	}
 
 	.glass-input:focus {
 		background: var(--input-bg-focus);
 		border-color: var(--text-accent);
 		box-shadow:
-			inset 0 2px 4px 0 rgba(0, 0, 0, 0.05),
+			inset 0 2px 6px 0 rgba(0, 0, 0, 0.1),
 			0 0 0 1px var(--text-accent),
-			0 0 15px var(--glass-highlight);
+			0 0 20px var(--glass-highlight);
 	}
 
 	/* Text Gradients */
 	.text-gradient-gold {
-		background: linear-gradient(to right, #f0e333, #d4bf80);
+		background: linear-gradient(to right, #fcd34d, #d4bf80);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -426,6 +453,7 @@
 .scrollbar-stable {
 	scrollbar-gutter: stable;
 }
+
 /* NEW ANIMATIONS FOR VISUAL IMPROVEMENTS */
 
 /* Neural Pulse Animation */
@@ -488,6 +516,9 @@
 	border: 1px solid transparent;
 	background: linear-gradient(45deg, transparent 40%, rgba(240, 227, 51, 0.3), transparent 60%) border-box;
 	-webkit-mask:
+		linear-gradient(#fff 0 0) padding-box,
+		linear-gradient(#fff 0 0);
+	mask:
 		linear-gradient(#fff 0 0) padding-box,
 		linear-gradient(#fff 0 0);
 	-webkit-mask-composite: xor;

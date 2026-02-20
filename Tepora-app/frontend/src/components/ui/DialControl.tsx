@@ -65,7 +65,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 			// Start: 225 deg (Bottom Left), End: 135 deg (Bottom Right)
 			// Gap is at the bottom (135 to 225)
 
-			let val = 0;
+			let val: number;
 			if (cssAngle >= 225) {
 				val = (cssAngle - 225) / 270;
 			} else if (cssAngle <= 135) {

@@ -16,7 +16,8 @@
 			"setup_failed_start": "セットアップを開始できませんでした",
 			"finalize_failed": "セットアップの完了処理に失敗しました",
 			"save_config_failed": "設定の保存に失敗しました。再試行してください。",
-			"unknown": "不明なエラー"
+			"unknown": "不明なエラー",
+			"preflight_failed": "事前確認に失敗"
 		},
 		"start": "Teporaを開始",
 		"auto_setup": "自動セットアップ",
@@ -75,7 +76,17 @@
 		"offline_privacy_tip": "Teporaはインストール後、完全にオフラインで動作します。データはデバイス内に留まり、最大限のプライバシーとセキュリティを確保します。",
 		"hide_logs": "詳細ログを隠す",
 		"show_logs": "詳細ログを表示",
-		"installer_output": "インストーラー出力"
+		"installer_output": "インストーラー出力",
+		"embedding_warning_title": "埋め込みモデルの警告",
+		"embedding_warning_proceed": "続ける",
+		"loader_title": "ローダーの準備",
+		"step_lang": "言語",
+		"step_engine": "エンジン",
+		"step_model": "モデル",
+		"step_install": "インストール",
+		"step_done": "完了",
+		"loader_select_title": "ローダー選択",
+		"loader_select_desc": "推論エンジンを選んでください"
 	},
 	"app": {
 		"loading": "サーバーに接続中...",
@@ -151,7 +162,16 @@
 			"add_item": "項目を追加",
 			"remove_item": "項目を削除",
 			"cancel": "キャンセル"
-		}
+		},
+		"refreshing": "更新中...",
+		"scan_providers": "プロバイダーをスキャン",
+		"all": "すべて",
+		"loading": "読み込み中...",
+		"clear_filters": "フィルターをクリア",
+		"active": "アクティブ",
+		"activate": "有効化",
+		"browse": "Browse",
+		"no_data": "No data"
 	},
 	"session_history": {
 		"title": "セッション履歴",
@@ -196,7 +216,14 @@
 			"stop": "生成を停止",
 			"stop_generation": "生成を停止",
 			"mode_active": "{{mode}}モード 起動中",
-			"aria_label": "メッセージ入力"
+			"aria_label": "メッセージ入力",
+			"agent_mode": "エージェントモード",
+			"agent_mode_fast": "高速モード",
+			"agent_mode_high": "高精度モード",
+			"agent_mode_direct": "ダイレクト",
+			"select_agent": "エージェントを選択",
+			"agent_auto": "自動選択",
+			"thinking_mode": "思考プロセス"
 		},
 		"messages_aria_label": "チャットメッセージ",
 		"jump_to_latest": "最新のメッセージへ移動",
@@ -207,7 +234,13 @@
 			"search": "検索",
 			"agent": "エージェント",
 			"chat": "チャット"
-		}
+		},
+		"status": {
+			"thinking": "思考プロセス"
+		},
+		"error": "エラー",
+		"info": "情報",
+		"generationStopped": "生成が停止しました"
 	},
 	"agent": {
 		"title": "エージェント状況",
@@ -343,7 +376,8 @@
 					"failed": "更新に失敗しました",
 					"start_failed": "更新の開始に失敗しました",
 					"error": "更新の開始中にエラーが発生しました"
-				}
+				},
+				"app_updater": "アプリ更新"
 			},
 			"updater": {
 				"title": "ソフトウェア更新",
@@ -390,7 +424,11 @@
 					"allowed_tools": "許可されたツール",
 					"allowed_tools_description": "すべてを許可するには \"*\" を使用。",
 					"denied_tools": "拒否されたツール",
-					"tool_placeholder": "ツール名..."
+					"tool_placeholder": "ツール名...",
+					"icon": "アイコン",
+					"avatar_path": "アバター画像のパス",
+					"icon_placeholder": "Icon placeholder",
+					"avatar_placeholder": "Avatar placeholder"
 				},
 				"tab": {
 					"characters": "キャラクター",
@@ -407,7 +445,8 @@
 					"desc_label": "説明",
 					"prompt_label": "システムプロンプト",
 					"model_label": "使用モデル",
-					"model_desc": "このエージェントが使用するモデル設定を選択してください。"
+					"model_desc": "このエージェントが使用するモデル設定を選択してください。",
+					"key_placeholder": "Key placeholder"
 				},
 				"error_empty_key": "IDを入力してください。",
 				"error_duplicate_key": "このIDは既に使用されています。",
@@ -447,7 +486,9 @@
 					"enabled_label": "有効",
 					"tools_label": "許可ツール",
 					"no_tools": "利用可能なツールがありません",
-					"allow_all_tools": "全ツールを許可 (ブラックリストモード)"
+					"allow_all_tools": "全ツールを許可 (ブラックリストモード)",
+					"tags_label": "タグ",
+					"priority_label": "優先度"
 				}
 			},
 			"privacy": {
@@ -570,7 +611,18 @@
 					"dials_hint": "ダイヤルをドラッグして値を調整します",
 					"temp_desc": "ランダム性を制御します。",
 					"top_p_desc": "核サンプリング。"
-				}
+				},
+				"refresh_ollama": "Ollama更新",
+				"refresh_lmstudio": "LM Studio更新",
+				"search_title": "検索設定",
+				"download_policy_title": "ダウンロードポリシー",
+				"loaders_title": "モデムローダー",
+				"configurations": {
+					"path_placeholder": "Path placeholder"
+				},
+				"search_description": "埋め込みモデルを用いた検索結果の再ランキングを設定します。",
+				"download_policy_description": "リモートリポジトリからのモデルをダウンロードするためのセキュリティ制御です。",
+				"loaders_description": "外部モデルプロバイダーのベースURLを設定します。"
 			},
 			"other": {
 				"label": "その他",
@@ -626,7 +678,54 @@
 				"description": "セキュリティのためにブロックする正規表現パターン。",
 				"placeholder": "正規表現を追加 (例: system\\s*:)"
 			},
-			"cache_size": "モデルキャッシュ数"
+			"cache_size": "モデルキャッシュ数",
+			"web_fetch_max_bytes": {
+				"label": "最大取得サイズ",
+				"description": "Web取得の最大バイト数"
+			},
+			"web_fetch_timeout_secs": {
+				"label": "タイムアウト秒数",
+				"description": "Web取得のタイムアウト"
+			},
+			"graph_execution_timeout": {
+				"label": "グラフ実行タイムアウト",
+				"description": "エージェントの最大実行時間"
+			},
+			"embedding_rerank": {
+				"label": "リランク",
+				"description": "検索結果を再ランク付け"
+			},
+			"require_allowlist": {
+				"label": "許可リスト必須",
+				"description": "許可されたモデルのみダウンロード"
+			},
+			"warn_on_unlisted": {
+				"label": "未登録警告",
+				"description": "不明なモデルで警告を表示"
+			},
+			"require_revision": {
+				"label": "リビジョン必須",
+				"description": "ダウンロードにリビジョンハッシュを必須とする"
+			},
+			"require_sha256": {
+				"label": "SHA256必須",
+				"description": "ファイルの整合性を確認する"
+			},
+			"allow_repo_owners": {
+				"label": "許可するリポジトリ所有者",
+				"description": "無条件で許可するユーザー",
+				"placeholder": "例: TheBloke"
+			},
+			"ollama_base_url": {
+				"label": "Ollama Base URL",
+				"description": "OllamaのAPIエンドポイント",
+				"placeholder": "Placeholder"
+			},
+			"lmstudio_base_url": {
+				"label": "LM Studio Base URL",
+				"description": "LM StudioのAPIエンドポイント",
+				"placeholder": "Placeholder"
+			}
 		},
 		"descriptions": {
 			"cache_size": "メモリに保持するモデルの最大数。"
@@ -670,7 +769,19 @@
 				"button": "一覧を開く"
 			},
 			"episodic_params_title": "エピソード記憶パラメータ",
-			"episodic_params_desc": "EM-LLMの詳細設定"
+			"episodic_params_desc": "EM-LLMの詳細設定",
+			"title": "Title",
+			"connecting": "Connecting",
+			"character_memory": "Character memory",
+			"stats": {
+				"total_events": "Total events",
+				"total_tokens": "Total tokens",
+				"mean_event_size": "Mean event size",
+				"surprise_statistics": "Surprise statistics",
+				"mean_surprise": "Mean surprise",
+				"max_surprise": "Max surprise"
+			},
+			"professional_memory": "Professional memory"
 		},
 		"mcp_content": {
 			"info": {
@@ -808,6 +919,24 @@
 				"predict_len": "予測長 (Predict Length)",
 				"predict_len_desc": "モデルサーバーへの予測長のヒント (0 = 自動)。"
 			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "インターネット検索",
+				"description": "ネット検索を許可",
+				"warning_title": "警告",
+				"warning_query": "クエリはAPIに送られます",
+				"warning_api": "APIが使用されます"
+			},
+			"url_denylist": {
+				"label": "拒否URL",
+				"description": "アクセスを拒否するURL",
+				"placeholder": "例: example.com"
+			},
+			"redact_pii": {
+				"label": "個人情報秘匿",
+				"description": "送信前に個人情報をマスキング"
+			}
 		}
 	},
 	"tool_errors": {
@@ -832,5 +961,97 @@
 		"tool_not_found": "ツール '{{tool_name}}' が見つかりません。",
 		"tool_no_method": "ツール '{{tool_name}}' に呼び出し可能なメソッドがありません。",
 		"tool_execution_error": "ツール '{{tool_name}}' の実行中にエラーが発生しました: {{details}}"
-	}
+	},
+	"empty": {
+		"capability": {
+			"search": {
+				"title": "高度な検索",
+				"desc": "Web情報を検索して要約します"
+			},
+			"code": {
+				"title": "コーディング支援",
+				"desc": "コードの記述、レビュー、リファクタリング"
+			},
+			"chat": {
+				"title": "チャットと相談",
+				"desc": "様々なトピックについて対話します"
+			}
+		},
+		"hero": {
+			"subtitle": "今日はどのようなお手伝いが必要ですか？"
+		}
+	},
+	"shortcuts": {
+		"newSession": "新規セッション",
+		"stopGeneration": "生成を停止",
+		"showHelp": "ヘルプを表示",
+		"title": "キーボードショートカット",
+		"footer": "ショートカットを活用して素早く操作"
+	},
+	"modelHub": {
+		"title": "モデルハブ",
+		"subtitle": "利用可能なAIモデルの管理",
+		"search_placeholder": "モデルを検索...",
+		"no_models_found": "モデルが見つかりません"
+	},
+	"model": {
+		"role": {
+			"text": "テキスト",
+			"embedding": "埋め込み"
+		}
+	},
+	"errorBoundary": {
+		"title": "エラーが発生しました",
+		"message": "UIで予期せぬエラーが発生しました。アプリを再読み込みしてください。",
+		"details": "エラー詳細",
+		"reload": "再読み込み"
+	},
+	"Close": "Close",
+	"error": "Error",
+	"info": "Info",
+	"": {
+		"": {
+			"/": {
+				"": {
+					"/types": "/types"
+				}
+			}
+		},
+		"/sessionToken": "/sessionToken"
+	},
+	"Italic": "Italic",
+	"test": "Test",
+	"hello": "Hello",
+	"Hello": "Hello",
+	"Tepora": "Tepora",
+	"Barista": "Barista",
+	"検索結果待機中": {
+		"": {
+			"": {
+				"": ""
+			}
+		}
+	},
+	"English": "English",
+	"日本語": "日本語",
+	"Español": "Español",
+	"🇺🇸": "🇺🇸",
+	"🇯🇵": "🇯🇵",
+	"50%": "50%",
+	"75%": "75%",
+	"Retry": "Retry",
+	"Skip": "Skip",
+	"repo": "Repo",
+	"file": "File",
+	"user/repo": "User/repo",
+	"model-Q4_K_M": {
+		"gguf": "Gguf"
+	},
+	"Proceed": "Proceed",
+	"Cancel": "Cancel",
+	"page": "Page",
+	"page_size": "Page size",
+	"runtime": "Runtime",
+	"session-refresh": "Session-refresh",
+	"download-progress": "Download-progress"
 }

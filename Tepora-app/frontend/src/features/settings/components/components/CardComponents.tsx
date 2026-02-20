@@ -60,7 +60,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, is
 					<FormInput
 						value={config.path}
 						onChange={(v) => update("path", v as string)}
-						placeholder="models/*.gguf"
+						placeholder={t("settings.sections.models.configurations.path_placeholder", "models/*.gguf")}
 						className="font-mono text-xs glass-input"
 					/>
 				</FormGroup>
@@ -228,11 +228,10 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 				<button
 					type="button"
 					onClick={onSetActive}
-					className={`settings-agent-card__active-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-						isActive
+					className={`settings-agent-card__active-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isActive
 							? "bg-tepora-accent text-black hover:bg-tepora-accent/90"
 							: "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200"
-					}`}
+						}`}
 					title={
 						isActive
 							? t("settings.sections.agents.card.currently_active")
@@ -258,7 +257,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 					<FormInput
 						value={profile.icon || ""}
 						onChange={(v) => updateField("icon", v as string)}
-						placeholder="👤"
+						placeholder={t("settings.sections.agents.card.icon_placeholder", "👤")}
 						className="text-center"
 					/>
 				</FormGroup>
@@ -280,14 +279,14 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 						<FormInput
 							value={profile.avatar_path || ""}
 							onChange={(v) => updateField("avatar_path", v as string)}
-							placeholder="/path/to/avatar.png"
+							placeholder={t("settings.sections.agents.card.avatar_placeholder", "/path/to/avatar.png")}
 							className="flex-1"
 						/>
 						<button
 							type="button"
 							onClick={handleBrowseAvatar}
 							className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors border border-white/10"
-							title="Browse"
+							title={t("common.browse", "Browse")}
 						>
 							<FolderOpen size={18} />
 						</button>

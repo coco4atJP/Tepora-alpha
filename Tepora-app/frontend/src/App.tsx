@@ -131,7 +131,10 @@ function App() {
 	// Setup Required
 	// Show logic: IF (not ready AND not completed) AND not skipped
 	const isSetupCompleted = config?.app?.setup_completed === true;
-	const shouldShowSetup = !requirements?.is_ready && !isSetupCompleted && !isSkipped;
+	const shouldShowSetup =
+		(!requirements?.is_ready || requirements?.has_missing) &&
+		!isSetupCompleted &&
+		!isSkipped;
 
 	if (shouldShowSetup) {
 		return (

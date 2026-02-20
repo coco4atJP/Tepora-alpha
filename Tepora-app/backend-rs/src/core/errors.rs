@@ -15,6 +15,8 @@ pub enum ApiError {
     #[error("not implemented: {0}")]
     #[allow(dead_code)]
     NotImplemented(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -33,6 +35,7 @@ impl IntoResponse for ApiError {
             ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             ApiError::NotImplemented(msg) => (StatusCode::NOT_IMPLEMENTED, msg.clone()),
+            ApiError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
             ApiError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
         };
 

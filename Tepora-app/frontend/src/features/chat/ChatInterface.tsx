@@ -99,7 +99,7 @@ const ChatInterface: React.FC = () => {
 				: t("dial.agent");
 
 	return (
-		<div className="flex flex-col h-full w-full relative">
+		<div className="flex flex-col h-full w-full relative bg-bg-app/50 text-text-primary">
 			<ShortcutsDialog isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
 			{/* Tool Confirmation Dialog */}
@@ -109,34 +109,36 @@ const ChatInterface: React.FC = () => {
 				onDeny={(requestId) => handleToolConfirmation(requestId, false, false)}
 			/>
 
+			{/* Ambient Glows */}
+			<div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-tea-900/10 rounded-full blur-[100px] pointer-events-none" />
+
 			{/* Header */}
-			<div className="shrink-0 flex items-center gap-3 px-3 md:px-4 py-3 glass-base border-b-0 z-20">
+			<div className="shrink-0 flex items-center gap-3 px-4 py-3 md:px-6 md:py-4 glass-base border-b border-border-highlight z-20 rounded-none shadow-sm backdrop-blur-md">
 				<Button
 					variant="secondary"
 					size="sm"
 					onClick={handleCreateSession}
-					className="text-tea-200 hover:text-gold-300 gap-2 border-white/5 hover:border-gold-500/30"
+					className="text-tea-100/90 hover:text-gold-300 gap-2 border-white/10 hover:border-gold-400/30 glass-button rounded-xl hover:shadow-[0_0_12px_rgba(252,211,77,0.15)]"
 					title={t("newSession", "New Session")}
 					aria-label={t("newSession", "New Session")}
 				>
 					<Plus className="w-4 h-4" />
-					<span className="hidden sm:inline">{t("newSession", "New Session")}</span>
+					<span className="hidden sm:inline font-medium tracking-wide">{t("newSession", "New Session")}</span>
 				</Button>
 
-				<div className="ml-auto flex items-center gap-2">
-					<span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold tracking-widest text-gold-100 font-display uppercase shadow-inner">
+				<div className="ml-auto flex items-center gap-3">
+					<span className="px-3 py-1 rounded-lg glass-base text-[10px] font-bold tracking-widest text-gold-200 font-display uppercase shadow-inner border-white/5">
 						{modeLabel}
 					</span>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2 px-2">
 						<div
-							className={`w-2 h-2 rounded-full ${
-								isConnected
+							className={`w-2 h-2 rounded-full ${isConnected
 									? "bg-semantic-success shadow-[0_0_8px_rgba(79,255,192,0.6)]"
 									: "bg-semantic-error shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-							}`}
+								}`}
 							aria-hidden="true"
 						/>
-						<span className="hidden md:inline text-xs text-gray-400">
+						<span className="hidden md:inline text-[11px] font-medium text-tea-200/60 uppercase tracking-widest">
 							{isConnected
 								? t("status.connected", "Connected")
 								: t("status.disconnected", "Disconnected")}
@@ -146,7 +148,7 @@ const ChatInterface: React.FC = () => {
 			</div>
 
 			{/* Message List - Scrollable Area */}
-			<div className="flex-1 overflow-hidden relative min-h-0">
+			<div className="flex-1 overflow-hidden relative min-h-0 w-full max-w-5xl mx-auto flex flex-col pt-4">
 				{messages.length === 0 ? (
 					<EmptyState onPromptSelect={handlePromptSelect} />
 				) : (
@@ -155,7 +157,7 @@ const ChatInterface: React.FC = () => {
 			</div>
 
 			{/* Input Area - Fixed at Bottom */}
-			<div className="p-2 md:p-4 w-full shrink-0">
+			<div className="p-3 md:p-6 w-full shrink-0 z-20 max-w-5xl mx-auto pb-safe">
 				<InputArea />
 			</div>
 		</div>

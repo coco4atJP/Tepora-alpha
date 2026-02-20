@@ -43,7 +43,7 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
 			return {
 				...state,
 				requirements: action.payload,
-				step: action.payload.is_ready ? "COMPLETE" : "MODEL_CONFIG",
+				step: action.payload.is_ready && !action.payload.has_missing ? "COMPLETE" : "MODEL_CONFIG",
 			};
 
 		case "REQ_CHECK_FAILURE":

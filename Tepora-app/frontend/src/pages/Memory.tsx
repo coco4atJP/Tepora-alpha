@@ -1,11 +1,13 @@
 import type React from "react";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore, useWebSocketStore } from "../stores";
 
 const Memory: React.FC = () => {
 	const memoryStats = useChatStore((state) => state.memoryStats);
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const requestStats = useWebSocketStore((state) => state.requestStats);
+	const { t } = useTranslation();
 
 	useEffect(() => {
 		if (isConnected) {
@@ -18,11 +20,11 @@ const Memory: React.FC = () => {
 
 	return (
 		<div className="p-8 h-full overflow-auto">
-			<h1 className="text-3xl font-bold mb-6 text-white">Memory Statistics</h1>
+			<h1 className="text-3xl font-bold mb-6 text-white">{t("settings.memory.title", "Memory Statistics")}</h1>
 
 			{!isConnected && (
 				<div className="bg-yellow-500/10 border border-yellow-500 text-yellow-500 p-4 rounded mb-6">
-					Connecting to memory system...
+					{t("settings.memory.connecting", "Connecting to memory system...")}
 				</div>
 			)}
 
@@ -30,74 +32,74 @@ const Memory: React.FC = () => {
 				{/* Character Memory */}
 				<div className="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-lg">
 					<h2 className="text-xl font-bold text-blue-400 mb-4 border-b border-gray-700 pb-2">
-						Character Memory (EM-LLM)
+						{t("settings.memory.character_memory", "Character Memory (EM-LLM)")}
 					</h2>
 					{memoryStats?.char_memory ? (
 						<div className="space-y-4">
-							<StatItem label="Total Events" value={memoryStats.char_memory.total_events} />
+							<StatItem label={t("settings.memory.stats.total_events", "Total Events")} value={memoryStats.char_memory.total_events} />
 							<StatItem
-								label="Total Tokens"
+								label={t("settings.memory.stats.total_tokens", "Total Tokens")}
 								value={memoryStats.char_memory.total_tokens_in_memory}
 							/>
 							<StatItem
-								label="Mean Event Size"
+								label={t("settings.memory.stats.mean_event_size", "Mean Event Size")}
 								value={memoryStats.char_memory.mean_event_size?.toFixed(1) || "0.0"}
 							/>
 							{memoryStats.char_memory.surprise_statistics && (
 								<>
 									<div className="mt-4 pt-4 border-t border-gray-700">
-										<p className="text-sm text-gray-400 mb-2">Surprise Statistics</p>
+										<p className="text-sm text-gray-400 mb-2">{t("settings.memory.stats.surprise_statistics", "Surprise Statistics")}</p>
 									</div>
 									<StatItem
-										label="Mean Surprise"
+										label={t("settings.memory.stats.mean_surprise", "Mean Surprise")}
 										value={memoryStats.char_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
 									/>
 									<StatItem
-										label="Max Surprise"
+										label={t("settings.memory.stats.max_surprise", "Max Surprise")}
 										value={memoryStats.char_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
 									/>
 								</>
 							)}
 						</div>
 					) : (
-						<p className="text-gray-500 italic">No data available</p>
+						<p className="text-gray-500 italic">{t("common.no_data", "No data available")}</p>
 					)}
 				</div>
 
 				{/* Professional Memory */}
 				<div className="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-lg">
 					<h2 className="text-xl font-bold text-green-400 mb-4 border-b border-gray-700 pb-2">
-						Professional Memory (EM-LLM)
+						{t("settings.memory.professional_memory", "Professional Memory (EM-LLM)")}
 					</h2>
 					{memoryStats?.prof_memory ? (
 						<div className="space-y-4">
-							<StatItem label="Total Events" value={memoryStats.prof_memory.total_events} />
+							<StatItem label={t("settings.memory.stats.total_events", "Total Events")} value={memoryStats.prof_memory.total_events} />
 							<StatItem
-								label="Total Tokens"
+								label={t("settings.memory.stats.total_tokens", "Total Tokens")}
 								value={memoryStats.prof_memory.total_tokens_in_memory}
 							/>
 							<StatItem
-								label="Mean Event Size"
+								label={t("settings.memory.stats.mean_event_size", "Mean Event Size")}
 								value={memoryStats.prof_memory.mean_event_size?.toFixed(1) || "0.0"}
 							/>
 							{memoryStats.prof_memory.surprise_statistics && (
 								<>
 									<div className="mt-4 pt-4 border-t border-gray-700">
-										<p className="text-sm text-gray-400 mb-2">Surprise Statistics</p>
+										<p className="text-sm text-gray-400 mb-2">{t("settings.memory.stats.surprise_statistics", "Surprise Statistics")}</p>
 									</div>
 									<StatItem
-										label="Mean Surprise"
+										label={t("settings.memory.stats.mean_surprise", "Mean Surprise")}
 										value={memoryStats.prof_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
 									/>
 									<StatItem
-										label="Max Surprise"
+										label={t("settings.memory.stats.max_surprise", "Max Surprise")}
 										value={memoryStats.prof_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
 									/>
 								</>
 							)}
 						</div>
 					) : (
-						<p className="text-gray-500 italic">No data available</p>
+						<p className="text-gray-500 italic">{t("common.no_data", "No data available")}</p>
 					)}
 				</div>
 			</div>

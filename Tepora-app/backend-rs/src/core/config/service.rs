@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
+use super::defaults::generate_default_characters;
 use super::paths::AppPaths;
 use super::validation::validate_config;
 use crate::core::errors::ApiError;
@@ -85,7 +86,9 @@ impl ConfigService {
     pub fn load_config(&self) -> Result<Value, ApiError> {
         let public_config = load_yaml_file(&self.config_path());
         let secrets_config = load_yaml_file(&self.secrets_path());
-        let merged = deep_merge(&public_config, &secrets_config);
+        let mut merged = deep_merge(&public_config, &secrets_config);
+
+        ensure_default_characters(&mut merged);
 
         if let Some(obj) = merged.as_object() {
             if obj.contains_key("custom_agents") {
@@ -133,6 +136,23 @@ fn load_yaml_file(path: &Path) -> Value {
             Err(_) => Value::Object(Map::new()),
         },
         Err(_) => Value::Object(Map::new()),
+    }
+}
+
+fn ensure_default_characters(config: &mut Value) {
+    if let Some(obj) = config.as_object_mut() {
+        let needs_defaults = match obj.get("characters") {
+            Some(Value::Object(chars)) => chars.is_empty(),
+            None | Some(Value::Null) => true,
+            _ => false,
+        };
+
+        if needs_defaults {
+            obj.insert(
+                "characters".to_string(),
+                Value::Object(generate_default_characters()),
+            );
+        }
     }
 }
 

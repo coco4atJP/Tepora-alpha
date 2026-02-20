@@ -1,14 +1,16 @@
-import { Cpu, Database, HardDrive, List, MessageSquare, Plus, RefreshCw, Shield, Wrench } from "lucide-react";
+import { Cpu, Database, HardDrive, List, MessageSquare, Plus, RefreshCw, Wrench } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { apiClient } from "../../../../utils/api-client";
 import { loadersApi } from "../../../../api/loaders";
-import { FormGroup, FormInput, FormList, FormSwitch, SettingsSection } from "../SettingsComponents";
+import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
 import { ModelListOverlay } from "../subcomponents/ModelListOverlay";
 import { ModelSelectionRow } from "../subcomponents/ModelSelectionRow";
+import ModelHub from "../../../../pages/ModelHub";
+import type { ModelInfo } from "../../../../types";
 
 // Types
 interface ModelConfig {
@@ -23,16 +25,9 @@ interface ModelConfig {
 	logprobs?: boolean;
 }
 
-interface ModelInfo {
-	id: string;
-	display_name: string;
-	role: string;
-	file_size: number;
-	filename?: string;
-	source: string;
-	loader?: string;
-	is_active?: boolean;
-}
+
+
+
 
 interface ModelRoles {
 	character_model_id: string | null;
@@ -41,9 +36,10 @@ interface ModelRoles {
 
 const ModelSettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateLlmManager, updateModel, updateSearch, updateModelDownload, updateLoaderBaseUrl } = useSettings();
+	const { config, originalConfig, updateLlmManager, updateModel, updateSearch, updateLoaderBaseUrl } = useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+	const [isModelHubOpen, setIsModelHubOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isRefreshingLmStudio, setIsRefreshingLmStudio] = useState(false);
 	const [modelRoles, setModelRoles] = useState<ModelRoles>({
@@ -249,37 +245,40 @@ const ModelSettings: React.FC = () => {
 					"Manage, delete, and reorder registered models."
 				}
 			>
-				<div className="flex gap-2">
+				<div className="flex flex-col sm:flex-row gap-3">
+
 					<button
 						type="button"
-						onClick={() => setIsOverlayOpen(true)}
-						className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
+						onClick={() => setIsModelHubOpen(true)}
+						className="flex-1 py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
 					>
 						<List size={18} />
-						<span>{t("settings.sections.models.manage_models") || "Manage Models"}</span>
+						<span>{t("modelHub.title") || "Visual Model Hub"}</span>
 					</button>
 
-					<button
-						type="button"
-						onClick={handleRefreshOllama}
-						disabled={isRefreshing}
-						className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
-						title={t("settings.sections.models.refresh_ollama") || "Refresh Ollama Models"}
-					>
-						<RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
-						<span className="text-xs">Ollama</span>
-					</button>
+					<div className="flex gap-3 sm:w-auto w-full">
+						<button
+							type="button"
+							onClick={handleRefreshOllama}
+							disabled={isRefreshing}
+							className="flex-1 sm:flex-none px-4 py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/80 hover:text-gold-300 disabled:opacity-50"
+							title={t("settings.sections.models.refresh_ollama") || "Refresh Ollama Models"}
+						>
+							<RefreshCw size={18} className={isRefreshing ? "animate-spin text-gold-400" : ""} />
+							<span className="text-xs font-bold uppercase tracking-wider">Ollama</span>
+						</button>
 
-					<button
-						type="button"
-						onClick={handleRefreshLmStudio}
-						disabled={isRefreshingLmStudio}
-						className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors text-gray-300 hover:text-white disabled:opacity-50"
-						title={t("settings.sections.models.refresh_lmstudio") || "Refresh LM Studio Models"}
-					>
-						<RefreshCw size={18} className={isRefreshingLmStudio ? "animate-spin" : ""} />
-						<span className="text-xs">LM Studio</span>
-					</button>
+						<button
+							type="button"
+							onClick={handleRefreshLmStudio}
+							disabled={isRefreshingLmStudio}
+							className="flex-1 sm:flex-none px-4 py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/80 hover:text-gold-300 disabled:opacity-50"
+							title={t("settings.sections.models.refresh_lmstudio") || "Refresh LM Studio Models"}
+						>
+							<RefreshCw size={18} className={isRefreshingLmStudio ? "animate-spin text-gold-400" : ""} />
+							<span className="text-xs font-bold uppercase tracking-wider">LM Studio</span>
+						</button>
+					</div>
 				</div>
 			</SettingsSection>
 
@@ -347,8 +346,7 @@ const ModelSettings: React.FC = () => {
 								value={newTaskType}
 								onChange={(e) => setNewTaskType(e.target.value)}
 								placeholder={
-									t("settings.sections.models.add_task_placeholder") ||
-									"Add task type (e.g., coding, browser)..."
+									t("settings.sections.models.add_task_placeholder", "Add task type (e.g., coding, browser)...")
 								}
 								className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-gold-400/50"
 								onKeyDown={(e) => e.key === "Enter" && handleAddTaskType()}
@@ -416,10 +414,7 @@ const ModelSettings: React.FC = () => {
 			<SettingsSection
 				title={t("settings.sections.models.search_title", "Search & Reranking")}
 				icon={<Cpu size={18} />}
-				description={t(
-					"settings.sections.models.search_description",
-					"Configure search result reranking with embedding models.",
-				)}
+				description={t("settings.sections.models.search_description", "Configure search result reranking with embedding models.")}
 			>
 				<FormGroup
 					label={t("settings.fields.embedding_rerank.label", "Embedding Rerank")}
@@ -433,81 +428,12 @@ const ModelSettings: React.FC = () => {
 				</FormGroup>
 			</SettingsSection>
 
-			{/* 7. Model Download Policy */}
-			<SettingsSection
-				title={t("settings.sections.models.download_policy_title", "Model Download Policy")}
-				icon={<Shield size={18} />}
-				description={t(
-					"settings.sections.models.download_policy_description",
-					"Security controls for downloading models from remote repositories.",
-				)}
-			>
-				<div className="space-y-4">
-					<FormGroup
-						label={t("settings.fields.require_allowlist.label", "Require Allowlist")}
-						description={t("settings.fields.require_allowlist.description", "Only allow downloads from approved repository owners.")}
-						orientation="horizontal"
-					>
-						<FormSwitch
-							checked={config.model_download?.require_allowlist ?? false}
-							onChange={(val) => updateModelDownload("require_allowlist", val)}
-						/>
-					</FormGroup>
-
-					<FormGroup
-						label={t("settings.fields.warn_on_unlisted.label", "Warn on Unlisted")}
-						description={t("settings.fields.warn_on_unlisted.description", "Show a warning when downloading from an unlisted owner.")}
-						orientation="horizontal"
-					>
-						<FormSwitch
-							checked={config.model_download?.warn_on_unlisted ?? true}
-							onChange={(val) => updateModelDownload("warn_on_unlisted", val)}
-						/>
-					</FormGroup>
-
-					<FormGroup
-						label={t("settings.fields.require_revision.label", "Require Revision")}
-						description={t("settings.fields.require_revision.description", "Require a specific revision when downloading models.")}
-						orientation="horizontal"
-					>
-						<FormSwitch
-							checked={config.model_download?.require_revision ?? false}
-							onChange={(val) => updateModelDownload("require_revision", val)}
-						/>
-					</FormGroup>
-
-					<FormGroup
-						label={t("settings.fields.require_sha256.label", "Require SHA256")}
-						description={t("settings.fields.require_sha256.description", "Require SHA256 verification for downloaded models.")}
-						orientation="horizontal"
-					>
-						<FormSwitch
-							checked={config.model_download?.require_sha256 ?? false}
-							onChange={(val) => updateModelDownload("require_sha256", val)}
-						/>
-					</FormGroup>
-
-					<FormGroup
-						label={t("settings.fields.allow_repo_owners.label", "Allowed Repository Owners")}
-						description={t("settings.fields.allow_repo_owners.description", "List of approved repository owners for model downloads.")}
-					>
-						<FormList
-							items={config.model_download?.allow_repo_owners ?? []}
-							onChange={(items) => updateModelDownload("allow_repo_owners", items)}
-							placeholder={t("settings.fields.allow_repo_owners.placeholder", "e.g. TheBloke")}
-						/>
-					</FormGroup>
-				</div>
-			</SettingsSection>
 
 			{/* 8. Loader Base URLs */}
 			<SettingsSection
 				title={t("settings.sections.models.loaders_title", "Loader Endpoints")}
 				icon={<RefreshCw size={18} />}
-				description={t(
-					"settings.sections.models.loaders_description",
-					"Configure base URLs for external model providers.",
-				)}
+				description={t("settings.sections.models.loaders_description", "Configure base URLs for external model providers.")}
 			>
 				<div className="space-y-4">
 					<FormGroup
@@ -517,7 +443,7 @@ const ModelSettings: React.FC = () => {
 						<FormInput
 							value={config.loaders?.ollama?.base_url ?? "http://localhost:11434"}
 							onChange={(v) => updateLoaderBaseUrl("ollama", v as string)}
-							placeholder="http://localhost:11434"
+							placeholder={t("settings.fields.ollama_base_url.placeholder", "http://localhost:11434")}
 						/>
 					</FormGroup>
 
@@ -528,12 +454,13 @@ const ModelSettings: React.FC = () => {
 						<FormInput
 							value={config.loaders?.lmstudio?.base_url ?? "http://localhost:1234"}
 							onChange={(v) => updateLoaderBaseUrl("lmstudio", v as string)}
-							placeholder="http://localhost:1234"
+							placeholder={t("settings.fields.lmstudio_base_url.placeholder", "http://localhost:1234")}
 						/>
 					</FormGroup>
 				</div>
 			</SettingsSection>
 
+			<ModelHub isOpen={isModelHubOpen} onClose={() => setIsModelHubOpen(false)} />
 			<ModelListOverlay
 				isOpen={isOverlayOpen}
 				onClose={() => setIsOverlayOpen(false)}
