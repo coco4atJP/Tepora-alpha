@@ -1,6 +1,7 @@
 import { AlertCircle, Bot, Check, Copy, Terminal, User } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -82,7 +83,7 @@ function getAgentHeaderClass(agentName: string): string {
 /**
  * Get the mode label for user messages.
  */
-function getModeLabel(mode: Message["mode"], t: any): string | null {
+function getModeLabel(mode: Message["mode"], t: TFunction): string | null {
 	switch (mode) {
 		case "search":
 			return `🔍 ${t("chat.modes.search")}`;
