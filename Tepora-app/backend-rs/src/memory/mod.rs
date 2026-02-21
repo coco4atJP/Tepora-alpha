@@ -235,8 +235,10 @@ mod tests {
     use super::*;
 
     // Simple in-memory implementation for testing
+    type StoreItem = (String, Vec<f32>, String, Option<serde_json::Value>);
+
     pub struct InMemoryVectorStore {
-        items: std::sync::Mutex<Vec<(String, Vec<f32>, String, Option<serde_json::Value>)>>,
+        items: std::sync::Mutex<Vec<StoreItem>>,
     }
 
     impl InMemoryVectorStore {
@@ -268,7 +270,7 @@ mod tests {
 
         async fn add_batch(
             &self,
-            new_items: Vec<(String, Vec<f32>, String, Option<serde_json::Value>)>,
+            new_items: Vec<StoreItem>,
         ) -> anyhow::Result<()> {
             let mut items = self.items.lock().unwrap();
             items.extend(new_items);

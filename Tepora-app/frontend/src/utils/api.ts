@@ -6,6 +6,8 @@
  * Webモードではデフォルトまたは環境変数を使用。
  */
 
+import { getSessionTokenSync } from "./sessionToken";
+
 // Tauriアプリかどうかを判定
 export function isDesktop(): boolean {
 	return (
@@ -41,19 +43,18 @@ export function getApiPort(): string {
  * For guaranteed token availability, use getAuthHeadersAsync().
  */
 export function getAuthHeaders(): Record<string, string> {
-	// Access cached token directly - this is a synchronous fallback
-	// Token must be loaded via getAuthHeadersAsync() first for this to work
-	const cachedToken =
-		typeof window !== "undefined"
-			? (window as unknown as { __tepora_session_token?: string }).__tepora_session_token
-			: undefined;
+	// Read token from module-scoped cache (no window global)
+	const cachedToken = getSessionTokenSync();
 	if (cachedToken) {
 		return { "x-api-key": cachedToken };
 	}
-	// Fallback to environment variable
-	const apiKey = import.meta.env.VITE_API_KEY || "";
-	if (apiKey) {
-		return { "x-api-key": apiKey };
+	// Env fallback is only allowed in dev mode to prevent
+	// token exposure via VITE_API_KEY in production builds
+	if (import.meta.env.DEV) {
+		const apiKey = import.meta.env.VITE_API_KEY || "";
+		if (apiKey) {
+			return { "x-api-key": apiKey };
+		}
 	}
 	return {};
 }

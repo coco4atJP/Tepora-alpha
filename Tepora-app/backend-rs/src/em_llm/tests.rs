@@ -341,8 +341,8 @@ mod boundary_tests {
         let r = refiner();
         let embs = vec![vec![1.0f32, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
         let sim = r.calculate_similarity_matrix(&embs);
-        for i in 0..3 {
-            assert!((sim[i][i] - 1.0).abs() < 1e-6, "diagonal[{}] not 1.0", i);
+        for (i, row) in sim.iter().enumerate().take(3) {
+            assert!((row[i] - 1.0).abs() < 1e-6, "diagonal[{}] not 1.0", i);
         }
     }
 
@@ -351,9 +351,9 @@ mod boundary_tests {
         let r = refiner();
         let embs = vec![vec![1.0f32, 0.0], vec![0.7, 0.7], vec![0.0, 1.0]];
         let sim = r.calculate_similarity_matrix(&embs);
-        for i in 0..3 {
-            for j in 0..3 {
-                assert!((sim[i][j] - sim[j][i]).abs() < 1e-6);
+        for (i, row_i) in sim.iter().enumerate().take(3) {
+            for (j, row_j) in sim.iter().enumerate().take(3) {
+                assert!((row_i[j] - row_j[i]).abs() < 1e-6);
             }
         }
     }

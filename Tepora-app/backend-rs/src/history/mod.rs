@@ -44,6 +44,11 @@ impl HistoryStore {
             .await
             .map_err(|e| ApiError::internal(format!("Failed to connect to history db: {}", e)))?;
 
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to enable foreign keys: {}", e)))?;
+
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
@@ -193,11 +198,22 @@ impl HistoryStore {
     ) -> Result<i64, ApiError> {
         let now = chrono::Utc::now().to_rfc3339();
 
-        // Touch session
+        let mut tx = self.pool.begin().await.map_err(ApiError::internal)?;
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO sessions (id, created_at, updated_at) VALUES (?, ?, ?)",
+        )
+        .bind(session_id)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await
+        .map_err(ApiError::internal)?;
+
         sqlx::query("UPDATE sessions SET updated_at = ? WHERE id = ?")
             .bind(&now)
             .bind(session_id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(ApiError::internal)?;
 
@@ -209,9 +225,11 @@ impl HistoryStore {
         .bind(content)
         .bind(now)
         .bind(additional_kwargs)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(ApiError::internal)?;
+
+        tx.commit().await.map_err(ApiError::internal)?;
 
         Ok(result.last_insert_rowid())
     }
@@ -255,9 +273,9 @@ impl HistoryStore {
         Ok(messages)
     }
 
-    pub async fn get_message_count(&self, session_id: &str) -> Result<i64, ApiError> {
-        let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
-            .bind(session_id)
+    /// 全セッションを横断してメッセージ総数を返す。
+    pub async fn get_total_message_count(&self) -> Result<i64, ApiError> {
+        let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages")
             .fetch_one(&self.pool)
             .await
             .map(|r| r.get(0))

@@ -16,7 +16,7 @@ impl RouterNode {
 
 impl Default for RouterNode {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn router_node_default() {
-        let node = RouterNode::default();
+        let node = RouterNode;
         assert_eq!(node.id(), "router");
     }
 

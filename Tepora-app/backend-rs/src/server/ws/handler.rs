@@ -21,44 +21,23 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-) -> impl IntoResponse {
-    let origin_ok = validate_origin(&headers, &state);
-    let token_ok = validate_token(&headers, &state);
-
-    if !origin_ok {
-        tracing::warn!("WebSocket handshake failed: Invalid Origin");
+) -> Result<impl IntoResponse, ApiError> {
+    if !validate_origin(&headers, &state) {
+        tracing::warn!("WebSocket handshake rejected: Invalid Origin");
+        return Err(ApiError::Forbidden);
     }
-    if !token_ok {
-        tracing::warn!("WebSocket handshake failed: Invalid Token");
+    if !validate_token(&headers, &state) {
+        tracing::warn!("WebSocket handshake rejected: Invalid Token");
+        return Err(ApiError::Unauthorized);
     }
 
-    ws.protocols([WS_APP_PROTOCOL])
-        .on_upgrade(move |socket| handle_socket(socket, state, origin_ok, token_ok))
+    Ok(ws.protocols([WS_APP_PROTOCOL])
+        .on_upgrade(move |socket| handle_socket(socket, state)))
 }
 
-async fn handle_socket(socket: WebSocket, state: Arc<AppState>, origin_ok: bool, token_ok: bool) {
+async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     tracing::info!("WebSocket connection upgraded");
     let (mut sender, mut receiver) = socket.split();
-
-    if !origin_ok {
-        let _ = sender
-            .send(Message::Close(Some(axum::extract::ws::CloseFrame {
-                code: 4003,
-                reason: "Forbidden: Invalid Origin".into(),
-            })))
-            .await;
-        return;
-    }
-
-    if !token_ok {
-        let _ = sender
-            .send(Message::Close(Some(axum::extract::ws::CloseFrame {
-                code: 4001,
-                reason: "Unauthorized: Invalid Token".into(),
-            })))
-            .await;
-        return;
-    }
 
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<WsIncomingMessage>();
     let pending = Arc::new(Mutex::new(HashMap::<

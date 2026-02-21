@@ -1,0 +1,145 @@
+name: Security Scan (Scheduled)
+
+on:
+  schedule:
+    # 毎週月曜 00:00 UTC (09:00 JST)
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "20"
+  RUST_TOOLCHAIN: "stable"
+
+jobs:
+  # ============================================
+  # Backend: cargo audit
+  # ============================================
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app/backend-rs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
+      - name: Run cargo audit
+        id: cargo_audit
+        run: |
+          cargo audit --ignore RUSTSEC-2023-0071 2>&1 | tee audit-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Issue on Failure
+        if: steps.cargo_audit.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('Tepora-app/backend-rs/audit-output.txt', 'utf8');
+            const title = `🔒 [Security] cargo audit: 新しい脆弱性を検出 (${new Date().toISOString().split('T')[0]})`;
+            const body = [
+              '## cargo audit で脆弱性が検出されました',
+              '',
+              '```',
+              output.substring(0, 3000),
+              '```',
+              '',
+              '> このIssueは定期セキュリティスキャンにより自動作成されました。',
+            ].join('\n');
+
+            // 重複チェック
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security',
+              per_page: 10,
+            });
+            const duplicate = issues.find(i => i.title.includes('cargo audit'));
+            if (!duplicate) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'automated'],
+              });
+            }
+
+  # ============================================
+  # Frontend: npm audit
+  # ============================================
+  npm-audit:
+    name: npm Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run npm audit
+        id: npm_audit
+        run: |
+          npm audit --audit-level=moderate 2>&1 | tee audit-output.txt || echo "exit_code=1" >> "$GITHUB_OUTPUT"
+
+      - name: Create Issue on Failure
+        if: steps.npm_audit.outputs.exit_code == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('Tepora-app/frontend/audit-output.txt', 'utf8');
+            const title = `🔒 [Security] npm audit: 新しい脆弱性を検出 (${new Date().toISOString().split('T')[0]})`;
+            const body = [
+              '## npm audit で脆弱性が検出されました',
+              '',
+              '```',
+              output.substring(0, 3000),
+              '```',
+              '',
+              '> このIssueは定期セキュリティスキャンにより自動作成されました。',
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security',
+              per_page: 10,
+            });
+            const duplicate = issues.find(i => i.title.includes('npm audit'));
+            if (!duplicate) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'automated'],
+              });
+            }

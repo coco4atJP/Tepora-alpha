@@ -32,10 +32,15 @@ pub async fn shutdown(
     Ok(Json(json!({"status": "shutting_down"})))
 }
 
-pub async fn get_status(State(state): State<Arc<AppState>>) -> Result<impl IntoResponse, ApiError> {
+pub async fn get_status(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, ApiError> {
+    require_api_key(&headers, &state.session_token)?;
+
     let total_messages = state
         .history
-        .get_message_count("default")
+        .get_total_message_count()
         .await
         .unwrap_or(0);
     let memory_stats = state.em_memory_service.stats().await?;

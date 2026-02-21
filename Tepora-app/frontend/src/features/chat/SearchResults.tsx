@@ -2,6 +2,7 @@ import { ChevronRight, ExternalLink, Globe, Search } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import type { SearchResult } from "../../types";
+import { sanitizeUrl } from "../../utils/sanitizeUrl";
 
 interface SearchResultsProps {
 	results: SearchResult[] | null;
@@ -35,12 +36,12 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
 		}
 	};
 
-	// Helper to get valid URL
+	// Helper to get valid URL with scheme validation
 	const getValidUrl = (result: SearchResult | { url?: string; link?: string }) => {
 		// Fallback to 'link' if 'url' is missing (backend inconsistency fix)
-		if ("url" in result && result.url) return result.url;
-		if ("link" in result && result.link) return result.link;
-		return "#";
+		const raw =
+			("url" in result && result.url) || ("link" in result && result.link) || "";
+		return sanitizeUrl(raw);
 	};
 
 	return (

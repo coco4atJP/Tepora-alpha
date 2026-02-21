@@ -56,10 +56,40 @@ describe("SearchResults", () => {
 
 		render(<SearchResults results={mockResults} />);
 
-		// Should not crash, and should display "Unknown Source" or similar fallback
+		// Invalid URLs should be sanitized to "#"
 		expect(screen.getByText("Unknown Source")).toBeInTheDocument();
 		const link = screen.getByRole("link");
-		expect(link).toHaveAttribute("href", "not-a-url");
+		expect(link).toHaveAttribute("href", "#");
+	});
+
+	it("rejects javascript: scheme URLs", () => {
+		const mockResults = [
+			{
+				title: "XSS Attempt",
+				url: "javascript:alert('xss')",
+				snippet: "Malicious snippet",
+			},
+		] as SearchResult[];
+
+		render(<SearchResults results={mockResults} />);
+
+		const link = screen.getByRole("link");
+		expect(link).toHaveAttribute("href", "#");
+	});
+
+	it("rejects data: scheme URLs", () => {
+		const mockResults = [
+			{
+				title: "Data Scheme",
+				url: "data:text/html,<script>alert('xss')</script>",
+				snippet: "Data scheme snippet",
+			},
+		] as SearchResult[];
+
+		render(<SearchResults results={mockResults} />);
+
+		const link = screen.getByRole("link");
+		expect(link).toHaveAttribute("href", "#");
 	});
 
 	it("safely handles missing URL", () => {

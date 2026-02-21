@@ -110,7 +110,6 @@ Teporaは、最先端の技術実験場でもあります。
 * **Research Authors of EM-LLM**: 私たちの「記憶」の源泉となった論文の著者の皆様。
 * 他 参考 参照に使用させていただいた皆様。
 
-
 * [X] 本プロジェクトは100％をAgentが作成しています。人間の関与は意思決定と指示出しのみです。
 * [X] Gemini (main)、Claude、ChatGPTに深くお礼申し上げます。
 * [X] また、Antigravity IDE、Jules、Codexとそのチームに深く感謝をいたします。

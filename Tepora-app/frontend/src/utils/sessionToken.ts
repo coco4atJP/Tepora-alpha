@@ -45,15 +45,7 @@ function getTokenFromEnv(): string | null {
 	return token || null;
 }
 
-/**
- * Store token in window global for synchronous access from getAuthHeaders()
- */
-function updateWindowCache(token: string | null): void {
-	if (typeof window !== "undefined") {
-		(window as unknown as { __tepora_session_token?: string }).__tepora_session_token =
-			token ?? undefined;
-	}
-}
+
 
 /**
  * Get session token for authentication.
@@ -82,7 +74,6 @@ export async function getSessionToken(): Promise<string | null> {
 		const fileToken = await readTokenFromFile();
 		if (fileToken) {
 			cachedToken = fileToken;
-			updateWindowCache(cachedToken);
 			if (import.meta.env.DEV) {
 				console.log("[SessionToken] Loaded from file");
 			}
@@ -93,7 +84,6 @@ export async function getSessionToken(): Promise<string | null> {
 		const envToken = getTokenFromEnv();
 		if (envToken) {
 			cachedToken = envToken;
-			updateWindowCache(cachedToken);
 			if (import.meta.env.DEV) {
 				console.log("[SessionToken] Loaded from environment");
 			}

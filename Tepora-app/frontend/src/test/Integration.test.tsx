@@ -186,6 +186,81 @@ describe("ChatInterface Integration", () => {
 		}
 	});
 
+	it("keeps input and send button disabled when websocket is disconnected", () => {
+		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isConnected: false,
+				sendMessage: mockSendMessage,
+				setSession: mockSetSession,
+				pendingToolConfirmation: null,
+				handleToolConfirmation: mockHandleToolConfirmation,
+				stopGeneration: mockStopGeneration,
+			}),
+		);
+
+		render(<ChatInterface />);
+
+		const input = screen.getByRole("textbox");
+		const sendButton = screen.getByRole("button", { name: /send message/i });
+
+		expect(input).toBeDisabled();
+		expect(sendButton).toBeDisabled();
+
+		fireEvent.change(input, { target: { value: "Should not send" } });
+		fireEvent.click(sendButton);
+
+		expect(mockSendMessage).not.toHaveBeenCalled();
+	});
+
+	it("executes tool confirmation allow flow with remember option", () => {
+		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isConnected: true,
+				sendMessage: mockSendMessage,
+				setSession: mockSetSession,
+				pendingToolConfirmation: {
+					requestId: "req-allow",
+					toolName: "native_web_fetch",
+					toolArgs: { url: "https://example.com" },
+					description: "Fetch URL",
+				},
+				handleToolConfirmation: mockHandleToolConfirmation,
+				stopGeneration: mockStopGeneration,
+			}),
+		);
+
+		render(<ChatInterface />);
+
+		fireEvent.click(screen.getByRole("checkbox"));
+		fireEvent.click(screen.getByRole("button", { name: "許可" }));
+
+		expect(mockHandleToolConfirmation).toHaveBeenCalledWith("req-allow", true, true);
+	});
+
+	it("executes tool confirmation deny flow", () => {
+		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+			selector({
+				isConnected: true,
+				sendMessage: mockSendMessage,
+				setSession: mockSetSession,
+				pendingToolConfirmation: {
+					requestId: "req-deny",
+					toolName: "native_web_fetch",
+					toolArgs: { url: "https://example.com" },
+					description: "Fetch URL",
+				},
+				handleToolConfirmation: mockHandleToolConfirmation,
+				stopGeneration: mockStopGeneration,
+			}),
+		);
+
+		render(<ChatInterface />);
+
+		fireEvent.click(screen.getByRole("button", { name: "拒否" }));
+
+		expect(mockHandleToolConfirmation).toHaveBeenCalledWith("req-deny", false, false);
+	});
+
 	it("creates new session when button clicked", () => {
 		// mockCreateSession returns a promise
 		mockCreateSession.mockResolvedValue({ id: "new-session" });

@@ -260,8 +260,11 @@ impl ModelManager {
             return Ok(false);
         }
 
-        if let Some(path) = remove_path {
-            if path.starts_with(&self.paths.user_data_dir) {
+        // C-2 fix: 同一 file_path を参照する他のエントリが残っている場合はファイル削除をスキップ
+        if let Some(ref path) = remove_path {
+            let path_str = path.to_string_lossy();
+            let still_referenced = registry.models.iter().any(|m| m.file_path == path_str.as_ref());
+            if !still_referenced && path.starts_with(&self.paths.user_data_dir) {
                 let _ = fs::remove_file(path);
             }
         }
@@ -428,6 +431,8 @@ impl ModelManager {
         Ok(base.join(safe_filename))
     }
 
+    /// モデルエントリの追加または更新（upsert）。
+    /// `repo_id + filename + role` が一致する既存エントリがあれば更新、なければ新規追加。
     #[allow(clippy::too_many_arguments)]
     fn add_model_entry(
         &self,
@@ -441,6 +446,26 @@ impl ModelManager {
         sha256: Option<String>,
     ) -> Result<ModelEntry, ApiError> {
         let mut registry = self.load_registry()?;
+        let file_path_str = path.to_string_lossy().to_string();
+
+        // C-2 fix: repo_id + filename + role で既存エントリを検索し、あれば更新
+        if let Some(existing) = registry.models.iter_mut().find(|m| {
+            m.repo_id.as_deref() == Some(repo_id)
+                && m.filename == filename
+                && m.role == role
+        }) {
+            existing.display_name = display_name.to_string();
+            existing.file_path = file_path_str;
+            existing.file_size = file_size;
+            existing.revision = revision;
+            existing.sha256 = sha256;
+            existing.added_at = Utc::now().to_rfc3339();
+            let updated = existing.clone();
+            self.save_registry(&registry)?;
+            return Ok(updated);
+        }
+
+        // 新規追加
         let base_id = format!("{}-{}", role, filename);
         let id = unique_model_id(&base_id, &registry.models);
 
@@ -451,7 +476,7 @@ impl ModelManager {
             file_size,
             filename: filename.to_string(),
             source: repo_id.to_string(),
-            file_path: path.to_string_lossy().to_string(),
+            file_path: file_path_str,
             repo_id: Some(repo_id.to_string()),
             revision,
             sha256,

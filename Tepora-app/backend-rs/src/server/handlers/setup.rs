@@ -458,14 +458,31 @@ pub async fn setup_set_character_role(
     require_api_key(&headers, &state.session_token)?;
     let ok = state
         .models
-        .set_role_model("character", &payload.model_id)?;
+        .set_role_model("character", &payload.model_id)
+        .map_err(|e| {
+            tracing::warn!(model_id = %payload.model_id, error = %e, "Failed to set character role");
+            ApiError::BadRequest(format!(
+                "Failed to set character role for model '{}': {}",
+                payload.model_id, e
+            ))
+        })?;
     if ok {
-        let _ = state
+        state
             .models
-            .update_active_model_config("text", &payload.model_id);
+            .update_active_model_config("text", &payload.model_id)
+            .map_err(|e| {
+                tracing::warn!(model_id = %payload.model_id, error = %e, "Failed to update active model config");
+                ApiError::BadRequest(format!(
+                    "Failed to activate model '{}': {}",
+                    payload.model_id, e
+                ))
+            })?;
         return Ok(Json(json!({"success": true})));
     }
-    Err(ApiError::NotFound("Model not found".to_string()))
+    Err(ApiError::NotFound(format!(
+        "Model '{}' not found in registry",
+        payload.model_id
+    )))
 }
 
 pub async fn setup_set_professional_role(
@@ -510,9 +527,22 @@ pub async fn setup_set_active_model(
     Json(payload): Json<ActiveModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    let _ = state
+    state
         .models
-        .update_active_model_config("text", &payload.model_id);
+        .update_active_model_config("text", &payload.model_id)
+        .map_err(|e| {
+            tracing::warn!(model_id = %payload.model_id, error = %e, "Failed to set active model");
+            match &e {
+                ApiError::NotFound(_) => ApiError::NotFound(format!(
+                    "Model '{}' not found in registry",
+                    payload.model_id
+                )),
+                _ => ApiError::BadRequest(format!(
+                    "Failed to activate model '{}': {}",
+                    payload.model_id, e
+                )),
+            }
+        })?;
     Ok(Json(json!({"success": true})))
 }
 

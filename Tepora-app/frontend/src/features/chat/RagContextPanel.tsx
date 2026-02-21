@@ -2,6 +2,7 @@ import { ChevronRight, ExternalLink, FileText, Globe, Plus, Search, X } from "lu
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import type { Attachment, SearchResult } from "../../types";
+import { sanitizeUrl } from "../../utils/sanitizeUrl";
 
 interface RagContextPanelProps {
 	attachments: Attachment[];
@@ -34,9 +35,9 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 
 	// Helper to get valid URL
 	const getValidUrl = (result: SearchResult | { url?: string; link?: string }) => {
-		if ("url" in result && result.url) return result.url;
-		if ("link" in result && result.link) return result.link;
-		return "#";
+		const raw =
+			("url" in result && result.url) || ("link" in result && result.link) || "";
+		return sanitizeUrl(raw);
 	};
 
 	const hasAttachments = attachments.length > 0;
@@ -57,11 +58,10 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 					<button
 						type="button"
 						onClick={onToggleWebSearch}
-						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${
-							!skipWebSearch
-								? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
-								: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
-						}`}
+						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${!skipWebSearch
+							? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
+							: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
+							}`}
 						title={
 							skipWebSearch
 								? `${t("chat.input.web_search")}: OFF`

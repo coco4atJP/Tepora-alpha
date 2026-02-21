@@ -339,7 +339,8 @@ impl McpManager {
             .unwrap_or_else(|| payload.clone());
         let config_value = json!({ "mcpServers": servers_value });
         let parsed: McpToolsConfig =
-            serde_json::from_value(config_value.clone()).unwrap_or_default();
+            serde_json::from_value(config_value.clone())
+                .map_err(|e| ApiError::BadRequest(format!("Invalid MCP config: {}", e)))?;
 
         self.save_tools_config(&parsed)?;
         *self.config.write().await = parsed.clone();
@@ -754,7 +755,13 @@ impl McpManager {
             *self.config.write().await = empty.clone();
             return Ok(empty);
         }
-        let parsed = serde_json::from_str::<McpToolsConfig>(&contents).unwrap_or_default();
+        let parsed = match serde_json::from_str::<McpToolsConfig>(&contents) {
+            Ok(config) => config,
+            Err(e) => {
+                tracing::warn!("Failed to parse MCP config, using current config: {}", e);
+                return Ok(self.config.read().await.clone());
+            }
+        };
         *self.config.write().await = parsed.clone();
         Ok(parsed)
     }
@@ -848,19 +855,24 @@ fn format_tool_result(result: &rmcp::model::CallToolResult) -> String {
         let mut msg = String::from("Tool execution error:");
         if !result.content.is_empty() {
             for item in &result.content {
-                msg.push_str(&format!("\n- {:?}", item));
+                let text = format_content_item(item);
+                if !text.is_empty() {
+                    msg.push_str(&format!("\n- {}", text));
+                }
             }
         }
         return msg;
     }
 
-    let msg = String::new();
+    let mut msg = String::new();
     if !result.content.is_empty() {
-        for _item in &result.content {
-            {
-                // Match anything for now to bypass ambiguous type error
-                // TODO: Fix rmcp::model::Content usage
-                // msg.push_str(&format!("{:?}", item));
+        for item in &result.content {
+            let text = format_content_item(item);
+            if !text.is_empty() {
+                if !msg.is_empty() {
+                    msg.push('\n');
+                }
+                msg.push_str(&text);
             }
         }
     }
@@ -868,5 +880,91 @@ fn format_tool_result(result: &rmcp::model::CallToolResult) -> String {
         "Tool executed successfully (no output)".to_string()
     } else {
         msg
+    }
+}
+
+/// `rmcp::model::Content`（= `Annotated<RawContent>`）の各バリアントから
+/// 人間/LLM可読な文字列を抽出する。
+fn format_content_item(item: &rmcp::model::Content) -> String {
+    use rmcp::model::{RawContent, ResourceContents};
+    match &item.raw {
+        RawContent::Text(t) => t.text.clone(),
+        RawContent::Image(_) => "[Image content]".to_string(),
+        RawContent::Audio(_) => "[Audio content]".to_string(),
+        RawContent::Resource(r) => match &r.resource {
+            ResourceContents::TextResourceContents { text, .. } => text.clone(),
+            ResourceContents::BlobResourceContents { uri, .. } => {
+                format!("[Blob: {}]", uri)
+            }
+        },
+        RawContent::ResourceLink(link) => format!("[Resource: {}]", link.uri),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rmcp::model::{Annotated, CallToolResult, Content, RawContent, RawTextContent};
+
+    fn make_text_content(text: &str) -> Content {
+        Annotated {
+            raw: RawContent::Text(RawTextContent {
+                text: text.to_string(),
+                meta: None,
+            }),
+            annotations: None,
+        }
+    }
+
+    #[test]
+    fn test_format_tool_result_text_content() {
+        let result = CallToolResult {
+            content: vec![make_text_content("Hello from MCP tool")],
+            is_error: None,
+            meta: None,
+            structured_content: None,
+        };
+        let output = format_tool_result(&result);
+        assert_eq!(output, "Hello from MCP tool");
+    }
+
+    #[test]
+    fn test_format_tool_result_error() {
+        let result = CallToolResult {
+            content: vec![make_text_content("Something went wrong")],
+            is_error: Some(true),
+            meta: None,
+            structured_content: None,
+        };
+        let output = format_tool_result(&result);
+        assert!(output.starts_with("Tool execution error:"));
+        assert!(output.contains("Something went wrong"));
+    }
+
+    #[test]
+    fn test_format_tool_result_empty() {
+        let result = CallToolResult {
+            content: vec![],
+            is_error: None,
+            meta: None,
+            structured_content: None,
+        };
+        let output = format_tool_result(&result);
+        assert_eq!(output, "Tool executed successfully (no output)");
+    }
+
+    #[test]
+    fn test_format_tool_result_multiple_contents() {
+        let result = CallToolResult {
+            content: vec![
+                make_text_content("Line 1"),
+                make_text_content("Line 2"),
+            ],
+            is_error: None,
+            meta: None,
+            structured_content: None,
+        };
+        let output = format_tool_result(&result);
+        assert_eq!(output, "Line 1\nLine 2");
     }
 }

@@ -147,8 +147,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true  # Report but don't fail
+        run: npm audit --audit-level=high
 
   # ============================================
   # Quality Gate Summary
