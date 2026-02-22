@@ -205,6 +205,7 @@ export interface ModelInfo {
 	role: string;
 	file_size: number;
 	filename?: string;
+	file_path?: string;
 	source: string;
 	loader?: string;
 	is_active?: boolean;

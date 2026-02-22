@@ -6,6 +6,7 @@ import { Outlet } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import DynamicBackground from "../../components/ui/DynamicBackground";
 import { useTheme } from "../../context/ThemeContext";
+import { useSettings } from "../../hooks/useSettings";
 import { useChatStore, useWebSocketStore } from "../../stores";
 import type { Attachment, ChatMode } from "../../types";
 import AgentStatus from "../chat/AgentStatus";
@@ -34,9 +35,8 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({
 	<Button
 		variant={isActive ? "primary" : "ghost"}
 		onClick={() => onClick(mode)}
-		className={`flex flex-col items-center justify-center p-2 h-auto w-full rounded-lg transition-all duration-300 ${
-			isActive ? "bg-white/10" : ""
-		}`}
+		className={`flex flex-col items-center justify-center p-2 h-auto w-full rounded-lg transition-all duration-300 ${isActive ? "bg-white/10" : ""
+			}`}
 	>
 		<Icon size={20} className={isActive ? "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" : ""} />
 		<span
@@ -59,6 +59,10 @@ const Layout: React.FC = () => {
 	const isTepora = activeTheme === "tepora";
 
 	// Use Stores
+	const { config } = useSettings();
+	const isWebSearchAllowed = config?.privacy?.allow_web_search ?? false;
+	const actualSkipWebSearch = !isWebSearchAllowed || skipWebSearch;
+
 	const searchResults = useChatStore((state) => state.searchResults);
 	const memoryStats = useChatStore((state) => state.memoryStats);
 	const activityLog = useChatStore((state) => state.activityLog);
@@ -167,7 +171,7 @@ const Layout: React.FC = () => {
 										onFileSelect: handleAddAttachment,
 										onRemoveAttachment: handleRemoveAttachment,
 										clearAttachments,
-										skipWebSearch,
+										skipWebSearch: actualSkipWebSearch,
 									}}
 								/>
 							</div>
@@ -180,8 +184,9 @@ const Layout: React.FC = () => {
 										onAddAttachment={handleAddAttachment}
 										onRemoveAttachment={handleRemoveAttachment}
 										searchResults={searchResults}
-										skipWebSearch={skipWebSearch}
+										skipWebSearch={actualSkipWebSearch}
 										onToggleWebSearch={() => setSkipWebSearch(!skipWebSearch)}
+										webSearchAllowed={isWebSearchAllowed}
 									/>
 								</div>
 							)}
@@ -224,8 +229,9 @@ const Layout: React.FC = () => {
 									onAddAttachment={handleAddAttachment}
 									onRemoveAttachment={handleRemoveAttachment}
 									searchResults={searchResults}
-									skipWebSearch={skipWebSearch}
+									skipWebSearch={actualSkipWebSearch}
 									onToggleWebSearch={() => setSkipWebSearch(!skipWebSearch)}
+									webSearchAllowed={isWebSearchAllowed}
 								/>
 							)}
 							{currentMode === "agent" && <AgentStatus activityLog={activityLog} />}

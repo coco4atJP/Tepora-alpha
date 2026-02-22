@@ -207,10 +207,22 @@ const ModelSettings: React.FC = () => {
 
 			await fetchModels();
 			const modelInList = models.find((m) => m.id === modelId);
-			if (modelInList?.filename) {
+			const modelPath =
+				modelInList?.file_path ||
+				((modelInList?.source === "ollama" || modelInList?.loader === "ollama") &&
+				modelInList.filename
+					? `ollama://${modelInList.filename}`
+					: (modelInList?.source === "lmstudio" || modelInList?.loader === "lmstudio") &&
+						  modelInList.filename
+						? `lmstudio://${modelInList.filename}`
+						: modelInList?.filename
+							? `models/embedding/${modelInList.filename}`
+							: "");
+
+			if (modelPath) {
 				updateModel("embedding_model", {
 					...embeddingModelConfig,
-					path: `models/embedding/${modelInList.filename}`,
+					path: modelPath,
 				});
 			}
 		} catch (e) {

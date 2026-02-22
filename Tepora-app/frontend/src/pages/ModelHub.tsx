@@ -69,10 +69,20 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
                     role: "embedding",
                 });
 
-                if (model.filename && config?.models_gguf?.embedding_model) {
+                const modelPath =
+                    model.file_path ||
+                    ((model.source === "ollama" || model.loader === "ollama") && model.filename
+                        ? `ollama://${model.filename}`
+                        : (model.source === "lmstudio" || model.loader === "lmstudio") && model.filename
+                            ? `lmstudio://${model.filename}`
+                            : model.filename
+                                ? `models/embedding/${model.filename}`
+                                : "");
+
+                if (modelPath && config?.models_gguf?.embedding_model) {
                     updateModel("embedding_model", {
                         ...config.models_gguf.embedding_model,
-                        path: `models/embedding/${model.filename}`,
+                        path: modelPath,
                     });
                 }
             }

@@ -11,6 +11,7 @@ interface RagContextPanelProps {
 	searchResults: SearchResult[] | null;
 	skipWebSearch?: boolean;
 	onToggleWebSearch?: () => void;
+	webSearchAllowed?: boolean;
 }
 
 const RagContextPanel: React.FC<RagContextPanelProps> = ({
@@ -20,6 +21,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 	searchResults,
 	skipWebSearch,
 	onToggleWebSearch,
+	webSearchAllowed = true,
 }) => {
 	const { t } = useTranslation();
 
@@ -58,22 +60,27 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 					<button
 						type="button"
 						onClick={onToggleWebSearch}
-						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${!skipWebSearch
-							? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
-							: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
+						disabled={!webSearchAllowed}
+						className={`flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] transition-all duration-300 border ${!webSearchAllowed
+								? "bg-white/5 text-gray-600 border-white/5 cursor-not-allowed opacity-75"
+								: !skipWebSearch
+									? "bg-gold-500/10 text-gold-300 border-gold-500/30 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]"
+									: "bg-white/5 text-gray-500 border-white/5 hover:bg-white/10"
 							}`}
 						title={
-							skipWebSearch
-								? `${t("chat.input.web_search")}: OFF`
-								: `${t("chat.input.web_search")}: ON`
+							!webSearchAllowed
+								? t("rag_context.web_search_denied", "Web Search is disabled in Privacy Settings")
+								: skipWebSearch
+									? `${t("chat.input.web_search")}: OFF`
+									: `${t("chat.input.web_search")}: ON`
 						}
 					>
 						<Globe
-							className={`w-3 h-3 ${!skipWebSearch ? "text-gold-400 animate-pulse" : "text-gray-500"}`}
+							className={`w-3 h-3 ${!webSearchAllowed ? "text-gray-600" : !skipWebSearch ? "text-gold-400 animate-pulse" : "text-gray-500"}`}
 							aria-hidden="true"
 						/>
 						<span className="font-medium font-display tracking-wide">
-							{skipWebSearch ? "OFF" : "ON"}
+							{!webSearchAllowed ? "OFF" : skipWebSearch ? "OFF" : "ON"}
 						</span>
 					</button>
 				)}
