@@ -260,7 +260,7 @@ impl ModelManager {
             return Ok(false);
         }
 
-        // C-2 fix: 同一 file_path を参照する他のエントリが残っている場合はファイル削除をスキップ
+        // Skip file deletion if other entries are still referencing the same file_path
         if let Some(ref path) = remove_path {
             let path_str = path.to_string_lossy();
             let still_referenced = registry.models.iter().any(|m| m.file_path == path_str.as_ref());
@@ -425,7 +425,7 @@ impl ModelManager {
     fn model_storage_path(&self, role: &str, filename: &str) -> Result<PathBuf, ApiError> {
         let safe_role = role.to_lowercase();
         let base = self.paths.user_data_dir.join("models").join(safe_role);
-        // C-3 fix: ファイル名を正規化（親参照 / 絶対パス / パス区切り文字を拒否）
+        // Sanitize the filename to prevent path traversal
         let safe_filename = sanitize_model_filename(filename)
             .ok_or_else(|| ApiError::BadRequest("Invalid model filename".to_string()))?;
         Ok(base.join(safe_filename))
@@ -560,7 +560,11 @@ impl ModelManager {
             };
 
             let details = show.as_ref().map(|s| &s.details).unwrap_or(&model.details);
-            let role = determine_ollama_role(details);
+            let role = determine_ollama_role(
+                &model.name,
+                details,
+                show.as_ref().and_then(|s| s.capabilities.as_deref()),
+            );
 
             // スペック情報を抽出
             let parameter_size = details.parameter_size.clone();
@@ -781,19 +785,61 @@ impl ModelManager {
     }
 }
 
-/// Ollamaモデルのfamilyに基づいてroleを決定する。
-/// Embeddingモデルは特有のfamily名（bert, nomic-bert, clip等）を持つ。
-fn determine_ollama_role(details: &OllamaModelDetails) -> String {
+/// Ollamaモデルの情報からroleを推定する。
+/// family/families だけでは判定できないケース（例: embeddinggemma）に対応するため、
+/// capabilities とモデル名ヒントも併用する。
+fn determine_ollama_role(
+    model_name: &str,
+    details: &OllamaModelDetails,
+    capabilities: Option<&[String]>,
+) -> String {
     const EMBEDDING_FAMILIES: &[&str] = &["bert", "nomic-bert", "clip"];
+    const EMBEDDING_CAPABILITY_HINTS: &[&str] = &["embedding", "embed"];
+    const TEXT_CAPABILITY_HINTS: &[&str] = &["completion", "chat", "generate"];
+    const EMBEDDING_NAME_HINTS: &[&str] = &[
+        "embedding",
+        "embed",
+        "nomic-embed",
+        "e5",
+        "bge",
+        "gte",
+    ];
 
     let family = details.family.as_deref().unwrap_or("").to_ascii_lowercase();
     let families = details.families.as_deref().unwrap_or(&[]);
 
-    let is_embedding = EMBEDDING_FAMILIES
+    let is_embedding_by_family = EMBEDDING_FAMILIES
         .iter()
         .any(|&ef| family == ef || families.iter().any(|f| f.to_ascii_lowercase() == ef));
 
-    if is_embedding {
+    if is_embedding_by_family {
+        "embedding".to_string()
+    } else if capabilities
+        .map(|caps| {
+            caps.iter().any(|cap| {
+                let cap = cap.to_ascii_lowercase();
+                EMBEDDING_CAPABILITY_HINTS
+                    .iter()
+                    .any(|hint| cap.contains(hint))
+            })
+        })
+        .unwrap_or(false)
+    {
+        "embedding".to_string()
+    } else if capabilities
+        .map(|caps| {
+            caps.iter().any(|cap| {
+                let cap = cap.to_ascii_lowercase();
+                TEXT_CAPABILITY_HINTS.iter().any(|hint| cap.contains(hint))
+            })
+        })
+        .unwrap_or(false)
+    {
+        "text".to_string()
+    } else if EMBEDDING_NAME_HINTS
+        .iter()
+        .any(|hint| model_name.to_ascii_lowercase().contains(hint))
+    {
         "embedding".to_string()
     } else {
         "text".to_string()
@@ -1164,6 +1210,34 @@ mod tests {
         let (stops, temp) = parse_ollama_parameters("");
         assert!(stops.is_none());
         assert!(temp.is_none());
+    }
+
+    #[test]
+    fn determine_ollama_role_detects_embedding_by_family() {
+        let details = OllamaModelDetails {
+            family: Some("bert".to_string()),
+            ..Default::default()
+        };
+        let role = determine_ollama_role("nomic-embed-text", &details, None);
+        assert_eq!(role, "embedding");
+    }
+
+    #[test]
+    fn determine_ollama_role_detects_embedding_by_capability() {
+        let details = OllamaModelDetails::default();
+        let capabilities = vec!["embedding".to_string()];
+        let role = determine_ollama_role("mystery-model", &details, Some(&capabilities));
+        assert_eq!(role, "embedding");
+    }
+
+    #[test]
+    fn determine_ollama_role_detects_embeddinggemma_by_name() {
+        let details = OllamaModelDetails {
+            family: Some("gemma3".to_string()),
+            ..Default::default()
+        };
+        let role = determine_ollama_role("embeddinggemma:latest", &details, None);
+        assert_eq!(role, "embedding");
     }
 
     #[test]

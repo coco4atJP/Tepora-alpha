@@ -212,7 +212,7 @@
     }
   ],
   "role_assignments": {
-    "character": "ollama-embeddinggemma:latest"
+    "character": "ollama-lfm2.5-thinking:latest"
   },
   "role_order": {}
 }
