@@ -94,6 +94,8 @@ pub struct ActiveModelRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct ReorderModelsRequest {
+    #[serde(default)]
+    pub role: Option<String>,
     pub model_ids: Vec<String>,
 }
 
@@ -333,12 +335,20 @@ pub async fn setup_run(
             if let Ok(result) = result {
                 if result.success {
                     if let Some(model_id) = result.model_id.as_deref() {
-                        let _ = state_clone
-                            .models
-                            .set_role_model(&model.role_key(), model_id);
-                        let _ = state_clone
-                            .models
-                            .update_active_model_config(&model.role_key(), model_id);
+                        let role_key = model.role_key();
+                        let assignment = state_clone.models.set_role_model(&role_key, model_id);
+                        if assignment.as_ref().is_ok_and(|assigned| *assigned) {
+                            let _ = state_clone
+                                .models
+                                .update_active_model_config(&role_key, model_id);
+                        } else if let Err(err) = assignment {
+                            tracing::warn!(
+                                model_id = %model_id,
+                                role = %role_key,
+                                error = %err,
+                                "Failed to assign downloaded model to role"
+                            );
+                        }
                     }
                 } else {
                     let _ = state_clone
@@ -405,9 +415,10 @@ pub async fn setup_models(
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
     let models = state.models.list_models()?;
-    let registry = state.models.get_registry()?;
-    let active_text = registry.role_assignments.get("character").cloned();
-    let active_embedding = registry.role_assignments.get("embedding").cloned();
+    let config = state.config.load_config().unwrap_or(Value::Null);
+    let active_character = config.get("active_agent_profile").and_then(|v| v.as_str());
+    let active_text = state.models.resolve_character_model_id(active_character)?;
+    let active_embedding = state.models.resolve_embedding_model_id()?;
     let payload: Vec<Value> = models
         .into_iter()
         .map(|model| {
@@ -439,16 +450,24 @@ pub async fn setup_model_roles(
     require_api_key(&headers, &state.session_token)?;
     let registry = state.models.get_registry()?;
     let character_model_id = registry.role_assignments.get("character").cloned();
+    let mut character_map = Map::new();
+    let mut agent_map = Map::new();
     let mut professional_map = Map::new();
     for (key, value) in registry.role_assignments.iter() {
         if key == "professional" {
             professional_map.insert("default".to_string(), Value::String(value.clone()));
+        } else if let Some(character) = key.strip_prefix("character:") {
+            character_map.insert(character.to_string(), Value::String(value.clone()));
+        } else if let Some(agent) = key.strip_prefix("agent:") {
+            agent_map.insert(agent.to_string(), Value::String(value.clone()));
         } else if let Some(task) = key.strip_prefix("professional:") {
             professional_map.insert(task.to_string(), Value::String(value.clone()));
         }
     }
     Ok(Json(json!({
         "character_model_id": character_model_id,
+        "character_model_map": character_map,
+        "agent_model_map": agent_map,
         "professional_model_map": professional_map
     })))
 }
@@ -504,6 +523,72 @@ pub async fn setup_set_professional_role(
         return Ok(Json(json!({"success": true})));
     }
     Err(ApiError::NotFound("Model not found".to_string()))
+}
+
+pub async fn setup_set_character_specific_role(
+    State(state): State<AppStateWrite>,
+    headers: HeaderMap,
+    Path(character_id): Path<String>,
+    Json(payload): Json<ModelRoleRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_api_key(&headers, &state.session_token)?;
+    let character_id = normalized_assignment_subject(&character_id)
+        .ok_or_else(|| ApiError::BadRequest("character_id is required".to_string()))?;
+    let role_key = format!("character:{}", character_id);
+    let ok = state.models.set_role_model(&role_key, &payload.model_id)?;
+    if ok {
+        return Ok(Json(json!({"success": true})));
+    }
+    Err(ApiError::NotFound("Model not found".to_string()))
+}
+
+pub async fn setup_delete_character_specific_role(
+    State(state): State<AppStateWrite>,
+    headers: HeaderMap,
+    Path(character_id): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_api_key(&headers, &state.session_token)?;
+    let character_id = normalized_assignment_subject(&character_id)
+        .ok_or_else(|| ApiError::BadRequest("character_id is required".to_string()))?;
+    let role_key = format!("character:{}", character_id);
+    let ok = state.models.remove_role_assignment(&role_key)?;
+    if ok {
+        return Ok(Json(json!({"success": true})));
+    }
+    Err(ApiError::NotFound("Role assignment not found".to_string()))
+}
+
+pub async fn setup_set_agent_role(
+    State(state): State<AppStateWrite>,
+    headers: HeaderMap,
+    Path(agent_id): Path<String>,
+    Json(payload): Json<ModelRoleRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_api_key(&headers, &state.session_token)?;
+    let agent_id = normalized_assignment_subject(&agent_id)
+        .ok_or_else(|| ApiError::BadRequest("agent_id is required".to_string()))?;
+    let role_key = format!("agent:{}", agent_id);
+    let ok = state.models.set_role_model(&role_key, &payload.model_id)?;
+    if ok {
+        return Ok(Json(json!({"success": true})));
+    }
+    Err(ApiError::NotFound("Model not found".to_string()))
+}
+
+pub async fn setup_delete_agent_role(
+    State(state): State<AppStateWrite>,
+    headers: HeaderMap,
+    Path(agent_id): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    require_api_key(&headers, &state.session_token)?;
+    let agent_id = normalized_assignment_subject(&agent_id)
+        .ok_or_else(|| ApiError::BadRequest("agent_id is required".to_string()))?;
+    let role_key = format!("agent:{}", agent_id);
+    let ok = state.models.remove_role_assignment(&role_key)?;
+    if ok {
+        return Ok(Json(json!({"success": true})));
+    }
+    Err(ApiError::NotFound("Role assignment not found".to_string()))
 }
 
 pub async fn setup_delete_professional_role(
@@ -574,9 +659,10 @@ pub async fn setup_set_active_model(
                 "Failed to set active model"
             );
             match e {
-                ApiError::NotFound(_) => {
-                    ApiError::NotFound(format!("Model '{}' not found in registry", payload.model_id))
-                }
+                ApiError::NotFound(_) => ApiError::NotFound(format!(
+                    "Model '{}' not found in registry",
+                    payload.model_id
+                )),
                 ApiError::BadRequest(msg) => ApiError::BadRequest(format!(
                     "Failed to activate model '{}': {}",
                     payload.model_id, msg
@@ -601,7 +687,20 @@ pub async fn setup_reorder_models(
     Json(payload): Json<ReorderModelsRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
-    state.models.reorder_models("text", payload.model_ids)?;
+    let role = payload
+        .role
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("text");
+    let normalized_role = if role.eq_ignore_ascii_case("embedding") {
+        "embedding"
+    } else {
+        "text"
+    };
+    state
+        .models
+        .reorder_models(normalized_role, payload.model_ids)?;
     Ok(Json(json!({"success": true})))
 }
 
@@ -615,7 +714,9 @@ pub async fn setup_check_model(
     // C-1 fix: model_id がある場合は既存のモデル検索、なければ repo_id/filename で存在確認
     if let Some(model_id) = &payload.model_id {
         let details = state.models.get_model(model_id)?;
-        return Ok(Json(json!({ "exists": details.is_some(), "model": details })));
+        return Ok(Json(
+            json!({ "exists": details.is_some(), "model": details }),
+        ));
     }
 
     if let (Some(repo_id), Some(filename)) = (&payload.repo_id, &payload.filename) {
@@ -624,7 +725,9 @@ pub async fn setup_check_model(
         return Ok(Json(json!({ "exists": size.is_some(), "size": size })));
     }
 
-    Err(ApiError::BadRequest("model_id or repo_id+filename required".to_string()))
+    Err(ApiError::BadRequest(
+        "model_id or repo_id+filename required".to_string(),
+    ))
 }
 
 pub async fn setup_download_model(
@@ -640,12 +743,10 @@ pub async fn setup_download_model(
     let display_name = payload.filename.clone();
 
     // ポリシー確認
-    let policy = state.models.evaluate_download_policy(
-        &payload.repo_id,
-        &payload.filename,
-        None,
-        None,
-    );
+    let policy =
+        state
+            .models
+            .evaluate_download_policy(&payload.repo_id, &payload.filename, None, None);
     if !policy.allowed {
         return Ok(Json(json!({
             "success": false,
@@ -654,17 +755,22 @@ pub async fn setup_download_model(
         })));
     }
     if policy.requires_consent && !consent {
-        return Err(ApiError::Conflict(json!({
-            "success": false,
-            "requires_consent": true,
-            "warnings": policy.warnings
-        }).to_string()));
+        return Err(ApiError::Conflict(
+            json!({
+                "success": false,
+                "requires_consent": true,
+                "warnings": policy.warnings
+            })
+            .to_string(),
+        ));
     }
 
     // 非同期ダウンロード開始
     let job_id = uuid::Uuid::new_v4().to_string();
     state.setup.set_job_id(Some(job_id.clone()))?;
-    state.setup.update_progress("pending", 0.0, "Starting download...")?;
+    state
+        .setup
+        .update_progress("pending", 0.0, "Starting download...")?;
 
     let state_clone = state.clone();
     let repo_id = payload.repo_id.clone();
@@ -672,33 +778,57 @@ pub async fn setup_download_model(
     let role_owned = role.to_string();
 
     tokio::spawn(async move {
-        let result = state_clone.models.download_from_huggingface(
-            &repo_id,
-            &filename,
-            &role_owned,
-            &display_name,
-            None,
-            None,
-            consent,
-            Some(&|p: f32, msg: &str| {
-                let _ = state_clone.setup.update_progress("downloading", p, msg);
-            }),
-        ).await;
+        let result = state_clone
+            .models
+            .download_from_huggingface(
+                &repo_id,
+                &filename,
+                &role_owned,
+                &display_name,
+                None,
+                None,
+                consent,
+                Some(&|p: f32, msg: &str| {
+                    let _ = state_clone.setup.update_progress("downloading", p, msg);
+                }),
+            )
+            .await;
 
         match result {
             Ok(dl_result) if dl_result.success => {
                 if let Some(model_id) = dl_result.model_id.as_deref() {
-                    let role_key = if role_owned == "embedding" { "embedding" } else { "character" };
-                    let _ = state_clone.models.set_role_model(role_key, model_id);
-                    let _ = state_clone.models.update_active_model_config(
-                        if role_owned == "embedding" { "embedding" } else { "text" },
-                        model_id,
-                    );
+                    let role_key = if role_owned == "embedding" {
+                        "embedding"
+                    } else {
+                        "character"
+                    };
+                    let assignment = state_clone.models.set_role_model(role_key, model_id);
+                    if assignment.as_ref().is_ok_and(|assigned| *assigned) {
+                        let _ = state_clone.models.update_active_model_config(
+                            if role_owned == "embedding" {
+                                "embedding"
+                            } else {
+                                "text"
+                            },
+                            model_id,
+                        );
+                    } else if let Err(err) = assignment {
+                        tracing::warn!(
+                            model_id = %model_id,
+                            role = %role_key,
+                            error = %err,
+                            "Failed to assign downloaded model to role"
+                        );
+                    }
                 }
-                let _ = state_clone.setup.update_progress("completed", 1.0, "Download completed!");
+                let _ = state_clone
+                    .setup
+                    .update_progress("completed", 1.0, "Download completed!");
             }
             _ => {
-                let _ = state_clone.setup.update_progress("failed", 0.0, "Download failed");
+                let _ = state_clone
+                    .setup
+                    .update_progress("failed", 0.0, "Download failed");
             }
         }
         let _ = state_clone.setup.set_job_id(None);
@@ -717,7 +847,8 @@ pub async fn setup_register_local_model(
     let filename = path.file_name().and_then(|v| v.to_str()).unwrap_or("model");
     // C-1 fix: フロントから送られる role / display_name を反映
     let role = payload.role.as_deref().unwrap_or("text");
-    let display_name = payload.display_name
+    let display_name = payload
+        .display_name
         .as_deref()
         .map(|s| s.to_string())
         .unwrap_or_else(|| format!("Local: {}", filename));
@@ -1013,6 +1144,14 @@ pub fn collect_default_models(config: &Value) -> Vec<ModelDownloadSpec> {
         }
     }
     specs
+}
+
+fn normalized_assignment_subject(value: &str) -> Option<String> {
+    let normalized = value.trim();
+    if normalized.is_empty() {
+        return None;
+    }
+    Some(normalized.to_string())
 }
 
 pub fn parse_model_update_check_target(

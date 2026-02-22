@@ -107,7 +107,8 @@ impl Node for AgentExecutorNode {
             }
         }
 
-        let agent_chat_config = build_agent_chat_config(ctx.config, selected_agent.as_ref());
+        let agent_chat_config =
+            build_agent_chat_config(ctx.app_state, ctx.config, selected_agent.as_ref());
         let max_steps = agent_chat_config
             .get("app")
             .and_then(|v| v.get("graph_recursion_limit"))

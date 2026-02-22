@@ -16,6 +16,7 @@ pub struct SelectedAgentRuntime {
     pub name: String,
     pub system_prompt: String,
     pub model_config_name: Option<String>,
+    pub assigned_model_id: Option<String>,
     pub tool_policy: CustomToolPolicy,
 }
 
@@ -63,7 +64,7 @@ pub fn choose_agent_from_manager(
     state
         .exclusive_agents
         .choose_agent(requested_agent_id, user_input)
-        .map(map_selected_agent)
+        .map(|agent| map_selected_agent(state, agent))
 }
 
 pub fn resolve_selected_agent(
@@ -76,47 +77,78 @@ pub fn resolve_selected_agent(
     state
         .exclusive_agents
         .get(selected_agent_id)
-        .map(map_selected_agent)
+        .map(|agent| map_selected_agent(state, agent))
 }
 
 fn map_selected_agent(
+    state: &AppState,
     agent: crate::agent::exclusive_manager::ExecutionAgent,
 ) -> SelectedAgentRuntime {
+    let assigned_model_id = state
+        .models
+        .resolve_agent_model_id(Some(&agent.id))
+        .ok()
+        .flatten();
+
     SelectedAgentRuntime {
         id: agent.id,
         name: agent.name,
         system_prompt: agent.system_prompt,
         model_config_name: agent.model_config_name,
+        assigned_model_id,
         tool_policy: agent.tool_policy.to_custom_tool_policy(),
     }
 }
 
 pub fn build_agent_chat_config(
+    state: &AppState,
     config: &Value,
     selected_agent: Option<&SelectedAgentRuntime>,
 ) -> Value {
     let mut overridden = config.clone();
-    let Some(model_key) = selected_agent
+
+    if let Some(model_key) = selected_agent
         .and_then(|agent| agent.model_config_name.as_deref())
         .filter(|value| !value.is_empty())
-    else {
-        return overridden;
-    };
+    {
+        if let Some(model_entry) = config
+            .get("models_gguf")
+            .and_then(|v| v.get(model_key))
+            .cloned()
+        {
+            if let Some(root) = overridden.as_object_mut() {
+                let models_gguf = root
+                    .entry("models_gguf".to_string())
+                    .or_insert_with(|| Value::Object(Default::default()));
+                if let Some(models_obj) = models_gguf.as_object_mut() {
+                    models_obj.insert("text_model".to_string(), model_entry);
+                }
+            }
+        }
+    }
 
-    let model_entry = config
-        .get("models_gguf")
-        .and_then(|v| v.get(model_key))
-        .cloned();
-    let Some(model_entry) = model_entry else {
-        return overridden;
-    };
-
-    if let Some(root) = overridden.as_object_mut() {
-        let models_gguf = root
-            .entry("models_gguf".to_string())
-            .or_insert_with(|| Value::Object(Default::default()));
-        if let Some(models_obj) = models_gguf.as_object_mut() {
-            models_obj.insert("text_model".to_string(), model_entry);
+    if let Some(model_id) = selected_agent
+        .and_then(|agent| agent.assigned_model_id.as_deref())
+        .filter(|value| !value.is_empty())
+    {
+        if let Ok(Some(model_entry)) = state.models.get_model(model_id) {
+            if let Some(root) = overridden.as_object_mut() {
+                let models_gguf = root
+                    .entry("models_gguf".to_string())
+                    .or_insert_with(|| Value::Object(Default::default()));
+                if let Some(models_obj) = models_gguf.as_object_mut() {
+                    let text_model = models_obj
+                        .entry("text_model".to_string())
+                        .or_insert_with(|| Value::Object(Default::default()));
+                    if !text_model.is_object() {
+                        *text_model = Value::Object(Default::default());
+                    }
+                    if let Some(text_model_obj) = text_model.as_object_mut() {
+                        text_model_obj
+                            .insert("path".to_string(), Value::String(model_entry.file_path));
+                    }
+                }
+            }
         }
     }
 

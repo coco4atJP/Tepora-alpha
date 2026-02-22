@@ -1,4 +1,4 @@
-import { Bot, History, MessageSquare, Search, Settings as SettingsIcon } from "lucide-react";
+import { Bot, MessageSquare, Search, Settings as SettingsIcon, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,6 +45,40 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({
 			{label}
 		</span>
 	</Button>
+);
+
+interface MobileOverlayPanelProps {
+	title: string;
+	closeLabel: string;
+	onClose: () => void;
+	children: React.ReactNode;
+}
+
+const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
+	title,
+	closeLabel,
+	onClose,
+	children,
+}) => (
+	<div className="absolute inset-x-3 top-3 bottom-[5.5rem] z-20 lg:hidden">
+		<div className="h-full rounded-2xl glass-panel border border-white/10 shadow-2xl overflow-hidden flex flex-col">
+			<div className="shrink-0 px-3 py-2 border-b border-white/10 flex items-center justify-between">
+				<span className="text-[10px] font-bold tracking-[0.2em] uppercase text-gold-200">
+					{title}
+				</span>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="w-8 h-8 rounded-full"
+					onClick={onClose}
+					aria-label={closeLabel}
+				>
+					<X size={16} />
+				</Button>
+			</div>
+			<div className="flex-1 min-h-0 p-3 pt-2">{children}</div>
+		</div>
+	</div>
 );
 
 const Layout: React.FC = () => {
@@ -145,25 +179,23 @@ const Layout: React.FC = () => {
 			<div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
 				{isTepora && (
 					<>
-						<div className="absolute inset-0 bg-gradient-to-b from-black/60 via-tea-950/40 to-black/70 mix-blend-multiply"></div>
-						<div className="absolute inset-0 bg-gradient-to-tr from-tepora-start/20 via-transparent to-tepora-accent/5 animate-gradient-x opacity-60"></div>
-						{/* Ambient Orbs */}
-						<div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-tea-500/5 rounded-full blur-[100px] animate-float"></div>
-						<div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[100px] animate-pulse-slow"></div>
+						<div className="absolute inset-0 bg-gradient-to-b from-black/80 via-[#100a08]/70 to-black/90"></div>
+						<div className="absolute inset-0 bg-gradient-to-tr from-gold-500/10 via-transparent to-tea-500/5 opacity-60"></div>
+						{/* Ambient Deep Orbs (Static for performance) */}
+						<div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(120,60,20,0.1)_0%,transparent_50%)] pointer-events-none"></div>
+						<div className="absolute bottom-[-20%] right-[-10%] w-[70vw] h-[70vw] bg-[radial-gradient(circle,rgba(60,30,20,0.1)_0%,transparent_50%)] pointer-events-none"></div>
 					</>
 				)}
 			</div>
 
 			{/* Main Content Grid */}
-			<div className="relative z-10 flex-1 w-full px-2 md:px-4 py-2 md:py-4">
-				<div className="mx-auto h-full w-full max-w-7xl grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4 lg:gap-6 min-h-0">
+			<div className="relative z-10 flex-1 w-full px-2 md:px-4 py-2 md:py-4 mt-2">
+				<div className="mx-auto h-full w-full max-w-[1440px] grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-3 lg:gap-5 min-h-0">
 					{/* Left Column: Chat Interface */}
 					<div className="h-full flex flex-col min-h-0 order-1 w-full overflow-hidden">
-						<div className="flex-1 glass-tepora rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 ring-1 ring-white/5 min-h-0 flex flex-col">
-							{/* Chat View - Visible on Desktop OR when mode is 'chat' on Mobile */}
-							<div
-								className={`absolute inset-0 z-0 flex flex-col ${currentMode !== "chat" ? "hidden lg:flex" : "flex"}`}
-							>
+						<div className="flex-1 glass-tepora rounded-2xl md:rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 ring-1 ring-white/5 min-h-0 flex flex-col">
+							{/* Chat View - Always Visible to keep input reachable on mobile */}
+							<div className="absolute inset-0 z-0 flex flex-col">
 								<Outlet
 									context={{
 										currentMode,
@@ -172,13 +204,19 @@ const Layout: React.FC = () => {
 										onRemoveAttachment: handleRemoveAttachment,
 										clearAttachments,
 										skipWebSearch: actualSkipWebSearch,
+										onOpenHistory: () => setIsHistoryOpen(true),
+										onOpenSettings: () => setIsSettingsOpen(true),
 									}}
 								/>
 							</div>
 
 							{/* Mobile Search View */}
 							{currentMode === "search" && (
-								<div className="absolute inset-0 z-10 flex flex-col lg:hidden bg-transparent overflow-hidden p-4">
+								<MobileOverlayPanel
+									title={t("dial.search")}
+									closeLabel={t("common.close")}
+									onClose={() => setCurrentMode("chat")}
+								>
 									<RagContextPanel
 										attachments={attachments}
 										onAddAttachment={handleAddAttachment}
@@ -188,41 +226,36 @@ const Layout: React.FC = () => {
 										onToggleWebSearch={() => setSkipWebSearch(!skipWebSearch)}
 										webSearchAllowed={isWebSearchAllowed}
 									/>
-								</div>
+								</MobileOverlayPanel>
 							)}
 
 							{/* Mobile Agent View */}
 							{currentMode === "agent" && (
-								<div className="absolute inset-0 z-10 flex flex-col lg:hidden bg-transparent overflow-hidden p-4">
+								<MobileOverlayPanel
+									title={t("dial.agent")}
+									closeLabel={t("common.close")}
+									onClose={() => setCurrentMode("chat")}
+								>
 									<AgentStatus activityLog={activityLog} />
-								</div>
-							)}
-
-							{/* Mobile Status Indicator (Visible only on small screens) */}
-							{currentMode !== "chat" && (
-								<div className="lg:hidden absolute top-2 right-2 z-20 pointer-events-none">
-									<div
-										className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"}`}
-									/>
-								</div>
+								</MobileOverlayPanel>
 							)}
 						</div>
 					</div>
 
 					{/* Right Column: Sidebar Controls & Dynamic Panels */}
-					<div className="hidden lg:flex flex-col gap-6 pt-2 min-h-0 order-2">
-						{/* Dial Control - Always Visible */}
-						<div className="relative flex justify-center shrink-0">
-							<div className="absolute inset-0 bg-gold-500/20 blur-3xl rounded-full"></div>
-							<DialControl
-								currentMode={currentMode}
-								onModeChange={setCurrentMode}
-								onSettingsClick={() => setIsSettingsOpen(true)}
-							/>
+					<div className="hidden lg:grid grid-rows-[auto_minmax(0,1fr)_auto] gap-4 min-h-0 order-2">
+						<div className="glass-panel rounded-3xl p-4 border border-white/10 shadow-xl shrink-0">
+							<div className="relative flex justify-center">
+								<div className="absolute inset-0 bg-gold-500/20 blur-3xl rounded-full"></div>
+								<DialControl
+									currentMode={currentMode}
+									onModeChange={setCurrentMode}
+									onSettingsClick={() => setIsSettingsOpen(true)}
+								/>
+							</div>
 						</div>
 
-						{/* Dynamic Info Panel */}
-						<div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden pr-2">
+						<div className="min-h-0 overflow-hidden flex flex-col">
 							{currentMode === "search" && (
 								<RagContextPanel
 									attachments={attachments}
@@ -235,29 +268,22 @@ const Layout: React.FC = () => {
 								/>
 							)}
 							{currentMode === "agent" && <AgentStatus activityLog={activityLog} />}
-
-							{/* System Status Panel (Visible in Chat mode) */}
 							{currentMode === "chat" && (
-								<>
-									{/* Session History Button & System Status */}
-									<div className="flex-1 min-h-0 flex flex-col justify-end">
-										<div className="flex justify-end px-2 pb-2">
-											<button
-												type="button"
-												onClick={() => setIsHistoryOpen(true)}
-												className="p-3 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400/60 focus:ring-offset-2 focus:ring-offset-gray-950"
-												title={t("sessionHistory", "History")}
-											>
-												<History size={28} />
-											</button>
-										</div>
-										<div className="shrink-0">
-											<SystemStatusPanel isConnected={isConnected} memoryStats={memoryStats} />
-										</div>
-									</div>
-								</>
+								<div className="h-full glass-panel rounded-3xl p-6 border border-white/10 flex flex-col justify-center text-center">
+									<p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gold-300/80">
+										{t("dial.chat")}
+									</p>
+									<p className="mt-3 text-sm text-theme-subtext leading-relaxed">
+										{t("chat.input.system_ready_hint", "Select a mode and start chatting.")}
+									</p>
+								</div>
 							)}
 						</div>
+
+						<SystemStatusPanel
+							isConnected={isConnected}
+							memoryStats={memoryStats}
+						/>
 					</div>
 				</div>
 			</div>

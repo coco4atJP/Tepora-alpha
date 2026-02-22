@@ -196,7 +196,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 								</main>
 
 								{/* Fixed Footer */}
-								<div className="flex-none px-8 py-4 glass-tepora border-x-0 border-b-0 rounded-t-none">
+								<div className="shrink-0 px-8 py-4 glass-tepora border-x-0 border-b-0 rounded-none z-10 relative mt-auto shadow-[0_-10px_30px_rgba(0,0,0,0.5)] bg-[#0A0A0C]/90">
 									<div className="flex items-center justify-end">
 										<div className="text-xs text-gray-500 mr-auto">
 											{hasChanges ? t("settings.save_bar.unsaved") : ""}

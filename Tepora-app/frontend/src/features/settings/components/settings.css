@@ -126,15 +126,15 @@
 /* Sidebar
    ------------------------------------------------------------------------- */
 .settings-sidebar {
-	width: 260px;
-	min-width: 260px;
-	max-width: 260px;
+	width: 220px;
+	min-width: 220px;
+	max-width: 220px;
 	flex-shrink: 0;
 	background: rgba(0, 0, 0, 0.2);
 	border-right: 1px solid var(--s-border);
 	display: flex;
 	flex-direction: column;
-	padding: 1.5rem;
+	padding: 1.5rem 1rem;
 	backdrop-filter: blur(10px);
 	overflow: hidden;
 }

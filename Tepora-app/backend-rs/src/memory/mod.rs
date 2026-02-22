@@ -268,10 +268,7 @@ mod tests {
             Ok(())
         }
 
-        async fn add_batch(
-            &self,
-            new_items: Vec<StoreItem>,
-        ) -> anyhow::Result<()> {
+        async fn add_batch(&self, new_items: Vec<StoreItem>) -> anyhow::Result<()> {
             let mut items = self.items.lock().unwrap();
             items.extend(new_items);
             Ok(())

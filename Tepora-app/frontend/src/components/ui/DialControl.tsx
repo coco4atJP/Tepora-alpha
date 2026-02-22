@@ -1,4 +1,3 @@
-import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface DialControlProps {
@@ -25,7 +24,10 @@ export const DialControl: React.FC<DialControlProps> = ({
 	className = "",
 }) => {
 	const [isDragging, setIsDragging] = useState(false);
+	const [isEditing, setIsEditing] = useState(false);
+	const [inputValue, setInputValue] = useState("");
 	const dialRef = useRef<HTMLDivElement>(null);
+	const inputRef = useRef<HTMLInputElement>(null);
 	const valueRef = useRef(value);
 
 	// Update ref when value changes to avoid stale closures in listeners
@@ -103,8 +105,49 @@ export const DialControl: React.FC<DialControlProps> = ({
 	);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
+		if (isEditing) return; // Don't start drag if editing
 		setIsDragging(true);
 		updateValue(e.clientX, e.clientY);
+	};
+
+	const handleEditStart = (e: React.MouseEvent) => {
+		e.stopPropagation(); // prevent drag
+		setIsEditing(true);
+		setInputValue(value.toString());
+		// Focus uses setTimeout to ensure input is mounted
+		setTimeout(() => inputRef.current?.focus(), 0);
+	};
+
+	const commitEdit = () => {
+		if (!isEditing) return;
+		setIsEditing(false);
+
+		let parsed = Number.parseFloat(inputValue);
+		if (Number.isNaN(parsed)) {
+			// fallback directly to existing value without onChange
+			setInputValue(value.toString());
+			return;
+		}
+
+		if (step) {
+			parsed = Math.round(parsed / step) * step;
+		}
+
+		// Precision fix & Clamp
+		parsed = Number.parseFloat(parsed.toFixed(2));
+		parsed = Math.min(Math.max(parsed, min), max);
+
+		if (parsed !== valueRef.current) {
+			onChange(parsed);
+		}
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter") {
+			commitEdit();
+		} else if (e.key === "Escape") {
+			setIsEditing(false);
+		}
 	};
 
 	useEffect(() => {
@@ -202,9 +245,30 @@ export const DialControl: React.FC<DialControlProps> = ({
 				</svg>
 
 				{/* Center Display */}
-				<div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transform">
-					<span className="text-2xl font-light text-white tracking-tighter">{value}</span>
-					{unit && <span className="text-xs text-gray-500 -mt-1">{unit}</span>}
+				<div
+					className={`absolute inset-0 flex flex-col items-center justify-center transform ${isEditing ? 'pointer-events-auto' : 'pointer-events-none'}`}
+				>
+					{isEditing ? (
+						<input
+							ref={inputRef}
+							type="text"
+							inputMode="decimal"
+							className="w-20 bg-transparent text-center text-2xl font-light text-white tracking-tighter outline-none focus:ring-1 focus:ring-gold-400/50 rounded selection:bg-gold-500/30 -ml-1"
+							value={inputValue}
+							onChange={(e) => setInputValue(e.target.value)}
+							onBlur={commitEdit}
+							onKeyDown={handleKeyDown}
+						/>
+					) : (
+						<span
+							className="text-2xl font-light text-white tracking-tighter hover:text-gold-300 transition-colors pointer-events-auto cursor-text -ml-1"
+							onClick={handleEditStart}
+							title="Click to edit"
+						>
+							{value}
+						</span>
+					)}
+					{unit && <span className="text-xs text-gray-500 -mt-1 pointer-events-none">{unit}</span>}
 				</div>
 			</div>
 			<div className="mt-2 text-sm font-medium text-gray-400">{label}</div>

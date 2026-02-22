@@ -200,15 +200,13 @@ impl HistoryStore {
 
         let mut tx = self.pool.begin().await.map_err(ApiError::internal)?;
 
-        sqlx::query(
-            "INSERT OR IGNORE INTO sessions (id, created_at, updated_at) VALUES (?, ?, ?)",
-        )
-        .bind(session_id)
-        .bind(&now)
-        .bind(&now)
-        .execute(&mut *tx)
-        .await
-        .map_err(ApiError::internal)?;
+        sqlx::query("INSERT OR IGNORE INTO sessions (id, created_at, updated_at) VALUES (?, ?, ?)")
+            .bind(session_id)
+            .bind(&now)
+            .bind(&now)
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::internal)?;
 
         sqlx::query("UPDATE sessions SET updated_at = ? WHERE id = ?")
             .bind(&now)

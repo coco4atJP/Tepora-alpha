@@ -93,7 +93,7 @@ pub struct LmStudioCapabilities {
 // ---------------------------------------------------------------------------
 
 /// モデルの機能フラグ（ローダー横断で統一された形式）
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct ModelCapabilities {
     /// テキスト生成（Completion）サポート
     #[serde(default)]

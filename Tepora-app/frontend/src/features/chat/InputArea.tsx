@@ -97,11 +97,12 @@ const InputArea: React.FC = () => {
 
 	return (
 		<div className="w-full max-w-7xl mx-auto relative group">
+			<div className="absolute inset-0 bg-gold-500/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 			<div
-				className={`relative flex items-end gap-2 p-2 rounded-[2rem] glass-input transition-all duration-500 ${isProcessing
-					? "ring-1 ring-gold-500/30 shadow-[0_0_30px_-5px_rgba(234,179,8,0.15)] bg-theme-overlay"
-					: "hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:bg-theme-overlay shadow-2xl"
-					}`}
+				className={`relative flex items-end gap-2 p-3 rounded-full glass-input transition-all duration-500 ${isProcessing
+					? "ring-1 ring-gold-500/50 shadow-[0_0_40px_-5px_rgba(255,215,0,0.25)] bg-theme-overlay"
+					: "hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-theme-overlay shadow-2xl border border-white/10 group-focus-within:border-gold-400/50 group-focus-within:shadow-[0_0_30px_rgba(255,215,0,0.15)]"
+					} backdrop-blur-xl`}
 			>
 				{/* Persona Switcher */}
 				<div className="shrink-0 mb-1 ml-1">
@@ -207,7 +208,7 @@ const InputArea: React.FC = () => {
 			</div>
 
 			{/* Helper Text */}
-			<div className="mt-2 hidden md:flex justify-end">
+			<div className="mt-3 hidden md:flex justify-end pr-4">
 				<div className="text-[10px] text-gray-600 font-light tracking-widest opacity-60 font-display uppercase">
 					{t("chat.input.mode_active", { mode: currentMode.toUpperCase() })}
 				</div>

@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -24,6 +24,314 @@ pub struct ModelManager {
     config: ConfigService,
     registry_path: PathBuf,
     client: Client,
+}
+
+#[derive(Debug, Clone)]
+struct DiscoveredModel {
+    id: String,
+    display_name: String,
+    role: String,
+    file_size: u64,
+    filename: String,
+    source: String,
+    file_path: String,
+    loader: String,
+    loader_model_name: Option<String>,
+    sha256: Option<String>,
+    parameter_size: Option<String>,
+    quantization: Option<String>,
+    context_length: Option<u64>,
+    architecture: Option<String>,
+    chat_template: Option<String>,
+    stop_tokens: Option<Vec<String>>,
+    default_temperature: Option<f32>,
+    capabilities: Option<ModelCapabilities>,
+    publisher: Option<String>,
+    description: Option<String>,
+    format: Option<String>,
+}
+
+impl DiscoveredModel {
+    fn into_model_entry(self, added_at: String) -> ModelEntry {
+        ModelEntry {
+            id: self.id,
+            display_name: self.display_name,
+            role: self.role,
+            file_size: self.file_size,
+            filename: self.filename,
+            source: self.source,
+            file_path: self.file_path,
+            loader: self.loader,
+            loader_model_name: self.loader_model_name,
+            repo_id: None,
+            revision: None,
+            sha256: self.sha256,
+            added_at,
+            parameter_size: self.parameter_size,
+            quantization: self.quantization,
+            context_length: self.context_length,
+            architecture: self.architecture,
+            chat_template: self.chat_template,
+            stop_tokens: self.stop_tokens,
+            default_temperature: self.default_temperature,
+            capabilities: self.capabilities,
+            publisher: self.publisher,
+            description: self.description,
+            format: self.format,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+trait InferenceDiscoveryLayer: Send + Sync {
+    fn layer_name(&self) -> &'static str;
+    async fn discover(&self) -> Result<Vec<DiscoveredModel>, ApiError>;
+}
+
+#[derive(Clone)]
+struct OllamaDiscoveryLayer {
+    client: Client,
+    base_url: String,
+}
+
+#[derive(Clone)]
+struct LmStudioDiscoveryLayer {
+    client: Client,
+    base_url: String,
+}
+
+#[derive(Clone)]
+struct LlamaCppDiscoveryLayer {
+    models: Vec<ModelEntry>,
+}
+
+#[async_trait::async_trait]
+impl InferenceDiscoveryLayer for OllamaDiscoveryLayer {
+    fn layer_name(&self) -> &'static str {
+        "ollama"
+    }
+
+    async fn discover(&self) -> Result<Vec<DiscoveredModel>, ApiError> {
+        let res = self
+            .client
+            .get(format!("{}/api/tags", self.base_url))
+            .send()
+            .await;
+        let Ok(response) = res else {
+            return Ok(Vec::new());
+        };
+        if !response.status().is_success() {
+            return Ok(Vec::new());
+        }
+
+        let tags: OllamaTagsResponse = response.json().await.map_err(ApiError::internal)?;
+        let mut discovered = Vec::new();
+
+        for model in tags.models {
+            let show: Option<OllamaShowResponse> = {
+                let res = self
+                    .client
+                    .post(format!("{}/api/show", self.base_url))
+                    .json(&serde_json::json!({ "name": model.name }))
+                    .send()
+                    .await;
+                match res {
+                    Ok(r) if r.status().is_success() => r.json::<OllamaShowResponse>().await.ok(),
+                    _ => None,
+                }
+            };
+
+            let details = show.as_ref().map(|s| &s.details).unwrap_or(&model.details);
+            let model_info = show.as_ref().and_then(|s| s.model_info.as_ref());
+            let architecture = extract_architecture_from_model_info(model_info);
+            let context_length = extract_context_length(model_info, architecture.as_deref());
+            let role = determine_ollama_role(
+                &model.name,
+                details,
+                show.as_ref().and_then(|s| s.capabilities.as_deref()),
+                model_info,
+            );
+
+            let (stop_tokens, default_temperature) = show
+                .as_ref()
+                .and_then(|s| s.parameters.as_deref())
+                .map(parse_ollama_parameters)
+                .unwrap_or_default();
+            let capabilities = show.as_ref().and_then(|s| {
+                s.capabilities.as_ref().map(|caps| ModelCapabilities {
+                    completion: caps.iter().any(|c| c == "completion"),
+                    tool_use: caps.iter().any(|c| c == "tools"),
+                    vision: caps.iter().any(|c| c == "vision"),
+                })
+            });
+
+            discovered.push(DiscoveredModel {
+                id: format!("ollama-{}", model.name),
+                display_name: format!("{} (Ollama)", model.name),
+                role,
+                file_size: model.size,
+                filename: model.name.clone(),
+                source: "ollama".to_string(),
+                file_path: format!("ollama://{}", model.name),
+                loader: "ollama".to_string(),
+                loader_model_name: Some(model.name.clone()),
+                sha256: Some(model.digest),
+                parameter_size: details.parameter_size.clone(),
+                quantization: details.quantization_level.clone(),
+                context_length,
+                architecture,
+                chat_template: show.as_ref().and_then(|s| s.template.clone()),
+                stop_tokens,
+                default_temperature,
+                capabilities,
+                publisher: None,
+                description: None,
+                format: details.format.clone(),
+            });
+        }
+
+        Ok(discovered)
+    }
+}
+
+#[async_trait::async_trait]
+impl InferenceDiscoveryLayer for LmStudioDiscoveryLayer {
+    fn layer_name(&self) -> &'static str {
+        "lmstudio"
+    }
+
+    async fn discover(&self) -> Result<Vec<DiscoveredModel>, ApiError> {
+        let res = self
+            .client
+            .get(format!("{}/api/v1/models", self.base_url))
+            .send()
+            .await;
+
+        let Ok(response) = res else {
+            return Ok(Vec::new());
+        };
+        if !response.status().is_success() {
+            return Ok(Vec::new());
+        }
+
+        let body: LmStudioV1Response = response.json().await.map_err(ApiError::internal)?;
+        let mut discovered = Vec::new();
+
+        for model in body.models {
+            let model_name = model
+                .display_name
+                .as_deref()
+                .unwrap_or(&model.key)
+                .to_string();
+            let explicit_embedding = model.model_type.eq_ignore_ascii_case("embedding");
+            let role = if explicit_embedding || has_embedding_name_hint(&model.key) {
+                "embedding".to_string()
+            } else {
+                "text".to_string()
+            };
+            let quantization = model.quantization.as_ref().and_then(|q| q.name.clone());
+            let capabilities = model.capabilities.as_ref().map(|c| ModelCapabilities {
+                completion: role == "text",
+                tool_use: c.trained_for_tool_use,
+                vision: c.vision,
+            });
+
+            discovered.push(DiscoveredModel {
+                id: format!("lmstudio-{}", model.key),
+                display_name: format!("{} (LM Studio)", model_name),
+                role,
+                file_size: model.size_bytes.unwrap_or(0),
+                filename: model.key.clone(),
+                source: "lmstudio".to_string(),
+                file_path: format!("lmstudio://{}", model.key),
+                loader: "lmstudio".to_string(),
+                loader_model_name: Some(model.key.clone()),
+                sha256: None,
+                parameter_size: model.params_string,
+                quantization,
+                context_length: model.max_context_length,
+                architecture: model.architecture,
+                chat_template: None,
+                stop_tokens: None,
+                default_temperature: None,
+                capabilities,
+                publisher: model.publisher,
+                description: model.description,
+                format: model.format,
+            });
+        }
+
+        Ok(discovered)
+    }
+}
+
+#[async_trait::async_trait]
+impl InferenceDiscoveryLayer for LlamaCppDiscoveryLayer {
+    fn layer_name(&self) -> &'static str {
+        "llama_cpp"
+    }
+
+    async fn discover(&self) -> Result<Vec<DiscoveredModel>, ApiError> {
+        let mut discovered = Vec::new();
+
+        for model in &self.models {
+            let is_local_loader = model.loader == "llama_cpp"
+                || model.source == "local"
+                || model.file_path.ends_with(".gguf");
+            if !is_local_loader {
+                continue;
+            }
+
+            let path = PathBuf::from(&model.file_path);
+            let mut role = model.role.clone();
+            let mut context_length = model.context_length;
+            let mut architecture = model.architecture.clone();
+            let mut format = model.format.clone().or_else(|| Some("gguf".to_string()));
+
+            if path.exists() && path.extension().and_then(|e| e.to_str()) == Some("gguf") {
+                if let Ok(model_info) = read_gguf_metadata(&path) {
+                    if let Some(inferred) =
+                        infer_role_from_gguf_metadata(&model.filename, &model_info)
+                    {
+                        role = inferred;
+                    }
+                    architecture = extract_architecture_from_model_info(Some(&model_info));
+                    context_length =
+                        extract_context_length(Some(&model_info), architecture.as_deref());
+                    format = Some("gguf".to_string());
+                }
+            }
+
+            let file_size = fs::metadata(&path)
+                .map(|m| m.len())
+                .unwrap_or(model.file_size);
+            discovered.push(DiscoveredModel {
+                id: model.id.clone(),
+                display_name: model.display_name.clone(),
+                role,
+                file_size,
+                filename: model.filename.clone(),
+                source: model.source.clone(),
+                file_path: model.file_path.clone(),
+                loader: model.loader.clone(),
+                loader_model_name: model.loader_model_name.clone(),
+                sha256: model.sha256.clone(),
+                parameter_size: model.parameter_size.clone(),
+                quantization: model.quantization.clone(),
+                context_length,
+                architecture,
+                chat_template: model.chat_template.clone(),
+                stop_tokens: model.stop_tokens.clone(),
+                default_temperature: model.default_temperature,
+                capabilities: model.capabilities.clone(),
+                publisher: model.publisher.clone(),
+                description: model.description.clone(),
+                format,
+            });
+        }
+
+        Ok(discovered)
+    }
 }
 
 impl ModelManager {
@@ -81,9 +389,22 @@ impl ModelManager {
         }
 
         let metadata = fs::metadata(file_path).map_err(ApiError::internal)?;
+        let filename = file_path
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or_default()
+            .to_string();
+        let gguf_model_info = read_gguf_metadata(file_path).ok();
+        let inferred_role = gguf_model_info
+            .as_ref()
+            .and_then(|info| infer_role_from_gguf_metadata(&filename, info))
+            .unwrap_or_else(|| role.to_string());
+        let architecture = extract_architecture_from_model_info(gguf_model_info.as_ref());
+        let context_length =
+            extract_context_length(gguf_model_info.as_ref(), architecture.as_deref());
         let model_id = format!(
             "{}-{}",
-            role.to_lowercase(),
+            inferred_role.to_lowercase(),
             file_path
                 .file_stem()
                 .and_then(|v| v.to_str())
@@ -93,13 +414,9 @@ impl ModelManager {
         let entry = ModelEntry {
             id: unique_model_id(&model_id, &self.load_registry()?.models),
             display_name: display_name.to_string(),
-            role: role.to_string(),
+            role: inferred_role,
             file_size: metadata.len(),
-            filename: file_path
-                .file_name()
-                .and_then(|v| v.to_str())
-                .unwrap_or_default()
-                .to_string(),
+            filename,
             source: "local".to_string(),
             file_path: file_path.to_string_lossy().to_string(),
             repo_id: None,
@@ -110,8 +427,8 @@ impl ModelManager {
             loader_model_name: None,
             parameter_size: None,
             quantization: None,
-            context_length: None,
-            architecture: None,
+            context_length,
+            architecture,
             chat_template: None,
             stop_tokens: None,
             default_temperature: None,
@@ -263,7 +580,10 @@ impl ModelManager {
         // Skip file deletion if other entries are still referencing the same file_path
         if let Some(ref path) = remove_path {
             let path_str = path.to_string_lossy();
-            let still_referenced = registry.models.iter().any(|m| m.file_path == path_str.as_ref());
+            let still_referenced = registry
+                .models
+                .iter()
+                .any(|m| m.file_path == path_str.as_ref());
             if !still_referenced && path.starts_with(&self.paths.user_data_dir) {
                 let _ = fs::remove_file(path);
             }
@@ -339,14 +659,66 @@ impl ModelManager {
 
     pub fn set_role_model(&self, role: &str, model_id: &str) -> Result<bool, ApiError> {
         let mut registry = self.load_registry()?;
-        if !registry.models.iter().any(|m| m.id == model_id) {
+        let Some(model) = registry.models.iter().find(|m| m.id == model_id) else {
             return Ok(false);
+        };
+
+        if let Some(expected_role) = expected_model_role_for_assignment(role) {
+            if model.role != expected_role {
+                return Err(ApiError::BadRequest(format!(
+                    "Model '{}' has role '{}', but assignment '{}' requires '{}'",
+                    model_id, model.role, role, expected_role
+                )));
+            }
         }
         registry
             .role_assignments
             .insert(role.to_string(), model_id.to_string());
         self.save_registry(&registry)?;
         Ok(true)
+    }
+
+    pub fn resolve_character_model_id(
+        &self,
+        active_character_id: Option<&str>,
+    ) -> Result<Option<String>, ApiError> {
+        let registry = self.load_registry()?;
+        Ok(resolve_character_model_id_from_registry(
+            &registry,
+            active_character_id,
+        ))
+    }
+
+    pub fn resolve_agent_model_id(
+        &self,
+        agent_id: Option<&str>,
+    ) -> Result<Option<String>, ApiError> {
+        let registry = self.load_registry()?;
+
+        if let Some(agent) = normalized_subject_id(agent_id) {
+            let key = format!("agent:{}", agent);
+            if let Some(model_id) = registry.role_assignments.get(&key) {
+                return Ok(Some(model_id.clone()));
+            }
+        }
+
+        if let Some(model_id) = registry.role_assignments.get("professional") {
+            return Ok(Some(model_id.clone()));
+        }
+
+        Ok(resolve_character_model_id_from_registry(&registry, None))
+    }
+
+    pub fn resolve_embedding_model_id(&self) -> Result<Option<String>, ApiError> {
+        let registry = self.load_registry()?;
+        if let Some(model_id) = registry.role_assignments.get("embedding") {
+            return Ok(Some(model_id.clone()));
+        }
+        Ok(registry
+            .models
+            .iter()
+            .find(|model| model.role == "embedding")
+            .map(|model| model.id.clone()))
     }
 
     pub fn remove_role_assignment(&self, role: &str) -> Result<bool, ApiError> {
@@ -447,16 +819,27 @@ impl ModelManager {
     ) -> Result<ModelEntry, ApiError> {
         let mut registry = self.load_registry()?;
         let file_path_str = path.to_string_lossy().to_string();
+        let gguf_model_info = read_gguf_metadata(path).ok();
+        let effective_role = gguf_model_info
+            .as_ref()
+            .and_then(|info| infer_role_from_gguf_metadata(filename, info))
+            .unwrap_or_else(|| role.to_string());
+        let architecture = extract_architecture_from_model_info(gguf_model_info.as_ref());
+        let context_length =
+            extract_context_length(gguf_model_info.as_ref(), architecture.as_deref());
 
         // C-2 fix: repo_id + filename + role で既存エントリを検索し、あれば更新
         if let Some(existing) = registry.models.iter_mut().find(|m| {
             m.repo_id.as_deref() == Some(repo_id)
                 && m.filename == filename
-                && m.role == role
+                && m.role == effective_role
         }) {
             existing.display_name = display_name.to_string();
             existing.file_path = file_path_str;
             existing.file_size = file_size;
+            existing.role = effective_role.clone();
+            existing.architecture = architecture.clone();
+            existing.context_length = context_length;
             existing.revision = revision;
             existing.sha256 = sha256;
             existing.added_at = Utc::now().to_rfc3339();
@@ -466,13 +849,13 @@ impl ModelManager {
         }
 
         // 新規追加
-        let base_id = format!("{}-{}", role, filename);
+        let base_id = format!("{}-{}", effective_role, filename);
         let id = unique_model_id(&base_id, &registry.models);
 
         let entry = ModelEntry {
             id: id.clone(),
             display_name: display_name.to_string(),
-            role: role.to_string(),
+            role: effective_role,
             file_size,
             filename: filename.to_string(),
             source: repo_id.to_string(),
@@ -485,8 +868,8 @@ impl ModelManager {
             loader_model_name: None,
             parameter_size: None,
             quantization: None,
-            context_length: None,
-            architecture: None,
+            context_length,
+            architecture,
             chat_template: None,
             stop_tokens: None,
             default_temperature: None,
@@ -503,6 +886,7 @@ impl ModelManager {
 
     pub async fn refresh_all_loader_models(&self) -> Result<usize, ApiError> {
         let mut count = 0;
+        count += self.refresh_llama_cpp_models().await?;
         count += self.refresh_ollama_models().await?;
         count += self.refresh_lmstudio_models().await?;
         Ok(count)
@@ -522,247 +906,108 @@ impl ModelManager {
     }
 
     pub async fn refresh_ollama_models(&self) -> Result<usize, ApiError> {
-        let base_url = self.get_loader_url("ollama", "http://localhost:11434");
-
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .build()
-            .map_err(ApiError::internal)?;
-
-        // 1. モデル一覧を取得
-        let res = client.get(format!("{}/api/tags", base_url)).send().await;
-        let Ok(response) = res else {
-            return Ok(0);
+        let layer = OllamaDiscoveryLayer {
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .build()
+                .map_err(ApiError::internal)?,
+            base_url: self.get_loader_url("ollama", "http://localhost:11434"),
         };
-        if !response.status().is_success() {
-            return Ok(0);
-        }
-
-        let tags: OllamaTagsResponse = response.json().await.map_err(ApiError::internal)?;
-        let mut count = 0;
-        let mut registry = self.load_registry()?;
-        let now = Utc::now().to_rfc3339();
-
-        for model in tags.models {
-            let model_id = format!("ollama-{}", model.name);
-
-            // 2. 各モデルの詳細情報を /api/show で取得（失敗しても続行）
-            let show: Option<OllamaShowResponse> = {
-                let res = client
-                    .post(format!("{}/api/show", base_url))
-                    .json(&serde_json::json!({ "name": model.name }))
-                    .send()
-                    .await;
-                match res {
-                    Ok(r) if r.status().is_success() => r.json::<OllamaShowResponse>().await.ok(),
-                    _ => None,
-                }
-            };
-
-            let details = show.as_ref().map(|s| &s.details).unwrap_or(&model.details);
-            let role = determine_ollama_role(
-                &model.name,
-                details,
-                show.as_ref().and_then(|s| s.capabilities.as_deref()),
-            );
-
-            // スペック情報を抽出
-            let parameter_size = details.parameter_size.clone();
-            let quantization = details.quantization_level.clone();
-            let format = details.format.clone();
-            let architecture = show.as_ref().and_then(|s| {
-                s.model_info.as_ref().and_then(|info| {
-                    info.get("general.architecture")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string())
-                })
-            });
-            let context_length = show.as_ref().and_then(|s| {
-                extract_context_length(s.model_info.as_ref(), architecture.as_deref())
-            });
-            let chat_template = show.as_ref().and_then(|s| s.template.clone());
-            let (stop_tokens, default_temperature) = show
-                .as_ref()
-                .and_then(|s| s.parameters.as_deref())
-                .map(parse_ollama_parameters)
-                .unwrap_or_default();
-            let capabilities = show.as_ref().and_then(|s| {
-                s.capabilities.as_ref().map(|caps| ModelCapabilities {
-                    completion: caps.iter().any(|c| c == "completion"),
-                    tool_use: caps.iter().any(|c| c == "tools"),
-                    vision: caps.iter().any(|c| c == "vision"),
-                })
-            });
-
-            // 3. 既存エントリは情報を更新、なければ新規追加
-            if let Some(existing) = registry.models.iter_mut().find(|m| m.id == model_id) {
-                let changed = existing.role != role
-                    || existing.parameter_size != parameter_size
-                    || existing.quantization != quantization
-                    || existing.architecture != architecture
-                    || existing.context_length != context_length
-                    || existing.chat_template != chat_template;
-
-                existing.role = role;
-                existing.parameter_size = parameter_size;
-                existing.quantization = quantization;
-                existing.format = format;
-                existing.architecture = architecture;
-                existing.context_length = context_length;
-                existing.chat_template = chat_template;
-                if stop_tokens.is_some() {
-                    existing.stop_tokens = stop_tokens;
-                }
-                if default_temperature.is_some() {
-                    existing.default_temperature = default_temperature;
-                }
-                if capabilities.is_some() {
-                    existing.capabilities = capabilities;
-                }
-                if changed {
-                    count += 1;
-                }
-                continue;
-            }
-
-            let entry = ModelEntry {
-                id: model_id,
-                display_name: format!("{} (Ollama)", model.name),
-                role,
-                file_size: model.size,
-                filename: model.name.clone(),
-                source: "ollama".to_string(),
-                file_path: format!("ollama://{}", model.name),
-                loader: "ollama".to_string(),
-                loader_model_name: Some(model.name.clone()),
-                repo_id: None,
-                revision: None,
-                sha256: Some(model.digest),
-                added_at: now.clone(),
-                parameter_size,
-                quantization,
-                context_length,
-                architecture,
-                chat_template,
-                stop_tokens,
-                default_temperature,
-                capabilities,
-                publisher: None,
-                description: None,
-                format,
-            };
-            registry.models.push(entry);
-            count += 1;
-        }
-
-        if count > 0 {
-            self.save_registry(&registry)?;
-        }
-
-        Ok(count)
+        let discovered = layer.discover().await?;
+        self.apply_discovered_models(layer.layer_name(), discovered)
     }
 
     pub async fn refresh_lmstudio_models(&self) -> Result<usize, ApiError> {
-        let base_url = self.get_loader_url("lmstudio", "http://localhost:1234");
-
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .build()
-            .map_err(ApiError::internal)?;
-
-        // LM Studio 独自の /api/v1/models を使用（詳細情報あり）
-        let res = client
-            .get(format!("{}/api/v1/models", base_url))
-            .send()
-            .await;
-
-        let Ok(response) = res else {
-            return Ok(0);
+        let layer = LmStudioDiscoveryLayer {
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .build()
+                .map_err(ApiError::internal)?,
+            base_url: self.get_loader_url("lmstudio", "http://localhost:1234"),
         };
-        if !response.status().is_success() {
+        let discovered = layer.discover().await?;
+        self.apply_discovered_models(layer.layer_name(), discovered)
+    }
+
+    pub async fn refresh_llama_cpp_models(&self) -> Result<usize, ApiError> {
+        let registry = self.load_registry()?;
+        let layer = LlamaCppDiscoveryLayer {
+            models: registry.models,
+        };
+        let discovered = layer.discover().await?;
+        self.apply_discovered_models(layer.layer_name(), discovered)
+    }
+
+    fn apply_discovered_models(
+        &self,
+        _layer_name: &str,
+        discovered: Vec<DiscoveredModel>,
+    ) -> Result<usize, ApiError> {
+        if discovered.is_empty() {
             return Ok(0);
         }
 
-        let body: LmStudioV1Response = response.json().await.map_err(ApiError::internal)?;
-        let mut count = 0;
         let mut registry = self.load_registry()?;
         let now = Utc::now().to_rfc3339();
+        let mut count = 0;
 
-        for model in body.models {
-            let model_id = format!("lmstudio-{}", model.key);
+        for discovered_model in discovered {
+            if let Some(existing) = registry
+                .models
+                .iter_mut()
+                .find(|m| m.id == discovered_model.id)
+            {
+                let changed = existing.display_name != discovered_model.display_name
+                    || existing.role != discovered_model.role
+                    || existing.file_size != discovered_model.file_size
+                    || existing.filename != discovered_model.filename
+                    || existing.source != discovered_model.source
+                    || existing.file_path != discovered_model.file_path
+                    || existing.loader != discovered_model.loader
+                    || existing.loader_model_name != discovered_model.loader_model_name
+                    || existing.sha256 != discovered_model.sha256
+                    || existing.parameter_size != discovered_model.parameter_size
+                    || existing.quantization != discovered_model.quantization
+                    || existing.context_length != discovered_model.context_length
+                    || existing.architecture != discovered_model.architecture
+                    || existing.chat_template != discovered_model.chat_template
+                    || existing.stop_tokens != discovered_model.stop_tokens
+                    || existing.default_temperature != discovered_model.default_temperature
+                    || existing.capabilities != discovered_model.capabilities
+                    || existing.publisher != discovered_model.publisher
+                    || existing.description != discovered_model.description
+                    || existing.format != discovered_model.format;
 
-            // type フィールドから role を直接決定
-            let role = if model.model_type == "embedding" {
-                "embedding".to_string()
-            } else {
-                "text".to_string()
-            };
+                existing.display_name = discovered_model.display_name;
+                existing.role = discovered_model.role;
+                existing.file_size = discovered_model.file_size;
+                existing.filename = discovered_model.filename;
+                existing.source = discovered_model.source;
+                existing.file_path = discovered_model.file_path;
+                existing.loader = discovered_model.loader;
+                existing.loader_model_name = discovered_model.loader_model_name;
+                existing.sha256 = discovered_model.sha256;
+                existing.parameter_size = discovered_model.parameter_size;
+                existing.quantization = discovered_model.quantization;
+                existing.context_length = discovered_model.context_length;
+                existing.architecture = discovered_model.architecture;
+                existing.chat_template = discovered_model.chat_template;
+                existing.stop_tokens = discovered_model.stop_tokens;
+                existing.default_temperature = discovered_model.default_temperature;
+                existing.capabilities = discovered_model.capabilities;
+                existing.publisher = discovered_model.publisher;
+                existing.description = discovered_model.description;
+                existing.format = discovered_model.format;
 
-            let display_name = model
-                .display_name
-                .as_deref()
-                .unwrap_or(&model.key)
-                .to_string();
-            let quantization = model.quantization.as_ref().and_then(|q| q.name.clone());
-            let capabilities = model.capabilities.as_ref().map(|c| ModelCapabilities {
-                completion: role == "text",
-                tool_use: c.trained_for_tool_use,
-                vision: c.vision,
-            });
-
-            // 既存エントリは情報を更新
-            if let Some(existing) = registry.models.iter_mut().find(|m| m.id == model_id) {
-                let changed = existing.role != role
-                    || existing.context_length != model.max_context_length
-                    || existing.quantization != quantization
-                    || existing.parameter_size != model.params_string;
-
-                existing.role = role;
-                existing.display_name = format!("{} (LM Studio)", display_name);
-                existing.file_size = model.size_bytes.unwrap_or(0);
-                existing.parameter_size = model.params_string.clone();
-                existing.quantization = quantization;
-                existing.context_length = model.max_context_length;
-                existing.architecture = model.architecture.clone();
-                existing.publisher = model.publisher.clone();
-                existing.description = model.description.clone();
-                existing.format = model.format.clone();
-                if capabilities.is_some() {
-                    existing.capabilities = capabilities;
-                }
                 if changed {
                     count += 1;
                 }
                 continue;
             }
 
-            let entry = ModelEntry {
-                id: model_id,
-                display_name: format!("{} (LM Studio)", display_name),
-                role,
-                file_size: model.size_bytes.unwrap_or(0),
-                filename: model.key.clone(),
-                source: "lmstudio".to_string(),
-                file_path: format!("lmstudio://{}", model.key),
-                loader: "lmstudio".to_string(),
-                loader_model_name: Some(model.key.clone()),
-                repo_id: None,
-                revision: None,
-                sha256: None,
-                added_at: now.clone(),
-                parameter_size: model.params_string,
-                quantization,
-                context_length: model.max_context_length,
-                architecture: model.architecture,
-                chat_template: None,
-                stop_tokens: None,
-                default_temperature: None,
-                capabilities,
-                publisher: model.publisher,
-                description: model.description,
-                format: model.format,
-            };
-            registry.models.push(entry);
+            registry
+                .models
+                .push(discovered_model.into_model_entry(now.clone()));
             count += 1;
         }
 
@@ -781,8 +1026,169 @@ impl ModelManager {
         if contents.trim().is_empty() {
             return Ok(ModelRegistry::default());
         }
-        serde_json::from_str(&contents).map_err(ApiError::internal)
+        let mut registry: ModelRegistry =
+            serde_json::from_str(&contents).map_err(ApiError::internal)?;
+        if migrate_legacy_loader_roles(&mut registry) {
+            self.save_registry(&registry)?;
+        }
+        Ok(registry)
     }
+}
+
+/// 過去バージョンで誤分類されたローダーモデルの role を補正する。
+/// `embeddinggemma` のようなモデルが `text` で永続化されているケースを自動修復する。
+fn migrate_legacy_loader_roles(registry: &mut ModelRegistry) -> bool {
+    let mut changed = false;
+
+    for model in &mut registry.models {
+        if model.role == "embedding" {
+            continue;
+        }
+        let is_ollama_model = model.loader == "ollama" || model.source == "ollama";
+        if !is_ollama_model {
+            continue;
+        }
+
+        let name = model
+            .loader_model_name
+            .as_deref()
+            .filter(|v| !v.is_empty())
+            .unwrap_or(&model.filename);
+        let has_name_hint = has_embedding_name_hint(name);
+        let has_embedding_like_caps = model
+            .capabilities
+            .as_ref()
+            .map(|caps| !caps.completion && !caps.tool_use && !caps.vision)
+            .unwrap_or(false);
+
+        if has_name_hint || has_embedding_like_caps {
+            model.role = "embedding".to_string();
+            changed = true;
+        }
+    }
+
+    changed
+}
+
+fn normalized_subject_id(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(|v| v.to_string())
+}
+
+fn resolve_character_model_id_from_registry(
+    registry: &ModelRegistry,
+    active_character_id: Option<&str>,
+) -> Option<String> {
+    if let Some(character_id) = normalized_subject_id(active_character_id) {
+        let key = format!("character:{}", character_id);
+        if let Some(model_id) = registry.role_assignments.get(&key) {
+            return Some(model_id.clone());
+        }
+    }
+
+    registry
+        .role_assignments
+        .get("character")
+        .cloned()
+        .or_else(|| registry.role_assignments.get("text").cloned())
+        .or_else(|| {
+            registry
+                .models
+                .iter()
+                .find(|model| model.role == "text")
+                .map(|model| model.id.clone())
+        })
+}
+
+fn expected_model_role_for_assignment(role: &str) -> Option<&'static str> {
+    let normalized = role.trim();
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if normalized == "embedding" || normalized.starts_with("embedding:") {
+        return Some("embedding");
+    }
+
+    if normalized == "text"
+        || normalized == "character"
+        || normalized.starts_with("character:")
+        || normalized == "professional"
+        || normalized.starts_with("professional:")
+        || normalized.starts_with("agent:")
+    {
+        return Some("text");
+    }
+
+    None
+}
+
+fn has_embedding_name_hint(name: &str) -> bool {
+    const EMBEDDING_NAME_HINTS: &[&str] =
+        &["embedding", "embed", "nomic-embed", "e5", "bge", "gte"];
+    let lowered = name.to_ascii_lowercase();
+    EMBEDDING_NAME_HINTS
+        .iter()
+        .any(|hint| lowered.contains(hint))
+}
+
+fn extract_architecture_from_model_info(
+    model_info: Option<&HashMap<String, Value>>,
+) -> Option<String> {
+    model_info
+        .and_then(|info| info.get("general.architecture"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+fn infer_role_from_gguf_metadata(
+    model_name: &str,
+    model_info: &HashMap<String, Value>,
+) -> Option<String> {
+    if let Some(general_type) = model_info
+        .get("general.type")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_ascii_lowercase())
+    {
+        if general_type.contains("embedding") || general_type.contains("embed") {
+            return Some("embedding".to_string());
+        }
+        if general_type.contains("text") || general_type.contains("causal") {
+            return Some("text".to_string());
+        }
+    }
+
+    let has_embedding_pooling = model_info.iter().any(|(k, v)| {
+        if !k.ends_with(".pooling_type") {
+            return false;
+        }
+        v.as_u64().is_some_and(|n| n > 0)
+            || v.as_i64().is_some_and(|n| n > 0)
+            || v.as_str()
+                .map(|s| {
+                    let lowered = s.to_ascii_lowercase();
+                    lowered.contains("mean") || lowered.contains("cls") || lowered.contains("last")
+                })
+                .unwrap_or(false)
+    });
+    if has_embedding_pooling {
+        return Some("embedding".to_string());
+    }
+
+    let has_text_decoder_hint = model_info
+        .keys()
+        .any(|k| k.ends_with(".block_count") || k.contains("attention.head_count"));
+    if has_text_decoder_hint {
+        return Some("text".to_string());
+    }
+
+    if has_embedding_name_hint(model_name) {
+        return Some("embedding".to_string());
+    }
+
+    None
 }
 
 /// Ollamaモデルの情報からroleを推定する。
@@ -792,18 +1198,16 @@ fn determine_ollama_role(
     model_name: &str,
     details: &OllamaModelDetails,
     capabilities: Option<&[String]>,
+    model_info: Option<&HashMap<String, Value>>,
 ) -> String {
     const EMBEDDING_FAMILIES: &[&str] = &["bert", "nomic-bert", "clip"];
     const EMBEDDING_CAPABILITY_HINTS: &[&str] = &["embedding", "embed"];
     const TEXT_CAPABILITY_HINTS: &[&str] = &["completion", "chat", "generate"];
-    const EMBEDDING_NAME_HINTS: &[&str] = &[
-        "embedding",
-        "embed",
-        "nomic-embed",
-        "e5",
-        "bge",
-        "gte",
-    ];
+
+    if let Some(role) = model_info.and_then(|info| infer_role_from_gguf_metadata(model_name, info))
+    {
+        return role;
+    }
 
     let family = details.family.as_deref().unwrap_or("").to_ascii_lowercase();
     let families = details.families.as_deref().unwrap_or(&[]);
@@ -836,14 +1240,165 @@ fn determine_ollama_role(
         .unwrap_or(false)
     {
         "text".to_string()
-    } else if EMBEDDING_NAME_HINTS
-        .iter()
-        .any(|hint| model_name.to_ascii_lowercase().contains(hint))
-    {
+    } else if has_embedding_name_hint(model_name) {
         "embedding".to_string()
     } else {
         "text".to_string()
     }
+}
+
+fn read_gguf_metadata(path: &Path) -> Result<HashMap<String, Value>, ApiError> {
+    let mut file = fs::File::open(path).map_err(ApiError::internal)?;
+    let mut magic = [0u8; 4];
+    file.read_exact(&mut magic).map_err(ApiError::internal)?;
+    if &magic != b"GGUF" {
+        return Err(ApiError::BadRequest(
+            "Invalid GGUF magic header".to_string(),
+        ));
+    }
+
+    let version = read_u32_le(&mut file)?;
+    if !(1..=3).contains(&version) {
+        return Err(ApiError::BadRequest(format!(
+            "Unsupported GGUF version: {}",
+            version
+        )));
+    }
+
+    // tensor_count (unused)
+    let _ = read_gguf_count(&mut file, version)?;
+    let kv_count = read_gguf_count(&mut file, version)?;
+
+    let mut model_info = HashMap::new();
+    for _ in 0..kv_count {
+        let key = read_gguf_string(&mut file, version)?;
+        let value_type = read_u32_le(&mut file)?;
+        let value = read_gguf_value(&mut file, version, value_type)?;
+        model_info.insert(key, value);
+    }
+
+    Ok(model_info)
+}
+
+fn read_gguf_count<R: Read>(reader: &mut R, version: u32) -> Result<u64, ApiError> {
+    if version == 1 {
+        Ok(read_u32_le(reader)? as u64)
+    } else {
+        read_u64_le(reader)
+    }
+}
+
+fn read_gguf_string<R: Read>(reader: &mut R, version: u32) -> Result<String, ApiError> {
+    let len = read_gguf_count(reader, version)?;
+    if len > 1_000_000 {
+        return Err(ApiError::BadRequest(
+            "GGUF string length is too large".to_string(),
+        ));
+    }
+    let mut buf = vec![0u8; len as usize];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    String::from_utf8(buf).map_err(ApiError::internal)
+}
+
+fn read_gguf_value<R: Read>(
+    reader: &mut R,
+    version: u32,
+    value_type: u32,
+) -> Result<Value, ApiError> {
+    match value_type {
+        0 => Ok(Value::from(read_u8_le(reader)?)),
+        1 => Ok(Value::from(read_i8_le(reader)?)),
+        2 => Ok(Value::from(read_u16_le(reader)?)),
+        3 => Ok(Value::from(read_i16_le(reader)?)),
+        4 => Ok(Value::from(read_u32_le(reader)?)),
+        5 => Ok(Value::from(read_i32_le(reader)?)),
+        6 => Ok(serde_json::Number::from_f64(read_f32_le(reader)? as f64)
+            .map(Value::Number)
+            .unwrap_or(Value::Null)),
+        7 => Ok(Value::Bool(read_u8_le(reader)? != 0)),
+        8 => Ok(Value::String(read_gguf_string(reader, version)?)),
+        9 => {
+            let array_type = read_u32_le(reader)?;
+            let len = read_gguf_count(reader, version)?;
+            if len > 100_000 {
+                return Err(ApiError::BadRequest(
+                    "GGUF array length is too large".to_string(),
+                ));
+            }
+            let mut values = Vec::with_capacity(len as usize);
+            for _ in 0..len {
+                values.push(read_gguf_value(reader, version, array_type)?);
+            }
+            Ok(Value::Array(values))
+        }
+        10 => Ok(Value::from(read_u64_le(reader)?)),
+        11 => Ok(Value::from(read_i64_le(reader)?)),
+        12 => Ok(serde_json::Number::from_f64(read_f64_le(reader)?)
+            .map(Value::Number)
+            .unwrap_or(Value::Null)),
+        other => Err(ApiError::BadRequest(format!(
+            "Unsupported GGUF value type: {}",
+            other
+        ))),
+    }
+}
+
+fn read_u8_le<R: Read>(reader: &mut R) -> Result<u8, ApiError> {
+    let mut buf = [0u8; 1];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(buf[0])
+}
+
+fn read_i8_le<R: Read>(reader: &mut R) -> Result<i8, ApiError> {
+    Ok(read_u8_le(reader)? as i8)
+}
+
+fn read_u16_le<R: Read>(reader: &mut R) -> Result<u16, ApiError> {
+    let mut buf = [0u8; 2];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(u16::from_le_bytes(buf))
+}
+
+fn read_i16_le<R: Read>(reader: &mut R) -> Result<i16, ApiError> {
+    let mut buf = [0u8; 2];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(i16::from_le_bytes(buf))
+}
+
+fn read_u32_le<R: Read>(reader: &mut R) -> Result<u32, ApiError> {
+    let mut buf = [0u8; 4];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(u32::from_le_bytes(buf))
+}
+
+fn read_i32_le<R: Read>(reader: &mut R) -> Result<i32, ApiError> {
+    let mut buf = [0u8; 4];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(i32::from_le_bytes(buf))
+}
+
+fn read_u64_le<R: Read>(reader: &mut R) -> Result<u64, ApiError> {
+    let mut buf = [0u8; 8];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(u64::from_le_bytes(buf))
+}
+
+fn read_i64_le<R: Read>(reader: &mut R) -> Result<i64, ApiError> {
+    let mut buf = [0u8; 8];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(i64::from_le_bytes(buf))
+}
+
+fn read_f32_le<R: Read>(reader: &mut R) -> Result<f32, ApiError> {
+    let mut buf = [0u8; 4];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(f32::from_le_bytes(buf))
+}
+
+fn read_f64_le<R: Read>(reader: &mut R) -> Result<f64, ApiError> {
+    let mut buf = [0u8; 8];
+    reader.read_exact(&mut buf).map_err(ApiError::internal)?;
+    Ok(f64::from_le_bytes(buf))
 }
 
 /// Ollama の `parameters` テキスト（Modelfile 形式）をパースして
@@ -930,9 +1485,7 @@ fn sanitize_model_filename(filename: &str) -> Option<&str> {
     if filename.is_empty() {
         return None;
     }
-    let base = Path::new(filename)
-        .file_name()
-        .and_then(|n| n.to_str())?;
+    let base = Path::new(filename).file_name().and_then(|n| n.to_str())?;
     if base == filename {
         Some(base)
     } else {
@@ -1218,7 +1771,7 @@ mod tests {
             family: Some("bert".to_string()),
             ..Default::default()
         };
-        let role = determine_ollama_role("nomic-embed-text", &details, None);
+        let role = determine_ollama_role("nomic-embed-text", &details, None, None);
         assert_eq!(role, "embedding");
     }
 
@@ -1226,7 +1779,7 @@ mod tests {
     fn determine_ollama_role_detects_embedding_by_capability() {
         let details = OllamaModelDetails::default();
         let capabilities = vec!["embedding".to_string()];
-        let role = determine_ollama_role("mystery-model", &details, Some(&capabilities));
+        let role = determine_ollama_role("mystery-model", &details, Some(&capabilities), None);
         assert_eq!(role, "embedding");
     }
 
@@ -1236,8 +1789,152 @@ mod tests {
             family: Some("gemma3".to_string()),
             ..Default::default()
         };
-        let role = determine_ollama_role("embeddinggemma:latest", &details, None);
+        let role = determine_ollama_role("embeddinggemma:latest", &details, None, None);
         assert_eq!(role, "embedding");
+    }
+
+    #[test]
+    fn determine_ollama_role_prefers_gguf_metadata_when_available() {
+        let details = OllamaModelDetails {
+            family: Some("bert".to_string()),
+            ..Default::default()
+        };
+        let mut info = HashMap::new();
+        info.insert(
+            "general.type".to_string(),
+            Value::String("text".to_string()),
+        );
+        let role = determine_ollama_role("some-embed-model", &details, None, Some(&info));
+        assert_eq!(role, "text");
+    }
+
+    #[test]
+    fn infer_role_from_gguf_metadata_detects_pooling_as_embedding() {
+        let mut info = HashMap::new();
+        info.insert(
+            "general.architecture".to_string(),
+            Value::String("llama".to_string()),
+        );
+        info.insert("llama.pooling_type".to_string(), Value::Number(1u64.into()));
+
+        let role = infer_role_from_gguf_metadata("custom-model.gguf", &info);
+        assert_eq!(role, Some("embedding".to_string()));
+    }
+
+    #[test]
+    fn read_gguf_metadata_parses_basic_string_entry() {
+        fn push_u32(buf: &mut Vec<u8>, v: u32) {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        fn push_u64(buf: &mut Vec<u8>, v: u64) {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        fn push_gguf_string(buf: &mut Vec<u8>, s: &str) {
+            push_u64(buf, s.len() as u64);
+            buf.extend_from_slice(s.as_bytes());
+        }
+
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"GGUF");
+        push_u32(&mut bytes, 3); // version
+        push_u64(&mut bytes, 0); // tensor_count
+        push_u64(&mut bytes, 1); // kv_count
+        push_gguf_string(&mut bytes, "general.type");
+        push_u32(&mut bytes, 8); // string
+        push_gguf_string(&mut bytes, "embedding");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("sample.gguf");
+        fs::write(&path, bytes).expect("write gguf");
+
+        let metadata = read_gguf_metadata(&path).expect("metadata should parse");
+        assert_eq!(
+            metadata
+                .get("general.type")
+                .and_then(|v| v.as_str())
+                .unwrap_or(""),
+            "embedding"
+        );
+    }
+
+    fn make_model_entry(
+        id: &str,
+        role: &str,
+        source: &str,
+        loader: &str,
+        filename: &str,
+        capabilities: Option<ModelCapabilities>,
+    ) -> ModelEntry {
+        ModelEntry {
+            id: id.to_string(),
+            display_name: id.to_string(),
+            role: role.to_string(),
+            file_size: 1,
+            filename: filename.to_string(),
+            source: source.to_string(),
+            file_path: format!("{}://{}", source, filename),
+            loader: loader.to_string(),
+            loader_model_name: Some(filename.to_string()),
+            repo_id: None,
+            revision: None,
+            sha256: None,
+            added_at: "2026-01-01T00:00:00Z".to_string(),
+            parameter_size: None,
+            quantization: None,
+            context_length: None,
+            architecture: None,
+            chat_template: None,
+            stop_tokens: None,
+            default_temperature: None,
+            capabilities,
+            publisher: None,
+            description: None,
+            format: Some("gguf".to_string()),
+        }
+    }
+
+    #[test]
+    fn migrate_legacy_loader_roles_reclassifies_embedding_name() {
+        let mut registry = ModelRegistry {
+            models: vec![make_model_entry(
+                "ollama-embeddinggemma:latest",
+                "text",
+                "ollama",
+                "ollama",
+                "embeddinggemma:latest",
+                None,
+            )],
+            ..Default::default()
+        };
+
+        let changed = migrate_legacy_loader_roles(&mut registry);
+
+        assert!(changed);
+        assert_eq!(registry.models[0].role, "embedding");
+    }
+
+    #[test]
+    fn migrate_legacy_loader_roles_reclassifies_embedding_like_capabilities() {
+        let mut registry = ModelRegistry {
+            models: vec![make_model_entry(
+                "ollama-unknown",
+                "text",
+                "ollama",
+                "ollama",
+                "custom-model",
+                Some(ModelCapabilities {
+                    completion: false,
+                    tool_use: false,
+                    vision: false,
+                }),
+            )],
+            ..Default::default()
+        };
+
+        let changed = migrate_legacy_loader_roles(&mut registry);
+
+        assert!(changed);
+        assert_eq!(registry.models[0].role, "embedding");
     }
 
     #[test]
@@ -1265,7 +1962,10 @@ mod tests {
     #[test]
     fn sanitize_model_filename_accepts_normal_name() {
         assert_eq!(sanitize_model_filename("model.gguf"), Some("model.gguf"));
-        assert_eq!(sanitize_model_filename("my-model-v2.gguf"), Some("my-model-v2.gguf"));
+        assert_eq!(
+            sanitize_model_filename("my-model-v2.gguf"),
+            Some("my-model-v2.gguf")
+        );
     }
 
     #[test]

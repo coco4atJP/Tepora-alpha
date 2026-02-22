@@ -31,19 +31,31 @@ interface ModelConfig {
 
 interface ModelRoles {
 	character_model_id: string | null;
+	character_model_map: Record<string, string>;
+	agent_model_map: Record<string, string>;
 	professional_model_map: Record<string, string>;
 }
 
 const ModelSettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateLlmManager, updateModel, updateSearch, updateLoaderBaseUrl } = useSettings();
+	const {
+		config,
+		originalConfig,
+		customAgents,
+		updateLlmManager,
+		updateModel,
+		updateSearch,
+		updateLoaderBaseUrl,
+	} = useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
-	const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+	const [listOverlayRole, setListOverlayRole] = useState<"text" | "embedding" | null>(null);
 	const [isModelHubOpen, setIsModelHubOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isRefreshingLmStudio, setIsRefreshingLmStudio] = useState(false);
 	const [modelRoles, setModelRoles] = useState<ModelRoles>({
 		character_model_id: null,
+		character_model_map: {},
+		agent_model_map: {},
 		professional_model_map: {},
 	});
 	const [newTaskType, setNewTaskType] = useState("");
@@ -61,7 +73,12 @@ const ModelSettings: React.FC = () => {
 	const fetchModelRoles = useCallback(async () => {
 		try {
 			const data = await apiClient.get<ModelRoles>("api/setup/model/roles");
-			setModelRoles(data);
+			setModelRoles({
+				character_model_id: data.character_model_id || null,
+				character_model_map: data.character_model_map || {},
+				agent_model_map: data.agent_model_map || {},
+				professional_model_map: data.professional_model_map || {},
+			});
 		} catch (e) {
 			console.error("Failed to fetch model roles", e);
 		}
@@ -105,6 +122,38 @@ const ModelSettings: React.FC = () => {
 			await apiClient.post("api/setup/model/roles/character", {
 				model_id: modelId,
 			});
+			await fetchModelRoles();
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
+	const handleSelectCharacterScopedModel = async (characterId: string, modelId: string) => {
+		try {
+			const encoded = encodeURIComponent(characterId);
+			if (modelId) {
+				await apiClient.post(`api/setup/model/roles/character/${encoded}`, {
+					model_id: modelId,
+				});
+			} else {
+				await apiClient.delete(`api/setup/model/roles/character/${encoded}`);
+			}
+			await fetchModelRoles();
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
+	const handleSelectAgentScopedModel = async (agentId: string, modelId: string) => {
+		try {
+			const encoded = encodeURIComponent(agentId);
+			if (modelId) {
+				await apiClient.post(`api/setup/model/roles/agent/${encoded}`, {
+					model_id: modelId,
+				});
+			} else {
+				await apiClient.delete(`api/setup/model/roles/agent/${encoded}`);
+			}
 			await fetchModelRoles();
 		} catch (e) {
 			console.error(e);
@@ -210,10 +259,10 @@ const ModelSettings: React.FC = () => {
 			const modelPath =
 				modelInList?.file_path ||
 				((modelInList?.source === "ollama" || modelInList?.loader === "ollama") &&
-				modelInList.filename
+					modelInList.filename
 					? `ollama://${modelInList.filename}`
 					: (modelInList?.source === "lmstudio" || modelInList?.loader === "lmstudio") &&
-						  modelInList.filename
+						modelInList.filename
 						? `lmstudio://${modelInList.filename}`
 						: modelInList?.filename
 							? `models/embedding/${modelInList.filename}`
@@ -233,6 +282,11 @@ const ModelSettings: React.FC = () => {
 	const textModels = models.filter((m) => m.role === "text");
 	const embeddingModels = models.filter((m) => m.role === "embedding");
 	const getActiveId = (role: string) => models.find((m) => m.role === role && m.is_active)?.id;
+	const characterEntries = Object.entries(config.characters || {});
+	const customAgentEntries = Object.values(customAgents || {}).sort((a, b) => {
+		if (a.priority !== b.priority) return a.priority - b.priority;
+		return a.name.localeCompare(b.name);
+	});
 
 	return (
 		<div className="space-y-6">
@@ -257,16 +311,33 @@ const ModelSettings: React.FC = () => {
 					"Manage, delete, and reorder registered models."
 				}
 			>
-				<div className="flex flex-col sm:flex-row gap-3">
-
-					<button
-						type="button"
-						onClick={() => setIsModelHubOpen(true)}
-						className="flex-1 py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
-					>
-						<List size={18} />
-						<span>{t("modelHub.title") || "Visual Model Hub"}</span>
-					</button>
+				<div className="space-y-3">
+					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+						<button
+							type="button"
+							onClick={() => setListOverlayRole("text")}
+							className="py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
+						>
+							<MessageSquare size={18} />
+							<span>{t("settings.sections.models.text_model_title") || "Text Models"}</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => setListOverlayRole("embedding")}
+							className="py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
+						>
+							<Cpu size={18} />
+							<span>{t("settings.sections.models.embedding_model_title") || "Embedding Models"}</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => setIsModelHubOpen(true)}
+							className="py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
+						>
+							<List size={18} />
+							<span>{t("modelHub.title") || "Visual Model Hub"}</span>
+						</button>
+					</div>
 
 					<div className="flex gap-3 sm:w-auto w-full">
 						<button
@@ -321,6 +392,117 @@ const ModelSettings: React.FC = () => {
 
 					<div className="border-t border-white/10" />
 
+					<div className="space-y-3">
+						<h3 className="text-sm font-medium text-gray-300">
+							{t("settings.sections.models.character_roles_title", "Character Role Mapping")}
+						</h3>
+						<p className="text-xs text-gray-500">
+							{t(
+								"settings.sections.models.character_roles_desc",
+								"Assign a dedicated text model per character. Leave empty to inherit the global character model.",
+							)}
+						</p>
+						<div className="space-y-2">
+							{characterEntries.map(([characterId, character]) => (
+								<div
+									key={characterId}
+									className="bg-black/20 border border-white/5 rounded-xl px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center"
+								>
+									<div className="flex-1 min-w-0">
+										<div className="text-sm text-white truncate">
+											{character.name || characterId}
+										</div>
+										<div className="text-xs text-gray-500 font-mono">
+											@{characterId}
+											{config.active_agent_profile === characterId
+												? ` • ${t("common.active", "Active")}`
+												: ""}
+										</div>
+									</div>
+									<div className="w-full md:w-[360px]">
+										<select
+											value={modelRoles.character_model_map[characterId] || ""}
+											onChange={(e) =>
+												handleSelectCharacterScopedModel(characterId, e.target.value)
+											}
+											className="w-full appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-2.5 text-white text-sm transition-colors focus:outline-none focus:border-gold-400/50"
+										>
+											<option value="" className="bg-gray-900">
+												{t("settings.sections.models.defaults.global", "Global Default")}
+											</option>
+											{textModels.map((model) => (
+												<option key={model.id} value={model.id} className="bg-gray-900">
+													{model.display_name}
+												</option>
+											))}
+										</select>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+
+					<div className="border-t border-white/10" />
+
+					<div className="space-y-3">
+						<h3 className="text-sm font-medium text-gray-300">
+							{t("settings.sections.models.agent_roles_title", "Custom Agent Role Mapping")}
+						</h3>
+						<p className="text-xs text-gray-500">
+							{t(
+								"settings.sections.models.agent_roles_desc",
+								"Assign a text model per custom agent. Leave empty to inherit default professional/character routing.",
+							)}
+						</p>
+						{customAgentEntries.length === 0 ? (
+							<div className="text-xs text-gray-500 bg-black/20 border border-white/5 rounded-xl px-4 py-3">
+								{t("settings.sections.models.no_custom_agents", "No custom agents configured.")}
+							</div>
+						) : (
+							<div className="space-y-2">
+								{customAgentEntries.map((agent) => (
+									<div
+										key={agent.id}
+										className="bg-black/20 border border-white/5 rounded-xl px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center"
+									>
+										<div className="flex-1 min-w-0">
+											<div className="text-sm text-white truncate">
+												{agent.name || agent.id}
+											</div>
+											<div className="text-xs text-gray-500 font-mono">
+												@{agent.id}
+											</div>
+										</div>
+										<div className="w-full md:w-[360px]">
+											<select
+												value={modelRoles.agent_model_map[agent.id] || ""}
+												onChange={(e) =>
+													handleSelectAgentScopedModel(agent.id, e.target.value)
+												}
+												className="w-full appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-2.5 text-white text-sm transition-colors focus:outline-none focus:border-gold-400/50"
+											>
+												<option value="" className="bg-gray-900">
+													{t("settings.sections.models.defaults.global", "Global Default")}
+												</option>
+												{textModels.map((model) => (
+													<option
+														key={model.id}
+														value={model.id}
+														className="bg-gray-900"
+													>
+														{model.display_name}
+													</option>
+												))}
+											</select>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+
+					<div className="border-t border-white/10" />
+
 					<div className="space-y-4">
 						<h3 className="text-sm font-medium text-gray-300">
 							{t("settings.sections.models.executor_models_title")}
@@ -352,26 +534,43 @@ const ModelSettings: React.FC = () => {
 						))}
 
 						{/* Add new task type */}
-						<div className="flex gap-2">
-							<input
-								type="text"
-								value={newTaskType}
-								onChange={(e) => setNewTaskType(e.target.value)}
-								placeholder={
-									t("settings.sections.models.add_task_placeholder", "Add task type (e.g., coding, browser)...")
-								}
-								className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-gold-400/50"
-								onKeyDown={(e) => e.key === "Enter" && handleAddTaskType()}
-							/>
-							<button
-								type="button"
-								onClick={handleAddTaskType}
-								disabled={!newTaskType.trim()}
-								className="px-4 py-2.5 bg-gold-400/20 text-gold-400 rounded-xl hover:bg-gold-400/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-							>
-								<Plus size={18} />
-								<span>{t("common.add") || "Add"}</span>
-							</button>
+						<div className="bg-black/20 rounded-xl p-6 border border-white/5 space-y-4">
+							<div className="flex items-center gap-3">
+								<div className="p-2 bg-white/5 rounded-lg text-gold-400">
+									<Plus size={20} />
+								</div>
+								<div className="flex-1">
+									<h3 className="text-lg font-medium text-white">
+										{t("settings.sections.models.add_task_title", "Add Custom Task Model")}
+									</h3>
+									<p className="text-sm text-gray-500">
+										{t("settings.sections.models.add_task_description", "Assign specific models to particular tasks (e.g., coding, translation).")}
+									</p>
+								</div>
+							</div>
+							<div className="flex gap-4">
+								<input
+									type="text"
+									value={newTaskType}
+									onChange={(e) => setNewTaskType(e.target.value)}
+									placeholder={
+										t("settings.sections.models.add_task_placeholder", "Task name (e.g., coding, browser)")
+									}
+									className="flex-1 appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 text-white font-medium transition-colors focus:outline-none focus:border-gold-400/50"
+									onKeyDown={(e) => e.key === "Enter" && handleAddTaskType()}
+								/>
+								<button
+									type="button"
+									onClick={handleAddTaskType}
+									disabled={!newTaskType.trim()}
+									className={`px-6 py-3 border rounded-xl font-medium transition-colors ${!newTaskType.trim()
+										? "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed"
+										: "bg-gold-500/20 border-gold-500/30 text-gold-400 hover:bg-gold-500/30 hover:text-gold-300"
+										}`}
+								>
+									{t("common.add") || "Add"}
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -474,11 +673,13 @@ const ModelSettings: React.FC = () => {
 
 			<ModelHub isOpen={isModelHubOpen} onClose={() => setIsModelHubOpen(false)} />
 			<ModelListOverlay
-				isOpen={isOverlayOpen}
-				onClose={() => setIsOverlayOpen(false)}
+				isOpen={listOverlayRole !== null}
+				onClose={() => setListOverlayRole(null)}
 				models={models}
 				onDelete={handleDelete}
 				onReorder={handleReorder}
+				initialRole={listOverlayRole || "text"}
+				fixedRole={listOverlayRole || undefined}
 			/>
 		</div>
 	);

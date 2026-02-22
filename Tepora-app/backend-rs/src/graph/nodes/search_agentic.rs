@@ -282,15 +282,17 @@ impl AgenticSearchNode {
             },
         ];
 
-        let model_id = match ctx.app_state.models.get_registry() {
-            Ok(registry) => registry
-                .role_assignments
-                .get("text")
-                .or_else(|| registry.role_assignments.get("character"))
-                .cloned()
-                .unwrap_or_else(|| "default".to_string()),
-            Err(_) => "default".to_string(),
-        };
+        let active_character = ctx
+            .config
+            .get("active_agent_profile")
+            .and_then(|v| v.as_str());
+        let model_id = ctx
+            .app_state
+            .models
+            .resolve_character_model_id(active_character)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "default".to_string());
 
         let request = ChatRequest::new(messages).with_config(ctx.config);
         let response = ctx
@@ -579,15 +581,17 @@ impl AgenticSearchNode {
             },
         ];
 
-        let model_id = match ctx.app_state.models.get_registry() {
-            Ok(registry) => registry
-                .role_assignments
-                .get("text")
-                .or_else(|| registry.role_assignments.get("character"))
-                .cloned()
-                .unwrap_or_else(|| "default".to_string()),
-            Err(_) => "default".to_string(),
-        };
+        let active_character = ctx
+            .config
+            .get("active_agent_profile")
+            .and_then(|v| v.as_str());
+        let model_id = ctx
+            .app_state
+            .models
+            .resolve_character_model_id(active_character)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "default".to_string());
 
         let request = ChatRequest::new(messages).with_config(ctx.config);
         ctx.app_state
@@ -639,18 +643,16 @@ impl AgenticSearchNode {
             content: state.input.clone(),
         });
 
-        let model_id = {
-            let registry = ctx
-                .app_state
-                .models
-                .get_registry()
-                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
-            registry
-                .role_assignments
-                .get("character")
-                .cloned()
-                .unwrap_or_else(|| "default".to_string())
-        };
+        let active_character = ctx
+            .config
+            .get("active_agent_profile")
+            .and_then(|v| v.as_str());
+        let model_id = ctx
+            .app_state
+            .models
+            .resolve_character_model_id(active_character)
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?
+            .unwrap_or_else(|| "default".to_string());
 
         let request = ChatRequest::new(messages).with_config(ctx.config);
         let mut stream = ctx

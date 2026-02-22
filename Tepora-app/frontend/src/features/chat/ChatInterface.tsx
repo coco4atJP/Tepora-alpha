@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { History, Plus, Settings } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,10 +22,12 @@ export interface ChatInterfaceContext {
 	onRemoveAttachment: (index: number) => void;
 	clearAttachments: () => void;
 	skipWebSearch?: boolean;
+	onOpenHistory?: () => void;
+	onOpenSettings?: () => void;
 }
 
 const ChatInterface: React.FC = () => {
-	const { currentMode, attachments, skipWebSearch } = useOutletContext<ChatInterfaceContext>();
+	const { currentMode, onOpenHistory, onOpenSettings } = useOutletContext<ChatInterfaceContext>();
 	const { t } = useTranslation();
 	const { createSession } = useSessions();
 	const { showToast } = useToast();
@@ -42,8 +44,7 @@ const ChatInterface: React.FC = () => {
 		}
 	}, [error, showToast, clearError]);
 
-	const isConnected = useWebSocketStore((state) => state.isConnected);
-	const sendMessage = useWebSocketStore((state) => state.sendMessage);
+
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
 	const pendingToolConfirmation = useWebSocketStore((state) => state.pendingToolConfirmation);
 	const handleToolConfirmation = useWebSocketStore((state) => state.handleToolConfirmation);
@@ -78,12 +79,6 @@ const ChatInterface: React.FC = () => {
 		},
 	]);
 
-	const handlePromptSelect = (prompt: string) => {
-		if (isConnected) {
-			sendMessage(prompt, currentMode, attachments, skipWebSearch || false, false);
-		}
-	};
-
 	const handleCreateSession = async () => {
 		const session = await createSession();
 		if (session) {
@@ -97,6 +92,7 @@ const ChatInterface: React.FC = () => {
 			: currentMode === "search"
 				? t("dial.search")
 				: t("dial.agent");
+	const shouldCenterInput = messages.length === 0;
 
 	return (
 		<div className="flex flex-col h-full w-full relative bg-bg-app/50 text-text-primary">
@@ -110,10 +106,10 @@ const ChatInterface: React.FC = () => {
 			/>
 
 			{/* Ambient Glows */}
-			<div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-tea-900/10 rounded-full blur-[100px] pointer-events-none" />
+			<div className="absolute top-[20%] right-[-10%] w-[60%] h-[60%] bg-[radial-gradient(circle,rgba(60,30,20,0.08)_0%,transparent_60%)] pointer-events-none" />
 
 			{/* Header */}
-			<div className="shrink-0 flex items-center gap-3 px-4 py-3 md:px-6 md:py-4 glass-base border-b border-border-highlight z-20 rounded-none shadow-sm backdrop-blur-md">
+			<div className="shrink-0 flex items-center gap-2 px-4 py-3 md:px-6 md:py-4 glass-base border-b border-border-highlight z-20 rounded-none shadow-sm backdrop-blur-md">
 				<Button
 					variant="secondary"
 					size="sm"
@@ -126,38 +122,55 @@ const ChatInterface: React.FC = () => {
 					<span className="hidden sm:inline font-medium tracking-wide">{t("newSession", "New Session")}</span>
 				</Button>
 
-				<div className="ml-auto flex items-center gap-3">
+				<div className="ml-auto flex items-center gap-2 md:gap-3">
+					{onOpenHistory && (
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={onOpenHistory}
+							className="w-10 h-10 rounded-full text-tea-200/70 hover:text-gold-300 hover:bg-gold-500/10"
+							aria-label={t("sessionHistory", "Session History")}
+						>
+							<History className="w-5 h-5" />
+						</Button>
+					)}
+					{onOpenSettings && (
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={onOpenSettings}
+							className="w-9 h-9 rounded-full text-tea-200/70 hover:text-gold-300 hover:bg-gold-500/10 lg:hidden"
+							aria-label={t("common.settings")}
+						>
+							<Settings className="w-4 h-4" />
+						</Button>
+					)}
 					<span className="px-3 py-1 rounded-lg glass-base text-[10px] font-bold tracking-widest text-gold-200 font-display uppercase shadow-inner border-white/5">
 						{modeLabel}
 					</span>
-					<div className="flex items-center gap-2 px-2">
-						<div
-							className={`w-2 h-2 rounded-full ${isConnected
-									? "bg-semantic-success shadow-[0_0_8px_rgba(79,255,192,0.6)]"
-									: "bg-semantic-error shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-								}`}
-							aria-hidden="true"
-						/>
-						<span className="hidden md:inline text-[11px] font-medium text-tea-200/60 uppercase tracking-widest">
-							{isConnected
-								? t("status.connected", "Connected")
-								: t("status.disconnected", "Disconnected")}
-						</span>
-					</div>
 				</div>
 			</div>
 
 			{/* Message List - Scrollable Area */}
 			<div className="flex-1 overflow-hidden relative min-h-0 w-full max-w-5xl mx-auto flex flex-col pt-4">
 				{messages.length === 0 ? (
-					<EmptyState onPromptSelect={handlePromptSelect} />
+					<div
+						className={`h-full flex flex-col justify-center items-center ${currentMode === "chat" ? "pb-[30vh]" : "pb-[30vh]"}`}
+					>
+						<EmptyState />
+					</div>
 				) : (
 					<MessageList />
 				)}
 			</div>
 
-			{/* Input Area - Fixed at Bottom */}
-			<div className="p-3 md:p-6 w-full shrink-0 z-20 max-w-5xl mx-auto pb-safe">
+			{/* Input Area - Dynamically Centered if Empty, Fixed at Bottom if Chatting */}
+			<div
+				className={`w-full z-20 max-w-[56rem] mx-auto transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${shouldCenterInput
+					? "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[10vh] px-4 w-11/12 lg:w-4/5 xl:w-[60rem] drop-shadow-2xl"
+					: "relative shrink-0 p-3 md:p-6 pb-safe w-full drop-shadow-md"
+					}`}
+			>
 				<InputArea />
 			</div>
 		</div>

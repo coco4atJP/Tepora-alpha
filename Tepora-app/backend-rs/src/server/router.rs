@@ -77,6 +77,15 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(setup::setup_set_character_role),
         )
         .route(
+            "/api/setup/model/roles/character/:character_id",
+            post(setup::setup_set_character_specific_role)
+                .delete(setup::setup_delete_character_specific_role),
+        )
+        .route(
+            "/api/setup/model/roles/agent/:agent_id",
+            post(setup::setup_set_agent_role).delete(setup::setup_delete_agent_role),
+        )
+        .route(
             "/api/setup/model/roles/professional",
             post(setup::setup_set_professional_role),
         )

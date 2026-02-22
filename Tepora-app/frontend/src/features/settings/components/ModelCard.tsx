@@ -79,7 +79,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             {/* Content Top */}
             <div className="space-y-4 mb-5">
                 <div className="flex items-start justify-between min-h-[3rem]">
-                    <div className="flex-1 pr-4">
+                    <div className={`flex-1 min-w-0 ${isActive ? 'pr-20' : 'pr-4'}`}>
                         <FitText className="font-semibold text-white/95 line-clamp-2 tracking-tight" minFontSize={14} maxFontSize={18}>
                             {model.display_name}
                         </FitText>
@@ -95,9 +95,9 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                         <HardDrive size={12} className="text-tea-400/60" />
                         <span className="font-medium">{formatSize(model.file_size)}</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/5">
-                        <Cpu size={12} className="text-tea-400/60" />
-                        <span className="truncate font-medium" title={model.filename}>{model.filename || "Unknown"}</span>
+                    <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/5 min-w-0">
+                        <Cpu size={12} className="text-tea-400/60 shrink-0" />
+                        <span className="truncate font-medium min-w-0 flex-1" title={model.filename}>{model.filename || "Unknown"}</span>
                     </div>
                 </div>
             </div>
@@ -121,7 +121,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             )}
 
             {/* Actions Bottom */}
-            <div className="flex items-center gap-2 pt-4 border-t border-white/5 opacity-80 group-hover:opacity-100 transition-all duration-300 mt-auto">
+            <div className={`flex items-center pt-4 border-t border-white/5 opacity-80 group-hover:opacity-100 transition-all duration-300 mt-auto min-h-[52px] ${isActive ? 'justify-end' : 'gap-2'}`}>
                 {!isActive && (
                     <button
                         onClick={() => onActivate(model.id)}

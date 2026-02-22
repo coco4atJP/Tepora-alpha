@@ -19,14 +19,19 @@ fn resolve_overall_health(llm_status: &str, db_status: &str, mcp_status: &str) -
 
 pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     // Check LLM availability via role_assignments
-    let (llm_status, llm_model) = match state.models.get_registry() {
-        Ok(registry) => {
-            if let Some(model_id) = registry.role_assignments.get("text") {
-                ("ok", model_id.clone())
-            } else {
-                ("no_model", String::new())
-            }
-        }
+    let active_character = state.config.load_config().ok().and_then(|config| {
+        config
+            .get("active_agent_profile")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    });
+
+    let (llm_status, llm_model) = match state
+        .models
+        .resolve_character_model_id(active_character.as_deref())
+    {
+        Ok(Some(model_id)) => ("ok", model_id),
+        Ok(None) => ("no_model", String::new()),
         Err(_) => ("error", String::new()),
     };
 
@@ -100,11 +105,7 @@ pub async fn get_status(
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
 
-    let total_messages = state
-        .history
-        .get_total_message_count()
-        .await
-        .unwrap_or(0);
+    let total_messages = state.history.get_total_message_count().await.unwrap_or(0);
     let memory_stats = state.em_memory_service.stats().await?;
     Ok(Json(json!({
         "initialized": true,

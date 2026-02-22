@@ -338,9 +338,8 @@ impl McpManager {
             .cloned()
             .unwrap_or_else(|| payload.clone());
         let config_value = json!({ "mcpServers": servers_value });
-        let parsed: McpToolsConfig =
-            serde_json::from_value(config_value.clone())
-                .map_err(|e| ApiError::BadRequest(format!("Invalid MCP config: {}", e)))?;
+        let parsed: McpToolsConfig = serde_json::from_value(config_value.clone())
+            .map_err(|e| ApiError::BadRequest(format!("Invalid MCP config: {}", e)))?;
 
         self.save_tools_config(&parsed)?;
         *self.config.write().await = parsed.clone();
@@ -965,10 +964,7 @@ mod tests {
     #[test]
     fn test_format_tool_result_multiple_contents() {
         let result = CallToolResult {
-            content: vec![
-                make_text_content("Line 1"),
-                make_text_content("Line 2"),
-            ],
+            content: vec![make_text_content("Line 1"), make_text_content("Line 2")],
             is_error: None,
             meta: None,
             structured_content: None,

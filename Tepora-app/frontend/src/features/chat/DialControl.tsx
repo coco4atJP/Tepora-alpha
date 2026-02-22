@@ -68,24 +68,24 @@ const DialControl: React.FC<DialControlProps> = ({
 
 	return (
 		// Reduced size from w-64 h-64 to w-48 h-48 (approx 25% smaller)
-		<div className="relative w-48 h-48 flex items-center justify-center select-none">
+		<div className="relative w-48 h-48 flex items-center justify-center select-none group">
 			{/* Outer Glow */}
-			<div className="absolute inset-0 rounded-full bg-gold-500/5 blur-3xl"></div>
+			<div className="absolute inset-[-20%] rounded-full bg-gold-500/10 blur-[40px] pointer-events-none group-hover:bg-gold-500/20 transition-all duration-1000"></div>
 
 			{/* Outer Ring */}
-			<div className="absolute inset-0 rounded-full border-2 border-gold-500/10 bg-coffee-900/60 backdrop-blur-md shadow-[0_0_30px_rgba(0,0,0,0.6)] box-border"></div>
+			<div className="absolute inset-0 rounded-full border border-white/10 bg-black/40 backdrop-blur-md shadow-[0_0_40px_rgba(0,0,0,0.8),inset_0_0_20px_rgba(255,215,0,0.05)] box-border transition-all duration-500"></div>
+
+			{/* Static Ambient Aura (Replaced spinning for performance) */}
+			<div className="absolute inset-0 rounded-full border border-gold-500/20 pointer-events-none opacity-50"></div>
 
 			{/* Decorative ticks ring */}
-			<div className="absolute inset-2 rounded-full border border-white/5 border-dashed opacity-30"></div>
+			<div className="absolute inset-3 rounded-full border border-white/10 border-dashed opacity-40"></div>
 
 			{/* Icons */}
 			{MODES.map((m) => {
 				const isSelected = currentMode === m.mode;
 
 				// Positioning for 12, 9, 3 o'clock
-				// 12 o'clock: top-4 left-1/2
-				// 9 o'clock:  top-1/2 left-4
-				// 3 o'clock:  top-1/2 right-4
 				let positionStyle: React.CSSProperties = {};
 				if (m.mode === "search")
 					positionStyle = {
@@ -116,11 +116,10 @@ const DialControl: React.FC<DialControlProps> = ({
 						onMouseEnter={(e) => handleMouseEnter(e, m.label)}
 						onMouseLeave={handleMouseLeave}
 						style={positionStyle}
-						className={`absolute cursor-pointer transition-all duration-300 z-20 group border-none bg-transparent p-0 ${
-							isSelected
-								? "text-gold-400 scale-110 drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
-								: "text-coffee-200/50 hover:text-gold-200 hover:scale-110"
-						}`}
+						className={`absolute cursor-pointer transition-all duration-300 z-20 group border-none bg-transparent p-0 ${isSelected
+							? "text-gold-400 scale-110 drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
+							: "text-coffee-200/50 hover:text-gold-200 hover:scale-110"
+							}`}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" || e.key === " ") handleModeClick(m.mode);
 						}}
@@ -137,14 +136,14 @@ const DialControl: React.FC<DialControlProps> = ({
 
 			{/* The Dial Knob */}
 			<div
-				className="w-28 h-28 rounded-full bg-gradient-to-br from-coffee-800 to-black shadow-[inset_0_2px_10px_rgba(255,255,255,0.05),0_10px_30px_rgba(0,0,0,0.8)] flex items-center justify-center relative transition-transform duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) border border-white/10 z-10"
+				className="w-24 h-24 rounded-full bg-gradient-to-br from-[#2a1a12] to-black shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.9)] flex items-center justify-center relative transition-transform duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) border border-white/20 z-10"
 				style={{ transform: `rotate(${rotation}deg)` }}
 			>
 				{/* Metallic sheen */}
-				<div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.08),transparent_60%)]"></div>
+				<div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.15),transparent_60%)] opacity-80 pointer-events-none"></div>
 
-				{/* Indicator Line */}
-				<div className="absolute top-2 w-1 h-5 bg-gold-500 rounded-full shadow-[0_0_8px_rgba(255,215,0,0.8)]"></div>
+				{/* Indicator Line with Glow */}
+				<div className="absolute top-1.5 w-1.5 h-6 bg-gradient-to-b from-gold-300 to-gold-600 rounded-full shadow-[0_0_12px_rgba(255,215,0,0.9)]"></div>
 
 				{/* Inner Circle (Settings Button) */}
 				<button
@@ -155,7 +154,7 @@ const DialControl: React.FC<DialControlProps> = ({
 					}}
 					onMouseEnter={(e) => handleMouseEnter(e, t("common.settings"))}
 					onMouseLeave={handleMouseLeave}
-					className="w-14 h-14 rounded-full bg-gradient-to-br from-coffee-700 to-black shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all group border border-gold-500/20 backdrop-blur-md relative overflow-hidden z-30"
+					className="w-14 h-14 rounded-full bg-gradient-to-br from-[#1f1612] to-black shadow-[inset_0_2px_8px_rgba(255,255,255,0.1),0_5px_15px_rgba(0,0,0,0.8)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 border border-gold-500/30 backdrop-blur-xl relative overflow-hidden z-30"
 					aria-label={t("common.settings")}
 				>
 					<div className="absolute inset-0 bg-gold-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -170,7 +169,7 @@ const DialControl: React.FC<DialControlProps> = ({
 						style={{
 							top: "4px",
 							left: "50%",
-							transformOrigin: "0 52px", // Adjusted for smaller size (28*4 / 2 = 56 - padding) -> approx
+							transformOrigin: "0 44px", // Adjusted for smaller size (24*4 / 2 = 48 - padding)
 							transform: `translateX(-50%) rotate(${i * 30}deg)`,
 						}}
 					/>

@@ -78,7 +78,10 @@ mod tests {
     #[test]
     fn sanitize_accepts_normal_log_filename() {
         assert_eq!(sanitize_log_filename("app.log"), Some("app.log"));
-        assert_eq!(sanitize_log_filename("debug-2026.log"), Some("debug-2026.log"));
+        assert_eq!(
+            sanitize_log_filename("debug-2026.log"),
+            Some("debug-2026.log")
+        );
     }
 
     #[test]
@@ -91,7 +94,10 @@ mod tests {
     #[test]
     fn sanitize_rejects_absolute_path() {
         assert_eq!(sanitize_log_filename("/etc/passwd"), None);
-        assert_eq!(sanitize_log_filename("C:\\Windows\\System32\\foo.log"), None);
+        assert_eq!(
+            sanitize_log_filename("C:\\Windows\\System32\\foo.log"),
+            None
+        );
     }
 
     #[test]

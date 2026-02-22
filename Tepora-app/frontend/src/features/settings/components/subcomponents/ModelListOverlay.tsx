@@ -10,7 +10,7 @@ import {
 	X,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FitText } from "../../../../components/ui/FitText";
@@ -33,6 +33,8 @@ interface ModelListOverlayProps {
 	models: ModelInfo[];
 	onDelete: (id: string) => void;
 	onReorder: (role: string, newOrder: string[]) => void;
+	initialRole?: "text" | "embedding";
+	fixedRole?: "text" | "embedding";
 }
 
 export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
@@ -41,15 +43,26 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 	models,
 	onDelete,
 	onReorder,
+	initialRole = "text",
+	fixedRole,
 }) => {
 	const { t } = useTranslation();
-	const [activeTab, setActiveTab] = useState("text");
+	const [activeTab, setActiveTab] = useState<"text" | "embedding">(initialRole);
 	const { updateStatus, isChecking, checkAllModels } = useModelUpdateCheck();
 	const [updatingModels, setUpdatingModels] = useState<Set<string>>(new Set());
 
+	useEffect(() => {
+		if (fixedRole) {
+			setActiveTab(fixedRole);
+			return;
+		}
+		setActiveTab(initialRole);
+	}, [fixedRole, initialRole]);
+
 	if (!isOpen) return null;
 
-	const filteredModels = models.filter((m) => m.role === activeTab);
+	const currentRole = fixedRole || activeTab;
+	const filteredModels = models.filter((m) => m.role === currentRole);
 
 	const handleCheckUpdates = () => {
 		checkAllModels(filteredModels.map((m) => m.id));
@@ -92,7 +105,7 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 		[newModels[index], newModels[swapIndex]] = [newModels[swapIndex], newModels[index]];
 
 		onReorder(
-			activeTab,
+			currentRole,
 			newModels.map((m) => m.id),
 		);
 	};
@@ -116,7 +129,11 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 						<List size={20} className="text-gold-400" />
 						<div className="min-w-0 h-7 flex items-center">
 							<FitText className="text-lg font-medium text-white" minFontSize={12} maxFontSize={18}>
-								{t("settings.sections.models.manage_models") || "Model Management"}
+								{fixedRole === "embedding"
+									? t("settings.sections.models.embedding_model_title", "Embedding Models")
+									: fixedRole === "text"
+										? t("settings.sections.models.text_model_title", "Text Models")
+										: t("settings.sections.models.manage_models", "Model Management")}
 							</FitText>
 						</div>
 					</h3>
@@ -146,22 +163,24 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 					</div>
 				</div>
 
-				<div className="flex border-b border-white/5 px-6">
-					{["text", "embedding"].map((role) => (
-						<button
-							type="button"
-							key={role}
-							onClick={() => setActiveTab(role)}
-							className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${activeTab === role
-								? "text-gold-400 border-gold-400"
-								: "text-gray-500 border-transparent hover:text-gray-300"
-								}`}
-						>
-							{role.charAt(0).toUpperCase() + role.slice(1)} (
-							{models.filter((m) => m.role === role).length})
-						</button>
-					))}
-				</div>
+				{!fixedRole && (
+					<div className="flex border-b border-white/5 px-6">
+						{(["text", "embedding"] as const).map((role) => (
+							<button
+								type="button"
+								key={role}
+								onClick={() => setActiveTab(role)}
+								className={`py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${activeTab === role
+									? "text-gold-400 border-gold-400"
+									: "text-gray-500 border-transparent hover:text-gray-300"
+									}`}
+							>
+								{role.charAt(0).toUpperCase() + role.slice(1)} (
+								{models.filter((m) => m.role === role).length})
+							</button>
+						))}
+					</div>
+				)}
 
 				<div className="flex-1 overflow-y-auto p-6 space-y-2 custom-scrollbar">
 					{filteredModels.length === 0 ? (

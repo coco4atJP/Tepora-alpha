@@ -70,18 +70,16 @@ impl Node for ThinkingNode {
         ];
 
         // Resolve model ID
-        let model_id = {
-            let registry = ctx
-                .app_state
-                .models
-                .get_registry()
-                .map_err(|e| GraphError::new(self.id(), e.to_string()))?;
-            registry
-                .role_assignments
-                .get("character") // Or 'thinking' role if separate
-                .cloned()
-                .unwrap_or_else(|| "default".to_string())
-        };
+        let active_character = ctx
+            .config
+            .get("active_agent_profile")
+            .and_then(|v| v.as_str());
+        let model_id = ctx
+            .app_state
+            .models
+            .resolve_character_model_id(active_character)
+            .map_err(|e| GraphError::new(self.id(), e.to_string()))?
+            .unwrap_or_else(|| "default".to_string());
 
         // Convert messages
         let llm_messages: Vec<crate::llm::types::ChatMessage> = thinking_messages

@@ -31,7 +31,8 @@ pub async fn ws_handler(
         return Err(ApiError::Unauthorized);
     }
 
-    Ok(ws.protocols([WS_APP_PROTOCOL])
+    Ok(ws
+        .protocols([WS_APP_PROTOCOL])
         .on_upgrade(move |socket| handle_socket(socket, state.shared())))
 }
 
@@ -299,22 +300,9 @@ async fn handle_message(
 fn resolve_embedding_model_id(state: &AppState) -> String {
     state
         .models
-        .get_registry()
+        .resolve_embedding_model_id()
         .ok()
-        .and_then(|registry| {
-            registry
-                .role_assignments
-                .get("embedding")
-                .cloned()
-                .or_else(|| {
-                    registry
-                        .models
-                        .iter()
-                        .find(|model| model.role == "embedding")
-                        .map(|model| model.id.clone())
-                })
-                .or_else(|| registry.models.first().map(|model| model.id.clone()))
-        })
+        .flatten()
         .unwrap_or_else(|| "default".to_string())
 }
 

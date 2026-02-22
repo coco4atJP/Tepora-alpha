@@ -33,7 +33,7 @@
     {
       "id": "ollama-embeddinggemma:latest",
       "display_name": "embeddinggemma:latest (Ollama)",
-      "role": "text",
+      "role": "embedding",
       "file_size": 621875917,
       "filename": "embeddinggemma:latest",
       "source": "ollama",
@@ -212,7 +212,8 @@
     }
   ],
   "role_assignments": {
-    "character": "ollama-lfm2.5-thinking:latest"
+    "character": "ollama-lfm2.5-thinking:latest",
+    "embedding": "ollama-embeddinggemma:latest"
   },
   "role_order": {}
 }
