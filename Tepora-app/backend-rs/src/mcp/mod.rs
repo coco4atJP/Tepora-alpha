@@ -758,7 +758,16 @@ impl McpManager {
         let parsed = match serde_json::from_str::<McpToolsConfig>(&contents) {
             Ok(config) => config,
             Err(e) => {
-                tracing::warn!("Failed to parse MCP config, using current config: {}", e);
+                // Provide detailed information: line/column and classification of
+                // the JSON error so users can pinpoint the offending part of the file.
+                tracing::warn!(
+                    config_path = %config_path.display(),
+                    line = e.line(),
+                    column = e.column(),
+                    error = %e,
+                    "Failed to parse MCP config; using current in-memory config. \
+                     Please fix the configuration file to avoid silent rollback."
+                );
                 return Ok(self.config.read().await.clone());
             }
         };
