@@ -143,7 +143,7 @@ graph TD
 | **非同期ランタイム**  | Tokio               | 非同期処理                 |
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
-| **RAGストア**         | SQLite + ndarray    | ベクトル検索 (in-process)  |
+| **RAGストア**         | SQLite              | ベクトル検索 (in-process)  |
 | **ベクトル演算**      | ndarray             | コサイン類似度計算         |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
@@ -633,6 +633,9 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 ### 5.10 EM-LLM (エピソード記憶)
 
 ICLR 2025採択論文「EM-LLM」の実装。人間のエピソード記憶をLLMで再現します。
+
+**特徴**:
+- **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
 
 **ファイル**: `src/em_llm/`
 
@@ -1174,6 +1177,7 @@ USER_DATA_DIR/
 | **SSRF防御**         | `native_web_fetch` がローカルIP・private network・denylistドメインをブロック |
 | **入力ガード**       | `app.dangerous_patterns` による危険入力パターン拒否 |
 | **機密設定保護**     | APIキー等は `secrets.yaml` に分離保存 + APIレスポンス時マスク |
+| **記憶の暗号化**     | EM-LLM (エピソード記憶) は AES-256-GCM で暗号化して保存 |
 
 ### モデルダウンロードセキュリティ
 
@@ -1240,7 +1244,7 @@ task quality
 | **Webフレームワーク** | FastAPI      | Axum                          |
 | **グラフエンジン**    | LangGraph    | petgraph (自前実装)           |
 | **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)      |
-| **ベクトルDB**        | ChromaDB     | SQLite + ndarray (in-process) |
+| **ベクトルDB**        | ChromaDB     | SQLite (in-process)           |
 | **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)         |
 | **パッケージ管理**    | uv / pip     | Cargo                         |
 | **バイナリ配布**      | PyInstaller  | ネイティブバイナリ            |
