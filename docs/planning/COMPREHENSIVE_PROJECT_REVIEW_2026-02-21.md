@@ -486,6 +486,13 @@ export function sanitizeUrl(url: string): string {
 | A-2 | アーキテクチャ | AppStateライフサイクル明示化 |
 | P-1 | パフォーマンス | チャンクフラッシュ間隔調整 |
 
+対応状況（2026-02-22）:
+- ✅ A-2 実施: `AppStateRead` / `AppStateWrite` と `AppStateRef<ReadAccess/WriteAccess>` を導入し、HTTP/WebSocket境界で read/write を型分離
+- ✅ P-1 実施: チャンクフラッシュ間隔をネットワークヒント（`navigator.connection`）とチャンク量で動的調整し、`VITE_CHUNK_FLUSH_INTERVAL_MIN/MAX` で範囲を外部設定可能化
+- ✅ A-3 / C-3 追補: `chatStore` の `streaming` を実運用状態として `_stream*` と同期し、`useStreamingBuffer` も `streaming` 参照へ統一
+- ✅ C-1 追補: `setup_set_active_model` で `ApiError` 種別（`Internal` / `Conflict` 等）を保持しつつ文脈付きメッセージを返却
+- ✅ D-4 追補: `/health` の総合判定を修正し、`llm=error` / `mcp!=ok` / `db=error` を `degraded` として一貫判定
+
 ---
 
 ## 9. ベストプラクティス遵守状況
