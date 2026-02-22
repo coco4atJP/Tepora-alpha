@@ -171,13 +171,17 @@ impl GraphRuntime {
         })?;
 
         let mut step = 0;
+        // Execution history: (node_id, duration_ms)
+        let mut visited: Vec<String> = Vec::new();
 
         loop {
             if step >= self.max_steps {
-                return Err(GraphError::new(
+                let mut err = GraphError::new(
                     "runtime",
                     format!("Maximum steps ({}) exceeded", self.max_steps),
-                ));
+                );
+                err.execution_trace = visited;
+                return Err(err);
             }
 
             let node = self
@@ -188,7 +192,23 @@ impl GraphRuntime {
             let node_id = node.id();
             tracing::debug!("Executing node: {} (step {})", node_id, step);
 
-            let output = node.execute(state, ctx).await?;
+            let start = std::time::Instant::now();
+            let output = match node.execute(state, ctx).await {
+                Ok(o) => o,
+                Err(mut e) => {
+                    // Attach the execution trace collected so far, then propagate.
+                    visited.push(format!("{}({}ms)", node_id, start.elapsed().as_millis()));
+                    e.execution_trace = visited;
+                    tracing::warn!(
+                        node_id = %e.node_id,
+                        trace = %e.execution_trace.join(" -> "),
+                        "Graph node failed"
+                    );
+                    return Err(e);
+                }
+            };
+            let elapsed_ms = start.elapsed().as_millis();
+            visited.push(format!("{}({}ms)", node_id, elapsed_ms));
 
             match output {
                 NodeOutput::Final => {
@@ -196,7 +216,9 @@ impl GraphRuntime {
                     return Ok(());
                 }
                 NodeOutput::Error(msg) => {
-                    return Err(GraphError::new(node_id, msg));
+                    let mut err = GraphError::new(node_id, msg);
+                    err.execution_trace = visited;
+                    return Err(err);
                 }
                 NodeOutput::Continue(explicit_next) => {
                     current_idx =
