@@ -38,6 +38,24 @@ export default defineConfig(({ mode }) => {
 			globals: true,
 			environment: "jsdom",
 			setupFiles: "./src/test/setup.ts",
+			// T-2: Coverage configuration (run with: npm run coverage)
+			coverage: {
+				provider: "v8",
+				reporter: ["text", "json", "html"],
+				exclude: [
+					"node_modules/",
+					"src/test/",
+					"**/*.d.ts",
+					"**/*.config.ts",
+					"src/main.tsx",
+				],
+				thresholds: {
+					lines: 0,
+					functions: 0,
+					branches: 0,
+					statements: 0,
+				},
+			},
 		},
 	};
 });

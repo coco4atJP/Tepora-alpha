@@ -12,6 +12,7 @@
 		"lint": "eslint . --max-warnings 0",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest",
+		"coverage": "vitest run --coverage",
 		"tauri:dev": "tauri dev --config src-tauri/tauri.conf.dev.json",
 		"tauri": "tauri"
 	},
