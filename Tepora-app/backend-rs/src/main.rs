@@ -4,7 +4,6 @@
 //! It sets up the Axum router, initializes the application state,
 //! and starts the HTTP server.
 
-use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod a2a;
@@ -48,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let app = server::router(app_state.clone()).layer(TraceLayer::new_for_http());
+    let app = server::router(app_state.clone());
 
     let host = resolve_server_host();
     let port = resolve_server_port();

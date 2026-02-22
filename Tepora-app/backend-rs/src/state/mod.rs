@@ -1,4 +1,7 @@
+use std::ops::Deref;
 use std::sync::Arc;
+
+use axum::extract::FromRef;
 
 use crate::agent::exclusive_manager::ExclusiveAgentManager;
 use crate::core::config::{AppPaths, ConfigService};
@@ -18,6 +21,112 @@ pub mod setup;
 
 use error::InitializationError;
 use setup::SetupState;
+
+#[allow(dead_code)]
+/// Marker type for read-only application state access.
+pub enum ReadAccess {}
+
+#[allow(dead_code)]
+/// Marker type for mutating application state access.
+pub enum WriteAccess {}
+
+#[allow(dead_code)]
+/// Access contract that keeps read/write intent explicit at type level.
+pub trait AppStateRef<Access> {
+    fn state(&self) -> &AppState;
+    fn shared(&self) -> Arc<AppState>;
+}
+
+/// Read-only reference extracted from shared application state.
+#[derive(Clone)]
+pub struct AppStateRead(Arc<AppState>);
+
+/// Mutating reference extracted from shared application state.
+#[derive(Clone)]
+pub struct AppStateWrite(Arc<AppState>);
+
+#[allow(dead_code)]
+impl AppStateRead {
+    pub fn shared(&self) -> Arc<AppState> {
+        self.0.clone()
+    }
+}
+
+impl AppStateWrite {
+    pub fn shared(&self) -> Arc<AppState> {
+        self.0.clone()
+    }
+
+    pub fn into_read(self) -> AppStateRead {
+        AppStateRead(self.0)
+    }
+}
+
+impl From<AppStateWrite> for AppStateRead {
+    fn from(value: AppStateWrite) -> Self {
+        value.into_read()
+    }
+}
+
+impl Deref for AppStateRead {
+    type Target = AppState;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl Deref for AppStateWrite {
+    type Target = AppState;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl AsRef<AppState> for AppStateRead {
+    fn as_ref(&self) -> &AppState {
+        self.0.as_ref()
+    }
+}
+
+impl AsRef<AppState> for AppStateWrite {
+    fn as_ref(&self) -> &AppState {
+        self.0.as_ref()
+    }
+}
+
+impl AppStateRef<ReadAccess> for AppStateRead {
+    fn state(&self) -> &AppState {
+        self.0.as_ref()
+    }
+
+    fn shared(&self) -> Arc<AppState> {
+        self.0.clone()
+    }
+}
+
+impl AppStateRef<WriteAccess> for AppStateWrite {
+    fn state(&self) -> &AppState {
+        self.0.as_ref()
+    }
+
+    fn shared(&self) -> Arc<AppState> {
+        self.0.clone()
+    }
+}
+
+impl FromRef<Arc<AppState>> for AppStateRead {
+    fn from_ref(input: &Arc<AppState>) -> Self {
+        Self(input.clone())
+    }
+}
+
+impl FromRef<Arc<AppState>> for AppStateWrite {
+    fn from_ref(input: &Arc<AppState>) -> Self {
+        Self(input.clone())
+    }
+}
 
 /// Global application state shared across all routes and background tasks.
 ///

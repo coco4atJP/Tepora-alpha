@@ -5,12 +5,11 @@ use axum::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use crate::state::AppState;
+use crate::state::{AppStateRead, AppStateWrite};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateSessionRequest {
@@ -23,7 +22,7 @@ pub struct UpdateSessionRequest {
 }
 
 pub async fn list_sessions(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -45,7 +44,7 @@ pub async fn list_sessions(
 }
 
 pub async fn create_session(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<CreateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -56,7 +55,7 @@ pub async fn create_session(
 }
 
 pub async fn get_session(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -85,7 +84,7 @@ pub async fn get_session(
 }
 
 pub async fn get_session_messages(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Path(session_id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
@@ -134,7 +133,7 @@ pub async fn get_session_messages(
 }
 
 pub async fn update_session(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(session_id): Path<String>,
     Json(payload): Json<UpdateSessionRequest>,
@@ -149,7 +148,7 @@ pub async fn update_session(
 }
 
 pub async fn delete_session(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {

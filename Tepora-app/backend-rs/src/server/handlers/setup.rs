@@ -23,7 +23,7 @@ use zip::ZipArchive;
 use super::utils::{ensure_object_path, resolve_model_path};
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use crate::state::AppState;
+use crate::state::{AppState, AppStateRead, AppStateWrite};
 
 #[derive(Debug, Deserialize)]
 pub struct SetupInitRequest {
@@ -88,6 +88,8 @@ pub struct ProfessionalRoleRequest {
 #[derive(Debug, Deserialize)]
 pub struct ActiveModelRequest {
     pub model_id: String,
+    #[serde(default)]
+    pub role: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -141,7 +143,7 @@ pub struct BinaryUpdateRequest {
 }
 
 pub async fn setup_init(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<SetupInitRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -151,7 +153,7 @@ pub async fn setup_init(
 }
 
 pub async fn setup_preflight(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Json(payload): Json<SetupPreflightRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -183,7 +185,7 @@ pub async fn setup_preflight(
 }
 
 pub async fn setup_requirements(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -217,7 +219,7 @@ pub async fn setup_requirements(
 }
 
 pub async fn setup_default_models(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -247,7 +249,7 @@ pub async fn setup_default_models(
 }
 
 pub async fn setup_run(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<SetupRunRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -365,7 +367,7 @@ pub async fn setup_run(
 }
 
 pub async fn setup_progress(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -374,7 +376,7 @@ pub async fn setup_progress(
 }
 
 pub async fn setup_finish(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(_payload): Json<SetupFinishRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -398,7 +400,7 @@ pub async fn setup_finish(
 }
 
 pub async fn setup_models(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -420,6 +422,7 @@ pub async fn setup_models(
                 "role": model.role,
                 "file_size": model.file_size,
                 "filename": model.filename,
+                "file_path": model.file_path,
                 "source": model.source,
                 "loader": model.loader,
                 "is_active": is_active,
@@ -430,7 +433,7 @@ pub async fn setup_models(
 }
 
 pub async fn setup_model_roles(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -451,7 +454,7 @@ pub async fn setup_model_roles(
 }
 
 pub async fn setup_set_character_role(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<ModelRoleRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -486,7 +489,7 @@ pub async fn setup_set_character_role(
 }
 
 pub async fn setup_set_professional_role(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<ProfessionalRoleRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -504,7 +507,7 @@ pub async fn setup_set_professional_role(
 }
 
 pub async fn setup_delete_professional_role(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(task_type): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -522,32 +525,78 @@ pub async fn setup_delete_professional_role(
 }
 
 pub async fn setup_set_active_model(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<ActiveModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
+    let requested_role = payload
+        .role
+        .as_deref()
+        .unwrap_or("text")
+        .to_ascii_lowercase();
+    let (role_key, config_role) = if requested_role == "embedding" {
+        ("embedding", "embedding")
+    } else {
+        ("character", "text")
+    };
+
+    let assigned = state
+        .models
+        .set_role_model(role_key, &payload.model_id)
+        .map_err(|e| {
+            tracing::warn!(
+                model_id = %payload.model_id,
+                role = %role_key,
+                error = %e,
+                "Failed to set active role assignment"
+            );
+            ApiError::BadRequest(format!(
+                "Failed to set '{}' role for model '{}': {}",
+                role_key, payload.model_id, e
+            ))
+        })?;
+    if !assigned {
+        return Err(ApiError::NotFound(format!(
+            "Model '{}' not found in registry",
+            payload.model_id
+        )));
+    }
+
     state
         .models
-        .update_active_model_config("text", &payload.model_id)
+        .update_active_model_config(config_role, &payload.model_id)
         .map_err(|e| {
-            tracing::warn!(model_id = %payload.model_id, error = %e, "Failed to set active model");
-            match &e {
-                ApiError::NotFound(_) => ApiError::NotFound(format!(
-                    "Model '{}' not found in registry",
-                    payload.model_id
-                )),
-                _ => ApiError::BadRequest(format!(
+            tracing::warn!(
+                model_id = %payload.model_id,
+                role = %config_role,
+                error = %e,
+                "Failed to set active model"
+            );
+            match e {
+                ApiError::NotFound(_) => {
+                    ApiError::NotFound(format!("Model '{}' not found in registry", payload.model_id))
+                }
+                ApiError::BadRequest(msg) => ApiError::BadRequest(format!(
                     "Failed to activate model '{}': {}",
-                    payload.model_id, e
+                    payload.model_id, msg
                 )),
+                ApiError::Conflict(msg) => ApiError::Conflict(format!(
+                    "Failed to activate model '{}': {}",
+                    payload.model_id, msg
+                )),
+                ApiError::Internal(msg) => ApiError::Internal(format!(
+                    "Failed to activate model '{}': {}",
+                    payload.model_id, msg
+                )),
+                other => other,
             }
         })?;
     Ok(Json(json!({"success": true})))
 }
 
 pub async fn setup_reorder_models(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<ReorderModelsRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -557,7 +606,7 @@ pub async fn setup_reorder_models(
 }
 
 pub async fn setup_check_model(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Json(payload): Json<CheckModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -579,7 +628,7 @@ pub async fn setup_check_model(
 }
 
 pub async fn setup_download_model(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<DownloadModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -659,7 +708,7 @@ pub async fn setup_download_model(
 }
 
 pub async fn setup_register_local_model(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<LocalModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -679,7 +728,7 @@ pub async fn setup_register_local_model(
 }
 
 pub async fn setup_delete_model(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(model_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -692,7 +741,7 @@ pub async fn setup_delete_model(
 }
 
 pub async fn setup_refresh_ollama_models(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -701,7 +750,7 @@ pub async fn setup_refresh_ollama_models(
 }
 
 pub async fn setup_refresh_lmstudio_models(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -710,7 +759,7 @@ pub async fn setup_refresh_lmstudio_models(
 }
 
 pub async fn setup_model_update_check(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -750,7 +799,7 @@ pub async fn setup_model_update_check(
 }
 
 pub async fn setup_binary_update_info(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -776,7 +825,7 @@ pub async fn setup_binary_update_info(
 }
 
 pub async fn setup_binary_update(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<BinaryUpdateRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -790,7 +839,7 @@ pub async fn setup_binary_update(
 
     let state_clone = state.clone();
     tokio::spawn(async move {
-        let result = install_latest_llama_binary(state_clone.clone(), &requested_variant).await;
+        let result = install_latest_llama_binary(state_clone.shared(), &requested_variant).await;
         match result {
             Ok(version) => {
                 let _ = state_clone.setup.update_progress(

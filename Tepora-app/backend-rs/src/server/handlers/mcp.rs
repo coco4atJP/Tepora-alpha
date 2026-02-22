@@ -6,14 +6,14 @@ use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 use uuid::Uuid;
 
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
 use crate::mcp::installer as mcp_installer;
 use crate::mcp::registry::McpRegistryServer;
-use crate::state::AppState;
+use crate::state::{AppStateRead, AppStateWrite};
 
 #[derive(Debug, Deserialize, Default)]
 pub struct McpStoreQuery {
@@ -65,7 +65,7 @@ fn cleanup_expired_consents_locked(store: &mut HashMap<String, PendingConsent>) 
 }
 
 pub async fn mcp_status(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -92,7 +92,7 @@ pub async fn mcp_status(
 }
 
 pub async fn mcp_config(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -114,7 +114,7 @@ pub async fn mcp_config(
 }
 
 pub async fn mcp_update_config(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -124,7 +124,7 @@ pub async fn mcp_update_config(
 }
 
 pub async fn mcp_store(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Query(params): Query<McpStoreQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -247,7 +247,7 @@ pub async fn mcp_store(
 }
 
 pub async fn mcp_install_preview(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Json(payload): Json<McpInstallPreviewRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -299,7 +299,7 @@ pub async fn mcp_install_preview(
 }
 
 pub async fn mcp_install_confirm(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<McpInstallConfirmRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -353,7 +353,7 @@ pub async fn mcp_install_confirm(
 }
 
 pub async fn mcp_approve_server(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(server_name): Path<String>,
     Json(payload): Json<McpApproveRequest>,
@@ -366,7 +366,7 @@ pub async fn mcp_approve_server(
 }
 
 pub async fn mcp_revoke_server(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -379,7 +379,7 @@ pub async fn mcp_revoke_server(
 }
 
 pub async fn mcp_enable_server(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -392,7 +392,7 @@ pub async fn mcp_enable_server(
 }
 
 pub async fn mcp_disable_server(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -405,7 +405,7 @@ pub async fn mcp_disable_server(
 }
 
 pub async fn mcp_delete_server(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -418,7 +418,7 @@ pub async fn mcp_delete_server(
 }
 
 pub async fn mcp_policy(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -427,7 +427,7 @@ pub async fn mcp_policy(
 }
 
 pub async fn mcp_update_policy(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {

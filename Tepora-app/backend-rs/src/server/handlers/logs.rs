@@ -4,14 +4,13 @@ use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::json;
 use std::fs;
-use std::sync::Arc;
 
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
-use crate::state::AppState;
+use crate::state::AppStateRead;
 
 pub async fn get_logs(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -39,7 +38,7 @@ pub async fn get_logs(
 }
 
 pub async fn get_log_content(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {

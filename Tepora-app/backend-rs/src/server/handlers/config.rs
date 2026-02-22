@@ -3,15 +3,14 @@ use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::{json, Value};
-use std::sync::Arc;
 
 use crate::core::errors::ApiError;
 use crate::core::security::require_api_key;
 use crate::server::handlers::utils::absolutize_mcp_path;
-use crate::state::AppState;
+use crate::state::{AppStateRead, AppStateWrite};
 
 pub async fn get_config(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateRead>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     require_api_key(&headers, &state.session_token)?;
@@ -22,7 +21,7 @@ pub async fn get_config(
 }
 
 pub async fn update_config(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -32,7 +31,7 @@ pub async fn update_config(
 }
 
 pub async fn patch_config(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {

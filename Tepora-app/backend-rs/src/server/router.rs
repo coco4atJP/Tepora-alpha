@@ -4,6 +4,7 @@ use axum::Router;
 use serde_json::Value;
 use std::sync::Arc;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::trace::TraceLayer;
 
 use crate::server::handlers::{agents, config, health, logs, mcp, sessions, setup, tools};
 use crate::server::ws::handler::ws_handler;
@@ -156,6 +157,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/ws", get(ws_handler))
         .with_state(state)
         .layer(cors_layer)
+        .layer(TraceLayer::new_for_http())
 }
 
 fn build_cors_layer(state: &Arc<AppState>) -> CorsLayer {

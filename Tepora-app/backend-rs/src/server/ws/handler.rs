@@ -13,13 +13,13 @@ use uuid::Uuid;
 
 use crate::core::errors::ApiError;
 use crate::graph::{AgentState, NodeContext};
-use crate::state::AppState;
+use crate::state::{AppState, AppStateWrite};
 
 use super::protocol::{WsIncomingMessage, WS_APP_PROTOCOL, WS_TOKEN_PREFIX};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppStateWrite>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
     if !validate_origin(&headers, &state) {
@@ -32,7 +32,7 @@ pub async fn ws_handler(
     }
 
     Ok(ws.protocols([WS_APP_PROTOCOL])
-        .on_upgrade(move |socket| handle_socket(socket, state)))
+        .on_upgrade(move |socket| handle_socket(socket, state.shared())))
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
