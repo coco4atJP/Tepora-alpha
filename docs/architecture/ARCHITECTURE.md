@@ -2,7 +2,7 @@
 
 **ドキュメントバージョン**: 5.02
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-02-19
+**最終更新日**: 2026-02-23
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -255,6 +255,7 @@ backend-rs/
 │   │
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
+│   ├── memory_v2/              # Memory v2 (EM-LLM × FadeMem) [Preview]
 │   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
