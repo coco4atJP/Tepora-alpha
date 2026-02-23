@@ -1,20 +1,13 @@
 use axum::extract::{Path, State};
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::json;
 use std::fs;
 
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
 use crate::state::AppStateRead;
 
-pub async fn get_logs(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
+pub async fn get_logs(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let mut logs = Vec::new();
     let log_dir = &state.paths.log_dir;
     if let Ok(entries) = fs::read_dir(log_dir) {
@@ -34,16 +27,13 @@ pub async fn get_logs(
     logs.sort_by(|a, b| b.1.cmp(&a.1));
 
     let log_names: Vec<String> = logs.into_iter().map(|(name, _)| name).collect();
-    Ok(Json(json!(log_names)))
+    Ok(Json(json!({ "logs": log_names })))
 }
 
 pub async fn get_log_content(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let log_dir = &state.paths.log_dir;
 
     // C-2 fix: ファイル名のみ許可（パス区切り / ".." / 絶対パスを拒否）
@@ -56,7 +46,7 @@ pub async fn get_log_content(
     }
 
     let content = fs::read_to_string(path).map_err(ApiError::internal)?;
-    Ok(content)
+    Ok(Json(json!({ "content": content })))
 }
 
 /// ログファイル名をサニタイズする。ベース名のみ許可し、トラバーサルを拒否。

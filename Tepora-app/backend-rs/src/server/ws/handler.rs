@@ -141,8 +141,22 @@ async fn handle_message(
                             "limit": stats.retrieval_limit,
                             "min_score": stats.min_score,
                         },
-                        "char_memory": {"total_events": stats.total_events},
-                        "prof_memory": {"total_events": 0}
+                        "char_memory": {
+                            "total_events": stats.total_events,
+                            "layer_counts": {
+                                "lml": stats.lml_events,
+                                "sml": stats.sml_events
+                            },
+                            "mean_strength": stats.mean_strength
+                        },
+                        "prof_memory": {
+                            "total_events": 0,
+                            "layer_counts": {
+                                "lml": 0,
+                                "sml": 0
+                            },
+                            "mean_strength": 0.0
+                        }
                     }
                 }),
             )

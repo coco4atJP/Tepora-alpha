@@ -99,18 +99,18 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 	tooltip,
 	isDirty,
 	className,
-	orientation = "vertical",
+	orientation = "horizontal",
 	glass = false,
 }) => {
 	const isHorizontal = orientation === "horizontal";
-	const glassClass = glass ? "glass-panel p-4" : "";
+	const glassClass = glass ? "glass-panel p-3" : "";
 
 	if (isHorizontal) {
 		return (
 			<div
-				className={`settings-form-group flex items-center justify-between gap-4 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
+				className={`settings-form-group flex items-center justify-between gap-6 py-1 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
 			>
-				<div className="flex-1 min-w-0">
+				<div className="flex-1 min-w-0 pr-4">
 					<div className="settings-form-group__header !mb-0">
 						<div>
 							<span className="settings-form-group__label">{label}</span>
@@ -120,22 +120,24 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 								</Tooltip>
 							)}
 							{isDirty && (
-								<span className="inline-flex items-center text-xs text-gold-400 font-medium px-1.5 py-0.5 bg-gold-400/10 rounded-sm ml-2 align-middle">
+								<span className="inline-flex items-center text-[10px] text-gold-400 font-medium px-1.5 py-0.5 bg-gold-400/10 rounded-sm ml-2 align-middle uppercase tracking-widest">
 									Modified
 								</span>
 							)}
 						</div>
-						{description && <p className="settings-form-group__description mt-1">{description}</p>}
+						{description && <p className="settings-form-group__description mt-1 text-xs">{description}</p>}
 					</div>
 				</div>
-				<div className="settings-form-group__content shrink-0">{children}</div>
+				<div className="settings-form-group__content shrink-0 w-[40%] min-w-[200px] max-w-sm flex justify-end [&>*]:w-full">
+					{children}
+				</div>
 			</div>
 		);
 	}
 
 	return (
 		<div
-			className={`settings-form-group h-full flex flex-col ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
+			className={`settings-form-group py-1 flex flex-col ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
 		>
 			<div className="settings-form-group__header">
 				<div>

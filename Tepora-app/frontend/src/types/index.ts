@@ -110,6 +110,11 @@ export interface MemorySystemStats {
 	total_events: number;
 	total_tokens_in_memory: number;
 	mean_event_size: number;
+	layer_counts?: {
+		lml: number;
+		sml: number;
+	};
+	mean_strength?: number;
 	surprise_statistics?: {
 		mean: number;
 		std: number;

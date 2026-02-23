@@ -3,11 +3,28 @@ import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { ThemeSelector } from "../components/ThemeSelector";
-import { FormGroup, FormInput, FormSelect, FormSwitch, SettingsSection } from "../SettingsComponents";
+import { FormGroup, FormInput, FormList, FormSelect, FormSwitch, SettingsSection } from "../SettingsComponents";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getPathValue<T>(source: unknown, path: string, fallback: T): T {
+	const keys = path.split(".").filter(Boolean);
+	let current: unknown = source;
+
+	for (const key of keys) {
+		if (!isRecord(current)) return fallback;
+		current = current[key];
+	}
+
+	if (current === undefined || current === null) return fallback;
+	return current as T;
+}
 
 const GeneralSettings: React.FC = () => {
 	const { t, i18n } = useTranslation();
-	const { config, originalConfig, updateApp, updateTools, updateThinking } = useSettings();
+	const { config, originalConfig, updateApp, updateTools, updateThinking, updateConfigPath } = useSettings();
 
 	if (!config) return null;
 
@@ -37,6 +54,26 @@ const GeneralSettings: React.FC = () => {
 	const configLanguage = normalizeLanguage(appConfig.language) ?? "en";
 	const uiLanguage = normalizeLanguage(i18n.resolvedLanguage || i18n.language) ?? configLanguage;
 	const languageSelectValue = appConfig.setup_completed ? configLanguage : uiLanguage;
+
+	const readString = (path: string, fallback = "") => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "string" ? value : fallback;
+	};
+
+	const readNumber = (path: string, fallback = 0) => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+	};
+
+	const readBoolean = (path: string, fallback = false) => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "boolean" ? value : fallback;
+	};
+
+	const readStringList = (path: string) => {
+		const value = getPathValue<unknown>(config, path, []);
+		return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+	};
 
 	return (
 		<div className="space-y-6">
@@ -90,7 +127,6 @@ const GeneralSettings: React.FC = () => {
 							"settings.thinking.chat_default_desc",
 							"Automatically enable thinking process when starting a new chat session.",
 						)}
-						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={config.thinking?.chat_default ?? false}
@@ -103,11 +139,176 @@ const GeneralSettings: React.FC = () => {
 							"settings.thinking.search_default_desc",
 							"Automatically enable thinking process when starting a new search session.",
 						)}
-						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={config.thinking?.search_default ?? false}
 							onChange={(checked) => updateThinking("search_default", checked)}
+						/>
+					</FormGroup>
+				</div>
+			</SettingsSection>
+
+			<SettingsSection
+				title={t("settings.sections.extended.ui_title", "UI Design & Notifications")}
+				icon={<Palette size={18} />}
+				description={t(
+					"settings.sections.extended.ui_description",
+					"Configure appearance details and background notifications.",
+				)}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.sections.extended.font_family", "Font Family")}
+						description={t(
+							"settings.sections.extended.font_family_desc",
+							"UI font family for main text rendering.",
+						)}
+					>
+						<FormInput
+							value={readString("ui.font_family", "")}
+							onChange={(value) => updateConfigPath("ui.font_family", value)}
+							placeholder={t("settings.sections.extended.font_family_placeholder", "e.g. Noto Sans")}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.font_size", "Font Size")}
+						description={t(
+							"settings.sections.extended.font_size_desc",
+							"Base UI font size in pixels.",
+						)}
+					>
+						<FormInput
+							type="number"
+							value={readNumber("ui.font_size", 14)}
+							onChange={(value) => updateConfigPath("ui.font_size", value)}
+							min={10}
+							max={32}
+							step={1}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.code_theme", "Code Highlight Theme")}
+						description={t(
+							"settings.sections.extended.code_theme_desc",
+							"Syntax highlighting theme for code blocks.",
+						)}
+					>
+						<FormInput
+							value={readString("ui.code_block.syntax_theme", "")}
+							onChange={(value) => updateConfigPath("ui.code_block.syntax_theme", value)}
+							placeholder={t("settings.sections.extended.code_theme_placeholder", "e.g. github-dark")}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.thinking_max_tokens", "Thinking Max Tokens")}
+						description={t(
+							"settings.sections.extended.thinking_max_tokens_desc",
+							"Upper limit for thinking token consumption.",
+						)}
+					>
+						<FormInput
+							type="number"
+							value={readNumber("thinking.max_tokens", 0)}
+							onChange={(value) => updateConfigPath("thinking.max_tokens", value)}
+							min={0}
+							max={262144}
+							step={64}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.code_wrap", "Code Block Wrap")}
+						description={t(
+							"settings.sections.extended.code_wrap_desc",
+							"Enable line wrapping for code blocks.",
+						)}
+					>
+						<FormSwitch
+							checked={readBoolean("ui.code_block.wrap_lines", true)}
+							onChange={(value) => updateConfigPath("ui.code_block.wrap_lines", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.code_line_numbers", "Code Block Line Numbers")}
+						description={t(
+							"settings.sections.extended.code_line_numbers_desc",
+							"Display line numbers in code blocks.",
+						)}
+					>
+						<FormSwitch
+							checked={readBoolean("ui.code_block.show_line_numbers", true)}
+							onChange={(value) => updateConfigPath("ui.code_block.show_line_numbers", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.notification_os", "Background Task OS Notification")}
+						description={t(
+							"settings.sections.extended.notification_os_desc",
+							"Show an OS notification when background tasks complete.",
+						)}
+					>
+						<FormSwitch
+							checked={readBoolean("notifications.background_task.os_notification", false)}
+							onChange={(value) =>
+								updateConfigPath("notifications.background_task.os_notification", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.notification_sound", "Background Task Sound")}
+						description={t(
+							"settings.sections.extended.notification_sound_desc",
+							"Play a notification sound when background tasks complete.",
+						)}
+					>
+						<FormSwitch
+							checked={readBoolean("notifications.background_task.sound", false)}
+							onChange={(value) => updateConfigPath("notifications.background_task.sound", value)}
+						/>
+					</FormGroup>
+				</div>
+			</SettingsSection>
+
+			<SettingsSection
+				title={t("settings.sections.extended.shortcuts_title", "Shortcuts")}
+				icon={<Settings2 size={18} />}
+				description={t(
+					"settings.sections.extended.shortcuts_description",
+					"Configure keyboard shortcuts for quick actions.",
+				)}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.sections.extended.shortcut_new_chat", "Shortcut: New Chat")}
+						description={t(
+							"settings.sections.extended.shortcut_new_chat_desc",
+							"Keyboard shortcut for starting a new chat.",
+						)}
+					>
+						<FormInput
+							value={readString("shortcuts.new_chat", "")}
+							onChange={(value) => updateConfigPath("shortcuts.new_chat", value)}
+							placeholder="Ctrl+Shift+N"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.shortcut_custom", "Additional Shortcuts")}
+						description={t(
+							"settings.sections.extended.shortcut_custom_desc",
+							"Add shortcuts as action=keybinding (for example: open_settings=Ctrl+,).",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("shortcuts.custom_bindings")}
+							onChange={(items) => updateConfigPath("shortcuts.custom_bindings", items)}
+							placeholder="open_settings=Ctrl+,"
 						/>
 					</FormGroup>
 				</div>
@@ -211,7 +412,7 @@ const GeneralSettings: React.FC = () => {
 				icon={<Settings2 size={18} />}
 				description={t("settings.sections.general.advanced_settings_desc")}
 			>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div className="space-y-4">
 					<FormGroup
 						label={t("settings.fields.graph_recursion_limit.label")}
 						tooltip={t("settings.fields.graph_recursion_limit.description")}

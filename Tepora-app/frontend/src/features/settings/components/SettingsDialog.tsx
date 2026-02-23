@@ -11,6 +11,8 @@ import { SettingsLayout } from "./SettingsLayout";
 import CharacterSettings from "./sections/CharacterSettings";
 import CustomAgentSettings from "./sections/CustomAgentSettings";
 import GeneralSettings from "./sections/GeneralSettings";
+import DataStorageSettings from "./sections/DataStorageSettings";
+import SystemPerformanceSettings from "./sections/SystemPerformanceSettings";
 import McpSettings from "./sections/McpSettings";
 import MemorySettings from "./sections/MemorySettings";
 import ModelSettings from "./sections/ModelSettings";
@@ -86,6 +88,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 		const keyMap: Record<string, string> = {
 			general: "settings.sections.general.label",
 			privacy: "settings.sections.privacy.label",
+			data_storage: "settings.sections.extended.storage_title",
+			system_performance: "settings.sections.extended.performance_title",
 			agents: "settings.sections.agents.label",
 			custom_agents: "settings.sections.custom_agents.label",
 			mcp: "settings.sections.mcp.label",
@@ -93,7 +97,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			memory: "settings.sections.memory.label",
 			other: "settings.sections.other.label",
 		};
-		return t(keyMap[id] || id);
+		const fallbackLabel = NAV_ITEMS.find((item) => item.id === id)?.label || id;
+		return t(keyMap[id] || id, fallbackLabel);
 	};
 
 	return (
@@ -111,9 +116,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 					<SettingsSidebar
 						items={NAV_ITEMS.map((item) => ({
 							...item,
-							label: t(`settings.sections.${item.id}.label`),
+							label: t(`settings.sections.${item.id}.label`, item.label),
 							// Translate group name if exists
-							group: item.group ? t(`settings.groups.${item.group}`) : undefined,
+							group: item.group ? t(`settings.groups.${item.group}`, item.group) : undefined,
 						}))}
 						activeItem={activeSection}
 						onSelect={setActiveSection}
@@ -170,6 +175,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 										{activeSection === "privacy" && (
 											<PrivacySettings privacyConfig={config.privacy} onUpdate={updatePrivacy} />
 										)}
+										{activeSection === "data_storage" && <DataStorageSettings />}
+										{activeSection === "system_performance" && <SystemPerformanceSettings />}
 										{activeSection === "agents" && (
 											<CharacterSettings
 												profiles={config.characters}

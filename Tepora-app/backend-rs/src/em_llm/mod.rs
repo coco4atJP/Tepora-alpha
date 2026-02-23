@@ -5,20 +5,26 @@
 //! "Human-inspired Episodic Memory for Infinite Context LLMs".
 
 mod boundary;
+mod compression;
+mod decay;
 mod integrator;
+mod ranking;
 mod retrieval;
 mod segmenter;
 pub mod service;
 pub mod store;
 mod types;
+pub mod sentence;
 
 #[cfg(test)]
 mod tests;
 
 pub use boundary::EMBoundaryRefiner;
+pub use compression::{CompressionResult, MemoryCompressor};
+pub use decay::DecayEngine;
 pub use integrator::EMLLMIntegrator;
 pub use retrieval::EMTwoStageRetrieval;
 pub use segmenter::EMEventSegmenter;
 pub use service::{EmMemoryService, EmMemoryStats, RetrievedMemory};
 pub use store::EmMemoryStore;
-pub use types::{EMConfig, EpisodicEvent};
+pub use types::{DecayConfig, EMConfig, EpisodicEvent, MemoryLayer};

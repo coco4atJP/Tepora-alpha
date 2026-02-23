@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 
 import { useSettings } from "../hooks/useSettings";
-// import { useWebSocketStore } from "../stores"; // Unused for now
-import { apiClient } from "../utils/api-client";
+import { modelsApi, resolveEmbeddingModelPath } from "../api/models";
 import { ModelCard } from "../features/settings/components/ModelCard";
 import { loadersApi } from "../api/loaders";
 import type { ModelInfo } from "../types";
@@ -37,7 +36,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
     const fetchModels = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await apiClient.get<{ models?: ModelInfo[] }>("api/setup/models");
+            const data = await modelsApi.list();
             setModels(data.models || []);
         } catch (e) {
             console.error("Failed to fetch models", e);
@@ -56,29 +55,11 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
 
         try {
             if (model.role === "text") {
-                // For text models, we might need to ask which role (character or professional)
-                // For simplicity in this hub view, let's set it as the default Character model for now
-                // OR providing a dialog/dropdown would be better.
-                // Let's replicate "Set as Active Character Model" behavior
-                await apiClient.post("api/setup/model/roles/character", {
-                    model_id: id,
-                });
+                await modelsApi.setCharacterRole(id);
             } else if (model.role === "embedding") {
-                await apiClient.post("api/setup/model/active", {
-                    model_id: id,
-                    role: "embedding",
-                });
+                await modelsApi.setActive(id, "embedding");
 
-                const modelPath =
-                    model.file_path ||
-                    ((model.source === "ollama" || model.loader === "ollama") && model.filename
-                        ? `ollama://${model.filename}`
-                        : (model.source === "lmstudio" || model.loader === "lmstudio") && model.filename
-                            ? `lmstudio://${model.filename}`
-                            : model.filename
-                                ? `models/embedding/${model.filename}`
-                                : "");
-
+                const modelPath = resolveEmbeddingModelPath(model);
                 if (modelPath && config?.models_gguf?.embedding_model) {
                     updateModel("embedding_model", {
                         ...config.models_gguf.embedding_model,
@@ -86,7 +67,6 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
                     });
                 }
             }
-            // Refresh list to update 'is_active' status (if backend returns it)
             fetchModels();
         } catch (e) {
             console.error("Failed to activate model", e);
@@ -97,7 +77,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
         if (!confirm(t("settings.sections.models.confirm_delete", "Are you sure you want to delete this model?"))) return;
 
         try {
-            await apiClient.delete(`api/setup/model/${id}`);
+            await modelsApi.delete(id);
             fetchModels();
         } catch (e) {
             console.error("Failed to delete model", e);

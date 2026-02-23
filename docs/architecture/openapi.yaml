@@ -153,9 +153,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: string
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      type: string
 
   /api/logs/{filename}:
     get:
@@ -171,9 +174,12 @@ paths:
         '200':
           description: Log file content
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                type: object
+                properties:
+                  content:
+                    type: string
 
   /api/sessions:
     get:

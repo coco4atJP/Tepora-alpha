@@ -1,56 +1,23 @@
 use axum::extract::State;
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::json;
 
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
+use crate::core::native_tools::NATIVE_TOOLS;
 use crate::mcp::McpToolInfo;
 use crate::state::AppStateRead;
 
-pub async fn list_tools(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-    let mut tools = Vec::new();
-    tools.push(json!({
-        "name": "native_web_fetch",
-        "description": "Fetch content from a URL"
-    }));
-    tools.push(json!({
-        "name": "native_search",
-        "description": "Search the web"
-    }));
-    tools.push(json!({
-        "name": "native_rag_search",
-        "description": "Search RAG by embedding similarity"
-    }));
-    tools.push(json!({
-        "name": "native_rag_ingest",
-        "description": "Ingest text into RAG"
-    }));
-    tools.push(json!({
-        "name": "native_rag_text_search",
-        "description": "Search RAG by text pattern"
-    }));
-    tools.push(json!({
-        "name": "native_rag_get_chunk",
-        "description": "Get one RAG chunk by ID"
-    }));
-    tools.push(json!({
-        "name": "native_rag_get_chunk_window",
-        "description": "Get neighboring RAG chunks around one chunk"
-    }));
-    tools.push(json!({
-        "name": "native_rag_clear_session",
-        "description": "Clear all RAG chunks for a session"
-    }));
-    tools.push(json!({
-        "name": "native_rag_reindex",
-        "description": "Reindex RAG with a specific embedding model"
-    }));
+pub async fn list_tools(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
+    let mut tools: Vec<serde_json::Value> = NATIVE_TOOLS
+        .iter()
+        .map(|t| {
+            json!({
+                "name": t.name,
+                "description": t.description
+            })
+        })
+        .collect();
 
     let mcp_tools: Vec<McpToolInfo> = state.mcp.list_tools().await;
     for tool in mcp_tools {

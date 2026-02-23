@@ -90,16 +90,6 @@ impl ConfigService {
 
         ensure_default_characters(&mut merged);
 
-        if let Some(obj) = merged.as_object() {
-            if obj.contains_key("custom_agents") {
-                tracing::warn!(
-                    "Legacy 'custom_agents' section detected in config.yml. \
-                    This section is deprecated and ignored in v4.0. \
-                    Please migrate your agents to 'agents.yaml' and remove this section."
-                );
-            }
-        }
-
         Ok(merged)
     }
 

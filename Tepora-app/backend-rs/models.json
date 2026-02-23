@@ -212,8 +212,9 @@
     }
   ],
   "role_assignments": {
+    "embedding": "ollama-embeddinggemma:latest",
     "character": "ollama-lfm2.5-thinking:latest",
-    "embedding": "ollama-embeddinggemma:latest"
+    "professional": "ollama-rnj-1:8b"
   },
   "role_order": {}
 }

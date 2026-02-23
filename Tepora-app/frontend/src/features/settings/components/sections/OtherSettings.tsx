@@ -78,7 +78,7 @@ const OtherSettings: React.FC = () => {
 						<h3 className="text-sm font-medium text-gray-300">
 							{t("settings.sections.other.timeouts.model_manager", "Model Manager")}
 						</h3>
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+						<div className="space-y-4">
 							<FormGroup
 								label={
 									t("settings.models_settings.global_manager.terminate_timeout") ||
@@ -150,7 +150,7 @@ const OtherSettings: React.FC = () => {
 						<h3 className="text-sm font-medium text-gray-300">
 							{t("settings.sections.other.timeouts.tools", "Tools")}
 						</h3>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-4">
 							<FormGroup
 								label={t("settings.fields.tool_execution_timeout.label") || "Tool Execution Timeout"}
 								description={t("settings.fields.tool_execution_timeout.description")}
@@ -332,7 +332,7 @@ const InferenceEngineUpdate: React.FC = () => {
 								{checking
 									? t("settings.sections.general.inference_engine.checking") || "Checking..."
 									: t("settings.sections.general.inference_engine.check_updates") ||
-										"Check for Updates"}
+									"Check for Updates"}
 							</button>
 						)}
 					</div>

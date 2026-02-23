@@ -12,7 +12,7 @@ import {
 
 const MemorySettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateEmLlm, updateChatHistory } = useSettings();
+	const { config, originalConfig, updateEmLlm, updateChatHistory, updateConfigPath } = useSettings();
 
 	if (!config) return null;
 
@@ -24,13 +24,26 @@ const MemorySettings: React.FC = () => {
 		total_retrieved_events: 10,
 		repr_topk: 3,
 		use_boundary_refinement: true,
+		decay: {
+			lambda_base: 0.1,
+			promote_threshold: 0.7,
+			demote_threshold: 0.3,
+			prune_threshold: 0.05,
+		},
 	};
 	const defaultHistoryConfig = {
 		max_tokens: 8192,
 		default_limit: 50,
 	};
 
-	const emConfig = config.em_llm || defaultEmConfig;
+	const emConfig = {
+		...defaultEmConfig,
+		...(config.em_llm || {}),
+		decay: {
+			...defaultEmConfig.decay,
+			...(config.em_llm?.decay || {}),
+		},
+	};
 	const historyConfig = config.chat_history || defaultHistoryConfig;
 	const originalEmConfig = originalConfig?.em_llm;
 	const originalHistoryConfig = originalConfig?.chat_history;
@@ -45,10 +58,15 @@ const MemorySettings: React.FC = () => {
 		return historyConfig[field] !== originalHistoryConfig[field];
 	};
 
+	const isDecayDirty = (field: keyof typeof emConfig.decay) => {
+		if (!originalEmConfig?.decay) return false;
+		return emConfig.decay[field] !== originalEmConfig.decay[field];
+	};
+
 	return (
 		<div className="space-y-6">
 			<SettingsSection title={t("settings.sections.chat_history.title")} icon={<Clock size={18} />}>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<div className="space-y-4">
 					<FormGroup
 						label={t("settings.memory.max_tokens.label")}
 						tooltip={t("settings.memory.max_tokens.description")}
@@ -116,7 +134,7 @@ const MemorySettings: React.FC = () => {
 					}
 					defaultOpen={true}
 				>
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					<div className="space-y-4">
 						<FormGroup
 							label={t("settings.memory.surprise_gamma.label")}
 							tooltip={t("settings.memory.surprise_gamma.description")}
@@ -184,23 +202,104 @@ const MemorySettings: React.FC = () => {
 							/>
 						</FormGroup>
 
-						<div className="flex items-center h-full pt-4">
-							<FormGroup
-								label={t("settings.memory.boundary_refinement.label")}
-								tooltip={t("settings.memory.boundary_refinement.description")}
-								isDirty={isEmDirty("use_boundary_refinement")}
-							>
-								<div className="flex items-center gap-3">
-									<FormSwitch
-										checked={emConfig.use_boundary_refinement}
-										onChange={(v) => updateEmLlm("use_boundary_refinement", v)}
-									/>
-									<span className="text-sm text-gray-400">
-										{emConfig.use_boundary_refinement ? t("common.enabled") : t("common.disabled")}
-									</span>
-								</div>
-							</FormGroup>
-						</div>
+						<FormGroup
+							label={t("settings.memory.boundary_refinement.label")}
+							tooltip={t("settings.memory.boundary_refinement.description")}
+							isDirty={isEmDirty("use_boundary_refinement")}
+						>
+							<div className="flex items-center gap-3">
+								<FormSwitch
+									checked={emConfig.use_boundary_refinement}
+									onChange={(v) => updateEmLlm("use_boundary_refinement", v)}
+								/>
+								<span className="text-sm text-gray-400">
+									{emConfig.use_boundary_refinement ? t("common.enabled") : t("common.disabled")}
+								</span>
+							</div>
+						</FormGroup>
+					</div>
+				</CollapsibleSection>
+
+				<CollapsibleSection
+					title={t("settings.memory.decay_params_title", "FadeMem Decay Parameters")}
+					description={t(
+						"settings.memory.decay_params_desc",
+						"Adaptive memory decay and ranking behavior",
+					)}
+					defaultOpen={true}
+				>
+					<div className="space-y-4">
+						<FormGroup
+							label={t("settings.memory.decay.lambda_base.label", "Lambda Base")}
+							tooltip={t(
+								"settings.memory.decay.lambda_base.description",
+								"Base forgetting rate used in strength decay.",
+							)}
+							isDirty={isDecayDirty("lambda_base")}
+						>
+							<FormInput
+								type="number"
+								value={emConfig.decay.lambda_base}
+								onChange={(v) => updateConfigPath("em_llm.decay.lambda_base", v)}
+								min={0.000001}
+								max={5}
+								step={0.01}
+							/>
+						</FormGroup>
+
+						<FormGroup
+							label={t("settings.memory.decay.promote_threshold.label", "Promote Threshold")}
+							tooltip={t(
+								"settings.memory.decay.promote_threshold.description",
+								"Importance threshold to promote SML to LML.",
+							)}
+							isDirty={isDecayDirty("promote_threshold")}
+						>
+							<FormInput
+								type="number"
+								value={emConfig.decay.promote_threshold}
+								onChange={(v) => updateConfigPath("em_llm.decay.promote_threshold", v)}
+								min={0}
+								max={1}
+								step={0.01}
+							/>
+						</FormGroup>
+
+						<FormGroup
+							label={t("settings.memory.decay.demote_threshold.label", "Demote Threshold")}
+							tooltip={t(
+								"settings.memory.decay.demote_threshold.description",
+								"Importance threshold to demote LML to SML.",
+							)}
+							isDirty={isDecayDirty("demote_threshold")}
+						>
+							<FormInput
+								type="number"
+								value={emConfig.decay.demote_threshold}
+								onChange={(v) => updateConfigPath("em_llm.decay.demote_threshold", v)}
+								min={0}
+								max={1}
+								step={0.01}
+							/>
+						</FormGroup>
+
+						<FormGroup
+							label={t("settings.memory.decay.prune_threshold.label", "Prune Threshold")}
+							tooltip={t(
+								"settings.memory.decay.prune_threshold.description",
+								"Memories below this strength are removed in decay cycles.",
+							)}
+							isDirty={isDecayDirty("prune_threshold")}
+						>
+							<FormInput
+								type="number"
+								value={emConfig.decay.prune_threshold}
+								onChange={(v) => updateConfigPath("em_llm.decay.prune_threshold", v)}
+								min={0}
+								max={1}
+								step={0.01}
+							/>
+						</FormGroup>
 					</div>
 				</CollapsibleSection>
 			</SettingsSection>

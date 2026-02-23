@@ -1,5 +1,4 @@
 use axum::extract::{Path, Query, State};
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::Deserialize;
@@ -7,7 +6,6 @@ use serde_json::{json, Value};
 
 use crate::agent::exclusive_manager::{AgentToolPolicy, ExecutionAgent};
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
 use crate::state::{AppStateRead, AppStateWrite};
 
 #[derive(Debug, Deserialize)]
@@ -18,11 +16,8 @@ pub struct CustomAgentQuery {
 
 pub async fn list_custom_agents(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Query(query): Query<CustomAgentQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let agents = if query.enabled_only {
         state.exclusive_agents.list_enabled()
     } else {
@@ -34,11 +29,8 @@ pub async fn list_custom_agents(
 
 pub async fn get_custom_agent(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let agent = state
         .exclusive_agents
         .get(&agent_id)
@@ -49,11 +41,8 @@ pub async fn get_custom_agent(
 
 pub async fn create_custom_agent(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let id = payload
         .get("id")
         .and_then(|v| v.as_str())
@@ -74,12 +63,9 @@ pub async fn create_custom_agent(
 
 pub async fn update_custom_agent(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(agent_id): Path<String>,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let existing = state
         .exclusive_agents
         .get(&agent_id)
@@ -93,11 +79,8 @@ pub async fn update_custom_agent(
 
 pub async fn delete_custom_agent(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let removed = state.exclusive_agents.delete(&agent_id)?;
     if !removed {
         return Err(ApiError::NotFound("Agent not found".to_string()));

@@ -91,6 +91,72 @@ impl EpisodicEvent {
     }
 }
 
+/// Memory tier used by FadeMem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+#[allow(clippy::upper_case_acronyms)]
+pub enum MemoryLayer {
+    /// Long-term Memory Layer: slower decay
+    LML,
+    /// Short-term Memory Layer: faster decay
+    #[default]
+    SML,
+}
+
+impl MemoryLayer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LML => "LML",
+            Self::SML => "SML",
+        }
+    }
+}
+
+/// FadeMem decay parameters.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecayConfig {
+    /// Base decay rate (lambda_base)
+    pub lambda_base: f64,
+    /// Importance modulation factor (mu)
+    pub importance_modulation: f64,
+    /// LML beta (sublinear decay)
+    pub beta_lml: f64,
+    /// SML beta (superlinear decay)
+    pub beta_sml: f64,
+    /// Promote threshold (theta_promote)
+    pub promote_threshold: f64,
+    /// Demote threshold (theta_demote)
+    pub demote_threshold: f64,
+    /// Pruning threshold (epsilon_prune)
+    pub prune_threshold: f64,
+    /// Reinforcement delta (delta_v)
+    pub reinforcement_delta: f64,
+    /// Importance weight: semantic relevance
+    pub alpha: f64,
+    /// Importance weight: access frequency
+    pub beta: f64,
+    /// Importance weight: recency
+    pub gamma: f64,
+}
+
+impl Default for DecayConfig {
+    fn default() -> Self {
+        Self {
+            lambda_base: 0.1,
+            importance_modulation: 2.0,
+            beta_lml: 0.8,
+            beta_sml: 1.2,
+            promote_threshold: 0.7,
+            demote_threshold: 0.3,
+            prune_threshold: 0.05,
+            reinforcement_delta: 0.05,
+            alpha: 0.5,
+            beta: 0.3,
+            gamma: 0.2,
+        }
+    }
+}
+
 /// Configuration parameters for the EM-LLM system.
 ///
 /// Based on the paper "Human-inspired Episodic Memory for Infinite Context LLMs" (ICLR 2025).
@@ -138,6 +204,11 @@ pub struct EMConfig {
     // ===== Security parameters =====
     /// Whether to encrypt stored memory content
     pub encryption_enabled: bool,
+
+    // ===== FadeMem decay =====
+    /// Adaptive forgetting configuration
+    #[serde(default)]
+    pub decay: DecayConfig,
 }
 
 impl Default for EMConfig {
@@ -163,6 +234,9 @@ impl Default for EMConfig {
 
             // Security
             encryption_enabled: false,
+
+            // FadeMem decay
+            decay: DecayConfig::default(),
         }
     }
 }
@@ -208,5 +282,7 @@ mod tests {
         assert_eq!(config.total_retrieved_events, 4);
         assert_eq!(config.similarity_buffer_size(), 3); // 4 * 0.7 = 2.8 -> 3
         assert_eq!(config.contiguity_buffer_size(), 1); // 4 * 0.3 = 1.2 -> 1
+        assert_eq!(config.decay.promote_threshold, 0.7);
+        assert_eq!(config.decay.demote_threshold, 0.3);
     }
 }

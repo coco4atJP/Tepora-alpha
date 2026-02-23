@@ -1,9 +1,10 @@
-import { Cpu, Database, HardDrive, List, MessageSquare, Plus, RefreshCw, Wrench } from "lucide-react";
+import { Cpu, Database, HardDrive, List, MessageSquare, RefreshCw, SlidersHorizontal, Wrench } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
-import { apiClient } from "../../../../utils/api-client";
+import { modelsApi, resolveEmbeddingModelPath } from "../../../../api/models";
+import type { ModelRoles } from "../../../../api/models";
 import { loadersApi } from "../../../../api/loaders";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
@@ -12,7 +13,6 @@ import { ModelSelectionRow } from "../subcomponents/ModelSelectionRow";
 import ModelHub from "../../../../pages/ModelHub";
 import type { ModelInfo } from "../../../../types";
 
-// Types
 interface ModelConfig {
 	path: string;
 	port: number;
@@ -25,15 +25,21 @@ interface ModelConfig {
 	logprobs?: boolean;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
+function getPathValue<T>(source: unknown, path: string, fallback: T): T {
+	const keys = path.split(".").filter(Boolean);
+	let current: unknown = source;
 
+	for (const key of keys) {
+		if (!isRecord(current)) return fallback;
+		current = current[key];
+	}
 
-
-interface ModelRoles {
-	character_model_id: string | null;
-	character_model_map: Record<string, string>;
-	agent_model_map: Record<string, string>;
-	professional_model_map: Record<string, string>;
+	if (current === undefined || current === null) return fallback;
+	return current as T;
 }
 
 const ModelSettings: React.FC = () => {
@@ -46,6 +52,7 @@ const ModelSettings: React.FC = () => {
 		updateModel,
 		updateSearch,
 		updateLoaderBaseUrl,
+		updateConfigPath,
 	} = useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [listOverlayRole, setListOverlayRole] = useState<"text" | "embedding" | null>(null);
@@ -58,12 +65,11 @@ const ModelSettings: React.FC = () => {
 		agent_model_map: {},
 		professional_model_map: {},
 	});
-	const [newTaskType, setNewTaskType] = useState("");
 
 	// Fetch available models from backend
 	const fetchModels = useCallback(async () => {
 		try {
-			const data = await apiClient.get<{ models?: ModelInfo[] }>("api/setup/models");
+			const data = await modelsApi.list();
 			setModels(data.models || []);
 		} catch (e) {
 			console.error("Failed to fetch models", e);
@@ -72,7 +78,7 @@ const ModelSettings: React.FC = () => {
 
 	const fetchModelRoles = useCallback(async () => {
 		try {
-			const data = await apiClient.get<ModelRoles>("api/setup/model/roles");
+			const data = await modelsApi.getRoles();
 			setModelRoles({
 				character_model_id: data.character_model_id || null,
 				character_model_map: data.character_model_map || {},
@@ -119,9 +125,7 @@ const ModelSettings: React.FC = () => {
 
 	const handleSelectCharacterModel = async (modelId: string) => {
 		try {
-			await apiClient.post("api/setup/model/roles/character", {
-				model_id: modelId,
-			});
+			await modelsApi.setCharacterRole(modelId);
 			await fetchModelRoles();
 		} catch (e) {
 			console.error(e);
@@ -130,13 +134,10 @@ const ModelSettings: React.FC = () => {
 
 	const handleSelectCharacterScopedModel = async (characterId: string, modelId: string) => {
 		try {
-			const encoded = encodeURIComponent(characterId);
 			if (modelId) {
-				await apiClient.post(`api/setup/model/roles/character/${encoded}`, {
-					model_id: modelId,
-				});
+				await modelsApi.setCharacterScopedRole(characterId, modelId);
 			} else {
-				await apiClient.delete(`api/setup/model/roles/character/${encoded}`);
+				await modelsApi.deleteCharacterScopedRole(characterId);
 			}
 			await fetchModelRoles();
 		} catch (e) {
@@ -146,13 +147,10 @@ const ModelSettings: React.FC = () => {
 
 	const handleSelectAgentScopedModel = async (agentId: string, modelId: string) => {
 		try {
-			const encoded = encodeURIComponent(agentId);
 			if (modelId) {
-				await apiClient.post(`api/setup/model/roles/agent/${encoded}`, {
-					model_id: modelId,
-				});
+				await modelsApi.setAgentScopedRole(agentId, modelId);
 			} else {
-				await apiClient.delete(`api/setup/model/roles/agent/${encoded}`);
+				await modelsApi.deleteAgentScopedRole(agentId);
 			}
 			await fetchModelRoles();
 		} catch (e) {
@@ -162,35 +160,11 @@ const ModelSettings: React.FC = () => {
 
 	const handleSelectProfessionalModel = async (taskType: string, modelId: string) => {
 		try {
-			await apiClient.post("api/setup/model/roles/professional", {
-				task_type: taskType,
-				model_id: modelId,
-			});
+			await modelsApi.setProfessionalRole(taskType, modelId);
 			await fetchModelRoles();
 		} catch (e) {
 			console.error(e);
 		}
-	};
-
-	const handleRemoveProfessionalMapping = async (taskType: string) => {
-		try {
-			await apiClient.delete(`api/setup/model/roles/professional/${encodeURIComponent(taskType)}`);
-			await fetchModelRoles();
-		} catch (e) {
-			console.error(e);
-		}
-	};
-
-	const handleAddTaskType = async () => {
-		if (!newTaskType.trim()) return;
-		setModelRoles((prev) => ({
-			...prev,
-			professional_model_map: {
-				...prev.professional_model_map,
-				[newTaskType.trim()]: "",
-			},
-		}));
-		setNewTaskType("");
 	};
 
 	const handleDelete = async (id: string) => {
@@ -202,7 +176,7 @@ const ModelSettings: React.FC = () => {
 		)
 			return;
 		try {
-			await apiClient.delete(`api/setup/model/${id}`);
+			await modelsApi.delete(id);
 			fetchModels();
 			fetchModelRoles();
 		} catch (e) {
@@ -212,10 +186,7 @@ const ModelSettings: React.FC = () => {
 
 	const handleReorder = async (role: string, ids: string[]) => {
 		try {
-			await apiClient.post("api/setup/model/reorder", {
-				role,
-				model_ids: ids,
-			});
+			await modelsApi.reorder(role, ids);
 			fetchModels();
 		} catch (e) {
 			console.error(e);
@@ -249,30 +220,17 @@ const ModelSettings: React.FC = () => {
 	// Legacy: set pool active model for embedding only now
 	const handleSelectEmbeddingModel = async (modelId: string) => {
 		try {
-			await apiClient.post("api/setup/model/active", {
-				model_id: modelId,
-				role: "embedding",
-			});
-
+			await modelsApi.setActive(modelId, "embedding");
 			await fetchModels();
 			const modelInList = models.find((m) => m.id === modelId);
-			const modelPath =
-				modelInList?.file_path ||
-				((modelInList?.source === "ollama" || modelInList?.loader === "ollama") &&
-					modelInList.filename
-					? `ollama://${modelInList.filename}`
-					: (modelInList?.source === "lmstudio" || modelInList?.loader === "lmstudio") &&
-						modelInList.filename
-						? `lmstudio://${modelInList.filename}`
-						: modelInList?.filename
-							? `models/embedding/${modelInList.filename}`
-							: "");
-
-			if (modelPath) {
-				updateModel("embedding_model", {
-					...embeddingModelConfig,
-					path: modelPath,
-				});
+			if (modelInList) {
+				const modelPath = resolveEmbeddingModelPath(modelInList);
+				if (modelPath) {
+					updateModel("embedding_model", {
+						...embeddingModelConfig,
+						path: modelPath,
+					});
+				}
 			}
 		} catch (e) {
 			console.error(e);
@@ -287,6 +245,16 @@ const ModelSettings: React.FC = () => {
 		if (a.priority !== b.priority) return a.priority - b.priority;
 		return a.name.localeCompare(b.name);
 	});
+
+	const readString = (path: string, fallback = "") => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "string" ? value : fallback;
+	};
+
+	const readBoolean = (path: string, fallback = false) => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "boolean" ? value : fallback;
+	};
 
 	return (
 		<div className="space-y-6">
@@ -507,71 +475,17 @@ const ModelSettings: React.FC = () => {
 						<h3 className="text-sm font-medium text-gray-300">
 							{t("settings.sections.models.executor_models_title")}
 						</h3>
-						{Object.entries(modelRoles.professional_model_map).map(([taskType, modelId]) => (
-							<ModelSelectionRow
-								key={taskType}
-								label={t("settings.sections.models.executor_label", {
-									taskType,
-								})}
-								description={
-									taskType === "default"
-										? t("settings.sections.models.executor_default_desc")
-										: t("settings.sections.models.executor_task_desc", {
-											taskType,
-										})
-								}
-								selectedModelId={modelId}
-								models={textModels}
-								onSelect={(id) => handleSelectProfessionalModel(taskType, id)}
-								config={textModelConfig}
-								onUpdateConfig={(c) => updateModel("text_model", c)}
-								onDelete={
-									taskType !== "default" ? () => handleRemoveProfessionalMapping(taskType) : undefined
-								}
-								icon={<Wrench size={20} />}
-								modelRole="text"
-							/>
-						))}
-
-						{/* Add new task type */}
-						<div className="bg-black/20 rounded-xl p-6 border border-white/5 space-y-4">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-white/5 rounded-lg text-gold-400">
-									<Plus size={20} />
-								</div>
-								<div className="flex-1">
-									<h3 className="text-lg font-medium text-white">
-										{t("settings.sections.models.add_task_title", "Add Custom Task Model")}
-									</h3>
-									<p className="text-sm text-gray-500">
-										{t("settings.sections.models.add_task_description", "Assign specific models to particular tasks (e.g., coding, translation).")}
-									</p>
-								</div>
-							</div>
-							<div className="flex gap-4">
-								<input
-									type="text"
-									value={newTaskType}
-									onChange={(e) => setNewTaskType(e.target.value)}
-									placeholder={
-										t("settings.sections.models.add_task_placeholder", "Task name (e.g., coding, browser)")
-									}
-									className="flex-1 appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 text-white font-medium transition-colors focus:outline-none focus:border-gold-400/50"
-									onKeyDown={(e) => e.key === "Enter" && handleAddTaskType()}
-								/>
-								<button
-									type="button"
-									onClick={handleAddTaskType}
-									disabled={!newTaskType.trim()}
-									className={`px-6 py-3 border rounded-xl font-medium transition-colors ${!newTaskType.trim()
-										? "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed"
-										: "bg-gold-500/20 border-gold-500/30 text-gold-400 hover:bg-gold-500/30 hover:text-gold-300"
-										}`}
-								>
-									{t("common.add") || "Add"}
-								</button>
-							</div>
-						</div>
+						<ModelSelectionRow
+							label={t("settings.sections.models.executor_default_label", "Professional Default Model")}
+							description={t("settings.sections.models.executor_default_desc", "Default model used for system agent tasks. Can be overridden in specific tool settings.")}
+							selectedModelId={modelRoles.professional_model_map["default"] || undefined}
+							models={textModels}
+							onSelect={(id) => handleSelectProfessionalModel("default", id)}
+							config={textModelConfig}
+							onUpdateConfig={(c) => updateModel("text_model", c)}
+							icon={<Wrench size={20} />}
+							modelRole="text"
+						/>
 					</div>
 				</div>
 			</SettingsSection>
@@ -630,7 +544,6 @@ const ModelSettings: React.FC = () => {
 				<FormGroup
 					label={t("settings.fields.embedding_rerank.label", "Embedding Rerank")}
 					description={t("settings.fields.embedding_rerank.description", "Use embedding model to rerank search results for better relevance.")}
-					orientation="horizontal"
 				>
 					<FormSwitch
 						checked={config.search?.embedding_rerank ?? false}
@@ -666,6 +579,119 @@ const ModelSettings: React.FC = () => {
 							value={config.loaders?.lmstudio?.base_url ?? "http://localhost:1234"}
 							onChange={(v) => updateLoaderBaseUrl("lmstudio", v as string)}
 							placeholder={t("settings.fields.lmstudio_base_url.placeholder", "http://localhost:1234")}
+						/>
+					</FormGroup>
+				</div>
+			</SettingsSection>
+
+			<SettingsSection
+				title={t("settings.sections.extended.models_title", "Model and LLM Extensions")}
+				icon={<SlidersHorizontal size={18} />}
+				description={t(
+					"settings.sections.extended.models_description",
+					"Set model defaults and advanced generation metadata not covered in the standard model cards.",
+				)}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.sections.extended.character_default_model", "Character Default Model")}
+					>
+						<FormInput
+							value={readString("model_defaults.character_default_model", "")}
+							onChange={(value) => updateConfigPath("model_defaults.character_default_model", value)}
+							placeholder="text_model"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.supervisor_default_model", "Supervisor/Planner Default Model")}
+					>
+						<FormInput
+							value={readString("model_defaults.supervisor_planner_default_model", "")}
+							onChange={(value) =>
+								updateConfigPath("model_defaults.supervisor_planner_default_model", value)}
+							placeholder="text_model"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.executor_default_model", "Executor Default Model")}
+					>
+						<FormInput
+							value={readString("model_defaults.executor_default_model", "")}
+							onChange={(value) => updateConfigPath("model_defaults.executor_default_model", value)}
+							placeholder="text_model"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.logprobs", "Enable Logprobs")}
+						description={t(
+							"settings.sections.extended.logprobs_desc",
+							"Emit token-level log probabilities where supported.",
+						)}
+					>
+						<FormSwitch
+							checked={readBoolean("models_gguf.text_model.logprobs", false)}
+							onChange={(value) => updateConfigPath("models_gguf.text_model.logprobs", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.system_prompt_prefix", "System Prompt Prefix")}
+						description={t(
+							"settings.sections.extended.system_prompt_prefix_desc",
+							"Prepended text for system prompts.",
+						)}
+					>
+						<FormInput
+							value={readString("models_gguf.text_model.system_prompt_prefix", "")}
+							onChange={(value) =>
+								updateConfigPath("models_gguf.text_model.system_prompt_prefix", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.system_prompt_suffix", "System Prompt Suffix")}
+						description={t(
+							"settings.sections.extended.system_prompt_suffix_desc",
+							"Appended text for system prompts.",
+						)}
+					>
+						<FormInput
+							value={readString("models_gguf.text_model.system_prompt_suffix", "")}
+							onChange={(value) =>
+								updateConfigPath("models_gguf.text_model.system_prompt_suffix", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.loader_specific_text", "Text Model Loader-specific Settings")}
+						description={t(
+							"settings.sections.extended.loader_specific_text_desc",
+							"Serialized loader-specific configuration for text model.",
+						)}
+					>
+						<FormInput
+							value={readString("models_gguf.text_model.loader_specific_settings", "")}
+							onChange={(value) =>
+								updateConfigPath("models_gguf.text_model.loader_specific_settings", value)}
+							placeholder='{"rope_scaling":"linear"}'
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.loader_specific_embedding", "Embedding Loader-specific Settings")}
+						description={t(
+							"settings.sections.extended.loader_specific_embedding_desc",
+							"Serialized loader-specific configuration for embedding model.",
+						)}
+					>
+						<FormInput
+							value={readString("models_gguf.embedding_model.loader_specific_settings", "")}
+							onChange={(value) =>
+								updateConfigPath("models_gguf.embedding_model.loader_specific_settings", value)}
+							placeholder='{"rope_scaling":"linear"}'
 						/>
 					</FormGroup>
 				</div>

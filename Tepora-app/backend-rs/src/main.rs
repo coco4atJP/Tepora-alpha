@@ -16,6 +16,7 @@ mod history;
 mod llm;
 mod mcp;
 mod memory;
+mod memory_v2;
 mod models;
 mod rag;
 mod server;

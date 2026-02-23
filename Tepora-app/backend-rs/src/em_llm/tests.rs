@@ -687,6 +687,7 @@ mod retrieval_tests {
 #[cfg(test)]
 mod store_tests {
     use crate::em_llm::store::EmMemoryStore;
+    use crate::em_llm::DecayConfig;
 
     async fn make_store() -> EmMemoryStore {
         let path =
@@ -748,7 +749,7 @@ mod store_tests {
             .unwrap();
 
         let results = store
-            .retrieve_similar(&[1.0, 0.0, 0.0], None, 10)
+            .retrieve_similar(&[1.0, 0.0, 0.0], None, 10, &DecayConfig::default())
             .await
             .unwrap();
         assert_eq!(results.len(), 2);
@@ -767,7 +768,7 @@ mod store_tests {
             .unwrap();
 
         let results = store
-            .retrieve_similar(&[1.0, 0.0], Some("sess-1"), 10)
+            .retrieve_similar(&[1.0, 0.0], Some("sess-1"), 10, &DecayConfig::default())
             .await
             .unwrap();
         assert_eq!(results.len(), 1);
@@ -783,7 +784,10 @@ mod store_tests {
                 .await
                 .unwrap();
         }
-        let results = store.retrieve_similar(&[1.0, 0.0], None, 3).await.unwrap();
+        let results = store
+            .retrieve_similar(&[1.0, 0.0], None, 3, &DecayConfig::default())
+            .await
+            .unwrap();
         assert_eq!(results.len(), 3);
     }
 
@@ -800,7 +804,7 @@ mod store_tests {
             .unwrap();
 
         let results = store
-            .retrieve_similar(&[1.0, 0.0, 0.0], Some("s1"), 10)
+            .retrieve_similar(&[1.0, 0.0, 0.0], Some("s1"), 10, &DecayConfig::default())
             .await
             .unwrap();
         assert_eq!(results.len(), 2);
@@ -833,7 +837,7 @@ mod store_tests {
             .unwrap();
 
         let results = store
-            .retrieve_similar(&[0.0, 0.0, 0.0], Some("s1"), 10)
+            .retrieve_similar(&[0.0, 0.0, 0.0], Some("s1"), 10, &DecayConfig::default())
             .await
             .unwrap();
         assert_eq!(results.len(), 1);
@@ -860,6 +864,20 @@ mod service_tests {
         ));
         let store = Arc::new(EmMemoryStore::with_path(path).await.unwrap());
         EmMemoryService::with_store_for_test(store, enabled, retrieval_limit, min_score)
+    }
+
+    async fn make_dual_service(
+        enabled: bool,
+        retrieval_limit: usize,
+        min_score: f32,
+    ) -> EmMemoryService {
+        let path = std::env::temp_dir().join(format!(
+            "tepora-em-dual-service-unit-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let store = Arc::new(EmMemoryStore::with_path(path.clone()).await.unwrap());
+        let v2_store = Arc::new(crate::memory_v2::sqlite_repository::SqliteMemoryRepository::new(path).await.unwrap());
+        EmMemoryService::with_dual_store_for_test(store, v2_store, enabled, retrieval_limit, min_score)
     }
 
     // ---------------------------------------------------------------
@@ -891,7 +909,7 @@ mod service_tests {
 
     #[tokio::test]
     async fn ingest_stores_events_when_enabled() {
-        let svc = make_service(true, 5, 0.0).await;
+        let svc = make_dual_service(true, 5, 0.0).await;
         svc.ingest_interaction_with_embedding("s1", "user msg", "assistant msg", &[1.0, 0.0])
             .await
             .unwrap();
@@ -926,7 +944,7 @@ mod service_tests {
 
     #[tokio::test]
     async fn retrieve_with_embedding_returns_matching() {
-        let svc = make_service(true, 5, 0.0).await;
+        let svc = make_dual_service(true, 5, 0.0).await;
         svc.ingest_interaction_with_embedding("s1", "question", "answer", &[1.0, 0.0, 0.0])
             .await
             .unwrap();
@@ -946,7 +964,7 @@ mod service_tests {
 
     #[tokio::test]
     async fn min_score_filters_low_score_results() {
-        let svc = make_service(true, 10, 0.9).await; // high min_score
+        let svc = make_dual_service(true, 10, 0.9).await; // high min_score
 
         // Insert event with very different embedding
         svc.ingest_interaction_with_embedding("s1", "abc", "def", &[1.0, 0.0, 0.0])
@@ -963,6 +981,34 @@ mod service_tests {
             results.is_empty(),
             "low-score results should be filtered by min_score"
         );
+    }
+
+    #[tokio::test]
+    async fn min_score_filtered_memories_are_not_reinforced() {
+        let path = std::env::temp_dir().join(format!(
+            "tepora-em-min-score-reinforce-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let store = Arc::new(EmMemoryStore::with_path(path).await.unwrap());
+        let svc = EmMemoryService::with_store_for_test(store.clone(), true, 10, 0.9);
+
+        svc.ingest_interaction_with_embedding("s1", "abc", "def", &[1.0, 0.0, 0.0])
+            .await
+            .unwrap();
+
+        let results = svc
+            .retrieve_for_query_with_embedding("s1", &[0.0, 1.0, 0.0])
+            .await
+            .unwrap();
+        assert!(results.is_empty());
+
+        let events = store
+            .get_all_events_with_metadata(Some("s1"))
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].access_count, 0);
+        assert!(events[0].last_accessed_at.is_none());
     }
 
     #[tokio::test]

@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use axum::extract::{Path, Query, State};
 use axum::http::header;
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use chrono::Utc;
@@ -22,7 +21,6 @@ use zip::ZipArchive;
 
 use super::utils::{ensure_object_path, resolve_model_path};
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
 use crate::state::{AppState, AppStateRead, AppStateWrite};
 
 #[derive(Debug, Deserialize)]
@@ -65,6 +63,98 @@ impl ModelDownloadSpec {
             "character".to_string()
         }
     }
+}
+
+/// ダウンロードジョブの共通パラメータ
+#[derive(Debug, Clone)]
+struct DownloadTask {
+    repo_id: String,
+    filename: String,
+    role: String,
+    display_name: String,
+    revision: Option<String>,
+    sha256: Option<String>,
+    consent: bool,
+}
+
+impl DownloadTask {
+    fn role_key(&self) -> &'static str {
+        if self.role.eq_ignore_ascii_case("embedding") {
+            "embedding"
+        } else {
+            "character"
+        }
+    }
+
+    fn config_role(&self) -> &'static str {
+        if self.role.eq_ignore_ascii_case("embedding") {
+            "embedding"
+        } else {
+            "text"
+        }
+    }
+}
+
+/// ダウンロードジョブ共通ランナー
+///
+/// `tasks` に含まれる各モデルを順番にダウンロードし、
+/// 進捗を `state.setup` に反映しながらロール割り当てを行う。
+async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
+    let total = tasks.len().max(1) as f32;
+    for (idx, task) in tasks.into_iter().enumerate() {
+        let base_progress = idx as f32 / total;
+        let progress_cb = |p: f32, message: &str| {
+            let _ = state.setup.update_progress(
+                "downloading",
+                base_progress + (p / total),
+                message,
+            );
+        };
+
+        let result = state
+            .models
+            .download_from_huggingface(
+                &task.repo_id,
+                &task.filename,
+                &task.role,
+                &task.display_name,
+                task.revision.as_deref(),
+                task.sha256.as_deref(),
+                task.consent,
+                Some(&progress_cb),
+            )
+            .await;
+
+        match result {
+            Ok(dl_result) if dl_result.success => {
+                if let Some(model_id) = dl_result.model_id.as_deref() {
+                    let role_key = task.role_key();
+                    let config_role = task.config_role();
+                    let assignment = state.models.set_role_model(role_key, model_id);
+                    if assignment.as_ref().is_ok_and(|assigned| *assigned) {
+                        let _ = state.models.update_active_model_config(config_role, model_id);
+                    } else if let Err(err) = assignment {
+                        tracing::warn!(
+                            model_id = %model_id,
+                            role = %role_key,
+                            error = %err,
+                            "Failed to assign downloaded model to role"
+                        );
+                    }
+                }
+            }
+            _ => {
+                let _ = state.setup.update_progress("failed", 0.0, "Download failed");
+                let _ = state.setup.set_job_id(None);
+                return;
+            }
+        }
+    }
+
+    let _ = state
+        .setup
+        .update_progress("completed", 1.0, "Download completed!");
+    let _ = state.setup.set_job_id(None);
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,20 +236,16 @@ pub struct BinaryUpdateRequest {
 
 pub async fn setup_init(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<SetupInitRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     state.setup.set_language(payload.language.clone())?;
     Ok(Json(json!({"success": true, "language": payload.language})))
 }
 
 pub async fn setup_preflight(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Json(payload): Json<SetupPreflightRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let test_path = state.paths.user_data_dir.join(".write_test");
     let write_ok = fs::write(&test_path, b"test").is_ok();
     if write_ok {
@@ -188,9 +274,7 @@ pub async fn setup_preflight(
 
 pub async fn setup_requirements(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let config = state.config.load_config()?;
     let text_path = config
         .get("models_gguf")
@@ -222,9 +306,7 @@ pub async fn setup_requirements(
 
 pub async fn setup_default_models(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let config = state.config.load_config()?;
     let defaults = config.get("default_models").cloned().unwrap_or(json!({}));
     let mut text_models = defaults
@@ -252,10 +334,8 @@ pub async fn setup_default_models(
 
 pub async fn setup_run(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<SetupRunRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let job_id = Uuid::new_v4().to_string();
     state.setup.set_job_id(Some(job_id.clone()))?;
     state
@@ -305,92 +385,37 @@ pub async fn setup_run(
         })));
     }
 
+    let consent = payload.acknowledge_warnings.unwrap_or(false);
+    let dl_tasks: Vec<DownloadTask> = target_models
+        .into_iter()
+        .map(|model| DownloadTask {
+            repo_id: model.repo_id,
+            filename: model.filename,
+            role: model.role,
+            display_name: model.display_name,
+            revision: model.revision,
+            sha256: model.sha256,
+            consent,
+        })
+        .collect();
+
     let state_clone = state.clone();
-    tokio::spawn(async move {
-        let total = target_models.len().max(1) as f32;
-        for (idx, model) in target_models.into_iter().enumerate() {
-            let base_progress = idx as f32 / total;
-            let progress_cb = |p: f32, message: &str| {
-                let _ = state_clone.setup.update_progress(
-                    "downloading",
-                    base_progress + (p / total),
-                    message,
-                );
-            };
-
-            let result = state_clone
-                .models
-                .download_from_huggingface(
-                    &model.repo_id,
-                    &model.filename,
-                    &model.role,
-                    &model.display_name,
-                    model.revision.as_deref(),
-                    model.sha256.as_deref(),
-                    payload.acknowledge_warnings.unwrap_or(false),
-                    Some(&progress_cb),
-                )
-                .await;
-
-            if let Ok(result) = result {
-                if result.success {
-                    if let Some(model_id) = result.model_id.as_deref() {
-                        let role_key = model.role_key();
-                        let assignment = state_clone.models.set_role_model(&role_key, model_id);
-                        if assignment.as_ref().is_ok_and(|assigned| *assigned) {
-                            let _ = state_clone
-                                .models
-                                .update_active_model_config(&role_key, model_id);
-                        } else if let Err(err) = assignment {
-                            tracing::warn!(
-                                model_id = %model_id,
-                                role = %role_key,
-                                error = %err,
-                                "Failed to assign downloaded model to role"
-                            );
-                        }
-                    }
-                } else {
-                    let _ = state_clone
-                        .setup
-                        .update_progress("failed", 0.0, "Setup failed");
-                    let _ = state_clone.setup.set_job_id(None);
-                    return;
-                }
-            } else {
-                let _ = state_clone
-                    .setup
-                    .update_progress("failed", 0.0, "Setup failed");
-                let _ = state_clone.setup.set_job_id(None);
-                return;
-            }
-        }
-
-        let _ =
-            state_clone
-                .setup
-                .update_progress("completed", 1.0, "Setup completed successfully!");
-        let _ = state_clone.setup.set_job_id(None);
-    });
+    tokio::spawn(run_download_job(state_clone, dl_tasks));
 
     Ok(Json(json!({"success": true, "job_id": job_id})))
 }
 
 pub async fn setup_progress(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let snapshot = state.setup.snapshot()?;
     Ok(Json(json!(snapshot.progress)))
 }
 
 pub async fn setup_finish(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(_payload): Json<SetupFinishRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let snapshot = state.setup.snapshot()?;
     let mut config = state.config.load_config()?;
     ensure_object_path(&mut config, &["app", "setup_completed"], Value::Bool(true));
@@ -411,9 +436,7 @@ pub async fn setup_finish(
 
 pub async fn setup_models(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let models = state.models.list_models()?;
     let config = state.config.load_config().unwrap_or(Value::Null);
     let active_character = config.get("active_agent_profile").and_then(|v| v.as_str());
@@ -445,9 +468,7 @@ pub async fn setup_models(
 
 pub async fn setup_model_roles(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let registry = state.models.get_registry()?;
     let character_model_id = registry.role_assignments.get("character").cloned();
     let mut character_map = Map::new();
@@ -474,10 +495,8 @@ pub async fn setup_model_roles(
 
 pub async fn setup_set_character_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<ModelRoleRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let ok = state
         .models
         .set_role_model("character", &payload.model_id)
@@ -509,112 +528,80 @@ pub async fn setup_set_character_role(
 
 pub async fn setup_set_professional_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<ProfessionalRoleRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let role_key = if payload.task_type == "default" {
         "professional".to_string()
     } else {
         format!("professional:{}", payload.task_type)
     };
-    let ok = state.models.set_role_model(&role_key, &payload.model_id)?;
-    if ok {
-        return Ok(Json(json!({"success": true})));
-    }
-    Err(ApiError::NotFound("Model not found".to_string()))
+    ensure_role_model_exists(&state, &role_key, &payload.model_id)?;
+    Ok(success_response())
 }
 
 pub async fn setup_set_character_specific_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(character_id): Path<String>,
     Json(payload): Json<ModelRoleRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let character_id = normalized_assignment_subject(&character_id)
         .ok_or_else(|| ApiError::BadRequest("character_id is required".to_string()))?;
     let role_key = format!("character:{}", character_id);
-    let ok = state.models.set_role_model(&role_key, &payload.model_id)?;
-    if ok {
-        return Ok(Json(json!({"success": true})));
-    }
-    Err(ApiError::NotFound("Model not found".to_string()))
+    ensure_role_model_exists(&state, &role_key, &payload.model_id)?;
+    Ok(success_response())
 }
 
 pub async fn setup_delete_character_specific_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(character_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let character_id = normalized_assignment_subject(&character_id)
         .ok_or_else(|| ApiError::BadRequest("character_id is required".to_string()))?;
     let role_key = format!("character:{}", character_id);
-    let ok = state.models.remove_role_assignment(&role_key)?;
-    if ok {
-        return Ok(Json(json!({"success": true})));
-    }
-    Err(ApiError::NotFound("Role assignment not found".to_string()))
+    ensure_role_assignment_exists(&state, &role_key)?;
+    Ok(success_response())
 }
 
 pub async fn setup_set_agent_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(agent_id): Path<String>,
     Json(payload): Json<ModelRoleRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let agent_id = normalized_assignment_subject(&agent_id)
         .ok_or_else(|| ApiError::BadRequest("agent_id is required".to_string()))?;
     let role_key = format!("agent:{}", agent_id);
-    let ok = state.models.set_role_model(&role_key, &payload.model_id)?;
-    if ok {
-        return Ok(Json(json!({"success": true})));
-    }
-    Err(ApiError::NotFound("Model not found".to_string()))
+    ensure_role_model_exists(&state, &role_key, &payload.model_id)?;
+    Ok(success_response())
 }
 
 pub async fn setup_delete_agent_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let agent_id = normalized_assignment_subject(&agent_id)
         .ok_or_else(|| ApiError::BadRequest("agent_id is required".to_string()))?;
     let role_key = format!("agent:{}", agent_id);
-    let ok = state.models.remove_role_assignment(&role_key)?;
-    if ok {
-        return Ok(Json(json!({"success": true})));
-    }
-    Err(ApiError::NotFound("Role assignment not found".to_string()))
+    ensure_role_assignment_exists(&state, &role_key)?;
+    Ok(success_response())
 }
 
 pub async fn setup_delete_professional_role(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(task_type): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let role_key = if task_type == "default" {
         "professional".to_string()
     } else {
         format!("professional:{}", task_type)
     };
-    let ok = state.models.remove_role_assignment(&role_key)?;
-    if ok {
-        return Ok(Json(json!({"success": true})));
-    }
-    Err(ApiError::NotFound("Role assignment not found".to_string()))
+    ensure_role_assignment_exists(&state, &role_key)?;
+    Ok(success_response())
 }
 
 pub async fn setup_set_active_model(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<ActiveModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let requested_role = payload
         .role
         .as_deref()
@@ -683,10 +670,8 @@ pub async fn setup_set_active_model(
 
 pub async fn setup_reorder_models(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<ReorderModelsRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let role = payload
         .role
         .as_deref()
@@ -706,11 +691,8 @@ pub async fn setup_reorder_models(
 
 pub async fn setup_check_model(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Json(payload): Json<CheckModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     // C-1 fix: model_id がある場合は既存のモデル検索、なければ repo_id/filename で存在確認
     if let Some(model_id) = &payload.model_id {
         let details = state.models.get_model(model_id)?;
@@ -732,11 +714,8 @@ pub async fn setup_check_model(
 
 pub async fn setup_download_model(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<DownloadModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     // C-1 fix: 単一モデルダウンロードの本実装
     let role = payload.role.as_deref().unwrap_or("text");
     let consent = payload.acknowledge_warnings.unwrap_or(false);
@@ -772,77 +751,26 @@ pub async fn setup_download_model(
         .setup
         .update_progress("pending", 0.0, "Starting download...")?;
 
+    let dl_task = DownloadTask {
+        repo_id: payload.repo_id.clone(),
+        filename: payload.filename.clone(),
+        role: role.to_string(),
+        display_name,
+        revision: None,
+        sha256: None,
+        consent,
+    };
+
     let state_clone = state.clone();
-    let repo_id = payload.repo_id.clone();
-    let filename = payload.filename.clone();
-    let role_owned = role.to_string();
-
-    tokio::spawn(async move {
-        let result = state_clone
-            .models
-            .download_from_huggingface(
-                &repo_id,
-                &filename,
-                &role_owned,
-                &display_name,
-                None,
-                None,
-                consent,
-                Some(&|p: f32, msg: &str| {
-                    let _ = state_clone.setup.update_progress("downloading", p, msg);
-                }),
-            )
-            .await;
-
-        match result {
-            Ok(dl_result) if dl_result.success => {
-                if let Some(model_id) = dl_result.model_id.as_deref() {
-                    let role_key = if role_owned == "embedding" {
-                        "embedding"
-                    } else {
-                        "character"
-                    };
-                    let assignment = state_clone.models.set_role_model(role_key, model_id);
-                    if assignment.as_ref().is_ok_and(|assigned| *assigned) {
-                        let _ = state_clone.models.update_active_model_config(
-                            if role_owned == "embedding" {
-                                "embedding"
-                            } else {
-                                "text"
-                            },
-                            model_id,
-                        );
-                    } else if let Err(err) = assignment {
-                        tracing::warn!(
-                            model_id = %model_id,
-                            role = %role_key,
-                            error = %err,
-                            "Failed to assign downloaded model to role"
-                        );
-                    }
-                }
-                let _ = state_clone
-                    .setup
-                    .update_progress("completed", 1.0, "Download completed!");
-            }
-            _ => {
-                let _ = state_clone
-                    .setup
-                    .update_progress("failed", 0.0, "Download failed");
-            }
-        }
-        let _ = state_clone.setup.set_job_id(None);
-    });
+    tokio::spawn(run_download_job(state_clone, vec![dl_task]));
 
     Ok(Json(json!({"success": true, "job_id": job_id})))
 }
 
 pub async fn setup_register_local_model(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<LocalModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let path = std::path::Path::new(&payload.path);
     let filename = path.file_name().and_then(|v| v.to_str()).unwrap_or("model");
     // C-1 fix: フロントから送られる role / display_name を反映
@@ -860,10 +788,8 @@ pub async fn setup_register_local_model(
 
 pub async fn setup_delete_model(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(model_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let success = state.models.delete_model(&model_id)?;
     if !success {
         return Err(ApiError::NotFound("Model not found".to_string()));
@@ -873,28 +799,22 @@ pub async fn setup_delete_model(
 
 pub async fn setup_refresh_ollama_models(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let count = state.models.refresh_ollama_models().await?;
     Ok(Json(json!({"success": true, "count": count})))
 }
 
 pub async fn setup_refresh_lmstudio_models(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let count = state.models.refresh_lmstudio_models().await?;
     Ok(Json(json!({"success": true, "count": count})))
 }
 
 pub async fn setup_model_update_check(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     match parse_model_update_check_target(&params)? {
         ModelUpdateCheckTarget::ModelId(model_id) => {
             let registry = state.models.get_registry()?;
@@ -931,10 +851,8 @@ pub async fn setup_model_update_check(
 
 pub async fn setup_binary_update_info(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let requested_variant = normalize_binary_variant(
         params
             .get("variant")
@@ -957,10 +875,8 @@ pub async fn setup_binary_update_info(
 
 pub async fn setup_binary_update(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<BinaryUpdateRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let requested_variant = normalize_binary_variant(payload.variant.as_deref());
     let job_id = Uuid::new_v4().to_string();
     state.setup.set_job_id(Some(job_id.clone()))?;
@@ -994,6 +910,32 @@ pub async fn setup_binary_update(
 }
 
 // ----- Helpers below -----
+
+fn success_response() -> Json<Value> {
+    Json(json!({"success": true}))
+}
+
+fn ensure_role_model_exists(
+    state: &AppStateWrite,
+    role_key: &str,
+    model_id: &str,
+) -> Result<(), ApiError> {
+    let ok = state.models.set_role_model(role_key, model_id)?;
+    if ok {
+        Ok(())
+    } else {
+        Err(ApiError::NotFound("Model not found".to_string()))
+    }
+}
+
+fn ensure_role_assignment_exists(state: &AppStateWrite, role_key: &str) -> Result<(), ApiError> {
+    let ok = state.models.remove_role_assignment(role_key)?;
+    if ok {
+        Ok(())
+    } else {
+        Err(ApiError::NotFound("Role assignment not found".to_string()))
+    }
+}
 
 pub fn build_target_models(payload: Option<Vec<Value>>, config: &Value) -> Vec<ModelDownloadSpec> {
     if let Some(list) = payload {

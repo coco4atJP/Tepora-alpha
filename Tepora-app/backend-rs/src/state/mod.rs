@@ -179,11 +179,11 @@ impl AppState {
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
-        let exclusive_agents = ExclusiveAgentManager::new(paths.as_ref());
+        let exclusive_agents = ExclusiveAgentManager::new(paths.as_ref(), config.clone());
 
-        if !exclusive_agents.config_path().exists() {
+        if exclusive_agents.list_all().is_empty() {
             if let Err(e) = exclusive_agents.create_default_config() {
-                tracing::warn!("Failed to create default agents.yaml: {}", e);
+                tracing::warn!("Failed to create default custom_agents config: {}", e);
             }
         }
 

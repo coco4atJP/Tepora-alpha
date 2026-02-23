@@ -9,6 +9,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, apiClient } from "../utils/api-client";
+import { ENDPOINTS } from "../utils/endpoints";
+import { useAsync } from "./useAsync";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_STORE_PAGE_SIZE = 50;
@@ -120,16 +122,16 @@ type McpConfigResponse = {
 };
 
 async function fetchMcpStatus(): Promise<McpStatusResponse> {
-	return apiClient.get<McpStatusResponse>("api/mcp/status");
+	return apiClient.get<McpStatusResponse>(ENDPOINTS.MCP.STATUS);
 }
 
 async function fetchMcpConfig(): Promise<McpConfigResponse> {
-	return apiClient.get<McpConfigResponse>("api/mcp/config");
+	return apiClient.get<McpConfigResponse>(ENDPOINTS.MCP.CONFIG);
 }
 
 async function updateMcpConfig(config: Record<string, McpServerConfig>): Promise<void> {
 	try {
-		await apiClient.post("api/mcp/config", { mcpServers: config });
+		await apiClient.post(ENDPOINTS.MCP.CONFIG, { mcpServers: config });
 	} catch (err) {
 		throw new Error(getApiErrorMessage(err, "Failed to update config"), { cause: err });
 	}
@@ -147,7 +149,7 @@ async function fetchMcpStorePaged(params: {
 	if (params.pageSize) query.set("page_size", String(params.pageSize));
 	if (params.runtime) query.set("runtime", params.runtime);
 
-	return apiClient.get<McpStoreResponse>(`api/mcp/store?${query.toString()}`);
+	return apiClient.get<McpStoreResponse>(ENDPOINTS.MCP.STORE(query.toString()));
 }
 
 /**
@@ -161,7 +163,7 @@ async function previewMcpInstall(
 	serverName?: string,
 ): Promise<McpInstallPreview> {
 	try {
-		return await apiClient.post<McpInstallPreview>("api/mcp/install/preview", {
+		return await apiClient.post<McpInstallPreview>(ENDPOINTS.MCP.INSTALL_PREVIEW, {
 			server_id: serverId,
 			runtime,
 			env_values: envValues,
@@ -183,7 +185,7 @@ async function confirmMcpInstall(
 			status: string;
 			server_name: string;
 			message: string;
-		}>("api/mcp/install/confirm", {
+		}>(ENDPOINTS.MCP.INSTALL_CONFIRM, {
 			consent_id: consentId,
 		});
 	} catch (err) {
@@ -192,15 +194,15 @@ async function confirmMcpInstall(
 }
 
 async function enableServer(serverName: string): Promise<void> {
-	await apiClient.post(`api/mcp/servers/${encodeURIComponent(serverName)}/enable`);
+	await apiClient.post(ENDPOINTS.MCP.SERVER_ENABLE(serverName));
 }
 
 async function disableServer(serverName: string): Promise<void> {
-	await apiClient.post(`api/mcp/servers/${encodeURIComponent(serverName)}/disable`);
+	await apiClient.post(ENDPOINTS.MCP.SERVER_DISABLE(serverName));
 }
 
 async function deleteServer(serverName: string): Promise<void> {
-	await apiClient.delete(`api/mcp/servers/${encodeURIComponent(serverName)}`);
+	await apiClient.delete(ENDPOINTS.MCP.SERVER_DELETE(serverName));
 }
 
 // --- Hooks ---
@@ -211,37 +213,37 @@ async function deleteServer(serverName: string): Promise<void> {
 export function useMcpServers(pollInterval = 5000) {
 	const [servers, setServers] = useState<Record<string, McpServerConfig>>({});
 	const [status, setStatus] = useState<Record<string, McpServerStatus>>({});
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	// useMcpServers は config と status の2種類を独立して取得するため
+	// useAsync で loading を一元管理しつつ、error は個別に集約する
+	const { loading, error, run } = useAsync();
 	const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const fetchData = useCallback(async () => {
-		setLoading(true);
-		let nextError: string | null = null;
+		await run(async () => {
+			let nextError: string | null = null;
 
-		try {
-			const configRes = await fetchMcpConfig();
-			setServers(configRes.mcpServers || {});
-			if (configRes.error) {
-				nextError = configRes.error;
+			try {
+				const configRes = await fetchMcpConfig();
+				setServers(configRes.mcpServers || {});
+				if (configRes.error) nextError = configRes.error;
+			} catch (err) {
+				nextError = getApiErrorMessage(err, "Failed to fetch MCP config");
 			}
-		} catch (err) {
-			nextError = getApiErrorMessage(err, "Failed to fetch MCP config");
-		}
 
-		try {
-			const statusRes = await fetchMcpStatus();
-			setStatus(statusRes.servers || {});
-			if (statusRes.error) {
-				nextError = statusRes.error;
+			try {
+				const statusRes = await fetchMcpStatus();
+				setStatus(statusRes.servers || {});
+				if (statusRes.error) nextError = statusRes.error;
+			} catch (err) {
+				nextError = getApiErrorMessage(err, "Failed to fetch MCP status");
 			}
-		} catch (err) {
-			nextError = getApiErrorMessage(err, "Failed to fetch MCP status");
-		}
 
-		setError(nextError);
-		setLoading(false);
-	}, []);
+			// config/status 独立エラーを useAsync の error に反映させるため再スロー
+			if (nextError) throw new Error(nextError);
+		}).catch(() => {
+			// ここに到達するのはエラー時のみ。useAsync が error に設定済みなので無視
+		});
+	}, [run]);
 
 	// Initial fetch
 	useEffect(() => {
@@ -269,30 +271,26 @@ export function useMcpServers(pollInterval = 5000) {
 
 	const toggleServer = useCallback(
 		async (serverName: string, enabled: boolean) => {
-			try {
+			await run(async () => {
 				if (enabled) {
 					await enableServer(serverName);
 				} else {
 					await disableServer(serverName);
 				}
 				await fetchData();
-			} catch (err) {
-				setError(getApiErrorMessage(err, "Failed to toggle server"));
-			}
+			}).catch(() => { });
 		},
-		[fetchData],
+		[run, fetchData],
 	);
 
 	const removeServer = useCallback(
 		async (serverName: string) => {
-			try {
+			await run(async () => {
 				await deleteServer(serverName);
 				await fetchData();
-			} catch (err) {
-				setError(getApiErrorMessage(err, "Failed to remove server"));
-			}
+			}).catch(() => { });
 		},
-		[fetchData],
+		[run, fetchData],
 	);
 
 	return {
@@ -412,21 +410,13 @@ export function useMcpStore() {
  * Hook for direct config updates
  */
 export function useMcpConfig() {
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { loading: saving, error, run } = useAsync();
 
 	const saveConfig = useCallback(async (config: Record<string, McpServerConfig>) => {
-		setSaving(true);
-		setError(null);
-		try {
+		await run(async () => {
 			await updateMcpConfig(config);
-		} catch (err) {
-			setError(getApiErrorMessage(err, "Failed to save config"));
-			throw err;
-		} finally {
-			setSaving(false);
-		}
-	}, []);
+		});
+	}, [run]);
 
 	return {
 		saving,
@@ -453,12 +443,12 @@ export interface McpPolicyUpdate {
 }
 
 async function fetchMcpPolicy(): Promise<McpPolicyConfig> {
-	return apiClient.get<McpPolicyConfig>("api/mcp/policy");
+	return apiClient.get<McpPolicyConfig>(ENDPOINTS.MCP.POLICY);
 }
 
 async function updateMcpPolicy(update: McpPolicyUpdate): Promise<void> {
 	try {
-		await apiClient.patch("api/mcp/policy", update);
+		await apiClient.patch(ENDPOINTS.MCP.POLICY, update);
 	} catch (err) {
 		throw new Error(getApiErrorMessage(err, "Failed to update policy"), { cause: err });
 	}
@@ -469,22 +459,15 @@ async function updateMcpPolicy(update: McpPolicyUpdate): Promise<void> {
  */
 export function useMcpPolicy() {
 	const [policy, setPolicy] = useState<McpPolicyConfig | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
+	const { loading, error, run } = useAsync();
+	const { loading: saving, error: saveError, run: runSave } = useAsync();
 
 	const fetchPolicy = useCallback(async () => {
-		setLoading(true);
-		try {
+		await run(async () => {
 			const data = await fetchMcpPolicy();
 			setPolicy(data);
-			setError(null);
-		} catch (err) {
-			setError(getApiErrorMessage(err, "Failed to fetch policy"));
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+		}).catch(() => { });
+	}, [run]);
 
 	useEffect(() => {
 		fetchPolicy();
@@ -492,24 +475,18 @@ export function useMcpPolicy() {
 
 	const updatePolicy = useCallback(
 		async (update: McpPolicyUpdate) => {
-			setSaving(true);
-			try {
+			await runSave(async () => {
 				await updateMcpPolicy(update);
 				await fetchPolicy();
-			} catch (err) {
-				setError(getApiErrorMessage(err, "Failed to update policy"));
-				throw err;
-			} finally {
-				setSaving(false);
-			}
+			});
 		},
-		[fetchPolicy],
+		[runSave, fetchPolicy],
 	);
 
 	return {
 		policy,
 		loading,
-		error,
+		error: error || saveError,
 		saving,
 		updatePolicy,
 		refresh: fetchPolicy,

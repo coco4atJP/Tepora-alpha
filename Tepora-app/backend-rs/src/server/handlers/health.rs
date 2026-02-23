@@ -1,12 +1,10 @@
 use axum::extract::State;
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::json;
 use std::time::Duration;
 
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
 use crate::state::AppStateRead;
 
 fn resolve_overall_health(llm_status: &str, db_status: &str, mcp_status: &str) -> &'static str {
@@ -85,12 +83,7 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     }))
 }
 
-pub async fn shutdown(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
+pub async fn shutdown(State(_state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     tokio::spawn(async {
         tokio::time::sleep(Duration::from_millis(250)).await;
         std::process::exit(0);
@@ -99,12 +92,7 @@ pub async fn shutdown(
     Ok(Json(json!({"status": "shutting_down"})))
 }
 
-pub async fn get_status(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
+pub async fn get_status(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let total_messages = state.history.get_total_message_count().await.unwrap_or(0);
     let memory_stats = state.em_memory_service.stats().await?;
     Ok(Json(json!({
@@ -117,6 +105,13 @@ pub async fn get_status(
         "retrieval": {
             "limit": memory_stats.retrieval_limit,
             "min_score": memory_stats.min_score
+        },
+        "memory_layers": {
+            "lml": memory_stats.lml_events,
+            "sml": memory_stats.sml_events
+        },
+        "memory_strength": {
+            "mean": memory_stats.mean_strength
         }
     })))
 }

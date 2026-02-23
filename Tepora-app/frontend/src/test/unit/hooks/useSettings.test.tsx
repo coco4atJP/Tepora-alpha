@@ -39,6 +39,7 @@ describe("useSettings", () => {
 			updateServer: vi.fn(),
 			updateLoaderBaseUrl: vi.fn(),
 			updateThinking: vi.fn(),
+			updateConfigPath: vi.fn(),
 			updateCharacter: vi.fn(),
 			addCharacter: vi.fn(),
 			deleteCharacter: vi.fn(),

@@ -1,5 +1,4 @@
 use axum::extract::{Path, Query, State};
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use chrono::{Duration as ChronoDuration, Utc};
@@ -10,7 +9,6 @@ use std::sync::{Mutex, OnceLock};
 use uuid::Uuid;
 
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
 use crate::mcp::installer as mcp_installer;
 use crate::mcp::registry::McpRegistryServer;
 use crate::state::{AppStateRead, AppStateWrite};
@@ -64,11 +62,7 @@ fn cleanup_expired_consents_locked(store: &mut HashMap<String, PendingConsent>) 
     store.retain(|_, consent| consent.expires_at > now);
 }
 
-pub async fn mcp_status(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
+pub async fn mcp_status(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let status = state.mcp.status_snapshot().await;
     let mut servers = Map::new();
     for (name, entry) in status {
@@ -91,11 +85,7 @@ pub async fn mcp_status(
     })))
 }
 
-pub async fn mcp_config(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
+pub async fn mcp_config(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let config = state.mcp.get_config().await;
     let config_value =
         serde_json::to_value(&config).unwrap_or_else(|_| json!({ "mcpServers": {} }));
@@ -115,21 +105,16 @@ pub async fn mcp_config(
 
 pub async fn mcp_update_config(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     state.mcp.update_config(&payload).await?;
     Ok(Json(json!({"success": true})))
 }
 
 pub async fn mcp_store(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Query(params): Query<McpStoreQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let mut page = params.page.unwrap_or(1);
     if page < 1 {
         page = 1;
@@ -248,11 +233,8 @@ pub async fn mcp_store(
 
 pub async fn mcp_install_preview(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Json(payload): Json<McpInstallPreviewRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let server = state
         .mcp_registry
         .get_server_by_id(&payload.server_id)
@@ -300,11 +282,8 @@ pub async fn mcp_install_preview(
 
 pub async fn mcp_install_confirm(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<McpInstallConfirmRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let pending = {
         let store = pending_consents();
         let mut guard = store.lock().map_err(ApiError::internal)?;
@@ -354,11 +333,9 @@ pub async fn mcp_install_confirm(
 
 pub async fn mcp_approve_server(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(server_name): Path<String>,
     Json(payload): Json<McpApproveRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let policy = state
         .mcp
         .approve_server(&server_name, payload.transport_types)?;
@@ -367,10 +344,8 @@ pub async fn mcp_approve_server(
 
 pub async fn mcp_revoke_server(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let (policy, removed) = state.mcp.revoke_server(&server_name)?;
     if !removed {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -380,10 +355,8 @@ pub async fn mcp_revoke_server(
 
 pub async fn mcp_enable_server(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let ok = state.mcp.set_server_enabled(&server_name, true).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -393,10 +366,8 @@ pub async fn mcp_enable_server(
 
 pub async fn mcp_disable_server(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let ok = state.mcp.set_server_enabled(&server_name, false).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -406,10 +377,8 @@ pub async fn mcp_disable_server(
 
 pub async fn mcp_delete_server(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let ok = state.mcp.delete_server(&server_name).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -417,21 +386,15 @@ pub async fn mcp_delete_server(
     Ok(Json(json!({"success": true})))
 }
 
-pub async fn mcp_policy(
-    State(state): State<AppStateRead>,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
+pub async fn mcp_policy(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let policy = state.mcp.load_policy()?;
     Ok(Json(policy))
 }
 
 pub async fn mcp_update_policy(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let policy = state.mcp.update_policy(&payload)?;
     Ok(Json(json!({"success": true, "policy": policy})))
 }

@@ -6,7 +6,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::agent::execution::{build_agent_chat_config, resolve_selected_agent};
+use crate::agent::execution::{
+    build_agent_chat_config, resolve_execution_model_id, resolve_selected_agent,
+};
 use crate::agent::planner::generate_execution_plan;
 use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::PipelineMode;
@@ -86,12 +88,15 @@ impl Node for PlannerNode {
             resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
         let agent_chat_config =
             build_agent_chat_config(ctx.app_state, ctx.config, selected_agent.as_ref());
+        let model_id =
+            resolve_execution_model_id(ctx.app_state, ctx.config, selected_agent.as_ref());
         let plan = generate_execution_plan(
             ctx.app_state,
             &agent_chat_config,
             &state.input,
             selected_agent.as_ref(),
             state.thinking_enabled,
+            &model_id,
         )
         .await
         .map_err(|err| GraphError::new(self.id(), err.to_string()))?;

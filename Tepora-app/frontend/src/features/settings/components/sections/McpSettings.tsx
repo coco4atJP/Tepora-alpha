@@ -303,8 +303,8 @@ const McpSettings: React.FC = () => {
 											type="button"
 											onClick={() => toggleServer(name, !serverConfig.enabled)}
 											className={`p-2 rounded-lg transition-all glass-button ${serverConfig.enabled
-													? "bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/30"
-													: "bg-white/5 text-gray-400 hover:bg-white/10"
+												? "bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/30"
+												: "bg-white/5 text-gray-400 hover:bg-white/10"
 												}`}
 											aria-label={
 												serverConfig.enabled
@@ -381,7 +381,6 @@ const McpSettings: React.FC = () => {
 								"settings.mcp.details.autorun.description",
 								"Enable this server on application startup.",
 							)}
-							orientation="horizontal"
 						>
 							<FormSwitch checked={draftEnabled} onChange={setDraftEnabled} />
 						</FormGroup>

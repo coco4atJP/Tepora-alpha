@@ -1,8 +1,9 @@
-//! ExclusiveAgentManager — Manages ExecutionAgent definitions from `agents.yaml`.
+//! ExclusiveAgentManager — Manages ExecutionAgent definitions from `config.yml`.
 //!
-//! Replaces the legacy `custom_agents` section in config.yml with a standalone
-//! `agents.yaml` file for agent definitions.  Provides agent selection,
-//! tool-name resolution (native / `mcp:` prefix), and hot-reload support.
+//! Agent definitions are now persisted under `custom_agents` via `ConfigService`
+//! so they are managed through the same centralized configuration channel as
+//! other application settings. Existing `agents.yaml` is treated as a legacy
+//! source and migrated on first load when `custom_agents` is empty.
 
 use std::collections::HashMap;
 use std::fs;
@@ -10,20 +11,18 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use tracing;
 
 use crate::agent::policy::CustomToolPolicy;
-use crate::core::config::AppPaths;
+use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
+use crate::core::native_tools::resolve_tool_alias;
 
-// ---------------------------------------------------------------------------
-// ExecutionAgent
-// ---------------------------------------------------------------------------
-
-/// A single agent definition loaded from `agents.yaml`.
+/// A single agent definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionAgent {
-    /// Unique identifier (the YAML key).
+    /// Unique identifier.
     pub id: String,
     /// Human-readable display name.
     pub name: String,
@@ -61,7 +60,7 @@ fn default_priority() -> i32 {
     0
 }
 
-/// Tool policy definition in agents.yaml.
+/// Tool policy definition for an execution agent.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentToolPolicy {
     /// If true, all tools are allowed unless explicitly denied.
@@ -79,7 +78,7 @@ pub struct AgentToolPolicy {
 }
 
 impl AgentToolPolicy {
-    /// Convert to the existing `CustomToolPolicy` for compatibility.
+    /// Convert to existing `CustomToolPolicy` for runtime compatibility.
     pub fn to_custom_tool_policy(&self) -> CustomToolPolicy {
         let allow_all = self.allow_all.unwrap_or(self.allowed_tools.is_empty());
 
@@ -104,52 +103,7 @@ impl AgentToolPolicy {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tool name resolution
-// ---------------------------------------------------------------------------
-
-/// Resolve a tool name from agents.yaml syntax.
-///
-/// - `"web_search"` → native tool → `"native_search"`
-/// - `"fetch_url"` → native tool → `"native_web_fetch"`  
-/// - `"mcp:server_tool"` → MCP tool → `"server_tool"`
-/// - `"native_search"` → pass-through
-/// - anything else → pass-through
-fn resolve_tool_name(raw: &str) -> String {
-    let trimmed = raw.trim();
-
-    // MCP prefix shorthand
-    if let Some(mcp_name) = trimmed.strip_prefix("mcp:") {
-        return mcp_name.to_string();
-    }
-
-    // Native tool aliases
-    match trimmed {
-        "web_search" | "search" => "native_search".to_string(),
-        "fetch_url" | "fetch" | "web_fetch" => "native_web_fetch".to_string(),
-        "rag_search" => "native_rag_search".to_string(),
-        "rag_ingest" => "native_rag_ingest".to_string(),
-        "rag_text_search" => "native_rag_text_search".to_string(),
-        "rag_get_chunk" => "native_rag_get_chunk".to_string(),
-        "rag_get_chunk_window" => "native_rag_get_chunk_window".to_string(),
-        "rag_clear_session" => "native_rag_clear_session".to_string(),
-        "rag_reindex" => "native_rag_reindex".to_string(),
-        other => other.to_string(),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// agents.yaml file format
-// ---------------------------------------------------------------------------
-
-/// Root structure of the `agents.yaml` file.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct AgentsFile {
-    #[serde(default)]
-    agents: HashMap<String, AgentEntry>,
-}
-
-/// Single agent definition in the YAML file.
+/// Stored shape for each agent in persisted config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AgentEntry {
     name: String,
@@ -171,59 +125,68 @@ struct AgentEntry {
     icon: Option<String>,
 }
 
-// ---------------------------------------------------------------------------
-// ExclusiveAgentManager
-// ---------------------------------------------------------------------------
+/// Legacy `agents.yaml` root format.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct AgentsFile {
+    #[serde(default)]
+    agents: HashMap<String, AgentEntry>,
+}
 
-/// Manages `ExecutionAgent` definitions loaded from `agents.yaml`.
-///
-/// Designed to be stored inside `AppState` and shared via `Arc`.
+/// Resolve a tool name from persisted syntax.
+fn resolve_tool_name(raw: &str) -> String {
+    resolve_tool_alias(raw)
+}
+
+/// Manages execution-agent definitions and persistence.
 #[derive(Clone)]
 pub struct ExclusiveAgentManager {
     agents: Arc<RwLock<HashMap<String, ExecutionAgent>>>,
-    config_path: PathBuf,
+    config_service: ConfigService,
+    legacy_path: PathBuf,
 }
 
 impl ExclusiveAgentManager {
-    /// Create a new manager with the given app paths.
-    pub fn new(paths: &AppPaths) -> Self {
-        let config_path = paths.user_data_dir.join("config").join("agents.yaml");
+    /// Create manager backed by centralized config service.
+    pub fn new(paths: &AppPaths, config_service: ConfigService) -> Self {
         let manager = Self {
             agents: Arc::new(RwLock::new(HashMap::new())),
-            config_path,
+            config_service,
+            legacy_path: paths.user_data_dir.join("config").join("agents.yaml"),
         };
+
         if let Err(e) = manager.reload() {
-            tracing::warn!("Failed to load agents.yaml on init: {}", e);
+            tracing::warn!("Failed to load custom_agents on init: {}", e);
         }
+
         manager
     }
 
-    /// Create a manager with a custom path (for testing).
-    pub fn with_path(path: impl Into<PathBuf>) -> Self {
-        let config_path = path.into();
-        let manager = Self {
-            agents: Arc::new(RwLock::new(HashMap::new())),
-            config_path,
-        };
-        if let Err(e) = manager.reload() {
-            tracing::debug!("No agents.yaml found at {:?}: {}", manager.config_path, e);
-        }
-        manager
-    }
-
-    /// Reload agents from disk.
+    /// Reload agents from config (with one-way legacy migration support).
     pub fn reload(&self) -> Result<(), ApiError> {
-        let agents = load_agents_from_file(&self.config_path)?;
+        let config = self
+            .config_service
+            .load_config()
+            .unwrap_or_else(|_| Value::Object(Map::new()));
+
+        let mut agents = load_agents_from_config(&config)?;
+
+        if agents.is_empty() {
+            let legacy_agents = load_agents_from_file(&self.legacy_path)?;
+            if !legacy_agents.is_empty() {
+                tracing::info!(
+                    "Migrating {} agent(s) from legacy agents.yaml into config.yml",
+                    legacy_agents.len()
+                );
+                self.persist_agents_map(&legacy_agents)?;
+                agents = legacy_agents;
+            }
+        }
+
         let mut guard = self
             .agents
             .write()
             .map_err(|e| ApiError::internal(format!("Lock poisoned: {e}")))?;
         *guard = agents;
-        tracing::info!(
-            "Loaded {} agent(s) from {:?}",
-            guard.len(),
-            self.config_path
-        );
         Ok(())
     }
 
@@ -246,11 +209,6 @@ impl ExclusiveAgentManager {
     }
 
     /// Choose the best agent for a given request.
-    ///
-    /// Priority:
-    /// 1. Exact match on `requested_agent_id`
-    /// 2. Tag-based matching against the user query
-    /// 3. Highest priority agent
     pub fn choose_agent(
         &self,
         requested_agent_id: Option<&str>,
@@ -258,20 +216,17 @@ impl ExclusiveAgentManager {
     ) -> Option<ExecutionAgent> {
         let guard = self.agents.read().unwrap_or_else(|e| e.into_inner());
 
-        // 1. Exact ID match
         if let Some(id) = requested_agent_id.map(str::trim).filter(|v| !v.is_empty()) {
             if let Some(agent) = guard.get(id).filter(|a| a.enabled) {
                 return Some(agent.clone());
             }
         }
 
-        // Get enabled agents
         let enabled: Vec<&ExecutionAgent> = guard.values().filter(|a| a.enabled).collect();
         if enabled.is_empty() {
             return None;
         }
 
-        // 2. Tag + description matching
         let query = user_input.to_lowercase();
         let mut ranked: Vec<(&ExecutionAgent, i32)> = enabled
             .into_iter()
@@ -287,36 +242,10 @@ impl ExclusiveAgentManager {
         ranked.into_iter().next().map(|(agent, _)| agent.clone())
     }
 
-    /// Save agent definitions back to disk.
+    /// Save current in-memory agents to centralized config.
     pub fn save(&self) -> Result<(), ApiError> {
         let guard = self.agents.read().unwrap_or_else(|e| e.into_inner());
-
-        let mut entries = HashMap::new();
-        for (id, agent) in guard.iter() {
-            entries.insert(
-                id.clone(),
-                AgentEntry {
-                    name: agent.name.clone(),
-                    description: agent.description.clone(),
-                    enabled: agent.enabled,
-                    system_prompt: agent.system_prompt.clone(),
-                    model_config_name: agent.model_config_name.clone(),
-                    tool_policy: agent.tool_policy.clone(),
-                    priority: agent.priority,
-                    tags: agent.tags.clone(),
-                    icon: agent.icon.clone(),
-                },
-            );
-        }
-
-        let file = AgentsFile { agents: entries };
-        let yaml = serde_yaml::to_string(&file).map_err(ApiError::internal)?;
-
-        if let Some(parent) = self.config_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        fs::write(&self.config_path, yaml).map_err(ApiError::internal)?;
-        Ok(())
+        self.persist_agents_map(&guard)
     }
 
     /// Add or update an agent definition.
@@ -344,72 +273,97 @@ impl ExclusiveAgentManager {
         Ok(removed)
     }
 
-    /// Get the path to the agents.yaml file.
-    pub fn config_path(&self) -> &Path {
-        &self.config_path
+    /// Seed default agent set into centralized config.
+    pub fn create_default_config(&self) -> Result<(), ApiError> {
+        let defaults = default_agents();
+        self.persist_agents_map(&defaults)?;
+        let mut guard = self
+            .agents
+            .write()
+            .map_err(|e| ApiError::internal(format!("Lock poisoned: {e}")))?;
+        *guard = defaults;
+        Ok(())
     }
 
-    /// Create a default agents.yaml file with example agents.
-    pub fn create_default_config(&self) -> Result<(), ApiError> {
-        let default_yaml = r#"# Tepora Agents Configuration
-# Each agent defines a specialized execution profile with its own
-# system prompt, tool policy, and priority settings.
+    fn persist_agents_map(&self, agents: &HashMap<String, ExecutionAgent>) -> Result<(), ApiError> {
+        let mut config = self
+            .config_service
+            .load_config()
+            .unwrap_or_else(|_| Value::Object(Map::new()));
 
-agents:
-  general:
-    name: "General Assistant"
-    description: "汎用アシスタント。タスクに合わせて柔軟に対応します。"
-    enabled: true
-    system_prompt: ""
-    priority: 0
-    tags: ["general", "default"]
-    tool_policy:
-      allow_all: true
+        let root = config.as_object_mut().ok_or_else(|| {
+            ApiError::BadRequest("Invalid root configuration while saving custom_agents".to_string())
+        })?;
 
-  coder:
-    name: "Code Assistant"
-    description: "コーディングとソフトウェア開発に特化したアシスタント。"
-    enabled: true
-    system_prompt: |
-      You are an expert programmer. When writing code:
-      - Always include proper error handling
-      - Follow best practices for the given language
-      - Write clear, self-documenting code
-      - Consider edge cases
-    priority: 10
-    tags: ["code", "programming", "development", "debug", "fix", "implement"]
-    tool_policy:
-      allow_all: true
-
-  researcher:
-    name: "Research Assistant"
-    description: "情報収集と分析に特化したアシスタント。"
-    enabled: true
-    system_prompt: |
-      You are a thorough researcher. When answering questions:
-      - Cite your sources clearly
-      - Distinguish between facts and inference
-      - Present multiple perspectives when relevant
-      - Use structured formatting for clarity
-    priority: 5
-    tags: ["research", "search", "analyze", "investigate", "study", "learn"]
-    tool_policy:
-      allowed_tools:
-        - web_search
-        - fetch_url
-        - "mcp:*"
-"#;
-        if let Some(parent) = self.config_path.parent() {
-            let _ = fs::create_dir_all(parent);
+        let mut entries = HashMap::new();
+        for (id, agent) in agents {
+            entries.insert(
+                id.clone(),
+                AgentEntry {
+                    name: agent.name.clone(),
+                    description: agent.description.clone(),
+                    enabled: agent.enabled,
+                    system_prompt: agent.system_prompt.clone(),
+                    model_config_name: agent.model_config_name.clone(),
+                    tool_policy: agent.tool_policy.clone(),
+                    priority: agent.priority,
+                    tags: agent.tags.clone(),
+                    icon: agent.icon.clone(),
+                },
+            );
         }
-        fs::write(&self.config_path, default_yaml).map_err(ApiError::internal)?;
-        self.reload()
+
+        let value = serde_json::to_value(entries).map_err(ApiError::internal)?;
+        root.insert("custom_agents".to_string(), value);
+        self.config_service.update_config(config, false)
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+fn load_agents_from_config(config: &Value) -> Result<HashMap<String, ExecutionAgent>, ApiError> {
+    let Some(section) = config.get("custom_agents") else {
+        return Ok(HashMap::new());
+    };
+
+    if section.is_null() {
+        return Ok(HashMap::new());
+    }
+
+    let entries: HashMap<String, AgentEntry> = if section
+        .as_object()
+        .and_then(|obj| obj.get("agents"))
+        .is_some()
+    {
+        // Compatibility: allow { custom_agents: { agents: { ... } } }
+        let legacy: AgentsFile = serde_json::from_value(section.clone()).map_err(|e| {
+            ApiError::BadRequest(format!("Invalid custom_agents legacy format: {e}"))
+        })?;
+        legacy.agents
+    } else {
+        serde_json::from_value(section.clone())
+            .map_err(|e| ApiError::BadRequest(format!("Invalid custom_agents section: {e}")))?
+    };
+
+    let mut agents = HashMap::new();
+    for (id, entry) in entries {
+        agents.insert(
+            id.clone(),
+            ExecutionAgent {
+                id,
+                name: entry.name,
+                description: entry.description,
+                enabled: entry.enabled,
+                system_prompt: entry.system_prompt,
+                model_config_name: entry.model_config_name,
+                tool_policy: entry.tool_policy,
+                priority: entry.priority,
+                tags: entry.tags,
+                icon: entry.icon,
+            },
+        );
+    }
+
+    Ok(agents)
+}
 
 fn load_agents_from_file(path: &Path) -> Result<HashMap<String, ExecutionAgent>, ApiError> {
     if !path.exists() {
@@ -449,14 +403,12 @@ fn load_agents_from_file(path: &Path) -> Result<HashMap<String, ExecutionAgent>,
 fn score_agent_tags(agent: &ExecutionAgent, query: &str) -> i32 {
     let mut score = 0i32;
 
-    // Check tags
     for tag in &agent.tags {
         if query.contains(&tag.to_lowercase()) {
             score += 5;
         }
     }
 
-    // Check name and description words
     let corpus = format!("{} {}", agent.name, agent.description).to_lowercase();
     let tokens: Vec<&str> = query
         .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
@@ -473,140 +425,222 @@ fn score_agent_tags(agent: &ExecutionAgent, query: &str) -> i32 {
     score
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+fn default_agents() -> HashMap<String, ExecutionAgent> {
+    let mut agents = HashMap::new();
+
+    agents.insert(
+        "general".to_string(),
+        ExecutionAgent {
+            id: "general".to_string(),
+            name: "General Assistant".to_string(),
+            description: "General-purpose task assistant.".to_string(),
+            enabled: true,
+            system_prompt: String::new(),
+            model_config_name: None,
+            tool_policy: AgentToolPolicy {
+                allow_all: Some(true),
+                ..Default::default()
+            },
+            priority: 0,
+            tags: vec!["general".to_string(), "default".to_string()],
+            icon: Some("🤖".to_string()),
+        },
+    );
+
+    agents.insert(
+        "coder".to_string(),
+        ExecutionAgent {
+            id: "coder".to_string(),
+            name: "Code Assistant".to_string(),
+            description: "Specialized in software engineering tasks.".to_string(),
+            enabled: true,
+            system_prompt: "You are an expert programmer. Prioritize correctness, error handling, and maintainability.".to_string(),
+            model_config_name: None,
+            tool_policy: AgentToolPolicy {
+                allow_all: Some(true),
+                ..Default::default()
+            },
+            priority: 10,
+            tags: vec![
+                "code".to_string(),
+                "programming".to_string(),
+                "debug".to_string(),
+                "implement".to_string(),
+            ],
+            icon: Some("🧠".to_string()),
+        },
+    );
+
+    agents.insert(
+        "researcher".to_string(),
+        ExecutionAgent {
+            id: "researcher".to_string(),
+            name: "Research Assistant".to_string(),
+            description: "Specialized in information gathering and analysis.".to_string(),
+            enabled: true,
+            system_prompt: "You are a rigorous researcher. Clearly separate facts from inference and provide traceable reasoning.".to_string(),
+            model_config_name: None,
+            tool_policy: AgentToolPolicy {
+                allow_all: Some(false),
+                allowed_tools: vec!["web_search".to_string(), "fetch_url".to_string(), "mcp:*".to_string()],
+                denied_tools: Vec::new(),
+                require_confirmation: Vec::new(),
+            },
+            priority: 5,
+            tags: vec![
+                "research".to_string(),
+                "search".to_string(),
+                "analyze".to_string(),
+            ],
+            icon: Some("📚".to_string()),
+        },
+    );
+
+    agents
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
+    use std::fs;
+    use std::sync::Arc;
+    use tempfile::TempDir;
 
-    fn test_agents_yaml() -> String {
-        r#"
-agents:
-  test_general:
-    name: "Test General"
-    description: "A general test agent"
+    fn make_paths(temp: &TempDir) -> Arc<AppPaths> {
+        let root = temp.path().to_path_buf();
+        let data = root.join("data");
+        fs::create_dir_all(&data).unwrap();
+        Arc::new(AppPaths {
+            project_root: root.clone(),
+            user_data_dir: data.clone(),
+            log_dir: data.join("logs"),
+            db_path: data.join("tepora_core.db"),
+            secrets_path: data.join("secrets.yaml"),
+        })
+    }
+
+    fn setup_manager(temp: &TempDir) -> (ConfigService, ExclusiveAgentManager) {
+        let paths = make_paths(temp);
+        let config = ConfigService::new(paths.clone());
+        let manager = ExclusiveAgentManager::new(paths.as_ref(), config.clone());
+        (config, manager)
+    }
+
+    #[test]
+    fn loads_agents_from_config_section() {
+        let temp = TempDir::new().unwrap();
+        let paths = make_paths(&temp);
+        let config = ConfigService::new(paths.clone());
+
+        let initial = serde_json::json!({
+            "custom_agents": {
+                "coder": {
+                    "name": "Coder",
+                    "description": "Coding",
+                    "enabled": true,
+                    "system_prompt": "help",
+                    "priority": 10,
+                    "tags": ["code"],
+                    "tool_policy": { "allow_all": true }
+                }
+            }
+        });
+        config.update_config(initial, false).unwrap();
+
+        let manager = ExclusiveAgentManager::new(paths.as_ref(), config.clone());
+        let agents = manager.list_all();
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].id, "coder");
+        assert_eq!(agents[0].name, "Coder");
+    }
+
+    #[test]
+    fn migrates_legacy_agents_yaml_when_config_empty() {
+        let temp = TempDir::new().unwrap();
+        let (config, manager) = setup_manager(&temp);
+
+        let legacy_path = temp.path().join("data").join("config").join("agents.yaml");
+        fs::create_dir_all(legacy_path.parent().unwrap()).unwrap();
+        fs::write(
+            &legacy_path,
+            r#"agents:
+  legacy_agent:
+    name: Legacy Agent
+    description: migrated
     enabled: true
-    priority: 0
-    tags: ["general"]
+    system_prompt: legacy prompt
+    priority: 3
+    tags: [legacy]
     tool_policy:
       allow_all: true
+"#,
+        )
+        .unwrap();
 
-  test_coder:
-    name: "Test Coder"
-    description: "A coding test agent"
-    enabled: true
-    priority: 10
-    tags: ["code", "programming"]
-    tool_policy:
-      allowed_tools:
-        - web_search
-        - "mcp:filesystem_read_file"
-      denied_tools:
-        - "mcp:filesystem_delete"
+        manager.reload().unwrap();
+        let agents = manager.list_all();
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].id, "legacy_agent");
 
-  test_disabled:
-    name: "Disabled Agent"
-    description: "Should not appear in enabled list"
-    enabled: false
-    priority: 100
-"#
-        .to_string()
+        let saved = config.load_config().unwrap();
+        assert!(saved
+            .get("custom_agents")
+            .and_then(|v| v.get("legacy_agent"))
+            .is_some());
     }
 
     #[test]
-    fn test_load_agents() {
-        let mut file = NamedTempFile::new().unwrap();
-        file.write_all(test_agents_yaml().as_bytes()).unwrap();
+    fn upsert_and_delete_are_persisted_to_config() {
+        let temp = TempDir::new().unwrap();
+        let (config, manager) = setup_manager(&temp);
 
-        let manager = ExclusiveAgentManager::with_path(file.path());
+        manager
+            .upsert(ExecutionAgent {
+                id: "alpha".to_string(),
+                name: "Alpha".to_string(),
+                description: "desc".to_string(),
+                enabled: true,
+                system_prompt: "prompt".to_string(),
+                model_config_name: None,
+                tool_policy: AgentToolPolicy {
+                    allow_all: Some(true),
+                    ..Default::default()
+                },
+                priority: 1,
+                tags: vec!["one".to_string()],
+                icon: Some("A".to_string()),
+            })
+            .unwrap();
 
-        let all = manager.list_all();
-        assert_eq!(all.len(), 3);
+        let saved = config.load_config().unwrap();
+        assert!(saved
+            .get("custom_agents")
+            .and_then(|v| v.get("alpha"))
+            .is_some());
 
-        let enabled = manager.list_enabled();
-        assert_eq!(enabled.len(), 2);
+        assert!(manager.delete("alpha").unwrap());
+
+        let saved = config.load_config().unwrap();
+        assert!(saved
+            .get("custom_agents")
+            .and_then(|v| v.get("alpha"))
+            .is_none());
     }
 
     #[test]
-    fn test_get_agent() {
-        let mut file = NamedTempFile::new().unwrap();
-        file.write_all(test_agents_yaml().as_bytes()).unwrap();
+    fn choose_agent_prefers_tag_match() {
+        let temp = TempDir::new().unwrap();
+        let (_config, manager) = setup_manager(&temp);
 
-        let manager = ExclusiveAgentManager::with_path(file.path());
-
-        let agent = manager.get("test_coder");
-        assert!(agent.is_some());
-        let agent = agent.unwrap();
-        assert_eq!(agent.name, "Test Coder");
-        assert_eq!(agent.priority, 10);
+        manager.create_default_config().unwrap();
+        let selected = manager
+            .choose_agent(None, "Please help me debug this code path")
+            .unwrap();
+        assert_eq!(selected.id, "coder");
     }
 
     #[test]
-    fn test_choose_agent_by_id() {
-        let mut file = NamedTempFile::new().unwrap();
-        file.write_all(test_agents_yaml().as_bytes()).unwrap();
-
-        let manager = ExclusiveAgentManager::with_path(file.path());
-        let chosen = manager.choose_agent(Some("test_coder"), "");
-        assert!(chosen.is_some());
-        assert_eq!(chosen.unwrap().id, "test_coder");
-    }
-
-    #[test]
-    fn test_choose_agent_by_tag_match() {
-        let mut file = NamedTempFile::new().unwrap();
-        file.write_all(test_agents_yaml().as_bytes()).unwrap();
-
-        let manager = ExclusiveAgentManager::with_path(file.path());
-        let chosen = manager.choose_agent(None, "Please help me write some code");
-        assert!(chosen.is_some());
-        assert_eq!(chosen.unwrap().id, "test_coder");
-    }
-
-    #[test]
-    fn test_choose_agent_by_priority() {
-        let mut file = NamedTempFile::new().unwrap();
-        file.write_all(test_agents_yaml().as_bytes()).unwrap();
-
-        let manager = ExclusiveAgentManager::with_path(file.path());
-        // No tags match, should pick highest priority enabled agent
-        let chosen = manager.choose_agent(None, "do something random xyz");
-        assert!(chosen.is_some());
-        assert_eq!(chosen.unwrap().id, "test_coder"); // priority 10 > 0
-    }
-
-    #[test]
-    fn test_tool_name_resolution() {
-        assert_eq!(resolve_tool_name("web_search"), "native_search");
-        assert_eq!(resolve_tool_name("search"), "native_search");
-        assert_eq!(resolve_tool_name("fetch_url"), "native_web_fetch");
-        assert_eq!(resolve_tool_name("rag_search"), "native_rag_search");
-        assert_eq!(resolve_tool_name("rag_ingest"), "native_rag_ingest");
-        assert_eq!(
-            resolve_tool_name("rag_text_search"),
-            "native_rag_text_search"
-        );
-        assert_eq!(resolve_tool_name("rag_get_chunk"), "native_rag_get_chunk");
-        assert_eq!(
-            resolve_tool_name("rag_get_chunk_window"),
-            "native_rag_get_chunk_window"
-        );
-        assert_eq!(
-            resolve_tool_name("rag_clear_session"),
-            "native_rag_clear_session"
-        );
-        assert_eq!(resolve_tool_name("rag_reindex"), "native_rag_reindex");
-        assert_eq!(resolve_tool_name("mcp:server_tool"), "server_tool");
-        assert_eq!(resolve_tool_name("native_search"), "native_search");
-        assert_eq!(resolve_tool_name("custom_tool"), "custom_tool");
-    }
-
-    #[test]
-    fn test_tool_policy_conversion() {
+    fn tool_policy_conversion_uses_alias_resolution() {
         let policy = AgentToolPolicy {
             allow_all: Some(false),
             allowed_tools: vec!["web_search".to_string(), "mcp:fs_read".to_string()],
@@ -620,12 +654,5 @@ agents:
         assert!(custom.allowed_tools.contains("fs_read"));
         assert!(custom.denied_tools.contains("fs_delete"));
         assert!(custom.require_confirmation.contains("native_web_fetch"));
-    }
-
-    #[test]
-    fn test_empty_file() {
-        let manager = ExclusiveAgentManager::with_path("/nonexistent/path/agents.yaml");
-        assert!(manager.list_all().is_empty());
-        assert!(manager.list_enabled().is_empty());
     }
 }

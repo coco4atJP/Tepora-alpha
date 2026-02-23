@@ -1,4 +1,5 @@
 use axum::http::{header, HeaderValue, Method};
+use axum::middleware;
 use axum::routing::{delete, get, post};
 use axum::Router;
 use serde_json::Value;
@@ -6,7 +7,8 @@ use std::sync::Arc;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-use crate::server::handlers::{agents, config, health, logs, mcp, sessions, setup, tools};
+use crate::server::handlers::{agents, config, health, logs, mcp, memory, sessions, setup, tools};
+use crate::server::middleware::auth::require_api_key_middleware;
 use crate::server::ws::handler::ws_handler;
 use crate::state::AppState;
 
@@ -23,8 +25,17 @@ use crate::state::AppState;
 /// * `state` - Shared application state
 pub fn router(state: Arc<AppState>) -> Router {
     let cors_layer = build_cors_layer(&state);
-    Router::new()
+    Router::<Arc<AppState>>::new()
         .route("/health", get(health::health))
+        .merge(api_routes(state.clone()))
+        .route("/ws", get(ws_handler))
+        .with_state(state)
+        .layer(cors_layer)
+        .layer(TraceLayer::new_for_http())
+}
+
+fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
+    Router::<Arc<AppState>>::new()
         .route("/api/status", get(health::get_status))
         .route("/api/shutdown", post(health::shutdown))
         .route(
@@ -60,6 +71,8 @@ pub fn router(state: Arc<AppState>) -> Router {
                 .delete(agents::delete_custom_agent),
         )
         .route("/api/tools", get(tools::list_tools))
+        .route("/api/memory/compress", post(memory::compress_memories))
+        .route("/api/memory/decay", post(memory::run_decay_cycle))
         .route("/api/setup/requirements", get(setup::setup_requirements))
         .route(
             "/api/setup/default-models",
@@ -163,10 +176,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/api/mcp/policy",
             get(mcp::mcp_policy).patch(mcp::mcp_update_policy),
         )
-        .route("/ws", get(ws_handler))
-        .with_state(state)
-        .layer(cors_layer)
-        .layer(TraceLayer::new_for_http())
+        .route_layer(middleware::from_fn_with_state(
+            state,
+            require_api_key_middleware,
+        ))
 }
 
 fn build_cors_layer(state: &Arc<AppState>) -> CorsLayer {

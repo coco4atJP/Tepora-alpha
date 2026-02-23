@@ -4,7 +4,24 @@ import { useTranslation } from "react-i18next";
 import type { Config } from "../../../../context/SettingsContext";
 import { useMcpPolicy } from "../../../../hooks/useMcp";
 import { useSettings } from "../../../../hooks/useSettings";
-import { FormGroup, FormList, FormSwitch, SettingsSection } from "../SettingsComponents";
+import { FormGroup, FormInput, FormList, FormSwitch, SettingsSection } from "../SettingsComponents";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getPathValue<T>(source: unknown, path: string, fallback: T): T {
+	const keys = path.split(".").filter(Boolean);
+	let current: unknown = source;
+
+	for (const key of keys) {
+		if (!isRecord(current)) return fallback;
+		current = current[key];
+	}
+
+	if (current === undefined || current === null) return fallback;
+	return current as T;
+}
 
 interface PrivacySettingsProps {
 	privacyConfig: Config["privacy"];
@@ -67,6 +84,7 @@ const ToolSecurityPolicy: React.FC = () => {
 					<FormGroup
 						label={t("settings.mcp.policy.blocked_commands.label", "Blocked Commands")}
 						description={t("settings.mcp.policy.blocked_commands.description", "Commands that MCP servers are never allowed to execute.")}
+						orientation="vertical"
 					>
 						<FormList
 							items={policy?.blocked_commands ?? []}
@@ -86,7 +104,22 @@ const ToolSecurityPolicy: React.FC = () => {
  */
 const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpdate }) => {
 	const { t } = useTranslation();
-	const { config, updateModelDownload } = useSettings();
+	const { config, updateModelDownload, updateConfigPath } = useSettings();
+
+	const readString = (path: string, fallback = "") => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "string" ? value : fallback;
+	};
+
+	const readBoolean = (path: string, fallback = false) => {
+		const value = getPathValue<unknown>(config, path, fallback);
+		return typeof value === "boolean" ? value : fallback;
+	};
+
+	const readStringList = (path: string) => {
+		const value = getPathValue<unknown>(config, path, []);
+		return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+	};
 
 	return (
 		<div className="space-y-6">
@@ -101,7 +134,6 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 						<FormGroup
 							label={t("settings.privacy.web_search.label")}
 							description={t("settings.privacy.web_search.description")}
-							orientation="horizontal"
 							className="delay-0"
 						>
 							<FormSwitch
@@ -140,6 +172,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 						label={t("settings.privacy.url_denylist.label", "URL Deny List")}
 						description={t("settings.privacy.url_denylist.description", "Domains or patterns blocked from web fetch. Internal/private ranges are always blocked.")}
 						className="delay-100"
+						orientation="vertical"
 					>
 						<FormList
 							items={privacyConfig?.url_denylist ?? []}
@@ -159,7 +192,6 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 					<FormGroup
 						label={t("settings.privacy.redact_pii.label")}
 						description={t("settings.privacy.redact_pii.description")}
-						orientation="horizontal"
 						className="delay-200"
 					>
 						<div className="flex items-center gap-3">
@@ -183,7 +215,6 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 					<FormGroup
 						label={t("settings.fields.require_allowlist.label", "Require Allowlist")}
 						description={t("settings.fields.require_allowlist.description", "Only allow downloads from approved repository owners.")}
-						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={config?.model_download?.require_allowlist ?? false}
@@ -194,7 +225,6 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 					<FormGroup
 						label={t("settings.fields.warn_on_unlisted.label", "Warn on Unlisted")}
 						description={t("settings.fields.warn_on_unlisted.description", "Show a warning when downloading from an unlisted owner.")}
-						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={config?.model_download?.warn_on_unlisted ?? true}
@@ -205,7 +235,6 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 					<FormGroup
 						label={t("settings.fields.require_revision.label", "Require Revision")}
 						description={t("settings.fields.require_revision.description", "Require a specific revision when downloading models.")}
-						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={config?.model_download?.require_revision ?? false}
@@ -216,7 +245,6 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 					<FormGroup
 						label={t("settings.fields.require_sha256.label", "Require SHA256")}
 						description={t("settings.fields.require_sha256.description", "Require SHA256 verification for downloaded models.")}
-						orientation="horizontal"
 					>
 						<FormSwitch
 							checked={config?.model_download?.require_sha256 ?? false}
@@ -227,11 +255,177 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 					<FormGroup
 						label={t("settings.fields.allow_repo_owners.label", "Allowed Repository Owners")}
 						description={t("settings.fields.allow_repo_owners.description", "List of approved repository owners for model downloads.")}
+						orientation="vertical"
 					>
 						<FormList
 							items={config?.model_download?.allow_repo_owners ?? []}
 							onChange={(items) => updateModelDownload("allow_repo_owners", items)}
 							placeholder={t("settings.fields.allow_repo_owners.placeholder", "e.g. TheBloke")}
+						/>
+					</FormGroup>
+				</div>
+			</SettingsSection>
+
+			<SettingsSection
+				title={t("settings.sections.extended.security_title", "Network and Server Security")}
+				icon={<Shield size={18} />}
+				description={t(
+					"settings.sections.extended.security_description",
+					"Configure core tool policy, network proxies, certificates, and server origins.",
+				)}
+			>
+				<div className="space-y-4">
+					<FormGroup
+						label={t("settings.sections.extended.allowed_tools", "Core Tool Allow List")}
+						description={t(
+							"settings.sections.extended.allowed_tools_desc",
+							"Allowed tool names when using allow-list policy.",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("tool_security.allowed_tools")}
+							onChange={(items) => updateConfigPath("tool_security.allowed_tools", items)}
+							placeholder="native_web_fetch"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.denied_tools", "Core Tool Deny List")}
+						description={t(
+							"settings.sections.extended.denied_tools_desc",
+							"Denied tool names when using deny-list policy.",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("tool_security.denied_tools")}
+							onChange={(items) => updateConfigPath("tool_security.denied_tools", items)}
+							placeholder="shell"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.tool_confirmation", "Tool Execution Confirmation")}
+					>
+						<FormSwitch
+							checked={readBoolean("tool_security.require_confirmation", true)}
+							onChange={(value) => updateConfigPath("tool_security.require_confirmation", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.first_use_confirmation", "First-use Confirmation")}
+					>
+						<FormSwitch
+							checked={readBoolean("tool_security.first_use_confirmation", false)}
+							onChange={(value) => updateConfigPath("tool_security.first_use_confirmation", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.dangerous_patterns", "Blocked Command Patterns")}
+						description={t(
+							"settings.sections.extended.dangerous_patterns_desc",
+							"Command patterns that should always be blocked.",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("app.dangerous_patterns")}
+							onChange={(items) => updateConfigPath("app.dangerous_patterns", items)}
+							placeholder="rm -rf"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.proxy_http", "HTTP Proxy")}
+						description={t("settings.sections.extended.proxy_http_desc", "Proxy URL for HTTP requests.")}
+					>
+						<FormInput
+							value={readString("network.proxy.http", "")}
+							onChange={(value) => updateConfigPath("network.proxy.http", value)}
+							placeholder="http://127.0.0.1:8080"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.proxy_https", "HTTPS Proxy")}
+						description={t("settings.sections.extended.proxy_https_desc", "Proxy URL for HTTPS requests.")}
+					>
+						<FormInput
+							value={readString("network.proxy.https", "")}
+							onChange={(value) => updateConfigPath("network.proxy.https", value)}
+							placeholder="http://127.0.0.1:8080"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.custom_certificate", "Custom Certificate Path")}
+						description={t(
+							"settings.sections.extended.custom_certificate_desc",
+							"Path to custom CA certificate bundle.",
+						)}
+					>
+						<FormInput
+							value={readString("network.custom_certificate_path", "")}
+							onChange={(value) => updateConfigPath("network.custom_certificate_path", value)}
+							placeholder="C:\\certs\\ca.pem"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.server_host", "Server Host")}
+						description={t("settings.sections.extended.server_host_desc", "Host binding for backend server.")}
+					>
+						<FormInput
+							value={readString("server.host", "127.0.0.1")}
+							onChange={(value) => updateConfigPath("server.host", value)}
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.allowed_origins", "Allowed Origins")}
+						description={t(
+							"settings.sections.extended.allowed_origins_desc",
+							"Origins permitted to access the backend.",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("server.allowed_origins")}
+							onChange={(items) => updateConfigPath("server.allowed_origins", items)}
+							placeholder="https://localhost:1420"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.cors_origins", "CORS Allowed Origins")}
+						description={t(
+							"settings.sections.extended.cors_origins_desc",
+							"Origins allowed by CORS policy.",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("server.cors_allowed_origins")}
+							onChange={(items) => updateConfigPath("server.cors_allowed_origins", items)}
+							placeholder="https://localhost:1420"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.ws_origins", "WebSocket Allowed Origins")}
+						description={t(
+							"settings.sections.extended.ws_origins_desc",
+							"Origins allowed for WebSocket connections.",
+						)}
+						orientation="vertical"
+					>
+						<FormList
+							items={readStringList("server.ws_allowed_origins")}
+							onChange={(items) => updateConfigPath("server.ws_allowed_origins", items)}
+							placeholder="https://localhost:1420"
 						/>
 					</FormGroup>
 				</div>

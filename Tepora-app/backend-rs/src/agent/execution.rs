@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::agent::policy::CustomToolPolicy;
 use crate::core::errors::ApiError;
+use crate::core::native_tools::NATIVE_TOOLS;
 use crate::state::AppState;
 
 #[derive(Debug, Clone)]
@@ -30,17 +31,7 @@ pub async fn build_allowed_tool_list(
     state: &AppState,
     active_policy: &CustomToolPolicy,
 ) -> (Vec<String>, HashSet<String>) {
-    let mut tool_list = vec![
-        "native_web_fetch".to_string(),
-        "native_search".to_string(),
-        "native_rag_search".to_string(),
-        "native_rag_ingest".to_string(),
-        "native_rag_text_search".to_string(),
-        "native_rag_get_chunk".to_string(),
-        "native_rag_get_chunk_window".to_string(),
-        "native_rag_clear_session".to_string(),
-        "native_rag_reindex".to_string(),
-    ];
+    let mut tool_list: Vec<String> = NATIVE_TOOLS.iter().map(|t| t.name.to_string()).collect();
 
     let mcp_tools = state.mcp.list_tools().await;
     let mut mcp_tool_set = HashSet::new();
@@ -153,6 +144,25 @@ pub fn build_agent_chat_config(
     }
 
     overridden
+}
+
+pub fn resolve_execution_model_id(
+    state: &AppState,
+    config: &Value,
+    selected_agent: Option<&SelectedAgentRuntime>,
+) -> String {
+    let active_character = config.get("active_agent_profile").and_then(|v| v.as_str());
+
+    selected_agent
+        .and_then(|agent| agent.assigned_model_id.clone())
+        .or_else(|| {
+            state
+                .models
+                .resolve_character_model_id(active_character)
+                .ok()
+                .flatten()
+        })
+        .unwrap_or_else(|| "default".to_string())
 }
 
 pub fn parse_agent_decision(text: &str) -> AgentDecision {

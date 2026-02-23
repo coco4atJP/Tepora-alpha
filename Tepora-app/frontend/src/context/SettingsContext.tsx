@@ -58,6 +58,19 @@ export interface Config {
 		total_retrieved_events: number;
 		repr_topk: number;
 		use_boundary_refinement: boolean;
+		decay?: {
+			lambda_base?: number;
+			importance_modulation?: number;
+			beta_lml?: number;
+			beta_sml?: number;
+			promote_threshold?: number;
+			demote_threshold?: number;
+			prune_threshold?: number;
+			reinforcement_delta?: number;
+			alpha?: number;
+			beta?: number;
+			gamma?: number;
+		};
 	};
 	models_gguf: Record<string, ModelConfig>;
 	// Refactored Agent Config
@@ -148,6 +161,9 @@ export interface SettingsContextValue {
 	// Thinking Actions
 	updateThinking: <K extends keyof NonNullable<Config["thinking"]>>(field: K, value: NonNullable<Config["thinking"]>[K]) => void;
 
+	// Generic path-based updater for extended settings
+	updateConfigPath: (path: string, value: unknown) => void;
+
 	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
 	addCharacter: (key: string) => void;
@@ -170,6 +186,38 @@ export const SettingsContext = createContext<SettingsContextValue | null>(null);
 // ============================================================================
 // Provider
 // ============================================================================
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function setNestedValue<T>(target: T, path: string, value: unknown): T {
+	if (!isRecord(target)) return target;
+
+	const keys = path.split(".").filter(Boolean);
+	if (keys.length === 0) return target;
+
+	const root: Record<string, unknown> = { ...target };
+	let cursor: Record<string, unknown> = root;
+	let sourceCursor: Record<string, unknown> = target;
+
+	for (let i = 0; i < keys.length - 1; i += 1) {
+		const key = keys[i];
+		if (!key) continue;
+		const sourceNext = sourceCursor[key];
+		const next = isRecord(sourceNext) ? { ...sourceNext } : {};
+		cursor[key] = next;
+		cursor = next;
+		sourceCursor = isRecord(sourceNext) ? sourceNext : {};
+	}
+
+	const lastKey = keys[keys.length - 1];
+	if (lastKey) {
+		cursor[lastKey] = value;
+	}
+
+	return root as T;
+}
 
 function normalizeConfig(data: Config): Config {
 	const modelsGguf = { ...(data.models_gguf || {}) } as Record<string, unknown>;
@@ -390,6 +438,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[],
 	);
 
+	const updateConfigPath = useCallback((path: string, value: unknown) => {
+		setConfig((prev) => (prev ? setNestedValue(prev, path, value) : prev));
+	}, []);
+
 	// Character Management
 	const updateCharacter = useCallback((key: string, charConfig: CharacterConfig) => {
 		setConfig((prev) =>
@@ -524,6 +576,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateServer,
 			updateLoaderBaseUrl,
 			updateThinking,
+			updateConfigPath,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
@@ -557,6 +610,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateServer,
 			updateLoaderBaseUrl,
 			updateThinking,
+			updateConfigPath,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,

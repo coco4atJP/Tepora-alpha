@@ -1,8 +1,7 @@
 use serde_json::Value;
 
 use crate::core::errors::ApiError;
-use crate::llm::ChatMessage;
-use crate::models::types::ModelRuntimeConfig;
+use crate::llm::{ChatMessage, ChatRequest};
 use crate::state::AppState;
 
 use super::execution::SelectedAgentRuntime;
@@ -13,6 +12,7 @@ pub async fn generate_execution_plan(
     user_input: &str,
     selected_agent: Option<&SelectedAgentRuntime>,
     thinking_mode: bool,
+    model_id: &str,
 ) -> Result<String, ApiError> {
     let selected = selected_agent
         .map(|agent| format!("{} ({})", agent.name, agent.id))
@@ -37,15 +37,8 @@ Do not add any text before or after the plan."
         },
     ];
 
-    let config = ModelRuntimeConfig::for_chat(chat_config)?;
-    let plan = state
-        .llama
-        .chat(
-            &config,
-            planning_messages,
-            std::time::Duration::from_secs(5),
-        )
-        .await?;
+    let request = ChatRequest::new(planning_messages).with_config(chat_config);
+    let plan = state.llm.chat(request, model_id).await?;
     let trimmed = plan.trim();
     if trimmed.is_empty() {
         return Ok(

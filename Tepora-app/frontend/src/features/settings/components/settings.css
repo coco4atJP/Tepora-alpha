@@ -15,9 +15,9 @@
 
 	--s-text-primary: #f4f4f5;
 	/* Zinc 100 */
-	--s-text-secondary: #a1a1aa;
-	/* Zinc 400 */
-	--s-text-muted: #52525b;
+	--s-text-secondary: #d4d4d8;
+	/* Zinc 300 */
+	--s-text-muted: #71717a;
 	/* Zinc 600 */
 
 	--s-accent: #d4bf80;
@@ -180,7 +180,7 @@
 
 .settings-sidebar__item:hover {
 	color: var(--s-text-primary);
-	background: rgba(255, 255, 255, 0.03);
+	background: rgba(255, 255, 255, 0.06);
 }
 
 .settings-sidebar__item--active {
@@ -271,11 +271,11 @@
 /* Form Elements
    ------------------------------------------------------------------------- */
 .settings-form-group {
-	margin-bottom: 1.5rem;
+	margin-bottom: 0.75rem;
 }
 
 .settings-form-group__header {
-	margin-bottom: 0.5rem;
+	margin-bottom: 0.25rem;
 }
 
 .settings-form-group__label {
@@ -479,9 +479,9 @@
 .settings-card:hover,
 .settings-agent-card:hover,
 .settings-model-card:hover {
-	border-color: var(--s-border-hover);
-	transform: translateY(-2px);
-	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+	border-color: var(--s-text-secondary);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .settings-card__header,
@@ -685,7 +685,7 @@
 
 /* Enhanced Form Group Animation */
 .settings-form-group {
-	margin-bottom: 1.5rem;
+	margin-bottom: 0.75rem;
 	opacity: 0;
 	/* Start hidden for animation */
 	animation: slideInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
@@ -719,8 +719,6 @@
 .settings-select:focus {
 	outline: none;
 	border-color: var(--s-accent);
-	box-shadow:
-		0 0 0 1px rgba(212, 191, 128, 0.2),
-		0 0 15px rgba(212, 191, 128, 0.1);
+	box-shadow: 0 0 0 1px rgba(212, 191, 128, 0.5);
 	background: rgba(0, 0, 0, 0.8);
 }

@@ -8,8 +8,8 @@ use serde_json::json;
 
 use crate::agent::execution::{
     approval_timeout, build_agent_chat_config, build_allowed_tool_list, format_attachments,
-    parse_agent_decision, request_tool_approval, resolve_selected_agent, send_activity,
-    AgentDecision,
+    parse_agent_decision, request_tool_approval, resolve_execution_model_id,
+    resolve_selected_agent, send_activity, AgentDecision,
 };
 use crate::agent::instructions::build_agent_instructions;
 use crate::agent::modes::RequestedAgentMode;
@@ -18,8 +18,7 @@ use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::PipelineMode;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState};
-use crate::llm::ChatMessage;
-use crate::models::types::ModelRuntimeConfig;
+use crate::llm::{ChatMessage, ChatRequest};
 use crate::server::ws::handler::send_json;
 use crate::tools::execute_tool;
 
@@ -109,6 +108,8 @@ impl Node for AgentExecutorNode {
 
         let agent_chat_config =
             build_agent_chat_config(ctx.app_state, ctx.config, selected_agent.as_ref());
+        let model_id =
+            resolve_execution_model_id(ctx.app_state, ctx.config, selected_agent.as_ref());
         let max_steps = agent_chat_config
             .get("app")
             .and_then(|v| v.get("graph_recursion_limit"))
@@ -168,16 +169,11 @@ impl Node for AgentExecutorNode {
             .await
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-            let model_cfg = ModelRuntimeConfig::for_chat(&agent_chat_config)
-                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+            let request = ChatRequest::new(messages.clone()).with_config(&agent_chat_config);
             let response = ctx
                 .app_state
-                .llama
-                .chat(
-                    &model_cfg,
-                    messages.clone(),
-                    std::time::Duration::from_secs(5),
-                )
+                .llm
+                .chat(request, &model_id)
                 .await
                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
             let decision = parse_agent_decision(&response);

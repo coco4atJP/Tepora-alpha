@@ -1,5 +1,4 @@
 use axum::extract::{Path, Query, State};
-use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::Deserialize;
@@ -8,7 +7,6 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::core::errors::ApiError;
-use crate::core::security::require_api_key;
 use crate::state::{AppStateRead, AppStateWrite};
 
 #[derive(Debug, Deserialize)]
@@ -23,9 +21,7 @@ pub struct UpdateSessionRequest {
 
 pub async fn list_sessions(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let sessions = state.history.list_sessions().await?;
     let result: Vec<Value> = sessions
         .into_iter()
@@ -45,10 +41,8 @@ pub async fn list_sessions(
 
 pub async fn create_session(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Json(payload): Json<CreateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let session_id = state.history.create_session(payload.title).await?;
     let session = state.history.get_session(&session_id).await?;
     Ok(Json(json!({"session": session})))
@@ -56,11 +50,8 @@ pub async fn create_session(
 
 pub async fn get_session(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
-
     let session = state
         .history
         .get_session(&session_id)
@@ -85,11 +76,9 @@ pub async fn get_session(
 
 pub async fn get_session_messages(
     State(state): State<AppStateRead>,
-    headers: HeaderMap,
     Path(session_id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     let limit = params
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
@@ -134,11 +123,9 @@ pub async fn get_session_messages(
 
 pub async fn update_session(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(session_id): Path<String>,
     Json(payload): Json<UpdateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     state
         .history
         .update_session_title(&session_id, &payload.title)
@@ -149,10 +136,8 @@ pub async fn update_session(
 
 pub async fn delete_session(
     State(state): State<AppStateWrite>,
-    headers: HeaderMap,
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    require_api_key(&headers, &state.session_token)?;
     state.history.delete_session(&session_id).await?;
     // if !success check removed
     Ok(Json(json!({"success": true})))
