@@ -2,7 +2,7 @@
 
 **ドキュメントバージョン**: 5.02
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-02-19
+**最終更新日**: 2026-02-24
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -255,6 +255,7 @@ backend-rs/
 │   │
 │   ├── em_llm/                 # EM-LLM (エピソード記憶)
 │   ├── memory/                 # メモリシステム
+│   ├── memory_v2/              # 新メモリシステム (EM-LLM x FadeMem) [v4.1 preview]
 │   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
@@ -672,6 +673,17 @@ v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移
 
 > [!IMPORTANT]
 > `RagStore` trait による抽象化で、将来の LanceDB や Qdrant への移行パスを確保しています。
+
+### 5.12 Memory V2 (Redesigned Memory System) [Preview]
+
+**ファイル**: `src/memory_v2/`
+
+EM-LLM と FadeMem を統合した新設計のメモリシステム。既存の `em_llm` を段階的に置き換えるために導入されました。
+
+**主な特徴**:
+- **MemoryScope**: Character (Char) と Professional (Prof) の明確なスコープ分離
+- **Compaction**: LLMによる記憶の圧縮・統合ジョブ (`CompactionJob`)
+- **MemoryEdge**: 時間的隣接 (`TemporalNext`) と意味的類似 (`SemanticNeighbor`) のグラフ構造
 
 ---
 
