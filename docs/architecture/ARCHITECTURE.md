@@ -2,7 +2,7 @@
 
 **ドキュメントバージョン**: 5.02
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-02-19
+**最終更新日**: 2026-02-24
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -978,6 +978,13 @@ ws://127.0.0.1:{port}/ws
 | `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
 | `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
 | `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
+#### Memory API
+
+| メソッド   | エンドポイント               | 説明                         |
+| ---------- | ---------------------------- | ---------------------------- |
+| `POST`     | `/api/memory/compress`       | メモリ圧縮処理を実行         |
+| `POST`     | `/api/memory/decay`          | メモリ減衰処理を実行         |
 
 #### MCP API
 
