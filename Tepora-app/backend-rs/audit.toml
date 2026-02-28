@@ -1,6 +1,10 @@
+# セキュリティ例外管理ポリシー: docs/operations/SECURITY_EXCEPTIONS.md を参照
 [advisories]
 # RUSTSEC-2023-0071 (rsa 0.9.10)
 # 根拠:
 # `sqlx` 0.8.6 の `macros` feature をオフにしても、推移的依存 (sqlx-macros -> sqlx-mysql -> rsa) が必須で残る仕様のため除去不可。
 # 本プロジェクトでは MySQL バックエンドを利用しておらず (`sqlite` 専用)、マクロも不使用のため実質影響なし。
+# 承認日: 2026-02-25
+# 次回レビュー: 2026-06-01 (四半期ごとの棚卸し)
 ignore = ["RUSTSEC-2023-0071"]
+
