@@ -15,8 +15,10 @@ import { getWsBase } from "../utils/api";
 import { getSessionToken, refreshSessionToken } from "../utils/sessionToken";
 import { backendReady, isDesktop } from "../utils/sidecar";
 import { buildWebSocketProtocols } from "../utils/wsAuth";
+import { logger } from "../utils/logger";
 import { useChatStore } from "./chatStore";
 import { useSessionStore } from "./sessionStore";
+import { chatActor } from "../machines/chatMachine";
 
 // ============================================================================
 // Types
@@ -44,12 +46,12 @@ interface WebSocketActions {
 		mode: ChatMode,
 		attachments?: Attachment[],
 		skipWebSearch?: boolean,
-		thinkingMode?: boolean,
+		thinkingBudget?: number,
 		agentId?: string,
 		agentMode?: AgentMode,
 		timeout?: number,
 	) => void;
-	sendRaw: (data: object) => void;
+	sendRaw: (data: Record<string, unknown>) => void;
 
 	// Control commands
 	stopGeneration: () => void;
@@ -130,7 +132,6 @@ export const useWebSocketStore = create<WebSocketStore>()(
 			let shouldReconnect = true;
 			let isConnecting = false;
 			let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-			let tokenCache: string | null = null;
 
 			// Helper to handle incoming messages
 			const handleMessage = (event: MessageEvent) => {
@@ -141,23 +142,36 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 					switch (data.type) {
 						case "chunk":
-							chatStore.handleStreamChunk(data.message || "", {
-								mode: data.mode,
-								agentName: data.agentName,
-								nodeId: data.nodeId,
+							chatActor.send({
+								type: "RECV_CHUNK",
+								payload: data.message || data.text || "",
+								metadata: {
+									mode: data.mode,
+									agentName: data.agentName,
+									nodeId: data.nodeId,
+								},
 							});
 							break;
 
 						case "done":
-							chatStore.finalizeStream();
-							chatStore.setIsProcessing(false);
-							// Trigger session refresh event
+							chatActor.send({ type: "DONE" });
+							// Session refresh is now triggered by interaction_complete
+							// to ensure DB writes are fully committed
+							break;
+
+						case "interaction_complete":
+							// Trigger session refresh event after all DB writes are complete
 							window.dispatchEvent(new CustomEvent("session-refresh"));
 							break;
 
+						case "thought":
+							if (data.content) {
+								chatStore.updateMessageThinking(data.content);
+							}
+							break;
+
 						case "stopped":
-							chatStore.finalizeStream();
-							chatStore.setIsProcessing(false);
+							chatActor.send({ type: "DONE" });
 							break;
 
 						case "error":
@@ -168,7 +182,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 								content: `Error: ${data.message || "Unknown error"}`,
 								timestamp: new Date(),
 							});
-							chatStore.setIsProcessing(false);
+							chatActor.send({ type: "ERROR", error: new Error(data.message || "Unknown error") });
 							break;
 
 						case "stats":
@@ -235,7 +249,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 						case "session_changed":
 							if (import.meta.env.DEV) {
-								console.log(`Session switched to ${data.sessionId}`);
+								logger.log(`Session switched to ${data.sessionId}`);
 							}
 							break;
 
@@ -246,7 +260,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							break;
 					}
 				} catch (error) {
-					console.error("WebSocket message parse error:", error);
+					logger.error("WebSocket message parse error:", error);
 					useChatStore.getState().setError("Failed to parse server message");
 				}
 			};
@@ -281,19 +295,38 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						reconnectTimeout = null;
 					}
 
+					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+
 					try {
 						// Wait for backend in desktop mode
 						if (isDesktop()) {
 							await backendReady;
 						}
 
-						// Get token if needed
-						if (!tokenCache) {
-							tokenCache = await getSessionToken();
+						if (transportMode === 'ipc') {
+							// Bypass actual websocket connection and use IPC transport directly
+							set({ isConnected: true, socket: null, reconnectAttempts: 0 }, false, "connected");
+							chatActor.send({ type: "RESET" });
+							useChatStore.getState().setError(null);
+
+							// Load initial history
+							const sessionId = useSessionStore.getState().currentSessionId;
+							get().setSession(sessionId);
+
+							// Dynamically import and subscribe to IPC messages
+							import('../transport/factory').then(({ getTransport }) => {
+								getTransport('ipc').subscribe((data: unknown) => {
+									handleMessage({ data: JSON.stringify(data) } as MessageEvent);
+								});
+							});
+							return;
 						}
 
+						// Always get the freshest token
+						const currentToken = await getSessionToken();
+
 						const wsUrl = getWsUrl();
-						const ws = new WebSocket(wsUrl, buildWebSocketProtocols(tokenCache));
+						const ws = new WebSocket(wsUrl, buildWebSocketProtocols(currentToken));
 
 						ws.onopen = () => {
 							if (!isMounted) {
@@ -301,7 +334,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 								return;
 							}
 							set({ isConnected: true, socket: ws, reconnectAttempts: 0 }, false, "connected");
-							useChatStore.getState().setIsProcessing(false);
+							chatActor.send({ type: "RESET" });
 							useChatStore.getState().setError(null);
 
 							// Load initial history
@@ -313,24 +346,23 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 						ws.onerror = (error) => {
 							if (!isMounted) return;
-							console.error("WebSocket error:", error);
+							logger.error("WebSocket error:", error);
 						};
 
 						ws.onclose = (event) => {
 							if (!isMounted) return;
 							set({ isConnected: false, socket: null }, false, "disconnected");
-							useChatStore.getState().setIsProcessing(false);
+							chatActor.send({ type: "RESET" });
 
 							// Handle auth failure
-							if (event.code === 4001) {
-								tokenCache = null;
-								refreshSessionToken().catch(console.warn);
+							if (event.code === 4001 || event.code === 1006) {
+								refreshSessionToken().catch(logger.warn);
 							}
 
 							// Reconnect with backoff
 							const attempts = get().reconnectAttempts;
 							const delay = calculateBackoff(attempts);
-							console.log(`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms`);
+							logger.log(`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms`);
 
 							reconnectTimeout = setTimeout(() => {
 								if (isMounted) {
@@ -343,7 +375,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						set({ socket: ws }, false, "socketCreated");
 					} catch (error) {
 						if (!isMounted) return;
-						console.error("WebSocket connection failed:", error);
+						logger.error("WebSocket connection failed:", error);
 						set({ isConnected: false }, false, "connectionFailed");
 
 						// Retry on failure (unless explicitly disconnected)
@@ -388,7 +420,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					mode,
 					attachments = [],
 					skipWebSearch = false,
-					thinkingMode = false,
+					thinkingBudget = 0,
 					agentId,
 					agentMode,
 					timeout,
@@ -396,36 +428,55 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					const { socket, isConnected } = get();
 					const chatStore = useChatStore.getState();
 					const sessionStore = useSessionStore.getState();
+					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
 
-					if (!isConnected || !socket) {
+					if (!isConnected || (transportMode !== 'ipc' && !socket)) {
 						chatStore.setError("Not connected to server");
 						return;
 					}
 
 					// Add user message to chat
 					chatStore.addUserMessage(content, mode, attachments);
-					chatStore.setIsProcessing(true);
+					// State transition triggered directly via UI button using chatActor.send
 
-					// Send to server
-					socket.send(
-						JSON.stringify({
-							message: content,
-							mode,
-							attachments,
-							skipWebSearch,
-							thinkingMode,
-							agentId,
-							agentMode,
-							sessionId: sessionStore.currentSessionId,
-							timeout,
-						}),
-					);
+					const payload = {
+						message: content,
+						mode,
+						attachments,
+						skipWebSearch,
+						thinkingBudget,
+						agentId,
+						agentMode,
+						sessionId: sessionStore.currentSessionId,
+						timeout,
+					};
+
+					if (transportMode === 'ipc') {
+						import('../transport/factory').then(({ getTransport }) => {
+							getTransport('ipc').send(payload);
+						});
+					} else if (socket) {
+						socket.send(JSON.stringify(payload));
+					}
 				},
 
 				sendRaw: (data) => {
 					const { socket, isConnected } = get();
-					if (!isConnected || !socket) {
-						console.warn("Cannot send: not connected");
+					const transportMode = (typeof window !== 'undefined')
+						? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__
+						: undefined;
+					if (!isConnected) {
+						logger.warn("Cannot send: not connected");
+						return;
+					}
+					if (transportMode === 'ipc') {
+						import('../transport/factory').then(({ getTransport }) => {
+							getTransport('ipc').send(data);
+						});
+						return;
+					}
+					if (!socket) {
+						logger.warn("Cannot send: websocket unavailable");
 						return;
 					}
 					socket.send(JSON.stringify(data));
@@ -437,27 +488,54 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 				stopGeneration: () => {
 					const { socket, isConnected } = get();
-					if (!isConnected || !socket) return;
-					socket.send(JSON.stringify({ type: "stop" }));
-					useChatStore.getState().setIsProcessing(false);
+					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					const sessionId = useSessionStore.getState().currentSessionId;
+
+					if (!isConnected) return;
+
+					const payload = { type: "stop", sessionId };
+					if (transportMode === 'ipc') {
+						import('../transport/factory').then(({ getTransport }) => {
+							getTransport('ipc').send(payload);
+						});
+					} else if (socket) {
+						socket.send(JSON.stringify(payload));
+					}
+					chatActor.send({ type: "DONE" });
 				},
 
 				requestStats: () => {
 					const { socket, isConnected } = get();
-					if (!isConnected || !socket) return;
-					socket.send(JSON.stringify({ type: "get_stats" }));
+					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					if (!isConnected) return;
+
+					if (transportMode === 'ipc') {
+						import('../transport/factory').then(({ getTransport }) => {
+							getTransport('ipc').send({ type: "get_stats" });
+						});
+					} else if (socket) {
+						socket.send(JSON.stringify({ type: "get_stats" }));
+					}
 				},
 
 				setSession: (sessionId) => {
 					const { socket, isConnected } = get();
 					const sessionStore = useSessionStore.getState();
 					const chatStore = useChatStore.getState();
+					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
 
 					sessionStore.setCurrentSession(sessionId);
 					chatStore.clearMessages();
 
-					if (isConnected && socket) {
-						socket.send(JSON.stringify({ type: "set_session", sessionId }));
+					if (isConnected) {
+						const payload = { type: "set_session", sessionId };
+						if (transportMode === 'ipc') {
+							import('../transport/factory').then(({ getTransport }) => {
+								getTransport('ipc').send(payload);
+							});
+						} else if (socket) {
+							socket.send(JSON.stringify(payload));
+						}
 					}
 				},
 
@@ -472,16 +550,24 @@ export const useWebSocketStore = create<WebSocketStore>()(
 				handleToolConfirmation: (requestId, approved, remember) => {
 					const state = get();
 					const { pendingToolConfirmation } = state;
+					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+
 					if (!pendingToolConfirmation) return;
 
-					if (state.isConnected && state.socket) {
-						state.socket.send(
-							JSON.stringify({
-								type: "tool_confirmation_response",
-								requestId,
-								approved,
-							}),
-						);
+					if (state.isConnected) {
+						if (transportMode === 'ipc') {
+							import('../transport/factory').then(({ getTransport }) => {
+								getTransport('ipc').confirmTool(requestId, approved);
+							});
+						} else if (state.socket) {
+							state.socket.send(
+								JSON.stringify({
+									type: "tool_confirmation_response",
+									requestId,
+									approved,
+								}),
+							);
+						}
 					}
 
 					if (approved && remember) {

@@ -3,6 +3,7 @@ import { useCallback, useEffect } from "react";
 import type { Session } from "../types";
 import { apiClient } from "../utils/api-client";
 import { ENDPOINTS } from "../utils/endpoints";
+import { logger } from "../utils/logger";
 
 // Re-export Session type for backward compatibility
 export type { Session } from "../types";
@@ -82,7 +83,7 @@ export const useSessions = (): UseSessionsReturn => {
 				const data = await createMutation.mutateAsync(title);
 				return data.session;
 			} catch (e) {
-				console.error(e);
+				logger.error(e);
 				return null;
 			}
 		},
@@ -95,7 +96,7 @@ export const useSessions = (): UseSessionsReturn => {
 				await deleteMutation.mutateAsync(id);
 				return true;
 			} catch (e) {
-				console.error(e);
+				logger.error(e);
 				return false;
 			}
 		},
@@ -108,7 +109,7 @@ export const useSessions = (): UseSessionsReturn => {
 				await renameMutation.mutateAsync({ id, title });
 				return true;
 			} catch (e) {
-				console.error(e);
+				logger.error(e);
 				return false;
 			}
 		},

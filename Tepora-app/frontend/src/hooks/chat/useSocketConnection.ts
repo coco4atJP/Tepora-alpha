@@ -3,6 +3,7 @@ import { getWsBase } from "../../utils/api";
 import { getSessionToken, refreshSessionToken } from "../../utils/sessionToken";
 import { backendReady, isDesktop } from "../../utils/sidecar";
 import { buildWebSocketProtocols } from "../../utils/wsAuth";
+import { logger } from "../../utils/logger";
 
 /**
  * Build WebSocket URL.
@@ -46,7 +47,6 @@ export const useSocketConnection = ({
 	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const isMounted = useRef(true);
 	const retryCountRef = useRef(0); // Use ref to avoid triggering re-render/re-creation of connect
-	const tokenRef = useRef<string | null>(null); // Cache token for reconnection
 
 	// Use refs for callbacks to avoid re-triggering effect on callback change
 	const onOpenRef = useRef(onOpen);
@@ -68,21 +68,19 @@ export const useSocketConnection = ({
 			// Wait for backend to be ready before connecting WebSocket
 			// This ensures dynamic port is set correctly
 			if (isDesktop()) {
-				console.log("[WebSocket] Waiting for backend to be ready...");
+				logger.log("[WebSocket] Waiting for backend to be ready...");
 				await backendReady;
-				console.log("[WebSocket] Backend is ready, proceeding with connection");
+				logger.log("[WebSocket] Backend is ready, proceeding with connection");
 			}
 
-			// Get session token for authentication
-			if (!tokenRef.current) {
-				tokenRef.current = await getSessionToken();
-				if (import.meta.env.DEV && tokenRef.current) {
-					console.log("[WebSocket] Token loaded for connection");
-				}
+			// Get freshest session token for authentication
+			const currentToken = await getSessionToken();
+			if (import.meta.env.DEV && currentToken) {
+				logger.log("[WebSocket] Token loaded for connection");
 			}
 
 			const WS_URL = getWsUrl();
-			const ws = new WebSocket(WS_URL, buildWebSocketProtocols(tokenRef.current));
+			const ws = new WebSocket(WS_URL, buildWebSocketProtocols(currentToken));
 
 			ws.onopen = () => {
 				if (!isMounted.current) {
@@ -101,7 +99,7 @@ export const useSocketConnection = ({
 
 			ws.onerror = (error) => {
 				if (!isMounted.current) return;
-				console.error("WebSocket error:", error);
+				logger.error("WebSocket error:", error);
 				// Don't modify isConnected here, allow onclose to handle state
 				onErrorRef.current?.(error);
 			};
@@ -111,27 +109,26 @@ export const useSocketConnection = ({
 				setIsConnected(false);
 				onCloseRef.current?.();
 
-				// If closed due to auth failure (4001), try refreshing token
-				if (event.code === 4001) {
-					tokenRef.current = null;
-					// Also refresh the global cached token
+				// If closed due to auth failure or generic close, try refreshing token before retry
+				if (event.code === 4001 || event.code === 1006) {
+					// Refresh the global cached token
 					refreshSessionToken()
 						.then((newToken) => {
 							if (import.meta.env.DEV && newToken) {
-								console.log("[WebSocket] Token refreshed after auth failure");
+								logger.log("[WebSocket] Token refreshed after auth failure");
 							}
 						})
 						.catch((err) => {
-							console.warn("[WebSocket] Failed to refresh token:", err);
+							logger.warn("[WebSocket] Failed to refresh token:", err);
 						});
 					if (import.meta.env.DEV) {
-						console.log("[WebSocket] Auth failed, will retry with fresh token");
+						logger.log("[WebSocket] Auth failed, will retry with fresh token");
 					}
 				}
 
 				// Automatic reconnect with exponential backoff
 				const delay = calculateBackoff(retryCountRef.current);
-				console.log(
+				logger.log(
 					`WebSocket disconnected. Reconnecting in ${Math.round(delay)}ms (Attempt ${retryCountRef.current + 1})`,
 				);
 
@@ -146,7 +143,7 @@ export const useSocketConnection = ({
 			wsRef.current = ws;
 		} catch (error) {
 			if (!isMounted.current) return;
-			console.error("WebSocket connection failed:", error);
+			logger.error("WebSocket connection failed:", error);
 			setIsConnected(false);
 
 			// Retry even if immediate connection fails (e.g. invalid URL or network down)

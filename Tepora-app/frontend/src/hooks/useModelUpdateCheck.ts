@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { apiClient } from "../utils/api-client";
+import { logger } from "../utils/logger";
 
 export interface UpdateCheckResult {
 	update_available: boolean;
@@ -29,7 +30,7 @@ export const useModelUpdateCheck = (): UseModelUpdateCheck => {
 			setUpdateStatus((prev) => ({ ...prev, [modelId]: result }));
 			return result;
 		} catch (error) {
-			console.error(`Error checking update for model ${modelId}:`, error);
+			logger.error(`Error checking update for model ${modelId}:`, error);
 			return null;
 		}
 	}, []);
