@@ -7,6 +7,7 @@
  */
 
 import { getSessionTokenSync } from "./sessionToken";
+import { logger } from "./logger";
 
 // Tauriアプリかどうかを判定
 export function isDesktop(): boolean {
@@ -24,7 +25,7 @@ let dynamicPort: number | null = null;
  */
 export function setDynamicPort(port: number): void {
 	dynamicPort = port;
-	console.log(`[API] Dynamic port set to: ${port}`);
+	logger.log(`[API] Dynamic port set to: ${port}`);
 }
 
 /**

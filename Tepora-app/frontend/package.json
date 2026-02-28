@@ -24,6 +24,7 @@
 		"@tauri-apps/plugin-process": "^2.0.0",
 		"@tauri-apps/plugin-shell": "^2.3.3",
 		"@tauri-apps/plugin-updater": "^2.9.0",
+		"@xstate/react": "^6.1.0",
 		"i18next": "^25.7.3",
 		"i18next-browser-languagedetector": "^8.2.0",
 		"lucide-react": "^0.561.0",
@@ -36,6 +37,7 @@
 		"react-syntax-highlighter": "^16.1.0",
 		"rehype-sanitize": "^6.0.0",
 		"remark-gfm": "^4.0.0",
+		"xstate": "^5.28.0",
 		"zustand": "^5.0.10"
 	},
 	"devDependencies": {

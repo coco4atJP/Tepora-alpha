@@ -1,6 +1,196 @@
 use std::path::PathBuf;
-use tauri::RunEvent;
+use tauri::{RunEvent, AppHandle, Emitter, Manager};
 use tauri_plugin_log::{Target, TargetKind};
+use tepora_backend::state::AppState;
+use tepora_backend::actor::messages::{SessionCommand, SessionEvent};
+use tepora_backend::server::ws::protocol::WsIncomingMessage;
+use std::sync::Arc;
+use serde_json::json;
+
+struct BackendState(Arc<AppState>);
+
+#[tauri::command]
+async fn chat_command(
+    app: AppHandle,
+    state: tauri::State<'_, BackendState>,
+    payload: String,
+) -> Result<(), String> {
+    let app_state = &state.0;
+    
+    let data: WsIncomingMessage = 
+        serde_json::from_str(&payload).map_err(|e| e.to_string())?;
+
+    let msg_type = data.msg_type.as_deref().unwrap_or("");
+    
+    match msg_type {
+        "stop" => {
+            app.emit("chat_event", json!({"type": "stopped"}).to_string()).unwrap();
+            let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
+            if !session_id.is_empty() {
+                let _ = app_state.actor_manager.dispatch(&session_id, app_state.clone(), SessionCommand::StopGeneration { session_id: session_id.clone() }).await;
+            }
+            return Ok(());
+        }
+        "get_stats" => {
+            let stats = app_state.em_memory_service.stats().await.map_err(|e| e.to_string())?;
+            let _ = app.emit(
+                "chat_event",
+                json!({
+                    "type": "stats",
+                    "data": {
+                        "total_events": stats.total_events,
+                        "em_llm_enabled": stats.enabled,
+                        "memory_events": stats.total_events,
+                        "retrieval": {
+                            "limit": stats.retrieval_limit,
+                            "min_score": stats.min_score,
+                        },
+                        "char_memory": {
+                            "total_events": stats.char_events,
+                            "layer_counts": {
+                                "lml": stats.char_lml,
+                                "sml": stats.char_sml
+                            },
+                            "mean_strength": stats.char_mean_strength
+                        },
+                        "prof_memory": {
+                            "total_events": stats.prof_events,
+                            "layer_counts": {
+                                "lml": stats.prof_lml,
+                                "sml": stats.prof_sml
+                            },
+                            "mean_strength": stats.prof_mean_strength
+                        }
+                    }
+                })
+                .to_string(),
+            );
+            return Ok(());
+        }
+        "set_session" => {
+            if let Some(session_id) = data.session_id {
+                let _ = app.emit(
+                    "chat_event",
+                    json!({"type": "session_changed", "sessionId": session_id}).to_string(),
+                );
+
+                let messages = app_state
+                    .history
+                    .get_history(&session_id, 100)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                let formatted: Vec<serde_json::Value> = messages
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, msg)| {
+                        let role = match msg.message_type.as_str() {
+                            "ai" => "assistant",
+                            "system" => "system",
+                            _ => "user",
+                        };
+                        let timestamp = msg
+                            .additional_kwargs
+                            .as_ref()
+                            .and_then(|k| k.get("timestamp"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&msg.created_at)
+                            .to_string();
+                        let mode = msg
+                            .additional_kwargs
+                            .as_ref()
+                            .and_then(|k| k.get("mode"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("chat")
+                            .to_string();
+
+                        json!({
+                            "id": format!("{}-{}", session_id, idx),
+                            "role": role,
+                            "content": msg.content,
+                            "timestamp": timestamp,
+                            "mode": mode,
+                            "isComplete": true
+                        })
+                    })
+                    .collect();
+
+                let _ = app.emit(
+                    "chat_event",
+                    json!({"type": "history", "messages": formatted}).to_string(),
+                );
+            }
+            return Ok(());
+        }
+        "tool_confirmation_response" => {
+            if let (Some(request_id), Some(approved)) = (data.request_id.clone(), data.approved) {
+                let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
+                if !session_id.is_empty() {
+                    let _ = app_state
+                        .actor_manager
+                        .dispatch(
+                            &session_id,
+                            app_state.clone(),
+                            SessionCommand::ToolApprovalResponse {
+                                session_id: session_id.clone(),
+                                request_id,
+                                approved,
+                            },
+                        )
+                        .await;
+                }
+            }
+            return Ok(());
+        }
+        _ => {}
+    }
+
+    let message_text = data.message.unwrap_or_default();
+    if message_text.is_empty() && data.attachments.is_empty() {
+        return Ok(());
+    }
+
+    let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
+
+    let command = SessionCommand::ProcessMessage {
+        session_id: session_id.clone(),
+        message: message_text.clone(),
+        mode: data.mode.unwrap_or_else(|| "chat".to_string()),
+        attachments: data.attachments.clone(),
+        thinking_budget: std::cmp::min(data.thinking_budget.unwrap_or(0), 3),
+        agent_id: data.agent_id.clone(),
+        agent_mode: data.agent_mode.clone(),
+        skip_web_search: data.skip_web_search.unwrap_or(false),
+    };
+
+    let mut rx = app_state.actor_manager.subscribe();
+    app_state.actor_manager.dispatch(&session_id, app_state.clone(), command).await.map_err(|e| e.to_string())?;
+
+    while let Ok(event) = rx.recv().await {
+        match event {
+            SessionEvent::Token { session_id: ev_session, text } if ev_session == session_id => {
+                let _ = app.emit("chat_event", json!({ "type": "chunk", "message": text }).to_string());
+            }
+            SessionEvent::Status { session_id: ev_session, message } if ev_session == session_id => {
+                let _ = app.emit("chat_event", json!({ "type": "status", "message": message }).to_string());
+            }
+            SessionEvent::NodeCompleted { session_id: ev_session, node_id, output } if ev_session == session_id => {
+                let _ = app.emit("chat_event", json!({ "type": "node_completed", "nodeId": node_id, "output": output }).to_string());
+            }
+            SessionEvent::Error { session_id: ev_session, message } if ev_session == session_id => {
+                let _ = app.emit("chat_event", json!({ "type": "error", "message": message }).to_string());
+            }
+            SessionEvent::GenerationComplete { session_id: ev_session } if ev_session == session_id => {
+                let _ = app.emit("chat_event", json!({"type": "done"}).to_string());
+                let _ = app.emit("chat_event", json!({"type": "interaction_complete", "sessionId": session_id}).to_string());
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
 
 #[tauri::command]
 fn read_session_token() -> Option<String> {
@@ -27,9 +217,20 @@ fn read_session_token() -> Option<String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .setup(|app| {
+            tauri::async_runtime::block_on(async {
+                if let Ok(app_state) = AppState::initialize().await {
+                    app.manage(BackendState(app_state));
+                } else {
+                    log::error!("Failed to initialize Tepora AppState");
+                }
+            });
+            Ok(())
+        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -39,7 +240,7 @@ pub fn run() {
                 }))
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![read_session_token])
+        .invoke_handler(tauri::generate_handler![read_session_token, chat_command])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

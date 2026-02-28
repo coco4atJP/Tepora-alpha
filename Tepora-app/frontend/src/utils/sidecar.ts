@@ -3,6 +3,7 @@ import { exit } from "@tauri-apps/plugin-process";
 import { type Child, Command } from "@tauri-apps/plugin-shell";
 import { getApiBase, getAuthHeadersAsync, isDesktop, setDynamicPort } from "./api";
 import { ENDPOINTS } from "./endpoints";
+import { logger } from "./logger";
 
 export { isDesktop };
 
@@ -51,12 +52,12 @@ export function getBackendPort(): number | null {
 export async function stopSidecar(): Promise<void> {
 	if (sidecarChild) {
 		try {
-			console.log("[Sidecar] Terminating backend process...");
+			logger.log("[Sidecar] Terminating backend process...");
 			await sidecarChild.kill();
-			console.log("[Sidecar] Backend process terminated.");
+			logger.log("[Sidecar] Backend process terminated.");
 			sidecarChild = null;
 		} catch (error) {
-			console.error("[Sidecar] Failed to terminate backend:", error);
+			logger.error("[Sidecar] Failed to terminate backend:", error);
 		}
 	}
 }
@@ -64,18 +65,18 @@ export async function stopSidecar(): Promise<void> {
 export async function startSidecar() {
 	// 重複起動防止ガード
 	if (sidecarStarting) {
-		console.log("[Sidecar] Already starting, skipping duplicate call");
+		logger.log("[Sidecar] Already starting, skipping duplicate call");
 		return;
 	}
 	if (sidecarChild !== null) {
-		console.log("[Sidecar] Already running, skipping duplicate call");
+		logger.log("[Sidecar] Already running, skipping duplicate call");
 		return;
 	}
 	sidecarStarting = true;
 
 	try {
 		if (!isDesktop()) {
-			console.log("[Sidecar] Not running in Desktop mode (Tauri), skipping sidecar startup.");
+			logger.log("[Sidecar] Not running in Desktop mode (Tauri), skipping sidecar startup.");
 			// For web mode, resolve with default port
 			if (backendReadyResolve) {
 				backendReadyResolve(8000);
@@ -95,7 +96,7 @@ export async function startSidecar() {
 					if (shutdownInProgress) return;
 					shutdownInProgress = true;
 
-					console.log("[Sidecar] Window close requested, shutting down backend...");
+					logger.log("[Sidecar] Window close requested, shutting down backend...");
 
 					// 1) Ask backend to shutdown gracefully (requires x-api-key)
 					if (backendPort) {
@@ -107,12 +108,12 @@ export async function startSidecar() {
 								signal: AbortSignal.timeout(800),
 							});
 							if (!res.ok) {
-								console.warn(`[Sidecar] Backend shutdown request failed: ${res.status}`);
+								logger.warn(`[Sidecar] Backend shutdown request failed: ${res.status}`);
 							} else {
-								console.log("[Sidecar] Shutdown request sent to backend.");
+								logger.log("[Sidecar] Shutdown request sent to backend.");
 							}
 						} catch (error) {
-							console.log("[Sidecar] Backend shutdown request completed or timed out.", error);
+							logger.log("[Sidecar] Backend shutdown request completed or timed out.", error);
 						}
 					}
 
@@ -126,7 +127,7 @@ export async function startSidecar() {
 							await stopSidecar();
 						}
 					} catch (error) {
-						console.warn("[Sidecar] Failed while waiting for backend exit:", error);
+						logger.warn("[Sidecar] Failed while waiting for backend exit:", error);
 						await stopSidecar();
 					}
 
@@ -137,9 +138,9 @@ export async function startSidecar() {
 						// exit呼び出しが失敗しても問題ない（既に終了中）
 					}
 				});
-				console.log("[Sidecar] Window close handler registered.");
+				logger.log("[Sidecar] Window close handler registered.");
 			} catch (err) {
-				console.warn("[Sidecar] Failed to register window close handler:", err);
+				logger.warn("[Sidecar] Failed to register window close handler:", err);
 			}
 		}
 
@@ -149,7 +150,7 @@ export async function startSidecar() {
 				try {
 					const response = await fetch(`http://127.0.0.1:${testPort}/${ENDPOINTS.HEALTH}`);
 					if (response.ok) {
-						console.log(`[Sidecar] Backend already running on port ${testPort}`);
+						logger.log(`[Sidecar] Backend already running on port ${testPort}`);
 						backendPort = testPort;
 						setDynamicPort(testPort);
 						if (backendReadyResolve) {
@@ -162,25 +163,25 @@ export async function startSidecar() {
 				}
 			}
 
-			console.log("[Sidecar] Starting backend sidecar...");
+			logger.log("[Sidecar] Starting backend sidecar...");
 			// Note: Tauri will look for tepora-backend-target-triple(.exe)
 			const command = Command.sidecar("binaries/tepora-backend");
 			resetSidecarExitPromise();
 
 			command.on("close", (data) => {
-				console.log(`[Sidecar] finished with code ${data.code} and signal ${data.signal}`);
+				logger.log(`[Sidecar] finished with code ${data.code} and signal ${data.signal}`);
 				sidecarChild = null;
 				markSidecarExited();
 			});
-			command.on("error", (error) => console.error(`[Sidecar] error: "${error}"`));
+			command.on("error", (error) => logger.error(`[Sidecar] error: "${error}"`));
 
 			// Parse TEPORA_PORT from stdout
 			command.stdout.on("data", async (line) => {
-				console.log(`[Backend]: ${line}`);
+				logger.log(`[Backend]: ${line}`);
 				const portMatch = line.match(/TEPORA_PORT=(\d+)/);
 				if (portMatch) {
 					const port = parseInt(portMatch[1], 10);
-					console.log(`[Sidecar] Backend port confirmed: ${port}. Waiting for health check...`);
+					logger.log(`[Sidecar] Backend port confirmed: ${port}. Waiting for health check...`);
 					backendPort = port;
 					setDynamicPort(port);
 
@@ -191,7 +192,7 @@ export async function startSidecar() {
 						try {
 							const res = await fetch(`http://127.0.0.1:${port}/${ENDPOINTS.HEALTH}`);
 							if (res.ok) {
-								console.log("[Sidecar] Backend health check passed. Ready.");
+								logger.log("[Sidecar] Backend health check passed. Ready.");
 								if (backendReadyResolve) {
 									backendReadyResolve(port);
 									backendReadyResolve = null;
@@ -205,11 +206,11 @@ export async function startSidecar() {
 					}
 				}
 			});
-			command.stderr.on("data", (line) => console.error(`[Backend Error]: ${line}`));
+			command.stderr.on("data", (line) => logger.error(`[Backend Error]: ${line}`));
 
 			const child = await command.spawn();
 			sidecarChild = child; // Store reference for termination
-			console.log("[Sidecar] Backend spawned with PID:", child.pid);
+			logger.log("[Sidecar] Backend spawned with PID:", child.pid);
 
 			// Wait for port detection with timeout
 			const timeoutMs = 30000;
@@ -219,7 +220,7 @@ export async function startSidecar() {
 			}
 
 			if (!backendPort) {
-				console.warn(
+				logger.warn(
 					"[Sidecar] Timeout waiting for port, falling back to checking health endpoints",
 				);
 				// Fallback: try to detect port by checking health
@@ -242,7 +243,7 @@ export async function startSidecar() {
 				}
 			}
 		} catch (error) {
-			console.error("[Sidecar] Failed to start sidecar:", error);
+			logger.error("[Sidecar] Failed to start sidecar:", error);
 			// sidecarStarting = false; // Handled in finally block
 		}
 	} finally {

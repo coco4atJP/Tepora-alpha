@@ -7,9 +7,11 @@
  */
 
 import { isDesktop } from "./api";
+import { logger } from "./logger";
 
 // Cached token to avoid repeated file reads
 let cachedToken: string | null = null;
+export let cachedTokenExpiresAt: number | null = null;
 let tokenLoadPromise: Promise<string | null> | null = null;
 
 /**
@@ -31,7 +33,7 @@ async function readTokenFromFile(): Promise<string | null> {
 		// Invoke command not registered or failed - fall back to env
 		// This is expected for new installations or web mode
 		if (import.meta.env.DEV) {
-			console.debug("[SessionToken] Tauri invoke not available, using env fallback");
+			logger.debug("[SessionToken] Tauri invoke not available, using env fallback");
 		}
 		return null;
 	}
@@ -75,7 +77,7 @@ export async function getSessionToken(): Promise<string | null> {
 		if (fileToken) {
 			cachedToken = fileToken;
 			if (import.meta.env.DEV) {
-				console.log("[SessionToken] Loaded from file");
+				logger.log("[SessionToken] Loaded from file");
 			}
 			return cachedToken;
 		}
@@ -85,13 +87,13 @@ export async function getSessionToken(): Promise<string | null> {
 		if (envToken) {
 			cachedToken = envToken;
 			if (import.meta.env.DEV) {
-				console.log("[SessionToken] Loaded from environment");
+				logger.log("[SessionToken] Loaded from environment");
 			}
 			return cachedToken;
 		}
 
 		if (import.meta.env.DEV) {
-			console.warn("[SessionToken] No token available");
+			logger.warn("[SessionToken] No token available");
 		}
 		return null;
 	})();
@@ -121,7 +123,28 @@ export function getSessionTokenSync(): string | null {
  * @returns Promise resolving to new session token or null
  */
 export async function refreshSessionToken(): Promise<string | null> {
+	try {
+		const { getApiBase } = await import("./api");
+		const url = `${getApiBase()}/api/auth/refresh`;
+		const oldToken = getSessionTokenSync();
+		const headers = {
+			"Content-Type": "application/json",
+			...(oldToken ? { "x-api-key": oldToken } : {})
+		};
+		const res = await fetch(url, { method: "POST", headers });
+		if (res.ok) {
+			const data = await res.json();
+			const newToken = data.token;
+			cachedTokenExpiresAt = data.expires_at ? new Date(data.expires_at).getTime() : null;
+			setSessionToken(newToken);
+			return newToken;
+		}
+	} catch {
+		// ignore network error
+	}
+
 	cachedToken = null;
+	cachedTokenExpiresAt = null;
 	tokenLoadPromise = null;
 	return getSessionToken();
 }
@@ -133,4 +156,7 @@ export async function refreshSessionToken(): Promise<string | null> {
  */
 export function setSessionToken(token: string | null): void {
 	cachedToken = token;
+	if (!token) {
+		cachedTokenExpiresAt = null;
+	}
 }

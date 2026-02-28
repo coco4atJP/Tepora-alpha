@@ -1,5 +1,6 @@
 import { getApiBase, getAuthHeaders, getAuthHeadersAsync } from "./api";
 import { refreshSessionToken } from "./sessionToken";
+import { logger } from "./logger";
 
 export class ApiError extends Error {
 	status: number;
@@ -25,10 +26,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
 		const errorPayload =
 			typeof errorData === "object" && errorData !== null
 				? (errorData as {
-						message?: unknown;
-						error?: unknown;
-						detail?: unknown;
-					})
+					message?: unknown;
+					error?: unknown;
+					detail?: unknown;
+				})
 				: null;
 		const message =
 			(typeof errorPayload?.message === "string" && errorPayload.message) ||
@@ -74,7 +75,7 @@ async function request<T>(
 
 	// Handle 401 with token refresh and retry (once)
 	if (response.status === 401 && !isRetry) {
-		console.log("[API] 401 received, refreshing token and retrying...");
+		logger.log("[API] 401 received, refreshing token and retrying...");
 		await refreshSessionToken();
 		const freshHeaders = await getAuthHeadersAsync();
 		const retryResponse = await fetch(url, {

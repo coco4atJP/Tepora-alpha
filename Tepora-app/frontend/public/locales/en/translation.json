@@ -779,6 +779,19 @@
 				"mean_surprise": "Mean surprise",
 				"max_surprise": "Max surprise"
 			},
+			"compaction": {
+				"scanned": "Scanned:",
+				"merged_groups": "Merged groups:",
+				"replaced": "Replaced:",
+				"created": "Created:",
+				"elapsed": "Elapsed:",
+				"compressing": "Compressing...",
+				"failed": "Compression failed.",
+				"history": "Compaction Job History",
+				"no_jobs": "No compaction jobs yet. Click \"Compress Memories\" to start one.",
+				"refresh": "↺ Refresh",
+				"loading": "Loading..."
+			},
 			"professional_memory": "Professional memory"
 		},
 		"mcp_content": {
@@ -869,6 +882,7 @@
 				"noResults": "No servers found",
 				"selectRuntime": "Select Runtime",
 				"runtimeDescription": "Choose a runtime to execute this server.",
+				"runtime": "Runtime",
 				"configure": "Configure",
 				"configDescription": "Enter the required environment variables.",
 				"confirm": "Confirm",

@@ -8,6 +8,7 @@ export const ENDPOINTS = {
 	SESSIONS: {
 		LIST: "api/sessions", // GET for list, POST for create
 		DETAIL: (id: string) => `api/sessions/${id}`, // DELETE, PATCH
+		METRICS: (id: string) => `api/sessions/${id}/metrics`, // GET for agent events
 	},
 	LOADERS: {
 		OLLAMA: {

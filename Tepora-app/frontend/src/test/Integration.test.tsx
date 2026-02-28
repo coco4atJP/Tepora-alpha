@@ -39,14 +39,27 @@ const mockSetSession = vi.fn();
 const mockHandleToolConfirmation = vi.fn();
 const mockStopGeneration = vi.fn();
 const mockClearError = vi.fn();
+const mockActorSend = vi.fn();
 
 vi.mock("../stores", () => ({
 	useChatStore: vi.fn(),
 	useWebSocketStore: vi.fn(),
 }));
 
+vi.mock("../machines/chatMachine", () => ({
+	chatActor: {
+		send: (...args: unknown[]) => mockActorSend(...args),
+		getSnapshot: () => ({ matches: vi.fn() })
+	}
+}));
+
+vi.mock("@xstate/react", () => ({
+	useSelector: vi.fn(),
+}));
+
 import ChatInterface from "../features/chat/ChatInterface";
 import { useChatStore, useWebSocketStore } from "../stores";
+import { useSelector } from "@xstate/react";
 import type { ChatMode } from "../types";
 
 const mockCreateSession = vi.fn();
@@ -57,14 +70,19 @@ vi.mock("../hooks/useSessions", () => ({
 	}),
 }));
 
+const mockUseSelector = (_actor: unknown, selector: (state: { matches: (stateValue: string) => boolean }) => unknown) => {
+	return selector({ matches: (stateValue: string) => stateValue === "idle" });
+};
+
 describe("ChatInterface Integration", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockUseSelector);
+
 		// Default Store State
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
-				isProcessing: false,
 				messages: [],
 				error: null,
 				clearError: mockClearError,
@@ -84,9 +102,9 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("renders initial state correctly", () => {
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockUseSelector);
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
-				isProcessing: false,
 				messages: [
 					{
 						id: "1",
@@ -128,24 +146,28 @@ describe("ChatInterface Integration", () => {
 		// Simulate send
 		fireEvent.click(sendButton);
 
-		// Verify sendMessage called with correct args
+		// Verify actor send called with correct args
 		// Assuming ChatMode 'chat' from outlet context mock
 		expect(mockSendMessage).toHaveBeenCalledWith(
 			"Test Query",
 			"chat",
 			[],
 			false,
-			false,
+			0,
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Test Query"
+		});
 	});
 
 	it("displays error toast when error occurs", () => {
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockUseSelector);
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
-				isProcessing: false,
 				messages: [],
 				error: "Connection Failed",
 				clearError: mockClearError,
@@ -163,9 +185,11 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("disables input when processing", () => {
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation((_actor, selector) => {
+			return selector({ matches: (stateValue: string) => stateValue === "generating" });
+		});
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
-				isProcessing: true,
 				messages: [],
 				error: null,
 				clearError: mockClearError,
@@ -187,6 +211,7 @@ describe("ChatInterface Integration", () => {
 	});
 
 	it("keeps input and send button disabled when websocket is disconnected", () => {
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockUseSelector);
 		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
 				isConnected: false,
@@ -209,6 +234,7 @@ describe("ChatInterface Integration", () => {
 		fireEvent.change(input, { target: { value: "Should not send" } });
 		fireEvent.click(sendButton);
 
+		expect(mockActorSend).not.toHaveBeenCalled();
 		expect(mockSendMessage).not.toHaveBeenCalled();
 	});
 

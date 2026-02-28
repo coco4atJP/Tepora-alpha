@@ -81,11 +81,11 @@ async function main() {
     frontendEnv.VITE_API_KEY = sessionToken;
     frontendEnv.VITE_SESSION_TOKEN = sessionToken;
 
-    frontendProcess = spawn("npm", ["run", "dev"], {
+    frontendProcess = spawn(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "dev"], {
       cwd: FRONTEND_DIR,
       env: frontendEnv,
       stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
+      shell: process.platform === "win32",
     });
 
     readline.createInterface({ input: frontendProcess.stdout }).on("line", (line) => {

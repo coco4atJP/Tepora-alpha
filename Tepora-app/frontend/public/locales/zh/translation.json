@@ -799,6 +799,7 @@
 				"noResults": "未找到服务器",
 				"selectRuntime": "选择运行时",
 				"runtimeDescription": "选择运行此服务器的运行时。",
+				"runtime": "运行环境",
 				"configure": "配置",
 				"configDescription": "输入所需的环境变量。",
 				"confirm": "确认",
@@ -864,6 +865,19 @@
 				"surprise_statistics": "Surprise statistics",
 				"mean_surprise": "Mean surprise",
 				"max_surprise": "Max surprise"
+			},
+			"compaction": {
+				"scanned": "已扫描:",
+				"merged_groups": "已合并组:",
+				"replaced": "已替换:",
+				"created": "已创建:",
+				"elapsed": "耗时:",
+				"compressing": "压缩中...",
+				"failed": "压缩失败。",
+				"history": "内存压缩历史记录",
+				"no_jobs": "暂无压缩历史记录。点击“压缩内存”开始。",
+				"refresh": "↺ 刷新",
+				"loading": "加载中..."
 			},
 			"professional_memory": "Professional memory"
 		}

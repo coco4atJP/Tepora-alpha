@@ -41,6 +41,14 @@ vi.mock("../../../utils/wsAuth", () => ({
     buildWebSocketProtocols: (_token: string) => ["tepora-auth.test-token"],
 }));
 
+const mockChatActorSend = vi.fn();
+vi.mock("../../../machines/chatMachine", () => ({
+    chatActor: {
+        send: (...args: unknown[]) => mockChatActorSend(...args),
+        getSnapshot: () => ({ matches: vi.fn() })
+    }
+}));
+
 // ============================================================================
 // MockWebSocket helper
 // ============================================================================
@@ -107,6 +115,7 @@ const resetAllStores = () => {
     // pendingToolConfirmation を明示的にリセット（テスト間の状態汚染を防ぐ）
     useWebSocketStore.getState().setPendingToolConfirmation(null);
     MockWebSocket.instances = [];
+    mockChatActorSend.mockClear();
 };
 
 // ============================================================================
@@ -249,16 +258,6 @@ describe("websocketStore", () => {
             expect(userMessages).toHaveLength(1);
             expect(userMessages[0].content).toBe("テスト");
         });
-
-        it("送信時にisProcessingがtrueになる", async () => {
-            await useWebSocketStore.getState().connect();
-            const ws = MockWebSocket.instances[0];
-            ws.simulateOpen();
-
-            useWebSocketStore.getState().sendMessage("テスト", "chat");
-
-            expect(useChatStore.getState().isProcessing).toBe(true);
-        });
     });
 
     // ==========================================================================
@@ -307,17 +306,6 @@ describe("websocketStore", () => {
                 return d.type === "stop";
             });
             expect(stopCall).toBeDefined();
-        });
-
-        it("stopGeneration後にisProcessingがfalseになる", async () => {
-            await useWebSocketStore.getState().connect();
-            const ws = MockWebSocket.instances[0];
-            ws.simulateOpen();
-
-            useChatStore.getState().setIsProcessing(true);
-            useWebSocketStore.getState().stopGeneration();
-
-            expect(useChatStore.getState().isProcessing).toBe(false);
         });
     });
 
@@ -368,12 +356,10 @@ describe("websocketStore", () => {
     // ==========================================================================
 
     describe("handleMessage: chunk", () => {
-        it("chunk メッセージでhandleStreamChunkが呼ばれる", async () => {
+        it("chunk メッセージでchatActorにRECV_CHUNKが送信される", async () => {
             await useWebSocketStore.getState().connect();
             const ws = MockWebSocket.instances[0];
             ws.simulateOpen();
-
-            const handleStreamChunk = vi.spyOn(useChatStore.getState(), "handleStreamChunk");
 
             ws.simulateMessage({
                 type: "chunk",
@@ -381,50 +367,39 @@ describe("websocketStore", () => {
                 nodeId: "node1",
             });
 
-            expect(handleStreamChunk).toHaveBeenCalledWith("Hello", {
-                mode: undefined,
-                agentName: undefined,
-                nodeId: "node1",
+            expect(mockChatActorSend).toHaveBeenCalledWith({
+                type: "RECV_CHUNK",
+                payload: "Hello",
+                metadata: {
+                    mode: undefined,
+                    agentName: undefined,
+                    nodeId: "node1",
+                }
             });
         });
     });
 
     describe("handleMessage: done", () => {
-        it("done メッセージでfinalizeStreamが呼ばれる", async () => {
+        it("done メッセージでchatActorにDONEが送信される", async () => {
             await useWebSocketStore.getState().connect();
             const ws = MockWebSocket.instances[0];
             ws.simulateOpen();
 
-            const finalizeStream = vi.spyOn(useChatStore.getState(), "finalizeStream");
             ws.simulateMessage({ type: "done" });
 
-            expect(finalizeStream).toHaveBeenCalled();
-        });
-
-        it("done メッセージでisProcessingがfalseになる", async () => {
-            await useWebSocketStore.getState().connect();
-            const ws = MockWebSocket.instances[0];
-            ws.simulateOpen();
-
-            useChatStore.getState().setIsProcessing(true);
-            ws.simulateMessage({ type: "done" });
-
-            expect(useChatStore.getState().isProcessing).toBe(false);
+            expect(mockChatActorSend).toHaveBeenCalledWith({ type: "DONE" });
         });
     });
 
     describe("handleMessage: stopped", () => {
-        it("stopped メッセージでfinalizeStreamが呼ばれてisProcessingがfalseになる", async () => {
+        it("stopped メッセージでchatActorにDONEが送信される", async () => {
             await useWebSocketStore.getState().connect();
             const ws = MockWebSocket.instances[0];
             ws.simulateOpen();
 
-            useChatStore.getState().setIsProcessing(true);
-            const finalizeStream = vi.spyOn(useChatStore.getState(), "finalizeStream");
             ws.simulateMessage({ type: "stopped" });
 
-            expect(finalizeStream).toHaveBeenCalled();
-            expect(useChatStore.getState().isProcessing).toBe(false);
+            expect(mockChatActorSend).toHaveBeenCalledWith({ type: "DONE" });
         });
     });
 
@@ -450,17 +425,6 @@ describe("websocketStore", () => {
             const systemMessages = messages.filter((m) => m.role === "system");
             expect(systemMessages).toHaveLength(1);
             expect(systemMessages[0].content).toContain("サーバーエラー");
-        });
-
-        it("error メッセージでisProcessingがfalseになる", async () => {
-            await useWebSocketStore.getState().connect();
-            const ws = MockWebSocket.instances[0];
-            ws.simulateOpen();
-
-            useChatStore.getState().setIsProcessing(true);
-            ws.simulateMessage({ type: "error", message: "エラー" });
-
-            expect(useChatStore.getState().isProcessing).toBe(false);
         });
 
         it("message未指定の場合にデフォルトエラーメッセージが使われる", async () => {

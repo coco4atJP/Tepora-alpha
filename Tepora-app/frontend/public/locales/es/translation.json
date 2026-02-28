@@ -799,6 +799,7 @@
 				"noResults": "No se encontraron servidores",
 				"selectRuntime": "Seleccionar Runtime",
 				"runtimeDescription": "Elija un runtime para ejecutar este servidor.",
+				"runtime": "Entorno de ejecución",
 				"configure": "Configurar",
 				"configDescription": "Ingrese las variables de entorno requeridas.",
 				"confirm": "Confirmar",
@@ -864,6 +865,19 @@
 				"surprise_statistics": "Surprise statistics",
 				"mean_surprise": "Mean surprise",
 				"max_surprise": "Max surprise"
+			},
+			"compaction": {
+				"scanned": "Escaneado:",
+				"merged_groups": "Grupos fusionados:",
+				"replaced": "Reemplazado:",
+				"created": "Creado:",
+				"elapsed": "Tiempo transcurrido:",
+				"compressing": "Comprimiendo...",
+				"failed": "Error en la compresión.",
+				"history": "Historial de trabajos de compresión",
+				"no_jobs": "Todavía no hay trabajos de compresión. Haga clic en \"Comprimir memorias\" para iniciar uno.",
+				"refresh": "↺ Actualizar",
+				"loading": "Cargando..."
 			},
 			"professional_memory": "Professional memory"
 		}
