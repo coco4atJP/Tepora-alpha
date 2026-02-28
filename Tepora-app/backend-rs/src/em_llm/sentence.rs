@@ -11,7 +11,7 @@
 /// # Arguments
 /// * `text` - The input text to split
 /// * `min_tokens` - Minimum number of tokens (words/characters) per sentence.
-///                  Shorter sentences will be merged with the previous one.
+///   Shorter sentences will be merged with the previous one.
 pub fn split_sentences(text: &str, min_tokens: usize) -> Vec<String> {
     let mut sentences = Vec::new();
     let mut current_sentence = String::new();

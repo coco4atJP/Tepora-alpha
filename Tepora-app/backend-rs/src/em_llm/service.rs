@@ -11,13 +11,12 @@ use crate::llm::LlmService;
 
 use super::compression::{CompressionResult, MemoryCompressor};
 use super::decay::DecayEngine;
-use super::store::EmMemoryStore;
-use super::types::{DecayConfig, MemoryLayer};
-use crate::memory_v2::sqlite_repository::SqliteMemoryRepository;
-use crate::memory_v2::repository::MemoryRepository;
-use crate::memory_v2::types::{MemoryEvent, MemoryScope};
-use super::sentence::split_sentences;
 use super::integrator::EMLLMIntegrator;
+use super::sentence::split_sentences;
+use super::types::{DecayConfig, MemoryLayer};
+use crate::memory_v2::repository::MemoryRepository;
+use crate::memory_v2::sqlite_repository::SqliteMemoryRepository;
+use crate::memory_v2::types::{MemoryEvent, MemoryScope};
 
 const KEYRING_SERVICE: &str = "tepora-backend";
 const KEYRING_USER: &str = "em_memory_encryption_key";
@@ -31,6 +30,15 @@ pub struct EmMemoryStats {
     pub lml_events: usize,
     pub sml_events: usize,
     pub mean_strength: f64,
+    // Scope specific stats
+    pub char_events: usize,
+    pub char_lml: usize,
+    pub char_sml: usize,
+    pub char_mean_strength: f64,
+    pub prof_events: usize,
+    pub prof_lml: usize,
+    pub prof_sml: usize,
+    pub prof_mean_strength: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -52,12 +60,12 @@ pub struct DecayCycleResult {
 
 #[derive(Clone)]
 pub struct EmMemoryService {
-    pub store: Arc<EmMemoryStore>,
-    pub v2_store: Option<Arc<SqliteMemoryRepository>>,
+    pub v2_store: Arc<SqliteMemoryRepository>,
     enabled: bool,
     retrieval_limit: usize,
     min_score: f32,
     decay_config: DecayConfig,
+    decay_interval_hours: f64,
 }
 
 impl EmMemoryService {
@@ -87,35 +95,46 @@ impl EmMemoryService {
             .clamp(-1.0, 1.0) as f32;
 
         let decay_config = parse_decay_config(&config);
+        let decay_interval_hours = config
+            .get("em_llm")
+            .and_then(|v| v.get("decay_interval_hours"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+            .clamp(0.0, 24.0);
 
-        let mut store = EmMemoryStore::new(paths).await?;
-        let v2_db_path = paths.user_data_dir.join("em_memory.db");
-        let mut v2_repo = match SqliteMemoryRepository::new(v2_db_path).await {
-            Ok(repo) => Some(repo),
-            Err(e) => {
-                tracing::warn!("Failed to initialize v2 memory repository: {}", e);
-                None
+        if let Some(memory_version) = config
+            .get("em_llm")
+            .and_then(|v| v.get("memory_version"))
+            .and_then(|v| v.as_str())
+        {
+            if !memory_version.eq_ignore_ascii_case("v2") {
+                tracing::warn!(
+                    memory_version = memory_version,
+                    "em_llm.memory_version is deprecated and forced to v2"
+                );
             }
-        };
+        }
+
+        let v2_db_path = paths.user_data_dir.join("em_memory.db");
+        let mut v2_repo = SqliteMemoryRepository::new(v2_db_path)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to initialize v2 memory repository: {e}")))?;
 
         // Initialize encryption key
         match get_or_create_encryption_key() {
             Ok(key) => {
-                store.set_encryption_key(&key);
-                if let Some(repo) = v2_repo.as_mut() {
-                    repo.set_encryption_key(&key);
-                }
+                v2_repo.set_encryption_key(&key);
             }
             Err(e) => tracing::warn!("Failed to initialize encryption key: {}", e),
         }
 
         let service = Self {
-            store: Arc::new(store),
-            v2_store: v2_repo.map(Arc::new),
+            v2_store: Arc::new(v2_repo),
             enabled,
             retrieval_limit,
             min_score,
             decay_config,
+            decay_interval_hours,
         };
 
         if let Err(err) = service.run_decay_cycle(None).await {
@@ -125,39 +144,37 @@ impl EmMemoryService {
         Ok(service)
     }
 
-    pub fn with_store_for_test(
-        store: Arc<EmMemoryStore>,
+    #[cfg(test)]
+    pub fn with_v2_store_for_test(
+        v2_store: Arc<SqliteMemoryRepository>,
         enabled: bool,
         retrieval_limit: usize,
         min_score: f32,
     ) -> Self {
         Self {
-            store,
-            v2_store: None,
+            v2_store,
             enabled,
             retrieval_limit: retrieval_limit.clamp(1, 50),
             min_score,
             decay_config: DecayConfig::default(),
+            decay_interval_hours: 0.0,
         }
     }
 
-    /// Construct service with both v1 and v2 stores for testing dual-write and retrieval pipelines.
     #[cfg(test)]
-    pub fn with_dual_store_for_test(
-        store: std::sync::Arc<crate::em_llm::store::EmMemoryStore>,
-        v2_store: std::sync::Arc<crate::memory_v2::sqlite_repository::SqliteMemoryRepository>,
+    pub async fn with_v2_path_for_test(
+        path: std::path::PathBuf,
         enabled: bool,
         retrieval_limit: usize,
         min_score: f32,
-    ) -> Self {
-        Self {
-            store,
-            v2_store: Some(v2_store),
+    ) -> Result<Self, ApiError> {
+        let repo = SqliteMemoryRepository::new(path).await?;
+        Ok(Self::with_v2_store_for_test(
+            Arc::new(repo),
             enabled,
-            retrieval_limit: retrieval_limit.clamp(1, 50),
+            retrieval_limit,
             min_score,
-            decay_config: DecayConfig::default(),
-        }
+        ))
     }
 
     pub fn enabled(&self) -> bool {
@@ -170,6 +187,7 @@ impl EmMemoryService {
         user_input: &str,
         assistant_output: &str,
         llm: &LlmService,
+        text_model_id: &str,
         embedding_model_id: &str,
     ) -> Result<(), ApiError> {
         if !self.enabled {
@@ -181,62 +199,92 @@ impl EmMemoryService {
             return Ok(());
         }
 
-        let embeddings = llm
-            .embed(std::slice::from_ref(&content), embedding_model_id)
-            .await
-            .map_err(|err| ApiError::internal(format!("EM memory embedding failed: {err}")))?;
-
-        let Some(embedding) = embeddings.first() else {
-            return Err(ApiError::internal("EM memory embedding is empty"));
-        };
-
-        // v1: Direct legacy insert
-        self.ingest_interaction_with_embedding(session_id, user_input, assistant_output, embedding)
+        self.ingest_turn_v2(session_id, &content, llm, text_model_id, embedding_model_id)
             .await?;
-
-        // v2: Dual-write (Segmented)
-        if let Err(e) = self.ingest_turn_v2(session_id, &content, llm, embedding_model_id).await {
-            tracing::warn!("Failed to ingest v2 memory event: {}", e);
-        }
-
         Ok(())
     }
 
-    async fn ingest_turn_v2(
+    pub async fn ingest_turn_v2(
         &self,
         session_id: &str,
         content: &str,
         llm: &LlmService,
+        text_model_id: &str,
         embedding_model_id: &str,
-    ) -> Result<(), ApiError> {
-        let v2_store = match &self.v2_store {
-            Some(s) => s.as_ref(),
-            None => return Ok(()),
+    ) -> Result<Vec<String>, ApiError> {
+        let v2_store = self.v2_store.as_ref();
+
+        // Attempt surprise-based segmentation first
+        let logprobs_result = llm.get_logprobs(content, text_model_id).await;
+
+        let events = match logprobs_result {
+            Ok(logprobs) => {
+                let mut sentences = split_sentences(content, 8);
+                if sentences.is_empty() {
+                    sentences.push(content.to_string());
+                }
+                let sentence_embeddings = match llm.embed(&sentences, embedding_model_id).await {
+                    Ok(embs) => Some(embs),
+                    Err(e) => {
+                        tracing::warn!("Failed to embed sentences for boundary refinement: {}", e);
+                        None
+                    }
+                };
+
+                let mut integrator = EMLLMIntegrator::default();
+                integrator.process_logprobs_for_memory(&logprobs, sentence_embeddings.as_deref())
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get logprobs (falling back to semantic segmentation): {}", e);
+                // Fallback: Semantic segmentation
+                let mut sentences = split_sentences(content, 8);
+                if sentences.is_empty() {
+                    sentences.push(content.to_string());
+                }
+
+                let sentence_embeddings = llm
+                    .embed(&sentences, embedding_model_id)
+                    .await
+                    .map_err(|err| ApiError::internal(format!("EM v2 embedding failed: {err}")))?;
+
+                let mut integrator = EMLLMIntegrator::default();
+                integrator.process_conversation_for_memory(&sentences, &sentence_embeddings)
+            }
         };
 
-        // 1. Split text into semantic sentences
-        let mut sentences = split_sentences(content, 8);
-        if sentences.is_empty() {
-            sentences.push(content.to_string());
-        }
+        self.save_v2_events(session_id, events, v2_store).await
+    }
 
-        // 2. Generate embeddings for each sentence
-        let sentence_embeddings = llm
-            .embed(&sentences, embedding_model_id)
-            .await
-            .map_err(|err| ApiError::internal(format!("EM v2 embedding failed: {err}")))?;
+    pub async fn ingest_segmented_v2(
+        &self,
+        session_id: &str,
+        sentences: &[String],
+        sentence_embeddings: &[Vec<f32>],
+    ) -> Result<Vec<String>, ApiError> {
+        let v2_store = self.v2_store.as_ref();
 
-        // 3. Segment using EMLLMIntegrator
+        // Explicit fallback path for tests or external direct segmented injection
         let mut integrator = EMLLMIntegrator::default();
         let events =
-            integrator.process_conversation_for_memory(&sentences, &sentence_embeddings);
+            integrator.process_conversation_for_memory(sentences, sentence_embeddings);
 
+        self.save_v2_events(session_id, events, v2_store).await
+    }
+
+    async fn save_v2_events(
+        &self,
+        session_id: &str,
+        events: Vec<crate::em_llm::types::EpisodicEvent>,
+        v2_store: &dyn MemoryRepository,
+    ) -> Result<Vec<String>, ApiError> {
         // 4. Map to v2 MemoryEvent and save
         let episode_id = uuid::Uuid::new_v4().to_string();
         let source_turn_id = format!("{}-{}", session_id, Utc::now().timestamp());
         let mut v2_events = Vec::new();
         let mut v2_edges = Vec::new();
         let mut prev_event_id: Option<String> = None;
+
+        let decay_engine = DecayEngine::new(self.decay_config.clone());
 
         for (i, ev) in events.into_iter().enumerate() {
             let event_content = ev.tokens.join(" ");
@@ -254,6 +302,9 @@ impl EmMemoryService {
             }
             prev_event_id = Some(ev.id.clone());
 
+            // P1: Calculate dynamic initial importance based on semantic_relevance 0.0, access_count 0, age 0.0
+            let initial_importance = decay_engine.importance_score(0.0, 0, 0.0);
+
             v2_events.push(MemoryEvent {
                 id: ev.id,
                 session_id: session_id.to_string(),
@@ -270,7 +321,7 @@ impl EmMemoryService {
                         / ev.surprise_scores.len().max(1) as f64,
                 ),
                 surprise_max: ev.surprise_scores.iter().cloned().reduce(f64::max),
-                importance: 0.5,
+                importance: initial_importance,
                 strength: 1.0,
                 layer: crate::memory_v2::types::MemoryLayer::SML,
                 access_count: 0,
@@ -282,69 +333,13 @@ impl EmMemoryService {
             });
         }
 
+        let inserted_ids: Vec<String> = v2_events.iter().map(|e| e.id.clone()).collect();
         v2_store.insert_events(&v2_events).await?;
         if !v2_edges.is_empty() {
             v2_store.insert_edges(&v2_edges).await?;
         }
 
-        Ok(())
-    }
-
-    pub async fn ingest_interaction_with_embedding(
-        &self,
-        session_id: &str,
-        user_input: &str,
-        assistant_output: &str,
-        embedding: &[f32],
-    ) -> Result<(), ApiError> {
-        if !self.enabled {
-            return Ok(());
-        }
-
-        let event_id = uuid::Uuid::new_v4().to_string();
-        let content = build_memory_text(user_input, assistant_output);
-
-        if let Some(v2_store) = &self.v2_store {
-            let episode_id = uuid::Uuid::new_v4().to_string();
-            let source_turn_id = format!("{}-{}", session_id, Utc::now().timestamp());
-            let v2_event = MemoryEvent {
-                id: uuid::Uuid::new_v4().to_string(),
-                session_id: session_id.to_string(),
-                scope: MemoryScope::Char,
-                episode_id,
-                event_seq: 0,
-                source_turn_id: Some(source_turn_id),
-                source_role: None,
-                content: content.clone(),
-                summary: None,
-                embedding: embedding.to_vec(),
-                surprise_mean: None,
-                surprise_max: None,
-                importance: 0.5,
-                strength: 1.0,
-                layer: crate::memory_v2::types::MemoryLayer::SML,
-                access_count: 0,
-                last_accessed_at: None,
-                decay_anchor_at: Utc::now(),
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
-                is_deleted: false,
-            };
-            if let Err(e) = v2_store.insert_events(&[v2_event]).await {
-                tracing::warn!("Failed to insert dummy v2 event in test/legacy flow: {}", e);
-            }
-        }
-
-        self.store
-            .insert_event(
-                &event_id,
-                session_id,
-                user_input,
-                assistant_output,
-                &content,
-                embedding,
-            )
-            .await
+        Ok(inserted_ids)
     }
 
     pub async fn retrieve_for_query(
@@ -383,54 +378,23 @@ impl EmMemoryService {
             return Ok(Vec::new());
         }
 
-        if let Some(v2_store) = &self.v2_store {
-            match self.retrieve_for_query_v2(session_id, query_embedding, v2_store.as_ref()).await {
-                Ok(res) => {
-                    if !res.is_empty() {
-                        return Ok(res);
-                    }
-                    tracing::debug!("V2 retrieval returned empty, falling back to V1");
-                }
-                Err(e) => {
-                    tracing::warn!("V2 retrieval failed, falling back to V1: {}", e);
-                }
-            }
-        }
-
-        let mut records = self
-            .store
-            .retrieve_similar(
-                query_embedding,
-                Some(session_id),
-                self.retrieval_limit,
-                &self.decay_config,
-            )
-            .await?;
-
-        records.retain(|record| (record.score as f32) >= self.min_score);
-        self.store
-            .reinforce_accesses(&mut records, &self.decay_config)
-            .await?;
-
-        Ok(records
-            .into_iter()
-            .map(|record| RetrievedMemory {
-                content: record.content,
-                relevance_score: record.score as f32,
-                source: format!("em://{}/{}", record.session_id, record.id),
-                strength: record.strength,
-                memory_layer: record.memory_layer,
-            })
-            .collect())
+        self.retrieve_for_query_v2(session_id, query_embedding, self.v2_store.as_ref())
+            .await
     }
 
-    async fn retrieve_for_query_v2(
+    pub async fn retrieve_for_query_v2(
         &self,
         session_id: &str,
         query_embedding: &[f32],
         v2_store: &dyn MemoryRepository,
     ) -> Result<Vec<RetrievedMemory>, ApiError> {
-        let ks = self.retrieval_limit; 
+        let limit = self.retrieval_limit;
+        let ratio = self.decay_config.retrieval_similarity_ratio;
+        let mut ks = (limit as f32 * ratio).ceil() as usize;
+        if limit > 0 && ks == 0 {
+            ks = 1;
+        }
+        let kc = limit.saturating_sub(ks);
 
         // Stage 1: Similarity based retrieval
         let similar_events = v2_store
@@ -447,34 +411,39 @@ impl EmMemoryService {
         }
 
         // Stage 2: Contiguity based retrieval
-        // Fetch adjacent events via TemporalNext edges
-        for event_id in edges_to_fetch {
-            // Next events in time
-            if let Ok(edges) = v2_store.get_edges_from(&event_id, Some(crate::memory_v2::types::MemoryEdgeType::TemporalNext)).await {
-                for edge in edges {
-                    if !candidates.contains_key(&edge.to_event_id) {
-                        if let Ok(Some(adj_ev)) = v2_store.get_event(&edge.to_event_id).await {
-                            candidates.insert(adj_ev.id.clone(), crate::memory_v2::repository::ScoredEvent {
-                                event: adj_ev,
-                                score: 0.0, // Initial similarity is 0.0 unless computed
-                            });
+        // Fetch adjacent events via TemporalNext edges (unidirectional)
+        let mut contiguity_added = 0;
+        let mut current_layer_edges = edges_to_fetch;
+        let mut distance = 1;
+
+        let mut contiguity_weights: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
+
+        while contiguity_added < kc && !current_layer_edges.is_empty() {
+            let mut next_layer = Vec::new();
+            // Simple exponential decay for temporal distance weight
+            let weight = 0.9f32.powi(distance);
+            
+            for event_id in current_layer_edges {
+                if contiguity_added >= kc { break; }
+                if let Ok(edges) = v2_store.get_edges_from(&event_id, Some(crate::memory_v2::types::MemoryEdgeType::TemporalNext)).await {
+                    for edge in edges {
+                        if contiguity_added >= kc { break; }
+                        if !candidates.contains_key(&edge.to_event_id) {
+                            if let Ok(Some(adj_ev)) = v2_store.get_event(&edge.to_event_id).await {
+                                next_layer.push(adj_ev.id.clone());
+                                contiguity_weights.insert(adj_ev.id.clone(), weight);
+                                candidates.insert(adj_ev.id.clone(), crate::memory_v2::repository::ScoredEvent {
+                                    event: adj_ev,
+                                    score: 0.0, // Initial similarity is 0.0 unless computed
+                                });
+                                contiguity_added += 1;
+                            }
                         }
                     }
                 }
             }
-            // Previous events in time
-            if let Ok(edges) = v2_store.get_edges_to(&event_id, Some(crate::memory_v2::types::MemoryEdgeType::TemporalNext)).await {
-                for edge in edges {
-                    if !candidates.contains_key(&edge.from_event_id) {
-                        if let Ok(Some(adj_ev)) = v2_store.get_event(&edge.from_event_id).await {
-                            candidates.insert(adj_ev.id.clone(), crate::memory_v2::repository::ScoredEvent {
-                                event: adj_ev,
-                                score: 0.0,
-                            });
-                        }
-                    }
-                }
-            }
+            current_layer_edges = next_layer;
+            distance += 1;
         }
 
         // Stage 3: FadeMem Ranking
@@ -496,6 +465,12 @@ impl EmMemoryService {
                 };
             }
 
+            // Apply contiguity weight
+            if let Some(w) = contiguity_weights.get(&scored.event.id) {
+                // Boost semantic similarity score by the temporal weight
+                scored.score = (scored.score + (*w as f64)).clamp(0.0, 1.0);
+            }
+
             let age_days = (now - scored.event.created_at).num_seconds() as f64 / 86400.0;
             let semantic_relevance = scored.score;
 
@@ -512,13 +487,21 @@ impl EmMemoryService {
                 }
             }
 
-            let recency_days = age_days;
+            let days_since_anchor = (now - scored.event.decay_anchor_at).num_seconds() as f64 / 86400.0;
+            let effective_strength = decay_engine.compute_strength(
+                scored.event.strength,
+                new_importance,
+                scored.event.layer,
+                days_since_anchor,
+            );
+
+            // Update the event's strength to the newly decayed effective strength,
+            // so reinforcement builds on the decayed value instead of the old anchor value.
+            scored.event.strength = effective_strength;
+
             let retrieval_score = crate::em_llm::ranking::compute_retrieval_score(
                 scored.score as f32, // use the base similarity
-                scored.event.strength,
-                recency_days,
-                scored.event.layer.clone(),
-                &self.decay_config,
+                effective_strength,
             );
 
             // Filter out extremely low retrieval scores
@@ -555,25 +538,19 @@ impl EmMemoryService {
     }
 
     pub async fn stats(&self) -> Result<EmMemoryStats, ApiError> {
-        if let Some(v2_store) = &self.v2_store {
-            let total_events = v2_store.count_events(None, None).await?;
-            let layer_counts = v2_store.count_by_layer(None, None).await?;
-            let mean_strength = v2_store.average_strength(None, None).await?;
+        let v2_store = self.v2_store.as_ref();
+        let total_events = v2_store.count_events(None, None).await?;
+        let layer_counts = v2_store.count_by_layer(None, None).await?;
+        let mean_strength = v2_store.average_strength(None, None).await?;
 
-            return Ok(EmMemoryStats {
-                enabled: self.enabled,
-                total_events,
-                retrieval_limit: self.retrieval_limit,
-                min_score: self.min_score,
-                lml_events: layer_counts.lml,
-                sml_events: layer_counts.sml,
-                mean_strength,
-            });
-        }
+        use crate::memory_v2::types::MemoryScope;
+        let char_events = v2_store.count_events(None, Some(MemoryScope::Char)).await?;
+        let char_layers = v2_store.count_by_layer(None, Some(MemoryScope::Char)).await?;
+        let char_strength = v2_store.average_strength(None, Some(MemoryScope::Char)).await?;
 
-        let total_events = self.store.count_events(None).await?;
-        let layer_counts = self.store.count_by_layer().await?;
-        let mean_strength = self.store.average_strength().await?;
+        let prof_events = v2_store.count_events(None, Some(MemoryScope::Prof)).await?;
+        let prof_layers = v2_store.count_by_layer(None, Some(MemoryScope::Prof)).await?;
+        let prof_strength = v2_store.average_strength(None, Some(MemoryScope::Prof)).await?;
 
         Ok(EmMemoryStats {
             enabled: self.enabled,
@@ -583,6 +560,14 @@ impl EmMemoryService {
             lml_events: layer_counts.lml,
             sml_events: layer_counts.sml,
             mean_strength,
+            char_events,
+            char_lml: char_layers.lml,
+            char_sml: char_layers.sml,
+            char_mean_strength: char_strength,
+            prof_events,
+            prof_lml: prof_layers.lml,
+            prof_sml: prof_layers.sml,
+            prof_mean_strength: prof_strength,
         })
     }
 
@@ -590,132 +575,80 @@ impl EmMemoryService {
         &self,
         session_id: Option<&str>,
     ) -> Result<DecayCycleResult, ApiError> {
+        if !self.enabled {
+            return Ok(DecayCycleResult {
+                updated: 0,
+                promoted: 0,
+                demoted: 0,
+                pruned: 0,
+            });
+        }
+
         let decay_engine = DecayEngine::new(self.decay_config.clone());
-        let events = self.store.get_all_events_with_metadata(session_id).await?;
         let now = Utc::now();
         let now_str = now.to_rfc3339();
+        let v2_store = self.v2_store.as_ref();
+        let v2_events = v2_store.get_all_events(session_id, None).await?;
 
-        let mut updated = 0usize;
-        let mut promoted = 0usize;
-        let mut demoted = 0usize;
+        let mut result = DecayCycleResult {
+            updated: 0,
+            promoted: 0,
+            demoted: 0,
+            pruned: 0,
+        };
 
-        for event in events {
-            // Use the most recent anchor between decay/access for backward compatibility.
-            let decay_reference = latest_timestamp(
-                event.last_decayed_at.as_deref(),
-                event.last_accessed_at.as_deref(),
-            )
-            .unwrap_or(&event.created_at);
-            let elapsed_days = elapsed_days_since(decay_reference, now);
-
-            // importance uses absolute age from creation (FadeMem spec).
-            // Use stored importance from last retrieval; fallback to recalculation for legacy records.
-            let age_days = elapsed_days_since(&event.created_at, now);
-            let importance = if (event.importance - 0.5).abs() < 1e-9 && event.access_count == 0 {
-                // Legacy record with default importance — recalculate.
-                decay_engine.importance_score(0.5, event.access_count, age_days)
+        let mut v2_soft_delete_ids = Vec::new();
+        for event in v2_events {
+            let decay_reference = if let Some(last_accessed) = event.last_accessed_at {
+                if last_accessed > event.decay_anchor_at {
+                    last_accessed
+                } else {
+                    event.decay_anchor_at
+                }
             } else {
-                // Use the stored importance (updated during retrieval with actual similarity).
-                event.importance
+                event.decay_anchor_at
             };
+            let elapsed_days = elapsed_days_since(&decay_reference.to_rfc3339(), now);
 
             let new_strength = decay_engine.compute_strength(
                 event.strength,
-                importance,
-                event.memory_layer,
+                event.importance,
+                event.layer,
                 elapsed_days,
             );
 
             if (new_strength - event.strength).abs() > 1e-9 {
-                // Write both strength AND decay anchor so next cycle is differential.
-                self.store
-                    .update_memory_strength_and_decay_anchor(&event.id, new_strength, &now_str)
-                    .await?;
-                updated += 1;
+                if let Err(err) = v2_store
+                    .update_strength_and_anchor(&event.id, new_strength, &now_str)
+                    .await
+                {
+                    tracing::warn!("Failed to update v2 strength: {}", err);
+                } else {
+                    result.updated += 1;
+                }
             }
 
-            if let Some(new_layer) = decay_engine.determine_layer(importance) {
-                if new_layer != event.memory_layer {
-                    self.store.update_memory_layer(&event.id, new_layer).await?;
-                    match (event.memory_layer, new_layer) {
-                        (MemoryLayer::SML, MemoryLayer::LML) => promoted += 1,
-                        (MemoryLayer::LML, MemoryLayer::SML) => demoted += 1,
-                        _ => {}
+            if let Some(new_layer) = decay_engine.determine_layer(event.importance, event.layer) {
+                if new_layer != event.layer {
+                    if let Err(err) = v2_store.update_layer(&event.id, new_layer).await {
+                        tracing::warn!("Failed to update v2 layer: {}", err);
+                    } else {
+                        match (event.layer, new_layer) {
+                            (MemoryLayer::SML, MemoryLayer::LML) => result.promoted += 1,
+                            (MemoryLayer::LML, MemoryLayer::SML) => result.demoted += 1,
+                            _ => {}
+                        }
                     }
                 }
             }
+
+            if new_strength < self.decay_config.prune_threshold {
+                v2_soft_delete_ids.push(event.id.clone());
+            }
         }
 
-        let pruned = self
-            .store
-            .prune_weak_memories(self.decay_config.prune_threshold)
-            .await?;
-
-        let mut result = DecayCycleResult {
-            updated,
-            promoted,
-            demoted,
-            pruned,
-        };
-
-        if let Some(v2_store) = &self.v2_store {
-            let v2_events = match v2_store.get_all_events(session_id, None).await {
-                Ok(evs) => evs,
-                Err(e) => {
-                    tracing::warn!("Failed to fetch v2 events for decay: {}", e);
-                    Vec::new()
-                }
-            };
-            let mut v2_soft_delete_ids = Vec::new();
-            
-            for event in v2_events {
-                 let decay_reference = if let Some(la) = event.last_accessed_at {
-                    if la > event.decay_anchor_at { la } else { event.decay_anchor_at }
-                 } else {
-                    event.decay_anchor_at
-                 };
-                 let elapsed_days = elapsed_days_since(&decay_reference.to_rfc3339(), now);
-
-                 let new_strength = decay_engine.compute_strength(
-                     event.strength,
-                     event.importance,
-                     event.layer.clone(),
-                     elapsed_days,
-                 );
-
-                 if (new_strength - event.strength).abs() > 1e-9 {
-                     if let Err(e) = v2_store.update_strength_and_anchor(&event.id, new_strength, &now_str).await {
-                         tracing::warn!("Failed to update strength v2: {}", e);
-                     } else {
-                         result.updated += 1;
-                     }
-                 }
-
-                 if let Some(new_layer) = decay_engine.determine_layer(event.importance) {
-                     if new_layer != event.layer {
-                         if let Err(e) = v2_store.update_layer(&event.id, new_layer.clone()).await {
-                             tracing::warn!("Failed to update layer v2: {}", e);
-                         } else {
-                             match (event.layer, new_layer) {
-                                 (MemoryLayer::SML, MemoryLayer::LML) => result.promoted += 1,
-                                 (MemoryLayer::LML, MemoryLayer::SML) => result.demoted += 1,
-                                 _ => {}
-                             }
-                         }
-                     }
-                 }
-
-                 if new_strength < self.decay_config.prune_threshold {
-                     v2_soft_delete_ids.push(event.id.clone());
-                 }
-            }
-
-            if !v2_soft_delete_ids.is_empty() {
-                match v2_store.soft_delete_events(&v2_soft_delete_ids).await {
-                    Ok(count) => result.pruned += count,
-                    Err(e) => tracing::warn!("Failed to prune v2: {}", e),
-                }
-            }
+        if !v2_soft_delete_ids.is_empty() {
+            result.pruned += v2_store.soft_delete_events(&v2_soft_delete_ids).await?;
         }
 
         Ok(result)
@@ -726,24 +659,164 @@ impl EmMemoryService {
         session_id: &str,
         llm: &LlmService,
         model_id: &str,
+        scope: crate::memory_v2::types::MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
         let compressor = MemoryCompressor::default();
+        let result = compressor
+            .compress_v2(session_id, self.v2_store.as_ref(), llm, model_id, scope)
+            .await?;
+        tracing::info!(
+            "V2 memory compression completed successfully: {} groups merged",
+            result.merged_groups
+        );
+        Ok(result)
+    }
 
-        if let Some(v2_store) = &self.v2_store {
-            match compressor.compress_v2(session_id, v2_store.as_ref(), llm, model_id).await {
-                Ok(res) => {
-                    tracing::info!("V2 memory compression completed successfully: {} groups merged", res.merged_groups);
-                    return Ok(res);
-                }
-                Err(e) => {
-                    tracing::warn!("V2 memory compression failed, falling back to V1: {}", e);
+    /// Spawns the background decay worker if enabled.
+    pub fn spawn_background_worker(self: Arc<Self>) {
+        if !self.enabled {
+            return;
+        }
+        // decay_interval_hours == 0.0 means periodic decay is disabled.
+        if self.decay_interval_hours == 0.0 {
+            tracing::info!("Periodic decay disabled (decay_interval_hours=0.0).");
+            return;
+        }
+        let interval_duration = std::time::Duration::from_secs_f64(self.decay_interval_hours * 3600.0);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(interval_duration).await;
+                tracing::info!("Running scheduled background decay cycle...");
+                if let Err(e) = self.run_decay_cycle(None).await {
+                    tracing::error!("Background decay cycle failed: {}", e);
                 }
             }
-        }
+        });
+    }
 
-        compressor
-            .compress(session_id, self.store.as_ref(), llm, model_id)
+    /// Create an initial compaction job record (status = Queued).
+    pub async fn create_compaction_job(
+        &self,
+        job: &crate::memory_v2::types::CompactionJob,
+    ) -> Result<(), ApiError> {
+        self.v2_store.create_compaction_job(job).await?;
+        Ok(())
+    }
+
+    /// List compaction jobs for the given session.
+    pub async fn list_compaction_jobs(
+        &self,
+        session_id: &str,
+        scope: Option<crate::memory_v2::types::MemoryScope>,
+        status: Option<crate::memory_v2::types::CompactionStatus>,
+    ) -> Result<Vec<crate::memory_v2::types::CompactionJob>, ApiError> {
+        self.v2_store
+            .list_compaction_jobs(session_id, scope, status)
             .await
+    }
+
+    /// Run compression in the context of an existing job record.
+    pub async fn compress_memories_as_job(
+        &self,
+        session_id: &str,
+        llm: &LlmService,
+        model_id: &str,
+        job_id: &str,
+        scope: crate::memory_v2::types::MemoryScope,
+    ) -> Result<CompressionResult, ApiError> {
+        let compressor = MemoryCompressor::default();
+        compressor
+            .compress_v2_with_job(
+                session_id,
+                self.v2_store.as_ref(),
+                llm,
+                model_id,
+                Some(job_id),
+                scope,
+            )
+            .await
+    }
+
+    /// Mark a compaction job as failed.
+    pub async fn fail_compaction_job(&self, session_id: &str, job_id: &str) {
+        use crate::memory_v2::types::{CompactionJob, CompactionStatus, MemoryScope};
+        let v2_store = self.v2_store.as_ref();
+        let now = chrono::Utc::now();
+        let existing_job = match v2_store.list_compaction_jobs(session_id, None, None).await {
+            Ok(jobs) => jobs.into_iter().find(|job| job.id == job_id),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to load compaction jobs for failure update {}: {}",
+                    job_id,
+                    e
+                );
+                None
+            }
+        };
+
+        let failed_job = existing_job.map_or_else(
+            || CompactionJob {
+                id: job_id.to_string(),
+                session_id: session_id.to_string(),
+                scope: MemoryScope::Char,
+                status: CompactionStatus::Failed,
+                scanned_events: 0,
+                merged_groups: 0,
+                replaced_events: 0,
+                created_events: 0,
+                created_at: now,
+                finished_at: Some(now),
+            },
+            |job| CompactionJob {
+                status: CompactionStatus::Failed,
+                finished_at: Some(now),
+                ..job
+            },
+        );
+
+        if let Err(e) = v2_store.update_compaction_job(&failed_job).await {
+            tracing::warn!(
+                "Failed to mark compaction job {} as failed: {}",
+                job_id,
+                e
+            );
+        };
+    }
+    #[cfg(test)]
+    pub async fn ingest_interaction_for_test(
+        &self,
+        session_id: &str,
+        user_input: &str,
+        assistant_output: &str,
+        embedding: &[f32],
+    ) -> Result<(), ApiError> {
+        let content = build_memory_text(user_input, assistant_output);
+        let episode_id = uuid::Uuid::new_v4().to_string();
+        let source_turn_id = format!("{}-{}", session_id, chrono::Utc::now().timestamp());
+        let v2_event = crate::memory_v2::types::MemoryEvent {
+            id: uuid::Uuid::new_v4().to_string(),
+            session_id: session_id.to_string(),
+            scope: crate::memory_v2::types::MemoryScope::Char,
+            episode_id,
+            event_seq: 0,
+            source_turn_id: Some(source_turn_id),
+            source_role: None,
+            content,
+            summary: None,
+            embedding: embedding.to_vec(),
+            surprise_mean: None,
+            surprise_max: None,
+            importance: 0.5,
+            strength: 1.0,
+            layer: crate::memory_v2::types::MemoryLayer::SML,
+            access_count: 0,
+            last_accessed_at: None,
+            decay_anchor_at: chrono::Utc::now(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            is_deleted: false,
+        };
+        self.v2_store.insert_events(&[v2_event]).await
     }
 }
 
@@ -833,6 +906,38 @@ fn parse_decay_config(config: &Value) -> DecayConfig {
         alpha: read_decay_f64(section, "alpha", defaults.alpha, 0.0, 1.0),
         beta: read_decay_f64(section, "beta", defaults.beta, 0.0, 1.0),
         gamma: read_decay_f64(section, "gamma", defaults.gamma, 0.0, 1.0),
+        frequency_growth_rate: read_decay_f64(
+            section,
+            "frequency_growth_rate",
+            defaults.frequency_growth_rate,
+            0.01,
+            2.0,
+        ),
+        recency_time_constant: read_decay_f64(
+            section,
+            "recency_time_constant",
+            defaults.recency_time_constant,
+            0.1,
+            365.0,
+        ),
+        time_unit: match section.and_then(|v| v.get("time_unit")).and_then(|v| v.as_str()) {
+            Some("hours") => crate::em_llm::types::TimeUnit::Hours,
+            _ => crate::em_llm::types::TimeUnit::Days,
+        },
+        transition_hysteresis: read_decay_f64(
+            section,
+            "transition_hysteresis",
+            defaults.transition_hysteresis,
+            0.0,
+            1.0,
+        ),
+        retrieval_similarity_ratio: read_decay_f64(
+            config.get("em_llm").and_then(|v| v.get("retrieval")),
+            "similarity_ratio",
+            defaults.retrieval_similarity_ratio as f64,
+            0.0,
+            1.0,
+        ) as f32,
     }
 }
 
@@ -852,48 +957,20 @@ fn elapsed_days_since(timestamp: &str, now: DateTime<Utc>) -> f64 {
         .unwrap_or(0.0)
 }
 
-fn latest_timestamp<'a>(lhs: Option<&'a str>, rhs: Option<&'a str>) -> Option<&'a str> {
-    match (lhs, rhs) {
-        (Some(left), Some(right)) => match (parse_rfc3339_utc(left), parse_rfc3339_utc(right)) {
-            (Some(left_dt), Some(right_dt)) => {
-                if right_dt >= left_dt {
-                    Some(right)
-                } else {
-                    Some(left)
-                }
-            }
-            (Some(_), None) => Some(left),
-            (None, Some(_)) => Some(right),
-            (None, None) => Some(right),
-        },
-        (Some(left), None) => Some(left),
-        (None, Some(right)) => Some(right),
-        (None, None) => None,
-    }
-}
-
-fn parse_rfc3339_utc(timestamp: &str) -> Option<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(timestamp)
-        .ok()
-        .map(|dt| dt.with_timezone(&Utc))
-}
-
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use chrono::{Duration, Utc};
+    use chrono::Utc;
 
     use super::*;
-    use crate::em_llm::store::EmMemoryStore;
 
     async fn test_service() -> EmMemoryService {
-        let tmp = std::env::temp_dir().join(format!(
-            "tepora-em-service-test-{}.db",
+        let path = std::env::temp_dir().join(format!(
+            "tepora-memory-v2-service-test-{}.db",
             uuid::Uuid::new_v4()
         ));
-        let store = Arc::new(EmMemoryStore::with_path(tmp).await.unwrap());
-        EmMemoryService::with_store_for_test(store, true, 5, 0.0)
+        EmMemoryService::with_v2_path_for_test(path, true, 5, 0.0)
+            .await
+            .unwrap()
     }
 
     #[tokio::test]
@@ -901,7 +978,7 @@ mod tests {
         let service = test_service().await;
 
         service
-            .ingest_interaction_with_embedding(
+            .ingest_interaction_for_test(
                 "s1",
                 "user asks",
                 "assistant answers",
@@ -917,7 +994,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].content.contains("User:"));
-        assert!(results[0].source.starts_with("em://s1/"));
+        assert!(results[0].source.starts_with("em://s1/evt/"));
         assert_eq!(results[0].memory_layer, MemoryLayer::SML);
     }
 
@@ -928,7 +1005,7 @@ mod tests {
         assert_eq!(before.total_events, 0);
 
         service
-            .ingest_interaction_with_embedding("s1", "u", "a", &[0.0, 1.0])
+            .ingest_interaction_for_test("s1", "u", "a", &[0.0, 1.0])
             .await
             .unwrap();
 
@@ -939,11 +1016,8 @@ mod tests {
     }
 
     #[test]
-    fn latest_timestamp_picks_newer_anchor() {
-        let older = (Utc::now() - Duration::days(1)).to_rfc3339();
-        let newer = Utc::now().to_rfc3339();
-
-        let selected = latest_timestamp(Some(&older), Some(&newer));
-        assert_eq!(selected, Some(newer.as_str()));
+    fn elapsed_days_since_invalid_timestamp_returns_zero() {
+        let now = Utc::now();
+        assert_eq!(elapsed_days_since("not-a-timestamp", now), 0.0);
     }
 }

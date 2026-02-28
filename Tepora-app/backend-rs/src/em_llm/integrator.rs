@@ -167,6 +167,11 @@ impl EMLLMIntegrator {
             }
         }
 
+        // Apply boundary refinement
+        if self.config.use_boundary_refinement {
+            events = self.refiner.refine_boundaries(events, embeddings);
+        }
+
         // Store in retrieval system
         self.retrieval.add_events(events.clone());
 
@@ -325,6 +330,39 @@ mod tests {
         // Statistics should reflect stored events
         let stats = integrator.get_statistics();
         assert!(stats.total_events > 0);
+    }
+
+    #[test]
+    fn test_process_logprobs_with_refinement() {
+        let mut integrator = EMLLMIntegrator::new(EMConfig {
+            min_event_size: 2,
+            max_event_size: 5,
+            use_boundary_refinement: true,
+            ..Default::default()
+        });
+
+        // Create test logprobs with a spike
+        let logprobs: Vec<(String, f64)> = vec![
+            ("Hello".to_string(), -0.5),
+            (" ".to_string(), -0.1),
+            ("world".to_string(), -0.3),
+            ("!".to_string(), -0.2),
+            (" ".to_string(), -0.1),
+            ("How".to_string(), -3.0), // Spike
+            (" ".to_string(), -0.1),
+            ("are".to_string(), -0.4),
+            (" ".to_string(), -0.1),
+            ("you".to_string(), -0.3),
+        ];
+
+        // Provide dummy embeddings for each token
+        let embeddings: Vec<Vec<f32>> = vec![vec![0.1; 128]; logprobs.len()];
+
+        let events = integrator.process_logprobs_for_memory(&logprobs, Some(&embeddings));
+
+        // Should have created events and applied boundary refinement + embeddings mapping
+        assert!(!events.is_empty());
+        assert!(events[0].embedding.is_some());
     }
 
     #[test]

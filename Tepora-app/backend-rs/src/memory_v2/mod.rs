@@ -5,6 +5,7 @@
 //! full redesign document.  It is introduced alongside the existing
 //! `em_llm` module and will gradually replace it over phases 1-6.
 
+pub mod adapter;
 pub mod repository;
 pub mod sqlite_repository;
 pub mod types;
@@ -12,6 +13,7 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
+pub use adapter::{MemoryAdapter, UnifiedMemoryAdapter};
 pub use repository::{MemoryRepository, ScoredEvent};
 pub use sqlite_repository::SqliteMemoryRepository;
 pub use types::{

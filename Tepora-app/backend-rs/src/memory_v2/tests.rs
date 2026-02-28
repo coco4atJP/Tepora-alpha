@@ -241,10 +241,14 @@ mod sqlite_repository_tests {
         assert_eq!(ev.access_count, 1);
         assert!((ev.strength - 0.8).abs() < 1e-9);
         assert!(ev.last_accessed_at.is_some());
+        
+        // decay_anchor_at should have been updated to the exact same time as last_accessed_at
+        assert_eq!(ev.decay_anchor_at, ev.last_accessed_at.unwrap());
 
         repo.record_access("a1", 0.85).await.unwrap();
         let ev2 = repo.get_event("a1").await.unwrap().unwrap();
         assert_eq!(ev2.access_count, 2);
+        assert_eq!(ev2.decay_anchor_at, ev2.last_accessed_at.unwrap());
     }
 
     // =================================================================

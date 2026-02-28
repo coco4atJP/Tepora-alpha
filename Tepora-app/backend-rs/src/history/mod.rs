@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
+use crate::models::event::AgentEvent;
 
 use crate::core::errors::ApiError;
 
@@ -81,6 +82,26 @@ impl HistoryStore {
             .execute(&pool)
             .await
             .map_err(|e| ApiError::internal(format!("Failed to create index: {}", e)))?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS agent_events (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                node_name TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                metadata JSON NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| ApiError::internal(format!("Failed to init agent_events table: {}", e)))?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_events_session_id ON agent_events(session_id)")
+            .execute(&pool)
+            .await
+            .map_err(|e| ApiError::internal(format!("Failed to create events index: {}", e)))?;
 
         Ok(Self { pool })
     }
@@ -279,6 +300,60 @@ impl HistoryStore {
             .map(|r| r.get(0))
             .unwrap_or(0);
         Ok(count)
+    }
+
+    pub async fn save_agent_event(&self, event: &AgentEvent) -> Result<(), ApiError> {
+        let created_at = event.created_at.to_rfc3339();
+        let metadata_str = serde_json::to_string(&event.metadata).unwrap_or_else(|_| "{}".into());
+
+        sqlx::query(
+            "INSERT INTO agent_events (id, session_id, node_name, event_type, metadata, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&event.id)
+        .bind(&event.session_id)
+        .bind(&event.node_name)
+        .bind(event.event_type.as_str())
+        .bind(&metadata_str)
+        .bind(&created_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(format!("Failed to save agent event: {}", e)))?;
+
+        Ok(())
+    }
+
+    pub async fn get_agent_events(&self, session_id: &str) -> Result<Vec<AgentEvent>, ApiError> {
+        let rows = sqlx::query("SELECT * FROM agent_events WHERE session_id = ? ORDER BY created_at ASC")
+            .bind(session_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
+
+        let mut events = Vec::new();
+        for row in rows {
+            let metadata_str = row.try_get::<String, _>("metadata").unwrap_or_else(|_| "{}".to_string());
+            let metadata: serde_json::Value = serde_json::from_str(&metadata_str).unwrap_or_else(|_| serde_json::json!({}));
+            
+            let event_type_str = row.try_get::<String, _>("event_type").unwrap_or_else(|_| "error".to_string());
+            let event_type = crate::models::event::AgentEventType::parse(&event_type_str)
+                .unwrap_or(crate::models::event::AgentEventType::Error);
+            
+            let created_at_str = row.try_get::<String, _>("created_at").unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
+            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+
+            events.push(AgentEvent {
+                id: row.try_get::<String, _>("id").unwrap_or_default(),
+                session_id: row.try_get::<String, _>("session_id").unwrap_or_default(),
+                node_name: row.try_get::<String, _>("node_name").unwrap_or_default(),
+                event_type,
+                metadata,
+                created_at,
+            });
+        }
+        Ok(events)
     }
 
     pub async fn touch_session(&self, session_id: &str) -> Result<(), ApiError> {

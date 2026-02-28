@@ -112,6 +112,20 @@ impl MemoryLayer {
     }
 }
 
+/// Time unit for decay calculations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TimeUnit {
+    Hours,
+    Days,
+}
+
+impl Default for TimeUnit {
+    fn default() -> Self {
+        Self::Days
+    }
+}
+
 /// FadeMem decay parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecayConfig {
@@ -137,6 +151,18 @@ pub struct DecayConfig {
     pub beta: f64,
     /// Importance weight: recency
     pub gamma: f64,
+    /// Access frequency growth rate
+    pub frequency_growth_rate: f64,
+    /// Recency time constant
+    pub recency_time_constant: f64,
+    /// Time unit for recency and decay
+    #[serde(default)]
+    pub time_unit: TimeUnit,
+    /// Hysteresis margin around threshold to prevent toggling
+    #[serde(default)]
+    pub transition_hysteresis: f64,
+    /// Ratio of K allocation reserved for semantic similarity retrieval (vs contiguity)
+    pub retrieval_similarity_ratio: f32,
 }
 
 impl Default for DecayConfig {
@@ -153,6 +179,11 @@ impl Default for DecayConfig {
             alpha: 0.5,
             beta: 0.3,
             gamma: 0.2,
+            frequency_growth_rate: 0.2,
+            recency_time_constant: 7.0,
+            time_unit: TimeUnit::Days,
+            transition_hysteresis: 0.05,
+            retrieval_similarity_ratio: 0.7,
         }
     }
 }
@@ -209,6 +240,12 @@ pub struct EMConfig {
     /// Adaptive forgetting configuration
     #[serde(default)]
     pub decay: DecayConfig,
+
+    // ===== Application operation parameters =====
+    /// Interval in hours for periodic decay.
+    /// `0.0` (the default) disables automatic periodic decay.
+    /// Set to a positive value, e.g. `1.0`, to enable hourly decay.
+    pub decay_interval_hours: f64,
 }
 
 impl Default for EMConfig {
@@ -237,6 +274,8 @@ impl Default for EMConfig {
 
             // FadeMem decay
             decay: DecayConfig::default(),
+
+            decay_interval_hours: 0.0,
         }
     }
 }

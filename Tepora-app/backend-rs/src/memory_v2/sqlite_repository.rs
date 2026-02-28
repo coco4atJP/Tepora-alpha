@@ -332,7 +332,7 @@ impl SqliteMemoryRepository {
         MemoryEvent {
             id: row.get("id"),
             session_id: row.get("session_id"),
-            scope: MemoryScope::parse(&scope_raw),
+            scope: std::str::FromStr::from_str(&scope_raw).unwrap_or_default(),
             episode_id: row.get("episode_id"),
             event_seq: row.get::<i64, _>("event_seq").max(0) as u32,
             source_turn_id: row.try_get("source_turn_id").unwrap_or(None),
@@ -375,10 +375,13 @@ impl SqliteMemoryRepository {
         let finished_at: Option<String> = row.try_get("finished_at").unwrap_or(None);
         CompactionJob {
             id: row.get("id"),
-            session_id: row.get("session_id"),
-            scope: MemoryScope::parse(&scope_raw),
-            status: CompactionStatus::parse(&status_raw),
-            scanned_events: row.get::<i64, _>("scanned_events").max(0) as usize,
+            session_id: row.try_get("session_id").unwrap_or_default(),
+            scope: std::str::FromStr::from_str(&scope_raw).unwrap_or_default(),
+            status: std::str::FromStr::from_str(&status_raw).unwrap_or(CompactionStatus::Queued),
+            scanned_events: row
+                .try_get::<i64, _>("scanned_events")
+                .unwrap_or(0)
+                .max(0) as usize,
             merged_groups: row.get::<i64, _>("merged_groups").max(0) as usize,
             replaced_events: row.get::<i64, _>("replaced_events").max(0) as usize,
             created_events: row.get::<i64, _>("created_events").max(0) as usize,
@@ -607,6 +610,7 @@ impl MemoryRepository for SqliteMemoryRepository {
             "UPDATE memory_events
              SET access_count = access_count + 1,
                  last_accessed_at = ?2,
+                 decay_anchor_at = ?2,
                  strength = ?3,
                  updated_at = ?2
              WHERE id = ?1",

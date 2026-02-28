@@ -196,21 +196,70 @@ impl MemoryCompressor {
         v2_store: &dyn MemoryRepository,
         llm: &LlmService,
         model_id: &str,
+        scope: crate::memory_v2::types::MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
-        let events = v2_store.get_all_events(Some(session_id), None).await?;
+        self.compress_v2_with_job(session_id, v2_store, llm, model_id, None, scope).await
+    }
+
+    /// Execute compression for one session, tracking lifecycle via a `CompactionJob`.
+    ///
+    /// If `job_id` is provided, the existing job record is transitioned to `running`,
+    /// then `done`/`failed`. If `None`, the compression is run without job tracking
+    /// (used as an internal helper by the synchronous legacy path).
+    pub async fn compress_v2_with_job(
+        &self,
+        session_id: &str,
+        v2_store: &dyn MemoryRepository,
+        llm: &LlmService,
+        model_id: &str,
+        job_id: Option<&str>,
+        scope: crate::memory_v2::types::MemoryScope,
+    ) -> Result<CompressionResult, ApiError> {
+        use crate::memory_v2::types::{CompactionJob, CompactionMember, CompactionStatus, MemoryEdge, MemoryEdgeType};
+
+        let now = chrono::Utc::now();
+
+        // Mark the job as running (if we have a job_id).
+        if let Some(jid) = job_id {
+            let running_job = CompactionJob {
+                id: jid.to_string(),
+                session_id: session_id.to_string(),
+                scope,
+                status: CompactionStatus::Running,
+                scanned_events: 0,
+                merged_groups: 0,
+                replaced_events: 0,
+                created_events: 0,
+                created_at: now,
+                finished_at: None,
+            };
+            if let Err(e) = v2_store.update_compaction_job(&running_job).await {
+                tracing::warn!("Failed to mark compaction job {} as running: {}", jid, e);
+            }
+        }
+
+        let events = v2_store.get_all_events(Some(session_id), Some(scope)).await?;
         if events.len() < 2 {
-            return Ok(CompressionResult {
+            let result = CompressionResult {
                 scanned_events: events.len(),
                 merged_groups: 0,
                 replaced_events: 0,
                 created_events: 0,
-            });
+            };
+            // Mark done immediately.
+            if let Some(jid) = job_id {
+                self.finalize_job(v2_store, jid, session_id, CompactionStatus::Done, &result, now, scope).await;
+            }
+            return Ok(result);
         }
 
         let groups = self.build_candidate_groups_v2(&events);
         let mut merged_groups = 0usize;
         let mut replaced_events = 0usize;
         let mut created_events = 0usize;
+        // Collect provenance records.
+        let mut all_members: Vec<CompactionMember> = Vec::new();
+        let mut all_new_edges: Vec<MemoryEdge> = Vec::new();
 
         for group in groups {
             if group.len() < 2 {
@@ -249,14 +298,11 @@ impl MemoryCompressor {
             };
             let max_importance = selected.iter().map(|e| e.importance).fold(0.0, f64::max);
             let latest_anchor = selected.iter().map(|e| e.decay_anchor_at).max().unwrap_or_else(chrono::Utc::now);
-            let first_scope = selected.first().map(|e| e.scope.clone()).unwrap_or_else(crate::memory_v2::types::MemoryScope::default);
 
-            // In Phase 3, we simply insert a new synthesized MemoryEvent.
-            // A genuine CompactionJob with provenance tracking is planned for Phase 4.
             let new_event = MemoryEvent {
                 id: new_id.clone(),
                 session_id: session_id.to_string(),
-                scope: first_scope,
+                scope,
                 episode_id: "[compressed]".to_string(),
                 event_seq: 0,
                 source_turn_id: None,
@@ -272,12 +318,33 @@ impl MemoryCompressor {
                 access_count: 0,
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
-                last_accessed_at: Some(chrono::Utc::now()), // effectively touching it
+                last_accessed_at: Some(chrono::Utc::now()),
                 decay_anchor_at: latest_anchor,
                 is_deleted: false,
             };
 
             v2_store.insert_events(&[new_event]).await?;
+
+            // Build provenance: CompactionMember + CompressedFrom edges.
+            for old_event in &selected {
+                if let Some(jid) = job_id {
+                    all_members.push(CompactionMember {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        job_id: jid.to_string(),
+                        original_event_id: old_event.id.clone(),
+                        new_event_id: new_id.clone(),
+                    });
+                }
+                all_new_edges.push(MemoryEdge {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    session_id: session_id.to_string(),
+                    from_event_id: old_event.id.clone(),
+                    to_event_id: new_id.clone(),
+                    edge_type: MemoryEdgeType::CompressedFrom,
+                    weight: 1.0,
+                    created_at: chrono::Utc::now(),
+                });
+            }
 
             let old_ids = selected.iter().map(|e| e.id.clone()).collect::<Vec<_>>();
             let deleted = v2_store.soft_delete_events(&old_ids).await?;
@@ -287,12 +354,60 @@ impl MemoryCompressor {
             created_events += 1;
         }
 
-        Ok(CompressionResult {
+        // Persist provenance records.
+        if !all_members.is_empty() {
+            if let Err(e) = v2_store.add_compaction_members(&all_members).await {
+                tracing::warn!("Failed to persist compaction members: {}", e);
+            }
+        }
+        if !all_new_edges.is_empty() {
+            if let Err(e) = v2_store.insert_edges(&all_new_edges).await {
+                tracing::warn!("Failed to persist CompressedFrom edges: {}", e);
+            }
+        }
+
+        let result = CompressionResult {
             scanned_events: events.len(),
             merged_groups,
             replaced_events,
             created_events,
-        })
+        };
+
+        if let Some(jid) = job_id {
+            self.finalize_job(v2_store, jid, session_id, CompactionStatus::Done, &result, now, scope).await;
+        }
+
+        Ok(result)
+    }
+
+    /// Write the final state of a compaction job.
+    #[allow(clippy::too_many_arguments)]
+    async fn finalize_job(
+        &self,
+        v2_store: &dyn MemoryRepository,
+        job_id: &str,
+        session_id: &str,
+        status: crate::memory_v2::types::CompactionStatus,
+        result: &CompressionResult,
+        created_at: chrono::DateTime<chrono::Utc>,
+        scope: crate::memory_v2::types::MemoryScope,
+    ) {
+        use crate::memory_v2::types::CompactionJob;
+        let finished_job = CompactionJob {
+            id: job_id.to_string(),
+            session_id: session_id.to_string(),
+            scope,
+            status,
+            scanned_events: result.scanned_events,
+            merged_groups: result.merged_groups,
+            replaced_events: result.replaced_events,
+            created_events: result.created_events,
+            created_at,
+            finished_at: Some(chrono::Utc::now()),
+        };
+        if let Err(e) = v2_store.update_compaction_job(&finished_job).await {
+            tracing::warn!("Failed to finalize compaction job {}: {}", job_id, e);
+        }
     }
 
     fn build_candidate_groups_v2(&self, events: &[MemoryEvent]) -> Vec<Vec<usize>> {

@@ -4,16 +4,16 @@
 //! This module implements the EM-LLM system based on the ICLR 2025 paper
 //! "Human-inspired Episodic Memory for Infinite Context LLMs".
 
-mod boundary;
-mod compression;
-mod decay;
-mod integrator;
-mod ranking;
-mod retrieval;
-mod segmenter;
+pub mod boundary;
+pub mod compression;
+pub mod decay;
+pub mod integrator;
+pub mod ranking;
+pub mod retrieval;
+pub mod segmenter;
 pub mod service;
 pub mod store;
-mod types;
+pub mod types;
 pub mod sentence;
 
 #[cfg(test)]

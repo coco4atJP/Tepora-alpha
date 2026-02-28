@@ -316,9 +316,6 @@ impl EmMemoryStore {
             let score = compute_retrieval_score(
                 similarity,
                 strength,
-                recency_days,
-                memory_layer,
-                decay_config,
             );
 
             let raw_content: String = row.get("content");
@@ -499,14 +496,29 @@ impl EmMemoryStore {
         Ok(())
     }
 
-    pub async fn prune_weak_memories(&self, threshold: f64) -> Result<usize, ApiError> {
-        let result = sqlx::query(
-            "UPDATE episodic_events SET is_deleted = 1 WHERE strength < ?1 AND (is_deleted IS NULL OR is_deleted = 0)",
-        )
-        .bind(threshold.clamp(0.0, 1.0))
-        .execute(&self.pool)
-        .await
-        .map_err(ApiError::internal)?;
+    pub async fn prune_weak_memories(
+        &self,
+        threshold: f64,
+        session_id: Option<&str>,
+    ) -> Result<usize, ApiError> {
+        let result = if let Some(sid) = session_id {
+            sqlx::query(
+                "UPDATE episodic_events SET is_deleted = 1 WHERE strength < ?1 AND session_id = ?2 AND (is_deleted IS NULL OR is_deleted = 0)",
+            )
+            .bind(threshold.clamp(0.0, 1.0))
+            .bind(sid)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?
+        } else {
+            sqlx::query(
+                "UPDATE episodic_events SET is_deleted = 1 WHERE strength < ?1 AND (is_deleted IS NULL OR is_deleted = 0)",
+            )
+            .bind(threshold.clamp(0.0, 1.0))
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?
+        };
         Ok(result.rows_affected() as usize)
     }
 

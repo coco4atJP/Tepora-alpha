@@ -33,12 +33,18 @@ impl MemoryScope {
             Self::Prof => "PROF",
         }
     }
+}
 
-    pub fn parse(s: &str) -> Self {
+impl std::str::FromStr for MemoryScope {
+    type Err = crate::core::errors::ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("PROF") {
-            Self::Prof
+            Ok(Self::Prof)
+        } else if s.eq_ignore_ascii_case("CHAR") {
+            Ok(Self::Char)
         } else {
-            Self::Char
+            Err(crate::core::errors::ApiError::BadRequest(format!("Invalid MemoryScope: {}", s)))
         }
     }
 }
@@ -92,13 +98,18 @@ impl CompactionStatus {
             Self::Failed => "failed",
         }
     }
+}
 
-    pub fn parse(s: &str) -> Self {
+impl std::str::FromStr for CompactionStatus {
+    type Err = crate::core::errors::ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "running" => Self::Running,
-            "done" => Self::Done,
-            "failed" => Self::Failed,
-            _ => Self::Queued,
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "done" => Ok(Self::Done),
+            "failed" => Ok(Self::Failed),
+            _ => Err(crate::core::errors::ApiError::BadRequest(format!("Invalid CompactionStatus: {}", s))),
         }
     }
 }
@@ -237,9 +248,10 @@ mod tests {
 
     #[test]
     fn memory_scope_round_trip() {
-        assert_eq!(MemoryScope::parse(MemoryScope::Char.as_str()), MemoryScope::Char);
-        assert_eq!(MemoryScope::parse(MemoryScope::Prof.as_str()), MemoryScope::Prof);
-        assert_eq!(MemoryScope::parse("unknown"), MemoryScope::Char); // default
+        use std::str::FromStr;
+        assert_eq!(MemoryScope::from_str(MemoryScope::Char.as_str()).unwrap(), MemoryScope::Char);
+        assert_eq!(MemoryScope::from_str(MemoryScope::Prof.as_str()).unwrap(), MemoryScope::Prof);
+        assert!(MemoryScope::from_str("unknown").is_err());
     }
 
     #[test]
@@ -255,14 +267,16 @@ mod tests {
 
     #[test]
     fn compaction_status_round_trip() {
+        use std::str::FromStr;
         for s in [
             CompactionStatus::Queued,
             CompactionStatus::Running,
             CompactionStatus::Done,
             CompactionStatus::Failed,
         ] {
-            assert_eq!(CompactionStatus::parse(s.as_str()), s);
+            assert_eq!(CompactionStatus::from_str(s.as_str()).unwrap(), s);
         }
+        assert!(CompactionStatus::from_str("unknown").is_err());
     }
 
     #[test]

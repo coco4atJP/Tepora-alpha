@@ -1,8 +1,13 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(deprecated)]
 //! Memory module for vector storage and episodic memory.
 //!
-//! This module provides:
+//! **⚠️ DEPRECATED since v0.5.0**: This module is superseded by `em_llm` (service layer)
+//! and `memory_v2` (persistence layer). No new code should depend on this module.
+//! See `docs/architecture/MEMORY_ARCHITECTURE.md` for the migration roadmap.
+//!
+//! Original functionality:
 //! - `VectorStore` trait for abstraction over different vector databases
 //! - `MemorySystem` for high-level episodic memory operations
 //! - LanceDB integration for in-process vector storage
