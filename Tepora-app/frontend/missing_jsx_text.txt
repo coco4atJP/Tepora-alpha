@@ -1,0 +1,21 @@
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:130: Promise
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:150: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:153: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:156: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:162: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:174: Promise
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:175: Promise
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:176: Promise
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:179: Promise
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:386: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:395: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:404: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\context\SettingsContext.tsx:433: (field: K, value: NonNullable
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\MessageBubble.tsx:235: ([\s\S]*?)(?:
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\SystemStatusPanel.tsx:88: EM-LLM
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\sections\ModelSettings.tsx:319: Ollama
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\sections\ModelSettings.tsx:330: LM Studio
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\subcomponents\AddModelForm.tsx:128: = rect.left && x
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\subcomponents\AddModelForm.tsx:128: = rect.top && y
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\subcomponents\McpStoreModal.tsx:362: Runtime:
+e:\Tepora_Project\Tepora-app\frontend\src\pages\Memory.tsx:130: Compression failed.

@@ -1,0 +1,16 @@
+e:\Tepora_Project\Tepora-app\frontend\src\components\ui\ConfirmDialog.tsx:51: {cancelLabel || t("common.cancel", "キャンセル")}
+e:\Tepora_Project\Tepora-app\frontend\src\components\ui\ConfirmDialog.tsx:62: {confirmLabel || t("common.confirm", "確認")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:62: "このツールを実行しようとしています。",
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:75: title={t("tool_confirmation.title", "ツール実行の確認")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:93: {t("tool_confirmation.params", "パラメータ")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:117: {t("tool_confirmation.allow_session", "このセッション中は同じツールを自動的に許可する")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:123: {t("tool_confirmation.warning_deny", "⚠️ 拒否すると処理を中断します")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:142: {t("tool_confirmation.deny", "拒否")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\chat\ToolConfirmationDialog.tsx:158: {t("tool_confirmation.allow", "許可")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\navigation\StatusBar.tsx:22: <span className="text-green-500">{t("status.connected", "接続済み")}</span>
+e:\Tepora_Project\Tepora-app\frontend\src\features\navigation\StatusBar.tsx:27: <span className="text-red-500">{t("status.disconnected", "未接続")}</span>
+e:\Tepora_Project\Tepora-app\frontend\src\features\navigation\StatusBar.tsx:38: {systemStatus.memory_events} {t("status.events", "イベント")}
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\sections\GeneralSettings.tsx:110: { value: "ja", label: "日本語" },
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\sections\GeneralSettings.tsx:112: { value: "zh", label: "中文" },
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\SetupWizard\steps\LanguageStep.tsx:7: { code: "ja", label: "日本語", sub: "Japanese", flag: "🇯🇵" },
+e:\Tepora_Project\Tepora-app\frontend\src\features\settings\components\SetupWizard\steps\LanguageStep.tsx:8: { code: "zh", label: "中文", sub: "Chinese", flag: "🇨🇳" },

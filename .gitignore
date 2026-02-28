@@ -76,11 +76,21 @@ coverage/
 *_output.txt
 *_results.txt
 install_log*.txt
+temp_*.txt
 
 # Test output logs
 Tepora-app/frontend/test_report.txt
 Tepora-app/backend/pytest_full*.txt
-Tepora-app/*_errors.txt
+Tepora-app/**/*_errors.txt
+Tepora-app/**/*_test.txt
+*_test.out
+
+# Error and build logs
+*.out
+*.err
+*error*.txt
+*err*.txt
+cargo_*.out
 
 # Database files
 *.db
