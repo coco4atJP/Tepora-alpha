@@ -5,27 +5,108 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use axum::http::HeaderMap;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::core::errors::ApiError;
 
 const API_KEY_HEADER: &str = "x-api-key";
 
+/// セッショントークンのデフォルト有効期間（日数）
+///
+/// ローカルファーストアプリとして、7日間を標準TTLとする。
+/// `TEPORA_TOKEN_TTL_DAYS` 環境変数で上書き可能。
+const DEFAULT_TOKEN_TTL_DAYS: u64 = 7;
+
 #[derive(Debug, Clone)]
 pub struct SessionToken {
     value: String,
+    /// トークン発行時刻（有効期限チェック用）
+    created_at: DateTime<Utc>,
+    /// トークンの有効期限
+    expires_at: DateTime<Utc>,
 }
 
 impl SessionToken {
     pub fn value(&self) -> &str {
         &self.value
     }
+
+    pub fn is_expired(&self) -> bool {
+        Utc::now() >= self.expires_at
+    }
+
+    /// トークンの有効期限を返す。
+    pub fn expires_at(&self) -> &DateTime<Utc> {
+        &self.expires_at
+    }
+
+    /// トークンの経過時間（秒）を返す。
+    #[allow(dead_code)]
+    pub fn age_seconds(&self) -> i64 {
+        Utc::now()
+            .signed_duration_since(self.created_at)
+            .num_seconds()
+    }
+
+    /// トークンの発行時刻を返す。
+    #[allow(dead_code)]
+    pub fn created_at(&self) -> &DateTime<Utc> {
+        &self.created_at
+    }
+
+    pub fn reissue(&mut self) -> Result<String, ApiError> {
+        let new_token = format!("{}{}", Uuid::new_v4(), Uuid::new_v4());
+        self.value = new_token.clone();
+        
+        let now = Utc::now();
+        let ttl_days = env::var("TEPORA_TOKEN_TTL_DAYS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(DEFAULT_TOKEN_TTL_DAYS);
+
+        self.created_at = now;
+        self.expires_at = now + chrono::Duration::days(ttl_days as i64);
+
+        let token_path = session_token_path();
+        if let Some(parent) = token_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        fs::write(&token_path, &new_token).map_err(ApiError::internal)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = fs::metadata(&token_path) {
+                let mut perms = metadata.permissions();
+                perms.set_mode(0o600);
+                let _ = fs::set_permissions(&token_path, perms);
+            }
+        }
+        #[cfg(windows)]
+        {
+            apply_windows_token_acl(&token_path);
+        }
+
+        Ok(new_token)
+    }
 }
 
 pub fn init_session_token() -> SessionToken {
+    let now = Utc::now();
+    let ttl_days = env::var("TEPORA_TOKEN_TTL_DAYS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_TOKEN_TTL_DAYS);
+    let expires_at = now + chrono::Duration::days(ttl_days as i64);
+
     if let Ok(token) = env::var("TEPORA_SESSION_TOKEN") {
         if !token.trim().is_empty() {
-            return SessionToken { value: token };
+            return SessionToken {
+                value: token,
+                created_at: now,
+                expires_at,
+            };
         }
     }
 
@@ -52,7 +133,11 @@ pub fn init_session_token() -> SessionToken {
         apply_windows_token_acl(&token_path);
     }
 
-    SessionToken { value: token }
+    SessionToken {
+        value: token,
+        created_at: now,
+        expires_at,
+    }
 }
 
 fn session_token_path() -> PathBuf {
@@ -97,7 +182,7 @@ fn apply_windows_token_acl(path: &std::path::Path) {
     }
 }
 
-pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken) -> Result<(), ApiError> {
+pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken, allow_expired: bool) -> Result<(), ApiError> {
     let header_value = headers
         .get(API_KEY_HEADER)
         .and_then(|value| value.to_str().ok())
@@ -109,6 +194,15 @@ pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken) -> Result<(
 
     if header_value != expected.value() {
         return Err(ApiError::Unauthorized);
+    }
+
+    // トークンが期限切れの場合は警告を出して拒否する（allow_expiredがtrueなら許可）
+    if !allow_expired && expected.is_expired() {
+        tracing::warn!(
+            "Session token has expired (age: {} seconds). Please restart the application to rotate the token.",
+            expected.age_seconds()
+        );
+        return Err(ApiError::TokenExpired);
     }
 
     Ok(())
@@ -127,44 +221,87 @@ pub fn api_key_optional(headers: &HeaderMap, expected: &SessionToken) -> Option<
 mod tests {
     use super::*;
     use axum::http::HeaderValue;
+    use chrono::Duration;
+
+    fn make_token(value: &'static str) -> SessionToken {
+        let now = Utc::now();
+        SessionToken {
+            value: value.to_string(),
+            created_at: now,
+            expires_at: now + Duration::days(DEFAULT_TOKEN_TTL_DAYS as i64),
+        }
+    }
+
+    fn make_expired_token(value: &'static str) -> SessionToken {
+        let now = Utc::now();
+        let created_at = now - Duration::days(8);
+        SessionToken {
+            value: value.to_string(),
+            created_at,
+            expires_at: created_at + Duration::days(DEFAULT_TOKEN_TTL_DAYS as i64),
+        }
+    }
 
     #[test]
     fn require_api_key_accepts_valid_header() {
-        let expected = SessionToken {
-            value: "test-secret-token".to_string(),
-        };
+        let expected = make_token("test-secret-token");
         let mut headers = HeaderMap::new();
         headers.insert(
             API_KEY_HEADER,
             HeaderValue::from_static("test-secret-token"),
         );
 
-        let result = require_api_key(&headers, &expected);
+        let result = require_api_key(&headers, &expected, false);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn require_api_key_rejects_missing_or_invalid_header() {
-        let expected = SessionToken {
-            value: "test-secret-token".to_string(),
-        };
+        let expected = make_token("test-secret-token");
         let headers = HeaderMap::new();
 
-        let missing = require_api_key(&headers, &expected);
+        let missing = require_api_key(&headers, &expected, false);
         assert!(matches!(missing, Err(ApiError::Unauthorized)));
 
         let mut invalid_headers = HeaderMap::new();
         invalid_headers.insert(API_KEY_HEADER, HeaderValue::from_static("wrong"));
-        let invalid = require_api_key(&invalid_headers, &expected);
+        let invalid = require_api_key(&invalid_headers, &expected, false);
         assert!(matches!(invalid, Err(ApiError::Unauthorized)));
     }
 
     #[test]
+    fn require_api_key_rejects_expired_token() {
+        let expected = make_expired_token("test-secret-token");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            API_KEY_HEADER,
+            HeaderValue::from_static("test-secret-token"),
+        );
+
+        // 値は正しいが有効期限切れ → TokenExpired
+        let result = require_api_key(&headers, &expected, false);
+        assert!(
+            matches!(result, Err(ApiError::TokenExpired)),
+            "Expired token should be rejected with TokenExpired"
+        );
+    }
+
+    #[test]
+    fn session_token_is_not_expired_when_fresh() {
+        let token = make_token("fresh-token");
+        assert!(!token.is_expired(), "Fresh token should not be expired");
+    }
+
+    #[test]
+    fn session_token_is_expired_after_ttl() {
+        let token = make_expired_token("old-token");
+        assert!(token.is_expired(), "Token older than TTL should be expired");
+    }
+
+    #[test]
     fn api_key_optional_only_returns_on_match() {
-        let expected = SessionToken {
-            value: "test-secret-token".to_string(),
-        };
+        let expected = make_token("test-secret-token");
         let mut headers = HeaderMap::new();
         headers.insert(
             API_KEY_HEADER,
@@ -182,24 +319,20 @@ mod tests {
 
     #[test]
     fn require_api_key_rejects_non_utf8_header_value() {
-        let expected = SessionToken {
-            value: "test-secret-token".to_string(),
-        };
+        let expected = make_token("test-secret-token");
         let mut headers = HeaderMap::new();
         let non_utf8 = HeaderValue::from_bytes(&[0xFF, 0xFE, 0xFD])
             .expect("header value bytes should be accepted");
         headers.insert(API_KEY_HEADER, non_utf8);
 
-        let result = require_api_key(&headers, &expected);
+        let result = require_api_key(&headers, &expected, false);
 
         assert!(matches!(result, Err(ApiError::Unauthorized)));
     }
 
     #[test]
     fn api_key_optional_returns_none_for_non_utf8_header() {
-        let expected = SessionToken {
-            value: "test-secret-token".to_string(),
-        };
+        let expected = make_token("test-secret-token");
         let mut headers = HeaderMap::new();
         let non_utf8 = HeaderValue::from_bytes(&[0xFF, 0xFE, 0xFD])
             .expect("header value bytes should be accepted");

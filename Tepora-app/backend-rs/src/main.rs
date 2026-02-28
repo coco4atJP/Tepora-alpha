@@ -7,6 +7,7 @@
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod a2a;
+pub mod actor;
 mod agent;
 mod context;
 mod core;
@@ -22,6 +23,12 @@ mod rag;
 mod server;
 mod state;
 mod tools;
+
+// PoC modules (test-only, Day 7)
+#[cfg(test)]
+mod crdt;
+#[cfg(feature = "redesign_sandbox")]
+mod sandbox;
 
 use crate::state::AppState;
 
@@ -70,6 +77,10 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+
+    if let Err(err) = app_state.llm.shutdown().await {
+        tracing::warn!("Failed to stop llama server during shutdown: {}", err);
+    }
 
     tracing::info!("Tepora backend shutdown complete");
 

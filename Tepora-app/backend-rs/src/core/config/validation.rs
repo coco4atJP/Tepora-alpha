@@ -160,6 +160,16 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
         }
     }
 
+    if let Some(features) = expect_optional_object(root, "features")? {
+        if let Some(redesign) = expect_optional_object(features, "redesign")? {
+            for (key, value) in redesign {
+                if !value.is_boolean() {
+                    return Err(config_type_error(&format!("features.redesign.{}", key), "boolean"));
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
