@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { apiClient } from "../../../../utils/api-client";
+import { logger } from "../../../../utils/logger";
 import Updater from "../components/Updater";
 import {
 	CollapsibleSection,
@@ -211,7 +212,7 @@ const InferenceEngineUpdate: React.FC = () => {
 			}>(`api/setup/binary/update-info?t=${Date.now()}`);
 			setUpdateInfo(data);
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		} finally {
 			setChecking(false);
 		}
@@ -258,7 +259,7 @@ const InferenceEngineUpdate: React.FC = () => {
 				);
 			}
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 			setUpdating(false);
 			setStatus(t("settings.sections.general.inference_engine.error") || "Error starting update");
 		}

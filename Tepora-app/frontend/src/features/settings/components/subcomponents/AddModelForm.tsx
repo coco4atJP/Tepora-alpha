@@ -12,6 +12,7 @@ import React, { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isDesktop } from "../../../../utils/api";
 import { ApiError, apiClient } from "../../../../utils/api-client";
+import { logger } from "../../../../utils/logger";
 import { FormGroup, FormInput } from "../SettingsComponents";
 
 interface AddModelFormProps {
@@ -61,7 +62,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			});
 			setCheckStatus(data.exists ? "valid" : "invalid");
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 			setCheckStatus("invalid");
 		}
 	}, []);
@@ -108,7 +109,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 				});
 			}
 		} catch (e) {
-			console.error("Failed to open dialog:", e);
+			logger.error("Failed to open dialog:", e);
 		}
 	};
 
@@ -199,7 +200,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			onModelAdded();
 			setLocalFile(null);
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -287,7 +288,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 					unlisten = stopListening;
 				}
 			} catch (e) {
-				console.error("Failed to register drag-and-drop listener:", e);
+				logger.error("Failed to register drag-and-drop listener:", e);
 			}
 		};
 
@@ -346,7 +347,7 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 				}
 			}
 
-			console.error(e);
+			logger.error(e);
 			setDownloading(false);
 			setProgressData(null);
 		}

@@ -296,8 +296,8 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({ onClose, onInstall
 									}
 								}}
 								className={`w-full p-4 text-left border rounded-xl transition-all ${selectedRuntime === rt
-										? "border-purple-500 bg-purple-500/10"
-										: "border-white/10 hover:border-white/20 bg-black/20"
+									? "border-purple-500 bg-purple-500/10"
+									: "border-white/10 hover:border-white/20 bg-black/20"
 									}`}
 							>
 								<div className="font-medium text-gray-100">{rt}</div>
@@ -359,7 +359,7 @@ export const McpStoreModal: React.FC<McpStoreModalProps> = ({ onClose, onInstall
 								<p className="text-sm text-gray-400 mb-4">{previewData.description}</p>
 							)}
 							<div className="flex items-center gap-2 text-sm text-gray-400">
-								<span className="font-medium">Runtime:</span>
+								<span className="font-medium">{t("settings.mcp.store.runtime", "Runtime")}:</span>
 								<span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded">
 									{previewData.runtime || "npx"}
 								</span>

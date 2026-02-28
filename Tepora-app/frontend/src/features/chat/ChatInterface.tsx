@@ -1,19 +1,22 @@
-import { History, Plus, Settings } from "lucide-react";
+import { Activity, History, Plus, Settings } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useToast } from "../../context/ToastContext";
+import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useSessions } from "../../hooks/useSessions";
 import { useChatStore, useWebSocketStore } from "../../stores";
 import type { Attachment, ChatMode } from "../../types";
+import AgentMetricsPanel from "./AgentMetricsPanel";
 import { EmptyState } from "./components/EmptyState";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import InputArea from "./InputArea";
 import MessageList from "./MessageList";
 import ToolConfirmationDialog from "./ToolConfirmationDialog";
+import { chatActor } from "../../machines/chatMachine";
 
 export interface ChatInterfaceContext {
 	currentMode: ChatMode;
@@ -51,6 +54,8 @@ const ChatInterface: React.FC = () => {
 	const setSession = useWebSocketStore((state) => state.setSession);
 
 	const [showShortcuts, setShowShortcuts] = useState(false);
+	const [showMetrics, setShowMetrics] = useState(false);
+	const metricsEnabled = useFeatureFlag("agent_metrics");
 
 	useKeyboardShortcuts([
 		{
@@ -64,7 +69,8 @@ const ChatInterface: React.FC = () => {
 		{
 			key: "Escape",
 			action: () => {
-				if (useChatStore.getState().isProcessing) {
+				const state = chatActor.getSnapshot();
+				if (state.matches("generating")) {
 					stopGeneration();
 					showToast("info", t("chat.generationStopped", "Generation stopped"));
 				} else {
@@ -134,6 +140,20 @@ const ChatInterface: React.FC = () => {
 							<History className="w-5 h-5" />
 						</Button>
 					)}
+					{metricsEnabled && (
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => setShowMetrics((v) => !v)}
+							className={`w-10 h-10 rounded-full transition-colors ${showMetrics
+									? "text-gold-300 bg-gold-500/15"
+									: "text-tea-200/70 hover:text-gold-300 hover:bg-gold-500/10"
+								}`}
+							aria-label="Agent Metrics"
+						>
+							<Activity className="w-5 h-5" />
+						</Button>
+					)}
 					{onOpenSettings && (
 						<Button
 							variant="ghost"
@@ -150,6 +170,14 @@ const ChatInterface: React.FC = () => {
 					</span>
 				</div>
 			</div>
+
+			{/* Agent Metrics Panel (dev-only, feature-flagged) */}
+			{metricsEnabled && (
+				<AgentMetricsPanel
+					isOpen={showMetrics}
+					onClose={() => setShowMetrics(false)}
+				/>
+			)}
 
 			{/* Message List - Scrollable Area */}
 			<div className="flex-1 overflow-hidden relative min-h-0 w-full max-w-5xl mx-auto flex flex-col pt-4">

@@ -1,6 +1,7 @@
 import { AlertTriangle, RefreshCcw } from "lucide-react";
 import React from "react";
 import { Translation } from "react-i18next";
+import { logger } from "../../utils/logger";
 
 interface ErrorBoundaryProps {
 	children: React.ReactNode;
@@ -22,7 +23,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
 	}
 
 	componentDidCatch(error: Error) {
-		console.error("[UI] Uncaught error:", error);
+		logger.error("[UI] Uncaught error:", error);
 	}
 
 	private handleReload = () => {

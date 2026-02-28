@@ -5,9 +5,11 @@ import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useSettings } from "../../hooks/useSettings";
-import { useChatStore, useWebSocketStore } from "../../stores";
+import { useWebSocketStore } from "../../stores";
 import type { ChatInterfaceContext } from "./ChatInterface";
 import PersonaSwitcher from "./PersonaSwitcher";
+import { useSelector } from "@xstate/react";
+import { chatActor } from "../../machines/chatMachine";
 
 const InputArea: React.FC = () => {
 	const { currentMode, attachments, clearAttachments, skipWebSearch } =
@@ -15,34 +17,42 @@ const InputArea: React.FC = () => {
 
 	const { t } = useTranslation();
 	const [message, setMessage] = useState("");
-	const [isThinkingMode, setIsThinkingMode] = useState(false);
+	const [thinkingBudget, setThinkingBudget] = useState(0);
 	const [selectedAgentId, setSelectedAgentId] = useState("");
 	const [selectedAgentMode, setSelectedAgentMode] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-	// Stores
-	const isProcessing = useChatStore((state) => state.isProcessing);
+	// Stores & State Machine
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
 	const { customAgents, config } = useSettings();
+
+	const isIdle = useSelector(chatActor, (state) => state.matches("idle"));
+	const isGenerating = useSelector(chatActor, (state) => state.matches("generating"));
+	const isError = useSelector(chatActor, (state) => state.matches("error"));
+
+	// We can only send when the machine is idle or in error (retry) state
+	const canSend = (isIdle || isError) && isConnected && (message.trim().length > 0 || attachments.length > 0);
+	const isProcessing = isGenerating;
 
 	const availableAgents = Object.values(customAgents).filter(
 		(agent) => agent.enabled,
 	);
 
 	const handleSend = () => {
-		if ((message.trim() || attachments.length > 0) && !isProcessing && isConnected) {
+		if (canSend) {
 			sendMessage(
 				message,
 				currentMode,
 				attachments,
 				skipWebSearch,
-				isThinkingMode,
+				thinkingBudget,
 				selectedAgentId || undefined,
 				(selectedAgentMode as import("../../types").AgentMode) || undefined,
 				config?.app.graph_execution_timeout,
 			);
+			chatActor.send({ type: "SEND_MESSAGE", payload: message });
 			clearAttachments();
 			setMessage("");
 			if (textareaRef.current) {
@@ -88,9 +98,9 @@ const InputArea: React.FC = () => {
 		// Apply default thinking mode from settings
 		if (config?.thinking) {
 			if (currentMode === "chat") {
-				setIsThinkingMode(config.thinking.chat_default ?? false);
+				setThinkingBudget(config.thinking.chat_default ? 1 : 0);
 			} else if (currentMode === "search") {
-				setIsThinkingMode(config.thinking.search_default ?? false);
+				setThinkingBudget(config.thinking.search_default ? 1 : 0);
 			}
 		}
 	}, [currentMode, config?.thinking]);
@@ -164,15 +174,20 @@ const InputArea: React.FC = () => {
 					{/* Thinking Toggle */}
 					<button
 						type="button"
-						onClick={() => setIsThinkingMode(!isThinkingMode)}
+						onClick={() => setThinkingBudget((prev) => (prev + 1) % 4)}
 						disabled={isProcessing}
-						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 ${isThinkingMode
+						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 relative ${thinkingBudget > 0
 							? "bg-semantic-thinking/20 text-semantic-thinking ring-1 ring-semantic-thinking/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
 							: "text-gray-500 hover:text-semantic-thinking hover:bg-semantic-thinking/10"
 							}`}
-						title={t("chat.input.thinking_mode")}
+						title={`${t("chat.input.thinking_mode")} (Level ${thinkingBudget})`}
 					>
 						<Brain className="w-4 h-4" />
+						{thinkingBudget > 0 && (
+							<span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-semantic-thinking text-[8px] font-bold text-white shadow-sm ring-1 ring-black/50">
+								{thinkingBudget}
+							</span>
+						)}
 					</button>
 
 					{/* Send / Stop Button */}
@@ -191,7 +206,7 @@ const InputArea: React.FC = () => {
 							variant={message.trim() || attachments.length > 0 ? "primary" : "ghost"}
 							size="icon"
 							onClick={handleSend}
-							disabled={(!message.trim() && attachments.length === 0) || !isConnected}
+							disabled={!canSend}
 							aria-label={t("chat.input.send_message")}
 							className={`rounded-full w-10 h-10 transition-all duration-300 ${message.trim() || attachments.length > 0
 								? "shadow-[0_0_20px_rgba(234,179,8,0.4)]"

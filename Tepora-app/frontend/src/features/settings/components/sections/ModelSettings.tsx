@@ -6,6 +6,7 @@ import { useSettings } from "../../../../hooks/useSettings";
 import { modelsApi, resolveEmbeddingModelPath } from "../../../../api/models";
 import type { ModelRoles } from "../../../../api/models";
 import { loadersApi } from "../../../../api/loaders";
+import { logger } from "../../../../utils/logger";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
 import { ModelListOverlay } from "../subcomponents/ModelListOverlay";
@@ -72,7 +73,7 @@ const ModelSettings: React.FC = () => {
 			const data = await modelsApi.list();
 			setModels(data.models || []);
 		} catch (e) {
-			console.error("Failed to fetch models", e);
+			logger.error("Failed to fetch models", e);
 		}
 	}, []);
 
@@ -86,7 +87,7 @@ const ModelSettings: React.FC = () => {
 				professional_model_map: data.professional_model_map || {},
 			});
 		} catch (e) {
-			console.error("Failed to fetch model roles", e);
+			logger.error("Failed to fetch model roles", e);
 		}
 	}, []);
 
@@ -128,7 +129,7 @@ const ModelSettings: React.FC = () => {
 			await modelsApi.setCharacterRole(modelId);
 			await fetchModelRoles();
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -141,7 +142,7 @@ const ModelSettings: React.FC = () => {
 			}
 			await fetchModelRoles();
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -154,7 +155,7 @@ const ModelSettings: React.FC = () => {
 			}
 			await fetchModelRoles();
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -163,7 +164,7 @@ const ModelSettings: React.FC = () => {
 			await modelsApi.setProfessionalRole(taskType, modelId);
 			await fetchModelRoles();
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -180,7 +181,7 @@ const ModelSettings: React.FC = () => {
 			fetchModels();
 			fetchModelRoles();
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -189,7 +190,7 @@ const ModelSettings: React.FC = () => {
 			await modelsApi.reorder(role, ids);
 			fetchModels();
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 
@@ -199,7 +200,7 @@ const ModelSettings: React.FC = () => {
 			await loadersApi.refreshOllamaModels();
 			await fetchModels();
 		} catch (e) {
-			console.error("Failed to refresh Ollama models", e);
+			logger.error("Failed to refresh Ollama models", e);
 		} finally {
 			setIsRefreshing(false);
 		}
@@ -211,7 +212,7 @@ const ModelSettings: React.FC = () => {
 			await loadersApi.refreshLmStudioModels();
 			await fetchModels();
 		} catch (e) {
-			console.error("Failed to refresh LM Studio models", e);
+			logger.error("Failed to refresh LM Studio models", e);
 		} finally {
 			setIsRefreshingLmStudio(false);
 		}
@@ -233,7 +234,7 @@ const ModelSettings: React.FC = () => {
 				}
 			}
 		} catch (e) {
-			console.error(e);
+			logger.error(e);
 		}
 	};
 

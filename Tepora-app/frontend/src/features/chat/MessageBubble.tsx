@@ -7,6 +7,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../../types";
+import { logger } from "../../utils/logger";
 
 interface MessageBubbleProps {
 	message: Message;
@@ -136,7 +137,7 @@ const CodeBlock = ({ language, code }: { language: string; code: string }) => {
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch (err) {
-			console.error('Failed to copy!', err);
+			logger.error("Failed to copy!", err);
 		}
 	};
 
@@ -195,8 +196,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 	const modeLabel =
 		message.mode && message.role === "user" ? getModeLabel(message.mode, t) : null;
 
-	// Debounced content for performance optimization during streaming
 	const [debouncedContent, setDebouncedContent] = useState(message.content);
+	const lastUpdateRef = React.useRef(Date.now());
 
 	useEffect(() => {
 		// Completed or user/system messages reflect immediately
@@ -206,16 +207,38 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 			message.role === "system"
 		) {
 			setDebouncedContent(message.content);
+			lastUpdateRef.current = Date.now();
 			return;
 		}
 
-		// Debounce during streaming
-		const timer = setTimeout(() => {
-			setDebouncedContent(message.content);
-		}, MARKDOWN_DEBOUNCE_MS);
+		// Throttle during streaming to prevent starvation
+		const now = Date.now();
+		const timeSinceLast = now - lastUpdateRef.current;
 
-		return () => clearTimeout(timer);
+		if (timeSinceLast >= MARKDOWN_DEBOUNCE_MS) {
+			setDebouncedContent(message.content);
+			lastUpdateRef.current = now;
+		} else {
+			const timer = setTimeout(() => {
+				setDebouncedContent(message.content);
+				lastUpdateRef.current = Date.now();
+			}, MARKDOWN_DEBOUNCE_MS - timeSinceLast);
+
+			return () => clearTimeout(timer);
+		}
 	}, [message.content, message.isComplete, message.role]);
+
+	// Extract <think> tags from reasoning models (like DeepSeek R1)
+	let displayContent = debouncedContent;
+	let extractedThinking = message.thinking || "";
+
+	if (displayContent.includes("<think>")) {
+		const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/gi;
+		displayContent = displayContent.replace(thinkRegex, (_match, thinkContent) => {
+			extractedThinking = extractedThinking ? extractedThinking + "\n\n" + thinkContent : thinkContent;
+			return "";
+		});
+	}
 
 	return (
 		<div
@@ -258,7 +281,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
 						{/* Thinking Process */}
 						{/* Only show if there is actual content (ignoring whitespace) */}
-						{message.thinking && message.thinking.trim().length > 0 && (
+						{extractedThinking && extractedThinking.trim().length > 0 && (
 							<details className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2">
 								<summary className="flex items-center gap-2 px-3 py-2 text-xs font-mono text-gray-400 cursor-pointer hover:bg-white/5 transition-colors select-none">
 									<Bot className="w-3 h-3 text-purple-400" />
@@ -271,8 +294,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 									</span>
 								</summary>
 								<div className="px-3 pt-2 text-xs font-mono text-gray-400/80 leading-relaxed whitespace-pre-wrap border-t border-white/5">
-									{message.thinking}
-									{!message.isComplete && !message.content && (
+									{extractedThinking.trim()}
+									{!message.isComplete && displayContent.trim().length === 0 && (
 										<span className="animate-pulse inline-block ml-1">...</span>
 									)}
 								</div>
@@ -315,7 +338,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 									),
 								}}
 							>
-								{debouncedContent}
+								{displayContent}
 							</ReactMarkdown>
 						</div>
 					</div>

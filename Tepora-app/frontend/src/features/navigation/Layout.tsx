@@ -9,6 +9,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useSettings } from "../../hooks/useSettings";
 import { useChatStore, useWebSocketStore } from "../../stores";
 import type { Attachment, ChatMode } from "../../types";
+import { logger } from "../../utils/logger";
 import AgentStatus from "../chat/AgentStatus";
 import DialControl from "../chat/DialControl";
 import RagContextPanel from "../chat/RagContextPanel";
@@ -142,7 +143,7 @@ const Layout: React.FC = () => {
 						type: file.type,
 					});
 				} catch (err) {
-					console.error("Failed to read file:", file.name, err);
+					logger.error("Failed to read file:", file.name, err);
 				}
 			}
 

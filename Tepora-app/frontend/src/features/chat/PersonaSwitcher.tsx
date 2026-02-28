@@ -4,6 +4,7 @@ import { useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsContext } from "../../context/SettingsContext";
 import type { CharacterConfig } from "../../types";
+import { logger } from "../../utils/logger";
 
 const PersonaSwitcher: React.FC = () => {
 	const { t } = useTranslation();
@@ -76,11 +77,11 @@ const PersonaSwitcher: React.FC = () => {
 			deleteCharacter(deleteTarget);
 			const success = await saveConfig();
 			if (!success) {
-				console.error("Failed to save deletion");
+				logger.error("Failed to save deletion");
 			}
 			setDeleteTarget(null);
 		} catch (error) {
-			console.error("Failed to delete character:", error);
+			logger.error("Failed to delete character:", error);
 		} finally {
 			setIsLoading(false);
 		}
@@ -116,7 +117,7 @@ const PersonaSwitcher: React.FC = () => {
 				setNewKey("");
 			}
 		} catch (error) {
-			console.error("Failed to save character:", error);
+			logger.error("Failed to save character:", error);
 			setError("Failed to save character.");
 		} finally {
 			setIsLoading(false);

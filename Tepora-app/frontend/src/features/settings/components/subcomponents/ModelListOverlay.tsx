@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { FitText } from "../../../../components/ui/FitText";
 import { useModelUpdateCheck } from "../../../../hooks/useModelUpdateCheck";
 import { apiClient } from "../../../../utils/api-client";
+import { logger } from "../../../../utils/logger";
 
 interface ModelInfo {
 	id: string;
@@ -82,9 +83,9 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 			});
 			// Ideally we would switch to a download progress view here
 			// For now, we'll just alert (or rely on the toast system if available)
-			console.log("Download started for", model.display_name);
+			logger.log("Download started for", model.display_name);
 		} catch (error) {
-			console.error("Failed to start update", error);
+			logger.error("Failed to start update", error);
 		} finally {
 			setTimeout(() => {
 				setUpdatingModels((prev) => {

@@ -59,7 +59,9 @@ export interface WebSocketMessage {
 	| "tool_confirmation_request"
 	| "history"
 	| "session_changed"
-	| "download_progress";
+	| "download_progress"
+	| "interaction_complete"
+	| "thought";
 	message?: string;
 	messages?: Message[]; // For history loading
 	sessionId?: string; // For session_changed event
@@ -82,7 +84,7 @@ export type WebSocketOutgoingMessage =
 		mode: ChatMode;
 		attachments?: Attachment[];
 		skipWebSearch?: boolean;
-		thinkingMode?: boolean; // Toggle Chain of Thought
+		thinkingBudget?: number; // Configurable depth of Chain of Thought (0 = off, 1 = CoT, >1 = Parallel)
 		sessionId?: string;
 		agentId?: string;
 		agentMode?: AgentMode;

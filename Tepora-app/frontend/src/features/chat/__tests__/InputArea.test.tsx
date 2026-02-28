@@ -7,8 +7,20 @@ const mockSendMessage = vi.fn();
 const mockStopGeneration = vi.fn();
 
 vi.mock("../../../stores", () => ({
-	useChatStore: vi.fn(),
 	useWebSocketStore: vi.fn(),
+}));
+
+const mockActorSend = vi.fn();
+
+vi.mock("../../../machines/chatMachine", () => ({
+	chatActor: {
+		send: (...args: unknown[]) => mockActorSend(...args),
+		getSnapshot: () => ({ matches: vi.fn() })
+	}
+}));
+
+vi.mock("@xstate/react", () => ({
+	useSelector: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -42,20 +54,25 @@ vi.mock("../../../hooks/useSettings", () => ({
 }));
 
 import { useOutletContext } from "react-router-dom";
-import { useChatStore, useWebSocketStore } from "../../../stores";
+import { useWebSocketStore } from "../../../stores";
+import { useSelector } from "@xstate/react";
 
 describe("InputArea", () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
+		mockActorSend.mockClear();
 
 		// Reset config defaults
 		mockConfig.thinking.chat_default = false;
 		mockConfig.thinking.search_default = false;
 
-		// Default store implementation
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
-			selector({ isProcessing: false }),
-		);
+		// Default state: idle (not generating)
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation((_actor, selector) => {
+			// Mocking state.matches
+			return selector({
+				matches: (stateValue: string) => stateValue === "idle"
+			});
+		});
 		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
 				isConnected: true,
@@ -96,19 +113,25 @@ describe("InputArea", () => {
 			"chat",
 			[],
 			false,
-			false,
+			0,
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Hello"
+		});
 		expect(input).toHaveValue("");
 	});
 
 	it("disables input when processing", () => {
-		// Mock processing state
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
-			selector({ isProcessing: true }),
-		);
+		// Mock processing state: generating
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation((_actor, selector) => {
+			return selector({
+				matches: (stateValue: string) => stateValue === "generating"
+			});
+		});
 
 		render(<InputArea />);
 
@@ -119,6 +142,12 @@ describe("InputArea", () => {
 	});
 
 	it("disables input when disconnected", () => {
+		// Default idle state
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation((_actor, selector) => {
+			return selector({
+				matches: (stateValue: string) => stateValue === "idle"
+			});
+		});
 		// Mock disconnected state
 		(useWebSocketStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({
@@ -133,6 +162,31 @@ describe("InputArea", () => {
 		// When disconnected (and not processing), Textbox and Send button disabled
 		expect(getTextbox()).toBeDisabled();
 		expect(getSendButton()).toBeDisabled();
+	});
+
+	it("allows sending when in error state", () => {
+		// Mock error state
+		(useSelector as unknown as ReturnType<typeof vi.fn>).mockImplementation((_actor, selector) => {
+			return selector({
+				matches: (stateValue: string) => stateValue === "error"
+			});
+		});
+
+		render(<InputArea />);
+
+		// Textbox and Send button should be enabled
+		const input = getTextbox();
+		expect(input).not.toBeDisabled();
+
+		fireEvent.change(input, { target: { value: "Retry message" } });
+		const sendButton = getSendButton();
+		expect(sendButton).not.toBeDisabled();
+
+		fireEvent.click(sendButton);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Retry message"
+		});
 	});
 
 	it("prevents sending empty messages without attachments", () => {
@@ -166,11 +220,15 @@ describe("InputArea", () => {
 			"chat",
 			["file1.txt"],
 			false,
-			false,
+			0,
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: ""
+		});
 	});
 
 	it("sends message with correct mode", () => {
@@ -194,11 +252,15 @@ describe("InputArea", () => {
 			"search",
 			[],
 			false,
-			false,
+			0,
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Search query"
+		});
 	});
 
 	it("initializes thinking mode based on config", () => {
@@ -216,11 +278,15 @@ describe("InputArea", () => {
 			"chat",
 			[],
 			false,
-			true, // Thinking mode should be true
+			1, // Thinking mode should be true (budget 1)
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Thinking test"
+		});
 	});
 
 	it("updates thinking mode when mode changes", () => {
@@ -239,11 +305,15 @@ describe("InputArea", () => {
 			"chat", // currentMode is chat by default in mock
 			[],
 			false,
-			false, // Thinking false
+			0, // Thinking 0
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Chat"
+		});
 
 		// Change usage of useOutletContext for next render
 		(useOutletContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -266,10 +336,14 @@ describe("InputArea", () => {
 			"search",
 			[],
 			false,
-			true, // Thinking true because search_default is true
+			1, // Thinking 1 because search_default is true
 			undefined,
 			undefined,
 			300,
 		);
+		expect(mockActorSend).toHaveBeenCalledWith({
+			type: "SEND_MESSAGE",
+			payload: "Search"
+		});
 	});
 });

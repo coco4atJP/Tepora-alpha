@@ -8,6 +8,7 @@ import { modelsApi, resolveEmbeddingModelPath } from "../api/models";
 import { ModelCard } from "../features/settings/components/ModelCard";
 import { loadersApi } from "../api/loaders";
 import type { ModelInfo } from "../types";
+import { logger } from "../utils/logger";
 
 interface ModelHubProps {
     isOpen: boolean;
@@ -39,7 +40,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
             const data = await modelsApi.list();
             setModels(data.models || []);
         } catch (e) {
-            console.error("Failed to fetch models", e);
+            logger.error("Failed to fetch models", e);
         } finally {
             setIsLoading(false);
         }
@@ -69,7 +70,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
             }
             fetchModels();
         } catch (e) {
-            console.error("Failed to activate model", e);
+            logger.error("Failed to activate model", e);
         }
     };
 
@@ -80,7 +81,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
             await modelsApi.delete(id);
             fetchModels();
         } catch (e) {
-            console.error("Failed to delete model", e);
+            logger.error("Failed to delete model", e);
         }
     };
 
@@ -93,7 +94,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
             ]);
             await fetchModels();
         } catch (e) {
-            console.error("Failed to refresh loaders", e);
+            logger.error("Failed to refresh loaders", e);
         } finally {
             setIsRefreshing(false);
         }

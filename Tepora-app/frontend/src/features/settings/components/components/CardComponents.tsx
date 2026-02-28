@@ -6,6 +6,7 @@ import { Check, Cpu, FolderOpen } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
+import { logger } from "../../../../utils/logger";
 import { FormGroup, FormInput, FormList } from "./FormComponents";
 
 // ============================================================================
@@ -212,7 +213,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 				updateField("avatar_path", selected);
 			}
 		} catch (e) {
-			console.error("Failed to open file dialog", e);
+			logger.error("Failed to open file dialog", e);
 		}
 	};
 

@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useCallback, useEffect, useMemo, useStat
 import { useServerConfig } from "../hooks/useServerConfig";
 import type { CharacterConfig, CustomAgentConfig } from "../types";
 import { apiClient } from "../utils/api-client";
+import { configureLogger } from "../utils/logger";
 
 // ============================================================================
 // Types
@@ -115,6 +116,9 @@ export interface Config {
 	thinking?: {
 		chat_default?: boolean;
 		search_default?: boolean;
+	};
+	features?: {
+		redesign?: Record<string, unknown>;
 	};
 }
 
@@ -308,6 +312,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
 	useEffect(() => {
 		if (!normalizedServerConfig) return;
+		configureLogger(!!normalizedServerConfig.features?.redesign?.frontend_logging);
+
+		// Expose transport_mode to window for non-React stores (like websocketStore)
+		if (typeof window !== 'undefined') {
+			(window as unknown as { __TRANSPORT_MODE__?: unknown }).__TRANSPORT_MODE__ = normalizedServerConfig.features?.redesign?.transport_mode;
+		}
+
 		if (!config || !originalConfig || !hasChanges) {
 			setConfig(normalizedServerConfig);
 			setOriginalConfig(normalizedServerConfig);

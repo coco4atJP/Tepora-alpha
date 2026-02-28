@@ -7,6 +7,7 @@ import Modal from "../../../../components/ui/Modal";
 import { useSettings } from "../../../../hooks/useSettings";
 import type { CustomAgentConfig, CustomAgentToolPolicy, ToolInfo } from "../../../../types";
 import { ApiError, apiClient } from "../../../../utils/api-client";
+import { logger } from "../../../../utils/logger";
 import { FormGroup, SettingsSection } from "../SettingsComponents";
 
 interface CustomAgentSettingsProps {
@@ -64,7 +65,7 @@ const CustomAgentSettings: React.FC<CustomAgentSettingsProps> = ({
 				const data = await apiClient.get<{ tools?: ToolInfo[] }>("/api/tools");
 				setAvailableTools(Array.isArray(data.tools) ? data.tools : []);
 			} catch (error) {
-				console.error("Failed to fetch tools:", error);
+				logger.error("Failed to fetch tools:", error);
 				const errorDetails =
 					error instanceof ApiError
 						? error.message

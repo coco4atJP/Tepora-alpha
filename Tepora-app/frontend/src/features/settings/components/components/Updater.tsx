@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle, Download, RefreshCw, RotateCw } from "lucide-
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { logger } from "../../../../utils/logger";
 import { CollapsibleSection } from "../SettingsComponents";
 
 const Updater: React.FC = () => {
@@ -39,7 +40,7 @@ const Updater: React.FC = () => {
 				setStatus("uptodate");
 			}
 		} catch (error) {
-			console.error(error);
+			logger.error(error);
 			setStatus("error");
 			setErrorMsg(String(error));
 		}
@@ -67,7 +68,7 @@ const Updater: React.FC = () => {
 				await relaunch();
 			}
 		} catch (error) {
-			console.error(error);
+			logger.error(error);
 			setStatus("error");
 			setErrorMsg(String(error));
 		}
