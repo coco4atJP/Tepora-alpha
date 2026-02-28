@@ -7,7 +7,6 @@ use serde_json::json;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llm::{ChatMessage, ChatRequest};
-use crate::server::ws::handler::send_json;
 
 pub struct SynthesizerNode;
 
@@ -43,8 +42,7 @@ impl Node for SynthesizerNode {
             .clone()
             .unwrap_or_else(|| "Assistant".to_string());
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -115,8 +113,7 @@ impl Node for SynthesizerNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = send_json(
-                        ctx.sender,
+                    let _ = ctx.sender.send_json(
                         json!({
                             "type": "chunk",
                             "message": chunk,
@@ -133,8 +130,7 @@ impl Node for SynthesizerNode {
             }
         }
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -147,7 +143,7 @@ impl Node for SynthesizerNode {
         )
         .await;
 
-        let _ = send_json(ctx.sender, json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
 
         state.output = Some(full_response);
         Ok(NodeOutput::Final)

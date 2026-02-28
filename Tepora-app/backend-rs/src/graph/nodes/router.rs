@@ -37,7 +37,7 @@ impl Node for RouterNode {
     ) -> Result<NodeOutput, GraphError> {
         let route = match state.mode {
             Mode::Chat => {
-                if state.thinking_enabled {
+                if state.thinking_budget > 0 {
                     "thinking"
                 } else {
                     "chat"
@@ -64,8 +64,7 @@ impl Node for RouterNode {
 
         // Notify via config if agentic mode selected
         if route == "search_agentic" {
-            let _ = crate::server::ws::handler::send_json(
-                ctx.sender,
+            let _ = ctx.sender.send_json(
                 serde_json::json!({
                     "type": "status",
                     "message": "Deep research mode activated"
@@ -78,7 +77,7 @@ impl Node for RouterNode {
             "Router: mode={}{}, thinking={}, routing to {}",
             state.mode.as_str(),
             agentic_label,
-            state.thinking_enabled,
+            state.thinking_budget > 0, // Changed from state.thinking_enabled
             route
         );
 

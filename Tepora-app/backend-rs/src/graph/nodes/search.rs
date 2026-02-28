@@ -12,7 +12,6 @@ use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llm::ChatRequest;
 use crate::rag::ChunkSearchResult;
-use crate::server::ws::handler::send_json;
 use crate::tools::execute_tool;
 
 pub struct SearchNode;
@@ -86,8 +85,7 @@ impl Node for SearchNode {
         let mut web_failed = false;
 
         if search_enabled && !state.skip_web_search {
-            let _ = send_json(
-                ctx.sender,
+            let _ = ctx.sender.send_json(
                 json!({
                     "type": "activity",
                     "data": {
@@ -116,8 +114,7 @@ impl Node for SearchNode {
                     }
 
                     if !web_results.is_empty() {
-                        let _ = send_json(
-                            ctx.sender,
+                        let _ = ctx.sender.send_json(
                             json!({ "type": "search_results", "data": web_results }),
                         )
                         .await;
@@ -169,8 +166,7 @@ impl Node for SearchNode {
                 }
                 Err(err) => {
                     web_failed = true;
-                    let _ = send_json(
-                        ctx.sender,
+                    let _ = ctx.sender.send_json(
                         json!({
                             "type": "status",
                             "message": format!("Web search failed, continuing with RAG only: {}", err),
@@ -180,8 +176,7 @@ impl Node for SearchNode {
                 }
             }
 
-            let _ = send_json(
-                ctx.sender,
+            let _ = ctx.sender.send_json(
                 json!({
                     "type": "activity",
                     "data": {
@@ -226,8 +221,7 @@ impl Node for SearchNode {
                     .to_string()
             };
 
-            let _ = send_json(
-                ctx.sender,
+            let _ = ctx.sender.send_json(
                 json!({
                     "type": "chunk",
                     "message": fallback_message,
@@ -235,7 +229,7 @@ impl Node for SearchNode {
                 }),
             )
             .await;
-            let _ = send_json(ctx.sender, json!({"type": "done"})).await;
+            let _ = ctx.sender.send_json( json!({"type": "done"})).await;
             state.output = Some(
                 "RAG context is empty. Please ingest additional sources for higher quality results."
                     .to_string(),
@@ -299,8 +293,7 @@ impl Node for SearchNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = send_json(
-                        ctx.sender,
+                    let _ = ctx.sender.send_json(
                         json!({
                             "type": "chunk",
                             "message": chunk,
@@ -315,7 +308,7 @@ impl Node for SearchNode {
             }
         }
 
-        let _ = send_json(ctx.sender, json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
 
         state.search_results = Some(web_results);
         state.output = Some(full_response);

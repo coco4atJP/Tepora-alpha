@@ -13,7 +13,6 @@ use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentState, Artifact};
 use crate::llm::{ChatMessage, ChatRequest};
 use crate::rag::{ChunkSearchResult, StoredChunk};
-use crate::server::ws::handler::send_json;
 use crate::tools::execute_tool;
 use crate::tools::search::SearchResult;
 
@@ -74,8 +73,7 @@ impl Node for AgenticSearchNode {
         }
 
         // Stage 1: Query Generation
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -91,8 +89,7 @@ impl Node for AgenticSearchNode {
         let sub_queries = self.generate_sub_queries(state, ctx).await?;
         state.search_queries = sub_queries.clone();
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -106,8 +103,7 @@ impl Node for AgenticSearchNode {
         .await;
 
         // Stage 2: RAG-centric retrieval and chunk window expansion
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -124,8 +120,7 @@ impl Node for AgenticSearchNode {
             self.search_and_select(state, ctx, &sub_queries).await?;
 
         state.search_results = Some(display_results.clone());
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({ "type": "search_results", "data": display_results }),
         )
         .await;
@@ -169,8 +164,7 @@ impl Node for AgenticSearchNode {
             metadata,
         });
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -184,8 +178,7 @@ impl Node for AgenticSearchNode {
         .await;
 
         // Stage 3: Artifact-based report
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -206,8 +199,7 @@ impl Node for AgenticSearchNode {
             metadata: HashMap::new(),
         });
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -221,8 +213,7 @@ impl Node for AgenticSearchNode {
         .await;
 
         // Stage 4: Persona-enabled final synthesis
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -237,8 +228,7 @@ impl Node for AgenticSearchNode {
 
         let final_answer = self.synthesize_answer(state, ctx, &report).await?;
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -251,7 +241,7 @@ impl Node for AgenticSearchNode {
         )
         .await;
 
-        let _ = send_json(ctx.sender, json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
 
         state.output = Some(final_answer);
         Ok(NodeOutput::Final)
@@ -670,8 +660,7 @@ impl AgenticSearchNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = send_json(
-                        ctx.sender,
+                    let _ = ctx.sender.send_json(
                         json!({
                             "type": "chunk",
                             "message": chunk,

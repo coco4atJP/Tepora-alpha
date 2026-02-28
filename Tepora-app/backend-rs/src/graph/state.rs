@@ -131,7 +131,7 @@ pub struct AgentState {
     pub agent_outcome: Option<String>,
 
     // Thinking mode (CoT)
-    pub thinking_enabled: bool,
+    pub thinking_budget: u8,
     pub thought_process: Option<String>,
 
     // Search mode state
@@ -160,7 +160,7 @@ impl AgentState {
             pipeline_context: None,
             agent_scratchpad: Vec::new(),
             agent_outcome: None,
-            thinking_enabled: false,
+            thinking_budget: 0,
             thought_process: None,
             search_queries: Vec::new(),
             search_results: None,
@@ -179,7 +179,7 @@ impl AgentState {
         mode: &str,
         agent_id: Option<&str>,
         agent_mode: Option<&str>,
-        thinking_mode: bool,
+        thinking_budget: u8,
         skip_web_search: bool,
         attachments: Vec<Value>,
         chat_history: Vec<ChatMessage>,
@@ -197,7 +197,7 @@ impl AgentState {
             pipeline_context: None,
             agent_scratchpad: Vec::new(),
             agent_outcome: None,
-            thinking_enabled: thinking_mode,
+            thinking_budget,
             thought_process: None,
             search_queries: Vec::new(),
             search_results: None,
@@ -403,7 +403,7 @@ mod tests {
         assert!(state.pipeline_context.is_none());
         assert!(state.agent_scratchpad.is_empty());
         assert!(state.agent_outcome.is_none());
-        assert!(!state.thinking_enabled);
+        assert_eq!(state.thinking_budget, 0);
         assert!(state.thought_process.is_none());
         assert!(state.search_queries.is_empty());
         assert!(state.search_results.is_none());
@@ -421,7 +421,7 @@ mod tests {
             "chat",
             None,
             None,
-            false,
+            0,
             false,
             Vec::new(),
             Vec::new(),
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(state.mode, Mode::Chat);
         assert!(state.agent_id.is_none());
         assert_eq!(state.agent_mode, AgentMode::Low);
-        assert!(!state.thinking_enabled);
+        assert_eq!(state.thinking_budget, 0);
         assert!(!state.skip_web_search);
     }
 
@@ -445,7 +445,7 @@ mod tests {
             "agent",
             Some("coder"),
             Some("high"),
-            true,
+            3,
             true,
             attachments.clone(),
             Vec::new(),
@@ -454,7 +454,7 @@ mod tests {
         assert_eq!(state.mode, Mode::Agent);
         assert_eq!(state.agent_id.as_deref(), Some("coder"));
         assert_eq!(state.agent_mode, AgentMode::High);
-        assert!(state.thinking_enabled);
+        assert_eq!(state.thinking_budget, 3);
         assert!(state.skip_web_search);
         assert_eq!(state.search_attachments.len(), 1);
     }
@@ -467,7 +467,7 @@ mod tests {
             "agent",
             None,
             Some("fast"),
-            false,
+            0,
             false,
             Vec::new(),
             Vec::new(),

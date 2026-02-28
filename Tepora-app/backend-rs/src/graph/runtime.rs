@@ -83,6 +83,11 @@ impl GraphRuntime {
     /// Add a node to the graph
     pub fn add_node(&mut self, node: Box<dyn Node>) -> NodeIndex {
         let id = node.id().to_string();
+        self.add_node_with_id(id, node)
+    }
+
+    /// Add a node to the graph with a specific ID (useful for JSON declarative graphs)
+    pub fn add_node_with_id(&mut self, id: String, node: Box<dyn Node>) -> NodeIndex {
         let index = self.graph.add_node(node);
         self.node_indices.insert(id, index);
         index
@@ -344,6 +349,11 @@ impl GraphBuilder {
 
     pub fn node(mut self, node: Box<dyn Node>) -> Self {
         self.runtime.add_node(node);
+        self
+    }
+
+    pub fn node_with_id(mut self, id: String, node: Box<dyn Node>) -> Self {
+        self.runtime.add_node_with_id(id, node);
         self
     }
 

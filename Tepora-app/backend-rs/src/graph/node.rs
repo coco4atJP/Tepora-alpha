@@ -2,8 +2,7 @@
 // Base abstraction for graph nodes
 
 use async_trait::async_trait;
-use axum::extract::ws::{Message, WebSocket};
-use futures_util::stream::SplitSink;
+use crate::graph::stream::GraphStreamer;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -19,8 +18,8 @@ pub struct NodeContext<'a> {
     pub app_state: &'a AppState,
     /// Configuration
     pub config: &'a Value,
-    /// WebSocket sender for streaming
-    pub sender: &'a mut SplitSink<WebSocket, Message>,
+    /// Streamer for sending activity and results (WebSocket or Actor Message)
+    pub sender: &'a mut GraphStreamer<'a>,
     /// Pending tool approvals
     pub pending_approvals: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
     /// Approved MCP tools for this session

@@ -6,7 +6,6 @@ use serde_json::{json, Value};
 
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
-use crate::server::ws::handler::send_json;
 use crate::tools::execute_tool;
 
 pub struct ToolNode {
@@ -38,8 +37,7 @@ impl Node for ToolNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -67,8 +65,7 @@ impl Node for ToolNode {
             Ok(execution) => {
                 // Send search results if available
                 if let Some(results) = &execution.search_results {
-                    let _ = send_json(
-                        ctx.sender,
+                    let _ = ctx.sender.send_json(
                         json!({ "type": "search_results", "data": results }),
                     )
                     .await;
@@ -80,8 +77,7 @@ impl Node for ToolNode {
                     content: format!("Tool `{}` result:\n{}", self.tool_name, execution.output),
                 });
 
-                let _ = send_json(
-                    ctx.sender,
+                let _ = ctx.sender.send_json(
                     json!({
                         "type": "activity",
                         "data": {
@@ -104,8 +100,7 @@ impl Node for ToolNode {
                     content: failure.clone(),
                 });
 
-                let _ = send_json(
-                    ctx.sender,
+                let _ = ctx.sender.send_json(
                     json!({
                         "type": "activity",
                         "data": {

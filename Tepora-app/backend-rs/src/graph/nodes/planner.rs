@@ -14,7 +14,6 @@ use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::PipelineMode;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState};
-use crate::server::ws::handler::send_json;
 
 pub struct PlannerNode;
 
@@ -45,8 +44,7 @@ impl Node for PlannerNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
@@ -95,7 +93,7 @@ impl Node for PlannerNode {
             &agent_chat_config,
             &state.input,
             selected_agent.as_ref(),
-            state.thinking_enabled,
+            state.thinking_budget > 0,
             &model_id,
         )
         .await
@@ -103,8 +101,7 @@ impl Node for PlannerNode {
 
         state.shared_context.current_plan = Some(plan);
 
-        let _ = send_json(
-            ctx.sender,
+        let _ = ctx.sender.send_json(
             json!({
                 "type": "activity",
                 "data": {
