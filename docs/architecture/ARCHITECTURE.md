@@ -195,6 +195,12 @@ backend-rs/
 ├── src/
 │   ├── main.rs                 # エントリーポイント
 │   │
+│   ├── actor/                  # ========== アクターモデル ==========
+│   │   ├── manager.rs          # ActorManager (セッション管理)
+│   │   ├── messages.rs         # CQRSメッセージ定義
+│   │   ├── session.rs          # SessionActor (個別セッション処理)
+│   │   └── mod.rs
+│   │
 │   ├── server/                 # ========== サーバー層 ==========
 │   │   ├── handlers/           # REST API ハンドラ
 │   │   ├── ws/                 # WebSocket ハンドラ
@@ -257,7 +263,9 @@ backend-rs/
 │   ├── memory/                 # メモリシステム (v1)
 │   ├── memory_v2/              # EM-LLM × FadeMem 統合メモリシステム (v2)
 │   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
-│   └── a2a/                    # Agent-to-Agent (将来)
+│   ├── a2a/                    # Agent-to-Agent (将来)
+│   ├── crdt/                   # PoCモジュール (テスト用)
+│   └── sandbox/                # PoCモジュール (分離環境)
 │
 └── Cargo.toml
 ```
@@ -332,6 +340,9 @@ pub struct AppState {
     pub rag_store: Arc<dyn RagStore>,            // RAGストア抽象
     pub graph_runtime: Arc<GraphRuntime>,        // グラフランタイム
     pub em_memory_service: Arc<EmMemoryService>, // エピソード記憶
+    pub rate_limiters: Arc<RateLimiters>,        // レート制限
+    pub actor_manager: Arc<ActorManager>,        // CQRSアクター管理
+    pub memory_adapter: Arc<dyn MemoryAdapter>,  // 統合メモリアダプタ
 }
 ```
 
