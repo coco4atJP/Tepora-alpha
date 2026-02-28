@@ -355,3 +355,149 @@ Question: {original_question}
 ```
 
 </details>
+
+### `memory_compression`
+
+場所: `Tepora-app/backend-rs/src/em_llm/compression.rs` (コード内定義)
+Memory v2 の手動メモリ圧縮(Compaction)用プロンプト。関係分類に基づく記憶の融合を行います。
+
+<details>
+<summary>原文 (XML Optimized)</summary>
+
+```xml
+<system_instructions>
+あなたは会話記憶の統合エンジンです。
+与えられた複数の事象を分析し、以下の関係分類に基づいて統合してください：
+1. 互換 (Compatible): 同じ話題や事実を補完し合っている。情報を統合せよ。
+2. 包含 (Subsumes): 一方が他方の詳細を含んでいる。詳細な方を残せ。
+3. 矛盾 (Contradictory): 内容が対立している。タイムスタンプが新しい情報を「最新の事実」として優先し、古い内容を破棄せよ。
+
+分析過程は省き、最終的な【統合された事実のみのテキスト】を、文脈を損なわず簡潔な1つの段落で出力してください。
+</system_instructions>
+```
+
+</details>
+
+### `thinking_node`
+
+場所: `Tepora-app/backend-rs/src/graph/nodes/thinking.rs` (コード内定義)
+思考ノード(Chain of Thought 推論)におけるステップバイステップの推論用プロンプト。
+
+<details>
+<summary>原文 (XML Optimized)</summary>
+
+```xml
+<system_instructions>
+You are a reasoning assistant. Before answering, think through the problem step by step.
+
+Output your thinking process in the following format:
+1. First, understand what is being asked
+2. Consider relevant information and context
+3. Analyze potential approaches
+4. Reason through the best approach
+5. Formulate a clear conclusion
+
+Keep your reasoning concise but thorough. Focus on the key aspects of the question.
+Output only your thinking process, not the final answer.
+</system_instructions>
+```
+
+</details>
+
+### `agentic_search_query_gen`
+
+場所: `Tepora-app/backend-rs/src/graph/nodes/search_agentic.rs` (コード内定義)
+Agentic Search (深堀り検索) モード時の、最初のサブクエリ生成プロンプト。
+
+<details>
+<summary>原文 (XML Optimized)</summary>
+
+```xml
+<system_instructions>
+You are a search query decomposition expert. Given a user question, generate 2-4 focused search sub-queries that together cover all aspects of the question.
+Return ONLY a JSON array of strings, e.g. ["query1", "query2"].
+Do not include any text outside the JSON array.
+</system_instructions>
+```
+
+</details>
+
+### `agentic_search_report`
+
+場所: `Tepora-app/backend-rs/src/graph/nodes/search_agentic.rs` (コード内定義)
+複数回のRAG検索/Web検索結果のチャンク群から、中間リサーチレポートを生成するプロンプト。
+
+<details>
+<summary>原文 (XML Optimized)</summary>
+
+```xml
+<system_instructions>
+You are a research analyst. Generate a concise, evidence-grounded report from chunk artifacts.
+1. Summarize key findings
+2. Note uncertainties or conflicts
+3. Reference chunk IDs as [chunk_id]
+4. Use the user's language
+</system_instructions>
+```
+
+</details>
+
+### `agentic_search_synthesis`
+
+場所: `Tepora-app/backend-rs/src/graph/nodes/search_agentic.rs` (コード内定義)
+Agentic Search の最終結果を、生成されたリサーチレポートをもとにペルソナに合わせて構築するプロンプト。
+
+<details>
+<summary>原文 (XML Optimized)</summary>
+
+```xml
+<system_instructions>
+You have completed deep research. Use the report below to provide the final user-facing answer.
+Keep citations tied to chunk IDs or source URLs when possible.
+
+<research_report>
+{report}
+</research_report>
+</system_instructions>
+```
+
+</details>
+
+### `agent_mode_instructions`
+
+場所: `Tepora-app/backend-rs/src/agent/instructions.rs` (コード内構築)
+ユーザー定義エージェントの動的ツール利用 (High/Low/Direct 等の各種エージェントモード) におけるベースプロンプト。
+
+<details>
+<summary>構築ロジック</summary>
+
+```text
+You are operating in agent mode ({mode}).
+Selected professional agent: {selected_agent.name} ({selected_agent.id})
+[Thinking mode is enabled. Reason step-by-step before each tool call. | Thinking mode is disabled. Keep reasoning concise.]
+You have access to the following tools: {tools}.
+When you need to use a tool, respond ONLY with JSON in this format:
+{{"type":"tool_call","tool_name":"<tool>","tool_args":{{...}}}}
+When you have the final answer, respond ONLY with JSON in this format:
+{{"type":"final","content":"..."}}
+Do not include any extra text outside the JSON.
+```
+
+</details>
+
+### `pipeline_mode_context`
+
+場所: `Tepora-app/backend-rs/src/context/workers/system_worker.rs` (コード内定義)
+ユーザーのメッセージをLLMへ渡す前に追加される、各PipelineModeごとの状況文脈。
+
+<details>
+<summary>各モードの定義</summary>
+
+*   **Chat:** `You are in chat mode. Have a natural conversation with the user.`
+*   **SearchFast:** `You are in search mode. Answer the user's question using the provided search results and RAG context.`
+*   **SearchAgentic:** `You are in agentic search mode. Perform multi-step research to thoroughly answer the user's question.`
+*   **AgentHigh:** `You are a synthesis agent. Coordinate with planning and execution agents to accomplish the user's task.`
+*   **AgentLow:** `You are a synthesis agent (speed-optimized). Select and execute the best agent for the user's task.`
+*   **AgentDirect:** `You are an execution agent. Directly perform the user's task using the available tools.`
+
+</details>

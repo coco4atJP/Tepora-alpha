@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.02
+**ドキュメントバージョン**: 5.03
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-02-19
+**最終更新日**: 2026-02-24
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -253,8 +253,9 @@ backend-rs/
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   │
-│   ├── em_llm/                 # EM-LLM (エピソード記憶)
-│   ├── memory/                 # メモリシステム
+│   ├── em_llm/                 # EM-LLM (エピソード記憶 - v1)
+│   ├── memory/                 # メモリシステム (v1)
+│   ├── memory_v2/              # EM-LLM × FadeMem 統合メモリシステム (v2)
 │   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
 │   └── a2a/                    # Agent-to-Agent (将来)
 │
@@ -630,32 +631,34 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 
 `McpManager` は `mcp_tools_config.json` と `mcp_policy.json` を管理し、`LOCAL_ONLY` などの接続ポリシー、ブロックコマンド、初回利用承認を適用します。
 
-### 5.10 EM-LLM (エピソード記憶)
+### 5.10 メモリシステム (EM-LLM × FadeMem v2)
 
-ICLR 2025採択論文「EM-LLM」の実装。人間のエピソード記憶をLLMで再現します。
+現在、ICLR 2025採択論文「EM-LLM」とarXiv 2601.18642「FadeMem」を統合したアーキテクチャ(v2)へ移行・実装を進めています。
+詳細な設計原則、DBスキーマ、段階移行計画については `docs/planning/MEMORY_SYSTEM_FULL_REDESIGN_EMLLM_FADEMEM_2026-02-23.md` を参照してください。
 
 **特徴**:
 - **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
+- **FadeMem 統合**: 重要度(Importance)主導の層間遷移(SML/LML)や時間経過による減衰(Decay)、手動での記憶圧縮(Compression)が行われます。
+- **イベント駆動保存**: 従来の会話ターン単位の保存から、意味的な一貫性を持つ「イベント原子」としての保存単位へ再定義しています。
 
-**ファイル**: `src/em_llm/`
+**ファイル**: `src/memory_v2/` (移行中), `src/em_llm/` (v1), `src/memory/` (v1)
 
 ```mermaid
-graph TB
-    subgraph Storage["保存フロー"]
-        Input[会話入力] --> Segment[Surprise-based Segmentation]
-        Segment --> Boundary[境界精密化]
-        Boundary --> RepTokens[代表トークン選択]
-        RepTokens --> Embed[埋め込み計算]
-        Embed --> Store[SQLite RAG保存]
-    end
-  
-    subgraph Retrieval["検索フロー"]
-        Query[クエリ] --> Stage1[Stage 1: Similarity-based]
-        Query --> Stage2[Stage 2: Contiguity-based]
-        Stage1 --> Merge[2段階統合]
-        Stage2 --> Merge
-        Merge --> Context[コンテキスト注入]
-    end
+flowchart LR
+    U[User Turn] --> I[Ingestion Pipeline]
+    I --> S1[Segmentation EM-LLM]
+    S1 --> S2[Boundary Refinement]
+    S2 --> S3[Event Representation]
+    S3 --> P[(Memory DB v2)]
+
+    Q[Query] --> R1[Candidate Retrieval Ks]
+    R1 --> R2[Contiguity Retrieval Kc]
+    R2 --> R3[FadeMem Re-ranking]
+    R3 --> Ctx[PipelineContext.memory_chunks]
+
+    BG[Background Decay] --> P
+    UI[User Manual Compress] --> CMP[LLM Conflict/Fusion]
+    CMP --> P
 ```
 
 ### 5.11 RAG ストア (SqliteRagStore) [v4.0]
