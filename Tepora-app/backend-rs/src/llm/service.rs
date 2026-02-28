@@ -24,7 +24,7 @@ enum ModelExecutionTarget {
 }
 
 const DEFAULT_PROCESS_TERMINATE_TIMEOUT: Duration = Duration::from_secs(5);
-const DEFAULT_EXTERNAL_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_EXTERNAL_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const DEFAULT_EXTERNAL_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
@@ -121,6 +121,37 @@ impl LlmService {
                     .await
             }
         }
+    }
+
+    /// Fetches the logprobs for a given text.
+    /// This is required for true EM-LLM surprise-based segmentation.
+    /// Currently, this returns an 'Unsupported' error to trigger the fallback, but serves as the API hook.
+    pub async fn get_logprobs(
+        &self,
+        text: &str,
+        model_id: &str,
+    ) -> Result<Vec<(String, f64)>, ApiError> {
+        let request = ChatRequest::new(vec![]);
+        let target = self.resolve_model_target(model_id, &request)?;
+        match target {
+            ModelExecutionTarget::LlamaCpp(config) => {
+                let timeout = self.get_process_terminate_timeout();
+                self.llama.get_logprobs(&config, text, timeout).await
+            }
+            ModelExecutionTarget::OpenAiCompatible {
+                loader,
+                base_url,
+                model_name,
+            } => {
+                self.get_logprobs_openai_compatible(&loader, &base_url, &model_name, text)
+                    .await
+            }
+        }
+    }
+
+    pub async fn shutdown(&self) -> Result<(), ApiError> {
+        let timeout = self.get_process_terminate_timeout();
+        self.llama.stop(timeout).await
     }
 
     fn get_process_terminate_timeout(&self) -> Duration {
@@ -333,10 +364,17 @@ impl LlmService {
             .and_then(|v| v.as_array())
             .and_then(|choices| choices.first())
             .and_then(|choice| choice.get("message"))
-            .and_then(|message| message.get("content"))
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
+            .map(|message| {
+                let text = message.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                let reasoning = message.get("reasoning_content").and_then(|v| v.as_str()).unwrap_or("");
+
+                if !reasoning.is_empty() {
+                    format!("<think>\n{}\n</think>\n{}", reasoning, text)
+                } else {
+                    text.to_string()
+                }
+            })
+            .unwrap_or_default();
 
         Ok(content)
     }
@@ -394,6 +432,7 @@ impl LlmService {
         let loader_name = loader.to_string();
         tokio::spawn(async move {
             let mut buffer = String::new();
+            let mut is_reasoning_open = false;
             loop {
                 let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
                 let next = match next {
@@ -445,17 +484,44 @@ impl LlmService {
                                 }
                             };
 
-                            if let Some(content) = parsed
+                            let delta = parsed
                                 .get("choices")
                                 .and_then(|v| v.as_array())
                                 .and_then(|choices| choices.first())
-                                .and_then(|choice| choice.get("delta"))
-                                .and_then(|delta| delta.get("content"))
+                                .and_then(|choice| choice.get("delta"));
+
+                            let mut chunk_to_send = String::new();
+
+                            // Track reasoning content (e.g. DeepSeek models)
+                            if let Some(reasoning) = delta
+                                .and_then(|d| d.get("reasoning_content"))
                                 .and_then(|v| v.as_str())
                             {
-                                if !content.is_empty()
-                                    && tx.send(Ok(content.to_string())).await.is_err()
-                                {
+                                if !reasoning.is_empty() {
+                                    if !is_reasoning_open {
+                                        chunk_to_send.push_str("<think>\n");
+                                        is_reasoning_open = true;
+                                    }
+                                    chunk_to_send.push_str(reasoning);
+                                }
+                            }
+
+                            // Track standard content
+                            if let Some(content) = delta
+                                .and_then(|d| d.get("content"))
+                                .and_then(|v| v.as_str())
+                            {
+                                if !content.is_empty() {
+                                    if is_reasoning_open {
+                                        chunk_to_send.push_str("\n</think>\n");
+                                        is_reasoning_open = false;
+                                    }
+                                    chunk_to_send.push_str(content);
+                                }
+                            }
+
+                            if !chunk_to_send.is_empty() {
+                                if tx.send(Ok(chunk_to_send)).await.is_err() {
                                     return;
                                 }
                             }
@@ -479,15 +545,41 @@ impl LlmService {
             }
             if let Some(data) = trailing.strip_prefix("data: ") {
                 if let Ok(parsed) = serde_json::from_str::<Value>(data) {
-                    if let Some(content) = parsed
+                    let delta = parsed
                         .get("choices")
                         .and_then(|v| v.as_array())
                         .and_then(|choices| choices.first())
-                        .and_then(|choice| choice.get("delta"))
-                        .and_then(|delta| delta.get("content"))
+                        .and_then(|choice| choice.get("delta"));
+
+                    let mut chunk_to_send = String::new();
+
+                    if let Some(reasoning) = delta
+                        .and_then(|d| d.get("reasoning_content"))
                         .and_then(|v| v.as_str())
                     {
-                        let _ = tx.send(Ok(content.to_string())).await;
+                        if !reasoning.is_empty() {
+                            if !is_reasoning_open {
+                                chunk_to_send.push_str("<think>\n");
+                                is_reasoning_open = true; // Still open
+                            }
+                            chunk_to_send.push_str(reasoning);
+                        }
+                    }
+
+                    if let Some(content) = delta
+                        .and_then(|d| d.get("content"))
+                        .and_then(|v| v.as_str())
+                    {
+                        if !content.is_empty() {
+                            if is_reasoning_open {
+                                chunk_to_send.push_str("\n</think>\n");
+                            }
+                            chunk_to_send.push_str(content);
+                        }
+                    }
+
+                    if !chunk_to_send.is_empty() {
+                        let _ = tx.send(Ok(chunk_to_send)).await;
                     }
                 }
             }
@@ -541,6 +633,69 @@ impl LlmService {
             }
         }
         Ok(embeddings)
+    }
+
+    async fn get_logprobs_openai_compatible(
+        &self,
+        loader: &str,
+        base_url: &str,
+        model_name: &str,
+        text: &str,
+    ) -> Result<Vec<(String, f64)>, ApiError> {
+        let endpoint = format!("{}/v1/completions", base_url.trim_end_matches('/'));
+        let body = json!({
+            "model": model_name,
+            "prompt": text,
+            "max_tokens": 1,
+            "logprobs": 1,
+            "echo": true,
+        });
+
+        let request_timeout = self.get_external_loader_request_timeout();
+        let response = self.http.post(&endpoint).json(&body);
+        let response = tokio::time::timeout(request_timeout, response.send())
+            .await
+            .map_err(|_| loader_timeout_error(loader, &endpoint, request_timeout, "request"))?
+            .map_err(|err| unreachable_loader_error(loader, base_url, err))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let err_text = response.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "{} logprobs request failed ({}): {}",
+                loader, status, err_text
+            )));
+        }
+
+        let payload: Value = response.json().await.map_err(ApiError::internal)?;
+
+        let mut result = Vec::new();
+
+        if let Some(choices) = payload.get("choices").and_then(|v| v.as_array()) {
+            if let Some(first_choice) = choices.first() {
+                if let Some(logprobs) = first_choice.get("logprobs") {
+                    let tokens = logprobs.get("tokens").and_then(|v| v.as_array());
+                    let token_logprobs = logprobs.get("token_logprobs").and_then(|v| v.as_array());
+
+                    if let (Some(ts), Some(lps)) = (tokens, token_logprobs) {
+                        for (token_val, logprob_val) in ts.iter().zip(lps.iter()) {
+                            let token_str = token_val.as_str().unwrap_or("").to_string();
+                            let logprob_f64 = logprob_val.as_f64().unwrap_or(0.0);
+                            result.push((token_str, logprob_f64));
+                        }
+                    }
+                }
+            }
+        }
+
+        if result.is_empty() {
+            return Err(ApiError::Internal(format!(
+                "{} did not return valid logprobs in the response.",
+                loader
+            )));
+        }
+
+        Ok(result)
     }
 }
 

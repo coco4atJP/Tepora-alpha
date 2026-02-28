@@ -14,8 +14,8 @@ pub struct WsIncomingMessage {
     pub attachments: Vec<Value>,
     #[serde(rename = "skipWebSearch")]
     pub skip_web_search: Option<bool>,
-    #[serde(rename = "thinkingMode")]
-    pub thinking_mode: Option<bool>,
+    #[serde(rename = "thinkingBudget")]
+    pub thinking_budget: Option<u8>,
     #[serde(rename = "agentId")]
     pub agent_id: Option<String>,
     #[serde(rename = "agentMode")]

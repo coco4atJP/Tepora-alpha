@@ -1,8 +1,10 @@
 pub mod agents;
+pub mod auth;
 pub mod config;
 pub mod health;
 pub mod logs;
 pub mod memory;
+pub mod metrics;
 pub mod mcp;
 pub mod sessions;
 pub mod setup;

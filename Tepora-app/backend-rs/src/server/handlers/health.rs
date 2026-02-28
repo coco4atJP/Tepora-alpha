@@ -83,7 +83,11 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     }))
 }
 
-pub async fn shutdown(State(_state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
+pub async fn shutdown(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
+    if let Err(err) = state.llm.shutdown().await {
+        tracing::warn!("Failed to stop llama server via shutdown endpoint: {}", err);
+    }
+
     tokio::spawn(async {
         tokio::time::sleep(Duration::from_millis(250)).await;
         std::process::exit(0);

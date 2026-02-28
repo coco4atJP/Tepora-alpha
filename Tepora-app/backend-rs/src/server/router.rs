@@ -7,8 +7,9 @@ use std::sync::Arc;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-use crate::server::handlers::{agents, config, health, logs, mcp, memory, sessions, setup, tools};
+use crate::server::handlers::{agents, auth, config, health, logs, mcp, memory, metrics, sessions, setup, tools};
 use crate::server::middleware::auth::require_api_key_middleware;
+use crate::server::middleware::rate_limit::rate_limit_middleware;
 use crate::server::ws::handler::ws_handler;
 use crate::state::AppState;
 
@@ -38,6 +39,7 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::<Arc<AppState>>::new()
         .route("/api/status", get(health::get_status))
         .route("/api/shutdown", post(health::shutdown))
+        .route("/api/auth/refresh", post(auth::refresh_token))
         .route(
             "/api/config",
             get(config::get_config)
@@ -45,6 +47,7 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
                 .patch(config::patch_config),
         )
         .route("/api/logs", get(logs::get_logs))
+        .route("/api/logs/frontend", post(logs::receive_frontend_logs))
         .route("/api/logs/:filename", get(logs::get_log_content))
         .route(
             "/api/sessions",
@@ -61,6 +64,10 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             get(sessions::get_session_messages),
         )
         .route(
+            "/api/sessions/:session_id/metrics",
+            get(metrics::get_session_metrics),
+        )
+        .route(
             "/api/custom-agents",
             get(agents::list_custom_agents).post(agents::create_custom_agent),
         )
@@ -72,6 +79,7 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         )
         .route("/api/tools", get(tools::list_tools))
         .route("/api/memory/compress", post(memory::compress_memories))
+        .route("/api/memory/compaction_jobs", get(memory::list_compaction_jobs))
         .route("/api/memory/decay", post(memory::run_decay_cycle))
         .route("/api/setup/requirements", get(setup::setup_requirements))
         .route(
@@ -177,8 +185,16 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             get(mcp::mcp_policy).patch(mcp::mcp_update_policy),
         )
         .route_layer(middleware::from_fn_with_state(
-            state,
+            state.clone(),
             require_api_key_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state,
+            crate::server::middleware::tracing::require_tracing_middleware,
         ))
 }
 

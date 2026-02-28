@@ -55,6 +55,7 @@ pub struct ModelDownloadSpec {
 }
 
 impl ModelDownloadSpec {
+    #[allow(dead_code)]
     fn role_key(&self) -> String {
         let lower = self.role.to_lowercase();
         if lower == "embedding" {

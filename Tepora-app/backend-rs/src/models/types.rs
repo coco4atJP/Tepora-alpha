@@ -219,6 +219,7 @@ pub struct ModelRuntimeConfig {
 }
 
 impl ModelRuntimeConfig {
+    #[allow(dead_code)]
     pub fn for_chat(config: &serde_json::Value) -> Result<Self, crate::core::errors::ApiError> {
         Self::from_config(config, "text_model")
     }

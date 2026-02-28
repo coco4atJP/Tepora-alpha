@@ -26,7 +26,7 @@ pub async fn ws_handler(
         tracing::warn!("WebSocket handshake rejected: Invalid Origin");
         return Err(ApiError::Forbidden);
     }
-    if !validate_token(&headers, &state) {
+    if !validate_token(&headers, &state).await {
         tracing::warn!("WebSocket handshake rejected: Invalid Token");
         return Err(ApiError::Unauthorized);
     }
@@ -45,25 +45,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         String,
         tokio::sync::oneshot::Sender<bool>,
     >::new()));
-    let pending_rx = pending.clone();
 
     tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             match msg {
                 Message::Text(text) => {
                     if let Ok(incoming) = serde_json::from_str::<WsIncomingMessage>(&text) {
-                        if incoming.msg_type.as_deref() == Some("tool_confirmation_response") {
-                            if let (Some(request_id), Some(approved)) =
-                                (incoming.request_id.clone(), incoming.approved)
-                            {
-                                if let Ok(mut map) = pending_rx.lock() {
-                                    if let Some(tx) = map.remove(&request_id) {
-                                        let _ = tx.send(approved);
-                                    }
-                                }
-                            }
-                            continue;
-                        }
                         let _ = tx.send(incoming);
                     }
                 }
@@ -82,6 +69,15 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     loop {
         tokio::select! {
             Some(incoming) = rx.recv() => {
+                use tracing::Instrument;
+                
+                let request_id = uuid::Uuid::new_v4().to_string();
+                let span = tracing::info_span!(
+                    "ws_message",
+                    %request_id,
+                    session_id = %current_session_id
+                );
+
                 if let Err(err) = handle_message(
                     &mut sender,
                     &state,
@@ -90,6 +86,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                     approved_mcp_tools.clone(),
                     incoming,
                 )
+                .instrument(span)
                 .await
                 {
                     let _ = send_json(
@@ -109,6 +106,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
             else => break,
         }
     }
+
+    if !current_session_id.is_empty() && state.is_redesign_enabled("actor_model") {
+        state.actor_manager.shutdown_session(&current_session_id).await;
+    }
+
     tracing::info!("WebSocket connection closed");
 }
 
@@ -125,6 +127,24 @@ async fn handle_message(
     match msg_type {
         "stop" => {
             send_json(sender, json!({"type": "stopped"})).await?;
+            if state.is_redesign_enabled("actor_model") {
+                let session_id = data
+                    .session_id
+                    .clone()
+                    .unwrap_or_else(|| current_session_id.clone());
+                if !session_id.is_empty() {
+                    let _ = state
+                        .actor_manager
+                        .dispatch(
+                            &session_id,
+                            state.clone(),
+                            crate::actor::messages::SessionCommand::StopGeneration {
+                                session_id: session_id.clone(),
+                            },
+                        )
+                        .await;
+                }
+            }
             return Ok(());
         }
         "get_stats" => {
@@ -142,20 +162,20 @@ async fn handle_message(
                             "min_score": stats.min_score,
                         },
                         "char_memory": {
-                            "total_events": stats.total_events,
+                            "total_events": stats.char_events,
                             "layer_counts": {
-                                "lml": stats.lml_events,
-                                "sml": stats.sml_events
+                                "lml": stats.char_lml,
+                                "sml": stats.char_sml
                             },
-                            "mean_strength": stats.mean_strength
+                            "mean_strength": stats.char_mean_strength
                         },
                         "prof_memory": {
-                            "total_events": 0,
+                            "total_events": stats.prof_events,
                             "layer_counts": {
-                                "lml": 0,
-                                "sml": 0
+                                "lml": stats.prof_lml,
+                                "sml": stats.prof_sml
                             },
-                            "mean_strength": 0.0
+                            "mean_strength": stats.prof_mean_strength
                         }
                     }
                 }),
@@ -176,6 +196,32 @@ async fn handle_message(
             return Ok(());
         }
         "tool_confirmation_response" => {
+            if let (Some(request_id), Some(approved)) = (data.request_id.clone(), data.approved) {
+                if state.is_redesign_enabled("actor_model") {
+                    let session_id = data
+                        .session_id
+                        .clone()
+                        .unwrap_or_else(|| current_session_id.clone());
+                    if !session_id.is_empty() {
+                        let _ = state
+                            .actor_manager
+                            .dispatch(
+                                &session_id,
+                                state.clone(),
+                                crate::actor::messages::SessionCommand::ToolApprovalResponse {
+                                    session_id: session_id.clone(),
+                                    request_id,
+                                    approved,
+                                },
+                            )
+                            .await;
+                    }
+                } else if let Ok(mut map) = pending.lock() {
+                    if let Some(reply_to) = map.remove(&request_id) {
+                        let _ = reply_to.send(approved);
+                    }
+                }
+            }
             return Ok(());
         }
         _ => {}
@@ -191,7 +237,7 @@ async fn handle_message(
         .session_id
         .unwrap_or_else(|| current_session_id.clone());
     let mode = data.mode.unwrap_or_else(|| "chat".to_string());
-    let thinking_mode = data.thinking_mode.unwrap_or(false);
+    let thinking_budget = std::cmp::min(data.thinking_budget.unwrap_or(0), 3);
     let requested_agent_id = data.agent_id;
     let requested_agent_mode = data.agent_mode;
     let skip_search = data.skip_web_search.unwrap_or(false);
@@ -242,7 +288,7 @@ async fn handle_message(
         "timestamp": timestamp.clone(),
         "mode": mode.clone(),
         "attachments": attachments_for_history,
-        "thinking_mode": thinking_mode,
+        "thinking_budget": thinking_budget,
         "agent_id": requested_agent_id.clone(),
         "agent_mode": requested_agent_mode.clone(),
         "skip_web_search": data.skip_web_search,
@@ -254,13 +300,61 @@ async fn handle_message(
         .await?;
     let _ = state.history.touch_session(&session_id).await;
 
+    // Feature Flag Check API logic
+    if state.is_redesign_enabled("actor_model") {
+        tracing::info!("Routing message for session {} via Actor Model", session_id);
+        
+        let command = crate::actor::messages::SessionCommand::ProcessMessage {
+            session_id: session_id.clone(),
+            message: message_text.clone(),
+            mode: mode.clone(),
+            attachments: attachments.clone(),
+            thinking_budget,
+            agent_id: requested_agent_id.clone(),
+            agent_mode: requested_agent_mode.clone(),
+            skip_web_search: skip_search,
+        };
+        
+        // Subscribe to global events before dispatching to not miss anything
+        let mut rx = state.actor_manager.subscribe();
+
+        state.actor_manager.dispatch(&session_id, state.clone(), command).await.map_err(ApiError::internal)?;
+        
+        // Loop over events from the actor
+        while let Ok(event) = rx.recv().await {
+            use crate::actor::messages::SessionEvent;
+            match event {
+                SessionEvent::Token { session_id: ev_session, text } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({ "type": "chunk", "message": text })).await;
+                }
+                SessionEvent::Status { session_id: ev_session, message } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({ "type": "status", "message": message })).await;
+                }
+                SessionEvent::NodeCompleted { session_id: ev_session, node_id, output } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({ "type": "node_completed", "nodeId": node_id, "output": output })).await;
+                }
+                SessionEvent::Error { session_id: ev_session, message } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({ "type": "error", "message": message })).await;
+                }
+                SessionEvent::GenerationComplete { session_id: ev_session } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({"type": "done"})).await;
+                    let _ = send_json(sender, json!({"type": "interaction_complete", "sessionId": session_id})).await;
+                    break;
+                }
+                _ => {} // Ignore events for other sessions
+            }
+        }
+
+        return Ok(());
+    }
+
     let mut graph_state = AgentState::from_ws_message(
         session_id.clone(),
         &message_text,
         &mode,
         requested_agent_id.as_deref(),
         requested_agent_mode.as_deref(),
-        thinking_mode,
+        thinking_budget,
         skip_search,
         attachments,
         Vec::new(),
@@ -268,10 +362,12 @@ async fn handle_message(
 
     let timeout_override = data.timeout.map(std::time::Duration::from_millis);
 
+    let mut graph_streamer = crate::graph::stream::GraphStreamer::WebSocket(sender);
+
     let mut node_ctx = NodeContext {
         app_state: state,
         config: &config,
-        sender,
+        sender: &mut graph_streamer,
         pending_approvals: pending,
         approved_mcp_tools,
     };
@@ -287,7 +383,7 @@ async fn handle_message(
     let assistant_kwargs = json!({
         "timestamp": timestamp,
         "mode": mode.clone(),
-        "thinking_mode": thinking_mode,
+        "thinking_budget": thinking_budget,
         "agent_id": requested_agent_id,
         "agent_mode": requested_agent_mode,
     });
@@ -296,17 +392,37 @@ async fn handle_message(
         .add_message(&session_id, "ai", &assistant_output, Some(assistant_kwargs))
         .await?;
 
+    let text_model_id = state
+        .models
+        .resolve_agent_model_id(requested_agent_id.as_deref())
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "default".to_string());
     let embedding_model_id = resolve_embedding_model_id(state);
+    let legacy_enabled = state.is_redesign_enabled("legacy_memory");
     let _ = state
-        .em_memory_service
+        .memory_adapter
         .ingest_interaction(
             &session_id,
             &message_text,
             &assistant_output,
             &state.llm,
+            &text_model_id,
             &embedding_model_id,
+            legacy_enabled,
         )
         .await;
+
+    // Send an event to notify the frontend that all database writes for this interaction are complete.
+    // This allows the frontend to refresh its session list and see the updated message count.
+    let _ = send_json(
+        sender,
+        json!({
+            "type": "interaction_complete",
+            "sessionId": session_id,
+        }),
+    )
+    .await;
 
     Ok(())
 }
@@ -431,9 +547,10 @@ fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
     false
 }
 
-fn validate_token(headers: &HeaderMap, state: &AppState) -> bool {
+async fn validate_token(headers: &HeaderMap, state: &AppState) -> bool {
+    let token = state.session_token.read().await;
     extract_token_from_protocol_header(headers)
-        .map(|token| token == state.session_token.value())
+        .map(|extracted| extracted == token.value())
         .unwrap_or(false)
 }
 

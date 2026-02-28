@@ -32,6 +32,16 @@ struct LlamaManager {
     model_config: Option<ModelRuntimeConfig>,
 }
 
+impl Drop for LlamaManager {
+    fn drop(&mut self) {
+        if let Some(child) = self.child_process.as_mut() {
+            if let Err(err) = child.start_kill() {
+                tracing::debug!("Failed to kill llama-server process during drop: {}", err);
+            }
+        }
+    }
+}
+
 use crate::llm::types::ChatMessage;
 
 // Removed duplicate struct ChatMessage
@@ -92,6 +102,11 @@ impl LlamaService {
         Ok(())
     }
 
+    pub async fn stop(&self, timeout: Duration) -> Result<(), ApiError> {
+        let mut manager = self.inner.lock().await;
+        self.stop_internal(&mut manager, timeout).await
+    }
+
     async fn start_internal(
         &self,
         manager: &mut LlamaManager,
@@ -148,11 +163,31 @@ impl LlamaService {
     async fn stop_internal(
         &self,
         manager: &mut LlamaManager,
-        _timeout: Duration,
+        timeout: Duration,
     ) -> Result<(), ApiError> {
         if let Some(mut child) = manager.child_process.take() {
-            // TODO: Implement graceful shutdown with timeout on supported platforms
-            let _ = child.kill().await;
+            if let Some(pid) = child.id() {
+                tracing::info!("Stopping llama-server process (pid={})", pid);
+            }
+
+            if let Err(err) = child.start_kill() {
+                tracing::warn!("Failed to signal llama-server process: {}", err);
+            }
+
+            match tokio::time::timeout(timeout, child.wait()).await {
+                Ok(Ok(status)) => {
+                    tracing::info!("llama-server stopped with status: {}", status);
+                }
+                Ok(Err(err)) => {
+                    tracing::warn!("Failed to wait for llama-server process termination: {}", err);
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        "Timed out waiting {:?} for llama-server process termination",
+                        timeout
+                    );
+                }
+            }
         }
         manager.running.store(false, Ordering::SeqCst);
         manager.model_config = None;
@@ -168,6 +203,83 @@ impl LlamaService {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         Err(ApiError::internal("Timed out waiting for llama-server"))
+    }
+
+    pub async fn get_logprobs(
+        &self,
+        config: &ModelRuntimeConfig,
+        text: &str,
+        timeout: Duration,
+    ) -> Result<Vec<(String, f64)>, ApiError> {
+        self.ensure_running(config, timeout).await?;
+
+        let manager = self.inner.lock().await;
+        let url = format!("http://localhost:{}/completion", manager.port);
+        drop(manager);
+
+        let body = json!({
+            "prompt": text,
+            "stream": false,
+            "n_predict": 1,
+            "n_probs": 1,
+            "echo": true
+        });
+
+        let res = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(ApiError::internal)?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let err_text = res.text().await.unwrap_or_default();
+            return Err(ApiError::internal(format!(
+                "Llama server logprobs error ({}): {}",
+                status, err_text
+            )));
+        }
+
+        let data: Value = res.json().await.map_err(ApiError::internal)?;
+        let mut result = Vec::new();
+
+        if let Some(probs) = data.get("completion_probabilities").and_then(|v| v.as_array()) {
+            for prob in probs {
+                if let Some(content) = prob.get("content").and_then(|v| v.as_str()) {
+                    // Extract logprob from the 'probs' array, fallback to 0.0 if missing
+                    let mut logprob_f64 = 0.0;
+                    if let Some(top_probs) = prob.get("probs").and_then(|v| v.as_array()) {
+                        if let Some(first) = top_probs.first() {
+                            // Can be stored as logprob directly or prob depending on llama.cpp version. Wait, llama.cpp returns directly 'prob' or 'logprob'? It depends, usually it's in log space.
+                            if let Some(s) = first.get("tok_str").and_then(|v| v.as_str()) {
+                                if s == content {
+                                    // Normally 'tok_str' matches 'content', then there's a field. 
+                                    // Usually "prob" contains the actual probability. We convert to log scale.
+                                    if let Some(p) = first.get("prob").and_then(|v| v.as_f64()) {
+                                        logprob_f64 = p.ln();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    result.push((content.to_string(), logprob_f64));
+                }
+            }
+        }
+
+        if result.is_empty() {
+            return Err(ApiError::internal("No valid logprobs returned by llama-server."));
+        }
+
+        // Exclude the generated token (the very last one), we only care about prompt evaluation echo.
+        // n_predict=1 generates 1 extra token, which we pop off.
+        if result.len() > 1 {
+            result.pop();
+        }
+
+        Ok(result)
     }
 
     pub async fn chat(

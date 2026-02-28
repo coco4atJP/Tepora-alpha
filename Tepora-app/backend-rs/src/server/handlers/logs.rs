@@ -3,6 +3,13 @@ use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::json;
 use std::fs;
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+pub struct FrontendLogPayload {
+    pub level: String,
+    pub message: String,
+}
 
 use crate::core::errors::ApiError;
 use crate::state::AppStateRead;
@@ -28,6 +35,24 @@ pub async fn get_logs(State(state): State<AppStateRead>) -> Result<impl IntoResp
 
     let log_names: Vec<String> = logs.into_iter().map(|(name, _)| name).collect();
     Ok(Json(json!({ "logs": log_names })))
+}
+
+pub async fn receive_frontend_logs(
+    State(state): State<AppStateRead>,
+    Json(payload): Json<FrontendLogPayload>,
+) -> Result<impl IntoResponse, ApiError> {
+    if !state.is_redesign_enabled("frontend_logging") {
+        return Ok(Json(json!({ "status": "ignored" })));
+    }
+
+    match payload.level.as_str() {
+        "error" => tracing::error!(target: "frontend", "{}", payload.message),
+        "warn" => tracing::warn!(target: "frontend", "{}", payload.message),
+        "debug" => tracing::debug!(target: "frontend", "{}", payload.message),
+        _ => tracing::info!(target: "frontend", "{}", payload.message),
+    }
+
+    Ok(Json(json!({ "status": "ok" })))
 }
 
 pub async fn get_log_content(

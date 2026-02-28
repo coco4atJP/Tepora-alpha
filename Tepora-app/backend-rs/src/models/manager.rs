@@ -1216,9 +1216,7 @@ fn determine_ollama_role(
         .iter()
         .any(|&ef| family == ef || families.iter().any(|f| f.to_ascii_lowercase() == ef));
 
-    if is_embedding_by_family {
-        "embedding".to_string()
-    } else if capabilities
+    let has_embedding_capability = capabilities
         .map(|caps| {
             caps.iter().any(|cap| {
                 let cap = cap.to_ascii_lowercase();
@@ -1227,18 +1225,19 @@ fn determine_ollama_role(
                     .any(|hint| cap.contains(hint))
             })
         })
-        .unwrap_or(false)
-    {
-        "embedding".to_string()
-    } else if capabilities
+        .unwrap_or(false);
+    let has_text_capability = capabilities
         .map(|caps| {
             caps.iter().any(|cap| {
                 let cap = cap.to_ascii_lowercase();
                 TEXT_CAPABILITY_HINTS.iter().any(|hint| cap.contains(hint))
             })
         })
-        .unwrap_or(false)
-    {
+        .unwrap_or(false);
+
+    if is_embedding_by_family || has_embedding_capability {
+        "embedding".to_string()
+    } else if has_text_capability {
         "text".to_string()
     } else if has_embedding_name_hint(model_name) {
         "embedding".to_string()

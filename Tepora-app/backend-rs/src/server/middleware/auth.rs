@@ -13,6 +13,8 @@ pub async fn require_api_key_middleware(
     request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    require_api_key(request.headers(), &state.session_token)?;
+    let allow_expired = request.uri().path() == "/api/auth/refresh";
+    let token = state.session_token.read().await;
+    require_api_key(request.headers(), &token, allow_expired)?;
     Ok(next.run(request).await)
 }
