@@ -143,8 +143,8 @@ graph TD
 | **非同期ランタイム**  | Tokio               | 非同期処理                 |
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
-| **RAGストア**         | SQLite              | ベクトル検索 (in-process)  |
-| **ベクトル演算**      | ndarray             | コサイン類似度計算         |
+| **RAGストア**         | SQLite              | ベクトル検索 (in-process、手動計算) |
+| **ベクトル演算**      | ndarray             | リランカー等でのコサイン類似度計算 |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -155,7 +155,7 @@ graph TD
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
-| **状態管理**       | Zustand        | -          | クライアント状態        |
+| **状態管理**       | Zustand        | 5.x        | クライアント状態        |
 | **データフェッチ** | TanStack Query | 5.x        | サーバー状態/キャッシュ |
 | **スタイリング**   | Tailwind CSS   | 4.x        | ユーティリティCSS       |
 | **ルーティング**   | React Router   | 7.x        | SPA routing             |
@@ -648,6 +648,7 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 詳細な設計原則、DBスキーマ、段階移行計画については `docs/planning/MEMORY_SYSTEM_FULL_REDESIGN_EMLLM_FADEMEM_2026-02-23.md` を参照してください。
 
 **特徴**:
+- **コア構造体**: `MemoryScope`、`CompactionJob`、`MemoryEdge` を中心とした設計。
 - **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
 - **FadeMem 統合**: 重要度(Importance)主導の層間遷移(SML/LML)や時間経過による減衰(Decay)、手動での記憶圧縮(Compression)が行われます。
 - **イベント駆動保存**: 従来の会話ターン単位の保存から、意味的な一貫性を持つ「イベント原子」としての保存単位へ再定義しています。
@@ -681,7 +682,7 @@ v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移
 | 機能                         | 説明                                                                        |
 | ---------------------------- | --------------------------------------------------------------------------- |
 | **RagStore trait**     | `insert_batch`, `search`, `text_search`, `get_chunk_window`, `reindex_with_model` 等を抽象化 |
-| **SqliteRagStore**     | SQLite +`ndarray` によるコサイン類似度計算                                |
+| **SqliteRagStore**     | SQLite によるベクトル手動類似度計算 (in-process)                            |
 | **セッションフィルタ** | `session_id` で検索・削除を分離し、会話単位でRAGを運用                      |
 
 > [!IMPORTANT]
@@ -992,6 +993,13 @@ ws://127.0.0.1:{port}/ws
 | `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
 | `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
 | `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
+#### Memory API
+
+| メソッド   | エンドポイント                  | 説明                         |
+| ---------- | ------------------------------- | ---------------------------- |
+| `POST`   | `/api/memory/compress`        | 手動メモリ圧縮トリガー       |
+| `POST`   | `/api/memory/decay`           | 手動メモリ減衰トリガー       |
 
 #### MCP API
 
