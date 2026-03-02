@@ -136,6 +136,7 @@ Tepora-app/backend/sqlite_*/
 # Backup directories
 *_bak/
 *.bak
+*.bak.*
 
 # Tauri build outputs
 **/target/
