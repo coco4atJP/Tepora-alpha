@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock as StdRwLock};
+use std::time::Instant;
 
 use chrono::Utc;
 use reqwest::Url;
@@ -18,6 +19,8 @@ use tokio::sync::RwLock;
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
+#[cfg(feature = "redesign_sandbox")]
+use crate::sandbox::build_wasm_launch_spec;
 
 pub mod installer;
 pub mod registry;
@@ -307,6 +310,7 @@ impl McpManager {
     ///
     /// Returns the tool's output as a formatted string.
     pub async fn execute_tool(&self, tool_name: &str, args: &Value) -> Result<String, ApiError> {
+        let started = Instant::now();
         let (server_name, short_name) = self.resolve_tool_name(tool_name).await?;
         let entry = {
             let clients = self.clients.read().await;
@@ -316,6 +320,15 @@ impl McpManager {
         };
 
         let arguments = build_tool_arguments(args);
+        let argument_count = arguments.len();
+        tracing::info!(
+            target: "mcp",
+            server = %server_name,
+            tool = %short_name,
+            full_tool = %tool_name,
+            argument_count,
+            "Executing MCP tool"
+        );
         let params = CallToolRequestParams {
             name: short_name.into(),
             arguments: Some(arguments),
@@ -328,6 +341,25 @@ impl McpManager {
             .call_tool_boxed(params)
             .await
             .map_err(ApiError::internal)?;
+        let is_error = result.is_error.unwrap_or(false);
+        let elapsed_ms = started.elapsed().as_millis() as u64;
+        if is_error {
+            tracing::warn!(
+                target: "mcp",
+                server = %server_name,
+                full_tool = %tool_name,
+                elapsed_ms,
+                "MCP tool returned error"
+            );
+        } else {
+            tracing::info!(
+                target: "mcp",
+                server = %server_name,
+                full_tool = %tool_name,
+                elapsed_ms,
+                "MCP tool completed"
+            );
+        }
 
         Ok(format_tool_result(&result))
     }
@@ -588,16 +620,18 @@ impl McpManager {
         self.policy_allows_connection(name, server)?;
 
         let transport_name = server.transport.to_lowercase();
+        let sandbox_mcp_enabled =
+            self.is_redesign_feature_enabled("sandbox_mcp")
+                || self.is_redesign_feature_enabled("sandbox");
+        tracing::info!(
+            target: "mcp",
+            server = %name,
+            transport = %transport_name,
+            sandbox_mcp_enabled,
+            "Connecting MCP server"
+        );
         let service = if transport_name == "stdio" || transport_name.is_empty() {
-            let command = server.command.trim();
-            if command.is_empty() {
-                return Err("MCP command is required for stdio transport".to_string());
-            }
-            let mut cmd = Command::new(command);
-            cmd.args(&server.args);
-            if !server.env.is_empty() {
-                cmd.envs(&server.env);
-            }
+            let cmd = self.build_stdio_command(name, server, sandbox_mcp_enabled)?;
             let transport = TokioChildProcess::new(cmd.configure(|cmd| {
                 let _ = cmd;
             }))
@@ -634,10 +668,89 @@ impl McpManager {
             .and_then(|value| value.as_array().cloned())
             .unwrap_or_default();
 
+        tracing::info!(
+            target: "mcp",
+            server = %name,
+            tools_count = tool_values.len(),
+            "Connected MCP server"
+        );
+
         Ok(McpClientEntry {
             service: Arc::new(service),
             tools: tool_values,
         })
+    }
+
+    fn build_stdio_command(
+        &self,
+        server_name: &str,
+        server: &McpServerConfig,
+        sandbox_mcp_enabled: bool,
+    ) -> Result<Command, String> {
+        #[cfg(not(feature = "redesign_sandbox"))]
+        let _ = server_name;
+
+        let command = server.command.trim();
+        if command.is_empty() {
+            return Err("MCP command is required for stdio transport".to_string());
+        }
+
+        let is_wasm_command = looks_like_wasm_server_command(command);
+        if is_wasm_command && !sandbox_mcp_enabled {
+            return Err(
+                "Wasm MCP command requires `features.redesign.sandbox_mcp=true` in config"
+                    .to_string(),
+            );
+        }
+
+        if is_wasm_command {
+            #[cfg(feature = "redesign_sandbox")]
+            {
+                let spec = build_wasm_launch_spec(command, &server.args, &server.env)?;
+                let mut cmd = Command::new(&spec.executable);
+                cmd.args(&spec.args);
+                if spec.clear_env {
+                    cmd.env_clear();
+                }
+                if !spec.env.is_empty() {
+                    cmd.envs(&spec.env);
+                }
+                tracing::info!(
+                    target: "mcp",
+                    server = %server_name,
+                    runtime = %spec.executable,
+                    module = ?spec.module_path(),
+                    "Launching Wasm MCP server in sandbox"
+                );
+                return Ok(cmd);
+            }
+
+            #[cfg(not(feature = "redesign_sandbox"))]
+            {
+                return Err(
+                    "Wasm MCP command requires backend build with '--features redesign_sandbox'"
+                        .to_string(),
+                );
+            }
+        }
+
+        let mut cmd = Command::new(command);
+        cmd.args(&server.args);
+        if !server.env.is_empty() {
+            cmd.envs(&server.env);
+        }
+        Ok(cmd)
+    }
+
+    fn is_redesign_feature_enabled(&self, feature: &str) -> bool {
+        self.config_service
+            .load_config()
+            .ok()
+            .and_then(|c| c.get("features").cloned())
+            .and_then(|f| f.get("redesign").cloned())
+            .and_then(|r| r.get(feature).cloned())
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
     }
 
     fn policy_allows_connection(&self, name: &str, server: &McpServerConfig) -> Result<(), String> {
@@ -848,6 +961,21 @@ fn default_enabled() -> bool {
 
 fn default_transport() -> String {
     "stdio".to_string()
+}
+
+fn looks_like_wasm_server_command(command: &str) -> bool {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if trimmed.starts_with("wasm:") {
+        return true;
+    }
+    Path::new(trimmed)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("wasm"))
+        .unwrap_or(false)
 }
 
 fn build_tool_arguments(args: &Value) -> Map<String, Value> {
