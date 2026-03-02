@@ -7,6 +7,10 @@ use serde_json::Value;
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
+use crate::infrastructure::episodic_store::{
+    CompactionJob, CompactionStatus, MemoryEdge, MemoryEdgeType, MemoryEvent, MemoryRepository,
+    MemoryScope, ScoredEvent, SourceRole, SqliteMemoryRepository,
+};
 use crate::llm::LlmService;
 
 use super::compression::{CompressionResult, MemoryCompressor};
@@ -14,9 +18,6 @@ use super::decay::DecayEngine;
 use super::integrator::EMLLMIntegrator;
 use super::sentence::split_sentences;
 use super::types::{DecayConfig, MemoryLayer};
-use crate::memory_v2::repository::MemoryRepository;
-use crate::memory_v2::sqlite_repository::SqliteMemoryRepository;
-use crate::memory_v2::types::{MemoryEvent, MemoryScope};
 
 const KEYRING_SERVICE: &str = "tepora-backend";
 const KEYRING_USER: &str = "em_memory_encryption_key";
@@ -290,12 +291,12 @@ impl EmMemoryService {
             let event_content = ev.tokens.join(" ");
 
             if let Some(prev_id) = prev_event_id {
-                v2_edges.push(crate::memory_v2::types::MemoryEdge {
+                v2_edges.push(MemoryEdge {
                     id: uuid::Uuid::new_v4().to_string(),
                     session_id: session_id.to_string(),
                     from_event_id: prev_id,
                     to_event_id: ev.id.clone(),
-                    edge_type: crate::memory_v2::types::MemoryEdgeType::TemporalNext,
+                    edge_type: MemoryEdgeType::TemporalNext,
                     weight: 1.0,
                     created_at: Utc::now(),
                 });
@@ -323,7 +324,7 @@ impl EmMemoryService {
                 surprise_max: ev.surprise_scores.iter().cloned().reduce(f64::max),
                 importance: initial_importance,
                 strength: 1.0,
-                layer: crate::memory_v2::types::MemoryLayer::SML,
+                layer: MemoryLayer::SML,
                 access_count: 0,
                 last_accessed_at: None,
                 decay_anchor_at: Utc::now(),
@@ -402,7 +403,7 @@ impl EmMemoryService {
             .await?;
 
         // Use HashMap to deduplicate and keep track of scored events
-        let mut candidates: std::collections::HashMap<String, crate::memory_v2::repository::ScoredEvent> = std::collections::HashMap::new();
+        let mut candidates: std::collections::HashMap<String, ScoredEvent> = std::collections::HashMap::new();
         let mut edges_to_fetch = Vec::new();
 
         for scored in similar_events {
@@ -425,14 +426,14 @@ impl EmMemoryService {
             
             for event_id in current_layer_edges {
                 if contiguity_added >= kc { break; }
-                if let Ok(edges) = v2_store.get_edges_from(&event_id, Some(crate::memory_v2::types::MemoryEdgeType::TemporalNext)).await {
+                if let Ok(edges) = v2_store.get_edges_from(&event_id, Some(MemoryEdgeType::TemporalNext)).await {
                     for edge in edges {
                         if contiguity_added >= kc { break; }
                         if !candidates.contains_key(&edge.to_event_id) {
                             if let Ok(Some(adj_ev)) = v2_store.get_event(&edge.to_event_id).await {
                                 next_layer.push(adj_ev.id.clone());
                                 contiguity_weights.insert(adj_ev.id.clone(), weight);
-                                candidates.insert(adj_ev.id.clone(), crate::memory_v2::repository::ScoredEvent {
+                                candidates.insert(adj_ev.id.clone(), ScoredEvent {
                                     event: adj_ev,
                                     score: 0.0, // Initial similarity is 0.0 unless computed
                                 });
@@ -543,7 +544,6 @@ impl EmMemoryService {
         let layer_counts = v2_store.count_by_layer(None, None).await?;
         let mean_strength = v2_store.average_strength(None, None).await?;
 
-        use crate::memory_v2::types::MemoryScope;
         let char_events = v2_store.count_events(None, Some(MemoryScope::Char)).await?;
         let char_layers = v2_store.count_by_layer(None, Some(MemoryScope::Char)).await?;
         let char_strength = v2_store.average_strength(None, Some(MemoryScope::Char)).await?;
@@ -659,7 +659,7 @@ impl EmMemoryService {
         session_id: &str,
         llm: &LlmService,
         model_id: &str,
-        scope: crate::memory_v2::types::MemoryScope,
+        scope: MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
         let compressor = MemoryCompressor::default();
         let result = compressor
@@ -697,7 +697,7 @@ impl EmMemoryService {
     /// Create an initial compaction job record (status = Queued).
     pub async fn create_compaction_job(
         &self,
-        job: &crate::memory_v2::types::CompactionJob,
+        job: &CompactionJob,
     ) -> Result<(), ApiError> {
         self.v2_store.create_compaction_job(job).await?;
         Ok(())
@@ -707,9 +707,9 @@ impl EmMemoryService {
     pub async fn list_compaction_jobs(
         &self,
         session_id: &str,
-        scope: Option<crate::memory_v2::types::MemoryScope>,
-        status: Option<crate::memory_v2::types::CompactionStatus>,
-    ) -> Result<Vec<crate::memory_v2::types::CompactionJob>, ApiError> {
+        scope: Option<MemoryScope>,
+        status: Option<CompactionStatus>,
+    ) -> Result<Vec<CompactionJob>, ApiError> {
         self.v2_store
             .list_compaction_jobs(session_id, scope, status)
             .await
@@ -722,7 +722,7 @@ impl EmMemoryService {
         llm: &LlmService,
         model_id: &str,
         job_id: &str,
-        scope: crate::memory_v2::types::MemoryScope,
+        scope: MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
         let compressor = MemoryCompressor::default();
         compressor
@@ -739,7 +739,6 @@ impl EmMemoryService {
 
     /// Mark a compaction job as failed.
     pub async fn fail_compaction_job(&self, session_id: &str, job_id: &str) {
-        use crate::memory_v2::types::{CompactionJob, CompactionStatus, MemoryScope};
         let v2_store = self.v2_store.as_ref();
         let now = chrono::Utc::now();
         let existing_job = match v2_store.list_compaction_jobs(session_id, None, None).await {
@@ -793,10 +792,10 @@ impl EmMemoryService {
         let content = build_memory_text(user_input, assistant_output);
         let episode_id = uuid::Uuid::new_v4().to_string();
         let source_turn_id = format!("{}-{}", session_id, chrono::Utc::now().timestamp());
-        let v2_event = crate::memory_v2::types::MemoryEvent {
+        let v2_event = MemoryEvent {
             id: uuid::Uuid::new_v4().to_string(),
             session_id: session_id.to_string(),
-            scope: crate::memory_v2::types::MemoryScope::Char,
+            scope: MemoryScope::Char,
             episode_id,
             event_seq: 0,
             source_turn_id: Some(source_turn_id),
@@ -808,7 +807,7 @@ impl EmMemoryService {
             surprise_max: None,
             importance: 0.5,
             strength: 1.0,
-            layer: crate::memory_v2::types::MemoryLayer::SML,
+            layer: MemoryLayer::SML,
             access_count: 0,
             last_accessed_at: None,
             decay_anchor_at: chrono::Utc::now(),

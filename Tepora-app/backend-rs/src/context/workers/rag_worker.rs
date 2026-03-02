@@ -69,7 +69,7 @@ impl ContextWorker for RagWorker {
         };
 
         let results = state
-            .rag_store
+            .knowledge_use_case
             .search(query_embedding, self.max_chunks, Some(&ctx.session_id))
             .await
             .map_err(|e| WorkerError::retryable("rag", format!("RAG query failed: {e}")))?;
@@ -77,11 +77,11 @@ impl ContextWorker for RagWorker {
         ctx.rag_chunks = results
             .into_iter()
             .map(|result| RagChunk {
-                chunk_id: result.chunk.chunk_id,
-                content: result.chunk.content,
-                source: result.chunk.source,
+                chunk_id: result.chunk_id,
+                content: result.content,
+                source: result.source,
                 score: result.score,
-                metadata: metadata_to_map(result.chunk.metadata),
+                metadata: metadata_to_map(result.metadata),
             })
             .collect();
 

@@ -120,9 +120,17 @@ impl ContextWorker for MemoryWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::application::episodic_memory::EpisodicMemoryUseCase;
+    use crate::application::knowledge::KnowledgeUseCase;
     use crate::core::errors::ApiError;
+    use crate::domain::episodic_memory::{
+        CompressionResult, DecayResult, EpisodicHit, EpisodicMemoryPort,
+    };
+    use crate::domain::knowledge::{
+        ContextConfig, KnowledgeChunk, KnowledgeHit, KnowledgePort, KnowledgeSource,
+    };
     use crate::em_llm::RetrievedMemory;
-    use crate::memory_v2::adapter::MemoryAdapter;
+    use crate::infrastructure::episodic_store::MemoryAdapter;
     use std::sync::atomic::{AtomicBool, Ordering};
 
     struct MockAdapter {
@@ -159,6 +167,110 @@ mod tests {
         }
     }
 
+    #[async_trait::async_trait]
+    impl EpisodicMemoryPort for MockAdapter {
+        async fn ingest_interaction(
+            &self,
+            _session_id: &str,
+            _user: &str,
+            _assistant: &str,
+            _embedding: &[f32],
+        ) -> Result<Vec<String>, crate::domain::errors::DomainError> {
+            Ok(Vec::new())
+        }
+
+        async fn recall(
+            &self,
+            _session_id: &str,
+            _query_embedding: &[f32],
+            _limit: usize,
+        ) -> Result<Vec<EpisodicHit>, crate::domain::errors::DomainError> {
+            Ok(Vec::new())
+        }
+
+        async fn run_decay(
+            &self,
+            _session_id: Option<&str>,
+        ) -> Result<DecayResult, crate::domain::errors::DomainError> {
+            Ok(DecayResult::default())
+        }
+
+        async fn compress(
+            &self,
+            _session_id: &str,
+        ) -> Result<CompressionResult, crate::domain::errors::DomainError> {
+            Ok(CompressionResult::default())
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl KnowledgePort for MockAdapter {
+        async fn ingest(
+            &self,
+            _source: KnowledgeSource,
+            _session_id: &str,
+        ) -> Result<Vec<String>, crate::domain::errors::DomainError> {
+            Ok(Vec::new())
+        }
+
+        async fn search(
+            &self,
+            _query_embedding: &[f32],
+            _limit: usize,
+            _session_id: Option<&str>,
+        ) -> Result<Vec<KnowledgeHit>, crate::domain::errors::DomainError> {
+            Ok(Vec::new())
+        }
+
+        async fn text_search(
+            &self,
+            _pattern: &str,
+            _limit: usize,
+            _session_id: Option<&str>,
+        ) -> Result<Vec<KnowledgeChunk>, crate::domain::errors::DomainError> {
+            Ok(Vec::new())
+        }
+
+        async fn get_chunk(
+            &self,
+            _chunk_id: &str,
+        ) -> Result<Option<KnowledgeChunk>, crate::domain::errors::DomainError> {
+            Ok(None)
+        }
+
+        async fn get_chunk_window(
+            &self,
+            _chunk_id: &str,
+            _max_chars: usize,
+            _session_id: Option<&str>,
+        ) -> Result<Vec<KnowledgeChunk>, crate::domain::errors::DomainError> {
+            Ok(Vec::new())
+        }
+
+        async fn build_context(
+            &self,
+            _query: &str,
+            _query_embedding: &[f32],
+            _config: &ContextConfig,
+        ) -> Result<String, crate::domain::errors::DomainError> {
+            Ok(String::new())
+        }
+
+        async fn clear_session(
+            &self,
+            _session_id: &str,
+        ) -> Result<usize, crate::domain::errors::DomainError> {
+            Ok(0)
+        }
+
+        async fn reindex(
+            &self,
+            _embedding_model: &str,
+        ) -> Result<(), crate::domain::errors::DomainError> {
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn test_memory_worker_adapter_routing() {
         // AppState::initialize() can fail due to DB lock issues or other OS errors on Windows. 
@@ -180,7 +292,6 @@ mod tests {
         let models = crate::models::ModelManager::new(&new_paths_arc, config.clone());
         let setup = crate::state::setup::SetupState::new(&new_paths_arc);
         let exclusive_agents = crate::agent::exclusive_manager::ExclusiveAgentManager::new(new_paths_arc.as_ref(), config.clone());
-        let rag_store = Arc::new(crate::rag::SqliteRagStore::new(new_paths_arc.as_ref()).await.unwrap());
         let graph_runtime = Arc::new(crate::graph::GraphBuilder::new().build().unwrap());
         let em_memory_service = Arc::new(crate::em_llm::EmMemoryService::new(new_paths_arc.as_ref(), &config).await.unwrap());
         let llm = crate::llm::LlmService::new(models.clone(), llama.clone(), config.clone());
@@ -192,31 +303,48 @@ mod tests {
             last_legacy_flag: AtomicBool::new(false),
         });
 
-        let base_state = Arc::new(AppState {
+        let core = Arc::new(crate::state::AppCoreState {
             paths: new_paths_arc,
-            config,
+            config: config.clone(),
             session_token,
-            history,
-            llama,
-            llm,
-            mcp,
-            mcp_registry,
-            models,
-            setup,
-            exclusive_agents,
-            rag_store,
-            graph_runtime,
-            em_memory_service,
-            rate_limiters,
-            actor_manager,
-            memory_adapter: adapter.clone() as Arc<dyn MemoryAdapter>,
+            setup: setup.clone(),
         });
+        let ai = Arc::new(crate::state::AppAiState {
+            llama: llama.clone(),
+            llm: llm.clone(),
+            models: models.clone(),
+            exclusive_agents: exclusive_agents.clone(),
+        });
+        let integration = Arc::new(crate::state::AppIntegrationState {
+            mcp: mcp.clone(),
+            mcp_registry: mcp_registry.clone(),
+        });
+        let runtime = Arc::new(crate::state::AppRuntimeState {
+            history: history.clone(),
+            graph_runtime: graph_runtime.clone(),
+            rate_limiters: rate_limiters.clone(),
+            actor_manager: actor_manager.clone(),
+        });
+        let memory = Arc::new(crate::state::AppMemoryState {
+            em_memory_service: em_memory_service.clone(),
+            memory_adapter: adapter.clone() as Arc<dyn MemoryAdapter>,
+            episodic_memory: adapter.clone() as Arc<dyn EpisodicMemoryPort>,
+            knowledge: adapter.clone() as Arc<dyn KnowledgePort>,
+            episodic_memory_use_case: Arc::new(EpisodicMemoryUseCase::new(
+                adapter.clone() as Arc<dyn EpisodicMemoryPort>,
+            )),
+            knowledge_use_case: Arc::new(KnowledgeUseCase::new(
+                adapter.clone() as Arc<dyn KnowledgePort>,
+            )),
+        });
+
+        let base_state = Arc::new(AppState::from_groups(core, ai, integration, runtime, memory));
 
         let mut ctx = PipelineContext::new("test_session", "test_turn", crate::context::pipeline_context::PipelineMode::Chat, "Hello query");
 
         // Test with legacy_memory = true
         {
-            let mut state_clone = (*base_state).clone();
+            let state_clone = (*base_state).clone();
             
             // Force config adjustments in temp file
             let mut config_val = state_clone.config.load_config().unwrap_or_else(|_| serde_json::json!({}));
@@ -242,7 +370,7 @@ mod tests {
         // Test with legacy_memory = false
         {
             adapter.called.store(false, Ordering::SeqCst);
-            let mut state_clone = (*base_state).clone();
+            let state_clone = (*base_state).clone();
 
             let mut config_val = state_clone.config.load_config().unwrap_or_else(|_| serde_json::json!({}));
             

@@ -3,9 +3,11 @@ use serde::Serialize;
 use crate::core::errors::ApiError;
 use crate::em_llm::store::{EmMemoryStore, MemoryEventRecord};
 use crate::em_llm::types::MemoryLayer;
+use crate::infrastructure::episodic_store::{
+    CompactionJob, CompactionMember, CompactionStatus, MemoryEdge, MemoryEdgeType, MemoryEvent,
+    MemoryLayer as V2MemoryLayer, MemoryRepository, MemoryScope, SourceRole,
+};
 use crate::llm::{ChatMessage, ChatRequest, LlmService};
-use crate::memory_v2::types::{MemoryEvent, MemoryLayer as V2MemoryLayer};
-use crate::memory_v2::repository::MemoryRepository;
 
 /// Result of a user-triggered memory compression run.
 #[derive(Debug, Clone, Serialize)]
@@ -196,7 +198,7 @@ impl MemoryCompressor {
         v2_store: &dyn MemoryRepository,
         llm: &LlmService,
         model_id: &str,
-        scope: crate::memory_v2::types::MemoryScope,
+        scope: MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
         self.compress_v2_with_job(session_id, v2_store, llm, model_id, None, scope).await
     }
@@ -213,10 +215,8 @@ impl MemoryCompressor {
         llm: &LlmService,
         model_id: &str,
         job_id: Option<&str>,
-        scope: crate::memory_v2::types::MemoryScope,
+        scope: MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
-        use crate::memory_v2::types::{CompactionJob, CompactionMember, CompactionStatus, MemoryEdge, MemoryEdgeType};
-
         let now = chrono::Utc::now();
 
         // Mark the job as running (if we have a job_id).
@@ -306,7 +306,7 @@ impl MemoryCompressor {
                 episode_id: "[compressed]".to_string(),
                 event_seq: 0,
                 source_turn_id: None,
-                source_role: Some(crate::memory_v2::types::SourceRole::System),
+                source_role: Some(SourceRole::System),
                 content: merged_content,
                 summary: None,
                 embedding: merged_embedding,
@@ -387,12 +387,11 @@ impl MemoryCompressor {
         v2_store: &dyn MemoryRepository,
         job_id: &str,
         session_id: &str,
-        status: crate::memory_v2::types::CompactionStatus,
+        status: CompactionStatus,
         result: &CompressionResult,
         created_at: chrono::DateTime<chrono::Utc>,
-        scope: crate::memory_v2::types::MemoryScope,
+        scope: MemoryScope,
     ) {
-        use crate::memory_v2::types::CompactionJob;
         let finished_job = CompactionJob {
             id: job_id.to_string(),
             session_id: session_id.to_string(),

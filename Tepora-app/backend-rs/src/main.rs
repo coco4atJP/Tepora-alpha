@@ -9,16 +9,21 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod a2a;
 pub mod actor;
 mod agent;
+mod application;
 mod context;
 mod core;
+mod domain;
+#[path = "infrastructure/episodic_store/em_llm/mod.rs"]
 mod em_llm;
 mod graph;
 mod history;
+mod infrastructure;
 mod llm;
 mod mcp;
-mod memory;
+#[path = "infrastructure/episodic_store/memory_v2/mod.rs"]
 mod memory_v2;
 mod models;
+#[path = "infrastructure/knowledge_store/rag/mod.rs"]
 mod rag;
 mod server;
 mod state;

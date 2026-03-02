@@ -4,11 +4,17 @@ use std::sync::Arc;
 use axum::extract::FromRef;
 
 use crate::agent::exclusive_manager::ExclusiveAgentManager;
+use crate::application::episodic_memory::EpisodicMemoryUseCase;
+use crate::application::knowledge::KnowledgeUseCase;
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::security::{init_session_token, SessionToken};
+use crate::domain::episodic_memory::EpisodicMemoryPort;
+use crate::domain::knowledge::KnowledgePort;
 use crate::em_llm::EmMemoryService;
 use crate::graph::{build_tepora_graph, GraphRuntime};
 use crate::history::HistoryStore;
+use crate::infrastructure::episodic_store::{MemoryAdapter, UnifiedMemoryAdapter};
+use crate::infrastructure::knowledge_store::RagKnowledgeAdapter;
 use crate::llm::LlamaService;
 use crate::llm::LlmService;
 use crate::mcp::registry::McpRegistry;
@@ -17,7 +23,6 @@ use crate::models::ModelManager;
 use crate::rag::{RagStore, SqliteRagStore};
 use crate::server::middleware::rate_limit::RateLimiters;
 use crate::actor::ActorManager;
-use crate::memory_v2::adapter::{MemoryAdapter, UnifiedMemoryAdapter};
 
 pub mod error;
 pub mod setup;
@@ -131,16 +136,49 @@ impl FromRef<Arc<AppState>> for AppStateWrite {
     }
 }
 
-/// Global application state shared across all routes and background tasks.
-///
-/// Contains references to:
-/// - Configuration and paths
-/// - Database connections (History, RAG)
-/// - LLM services and models
-/// - Helper managers (MCP, Exclusive Agents)
-/// - Graph runtime for agent execution
 #[derive(Clone)]
-pub struct AppState {
+pub struct AppCoreState {
+    pub paths: Arc<AppPaths>,
+    pub config: ConfigService,
+    pub session_token: Arc<tokio::sync::RwLock<SessionToken>>,
+    pub setup: SetupState,
+}
+
+#[derive(Clone)]
+pub struct AppAiState {
+    pub llama: LlamaService,
+    pub llm: LlmService,
+    pub models: ModelManager,
+    pub exclusive_agents: ExclusiveAgentManager,
+}
+
+#[derive(Clone)]
+pub struct AppIntegrationState {
+    pub mcp: McpManager,
+    pub mcp_registry: McpRegistry,
+}
+
+#[derive(Clone)]
+pub struct AppRuntimeState {
+    pub history: HistoryStore,
+    pub graph_runtime: Arc<GraphRuntime>,
+    pub rate_limiters: Arc<RateLimiters>,
+    pub actor_manager: Arc<ActorManager>,
+}
+
+#[derive(Clone)]
+pub struct AppMemoryState {
+    pub em_memory_service: Arc<EmMemoryService>,
+    pub memory_adapter: Arc<dyn MemoryAdapter>,
+    pub episodic_memory: Arc<dyn EpisodicMemoryPort>,
+    pub knowledge: Arc<dyn KnowledgePort>,
+    pub episodic_memory_use_case: Arc<EpisodicMemoryUseCase>,
+    pub knowledge_use_case: Arc<KnowledgeUseCase>,
+}
+
+/// Backward-compatible flattened view used by existing call sites (`state.history`, `state.llm`, etc.).
+#[derive(Clone)]
+pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,
     pub config: ConfigService,
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>,
@@ -152,18 +190,78 @@ pub struct AppState {
     pub models: ModelManager,
     pub setup: SetupState,
     pub exclusive_agents: ExclusiveAgentManager,
-    pub rag_store: Arc<dyn RagStore>,
     pub graph_runtime: Arc<GraphRuntime>,
     pub em_memory_service: Arc<EmMemoryService>,
-    /// API エンドポイントのレート制限器
     pub rate_limiters: Arc<RateLimiters>,
-    /// CQRS Actor Manager
     pub actor_manager: Arc<ActorManager>,
-    /// Unified hexagonal memory adapter
     pub memory_adapter: Arc<dyn MemoryAdapter>,
+    pub episodic_memory: Arc<dyn EpisodicMemoryPort>,
+    pub knowledge: Arc<dyn KnowledgePort>,
+    pub episodic_memory_use_case: Arc<EpisodicMemoryUseCase>,
+    pub knowledge_use_case: Arc<KnowledgeUseCase>,
+}
+
+/// Global application state shared across all routes and background tasks.
+/// Top-level fields are grouped by responsibility to avoid a God Object.
+#[derive(Clone)]
+pub struct AppState {
+    pub core: Arc<AppCoreState>,
+    pub ai: Arc<AppAiState>,
+    pub integration: Arc<AppIntegrationState>,
+    pub runtime: Arc<AppRuntimeState>,
+    pub memory: Arc<AppMemoryState>,
+    compat: AppStateCompat,
+}
+
+impl Deref for AppState {
+    type Target = AppStateCompat;
+
+    fn deref(&self) -> &Self::Target {
+        &self.compat
+    }
 }
 
 impl AppState {
+    pub(crate) fn from_groups(
+        core: Arc<AppCoreState>,
+        ai: Arc<AppAiState>,
+        integration: Arc<AppIntegrationState>,
+        runtime: Arc<AppRuntimeState>,
+        memory: Arc<AppMemoryState>,
+    ) -> Self {
+        let compat = AppStateCompat {
+            paths: core.paths.clone(),
+            config: core.config.clone(),
+            session_token: core.session_token.clone(),
+            history: runtime.history.clone(),
+            llama: ai.llama.clone(),
+            llm: ai.llm.clone(),
+            mcp: integration.mcp.clone(),
+            mcp_registry: integration.mcp_registry.clone(),
+            models: ai.models.clone(),
+            setup: core.setup.clone(),
+            exclusive_agents: ai.exclusive_agents.clone(),
+            graph_runtime: runtime.graph_runtime.clone(),
+            em_memory_service: memory.em_memory_service.clone(),
+            rate_limiters: runtime.rate_limiters.clone(),
+            actor_manager: runtime.actor_manager.clone(),
+            memory_adapter: memory.memory_adapter.clone(),
+            episodic_memory: memory.episodic_memory.clone(),
+            knowledge: memory.knowledge.clone(),
+            episodic_memory_use_case: memory.episodic_memory_use_case.clone(),
+            knowledge_use_case: memory.knowledge_use_case.clone(),
+        };
+
+        Self {
+            core,
+            ai,
+            integration,
+            runtime,
+            memory,
+            compat,
+        }
+    }
+
     /// Check if a specific redesign feature is enabled via feature flags.
     pub fn is_redesign_enabled(&self, feature: &str) -> bool {
         self.config
@@ -188,6 +286,7 @@ impl AppState {
         let paths = Arc::new(AppPaths::new());
         let config = ConfigService::new(paths.clone());
         let session_token = Arc::new(tokio::sync::RwLock::new(init_session_token()));
+        backup_sqlite_databases(paths.as_ref());
 
         let history = HistoryStore::new(paths.db_path.clone())
             .await
@@ -259,35 +358,63 @@ impl AppState {
                 .await
                 .map_err(|e| InitializationError::Rag(e.into()))?,
         );
+        let rag_store: Arc<dyn RagStore> = rag_store;
 
         let llm = LlmService::new(models.clone(), llama.clone(), config.clone());
+        let knowledge = Arc::new(RagKnowledgeAdapter::new(
+            rag_store.clone(),
+            llama.clone(),
+            config.clone(),
+        )) as Arc<dyn KnowledgePort>;
 
         let rate_limiters = Arc::new(RateLimiters::new());
         let actor_manager = Arc::new(ActorManager::new());
-        let memory_adapter = Arc::new(UnifiedMemoryAdapter::new(
+        let unified_memory_adapter = Arc::new(UnifiedMemoryAdapter::new_with_runtime(
             em_memory_service.clone(),
             em_memory_service.v2_store.clone(),
-        )) as Arc<dyn MemoryAdapter>;
+            llm.clone(),
+            models.clone(),
+            config.clone(),
+        ));
+        let memory_adapter = unified_memory_adapter.clone() as Arc<dyn MemoryAdapter>;
+        let episodic_memory = unified_memory_adapter as Arc<dyn EpisodicMemoryPort>;
+        let episodic_memory_use_case =
+            Arc::new(EpisodicMemoryUseCase::new(episodic_memory.clone()));
+        let knowledge_use_case = Arc::new(KnowledgeUseCase::new(knowledge.clone()));
 
-        let app_state = Arc::new(AppState {
-            paths,
-            config,
-            session_token,
-            history,
-            llama,
-            llm,
-            mcp,
-            mcp_registry,
-            models,
-            setup,
-            exclusive_agents,
-            rag_store,
-            graph_runtime,
-            em_memory_service,
-            rate_limiters,
-            actor_manager,
-            memory_adapter,
+        let core = Arc::new(AppCoreState {
+            paths: paths.clone(),
+            config: config.clone(),
+            session_token: session_token.clone(),
+            setup: setup.clone(),
         });
+        let ai = Arc::new(AppAiState {
+            llama: llama.clone(),
+            llm: llm.clone(),
+            models: models.clone(),
+            exclusive_agents: exclusive_agents.clone(),
+        });
+        let integration = Arc::new(AppIntegrationState {
+            mcp: mcp.clone(),
+            mcp_registry: mcp_registry.clone(),
+        });
+        let runtime = Arc::new(AppRuntimeState {
+            history: history.clone(),
+            graph_runtime: graph_runtime.clone(),
+            rate_limiters: rate_limiters.clone(),
+            actor_manager: actor_manager.clone(),
+        });
+        let memory = Arc::new(AppMemoryState {
+            em_memory_service: em_memory_service.clone(),
+            memory_adapter: memory_adapter.clone(),
+            episodic_memory: episodic_memory.clone(),
+            knowledge: knowledge.clone(),
+            episodic_memory_use_case: episodic_memory_use_case.clone(),
+            knowledge_use_case: knowledge_use_case.clone(),
+        });
+
+        let app_state = Arc::new(AppState::from_groups(core, ai, integration, runtime, memory));
+        app_state.actor_manager.clone().start_gc();
 
         // Start background tasks only after all state initialization succeeds.
         app_state.em_memory_service.clone().spawn_background_worker();
@@ -301,4 +428,59 @@ impl AppState {
 
         Ok(app_state)
     }
+}
+
+fn backup_sqlite_databases(paths: &AppPaths) {
+    let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
+    let candidates = [
+        paths.db_path.clone(),
+        paths.user_data_dir.join("em_memory.db"),
+        paths.user_data_dir.join("rag.db"),
+    ];
+
+    for source in candidates {
+        if !source.exists() {
+            continue;
+        }
+
+        let backup = next_backup_path(&source, &timestamp);
+        match std::fs::copy(&source, &backup) {
+            Ok(_) => tracing::info!(
+                source = %source.display(),
+                backup = %backup.display(),
+                "Created startup database backup"
+            ),
+            Err(err) => tracing::warn!(
+                source = %source.display(),
+                backup = %backup.display(),
+                "Failed to create startup database backup: {}",
+                err
+            ),
+        }
+    }
+}
+
+fn next_backup_path(source: &std::path::Path, timestamp: &str) -> std::path::PathBuf {
+    let base_name = source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("database.db");
+    let parent = source
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let primary = parent.join(format!("{}.bak.{}", base_name, timestamp));
+    if !primary.exists() {
+        return primary;
+    }
+
+    for idx in 1..1000 {
+        let candidate = parent.join(format!("{}.bak.{}.{}", base_name, timestamp, idx));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+
+    parent.join(format!("{}.bak.{}.overflow", base_name, timestamp))
 }

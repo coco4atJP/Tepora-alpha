@@ -5,12 +5,13 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use reqwest::{redirect::Policy, Client};
 use serde_json::Value;
-use uuid::Uuid;
 
 use crate::core::errors::ApiError;
+use crate::domain::errors::DomainError;
+use crate::domain::knowledge::KnowledgeSource;
 use crate::mcp::McpManager;
 use crate::models::types::ModelRuntimeConfig;
-use crate::rag::{RAGEngine, StoredChunk};
+use crate::rag::{ChunkSearchResult, StoredChunk};
 use crate::state::AppState;
 use crate::tools::search::{perform_search, SearchResult};
 
@@ -101,10 +102,25 @@ async fn execute_rag_search(
         .ok_or_else(|| ApiError::Internal("RAG query embedding is empty".to_string()))?;
 
     let results = state
-        .rag_store
+        .knowledge_use_case
         .search(query_embedding, limit, Some(sid))
-        .await?;
-    let output = serde_json::to_string_pretty(&results).unwrap_or_default();
+        .await
+        .map_err(domain_error_to_api_error)?;
+    // Preserve the existing wire format expected by search nodes.
+    let legacy_results = results
+        .into_iter()
+        .map(|hit| ChunkSearchResult {
+            chunk: StoredChunk {
+                chunk_id: hit.chunk_id,
+                content: hit.content,
+                source: hit.source,
+                session_id: sid.to_string(),
+                metadata: hit.metadata,
+            },
+            score: hit.score,
+        })
+        .collect::<Vec<_>>();
+    let output = serde_json::to_string_pretty(&legacy_results).unwrap_or_default();
 
     Ok(ToolExecution {
         output,
@@ -114,7 +130,7 @@ async fn execute_rag_search(
 
 async fn execute_rag_ingest(
     state: Option<&AppState>,
-    config: &Value,
+    _config: &Value,
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
@@ -143,58 +159,20 @@ async fn execute_rag_ingest(
         .trim()
         .to_string();
 
-    let rag_engine = RAGEngine::default();
-    let chunks = rag_engine.collect_from_text(&content, &source);
-    if chunks.is_empty() {
-        return Err(ApiError::BadRequest(
-            "RAG chunking produced no chunks".to_string(),
-        ));
-    }
-
-    let embedding_inputs: Vec<String> = chunks.iter().map(|chunk| chunk.text.clone()).collect();
-    let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
-    let embeddings = state
-        .llama
-        .embed(
-            &model_cfg,
-            &embedding_inputs,
-            std::time::Duration::from_secs(5),
-        )
-        .await?;
-    if embeddings.len() != chunks.len() {
-        return Err(ApiError::Internal(format!(
-            "Embedding/chunk size mismatch: {} != {}",
-            embeddings.len(),
-            chunks.len()
-        )));
-    }
-
     let user_metadata = args.get("metadata").cloned();
-    let items = chunks
-        .into_iter()
-        .zip(embeddings.into_iter())
-        .map(|(chunk, embedding)| {
-            let metadata = serde_json::json!({
-                "chunk_index": chunk.chunk_index,
-                "start_offset": chunk.start_offset,
-                "user_metadata": user_metadata.clone(),
-            });
-
-            (
-                StoredChunk {
-                    chunk_id: format!("rag-{}", Uuid::new_v4()),
-                    content: chunk.text,
-                    source: chunk.source,
-                    session_id: sid.to_string(),
-                    metadata: Some(metadata),
-                },
-                embedding,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let inserted = items.len();
-    state.rag_store.insert_batch(items).await?;
+    let inserted = state
+        .knowledge_use_case
+        .ingest(
+            KnowledgeSource::Text {
+                content,
+                source: source.clone(),
+                metadata: user_metadata,
+            },
+            sid,
+        )
+        .await
+        .map_err(domain_error_to_api_error)?
+        .len();
 
     let output = serde_json::json!({
         "status": "ok",
@@ -239,10 +217,21 @@ async fn execute_rag_text_search(
     let sid = session_id.unwrap_or("default");
 
     let results = state
-        .rag_store
+        .knowledge_use_case
         .text_search(&pattern, limit, Some(sid))
-        .await?;
-    let output = serde_json::to_string_pretty(&results).unwrap_or_default();
+        .await
+        .map_err(domain_error_to_api_error)?;
+    let legacy_results = results
+        .into_iter()
+        .map(|chunk| StoredChunk {
+            chunk_id: chunk.chunk_id,
+            content: chunk.content,
+            source: chunk.source,
+            session_id: chunk.session_id,
+            metadata: chunk.metadata,
+        })
+        .collect::<Vec<_>>();
+    let output = serde_json::to_string_pretty(&legacy_results).unwrap_or_default();
 
     Ok(ToolExecution {
         output,
@@ -269,8 +258,19 @@ async fn execute_rag_get_chunk(
         return Err(ApiError::BadRequest("chunk_id is required".to_string()));
     }
 
-    let result = state.rag_store.get_chunk(&chunk_id).await?;
-    let output = serde_json::to_string_pretty(&result).unwrap_or_default();
+    let result = state
+        .knowledge_use_case
+        .get_chunk(&chunk_id)
+        .await
+        .map_err(domain_error_to_api_error)?;
+    let legacy_result = result.map(|chunk| StoredChunk {
+        chunk_id: chunk.chunk_id,
+        content: chunk.content,
+        source: chunk.source,
+        session_id: chunk.session_id,
+        metadata: chunk.metadata,
+    });
+    let output = serde_json::to_string_pretty(&legacy_result).unwrap_or_default();
 
     Ok(ToolExecution {
         output,
@@ -308,10 +308,21 @@ async fn execute_rag_get_chunk_window(
 
     let sid = session_id.unwrap_or("default");
     let result = state
-        .rag_store
+        .knowledge_use_case
         .get_chunk_window(&chunk_id, chars, Some(sid))
-        .await?;
-    let output = serde_json::to_string_pretty(&result).unwrap_or_default();
+        .await
+        .map_err(domain_error_to_api_error)?;
+    let legacy_result = result
+        .into_iter()
+        .map(|chunk| StoredChunk {
+            chunk_id: chunk.chunk_id,
+            content: chunk.content,
+            source: chunk.source,
+            session_id: chunk.session_id,
+            metadata: chunk.metadata,
+        })
+        .collect::<Vec<_>>();
+    let output = serde_json::to_string_pretty(&legacy_result).unwrap_or_default();
 
     Ok(ToolExecution {
         output,
@@ -335,7 +346,11 @@ async fn execute_rag_clear_session(
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| session_id.unwrap_or("default"));
 
-    let deleted = state.rag_store.clear_session(sid).await?;
+    let deleted = state
+        .knowledge_use_case
+        .clear_session(sid)
+        .await
+        .map_err(domain_error_to_api_error)?;
     let output = serde_json::json!({
         "status": "ok",
         "session_id": sid,
@@ -364,7 +379,11 @@ async fn execute_rag_reindex(
         .unwrap_or("default")
         .trim();
 
-    state.rag_store.reindex_with_model(embedding_model).await?;
+    state
+        .knowledge_use_case
+        .reindex(embedding_model)
+        .await
+        .map_err(domain_error_to_api_error)?;
 
     let output = serde_json::json!({
         "status": "ok",
@@ -739,6 +758,14 @@ fn host_matches_pattern(host: &str, pattern: &str) -> bool {
 
 fn normalize_host_for_match(host: &str) -> String {
     host.trim().trim_end_matches('.').to_ascii_lowercase()
+}
+
+fn domain_error_to_api_error(err: DomainError) -> ApiError {
+    match err {
+        DomainError::InvalidInput(message) => ApiError::BadRequest(message),
+        DomainError::NotSupported(message) => ApiError::NotImplemented(message),
+        DomainError::Storage(message) => ApiError::Internal(message),
+    }
 }
 
 #[cfg(test)]

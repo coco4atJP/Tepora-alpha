@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::core::errors::ApiError;
-use crate::memory_v2::types::{CompactionJob, CompactionStatus, MemoryScope};
+use crate::infrastructure::episodic_store::{CompactionJob, CompactionStatus, MemoryScope};
 use crate::state::AppStateWrite;
 
 #[derive(Debug, Deserialize, Default)]
@@ -171,7 +171,7 @@ fn resolve_default_text_model_id(state: &crate::state::AppState) -> String {
 #[cfg(test)]
 mod tests {
     use crate::core::errors::ApiError;
-    use crate::memory_v2::types::{CompactionStatus, MemoryScope};
+    use crate::infrastructure::episodic_store::{CompactionStatus, MemoryScope};
 
     /// Verify that compress_memories handler's scope parsing returns BadRequest for unknown scopes.
     /// The handler calls `std::str::FromStr::from_str(s)?` so we test the same conversion.
