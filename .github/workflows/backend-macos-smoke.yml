@@ -1,0 +1,42 @@
+name: Backend macOS Wasm Smoke
+
+on:
+  schedule:
+    # Every Monday 00:00 UTC (09:00 JST)
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+env:
+  RUST_TOOLCHAIN: "stable"
+
+jobs:
+  backend-wasm-e2e-macos:
+    name: Backend Wasm E2E (macOS)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app/backend-rs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: wasm32-wasip1
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            Tepora-app/backend-rs
+
+      - name: Build Wasm Runtime Shim
+        run: cargo build --features redesign_sandbox --bin wasm_runtime_shim
+
+      - name: Build Wasm MCP Fixture
+        run: cargo build --release --target wasm32-wasip1 --manifest-path tests/fixtures/wasm-mcp-echo/Cargo.toml --target-dir tests/fixtures/wasm-mcp-echo/target
+
+      - name: Run Wasm MCP E2E Test
+        run: cargo test --features redesign_sandbox --test wasm_mcp_e2e -- --nocapture --test-threads=1

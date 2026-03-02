@@ -46,6 +46,40 @@ jobs:
         run: cargo test
 
   # ============================================
+  # Backend Wasm E2E Gate (Windows)
+  # ============================================
+  backend-wasm-e2e-windows:
+    name: Backend Wasm E2E (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app/backend-rs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: wasm32-wasip1
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            Tepora-app/backend-rs
+
+      - name: Build Wasm Runtime Shim
+        run: cargo build --features redesign_sandbox --bin wasm_runtime_shim
+
+      - name: Build Wasm MCP Fixture
+        run: cargo build --release --target wasm32-wasip1 --manifest-path tests/fixtures/wasm-mcp-echo/Cargo.toml --target-dir tests/fixtures/wasm-mcp-echo/target
+
+      - name: Run Wasm MCP E2E Test
+        run: cargo test --features redesign_sandbox --test wasm_mcp_e2e -- --nocapture --test-threads=1
+
+  # ============================================
   # Backend Security Scan
   # ============================================
   backend-security:
@@ -155,7 +189,7 @@ jobs:
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [backend-quality, frontend-quality, backend-security, frontend-security]
+    needs: [backend-quality, backend-wasm-e2e-windows, frontend-quality, backend-security, frontend-security]
     if: always()
 
     steps:
@@ -176,6 +210,12 @@ jobs:
             echo "❌ Frontend Quality: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
+          if [ "${{ needs.backend-wasm-e2e-windows.result }}" == "success" ]; then
+            echo "✅ Backend Wasm E2E (Windows): PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Backend Wasm E2E (Windows): FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
           if [ "${{ needs.backend-security.result }}" == "success" ]; then
             echo "✅ Backend Security: PASSED" >> $GITHUB_STEP_SUMMARY
           else
@@ -191,7 +231,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Fail if quality checks failed
-          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ]; then
+          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ]; then
             echo "❌ **QUALITY GATE FAILED**" >> $GITHUB_STEP_SUMMARY
             exit 1
           else

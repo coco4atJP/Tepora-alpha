@@ -24,6 +24,7 @@
 | Format | rustfmt | `cargo fmt -- --check` |
 | Type Check | Rust compiler | `cargo check` |
 | Tests | cargo test | `cargo test` |
+| Wasm MCP E2E (Windows必須) | cargo test (feature) | `cargo build --features redesign_sandbox --bin wasm_runtime_shim && cargo build --release --target wasm32-wasip1 --manifest-path tests/fixtures/wasm-mcp-echo/Cargo.toml --target-dir tests/fixtures/wasm-mcp-echo/target && cargo test --features redesign_sandbox --test wasm_mcp_e2e -- --nocapture --test-threads=1` |
 | Security | cargo-audit | `cargo audit` |
 
 ### Frontend (TypeScript/React)
@@ -107,11 +108,13 @@ GitHub Actions で自動実行されます。
 
 ```mermaid
 graph TD
-    A[Push/PR] --> B[Backend Quality]
+    A[Push/PR] --> B[Backend Quality (Ubuntu)]
+    A --> B2[Backend Wasm E2E (Windows)]
     A --> C[Frontend Quality]
     A --> D[Backend Security]
     A --> E[Frontend Security]
     B --> F[Summary]
+    B2 --> F
     C --> F
     D --> F
     E --> F
@@ -119,6 +122,13 @@ graph TD
     G -->|Yes| H[✅ Merge Allowed]
     G -->|No| I[❌ Merge Blocked]
 ```
+
+### 追加ワークフロー（監視専用）
+
+- `.github/workflows/backend-macos-smoke.yml`
+- トリガー: `schedule`（毎週月曜 00:00 UTC）+ `workflow_dispatch`
+- 実行内容: macOS 上で `wasm_runtime_shim` ビルド + Wasm フィクスチャビルド + `wasm_mcp_e2e`
+- 役割: Windows 必須ゲートの補完監視（PR の必須チェックには含めない）
 
 ## トラブルシューティング
 
@@ -165,4 +175,5 @@ npx biome check --write src/
 | `biome.json` | Biome lint/format 設定 |
 | `.pre-commit-config.yaml` | Pre-commit フック設定 |
 | `.github/workflows/ci.yml` | CI パイプライン設定 |
+| `.github/workflows/backend-macos-smoke.yml` | macOS Wasm 定期スモーク監視 |
 | `Taskfile.yml` | タスクランナー設定 |
