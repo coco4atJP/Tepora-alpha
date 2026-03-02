@@ -556,6 +556,12 @@ fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
             }
         }
     }
+
+    // Allow any localhost/127.0.0.1 origin (useful for Vite random ports)
+    if origin.starts_with("http://localhost:") || origin.starts_with("http://127.0.0.1:") {
+        return true;
+    }
+
     tracing::warn!("Origin blocked: {}", origin);
     false
 }
