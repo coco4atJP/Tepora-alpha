@@ -2,9 +2,15 @@
 name = "tepora-backend"
 version = "0.4.0"
 edition = "2021"
+default-run = "tepora-backend"
 [lib]
 name = "tepora_backend"
 path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "wasm_runtime_shim"
+path = "src/wasm_runtime_shim_main.rs"
 
 [dependencies]
 anyhow = "1"

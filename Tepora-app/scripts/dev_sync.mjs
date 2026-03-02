@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
+import net from "node:net";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -19,6 +20,29 @@ let shuttingDown = false;
 
 function log(prefix, message) {
   process.stdout.write(`[${prefix}] ${message}\n`);
+}
+
+function reserveEphemeralPort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address();
+      if (!addr || typeof addr === "string") {
+        server.close(() => reject(new Error("failed to reserve frontend port")));
+        return;
+      }
+      const { port } = addr;
+      server.close((err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
 }
 
 function terminateProcess(processHandle, name) {
@@ -52,11 +76,12 @@ async function main() {
   const sessionToken = crypto.randomBytes(32).toString("base64url");
   const backendEnv = { ...process.env };
   delete backendEnv.PORT;
+  backendEnv.TEPORA_PORT = "0";
   backendEnv.TEPORA_SESSION_TOKEN = sessionToken;
 
   backendProcess = spawn(
     "cargo",
-    ["run", "--manifest-path", path.join(BACKEND_DIR, "Cargo.toml")],
+    ["run", "--bin", "tepora-backend", "--manifest-path", path.join(BACKEND_DIR, "Cargo.toml")],
     {
       cwd: BACKEND_DIR,
       env: backendEnv,
@@ -69,24 +94,40 @@ async function main() {
 
   let capturedPort = null;
 
-  function maybeStartFrontend(port) {
+  async function maybeStartFrontend(port) {
     if (frontendProcess || !port) {
       return;
     }
 
-    log("dev-sync", `Starting frontend with VITE_API_PORT=${port}...`);
+    let frontendPort;
+    try {
+      frontendPort = await reserveEphemeralPort();
+    } catch (err) {
+      log("dev-sync", `Failed to reserve frontend port: ${err}`);
+      shutdown();
+      return;
+    }
+
+    log(
+      "dev-sync",
+      `Starting frontend with VITE_API_PORT=${port} and VITE_PORT=${frontendPort}...`
+    );
 
     const frontendEnv = { ...process.env };
     frontendEnv.VITE_API_PORT = String(port);
     frontendEnv.VITE_API_KEY = sessionToken;
     frontendEnv.VITE_SESSION_TOKEN = sessionToken;
 
-    frontendProcess = spawn(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "dev"], {
-      cwd: FRONTEND_DIR,
-      env: frontendEnv,
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: process.platform === "win32",
-    });
+    frontendProcess = spawn(
+      process.platform === "win32" ? "npm.cmd" : "npm",
+      ["run", "dev", "--", "--port", String(frontendPort), "--strictPort"],
+      {
+        cwd: FRONTEND_DIR,
+        env: frontendEnv,
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: process.platform === "win32",
+      }
+    );
 
     readline.createInterface({ input: frontendProcess.stdout }).on("line", (line) => {
       log("frontend", line);
@@ -98,7 +139,7 @@ async function main() {
 
     log("dev-sync", "Development servers running:");
     log("dev-sync", `Backend:  http://localhost:${port}`);
-    log("dev-sync", "Frontend: http://localhost:5173");
+    log("dev-sync", `Frontend: http://localhost:${frontendPort}`);
     log("dev-sync", "Auth:     session token injected via env");
     log("dev-sync", "Press Ctrl+C to stop");
   }
@@ -109,7 +150,7 @@ async function main() {
       if (match) {
         capturedPort = Number(match[1]);
         log("dev-sync", `Backend port captured: ${capturedPort}`);
-        maybeStartFrontend(capturedPort);
+        void maybeStartFrontend(capturedPort);
       }
     }
   }

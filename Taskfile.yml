@@ -54,7 +54,7 @@ tasks:
     desc: "Start backend server"
     dir: "{{.BACKEND_DIR}}"
     cmds:
-      - cargo run
+      - cargo run --bin tepora-backend
 
   dev-frontend:
     desc: "Start frontend dev server"
