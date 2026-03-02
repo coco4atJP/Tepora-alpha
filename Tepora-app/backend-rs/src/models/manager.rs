@@ -1481,15 +1481,23 @@ fn unique_model_id(base: &str, models: &[ModelEntry]) -> String {
 
 /// モデルファイル名をサニタイズする。ベース名のみ許可し、トラバーサルを拒否。
 fn sanitize_model_filename(filename: &str) -> Option<&str> {
-    if filename.is_empty() {
+    if filename.is_empty()
+        || filename.contains("..")
+        || filename.contains('/')
+        || filename.contains('\\')
+        || has_windows_drive_prefix(filename)
+        || filename.starts_with("//")
+        || filename.starts_with("\\\\")
+    {
         return None;
     }
-    let base = Path::new(filename).file_name().and_then(|n| n.to_str())?;
-    if base == filename {
-        Some(base)
-    } else {
-        None
-    }
+
+    Some(filename)
+}
+
+fn has_windows_drive_prefix(filename: &str) -> bool {
+    let bytes = filename.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
 fn evaluate_download_policy_from_config(

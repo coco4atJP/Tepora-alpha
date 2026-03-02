@@ -1,8 +1,10 @@
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
 use axum::Json;
+use regex::{Captures, Regex};
 use serde_json::json;
 use std::fs;
+use std::sync::OnceLock;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -12,6 +14,7 @@ pub struct FrontendLogPayload {
 }
 
 use crate::core::errors::ApiError;
+use crate::infrastructure::transport::log_forwarder;
 use crate::state::AppStateRead;
 
 pub async fn get_logs(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
@@ -45,11 +48,31 @@ pub async fn receive_frontend_logs(
         return Ok(Json(json!({ "status": "ignored" })));
     }
 
-    match payload.level.as_str() {
-        "error" => tracing::error!(target: "frontend", "{}", payload.message),
-        "warn" => tracing::warn!(target: "frontend", "{}", payload.message),
-        "debug" => tracing::debug!(target: "frontend", "{}", payload.message),
-        _ => tracing::info!(target: "frontend", "{}", payload.message),
+    let level = payload.level.to_ascii_lowercase();
+    if level != "error" && level != "warn" {
+        tracing::debug!(
+            target: "frontend",
+            level = %payload.level,
+            "Ignored frontend log due to allowlist"
+        );
+        return Ok(Json(json!({ "status": "ignored", "reason": "level_not_allowed" })));
+    }
+
+    let sanitized = sanitize_frontend_message(&payload.message);
+
+    match level.as_str() {
+        "error" => tracing::error!(target: "frontend", "{}", sanitized),
+        "warn" => tracing::warn!(target: "frontend", "{}", sanitized),
+        _ => {}
+    }
+
+    if let Err(err) = log_forwarder::append_frontend_log(&state.paths.log_dir, &level, &sanitized)
+    {
+        tracing::warn!(
+            target: "frontend",
+            error = %err,
+            "Failed to persist frontend log entry"
+        );
     }
 
     Ok(Json(json!({ "status": "ok" })))
@@ -76,14 +99,73 @@ pub async fn get_log_content(
 
 /// ログファイル名をサニタイズする。ベース名のみ許可し、トラバーサルを拒否。
 fn sanitize_log_filename(filename: &str) -> Option<&str> {
-    let base = std::path::Path::new(filename)
-        .file_name()
-        .and_then(|n| n.to_str())?;
-    if base == filename && !filename.contains("..") {
-        Some(base)
-    } else {
-        None
+    if filename.is_empty()
+        || filename.contains("..")
+        || filename.contains('/')
+        || filename.contains('\\')
+        || has_windows_drive_prefix(filename)
+        || filename.starts_with("//")
+        || filename.starts_with("\\\\")
+    {
+        return None;
     }
+
+    Some(filename)
+}
+
+fn has_windows_drive_prefix(filename: &str) -> bool {
+    let bytes = filename.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+fn sanitize_frontend_message(message: &str) -> String {
+    // Protect against huge payloads from malformed clients.
+    let capped = if message.chars().count() > 4000 {
+        let truncated: String = message.chars().take(4000).collect();
+        format!("{truncated}...[TRUNCATED]")
+    } else {
+        message.to_string()
+    };
+
+    let redacted_keys = api_key_regex().replace_all(&capped, "[REDACTED_KEY]");
+    let redacted_prompt = prompt_regex()
+        .replace_all(&redacted_keys, |caps: &Captures| {
+            format!("{}[REDACTED_PROMPT]", &caps[1])
+        })
+        .into_owned();
+    let redacted_windows_path = windows_user_dir_regex()
+        .replace_all(&redacted_prompt, "[USER_DIR]")
+        .into_owned();
+    unix_user_dir_regex()
+        .replace_all(&redacted_windows_path, "[USER_DIR]")
+        .into_owned()
+}
+
+fn api_key_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"sk-[a-zA-Z0-9]{20,}").expect("valid API key regex"))
+}
+
+fn prompt_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(
+            r#"(?i)\b((?:user_)?prompt\s*[:=]\s*)("[^"]*"|'[^']*'|[^,\n\r}]+)"#,
+        )
+        .expect("valid prompt regex")
+    })
+}
+
+fn windows_user_dir_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"(?i)[a-z]:\\users\\[^\\/\s]+").expect("valid windows user-dir regex")
+    })
+}
+
+fn unix_user_dir_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"/(?:home|Users)/[^/\s]+").expect("valid unix user-dir regex"))
 }
 
 #[cfg(test)]
@@ -119,5 +201,28 @@ mod tests {
     fn sanitize_rejects_directory_prefix() {
         assert_eq!(sanitize_log_filename("subdir/app.log"), None);
         assert_eq!(sanitize_log_filename("subdir\\app.log"), None);
+    }
+
+    #[test]
+    fn frontend_message_masks_api_keys() {
+        let msg = "token=sk-abcdefghijklmnopqrstuvwxyz123456";
+        let sanitized = sanitize_frontend_message(msg);
+        assert!(!sanitized.contains("sk-abcdefghijklmnopqrstuvwxyz123456"));
+        assert!(sanitized.contains("[REDACTED_KEY]"));
+    }
+
+    #[test]
+    fn frontend_message_masks_prompt_content() {
+        let msg = r#"user_prompt: "my secret prompt text""#;
+        let sanitized = sanitize_frontend_message(msg);
+        assert!(sanitized.contains("user_prompt: [REDACTED_PROMPT]"));
+    }
+
+    #[test]
+    fn frontend_message_masks_user_directory() {
+        let msg = "path=C:\\Users\\nekon\\Desktop\\memo.txt and /home/nekon/work";
+        let sanitized = sanitize_frontend_message(msg);
+        assert!(sanitized.contains("[USER_DIR]\\Desktop\\memo.txt"));
+        assert!(sanitized.contains("[USER_DIR]/work"));
     }
 }
