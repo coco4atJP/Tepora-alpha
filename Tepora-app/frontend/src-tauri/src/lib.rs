@@ -2,12 +2,25 @@ use std::path::PathBuf;
 use tauri::{RunEvent, AppHandle, Emitter, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 use tepora_backend::state::AppState;
+use tepora_backend::actor::ActorDispatchError;
 use tepora_backend::actor::messages::{SessionCommand, SessionEvent};
 use tepora_backend::server::ws::protocol::WsIncomingMessage;
 use std::sync::Arc;
 use serde_json::json;
 
 struct BackendState(Arc<AppState>);
+
+fn map_actor_dispatch_error(err: ActorDispatchError) -> String {
+    match err {
+        ActorDispatchError::SessionBusy(session_id) => {
+            format!("Session '{}' is busy. Please retry in a moment.", session_id)
+        }
+        ActorDispatchError::TooManySessions { max_sessions } => {
+            format!("Too many active sessions (limit: {})", max_sessions)
+        }
+        ActorDispatchError::Internal { reason, .. } => reason,
+    }
+}
 
 #[tauri::command]
 async fn chat_command(
@@ -24,10 +37,25 @@ async fn chat_command(
     
     match msg_type {
         "stop" => {
-            app.emit("chat_event", json!({"type": "stopped"}).to_string()).unwrap();
+            let _ = app.emit("chat_event", json!({"type": "stopped"}).to_string());
             let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
             if !session_id.is_empty() {
-                let _ = app_state.actor_manager.dispatch(&session_id, app_state.clone(), SessionCommand::StopGeneration { session_id: session_id.clone() }).await;
+                if let Err(err) = app_state
+                    .actor_manager
+                    .dispatch(
+                        &session_id,
+                        app_state.clone(),
+                        SessionCommand::StopGeneration {
+                            session_id: session_id.clone(),
+                        },
+                    )
+                    .await
+                {
+                    let _ = app.emit(
+                        "chat_event",
+                        json!({"type": "error", "message": map_actor_dispatch_error(err)}).to_string(),
+                    );
+                }
             }
             return Ok(());
         }
@@ -126,7 +154,7 @@ async fn chat_command(
             if let (Some(request_id), Some(approved)) = (data.request_id.clone(), data.approved) {
                 let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
                 if !session_id.is_empty() {
-                    let _ = app_state
+                    if let Err(err) = app_state
                         .actor_manager
                         .dispatch(
                             &session_id,
@@ -137,7 +165,13 @@ async fn chat_command(
                                 approved,
                             },
                         )
-                        .await;
+                        .await
+                    {
+                        let _ = app.emit(
+                            "chat_event",
+                            json!({"type": "error", "message": map_actor_dispatch_error(err)}).to_string(),
+                        );
+                    }
                 }
             }
             return Ok(());
@@ -164,7 +198,11 @@ async fn chat_command(
     };
 
     let mut rx = app_state.actor_manager.subscribe();
-    app_state.actor_manager.dispatch(&session_id, app_state.clone(), command).await.map_err(|e| e.to_string())?;
+    app_state
+        .actor_manager
+        .dispatch(&session_id, app_state.clone(), command)
+        .await
+        .map_err(map_actor_dispatch_error)?;
 
     while let Ok(event) = rx.recv().await {
         match event {

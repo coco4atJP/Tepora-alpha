@@ -1,13 +1,8 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::collections::HashSet;
 
-use axum::extract::ws::{Message, WebSocket};
-use futures_util::stream::SplitSink;
-use serde_json::{json, Value};
-use uuid::Uuid;
+use serde_json::Value;
 
 use crate::agent::policy::CustomToolPolicy;
-use crate::core::errors::ApiError;
 use crate::core::native_tools::NATIVE_TOOLS;
 use crate::state::AppState;
 
@@ -263,66 +258,6 @@ pub fn format_attachments(attachments: &[Value]) -> Option<String> {
         "User provided attachments. Use them if relevant:\\n{}",
         blocks.join("\n---\n")
     ))
-}
-
-pub async fn send_activity(
-    sender: &mut SplitSink<WebSocket, Message>,
-    id: &str,
-    status: &str,
-    message: &str,
-    agent_name: &str,
-) -> Result<(), ApiError> {
-    crate::server::ws::handler::send_json(
-        sender,
-        json!({
-            "type": "activity",
-            "data": {
-                "id": id,
-                "status": status,
-                "message": message,
-                "agentName": agent_name,
-            }
-        }),
-    )
-    .await
-}
-
-pub async fn request_tool_approval(
-    sender: &mut SplitSink<WebSocket, Message>,
-    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
-    tool_name: &str,
-    tool_args: &Value,
-    timeout_secs: u64,
-) -> Result<bool, ApiError> {
-    let request_id = Uuid::new_v4().to_string();
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    {
-        let mut map = pending.lock().map_err(ApiError::internal)?;
-        map.insert(request_id.clone(), tx);
-    }
-
-    let payload = json!({
-        "type": "tool_confirmation_request",
-        "data": {
-            "requestId": request_id,
-            "toolName": tool_name,
-            "toolArgs": if tool_args.is_object() { tool_args.clone() } else { json!({ "input": tool_args }) },
-            "description": format!("Tool '{}' requires your approval to execute.", tool_name),
-        }
-    });
-    crate::server::ws::handler::send_json(sender, payload).await?;
-
-    let approval = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
-        .await
-        .unwrap_or(Ok(false))
-        .unwrap_or(false);
-
-    if let Ok(mut map) = pending.lock() {
-        map.remove(&request_id);
-    }
-
-    Ok(approval)
 }
 
 pub fn approval_timeout(config: &Value) -> u64 {

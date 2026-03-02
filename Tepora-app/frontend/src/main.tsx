@@ -18,6 +18,12 @@ import { backendReady, isDesktop, startSidecar } from "./utils/sidecar";
 
 // Start the backend sidecar and wait for it before mounting React
 async function init() {
+	// Initialize transport mode early so websocketStore.connect() chooses
+	// IPC-first in desktop mode before SettingsContext config fetch completes.
+	if (typeof window !== "undefined" && !window.__TRANSPORT_MODE__) {
+		window.__TRANSPORT_MODE__ = isDesktop() ? "ipc" : "websocket";
+	}
+
 	// Start sidecar (non-blocking)
 	startSidecar();
 
@@ -55,4 +61,3 @@ async function init() {
 }
 
 init();
-

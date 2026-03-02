@@ -163,6 +163,19 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
     if let Some(features) = expect_optional_object(root, "features")? {
         if let Some(redesign) = expect_optional_object(features, "redesign")? {
             for (key, value) in redesign {
+                if key == "transport_mode" {
+                    let Some(mode) = value.as_str() else {
+                        return Err(ApiError::BadRequest(
+                            "Invalid config at 'features.redesign.transport_mode': expected string ('ipc' or 'websocket')".to_string(),
+                        ));
+                    };
+                    if mode != "ipc" && mode != "websocket" {
+                        return Err(ApiError::BadRequest(
+                            "Invalid config at 'features.redesign.transport_mode': must be 'ipc' or 'websocket'".to_string(),
+                        ));
+                    }
+                    continue;
+                }
                 if !value.is_boolean() {
                     return Err(config_type_error(&format!("features.redesign.{}", key), "boolean"));
                 }

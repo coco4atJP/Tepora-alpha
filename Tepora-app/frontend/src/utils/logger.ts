@@ -16,13 +16,14 @@ const isDev = import.meta.env.DEV;
 
 let isFrontendLoggingEnabled = false;
 let isSending = false;
+const FORWARDED_LEVELS = new Set(["warn", "error"]);
 
 export const configureLogger = (enabled: boolean) => {
     isFrontendLoggingEnabled = enabled;
 };
 
 const sendToBackend = (level: string, ...args: unknown[]) => {
-    if (!isFrontendLoggingEnabled || isSending) return;
+    if (!isFrontendLoggingEnabled || isSending || !FORWARDED_LEVELS.has(level)) return;
     isSending = true;
     try {
         const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(" ");

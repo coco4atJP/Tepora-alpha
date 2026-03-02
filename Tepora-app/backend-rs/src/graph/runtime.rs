@@ -419,6 +419,7 @@ mod tests {
             }
         }
 
+        #[allow(dead_code)]
         fn with_counter(id: &'static str, output: NodeOutput, counter: Arc<AtomicUsize>) -> Self {
             Self {
                 id,
@@ -445,6 +446,7 @@ mod tests {
     }
 
     /// Helper: create a default AgentState for testing
+    #[allow(dead_code)]
     fn test_state() -> AgentState {
         AgentState::new("test-session".to_string(), "hello".to_string(), Mode::Chat)
     }

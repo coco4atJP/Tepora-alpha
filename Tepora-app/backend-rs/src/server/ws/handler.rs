@@ -11,6 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+use crate::actor::ActorDispatchError;
 use crate::core::errors::ApiError;
 use crate::graph::{AgentState, NodeContext};
 use crate::state::{AppState, AppStateWrite};
@@ -133,7 +134,7 @@ async fn handle_message(
                     .clone()
                     .unwrap_or_else(|| current_session_id.clone());
                 if !session_id.is_empty() {
-                    let _ = state
+                    if let Err(err) = state
                         .actor_manager
                         .dispatch(
                             &session_id,
@@ -142,7 +143,10 @@ async fn handle_message(
                                 session_id: session_id.clone(),
                             },
                         )
-                        .await;
+                        .await
+                    {
+                        tracing::warn!("Failed to dispatch stop command for {session_id}: {err}");
+                    }
                 }
             }
             return Ok(());
@@ -203,7 +207,7 @@ async fn handle_message(
                         .clone()
                         .unwrap_or_else(|| current_session_id.clone());
                     if !session_id.is_empty() {
-                        let _ = state
+                        if let Err(err) = state
                             .actor_manager
                             .dispatch(
                                 &session_id,
@@ -214,7 +218,12 @@ async fn handle_message(
                                     approved,
                                 },
                             )
-                            .await;
+                            .await
+                        {
+                            tracing::warn!(
+                                "Failed to dispatch tool approval response for {session_id}: {err}"
+                            );
+                        }
                     }
                 } else if let Ok(mut map) = pending.lock() {
                     if let Some(reply_to) = map.remove(&request_id) {
@@ -318,7 +327,11 @@ async fn handle_message(
         // Subscribe to global events before dispatching to not miss anything
         let mut rx = state.actor_manager.subscribe();
 
-        state.actor_manager.dispatch(&session_id, state.clone(), command).await.map_err(ApiError::internal)?;
+        state
+            .actor_manager
+            .dispatch(&session_id, state.clone(), command)
+            .await
+            .map_err(map_actor_dispatch_error)?;
         
         // Loop over events from the actor
         while let Ok(event) = rx.recv().await {
@@ -571,4 +584,16 @@ fn extract_token_from_protocol_header(headers: &HeaderMap) -> Option<String> {
         }
     }
     None
+}
+
+fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
+    match err {
+        ActorDispatchError::SessionBusy(session_id) => ApiError::ServiceUnavailable(format!(
+            "Session '{session_id}' is busy. Please retry in a moment."
+        )),
+        ActorDispatchError::TooManySessions { max_sessions } => ApiError::ServiceUnavailable(
+            format!("Too many active sessions (limit: {max_sessions})"),
+        ),
+        ActorDispatchError::Internal { reason, .. } => ApiError::internal(reason),
+    }
 }

@@ -31,6 +31,7 @@ impl AgentExecutorNode {
         Self { max_steps: 6 }
     }
 
+    #[allow(dead_code)]
     pub fn with_max_steps(mut self, max_steps: usize) -> Self {
         self.max_steps = max_steps;
         self

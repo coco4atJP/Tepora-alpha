@@ -94,6 +94,17 @@ const calculateBackoff = (attempt: number): number => {
 	return delay + jitter;
 };
 
+type TransportMode = "ipc" | "websocket";
+
+const resolveTransportMode = (): TransportMode => {
+	const winMode =
+		typeof window !== "undefined" ? window.__TRANSPORT_MODE__ : undefined;
+	if (winMode === "ipc" || winMode === "websocket") {
+		return winMode;
+	}
+	return isDesktop() ? "ipc" : "websocket";
+};
+
 // Agent name mapping for activity messages
 const AGENT_MAPPING: Record<string, string> = {
 	generate_order: "Planner",
@@ -132,6 +143,8 @@ export const useWebSocketStore = create<WebSocketStore>()(
 			let shouldReconnect = true;
 			let isConnecting = false;
 			let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+			let ipcUnsubscribe: (() => void) | null = null;
+			let activeTransportMode: TransportMode | null = null;
 
 			// Helper to handle incoming messages
 			const handleMessage = (event: MessageEvent) => {
@@ -276,10 +289,15 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					// Allow reconnect after a previous disconnect/unmount
 					isMounted = true;
 					shouldReconnect = true;
+					const desiredTransportMode = resolveTransportMode();
 
 					// Idempotent: don't create multiple sockets
 					const existing = get().socket;
+					if (desiredTransportMode === "ipc" && get().isConnected && activeTransportMode === "ipc") {
+						return;
+					}
 					if (
+						desiredTransportMode === "websocket" &&
 						existing &&
 						(existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
 					) {
@@ -295,17 +313,21 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						reconnectTimeout = null;
 					}
 
-					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
-
 					try {
 						// Wait for backend in desktop mode
 						if (isDesktop()) {
 							await backendReady;
 						}
 
-						if (transportMode === 'ipc') {
+						if (desiredTransportMode === "ipc") {
+							if (ipcUnsubscribe) {
+								ipcUnsubscribe();
+								ipcUnsubscribe = null;
+							}
+
 							// Bypass actual websocket connection and use IPC transport directly
 							set({ isConnected: true, socket: null, reconnectAttempts: 0 }, false, "connected");
+							activeTransportMode = "ipc";
 							chatActor.send({ type: "RESET" });
 							useChatStore.getState().setError(null);
 
@@ -314,11 +336,15 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							get().setSession(sessionId);
 
 							// Dynamically import and subscribe to IPC messages
-							import('../transport/factory').then(({ getTransport }) => {
-								getTransport('ipc').subscribe((data: unknown) => {
-									handleMessage({ data: JSON.stringify(data) } as MessageEvent);
+							import("../transport/factory")
+								.then(({ getTransport }) => {
+									ipcUnsubscribe = getTransport("ipc").subscribe((data: unknown) => {
+										handleMessage({ data: JSON.stringify(data) } as MessageEvent);
+									});
+								})
+								.catch((error) => {
+									logger.error("Failed to initialize IPC transport subscription", error);
 								});
-							});
 							return;
 						}
 
@@ -334,6 +360,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 								return;
 							}
 							set({ isConnected: true, socket: ws, reconnectAttempts: 0 }, false, "connected");
+							activeTransportMode = "websocket";
 							chatActor.send({ type: "RESET" });
 							useChatStore.getState().setError(null);
 
@@ -352,6 +379,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						ws.onclose = (event) => {
 							if (!isMounted) return;
 							set({ isConnected: false, socket: null }, false, "disconnected");
+							activeTransportMode = null;
 							chatActor.send({ type: "RESET" });
 
 							// Handle auth failure
@@ -377,6 +405,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						if (!isMounted) return;
 						logger.error("WebSocket connection failed:", error);
 						set({ isConnected: false }, false, "connectionFailed");
+						activeTransportMode = null;
 
 						// Retry on failure (unless explicitly disconnected)
 						if (!shouldReconnect) return;
@@ -396,9 +425,14 @@ export const useWebSocketStore = create<WebSocketStore>()(
 				disconnect: () => {
 					shouldReconnect = false;
 					isMounted = false;
+					activeTransportMode = null;
 					if (reconnectTimeout) {
 						clearTimeout(reconnectTimeout);
 						reconnectTimeout = null;
+					}
+					if (ipcUnsubscribe) {
+						ipcUnsubscribe();
+						ipcUnsubscribe = null;
 					}
 					const { socket } = get();
 					if (socket) {
@@ -428,9 +462,9 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					const { socket, isConnected } = get();
 					const chatStore = useChatStore.getState();
 					const sessionStore = useSessionStore.getState();
-					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					const transportMode = activeTransportMode ?? resolveTransportMode();
 
-					if (!isConnected || (transportMode !== 'ipc' && !socket)) {
+					if (!isConnected || (transportMode !== "ipc" && !socket)) {
 						chatStore.setError("Not connected to server");
 						return;
 					}
@@ -451,9 +485,9 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						timeout,
 					};
 
-					if (transportMode === 'ipc') {
-						import('../transport/factory').then(({ getTransport }) => {
-							getTransport('ipc').send(payload);
+					if (transportMode === "ipc") {
+						import("../transport/factory").then(({ getTransport }) => {
+							getTransport("ipc").send(payload);
 						});
 					} else if (socket) {
 						socket.send(JSON.stringify(payload));
@@ -462,16 +496,14 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 				sendRaw: (data) => {
 					const { socket, isConnected } = get();
-					const transportMode = (typeof window !== 'undefined')
-						? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__
-						: undefined;
+					const transportMode = activeTransportMode ?? resolveTransportMode();
 					if (!isConnected) {
 						logger.warn("Cannot send: not connected");
 						return;
 					}
-					if (transportMode === 'ipc') {
-						import('../transport/factory').then(({ getTransport }) => {
-							getTransport('ipc').send(data);
+					if (transportMode === "ipc") {
+						import("../transport/factory").then(({ getTransport }) => {
+							getTransport("ipc").send(data);
 						});
 						return;
 					}
@@ -488,15 +520,15 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 				stopGeneration: () => {
 					const { socket, isConnected } = get();
-					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					const transportMode = activeTransportMode ?? resolveTransportMode();
 					const sessionId = useSessionStore.getState().currentSessionId;
 
 					if (!isConnected) return;
 
 					const payload = { type: "stop", sessionId };
-					if (transportMode === 'ipc') {
-						import('../transport/factory').then(({ getTransport }) => {
-							getTransport('ipc').send(payload);
+					if (transportMode === "ipc") {
+						import("../transport/factory").then(({ getTransport }) => {
+							getTransport("ipc").send(payload);
 						});
 					} else if (socket) {
 						socket.send(JSON.stringify(payload));
@@ -506,12 +538,12 @@ export const useWebSocketStore = create<WebSocketStore>()(
 
 				requestStats: () => {
 					const { socket, isConnected } = get();
-					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					const transportMode = activeTransportMode ?? resolveTransportMode();
 					if (!isConnected) return;
 
-					if (transportMode === 'ipc') {
-						import('../transport/factory').then(({ getTransport }) => {
-							getTransport('ipc').send({ type: "get_stats" });
+					if (transportMode === "ipc") {
+						import("../transport/factory").then(({ getTransport }) => {
+							getTransport("ipc").send({ type: "get_stats" });
 						});
 					} else if (socket) {
 						socket.send(JSON.stringify({ type: "get_stats" }));
@@ -522,16 +554,16 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					const { socket, isConnected } = get();
 					const sessionStore = useSessionStore.getState();
 					const chatStore = useChatStore.getState();
-					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					const transportMode = activeTransportMode ?? resolveTransportMode();
 
 					sessionStore.setCurrentSession(sessionId);
 					chatStore.clearMessages();
 
 					if (isConnected) {
 						const payload = { type: "set_session", sessionId };
-						if (transportMode === 'ipc') {
-							import('../transport/factory').then(({ getTransport }) => {
-								getTransport('ipc').send(payload);
+						if (transportMode === "ipc") {
+							import("../transport/factory").then(({ getTransport }) => {
+								getTransport("ipc").send(payload);
 							});
 						} else if (socket) {
 							socket.send(JSON.stringify(payload));
@@ -550,14 +582,14 @@ export const useWebSocketStore = create<WebSocketStore>()(
 				handleToolConfirmation: (requestId, approved, remember) => {
 					const state = get();
 					const { pendingToolConfirmation } = state;
-					const transportMode = (typeof window !== 'undefined') ? (window as unknown as { __TRANSPORT_MODE__?: string }).__TRANSPORT_MODE__ : undefined;
+					const transportMode = activeTransportMode ?? resolveTransportMode();
 
 					if (!pendingToolConfirmation) return;
 
 					if (state.isConnected) {
-						if (transportMode === 'ipc') {
-							import('../transport/factory').then(({ getTransport }) => {
-								getTransport('ipc').confirmTool(requestId, approved);
+						if (transportMode === "ipc") {
+							import("../transport/factory").then(({ getTransport }) => {
+								getTransport("ipc").confirmTool(requestId, approved);
 							});
 						} else if (state.socket) {
 							state.socket.send(

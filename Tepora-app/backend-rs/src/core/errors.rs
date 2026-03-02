@@ -25,6 +25,8 @@ pub enum ApiError {
     Conflict(String),
     #[error("internal error: {0}")]
     Internal(String),
+    #[error("service unavailable: {0}")]
+    ServiceUnavailable(String),
     #[error("too many requests")]
     TooManyRequests,
 }
@@ -46,6 +48,7 @@ impl IntoResponse for ApiError {
             ApiError::NotImplemented(msg) => (StatusCode::NOT_IMPLEMENTED, msg.clone()),
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
             ApiError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            ApiError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, msg.clone()),
             ApiError::TooManyRequests => (
                 StatusCode::TOO_MANY_REQUESTS,
                 "Too many requests. Please try again later.".to_string(),

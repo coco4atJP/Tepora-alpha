@@ -3,6 +3,7 @@ import type React from "react";
 import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
 import type { CharacterConfig, CustomAgentConfig } from "../types";
+import { isDesktop } from "../utils/api";
 import { apiClient } from "../utils/api-client";
 import { configureLogger } from "../utils/logger";
 
@@ -316,7 +317,15 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
 		// Expose transport_mode to window for non-React stores (like websocketStore)
 		if (typeof window !== 'undefined') {
-			(window as unknown as { __TRANSPORT_MODE__?: unknown }).__TRANSPORT_MODE__ = normalizedServerConfig.features?.redesign?.transport_mode;
+			const win = window as unknown as { __TRANSPORT_MODE__?: "ipc" | "websocket" };
+			const raw = normalizedServerConfig.features?.redesign?.transport_mode;
+			const configuredMode =
+				raw === "ipc" || raw === "websocket" ? raw : undefined;
+			if (configuredMode) {
+				win.__TRANSPORT_MODE__ = configuredMode;
+			} else if (!win.__TRANSPORT_MODE__) {
+				win.__TRANSPORT_MODE__ = isDesktop() ? "ipc" : "websocket";
+			}
 		}
 
 		if (!config || !originalConfig || !hasChanges) {
