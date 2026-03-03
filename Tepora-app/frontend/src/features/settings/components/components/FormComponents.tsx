@@ -108,15 +108,15 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 	if (isHorizontal) {
 		return (
 			<div
-				className={`settings-form-group flex items-center justify-between gap-6 py-1 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
+				className={`settings-form-group flex items-center justify-between gap-6 py-3 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
 			>
 				<div className="flex-1 min-w-0 pr-4">
 					<div className="settings-form-group__header !mb-0">
-						<div>
-							<span className="settings-form-group__label">{label}</span>
+						<div className="flex items-center">
+							<span className="settings-form-group__label text-sm font-medium text-gray-200">{label}</span>
 							{tooltip && (
-								<Tooltip text={tooltip} className="align-text-bottom ml-1">
-									<HelpCircle size={14} className="text-gray-500 hover:text-gray-300" />
+								<Tooltip text={tooltip} className="align-text-bottom ml-1.5">
+									<HelpCircle size={14} className="text-gray-500 hover:text-gray-300 transition-colors" />
 								</Tooltip>
 							)}
 							{isDirty && (
@@ -125,7 +125,7 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 								</span>
 							)}
 						</div>
-						{description && <p className="settings-form-group__description mt-1 text-xs">{description}</p>}
+						{description && <p className="settings-form-group__description mt-1 text-xs text-gray-400 leading-relaxed">{description}</p>}
 					</div>
 				</div>
 				<div className="settings-form-group__content shrink-0 w-[40%] min-w-[200px] max-w-sm flex justify-end [&>*]:w-full">
@@ -137,26 +137,26 @@ export const FormGroup: React.FC<FormGroupProps> = ({
 
 	return (
 		<div
-			className={`settings-form-group py-1 flex flex-col ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
+			className={`settings-form-group py-3 flex flex-col gap-2 ${isDirty ? "bg-white/5 border-l-2 border-l-gold-400 pl-3 -ml-3.5 transition-colors" : ""} ${glassClass} ${className || ""}`}
 		>
-			<div className="settings-form-group__header">
-				<div>
-					<span className="settings-form-group__label">{label}</span>
+			<div className="settings-form-group__header flex flex-col gap-1">
+				<div className="flex items-center">
+					<span className="settings-form-group__label text-sm font-medium text-gray-200">{label}</span>
 					{tooltip && (
-						<Tooltip text={tooltip} className="ml-1">
-							<HelpCircle size={14} className="text-gray-500 hover:text-gray-300" />
+						<Tooltip text={tooltip} className="ml-1.5">
+							<HelpCircle size={14} className="text-gray-500 hover:text-gray-300 transition-colors" />
 						</Tooltip>
 					)}
 					{isDirty && (
-						<span className="inline-flex items-center text-xs text-gold-400 font-medium px-1.5 py-0.5 bg-gold-400/10 rounded-sm ml-2 align-middle">
+						<span className="inline-flex items-center text-[10px] text-gold-400 font-medium px-1.5 py-0.5 bg-gold-400/10 rounded-sm ml-2 align-middle uppercase tracking-widest">
 							Modified
 						</span>
 					)}
 				</div>
-				{description && <p className="settings-form-group__description">{description}</p>}
+				{description && <p className="settings-form-group__description text-xs text-gray-400 leading-relaxed">{description}</p>}
 			</div>
-			<div className="settings-form-group__content mt-auto">{children}</div>
-			{error && <p className="settings-form-group__error">{error}</p>}
+			<div className="settings-form-group__content mt-1">{children}</div>
+			{error && <p className="settings-form-group__error text-xs text-red-400 mt-1">{error}</p>}
 		</div>
 	);
 };

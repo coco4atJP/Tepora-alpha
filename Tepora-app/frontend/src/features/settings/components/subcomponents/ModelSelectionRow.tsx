@@ -1,15 +1,9 @@
-import { Cpu, Settings, Trash2 } from "lucide-react";
+import { Cpu, Settings, Trash2, ChevronDown } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ModelDetailOverlay } from "./ModelDetailOverlay";
-
-interface ModelInfo {
-	id: string;
-	display_name: string;
-	role: string;
-	loader?: string;
-}
+import { ModelSelectionOverlay, type ModelInfo } from "./ModelSelectionOverlay";
 
 interface ModelConfig {
 	path: string;
@@ -51,9 +45,10 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const [isDetailOpen, setIsDetailOpen] = useState(false);
+	const [isSelectionOpen, setIsSelectionOpen] = useState(false);
 
-	// Use models as passed from parent (parent handles filtering)
 	const availableModels = models;
+	const selectedModel = availableModels.find((m) => m.id === selectedModelId);
 
 	return (
 		<div className="bg-black/20 rounded-xl p-6 border border-white/5 space-y-4">
@@ -77,43 +72,18 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 
 			<div className="flex gap-4">
 				<div className="flex-1 relative">
-					<select
-						value={selectedModelId || ""}
-						onChange={(e) => onSelect(e.target.value)}
-						className="w-full appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 pr-10 text-white font-medium transition-colors focus:outline-none focus:border-gold-400/50"
+					<button
+						type="button"
+						onClick={() => setIsSelectionOpen(true)}
+						className="w-full text-left bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 pr-10 text-white font-medium transition-colors focus:outline-none focus:border-gold-400/50 flex items-center justify-between"
 					>
-						<option value="" disabled>
-							{t("settings.sections.models.selection.select_model") || "Select a model..."}
-						</option>
-						{availableModels.map((m) => (
-							<option key={m.id} value={m.id} className="bg-gray-900">
-								{m.display_name}
-							</option>
-						))}
-						{availableModels.length === 0 && (
-							<option value="" disabled>
-								{t("settings.sections.models.selection.no_models") || "No models available"}
-							</option>
-						)}
-					</select>
-					<div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-						<svg
-							width="12"
-							height="8"
-							viewBox="0 0 12 8"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-							aria-hidden="true"
-						>
-							<path
-								d="M1 1.5L6 6.5L11 1.5"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-					</div>
+						<span className={selectedModel ? "text-white truncate" : "text-gray-400"}>
+							{selectedModel 
+								? selectedModel.display_name 
+								: (t("settings.sections.models.selection.select_model") || "Select a model...")}
+						</span>
+						<ChevronDown size={18} className="text-gray-400 shrink-0" />
+					</button>
 				</div>
 
 				<button
@@ -133,6 +103,15 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 					<Settings size={20} />
 				</button>
 			</div>
+
+			<ModelSelectionOverlay
+				isOpen={isSelectionOpen}
+				onClose={() => setIsSelectionOpen(false)}
+				models={availableModels}
+				onSelect={onSelect}
+				selectedModelId={selectedModelId}
+				fixedRole={modelRole as "text" | "embedding"}
+			/>
 
 			<ModelDetailOverlay
 				isOpen={isDetailOpen}

@@ -1,10 +1,12 @@
-import { Check, Edit2, Plus, RefreshCw, Save, Trash2, User, X } from "lucide-react";
+import { AlertCircle, Check, Edit2, Plus, RefreshCw, Trash2, User } from "lucide-react";
 import type React from "react";
-import { useContext, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsContext } from "../../context/SettingsContext";
 import type { CharacterConfig } from "../../types";
 import { logger } from "../../utils/logger";
+import { CharacterEditOverlay, type CharacterEditState } from "../settings/components/subcomponents/CharacterEditOverlay";
+import type { AgentProfile } from "../settings/components/SettingsComponents";
 
 const PersonaSwitcher: React.FC = () => {
 	const { t } = useTranslation();
@@ -12,14 +14,17 @@ const PersonaSwitcher: React.FC = () => {
 
 	// State for UI
 	const [isOpen, setIsOpen] = useState(false);
-	const [isEditing, setIsEditing] = useState(false);
-	const [editingKey, setEditingKey] = useState<string | null>(null);
-	const [editingCharacter, setEditingCharacter] = useState<CharacterConfig | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
-	const [isCreating, setIsCreating] = useState(false);
-	const [newKey, setNewKey] = useState("");
 	const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+	// State for overlay
+	const [editState, setEditState] = useState<CharacterEditState | null>(null);
+
+	const showError = useCallback((message: string) => {
+		setErrorMessage(message);
+		setTimeout(() => setErrorMessage(null), 4000);
+	}, []);
 
 	if (!settings || !settings.config) {
 		return null; // Or a loading spinner
@@ -30,29 +35,83 @@ const PersonaSwitcher: React.FC = () => {
 
 	const characters = config.characters || {};
 	const currentPersonaId = config.active_agent_profile;
+	const existingKeys = Object.keys(characters);
+
+	const characterToAgentProfile = (charConfig: CharacterConfig): AgentProfile => ({
+		label: charConfig.name,
+		description: charConfig.description,
+		icon: charConfig.icon,
+		avatar_path: charConfig.avatar_path,
+		persona: {
+			prompt: charConfig.system_prompt,
+		},
+		tool_policy: {
+			allow: [],
+			deny: [],
+		},
+	});
 
 	const handleCreate = () => {
-		setNewKey("");
-		setError(null);
-		setEditingCharacter({
-			name: "",
-			description: "",
-			system_prompt: "",
-			model_config_name: "default",
+		setEditState({
+			key: "",
+			profile: {
+				label: t("settings.sections.agents.default_name", "New Character"),
+				description: "",
+				icon: "👤",
+				avatar_path: "",
+				persona: {
+					prompt: t("settings.sections.agents.default_prompt", "You are a helpful assistant."),
+				},
+				tool_policy: {
+					allow: [],
+					deny: [],
+				},
+			},
+			model_config_name: "",
+			isNew: true,
 		});
-		setIsCreating(true);
-		setIsEditing(true);
 		setIsOpen(false);
 	};
 
 	const handleEdit = (key: string, character: CharacterConfig, e: React.MouseEvent) => {
 		e.stopPropagation();
-		setEditingKey(key);
-		setError(null);
-		setEditingCharacter({ ...character });
-		setIsCreating(false);
-		setIsEditing(true);
+		setEditState({
+			key,
+			profile: characterToAgentProfile(character),
+			model_config_name: character.model_config_name || "",
+			isNew: false,
+		});
 		setIsOpen(false);
+	};
+
+	const handleSaveEdit = async (targetKey: string, savedState: CharacterEditState) => {
+		setIsLoading(true);
+		try {
+			if (savedState.isNew) {
+				addCharacter(targetKey);
+			}
+
+			updateCharacter(targetKey, {
+				name: savedState.profile.label,
+				description: savedState.profile.description,
+				system_prompt: savedState.profile.persona.prompt || "",
+				model_config_name: savedState.model_config_name || undefined,
+				icon: savedState.profile.icon,
+				avatar_path: savedState.profile.avatar_path,
+			});
+
+			const success = await saveConfig();
+			if (success) {
+				setEditState(null);
+			} else {
+				showError(t("common.error_saving", "Failed to save."));
+			}
+		} catch (error) {
+			logger.error("Failed to save character:", error);
+			showError(t("common.error_saving", "Failed to save character."));
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
 	const handleDeleteRequest = (key: string, e: React.MouseEvent) => {
@@ -61,7 +120,6 @@ const PersonaSwitcher: React.FC = () => {
 
 		// Ensure at least one character remains
 		if (Object.keys(characters).length <= 1) {
-			// Silently ignore or maybe show a tooltip in future.
 			return;
 		}
 
@@ -82,43 +140,6 @@ const PersonaSwitcher: React.FC = () => {
 			setDeleteTarget(null);
 		} catch (error) {
 			logger.error("Failed to delete character:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	const handleSave = async () => {
-		if (!editingCharacter || !editingCharacter.name) return;
-
-		const key = isCreating ? newKey.trim().toLowerCase().replace(/\s+/g, "_") : editingKey;
-		if (!key) return;
-
-		setIsLoading(true);
-		setError(null);
-		try {
-			if (isCreating) {
-				// Ensure unique key
-				if (characters[key]) {
-					setError(t("personas.error_exists") || "This key already exists.");
-					return;
-				}
-				addCharacter(key);
-				updateCharacter(key, editingCharacter);
-			} else if (editingKey) {
-				updateCharacter(editingKey, editingCharacter);
-			}
-
-			const success = await saveConfig();
-			if (success) {
-				setIsEditing(false);
-				setEditingCharacter(null);
-				setEditingKey(null);
-				setIsCreating(false);
-				setNewKey("");
-			}
-		} catch (error) {
-			logger.error("Failed to save character:", error);
-			setError("Failed to save character.");
 		} finally {
 			setIsLoading(false);
 		}
@@ -205,7 +226,7 @@ const PersonaSwitcher: React.FC = () => {
 														: "bg-tea-800 text-tea-200"
 													} shrink-0`}
 											>
-												<User size={14} />
+												{character.icon || <User size={14} />}
 											</div>
 											<div className="min-w-0">
 												<div
@@ -248,134 +269,14 @@ const PersonaSwitcher: React.FC = () => {
 				)}
 			</div>
 
-			{/* Edit/Create Modal */}
-			{isEditing && (
-				<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-					<div className="glass-panel w-full max-w-lg p-6 space-y-4 animate-modal-enter">
-						<div className="flex justify-between items-center mb-2">
-							<h2 className="text-xl font-display text-gradient-tea">
-								{isCreating ? t("personas.create_new") : t("personas.edit")}
-							</h2>
-							<button
-								type="button"
-								onClick={() => setIsEditing(false)}
-								className="text-gray-400 hover:text-white"
-							>
-								<X size={20} />
-							</button>
-						</div>
-
-						{error && (
-							<div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-sm">
-								{error}
-							</div>
-						)}
-
-						<div className="space-y-4">
-							{isCreating && (
-								<div>
-									<label
-										htmlFor="input-key"
-										className="text-xs text-gray-500 uppercase tracking-wider block mb-1"
-									>
-										ID (Key)
-									</label>
-									<input
-										id="input-key"
-										type="text"
-										value={newKey}
-										onChange={(e) => setNewKey(e.target.value)}
-										className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
-										placeholder={t("settings.sections.agents.new_profile_key_placeholder", "e.g. coding_assistant")}
-									/>
-								</div>
-							)}
-							<div>
-								<label
-									htmlFor="input-name"
-									className="text-xs text-gray-500 uppercase tracking-wider block mb-1"
-								>
-									{t("personas.name")}
-								</label>
-								<input
-									id="input-name"
-									type="text"
-									value={editingCharacter?.name || ""}
-									onChange={(e) =>
-										setEditingCharacter((prev) => (prev ? { ...prev, name: e.target.value } : null))
-									}
-									className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-tea-100 focus:border-tea-500 focus:outline-none"
-									placeholder={t("settings.sections.agents.card.label_placeholder", "e.g. Coding Assistant")}
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="input-desc"
-									className="text-xs text-gray-500 uppercase tracking-wider block mb-1"
-								>
-									{t("personas.description")}
-								</label>
-								<input
-									id="input-desc"
-									type="text"
-									value={editingCharacter?.description || ""}
-									onChange={(e) =>
-										setEditingCharacter((prev) =>
-											prev ? { ...prev, description: e.target.value } : null,
-										)
-									}
-									className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-300 focus:border-tea-500 focus:outline-none"
-									placeholder={t("settings.sections.agents.card.description_placeholder", "Brief description...")}
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="input-prompt"
-									className="text-xs text-gray-500 uppercase tracking-wider block mb-1"
-								>
-									{t("personas.instruction")}
-								</label>
-								<textarea
-									id="input-prompt"
-									value={editingCharacter?.system_prompt || ""}
-									onChange={(e) =>
-										setEditingCharacter((prev) =>
-											prev ? { ...prev, system_prompt: e.target.value } : null,
-										)
-									}
-									className="w-full h-40 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-300 focus:border-tea-500 focus:outline-none resize-none font-mono text-sm"
-									placeholder={t("settings.sections.agents.card.custom_prompt_placeholder", "You are a helpful AI assistant...")}
-								/>
-							</div>
-						</div>
-
-						<div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-							<button
-								type="button"
-								onClick={() => setIsEditing(false)}
-								className="px-4 py-2 rounded-lg hover:bg-white/5 text-gray-400 text-sm transition-colors"
-							>
-								{t("common.cancel")}
-							</button>
-							<button
-								type="button"
-								onClick={handleSave}
-								disabled={isLoading || !editingCharacter?.name || (isCreating && !newKey.trim())}
-								className="glass-button px-6 py-2 flex items-center gap-2 bg-tea-600/20 text-tea-300 hover:bg-tea-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								{isLoading ? (
-									<RefreshCw className="animate-spin w-4 h-4" />
-								) : (
-									<Save className="w-4 h-4" />
-								)}
-								{t("common.save")}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+			<CharacterEditOverlay
+				isOpen={!!editState}
+				editState={editState}
+				onClose={() => setEditState(null)}
+				onSave={handleSaveEdit}
+				existingKeys={existingKeys}
+				showError={showError}
+			/>
 
 			{/* Delete Confirmation Modal */}
 			{deleteTarget && (
@@ -416,6 +317,13 @@ const PersonaSwitcher: React.FC = () => {
 							</button>
 						</div>
 					</div>
+				</div>
+			)}
+
+			{errorMessage && (
+				<div className="fixed bottom-4 right-4 z-[200] flex items-center gap-2 px-4 py-3 rounded-lg bg-red-900/90 border border-red-500/50 text-red-200 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200">
+					<AlertCircle size={18} className="text-red-400" />
+					<span className="text-sm">{errorMessage}</span>
 				</div>
 			)}
 		</>

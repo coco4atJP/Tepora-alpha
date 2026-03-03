@@ -9,8 +9,8 @@ import { loadersApi } from "../../../../api/loaders";
 import { logger } from "../../../../utils/logger";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
-import { ModelListOverlay } from "../subcomponents/ModelListOverlay";
 import { ModelSelectionRow } from "../subcomponents/ModelSelectionRow";
+import { ModelSelector } from "../subcomponents/ModelSelector";
 import ModelHub from "../../../../pages/ModelHub";
 import type { ModelInfo } from "../../../../types";
 
@@ -56,7 +56,6 @@ const ModelSettings: React.FC = () => {
 		updateConfigPath,
 	} = useSettings();
 	const [models, setModels] = useState<ModelInfo[]>([]);
-	const [listOverlayRole, setListOverlayRole] = useState<"text" | "embedding" | null>(null);
 	const [isModelHubOpen, setIsModelHubOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isRefreshingLmStudio, setIsRefreshingLmStudio] = useState(false);
@@ -168,32 +167,6 @@ const ModelSettings: React.FC = () => {
 		}
 	};
 
-	const handleDelete = async (id: string) => {
-		if (
-			!confirm(
-				t("settings.sections.models.confirm_delete") ||
-				"Are you sure you want to delete this model?",
-			)
-		)
-			return;
-		try {
-			await modelsApi.delete(id);
-			fetchModels();
-			fetchModelRoles();
-		} catch (e) {
-			logger.error(e);
-		}
-	};
-
-	const handleReorder = async (role: string, ids: string[]) => {
-		try {
-			await modelsApi.reorder(role, ids);
-			fetchModels();
-		} catch (e) {
-			logger.error(e);
-		}
-	};
-
 	const handleRefreshOllama = async () => {
 		setIsRefreshing(true);
 		try {
@@ -281,23 +254,7 @@ const ModelSettings: React.FC = () => {
 				}
 			>
 				<div className="space-y-3">
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-						<button
-							type="button"
-							onClick={() => setListOverlayRole("text")}
-							className="py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
-						>
-							<MessageSquare size={18} />
-							<span>{t("settings.sections.models.text_model_title") || "Text Models"}</span>
-						</button>
-						<button
-							type="button"
-							onClick={() => setListOverlayRole("embedding")}
-							className="py-3 glass-button rounded-xl flex items-center justify-center gap-2 text-tea-200/90 hover:text-gold-300 font-semibold tracking-wide"
-						>
-							<Cpu size={18} />
-							<span>{t("settings.sections.models.embedding_model_title") || "Embedding Models"}</span>
-						</button>
+					<div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
 						<button
 							type="button"
 							onClick={() => setIsModelHubOpen(true)}
@@ -389,22 +346,12 @@ const ModelSettings: React.FC = () => {
 										</div>
 									</div>
 									<div className="w-full md:w-[360px]">
-										<select
-											value={modelRoles.character_model_map[characterId] || ""}
-											onChange={(e) =>
-												handleSelectCharacterScopedModel(characterId, e.target.value)
-											}
-											className="w-full appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-2.5 text-white text-sm transition-colors focus:outline-none focus:border-gold-400/50"
-										>
-											<option value="" className="bg-gray-900">
-												{t("settings.sections.models.defaults.global", "Global Default")}
-											</option>
-											{textModels.map((model) => (
-												<option key={model.id} value={model.id} className="bg-gray-900">
-													{model.display_name}
-												</option>
-											))}
-										</select>
+										<ModelSelector
+											value={modelRoles.character_model_map[characterId] || undefined}
+											onChange={(val) => handleSelectCharacterScopedModel(characterId, val)}
+											role="text"
+											placeholder={t("settings.sections.models.defaults.global", "Global Default")}
+										/>
 									</div>
 								</div>
 							))}
@@ -443,26 +390,12 @@ const ModelSettings: React.FC = () => {
 											</div>
 										</div>
 										<div className="w-full md:w-[360px]">
-											<select
-												value={modelRoles.agent_model_map[agent.id] || ""}
-												onChange={(e) =>
-													handleSelectAgentScopedModel(agent.id, e.target.value)
-												}
-												className="w-full appearance-none bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-2.5 text-white text-sm transition-colors focus:outline-none focus:border-gold-400/50"
-											>
-												<option value="" className="bg-gray-900">
-													{t("settings.sections.models.defaults.global", "Global Default")}
-												</option>
-												{textModels.map((model) => (
-													<option
-														key={model.id}
-														value={model.id}
-														className="bg-gray-900"
-													>
-														{model.display_name}
-													</option>
-												))}
-											</select>
+											<ModelSelector
+												value={modelRoles.agent_model_map[agent.id] || undefined}
+												onChange={(val) => handleSelectAgentScopedModel(agent.id, val)}
+												role="text"
+												placeholder={t("settings.sections.models.defaults.global", "Global Default")}
+											/>
 										</div>
 									</div>
 								))}
@@ -699,17 +632,9 @@ const ModelSettings: React.FC = () => {
 			</SettingsSection>
 
 			<ModelHub isOpen={isModelHubOpen} onClose={() => setIsModelHubOpen(false)} />
-			<ModelListOverlay
-				isOpen={listOverlayRole !== null}
-				onClose={() => setListOverlayRole(null)}
-				models={models}
-				onDelete={handleDelete}
-				onReorder={handleReorder}
-				initialRole={listOverlayRole || "text"}
-				fixedRole={listOverlayRole || undefined}
-			/>
 		</div>
 	);
 };
 
 export default ModelSettings;
+

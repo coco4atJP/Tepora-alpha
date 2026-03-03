@@ -5,12 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SkeletonLoader } from "../../components/ui/SkeletonLoader";
 import { useSettings } from "../../hooks/useSettings";
-import { useChatStore } from "../../stores";
+import { useChatStore, useWebSocketStore } from "../../stores";
 import type { Message } from "../../types";
 import MessageBubble from "./MessageBubble";
 
 const MessageList: React.FC = () => {
 	const messages = useChatStore((state) => state.messages);
+	const regenerateResponse = useWebSocketStore((state) => state.regenerateResponse);
 	const { config, customAgents } = useSettings();
 	const { t } = useTranslation();
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -127,7 +128,13 @@ const MessageList: React.FC = () => {
 							className={`transition-all duration-500 ease-out ${index === messages.length - 1 ? "animate-slide-up-fade" : ""
 								}`}
 						>
-							<MessageBubble message={msg} icon={icon} avatar={avatar} />
+							<MessageBubble
+								message={msg}
+								icon={icon}
+								avatar={avatar}
+								isLast={index === messages.length - 1}
+								onRegenerate={regenerateResponse}
+							/>
 						</div>
 					);
 				})}

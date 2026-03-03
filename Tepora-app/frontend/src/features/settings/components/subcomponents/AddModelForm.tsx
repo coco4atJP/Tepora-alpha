@@ -83,8 +83,6 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		}
 	};
 
-	const [selectedRole, setSelectedRole] = useState("text");
-
 	// Dialog Handler
 	const handleOpenDialog = async () => {
 		try {
@@ -194,7 +192,6 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 
 			await apiClient.post("api/setup/model/local", {
 				file_path: path,
-				role: selectedRole,
 				display_name: localFile.name.replace(".gguf", ""),
 			});
 			onModelAdded();
@@ -317,7 +314,6 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 			await apiClient.post("api/setup/model/download", {
 				repo_id: repoId,
 				filename: filename,
-				role: selectedRole,
 				acknowledge_warnings: acknowledgeWarnings,
 			});
 
@@ -393,26 +389,6 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 
 			{isExpanded && (
 				<div className="p-4 border-t border-white/5 space-y-4">
-					{/* Pool Selector */}
-					<div className="flex gap-2 mb-4">
-						{["text", "embedding"].map((r) => (
-							<button
-								type="button"
-								key={r}
-								onClick={() => setSelectedRole(r)}
-								disabled={downloading}
-								className={`px-3 py-1 text-xs rounded-full border transition-colors ${selectedRole === r
-										? "bg-gold-500/20 border-gold-400 text-gold-100"
-										: "border-white/10 text-gray-400 hover:border-white/20"
-									} ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
-							>
-								{r === "text"
-									? t("settings.sections.models.add_modal.role_text")
-									: t("settings.sections.models.add_modal.role_embedding")}
-							</button>
-						))}
-					</div>
-
 					{/* Tabs */}
 					<div className="flex border-b border-white/10 mb-4">
 						<button

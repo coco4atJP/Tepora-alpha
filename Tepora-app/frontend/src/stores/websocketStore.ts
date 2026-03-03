@@ -57,6 +57,7 @@ interface WebSocketActions {
 	stopGeneration: () => void;
 	requestStats: () => void;
 	setSession: (sessionId: string) => void;
+	regenerateResponse: () => void;
 
 	// Tool confirmation
 	setPendingToolConfirmation: (request: ToolConfirmationRequest | null) => void;
@@ -568,6 +569,48 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						} else if (socket) {
 							socket.send(JSON.stringify(payload));
 						}
+					}
+				},
+
+				regenerateResponse: () => {
+					const { socket, isConnected } = get();
+					const chatStore = useChatStore.getState();
+					const sessionStore = useSessionStore.getState();
+					const transportMode = activeTransportMode ?? resolveTransportMode();
+
+					if (!isConnected || (transportMode !== "ipc" && !socket)) {
+						chatStore.setError("Not connected to server");
+						return;
+					}
+
+					// Update local messages: remove trailing AI/system messages
+					const messages = chatStore.messages;
+					let lastUserIndex = -1;
+					for (let i = messages.length - 1; i >= 0; i--) {
+						if (messages[i].role === "user") {
+							lastUserIndex = i;
+							break;
+						}
+					}
+
+					if (lastUserIndex !== -1) {
+						chatStore.setMessages(messages.slice(0, lastUserIndex + 1));
+					} else {
+						// Do nothing if no user message is found to regenerate from
+						return;
+					}
+
+					const payload = {
+						type: "regenerate",
+						sessionId: sessionStore.currentSessionId,
+					};
+
+					if (transportMode === "ipc") {
+						import("../transport/factory").then(({ getTransport }) => {
+							getTransport("ipc").send(payload);
+						});
+					} else if (socket) {
+						socket.send(JSON.stringify(payload));
 					}
 				},
 

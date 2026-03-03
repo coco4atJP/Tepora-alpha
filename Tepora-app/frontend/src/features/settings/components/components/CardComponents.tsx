@@ -7,7 +7,7 @@ import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../../../hooks/useSettings";
 import { logger } from "../../../../utils/logger";
-import { FormGroup, FormInput, FormList } from "./FormComponents";
+import { FormGroup, FormInput } from "./FormComponents";
 
 // ============================================================================
 // ModelCard
@@ -325,38 +325,6 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 					</div>
 				</div>
 			</FormGroup>
-
-			<div className="mt-4 pt-4 border-t border-white/5">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<FormGroup
-						label={t("settings.sections.agents.card.allowed_tools")}
-						description={t("settings.sections.agents.card.allowed_tools_description")}
-					>
-						<FormList
-							items={profile.tool_policy.allow}
-							onChange={(items) =>
-								onChange({
-									...profile,
-									tool_policy: { ...profile.tool_policy, allow: items },
-								})
-							}
-							placeholder={t("settings.sections.agents.card.tool_placeholder")}
-						/>
-					</FormGroup>
-					<FormGroup label={t("settings.sections.agents.card.denied_tools")}>
-						<FormList
-							items={profile.tool_policy.deny}
-							onChange={(items) =>
-								onChange({
-									...profile,
-									tool_policy: { ...profile.tool_policy, deny: items },
-								})
-							}
-							placeholder={t("settings.sections.agents.card.tool_placeholder")}
-						/>
-					</FormGroup>
-				</div>
-			</div>
 		</div>
 	);
 };

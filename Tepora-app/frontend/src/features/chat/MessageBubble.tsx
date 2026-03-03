@@ -1,4 +1,4 @@
-import { AlertCircle, Bot, Check, Copy, Terminal, User } from "lucide-react";
+import { AlertCircle, Bot, Check, Copy, Terminal, User, RefreshCw } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -13,6 +13,8 @@ interface MessageBubbleProps {
 	message: Message;
 	icon?: string;
 	avatar?: string;
+	isLast?: boolean;
+	onRegenerate?: () => void;
 }
 
 // --- Helper functions for styling ---
@@ -191,13 +193,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 	message,
 	icon,
 	avatar,
+	isLast,
+	onRegenerate,
 }) => {
 	const { t } = useTranslation();
 	const modeLabel =
 		message.mode && message.role === "user" ? getModeLabel(message.mode, t) : null;
 
 	const [debouncedContent, setDebouncedContent] = useState(message.content);
+	const [copied, setCopied] = useState(false);
 	const lastUpdateRef = React.useRef(Date.now());
+
+	// Track thinking state
+	const [isThinkingOpen, setIsThinkingOpen] = useState(() => !message.isComplete);
+	const [hasAnswerStarted, setHasAnswerStarted] = useState(false);
+
+	const handleCopyMessage = async () => {
+		try {
+			await navigator.clipboard.writeText(message.content);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch (err) {
+			logger.error("Failed to copy message!", err);
+		}
+	};
 
 	useEffect(() => {
 		// Completed or user/system messages reflect immediately
@@ -239,6 +258,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 			return "";
 		});
 	}
+	
+	// Clean up any stray closing tags if they get orphaned
+	displayContent = displayContent.replace(/<\/think>/gi, "");
+
+	const hasThinking = extractedThinking && extractedThinking.trim().length > 0;
+	const isCurrentlyThinking = !message.isComplete && displayContent.trim().length === 0;
+
+	useEffect(() => {
+		if (!message.isComplete && displayContent.trim().length > 0 && !hasAnswerStarted) {
+			setHasAnswerStarted(true);
+			setIsThinkingOpen(false); // Auto-collapse when answer starts
+		}
+	}, [displayContent, message.isComplete, hasAnswerStarted]);
 
 	return (
 		<div
@@ -280,24 +312,31 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 						)}
 
 						{/* Thinking Process */}
-						{/* Only show if there is actual content (ignoring whitespace) */}
-						{extractedThinking && extractedThinking.trim().length > 0 && (
-							<details className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2">
+						{hasThinking && (
+							<details 
+								className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2"
+								open={isThinkingOpen}
+								onToggle={(e) => setIsThinkingOpen(e.currentTarget.open)}
+							>
 								<summary className="flex items-center gap-2 px-3 py-2 text-xs font-mono text-gray-400 cursor-pointer hover:bg-white/5 transition-colors select-none">
-									<Bot className="w-3 h-3 text-purple-400" />
-									<span className="opacity-80">
+									<Bot className={`w-3 h-3 ${isCurrentlyThinking ? 'text-purple-400 animate-pulse' : 'text-gray-500'}`} />
+									<span className={`opacity-80 ${isCurrentlyThinking ? 'text-purple-300' : ''}`}>
 										{t("chat.status.thinking") || "Thinking Process"}
 									</span>
+									{isCurrentlyThinking && (
+										<span className="flex items-center gap-0.5 ml-1">
+											<span className="w-1 h-1 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+											<span className="w-1 h-1 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+											<span className="w-1 h-1 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+										</span>
+									)}
 									<div className="flex-1" />
 									<span className="text-[10px] opacity-50 group-open/thinking:hidden">
 										Click to expand
 									</span>
 								</summary>
-								<div className="px-3 pt-2 text-xs font-mono text-gray-400/80 leading-relaxed whitespace-pre-wrap border-t border-white/5">
-									{extractedThinking.trim()}
-									{!message.isComplete && displayContent.trim().length === 0 && (
-										<span className="animate-pulse inline-block ml-1">...</span>
-									)}
+								<div className="px-3 pt-2 text-xs font-mono text-gray-400/80 leading-relaxed whitespace-pre-wrap border-t border-white/5 break-words">
+									{extractedThinking.trimStart()}
 								</div>
 							</details>
 						)}
@@ -343,11 +382,33 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 						</div>
 					</div>
 
-					{/* Timestamp */}
+					{/* Timestamp & Actions */}
 					<div
-						className={`text-[10px] opacity-40 mt-1.5 font-mono flex items-center gap-1 ${message.role === "user" ? "justify-end text-gold-200/50" : "justify-start text-gray-500"}`}
+						className={`text-[10px] opacity-40 mt-1.5 font-mono flex items-center gap-2 ${message.role === "user" ? "justify-end text-gold-200/50" : "justify-start text-gray-500"}`}
 					>
-						{message.timestamp.toLocaleTimeString("ja-JP")}
+						<span>{message.timestamp.toLocaleTimeString("ja-JP")}</span>
+						<button
+							onClick={handleCopyMessage}
+							className={`flex items-center gap-1 hover:text-white transition-colors focus:outline-none p-0.5 rounded hover:bg-white/5 cursor-pointer opacity-0 group-hover:opacity-100 ${copied ? "text-green-400 opacity-100" : ""}`}
+							aria-label={t("common.copy", "Copy")}
+							title={copied ? t("common.copied", "Copied") : t("common.copy", "Copy")}
+						>
+							{copied ? (
+								<Check className="w-3 h-3" />
+							) : (
+								<Copy className="w-3 h-3" />
+							)}
+						</button>
+						{isLast && (message.role === "assistant" || message.role === "system") && message.isComplete && (
+							<button
+								onClick={onRegenerate}
+								className="flex items-center gap-1 hover:text-white transition-colors focus:outline-none p-0.5 rounded hover:bg-white/5 cursor-pointer opacity-0 group-hover:opacity-100"
+								aria-label={t("chat.regenerate", "Regenerate")}
+								title={t("chat.regenerate", "Regenerate")}
+							>
+								<RefreshCw className="w-3 h-3" />
+							</button>
+						)}
 					</div>
 				</div>
 			</div>
