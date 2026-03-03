@@ -320,7 +320,9 @@ frontend/
 │
 └── src-tauri/                  # Tauri設定
     ├── tauri.conf.json
-    └── capabilities/           # ケーパビリティ定義 (v2)
+    ├── capabilities/           # ケーパビリティ定義 (v2)
+    ├── icons/                  # アプリアイコン
+    └── src/                    # 最小限のRustエントリ
 ```
 
 ---
@@ -692,7 +694,7 @@ v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移
 | 機能                         | 説明                                                                        |
 | ---------------------------- | --------------------------------------------------------------------------- |
 | **RagStore trait**     | `insert_batch`, `search`, `text_search`, `get_chunk_window`, `reindex_with_model` 等を抽象化 |
-| **SqliteRagStore**     | SQLite +`ndarray` によるコサイン類似度計算                                |
+| **SqliteRagStore**     | SQLite + 手動実装によるコサイン類似度計算                                   |
 | **セッションフィルタ** | `session_id` で検索・削除を分離し、会話単位でRAGを運用                      |
 
 > [!IMPORTANT]
