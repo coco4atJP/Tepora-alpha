@@ -255,14 +255,23 @@ backend-rs/
 │   │   ├── workers/            # Worker 実装群 [v4.0]
 │   │   └── ...
 │   │
+│   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+│   │   └── knowledge.rs        # 知識ドメイン
+│   │
+│   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
+│   │   └── knowledge.rs        # 知識ユースケース
+│   │
+│   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+│   │   ├── knowledge_store/    # 知識ストア (rag)
+│   │   └── transport/          # トランスポートアダプタ
+│   │
 │   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
-│   │
-│   ├── em_llm/                 # EM-LLM (エピソード記憶 - v1)
-│   ├── memory/                 # メモリシステム (v1)
-│   ├── memory_v2/              # EM-LLM × FadeMem 統合メモリシステム (v2)
-│   ├── rag/                    # RAG エンジン (SqliteRagStore) [v4.0]
+│   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
 │   ├── a2a/                    # Agent-to-Agent (将来)
 │   ├── crdt/                   # PoCモジュール (テスト用)
 │   └── sandbox/                # PoCモジュール (分離環境)
@@ -301,6 +310,8 @@ frontend/
 │   ├── api/                    # ルーターローダー等
 │   ├── components/             # 共有UIコンポーネント
 │   ├── hooks/                  # カスタムフック
+│   ├── machines/               # XStateステートマシン等
+│   ├── transport/              # 通信処理層
 │   ├── utils/                  # ユーティリティ
 │   ├── types/                  # 型定義
 │   ├── context/                # React Context
@@ -652,7 +663,7 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 - **FadeMem 統合**: 重要度(Importance)主導の層間遷移(SML/LML)や時間経過による減衰(Decay)、手動での記憶圧縮(Compression)が行われます。
 - **イベント駆動保存**: 従来の会話ターン単位の保存から、意味的な一貫性を持つ「イベント原子」としての保存単位へ再定義しています。
 
-**ファイル**: `src/memory_v2/` (移行中), `src/em_llm/` (v1), `src/memory/` (v1)
+**ファイル**: `src/infrastructure/episodic_store/memory_v2/` (移行中), `src/infrastructure/episodic_store/em_llm/` (v1)
 
 ```mermaid
 flowchart LR
@@ -674,7 +685,7 @@ flowchart LR
 
 ### 5.11 RAG ストア (SqliteRagStore) [v4.0]
 
-**ファイル**: `src/rag/store.rs`, `src/rag/sqlite.rs`
+**ファイル**: `src/rag/store.rs`, `src/rag/sqlite.rs` (実装は `src/rag/` に維持しつつ、`src/infrastructure/knowledge_store/rag/` からマウントして利用)
 
 v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移行しました。
 
