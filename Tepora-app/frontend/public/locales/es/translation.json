@@ -14,7 +14,7 @@
 			"finalize_failed": "Error al finalizar la configuración",
 			"save_config_failed": "Error al guardar la configuración. Inténtelo de nuevo.",
 			"unknown": "Error desconocido",
-			"preflight_failed": "Preflight failed"
+			"preflight_failed": "Verificación previa fallida"
 		},
 		"start": "Iniciar Tepora",
 		"auto_setup": "Configuración automática",
@@ -26,7 +26,8 @@
 			"language": "Selección de idioma",
 			"select_language": "Seleccionar idioma",
 			"binary": "Motor de inferencia (llama.cpp)",
-			"models": "Modelos"
+			"models": "Modelos",
+			"language_desc": "Elija su idioma preferido para personalizar Tepora."
 		},
 		"status": {
 			"satisfied": "Instalado",
@@ -73,16 +74,16 @@
 		"hide_logs": "Ocultar registros detallados",
 		"show_logs": "Mostrar registros detallados",
 		"installer_output": "Salida del instalador",
-		"embedding_warning_title": "Embedding warning title",
-		"embedding_warning_proceed": "Embedding warning proceed",
-		"loader_title": "Loader title",
-		"step_lang": "Step lang",
-		"step_engine": "Step engine",
-		"step_model": "Step model",
-		"step_install": "Step install",
-		"step_done": "Step done",
-		"loader_select_title": "Loader select title",
-		"loader_select_desc": "Loader select desc"
+		"embedding_warning_title": "Advertencia del modelo de incrustación",
+		"embedding_warning_proceed": "Continuar",
+		"loader_title": "Preparación del cargador",
+		"step_lang": "Idioma",
+		"step_engine": "Motor",
+		"step_model": "Modelo",
+		"step_install": "Instalar",
+		"step_done": "Hecho",
+		"loader_select_title": "Seleccionar cargador",
+		"loader_select_desc": "Elija un motor de inferencia"
 	},
 	"app": {
 		"loading": "Conectando al servidor...",
@@ -171,15 +172,17 @@
 			"remove_item": "Eliminar ítem",
 			"cancel": "Cancelar"
 		},
-		"browse": "Browse",
-		"active": "Active",
-		"activate": "Activate",
-		"no_data": "No data",
-		"refreshing": "Refreshing",
-		"scan_providers": "Scan providers",
-		"all": "All",
-		"loading": "Loading",
-		"clear_filters": "Clear filters"
+		"browse": "Examinar",
+		"active": "Activo",
+		"activate": "Activar",
+		"no_data": "Sin datos",
+		"refreshing": "Actualizando...",
+		"scan_providers": "Escanear proveedores",
+		"all": "Todos",
+		"loading": "Cargando...",
+		"clear_filters": "Limpiar filtros",
+		"preparing": "Preparando...",
+		"ai": "IA"
 	},
 	"chat": {
 		"clear_history": "Borrar historial",
@@ -211,21 +214,25 @@
 			"stop_generation": "Detener generación",
 			"mode_active": "MODO {{mode}} ACTIVO",
 			"aria_label": "Entrada de mensaje",
-			"agent_mode": "Agent mode",
-			"agent_mode_fast": "Agent mode fast",
-			"agent_mode_high": "Agent mode high",
-			"agent_mode_direct": "Agent mode direct",
-			"select_agent": "Select agent",
-			"agent_auto": "Agent auto",
-			"thinking_mode": "Thinking mode"
+			"agent_mode": "Modo agente",
+			"agent_mode_fast": "Modo rápido",
+			"agent_mode_high": "Modo alta precisión",
+			"agent_mode_direct": "Directo",
+			"select_agent": "Seleccionar agente",
+			"agent_auto": "Automático",
+			"thinking_mode": "Modo pensamiento"
 		},
 		"messages_aria_label": "Mensajes de chat",
 		"jump_to_latest": "Ir al mensaje mas reciente",
 		"jump_to_latest_short": "Ultimo",
-		"generationStopped": "GenerationStopped",
+		"generationStopped": "Generación detenida",
 		"status": {
-			"thinking": "Thinking"
-		}
+			"thinking": "Pensando"
+		},
+		"error": "Error",
+		"info": "Información",
+		"newMessageFrom": "Nuevo mensaje de {{role}}",
+		"scrollToBottom": "Ir al final"
 	},
 	"agent": {
 		"title": "Actividad del agente",
@@ -274,7 +281,8 @@
 		"events": "eventos",
 		"messages": "Mensajes",
 		"char": "Char",
-		"prof": "Prof"
+		"prof": "Prof",
+		"events_suffix": "eventos"
 	},
 	"settings": {
 		"title": "Configuración",
@@ -325,7 +333,11 @@
 				"temp": "Temp",
 				"top_p": "Top P",
 				"top_k": "Top K",
-				"repeat_penalty": "Penalización de repetición"
+				"repeat_penalty": "Penalización de repetición",
+				"max_tokens": "Máximo de tokens",
+				"max_tokens_desc": "Número máximo de tokens a generar por respuesta.",
+				"predict_len": "Longitud de predicción",
+				"predict_len_desc": "Pista de longitud de predicción para el servidor de modelo (0 = auto)."
 			}
 		},
 		"sections": {
@@ -363,7 +375,17 @@
 					"start_failed": "No se pudo iniciar la actualización",
 					"error": "Error al iniciar la actualización"
 				},
-				"app_updater": "App updater"
+				"app_updater": "Actualizador de la aplicación",
+				"brave_search": {
+					"title": "Configuración de Brave Search",
+					"api_key_label": "Clave API de Brave Search",
+					"api_key_desc": "Ingrese su clave API de Brave Search (Subscription Token)."
+				},
+				"bing_search": {
+					"title": "Configuración de Bing Search",
+					"api_key_label": "Clave API de Bing Search",
+					"api_key_desc": "Ingrese su Bing Search v7 Subscription Key."
+				}
 			},
 			"updater": {
 				"title": "Actualización de software",
@@ -464,7 +486,8 @@
 				"consent_dialog": {
 					"title": "Confirmar descarga",
 					"description": "Esta descarga requiere su confirmación antes de continuar:",
-					"confirm": "Proceder"
+					"confirm": "Proceder",
+					"default_warning": "Esta descarga requiere su confirmación."
 				},
 				"selection": {
 					"select_model": "Seleccionar un modelo...",
@@ -484,13 +507,13 @@
 					"hide_advanced": "Ocultar configuración avanzada"
 				},
 				"configurations": {
-					"path_placeholder": "Path placeholder"
+					"path_placeholder": "Ej. /path/to/model.gguf"
 				},
-				"refresh_ollama": "Refresh ollama",
-				"refresh_lmstudio": "Refresh lmstudio",
-				"search_title": "Search title",
-				"download_policy_title": "Download policy title",
-				"loaders_title": "Loaders title",
+				"refresh_ollama": "Actualizar Ollama",
+				"refresh_lmstudio": "Actualizar LM Studio",
+				"search_title": "Configuración de búsqueda",
+				"download_policy_title": "Política de descarga",
+				"loaders_title": "Cargadores de modelos",
 				"search_description": "Configurar la reclasificación de los resultados de búsqueda con modelos de incrustación.",
 				"download_policy_description": "Controles de seguridad para descargar modelos desde repositorios remotos.",
 				"loaders_description": "Configurar las URL base para proveedores de modelos externos."
@@ -522,7 +545,7 @@
 					"prompt_label": "Prompt del sistema",
 					"model_label": "Modelo",
 					"model_desc": "Seleccione la configuración de modelo para este agente.",
-					"key_placeholder": "Key placeholder"
+					"key_placeholder": "Ingrese una clave"
 				},
 				"no_description": "Sin descripción",
 				"nsfw_label": "Permitir contenido restringido (nsf)",
@@ -554,10 +577,10 @@
 					"active": "Activo",
 					"set_active_short": "Activar",
 					"delete": "Eliminar",
-					"icon": "Icon",
-					"icon_placeholder": "Icon placeholder",
-					"avatar_path": "Avatar path",
-					"avatar_placeholder": "Avatar placeholder"
+					"icon": "Icono",
+					"icon_placeholder": "Icono",
+					"avatar_path": "Ruta del avatar",
+					"avatar_placeholder": "Avatar"
 				}
 			},
 			"custom_agents": {
@@ -588,8 +611,9 @@
 					"enabled_label": "Habilitado",
 					"tools_label": "Herramientas permitidas",
 					"no_tools": "No hay herramientas disponibles",
-					"tags_label": "Tags label",
-					"priority_label": "Priority label"
+					"tags_label": "Etiquetas",
+					"priority_label": "Prioridad",
+					"allow_all_tools": "Permitir todas las herramientas (modo lista negra)"
 				}
 			},
 			"other": {
@@ -611,6 +635,110 @@
 			},
 			"chat_history": {
 				"title": "Ventana de contexto local"
+			},
+			"extended": {
+				"ui_title": "Diseño de IU y Notificaciones",
+				"ui_description": "Configura detalles de apariencia y notificaciones en segundo plano.",
+				"font_family": "Tipo de Letra",
+				"font_family_desc": "Tipo de letra de la IU para renderizado de texto principal.",
+				"font_family_placeholder": "ej. Noto Sans",
+				"font_size": "Tamaño de Fuente",
+				"font_size_desc": "Tamaño base de fuente de IU en píxeles.",
+				"code_theme": "Tema de Resaltado de Código",
+				"code_theme_desc": "Tema de resaltado de sintaxis para bloques de código.",
+				"code_theme_placeholder": "ej. github-dark",
+				"thinking_max_tokens": "Tokens Máximos de Pensamiento",
+				"thinking_max_tokens_desc": "Límite superior para el consumo de tokens de pensamiento.",
+				"code_wrap": "Ajuste de Línea de Código",
+				"code_wrap_desc": "Habilita el ajuste de línea en los bloques de código.",
+				"code_line_numbers": "Números de Línea de Código",
+				"code_line_numbers_desc": "Muestra números de línea en los bloques de código.",
+				"notification_os": "Notificación del SO en Segundo Plano",
+				"notification_os_desc": "Muestra una notificación del SO cuando finalizan las tareas en segundo plano.",
+				"notification_sound": "Sonido de Notificación",
+				"notification_sound_desc": "Reproduce un sonido cuando finalizan las tareas en segundo plano.",
+				"shortcuts_title": "Atajos de Teclado",
+				"shortcuts_description": "Configura atajos de teclado para acciones rápidas.",
+				"shortcut_new_chat": "Nuevo Chat",
+				"shortcut_new_chat_desc": "Atajo para comenzar un chat nuevo.",
+				"shortcut_custom": "Atajos Personalizados",
+				"shortcut_custom_desc": "Añade atajos con el formato accion=tecla (por ejemplo: open_settings=Ctrl+,).",
+				"chunk_chars": "Caracteres de Fragmento",
+				"chunk_chars_desc": "Tamaño de fragmentación de texto por caracteres.",
+				"chunk_tokens": "Tokens de Fragmento",
+				"chunk_tokens_desc": "Tamaño de fragmentación de texto por tokens.",
+				"chunk_overlap": "Solapamiento de Fragmento",
+				"chunk_overlap_desc": "Tamaño del solapamiento entre fragmentos consecutivos.",
+				"export_format": "Formato de Exportación",
+				"export_format_desc": "Formato preferido para las copias de seguridad.",
+				"watch_folders": "Carpetas Supervisadas",
+				"watch_folders_desc": "Carpetas supervisadas para el indexado de archivos.",
+				"watch_folders_placeholder": "ej. D:\\docs",
+				"vector_store_dir": "Directorio de Base de Vectores",
+				"vector_store_dir_desc": "Directorio para guardar la base de vectores.",
+				"vector_store_dir_placeholder": "ej. C:\\Tepora\\db",
+				"model_files_dir": "Directorio de Modelos",
+				"model_files_dir_desc": "Directorio para guardar archivos binarios de modelos.",
+				"model_files_dir_placeholder": "ej. C:\\Tepora\\models",
+				"backup_chat_history": "Respaldo: Historial de Chat",
+				"backup_settings": "Respaldo: Ajustes",
+				"backup_characters": "Respaldo: Personajes",
+				"backup_executors": "Respaldo: Profesionales",
+				"restore_enabled": "Activar Restauración",
+				"character_import_export": "Importar/Exportar Personajes",
+				"executor_import_export": "Importar/Exportar Profesionales",
+				"cache_clear_on_start": "Limpiar Caché Web al Iniciar",
+				"cache_cleanup_embeddings": "Limpiar Vectores Antiguos",
+				"cache_cleanup_temp": "Limpiar Ficheros Temporales",
+				"cache_limit_mb": "Límite de Capacidad Caché (MB)",
+				"storage_title": "Manejo de Datos y Almacenamiento",
+				"storage_description": "Configura fragmentación, carpetas, unidades y opciones de copia de seguridad.",
+				"performance_title": "Integración del Sistema",
+				"performance_description": "Controla inicio, proceso del sistema y límites de hardware.",
+				"auto_start": "Inicio Automático con Windows",
+				"tray_resident": "Minimizar en la Bandeja del Sistema",
+				"hardware_acceleration": "Aceleración de Hardware",
+				"gpu_vram_limit": "Límite de GPU VRAM (MB)",
+				"memory_limit": "Límite de RAM (MB)",
+				"security_title": "Seguridad de Red y Conexiones",
+				"security_description": "Configura uso de proxy, certificados, orígenes de sistema web y recursos MCP.",
+				"allowed_tools": "Herramientas de Confianza (Lista Blanca)",
+				"allowed_tools_desc": "Lista de herramientas permitidas que pueden ejecutarse con seguridad.",
+				"denied_tools": "Herramientas Inseguras (Lista Negra)",
+				"denied_tools_desc": "Lista de herramientas nunca permitidas.",
+				"tool_confirmation": "Confirmar Acciones",
+				"first_use_confirmation": "Confirmar Nuevo Uso de Herramienta",
+				"dangerous_patterns": "Comandos Prohibidos",
+				"dangerous_patterns_desc": "Comandos a nivel sistema terminantemente bloqueados.",
+				"proxy_http": "HTTP Proxy",
+				"proxy_http_desc": "Enlace Proxy HTTP.",
+				"proxy_https": "HTTPS Proxy",
+				"proxy_https_desc": "Enlace Proxy HTTPS.",
+				"custom_certificate": "Cerficificado Personal",
+				"custom_certificate_desc": "Verificación manual para conexiones locales.",
+				"server_host": "Host local",
+				"server_host_desc": "Red predeterminada de backend.",
+				"allowed_origins": "Dominios Globales Permitidos",
+				"allowed_origins_desc": "Configuración global de subred.",
+				"cors_origins": "Permiso CORS",
+				"cors_origins_desc": "Reglas de control de acceso HTTP de recursos cruzados.",
+				"ws_origins": "Ruta del WebSocket",
+				"ws_origins_desc": "Red predeterminada de WebSockets locales y orígenes.",
+				"models_title": "Modelos Especiales/Avanzados",
+				"models_description": "Herramientas alternativas de modelos experimentales y uso superior en IA local.",
+				"character_default_model": "Modelo de Personajes",
+				"supervisor_default_model": "Modelo de Supervisores",
+				"executor_default_model": "Modelo de Ejecutor",
+				"logprobs": "Logaritmo Probabilidad de Semántica (Logprobs)",
+				"logprobs_desc": "Herramientas probablístas a nivel texto LLMs.",
+				"system_prompt_prefix": "Reglas Iniciales",
+				"system_prompt_prefix_desc": "Comando agregado del comportamiento universal (Inicio).",
+				"system_prompt_suffix": "Reglas Finales",
+				"system_prompt_suffix_desc": "Comando agregado del comportamiento universal (Final).",
+				"loader_specific_text": "Información Técnica (Texto)",
+				"loader_specific_text_desc": "Codificación JSON interna extra.",
+				"loader_specific_embedding": "Información Técnica (Vectores)",
+				"loader_specific_embedding_desc": "Codificación JSON interna extra."
 			}
 		},
 		"groups": {
@@ -648,51 +776,51 @@
 			},
 			"cache_size": "Límite de caché de modelos",
 			"web_fetch_max_bytes": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Tamaño máximo de obtención",
+				"description": "Bytes máximos para obtener de una página web."
 			},
 			"web_fetch_timeout_secs": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Tiempo de espera de web fetch",
+				"description": "Segundos de tiempo de espera para solicitudes web."
 			},
 			"graph_execution_timeout": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Tiempo de espera de ejecución",
+				"description": "Tiempo máximo de ejecución para una ejecución del agente."
 			},
 			"embedding_rerank": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Reordenar resultados de búsqueda",
+				"description": "Reordenar resultados usando el modelo de incrustación."
 			},
 			"require_allowlist": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Requerir lista de permitidos",
+				"description": "Solo permitir la descarga de modelos en la lista de permitidos."
 			},
 			"warn_on_unlisted": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Advertir si no está en la lista",
+				"description": "Mostrar advertencia al descargar modelos no listados."
 			},
 			"require_revision": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Requerir hash de revisión",
+				"description": "Requerir hash de revisión al descargar modelos."
 			},
 			"require_sha256": {
-				"label": "Label",
-				"description": "Description"
+				"label": "Requerir SHA256",
+				"description": "Verificar la integridad del archivo con SHA256."
 			},
 			"allow_repo_owners": {
-				"label": "Label",
-				"description": "Description",
-				"placeholder": "Placeholder"
+				"label": "Propietarios de repositorio permitidos",
+				"description": "Propietarios siempre permitidos sin advertencias.",
+				"placeholder": "Ej. TheBloke"
 			},
 			"ollama_base_url": {
-				"label": "Label",
-				"description": "Description",
-				"placeholder": "Placeholder"
+				"label": "URL base de Ollama",
+				"description": "Endpoint de la API de Ollama.",
+				"placeholder": "http://localhost:11434"
 			},
 			"lmstudio_base_url": {
-				"label": "Label",
-				"description": "Description",
-				"placeholder": "Placeholder"
+				"label": "URL base de LM Studio",
+				"description": "Endpoint de la API de LM Studio.",
+				"placeholder": "http://localhost:1234"
 			}
 		},
 		"descriptions": {
@@ -711,9 +839,9 @@
 				"description": "Elimina automáticamente información personal (direcciones de correo electrónico, números de teléfono, etc.) de los registros y de las consultas de búsqueda web antes de enviarlas a servicios externos."
 			},
 			"url_denylist": {
-				"label": "Label",
-				"description": "Description",
-				"placeholder": "Placeholder"
+				"label": "Lista de URLs denegadas",
+				"description": "Dominios o patrones bloqueados para web fetch. Los rangos internos/privados siempre están bloqueados.",
+				"placeholder": "Ej. *.example.com"
 			}
 		},
 		"mcp_content": {
@@ -769,6 +897,15 @@
 				"confirmation": {
 					"label": "Confirmación de Herramienta",
 					"description": "Pedir permiso antes de ejecutar herramientas."
+				},
+				"first_use": {
+					"label": "Confirmación de primer uso",
+					"description": "Mostrar confirmación en la primera invocación de herramientas por sesión."
+				},
+				"blocked_commands": {
+					"label": "Comandos bloqueados",
+					"description": "Comandos que los servidores MCP nunca pueden ejecutar.",
+					"placeholder": "Ej. rm -rf"
 				}
 			},
 			"addServer": "Añadir Servidor",
@@ -787,7 +924,7 @@
 				"description": "Haga clic en 'Anadir Servidor' para instalar servidores del registro oficial."
 			},
 			"status": {
-				"connected": "Conectado",
+				"connected": "Conectado ({{count}} herramientas)",
 				"disconnected": "Desconectado",
 				"error": "Error",
 				"connecting": "Conectando",
@@ -855,16 +992,16 @@
 			},
 			"episodic_params_title": "Parámetros de Memoria Episódica",
 			"episodic_params_desc": "Configuración avanzada para EM-LLM",
-			"title": "Title",
-			"connecting": "Connecting",
-			"character_memory": "Character memory",
+			"title": "Memoria",
+			"connecting": "Conectando",
+			"character_memory": "Memoria de personaje",
 			"stats": {
-				"total_events": "Total events",
-				"total_tokens": "Total tokens",
-				"mean_event_size": "Mean event size",
-				"surprise_statistics": "Surprise statistics",
-				"mean_surprise": "Mean surprise",
-				"max_surprise": "Max surprise"
+				"total_events": "Total de eventos",
+				"total_tokens": "Total de tokens",
+				"mean_event_size": "Tamaño medio de evento",
+				"surprise_statistics": "Estadísticas de sorpresa",
+				"mean_surprise": "Sorpresa media",
+				"max_surprise": "Sorpresa máxima"
 			},
 			"compaction": {
 				"scanned": "Escaneado:",
@@ -879,7 +1016,21 @@
 				"refresh": "↺ Actualizar",
 				"loading": "Cargando..."
 			},
-			"professional_memory": "Professional memory"
+			"professional_memory": "Memoria profesional"
+		},
+		"placeholders": {
+			"mcp_config": "config/mcp_tools_config.json",
+			"google_api_key": "AIza...",
+			"google_engine_id": "0123456789...",
+			"regex": "Patrón RegEx (ej. system\\\\s*:)"
+		},
+		"search": {
+			"providers": {
+				"google": "Google Custom Search",
+				"duckduckgo": "DuckDuckGo",
+				"brave": "Brave Search",
+				"bing": "Bing Web Search (v7)"
+			}
 		}
 	},
 	"tool_errors": {
@@ -911,90 +1062,48 @@
 		"details": "Detalles del error",
 		"reload": "Recargar"
 	},
-	"Close": "Close",
+	"Close": "Cerrar",
 	"error": "Error",
-	"info": "Info",
+	"info": "Información",
 	"empty": {
 		"capability": {
 			"search": {
-				"title": "Title",
-				"desc": "Desc"
+				"title": "Búsqueda avanzada",
+				"desc": "Buscar y resumir información web"
 			},
 			"code": {
-				"title": "Title",
-				"desc": "Desc"
+				"title": "Asistencia de código",
+				"desc": "Escribir, revisar y refactorizar código"
 			},
 			"chat": {
-				"title": "Title",
-				"desc": "Desc"
+				"title": "Chat y consulta",
+				"desc": "Conversar sobre diversos temas"
 			}
 		},
 		"hero": {
-			"subtitle": "Subtitle"
+			"subtitle": "¿En qué puedo ayudarte hoy?"
 		}
 	},
 	"shortcuts": {
-		"newSession": "NewSession",
-		"stopGeneration": "StopGeneration",
-		"showHelp": "ShowHelp",
-		"title": "Title",
-		"footer": "Footer"
-	},
-	"": {
-		"": {
-			"/": {
-				"": {
-					"/types": "/types"
-				}
-			}
-		},
-		"/sessionToken": "/sessionToken"
-	},
-	"Italic": "Italic",
-	"test": "Test",
-	"hello": "Hello",
-	"Hello": "Hello",
-	"Tepora": "Tepora",
-	"Barista": "Barista",
-	"検索結果待機中": {
-		"": {
-			"": {
-				"": ""
-			}
-		}
+		"newSession": "Nueva sesión",
+		"stopGeneration": "Detener generación",
+		"showHelp": "Mostrar ayuda",
+		"title": "Atajos de teclado",
+		"footer": "Usa atajos para navegar rápidamente"
 	},
 	"model": {
 		"role": {
-			"text": "Text",
-			"embedding": "Embedding"
+			"text": "Texto",
+			"embedding": "Incrustación"
 		}
 	},
 	"modelHub": {
-		"title": "Title",
-		"subtitle": "Subtitle",
-		"search_placeholder": "Search placeholder",
-		"no_models_found": "No models found"
+		"title": "Centro de modelos",
+		"subtitle": "Administrar modelos de IA disponibles",
+		"search_placeholder": "Buscar modelos...",
+		"no_models_found": "No se encontraron modelos"
 	},
-	"English": "English",
-	"日本語": "日本語",
-	"Español": "Español",
-	"🇺🇸": "🇺🇸",
-	"🇯🇵": "🇯🇵",
-	"50%": "50%",
-	"75%": "75%",
-	"Retry": "Retry",
-	"Skip": "Skip",
-	"repo": "Repo",
-	"file": "File",
-	"user/repo": "User/repo",
-	"model-Q4_K_M": {
-		"gguf": "Gguf"
-	},
-	"Proceed": "Proceed",
-	"Cancel": "Cancel",
-	"page": "Page",
-	"page_size": "Page size",
-	"runtime": "Runtime",
-	"session-refresh": "Session-refresh",
-	"download-progress": "Download-progress"
+	"store": {
+		"by_vendor": "por {{vendor}}"
+	}
 }

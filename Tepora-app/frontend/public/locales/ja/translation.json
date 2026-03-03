@@ -170,8 +170,8 @@
 		"clear_filters": "フィルターをクリア",
 		"active": "アクティブ",
 		"activate": "有効化",
-		"browse": "Browse",
-		"no_data": "No data"
+		"browse": "閲覧",
+		"no_data": "データなし"
 	},
 	"session_history": {
 		"title": "セッション履歴",
@@ -411,7 +411,7 @@
 					"set_active_short": "設定",
 					"delete": "削除",
 					"label": "ラベル",
-					"label_placeholder": "エージェント名",
+					"label_placeholder": "キャラクター名",
 					"description": "説明",
 					"description_placeholder": "簡単な説明",
 					"persona": "ペルソナ",
@@ -427,8 +427,8 @@
 					"tool_placeholder": "ツール名...",
 					"icon": "アイコン",
 					"avatar_path": "アバター画像のパス",
-					"icon_placeholder": "Icon placeholder",
-					"avatar_placeholder": "Avatar placeholder"
+					"icon_placeholder": "アイコン",
+					"avatar_placeholder": "アバター"
 				},
 				"tab": {
 					"characters": "キャラクター",
@@ -446,7 +446,7 @@
 					"prompt_label": "システムプロンプト",
 					"model_label": "使用モデル",
 					"model_desc": "このエージェントが使用するモデル設定を選択してください。",
-					"key_placeholder": "Key placeholder"
+					"key_placeholder": "キーを入力"
 				},
 				"error_empty_key": "IDを入力してください。",
 				"error_duplicate_key": "このIDは既に使用されています。",
@@ -643,6 +643,110 @@
 			},
 			"chat_history": {
 				"title": "ローカルコンテキストウィンドウ"
+			},
+			"extended": {
+				"ui_title": "UIと通知",
+				"ui_description": "UIの表示詳細とバックグラウンド通知を設定します。",
+				"font_family": "フォントファミリー",
+				"font_family_desc": "メインテキストの表示に使用するUIフォント。",
+				"font_family_placeholder": "例: Noto Sans",
+				"font_size": "フォントサイズ",
+				"font_size_desc": "基本となるUIフォントサイズ (px)。",
+				"code_theme": "コードハイライトのテーマ",
+				"code_theme_desc": "コードブロックのシンタックスハイライトテーマ。",
+				"code_theme_placeholder": "例: github-dark",
+				"thinking_max_tokens": "思考プロセスの最大トークン",
+				"thinking_max_tokens_desc": "思考プロセスで消費するトークンの上限。",
+				"code_wrap": "コードの折り返し",
+				"code_wrap_desc": "コードブロック内でのテキスト折り返しを有効にします。",
+				"code_line_numbers": "行番号の表示",
+				"code_line_numbers_desc": "コードブロックに行番号を表示します。",
+				"notification_os": "バックグラウンド完了のOS通知",
+				"notification_os_desc": "バックグラウンドタスクが完了したときにOSネイティブの通知を表示します。",
+				"notification_sound": "バックグラウンド完了の通知音",
+				"notification_sound_desc": "バックグラウンドタスクが完了したときに通知音を再生します。",
+				"shortcuts_title": "ショートカット",
+				"shortcuts_description": "キーボードショートカットを設定します。",
+				"shortcut_new_chat": "新規チャット",
+				"shortcut_new_chat_desc": "新しいチャットを開始するキーボードショートカット。",
+				"shortcut_custom": "追加のショートカット",
+				"shortcut_custom_desc": "アクション=キーバインドの形式で追加します (例: open_settings=Ctrl+,)。",
+				"chunk_chars": "チャンクサイズ (文字数)",
+				"chunk_chars_desc": "文字数ベースのチャンク分割サイズ。",
+				"chunk_tokens": "チャンクサイズ (トークン)",
+				"chunk_tokens_desc": "トークンベースのチャンク分割サイズ。",
+				"chunk_overlap": "チャンクオーバーラップ",
+				"chunk_overlap_desc": "チャンク間の重複サイズ。",
+				"export_format": "バックアップ出力フォーマット",
+				"export_format_desc": "バックアップをエクスポートする際の形式。",
+				"watch_folders": "監視フォルダ",
+				"watch_folders_desc": "インデックス対象として監視するフォルダ。",
+				"watch_folders_placeholder": "例: D:\\docs",
+				"vector_store_dir": "ベクトルDB保存先ディレクトリ",
+				"vector_store_dir_desc": "ベクトルデータベースのファイルを保存するパス。",
+				"vector_store_dir_placeholder": "例: C:\\Tepora\\db",
+				"model_files_dir": "モデルファイル保存先ディレクトリ",
+				"model_files_dir_desc": "モデルバイナリの保存パス。",
+				"model_files_dir_placeholder": "例: C:\\Tepora\\models",
+				"backup_chat_history": "バックアップ: 会話履歴",
+				"backup_settings": "バックアップ: アプリ設定",
+				"backup_characters": "バックアップ: キャラクター構成",
+				"backup_executors": "バックアップ: プロフェッショナル構成",
+				"restore_enabled": "バックアップの復元を有効にする",
+				"character_import_export": "キャラクター機能のインポート/エクスポート",
+				"executor_import_export": "プロフェッショナル機能のインポート/エクスポート",
+				"cache_clear_on_start": "起動時にWebアクセスキャッシュをクリア",
+				"cache_cleanup_embeddings": "古いエンベディングを整理する",
+				"cache_cleanup_temp": "一時ファイルを整理する",
+				"cache_limit_mb": "キャッシュ容量制限 (MB)",
+				"storage_title": "データ管理とストレージ設定",
+				"storage_description": "テキストチャンク、監視フォルダ、ストレージパス、バックアップ、キャッシュを構成します。",
+				"performance_title": "システム統合とパフォーマンス",
+				"performance_description": "OS起動時の動作、システムトレイ、ハードウェアアクセラレーション、リソース制限を管理します。",
+				"auto_start": "OSログイン時に起動する",
+				"tray_resident": "システムトレイでバックグラウンド実行を継続",
+				"hardware_acceleration": "ハードウェアアクセラレーションを有効化",
+				"gpu_vram_limit": "GPU VRAM 制限 (MB)",
+				"memory_limit": "メモリ使用量制限 (MB)",
+				"security_title": "セキュリティとネットワーク設定",
+				"security_description": "ツール実行ポリシー、プロキシ、サーバー接続情報などを管理します。",
+				"allowed_tools": "ネイティブツールの許可リスト",
+				"allowed_tools_desc": "許可リストポリシー使用時の許可ツール名。",
+				"denied_tools": "ネイティブツールの拒否リスト",
+				"denied_tools_desc": "拒否リストポリシー使用時の禁止ツール名。",
+				"tool_confirmation": "すべてのツール実行を確認",
+				"first_use_confirmation": "初回実行時のみ確認",
+				"dangerous_patterns": "ブロック対象のコマンドパターン",
+				"dangerous_patterns_desc": "無条件でブロックするコマンドのパターン。",
+				"proxy_http": "HTTPプロキシ",
+				"proxy_http_desc": "HTTPリクエストのプコキシURL。",
+				"proxy_https": "HTTPSプロキシ",
+				"proxy_https_desc": "HTTPSリクエストのプロキシURL。",
+				"custom_certificate": "カスタム証明書パス",
+				"custom_certificate_desc": "カスタムのCA証明書バンドルのファイルパス。",
+				"server_host": "サーバーホスト",
+				"server_host_desc": "バックエンドサーバーのホストバインディング。",
+				"allowed_origins": "許可オリジン (CORS/WS共通)",
+				"allowed_origins_desc": "バックエンドへのアクセスを許可するオリジン。",
+				"cors_origins": "HTTP (CORS) 許可オリジン",
+				"cors_origins_desc": "CORSポリシーによるアクセス許可オリジン。",
+				"ws_origins": "WebSocket 許可オリジン",
+				"ws_origins_desc": "WebSocket接続を許可するオリジン。",
+				"models_title": "モデルとLLMの拡張設定",
+				"models_description": "標準設定画面に含まれないモデルの既定値や詳細メタデータを設定します。",
+				"character_default_model": "キャラクター用既定モデルの設定キー",
+				"supervisor_default_model": "スーパーバイザー/プランナー用既定モデル",
+				"executor_default_model": "プロフェッショナル用既定モデルの設定キー",
+				"logprobs": "Logprobsを有効にする",
+				"logprobs_desc": "トークンレベルの対数確率をサポートしている場合出力します。",
+				"system_prompt_prefix": "システムプロンプト (プレフィックス)",
+				"system_prompt_prefix_desc": "すべてのシステムプロンプトの先頭に追加されるテキスト。",
+				"system_prompt_suffix": "システムプロンプト (サフィックス)",
+				"system_prompt_suffix_desc": "すべてのシステムプロンプトの末尾に追加されるテキスト。",
+				"loader_specific_text": "テキストローダー固有の設定 (JSON)",
+				"loader_specific_text_desc": "テキストモデルのシリアライズされたローダーごとの詳細設定。",
+				"loader_specific_embedding": "埋め込みモデルローダー固有の設定 (JSON)",
+				"loader_specific_embedding_desc": "埋め込みモデルのシリアライズされたローダーごとの詳細設定。"
 			}
 		},
 		"groups": {
@@ -770,16 +874,16 @@
 			},
 			"episodic_params_title": "エピソード記憶パラメータ",
 			"episodic_params_desc": "EM-LLMの詳細設定",
-			"title": "Title",
-			"connecting": "Connecting",
-			"character_memory": "Character memory",
+			"title": "メモリ",
+			"connecting": "接続中",
+			"character_memory": "キャラクターメモリ",
 			"stats": {
-				"total_events": "Total events",
-				"total_tokens": "Total tokens",
-				"mean_event_size": "Mean event size",
-				"surprise_statistics": "Surprise statistics",
-				"mean_surprise": "Mean surprise",
-				"max_surprise": "Max surprise"
+				"total_events": "合計イベント数",
+				"total_tokens": "合計トークン数",
+				"mean_event_size": "平均イベントサイズ",
+				"surprise_statistics": "サプライズ統計",
+				"mean_surprise": "平均サプライズ",
+				"max_surprise": "最大サプライズ"
 			},
 			"compaction": {
 				"scanned": "スキャン:",
@@ -794,7 +898,7 @@
 				"refresh": "↺ 更新",
 				"loading": "読み込み中..."
 			},
-			"professional_memory": "Professional memory"
+			"professional_memory": "プロフェッショナルメモリ"
 		},
 		"mcp_content": {
 			"info": {
@@ -1020,52 +1124,7 @@
 		"details": "エラー詳細",
 		"reload": "再読み込み"
 	},
-	"Close": "Close",
-	"error": "Error",
-	"info": "Info",
-	"": {
-		"": {
-			"/": {
-				"": {
-					"/types": "/types"
-				}
-			}
-		},
-		"/sessionToken": "/sessionToken"
-	},
-	"Italic": "Italic",
-	"test": "Test",
-	"hello": "Hello",
-	"Hello": "Hello",
-	"Tepora": "Tepora",
-	"Barista": "Barista",
-	"検索結果待機中": {
-		"": {
-			"": {
-				"": ""
-			}
-		}
-	},
-	"English": "English",
-	"日本語": "日本語",
-	"Español": "Español",
-	"🇺🇸": "🇺🇸",
-	"🇯🇵": "🇯🇵",
-	"50%": "50%",
-	"75%": "75%",
-	"Retry": "Retry",
-	"Skip": "Skip",
-	"repo": "Repo",
-	"file": "File",
-	"user/repo": "User/repo",
-	"model-Q4_K_M": {
-		"gguf": "Gguf"
-	},
-	"Proceed": "Proceed",
-	"Cancel": "Cancel",
-	"page": "Page",
-	"page_size": "Page size",
-	"runtime": "Runtime",
-	"session-refresh": "Session-refresh",
-	"download-progress": "Download-progress"
+	"Close": "閉じる",
+	"error": "エラー",
+	"info": "情報"
 }
