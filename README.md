@@ -1,9 +1,4 @@
-<!--
-  Header Image Placeholder
-  推奨: Cyber Tea Salonの雰囲気を表す、温かみのあるヘッダー画像
--->
-
-<!-- ![Tepora Header](placeholder_header.png) -->
+![Tepora Header](image/Tepora_logo.png)
 
 # Tepora (V4.0 BETA)
 
@@ -87,11 +82,14 @@ git clone https://github.com/coco4atJP/Tepora.git
 
 ## 🛠️ For Developers & Engineers
 
+![Tepora Architecture](image/tepora_architecture.png)
+
 Teporaは、最先端の技術実験場でもあります。
 "Memory-Augmented Generation" の実用化や、美しくモダンなTauriアプリケーションの開発に興味がある方の参加をお待ちしています。
 
-* **Core:** Rust, MCP (Tooling), Llama.cpp (Local Inference), EM-LLM (Memory Architecture)
-* **GUI:** Tauri (Rust), React + TypeScript, Tailwind CSS v4
+* **Core:** Rust, MCP (Tooling), Llama.cpp (Local Inference), EM-LLM & FadeMem v2 (Memory Architecture)
+* **GUI:** Tauri (Rust), React 19 + TypeScript, Tailwind CSS v4
+* **Engine/DB:** petgraph (State Machine), SQLite (In-process RAG & Persistence)
 
 ### Documentation
 
