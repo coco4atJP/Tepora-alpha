@@ -49,7 +49,10 @@ const MessageList: React.FC = () => {
 	useEffect(() => {
 		// ストリーミング中は「最下部にいる場合のみ」追従する
 		if (!isAtBottom) return;
-		endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+		// Use direct scrollTop for streaming to prevent smooth scroll animation lag and queue buildup
+		if (scrollContainerRef.current) {
+			scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+		}
 	}, [isAtBottom, lastMessageContent]);
 
 	// Get the last message for screen reader announcement
@@ -73,39 +76,32 @@ const MessageList: React.FC = () => {
 		endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
 	};
 
+	const agentInfoMap = useMemo(() => {
+		const map = new Map<string, { icon?: string; avatar?: string }>();
+		if (config?.characters) {
+			for (const char of Object.values(config.characters)) {
+				map.set(char.name, {
+					icon: char.icon,
+					avatar: char.avatar_path ? convertFileSrc(char.avatar_path) : undefined,
+				});
+			}
+		}
+		if (customAgents) {
+			for (const agent of Object.values(customAgents)) {
+				map.set(agent.name, {
+					icon: agent.icon,
+				});
+			}
+		}
+		return map;
+	}, [config, customAgents]);
+
 	const getAgentInfo = useCallback(
 		(msg: Message) => {
 			if (msg.role !== "assistant" || !msg.agentName) return {};
-
-			// Character Check
-			if (config?.characters) {
-				const char = Object.values(config.characters).find(
-					(c) => c.name === msg.agentName,
-				);
-				if (char) {
-					return {
-						icon: char.icon,
-						avatar: char.avatar_path
-							? convertFileSrc(char.avatar_path)
-							: undefined,
-					};
-				}
-			}
-
-			// Custom Agent Check
-			if (customAgents) {
-				const agent = Object.values(customAgents).find(
-					(a) => a.name === msg.agentName,
-				);
-				if (agent) {
-					return {
-						icon: agent.icon,
-					};
-				}
-			}
-			return {};
+			return agentInfoMap.get(msg.agentName) || {};
 		},
-		[config, customAgents],
+		[agentInfoMap],
 	);
 
 	return (

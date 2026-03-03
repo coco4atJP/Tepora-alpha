@@ -68,7 +68,7 @@ const DialControl: React.FC<DialControlProps> = ({
 
 	return (
 		// Reduced size from w-64 h-64 to w-48 h-48 (approx 25% smaller)
-		<div className="relative w-48 h-48 flex items-center justify-center select-none group">
+		<div className="relative w-44 h-44 lg:w-48 lg:h-48 flex items-center justify-center select-none group">
 			{/* Outer Glow */}
 			<div className="absolute inset-[-20%] rounded-full bg-gold-500/10 blur-[40px] pointer-events-none group-hover:bg-gold-500/20 transition-all duration-1000"></div>
 
@@ -136,7 +136,7 @@ const DialControl: React.FC<DialControlProps> = ({
 
 			{/* The Dial Knob */}
 			<div
-				className="w-24 h-24 rounded-full bg-gradient-to-br from-[#2a1a12] to-black shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.9)] flex items-center justify-center relative transition-transform duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) border border-white/20 z-10"
+				className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-gradient-to-br from-[#2a1a12] to-black shadow-[inset_0_2px_15px_rgba(255,255,255,0.1),0_15px_40px_rgba(0,0,0,0.9)] flex items-center justify-center relative transition-transform duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) border border-white/20 z-10"
 				style={{ transform: `rotate(${rotation}deg)` }}
 			>
 				{/* Metallic sheen */}
@@ -154,11 +154,11 @@ const DialControl: React.FC<DialControlProps> = ({
 					}}
 					onMouseEnter={(e) => handleMouseEnter(e, t("common.settings"))}
 					onMouseLeave={handleMouseLeave}
-					className="w-14 h-14 rounded-full bg-gradient-to-br from-[#1f1612] to-black shadow-[inset_0_2px_8px_rgba(255,255,255,0.1),0_5px_15px_rgba(0,0,0,0.8)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 border border-gold-500/30 backdrop-blur-xl relative overflow-hidden z-30"
+					className="w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gradient-to-br from-[#1f1612] to-black shadow-[inset_0_2px_8px_rgba(255,255,255,0.1),0_5px_15px_rgba(0,0,0,0.8)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 border border-gold-500/30 backdrop-blur-xl relative overflow-hidden z-30"
 					aria-label={t("common.settings")}
 				>
 					<div className="absolute inset-0 bg-gold-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-					<Settings className="w-6 h-6 text-gold-200/60 group-hover:text-gold-100 group-hover:rotate-90 transition-all duration-700" />
+					<Settings className="w-5 h-5 lg:w-6 lg:h-6 text-gold-200/60 group-hover:text-gold-100 group-hover:rotate-90 transition-all duration-700" />
 				</button>
 
 				{[...Array(12)].map((_, i) => (

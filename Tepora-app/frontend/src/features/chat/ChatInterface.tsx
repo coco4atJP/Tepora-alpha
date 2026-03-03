@@ -194,7 +194,7 @@ const ChatInterface: React.FC = () => {
 
 			{/* Input Area - Dynamically Centered if Empty, Fixed at Bottom if Chatting */}
 			<div
-				className={`w-full z-20 max-w-[56rem] mx-auto transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${shouldCenterInput
+				className={`w-full z-20 max-w-[56rem] mx-auto transition-all duration-[600ms] ease-[cubic-bezier(0.25,1,0.5,1)] ${shouldCenterInput
 					? "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[10vh] px-4 w-11/12 lg:w-4/5 xl:w-[60rem] drop-shadow-2xl"
 					: "relative shrink-0 p-3 md:p-6 pb-safe w-full drop-shadow-md"
 					}`}

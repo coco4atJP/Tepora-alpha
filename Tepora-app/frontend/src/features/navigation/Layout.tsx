@@ -245,7 +245,7 @@ const Layout: React.FC = () => {
 
 					{/* Right Column: Sidebar Controls & Dynamic Panels */}
 					<div className="hidden lg:grid grid-rows-[auto_minmax(0,1fr)_auto] gap-4 min-h-0 order-2">
-						<div className="glass-panel rounded-3xl p-4 border border-white/10 shadow-xl shrink-0">
+						<div className="glass-panel rounded-[2rem] p-4 border border-white/10 shadow-xl shrink-0">
 							<div className="relative flex justify-center">
 								<div className="absolute inset-0 bg-gold-500/20 blur-3xl rounded-full"></div>
 								<DialControl
@@ -270,7 +270,7 @@ const Layout: React.FC = () => {
 							)}
 							{currentMode === "agent" && <AgentStatus activityLog={activityLog} />}
 							{currentMode === "chat" && (
-								<div className="h-full glass-panel rounded-3xl p-6 border border-white/10 flex flex-col justify-center text-center">
+								<div className="h-full glass-panel rounded-[2rem] p-6 border border-white/10 flex flex-col justify-center text-center">
 									<p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gold-300/80">
 										{t("dial.chat")}
 									</p>

@@ -85,7 +85,8 @@ const InputArea: React.FC = () => {
 	useEffect(() => {
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
-			textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
+			// Removed layout thrashing min max bounds if css handles it
+			textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
 		}
 	}, [message]);
 
@@ -109,9 +110,9 @@ const InputArea: React.FC = () => {
 		<div className="w-full max-w-7xl mx-auto relative group">
 			<div className="absolute inset-0 bg-gold-500/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 			<div
-				className={`relative flex items-end gap-2 p-3 rounded-full glass-input transition-all duration-500 ${isProcessing
-					? "ring-1 ring-gold-500/50 shadow-[0_0_40px_-5px_rgba(255,215,0,0.25)] bg-theme-overlay"
-					: "hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-theme-overlay shadow-2xl border border-white/10 group-focus-within:border-gold-400/50 group-focus-within:shadow-[0_0_30px_rgba(255,215,0,0.15)]"
+				className={`relative flex items-end gap-2 p-3 rounded-3xl glass-input transition-all duration-300 ${isProcessing
+					? "ring-1 ring-gold-500/50 shadow-[0_0_20px_-5px_rgba(255,215,0,0.2)] bg-theme-overlay"
+					: "hover:shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:bg-theme-overlay shadow-xl border border-white/10 group-focus-within:border-gold-400/50 group-focus-within:shadow-[0_0_20px_rgba(255,215,0,0.1)]"
 					} backdrop-blur-xl`}
 			>
 				{/* Persona Switcher */}
@@ -165,7 +166,7 @@ const InputArea: React.FC = () => {
 					placeholder={getPlaceholder()}
 					disabled={isProcessing || !isConnected}
 					aria-label={t("chat.input.aria_label")}
-					className="flex-1 bg-transparent border-none outline-none text-theme-text placeholder-theme-subtext resize-none min-h-[44px] max-h-[200px] py-3 px-2 leading-relaxed font-sans text-[0.95rem] scrollbar-thin scrollbar-thumb-theme-border scrollbar-track-transparent"
+					className="flex-1 bg-transparent border-none outline-none text-theme-text placeholder-theme-subtext resize-none min-h-[44px] max-h-[200px] py-2.5 px-3 leading-relaxed font-sans text-[0.95rem] custom-scrollbar"
 					rows={1}
 					style={{ maxHeight: "200px" }}
 				/>

@@ -17,10 +17,10 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 		(memoryStats?.char_memory?.total_events || 0) + (memoryStats?.prof_memory?.total_events || 0);
 
 	return (
-		<div className="glass-panel p-6 w-full rounded-[2rem] animate-fade-in mt-auto backdrop-blur-2xl border border-white/5 shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
-			<div className="absolute inset-0 bg-gradient-to-br from-gold-500/5 to-transparent opacity-50 pointer-events-none" />
+		<div className="glass-panel p-4 lg:p-6 w-full rounded-[1.5rem] lg:rounded-[2rem] animate-fade-in mt-auto backdrop-blur-xl border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-300">
+			<div className="absolute inset-0 bg-gradient-to-br from-gold-500/5 to-transparent opacity-30 pointer-events-none" />
 			{/* Header */}
-			<div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/10 relative z-10">
+			<div className="flex items-center gap-2 lg:gap-3 mb-3 lg:mb-5 pb-3 lg:pb-4 border-b border-white/10 relative z-10">
 				<Activity className="w-4 h-4 text-gold-400 animate-pulse" />
 				<h3 className="text-gold-200 text-[10px] font-bold uppercase tracking-[0.3em] flex-1 font-display opacity-90">
 					{t("status.title")}
@@ -31,20 +31,20 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 			</div>
 
 			{/* Status Items */}
-			<div className="space-y-3">
+			<div className="space-y-1.5 lg:space-y-2.5">
 				{/* Network Status */}
-				<div className="flex items-center justify-between group hover:bg-white/10 rounded-xl p-2.5 -m-2.5 transition-all duration-300 relative z-10">
-					<div className="flex items-center gap-3">
+				<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-1.5 -m-1.5 transition-all duration-200 relative z-10">
+					<div className="flex items-center gap-2">
 						<div
-							className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-inner ${isConnected ? "bg-green-500/15 text-green-400 border border-green-500/20" : "bg-red-500/15 text-red-400 border border-red-500/20"
+							className={`w-6 h-6 rounded flex items-center justify-center ${isConnected ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
 								}`}
 						>
-							<Cpu className="w-4 h-4" />
+							<Cpu className="w-3.5 h-3.5" />
 						</div>
-						<span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase">{t("status.network")}</span>
+						<span className="text-[10px] text-gray-400 font-medium tracking-wide uppercase">{t("status.network")}</span>
 					</div>
 					<span
-						className={`text-[10px] uppercase tracking-widest font-bold px-2.5 py-1 rounded-full ${isConnected ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
+						className={`text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${isConnected ? "text-green-400 bg-green-500/10" : "text-red-400 bg-red-500/10"
 							}`}
 					>
 						{isConnected ? t("status.connected") : t("status.disconnected")}
@@ -53,22 +53,22 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 
 				{/* System Initialized */}
 				{systemStatus && (
-					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-all duration-200">
-						<div className="flex items-center gap-2.5">
+					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-1.5 -m-1.5 transition-all duration-200">
+						<div className="flex items-center gap-2">
 							<div
-								className={`w-7 h-7 rounded-lg flex items-center justify-center ${systemStatus.initialized
+								className={`w-6 h-6 rounded flex items-center justify-center ${systemStatus.initialized
 									? "bg-blue-500/10 text-blue-400"
 									: "bg-gray-500/10 text-gray-400"
 									}`}
 							>
 								<Activity className="w-3.5 h-3.5" />
 							</div>
-							<span className="text-[11px] text-gray-400 font-medium">
+							<span className="text-[10px] text-gray-400 font-medium">
 								{t("status.core_system")}
 							</span>
 						</div>
 						<span
-							className={`text-[11px] font-semibold px-2 py-0.5 rounded ${systemStatus.initialized
+							className={`text-[10px] font-semibold px-2 py-0.5 rounded ${systemStatus.initialized
 								? "text-blue-400 bg-blue-500/10"
 								: "text-gray-400 bg-gray-500/10"
 								}`}
@@ -80,14 +80,14 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 
 				{/* EM-LLM Memory */}
 				{systemStatus?.em_llm_enabled && (
-					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-all duration-200">
-						<div className="flex items-center gap-2.5">
-							<div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-1.5 -m-1.5 transition-all duration-200">
+						<div className="flex items-center gap-2">
+							<div className="w-6 h-6 rounded bg-purple-500/10 text-purple-400 flex items-center justify-center">
 								<Database className="w-3.5 h-3.5" />
 							</div>
-							<span className="text-[11px] text-gray-400 font-medium">EM-LLM</span>
+							<span className="text-[10px] text-gray-400 font-medium">EM-LLM</span>
 						</div>
-						<span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
+						<span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
 							{systemStatus.memory_events} {t("status.events")}
 						</span>
 					</div>
@@ -95,14 +95,14 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 
 				{/* Message Count */}
 				{systemStatus && (
-					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-all duration-200">
-						<div className="flex items-center gap-2.5">
-							<div className="w-7 h-7 rounded-lg bg-gold-500/10 text-gold-400 flex items-center justify-center">
+					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-1.5 -m-1.5 transition-all duration-200">
+						<div className="flex items-center gap-2">
+							<div className="w-6 h-6 rounded bg-gold-500/10 text-gold-400 flex items-center justify-center">
 								<MessageSquare className="w-3.5 h-3.5" />
 							</div>
-							<span className="text-[11px] text-gray-400 font-medium">{t("status.messages")}</span>
+							<span className="text-[10px] text-gray-400 font-medium">{t("status.messages")}</span>
 						</div>
-						<span className="text-[11px] font-bold text-gold-400 bg-gold-500/10 px-2 py-0.5 rounded">
+						<span className="text-[10px] font-bold text-gold-400 bg-gold-500/10 px-2 py-0.5 rounded">
 							{systemStatus.total_messages}
 						</span>
 					</div>
