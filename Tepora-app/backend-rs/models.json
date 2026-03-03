@@ -475,12 +475,121 @@
       "publisher": "unsloth",
       "description": null,
       "format": "gguf"
+    },
+    {
+      "id": "ollama-qwen3.5:9b",
+      "display_name": "qwen3.5:9b (Ollama)",
+      "role": "text",
+      "file_size": 6594474711,
+      "filename": "qwen3.5:9b",
+      "source": "ollama",
+      "file_path": "ollama://qwen3.5:9b",
+      "loader": "ollama",
+      "loader_model_name": "qwen3.5:9b",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+      "added_at": "2026-03-03T01:22:07.589167900+00:00",
+      "parameter_size": "9.7B",
+      "quantization": "Q4_K_M",
+      "context_length": 262144,
+      "architecture": "qwen35",
+      "chat_template": "{{ .Prompt }}",
+      "stop_tokens": null,
+      "default_temperature": 1.0,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": true
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
+    },
+    {
+      "id": "ollama-qwen3.5:4b",
+      "display_name": "qwen3.5:4b (Ollama)",
+      "role": "text",
+      "file_size": 3389983735,
+      "filename": "qwen3.5:4b",
+      "source": "ollama",
+      "file_path": "ollama://qwen3.5:4b",
+      "loader": "ollama",
+      "loader_model_name": "qwen3.5:4b",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+      "added_at": "2026-03-03T01:22:07.589167900+00:00",
+      "parameter_size": "4.7B",
+      "quantization": "Q4_K_M",
+      "context_length": 262144,
+      "architecture": "qwen35",
+      "chat_template": "{{ .Prompt }}",
+      "stop_tokens": null,
+      "default_temperature": 1.0,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": true
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
+    },
+    {
+      "id": "ollama-glm-4.7-flash:q4_K_M",
+      "display_name": "glm-4.7-flash:q4_K_M (Ollama)",
+      "role": "text",
+      "file_size": 19019270852,
+      "filename": "glm-4.7-flash:q4_K_M",
+      "source": "ollama",
+      "file_path": "ollama://glm-4.7-flash:q4_K_M",
+      "loader": "ollama",
+      "loader_model_name": "glm-4.7-flash:q4_K_M",
+      "repo_id": null,
+      "revision": null,
+      "sha256": "d1a8a26252f18b34301218d22abd2620a65b85ba4b78987842eb157e01321222",
+      "added_at": "2026-03-03T03:31:04.725069300+00:00",
+      "parameter_size": "29.9B",
+      "quantization": "Q4_K_M",
+      "context_length": 202752,
+      "architecture": "glm4moelite",
+      "chat_template": "{{ .Prompt }}",
+      "stop_tokens": null,
+      "default_temperature": 1.0,
+      "capabilities": {
+        "completion": true,
+        "tool_use": true,
+        "vision": false
+      },
+      "publisher": null,
+      "description": null,
+      "format": "gguf"
     }
   ],
   "role_assignments": {
-    "character": "lmstudio-mistralai/ministral-3-3b",
+    "character": "ollama-gemma3n:latest",
     "embedding": "ollama-embeddinggemma:latest",
-    "professional": "ollama-rnj-1:8b"
+    "professional": "ollama-qwen3.5:9b"
   },
-  "role_order": {}
+  "role_order": {
+    "text": [
+      "ollama-lfm2.5-thinking:latest",
+      "ollama-GPT-OSS:latest",
+      "ollama-rnj-1:8b",
+      "lmstudio-ibm/granite-4-h-tiny",
+      "lmstudio-mistralai/ministral-3-3b",
+      "ollama-gemma3n:latest",
+      "lmstudio-qwen3.5-27b",
+      "lmstudio-qwen/qwen3.5-35b-a3b",
+      "ollama-qwen3.5:27b",
+      "ollama-lfm2:latest",
+      "lmstudio-qwen3.5-27b@q3_k_s",
+      "lmstudio-qwen3.5-27b@q4_k_xl",
+      "lmstudio-qwen3.5-35b-a3b",
+      "ollama-qwen3.5:9b",
+      "ollama-qwen3.5:4b",
+      "ollama-glm-4.7-flash:q4_K_M"
+    ]
+  }
 }

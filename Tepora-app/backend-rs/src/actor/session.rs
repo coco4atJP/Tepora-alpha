@@ -128,6 +128,7 @@ impl SessionActor {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn execute_process_message(
         session_id: String,
         app_state: Arc<AppState>,

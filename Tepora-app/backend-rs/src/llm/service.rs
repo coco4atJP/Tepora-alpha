@@ -65,8 +65,25 @@ impl LlmService {
                 base_url,
                 model_name,
             } => {
-                self.chat_openai_compatible(&loader, &base_url, &model_name, request)
-                    .await
+                if loader.eq_ignore_ascii_case("ollama") {
+                    match self
+                        .chat_ollama_native(&base_url, &model_name, request.clone())
+                        .await
+                    {
+                        Ok(content) => Ok(content),
+                        Err(err) => {
+                            tracing::warn!(
+                                "Ollama native chat failed, falling back to OpenAI-compatible API: {}",
+                                err
+                            );
+                            self.chat_openai_compatible(&loader, &base_url, &model_name, request)
+                                .await
+                        }
+                    }
+                } else {
+                    self.chat_openai_compatible(&loader, &base_url, &model_name, request)
+                        .await
+                }
             }
         }
     }
@@ -95,8 +112,30 @@ impl LlmService {
                 base_url,
                 model_name,
             } => {
-                self.stream_chat_openai_compatible(&loader, &base_url, &model_name, request)
-                    .await
+                if loader.eq_ignore_ascii_case("ollama") {
+                    match self
+                        .stream_chat_ollama_native(&base_url, &model_name, request.clone())
+                        .await
+                    {
+                        Ok(stream) => Ok(stream),
+                        Err(err) => {
+                            tracing::warn!(
+                                "Ollama native stream failed, falling back to OpenAI-compatible API: {}",
+                                err
+                            );
+                            self.stream_chat_openai_compatible(
+                                &loader,
+                                &base_url,
+                                &model_name,
+                                request,
+                            )
+                            .await
+                        }
+                    }
+                } else {
+                    self.stream_chat_openai_compatible(&loader, &base_url, &model_name, request)
+                        .await
+                }
             }
         }
     }
@@ -365,14 +404,10 @@ impl LlmService {
             .and_then(|choices| choices.first())
             .and_then(|choice| choice.get("message"))
             .map(|message| {
-                let text = message.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                let reasoning = message.get("reasoning_content").and_then(|v| v.as_str()).unwrap_or("");
-
-                if !reasoning.is_empty() {
-                    format!("<think>\n{}\n</think>\n{}", reasoning, text)
-                } else {
-                    text.to_string()
-                }
+                let text = extract_field_text(message, &["content", "text"]);
+                let reasoning =
+                    extract_field_text(message, &["reasoning", "reasoning_content", "thinking"]);
+                compose_reasoned_content(&reasoning, &text)
             })
             .unwrap_or_default();
 
@@ -465,6 +500,9 @@ impl LlmService {
                                 continue;
                             }
                             if line == "data: [DONE]" {
+                                if is_reasoning_open {
+                                    let _ = tx.send(Ok("\n</think>\n".to_string())).await;
+                                }
                                 return;
                             }
 
@@ -492,38 +530,39 @@ impl LlmService {
 
                             let mut chunk_to_send = String::new();
 
-                            // Track reasoning content (e.g. DeepSeek models)
-                            if let Some(reasoning) = delta
-                                .and_then(|d| d.get("reasoning_content"))
-                                .and_then(|v| v.as_str())
-                            {
-                                if !reasoning.is_empty() {
-                                    if !is_reasoning_open {
-                                        chunk_to_send.push_str("<think>\n");
-                                        is_reasoning_open = true;
-                                    }
-                                    chunk_to_send.push_str(reasoning);
+                            // Track reasoning/thinking content from OpenAI-compatible variants
+                            let reasoning = delta
+                                .map(|d| {
+                                    extract_field_text(
+                                        d,
+                                        &["reasoning", "reasoning_content", "thinking"],
+                                    )
+                                })
+                                .unwrap_or_default();
+                            if !reasoning.is_empty() {
+                                if !is_reasoning_open {
+                                    chunk_to_send.push_str("<think>\n");
+                                    is_reasoning_open = true;
                                 }
+                                chunk_to_send.push_str(&reasoning);
                             }
 
                             // Track standard content
-                            if let Some(content) = delta
-                                .and_then(|d| d.get("content"))
-                                .and_then(|v| v.as_str())
-                            {
-                                if !content.is_empty() {
-                                    if is_reasoning_open {
-                                        chunk_to_send.push_str("\n</think>\n");
-                                        is_reasoning_open = false;
-                                    }
-                                    chunk_to_send.push_str(content);
+                            let content = delta
+                                .map(|d| extract_field_text(d, &["content", "text"]))
+                                .unwrap_or_default();
+                            if !content.is_empty() {
+                                if is_reasoning_open {
+                                    chunk_to_send.push_str("\n</think>\n");
+                                    is_reasoning_open = false;
                                 }
+                                chunk_to_send.push_str(&content);
                             }
 
-                            if !chunk_to_send.is_empty() {
-                                if tx.send(Ok(chunk_to_send)).await.is_err() {
-                                    return;
-                                }
+                            if !chunk_to_send.is_empty()
+                                && tx.send(Ok(chunk_to_send)).await.is_err()
+                            {
+                                return;
                             }
                         }
                     }
@@ -553,35 +592,291 @@ impl LlmService {
 
                     let mut chunk_to_send = String::new();
 
-                    if let Some(reasoning) = delta
-                        .and_then(|d| d.get("reasoning_content"))
-                        .and_then(|v| v.as_str())
-                    {
-                        if !reasoning.is_empty() {
-                            if !is_reasoning_open {
-                                chunk_to_send.push_str("<think>\n");
-                                is_reasoning_open = true; // Still open
-                            }
-                            chunk_to_send.push_str(reasoning);
+                    let reasoning = delta
+                        .map(|d| {
+                            extract_field_text(d, &["reasoning", "reasoning_content", "thinking"])
+                        })
+                        .unwrap_or_default();
+                    if !reasoning.is_empty() {
+                        if !is_reasoning_open {
+                            chunk_to_send.push_str("<think>\n");
+                            is_reasoning_open = true;
                         }
+                        chunk_to_send.push_str(&reasoning);
                     }
 
-                    if let Some(content) = delta
-                        .and_then(|d| d.get("content"))
-                        .and_then(|v| v.as_str())
-                    {
-                        if !content.is_empty() {
-                            if is_reasoning_open {
-                                chunk_to_send.push_str("\n</think>\n");
-                            }
-                            chunk_to_send.push_str(content);
+                    let content = delta
+                        .map(|d| extract_field_text(d, &["content", "text"]))
+                        .unwrap_or_default();
+                    if !content.is_empty() {
+                        if is_reasoning_open {
+                            chunk_to_send.push_str("\n</think>\n");
+                            is_reasoning_open = false;
                         }
+                        chunk_to_send.push_str(&content);
                     }
 
                     if !chunk_to_send.is_empty() {
                         let _ = tx.send(Ok(chunk_to_send)).await;
                     }
                 }
+            }
+            if is_reasoning_open {
+                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
+            }
+        });
+
+        Ok(rx)
+    }
+
+    async fn chat_ollama_native(
+        &self,
+        base_url: &str,
+        model_name: &str,
+        request: ChatRequest,
+    ) -> Result<String, ApiError> {
+        let endpoint = format!("{}/api/chat", base_url.trim_end_matches('/'));
+        let mut body = json!({
+            "model": model_name,
+            "messages": request.messages,
+            "stream": false,
+            "think": true,
+        });
+
+        if let Some(obj) = body.as_object_mut() {
+            let mut options = serde_json::Map::new();
+            if let Some(v) = request.temperature {
+                options.insert("temperature".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_p {
+                options.insert("top_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_k {
+                options.insert("top_k".to_string(), json!(v));
+            }
+            if let Some(v) = request.repeat_penalty {
+                options.insert("repeat_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.max_tokens {
+                options.insert("num_predict".to_string(), json!(v));
+            }
+            if !options.is_empty() {
+                obj.insert("options".to_string(), Value::Object(options));
+            }
+        }
+
+        let request_timeout = self.get_external_loader_request_timeout();
+        let response = self.http.post(&endpoint).json(&body);
+        let response = tokio::time::timeout(request_timeout, response.send())
+            .await
+            .map_err(|_| loader_timeout_error("ollama", &endpoint, request_timeout, "request"))?
+            .map_err(|err| unreachable_loader_error("ollama", base_url, err))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "ollama native chat request failed ({}): {}",
+                status, text
+            )));
+        }
+
+        let payload: Value = response.json().await.map_err(ApiError::internal)?;
+        let message = payload.get("message").unwrap_or(&Value::Null);
+        let text = extract_field_text(message, &["content", "text"]);
+        let reasoning = extract_field_text(message, &["thinking", "reasoning", "reasoning_content"]);
+        Ok(compose_reasoned_content(&reasoning, &text))
+    }
+
+    async fn stream_chat_ollama_native(
+        &self,
+        base_url: &str,
+        model_name: &str,
+        request: ChatRequest,
+    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+        let endpoint = format!("{}/api/chat", base_url.trim_end_matches('/'));
+        let mut body = json!({
+            "model": model_name,
+            "messages": request.messages,
+            "stream": true,
+            "think": true,
+        });
+        if let Some(obj) = body.as_object_mut() {
+            let mut options = serde_json::Map::new();
+            if let Some(v) = request.temperature {
+                options.insert("temperature".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_p {
+                options.insert("top_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_k {
+                options.insert("top_k".to_string(), json!(v));
+            }
+            if let Some(v) = request.repeat_penalty {
+                options.insert("repeat_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.max_tokens {
+                options.insert("num_predict".to_string(), json!(v));
+            }
+            if !options.is_empty() {
+                obj.insert("options".to_string(), Value::Object(options));
+            }
+        }
+
+        let request_timeout = self.get_external_loader_request_timeout();
+        let response = self.http.post(&endpoint).json(&body);
+        let response = tokio::time::timeout(request_timeout, response.send())
+            .await
+            .map_err(|_| loader_timeout_error("ollama", &endpoint, request_timeout, "request"))?
+            .map_err(|err| unreachable_loader_error("ollama", base_url, err))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "ollama native streaming request failed ({}): {}",
+                status, text
+            )));
+        }
+
+        let (tx, rx) = mpsc::channel(128);
+        let mut byte_stream = response.bytes_stream();
+        let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
+        tokio::spawn(async move {
+            let mut buffer = String::new();
+            let mut is_reasoning_open = false;
+            loop {
+                let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
+                let next = match next {
+                    Ok(value) => value,
+                    Err(_) => {
+                        let _ = tx
+                            .send(Err(ApiError::Internal(format!(
+                                "ollama stream idle timeout after {} ms",
+                                stream_idle_timeout.as_millis()
+                            ))))
+                            .await;
+                        return;
+                    }
+                };
+
+                let Some(next) = next else {
+                    break;
+                };
+
+                match next {
+                    Ok(bytes) => {
+                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+                        while let Some(newline_index) = buffer.find('\n') {
+                            let line = buffer[..newline_index].trim().to_string();
+                            buffer = buffer[(newline_index + 1)..].to_string();
+
+                            if line.is_empty() {
+                                continue;
+                            }
+
+                            let parsed = match serde_json::from_str::<Value>(&line) {
+                                Ok(value) => value,
+                                Err(err) => {
+                                    let _ = tx
+                                        .send(Err(ApiError::Internal(format!(
+                                            "Invalid Ollama streaming payload: {}",
+                                            err
+                                        ))))
+                                        .await;
+                                    return;
+                                }
+                            };
+
+                            if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
+                                let _ = tx.send(Err(ApiError::Internal(err.to_string()))).await;
+                                return;
+                            }
+
+                            let message = parsed.get("message").unwrap_or(&Value::Null);
+                            let mut chunk_to_send = String::new();
+
+                            let reasoning = extract_field_text(
+                                message,
+                                &["thinking", "reasoning", "reasoning_content"],
+                            );
+                            if !reasoning.is_empty() {
+                                if !is_reasoning_open {
+                                    chunk_to_send.push_str("<think>\n");
+                                    is_reasoning_open = true;
+                                }
+                                chunk_to_send.push_str(&reasoning);
+                            }
+
+                            let content = extract_field_text(message, &["content", "text"]);
+                            if !content.is_empty() {
+                                if is_reasoning_open {
+                                    chunk_to_send.push_str("\n</think>\n");
+                                    is_reasoning_open = false;
+                                }
+                                chunk_to_send.push_str(&content);
+                            }
+
+                            if !chunk_to_send.is_empty()
+                                && tx.send(Ok(chunk_to_send)).await.is_err()
+                            {
+                                return;
+                            }
+
+                            if parsed.get("done").and_then(|v| v.as_bool()) == Some(true) {
+                                if is_reasoning_open {
+                                    let _ = tx.send(Ok("\n</think>\n".to_string())).await;
+                                }
+                                return;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        let _ = tx
+                            .send(Err(ApiError::Internal(format!(
+                                "Ollama streaming transport failed: {}",
+                                err
+                            ))))
+                            .await;
+                        return;
+                    }
+                }
+            }
+
+            let trailing = buffer.trim();
+            if !trailing.is_empty() {
+                if let Ok(parsed) = serde_json::from_str::<Value>(trailing) {
+                    let message = parsed.get("message").unwrap_or(&Value::Null);
+                    let mut chunk_to_send = String::new();
+
+                    let reasoning =
+                        extract_field_text(message, &["thinking", "reasoning", "reasoning_content"]);
+                    if !reasoning.is_empty() {
+                        if !is_reasoning_open {
+                            chunk_to_send.push_str("<think>\n");
+                            is_reasoning_open = true;
+                        }
+                        chunk_to_send.push_str(&reasoning);
+                    }
+
+                    let content = extract_field_text(message, &["content", "text"]);
+                    if !content.is_empty() {
+                        if is_reasoning_open {
+                            chunk_to_send.push_str("\n</think>\n");
+                            is_reasoning_open = false;
+                        }
+                        chunk_to_send.push_str(&content);
+                    }
+
+                    if !chunk_to_send.is_empty() {
+                        let _ = tx.send(Ok(chunk_to_send)).await;
+                    }
+                }
+            }
+
+            if is_reasoning_open {
+                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
             }
         });
 
@@ -696,6 +991,47 @@ impl LlmService {
         }
 
         Ok(result)
+    }
+}
+
+fn compose_reasoned_content(reasoning: &str, content: &str) -> String {
+    if reasoning.trim().is_empty() {
+        content.to_string()
+    } else if content.is_empty() {
+        format!("<think>\n{}\n</think>", reasoning)
+    } else {
+        format!("<think>\n{}\n</think>\n{}", reasoning, content)
+    }
+}
+
+fn extract_field_text(value: &Value, keys: &[&str]) -> String {
+    for key in keys {
+        if let Some(candidate) = value.get(*key) {
+            let text = value_to_text(candidate);
+            if !text.trim().is_empty() {
+                return text;
+            }
+        }
+    }
+    String::new()
+}
+
+fn value_to_text(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.clone(),
+        Value::Array(items) => items.iter().map(value_to_text).collect::<Vec<_>>().join(""),
+        Value::Object(obj) => {
+            for key in ["text", "content", "reasoning", "thinking"] {
+                if let Some(candidate) = obj.get(key) {
+                    let text = value_to_text(candidate);
+                    if !text.trim().is_empty() {
+                        return text;
+                    }
+                }
+            }
+            String::new()
+        }
+        _ => String::new(),
     }
 }
 
@@ -863,5 +1199,31 @@ mod tests {
             loader_base_url(&config, "lmstudio", "http://localhost:1234".to_string()),
             "http://localhost:1234"
         );
+    }
+
+    #[test]
+    fn extract_field_text_supports_reasoning_aliases() {
+        let payload = json!({
+            "reasoning": [{"text": "step-1"}, {"text": "step-2"}],
+            "content": "final"
+        });
+        assert_eq!(
+            extract_field_text(&payload, &["reasoning", "reasoning_content", "thinking"]),
+            "step-1step-2"
+        );
+        assert_eq!(extract_field_text(&payload, &["content"]), "final");
+    }
+
+    #[test]
+    fn compose_reasoned_content_wraps_think_block() {
+        assert_eq!(
+            compose_reasoned_content("chain", "answer"),
+            "<think>\nchain\n</think>\nanswer"
+        );
+        assert_eq!(
+            compose_reasoned_content("chain", ""),
+            "<think>\nchain\n</think>"
+        );
+        assert_eq!(compose_reasoned_content("", "answer"), "answer");
     }
 }

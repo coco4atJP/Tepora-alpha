@@ -159,7 +159,7 @@ impl KnowledgePort for RagKnowledgeAdapter {
 
                 let items = chunks
                     .into_iter()
-                    .zip(embeddings.into_iter())
+                    .zip(embeddings)
                     .map(|(chunk, embedding)| {
                         let chunk_id = format!("rag-{}", Uuid::new_v4());
                         let chunk_metadata = Some(json!({
@@ -223,7 +223,7 @@ impl KnowledgePort for RagKnowledgeAdapter {
 
                 let items = chunks
                     .into_iter()
-                    .zip(embeddings.into_iter())
+                    .zip(embeddings)
                     .map(|(chunk, embedding)| {
                         let chunk_id = format!("rag-{}", Uuid::new_v4());
                         let chunk_metadata = Some(json!({

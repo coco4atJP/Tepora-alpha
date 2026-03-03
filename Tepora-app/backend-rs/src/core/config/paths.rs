@@ -42,6 +42,12 @@ impl AppPaths {
     }
 }
 
+impl Default for AppPaths {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn discover_project_root() -> PathBuf {
     if let Ok(root) = env::var("TEPORA_ROOT") {
         return PathBuf::from(root);

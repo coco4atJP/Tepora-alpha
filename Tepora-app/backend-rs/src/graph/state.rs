@@ -21,6 +21,7 @@ pub enum Mode {
 }
 
 impl Mode {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "search_agentic" => Mode::SearchAgentic,
@@ -55,6 +56,7 @@ pub enum AgentMode {
 }
 
 impl AgentMode {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: Option<&str>) -> Self {
         match s.map(|v| v.trim().to_lowercase()).as_deref() {
             Some("high") => AgentMode::High,

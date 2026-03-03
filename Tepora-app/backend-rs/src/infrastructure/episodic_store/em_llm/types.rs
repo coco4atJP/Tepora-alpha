@@ -113,18 +113,15 @@ impl MemoryLayer {
 }
 
 /// Time unit for decay calculations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum TimeUnit {
     Hours,
+    #[default]
     Days,
 }
 
-impl Default for TimeUnit {
-    fn default() -> Self {
-        Self::Days
-    }
-}
+
 
 /// FadeMem decay parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]

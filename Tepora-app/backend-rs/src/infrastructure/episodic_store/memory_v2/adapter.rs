@@ -18,6 +18,7 @@ use crate::models::ModelManager;
 #[async_trait::async_trait]
 pub trait MemoryAdapter: Send + Sync {
     /// Ingest a completed interaction (user input + assistant output).
+    #[allow(clippy::too_many_arguments)]
     async fn ingest_interaction(
         &self,
         session_id: &str,
@@ -118,6 +119,7 @@ fn api_error_to_domain_error(value: ApiError) -> DomainError {
 
 #[async_trait::async_trait]
 impl MemoryAdapter for UnifiedMemoryAdapter {
+    #[allow(clippy::too_many_arguments)]
     async fn ingest_interaction(
         &self,
         session_id: &str,
@@ -270,6 +272,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
 
 #[async_trait::async_trait]
 impl EpisodicMemoryPort for UnifiedMemoryAdapter {
+    #[allow(clippy::too_many_arguments)]
     async fn ingest_interaction(
         &self,
         session_id: &str,

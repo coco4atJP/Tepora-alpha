@@ -33,6 +33,17 @@ impl<'a> GraphStreamer<'a> {
                         let text = payload.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
                         let _ = tx.send(SessionEvent::Token { session_id: session_id.clone(), text });
                     }
+                    "thought" => {
+                        let content = payload
+                            .get("content")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let _ = tx.send(SessionEvent::Thought {
+                            session_id: session_id.clone(),
+                            content,
+                        });
+                    }
                     "error" => {
                         let text = payload.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
                         let _ = tx.send(SessionEvent::Error { session_id: session_id.clone(), message: text });

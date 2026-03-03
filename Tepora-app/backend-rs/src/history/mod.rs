@@ -292,6 +292,60 @@ impl HistoryStore {
         Ok(messages)
     }
 
+    pub async fn get_last_user_message(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<HistoryMessage>, ApiError> {
+        let row = sqlx::query(
+            "SELECT * FROM messages WHERE session_id = ? AND role = 'human' ORDER BY id DESC LIMIT 1",
+        )
+        .bind(session_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(ApiError::internal)?;
+
+        if let Some(row) = row {
+            Ok(Some(HistoryMessage {
+                id: row.try_get::<i64, _>("id").unwrap_or_default(),
+                session_id: row.try_get::<String, _>("session_id").unwrap_or_default(),
+                message_type: row.try_get::<String, _>("role").unwrap_or_default(),
+                content: row.try_get::<String, _>("content").unwrap_or_default(),
+                created_at: row.try_get::<String, _>("created_at").unwrap_or_default(),
+                additional_kwargs: row
+                    .try_get::<Option<Value>, _>("additional_kwargs")
+                    .unwrap_or(None),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn delete_trailing_assistant_messages(
+        &self,
+        session_id: &str,
+    ) -> Result<(), ApiError> {
+        // 1. Find the ID of the last user message
+        let last_human_id: Option<i64> = sqlx::query(
+            "SELECT id FROM messages WHERE session_id = ? AND role = 'human' ORDER BY id DESC LIMIT 1",
+        )
+        .bind(session_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(ApiError::internal)?
+        .map(|row| row.try_get("id").unwrap_or(0));
+
+        if let Some(human_id) = last_human_id {
+            // 2. Delete all messages after this user message
+            sqlx::query("DELETE FROM messages WHERE session_id = ? AND id > ?")
+                .bind(session_id)
+                .bind(human_id)
+                .execute(&self.pool)
+                .await
+                .map_err(ApiError::internal)?;
+        }
+        Ok(())
+    }
+
     /// 全セッションを横断してメッセージ総数を返す。
     pub async fn get_total_message_count(&self) -> Result<i64, ApiError> {
         let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages")

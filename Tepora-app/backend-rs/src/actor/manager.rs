@@ -58,6 +58,12 @@ pub struct ActorManager {
     gc_started: AtomicBool,
 }
 
+impl Default for ActorManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ActorManager {
     pub fn new() -> Self {
         Self::new_with_config(ActorManagerConfig::default())

@@ -320,8 +320,9 @@ impl LlamaService {
         }
 
         let data: Value = res.json().await.map_err(ApiError::internal)?;
-        let content = data["content"].as_str().unwrap_or("").to_string();
-        Ok(content)
+        let content = extract_field_text(&data, &["content", "text", "response"]);
+        let reasoning = extract_field_text(&data, &["reasoning", "reasoning_content", "thinking"]);
+        Ok(compose_reasoned_content(&reasoning, &content))
     }
 
     pub async fn stream_chat(
@@ -349,6 +350,7 @@ impl LlamaService {
         let client = self.client.clone();
 
         tokio::spawn(async move {
+            let mut is_reasoning_open = false;
             let mut res = match client.post(&url).json(&body).send().await {
                 Ok(r) => r,
                 Err(e) => {
@@ -362,14 +364,37 @@ impl LlamaService {
                 for line in text.lines() {
                     if let Some(json_str) = line.strip_prefix("data: ") {
                         if let Ok(val) = serde_json::from_str::<Value>(json_str) {
-                            if let Some(content) = val["content"].as_str() {
-                                if tx.send(Ok(content.to_string())).await.is_err() {
-                                    return;
+                            let mut chunk_to_send = String::new();
+                            let reasoning =
+                                extract_field_text(&val, &["reasoning", "reasoning_content", "thinking"]);
+                            if !reasoning.is_empty() {
+                                if !is_reasoning_open {
+                                    chunk_to_send.push_str("<think>\n");
+                                    is_reasoning_open = true;
                                 }
+                                chunk_to_send.push_str(&reasoning);
+                            }
+
+                            let content = extract_field_text(&val, &["content", "text", "response"]);
+                            if !content.is_empty() {
+                                if is_reasoning_open {
+                                    chunk_to_send.push_str("\n</think>\n");
+                                    is_reasoning_open = false;
+                                }
+                                chunk_to_send.push_str(&content);
+                            }
+
+                            if !chunk_to_send.is_empty()
+                                && tx.send(Ok(chunk_to_send)).await.is_err()
+                            {
+                                return;
                             }
                         }
                     }
                 }
+            }
+            if is_reasoning_open {
+                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
             }
         });
 
@@ -425,5 +450,46 @@ impl LlamaService {
         }
         prompt.push_str("Assistant: ");
         prompt
+    }
+}
+
+fn compose_reasoned_content(reasoning: &str, content: &str) -> String {
+    if reasoning.trim().is_empty() {
+        content.to_string()
+    } else if content.is_empty() {
+        format!("<think>\n{}\n</think>", reasoning)
+    } else {
+        format!("<think>\n{}\n</think>\n{}", reasoning, content)
+    }
+}
+
+fn extract_field_text(value: &Value, keys: &[&str]) -> String {
+    for key in keys {
+        if let Some(candidate) = value.get(*key) {
+            let text = value_to_text(candidate);
+            if !text.trim().is_empty() {
+                return text;
+            }
+        }
+    }
+    String::new()
+}
+
+fn value_to_text(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.clone(),
+        Value::Array(items) => items.iter().map(value_to_text).collect::<Vec<_>>().join(""),
+        Value::Object(obj) => {
+            for key in ["text", "content", "reasoning", "thinking"] {
+                if let Some(candidate) = obj.get(key) {
+                    let text = value_to_text(candidate);
+                    if !text.trim().is_empty() {
+                        return text;
+                    }
+                }
+            }
+            String::new()
+        }
+        _ => String::new(),
     }
 }

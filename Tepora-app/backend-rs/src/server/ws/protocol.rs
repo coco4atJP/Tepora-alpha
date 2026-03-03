@@ -4,7 +4,7 @@ use serde_json::Value;
 pub const WS_APP_PROTOCOL: &str = "tepora.v1";
 pub const WS_TOKEN_PREFIX: &str = "tepora-token.";
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct WsIncomingMessage {
     #[serde(rename = "type")]
     pub msg_type: Option<String>,

@@ -233,9 +233,82 @@ async fn handle_message(
             }
             return Ok(());
         }
+        "regenerate" => {
+            let session_id = data
+                .session_id
+                .clone()
+                .unwrap_or_else(|| current_session_id.clone());
+            if session_id.is_empty() {
+                return Ok(());
+            }
+
+            // Acknowledge regeneration start
+            let _ = send_json(sender, json!({"type": "regenerate_started"})).await;
+
+            let last_user_message = state.history.get_last_user_message(&session_id).await?;
+            if let Some(user_msg) = last_user_message {
+                // Remove trailing assistant and system error messages
+                state
+                    .history
+                    .delete_trailing_assistant_messages(&session_id)
+                    .await?;
+
+                // Reroute into a mock incoming message to continue the generation as if it was sent by the user
+                let mut new_data = data.clone();
+                new_data.message = Some(user_msg.content);
+                
+                if let Some(kwargs) = user_msg.additional_kwargs.as_ref() {
+                    new_data.mode = kwargs.get("mode").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    new_data.agent_id = kwargs.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    new_data.agent_mode = kwargs.get("agent_mode").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    
+                    if let Some(arr) = kwargs.get("attachments").and_then(|v| v.as_array()) {
+                        new_data.attachments = arr.clone();
+                    }
+                    if let Some(budget) = kwargs.get("thinking_budget").and_then(|v| v.as_u64()) {
+                        new_data.thinking_budget = Some(budget as u8);
+                    }
+                    if let Some(skip) = kwargs.get("skip_web_search").and_then(|v| v.as_bool()) {
+                        new_data.skip_web_search = Some(skip);
+                    }
+                }
+                
+                // Clear msg_type so it falls through to the normal generation flow
+                new_data.msg_type = None;
+                
+                // Recursively call handle_message to process the "new" user message
+                // This time it will not be "regenerate" and will insert the new assistant response
+                return handle_message_internal(
+                    sender,
+                    state,
+                    current_session_id,
+                    pending,
+                    approved_mcp_tools,
+                    new_data,
+                    true // is_regenerate flag
+                )
+                .await;
+            } else {
+                let _ = send_json(sender, json!({"type": "error", "message": "No user message found to regenerate from."})).await;
+                return Ok(());
+            }
+        }
         _ => {}
     }
 
+    handle_message_internal(sender, state, current_session_id, pending, approved_mcp_tools, data, false).await
+}
+
+#[allow(clippy::ptr_arg)]
+async fn handle_message_internal(
+    sender: &mut SplitSink<WebSocket, Message>,
+    state: &Arc<AppState>,
+    current_session_id: &mut String,
+    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
+    data: WsIncomingMessage,
+    is_regenerate: bool,
+) -> Result<(), ApiError> {
     let message_text = data.message.unwrap_or_default();
     let attachments = data.attachments;
     if message_text.is_empty() && attachments.is_empty() {
@@ -303,11 +376,13 @@ async fn handle_message(
         "skip_web_search": data.skip_web_search,
     });
 
-    state
-        .history
-        .add_message(&session_id, "human", &message_text, Some(user_kwargs))
-        .await?;
-    let _ = state.history.touch_session(&session_id).await;
+    if !is_regenerate {
+        state
+            .history
+            .add_message(&session_id, "human", &message_text, Some(user_kwargs))
+            .await?;
+        let _ = state.history.touch_session(&session_id).await;
+    }
 
     // Feature Flag Check API logic
     if state.is_redesign_enabled("actor_model") {
@@ -339,6 +414,9 @@ async fn handle_message(
             match event {
                 SessionEvent::Token { session_id: ev_session, text } if ev_session == session_id => {
                     let _ = send_json(sender, json!({ "type": "chunk", "message": text })).await;
+                }
+                SessionEvent::Thought { session_id: ev_session, content } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({ "type": "thought", "content": content })).await;
                 }
                 SessionEvent::Status { session_id: ev_session, message } if ev_session == session_id => {
                     let _ = send_json(sender, json!({ "type": "status", "message": message })).await;
