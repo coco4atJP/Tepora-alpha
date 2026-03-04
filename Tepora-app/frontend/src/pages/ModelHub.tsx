@@ -218,13 +218,16 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
                         setTimeout(() => setEditingModel(null), 300); // delay clear to allow out-animation
                     }}
                     title={`${editingModel.display_name} Configuration`}
-                    config={editingModel.role === "embedding" ? config.models_gguf.embedding_model : config.models_gguf.text_model}
+                    config={config.models_gguf[editingModel.id] || {
+                        path: editingModel.file_path || "",
+                        port: editingModel.role === "embedding" ? 8081 : 8080,
+                        n_ctx: editingModel.role === "embedding" ? 2048 : 4096,
+                        n_gpu_layers: -1,
+                        temperature: 0.7,
+                        top_p: 0.9,
+                    }}
                     onChange={(newConfig) => {
-                        if (editingModel.role === "embedding") {
-                            updateModel("embedding_model", newConfig);
-                        } else {
-                            updateModel("text_model", newConfig);
-                        }
+                        updateModel(editingModel.id, newConfig);
                     }}
                     isEmbedding={editingModel.role === "embedding"}
                 />
