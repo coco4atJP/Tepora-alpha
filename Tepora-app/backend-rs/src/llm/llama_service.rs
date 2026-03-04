@@ -296,13 +296,36 @@ impl LlamaService {
 
         let prompt = self.format_chat_prompt(messages);
 
-        let body = json!({
+        let stop_tokens = config.stop.as_deref().unwrap_or(&[]);
+        let default_stops: Vec<String> = vec!["User:".to_string(), "System:".to_string()];
+        let stop = if stop_tokens.is_empty() { &default_stops } else { stop_tokens };
+
+        let mut body = json!({
             "prompt": prompt,
             "stream": false,
             "n_predict": config.predict_len.unwrap_or(1024),
             "temperature": config.temperature.unwrap_or(0.7),
-            "stop": ["User:", "System:"]
+            "top_p": config.top_p.unwrap_or(0.9),
+            "top_k": config.top_k.unwrap_or(40),
+            "repeat_penalty": config.repeat_penalty.unwrap_or(1.1),
+            "stop": stop
         });
+        // Add optional llama.cpp parameters
+        if let Some(obj) = body.as_object_mut() {
+            if let Some(v) = config.seed { obj.insert("seed".into(), json!(v)); }
+            if let Some(v) = config.frequency_penalty { obj.insert("penalty_freq".into(), json!(v)); }
+            if let Some(v) = config.presence_penalty { obj.insert("penalty_present".into(), json!(v)); }
+            if let Some(v) = config.min_p { obj.insert("min_p".into(), json!(v)); }
+            if let Some(v) = config.tfs_z { obj.insert("tfs_z".into(), json!(v)); }
+            if let Some(v) = config.typical_p { obj.insert("typical_p".into(), json!(v)); }
+            if let Some(v) = config.mirostat { obj.insert("mirostat".into(), json!(v)); }
+            if let Some(v) = config.mirostat_tau { obj.insert("mirostat_tau".into(), json!(v)); }
+            if let Some(v) = config.mirostat_eta { obj.insert("mirostat_eta".into(), json!(v)); }
+            if let Some(v) = config.repeat_last_n { obj.insert("penalty_last_n".into(), json!(v)); }
+            if let Some(v) = config.penalize_nl { obj.insert("penalize_nl".into(), json!(v)); }
+            if let Some(v) = config.n_keep { obj.insert("n_keep".into(), json!(v)); }
+            if let Some(v) = config.cache_prompt { obj.insert("cache_prompt".into(), json!(v)); }
+        }
 
         let res = self
             .client
@@ -339,12 +362,31 @@ impl LlamaService {
 
         let prompt = self.format_chat_prompt(messages);
 
-        let body = json!({
+        let mut body = json!({
             "prompt": prompt,
             "stream": true,
             "n_predict": config.predict_len.unwrap_or(1024),
             "temperature": config.temperature.unwrap_or(0.7),
+            "top_p": config.top_p.unwrap_or(0.9),
+            "top_k": config.top_k.unwrap_or(40),
+            "repeat_penalty": config.repeat_penalty.unwrap_or(1.1),
         });
+        // Add optional llama.cpp parameters
+        if let Some(obj) = body.as_object_mut() {
+            if let Some(v) = config.seed { obj.insert("seed".into(), json!(v)); }
+            if let Some(v) = config.frequency_penalty { obj.insert("penalty_freq".into(), json!(v)); }
+            if let Some(v) = config.presence_penalty { obj.insert("penalty_present".into(), json!(v)); }
+            if let Some(v) = config.min_p { obj.insert("min_p".into(), json!(v)); }
+            if let Some(v) = config.tfs_z { obj.insert("tfs_z".into(), json!(v)); }
+            if let Some(v) = config.typical_p { obj.insert("typical_p".into(), json!(v)); }
+            if let Some(v) = config.mirostat { obj.insert("mirostat".into(), json!(v)); }
+            if let Some(v) = config.mirostat_tau { obj.insert("mirostat_tau".into(), json!(v)); }
+            if let Some(v) = config.mirostat_eta { obj.insert("mirostat_eta".into(), json!(v)); }
+            if let Some(v) = config.repeat_last_n { obj.insert("penalty_last_n".into(), json!(v)); }
+            if let Some(v) = config.penalize_nl { obj.insert("penalize_nl".into(), json!(v)); }
+            if let Some(v) = config.n_keep { obj.insert("n_keep".into(), json!(v)); }
+            if let Some(v) = config.cache_prompt { obj.insert("cache_prompt".into(), json!(v)); }
+        }
 
         let (tx, rx) = mpsc::channel(100);
         let client = self.client.clone();

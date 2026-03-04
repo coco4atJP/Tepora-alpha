@@ -159,6 +159,7 @@ Tepora-app/backend/sqlite_*/
 # Models directory (root only - for GGUF files)
 /models/
 /models_bak/
+/models.json
 
 # Binary backups
 bin/

@@ -216,6 +216,22 @@ pub struct ModelRuntimeConfig {
     pub top_p: Option<f32>,
     pub top_k: Option<i32>,
     pub repeat_penalty: Option<f32>,
+    pub stop: Option<Vec<String>>,
+    // --- Common new ---
+    pub seed: Option<i64>,
+    pub frequency_penalty: Option<f32>,
+    pub presence_penalty: Option<f32>,
+    pub min_p: Option<f32>,
+    // --- llama.cpp specific ---
+    pub tfs_z: Option<f32>,
+    pub typical_p: Option<f32>,
+    pub mirostat: Option<i32>,
+    pub mirostat_tau: Option<f32>,
+    pub mirostat_eta: Option<f32>,
+    pub repeat_last_n: Option<i32>,
+    pub penalize_nl: Option<bool>,
+    pub n_keep: Option<i32>,
+    pub cache_prompt: Option<bool>,
 }
 
 impl ModelRuntimeConfig {
@@ -246,6 +262,16 @@ impl ModelRuntimeConfig {
                 role_key
             )));
         }
+
+        let stop = model_cfg
+            .get("stop")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect::<Vec<String>>()
+            })
+            .filter(|v| !v.is_empty());
 
         Ok(Self {
             model_key: role_key.to_string(),
@@ -279,6 +305,54 @@ impl ModelRuntimeConfig {
                 .get("repeat_penalty")
                 .and_then(|v| v.as_f64())
                 .map(|v| v as f32),
+            stop,
+            seed: model_cfg.get("seed").and_then(|v| v.as_i64()),
+            frequency_penalty: model_cfg
+                .get("frequency_penalty")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            presence_penalty: model_cfg
+                .get("presence_penalty")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            min_p: model_cfg
+                .get("min_p")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            tfs_z: model_cfg
+                .get("tfs_z")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            typical_p: model_cfg
+                .get("typical_p")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            mirostat: model_cfg
+                .get("mirostat")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
+            mirostat_tau: model_cfg
+                .get("mirostat_tau")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            mirostat_eta: model_cfg
+                .get("mirostat_eta")
+                .and_then(|v| v.as_f64())
+                .map(|v| v as f32),
+            repeat_last_n: model_cfg
+                .get("repeat_last_n")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
+            penalize_nl: model_cfg
+                .get("penalize_nl")
+                .and_then(|v| v.as_bool()),
+            n_keep: model_cfg
+                .get("n_keep")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
+            cache_prompt: model_cfg
+                .get("cache_prompt")
+                .and_then(|v| v.as_bool()),
         })
     }
 }

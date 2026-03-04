@@ -80,6 +80,21 @@ impl LlmService {
                                 .await
                         }
                     }
+                } else if loader.eq_ignore_ascii_case("lmstudio") {
+                    match self
+                        .chat_lmstudio_native(&base_url, &model_name, request.clone())
+                        .await
+                    {
+                        Ok(content) => Ok(content),
+                        Err(err) => {
+                            tracing::warn!(
+                                "LM Studio native chat failed, falling back to OpenAI-compatible API: {}",
+                                err
+                            );
+                            self.chat_openai_compatible(&loader, &base_url, &model_name, request)
+                                .await
+                        }
+                    }
                 } else {
                     self.chat_openai_compatible(&loader, &base_url, &model_name, request)
                         .await
@@ -121,6 +136,26 @@ impl LlmService {
                         Err(err) => {
                             tracing::warn!(
                                 "Ollama native stream failed, falling back to OpenAI-compatible API: {}",
+                                err
+                            );
+                            self.stream_chat_openai_compatible(
+                                &loader,
+                                &base_url,
+                                &model_name,
+                                request,
+                            )
+                            .await
+                        }
+                    }
+                } else if loader.eq_ignore_ascii_case("lmstudio") {
+                    match self
+                        .stream_chat_lmstudio_native(&base_url, &model_name, request.clone())
+                        .await
+                    {
+                        Ok(stream) => Ok(stream),
+                        Err(err) => {
+                            tracing::warn!(
+                                "LM Studio native stream failed, falling back to OpenAI-compatible API: {}",
                                 err
                             );
                             self.stream_chat_openai_compatible(
@@ -335,6 +370,10 @@ impl LlmService {
         let top_p = request.top_p.map(|v| v as f32);
         let top_k = request.top_k.map(|v| v as i32);
         let repeat_penalty = request.repeat_penalty.map(|v| v as f32);
+        let stop = request
+            .stop
+            .clone()
+            .or_else(|| model_entry.stop_tokens.clone());
 
         Ok(ModelRuntimeConfig {
             model_key: model_entry.id.clone(),
@@ -347,6 +386,20 @@ impl LlmService {
             top_p,
             top_k,
             repeat_penalty,
+            stop,
+            seed: request.seed,
+            frequency_penalty: request.frequency_penalty.map(|v| v as f32),
+            presence_penalty: request.presence_penalty.map(|v| v as f32),
+            min_p: request.min_p.map(|v| v as f32),
+            tfs_z: request.tfs_z.map(|v| v as f32),
+            typical_p: request.typical_p.map(|v| v as f32),
+            mirostat: request.mirostat,
+            mirostat_tau: request.mirostat_tau.map(|v| v as f32),
+            mirostat_eta: request.mirostat_eta.map(|v| v as f32),
+            repeat_last_n: request.repeat_last_n,
+            penalize_nl: request.penalize_nl,
+            n_keep: request.n_keep,
+            cache_prompt: request.cache_prompt,
         })
     }
 
@@ -378,6 +431,18 @@ impl LlmService {
             }
             if let Some(v) = request.max_tokens {
                 obj.insert("max_tokens".to_string(), json!(v));
+            }
+            if let Some(ref v) = request.stop {
+                obj.insert("stop".to_string(), json!(v));
+            }
+            if let Some(v) = request.seed {
+                obj.insert("seed".to_string(), json!(v));
+            }
+            if let Some(v) = request.frequency_penalty {
+                obj.insert("frequency_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.presence_penalty {
+                obj.insert("presence_penalty".to_string(), json!(v));
             }
         }
 
@@ -442,6 +507,18 @@ impl LlmService {
             }
             if let Some(v) = request.max_tokens {
                 obj.insert("max_tokens".to_string(), json!(v));
+            }
+            if let Some(ref v) = request.stop {
+                obj.insert("stop".to_string(), json!(v));
+            }
+            if let Some(v) = request.seed {
+                obj.insert("seed".to_string(), json!(v));
+            }
+            if let Some(v) = request.frequency_penalty {
+                obj.insert("frequency_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.presence_penalty {
+                obj.insert("presence_penalty".to_string(), json!(v));
             }
         }
 
@@ -660,8 +737,49 @@ impl LlmService {
             if let Some(v) = request.max_tokens {
                 options.insert("num_predict".to_string(), json!(v));
             }
+            // Common parameters
+            if let Some(v) = request.seed {
+                options.insert("seed".to_string(), json!(v));
+            }
+            if let Some(v) = request.frequency_penalty {
+                options.insert("frequency_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.presence_penalty {
+                options.insert("presence_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.min_p {
+                options.insert("min_p".to_string(), json!(v));
+            }
+            // Ollama-specific sampling parameters
+            if let Some(v) = request.tfs_z {
+                options.insert("tfs_z".to_string(), json!(v));
+            }
+            if let Some(v) = request.typical_p {
+                options.insert("typical_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.mirostat {
+                options.insert("mirostat".to_string(), json!(v));
+            }
+            if let Some(v) = request.mirostat_tau {
+                options.insert("mirostat_tau".to_string(), json!(v));
+            }
+            if let Some(v) = request.mirostat_eta {
+                options.insert("mirostat_eta".to_string(), json!(v));
+            }
+            if let Some(v) = request.repeat_last_n {
+                options.insert("repeat_last_n".to_string(), json!(v));
+            }
+            if let Some(v) = request.penalize_nl {
+                options.insert("penalize_newline".to_string(), json!(v));
+            }
+            if let Some(v) = request.num_ctx {
+                options.insert("num_ctx".to_string(), json!(v));
+            }
             if !options.is_empty() {
                 obj.insert("options".to_string(), Value::Object(options));
+            }
+            if let Some(ref v) = request.stop {
+                obj.insert("stop".to_string(), json!(v));
             }
         }
 
@@ -718,8 +836,49 @@ impl LlmService {
             if let Some(v) = request.max_tokens {
                 options.insert("num_predict".to_string(), json!(v));
             }
+            // Common parameters
+            if let Some(v) = request.seed {
+                options.insert("seed".to_string(), json!(v));
+            }
+            if let Some(v) = request.frequency_penalty {
+                options.insert("frequency_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.presence_penalty {
+                options.insert("presence_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.min_p {
+                options.insert("min_p".to_string(), json!(v));
+            }
+            // Ollama-specific sampling parameters
+            if let Some(v) = request.tfs_z {
+                options.insert("tfs_z".to_string(), json!(v));
+            }
+            if let Some(v) = request.typical_p {
+                options.insert("typical_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.mirostat {
+                options.insert("mirostat".to_string(), json!(v));
+            }
+            if let Some(v) = request.mirostat_tau {
+                options.insert("mirostat_tau".to_string(), json!(v));
+            }
+            if let Some(v) = request.mirostat_eta {
+                options.insert("mirostat_eta".to_string(), json!(v));
+            }
+            if let Some(v) = request.repeat_last_n {
+                options.insert("repeat_last_n".to_string(), json!(v));
+            }
+            if let Some(v) = request.penalize_nl {
+                options.insert("penalize_newline".to_string(), json!(v));
+            }
+            if let Some(v) = request.num_ctx {
+                options.insert("num_ctx".to_string(), json!(v));
+            }
             if !options.is_empty() {
                 obj.insert("options".to_string(), Value::Object(options));
+            }
+            if let Some(ref v) = request.stop {
+                obj.insert("stop".to_string(), json!(v));
             }
         }
 
@@ -871,6 +1030,294 @@ impl LlmService {
 
                     if !chunk_to_send.is_empty() {
                         let _ = tx.send(Ok(chunk_to_send)).await;
+                    }
+                }
+            }
+
+            if is_reasoning_open {
+                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
+            }
+        });
+
+        Ok(rx)
+    }
+
+    async fn chat_lmstudio_native(
+        &self,
+        base_url: &str,
+        model_name: &str,
+        request: ChatRequest,
+    ) -> Result<String, ApiError> {
+        let endpoint = format!("{}/api/v1/chat", base_url.trim_end_matches('/'));
+
+        // Convert ChatMessage to LM Studio v1 input format
+        // System prompt is extracted separately; user/assistant messages go into "input"
+        let mut system_prompt: Option<String> = None;
+        let mut input_items: Vec<Value> = Vec::new();
+        for msg in &request.messages {
+            if msg.role == "system" {
+                system_prompt = Some(msg.content.clone());
+            } else {
+                input_items.push(json!({
+                    "type": "message",
+                    "role": msg.role,
+                    "content": msg.content
+                }));
+            }
+        }
+
+        let mut body = json!({
+            "model": model_name,
+            "input": input_items,
+            "stream": false,
+        });
+
+        if let Some(obj) = body.as_object_mut() {
+            if let Some(ref sp) = system_prompt {
+                obj.insert("system_prompt".to_string(), json!(sp));
+            }
+            if let Some(v) = request.temperature {
+                obj.insert("temperature".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_p {
+                obj.insert("top_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_k {
+                obj.insert("top_k".to_string(), json!(v));
+            }
+            if let Some(v) = request.min_p {
+                obj.insert("min_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.repeat_penalty {
+                obj.insert("repeat_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.max_tokens {
+                obj.insert("max_output_tokens".to_string(), json!(v));
+            }
+            if let Some(v) = request.seed {
+                obj.insert("seed".to_string(), json!(v));
+            }
+        }
+
+        let request_timeout = self.get_external_loader_request_timeout();
+        let response = self.http.post(&endpoint).json(&body);
+        let response = tokio::time::timeout(request_timeout, response.send())
+            .await
+            .map_err(|_| loader_timeout_error("lmstudio", &endpoint, request_timeout, "request"))?
+            .map_err(|err| unreachable_loader_error("lmstudio", base_url, err))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "lmstudio native chat request failed ({}): {}",
+                status, text
+            )));
+        }
+
+        // LM Studio v1 response: { "output": [ { "type": "reasoning", "content": "..." }, { "type": "message", "content": "..." } ] }
+        let payload: Value = response.json().await.map_err(ApiError::internal)?;
+        let mut reasoning_text = String::new();
+        let mut message_text = String::new();
+
+        if let Some(outputs) = payload.get("output").and_then(|v| v.as_array()) {
+            for item in outputs {
+                let item_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                let content = item.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                match item_type {
+                    "reasoning" => reasoning_text.push_str(content),
+                    "message" => message_text.push_str(content),
+                    _ => {} // tool_call, invalid_tool_call etc. - skip
+                }
+            }
+        }
+
+        Ok(compose_reasoned_content(&reasoning_text, &message_text))
+    }
+
+    async fn stream_chat_lmstudio_native(
+        &self,
+        base_url: &str,
+        model_name: &str,
+        request: ChatRequest,
+    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+        let endpoint = format!("{}/api/v1/chat", base_url.trim_end_matches('/'));
+
+        // Convert ChatMessage to LM Studio v1 input format
+        let mut system_prompt: Option<String> = None;
+        let mut input_items: Vec<Value> = Vec::new();
+        for msg in &request.messages {
+            if msg.role == "system" {
+                system_prompt = Some(msg.content.clone());
+            } else {
+                input_items.push(json!({
+                    "type": "message",
+                    "role": msg.role,
+                    "content": msg.content
+                }));
+            }
+        }
+
+        let mut body = json!({
+            "model": model_name,
+            "input": input_items,
+            "stream": true,
+        });
+
+        if let Some(obj) = body.as_object_mut() {
+            if let Some(ref sp) = system_prompt {
+                obj.insert("system_prompt".to_string(), json!(sp));
+            }
+            if let Some(v) = request.temperature {
+                obj.insert("temperature".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_p {
+                obj.insert("top_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.top_k {
+                obj.insert("top_k".to_string(), json!(v));
+            }
+            if let Some(v) = request.min_p {
+                obj.insert("min_p".to_string(), json!(v));
+            }
+            if let Some(v) = request.repeat_penalty {
+                obj.insert("repeat_penalty".to_string(), json!(v));
+            }
+            if let Some(v) = request.max_tokens {
+                obj.insert("max_output_tokens".to_string(), json!(v));
+            }
+            if let Some(v) = request.seed {
+                obj.insert("seed".to_string(), json!(v));
+            }
+        }
+
+        let request_timeout = self.get_external_loader_request_timeout();
+        let response = self.http.post(&endpoint).json(&body);
+        let response = tokio::time::timeout(request_timeout, response.send())
+            .await
+            .map_err(|_| loader_timeout_error("lmstudio", &endpoint, request_timeout, "request"))?
+            .map_err(|err| unreachable_loader_error("lmstudio", base_url, err))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(ApiError::Internal(format!(
+                "lmstudio native streaming request failed ({}): {}",
+                status, text
+            )));
+        }
+
+        let (tx, rx) = mpsc::channel(128);
+        let mut byte_stream = response.bytes_stream();
+        let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
+        tokio::spawn(async move {
+            let mut buffer = String::new();
+            let mut is_reasoning_open = false;
+            // LM Studio v1 SSE format: "event: <type>\ndata: <json>\n\n"
+            loop {
+                let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
+                let next = match next {
+                    Ok(value) => value,
+                    Err(_) => {
+                        let _ = tx
+                            .send(Err(ApiError::Internal(format!(
+                                "lmstudio stream idle timeout after {} ms",
+                                stream_idle_timeout.as_millis()
+                            ))))
+                            .await;
+                        return;
+                    }
+                };
+
+                let Some(next) = next else {
+                    break;
+                };
+
+                match next {
+                    Ok(bytes) => {
+                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+                        // Parse SSE events: "event: <type>\ndata: <json>\n\n"
+                        while let Some(double_newline) = buffer.find("\n\n") {
+                            let event_block = buffer[..double_newline].to_string();
+                            buffer = buffer[(double_newline + 2)..].to_string();
+
+                            let mut event_type = String::new();
+                            let mut event_data = String::new();
+                            for line in event_block.lines() {
+                                if let Some(t) = line.strip_prefix("event: ") {
+                                    event_type = t.trim().to_string();
+                                } else if let Some(d) = line.strip_prefix("data: ") {
+                                    event_data = d.trim().to_string();
+                                }
+                            }
+
+                            match event_type.as_str() {
+                                "reasoning.start" => {
+                                    if !is_reasoning_open {
+                                        let _ = tx.send(Ok("<think>\n".to_string())).await;
+                                        is_reasoning_open = true;
+                                    }
+                                }
+                                "reasoning.delta" => {
+                                    if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
+                                        let content = parsed.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                                        if !content.is_empty() {
+                                            if tx.send(Ok(content.to_string())).await.is_err() {
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                                "reasoning.end" => {
+                                    if is_reasoning_open {
+                                        let _ = tx.send(Ok("\n</think>\n".to_string())).await;
+                                        is_reasoning_open = false;
+                                    }
+                                }
+                                "message.delta" => {
+                                    if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
+                                        let content = parsed.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                                        if !content.is_empty() {
+                                            if tx.send(Ok(content.to_string())).await.is_err() {
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                                "chat.end" => {
+                                    if is_reasoning_open {
+                                        let _ = tx.send(Ok("\n</think>\n".to_string())).await;
+                                    }
+                                    return;
+                                }
+                                "error" => {
+                                    if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
+                                        let err_msg = parsed
+                                            .get("error")
+                                            .and_then(|e| e.get("message"))
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("Unknown LM Studio error");
+                                        let _ = tx.send(Err(ApiError::Internal(
+                                            format!("LM Studio error: {}", err_msg)
+                                        ))).await;
+                                        return;
+                                    }
+                                }
+                                _ => {
+                                    // chat.start, model_load.*, prompt_processing.*, message.start, message.end, tool_call.* - skip
+                                }
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        let _ = tx
+                            .send(Err(ApiError::Internal(format!(
+                                "LM Studio streaming transport failed: {}",
+                                err
+                            ))))
+                            .await;
+                        return;
                     }
                 }
             }
