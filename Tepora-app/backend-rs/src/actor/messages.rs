@@ -56,6 +56,11 @@ pub enum SessionEvent {
         node_id: String,
         output: Value,
     },
+    /// Memory generation is starting or has completed
+    MemoryGeneration {
+        session_id: String,
+        status: String, // "started" or "completed"
+    },
     /// Generation completely finished
     GenerationComplete { session_id: String },
 }

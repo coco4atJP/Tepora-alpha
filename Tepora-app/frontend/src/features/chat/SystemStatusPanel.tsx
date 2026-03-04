@@ -3,6 +3,7 @@ import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSystemStatus } from "../../hooks/useSystemStatus";
 import type { MemoryStats } from "../../types";
+import { useChatStore } from "../../stores/chatStore";
 
 interface SystemStatusPanelProps {
 	isConnected: boolean;
@@ -12,6 +13,7 @@ interface SystemStatusPanelProps {
 const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memoryStats }) => {
 	const { t } = useTranslation();
 	const { data: systemStatus } = useSystemStatus();
+	const isGeneratingMemory = useChatStore((s) => s.isGeneratingMemory);
 
 	const totalMemoryEvents =
 		(memoryStats?.char_memory?.total_events || 0) + (memoryStats?.prof_memory?.total_events || 0);
@@ -87,9 +89,16 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 							</div>
 							<span className="text-[11px] text-gray-400 font-medium">EM-LLM</span>
 						</div>
-						<span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
-							{systemStatus.memory_events} {t("status.events")}
-						</span>
+						{isGeneratingMemory ? (
+							<span className="text-[11px] font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded flex items-center gap-1.5">
+								<Activity className="w-3 h-3 animate-spin" />
+								{t("status.generating_memory", "メモリ生成中...")}
+							</span>
+						) : (
+							<span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
+								{systemStatus.memory_events} {t("status.events")}
+							</span>
+						)}
 					</div>
 				)}
 

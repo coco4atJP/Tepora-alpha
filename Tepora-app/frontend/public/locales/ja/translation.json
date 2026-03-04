@@ -290,7 +290,8 @@
 		"messages": "メッセージ",
 		"events_suffix": "イベント",
 		"char": "Char",
-		"prof": "Prof"
+		"prof": "Prof",
+		"generating_memory": "メモリ生成中..."
 	},
 	"settings": {
 		"title": "設定",

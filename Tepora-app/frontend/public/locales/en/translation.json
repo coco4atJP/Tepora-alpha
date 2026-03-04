@@ -288,7 +288,8 @@
 		"messages": "Messages",
 		"events_suffix": "events",
 		"char": "Char",
-		"prof": "Prof"
+		"prof": "Prof",
+		"generating_memory": "Generating memory..."
 	},
 	"settings": {
 		"title": "Settings",

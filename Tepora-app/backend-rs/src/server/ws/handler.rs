@@ -424,6 +424,9 @@ async fn handle_message_internal(
                 SessionEvent::NodeCompleted { session_id: ev_session, node_id, output } if ev_session == session_id => {
                     let _ = send_json(sender, json!({ "type": "node_completed", "nodeId": node_id, "output": output })).await;
                 }
+                SessionEvent::MemoryGeneration { session_id: ev_session, status } if ev_session == session_id => {
+                    let _ = send_json(sender, json!({ "type": "memory_generation", "status": status })).await;
+                }
                 SessionEvent::Error { session_id: ev_session, message } if ev_session == session_id => {
                     let _ = send_json(sender, json!({ "type": "error", "message": message })).await;
                 }
@@ -491,6 +494,17 @@ async fn handle_message_internal(
         .unwrap_or_else(|| "default".to_string());
     let embedding_model_id = resolve_embedding_model_id(state);
     let legacy_enabled = state.is_redesign_enabled("legacy_memory");
+
+    let _ = send_json(
+        sender,
+        json!({
+            "type": "memory_generation",
+            "status": "started",
+            "sessionId": session_id,
+        }),
+    )
+    .await;
+
     let _ = state
         .memory_adapter
         .ingest_interaction(
@@ -503,6 +517,16 @@ async fn handle_message_internal(
             legacy_enabled,
         )
         .await;
+
+    let _ = send_json(
+        sender,
+        json!({
+            "type": "memory_generation",
+            "status": "completed",
+            "sessionId": session_id,
+        }),
+    )
+    .await;
 
     // Send an event to notify the frontend that all database writes for this interaction are complete.
     // This allows the frontend to refresh its session list and see the updated message count.

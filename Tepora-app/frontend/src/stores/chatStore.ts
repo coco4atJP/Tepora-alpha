@@ -31,6 +31,7 @@ interface ChatState {
 	activityLog: AgentActivity[];
 	searchResults: SearchResult[];
 	memoryStats: MemoryStats | null;
+	isGeneratingMemory: boolean;
 }
 
 interface ChatActions {
@@ -39,6 +40,9 @@ interface ChatActions {
 	addUserMessage: (content: string, mode: ChatMode, attachments?: Attachment[]) => void;
 	setMessages: (messages: Message[]) => void;
 	clearMessages: () => void;
+
+	// Generating Memory State
+	setIsGeneratingMemory: (isGenerating: boolean) => void;
 
 	// Error state
 	setError: (error: string | null) => void;
@@ -73,6 +77,7 @@ const initialState: ChatState = {
 	activityLog: [],
 	searchResults: [],
 	memoryStats: null,
+	isGeneratingMemory: false,
 };
 
 // ============================================================================
@@ -144,6 +149,14 @@ export const useChatStore = create<ChatStore>()(
 
 			clearError: () => {
 				set({ error: null }, false, "clearError");
+			},
+
+			// ------------------------------------------------------------------
+			// Generating Memory State
+			// ------------------------------------------------------------------
+
+			setIsGeneratingMemory: (isGeneratingMemory) => {
+				set({ isGeneratingMemory }, false, "setIsGeneratingMemory");
 			},
 
 			// ------------------------------------------------------------------

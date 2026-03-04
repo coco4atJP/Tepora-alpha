@@ -61,10 +61,12 @@ export interface WebSocketMessage {
 	| "session_changed"
 	| "download_progress"
 	| "interaction_complete"
+	| "memory_generation"
 	| "thought";
 	message?: string;
 	messages?: Message[]; // For history loading
 	sessionId?: string; // For session_changed event
+	status?: string; // For memory_generation event
 	mode?: string;
 	agentName?: string;
 	nodeId?: string;

@@ -220,6 +220,11 @@ impl SessionActor {
         
         let message_text_for_ingest = message.clone();
         
+        let _ = events_tx.send(SessionEvent::MemoryGeneration {
+            session_id: session_id.clone(),
+            status: "started".into(),
+        });
+
         // Use tokio::spawn to not block the actor, or just await it. Awaiting is fine here since it's already in a spawned task.
         let _ = app_state
             .memory_adapter
@@ -233,6 +238,11 @@ impl SessionActor {
                 legacy_enabled,
             )
             .await;
+
+        let _ = events_tx.send(SessionEvent::MemoryGeneration {
+            session_id: session_id.clone(),
+            status: "completed".into(),
+        });
 
         let _ = events_tx.send(SessionEvent::GenerationComplete {
             session_id: session_id.clone()

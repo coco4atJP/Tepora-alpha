@@ -178,6 +178,10 @@ export const useWebSocketStore = create<WebSocketStore>()(
 							window.dispatchEvent(new CustomEvent("session-refresh"));
 							break;
 
+						case "memory_generation":
+							chatStore.setIsGeneratingMemory(data.status === "started");
+							break;
+
 						case "thought":
 							if (data.content) {
 								chatStore.updateMessageThinking(data.content);
