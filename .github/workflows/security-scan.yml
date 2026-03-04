@@ -40,11 +40,30 @@ jobs:
       - name: Run cargo audit
         id: cargo_audit
         run: |
+          set +e
           cargo audit --ignore RUSTSEC-2023-0071 2>&1 | tee audit-output.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            echo "network_failure=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if rg -q "(download of config\.json failed|failed to download from `https://index\.crates\.io|spurious network error|CONNECT tunnel failed|Could not fetch advisory database)" audit-output.txt; then
+            echo "::warning::cargo audit failed due to network/index access issues."
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            echo "network_failure=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          echo "network_failure=0" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Create Issue on Failure
-        if: steps.cargo_audit.outputs.exit_code != '0'
+        if: steps.cargo_audit.outputs.exit_code == '1'
         uses: actions/github-script@v7
         with:
           script: |
@@ -106,7 +125,27 @@ jobs:
       - name: Run npm audit
         id: npm_audit
         run: |
-          npm audit --audit-level=moderate 2>&1 | tee audit-output.txt || echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          set +e
+          npm audit --audit-level=moderate 2>&1 | tee audit-output.txt
+          status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            echo "network_failure=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if rg -q "(audit endpoint returned an error|E403|403 Forbidden|ECONNRESET|ETIMEDOUT|ENOTFOUND)" audit-output.txt; then
+            echo "::warning::npm audit failed due to registry/audit endpoint access issues."
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            echo "network_failure=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          echo "network_failure=0" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Create Issue on Failure
         if: steps.npm_audit.outputs.exit_code == '1'

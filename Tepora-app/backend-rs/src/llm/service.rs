@@ -1262,10 +1262,10 @@ impl LlmService {
                                 "reasoning.delta" => {
                                     if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
                                         let content = parsed.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                                        if !content.is_empty() {
-                                            if tx.send(Ok(content.to_string())).await.is_err() {
-                                                return;
-                                            }
+                                        if !content.is_empty()
+                                            && tx.send(Ok(content.to_string())).await.is_err()
+                                        {
+                                            return;
                                         }
                                     }
                                 }
@@ -1278,10 +1278,10 @@ impl LlmService {
                                 "message.delta" => {
                                     if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
                                         let content = parsed.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                                        if !content.is_empty() {
-                                            if tx.send(Ok(content.to_string())).await.is_err() {
-                                                return;
-                                            }
+                                        if !content.is_empty()
+                                            && tx.send(Ok(content.to_string())).await.is_err()
+                                        {
+                                            return;
                                         }
                                     }
                                 }
