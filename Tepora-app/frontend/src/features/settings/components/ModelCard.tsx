@@ -2,9 +2,9 @@ import {
     Cpu,
     Database,
     HardDrive,
-    Play,
+    Settings2,
     Trash2,
-    Check
+    Tag
 } from "lucide-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -13,21 +13,20 @@ import type { ModelInfo } from "../../../types";
 
 interface ModelCardProps {
     model: ModelInfo;
-    isActive: boolean;
+    isActive?: boolean;
     isDownloading?: boolean;
     downloadProgress?: number;
-    onActivate: (id: string) => void;
     onDelete: (id: string) => void;
-    onDownload?: (id: string) => void; // Future use if we support re-download/update
+    onSettings?: (model: ModelInfo) => void;
+    onDownload?: (id: string) => void;
 }
 
 export const ModelCard: React.FC<ModelCardProps> = ({
     model,
-    isActive,
     isDownloading,
     downloadProgress,
-    onActivate,
     onDelete,
+    onSettings,
 }) => {
     const { t } = useTranslation();
 
@@ -61,56 +60,80 @@ export const ModelCard: React.FC<ModelCardProps> = ({
         }
     };
 
+    // Generate derived tags based on filename, role, loader
+    const tags = React.useMemo(() => {
+        const t = [];
+        if (model.role) t.push(model.role);
+        if (model.loader) t.push(model.loader);
+
+        const filenameLower = (model.filename || "").toLowerCase();
+        if (filenameLower.includes("gguf")) t.push("gguf");
+        if (filenameLower.includes("llama3") || filenameLower.includes("llama-3")) t.push("llama-3");
+        if (filenameLower.includes("q4_k_m") || filenameLower.includes("q4")) t.push("q4");
+        if (filenameLower.includes("q8_0") || filenameLower.includes("q8")) t.push("q8");
+        if (filenameLower.includes("fp16")) t.push("fp16");
+
+        // Remove duplicates and limit to 4 tags
+        return Array.from(new Set(t)).slice(0, 4);
+    }, [model]);
+
     return (
         <div className={`
             relative group flex flex-col justify-between
-            glass-panel p-5
-            hover:shadow-[0_0_20px_rgba(252,211,77,0.15)]
-            ${isActive ? "ring-1 ring-gold-400 bg-gold-900/10 glow-border" : ""}
+            bg-gradient-to-br from-white/[0.03] to-white/[0.01]
+            backdrop-blur-xl border border-white/10 rounded-2xl p-5
+            hover:border-gold-500/30 hover:shadow-[0_8px_32px_-8px_rgba(252,211,77,0.15)]
+            hover:-translate-y-1 transition-all duration-300 ease-out
+            overflow-hidden
         `}>
-            {/* Active Indicator */}
-            {isActive && (
-                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-gold-500/20 text-gold-300 text-[10px] uppercase tracking-wider font-bold border border-gold-500/30 flex items-center gap-1.5 shadow-sm">
-                    <Check size={12} strokeWidth={3} />
-                    {t("common.active", "Active")}
-                </div>
-            )}
+            {/* Ambient Background Glow inside the card */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gold-400/5 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-gold-400/10 transition-colors pointer-events-none" />
 
             {/* Content Top */}
-            <div className="space-y-4 mb-5">
+            <div className="space-y-4 mb-5 relative z-10">
                 <div className="flex items-start justify-between min-h-[3rem]">
-                    <div className={`flex-1 min-w-0 ${isActive ? 'pr-20' : 'pr-4'}`}>
-                        <FitText className="font-semibold text-white/95 line-clamp-2 tracking-tight" minFontSize={14} maxFontSize={18}>
+                    <div className="flex-1 min-w-0 pr-4">
+                        <FitText className="font-semibold text-white/95 line-clamp-2 tracking-tight drop-shadow-sm" minFontSize={15} maxFontSize={19}>
                             {model.display_name}
                         </FitText>
-                        <div className="flex items-center gap-2 mt-1.5 text-[11px] font-medium text-tea-300/80 uppercase tracking-wide">
+                        <div className="flex items-center gap-2 mt-2 text-[11px] font-medium text-tea-200/90 uppercase tracking-widest">
                             {getRoleIcon(model.role)}
                             <span>{getRoleLabel(model.role)}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-tea-200/70">
-                    <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/5">
-                        <HardDrive size={12} className="text-tea-400/60" />
-                        <span className="font-medium">{formatSize(model.file_size)}</span>
+                {/* Tags visualization */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    {tags.map((tag, idx) => (
+                        <span key={idx} className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-tea-200/80 font-mono">
+                            <Tag size={10} className="text-tea-400/50" />
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-tea-100/80 pt-2">
+                    <div className="flex items-center gap-2 bg-black/40 rounded-lg px-3 py-2 border border-white/5 shadow-inner">
+                        <HardDrive size={14} className="text-tea-400/70" />
+                        <span className="font-medium tracking-wide">{formatSize(model.file_size)}</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/5 min-w-0">
-                        <Cpu size={12} className="text-tea-400/60 shrink-0" />
-                        <span className="truncate font-medium min-w-0 flex-1" title={model.filename}>{model.filename || "Unknown"}</span>
+                    <div className="flex items-center gap-2 bg-black/40 rounded-lg px-3 py-2 border border-white/5 shadow-inner min-w-0">
+                        <Cpu size={14} className="text-tea-400/70 shrink-0" />
+                        <span className="truncate font-medium min-w-0 flex-1 tracking-wide" title={model.filename}>{model.filename || "Unknown"}</span>
                     </div>
                 </div>
             </div>
 
             {/* Download Progress Overlay */}
             {isDownloading && (
-                <div className="absolute inset-0 bg-bg-app/80 backdrop-blur-md flex flex-col items-center justify-center p-5 z-10 transition-opacity rounded-2xl">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-5 z-20 transition-opacity">
                     <div className="w-full text-center space-y-3">
-                        <div className="flex justify-between text-xs font-medium text-tea-200 mb-1 px-1">
+                        <div className="flex justify-between text-xs font-medium text-tea-100 mb-1 px-1">
                             <span>{t("common.downloading", "Downloading...")}</span>
                             <span className="text-gold-300">{Math.round(downloadProgress || 0)}%</span>
                         </div>
-                        <div className="w-full bg-black/40 rounded-full h-2 overflow-hidden border border-white/5">
+                        <div className="w-full bg-black/50 rounded-full h-1.5 overflow-hidden border border-white/10">
                             <div
                                 className="h-full bg-gradient-to-r from-tea-400 to-gold-400 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(252,211,77,0.5)]"
                                 style={{ width: `${downloadProgress}%` }}
@@ -121,20 +144,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             )}
 
             {/* Actions Bottom */}
-            <div className={`flex items-center pt-4 border-t border-white/5 opacity-80 group-hover:opacity-100 transition-all duration-300 mt-auto min-h-[52px] ${isActive ? 'justify-end' : 'gap-2'}`}>
-                {!isActive && (
+            <div className="flex items-center gap-2 pt-4 border-t border-white/10 opacity-80 group-hover:opacity-100 transition-opacity duration-300 mt-auto min-h-[52px] relative z-10">
+                {onSettings && (
                     <button
-                        onClick={() => onActivate(model.id)}
-                        className="flex-1 px-3 py-2 rounded-xl bg-white/5 hover:bg-gold-500/20 hover:border-gold-500/30 border border-transparent text-tea-100/90 text-[11px] font-bold tracking-wide uppercase transition-all flex items-center justify-center gap-1.5 hover:shadow-[0_0_12px_rgba(252,211,77,0.15)] hover:-translate-y-0.5"
+                        onClick={() => onSettings(model)}
+                        className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-tea-100/90 text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)]"
+                        title={t("common.settings", "Settings")}
                     >
-                        <Play size={12} className="fill-current" />
-                        {t("common.activate", "Activate")}
+                        <Settings2 size={14} />
+                        {t("common.settings", "Settings")}
                     </button>
                 )}
 
                 <button
                     onClick={() => onDelete(model.id)}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-red-500/20 border border-transparent hover:border-red-500/30 text-tea-100/60 hover:text-red-400 transition-all flex items-center justify-center hover:shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:-translate-y-0.5"
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/5 hover:border-red-500/30 text-tea-100/60 hover:text-red-400 transition-all flex items-center justify-center hover:shadow-[0_4px_12px_rgba(239,68,68,0.1)] shrink-0"
                     title={t("common.delete", "Delete")}
                 >
                     <Trash2 size={16} />
