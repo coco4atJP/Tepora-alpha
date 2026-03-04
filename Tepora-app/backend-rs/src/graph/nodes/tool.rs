@@ -37,8 +37,9 @@ impl Node for ToolNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "tool_execution",
@@ -46,9 +47,8 @@ impl Node for ToolNode {
                     "message": format!("Executing tool: {}", self.tool_name),
                     "agentName": "Tool Handler"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         // Execute tool
         let result = execute_tool(
@@ -65,10 +65,10 @@ impl Node for ToolNode {
             Ok(execution) => {
                 // Send search results if available
                 if let Some(results) = &execution.search_results {
-                    let _ = ctx.sender.send_json(
-                        json!({ "type": "search_results", "data": results }),
-                    )
-                    .await;
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({ "type": "search_results", "data": results }))
+                        .await;
                 }
 
                 // Add tool result to scratchpad
@@ -77,8 +77,9 @@ impl Node for ToolNode {
                     content: format!("Tool `{}` result:\n{}", self.tool_name, execution.output),
                 });
 
-                let _ = ctx.sender.send_json(
-                    json!({
+                let _ = ctx
+                    .sender
+                    .send_json(json!({
                         "type": "activity",
                         "data": {
                             "id": "tool_execution",
@@ -86,9 +87,8 @@ impl Node for ToolNode {
                             "message": format!("Tool `{}` completed", self.tool_name),
                             "agentName": "Tool Handler"
                         }
-                    }),
-                )
-                .await;
+                    }))
+                    .await;
 
                 Ok(NodeOutput::Continue(None))
             }
@@ -100,8 +100,9 @@ impl Node for ToolNode {
                     content: failure.clone(),
                 });
 
-                let _ = ctx.sender.send_json(
-                    json!({
+                let _ = ctx
+                    .sender
+                    .send_json(json!({
                         "type": "activity",
                         "data": {
                             "id": "tool_execution",
@@ -109,9 +110,8 @@ impl Node for ToolNode {
                             "message": &failure,
                             "agentName": "Tool Handler"
                         }
-                    }),
-                )
-                .await;
+                    }))
+                    .await;
 
                 // Continue even on failure (agent will see the error)
                 Ok(NodeOutput::Continue(None))

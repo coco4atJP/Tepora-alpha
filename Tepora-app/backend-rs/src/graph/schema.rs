@@ -88,16 +88,14 @@ pub const WORKFLOW_SCHEMA_JSON: &str = r#"{
 pub fn validate_workflow_json(value: &serde_json::Value) -> Result<(), Vec<String>> {
     let schema_json: serde_json::Value = serde_json::from_str(WORKFLOW_SCHEMA_JSON)
         .expect("Hardcoded WORKFLOW_SCHEMA_JSON is invalid");
-    
-    let compiled_schema = jsonschema::validator_for(&schema_json)
-        .expect("Failed to compile WORKFLOW_SCHEMA_JSON");
+
+    let compiled_schema =
+        jsonschema::validator_for(&schema_json).expect("Failed to compile WORKFLOW_SCHEMA_JSON");
 
     let result = compiled_schema.validate(value);
     match result {
         Ok(_) => Ok(()),
-        Err(err) => {
-            Err(vec![err.to_string()])
-        }
+        Err(err) => Err(vec![err.to_string()]),
     }
 }
 
@@ -130,7 +128,9 @@ mod tests {
         let res = validate_workflow_json(&invalid);
         assert!(res.is_err());
         let errs = res.unwrap_err();
-        assert!(errs.iter().any(|e| e.contains("\"nodes\" is a required property") || e.contains("is not valid")));
+        assert!(errs
+            .iter()
+            .any(|e| e.contains("\"nodes\" is a required property") || e.contains("is not valid")));
     }
 
     #[test]
@@ -167,13 +167,22 @@ mod tests {
         let workflow: WorkflowDef = serde_json::from_value(original_json.clone())
             .expect("Should deserialize valid workflow correctly");
 
-        let serialized_json = serde_json::to_value(&workflow)
-            .expect("Should serialize back to JSON correctly");
+        let serialized_json =
+            serde_json::to_value(&workflow).expect("Should serialize back to JSON correctly");
 
         // Assert that the unknown metadata is structurally preserved
-        assert_eq!(original_json["nodes"][0]["metadata"]["label"], "Starting Point");
-        assert_eq!(serialized_json["nodes"][0]["metadata"]["label"], "Starting Point");
+        assert_eq!(
+            original_json["nodes"][0]["metadata"]["label"],
+            "Starting Point"
+        );
+        assert_eq!(
+            serialized_json["nodes"][0]["metadata"]["label"],
+            "Starting Point"
+        );
         assert_eq!(serialized_json["nodes"][0]["metadata"]["x"], 100);
-        assert_eq!(serialized_json["edges"][0]["metadata"]["edge_type"], "dashed");
+        assert_eq!(
+            serialized_json["edges"][0]["metadata"]["edge_type"],
+            "dashed"
+        );
     }
 }

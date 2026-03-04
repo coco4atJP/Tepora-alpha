@@ -85,8 +85,9 @@ impl Node for SearchNode {
         let mut web_failed = false;
 
         if search_enabled && !state.skip_web_search {
-            let _ = ctx.sender.send_json(
-                json!({
+            let _ = ctx
+                .sender
+                .send_json(json!({
                     "type": "activity",
                     "data": {
                         "id": "search",
@@ -94,9 +95,8 @@ impl Node for SearchNode {
                         "message": "Executing web search...",
                         "agentName": "Search"
                     }
-                }),
-            )
-            .await;
+                }))
+                .await;
 
             match execute_tool(
                 Some(ctx.app_state),
@@ -114,10 +114,10 @@ impl Node for SearchNode {
                     }
 
                     if !web_results.is_empty() {
-                        let _ = ctx.sender.send_json(
-                            json!({ "type": "search_results", "data": web_results }),
-                        )
-                        .await;
+                        let _ = ctx
+                            .sender
+                            .send_json(json!({ "type": "search_results", "data": web_results }))
+                            .await;
                     }
 
                     let fetch_top_n = ctx
@@ -176,8 +176,9 @@ impl Node for SearchNode {
                 }
             }
 
-            let _ = ctx.sender.send_json(
-                json!({
+            let _ = ctx
+                .sender
+                .send_json(json!({
                     "type": "activity",
                     "data": {
                         "id": "search",
@@ -185,9 +186,8 @@ impl Node for SearchNode {
                         "message": "Search and fetch phase complete",
                         "agentName": "Search"
                     }
-                }),
-            )
-            .await;
+                }))
+                .await;
         }
 
         let rag_limit = ctx
@@ -221,15 +221,15 @@ impl Node for SearchNode {
                     .to_string()
             };
 
-            let _ = ctx.sender.send_json(
-                json!({
+            let _ = ctx
+                .sender
+                .send_json(json!({
                     "type": "chunk",
                     "message": fallback_message,
                     "mode": "search",
-                }),
-            )
-            .await;
-            let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+                }))
+                .await;
+            let _ = ctx.sender.send_json(json!({"type": "done"})).await;
             state.output = Some(
                 "RAG context is empty. Please ingest additional sources for higher quality results."
                     .to_string(),
@@ -293,14 +293,14 @@ impl Node for SearchNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = ctx.sender.send_json(
-                        json!({
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({
                             "type": "chunk",
                             "message": chunk,
                             "mode": "search",
-                        }),
-                    )
-                    .await;
+                        }))
+                        .await;
                 }
                 Err(err) => {
                     return Err(GraphError::new(self.id(), err.to_string()));
@@ -308,7 +308,7 @@ impl Node for SearchNode {
             }
         }
 
-        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
         state.search_results = Some(web_results);
         state.output = Some(full_response);

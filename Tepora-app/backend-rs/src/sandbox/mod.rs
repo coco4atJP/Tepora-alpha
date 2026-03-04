@@ -71,10 +71,7 @@ pub fn build_wasm_launch_spec(
     // Keep runtime arguments minimal:
     // - no preopened dirs (filesystem isolation)
     // - no networking flags (network isolation by default)
-    let mut args = vec![
-        "run".to_string(),
-        module_path.to_string_lossy().to_string(),
-    ];
+    let mut args = vec!["run".to_string(), module_path.to_string_lossy().to_string()];
     if !module_args.is_empty() {
         args.push("--".to_string());
         args.extend(module_args.iter().cloned());
@@ -102,8 +99,12 @@ fn validate_wasm_module(module_path: &Path) -> Result<(), String> {
     config.wasm_memory64(false);
 
     let engine = Engine::new(&config).map_err(|e| format!("Failed to create Wasm engine: {e}"))?;
-    Module::from_file(&engine, module_path)
-        .map_err(|e| format!("Invalid Wasm module '{}': {e}", module_path.to_string_lossy()))?;
+    Module::from_file(&engine, module_path).map_err(|e| {
+        format!(
+            "Invalid Wasm module '{}': {e}",
+            module_path.to_string_lossy()
+        )
+    })?;
     Ok(())
 }
 

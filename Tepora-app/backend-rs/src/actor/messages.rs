@@ -6,7 +6,7 @@ pub enum SessionQuery {
     GetStatus {
         session_id: String,
         reply_to: oneshot::Sender<String>,
-    }
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -23,9 +23,7 @@ pub enum SessionCommand {
         skip_web_search: bool,
     },
     /// Command to stop any ongoing generation in a session
-    StopGeneration {
-        session_id: String,
-    },
+    StopGeneration { session_id: String },
     /// Command to resolve a pending tool approval request in actor mode.
     ToolApprovalResponse {
         session_id: String,
@@ -33,9 +31,7 @@ pub enum SessionCommand {
         approved: bool,
     },
     /// Command to shut down the session actor
-    Shutdown {
-        session_id: String,
-    },
+    Shutdown { session_id: String },
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

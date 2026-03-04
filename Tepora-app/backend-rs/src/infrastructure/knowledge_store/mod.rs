@@ -6,8 +6,8 @@
 
 pub mod adapter;
 
-pub use adapter::RagKnowledgeAdapter;
 pub use crate::rag::{
     ChunkSearchResult, ContextBuilderConfig, RAGConfig, RAGContextBuilder, RAGEngine, RagStore,
     SqliteRagStore, StoredChunk, TextChunk,
 };
+pub use adapter::RagKnowledgeAdapter;

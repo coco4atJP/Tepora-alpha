@@ -343,16 +343,12 @@ impl ModelRuntimeConfig {
                 .get("repeat_last_n")
                 .and_then(|v| v.as_i64())
                 .map(|v| v as i32),
-            penalize_nl: model_cfg
-                .get("penalize_nl")
-                .and_then(|v| v.as_bool()),
+            penalize_nl: model_cfg.get("penalize_nl").and_then(|v| v.as_bool()),
             n_keep: model_cfg
                 .get("n_keep")
                 .and_then(|v| v.as_i64())
                 .map(|v| v as i32),
-            cache_prompt: model_cfg
-                .get("cache_prompt")
-                .and_then(|v| v.as_bool()),
+            cache_prompt: model_cfg.get("cache_prompt").and_then(|v| v.as_bool()),
         })
     }
 }

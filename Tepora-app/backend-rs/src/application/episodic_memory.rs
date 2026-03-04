@@ -42,10 +42,7 @@ impl EpisodicMemoryUseCase {
         self.episodic_memory.run_decay(session_id).await
     }
 
-    pub async fn compress(
-        &self,
-        session_id: &str,
-    ) -> Result<CompressionResult, DomainError> {
+    pub async fn compress(&self, session_id: &str) -> Result<CompressionResult, DomainError> {
         self.episodic_memory.compress(session_id).await
     }
 }

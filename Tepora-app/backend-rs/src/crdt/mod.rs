@@ -56,9 +56,7 @@ mod tests {
             .expect("Failed to put on B");
 
         // マージ: A が B の変更を取り込む
-        doc_a
-            .merge(&mut doc_b)
-            .expect("Failed to merge B into A");
+        doc_a.merge(&mut doc_b).expect("Failed to merge B into A");
 
         // 結果を読み出す - 勝者はどちらかが決まるが、コンフリクトは自動解決される
         let merged_title: String = doc_a
@@ -78,9 +76,7 @@ mod tests {
         );
 
         // 逆方向のマージも確認（対称性）
-        doc_b
-            .merge(&mut doc_a)
-            .expect("Failed to merge A into B");
+        doc_b.merge(&mut doc_a).expect("Failed to merge A into B");
 
         let merged_title_b: String = doc_b
             .get(&root, "session_title")
@@ -91,7 +87,10 @@ mod tests {
             .expect("Not a string");
 
         // 両方のドキュメントが同じ結果に収束すること
-        assert_eq!(merged_title, merged_title_b, "Documents did not converge after bidirectional merge");
+        assert_eq!(
+            merged_title, merged_title_b,
+            "Documents did not converge after bidirectional merge"
+        );
     }
 
     /// テスト: 複数フィールドの同時編集（コンフリクトなしの並行編集）
@@ -120,9 +119,7 @@ mod tests {
             .expect("Failed to put on B");
 
         // マージ
-        doc_a
-            .merge(&mut doc_b)
-            .expect("Failed to merge");
+        doc_a.merge(&mut doc_b).expect("Failed to merge");
 
         let title: String = doc_a
             .get(&root, "session_title")
@@ -177,10 +174,8 @@ mod tests {
         let tags = doc
             .put_object(&root, "tags", ObjType::List)
             .expect("Failed to create list");
-        doc.insert(&tags, 0, "important")
-            .expect("Failed to insert");
-        doc.insert(&tags, 1, "work")
-            .expect("Failed to insert");
+        doc.insert(&tags, 0, "important").expect("Failed to insert");
+        doc.insert(&tags, 1, "work").expect("Failed to insert");
 
         // フォークして並行追加
         let mut doc_a = doc.fork();
@@ -196,6 +191,9 @@ mod tests {
         doc_a.merge(&mut doc_b).expect("Failed to merge");
 
         let length = doc_a.length(&tags);
-        assert_eq!(length, 4, "Merged list should have 4 items (2 original + 2 concurrent inserts)");
+        assert_eq!(
+            length, 4,
+            "Merged list should have 4 items (2 original + 2 concurrent inserts)"
+        );
     }
 }

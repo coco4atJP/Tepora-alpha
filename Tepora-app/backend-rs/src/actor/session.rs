@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use tokio::sync::{mpsc, broadcast};
 use serde_json::Value;
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc};
 
-use crate::state::AppState;
-use crate::graph::{AgentState, Mode};
-use crate::graph::stream::GraphStreamer;
 use super::messages::{SessionCommand, SessionEvent};
+use crate::graph::stream::GraphStreamer;
+use crate::graph::{AgentState, Mode};
+use crate::state::AppState;
 
 use std::collections::{HashMap, HashSet};
 
@@ -15,7 +15,8 @@ pub struct SessionActor {
     pub app_state: Arc<AppState>,
     pub events_tx: broadcast::Sender<SessionEvent>,
     pub current_task: Option<tokio::task::JoinHandle<()>>,
-    pub pending_approvals: Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pub pending_approvals:
+        Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
     pub approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
 }
 
@@ -39,7 +40,7 @@ impl SessionActor {
 
     pub async fn run(mut self) {
         tracing::debug!("SessionActor started for {}", self.session_id);
-        
+
         while let Some(command) = self.rx.recv().await {
             match command {
                 SessionCommand::ProcessMessage {
@@ -62,7 +63,7 @@ impl SessionActor {
                     let session_clone = self.session_id.clone();
                     let pending_clone = self.pending_approvals.clone();
                     let approved_tools_clone = self.approved_mcp_tools.clone();
-                    
+
                     self.current_task = Some(tokio::spawn(async move {
                         Self::execute_process_message(
                             session_clone,
@@ -77,7 +78,8 @@ impl SessionActor {
                             agent_id,
                             agent_mode,
                             skip_web_search,
-                        ).await;
+                        )
+                        .await;
                     }));
                 }
                 SessionCommand::StopGeneration { .. } => {
@@ -85,9 +87,9 @@ impl SessionActor {
                     if let Some(handle) = self.current_task.take() {
                         handle.abort();
                     }
-                    let _ = self.events_tx.send(SessionEvent::Status { 
+                    let _ = self.events_tx.send(SessionEvent::Status {
                         session_id: self.session_id.clone(),
-                        message: "Generation stopped".into() 
+                        message: "Generation stopped".into(),
                     });
                 }
                 SessionCommand::ToolApprovalResponse {
@@ -133,7 +135,9 @@ impl SessionActor {
         session_id: String,
         app_state: Arc<AppState>,
         events_tx: broadcast::Sender<SessionEvent>,
-        pending_approvals: Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+        pending_approvals: Arc<
+            std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>,
+        >,
         approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
         message: String,
         mode_str: String,
@@ -161,7 +165,10 @@ impl SessionActor {
             message: "Processing started".into(),
         });
 
-        let config = app_state.config.load_config().unwrap_or_else(|_| serde_json::json!({}));
+        let config = app_state
+            .config
+            .load_config()
+            .unwrap_or_else(|_| serde_json::json!({}));
 
         let mut streamer = GraphStreamer::Actor {
             session_id: session_id.clone(),
@@ -176,7 +183,11 @@ impl SessionActor {
             approved_mcp_tools,
         };
 
-        if let Err(e) = app_state.graph_runtime.run(&mut agent_state, &mut node_ctx, None).await {
+        if let Err(e) = app_state
+            .graph_runtime
+            .run(&mut agent_state, &mut node_ctx, None)
+            .await
+        {
             let _ = events_tx.send(SessionEvent::Error {
                 session_id: session_id.clone(),
                 message: e.to_string(),
@@ -217,9 +228,9 @@ impl SessionActor {
             .unwrap_or_else(|| "default".to_string());
 
         let legacy_enabled = app_state.is_redesign_enabled("legacy_memory");
-        
+
         let message_text_for_ingest = message.clone();
-        
+
         // Use tokio::spawn to not block the actor, or just await it. Awaiting is fine here since it's already in a spawned task.
         let _ = app_state
             .memory_adapter
@@ -235,7 +246,7 @@ impl SessionActor {
             .await;
 
         let _ = events_tx.send(SessionEvent::GenerationComplete {
-            session_id: session_id.clone()
+            session_id: session_id.clone(),
         });
     }
 }

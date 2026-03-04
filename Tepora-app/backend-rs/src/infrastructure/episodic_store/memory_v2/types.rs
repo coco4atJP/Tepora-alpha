@@ -44,7 +44,10 @@ impl std::str::FromStr for MemoryScope {
         } else if s.eq_ignore_ascii_case("CHAR") {
             Ok(Self::Char)
         } else {
-            Err(crate::core::errors::ApiError::BadRequest(format!("Invalid MemoryScope: {}", s)))
+            Err(crate::core::errors::ApiError::BadRequest(format!(
+                "Invalid MemoryScope: {}",
+                s
+            )))
         }
     }
 }
@@ -109,7 +112,10 @@ impl std::str::FromStr for CompactionStatus {
             "running" => Ok(Self::Running),
             "done" => Ok(Self::Done),
             "failed" => Ok(Self::Failed),
-            _ => Err(crate::core::errors::ApiError::BadRequest(format!("Invalid CompactionStatus: {}", s))),
+            _ => Err(crate::core::errors::ApiError::BadRequest(format!(
+                "Invalid CompactionStatus: {}",
+                s
+            ))),
         }
     }
 }
@@ -249,8 +255,14 @@ mod tests {
     #[test]
     fn memory_scope_round_trip() {
         use std::str::FromStr;
-        assert_eq!(MemoryScope::from_str(MemoryScope::Char.as_str()).unwrap(), MemoryScope::Char);
-        assert_eq!(MemoryScope::from_str(MemoryScope::Prof.as_str()).unwrap(), MemoryScope::Prof);
+        assert_eq!(
+            MemoryScope::from_str(MemoryScope::Char.as_str()).unwrap(),
+            MemoryScope::Char
+        );
+        assert_eq!(
+            MemoryScope::from_str(MemoryScope::Prof.as_str()).unwrap(),
+            MemoryScope::Prof
+        );
         assert!(MemoryScope::from_str("unknown").is_err());
     }
 
@@ -281,7 +293,12 @@ mod tests {
 
     #[test]
     fn source_role_round_trip() {
-        for r in [SourceRole::User, SourceRole::Assistant, SourceRole::Tool, SourceRole::System] {
+        for r in [
+            SourceRole::User,
+            SourceRole::Assistant,
+            SourceRole::Tool,
+            SourceRole::System,
+        ] {
             assert_eq!(SourceRole::parse(r.as_str()), r);
         }
     }

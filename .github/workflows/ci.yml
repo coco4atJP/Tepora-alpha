@@ -116,7 +116,7 @@ jobs:
             exit 0
           fi
 
-          if rg -q "(download of config\.json failed|failed to download from `https://index\.crates\.io|spurious network error|CONNECT tunnel failed|Could not fetch advisory database)" cargo-audit.txt; then
+          if grep -Eq "download of config\.json failed|failed to download from https://index\.crates\.io|spurious network error|CONNECT tunnel failed|Could not fetch advisory database" cargo-audit.txt; then
             echo "::warning::cargo audit failed due to network/index access issues. Skipping failure in CI."
             exit 0
           fi
@@ -207,7 +207,7 @@ jobs:
             exit 0
           fi
 
-          if rg -q "(audit endpoint returned an error|E403|403 Forbidden|ECONNRESET|ETIMEDOUT|ENOTFOUND)" npm-audit.txt; then
+          if grep -Eq "audit endpoint returned an error|E403|403 Forbidden|ECONNRESET|ETIMEDOUT|ENOTFOUND" npm-audit.txt; then
             echo "::warning::npm audit failed due to registry/audit endpoint access issues. Skipping failure in CI."
             exit 0
           fi

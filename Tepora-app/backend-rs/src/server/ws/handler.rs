@@ -71,7 +71,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         tokio::select! {
             Some(incoming) = rx.recv() => {
                 use tracing::Instrument;
-                
+
                 let request_id = uuid::Uuid::new_v4().to_string();
                 let span = tracing::info_span!(
                     "ws_message",
@@ -109,7 +109,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     }
 
     if !current_session_id.is_empty() && state.is_redesign_enabled("actor_model") {
-        state.actor_manager.shutdown_session(&current_session_id).await;
+        state
+            .actor_manager
+            .shutdown_session(&current_session_id)
+            .await;
     }
 
     tracing::info!("WebSocket connection closed");
@@ -256,12 +259,21 @@ async fn handle_message(
                 // Reroute into a mock incoming message to continue the generation as if it was sent by the user
                 let mut new_data = data.clone();
                 new_data.message = Some(user_msg.content);
-                
+
                 if let Some(kwargs) = user_msg.additional_kwargs.as_ref() {
-                    new_data.mode = kwargs.get("mode").and_then(|v| v.as_str()).map(|s| s.to_string());
-                    new_data.agent_id = kwargs.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                    new_data.agent_mode = kwargs.get("agent_mode").and_then(|v| v.as_str()).map(|s| s.to_string());
-                    
+                    new_data.mode = kwargs
+                        .get("mode")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    new_data.agent_id = kwargs
+                        .get("agent_id")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    new_data.agent_mode = kwargs
+                        .get("agent_mode")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+
                     if let Some(arr) = kwargs.get("attachments").and_then(|v| v.as_array()) {
                         new_data.attachments = arr.clone();
                     }
@@ -272,10 +284,10 @@ async fn handle_message(
                         new_data.skip_web_search = Some(skip);
                     }
                 }
-                
+
                 // Clear msg_type so it falls through to the normal generation flow
                 new_data.msg_type = None;
-                
+
                 // Recursively call handle_message to process the "new" user message
                 // This time it will not be "regenerate" and will insert the new assistant response
                 return handle_message_internal(
@@ -285,7 +297,7 @@ async fn handle_message(
                     pending,
                     approved_mcp_tools,
                     new_data,
-                    true // is_regenerate flag
+                    true, // is_regenerate flag
                 )
                 .await;
             } else {
@@ -296,7 +308,16 @@ async fn handle_message(
         _ => {}
     }
 
-    handle_message_internal(sender, state, current_session_id, pending, approved_mcp_tools, data, false).await
+    handle_message_internal(
+        sender,
+        state,
+        current_session_id,
+        pending,
+        approved_mcp_tools,
+        data,
+        false,
+    )
+    .await
 }
 
 #[allow(clippy::ptr_arg)]
@@ -387,7 +408,7 @@ async fn handle_message_internal(
     // Feature Flag Check API logic
     if state.is_redesign_enabled("actor_model") {
         tracing::info!("Routing message for session {} via Actor Model", session_id);
-        
+
         let command = crate::actor::messages::SessionCommand::ProcessMessage {
             session_id: session_id.clone(),
             message: message_text.clone(),
@@ -398,7 +419,7 @@ async fn handle_message_internal(
             agent_mode: requested_agent_mode.clone(),
             skip_web_search: skip_search,
         };
-        
+
         // Subscribe to global events before dispatching to not miss anything
         let mut rx = state.actor_manager.subscribe();
 
@@ -407,29 +428,57 @@ async fn handle_message_internal(
             .dispatch(&session_id, state.clone(), command)
             .await
             .map_err(map_actor_dispatch_error)?;
-        
+
         // Loop over events from the actor
         while let Ok(event) = rx.recv().await {
             use crate::actor::messages::SessionEvent;
             match event {
-                SessionEvent::Token { session_id: ev_session, text } if ev_session == session_id => {
+                SessionEvent::Token {
+                    session_id: ev_session,
+                    text,
+                } if ev_session == session_id => {
                     let _ = send_json(sender, json!({ "type": "chunk", "message": text })).await;
                 }
-                SessionEvent::Thought { session_id: ev_session, content } if ev_session == session_id => {
-                    let _ = send_json(sender, json!({ "type": "thought", "content": content })).await;
+                SessionEvent::Thought {
+                    session_id: ev_session,
+                    content,
+                } if ev_session == session_id => {
+                    let _ =
+                        send_json(sender, json!({ "type": "thought", "content": content })).await;
                 }
-                SessionEvent::Status { session_id: ev_session, message } if ev_session == session_id => {
-                    let _ = send_json(sender, json!({ "type": "status", "message": message })).await;
+                SessionEvent::Status {
+                    session_id: ev_session,
+                    message,
+                } if ev_session == session_id => {
+                    let _ =
+                        send_json(sender, json!({ "type": "status", "message": message })).await;
                 }
-                SessionEvent::NodeCompleted { session_id: ev_session, node_id, output } if ev_session == session_id => {
-                    let _ = send_json(sender, json!({ "type": "node_completed", "nodeId": node_id, "output": output })).await;
+                SessionEvent::NodeCompleted {
+                    session_id: ev_session,
+                    node_id,
+                    output,
+                } if ev_session == session_id => {
+                    let _ = send_json(
+                        sender,
+                        json!({ "type": "node_completed", "nodeId": node_id, "output": output }),
+                    )
+                    .await;
                 }
-                SessionEvent::Error { session_id: ev_session, message } if ev_session == session_id => {
+                SessionEvent::Error {
+                    session_id: ev_session,
+                    message,
+                } if ev_session == session_id => {
                     let _ = send_json(sender, json!({ "type": "error", "message": message })).await;
                 }
-                SessionEvent::GenerationComplete { session_id: ev_session } if ev_session == session_id => {
+                SessionEvent::GenerationComplete {
+                    session_id: ev_session,
+                } if ev_session == session_id => {
                     let _ = send_json(sender, json!({"type": "done"})).await;
-                    let _ = send_json(sender, json!({"type": "interaction_complete", "sessionId": session_id})).await;
+                    let _ = send_json(
+                        sender,
+                        json!({"type": "interaction_complete", "sessionId": session_id}),
+                    )
+                    .await;
                     break;
                 }
                 _ => {} // Ignore events for other sessions

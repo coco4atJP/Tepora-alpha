@@ -177,7 +177,10 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
                     continue;
                 }
                 if !value.is_boolean() {
-                    return Err(config_type_error(&format!("features.redesign.{}", key), "boolean"));
+                    return Err(config_type_error(
+                        &format!("features.redesign.{}", key),
+                        "boolean",
+                    ));
                 }
             }
         }

@@ -7,7 +7,9 @@ use std::sync::Arc;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-use crate::server::handlers::{agents, auth, config, health, logs, mcp, memory, metrics, sessions, setup, tools};
+use crate::server::handlers::{
+    agents, auth, config, health, logs, mcp, memory, metrics, sessions, setup, tools,
+};
 use crate::server::middleware::auth::require_api_key_middleware;
 use crate::server::middleware::rate_limit::rate_limit_middleware;
 use crate::server::ws::handler::ws_handler;
@@ -79,7 +81,10 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         )
         .route("/api/tools", get(tools::list_tools))
         .route("/api/memory/compress", post(memory::compress_memories))
-        .route("/api/memory/compaction_jobs", get(memory::list_compaction_jobs))
+        .route(
+            "/api/memory/compaction_jobs",
+            get(memory::list_compaction_jobs),
+        )
         .route("/api/memory/decay", post(memory::run_decay_cycle))
         .route("/api/setup/requirements", get(setup::setup_requirements))
         .route(

@@ -29,7 +29,9 @@ impl KnowledgeUseCase {
         limit: usize,
         session_id: Option<&str>,
     ) -> Result<Vec<KnowledgeHit>, DomainError> {
-        self.knowledge.search(query_embedding, limit, session_id).await
+        self.knowledge
+            .search(query_embedding, limit, session_id)
+            .await
     }
 
     pub async fn text_search(

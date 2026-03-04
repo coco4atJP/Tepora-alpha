@@ -51,7 +51,7 @@ jobs:
             exit 0
           fi
 
-          if rg -q "(download of config\.json failed|failed to download from `https://index\.crates\.io|spurious network error|CONNECT tunnel failed|Could not fetch advisory database)" audit-output.txt; then
+          if grep -Eq "download of config\.json failed|failed to download from https://index\.crates\.io|spurious network error|CONNECT tunnel failed|Could not fetch advisory database" audit-output.txt; then
             echo "::warning::cargo audit failed due to network/index access issues."
             echo "exit_code=0" >> "$GITHUB_OUTPUT"
             echo "network_failure=1" >> "$GITHUB_OUTPUT"
@@ -136,7 +136,7 @@ jobs:
             exit 0
           fi
 
-          if rg -q "(audit endpoint returned an error|E403|403 Forbidden|ECONNRESET|ETIMEDOUT|ENOTFOUND)" audit-output.txt; then
+          if grep -Eq "audit endpoint returned an error|E403|403 Forbidden|ECONNRESET|ETIMEDOUT|ENOTFOUND" audit-output.txt; then
             echo "::warning::npm audit failed due to registry/audit endpoint access issues."
             echo "exit_code=0" >> "$GITHUB_OUTPUT"
             echo "network_failure=1" >> "$GITHUB_OUTPUT"

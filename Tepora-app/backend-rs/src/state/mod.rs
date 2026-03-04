@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use axum::extract::FromRef;
 
+use crate::actor::ActorManager;
 use crate::agent::exclusive_manager::ExclusiveAgentManager;
 use crate::application::episodic_memory::EpisodicMemoryUseCase;
 use crate::application::knowledge::KnowledgeUseCase;
@@ -22,7 +23,6 @@ use crate::mcp::McpManager;
 use crate::models::ModelManager;
 use crate::rag::{RagStore, SqliteRagStore};
 use crate::server::middleware::rate_limit::RateLimiters;
-use crate::actor::ActorManager;
 
 pub mod error;
 pub mod setup;
@@ -320,18 +320,27 @@ impl AppState {
             let json_path = paths.project_root.join("workflows").join("default.json");
             let loaded = std::fs::read_to_string(&json_path)
                 .map_err(|e| InitializationError::Graph(e.into()))
-                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s)
-                    .map_err(|e| InitializationError::Graph(e.into())))
+                .and_then(|s| {
+                    serde_json::from_str::<serde_json::Value>(&s)
+                        .map_err(|e| InitializationError::Graph(e.into()))
+                })
                 .and_then(|val| {
                     if let Err(errors) = crate::graph::schema::validate_workflow_json(&val) {
-                        tracing::error!("Declarative workflow JSON failed schema validation: {:?}", errors);
-                        return Err(InitializationError::Graph(anyhow::anyhow!("Workflow schema validation failed")));
+                        tracing::error!(
+                            "Declarative workflow JSON failed schema validation: {:?}",
+                            errors
+                        );
+                        return Err(InitializationError::Graph(anyhow::anyhow!(
+                            "Workflow schema validation failed"
+                        )));
                     }
                     serde_json::from_value::<crate::graph::schema::WorkflowDef>(val)
                         .map_err(|e| InitializationError::Graph(e.into()))
                 })
-                .and_then(|def| crate::graph::loader::load_workflow_from_json(&def)
-                    .map_err(|e| InitializationError::Graph(e.into())));
+                .and_then(|def| {
+                    crate::graph::loader::load_workflow_from_json(&def)
+                        .map_err(|e| InitializationError::Graph(e.into()))
+                });
 
             match loaded {
                 Ok(rt) => {
@@ -339,8 +348,14 @@ impl AppState {
                     Arc::new(rt)
                 }
                 Err(e) => {
-                    tracing::error!("Failed to load declarative graph: {:?}, falling back to hardcoded graph", e);
-                    Arc::new(build_tepora_graph(&config).map_err(|e| InitializationError::Graph(e.into()))?)
+                    tracing::error!(
+                        "Failed to load declarative graph: {:?}, falling back to hardcoded graph",
+                        e
+                    );
+                    Arc::new(
+                        build_tepora_graph(&config)
+                            .map_err(|e| InitializationError::Graph(e.into()))?,
+                    )
                 }
             }
         } else {
@@ -413,11 +428,20 @@ impl AppState {
             knowledge_use_case: knowledge_use_case.clone(),
         });
 
-        let app_state = Arc::new(AppState::from_groups(core, ai, integration, runtime, memory));
+        let app_state = Arc::new(AppState::from_groups(
+            core,
+            ai,
+            integration,
+            runtime,
+            memory,
+        ));
         app_state.actor_manager.clone().start_gc();
 
         // Start background tasks only after all state initialization succeeds.
-        app_state.em_memory_service.clone().spawn_background_worker();
+        app_state
+            .em_memory_service
+            .clone()
+            .spawn_background_worker();
 
         let models_clone = app_state.models.clone();
         tokio::spawn(async move {

@@ -162,7 +162,8 @@ mod tests {
             legacy_enabled: bool,
         ) -> Result<Vec<RetrievedMemory>, ApiError> {
             self.called.store(true, Ordering::SeqCst);
-            self.last_legacy_flag.store(legacy_enabled, Ordering::SeqCst);
+            self.last_legacy_flag
+                .store(legacy_enabled, Ordering::SeqCst);
             Ok(vec![])
         }
     }
@@ -273,9 +274,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_worker_adapter_routing() {
-        // AppState::initialize() can fail due to DB lock issues or other OS errors on Windows. 
+        // AppState::initialize() can fail due to DB lock issues or other OS errors on Windows.
         // We will construct a minimal mock AppState for this test manually to ensure deterministic behavior.
-        
+
         let paths = Arc::new(crate::core::config::AppPaths::new());
         let temp_dir = tempfile::tempdir().unwrap();
         let mut new_paths = (*paths).clone();
@@ -284,16 +285,27 @@ mod tests {
         let config = crate::core::config::service::ConfigService::new(new_paths_arc.clone());
 
         // Dummy components
-        let session_token = Arc::new(tokio::sync::RwLock::new(crate::core::security::init_session_token()));
-        let history = crate::history::HistoryStore::new(temp_dir.path().join("mock_history.db")).await.unwrap();
+        let session_token = Arc::new(tokio::sync::RwLock::new(
+            crate::core::security::init_session_token(),
+        ));
+        let history = crate::history::HistoryStore::new(temp_dir.path().join("mock_history.db"))
+            .await
+            .unwrap();
         let llama = crate::llm::LlamaService::new(new_paths_arc.clone()).unwrap();
         let mcp = crate::mcp::McpManager::new(new_paths_arc.clone(), config.clone());
         let mcp_registry = crate::mcp::registry::McpRegistry::new(&new_paths_arc);
         let models = crate::models::ModelManager::new(&new_paths_arc, config.clone());
         let setup = crate::state::setup::SetupState::new(&new_paths_arc);
-        let exclusive_agents = crate::agent::exclusive_manager::ExclusiveAgentManager::new(new_paths_arc.as_ref(), config.clone());
+        let exclusive_agents = crate::agent::exclusive_manager::ExclusiveAgentManager::new(
+            new_paths_arc.as_ref(),
+            config.clone(),
+        );
         let graph_runtime = Arc::new(crate::graph::GraphBuilder::new().build().unwrap());
-        let em_memory_service = Arc::new(crate::em_llm::EmMemoryService::new(new_paths_arc.as_ref(), &config).await.unwrap());
+        let em_memory_service = Arc::new(
+            crate::em_llm::EmMemoryService::new(new_paths_arc.as_ref(), &config)
+                .await
+                .unwrap(),
+        );
         let llm = crate::llm::LlmService::new(models.clone(), llama.clone(), config.clone());
         let rate_limiters = Arc::new(crate::server::middleware::rate_limit::RateLimiters::new());
         let actor_manager = Arc::new(crate::actor::ActorManager::new());
@@ -331,40 +343,81 @@ mod tests {
             episodic_memory: adapter.clone() as Arc<dyn EpisodicMemoryPort>,
             knowledge: adapter.clone() as Arc<dyn KnowledgePort>,
             episodic_memory_use_case: Arc::new(EpisodicMemoryUseCase::new(
-                adapter.clone() as Arc<dyn EpisodicMemoryPort>,
+                adapter.clone() as Arc<dyn EpisodicMemoryPort>
             )),
             knowledge_use_case: Arc::new(KnowledgeUseCase::new(
-                adapter.clone() as Arc<dyn KnowledgePort>,
+                adapter.clone() as Arc<dyn KnowledgePort>
             )),
         });
 
-        let base_state = Arc::new(AppState::from_groups(core, ai, integration, runtime, memory));
+        let base_state = Arc::new(AppState::from_groups(
+            core,
+            ai,
+            integration,
+            runtime,
+            memory,
+        ));
 
-        let mut ctx = PipelineContext::new("test_session", "test_turn", crate::context::pipeline_context::PipelineMode::Chat, "Hello query");
+        let mut ctx = PipelineContext::new(
+            "test_session",
+            "test_turn",
+            crate::context::pipeline_context::PipelineMode::Chat,
+            "Hello query",
+        );
 
         // Test with legacy_memory = true
         {
             let state_clone = (*base_state).clone();
-            
+
             // Force config adjustments in temp file
-            let mut config_val = state_clone.config.load_config().unwrap_or_else(|_| serde_json::json!({}));
-            
-            let features = config_val.as_object_mut().unwrap().entry("features").or_insert_with(|| serde_json::json!({}));
-            let redesign = features.as_object_mut().unwrap().entry("redesign").or_insert_with(|| serde_json::json!({}));
-            redesign.as_object_mut().unwrap().insert("legacy_memory".to_string(), serde_json::Value::Bool(true));
-            
-            let app = config_val.as_object_mut().unwrap().entry("app").or_insert_with(|| serde_json::json!({}));
-            app.as_object_mut().unwrap().insert("em_memory_enabled".to_string(), serde_json::Value::Bool(true));
-            
-            state_clone.config.update_config(config_val.clone(), false).unwrap();
+            let mut config_val = state_clone
+                .config
+                .load_config()
+                .unwrap_or_else(|_| serde_json::json!({}));
+
+            let features = config_val
+                .as_object_mut()
+                .unwrap()
+                .entry("features")
+                .or_insert_with(|| serde_json::json!({}));
+            let redesign = features
+                .as_object_mut()
+                .unwrap()
+                .entry("redesign")
+                .or_insert_with(|| serde_json::json!({}));
+            redesign
+                .as_object_mut()
+                .unwrap()
+                .insert("legacy_memory".to_string(), serde_json::Value::Bool(true));
+
+            let app = config_val
+                .as_object_mut()
+                .unwrap()
+                .entry("app")
+                .or_insert_with(|| serde_json::json!({}));
+            app.as_object_mut().unwrap().insert(
+                "em_memory_enabled".to_string(),
+                serde_json::Value::Bool(true),
+            );
+
+            state_clone
+                .config
+                .update_config(config_val.clone(), false)
+                .unwrap();
 
             let state_arc = Arc::new(state_clone);
             let worker = MemoryWorker::new(10);
-            
+
             worker.execute(&mut ctx, &state_arc).await.unwrap();
-            
-            assert!(adapter.called.load(Ordering::SeqCst), "Adapter should be called");
-            assert!(adapter.last_legacy_flag.load(Ordering::SeqCst), "Legacy flag should be true");
+
+            assert!(
+                adapter.called.load(Ordering::SeqCst),
+                "Adapter should be called"
+            );
+            assert!(
+                adapter.last_legacy_flag.load(Ordering::SeqCst),
+                "Legacy flag should be true"
+            );
         }
 
         // Test with legacy_memory = false
@@ -372,24 +425,54 @@ mod tests {
             adapter.called.store(false, Ordering::SeqCst);
             let state_clone = (*base_state).clone();
 
-            let mut config_val = state_clone.config.load_config().unwrap_or_else(|_| serde_json::json!({}));
-            
-            let features = config_val.as_object_mut().unwrap().entry("features").or_insert_with(|| serde_json::json!({}));
-            let redesign = features.as_object_mut().unwrap().entry("redesign").or_insert_with(|| serde_json::json!({}));
-            redesign.as_object_mut().unwrap().insert("legacy_memory".to_string(), serde_json::Value::Bool(false));
-            
-            let app = config_val.as_object_mut().unwrap().entry("app").or_insert_with(|| serde_json::json!({}));
-            app.as_object_mut().unwrap().insert("em_memory_enabled".to_string(), serde_json::Value::Bool(true));
-            
-            state_clone.config.update_config(config_val.clone(), false).unwrap();
+            let mut config_val = state_clone
+                .config
+                .load_config()
+                .unwrap_or_else(|_| serde_json::json!({}));
+
+            let features = config_val
+                .as_object_mut()
+                .unwrap()
+                .entry("features")
+                .or_insert_with(|| serde_json::json!({}));
+            let redesign = features
+                .as_object_mut()
+                .unwrap()
+                .entry("redesign")
+                .or_insert_with(|| serde_json::json!({}));
+            redesign
+                .as_object_mut()
+                .unwrap()
+                .insert("legacy_memory".to_string(), serde_json::Value::Bool(false));
+
+            let app = config_val
+                .as_object_mut()
+                .unwrap()
+                .entry("app")
+                .or_insert_with(|| serde_json::json!({}));
+            app.as_object_mut().unwrap().insert(
+                "em_memory_enabled".to_string(),
+                serde_json::Value::Bool(true),
+            );
+
+            state_clone
+                .config
+                .update_config(config_val.clone(), false)
+                .unwrap();
 
             let state_arc = Arc::new(state_clone);
             let worker = MemoryWorker::new(10);
-            
+
             worker.execute(&mut ctx, &state_arc).await.unwrap();
-            
-            assert!(adapter.called.load(Ordering::SeqCst), "Adapter should be called");
-            assert!(!adapter.last_legacy_flag.load(Ordering::SeqCst), "Legacy flag should be false");
+
+            assert!(
+                adapter.called.load(Ordering::SeqCst),
+                "Adapter should be called"
+            );
+            assert!(
+                !adapter.last_legacy_flag.load(Ordering::SeqCst),
+                "Legacy flag should be false"
+            );
         }
     }
 }

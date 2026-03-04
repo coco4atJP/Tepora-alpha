@@ -106,10 +106,7 @@ impl ActorManager {
                 ticker.tick().await;
                 let removed = self.reap_expired_sessions().await;
                 if removed > 0 {
-                    tracing::debug!(
-                        removed,
-                        "ActorManager GC removed expired session actors"
-                    );
+                    tracing::debug!(removed, "ActorManager GC removed expired session actors");
                 }
             }
         });
@@ -125,7 +122,9 @@ impl ActorManager {
     ) -> Result<(), ActorDispatchError> {
         let _ = self.reap_expired_sessions().await;
 
-        let tx = self.ensure_session_sender(session_id, app_state.clone()).await?;
+        let tx = self
+            .ensure_session_sender(session_id, app_state.clone())
+            .await?;
         match tx.try_send(command) {
             Ok(()) => Ok(()),
             Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {

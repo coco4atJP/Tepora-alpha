@@ -42,8 +42,9 @@ impl Node for SynthesizerNode {
             .clone()
             .unwrap_or_else(|| "Assistant".to_string());
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "synthesize_final_response",
@@ -51,9 +52,8 @@ impl Node for SynthesizerNode {
                     "message": "Synthesizing final response",
                     "agentName": &agent_name
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         // Build synthesis prompt
         let mut messages = state.chat_history.clone();
@@ -113,16 +113,16 @@ impl Node for SynthesizerNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = ctx.sender.send_json(
-                        json!({
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({
                             "type": "chunk",
                             "message": chunk,
                             "mode": "agent",
                             "agentName": &agent_name,
                             "nodeId": "synthesize_final_response"
-                        }),
-                    )
-                    .await;
+                        }))
+                        .await;
                 }
                 Err(err) => {
                     return Err(GraphError::new(self.id(), err.to_string()));
@@ -130,8 +130,9 @@ impl Node for SynthesizerNode {
             }
         }
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "synthesize_final_response",
@@ -139,11 +140,10 @@ impl Node for SynthesizerNode {
                     "message": "Response complete",
                     "agentName": &agent_name
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
-        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
         state.output = Some(full_response);
         Ok(NodeOutput::Final)

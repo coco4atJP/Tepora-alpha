@@ -75,11 +75,7 @@ pub trait MemoryRepository: Send + Sync {
 
     /// Record an access: increment `access_count`, set `last_accessed_at`,
     /// and optionally update strength (reinforcement).
-    async fn record_access(
-        &self,
-        id: &str,
-        new_strength: f64,
-    ) -> Result<(), ApiError>;
+    async fn record_access(&self, id: &str, new_strength: f64) -> Result<(), ApiError>;
 
     /// Soft-delete events by setting `is_deleted = 1`.
     async fn soft_delete_events(&self, ids: &[String]) -> Result<usize, ApiError>;

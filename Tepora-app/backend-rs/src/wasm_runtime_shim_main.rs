@@ -49,15 +49,22 @@ mod enabled {
         let engine = Engine::new(&engine_config)
             .map_err(|e| format!("failed to initialize Wasm engine: {e}"))?;
 
-        let module = Module::from_file(&engine, module_path)
-            .map_err(|e| format!("failed to load wasm module '{}': {e}", module_path.display()))?;
+        let module = Module::from_file(&engine, module_path).map_err(|e| {
+            format!(
+                "failed to load wasm module '{}': {e}",
+                module_path.display()
+            )
+        })?;
 
         let mut linker = Linker::<WasiP1Ctx>::new(&engine);
         preview1::add_to_linker_sync(&mut linker, |ctx| ctx)
             .map_err(|e| format!("failed to configure WASI linker: {e}"))?;
 
         let mut wasi_builder = WasiCtxBuilder::new();
-        wasi_builder.inherit_stdin().inherit_stdout().inherit_stderr();
+        wasi_builder
+            .inherit_stdin()
+            .inherit_stdout()
+            .inherit_stderr();
 
         let mut argv = vec![module_path.to_string_lossy().to_string()];
         argv.extend(module_args.iter().cloned());

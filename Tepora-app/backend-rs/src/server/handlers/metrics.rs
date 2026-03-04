@@ -1,8 +1,8 @@
+use crate::models::event::AgentEvent;
+use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::Json;
 use std::sync::Arc;
-use crate::state::AppState;
-use crate::models::event::AgentEvent;
 
 #[derive(serde::Serialize)]
 pub struct MetricsResponse {

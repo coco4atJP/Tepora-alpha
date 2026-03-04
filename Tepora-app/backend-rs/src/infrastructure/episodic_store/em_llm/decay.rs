@@ -21,18 +21,20 @@ impl DecayEngine {
         let semantic = semantic_relevance.clamp(0.0, 1.0);
         // Saturating access signal in [0, 1).
         let frequency = 1.0 - (-self.config.frequency_growth_rate * access_count as f64).exp();
-        
+
         // Convert days to the configured time unit
         let time_since_creation = match self.config.time_unit {
             crate::em_llm::types::TimeUnit::Days => time_since_creation_days,
             crate::em_llm::types::TimeUnit::Hours => time_since_creation_days * 24.0,
         };
-        
+
         // Newer memories get higher recency signal.
         let recency = (-time_since_creation.max(0.0) / self.config.recency_time_constant).exp();
 
         let denom = (self.config.alpha + self.config.beta + self.config.gamma).max(f64::EPSILON);
-        ((self.config.alpha * semantic + self.config.beta * frequency + self.config.gamma * recency)
+        ((self.config.alpha * semantic
+            + self.config.beta * frequency
+            + self.config.gamma * recency)
             / denom)
             .clamp(0.0, 1.0)
     }
@@ -50,7 +52,8 @@ impl DecayEngine {
             crate::em_llm::types::TimeUnit::Hours => (elapsed_days * 24.0).max(0.0),
         };
         let importance = importance.clamp(0.0, 1.0);
-        let lambda = self.config.lambda_base * (-self.config.importance_modulation * importance).exp();
+        let lambda =
+            self.config.lambda_base * (-self.config.importance_modulation * importance).exp();
         let beta = match layer {
             MemoryLayer::LML => self.config.beta_lml,
             MemoryLayer::SML => self.config.beta_sml,
@@ -67,10 +70,14 @@ impl DecayEngine {
     }
 
     /// Determine layer transition from current importance and current layer.
-    pub fn determine_layer(&self, importance: f64, current_layer: MemoryLayer) -> Option<MemoryLayer> {
+    pub fn determine_layer(
+        &self,
+        importance: f64,
+        current_layer: MemoryLayer,
+    ) -> Option<MemoryLayer> {
         let importance = importance.clamp(0.0, 1.0);
         let hysteresis = self.config.transition_hysteresis;
-        
+
         match current_layer {
             MemoryLayer::SML => {
                 // To promote from SML to LML, need to overcome threshold + hysteresis
@@ -123,7 +130,7 @@ mod tests {
     fn test_time_unit_parameterization() {
         let mut config_days = DecayConfig::default();
         config_days.time_unit = crate::em_llm::types::TimeUnit::Days;
-        
+
         let mut config_hours = DecayConfig::default();
         config_hours.time_unit = crate::em_llm::types::TimeUnit::Hours;
 
@@ -134,7 +141,7 @@ mod tests {
         // Or rather, if time_unit is Hours, elapsed_days=1.0 is treated as 24 units.
         let str_day = engine_days.compute_strength(1.0, 0.5, MemoryLayer::SML, 1.0);
         let str_hour = engine_hours.compute_strength(1.0, 0.5, MemoryLayer::SML, 1.0);
-        
+
         // Since Hours multiplies the delta space by 24, decay is much faster (result is smaller)
         assert!(str_hour < str_day);
     }
@@ -150,14 +157,20 @@ mod tests {
 
         // Current SML, importance 0.72 => 0.72 < 0.7 + 0.05 = 0.75, so no promote
         assert_eq!(engine.determine_layer(0.72, MemoryLayer::SML), None);
-        
+
         // Current SML, importance 0.76 => 0.76 >= 0.75, promote to LML
-        assert_eq!(engine.determine_layer(0.76, MemoryLayer::SML), Some(MemoryLayer::LML));
+        assert_eq!(
+            engine.determine_layer(0.76, MemoryLayer::SML),
+            Some(MemoryLayer::LML)
+        );
 
         // Current LML, importance 0.28 => 0.28 > 0.3 - 0.05 = 0.25, so no demote
         assert_eq!(engine.determine_layer(0.28, MemoryLayer::LML), None);
 
         // Current LML, importance 0.24 => 0.24 <= 0.25, demote to SML
-        assert_eq!(engine.determine_layer(0.24, MemoryLayer::LML), Some(MemoryLayer::SML));
+        assert_eq!(
+            engine.determine_layer(0.24, MemoryLayer::LML),
+            Some(MemoryLayer::SML)
+        );
     }
 }

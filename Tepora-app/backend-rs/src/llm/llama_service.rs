@@ -179,7 +179,10 @@ impl LlamaService {
                     tracing::info!("llama-server stopped with status: {}", status);
                 }
                 Ok(Err(err)) => {
-                    tracing::warn!("Failed to wait for llama-server process termination: {}", err);
+                    tracing::warn!(
+                        "Failed to wait for llama-server process termination: {}",
+                        err
+                    );
                 }
                 Err(_) => {
                     tracing::warn!(
@@ -245,7 +248,10 @@ impl LlamaService {
         let data: Value = res.json().await.map_err(ApiError::internal)?;
         let mut result = Vec::new();
 
-        if let Some(probs) = data.get("completion_probabilities").and_then(|v| v.as_array()) {
+        if let Some(probs) = data
+            .get("completion_probabilities")
+            .and_then(|v| v.as_array())
+        {
             for prob in probs {
                 if let Some(content) = prob.get("content").and_then(|v| v.as_str()) {
                     // Extract logprob from the 'probs' array, fallback to 0.0 if missing
@@ -255,7 +261,7 @@ impl LlamaService {
                             // Can be stored as logprob directly or prob depending on llama.cpp version. Wait, llama.cpp returns directly 'prob' or 'logprob'? It depends, usually it's in log space.
                             if let Some(s) = first.get("tok_str").and_then(|v| v.as_str()) {
                                 if s == content {
-                                    // Normally 'tok_str' matches 'content', then there's a field. 
+                                    // Normally 'tok_str' matches 'content', then there's a field.
                                     // Usually "prob" contains the actual probability. We convert to log scale.
                                     if let Some(p) = first.get("prob").and_then(|v| v.as_f64()) {
                                         logprob_f64 = p.ln();
@@ -270,7 +276,9 @@ impl LlamaService {
         }
 
         if result.is_empty() {
-            return Err(ApiError::internal("No valid logprobs returned by llama-server."));
+            return Err(ApiError::internal(
+                "No valid logprobs returned by llama-server.",
+            ));
         }
 
         // Exclude the generated token (the very last one), we only care about prompt evaluation echo.
@@ -298,7 +306,11 @@ impl LlamaService {
 
         let stop_tokens = config.stop.as_deref().unwrap_or(&[]);
         let default_stops: Vec<String> = vec!["User:".to_string(), "System:".to_string()];
-        let stop = if stop_tokens.is_empty() { &default_stops } else { stop_tokens };
+        let stop = if stop_tokens.is_empty() {
+            &default_stops
+        } else {
+            stop_tokens
+        };
 
         let mut body = json!({
             "prompt": prompt,
@@ -312,19 +324,45 @@ impl LlamaService {
         });
         // Add optional llama.cpp parameters
         if let Some(obj) = body.as_object_mut() {
-            if let Some(v) = config.seed { obj.insert("seed".into(), json!(v)); }
-            if let Some(v) = config.frequency_penalty { obj.insert("penalty_freq".into(), json!(v)); }
-            if let Some(v) = config.presence_penalty { obj.insert("penalty_present".into(), json!(v)); }
-            if let Some(v) = config.min_p { obj.insert("min_p".into(), json!(v)); }
-            if let Some(v) = config.tfs_z { obj.insert("tfs_z".into(), json!(v)); }
-            if let Some(v) = config.typical_p { obj.insert("typical_p".into(), json!(v)); }
-            if let Some(v) = config.mirostat { obj.insert("mirostat".into(), json!(v)); }
-            if let Some(v) = config.mirostat_tau { obj.insert("mirostat_tau".into(), json!(v)); }
-            if let Some(v) = config.mirostat_eta { obj.insert("mirostat_eta".into(), json!(v)); }
-            if let Some(v) = config.repeat_last_n { obj.insert("penalty_last_n".into(), json!(v)); }
-            if let Some(v) = config.penalize_nl { obj.insert("penalize_nl".into(), json!(v)); }
-            if let Some(v) = config.n_keep { obj.insert("n_keep".into(), json!(v)); }
-            if let Some(v) = config.cache_prompt { obj.insert("cache_prompt".into(), json!(v)); }
+            if let Some(v) = config.seed {
+                obj.insert("seed".into(), json!(v));
+            }
+            if let Some(v) = config.frequency_penalty {
+                obj.insert("penalty_freq".into(), json!(v));
+            }
+            if let Some(v) = config.presence_penalty {
+                obj.insert("penalty_present".into(), json!(v));
+            }
+            if let Some(v) = config.min_p {
+                obj.insert("min_p".into(), json!(v));
+            }
+            if let Some(v) = config.tfs_z {
+                obj.insert("tfs_z".into(), json!(v));
+            }
+            if let Some(v) = config.typical_p {
+                obj.insert("typical_p".into(), json!(v));
+            }
+            if let Some(v) = config.mirostat {
+                obj.insert("mirostat".into(), json!(v));
+            }
+            if let Some(v) = config.mirostat_tau {
+                obj.insert("mirostat_tau".into(), json!(v));
+            }
+            if let Some(v) = config.mirostat_eta {
+                obj.insert("mirostat_eta".into(), json!(v));
+            }
+            if let Some(v) = config.repeat_last_n {
+                obj.insert("penalty_last_n".into(), json!(v));
+            }
+            if let Some(v) = config.penalize_nl {
+                obj.insert("penalize_nl".into(), json!(v));
+            }
+            if let Some(v) = config.n_keep {
+                obj.insert("n_keep".into(), json!(v));
+            }
+            if let Some(v) = config.cache_prompt {
+                obj.insert("cache_prompt".into(), json!(v));
+            }
         }
 
         let res = self
@@ -373,19 +411,45 @@ impl LlamaService {
         });
         // Add optional llama.cpp parameters
         if let Some(obj) = body.as_object_mut() {
-            if let Some(v) = config.seed { obj.insert("seed".into(), json!(v)); }
-            if let Some(v) = config.frequency_penalty { obj.insert("penalty_freq".into(), json!(v)); }
-            if let Some(v) = config.presence_penalty { obj.insert("penalty_present".into(), json!(v)); }
-            if let Some(v) = config.min_p { obj.insert("min_p".into(), json!(v)); }
-            if let Some(v) = config.tfs_z { obj.insert("tfs_z".into(), json!(v)); }
-            if let Some(v) = config.typical_p { obj.insert("typical_p".into(), json!(v)); }
-            if let Some(v) = config.mirostat { obj.insert("mirostat".into(), json!(v)); }
-            if let Some(v) = config.mirostat_tau { obj.insert("mirostat_tau".into(), json!(v)); }
-            if let Some(v) = config.mirostat_eta { obj.insert("mirostat_eta".into(), json!(v)); }
-            if let Some(v) = config.repeat_last_n { obj.insert("penalty_last_n".into(), json!(v)); }
-            if let Some(v) = config.penalize_nl { obj.insert("penalize_nl".into(), json!(v)); }
-            if let Some(v) = config.n_keep { obj.insert("n_keep".into(), json!(v)); }
-            if let Some(v) = config.cache_prompt { obj.insert("cache_prompt".into(), json!(v)); }
+            if let Some(v) = config.seed {
+                obj.insert("seed".into(), json!(v));
+            }
+            if let Some(v) = config.frequency_penalty {
+                obj.insert("penalty_freq".into(), json!(v));
+            }
+            if let Some(v) = config.presence_penalty {
+                obj.insert("penalty_present".into(), json!(v));
+            }
+            if let Some(v) = config.min_p {
+                obj.insert("min_p".into(), json!(v));
+            }
+            if let Some(v) = config.tfs_z {
+                obj.insert("tfs_z".into(), json!(v));
+            }
+            if let Some(v) = config.typical_p {
+                obj.insert("typical_p".into(), json!(v));
+            }
+            if let Some(v) = config.mirostat {
+                obj.insert("mirostat".into(), json!(v));
+            }
+            if let Some(v) = config.mirostat_tau {
+                obj.insert("mirostat_tau".into(), json!(v));
+            }
+            if let Some(v) = config.mirostat_eta {
+                obj.insert("mirostat_eta".into(), json!(v));
+            }
+            if let Some(v) = config.repeat_last_n {
+                obj.insert("penalty_last_n".into(), json!(v));
+            }
+            if let Some(v) = config.penalize_nl {
+                obj.insert("penalize_nl".into(), json!(v));
+            }
+            if let Some(v) = config.n_keep {
+                obj.insert("n_keep".into(), json!(v));
+            }
+            if let Some(v) = config.cache_prompt {
+                obj.insert("cache_prompt".into(), json!(v));
+            }
         }
 
         let (tx, rx) = mpsc::channel(100);
@@ -407,8 +471,10 @@ impl LlamaService {
                     if let Some(json_str) = line.strip_prefix("data: ") {
                         if let Ok(val) = serde_json::from_str::<Value>(json_str) {
                             let mut chunk_to_send = String::new();
-                            let reasoning =
-                                extract_field_text(&val, &["reasoning", "reasoning_content", "thinking"]);
+                            let reasoning = extract_field_text(
+                                &val,
+                                &["reasoning", "reasoning_content", "thinking"],
+                            );
                             if !reasoning.is_empty() {
                                 if !is_reasoning_open {
                                     chunk_to_send.push_str("<think>\n");
@@ -417,7 +483,8 @@ impl LlamaService {
                                 chunk_to_send.push_str(&reasoning);
                             }
 
-                            let content = extract_field_text(&val, &["content", "text", "response"]);
+                            let content =
+                                extract_field_text(&val, &["content", "text", "response"]);
                             if !content.is_empty() {
                                 if is_reasoning_open {
                                     chunk_to_send.push_str("\n</think>\n");

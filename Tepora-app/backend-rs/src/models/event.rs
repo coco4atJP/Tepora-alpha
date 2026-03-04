@@ -50,7 +50,7 @@ pub struct AgentEvent {
     pub session_id: String,
     /// The name of the Graph node executing (e.g., "agent", "thinking", "tools")
     pub node_name: String,
-    /// The specific type of the event occurring 
+    /// The specific type of the event occurring
     pub event_type: AgentEventType,
     /// JSON metadata payload (e.g. token_usage, latency_ms, tool_name, etc.)
     pub metadata: Value,

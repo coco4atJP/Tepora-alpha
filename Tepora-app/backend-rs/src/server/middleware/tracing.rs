@@ -1,13 +1,13 @@
+use axum::http::{HeaderMap, HeaderValue};
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use axum::http::{HeaderMap, HeaderValue};
 use std::sync::Arc;
 use std::time::Instant;
-use uuid::Uuid;
 use tracing::Instrument;
+use uuid::Uuid;
 
 use crate::state::AppState;
 
@@ -86,7 +86,9 @@ pub async fn require_tracing_middleware(
                 );
             }
             response
-        }.instrument(span).await
+        }
+        .instrument(span)
+        .await
     } else {
         next.run(request).await
     }

@@ -42,14 +42,19 @@ impl Node for ThinkingNode {
             return Ok(NodeOutput::Continue(Some("chat".to_string())));
         }
 
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::NodeStarted,
-            metadata: json!({"budget": state.thinking_budget}),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::NodeStarted,
+                metadata: json!({"budget": state.thinking_budget}),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 
@@ -92,11 +97,12 @@ impl Node for ThinkingNode {
                     content: state.input.clone(),
                 },
             ];
-            let request = crate::llm::types::ChatRequest::new(thinking_messages).with_config(ctx.config);
+            let request =
+                crate::llm::types::ChatRequest::new(thinking_messages).with_config(ctx.config);
             let response = ctx.app_state.llm.chat(request, &model_id).await.map_err(
                 |e: crate::core::errors::ApiError| GraphError::new(self.id(), e.to_string()),
             )?;
-            
+
             if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
                 session_id: state.session_id.clone(),
@@ -107,12 +113,12 @@ impl Node for ThinkingNode {
             }).await {
                 tracing::warn!(error = %e, "Failed to save agent event");
             }
-            
+
             response
         } else {
             // Parallel Thinking (Level 2 or 3)
             let mut futures = Vec::new();
-            
+
             // Define slightly different perspectives to encourage diversity
             let perspectives = [
                 "Focus on a strict, logical, step-by-step breakdown.",
@@ -123,7 +129,7 @@ impl Node for ThinkingNode {
             for i in 0..num_paths {
                 let perspective = perspectives[(i as usize) % perspectives.len()];
                 let prompt = format!("{}\n\nApproach constraint: {}\n\nVERY IMPORTANT: Keep your output under 500 words. Output ONLY the reasoning process.", THINKING_SYSTEM_PROMPT, perspective);
-                
+
                 let messages = vec![
                     crate::llm::types::ChatMessage {
                         role: "system".to_string(),
@@ -134,21 +140,19 @@ impl Node for ThinkingNode {
                         content: state.input.clone(),
                     },
                 ];
-                
+
                 // Allow slightly higher temperature for diversity, if supported by the LLM implementation config
                 // We pass the same config for now, but rely on the distinct system prompts for diversity.
                 let request = crate::llm::types::ChatRequest::new(messages).with_config(ctx.config);
                 let llm = ctx.app_state.llm.clone();
                 let m_id = model_id.clone();
-                
-                futures.push(async move {
-                    llm.chat(request, &m_id).await
-                });
+
+                futures.push(async move { llm.chat(request, &m_id).await });
             }
 
             // Await all parallel paths
             let results = futures_util::future::join_all(futures).await;
-            
+
             let mut valid_paths = Vec::new();
             for (i, res) in results.into_iter().enumerate() {
                 match res {
@@ -158,12 +162,16 @@ impl Node for ThinkingNode {
             }
 
             if valid_paths.is_empty() {
-                return Err(GraphError::new(self.id(), "All parallel thinking paths failed."));
+                return Err(GraphError::new(
+                    self.id(),
+                    "All parallel thinking paths failed.",
+                ));
             }
 
             // Synthesis Step
-            let _ = ctx.sender.send_json(
-                json!({
+            let _ = ctx
+                .sender
+                .send_json(json!({
                     "type": "activity",
                     "data": {
                         "id": "thinking_synthesis",
@@ -171,9 +179,8 @@ impl Node for ThinkingNode {
                         "message": "Synthesizing parallel reasoning paths...",
                         "agentName": "Deep Thinker"
                     }
-                }),
-            )
-            .await;
+                }))
+                .await;
 
             let synthesis_prompt = format!(
                 "You are an expert evaluator. The user asked: '{}'\n\nBelow are {} independent reasoning paths. Compare them critically, identify flaws or strengths in each, synthesize the best insights, and output a single, highly refined, final reasoning process. \n\nOutput ONLY the final, unified thought process, keeping it concise but comprehensive. Do not output the final answer to the user, only the reasoning.\n\n{}",
@@ -182,17 +189,21 @@ impl Node for ThinkingNode {
                 valid_paths.join("\n---\n")
             );
 
-            let synthesis_messages = vec![
-                crate::llm::types::ChatMessage {
-                    role: "user".to_string(),
-                    content: synthesis_prompt,
-                },
-            ];
+            let synthesis_messages = vec![crate::llm::types::ChatMessage {
+                role: "user".to_string(),
+                content: synthesis_prompt,
+            }];
 
-            let synthesis_request = crate::llm::types::ChatRequest::new(synthesis_messages).with_config(ctx.config);
-            let synthesized = ctx.app_state.llm.chat(synthesis_request, &model_id).await.map_err(
-                |e: crate::core::errors::ApiError| GraphError::new(self.id(), format!("Synthesis failed: {}", e)),
-            )?;
+            let synthesis_request =
+                crate::llm::types::ChatRequest::new(synthesis_messages).with_config(ctx.config);
+            let synthesized = ctx
+                .app_state
+                .llm
+                .chat(synthesis_request, &model_id)
+                .await
+                .map_err(|e: crate::core::errors::ApiError| {
+                    GraphError::new(self.id(), format!("Synthesis failed: {}", e))
+                })?;
 
             if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -210,8 +221,9 @@ impl Node for ThinkingNode {
 
         state.thought_process = Some(final_thought.clone());
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "thinking",
@@ -219,27 +231,31 @@ impl Node for ThinkingNode {
                     "message": "Reasoning complete",
                     "agentName": "Deep Thinker"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         // Send thought process to client
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "thought",
                 "content": final_thought
-            }),
-        )
-        .await;
+            }))
+            .await;
 
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::NodeCompleted,
-            metadata: json!({}),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::NodeCompleted,
+                metadata: json!({}),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 

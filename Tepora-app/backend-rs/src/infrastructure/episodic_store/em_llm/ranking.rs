@@ -1,9 +1,4 @@
-
-
-pub fn compute_retrieval_score(
-    cosine_similarity: f32,
-    effective_memory_strength: f64,
-) -> f64 {
+pub fn compute_retrieval_score(cosine_similarity: f32, effective_memory_strength: f64) -> f64 {
     cosine_similarity as f64 * effective_memory_strength.clamp(0.0, 1.0)
 }
 
