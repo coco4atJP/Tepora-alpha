@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 
 import { useSettings } from "../hooks/useSettings";
-import { modelsApi, resolveEmbeddingModelPath } from "../api/models";
+import { modelsApi } from "../api/models";
 import { ModelCard } from "../features/settings/components/ModelCard";
 import { loadersApi } from "../api/loaders";
 import type { ModelInfo } from "../types";
 import { logger } from "../utils/logger";
+import { ModelDetailOverlay } from "../features/settings/components/subcomponents/ModelDetailOverlay";
 
 interface ModelHubProps {
     isOpen: boolean;
@@ -23,6 +24,10 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterRole, setFilterRole] = useState<"all" | "text" | "embedding">("all");
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // States for Model Settings Modal
+    const [editingModel, setEditingModel] = useState<ModelInfo | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
 
     // Handle Escape key to close
     useEffect(() => {
@@ -50,28 +55,9 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
         fetchModels();
     }, [fetchModels]);
 
-    const handleActivate = async (id: string) => {
-        const model = models.find(m => m.id === id);
-        if (!model) return;
-
-        try {
-            if (model.role === "text") {
-                await modelsApi.setCharacterRole(id);
-            } else if (model.role === "embedding") {
-                await modelsApi.setActive(id, "embedding");
-
-                const modelPath = resolveEmbeddingModelPath(model);
-                if (modelPath && config?.models_gguf?.embedding_model) {
-                    updateModel("embedding_model", {
-                        ...config.models_gguf.embedding_model,
-                        path: modelPath,
-                    });
-                }
-            }
-            fetchModels();
-        } catch (e) {
-            logger.error("Failed to activate model", e);
-        }
+    const handleSettings = (model: ModelInfo) => {
+        setEditingModel(model);
+        setIsDetailOpen(true);
     };
 
     const handleDelete = async (id: string) => {
@@ -214,7 +200,7 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
                                     key={model.id}
                                     model={model}
                                     isActive={model.is_active || false}
-                                    onActivate={handleActivate}
+                                    onSettings={handleSettings}
                                     onDelete={handleDelete}
                                 />
                             ))}
@@ -222,6 +208,27 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
                     )}
                 </div>
             </div>
+
+            {/* Model Settings Detail Overlay */}
+            {editingModel && config && (
+                <ModelDetailOverlay
+                    isOpen={isDetailOpen}
+                    onClose={() => {
+                        setIsDetailOpen(false);
+                        setTimeout(() => setEditingModel(null), 300); // delay clear to allow out-animation
+                    }}
+                    title={`${editingModel.display_name} Configuration`}
+                    config={editingModel.role === "embedding" ? config.models_gguf.embedding_model : config.models_gguf.text_model}
+                    onChange={(newConfig) => {
+                        if (editingModel.role === "embedding") {
+                            updateModel("embedding_model", newConfig);
+                        } else {
+                            updateModel("text_model", newConfig);
+                        }
+                    }}
+                    isEmbedding={editingModel.role === "embedding"}
+                />
+            )}
         </div>,
         document.body
     );
