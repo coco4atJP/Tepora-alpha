@@ -6,7 +6,6 @@ Tepora-app/frontend/npm-cache/
 
 # Build outputs
 Tepora-app/frontend/dist/
-Installer/
 Tepora-app/backend/logs/
 chroma_db_em_llm/
 

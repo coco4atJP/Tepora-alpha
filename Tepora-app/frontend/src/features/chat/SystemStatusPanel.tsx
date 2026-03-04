@@ -90,8 +90,12 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 							<span className="text-[11px] text-gray-400 font-medium">EM-LLM</span>
 						</div>
 						{isGeneratingMemory ? (
-							<span className="text-[11px] font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded flex items-center gap-1.5">
-								<Activity className="w-3 h-3 animate-spin" />
+							<span
+								className="text-[11px] font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded flex items-center gap-1.5"
+								role="status"
+								aria-live="polite"
+							>
+								<Activity className="w-3 h-3 animate-spin" aria-hidden="true" />
 								{t("status.generating_memory", "メモリ生成中...")}
 							</span>
 						) : (

@@ -66,7 +66,7 @@ export interface WebSocketMessage {
 	message?: string;
 	messages?: Message[]; // For history loading
 	sessionId?: string; // For session_changed event
-	status?: string; // For memory_generation event
+	status?: "started" | "completed"; // For memory_generation event
 	mode?: string;
 	agentName?: string;
 	nodeId?: string;
