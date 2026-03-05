@@ -14,6 +14,7 @@ use uuid::Uuid;
 use crate::actor::ActorDispatchError;
 use crate::core::errors::ApiError;
 use crate::graph::{AgentState, NodeContext};
+use crate::models::event::{AgentEvent, AgentEventType};
 use crate::state::{AppState, AppStateWrite};
 
 use super::protocol::{WsIncomingMessage, WS_APP_PROTOCOL, WS_TOKEN_PREFIX};
@@ -185,6 +186,17 @@ async fn handle_message(
                 }),
             )
             .await?;
+            return Ok(());
+        }
+        "perf_probe" => {
+            if !is_perf_probe_enabled() {
+                return Err(ApiError::BadRequest(
+                    "perf_probe is disabled (set TEPORA_PERF_PROBE_ENABLED=1)".to_string(),
+                ));
+            }
+            send_json(sender, json!({"type": "status", "message": "perf_probe_ready"})).await?;
+            send_json(sender, json!({"type": "chunk", "message": "probe"})).await?;
+            send_json(sender, json!({"type": "done"})).await?;
             return Ok(());
         }
         "set_session" => {
@@ -402,11 +414,14 @@ async fn handle_message_internal(
         // Subscribe to global events before dispatching to not miss anything
         let mut rx = state.actor_manager.subscribe();
 
-        state
+        if let Err(err) = state
             .actor_manager
             .dispatch(&session_id, state.clone(), command)
             .await
-            .map_err(map_actor_dispatch_error)?;
+        {
+            record_queue_saturation_event(state, &session_id, &err).await;
+            return Err(map_actor_dispatch_error(err));
+        }
         
         // Loop over events from the actor
         while let Ok(event) = rx.recv().await {
@@ -694,6 +709,43 @@ fn extract_token_from_protocol_header(headers: &HeaderMap) -> Option<String> {
     None
 }
 
+async fn record_queue_saturation_event(
+    state: &Arc<AppState>,
+    session_id: &str,
+    err: &ActorDispatchError,
+) {
+    let reason = match err {
+        ActorDispatchError::SessionBusy(_) => "session_busy",
+        ActorDispatchError::TooManySessions { .. } => "too_many_sessions",
+        ActorDispatchError::Internal { .. } => return,
+    };
+    let event = AgentEvent {
+        id: Uuid::new_v4().to_string(),
+        session_id: session_id.to_string(),
+        node_name: "actor_manager".to_string(),
+        event_type: AgentEventType::QueueSaturated,
+        metadata: json!({
+            "reason": reason,
+        }),
+        created_at: chrono::Utc::now(),
+    };
+    if let Err(save_err) = state.history.save_agent_event(&event).await {
+        tracing::warn!(
+            "Failed to persist queue_saturated event for session {}: {}",
+            session_id,
+            save_err
+        );
+    }
+}
+fn is_perf_probe_enabled() -> bool {
+    std::env::var("TEPORA_PERF_PROBE_ENABLED")
+        .map(|raw| {
+            let normalized = raw.trim().to_ascii_lowercase();
+            normalized == "1" || normalized == "true"
+        })
+        .unwrap_or(false)
+}
+
 fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
     match err {
         ActorDispatchError::SessionBusy(session_id) => ApiError::ServiceUnavailable(format!(
@@ -705,3 +757,6 @@ fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
         ActorDispatchError::Internal { reason, .. } => ApiError::internal(reason),
     }
 }
+
+
+

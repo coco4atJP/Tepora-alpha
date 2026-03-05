@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "00:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "automated"
+  - package-ecosystem: "npm"
+    directory: "/Tepora-app/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "00:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "automated"
+  - package-ecosystem: "cargo"
+    directory: "/Tepora-app/backend-rs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "00:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "automated"

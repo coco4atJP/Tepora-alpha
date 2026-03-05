@@ -6,51 +6,34 @@ use std::sync::Arc;
 use serde_json::{Map, Value};
 
 use super::defaults::generate_default_characters;
+use super::migrator::migrate_to_current;
 use super::paths::AppPaths;
+use super::secrets::{
+    is_sensitive_key, materialize_sensitive_references, resolve_sensitive_references,
+    rotate_sensitive_references, OsSecretStore, SecretStore,
+};
 use super::validation::validate_config;
 use crate::core::errors::ApiError;
 
 const REDACT_PLACEHOLDER: &str = "****";
 
-const SENSITIVE_PATTERNS: [&str; 18] = [
-    "api_key",
-    "secret",
-    "password",
-    "_token",
-    "token_",
-    "credential",
-    "private_key",
-    "auth_",
-    "_auth",
-    "oauth",
-    "jwt",
-    "access_key",
-    "client_id",
-    "client_secret",
-    "access_token",
-    "refresh_token",
-    "auth_token",
-    "bearer",
-];
-
-const SENSITIVE_WHITELIST: [&str; 7] = [
-    "max_tokens",
-    "total_tokens",
-    "input_tokens",
-    "output_tokens",
-    "token_count",
-    "tokenizer",
-    "tokens",
-];
-
 #[derive(Clone)]
 pub struct ConfigService {
     paths: Arc<AppPaths>,
+    secret_store: Arc<dyn SecretStore>,
 }
 
 impl ConfigService {
     pub fn new(paths: Arc<AppPaths>) -> Self {
-        Self { paths }
+        Self {
+            paths,
+            secret_store: Arc::new(OsSecretStore),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn new_with_secret_store(paths: Arc<AppPaths>, secret_store: Arc<dyn SecretStore>) -> Self {
+        Self { paths, secret_store }
     }
 
     #[allow(dead_code)]
@@ -84,31 +67,64 @@ impl ConfigService {
     }
 
     pub fn load_config(&self) -> Result<Value, ApiError> {
-        let public_config = load_yaml_file(&self.config_path());
-        let secrets_config = load_yaml_file(&self.secrets_path());
-        let mut merged = deep_merge(&public_config, &secrets_config);
+        let mut storage_config = self.load_storage_config();
+        if migrate_to_current(&mut storage_config, self.secret_store.as_ref())? {
+            save_config_files(self, &storage_config)?;
+        }
 
-        ensure_default_characters(&mut merged);
+        let mut resolved = storage_config;
+        resolve_sensitive_references(&mut resolved, self.secret_store.as_ref())?;
+        ensure_default_characters(&mut resolved);
+        validate_config(&resolved)?;
 
-        Ok(merged)
+        Ok(resolved)
     }
 
     pub fn update_config(&self, config_data: Value, merge: bool) -> Result<(), ApiError> {
-        let current = self.load_config()?;
-        let restored = restore_redacted_values(&config_data, &current);
-        let to_save = if merge {
-            deep_merge(&current, &restored)
+        let mut current_storage = self.load_storage_config();
+        let _ = migrate_to_current(&mut current_storage, self.secret_store.as_ref())?;
+
+        let restored = restore_redacted_values(&config_data, &current_storage);
+        let mut to_save = if merge {
+            deep_merge(&current_storage, &restored)
         } else {
             restored
         };
 
-        validate_config(&to_save)?;
+        let _ = migrate_to_current(&mut to_save, self.secret_store.as_ref())?;
+        if materialize_sensitive_references(&mut to_save, self.secret_store.as_ref())? {
+            // keep normalized storage shape even when update payload partially modifies config
+        }
+
+        let mut resolved_for_validation = to_save.clone();
+        resolve_sensitive_references(&mut resolved_for_validation, self.secret_store.as_ref())?;
+        ensure_default_characters(&mut resolved_for_validation);
+        validate_config(&resolved_for_validation)?;
+
         save_config_files(self, &to_save)?;
         Ok(())
     }
 
+    pub fn rotate_secrets(&self) -> Result<usize, ApiError> {
+        let mut storage_config = self.load_storage_config();
+        let migrated = migrate_to_current(&mut storage_config, self.secret_store.as_ref())?;
+        let rotated = rotate_sensitive_references(&mut storage_config, self.secret_store.as_ref())?;
+
+        if migrated || rotated > 0 {
+            save_config_files(self, &storage_config)?;
+        }
+
+        Ok(rotated)
+    }
+
     pub fn redact_sensitive_values(&self, value: &Value) -> Value {
         redact_sensitive_values(value)
+    }
+
+    fn load_storage_config(&self) -> Value {
+        let public_config = load_yaml_file(&self.config_path());
+        let secrets_config = load_yaml_file(&self.secrets_path());
+        deep_merge(&public_config, &secrets_config)
     }
 }
 
@@ -282,19 +298,6 @@ fn restore_redacted_values(new_value: &Value, original: &Value) -> Value {
     }
 }
 
-fn is_sensitive_key(key: &str) -> bool {
-    let key_lower = key.to_lowercase();
-    if SENSITIVE_WHITELIST
-        .iter()
-        .any(|allowed| *allowed == key_lower)
-    {
-        return false;
-    }
-    SENSITIVE_PATTERNS
-        .iter()
-        .any(|pattern| key_lower.contains(pattern))
-}
-
 fn is_empty_object(value: &Value) -> bool {
     matches!(value, Value::Object(map) if map.is_empty())
 }
@@ -385,6 +388,30 @@ mod tests {
                 "items": [
                     { "password": "****" }
                 ]
+            })
+        );
+    }
+
+    #[test]
+    fn restore_redacted_values_preserves_existing_keyring_reference() {
+        let payload = json!({
+            "llm": {
+                "api_key": "****"
+            }
+        });
+        let existing = json!({
+            "llm": {
+                "api_key": "keyring://tepora/config/abc123/uuid"
+            }
+        });
+
+        let restored = restore_redacted_values(&payload, &existing);
+        assert_eq!(
+            restored,
+            json!({
+                "llm": {
+                    "api_key": "keyring://tepora/config/abc123/uuid"
+                }
             })
         );
     }

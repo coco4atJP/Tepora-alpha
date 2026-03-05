@@ -1,6 +1,9 @@
 {
   "scripts": {
-    "test:dev-sync": "node --test tests/dev_sync.e2e.test.mjs"
+    "test:dev-sync": "node --test tests/dev_sync.e2e.test.mjs",
+    "perf:collect": "node tests/perf/ci_perf_probe.mjs",
+    "perf:gate": "node tests/perf/perf_gate.mjs",
+    "test:perf": "npm run perf:collect && npm run perf:gate"
   },
   "dependencies": {
     "ws": "^8.19.0"

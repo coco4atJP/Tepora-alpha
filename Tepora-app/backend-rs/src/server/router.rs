@@ -46,6 +46,7 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
                 .post(config::update_config)
                 .patch(config::patch_config),
         )
+        .route("/api/config/secrets/rotate", post(config::rotate_secrets))
         .route("/api/logs", get(logs::get_logs))
         .route("/api/logs/frontend", post(logs::receive_frontend_logs))
         .route("/api/logs/:filename", get(logs::get_log_content))
@@ -67,6 +68,7 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             "/api/sessions/:session_id/metrics",
             get(metrics::get_session_metrics),
         )
+        .route("/api/metrics/runtime", get(metrics::get_runtime_metrics))
         .route(
             "/api/custom-agents",
             get(agents::list_custom_agents).post(agents::create_custom_agent),
@@ -284,3 +286,5 @@ fn default_local_origins() -> Vec<String> {
         "http://127.0.0.1:8000".to_string(),
     ]
 }
+
+

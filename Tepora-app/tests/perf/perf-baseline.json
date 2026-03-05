@@ -1,0 +1,9 @@
+{
+  "collected_at": "2026-03-05T00:00:00Z",
+  "iterations": 15,
+  "p95": {
+    "startup_ms": 5000,
+    "ttft_ms": 250,
+    "peak_rss_mb": 800
+  }
+}

@@ -10,6 +10,9 @@ export const ENDPOINTS = {
 		DETAIL: (id: string) => `api/sessions/${id}`, // DELETE, PATCH
 		METRICS: (id: string) => `api/sessions/${id}/metrics`, // GET for agent events
 	},
+	METRICS: {
+		RUNTIME: "api/metrics/runtime",
+	},
 	LOADERS: {
 		OLLAMA: {
 			REFRESH: "api/setup/models/ollama/refresh",
@@ -58,6 +61,7 @@ export const ENDPOINTS = {
 	CONFIG: {
 		GET: "api/config",
 		UPDATE: "api/config",
+		ROTATE_SECRETS: "api/config/secrets/rotate",
 	},
 	TOOLS: "api/tools",
 	MEMORY: {

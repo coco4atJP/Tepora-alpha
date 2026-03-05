@@ -29,3 +29,13 @@ pub async fn patch_config(
     state.config.update_config(payload, true)?;
     Ok(Json(json!({"status": "success"})))
 }
+
+pub async fn rotate_secrets(
+    State(state): State<AppStateWrite>,
+) -> Result<impl IntoResponse, ApiError> {
+    let rotated = state.config.rotate_secrets()?;
+    Ok(Json(json!({
+        "status": "success",
+        "rotated": rotated,
+    })))
+}

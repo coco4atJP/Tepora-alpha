@@ -184,6 +184,52 @@ jobs:
         run: npm run test:dev-sync
 
   # ============================================
+  # Perf p95 Gate
+  # ============================================
+  perf-p95-gate:
+    name: Perf p95 Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            Tepora-app/backend-rs
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run perf p95 gate
+        env:
+          TEPORA_PERF_ITERATIONS: '15'
+          TEPORA_PERF_OUTPUT: tests/perf/perf-results.json
+        run: npm run test:perf
+
+      - name: Upload perf report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-p95-report
+          path: Tepora-app/tests/perf/perf-results.json
+  # ============================================
   # Frontend Security Scan
   # ============================================
   frontend-security:
@@ -215,7 +261,7 @@ jobs:
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [backend-quality, backend-wasm-e2e-windows, frontend-quality, dev-sync-e2e, backend-security, frontend-security]
+    needs: [backend-quality, backend-wasm-e2e-windows, frontend-quality, dev-sync-e2e, perf-p95-gate, backend-security, frontend-security]
     if: always()
 
     steps:
@@ -242,6 +288,12 @@ jobs:
             echo "❌ Dev Sync Pseudo E2E: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
+          if [ "${{ needs.perf-p95-gate.result }}" == "success" ]; then
+            echo "✅ Perf p95 Gate: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Perf p95 Gate: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
           if [ "${{ needs.backend-wasm-e2e-windows.result }}" == "success" ]; then
             echo "✅ Backend Wasm E2E (Windows): PASSED" >> $GITHUB_STEP_SUMMARY
           else
@@ -263,7 +315,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Fail if quality checks failed
-          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ] || [ "${{ needs.dev-sync-e2e.result }}" != "success" ]; then
+          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ] || [ "${{ needs.dev-sync-e2e.result }}" != "success" ] || [ "${{ needs.perf-p95-gate.result }}" != "success" ]; then
             echo "❌ **QUALITY GATE FAILED**" >> $GITHUB_STEP_SUMMARY
             exit 1
           else

@@ -14,6 +14,8 @@ pub enum AgentEventType {
     PromptGenerated,
     /// When the agent decides to invoke a tool
     ToolCall,
+    /// Actor queue saturation signal (session busy / too many sessions)
+    QueueSaturated,
     /// When an error occurs during reasoning or tool execution
     Error,
 }
@@ -25,6 +27,7 @@ impl AgentEventType {
             Self::NodeCompleted => "node_completed",
             Self::PromptGenerated => "prompt_generated",
             Self::ToolCall => "tool_call",
+            Self::QueueSaturated => "queue_saturated",
             Self::Error => "error",
         }
     }
@@ -35,6 +38,7 @@ impl AgentEventType {
             "node_completed" => Some(Self::NodeCompleted),
             "prompt_generated" => Some(Self::PromptGenerated),
             "tool_call" => Some(Self::ToolCall),
+            "queue_saturated" => Some(Self::QueueSaturated),
             "error" => Some(Self::Error),
             _ => None,
         }
@@ -50,7 +54,7 @@ pub struct AgentEvent {
     pub session_id: String,
     /// The name of the Graph node executing (e.g., "agent", "thinking", "tools")
     pub node_name: String,
-    /// The specific type of the event occurring 
+    /// The specific type of the event occurring
     pub event_type: AgentEventType,
     /// JSON metadata payload (e.g. token_usage, latency_ms, tool_name, etc.)
     pub metadata: Value,

@@ -1,0 +1,104 @@
+name: Dependency Peer Health
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  peer-health:
+    name: Peer Dependency Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.actor == 'dependabot[bot]'
+    defaults:
+      run:
+        working-directory: ./Tepora-app/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/frontend/package-lock.json
+
+      - name: Install dependencies with strict peer checks
+        id: install
+        continue-on-error: true
+        env:
+          npm_config_legacy_peer_deps: 'false'
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee npm-ci.log
+
+      - name: Append summary
+        run: |
+          echo "## Dependency Peer Health" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.install.outcome }}" = "success" ]; then
+            echo "npm ci succeeded with npm_config_legacy_peer_deps=false" >> $GITHUB_STEP_SUMMARY
+            echo "legacy-peer-deps can potentially be removed once validated across CI lanes." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "npm ci failed with npm_config_legacy_peer_deps=false" >> $GITHUB_STEP_SUMMARY
+            echo "legacy-peer-deps still appears required." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Create or update tracking issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const success = "${{ steps.install.outcome }}" === "success";
+            const title = "[Dependency Health] legacy-peer-deps removal readiness";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const statusLine = success
+              ? "- Status: strict peer install succeeded (`npm_config_legacy_peer_deps=false`)"
+              : "- Status: strict peer install failed (`npm_config_legacy_peer_deps=false`)";
+
+            const body = [
+              "## legacy-peer-deps tracking",
+              "",
+              "This issue is automatically updated by `dependency-peer-health.yml`.",
+              "",
+              statusLine,
+              `- Updated at: ${new Date().toISOString()}`,
+              `- Workflow run: ${runUrl}`,
+              "",
+              "### Next action",
+              success
+                ? "Validate all quality gates without `legacy-peer-deps`, then remove `.npmrc` override."
+                : "Keep override and wait for upstream peer dependency compatibility updates.",
+            ].join("\n");
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "dependency-health",
+              per_page: 100,
+            });
+
+            const existing = issues.find((issue) => issue.title === title);
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["dependency-health", "automated", "dependencies"],
+              });
+            }

@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use tokio::sync::{broadcast, mpsc, Mutex};
 
+use crate::infrastructure::observability::{RuntimeMetrics, RuntimeMetricsSnapshot};
 use crate::state::AppState;
 
 use super::messages::{SessionCommand, SessionEvent, SessionQuery};
@@ -56,6 +57,7 @@ pub struct ActorManager {
     events_tx: broadcast::Sender<SessionEvent>,
     config: ActorManagerConfig,
     gc_started: AtomicBool,
+    runtime_metrics: Arc<RuntimeMetrics>,
 }
 
 impl Default for ActorManager {
@@ -85,6 +87,7 @@ impl ActorManager {
                 gc_interval,
             },
             gc_started: AtomicBool::new(false),
+            runtime_metrics: Arc::new(RuntimeMetrics::new()),
         }
     }
 
@@ -123,13 +126,24 @@ impl ActorManager {
         app_state: Arc<AppState>,
         command: SessionCommand,
     ) -> Result<(), ActorDispatchError> {
+        self.runtime_metrics.record_dispatch();
+
         let _ = self.reap_expired_sessions().await;
 
-        let tx = self.ensure_session_sender(session_id, app_state.clone()).await?;
+        let tx = match self.ensure_session_sender(session_id, app_state.clone()).await {
+            Ok(tx) => tx,
+            Err(err) => {
+                self.record_dispatch_error(session_id, &err);
+                return Err(err);
+            }
+        };
+
         match tx.try_send(command) {
             Ok(()) => Ok(()),
             Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                Err(ActorDispatchError::SessionBusy(session_id.to_string()))
+                let err = ActorDispatchError::SessionBusy(session_id.to_string());
+                self.record_dispatch_error(session_id, &err);
+                Err(err)
             }
             Err(tokio::sync::mpsc::error::TrySendError::Closed(command)) => {
                 {
@@ -137,17 +151,28 @@ impl ActorManager {
                     sessions.remove(session_id);
                 }
 
-                let retry_tx = self.ensure_session_sender(session_id, app_state).await?;
+                let retry_tx = match self.ensure_session_sender(session_id, app_state).await {
+                    Ok(tx) => tx,
+                    Err(err) => {
+                        self.record_dispatch_error(session_id, &err);
+                        return Err(err);
+                    }
+                };
+
                 match retry_tx.try_send(command) {
                     Ok(()) => Ok(()),
                     Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                        Err(ActorDispatchError::SessionBusy(session_id.to_string()))
+                        let err = ActorDispatchError::SessionBusy(session_id.to_string());
+                        self.record_dispatch_error(session_id, &err);
+                        Err(err)
                     }
                     Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
-                        Err(ActorDispatchError::Internal {
+                        let err = ActorDispatchError::Internal {
                             session_id: session_id.to_string(),
                             reason: "session command channel is closed".to_string(),
-                        })
+                        };
+                        self.record_dispatch_error(session_id, &err);
+                        Err(err)
                     }
                 }
             }
@@ -177,7 +202,7 @@ impl ActorManager {
             session_id.to_string(),
             rx,
             app_state,
-            self.events_tx.clone(), // Could also be a per-session broadcast
+            self.events_tx.clone(),
         );
 
         tokio::spawn(async move {
@@ -253,6 +278,28 @@ impl ActorManager {
     pub async fn shutdown_session(&self, session_id: &str) {
         if self.sessions.lock().await.remove(session_id).is_some() {
             tracing::debug!("ActorManager: Removed session {}", session_id);
+        }
+    }
+
+    pub fn runtime_metrics_snapshot(&self) -> RuntimeMetricsSnapshot {
+        self.runtime_metrics.snapshot(10)
+    }
+
+    pub fn runtime_metrics(&self) -> Arc<RuntimeMetrics> {
+        self.runtime_metrics.clone()
+    }
+
+    fn record_dispatch_error(&self, session_id: &str, err: &ActorDispatchError) {
+        match err {
+            ActorDispatchError::SessionBusy(_) => {
+                self.runtime_metrics.record_session_busy(session_id);
+            }
+            ActorDispatchError::TooManySessions { .. } => {
+                self.runtime_metrics.record_too_many_sessions(session_id);
+            }
+            ActorDispatchError::Internal { .. } => {
+                self.runtime_metrics.record_internal_error();
+            }
         }
     }
 }
@@ -385,6 +432,13 @@ mod tests {
             .expect_err("65th command must fail-fast when queue is full");
 
         assert!(matches!(err, ActorDispatchError::SessionBusy(ref id) if id == "stress_session"));
+
+        let snapshot = manager.runtime_metrics_snapshot();
+        assert_eq!(snapshot.dispatch_total, 65);
+        assert_eq!(snapshot.session_busy_total, 1);
+        assert_eq!(snapshot.too_many_sessions_total, 0);
+        assert_eq!(snapshot.internal_error_total, 0);
+        assert_eq!(snapshot.session_busy_top.first().map(|v| v.session_id.as_str()), Some("stress_session"));
     }
 
     #[tokio::test]
@@ -426,6 +480,11 @@ mod tests {
             err,
             ActorDispatchError::TooManySessions { max_sessions: 1 }
         ));
+
+        let snapshot = manager.runtime_metrics_snapshot();
+        assert_eq!(snapshot.dispatch_total, 2);
+        assert_eq!(snapshot.too_many_sessions_total, 1);
+        assert_eq!(snapshot.session_busy_top.first().map(|v| v.session_id.as_str()), Some("second"));
     }
 
     #[tokio::test]
