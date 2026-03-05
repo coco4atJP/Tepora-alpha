@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added proposal catalog document: `docs/planning/PROJECT_IMPROVEMENT_CATALOG_2026-03-05.md` (60 improvement items with rationale and expected impact).
+- Added `dev_sync` pseudo E2E test (`npm run test:dev-sync`) and made it a required CI quality gate.
+- Added `clean-wasm-fixtures` task to remove Wasm fixture build artifacts.
+
+### Changed
+- Consolidated task definitions into `Tepora-app/Taskfile.yml`; root `Taskfile.yml` now delegates as a compatibility wrapper.
+- Enforced feature boundary lint in frontend (`chat/navigation/session/settings` cannot import each other directly).
 
 ## [0.4.0] - 2026-02-15
 

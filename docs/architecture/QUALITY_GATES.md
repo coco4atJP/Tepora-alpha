@@ -35,6 +35,7 @@
 | Lint | Biome/ESLint | `npx biome check src/` |
 | Tests | Vitest | `npm test` |
 | Security | npm audit | `npm audit` |
+| dev_sync Pseudo E2E | Node test runner | `npm run test:dev-sync` |
 
 ## 使用方法
 
@@ -111,11 +112,13 @@ graph TD
     A[Push/PR] --> B[Backend Quality (Ubuntu)]
     A --> B2[Backend Wasm E2E (Windows)]
     A --> C[Frontend Quality]
+    A --> C2[Dev Sync Pseudo E2E]
     A --> D[Backend Security]
     A --> E[Frontend Security]
     B --> F[Summary]
     B2 --> F
     C --> F
+    C2 --> F
     D --> F
     E --> F
     F --> G{All Passed?}
@@ -177,3 +180,5 @@ npx biome check --write src/
 | `.github/workflows/ci.yml` | CI パイプライン設定 |
 | `.github/workflows/backend-macos-smoke.yml` | macOS Wasm 定期スモーク監視 |
 | `Taskfile.yml` | タスクランナー設定 |
+
+

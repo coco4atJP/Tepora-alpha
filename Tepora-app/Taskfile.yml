@@ -1,11 +1,7 @@
 # Tepora Project - Task Runner Configuration
 # https://taskfile.dev
 #
-# Usage:
-#   task dev          - Start both backend and frontend
-#   task test         - Run all tests
-#   task lint         - Run linters
-#   task build-sidecar - Build Rust sidecar for Tauri
+# Canonical Taskfile lives in Tepora-app.
 
 version: '3'
 
@@ -20,11 +16,31 @@ tasks:
     cmds:
       - task --list
 
+  # === Packaging ===
+  package:
+    desc: "Build installer and move to Installer directory"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run build:sidecar
+      - npm run tauri build
+      - cmd: |
+          if not exist "..\..\Installer" mkdir "..\..\Installer"
+          for %%f in (src-tauri\target\release\bundle\nsis\*.exe) do (
+            echo Found installer: %%f
+            copy /Y "%%f" "..\..\Installer\Tepora-Setup-Windows-x64.exe"
+          )
+        platforms: [windows]
+
   # === Development ===
   dev:
     desc: "Start both backend and frontend in development mode (port + token synchronized)"
     cmds:
       - task: dev-sync
+
+  dev-sync:
+    desc: "Start backend and frontend with dynamic port synchronization"
+    cmds:
+      - node scripts/dev_sync.mjs
 
   dev-backend:
     desc: "Start backend server"
@@ -38,11 +54,6 @@ tasks:
     cmds:
       - npm run dev
 
-  dev-sync:
-    desc: "Start backend and frontend with dynamic port synchronization"
-    cmds:
-      - node scripts/dev_sync.mjs
-
   dev-tauri:
     desc: "Start Tauri app in dev mode"
     dir: "{{.FRONTEND_DIR}}"
@@ -55,6 +66,7 @@ tasks:
     cmds:
       - task: test-backend
       - task: test-frontend
+      - task: test-dev-sync
 
   test-backend:
     desc: "Run backend tests"
@@ -67,6 +79,11 @@ tasks:
     dir: "{{.FRONTEND_DIR}}"
     cmds:
       - npm run test
+
+  test-dev-sync:
+    desc: "Run dev_sync pseudo E2E tests"
+    cmds:
+      - npm run test:dev-sync
 
   # === Linting ===
   lint:
@@ -151,7 +168,7 @@ tasks:
     dir: "{{.BACKEND_DIR}}"
     cmds:
       - cargo generate-lockfile
-      - cargo audit
+      - cargo audit --ignore RUSTSEC-2023-0071
       - npm audit --audit-level=moderate --prefix {{.FRONTEND_DIR}}
 
   security-backend:
@@ -159,7 +176,7 @@ tasks:
     dir: "{{.BACKEND_DIR}}"
     cmds:
       - cargo generate-lockfile
-      - cargo audit
+      - cargo audit --ignore RUSTSEC-2023-0071
 
   security-frontend:
     desc: "Run frontend security scan (npm audit)"
@@ -176,8 +193,9 @@ tasks:
 
   build-sidecar:
     desc: "Build Rust sidecar for Tauri"
+    dir: "{{.BACKEND_DIR}}"
     cmds:
-      - node scripts/build_sidecar.mjs
+      - node ../scripts/build_sidecar.mjs
 
   build-frontend:
     desc: "Build frontend for production"
@@ -202,7 +220,26 @@ tasks:
     desc: "Install frontend dependencies"
     dir: "{{.FRONTEND_DIR}}"
     cmds:
-      - npm install
+      - npm ci --legacy-peer-deps
+
+  # === Coverage ===
+  coverage:
+    desc: "Run tests with coverage report"
+    cmds:
+      - task: coverage-backend
+      - task: coverage-frontend
+
+  coverage-backend:
+    desc: "Run backend tests with coverage"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo test
+
+  coverage-frontend:
+    desc: "Run frontend tests with coverage"
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm test -- --run --coverage
 
   # === Cleanup ===
   clean:
@@ -210,6 +247,7 @@ tasks:
     cmds:
       - task: clean-backend
       - task: clean-frontend
+      - task: clean-wasm-fixtures
 
   clean-backend:
     desc: "Clean backend build artifacts"
@@ -223,5 +261,25 @@ tasks:
     cmds:
       - cmd: rm -rf dist node_modules/.cache
         platforms: [linux, darwin]
-      - cmd: if exist dist rmdir /s /q dist
+      - cmd: powershell -NoProfile -Command "if (Test-Path 'dist') { Remove-Item -Recurse -Force 'dist' }"
         platforms: [windows]
+
+  clean-wasm-fixtures:
+    desc: "Clean wasm fixture build artifacts"
+    cmds:
+      - cmd: rm -rf backend-rs/tests/fixtures/wasm-mcp-echo/target
+        platforms: [linux, darwin]
+      - cmd: powershell -NoProfile -Command "if (Test-Path 'backend-rs/tests/fixtures/wasm-mcp-echo/target') { Remove-Item -Recurse -Force 'backend-rs/tests/fixtures/wasm-mcp-echo/target' }"
+        platforms: [windows]
+
+  # === Pre-commit ===
+  pre-commit:
+    desc: "Run pre-commit checks on all files"
+    cmds:
+      - pre-commit run --all-files
+
+  pre-commit:install:
+    desc: "Install pre-commit hooks"
+    cmds:
+      - pip install pre-commit
+      - pre-commit install

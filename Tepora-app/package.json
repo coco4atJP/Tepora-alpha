@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test:dev-sync": "node --test tests/dev_sync.e2e.test.mjs"
+  },
   "dependencies": {
     "ws": "^8.19.0"
   }

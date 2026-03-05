@@ -4,6 +4,42 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+const FEATURE_NAMES = ["chat", "navigation", "session", "settings"];
+const FEATURE_BOUNDARY_EXCEPTIONS = [
+	"src/features/chat/PersonaSwitcher.tsx",
+	"src/features/navigation/Layout.tsx",
+];
+
+function createFeatureBoundaryConfig(featureName) {
+	const crossFeatureTargets = FEATURE_NAMES.filter((name) => name !== featureName).join("|");
+	const boundaryMessage = `Do not import other features from "${featureName}". Move shared code to a common layer outside src/features.`;
+
+	return {
+		files: [`src/features/${featureName}/**/*.{ts,tsx}`],
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							regex: `^(\\.\\./)+(?:${crossFeatureTargets})(?:/|$)`,
+							message: boundaryMessage,
+						},
+						{
+							regex: `^(\\.\\./)+features/(?:${crossFeatureTargets})(?:/|$)`,
+							message: boundaryMessage,
+						},
+						{
+							regex: `^(?:@/|src/)?features/(?:${crossFeatureTargets})(?:/|$)`,
+							message: boundaryMessage,
+						},
+					],
+				},
+			],
+		},
+	};
+}
+
 export default tseslint.config(
 	{ ignores: ["dist", "src-tauri", "node_modules", "coverage"] },
 	{
@@ -27,6 +63,13 @@ export default tseslint.config(
 					varsIgnorePattern: "^_",
 				},
 			],
+		},
+	},
+	...FEATURE_NAMES.map(createFeatureBoundaryConfig),
+	{
+		files: FEATURE_BOUNDARY_EXCEPTIONS,
+		rules: {
+			"no-restricted-imports": "off",
 		},
 	},
 );

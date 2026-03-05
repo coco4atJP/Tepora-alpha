@@ -1,279 +1,205 @@
-# Tepora Project - Task Runner Configuration
-# https://taskfile.dev
-#
-# Usage:
-#   task dev          - Start both backend and frontend
-#   task test         - Run all tests
-#   task lint         - Run linters
-#   task quality      - Run quality gate (all checks)
-#   task quality:strict - Run strict quality gate
-#   task security     - Run security scans
-#   task build-sidecar - Build Rust sidecar for Tauri
+# Tepora Project - Task Runner Wrapper
+# Canonical definitions live in Tepora-app/Taskfile.yml
 
 version: '3'
 
-vars:
-  BACKEND_DIR: Tepora-app/backend-rs
-  FRONTEND_DIR: Tepora-app/frontend
-
 tasks:
-  # === Default ===
   default:
-    desc: "Show available tasks"
+    desc: "Show available tasks from Tepora-app"
     cmds:
-      - task --list
+      - task -d Tepora-app --list
 
-  # === Packaging ===
   package:
-    desc: "Build installer and move to Installer directory"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: package"
     cmds:
-      - npm run build:sidecar
-      - npm run tauri build
-      - cmd: |
-          if not exist "..\..\Installer" mkdir "..\..\Installer"
-          for %%f in (src-tauri\target\release\bundle\nsis\*.exe) do (
-            echo Found installer: %%f
-            copy /Y "%%f" "..\..\Installer\Tepora-Setup-Windows-x64.exe"
-          )
-        platforms: [windows]
+      - task -d Tepora-app package
 
-  # === Development ===
   dev:
-    desc: "Start both backend and frontend in development mode (port + token synchronized)"
+    desc: "Delegate: dev"
     cmds:
-      - task: dev-sync
+      - task -d Tepora-app dev
 
   dev-sync:
-    desc: "Start backend and frontend with dynamic port synchronization"
-    dir: "Tepora-app"
+    desc: "Delegate: dev-sync"
     cmds:
-      - node scripts/dev_sync.mjs
+      - task -d Tepora-app dev-sync
 
   dev-backend:
-    desc: "Start backend server"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: dev-backend"
     cmds:
-      - cargo run --bin tepora-backend
+      - task -d Tepora-app dev-backend
 
   dev-frontend:
-    desc: "Start frontend dev server"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: dev-frontend"
     cmds:
-      - npm run dev
+      - task -d Tepora-app dev-frontend
 
   dev-tauri:
-    desc: "Start Tauri app in dev mode"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: dev-tauri"
     cmds:
-      - npm run tauri dev
+      - task -d Tepora-app dev-tauri
 
-  # === Testing ===
   test:
-    desc: "Run all tests"
+    desc: "Delegate: test"
     cmds:
-      - task: test-backend
-      - task: test-frontend
+      - task -d Tepora-app test
 
   test-backend:
-    desc: "Run backend tests"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: test-backend"
     cmds:
-      - cargo test
+      - task -d Tepora-app test-backend
 
   test-frontend:
-    desc: "Run frontend tests"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: test-frontend"
     cmds:
-      - npm run test
+      - task -d Tepora-app test-frontend
 
-  # === Linting ===
-  lint:
-    desc: "Run all linters"
+  test-dev-sync:
+    desc: "Delegate: test-dev-sync"
     cmds:
-      - task: lint-backend
-      - task: lint-frontend
+      - task -d Tepora-app test-dev-sync
+
+  lint:
+    desc: "Delegate: lint"
+    cmds:
+      - task -d Tepora-app lint
 
   lint-backend:
-    desc: "Lint backend code with rustfmt + clippy"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: lint-backend"
     cmds:
-      - cargo fmt -- --check
-      - cargo clippy -- -D warnings
+      - task -d Tepora-app lint-backend
 
   lint-frontend:
-    desc: "Lint frontend code"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: lint-frontend"
     cmds:
-      - npm run lint
+      - task -d Tepora-app lint-frontend
 
-  # === Type Checking ===
   typecheck:
-    desc: "Run type checking"
+    desc: "Delegate: typecheck"
     cmds:
-      - task: typecheck-backend
-      - task: typecheck-frontend
+      - task -d Tepora-app typecheck
 
   typecheck-backend:
-    desc: "Type check backend with cargo"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: typecheck-backend"
     cmds:
-      - cargo check
+      - task -d Tepora-app typecheck-backend
 
   typecheck-frontend:
-    desc: "Type check frontend"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: typecheck-frontend"
     cmds:
-      - npx tsc --noEmit
+      - task -d Tepora-app typecheck-frontend
 
-  # === Build ===
-  build:
-    desc: "Build both backend sidecar and frontend"
-    cmds:
-      - task: build-sidecar
-      - task: build-frontend
-
-  build-sidecar:
-    desc: "Build Rust sidecar for Tauri"
-    dir: "{{.BACKEND_DIR}}"
-    cmds:
-      - node ../scripts/build_sidecar.mjs
-
-  build-frontend:
-    desc: "Build frontend for production"
-    dir: "{{.FRONTEND_DIR}}"
-    cmds:
-      - npm run build
-
-  # === Installation ===
-  install:
-    desc: "Install all dependencies"
-    cmds:
-      - task: install-backend
-      - task: install-frontend
-
-  install-backend:
-    desc: "Fetch backend dependencies"
-    dir: "{{.BACKEND_DIR}}"
-    cmds:
-      - cargo fetch
-
-  install-frontend:
-    desc: "Install frontend dependencies"
-    dir: "{{.FRONTEND_DIR}}"
-    cmds:
-      - npm ci --legacy-peer-deps
-
-  # === Cleanup ===
-  clean:
-    desc: "Clean build artifacts"
-    cmds:
-      - task: clean-backend
-      - task: clean-frontend
-
-  clean-backend:
-    desc: "Clean backend build artifacts"
-    dir: "{{.BACKEND_DIR}}"
-    cmds:
-      - cargo clean
-
-  clean-frontend:
-    desc: "Clean frontend build artifacts"
-    dir: "{{.FRONTEND_DIR}}"
-    cmds:
-      - cmd: rm -rf dist node_modules/.cache
-        platforms: [linux, darwin]
-      - cmd: if exist dist rmdir /s /q dist
-        platforms: [windows]
-
-  # === Quality Gate ===
   quality:
-    desc: "Run all quality checks (backend + frontend)"
+    desc: "Delegate: quality"
     cmds:
-      - task: quality:backend
-      - task: quality:frontend
+      - task -d Tepora-app quality
 
   quality:strict:
-    desc: "Run strict quality checks (warnings = failures)"
+    desc: "Delegate: quality:strict"
     cmds:
-      - task: quality:backend
-      - task: quality:frontend
+      - task -d Tepora-app quality:strict
 
   quality:fix:
-    desc: "Run quality checks with auto-fix"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: quality:fix"
     cmds:
-      - cargo fmt
-      - cargo clippy -- -D warnings
-      - cargo test
+      - task -d Tepora-app quality:fix
 
   quality:backend:
-    desc: "Run backend quality checks only"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: quality:backend"
     cmds:
-      - cargo fmt -- --check
-      - cargo clippy -- -D warnings
-      - cargo test
+      - task -d Tepora-app quality:backend
 
   quality:frontend:
-    desc: "Run frontend quality checks only"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: quality:frontend"
     cmds:
-      - npm run typecheck
-      - npx biome check src/
-      - npm run lint
-      - npm test -- --run
+      - task -d Tepora-app quality:frontend
 
-  # === Security ===
   security:
-    desc: "Run security scans (cargo audit, npm audit)"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: security"
     cmds:
-      - cargo generate-lockfile
-      - cargo audit --ignore RUSTSEC-2023-0071
-      - npm audit --audit-level=moderate --prefix {{.FRONTEND_DIR}}
+      - task -d Tepora-app security
 
   security-backend:
-    desc: "Run backend security scan (cargo-audit)"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: security-backend"
     cmds:
-      - cargo generate-lockfile
-      - cargo audit --ignore RUSTSEC-2023-0071
+      - task -d Tepora-app security-backend
 
   security-frontend:
-    desc: "Run frontend security scan (npm audit)"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: security-frontend"
     cmds:
-      - npm audit --audit-level=moderate
+      - task -d Tepora-app security-frontend
 
-  # === Coverage ===
-  coverage:
-    desc: "Run tests with coverage report"
+  build:
+    desc: "Delegate: build"
     cmds:
-      - task: coverage-backend
-      - task: coverage-frontend
+      - task -d Tepora-app build
+
+  build-sidecar:
+    desc: "Delegate: build-sidecar"
+    cmds:
+      - task -d Tepora-app build-sidecar
+
+  build-frontend:
+    desc: "Delegate: build-frontend"
+    cmds:
+      - task -d Tepora-app build-frontend
+
+  install:
+    desc: "Delegate: install"
+    cmds:
+      - task -d Tepora-app install
+
+  install-backend:
+    desc: "Delegate: install-backend"
+    cmds:
+      - task -d Tepora-app install-backend
+
+  install-frontend:
+    desc: "Delegate: install-frontend"
+    cmds:
+      - task -d Tepora-app install-frontend
+
+  coverage:
+    desc: "Delegate: coverage"
+    cmds:
+      - task -d Tepora-app coverage
 
   coverage-backend:
-    desc: "Run backend tests with coverage"
-    dir: "{{.BACKEND_DIR}}"
+    desc: "Delegate: coverage-backend"
     cmds:
-      - cargo test
+      - task -d Tepora-app coverage-backend
 
   coverage-frontend:
-    desc: "Run frontend tests with coverage"
-    dir: "{{.FRONTEND_DIR}}"
+    desc: "Delegate: coverage-frontend"
     cmds:
-      - npm test -- --run --coverage
+      - task -d Tepora-app coverage-frontend
 
-  # === Pre-commit ===
-  pre-commit:
-    desc: "Run pre-commit checks on all files"
+  clean:
+    desc: "Delegate: clean"
     cmds:
-      - pre-commit run --all-files
+      - task -d Tepora-app clean
+
+  clean-backend:
+    desc: "Delegate: clean-backend"
+    cmds:
+      - task -d Tepora-app clean-backend
+
+  clean-frontend:
+    desc: "Delegate: clean-frontend"
+    cmds:
+      - task -d Tepora-app clean-frontend
+
+  clean-wasm-fixtures:
+    desc: "Delegate: clean-wasm-fixtures"
+    cmds:
+      - task -d Tepora-app clean-wasm-fixtures
+
+  pre-commit:
+    desc: "Delegate: pre-commit"
+    cmds:
+      - task -d Tepora-app pre-commit
 
   pre-commit:install:
-    desc: "Install pre-commit hooks"
+    desc: "Delegate: pre-commit:install"
     cmds:
-      - pip install pre-commit
-      - pre-commit install
-
+      - task -d Tepora-app pre-commit:install

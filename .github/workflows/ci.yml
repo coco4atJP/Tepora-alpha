@@ -158,6 +158,32 @@ jobs:
           name: frontend-coverage
 
   # ============================================
+  # Dev Sync Pseudo E2E Gate
+  # ============================================
+  dev-sync-e2e:
+    name: Dev Sync Pseudo E2E
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run dev_sync pseudo E2E
+        run: npm run test:dev-sync
+
+  # ============================================
   # Frontend Security Scan
   # ============================================
   frontend-security:
@@ -189,7 +215,7 @@ jobs:
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [backend-quality, backend-wasm-e2e-windows, frontend-quality, backend-security, frontend-security]
+    needs: [backend-quality, backend-wasm-e2e-windows, frontend-quality, dev-sync-e2e, backend-security, frontend-security]
     if: always()
 
     steps:
@@ -208,6 +234,12 @@ jobs:
             echo "✅ Frontend Quality: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Frontend Quality: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.dev-sync-e2e.result }}" == "success" ]; then
+            echo "✅ Dev Sync Pseudo E2E: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Dev Sync Pseudo E2E: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ needs.backend-wasm-e2e-windows.result }}" == "success" ]; then
@@ -231,7 +263,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Fail if quality checks failed
-          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ]; then
+          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ] || [ "${{ needs.dev-sync-e2e.result }}" != "success" ]; then
             echo "❌ **QUALITY GATE FAILED**" >> $GITHUB_STEP_SUMMARY
             exit 1
           else

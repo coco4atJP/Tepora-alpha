@@ -58,6 +58,7 @@ UIの調整だけを高速に行いたい場合、ブラウザモードが便利
 ```powershell
 task dev
 ```
+Task定義の正本は `Tepora-app/Taskfile.yml` です。ルートの `Taskfile.yml` は互換ラッパーとして同じコマンド名を委譲します。
 
 **代替: 個別起動 (手動)**
 個別に起動する場合は、環境変数を手動で合わせる必要があります。
@@ -94,6 +95,22 @@ cargo test
 ```powershell
 cd Tepora-app/frontend
 npm run test
+```
+
+### dev_sync 疑似E2E
+```powershell
+cd Tepora-app
+npm run test:dev-sync
+```
+
+## 🧹 クリーンアップ (Cleanup)
+
+```powershell
+# 通常クリーン（Wasm fixture成果物の掃除を含む）
+task clean
+
+# Wasm fixture成果物のみ掃除
+task clean-wasm-fixtures
 ```
 
 ## 📦 ビルドと配布 (Build & Distribution)
