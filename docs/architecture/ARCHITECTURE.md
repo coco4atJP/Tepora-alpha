@@ -338,10 +338,21 @@ frontend/
 **ファイル**: `src/state/mod.rs`
 
 ```rust
+// グループ化されたドメイン状態群
 pub struct AppState {
+    pub core: Arc<AppCoreState>,
+    pub ai: Arc<AppAiState>,
+    pub integration: Arc<AppIntegrationState>,
+    pub runtime: Arc<AppRuntimeState>,
+    pub memory: Arc<AppMemoryState>,
+    compat: AppStateCompat, // Deref実装により、後方互換性を維持
+}
+
+// レガシーフィールド（Deref経由でアクセス可能）
+pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,        // パス設定
     pub config: ConfigService,       // 設定ファイルの読み書き
-    pub session_token: SessionToken, // セッショントークン
+    pub session_token: Arc<tokio::sync::RwLock<SessionToken>>, // セッショントークン
     pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
     pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
     pub llm: LlmService,             // LLMサービス (高レベル抽象化)
@@ -350,12 +361,15 @@ pub struct AppState {
     pub models: ModelManager,        // モデル管理
     pub setup: SetupState,           // セットアップ状態
     pub exclusive_agents: ExclusiveAgentManager, // エージェント定義管理
-    pub rag_store: Arc<dyn RagStore>,            // RAGストア抽象
     pub graph_runtime: Arc<GraphRuntime>,        // グラフランタイム
-    pub em_memory_service: Arc<EmMemoryService>, // エピソード記憶
+    pub em_memory_service: Arc<EmMemoryService>, // エピソード記憶 (レガシー)
     pub rate_limiters: Arc<RateLimiters>,        // レート制限
     pub actor_manager: Arc<ActorManager>,        // CQRSアクター管理
     pub memory_adapter: Arc<dyn MemoryAdapter>,  // 統合メモリアダプタ
+    pub episodic_memory: Arc<dyn EpisodicMemoryPort>, // ドメイン: エピソード記憶
+    pub knowledge: Arc<dyn KnowledgePort>,            // ドメイン: 知識
+    pub episodic_memory_use_case: Arc<EpisodicMemoryUseCase>, // Usecase: エピソード記憶
+    pub knowledge_use_case: Arc<KnowledgeUseCase>,            // Usecase: 知識
 }
 ```
 
@@ -428,7 +442,7 @@ pub struct AgentState {
     pub agent_outcome: Option<String>,
   
     // Thinking Mode (CoT)
-    pub thinking_enabled: bool,
+    pub thinking_budget: u8,
     pub thought_process: Option<String>,
   
     // Search Mode State
@@ -590,7 +604,7 @@ graph LR
 
 - **動作**: `ThinkingNode` が最終回答の前に実行され、ステップバイステップの思考プロセスを生成
 - **統合**: 生成された思考プロセスは `AgentState.thought_process` に保存
-- **制御**: クライアントからのリクエストパラメータ `thinkingMode: true` で有効化
+- **制御**: クライアントからのリクエストパラメータ `thinkingBudget: <number>` で有効化
 
 ### 5.7 コンテキストパイプライン (WorkerPipeline) [v4.0]
 
@@ -829,7 +843,7 @@ interface WebSocketActions {
     mode: ChatMode,
     attachments?: Attachment[],
     skipWebSearch?: boolean,
-    thinkingMode?: boolean,
+    thinkingBudget?: number,
     agentId?: string,
     agentMode?: AgentMode,
     timeout?: number
@@ -942,7 +956,7 @@ ws://127.0.0.1:{port}/ws
 
 | type                           | 説明           | ペイロード                                                                    |
 | ------------------------------ | -------------- | ----------------------------------------------------------------------------- |
-| `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, thinkingMode?, agentId?, agentMode?, timeout? }` |
+| `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, thinkingBudget?, agentId?, agentMode?, timeout? }` |
 | `stop`                       | 実行キャンセル | `{}`                                                                        |
 | `get_stats`                  | メモリ統計要求 | `{}`                                                                        |
 | `set_session`                | セッション切替 | `{ sessionId }`                                                             |
