@@ -43,7 +43,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.0",
-		"@tailwindcss/postcss": "^4.1.18",
+		"@tailwindcss/postcss": "^4.2.1",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tauri-apps/cli": "^2.9.6",
