@@ -827,6 +827,14 @@
 			"cache_size": "Número de modelos que se mantienen cargados en memoria."
 		},
 		"privacy": {
+			"isolation_mode": {
+				"label": "Modo de aislamiento (Modo avión)",
+				"description": "Cuando está habilitado, bloquea todas las comunicaciones de red externas. Solo estarán disponibles los LLM locales.",
+				"warning_title": "El modo de aislamiento está activo",
+				"warning_web_search": "La búsqueda web y la obtención de páginas están deshabilitadas",
+				"warning_mcp": "Las llamadas a herramientas del servidor MCP están bloqueadas",
+				"warning_local": "Los LLM locales (llama.cpp / Ollama / LM Studio) siguen disponibles"
+			},
 			"web_search": {
 				"label": "Permitir acceso a internet",
 				"description": "Permitir que la IA use búsqueda en internet para recuperar información.",

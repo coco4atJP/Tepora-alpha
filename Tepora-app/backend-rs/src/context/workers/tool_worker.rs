@@ -44,8 +44,13 @@ impl ContextWorker for ToolWorker {
 
         let mut tool_definitions = Vec::new();
 
+        let isolation = state.config.load_config()
+            .ok()
+            .and_then(|c| c.get("privacy")?.get("isolation_mode")?.as_bool())
+            .unwrap_or(false);
+
         // 1. Native tools — web_search, fetch_url
-        if ctx.mode.has_web_search() {
+        if ctx.mode.has_web_search() && !isolation {
             tool_definitions.push(
                 "web_search(query: string) — Searches the web and returns results.".to_string(),
             );
@@ -81,7 +86,11 @@ impl ContextWorker for ToolWorker {
         }
 
         // 3. MCP tools — enumerate available servers and their tools
-        let mcp_tools = state.mcp.list_tools().await;
+        let mcp_tools = if isolation {
+            Vec::new()
+        } else {
+            state.mcp.list_tools().await
+        };
         for tool in mcp_tools {
             tool_definitions.push(format!("mcp:{} — {}", tool.name, tool.description));
         }

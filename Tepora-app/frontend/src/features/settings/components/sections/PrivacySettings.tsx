@@ -1,4 +1,4 @@
-import { AlertTriangle, Eye, Loader2, Shield } from "lucide-react";
+import { AlertTriangle, Eye, Loader2, Plane, Shield } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import type { Config } from "../../../../context/SettingsContext";
@@ -129,6 +129,53 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 				description={t("settings.sections.privacy.description")}
 			>
 				<div className="space-y-6">
+					{/* Isolation Mode (Airplane Mode) */}
+					<div className="space-y-4">
+						<FormGroup
+							label={t("settings.sections.privacy.isolation_mode.label")}
+							description={t("settings.sections.privacy.isolation_mode.description")}
+							className="delay-0"
+						>
+							<div className="flex items-center gap-3">
+								<Plane className="text-gray-400" size={18} />
+								<FormSwitch
+									checked={privacyConfig?.isolation_mode ?? false}
+									onChange={(value) => onUpdate("isolation_mode", value)}
+								/>
+							</div>
+						</FormGroup>
+
+						{/* Isolation Mode Warning Panel */}
+						{privacyConfig?.isolation_mode && (
+							<div className="delay-100 settings-form-group bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+								<div className="flex items-start gap-3">
+									<Plane className="text-blue-400 shrink-0 mt-0.5" size={20} />
+									<div>
+										<h4 className="font-medium text-blue-300 mb-2">
+											{t("settings.sections.privacy.isolation_mode.warning_title")}
+										</h4>
+										<ul className="text-sm text-blue-200/80 space-y-1">
+											<li className="flex items-start gap-2">
+												<span className="text-red-400">✕</span>
+												{t("settings.sections.privacy.isolation_mode.warning_web_search")}
+											</li>
+											<li className="flex items-start gap-2">
+												<span className="text-red-400">✕</span>
+												{t("settings.sections.privacy.isolation_mode.warning_mcp")}
+											</li>
+											<li className="flex items-start gap-2">
+												<span className="text-green-400">✓</span>
+												{t("settings.sections.privacy.isolation_mode.warning_local")}
+											</li>
+										</ul>
+									</div>
+								</div>
+							</div>
+						)}
+					</div>
+
+					<div className="border-t border-white/10 my-4" />
+
 					{/* Web Search Consent */}
 					<div className="space-y-4">
 						<FormGroup
@@ -139,11 +186,12 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 							<FormSwitch
 								checked={privacyConfig?.allow_web_search ?? false}
 								onChange={(value) => onUpdate("allow_web_search", value)}
+								disabled={privacyConfig?.isolation_mode ?? false}
 							/>
 						</FormGroup>
 
 						{/* Data Sharing Explanation Panel */}
-						{config?.privacy?.allow_web_search && (
+						{config?.privacy?.allow_web_search && !privacyConfig?.isolation_mode && (
 							<div className="delay-100 settings-form-group bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
 								<div className="flex items-start gap-3">
 									<AlertTriangle className="text-yellow-400 shrink-0 mt-0.5" size={20} />

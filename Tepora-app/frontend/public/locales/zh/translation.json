@@ -827,6 +827,14 @@
 			"cache_size": "内存中保留的模型数量。"
 		},
 		"privacy": {
+			"isolation_mode": {
+				"label": "隔离模式（飞行模式）",
+				"description": "启用后将阻止所有外部网络通信。仅可使用本地LLM。",
+				"warning_title": "隔离模式已启用",
+				"warning_web_search": "网络搜索和页面获取已禁用",
+				"warning_mcp": "MCP服务器工具调用已被阻止",
+				"warning_local": "本地LLM（llama.cpp / Ollama / LM Studio）仍可使用"
+			},
 			"web_search": {
 				"label": "允许联网",
 				"description": "允许AI使用互联网搜索来检索信息。",

@@ -90,6 +90,7 @@ export interface Config {
 	privacy: {
 		allow_web_search: boolean;
 		redact_pii: boolean;
+		isolation_mode?: boolean;
 		url_denylist?: string[];
 	};
 

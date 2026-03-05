@@ -494,6 +494,14 @@
 				"label": "Privacy",
 				"title": "Privacy Settings",
 				"description": "Manage external communications and data sharing settings.",
+				"isolation_mode": {
+					"label": "Isolation Mode (Airplane Mode)",
+					"description": "When enabled, blocks all external network communications. Only local LLMs will be available.",
+					"warning_title": "Isolation Mode is active",
+					"warning_web_search": "Web search and page fetching are disabled",
+					"warning_mcp": "MCP server tool calls are blocked",
+					"warning_local": "Local LLMs (llama.cpp / Ollama / LM Studio) remain available"
+				},
 				"web_search": {
 					"label": "Allow Internet Access",
 					"description": "Allow the AI to use internet search to retrieve information.",

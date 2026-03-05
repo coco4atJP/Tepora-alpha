@@ -81,10 +81,17 @@ impl Node for SearchNode {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
+        let isolation = ctx
+            .config
+            .get("privacy")
+            .and_then(|v| v.get("isolation_mode"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         let mut web_results = Vec::new();
         let mut web_failed = false;
 
-        if search_enabled && !state.skip_web_search {
+        if search_enabled && !state.skip_web_search && !isolation {
             let _ = ctx.sender.send_json(
                 json!({
                     "type": "activity",

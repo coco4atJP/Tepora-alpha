@@ -496,6 +496,14 @@
 				"label": "プライバシー",
 				"title": "プライバシー設定",
 				"description": "外部通信とデータ共有の設定を管理します。",
+				"isolation_mode": {
+					"label": "隔離モード（機内モード）",
+					"description": "有効にすると、すべての外部ネットワーク通信を遮断します。ローカルLLMのみ使用可能になります。",
+					"warning_title": "隔離モードが有効です",
+					"warning_web_search": "ウェブ検索・ページ取得は無効になります",
+					"warning_mcp": "MCPサーバー経由のツール呼び出しはブロックされます",
+					"warning_local": "ローカルLLM（llama.cpp / Ollama / LM Studio）は引き続き利用可能です"
+				},
 				"web_search": {
 					"label": "インターネット接続を許可",
 					"description": "AIがインターネット検索を使用して情報を取得することを許可します。",

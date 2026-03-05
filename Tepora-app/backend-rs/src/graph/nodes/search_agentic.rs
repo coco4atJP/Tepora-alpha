@@ -328,8 +328,15 @@ impl AgenticSearchNode {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
+        let isolation = ctx
+            .config
+            .get("privacy")
+            .and_then(|v| v.get("isolation_mode"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         let mut web_results = Vec::new();
-        if search_enabled && !state.skip_web_search {
+        if search_enabled && !state.skip_web_search && !isolation {
             for query in sub_queries.iter().take(3) {
                 let search = execute_tool(
                     Some(ctx.app_state),

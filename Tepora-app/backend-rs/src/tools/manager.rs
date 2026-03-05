@@ -52,6 +52,9 @@ pub async fn execute_tool(
         }
         "rag_reindex" | "native_rag_reindex" => execute_rag_reindex(state, args).await,
         _ => {
+            if is_isolation_mode(config) {
+                return Err(ApiError::Forbidden);
+            }
             if let Some(manager) = mcp {
                 let output = manager.execute_tool(tool_name, args).await?;
                 return Ok(ToolExecution {
@@ -653,9 +656,20 @@ fn is_ipv6_documentation(ip: Ipv6Addr) -> bool {
 }
 
 fn allow_web_search(config: &Value) -> bool {
+    if is_isolation_mode(config) {
+        return false;
+    }
     config
         .get("privacy")
         .and_then(|v| v.get("allow_web_search"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+fn is_isolation_mode(config: &Value) -> bool {
+    config
+        .get("privacy")
+        .and_then(|v| v.get("isolation_mode"))
         .and_then(|v| v.as_bool())
         .unwrap_or(false)
 }
@@ -887,5 +901,48 @@ mod tests {
         let list = url_denylist(&config);
         assert!(list.contains(&"localhost".to_string()));
         assert!(list.contains(&"example.internal".to_string()));
+    }
+
+    #[test]
+    fn isolation_mode_defaults_to_false() {
+        assert!(!is_isolation_mode(&serde_json::json!({})));
+        assert!(!is_isolation_mode(&serde_json::json!({
+            "privacy": {}
+        })));
+    }
+
+    #[test]
+    fn isolation_mode_reads_config_flag() {
+        assert!(is_isolation_mode(&serde_json::json!({
+            "privacy": {
+                "isolation_mode": true
+            }
+        })));
+        assert!(!is_isolation_mode(&serde_json::json!({
+            "privacy": {
+                "isolation_mode": false
+            }
+        })));
+    }
+
+    #[test]
+    fn isolation_mode_overrides_allow_web_search() {
+        // Even when allow_web_search is true, isolation_mode should block it
+        let config = serde_json::json!({
+            "privacy": {
+                "allow_web_search": true,
+                "isolation_mode": true
+            }
+        });
+        assert!(!allow_web_search(&config));
+
+        // Without isolation, allow_web_search should work normally
+        let config = serde_json::json!({
+            "privacy": {
+                "allow_web_search": true,
+                "isolation_mode": false
+            }
+        });
+        assert!(allow_web_search(&config));
     }
 }
