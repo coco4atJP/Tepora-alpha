@@ -255,21 +255,27 @@ backend-rs/
 │   │   ├── workers/            # Worker 実装群 [v4.0]
 │   │   └── ...
 │   │
-|   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
-|   │   └── knowledge.rs        # 知識ドメイン
-|   │
-|   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
-|   │   └── knowledge.rs        # 知識ユースケース
-|   │
-|   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
-|   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
-|   │   ├── knowledge_store/    # 知識ストア (rag)
-|   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
-|   │   └── transport/          # トランスポートアダプタ
-|   │
-|   ├── models/                 # ModelManager (モデル管理)
+│   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+│   │   ├── errors.rs           # エラー定義
+│   │   ├── knowledge.rs        # 知識ドメイン
+│   │   └── mod.rs
+│   │
+│   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
+│   │   ├── knowledge.rs        # 知識ユースケース
+│   │   └── mod.rs
+│   │
+│   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+│   │   ├── episodic.rs         # エピソードインフラ
+│   │   ├── knowledge_store/    # 知識ストア (rag)
+│   │   ├── knowledge.rs        # 知識インフラ
+│   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
+│   │   ├── transport/          # トランスポートアダプタ
+│   │   └── mod.rs
+│   │
+│   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -1024,6 +1030,14 @@ ws://127.0.0.1:{port}/ws
 | `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
 | `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
 | `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
+#### メモリAPI (Memory Maintenance)
+
+| メソッド  | エンドポイント                      | 説明                       |
+| --------- | ----------------------------------- | -------------------------- |
+| `POST`  | `/api/memory/compress`            | 手動での記憶圧縮実行       |
+| `GET`   | `/api/memory/compaction_jobs`     | 圧縮ジョブのステータス取得 |
+| `POST`  | `/api/memory/decay`               | メモリ減衰処理の実行       |
 
 #### MCP API
 
