@@ -75,11 +75,11 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 					<button
 						type="button"
 						onClick={() => setIsSelectionOpen(true)}
-						className="w-full text-left bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 pr-10 text-white font-medium transition-colors focus:outline-none focus:border-gold-400/50 flex items-center justify-between"
+						className="w-full text-left bg-white/5 border border-white/10 hover:border-white/20 rounded-xl px-4 py-3 pr-10 text-white font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 focus:border-gold-400/50 flex items-center justify-between"
 					>
 						<span className={selectedModel ? "text-white truncate" : "text-gray-400"}>
-							{selectedModel 
-								? selectedModel.display_name 
+							{selectedModel
+								? selectedModel.display_name
 								: (t("settings.sections.models.selection.select_model") || "Select a model...")}
 						</span>
 						<ChevronDown size={18} className="text-gray-400 shrink-0" />
@@ -91,8 +91,8 @@ export const ModelSelectionRow: React.FC<ModelSelectionRowProps> = ({
 					onClick={() => setIsDetailOpen(true)}
 					disabled={!config}
 					className={`p-3 border rounded-xl transition-colors ${!config
-							? "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed"
-							: "bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-gray-400"
+						? "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed"
+						: "bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-gray-400"
 						}`}
 					title={
 						config

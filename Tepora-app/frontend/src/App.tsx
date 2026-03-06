@@ -71,7 +71,7 @@ function App() {
 			<div className="min-h-screen w-full flex items-center justify-center bg-[#050201]">
 				<div className="text-center">
 					<div className="text-gold-400 animate-pulse text-lg mb-2">
-						{t("app.loading", "Connecting to server...")}
+						{t("app.loading", "Connecting to server…")}
 					</div>
 					<div className="text-gray-500 text-sm">
 						{t("app.loadingHint", "This may take a few seconds")}

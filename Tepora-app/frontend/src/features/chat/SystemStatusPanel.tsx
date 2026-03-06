@@ -55,7 +55,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 
 				{/* System Initialized */}
 				{systemStatus && (
-					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-all duration-200">
+					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors duration-200">
 						<div className="flex items-center gap-2.5">
 							<div
 								className={`w-7 h-7 rounded-lg flex items-center justify-center ${systemStatus.initialized
@@ -82,7 +82,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 
 				{/* EM-LLM Memory */}
 				{systemStatus?.em_llm_enabled && (
-					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-all duration-200">
+					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors duration-200">
 						<div className="flex items-center gap-2.5">
 							<div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
 								<Database className="w-3.5 h-3.5" />
@@ -96,7 +96,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 								aria-live="polite"
 							>
 								<Activity className="w-3 h-3 animate-spin" aria-hidden="true" />
-								{t("status.generating_memory", "メモリ生成中...")}
+								{t("status.generating_memory", "メモリ生成中…")}
 							</span>
 						) : (
 							<span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
@@ -108,7 +108,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 
 				{/* Message Count */}
 				{systemStatus && (
-					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-all duration-200">
+					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors duration-200">
 						<div className="flex items-center gap-2.5">
 							<div className="w-7 h-7 rounded-lg bg-gold-500/10 text-gold-400 flex items-center justify-center">
 								<MessageSquare className="w-3.5 h-3.5" />

@@ -165,9 +165,20 @@ const PersonaSwitcher: React.FC = () => {
 				{/* Dropdown Menu */}
 				{isOpen && (
 					<>
-						{/* biome-ignore lint/a11y/useKeyWithClickEvents: handled by global key listener */}
-						{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop close */}
-						<div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+						{/* FIX: Removed unnecessary biome-ignore comments and added onKeyDown handler to strictly satisfy a11y requirements for role="button" elements */}
+						<div
+							className="fixed inset-0 z-40"
+							role="button"
+							tabIndex={-1}
+							aria-label={t("common.close", "Close")}
+							onClick={() => setIsOpen(false)}
+							onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									setIsOpen(false);
+								}
+							}}
+						/>
 						<div className="absolute bottom-full left-0 mb-2 w-max min-w-[16rem] max-w-sm glass-panel rounded-xl overflow-hidden animate-fade-in z-50">
 							<div className="p-3 border-b border-white/5 flex justify-between items-center bg-black/40">
 								<h3 className="text-xs font-bold text-tea-200 uppercase tracking-wider">
@@ -222,8 +233,8 @@ const PersonaSwitcher: React.FC = () => {
 										<div className="flex items-center gap-3 overflow-hidden">
 											<div
 												className={`w-8 h-8 rounded-full flex items-center justify-center ${currentPersonaId === key
-														? "bg-gold-500 text-black"
-														: "bg-tea-800 text-tea-200"
+													? "bg-gold-500 text-black"
+													: "bg-tea-800 text-tea-200"
 													} shrink-0`}
 											>
 												{character.icon || <User size={14} />}
@@ -247,6 +258,7 @@ const PersonaSwitcher: React.FC = () => {
 												type="button"
 												onClick={(e) => handleEdit(key, character, e)}
 												className="p-1 hover:text-blue-400 text-gray-500 transition-colors"
+												aria-label={t("common.edit", "Edit")}
 											>
 												<Edit2 size={12} />
 											</button>
@@ -256,6 +268,7 @@ const PersonaSwitcher: React.FC = () => {
 													type="button"
 													onClick={(e) => handleDeleteRequest(key, e)}
 													className="p-1 hover:text-red-400 text-gray-500 transition-colors"
+													aria-label={t("common.delete", "Delete")}
 												>
 													<Trash2 size={12} />
 												</button>

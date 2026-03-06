@@ -127,7 +127,7 @@ const InputArea: React.FC = () => {
 								value={selectedAgentMode}
 								onChange={(e) => setSelectedAgentMode(e.target.value)}
 								disabled={isProcessing}
-								className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus:border-tea-500"
+								className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 focus:border-tea-500"
 								title={t("chat.input.agent_mode", "Agent mode")}
 							>
 								<option value="">{t("chat.input.agent_mode_fast", "Fast (Auto)")}</option>
@@ -141,7 +141,7 @@ const InputArea: React.FC = () => {
 									value={selectedAgentId}
 									onChange={(e) => setSelectedAgentId(e.target.value)}
 									disabled={isProcessing}
-									className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus:border-tea-500"
+									className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 focus:border-tea-500"
 									title={t("chat.input.select_agent", "Select agent")}
 								>
 									<option value="">{t("chat.input.agent_auto", "Auto (Supervisor)")}</option>

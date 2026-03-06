@@ -133,7 +133,7 @@ export const ModelSelectionOverlay: React.FC<ModelSelectionOverlayProps> = ({
 							placeholder={t("common.search", "Search...")}
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-gold-400/50 transition-colors"
+							className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 focus:border-gold-400/50 transition-colors"
 						/>
 					</div>
 				</div>

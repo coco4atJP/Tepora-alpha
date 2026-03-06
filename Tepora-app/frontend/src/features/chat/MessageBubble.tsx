@@ -155,7 +155,7 @@ const CodeBlock = ({ language, code }: { language: string; code: string }) => {
 				</div>
 				<button
 					onClick={handleCopy}
-					className="flex items-center gap-1.5 hover:text-white transition-colors focus:outline-none px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
+					className="flex items-center gap-1.5 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
 					aria-label="Copy code"
 				>
 					{copied ? (
@@ -258,7 +258,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 			return "";
 		});
 	}
-	
+
 	// Clean up any stray closing tags if they get orphaned
 	displayContent = displayContent.replace(/<\/think>/gi, "");
 
@@ -313,7 +313,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
 						{/* Thinking Process */}
 						{hasThinking && (
-							<details 
+							<details
 								className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2"
 								open={isThinkingOpen}
 								onToggle={(e) => setIsThinkingOpen(e.currentTarget.open)}
@@ -389,7 +389,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 						<span>{message.timestamp.toLocaleTimeString("ja-JP")}</span>
 						<button
 							onClick={handleCopyMessage}
-							className={`flex items-center gap-1 hover:text-white transition-colors focus:outline-none p-0.5 rounded hover:bg-white/5 cursor-pointer opacity-0 group-hover:opacity-100 ${copied ? "text-green-400 opacity-100" : ""}`}
+							className={`flex items-center gap-1 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 p-0.5 rounded hover:bg-white/5 cursor-pointer opacity-0 group-hover:opacity-100 ${copied ? "text-green-400 opacity-100" : ""}`}
 							aria-label={t("common.copy", "Copy")}
 							title={copied ? t("common.copied", "Copied") : t("common.copy", "Copy")}
 						>
@@ -402,7 +402,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 						{isLast && (message.role === "assistant" || message.role === "system") && message.isComplete && (
 							<button
 								onClick={onRegenerate}
-								className="flex items-center gap-1 hover:text-white transition-colors focus:outline-none p-0.5 rounded hover:bg-white/5 cursor-pointer opacity-0 group-hover:opacity-100"
+								className="flex items-center gap-1 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 p-0.5 rounded hover:bg-white/5 cursor-pointer opacity-0 group-hover:opacity-100"
 								aria-label={t("chat.regenerate", "Regenerate")}
 								title={t("chat.regenerate", "Regenerate")}
 							>
