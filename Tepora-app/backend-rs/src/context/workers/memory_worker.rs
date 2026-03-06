@@ -316,10 +316,14 @@ mod tests {
         });
 
         let core = Arc::new(crate::state::AppCoreState {
-            paths: new_paths_arc,
+            paths: new_paths_arc.clone(),
             config: config.clone(),
             session_token,
             setup: setup.clone(),
+            security: Arc::new(crate::core::security_controls::SecurityControls::new(
+                new_paths_arc.clone(),
+                config.clone(),
+            )),
         });
         let ai = Arc::new(crate::state::AppAiState {
             llama: llama.clone(),

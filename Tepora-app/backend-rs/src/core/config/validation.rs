@@ -347,6 +347,9 @@ fn validate_optional_string_field(
     let Some(value) = section.get(key) else {
         return Ok(());
     };
+    if value.is_null() {
+        return Ok(());
+    }
     if value.as_str().is_none() {
         return Err(config_type_error(path, "string"));
     }

@@ -1644,6 +1644,7 @@ mod tests {
     fn policy_accepts_valid_sha_when_required() {
         let config = json!({
             "model_download": {
+                "require_allowlist": false,
                 "require_revision": true,
                 "require_sha256": true,
                 "warn_on_unlisted": false
@@ -1691,6 +1692,8 @@ mod tests {
             "model_download": {
                 "allow_repo_owners": ["trusted"],
                 "require_allowlist": false,
+                "require_revision": false,
+                "require_sha256": false,
                 "warn_on_unlisted": true
             }
         });
@@ -1726,7 +1729,9 @@ mod tests {
         let config = json!({
             "model_download": {
                 "allow_repo_owners": ["TrustedOwner"],
-                "require_allowlist": true
+                "require_allowlist": true,
+                "require_revision": false,
+                "require_sha256": false
             }
         });
 
