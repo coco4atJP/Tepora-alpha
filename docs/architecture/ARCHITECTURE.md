@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.03
+**ドキュメントバージョン**: 5.04
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-02-24
+**最終更新日**: 2026-03-06
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -255,20 +255,21 @@ backend-rs/
 │   │   ├── workers/            # Worker 実装群 [v4.0]
 │   │   └── ...
 │   │
-│   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
-│   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
-│   │   └── knowledge.rs        # 知識ドメイン
-│   │
-│   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
-│   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
-│   │   └── knowledge.rs        # 知識ユースケース
-│   │
-│   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
-│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
-│   │   ├── knowledge_store/    # 知識ストア (rag)
-│   │   └── transport/          # トランスポートアダプタ
-│   │
-│   ├── models/                 # ModelManager (モデル管理)
+|   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
+|   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+|   │   └── knowledge.rs        # 知識ドメイン
+|   │
+|   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
+|   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
+|   │   └── knowledge.rs        # 知識ユースケース
+|   │
+|   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+|   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+|   │   ├── knowledge_store/    # 知識ストア (rag)
+|   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
+|   │   └── transport/          # トランスポートアダプタ
+|   │
+|   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -659,13 +660,14 @@ pub struct LlamaService {
 
 TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`git`, `filesystem` など）と接続します。
 
-**ファイル**: `src/mcp/mod.rs`, `src/mcp/registry.rs`, `src/mcp/installer.rs`
+**ファイル**: `src/mcp/mod.rs`, `src/mcp/registry.rs`, `src/mcp/installer.rs`, `src/sandbox/mod.rs`
 
 | コンポーネント    | 責務                                       |
 | ----------------- | ------------------------------------------ |
 | `McpManager`    | MCP接続のライフサイクル管理                |
 | `McpRegistry`   | 利用可能なMCPサーバーのカタログ管理        |
 | `mcp_installer` | `npm` / `pip` を使った自動インストール |
+| `sandbox`       | WASMベースのセキュアなMCP実行をサポート（`.wasm` ファイルの `stdio` 起動連携） |
 
 `McpManager` は `mcp_tools_config.json` と `mcp_policy.json` を管理し、`LOCAL_ONLY` などの接続ポリシー、ブロックコマンド、初回利用承認を適用します。
 
@@ -957,6 +959,7 @@ ws://127.0.0.1:{port}/ws
 | type                           | 説明           | ペイロード                                                                    |
 | ------------------------------ | -------------- | ----------------------------------------------------------------------------- |
 | `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, thinkingBudget?, agentId?, agentMode?, timeout? }` |
+| `regenerate`                   | 応答の再生成   | `{}`                                                                          |
 | `stop`                       | 実行キャンセル | `{}`                                                                        |
 | `get_stats`                  | メモリ統計要求 | `{}`                                                                        |
 | `set_session`                | セッション切替 | `{ sessionId }`                                                             |
@@ -972,6 +975,8 @@ ws://127.0.0.1:{port}/ws
 | `chunk`                     | ストリーミング応答 | `{ message, mode?, nodeId?, agentName? }`     |
 | `status`                    | 処理状態更新       | `{ message }`                                 |
 | `activity`                  | ノード進捗         | `{ data: { id, status, message, agentName? } }` |
+| `regenerate_started`        | 再生成開始         | `{}`                                          |
+| `memory_generation`         | 記憶生成ステータス | `{ status: "started" | "completed" | "error" }` |
 | `history`                   | チャット履歴       | `{ messages: [...] }`                         |
 | `search_results`            | 検索結果           | `{ data: [...] }`                             |
 | `tool_confirmation_request` | ツール承認要求     | `{ data: { requestId, toolName, toolArgs } }` |
@@ -1126,6 +1131,7 @@ tools:
 
 privacy:
   allow_web_search: false
+  isolation_mode: false
   redact_pii: true
   url_denylist: ["localhost", "*.internal"]
 
@@ -1214,6 +1220,7 @@ USER_DATA_DIR/
 
 | 機能                       | 説明                                   |
 | -------------------------- | -------------------------------------- |
+| **Isolation Mode**   | `privacy.isolation_mode` が `true` の場合、外部ネットワーク処理（Web検索）およびMCPツールとのやり取りをすべてブロック |
 | **Web検索許可制御**  | `privacy.allow_web_search` が `false` の場合、外部検索/取得を拒否 |
 | **SSRF防御**         | `native_web_fetch` がローカルIP・private network・denylistドメインをブロック |
 | **入力ガード**       | `app.dangerous_patterns` による危険入力パターン拒否 |
