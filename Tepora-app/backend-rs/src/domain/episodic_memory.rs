@@ -45,8 +45,5 @@ pub trait EpisodicMemoryPort: Send + Sync {
 
     async fn run_decay(&self, session_id: Option<&str>) -> Result<DecayResult, DomainError>;
 
-    async fn compress(
-        &self,
-        session_id: &str,
-    ) -> Result<CompressionResult, DomainError>;
+    async fn compress(&self, session_id: &str) -> Result<CompressionResult, DomainError>;
 }

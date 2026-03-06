@@ -802,7 +802,8 @@ impl LlmService {
         let payload: Value = response.json().await.map_err(ApiError::internal)?;
         let message = payload.get("message").unwrap_or(&Value::Null);
         let text = extract_field_text(message, &["content", "text"]);
-        let reasoning = extract_field_text(message, &["thinking", "reasoning", "reasoning_content"]);
+        let reasoning =
+            extract_field_text(message, &["thinking", "reasoning", "reasoning_content"]);
         Ok(compose_reasoned_content(&reasoning, &text))
     }
 
@@ -1009,8 +1010,10 @@ impl LlmService {
                     let message = parsed.get("message").unwrap_or(&Value::Null);
                     let mut chunk_to_send = String::new();
 
-                    let reasoning =
-                        extract_field_text(message, &["thinking", "reasoning", "reasoning_content"]);
+                    let reasoning = extract_field_text(
+                        message,
+                        &["thinking", "reasoning", "reasoning_content"],
+                    );
                     if !reasoning.is_empty() {
                         if !is_reasoning_open {
                             chunk_to_send.push_str("<think>\n");
@@ -1261,7 +1264,10 @@ impl LlmService {
                                 }
                                 "reasoning.delta" => {
                                     if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
-                                        let content = parsed.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                                        let content = parsed
+                                            .get("content")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("");
                                         if !content.is_empty()
                                             && tx.send(Ok(content.to_string())).await.is_err()
                                         {
@@ -1277,7 +1283,10 @@ impl LlmService {
                                 }
                                 "message.delta" => {
                                     if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
-                                        let content = parsed.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                                        let content = parsed
+                                            .get("content")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("");
                                         if !content.is_empty()
                                             && tx.send(Ok(content.to_string())).await.is_err()
                                         {
@@ -1298,9 +1307,12 @@ impl LlmService {
                                             .and_then(|e| e.get("message"))
                                             .and_then(|v| v.as_str())
                                             .unwrap_or("Unknown LM Studio error");
-                                        let _ = tx.send(Err(ApiError::Internal(
-                                            format!("LM Studio error: {}", err_msg)
-                                        ))).await;
+                                        let _ = tx
+                                            .send(Err(ApiError::Internal(format!(
+                                                "LM Studio error: {}",
+                                                err_msg
+                                            ))))
+                                            .await;
                                         return;
                                     }
                                 }
@@ -1674,4 +1686,3 @@ mod tests {
         assert_eq!(compose_reasoned_content("", "answer"), "answer");
     }
 }
-

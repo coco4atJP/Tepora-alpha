@@ -29,8 +29,11 @@ pub fn split_sentences(text: &str, min_tokens: usize) -> Vec<String> {
             current_sentence.push(' ');
         }
         current_sentence.push_str(trimmed);
-        
-        let tokens = trimmed.split_whitespace().count().max(trimmed.chars().count() / 3);
+
+        let tokens = trimmed
+            .split_whitespace()
+            .count()
+            .max(trimmed.chars().count() / 3);
         current_tokens += tokens;
 
         // '\n' is a hard break, otherwise wait until we have enough tokens
@@ -60,7 +63,7 @@ pub fn split_sentences(text: &str, min_tokens: usize) -> Vec<String> {
 fn custom_split(text: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut current = String::new();
-    
+
     for c in text.chars() {
         current.push(c);
         if is_strong_terminal(&c.to_string()) {
@@ -106,12 +109,10 @@ mod tests {
     #[test]
     fn test_split_sentences_min_tokens() {
         let text = "Hi. This is a longer sentence that should stand alone. Bye.";
-        let sentences = split_sentences(text, 5); 
+        let sentences = split_sentences(text, 5);
         assert_eq!(
             sentences,
-            vec![
-                "Hi. This is a longer sentence that should stand alone. Bye."
-            ]
+            vec!["Hi. This is a longer sentence that should stand alone. Bye."]
         );
     }
 }

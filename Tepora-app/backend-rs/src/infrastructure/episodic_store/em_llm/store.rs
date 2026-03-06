@@ -313,10 +313,7 @@ impl EmMemoryStore {
             let access_count_raw: i64 = row.try_get("access_count").unwrap_or(0);
             let access_count = access_count_raw.max(0) as u32;
             let recency_days = elapsed_days_since(&created_at, now);
-            let score = compute_retrieval_score(
-                similarity,
-                strength,
-            );
+            let score = compute_retrieval_score(similarity, strength);
 
             let raw_content: String = row.get("content");
             let content = self.decrypt(&raw_content);

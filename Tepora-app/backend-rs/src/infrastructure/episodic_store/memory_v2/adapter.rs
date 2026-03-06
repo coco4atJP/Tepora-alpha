@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 
 use crate::core::config::ConfigService;
 use crate::core::errors::ApiError;
@@ -10,9 +10,9 @@ use crate::domain::episodic_memory::{
 use crate::domain::errors::DomainError;
 use crate::em_llm::{EmMemoryService, RetrievedMemory};
 use crate::llm::LlmService;
-use crate::memory_v2::types::{MemoryScope, MemoryEvent};
-use crate::memory_v2::SqliteMemoryRepository;
+use crate::memory_v2::types::{MemoryEvent, MemoryScope};
 use crate::memory_v2::MemoryRepository;
+use crate::memory_v2::SqliteMemoryRepository;
 use crate::models::ModelManager;
 
 #[async_trait::async_trait]
@@ -135,18 +135,24 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
         }
 
         if legacy_enabled {
-            self.em_service.ingest_interaction(
-                session_id,
-                user_input,
-                assistant_output,
-                llm,
-                text_model_id,
-                embedding_model_id,
-            ).await
+            self.em_service
+                .ingest_interaction(
+                    session_id,
+                    user_input,
+                    assistant_output,
+                    llm,
+                    text_model_id,
+                    embedding_model_id,
+                )
+                .await
         } else {
             tracing::debug!("V2 Memory Adapter: Using strict segmentation pipeline");
-            
-            let content = format!("User: {}\nAssistant: {}", user_input.trim(), assistant_output.trim());
+
+            let content = format!(
+                "User: {}\nAssistant: {}",
+                user_input.trim(),
+                assistant_output.trim()
+            );
             if content.trim().is_empty() || content == "User: \nAssistant: " {
                 return Ok(());
             }
@@ -176,7 +182,10 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                     integrator.process_logprobs_for_memory(&logprobs, Some(&sentence_embeddings))
                 }
                 Err(e) => {
-                    tracing::warn!("Failed to get logprobs (falling back to semantic segmentation): {}", e);
+                    tracing::warn!(
+                        "Failed to get logprobs (falling back to semantic segmentation): {}",
+                        e
+                    );
                     integrator.process_conversation_for_memory(&sentences, &sentence_embeddings)
                 }
             };
@@ -222,7 +231,8 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                     summary: None,
                     embedding: ev.embedding.unwrap_or_default(),
                     surprise_mean: Some(
-                        ev.surprise_scores.iter().sum::<f64>() / ev.surprise_scores.len().max(1) as f64
+                        ev.surprise_scores.iter().sum::<f64>()
+                            / ev.surprise_scores.len().max(1) as f64,
                     ),
                     surprise_max: ev.surprise_scores.iter().cloned().reduce(f64::max),
                     importance: initial_importance,
@@ -259,13 +269,19 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
         }
 
         if legacy_enabled {
-            self.em_service.retrieve_for_query(session_id, query, llm, embedding_model_id).await
+            self.em_service
+                .retrieve_for_query(session_id, query, llm, embedding_model_id)
+                .await
         } else {
             // Use V2 retrieval
-            let embeddings = llm.embed(&[query.to_string()], embedding_model_id).await
+            let embeddings = llm
+                .embed(&[query.to_string()], embedding_model_id)
+                .await
                 .map_err(|e| ApiError::internal(format!("Adapter embedding failed: {}", e)))?;
             let embedding = embeddings.into_iter().next().unwrap_or_default();
-            self.em_service.retrieve_for_query_v2(session_id, &embedding, self.v2_repo.as_ref()).await
+            self.em_service
+                .retrieve_for_query_v2(session_id, &embedding, self.v2_repo.as_ref())
+                .await
         }
     }
 }
@@ -392,8 +408,8 @@ impl EpisodicMemoryPort for UnifiedMemoryAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::config::AppPaths;
     use crate::core::config::service::ConfigService;
+    use crate::core::config::AppPaths;
     use crate::domain::episodic_memory::EpisodicMemoryPort;
     use crate::memory_v2::sqlite_repository::SqliteMemoryRepository;
     use std::sync::Arc;
@@ -433,7 +449,7 @@ mod tests {
 
         // Either ok, or error due to models not being downloaded. But it shouldn't panic.
         assert!(res_legacy.is_ok() || res_legacy.is_err());
-        
+
         // Test with legacy_enabled = false (V2 path)
         let res_v2 = MemoryAdapter::ingest_interaction(
             &adapter,
@@ -474,14 +490,9 @@ mod tests {
         .unwrap();
         assert_eq!(inserted_ids.len(), 1);
 
-        let hits = EpisodicMemoryPort::recall(
-            &adapter,
-            "session_port_1",
-            &[1.0, 0.0, 0.0],
-            3,
-        )
-        .await
-        .unwrap();
+        let hits = EpisodicMemoryPort::recall(&adapter, "session_port_1", &[1.0, 0.0, 0.0], 3)
+            .await
+            .unwrap();
         assert!(!hits.is_empty());
         assert!(hits[0].content.contains("User:"));
     }

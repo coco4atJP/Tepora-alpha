@@ -121,8 +121,6 @@ pub enum TimeUnit {
     Days,
 }
 
-
-
 /// FadeMem decay parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecayConfig {

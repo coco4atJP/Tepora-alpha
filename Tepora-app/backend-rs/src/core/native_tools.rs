@@ -107,7 +107,11 @@ mod tests {
         let mut unique = names.clone();
         unique.sort_unstable();
         unique.dedup();
-        assert_eq!(names.len(), unique.len(), "Duplicate native tool names found");
+        assert_eq!(
+            names.len(),
+            unique.len(),
+            "Duplicate native tool names found"
+        );
     }
 
     #[test]
@@ -119,13 +123,19 @@ mod tests {
         assert_eq!(resolve_tool_alias("web_fetch"), NATIVE_WEB_FETCH);
         assert_eq!(resolve_tool_alias("rag_search"), NATIVE_RAG_SEARCH);
         assert_eq!(resolve_tool_alias("rag_ingest"), NATIVE_RAG_INGEST);
-        assert_eq!(resolve_tool_alias("rag_text_search"), NATIVE_RAG_TEXT_SEARCH);
+        assert_eq!(
+            resolve_tool_alias("rag_text_search"),
+            NATIVE_RAG_TEXT_SEARCH
+        );
         assert_eq!(resolve_tool_alias("rag_get_chunk"), NATIVE_RAG_GET_CHUNK);
         assert_eq!(
             resolve_tool_alias("rag_get_chunk_window"),
             NATIVE_RAG_GET_CHUNK_WINDOW
         );
-        assert_eq!(resolve_tool_alias("rag_clear_session"), NATIVE_RAG_CLEAR_SESSION);
+        assert_eq!(
+            resolve_tool_alias("rag_clear_session"),
+            NATIVE_RAG_CLEAR_SESSION
+        );
         assert_eq!(resolve_tool_alias("rag_reindex"), NATIVE_RAG_REINDEX);
         assert_eq!(resolve_tool_alias("mcp:server_tool"), "server_tool");
         assert_eq!(resolve_tool_alias("native_search"), NATIVE_SEARCH);

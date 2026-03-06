@@ -58,7 +58,7 @@ impl SessionToken {
     pub fn reissue(&mut self) -> Result<String, ApiError> {
         let new_token = format!("{}{}", Uuid::new_v4(), Uuid::new_v4());
         self.value = new_token.clone();
-        
+
         let now = Utc::now();
         let ttl_days = env::var("TEPORA_TOKEN_TTL_DAYS")
             .ok()
@@ -182,7 +182,11 @@ fn apply_windows_token_acl(path: &std::path::Path) {
     }
 }
 
-pub fn require_api_key(headers: &HeaderMap, expected: &SessionToken, allow_expired: bool) -> Result<(), ApiError> {
+pub fn require_api_key(
+    headers: &HeaderMap,
+    expected: &SessionToken,
+    allow_expired: bool,
+) -> Result<(), ApiError> {
     let header_value = headers
         .get(API_KEY_HEADER)
         .and_then(|value| value.to_str().ok())

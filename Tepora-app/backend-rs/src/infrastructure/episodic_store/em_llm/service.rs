@@ -117,9 +117,9 @@ impl EmMemoryService {
         }
 
         let v2_db_path = paths.user_data_dir.join("em_memory.db");
-        let mut v2_repo = SqliteMemoryRepository::new(v2_db_path)
-            .await
-            .map_err(|e| ApiError::internal(format!("Failed to initialize v2 memory repository: {e}")))?;
+        let mut v2_repo = SqliteMemoryRepository::new(v2_db_path).await.map_err(|e| {
+            ApiError::internal(format!("Failed to initialize v2 memory repository: {e}"))
+        })?;
 
         // Initialize encryption key
         match get_or_create_encryption_key() {
@@ -236,7 +236,10 @@ impl EmMemoryService {
                 integrator.process_logprobs_for_memory(&logprobs, sentence_embeddings.as_deref())
             }
             Err(e) => {
-                tracing::warn!("Failed to get logprobs (falling back to semantic segmentation): {}", e);
+                tracing::warn!(
+                    "Failed to get logprobs (falling back to semantic segmentation): {}",
+                    e
+                );
                 // Fallback: Semantic segmentation
                 let mut sentences = split_sentences(content, 8);
                 if sentences.is_empty() {
@@ -266,8 +269,7 @@ impl EmMemoryService {
 
         // Explicit fallback path for tests or external direct segmented injection
         let mut integrator = EMLLMIntegrator::default();
-        let events =
-            integrator.process_conversation_for_memory(sentences, sentence_embeddings);
+        let events = integrator.process_conversation_for_memory(sentences, sentence_embeddings);
 
         self.save_v2_events(session_id, events, v2_store).await
     }
@@ -318,8 +320,7 @@ impl EmMemoryService {
                 summary: None,
                 embedding: ev.embedding.unwrap_or_default(),
                 surprise_mean: Some(
-                    ev.surprise_scores.iter().sum::<f64>()
-                        / ev.surprise_scores.len().max(1) as f64,
+                    ev.surprise_scores.iter().sum::<f64>() / ev.surprise_scores.len().max(1) as f64,
                 ),
                 surprise_max: ev.surprise_scores.iter().cloned().reduce(f64::max),
                 importance: initial_importance,
@@ -403,7 +404,8 @@ impl EmMemoryService {
             .await?;
 
         // Use HashMap to deduplicate and keep track of scored events
-        let mut candidates: std::collections::HashMap<String, ScoredEvent> = std::collections::HashMap::new();
+        let mut candidates: std::collections::HashMap<String, ScoredEvent> =
+            std::collections::HashMap::new();
         let mut edges_to_fetch = Vec::new();
 
         for scored in similar_events {
@@ -417,26 +419,37 @@ impl EmMemoryService {
         let mut current_layer_edges = edges_to_fetch;
         let mut distance = 1;
 
-        let mut contiguity_weights: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
+        let mut contiguity_weights: std::collections::HashMap<String, f32> =
+            std::collections::HashMap::new();
 
         while contiguity_added < kc && !current_layer_edges.is_empty() {
             let mut next_layer = Vec::new();
             // Simple exponential decay for temporal distance weight
             let weight = 0.9f32.powi(distance);
-            
+
             for event_id in current_layer_edges {
-                if contiguity_added >= kc { break; }
-                if let Ok(edges) = v2_store.get_edges_from(&event_id, Some(MemoryEdgeType::TemporalNext)).await {
+                if contiguity_added >= kc {
+                    break;
+                }
+                if let Ok(edges) = v2_store
+                    .get_edges_from(&event_id, Some(MemoryEdgeType::TemporalNext))
+                    .await
+                {
                     for edge in edges {
-                        if contiguity_added >= kc { break; }
+                        if contiguity_added >= kc {
+                            break;
+                        }
                         if !candidates.contains_key(&edge.to_event_id) {
                             if let Ok(Some(adj_ev)) = v2_store.get_event(&edge.to_event_id).await {
                                 next_layer.push(adj_ev.id.clone());
                                 contiguity_weights.insert(adj_ev.id.clone(), weight);
-                                candidates.insert(adj_ev.id.clone(), ScoredEvent {
-                                    event: adj_ev,
-                                    score: 0.0, // Initial similarity is 0.0 unless computed
-                                });
+                                candidates.insert(
+                                    adj_ev.id.clone(),
+                                    ScoredEvent {
+                                        event: adj_ev,
+                                        score: 0.0, // Initial similarity is 0.0 unless computed
+                                    },
+                                );
                                 contiguity_added += 1;
                             }
                         }
@@ -459,10 +472,18 @@ impl EmMemoryService {
                 scored.score = {
                     let a = query_embedding;
                     let b = &scored.event.embedding;
-                    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| (*x as f64) * (*y as f64)).sum();
+                    let dot: f64 = a
+                        .iter()
+                        .zip(b.iter())
+                        .map(|(x, y)| (*x as f64) * (*y as f64))
+                        .sum();
                     let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
                     let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-                    if norm_a == 0.0 || norm_b == 0.0 { 0.0 } else { (dot / (norm_a * norm_b)).clamp(-1.0, 1.0) }
+                    if norm_a == 0.0 || norm_b == 0.0 {
+                        0.0
+                    } else {
+                        (dot / (norm_a * norm_b)).clamp(-1.0, 1.0)
+                    }
                 };
             }
 
@@ -479,16 +500,24 @@ impl EmMemoryService {
             let new_importance = decay_engine.importance_score(
                 semantic_relevance,
                 scored.event.access_count,
-                age_days
+                age_days,
             );
             if (new_importance - scored.event.importance).abs() > 1e-9 {
                 scored.event.importance = new_importance;
-                if let Err(e) = v2_store.update_importance(&scored.event.id, new_importance).await {
-                    tracing::warn!("Failed to update importance for v2 event {}: {}", scored.event.id, e);
+                if let Err(e) = v2_store
+                    .update_importance(&scored.event.id, new_importance)
+                    .await
+                {
+                    tracing::warn!(
+                        "Failed to update importance for v2 event {}: {}",
+                        scored.event.id,
+                        e
+                    );
                 }
             }
 
-            let days_since_anchor = (now - scored.event.decay_anchor_at).num_seconds() as f64 / 86400.0;
+            let days_since_anchor =
+                (now - scored.event.decay_anchor_at).num_seconds() as f64 / 86400.0;
             let effective_strength = decay_engine.compute_strength(
                 scored.event.strength,
                 new_importance,
@@ -523,7 +552,11 @@ impl EmMemoryService {
             let new_strength = decay_engine.reinforce(scored.event.strength, 1);
 
             if let Err(e) = v2_store.record_access(&scored.event.id, new_strength).await {
-                tracing::warn!("Failed to record access for V2 event {}: {}", scored.event.id, e);
+                tracing::warn!(
+                    "Failed to record access for V2 event {}: {}",
+                    scored.event.id,
+                    e
+                );
             }
 
             results.push(RetrievedMemory {
@@ -545,12 +578,20 @@ impl EmMemoryService {
         let mean_strength = v2_store.average_strength(None, None).await?;
 
         let char_events = v2_store.count_events(None, Some(MemoryScope::Char)).await?;
-        let char_layers = v2_store.count_by_layer(None, Some(MemoryScope::Char)).await?;
-        let char_strength = v2_store.average_strength(None, Some(MemoryScope::Char)).await?;
+        let char_layers = v2_store
+            .count_by_layer(None, Some(MemoryScope::Char))
+            .await?;
+        let char_strength = v2_store
+            .average_strength(None, Some(MemoryScope::Char))
+            .await?;
 
         let prof_events = v2_store.count_events(None, Some(MemoryScope::Prof)).await?;
-        let prof_layers = v2_store.count_by_layer(None, Some(MemoryScope::Prof)).await?;
-        let prof_strength = v2_store.average_strength(None, Some(MemoryScope::Prof)).await?;
+        let prof_layers = v2_store
+            .count_by_layer(None, Some(MemoryScope::Prof))
+            .await?;
+        let prof_strength = v2_store
+            .average_strength(None, Some(MemoryScope::Prof))
+            .await?;
 
         Ok(EmMemoryStats {
             enabled: self.enabled,
@@ -682,7 +723,8 @@ impl EmMemoryService {
             tracing::info!("Periodic decay disabled (decay_interval_hours=0.0).");
             return;
         }
-        let interval_duration = std::time::Duration::from_secs_f64(self.decay_interval_hours * 3600.0);
+        let interval_duration =
+            std::time::Duration::from_secs_f64(self.decay_interval_hours * 3600.0);
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(interval_duration).await;
@@ -695,10 +737,7 @@ impl EmMemoryService {
     }
 
     /// Create an initial compaction job record (status = Queued).
-    pub async fn create_compaction_job(
-        &self,
-        job: &CompactionJob,
-    ) -> Result<(), ApiError> {
+    pub async fn create_compaction_job(&self, job: &CompactionJob) -> Result<(), ApiError> {
         self.v2_store.create_compaction_job(job).await?;
         Ok(())
     }
@@ -774,11 +813,7 @@ impl EmMemoryService {
         );
 
         if let Err(e) = v2_store.update_compaction_job(&failed_job).await {
-            tracing::warn!(
-                "Failed to mark compaction job {} as failed: {}",
-                job_id,
-                e
-            );
+            tracing::warn!("Failed to mark compaction job {} as failed: {}", job_id, e);
         };
     }
     #[cfg(test)]
@@ -919,7 +954,10 @@ fn parse_decay_config(config: &Value) -> DecayConfig {
             0.1,
             365.0,
         ),
-        time_unit: match section.and_then(|v| v.get("time_unit")).and_then(|v| v.as_str()) {
+        time_unit: match section
+            .and_then(|v| v.get("time_unit"))
+            .and_then(|v| v.as_str())
+        {
             Some("hours") => crate::em_llm::types::TimeUnit::Hours,
             _ => crate::em_llm::types::TimeUnit::Days,
         },
@@ -977,12 +1015,7 @@ mod tests {
         let service = test_service().await;
 
         service
-            .ingest_interaction_for_test(
-                "s1",
-                "user asks",
-                "assistant answers",
-                &[1.0, 0.0, 0.0],
-            )
+            .ingest_interaction_for_test("s1", "user asks", "assistant answers", &[1.0, 0.0, 0.0])
             .await
             .unwrap();
 

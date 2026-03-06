@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::core::errors::ApiError;
 use crate::core::config::ConfigService;
+use crate::core::errors::ApiError;
 use crate::domain::errors::DomainError;
 use crate::domain::knowledge::{
     ContextConfig, KnowledgeChunk, KnowledgeChunkInput, KnowledgeHit, KnowledgePort,
@@ -40,7 +40,8 @@ impl RagKnowledgeAdapter {
             .config
             .load_config()
             .map_err(api_error_to_domain_error)?;
-        let model_cfg = ModelRuntimeConfig::for_embedding(&config).map_err(api_error_to_domain_error)?;
+        let model_cfg =
+            ModelRuntimeConfig::for_embedding(&config).map_err(api_error_to_domain_error)?;
         self.llama
             .embed(&model_cfg, inputs, Duration::from_secs(5))
             .await
@@ -331,7 +332,11 @@ impl KnowledgePort for RagKnowledgeAdapter {
         config: &ContextConfig,
     ) -> Result<String, DomainError> {
         let hits = self
-            .search(query_embedding, config.limit.max(1), config.session_id.as_deref())
+            .search(
+                query_embedding,
+                config.limit.max(1),
+                config.session_id.as_deref(),
+            )
             .await?;
         if hits.is_empty() {
             return Ok(String::new());
@@ -366,9 +371,7 @@ impl KnowledgePort for RagKnowledgeAdapter {
         if !has_chunk {
             let fallback = format!(
                 "[1] (Source: {}, score: {:.3})\n{}",
-                hits[0].source,
-                hits[0].score,
-                hits[0].content
+                hits[0].source, hits[0].score, hits[0].content
             );
             context.push_str(&Self::truncate_to_chars(&fallback, max_len));
         }
@@ -409,8 +412,8 @@ mod tests {
     use crate::rag::{RagStore, SqliteRagStore};
 
     async fn test_adapter() -> RagKnowledgeAdapter {
-        let db_path = std::env::temp_dir()
-            .join(format!("knowledge_adapter_test_{}.db", Uuid::new_v4()));
+        let db_path =
+            std::env::temp_dir().join(format!("knowledge_adapter_test_{}.db", Uuid::new_v4()));
         let user_data_dir = db_path
             .parent()
             .map(std::path::Path::to_path_buf)
@@ -421,7 +424,8 @@ mod tests {
         let paths = Arc::new(paths);
         let config = ConfigService::new(paths.clone());
         let llama = LlamaService::new(paths).unwrap();
-        let rag_store = Arc::new(SqliteRagStore::with_path(db_path).await.unwrap()) as Arc<dyn RagStore>;
+        let rag_store =
+            Arc::new(SqliteRagStore::with_path(db_path).await.unwrap()) as Arc<dyn RagStore>;
 
         RagKnowledgeAdapter::new(rag_store, llama, config)
     }

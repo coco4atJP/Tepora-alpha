@@ -8,8 +8,7 @@ use serde_json::json;
 
 use crate::agent::execution::{
     approval_timeout, build_agent_chat_config, build_allowed_tool_list, format_attachments,
-    parse_agent_decision, resolve_execution_model_id,
-    resolve_selected_agent, AgentDecision,
+    parse_agent_decision, resolve_execution_model_id, resolve_selected_agent, AgentDecision,
 };
 use crate::agent::instructions::build_agent_instructions;
 use crate::agent::modes::RequestedAgentMode;
@@ -59,14 +58,19 @@ impl Node for AgentExecutorNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::NodeStarted,
-            metadata: json!({"max_steps": self.max_steps}),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::NodeStarted,
+                metadata: json!({"max_steps": self.max_steps}),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 
@@ -171,14 +175,10 @@ impl Node for AgentExecutorNode {
 
         for step in 0..max_steps {
             let step_message = format!("Reasoning step {}/{}", step + 1, max_steps);
-            ctx.sender.send_activity(
-                "agent_reasoning",
-                "processing",
-                &step_message,
-                &agent_name,
-            )
-            .await
-            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+            ctx.sender
+                .send_activity("agent_reasoning", "processing", &step_message, &agent_name)
+                .await
+                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
             let request = ChatRequest::new(messages.clone()).with_config(&agent_chat_config);
             let response = ctx
@@ -187,20 +187,25 @@ impl Node for AgentExecutorNode {
                 .chat(request, &model_id)
                 .await
                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
-            
+
             // Log prompting event (note: full token usage depends on extended LLM traits, keeping it simple for now)
-            if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-                id: uuid::Uuid::new_v4().to_string(),
-                session_id: state.session_id.clone(),
-                node_name: self.id().to_string(),
-                event_type: AgentEventType::PromptGenerated,
-                metadata: json!({
-                    "step": step + 1,
-                    "model_id": model_id,
-                    "response_length": response.len(),
-                }),
-                created_at: chrono::Utc::now(),
-            }).await {
+            if let Err(e) = ctx
+                .app_state
+                .history
+                .save_agent_event(&AgentEvent {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    session_id: state.session_id.clone(),
+                    node_name: self.id().to_string(),
+                    event_type: AgentEventType::PromptGenerated,
+                    metadata: json!({
+                        "step": step + 1,
+                        "model_id": model_id,
+                        "response_length": response.len(),
+                    }),
+                    created_at: chrono::Utc::now(),
+                })
+                .await
+            {
                 tracing::warn!(error = %e, "Failed to save agent event");
             }
 
@@ -217,36 +222,42 @@ impl Node for AgentExecutorNode {
                     state.output = Some(final_content.clone());
                     state.agent_outcome = Some("final".to_string());
 
-                    ctx.sender.send_activity(
-                        "synthesize_final_response",
-                        "done",
-                        "Final response prepared",
-                        &agent_name,
-                    )
-                    .await
-                    .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+                    ctx.sender
+                        .send_activity(
+                            "synthesize_final_response",
+                            "done",
+                            "Final response prepared",
+                            &agent_name,
+                        )
+                        .await
+                        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-                    let _ = ctx.sender.send_json(
-                        json!({
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({
                             "type": "chunk",
                             "message": final_content,
                             "mode": "agent",
                             "agentName": agent_name,
                             "nodeId": "synthesize_final_response"
-                        }),
-                    )
-                    .await;
+                        }))
+                        .await;
 
-                    let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+                    let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
-                    if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        session_id: state.session_id.clone(),
-                        node_name: self.id().to_string(),
-                        event_type: AgentEventType::NodeCompleted,
-                        metadata: json!({"outcome": "final"}),
-                        created_at: chrono::Utc::now(),
-                    }).await {
+                    if let Err(e) = ctx
+                        .app_state
+                        .history
+                        .save_agent_event(&AgentEvent {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            session_id: state.session_id.clone(),
+                            node_name: self.id().to_string(),
+                            event_type: AgentEventType::NodeCompleted,
+                            metadata: json!({"outcome": "final"}),
+                            created_at: chrono::Utc::now(),
+                        })
+                        .await
+                    {
                         tracing::warn!(error = %e, "Failed to save agent event");
                     }
 
@@ -256,7 +267,8 @@ impl Node for AgentExecutorNode {
                     if !active_policy.is_tool_allowed(&name) {
                         let rejection =
                             format!("Tool `{}` is blocked by the selected agent's policy.", name);
-                        ctx.sender.send_activity( "tool_guard", "error", &rejection, "Tool Guard")
+                        ctx.sender
+                            .send_activity("tool_guard", "error", &rejection, "Tool Guard")
                             .await
                             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                         messages.push(ChatMessage {
@@ -266,25 +278,31 @@ impl Node for AgentExecutorNode {
                         continue;
                     }
 
-                    if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        session_id: state.session_id.clone(),
-                        node_name: self.id().to_string(),
-                        event_type: AgentEventType::ToolCall,
-                        metadata: json!({"tool_name": name, "args": args}),
-                        created_at: chrono::Utc::now(),
-                    }).await {
+                    if let Err(e) = ctx
+                        .app_state
+                        .history
+                        .save_agent_event(&AgentEvent {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            session_id: state.session_id.clone(),
+                            node_name: self.id().to_string(),
+                            event_type: AgentEventType::ToolCall,
+                            metadata: json!({"tool_name": name, "args": args}),
+                            created_at: chrono::Utc::now(),
+                        })
+                        .await
+                    {
                         tracing::warn!(error = %e, "Failed to save agent event");
                     }
 
-                    ctx.sender.send_activity(
-                        "tool_node",
-                        "processing",
-                        &format!("Executing tool `{}`", name),
-                        "Tool Handler",
-                    )
-                    .await
-                    .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+                    ctx.sender
+                        .send_activity(
+                            "tool_node",
+                            "processing",
+                            &format!("Executing tool `{}`", name),
+                            "Tool Handler",
+                        )
+                        .await
+                        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
                     let mut requires_confirmation = active_policy.requires_confirmation(&name);
                     if mcp_tool_set.contains(&name) {
@@ -304,36 +322,34 @@ impl Node for AgentExecutorNode {
                     }
 
                     if requires_confirmation {
-                        let approved = ctx.sender.request_tool_approval(
-                            ctx.pending_approvals.clone(),
-                            &name,
-                            &args,
-                            approval_timeout(&agent_chat_config),
-                        )
-                        .await
-                        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
-
-                        if !approved {
-                            let denial = format!("Tool `{}` was not approved by the user.", name);
-                            ctx.sender.send_activity(
-                                "tool_node",
-                                "error",
-                                &denial,
-                                "Tool Handler",
+                        let approved = ctx
+                            .sender
+                            .request_tool_approval(
+                                ctx.pending_approvals.clone(),
+                                &name,
+                                &args,
+                                approval_timeout(&agent_chat_config),
                             )
                             .await
                             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+
+                        if !approved {
+                            let denial = format!("Tool `{}` was not approved by the user.", name);
+                            ctx.sender
+                                .send_activity("tool_node", "error", &denial, "Tool Handler")
+                                .await
+                                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                             messages.push(ChatMessage {
                                 role: "system".to_string(),
                                 content: denial.clone(),
                             });
-                            let _ = ctx.sender.send_json(
-                                json!({
+                            let _ = ctx
+                                .sender
+                                .send_json(json!({
                                     "type": "status",
                                     "message": format!("Tool {} denied by user", name),
-                                }),
-                            )
-                            .await;
+                                }))
+                                .await;
                             continue;
                         }
 
@@ -357,14 +373,12 @@ impl Node for AgentExecutorNode {
                         Ok(value) => value,
                         Err(err) => {
                             let failure = format!("Tool `{}` failed: {}", name, err);
-                            ctx.sender.send_activity(
-                                "tool_node",
-                                "error",
-                                &failure,
-                                "Tool Handler",
-                            )
-                            .await
-                            .map_err(|send_err| GraphError::new(self.id(), send_err.to_string()))?;
+                            ctx.sender
+                                .send_activity("tool_node", "error", &failure, "Tool Handler")
+                                .await
+                                .map_err(|send_err| {
+                                    GraphError::new(self.id(), send_err.to_string())
+                                })?;
                             messages.push(ChatMessage {
                                 role: "system".to_string(),
                                 content: failure,
@@ -374,10 +388,10 @@ impl Node for AgentExecutorNode {
                     };
 
                     if let Some(results) = &execution.search_results {
-                        let _ = ctx.sender.send_json(
-                            json!({ "type": "search_results", "data": results }),
-                        )
-                        .await;
+                        let _ = ctx
+                            .sender
+                            .send_json(json!({ "type": "search_results", "data": results }))
+                            .await;
                     }
 
                     let tool_payload = format!("Tool `{}` result:\n{}", name, execution.output);
@@ -396,14 +410,15 @@ impl Node for AgentExecutorNode {
                         content: tool_payload,
                     });
 
-                    ctx.sender.send_activity(
-                        "tool_node",
-                        "done",
-                        &format!("Tool `{}` finished", name),
-                        "Tool Handler",
-                    )
-                    .await
-                    .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+                    ctx.sender
+                        .send_activity(
+                            "tool_node",
+                            "done",
+                            &format!("Tool `{}` finished", name),
+                            "Tool Handler",
+                        )
+                        .await
+                        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
                     let _ = ctx.sender.send_json(
                         json!({
@@ -420,36 +435,37 @@ impl Node for AgentExecutorNode {
             "Agent reached the maximum number of steps without a final answer.".to_string();
         state.output = Some(fallback.clone());
 
-        ctx.sender.send_activity(
-            "synthesize_final_response",
-            "error",
-            &fallback,
-            &agent_name,
-        )
-        .await
-        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        ctx.sender
+            .send_activity("synthesize_final_response", "error", &fallback, &agent_name)
+            .await
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "chunk",
                 "message": fallback,
                 "mode": "agent",
                 "agentName": agent_name,
                 "nodeId": "synthesize_final_response"
-            }),
-        )
-        .await;
+            }))
+            .await;
 
-        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::NodeCompleted,
-            metadata: json!({"outcome": "max_steps_reached"}),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::NodeCompleted,
+                metadata: json!({"outcome": "max_steps_reached"}),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 

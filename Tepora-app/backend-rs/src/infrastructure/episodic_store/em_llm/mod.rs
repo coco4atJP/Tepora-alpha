@@ -11,10 +11,10 @@ pub mod integrator;
 pub mod ranking;
 pub mod retrieval;
 pub mod segmenter;
+pub mod sentence;
 pub mod service;
 pub mod store;
 pub mod types;
-pub mod sentence;
 
 #[cfg(test)]
 mod tests;

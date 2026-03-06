@@ -73,8 +73,9 @@ impl Node for AgenticSearchNode {
         }
 
         // Stage 1: Query Generation
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_query_gen",
@@ -82,15 +83,15 @@ impl Node for AgenticSearchNode {
                     "message": "Generating search sub-queries...",
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         let sub_queries = self.generate_sub_queries(state, ctx).await?;
         state.search_queries = sub_queries.clone();
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_query_gen",
@@ -98,13 +99,13 @@ impl Node for AgenticSearchNode {
                     "message": format!("Generated {} sub-queries", sub_queries.len()),
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         // Stage 2: RAG-centric retrieval and chunk window expansion
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_chunk_select",
@@ -112,18 +113,17 @@ impl Node for AgenticSearchNode {
                     "message": "Collecting and selecting relevant chunks...",
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         let (selected_chunks, display_results) =
             self.search_and_select(state, ctx, &sub_queries).await?;
 
         state.search_results = Some(display_results.clone());
-        let _ = ctx.sender.send_json(
-            json!({ "type": "search_results", "data": display_results }),
-        )
-        .await;
+        let _ = ctx
+            .sender
+            .send_json(json!({ "type": "search_results", "data": display_results }))
+            .await;
 
         let chunk_ids = selected_chunks
             .iter()
@@ -164,8 +164,9 @@ impl Node for AgenticSearchNode {
             metadata,
         });
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_chunk_select",
@@ -173,13 +174,13 @@ impl Node for AgenticSearchNode {
                     "message": format!("Selected {} chunks", selected_chunks.len()),
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         // Stage 3: Artifact-based report
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_report",
@@ -187,9 +188,8 @@ impl Node for AgenticSearchNode {
                     "message": "Generating artifact report...",
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         let report = self.generate_report(state, ctx, &selected_chunks).await?;
 
@@ -199,8 +199,9 @@ impl Node for AgenticSearchNode {
             metadata: HashMap::new(),
         });
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_report",
@@ -208,13 +209,13 @@ impl Node for AgenticSearchNode {
                     "message": "Research report complete",
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         // Stage 4: Persona-enabled final synthesis
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_synthesize",
@@ -222,14 +223,14 @@ impl Node for AgenticSearchNode {
                     "message": "Synthesizing final answer...",
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         let final_answer = self.synthesize_answer(state, ctx, &report).await?;
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "agentic_synthesize",
@@ -237,11 +238,10 @@ impl Node for AgenticSearchNode {
                     "message": "Answer synthesized",
                     "agentName": "Agentic Search"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
-        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
         state.output = Some(final_answer);
         Ok(NodeOutput::Final)
@@ -667,14 +667,14 @@ impl AgenticSearchNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = ctx.sender.send_json(
-                        json!({
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({
                             "type": "chunk",
                             "message": chunk,
                             "mode": "search",
-                        }),
-                    )
-                    .await;
+                        }))
+                        .await;
                 }
                 Err(err) => {
                     return Err(GraphError::new(self.id(), err.to_string()));

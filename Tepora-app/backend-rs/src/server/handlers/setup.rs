@@ -105,11 +105,10 @@ async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
     for (idx, task) in tasks.into_iter().enumerate() {
         let base_progress = idx as f32 / total;
         let progress_cb = |p: f32, message: &str| {
-            let _ = state.setup.update_progress(
-                "downloading",
-                base_progress + (p / total),
-                message,
-            );
+            let _ =
+                state
+                    .setup
+                    .update_progress("downloading", base_progress + (p / total), message);
         };
 
         let result = state
@@ -133,7 +132,9 @@ async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
                     let config_role = task.config_role();
                     let assignment = state.models.set_role_model(role_key, model_id);
                     if assignment.as_ref().is_ok_and(|assigned| *assigned) {
-                        let _ = state.models.update_active_model_config(config_role, model_id);
+                        let _ = state
+                            .models
+                            .update_active_model_config(config_role, model_id);
                     } else if let Err(err) = assignment {
                         tracing::warn!(
                             model_id = %model_id,
@@ -145,7 +146,9 @@ async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
                 }
             }
             _ => {
-                let _ = state.setup.update_progress("failed", 0.0, "Download failed");
+                let _ = state
+                    .setup
+                    .update_progress("failed", 0.0, "Download failed");
                 let _ = state.setup.set_job_id(None);
                 return;
             }

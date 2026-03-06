@@ -1,8 +1,8 @@
+pub mod loader;
 pub mod node;
 pub mod nodes;
 pub mod runtime;
 pub mod schema;
-pub mod loader;
 pub mod state;
 pub mod stream;
 

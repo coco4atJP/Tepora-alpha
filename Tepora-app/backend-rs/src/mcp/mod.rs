@@ -620,9 +620,8 @@ impl McpManager {
         self.policy_allows_connection(name, server)?;
 
         let transport_name = server.transport.to_lowercase();
-        let sandbox_mcp_enabled =
-            self.is_redesign_feature_enabled("sandbox_mcp")
-                || self.is_redesign_feature_enabled("sandbox");
+        let sandbox_mcp_enabled = self.is_redesign_feature_enabled("sandbox_mcp")
+            || self.is_redesign_feature_enabled("sandbox");
         tracing::info!(
             target: "mcp",
             server = %name,

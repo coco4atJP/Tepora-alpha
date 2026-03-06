@@ -129,7 +129,9 @@ impl SqliteMemoryRepository {
         if key_bytes.len() == 32 {
             self.encryption_key = Some(*Key::<Aes256Gcm>::from_slice(key_bytes));
         } else {
-            tracing::warn!("SqliteMemoryRepository: Invalid encryption key length: expected 32 bytes");
+            tracing::warn!(
+                "SqliteMemoryRepository: Invalid encryption key length: expected 32 bytes"
+            );
         }
     }
 
@@ -314,7 +316,10 @@ impl SqliteMemoryRepository {
 
     // --- internal row mapper ---
 
-    fn row_to_event(row: &sqlx::sqlite::SqliteRow, enc_key: &Option<Key<Aes256Gcm>>) -> MemoryEvent {
+    fn row_to_event(
+        row: &sqlx::sqlite::SqliteRow,
+        enc_key: &Option<Key<Aes256Gcm>>,
+    ) -> MemoryEvent {
         let embedding_bytes: Vec<u8> = row.get("embedding");
         let layer_raw: String = row
             .try_get("memory_layer")
@@ -378,10 +383,7 @@ impl SqliteMemoryRepository {
             session_id: row.try_get("session_id").unwrap_or_default(),
             scope: std::str::FromStr::from_str(&scope_raw).unwrap_or_default(),
             status: std::str::FromStr::from_str(&status_raw).unwrap_or(CompactionStatus::Queued),
-            scanned_events: row
-                .try_get::<i64, _>("scanned_events")
-                .unwrap_or(0)
-                .max(0) as usize,
+            scanned_events: row.try_get::<i64, _>("scanned_events").unwrap_or(0).max(0) as usize,
             merged_groups: row.get::<i64, _>("merged_groups").max(0) as usize,
             replaced_events: row.get::<i64, _>("replaced_events").max(0) as usize,
             created_events: row.get::<i64, _>("created_events").max(0) as usize,
@@ -447,15 +449,15 @@ impl MemoryRepository for SqliteMemoryRepository {
     }
 
     async fn get_event(&self, id: &str) -> Result<Option<MemoryEvent>, ApiError> {
-        let row = sqlx::query(
-            "SELECT * FROM memory_events WHERE id = ?1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(ApiError::internal)?;
+        let row = sqlx::query("SELECT * FROM memory_events WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
 
-        Ok(row.as_ref().map(|r| Self::row_to_event(r, &self.encryption_key)))
+        Ok(row
+            .as_ref()
+            .map(|r| Self::row_to_event(r, &self.encryption_key)))
     }
 
     async fn get_events_by_scope(
@@ -480,7 +482,10 @@ impl MemoryRepository for SqliteMemoryRepository {
         .map_err(ApiError::internal)?;
 
         let enc_key = &self.encryption_key;
-        Ok(rows.iter().map(|r| Self::row_to_event(r, enc_key)).collect())
+        Ok(rows
+            .iter()
+            .map(|r| Self::row_to_event(r, enc_key))
+            .collect())
     }
 
     async fn retrieve_similar(
@@ -540,15 +545,13 @@ impl MemoryRepository for SqliteMemoryRepository {
 
     async fn update_strength(&self, id: &str, strength: f64) -> Result<(), ApiError> {
         let now = Utc::now().to_rfc3339();
-        sqlx::query(
-            "UPDATE memory_events SET strength = ?2, updated_at = ?3 WHERE id = ?1",
-        )
-        .bind(id)
-        .bind(strength.clamp(0.0, 1.0))
-        .bind(&now)
-        .execute(&self.pool)
-        .await
-        .map_err(ApiError::internal)?;
+        sqlx::query("UPDATE memory_events SET strength = ?2, updated_at = ?3 WHERE id = ?1")
+            .bind(id)
+            .bind(strength.clamp(0.0, 1.0))
+            .bind(&now)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
         Ok(())
     }
 
@@ -574,37 +577,29 @@ impl MemoryRepository for SqliteMemoryRepository {
 
     async fn update_layer(&self, id: &str, layer: MemoryLayer) -> Result<(), ApiError> {
         let now = Utc::now().to_rfc3339();
-        sqlx::query(
-            "UPDATE memory_events SET memory_layer = ?2, updated_at = ?3 WHERE id = ?1",
-        )
-        .bind(id)
-        .bind(layer.as_str())
-        .bind(&now)
-        .execute(&self.pool)
-        .await
-        .map_err(ApiError::internal)?;
+        sqlx::query("UPDATE memory_events SET memory_layer = ?2, updated_at = ?3 WHERE id = ?1")
+            .bind(id)
+            .bind(layer.as_str())
+            .bind(&now)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
         Ok(())
     }
 
     async fn update_importance(&self, id: &str, importance: f64) -> Result<(), ApiError> {
         let now = Utc::now().to_rfc3339();
-        sqlx::query(
-            "UPDATE memory_events SET importance = ?2, updated_at = ?3 WHERE id = ?1",
-        )
-        .bind(id)
-        .bind(importance.clamp(0.0, 1.0))
-        .bind(&now)
-        .execute(&self.pool)
-        .await
-        .map_err(ApiError::internal)?;
+        sqlx::query("UPDATE memory_events SET importance = ?2, updated_at = ?3 WHERE id = ?1")
+            .bind(id)
+            .bind(importance.clamp(0.0, 1.0))
+            .bind(&now)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
         Ok(())
     }
 
-    async fn record_access(
-        &self,
-        id: &str,
-        new_strength: f64,
-    ) -> Result<(), ApiError> {
+    async fn record_access(&self, id: &str, new_strength: f64) -> Result<(), ApiError> {
         let now = Utc::now().to_rfc3339();
         sqlx::query(
             "UPDATE memory_events
@@ -632,7 +627,11 @@ impl MemoryRepository for SqliteMemoryRepository {
         let mut total = 0usize;
         // Process in smaller batches to avoid SQLite variable limit.
         for chunk in ids.chunks(500) {
-            let placeholders: Vec<String> = chunk.iter().enumerate().map(|(i, _)| format!("?{}", i + 2)).collect();
+            let placeholders: Vec<String> = chunk
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", i + 2))
+                .collect();
             let sql = format!(
                 "UPDATE memory_events SET is_deleted = 1, updated_at = ?1 WHERE id IN ({})",
                 placeholders.join(", ")
@@ -641,7 +640,10 @@ impl MemoryRepository for SqliteMemoryRepository {
             for id in chunk {
                 query = query.bind(id);
             }
-            let result = query.execute(&self.pool).await.map_err(ApiError::internal)?;
+            let result = query
+                .execute(&self.pool)
+                .await
+                .map_err(ApiError::internal)?;
             total += result.rows_affected() as usize;
         }
         Ok(total)
@@ -692,7 +694,10 @@ impl MemoryRepository for SqliteMemoryRepository {
         };
 
         let enc_key = &self.encryption_key;
-        Ok(rows.iter().map(|r| Self::row_to_event(r, enc_key)).collect())
+        Ok(rows
+            .iter()
+            .map(|r| Self::row_to_event(r, enc_key))
+            .collect())
     }
 
     // ===== Aggregates =====
@@ -749,50 +754,42 @@ impl MemoryRepository for SqliteMemoryRepository {
         scope: Option<MemoryScope>,
     ) -> Result<LayerCounts, ApiError> {
         let rows = match (session_id, scope) {
-            (Some(sid), Some(sc)) => {
-                sqlx::query(
-                    "SELECT memory_layer, COUNT(*) as c FROM memory_events
+            (Some(sid), Some(sc)) => sqlx::query(
+                "SELECT memory_layer, COUNT(*) as c FROM memory_events
                      WHERE session_id = ?1 AND scope = ?2 AND is_deleted = 0
                      GROUP BY memory_layer",
-                )
-                .bind(sid)
-                .bind(sc.as_str())
-                .fetch_all(&self.pool)
-                .await
-                .map_err(ApiError::internal)?
-            }
-            (Some(sid), None) => {
-                sqlx::query(
-                    "SELECT memory_layer, COUNT(*) as c FROM memory_events
+            )
+            .bind(sid)
+            .bind(sc.as_str())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?,
+            (Some(sid), None) => sqlx::query(
+                "SELECT memory_layer, COUNT(*) as c FROM memory_events
                      WHERE session_id = ?1 AND is_deleted = 0
                      GROUP BY memory_layer",
-                )
-                .bind(sid)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(ApiError::internal)?
-            }
-            (None, Some(sc)) => {
-                sqlx::query(
-                    "SELECT memory_layer, COUNT(*) as c FROM memory_events
+            )
+            .bind(sid)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?,
+            (None, Some(sc)) => sqlx::query(
+                "SELECT memory_layer, COUNT(*) as c FROM memory_events
                      WHERE scope = ?1 AND is_deleted = 0
                      GROUP BY memory_layer",
-                )
-                .bind(sc.as_str())
-                .fetch_all(&self.pool)
-                .await
-                .map_err(ApiError::internal)?
-            }
-            (None, None) => {
-                sqlx::query(
-                    "SELECT memory_layer, COUNT(*) as c FROM memory_events
+            )
+            .bind(sc.as_str())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?,
+            (None, None) => sqlx::query(
+                "SELECT memory_layer, COUNT(*) as c FROM memory_events
                      WHERE is_deleted = 0
                      GROUP BY memory_layer",
-                )
-                .fetch_all(&self.pool)
-                .await
-                .map_err(ApiError::internal)?
-            }
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?,
         };
 
         let mut counts = LayerCounts::default();
@@ -904,22 +901,18 @@ impl MemoryRepository for SqliteMemoryRepository {
         edge_type: Option<MemoryEdgeType>,
     ) -> Result<Vec<MemoryEdge>, ApiError> {
         let rows = if let Some(et) = edge_type {
-            sqlx::query(
-                "SELECT * FROM memory_edges WHERE from_event_id = ?1 AND edge_type = ?2",
-            )
-            .bind(event_id)
-            .bind(et.as_str())
-            .fetch_all(&self.pool)
-            .await
-            .map_err(ApiError::internal)?
+            sqlx::query("SELECT * FROM memory_edges WHERE from_event_id = ?1 AND edge_type = ?2")
+                .bind(event_id)
+                .bind(et.as_str())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
         } else {
-            sqlx::query(
-                "SELECT * FROM memory_edges WHERE from_event_id = ?1",
-            )
-            .bind(event_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(ApiError::internal)?
+            sqlx::query("SELECT * FROM memory_edges WHERE from_event_id = ?1")
+                .bind(event_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
         };
         Ok(rows.iter().map(Self::row_to_edge).collect())
     }
@@ -930,22 +923,18 @@ impl MemoryRepository for SqliteMemoryRepository {
         edge_type: Option<MemoryEdgeType>,
     ) -> Result<Vec<MemoryEdge>, ApiError> {
         let rows = if let Some(et) = edge_type {
-            sqlx::query(
-                "SELECT * FROM memory_edges WHERE to_event_id = ?1 AND edge_type = ?2",
-            )
-            .bind(event_id)
-            .bind(et.as_str())
-            .fetch_all(&self.pool)
-            .await
-            .map_err(ApiError::internal)?
+            sqlx::query("SELECT * FROM memory_edges WHERE to_event_id = ?1 AND edge_type = ?2")
+                .bind(event_id)
+                .bind(et.as_str())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
         } else {
-            sqlx::query(
-                "SELECT * FROM memory_edges WHERE to_event_id = ?1",
-            )
-            .bind(event_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(ApiError::internal)?
+            sqlx::query("SELECT * FROM memory_edges WHERE to_event_id = ?1")
+                .bind(event_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
         };
         Ok(rows.iter().map(Self::row_to_edge).collect())
     }

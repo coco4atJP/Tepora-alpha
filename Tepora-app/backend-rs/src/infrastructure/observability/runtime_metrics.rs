@@ -63,7 +63,11 @@ impl RuntimeMetrics {
                     })
                     .collect::<Vec<_>>();
 
-                entries.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.session_id.cmp(&b.session_id)));
+                entries.sort_by(|a, b| {
+                    b.count
+                        .cmp(&a.count)
+                        .then_with(|| a.session_id.cmp(&b.session_id))
+                });
                 entries
             })
             .unwrap_or_default();

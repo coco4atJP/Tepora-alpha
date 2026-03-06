@@ -38,8 +38,9 @@ impl Node for SupervisorNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "supervisor",
@@ -47,9 +48,8 @@ impl Node for SupervisorNode {
                     "message": "Evaluating request and selecting execution route",
                     "agentName": "Supervisor"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         if matches!(state.agent_mode, AgentMode::Direct) {
             if let Some(requested) = state
@@ -114,8 +114,9 @@ impl Node for SupervisorNode {
             agent_name
         );
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "supervisor",
@@ -123,9 +124,8 @@ impl Node for SupervisorNode {
                     "message": routing_message,
                     "agentName": "Supervisor"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         Ok(NodeOutput::Branch(route.to_string()))
     }

@@ -64,13 +64,13 @@ impl Node for RouterNode {
 
         // Notify via config if agentic mode selected
         if route == "search_agentic" {
-            let _ = ctx.sender.send_json(
-                serde_json::json!({
+            let _ = ctx
+                .sender
+                .send_json(serde_json::json!({
                     "type": "status",
                     "message": "Deep research mode activated"
-                }),
-            )
-            .await;
+                }))
+                .await;
         }
 
         tracing::info!(

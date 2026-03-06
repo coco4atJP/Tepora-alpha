@@ -200,7 +200,8 @@ impl MemoryCompressor {
         model_id: &str,
         scope: MemoryScope,
     ) -> Result<CompressionResult, ApiError> {
-        self.compress_v2_with_job(session_id, v2_store, llm, model_id, None, scope).await
+        self.compress_v2_with_job(session_id, v2_store, llm, model_id, None, scope)
+            .await
     }
 
     /// Execute compression for one session, tracking lifecycle via a `CompactionJob`.
@@ -238,7 +239,9 @@ impl MemoryCompressor {
             }
         }
 
-        let events = v2_store.get_all_events(Some(session_id), Some(scope)).await?;
+        let events = v2_store
+            .get_all_events(Some(session_id), Some(scope))
+            .await?;
         if events.len() < 2 {
             let result = CompressionResult {
                 scanned_events: events.len(),
@@ -248,7 +251,16 @@ impl MemoryCompressor {
             };
             // Mark done immediately.
             if let Some(jid) = job_id {
-                self.finalize_job(v2_store, jid, session_id, CompactionStatus::Done, &result, now, scope).await;
+                self.finalize_job(
+                    v2_store,
+                    jid,
+                    session_id,
+                    CompactionStatus::Done,
+                    &result,
+                    now,
+                    scope,
+                )
+                .await;
             }
             return Ok(result);
         }
@@ -297,7 +309,11 @@ impl MemoryCompressor {
                 V2MemoryLayer::SML
             };
             let max_importance = selected.iter().map(|e| e.importance).fold(0.0, f64::max);
-            let latest_anchor = selected.iter().map(|e| e.decay_anchor_at).max().unwrap_or_else(chrono::Utc::now);
+            let latest_anchor = selected
+                .iter()
+                .map(|e| e.decay_anchor_at)
+                .max()
+                .unwrap_or_else(chrono::Utc::now);
 
             let new_event = MemoryEvent {
                 id: new_id.clone(),
@@ -374,7 +390,16 @@ impl MemoryCompressor {
         };
 
         if let Some(jid) = job_id {
-            self.finalize_job(v2_store, jid, session_id, CompactionStatus::Done, &result, now, scope).await;
+            self.finalize_job(
+                v2_store,
+                jid,
+                session_id,
+                CompactionStatus::Done,
+                &result,
+                now,
+                scope,
+            )
+            .await;
         }
 
         Ok(result)
@@ -450,7 +475,14 @@ impl MemoryCompressor {
         let memory_text = group
             .iter()
             .enumerate()
-            .map(|(idx, event)| format!("[{}][{}] {}", idx + 1, event.created_at.to_rfc3339(), event.content))
+            .map(|(idx, event)| {
+                format!(
+                    "[{}][{}] {}",
+                    idx + 1,
+                    event.created_at.to_rfc3339(),
+                    event.content
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 

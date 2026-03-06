@@ -33,7 +33,10 @@ impl ConfigService {
 
     #[cfg(test)]
     pub fn new_with_secret_store(paths: Arc<AppPaths>, secret_store: Arc<dyn SecretStore>) -> Self {
-        Self { paths, secret_store }
+        Self {
+            paths,
+            secret_store,
+        }
     }
 
     #[allow(dead_code)]

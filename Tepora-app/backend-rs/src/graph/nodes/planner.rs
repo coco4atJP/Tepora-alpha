@@ -44,8 +44,9 @@ impl Node for PlannerNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "generate_order",
@@ -53,9 +54,8 @@ impl Node for PlannerNode {
                     "message": "Generating execution plan",
                     "agentName": "Planner"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         let pipeline_mode = match state.agent_mode {
             AgentMode::High => PipelineMode::AgentHigh,
@@ -101,8 +101,9 @@ impl Node for PlannerNode {
 
         state.shared_context.current_plan = Some(plan);
 
-        let _ = ctx.sender.send_json(
-            json!({
+        let _ = ctx
+            .sender
+            .send_json(json!({
                 "type": "activity",
                 "data": {
                     "id": "generate_order",
@@ -110,9 +111,8 @@ impl Node for PlannerNode {
                     "message": "Execution plan generated",
                     "agentName": "Planner"
                 }
-            }),
-        )
-        .await;
+            }))
+            .await;
 
         Ok(NodeOutput::Continue(Some("agent_executor".to_string())))
     }

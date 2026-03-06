@@ -91,7 +91,10 @@ impl SecretStore for OsSecretStore {
 
 pub fn is_sensitive_key(key: &str) -> bool {
     let key_lower = key.to_lowercase();
-    if SENSITIVE_WHITELIST.iter().any(|allowed| *allowed == key_lower) {
+    if SENSITIVE_WHITELIST
+        .iter()
+        .any(|allowed| *allowed == key_lower)
+    {
         return false;
     }
 
@@ -176,7 +179,11 @@ fn materialize_walk(
     Ok(())
 }
 
-fn resolve_walk(value: &mut Value, path: &str, secret_store: &dyn SecretStore) -> Result<(), ApiError> {
+fn resolve_walk(
+    value: &mut Value,
+    path: &str,
+    secret_store: &dyn SecretStore,
+) -> Result<(), ApiError> {
     match value {
         Value::Object(map) => {
             for (key, val) in map {
@@ -239,7 +246,8 @@ fn rotate_walk(
                         }
                         Value::String(raw) => Some(secret_store.store_secret(&next_path, raw)?),
                         _ => {
-                            let serialized = serde_json::to_string(val).map_err(ApiError::internal)?;
+                            let serialized =
+                                serde_json::to_string(val).map_err(ApiError::internal)?;
                             Some(secret_store.store_secret(&next_path, &serialized)?)
                         }
                     };

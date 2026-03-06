@@ -7,6 +7,11 @@ import MessageList from "../MessageList";
 // Mock store
 vi.mock("../../../stores", () => ({
 	useChatStore: vi.fn(),
+	useWebSocketStore: vi.fn((selector) =>
+		selector({
+			regenerateResponse: vi.fn(),
+		}),
+	),
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
@@ -90,3 +95,4 @@ describe("MessageList", () => {
 		expect(scrollIntoViewMock).toHaveBeenCalled();
 	});
 });
+

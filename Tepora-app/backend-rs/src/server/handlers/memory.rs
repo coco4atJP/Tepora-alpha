@@ -77,11 +77,7 @@ pub async fn compress_memories(
             .compress_memories_as_job(&bg_session_id, &bg_llm, &model_id, &bg_job_id, scope)
             .await
         {
-            tracing::error!(
-                "Background compaction job {} failed: {}",
-                bg_job_id,
-                e
-            );
+            tracing::error!("Background compaction job {} failed: {}", bg_job_id, e);
             // Mark the job as failed.
             bg_service
                 .fail_compaction_job(&bg_session_id, &bg_job_id)
@@ -153,17 +149,13 @@ fn resolve_default_text_model_id(state: &crate::state::AppState) -> String {
         .ok()
         .flatten()
         .or_else(|| {
-            state
-                .models
-                .get_registry()
-                .ok()
-                .and_then(|registry| {
-                    registry
-                        .models
-                        .iter()
-                        .find(|model| model.role == "text")
-                        .map(|model| model.id.clone())
-                })
+            state.models.get_registry().ok().and_then(|registry| {
+                registry
+                    .models
+                    .iter()
+                    .find(|model| model.role == "text")
+                    .map(|model| model.id.clone())
+            })
         })
         .unwrap_or_else(|| "default".to_string())
 }
@@ -177,8 +169,7 @@ mod tests {
     /// The handler calls `std::str::FromStr::from_str(s)?` so we test the same conversion.
     #[test]
     fn compress_memories_rejects_invalid_scope() {
-        let result: Result<MemoryScope, ApiError> =
-            std::str::FromStr::from_str("INVALID_SCOPE");
+        let result: Result<MemoryScope, ApiError> = std::str::FromStr::from_str("INVALID_SCOPE");
         assert!(result.is_err());
         match result.unwrap_err() {
             ApiError::BadRequest(msg) => assert!(msg.contains("Invalid MemoryScope")),
@@ -201,10 +192,8 @@ mod tests {
     /// Verify that valid scope strings are accepted.
     #[test]
     fn compress_memories_accepts_valid_scope() {
-        let char_scope: Result<MemoryScope, ApiError> =
-            std::str::FromStr::from_str("Char");
-        let prof_scope: Result<MemoryScope, ApiError> =
-            std::str::FromStr::from_str("Prof");
+        let char_scope: Result<MemoryScope, ApiError> = std::str::FromStr::from_str("Char");
+        let prof_scope: Result<MemoryScope, ApiError> = std::str::FromStr::from_str("Prof");
         assert!(char_scope.is_ok());
         assert!(prof_scope.is_ok());
     }

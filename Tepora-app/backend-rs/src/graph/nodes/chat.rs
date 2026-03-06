@@ -42,14 +42,19 @@ impl Node for ChatNode {
         state: &mut AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError> {
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::NodeStarted,
-            metadata: json!({}),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::NodeStarted,
+                metadata: json!({}),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 
@@ -117,51 +122,61 @@ impl Node for ChatNode {
                         continue;
                     }
                     full_response.push_str(&chunk);
-                    let _ = ctx.sender.send_json(
-                        json!({
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({
                             "type": "chunk",
                             "message": chunk,
                             "mode": "chat",
-                        }),
-                    )
-                    .await;
+                        }))
+                        .await;
                 }
                 Err(err) => {
-                    let _ = ctx.sender.send_json(
-                        json!({"type": "error", "message": format!("{}", err)}),
-                    )
-                    .await;
+                    let _ = ctx
+                        .sender
+                        .send_json(json!({"type": "error", "message": format!("{}", err)}))
+                        .await;
                     return Err(GraphError::new(self.id(), err.to_string()));
                 }
             }
         }
 
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::PromptGenerated,
-            metadata: json!({
-                "model_id": model_id,
-                "length": full_response.len()
-            }),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::PromptGenerated,
+                metadata: json!({
+                    "model_id": model_id,
+                    "length": full_response.len()
+                }),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 
-        let _ = ctx.sender.send_json( json!({"type": "done"})).await;
+        let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
         state.output = Some(full_response);
 
-        if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: state.session_id.clone(),
-            node_name: self.id().to_string(),
-            event_type: AgentEventType::NodeCompleted,
-            metadata: json!({}),
-            created_at: chrono::Utc::now(),
-        }).await {
+        if let Err(e) = ctx
+            .app_state
+            .history
+            .save_agent_event(&AgentEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                session_id: state.session_id.clone(),
+                node_name: self.id().to_string(),
+                event_type: AgentEventType::NodeCompleted,
+                metadata: json!({}),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+        {
             tracing::warn!(error = %e, "Failed to save agent event");
         }
 

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import CharacterSettings from "../../../features/settings/components/sections/CharacterSettings";
 
 // Mock Lucide icons to avoid rendering issues
@@ -13,6 +13,9 @@ vi.mock("lucide-react", () => ({
 	X: () => <span data-testid="icon-close" />,
 	Save: () => <span data-testid="icon-save" />,
 	Bot: () => <span data-testid="icon-bot" />,
+	User: () => <span data-testid="icon-user" />,
+	Smile: () => <span data-testid="icon-smile" />,
+	Image: () => <span data-testid="icon-image" />,
 	ChevronDown: () => <span data-testid="icon-chevron-down" />,
 	ChevronRight: () => <span data-testid="icon-chevron-right" />,
 	HelpCircle: () => <span data-testid="icon-help-circle" />,
@@ -58,6 +61,10 @@ describe("CharacterSettings", () => {
 		onDeleteProfile: vi.fn(),
 	};
 
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
 	it("renders character profiles", () => {
 		render(<CharacterSettings {...mockProps} />);
 		expect(screen.getByText("Default Agent")).toBeInTheDocument();
@@ -66,66 +73,63 @@ describe("CharacterSettings", () => {
 
 	it("highlights active profile", () => {
 		render(<CharacterSettings {...mockProps} />);
-		// Active profile usually has a visual indicator, check for check icon or class
-		// In mock implementation, check icon is rendered only for active
 		const checkIcons = screen.getAllByTestId("icon-check");
 		expect(checkIcons.length).toBe(1);
 	});
 
-	it("opens add modal when clicking add button", () => {
+	it("opens add modal when clicking add button", async () => {
 		render(<CharacterSettings {...mockProps} />);
 
-		const addButton = screen.getByTestId("icon-plus").closest("button");
-		expect(addButton).toBeInTheDocument();
-		if (addButton) fireEvent.click(addButton);
+		const addButton = screen.getByRole("button", {
+			name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
+		});
+		fireEvent.click(addButton);
 
-		// Check for modal title or content
-		// Title uses translation key: settings.sections.agents.modal.title_add
-		expect(screen.getByText("settings.sections.agents.modal.title_add")).toBeInTheDocument();
+		expect(
+			await screen.findByText(/settings\.sections\.agents\.modal\.title_add|add character/i),
+		).toBeInTheDocument();
 	});
 
 	it("validates new character key", async () => {
 		render(<CharacterSettings {...mockProps} />);
 
-		// Open add modal
-		const addButton = screen.getByTestId("icon-plus").closest("button");
-		if (addButton) fireEvent.click(addButton);
+		const addButton = screen.getByRole("button", {
+			name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
+		});
+		fireEvent.click(addButton);
 
-		// Find save button
-		const saveButton = screen.getByText("common.save").closest("button");
+		const saveButton = await screen.findByRole("button", {
+			name: /common\.save|save/i,
+		});
+		fireEvent.click(saveButton);
 
-		// Click save without key
-		if (saveButton) fireEvent.click(saveButton);
-
-		// Expect error message
-		expect(screen.getByText("settings.sections.agents.error_empty_key")).toBeInTheDocument();
+		expect(
+			await screen.findByText(/settings\.sections\.agents\.error_empty_key|key cannot be empty/i),
+		).toBeInTheDocument();
 		expect(mockProps.onAddProfile).not.toHaveBeenCalled();
 	});
 
 	it("calls update on valid addition", async () => {
 		render(<CharacterSettings {...mockProps} />);
 
-		// Open add modal
-		const addButton = screen.getByTestId("icon-plus").closest("button");
-		if (addButton) fireEvent.click(addButton);
+		const addButton = screen.getByRole("button", {
+			name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
+		});
+		fireEvent.click(addButton);
 
-		// Fill key input
-		// We need to find the correct input. Based on code it might be the one with placeholder or label
-		// Or since it's the first input in the modal for key (if it's new)
-		const inputs = screen.getAllByRole("textbox");
-		// Assuming first one is key for new entry
-		const keyInput = inputs[0];
+		const keyInput = await screen.findByPlaceholderText(
+			/settings\.sections\.agents\.modal\.key_placeholder|coding_expert/i,
+		);
 		fireEvent.change(keyInput, { target: { value: "new_hero" } });
 
-		// Fill name (optional but good)
-		// ...
+		const saveButton = await screen.findByRole("button", {
+			name: /common\.save|save/i,
+		});
+		fireEvent.click(saveButton);
 
-		// Find save button
-		const saveButton = screen.getByText("common.save").closest("button");
-		if (saveButton) fireEvent.click(saveButton);
-
-		expect(mockProps.onAddProfile).toHaveBeenCalledWith("new_hero");
-		// update is also called immediately in the component logic
-		expect(mockProps.onUpdateProfile).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(mockProps.onAddProfile).toHaveBeenCalledWith("new_hero");
+			expect(mockProps.onUpdateProfile).toHaveBeenCalled();
+		});
 	});
 });

@@ -109,10 +109,7 @@ impl ActorManager {
                 ticker.tick().await;
                 let removed = self.reap_expired_sessions().await;
                 if removed > 0 {
-                    tracing::debug!(
-                        removed,
-                        "ActorManager GC removed expired session actors"
-                    );
+                    tracing::debug!(removed, "ActorManager GC removed expired session actors");
                 }
             }
         });
@@ -130,7 +127,10 @@ impl ActorManager {
 
         let _ = self.reap_expired_sessions().await;
 
-        let tx = match self.ensure_session_sender(session_id, app_state.clone()).await {
+        let tx = match self
+            .ensure_session_sender(session_id, app_state.clone())
+            .await
+        {
             Ok(tx) => tx,
             Err(err) => {
                 self.record_dispatch_error(session_id, &err);
@@ -438,7 +438,13 @@ mod tests {
         assert_eq!(snapshot.session_busy_total, 1);
         assert_eq!(snapshot.too_many_sessions_total, 0);
         assert_eq!(snapshot.internal_error_total, 0);
-        assert_eq!(snapshot.session_busy_top.first().map(|v| v.session_id.as_str()), Some("stress_session"));
+        assert_eq!(
+            snapshot
+                .session_busy_top
+                .first()
+                .map(|v| v.session_id.as_str()),
+            Some("stress_session")
+        );
     }
 
     #[tokio::test]
@@ -484,7 +490,13 @@ mod tests {
         let snapshot = manager.runtime_metrics_snapshot();
         assert_eq!(snapshot.dispatch_total, 2);
         assert_eq!(snapshot.too_many_sessions_total, 1);
-        assert_eq!(snapshot.session_busy_top.first().map(|v| v.session_id.as_str()), Some("second"));
+        assert_eq!(
+            snapshot
+                .session_busy_top
+                .first()
+                .map(|v| v.session_id.as_str()),
+            Some("second")
+        );
     }
 
     #[tokio::test]

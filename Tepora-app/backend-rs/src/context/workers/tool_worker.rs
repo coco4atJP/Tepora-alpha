@@ -44,7 +44,9 @@ impl ContextWorker for ToolWorker {
 
         let mut tool_definitions = Vec::new();
 
-        let isolation = state.config.load_config()
+        let isolation = state
+            .config
+            .load_config()
             .ok()
             .and_then(|c| c.get("privacy")?.get("isolation_mode")?.as_bool())
             .unwrap_or(false);

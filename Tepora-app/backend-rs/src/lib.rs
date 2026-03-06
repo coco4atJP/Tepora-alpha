@@ -1,5 +1,5 @@
 //! Tepora Backend Library
-//! 
+//!
 //! Exposes all core backend logic for use in embedded scenarios (like Tauri IPC).
 
 pub mod a2a;

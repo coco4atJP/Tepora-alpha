@@ -8,7 +8,9 @@ pub async fn refresh_token(
     State(state): State<AppStateRead>,
 ) -> Result<impl axum::response::IntoResponse, ApiError> {
     if !state.is_redesign_enabled("session_expiration") {
-        return Err(ApiError::BadRequest("Session expiration feature is disabled".to_string()));
+        return Err(ApiError::BadRequest(
+            "Session expiration feature is disabled".to_string(),
+        ));
     }
 
     let mut token_lock = state.session_token.write().await;
@@ -16,5 +18,7 @@ pub async fn refresh_token(
 
     let expires_at = token_lock.expires_at().to_rfc3339();
 
-    Ok(Json(json!({ "token": new_token, "expires_at": expires_at })))
+    Ok(Json(
+        json!({ "token": new_token, "expires_at": expires_at }),
+    ))
 }

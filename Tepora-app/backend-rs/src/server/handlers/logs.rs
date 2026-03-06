@@ -2,10 +2,10 @@ use axum::extract::{Path, State};
 use axum::response::IntoResponse;
 use axum::Json;
 use regex::{Captures, Regex};
+use serde::Deserialize;
 use serde_json::json;
 use std::fs;
 use std::sync::OnceLock;
-use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct FrontendLogPayload {
@@ -55,7 +55,9 @@ pub async fn receive_frontend_logs(
             level = %payload.level,
             "Ignored frontend log due to allowlist"
         );
-        return Ok(Json(json!({ "status": "ignored", "reason": "level_not_allowed" })));
+        return Ok(Json(
+            json!({ "status": "ignored", "reason": "level_not_allowed" }),
+        ));
     }
 
     let sanitized = sanitize_frontend_message(&payload.message);
@@ -66,8 +68,7 @@ pub async fn receive_frontend_logs(
         _ => {}
     }
 
-    if let Err(err) = log_forwarder::append_frontend_log(&state.paths.log_dir, &level, &sanitized)
-    {
+    if let Err(err) = log_forwarder::append_frontend_log(&state.paths.log_dir, &level, &sanitized) {
         tracing::warn!(
             target: "frontend",
             error = %err,
@@ -149,10 +150,8 @@ fn api_key_regex() -> &'static Regex {
 fn prompt_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(
-            r#"(?i)\b((?:user_)?prompt\s*[:=]\s*)("[^"]*"|'[^']*'|[^,\n\r}]+)"#,
-        )
-        .expect("valid prompt regex")
+        Regex::new(r#"(?i)\b((?:user_)?prompt\s*[:=]\s*)("[^"]*"|'[^']*'|[^,\n\r}]+)"#)
+            .expect("valid prompt regex")
     })
 }
 

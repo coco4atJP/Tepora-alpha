@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
+use crate::models::event::AgentEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
-use crate::models::event::AgentEvent;
 
 use crate::core::errors::ApiError;
 
@@ -98,10 +98,12 @@ impl HistoryStore {
         .await
         .map_err(|e| ApiError::internal(format!("Failed to init agent_events table: {}", e)))?;
 
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_events_session_id ON agent_events(session_id)")
-            .execute(&pool)
-            .await
-            .map_err(|e| ApiError::internal(format!("Failed to create events index: {}", e)))?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_agent_events_session_id ON agent_events(session_id)",
+        )
+        .execute(&pool)
+        .await
+        .map_err(|e| ApiError::internal(format!("Failed to create events index: {}", e)))?;
 
         Ok(Self { pool })
     }
@@ -362,7 +364,7 @@ impl HistoryStore {
 
         sqlx::query(
             "INSERT INTO agent_events (id, session_id, node_name, event_type, metadata, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)"
+             VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(&event.id)
         .bind(&event.session_id)
@@ -378,22 +380,30 @@ impl HistoryStore {
     }
 
     pub async fn get_agent_events(&self, session_id: &str) -> Result<Vec<AgentEvent>, ApiError> {
-        let rows = sqlx::query("SELECT * FROM agent_events WHERE session_id = ? ORDER BY created_at ASC")
-            .bind(session_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(ApiError::internal)?;
+        let rows =
+            sqlx::query("SELECT * FROM agent_events WHERE session_id = ? ORDER BY created_at ASC")
+                .bind(session_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?;
 
         let mut events = Vec::new();
         for row in rows {
-            let metadata_str = row.try_get::<String, _>("metadata").unwrap_or_else(|_| "{}".to_string());
-            let metadata: serde_json::Value = serde_json::from_str(&metadata_str).unwrap_or_else(|_| serde_json::json!({}));
-            
-            let event_type_str = row.try_get::<String, _>("event_type").unwrap_or_else(|_| "error".to_string());
+            let metadata_str = row
+                .try_get::<String, _>("metadata")
+                .unwrap_or_else(|_| "{}".to_string());
+            let metadata: serde_json::Value =
+                serde_json::from_str(&metadata_str).unwrap_or_else(|_| serde_json::json!({}));
+
+            let event_type_str = row
+                .try_get::<String, _>("event_type")
+                .unwrap_or_else(|_| "error".to_string());
             let event_type = crate::models::event::AgentEventType::parse(&event_type_str)
                 .unwrap_or(crate::models::event::AgentEventType::Error);
-            
-            let created_at_str = row.try_get::<String, _>("created_at").unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
+
+            let created_at_str = row
+                .try_get::<String, _>("created_at")
+                .unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
             let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
                 .map(|dt| dt.with_timezone(&chrono::Utc))
                 .unwrap_or_else(|_| chrono::Utc::now());

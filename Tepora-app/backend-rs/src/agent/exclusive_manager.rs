@@ -292,7 +292,9 @@ impl ExclusiveAgentManager {
             .unwrap_or_else(|_| Value::Object(Map::new()));
 
         let root = config.as_object_mut().ok_or_else(|| {
-            ApiError::BadRequest("Invalid root configuration while saving custom_agents".to_string())
+            ApiError::BadRequest(
+                "Invalid root configuration while saving custom_agents".to_string(),
+            )
         })?;
 
         let mut entries = HashMap::new();

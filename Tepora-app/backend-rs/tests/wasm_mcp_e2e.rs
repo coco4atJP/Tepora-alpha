@@ -25,7 +25,8 @@ impl EnvGuard {
     fn set_var(&mut self, key: &str, value: impl AsRef<str>) {
         let key_string = key.to_string();
         if !self.originals.iter().any(|(k, _)| k == &key_string) {
-            self.originals.push((key_string.clone(), env::var(&key_string).ok()));
+            self.originals
+                .push((key_string.clone(), env::var(&key_string).ok()));
         }
         env::set_var(key, value.as_ref());
     }
@@ -141,9 +142,8 @@ fn resolve_wasm_fixture_path(repo_root: &Path) -> PathBuf {
         return candidate;
     }
 
-    let wasm_path = repo_root.join(
-        "tests/fixtures/wasm-mcp-echo/target/wasm32-wasip1/release/wasm-mcp-echo.wasm",
-    );
+    let wasm_path = repo_root
+        .join("tests/fixtures/wasm-mcp-echo/target/wasm32-wasip1/release/wasm-mcp-echo.wasm");
     assert!(
         wasm_path.exists(),
         "Wasm fixture not found: {:?}. Build it first with: \

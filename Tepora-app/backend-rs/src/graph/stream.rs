@@ -24,14 +24,23 @@ impl<'a> GraphStreamer<'a> {
         match self {
             Self::WebSocket(ws) => {
                 let text = serde_json::to_string(&payload).map_err(ApiError::internal)?;
-                ws.send(Message::Text(text)).await.map_err(ApiError::internal)?;
+                ws.send(Message::Text(text))
+                    .await
+                    .map_err(ApiError::internal)?;
             }
             Self::Actor { session_id, tx } => {
                 let msg_type = payload.get("type").and_then(|t| t.as_str()).unwrap_or("");
                 match msg_type {
                     "chunk" => {
-                        let text = payload.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
-                        let _ = tx.send(SessionEvent::Token { session_id: session_id.clone(), text });
+                        let text = payload
+                            .get("message")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let _ = tx.send(SessionEvent::Token {
+                            session_id: session_id.clone(),
+                            text,
+                        });
                     }
                     "thought" => {
                         let content = payload
@@ -45,12 +54,26 @@ impl<'a> GraphStreamer<'a> {
                         });
                     }
                     "error" => {
-                        let text = payload.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
-                        let _ = tx.send(SessionEvent::Error { session_id: session_id.clone(), message: text });
+                        let text = payload
+                            .get("message")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let _ = tx.send(SessionEvent::Error {
+                            session_id: session_id.clone(),
+                            message: text,
+                        });
                     }
                     "node_completed" => {
-                        let node_id = payload.get("nodeId").and_then(|n| n.as_str()).unwrap_or("unknown").to_string();
-                        let output = payload.get("output").cloned().unwrap_or_else(|| serde_json::json!({}));
+                        let node_id = payload
+                            .get("nodeId")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let output = payload
+                            .get("output")
+                            .cloned()
+                            .unwrap_or_else(|| serde_json::json!({}));
                         let _ = tx.send(SessionEvent::NodeCompleted {
                             session_id: session_id.clone(),
                             node_id,
@@ -58,12 +81,14 @@ impl<'a> GraphStreamer<'a> {
                         });
                     }
                     "done" | "stopped" => {
-                        let _ = tx.send(SessionEvent::GenerationComplete { session_id: session_id.clone() });
+                        let _ = tx.send(SessionEvent::GenerationComplete {
+                            session_id: session_id.clone(),
+                        });
                     }
                     _ => {
-                        let _ = tx.send(SessionEvent::Status { 
+                        let _ = tx.send(SessionEvent::Status {
                             session_id: session_id.clone(),
-                            message: serde_json::to_string(&payload).unwrap_or_default() 
+                            message: serde_json::to_string(&payload).unwrap_or_default(),
                         });
                     }
                 }
@@ -88,7 +113,8 @@ impl<'a> GraphStreamer<'a> {
                 "message": message,
                 "agentName": agent_name,
             }
-        })).await
+        }))
+        .await
     }
 
     /// Requests user approval for a tool execution
@@ -116,7 +142,7 @@ impl<'a> GraphStreamer<'a> {
                 "description": format!("Tool '{}' requires your approval to execute.", tool_name),
             }
         });
-        
+
         self.send_json(payload).await?;
 
         // In actor mode, tool approval flow may need specific event plumbing.

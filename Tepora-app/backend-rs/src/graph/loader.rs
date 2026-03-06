@@ -1,18 +1,22 @@
-use super::schema::WorkflowDef;
-use super::runtime::{GraphBuilder, GraphRuntime};
 use super::node::{GraphError, Node};
 use super::nodes::{
     AgentExecutorNode, AgenticSearchNode, ChatNode, PlannerNode, RouterNode, SearchNode,
     SupervisorNode, SynthesizerNode, ThinkingNode, ToolNode,
 };
+use super::runtime::{GraphBuilder, GraphRuntime};
+use super::schema::WorkflowDef;
 use serde_json::Value;
 
 /// Instantiate a Node implementation based on the `type` string in the JSON schema.
 /// Provides a fallback mechanism.
-/// Note: Any unknown "metadata" properties (e.g. GUI layout, dimensions, labels, colors) 
+/// Note: Any unknown "metadata" properties (e.g. GUI layout, dimensions, labels, colors)
 /// are strictly serialized/deserialized seamlessly as `serde_json::Value` by the schema layout.
 /// This preserves them for front-end usage even if the backend engine ignores them.
-fn instantiate_node(node_type: &str, _id: &str, _metadata: &Value) -> Result<Box<dyn Node>, GraphError> {
+fn instantiate_node(
+    node_type: &str,
+    _id: &str,
+    _metadata: &Value,
+) -> Result<Box<dyn Node>, GraphError> {
     match node_type {
         "RouterNode" => Ok(Box::new(RouterNode::new())),
         "ThinkingNode" => Ok(Box::new(ThinkingNode::new())),
@@ -29,15 +33,15 @@ fn instantiate_node(node_type: &str, _id: &str, _metadata: &Value) -> Result<Box
                 .and_then(|v| v.as_str())
                 .unwrap_or("default_tool")
                 .to_string();
-            let tool_args = _metadata
-                .get("tool_args")
-                .cloned()
-                .unwrap_or(Value::Null);
+            let tool_args = _metadata.get("tool_args").cloned().unwrap_or(Value::Null);
             Ok(Box::new(ToolNode::new(tool_name, tool_args)))
         }
         _ => Err(GraphError::new(
             "loader",
-            format!("Unknown node type '{}' requested via JSON schema", node_type),
+            format!(
+                "Unknown node type '{}' requested via JSON schema",
+                node_type
+            ),
         )),
     }
 }

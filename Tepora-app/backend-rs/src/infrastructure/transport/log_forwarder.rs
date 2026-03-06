@@ -13,7 +13,10 @@ pub fn append_frontend_log(log_dir: &Path, level: &str, message: &str) -> io::Re
 
     let now = Utc::now();
     let file_path = log_file_path_for(log_dir, now.date_naive());
-    let mut file = OpenOptions::new().create(true).append(true).open(file_path)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file_path)?;
 
     writeln!(
         file,
