@@ -9,6 +9,7 @@ use crate::application::episodic_memory::EpisodicMemoryUseCase;
 use crate::application::knowledge::KnowledgeUseCase;
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::security::{init_session_token, SessionToken};
+use crate::core::security_controls::SecurityControls;
 use crate::domain::episodic_memory::EpisodicMemoryPort;
 use crate::domain::knowledge::KnowledgePort;
 use crate::em_llm::EmMemoryService;
@@ -142,6 +143,7 @@ pub struct AppCoreState {
     pub config: ConfigService,
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>,
     pub setup: SetupState,
+    pub security: Arc<SecurityControls>,
 }
 
 #[derive(Clone)]
@@ -182,6 +184,7 @@ pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,
     pub config: ConfigService,
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>,
+    pub security: Arc<SecurityControls>,
     pub history: HistoryStore,
     pub llama: LlamaService,
     pub llm: LlmService,
@@ -233,6 +236,7 @@ impl AppState {
             paths: core.paths.clone(),
             config: core.config.clone(),
             session_token: core.session_token.clone(),
+            security: core.security.clone(),
             history: runtime.history.clone(),
             llama: ai.llama.clone(),
             llm: ai.llm.clone(),
@@ -285,6 +289,7 @@ impl AppState {
     pub async fn initialize() -> Result<Arc<Self>, InitializationError> {
         let paths = Arc::new(AppPaths::new());
         let config = ConfigService::new(paths.clone());
+        let security = Arc::new(SecurityControls::new(paths.clone(), config.clone()));
         let session_token = Arc::new(tokio::sync::RwLock::new(init_session_token()));
         backup_sqlite_databases(paths.as_ref());
 
@@ -402,6 +407,7 @@ impl AppState {
             config: config.clone(),
             session_token: session_token.clone(),
             setup: setup.clone(),
+            security: security.clone(),
         });
         let ai = Arc::new(AppAiState {
             llama: llama.clone(),
@@ -508,3 +514,5 @@ fn next_backup_path(source: &std::path::Path, timestamp: &str) -> std::path::Pat
 
     parent.join(format!("{}.bak.{}.overflow", base_name, timestamp))
 }
+
+

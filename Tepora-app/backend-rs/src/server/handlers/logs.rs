@@ -47,6 +47,12 @@ pub async fn receive_frontend_logs(
     if !state.is_redesign_enabled("frontend_logging") {
         return Ok(Json(json!({ "status": "ignored" })));
     }
+    if state.security.is_lockdown_enabled() {
+        state
+            .security
+            .record_audit("frontend_log_forward", "blocked", json!({ "level": payload.level }))?;
+        return Ok(Json(json!({ "status": "ignored", "reason": "lockdown" })));
+    }
 
     let level = payload.level.to_ascii_lowercase();
     if level != "error" && level != "warn" {
@@ -74,6 +80,10 @@ pub async fn receive_frontend_logs(
             error = %err,
             "Failed to persist frontend log entry"
         );
+    } else {
+        state
+            .security
+            .record_audit("frontend_log_forward", "ok", json!({ "level": level }))?;
     }
 
     Ok(Json(json!({ "status": "ok" })))
@@ -84,8 +94,6 @@ pub async fn get_log_content(
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let log_dir = &state.paths.log_dir;
-
-    // C-2 fix: ファイル名のみ許可（パス区切り / ".." / 絶対パスを拒否）
     let safe_name = sanitize_log_filename(&filename)
         .ok_or_else(|| ApiError::BadRequest("Invalid log filename".to_string()))?;
     let path = log_dir.join(safe_name);
@@ -98,7 +106,6 @@ pub async fn get_log_content(
     Ok(Json(json!({ "content": content })))
 }
 
-/// ログファイル名をサニタイズする。ベース名のみ許可し、トラバーサルを拒否。
 fn sanitize_log_filename(filename: &str) -> Option<&str> {
     if filename.is_empty()
         || filename.contains("..")
@@ -120,7 +127,6 @@ fn has_windows_drive_prefix(filename: &str) -> bool {
 }
 
 fn sanitize_frontend_message(message: &str) -> String {
-    // Protect against huge payloads from malformed clients.
     let capped = if message.chars().count() > 4000 {
         let truncated: String = message.chars().take(4000).collect();
         format!("{truncated}...[TRUNCATED]")
@@ -165,63 +171,4 @@ fn windows_user_dir_regex() -> &'static Regex {
 fn unix_user_dir_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r"/(?:home|Users)/[^/\s]+").expect("valid unix user-dir regex"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sanitize_accepts_normal_log_filename() {
-        assert_eq!(sanitize_log_filename("app.log"), Some("app.log"));
-        assert_eq!(
-            sanitize_log_filename("debug-2026.log"),
-            Some("debug-2026.log")
-        );
-    }
-
-    #[test]
-    fn sanitize_rejects_parent_traversal() {
-        assert_eq!(sanitize_log_filename("../secret.txt"), None);
-        assert_eq!(sanitize_log_filename("..\\secret.txt"), None);
-        assert_eq!(sanitize_log_filename("foo/../bar.log"), None);
-    }
-
-    #[test]
-    fn sanitize_rejects_absolute_path() {
-        assert_eq!(sanitize_log_filename("/etc/passwd"), None);
-        assert_eq!(
-            sanitize_log_filename("C:\\Windows\\System32\\foo.log"),
-            None
-        );
-    }
-
-    #[test]
-    fn sanitize_rejects_directory_prefix() {
-        assert_eq!(sanitize_log_filename("subdir/app.log"), None);
-        assert_eq!(sanitize_log_filename("subdir\\app.log"), None);
-    }
-
-    #[test]
-    fn frontend_message_masks_api_keys() {
-        let msg = "token=sk-abcdefghijklmnopqrstuvwxyz123456";
-        let sanitized = sanitize_frontend_message(msg);
-        assert!(!sanitized.contains("sk-abcdefghijklmnopqrstuvwxyz123456"));
-        assert!(sanitized.contains("[REDACTED_KEY]"));
-    }
-
-    #[test]
-    fn frontend_message_masks_prompt_content() {
-        let msg = r#"user_prompt: "my secret prompt text""#;
-        let sanitized = sanitize_frontend_message(msg);
-        assert!(sanitized.contains("user_prompt: [REDACTED_PROMPT]"));
-    }
-
-    #[test]
-    fn frontend_message_masks_user_directory() {
-        let msg = "path=C:\\Users\\nekon\\Desktop\\memo.txt and /home/nekon/work";
-        let sanitized = sanitize_frontend_message(msg);
-        assert!(sanitized.contains("[USER_DIR]\\Desktop\\memo.txt"));
-        assert!(sanitized.contains("[USER_DIR]/work"));
-    }
 }

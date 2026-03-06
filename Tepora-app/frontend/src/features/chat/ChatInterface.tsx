@@ -35,7 +35,6 @@ const ChatInterface: React.FC = () => {
 	const { createSession } = useSessions();
 	const { showToast } = useToast();
 
-	// Store Hooks
 	const messages = useChatStore((state) => state.messages);
 	const error = useChatStore((state) => state.error);
 	const clearError = useChatStore((state) => state.clearError);
@@ -46,7 +45,6 @@ const ChatInterface: React.FC = () => {
 			clearError();
 		}
 	}, [error, showToast, clearError]);
-
 
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
 	const pendingToolConfirmation = useWebSocketStore((state) => state.pendingToolConfirmation);
@@ -104,17 +102,14 @@ const ChatInterface: React.FC = () => {
 		<div className="flex flex-col h-full w-full relative bg-bg-app/50 text-text-primary">
 			<ShortcutsDialog isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
-			{/* Tool Confirmation Dialog */}
 			<ToolConfirmationDialog
 				request={pendingToolConfirmation}
-				onAllow={(requestId, remember) => handleToolConfirmation(requestId, true, remember)}
-				onDeny={(requestId) => handleToolConfirmation(requestId, false, false)}
+				onRespond={(requestId, decision, ttlSeconds) =>
+					handleToolConfirmation(requestId, decision, ttlSeconds)}
 			/>
 
-			{/* Ambient Glows */}
 			<div className="absolute top-[20%] right-[-10%] w-[60%] h-[60%] bg-[radial-gradient(circle,rgba(60,30,20,0.08)_0%,transparent_60%)] pointer-events-none" />
 
-			{/* Header */}
 			<div className="shrink-0 flex items-center gap-2 px-4 py-3 md:px-6 md:py-4 glass-base border-b border-border-highlight z-20 rounded-none shadow-sm backdrop-blur-md">
 				<Button
 					variant="secondary"
@@ -171,7 +166,6 @@ const ChatInterface: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Agent Metrics Panel (dev-only, feature-flagged) */}
 			{metricsEnabled && (
 				<AgentMetricsPanel
 					isOpen={showMetrics}
@@ -179,7 +173,6 @@ const ChatInterface: React.FC = () => {
 				/>
 			)}
 
-			{/* Message List - Scrollable Area */}
 			<div className="flex-1 overflow-hidden relative min-h-0 w-full max-w-5xl mx-auto flex flex-col pt-4">
 				{messages.length === 0 ? (
 					<div
@@ -192,12 +185,11 @@ const ChatInterface: React.FC = () => {
 				)}
 			</div>
 
-			{/* Input Area - Dynamically Centered if Empty, Fixed at Bottom if Chatting */}
 			<div
 				className={`w-full z-20 max-w-[56rem] mx-auto transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${shouldCenterInput
 					? "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[10vh] px-4 w-11/12 lg:w-4/5 xl:w-[60rem] drop-shadow-2xl"
 					: "relative shrink-0 p-3 md:p-6 pb-safe w-full drop-shadow-md"
-					}`}
+				}`}
 			>
 				<InputArea />
 			</div>

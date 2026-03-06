@@ -8,8 +8,10 @@ use uuid::Uuid;
 
 use crate::actor::SessionEvent;
 use crate::core::errors::ApiError;
+use crate::core::security_controls::{
+    ToolApprovalRequestPayload, ToolApprovalResponsePayload,
+};
 
-/// Abstraction for streaming graph events to either a WebSocket or an internal Actor bus.
 pub enum GraphStreamer<'a> {
     WebSocket(&'a mut SplitSink<WebSocket, Message>),
     Actor {
@@ -19,7 +21,6 @@ pub enum GraphStreamer<'a> {
 }
 
 impl<'a> GraphStreamer<'a> {
-    /// Sends a raw JSON payload
     pub async fn send_json(&mut self, payload: Value) -> Result<(), ApiError> {
         match self {
             Self::WebSocket(ws) => {
@@ -97,7 +98,6 @@ impl<'a> GraphStreamer<'a> {
         Ok(())
     }
 
-    /// Sends an activity status update
     pub async fn send_activity(
         &mut self,
         id: &str,
@@ -117,45 +117,31 @@ impl<'a> GraphStreamer<'a> {
         .await
     }
 
-    /// Requests user approval for a tool execution
     pub async fn request_tool_approval(
         &mut self,
-        pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
-        tool_name: &str,
-        tool_args: &Value,
+        pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
+        mut request: ToolApprovalRequestPayload,
         timeout_secs: u64,
-    ) -> Result<bool, ApiError> {
+    ) -> Result<ToolApprovalResponsePayload, ApiError> {
         let request_id = Uuid::new_v4().to_string();
         let (tx, rx) = tokio::sync::oneshot::channel();
+        request.request_id = request_id.clone();
 
         {
             let mut map = pending.lock().map_err(ApiError::internal)?;
-            map.insert(request_id.clone(), tx);
+            map.insert(request_id, tx);
         }
 
-        let payload = json!({
+        self.send_json(json!({
             "type": "tool_confirmation_request",
-            "data": {
-                "requestId": request_id,
-                "toolName": tool_name,
-                "toolArgs": if tool_args.is_object() { tool_args.clone() } else { json!({ "input": tool_args }) },
-                "description": format!("Tool '{}' requires your approval to execute.", tool_name),
-            }
-        });
-
-        self.send_json(payload).await?;
-
-        // In actor mode, tool approval flow may need specific event plumbing.
-        // For now, it will wait for the same `pending` map completion.
+            "data": request,
+        }))
+        .await?;
 
         let approval = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
             .await
-            .unwrap_or(Ok(false))
-            .unwrap_or(false);
-
-        if let Ok(mut map) = pending.lock() {
-            map.remove(&request_id);
-        }
+            .unwrap_or(Ok(ToolApprovalResponsePayload::denied()))
+            .unwrap_or_else(|_| ToolApprovalResponsePayload::denied());
 
         Ok(approval)
     }

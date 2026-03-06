@@ -8,7 +8,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::server::handlers::{
-    agents, auth, config, health, logs, mcp, memory, metrics, sessions, setup, tools,
+    agents, auth, config, health, logs, mcp, memory, metrics, security, sessions, setup, tools,
 };
 use crate::server::middleware::auth::require_api_key_middleware;
 use crate::server::middleware::rate_limit::rate_limit_middleware;
@@ -49,6 +49,14 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
                 .patch(config::patch_config),
         )
         .route("/api/config/secrets/rotate", post(config::rotate_secrets))
+        .route("/api/security/lockdown", post(security::set_lockdown))
+        .route("/api/security/permissions", get(security::list_permissions))
+        .route("/api/security/permissions/:kind/:name", delete(security::revoke_permission))
+        .route("/api/security/audit/verify", get(security::verify_audit))
+        .route("/api/credentials/status", get(security::credential_statuses))
+        .route("/api/credentials/rotate", post(security::rotate_credential))
+        .route("/api/backup/export", post(security::export_backup))
+        .route("/api/backup/import", post(security::import_backup))
         .route("/api/logs", get(logs::get_logs))
         .route("/api/logs/frontend", post(logs::receive_frontend_logs))
         .route("/api/logs/:filename", get(logs::get_log_content))
@@ -291,3 +299,4 @@ fn default_local_origins() -> Vec<String> {
         "http://127.0.0.1:8000".to_string(),
     ]
 }
+

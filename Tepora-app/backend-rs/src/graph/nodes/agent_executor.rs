@@ -15,6 +15,9 @@ use crate::agent::modes::RequestedAgentMode;
 use crate::agent::policy::CustomToolPolicy;
 use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::PipelineMode;
+use crate::core::security_controls::{
+    ApprovalDecision, PermissionRiskLevel, PermissionScopeKind, ToolApprovalRequestPayload,
+};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState};
 use crate::llm::{ChatMessage, ChatRequest};
@@ -305,7 +308,7 @@ impl Node for AgentExecutorNode {
                         .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
                     let mut requires_confirmation = active_policy.requires_confirmation(&name);
-                    if mcp_tool_set.contains(&name) {
+                    let (scope_kind, scope_name, risk_level) = if mcp_tool_set.contains(&name) {
                         let policy = ctx.app_state.mcp.load_policy().unwrap_or_default();
                         let is_first_use = {
                             let set = ctx
@@ -319,21 +322,75 @@ impl Node for AgentExecutorNode {
                         } else {
                             requires_confirmation || policy.require_tool_confirmation
                         };
+                        let server_name = ctx
+                            .app_state
+                            .mcp
+                            .server_name_for_tool(&name)
+                            .await
+                            .unwrap_or_else(|_| name.clone());
+                        (PermissionScopeKind::McpServer, server_name, PermissionRiskLevel::High)
+                    } else {
+                        let risk_level = if name.contains("search") {
+                            PermissionRiskLevel::Medium
+                        } else {
+                            PermissionRiskLevel::High
+                        };
+                        (PermissionScopeKind::NativeTool, name.clone(), risk_level)
+                    };
+
+                    if let Some(saved_permission) = ctx
+                        .app_state
+                        .security
+                        .permission_for(scope_kind, &scope_name)
+                        .map_err(|err| GraphError::new(self.id(), err.to_string()))?
+                    {
+                        match saved_permission.decision {
+                            ApprovalDecision::Deny => {
+                                let denial = format!("Tool `{}` is denied by saved security policy.", name);
+                                ctx.sender
+                                    .send_activity("tool_node", "error", &denial, "Tool Handler")
+                                    .await
+                                    .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+                                messages.push(ChatMessage {
+                                    role: "system".to_string(),
+                                    content: denial,
+                                });
+                                continue;
+                            }
+                            ApprovalDecision::AlwaysUntilExpiry => {
+                                requires_confirmation = false;
+                            }
+                            ApprovalDecision::Once => {}
+                        }
                     }
 
                     if requires_confirmation {
-                        let approved = ctx
+                        let approval = ctx
                             .sender
                             .request_tool_approval(
                                 ctx.pending_approvals.clone(),
-                                &name,
-                                &args,
+                                ToolApprovalRequestPayload {
+                                    request_id: String::new(),
+                                    tool_name: name.clone(),
+                                    tool_args: if args.is_object() { args.clone() } else { json!({ "input": args }) },
+                                    description: Some(format!("Tool '{}' requires your approval to execute.", name)),
+                                    scope: scope_kind,
+                                    scope_name: scope_name.clone(),
+                                    risk_level,
+                                    expiry_options: ctx.app_state.security.expiry_options_seconds(),
+                                },
                                 approval_timeout(&agent_chat_config),
                             )
                             .await
                             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-                        if !approved {
+                        let decision = approval.final_decision();
+                        if matches!(decision, ApprovalDecision::Deny) {
+                            let _ = ctx
+                                .app_state
+                                .security
+                                .persist_permission(scope_kind, &scope_name, ApprovalDecision::Deny, None)
+                                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                             let denial = format!("Tool `{}` was not approved by the user.", name);
                             ctx.sender
                                 .send_activity("tool_node", "error", &denial, "Tool Handler")
@@ -351,6 +408,19 @@ impl Node for AgentExecutorNode {
                                 }))
                                 .await;
                             continue;
+                        }
+
+                        if matches!(decision, ApprovalDecision::AlwaysUntilExpiry) {
+                            let _ = ctx
+                                .app_state
+                                .security
+                                .persist_permission(
+                                    scope_kind,
+                                    &scope_name,
+                                    ApprovalDecision::AlwaysUntilExpiry,
+                                    approval.ttl_seconds,
+                                )
+                                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                         }
 
                         if mcp_tool_set.contains(&name) {
@@ -488,3 +558,4 @@ fn pipeline_mode_from_graph(mode: AgentMode) -> PipelineMode {
         AgentMode::Direct => PipelineMode::AgentDirect,
     }
 }
+

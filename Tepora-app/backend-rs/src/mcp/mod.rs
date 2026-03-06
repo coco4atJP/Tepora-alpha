@@ -19,6 +19,7 @@ use tokio::sync::RwLock;
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
+use crate::core::security_controls::SecurityControls;
 #[cfg(feature = "redesign_sandbox")]
 use crate::sandbox::build_wasm_launch_spec;
 
@@ -309,6 +310,11 @@ impl McpManager {
     /// # Returns
     ///
     /// Returns the tool's output as a formatted string.
+    pub async fn server_name_for_tool(&self, tool_name: &str) -> Result<String, ApiError> {
+        let (server_name, _) = self.resolve_tool_name(tool_name).await?;
+        Ok(server_name)
+    }
+
     pub async fn execute_tool(&self, tool_name: &str, args: &Value) -> Result<String, ApiError> {
         let started = Instant::now();
         let (server_name, short_name) = self.resolve_tool_name(tool_name).await?;
@@ -695,11 +701,19 @@ impl McpManager {
         }
 
         let is_wasm_command = looks_like_wasm_server_command(command);
+        if self.quarantine_requires_safe_runner(if is_wasm_command { "wasm" } else { "stdio" })
+            && !is_wasm_command
+        {
+            let reason = "Quarantine is required for stdio MCP servers but no safe runner is available";
+            self.audit_quarantine_reject(server_name, "stdio", reason);
+            return Err(reason.to_string());
+        }
         if is_wasm_command && !sandbox_mcp_enabled {
-            return Err(
-                "Wasm MCP command requires `features.redesign.sandbox_mcp=true` in config"
-                    .to_string(),
-            );
+            let reason = "Wasm MCP command requires `features.redesign.sandbox_mcp=true` in config";
+            if self.quarantine_requires_safe_runner("wasm") {
+                self.audit_quarantine_reject(server_name, "wasm", reason);
+            }
+            return Err(reason.to_string());
         }
 
         if is_wasm_command {
@@ -726,10 +740,12 @@ impl McpManager {
 
             #[cfg(not(feature = "redesign_sandbox"))]
             {
-                return Err(
-                    "Wasm MCP command requires backend build with '--features redesign_sandbox'"
-                        .to_string(),
-                );
+                let reason =
+                    "Wasm MCP command requires backend build with '--features redesign_sandbox'";
+                if self.quarantine_requires_safe_runner("wasm") {
+                    self.audit_quarantine_reject(server_name, "wasm", reason);
+                }
+                return Err(reason.to_string());
             }
         }
 
@@ -741,6 +757,54 @@ impl McpManager {
         Ok(cmd)
     }
 
+    fn security_controls(&self) -> SecurityControls {
+        SecurityControls::new(self.paths.clone(), self.config_service.clone())
+    }
+
+    fn quarantine_requires_safe_runner(&self, transport_name: &str) -> bool {
+        let config = self
+            .config_service
+            .load_config()
+            .unwrap_or_else(|_| Value::Object(Map::new()));
+        let quarantine = config.get("quarantine").and_then(|value| value.as_object());
+        let enabled = quarantine
+            .and_then(|value| value.get("enabled"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        let required = quarantine
+            .and_then(|value| value.get("required"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        if !enabled || !required {
+            return false;
+        }
+        let transports = quarantine
+            .and_then(|value| value.get("required_transports"))
+            .and_then(|value| value.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(|value| value.to_ascii_lowercase()))
+                    .collect::<Vec<String>>()
+            })
+            .filter(|items| !items.is_empty())
+            .unwrap_or_else(|| vec!["stdio".to_string(), "wasm".to_string()]);
+        transports
+            .iter()
+            .any(|item| item.eq_ignore_ascii_case(transport_name))
+    }
+
+    fn audit_quarantine_reject(&self, server_name: &str, transport_name: &str, reason: &str) {
+        let _ = self.security_controls().record_audit(
+            "quarantine_reject",
+            "blocked",
+            json!({
+                "server_name": server_name,
+                "transport": transport_name,
+                "reason": reason,
+            }),
+        );
+    }
     fn is_redesign_feature_enabled(&self, feature: &str) -> bool {
         self.config_service
             .load_config()
@@ -1100,3 +1164,5 @@ mod tests {
         assert_eq!(output, "Line 1\nLine 2");
     }
 }
+
+

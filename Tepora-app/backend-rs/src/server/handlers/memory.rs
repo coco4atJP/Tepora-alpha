@@ -32,6 +32,7 @@ pub async fn compress_memories(
     State(state): State<AppStateWrite>,
     Json(payload): Json<CompressMemoriesRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("memory_compress")?;
     let session_id = payload.session_id.unwrap_or_else(|| "default".to_string());
     let model_id = payload
         .model_id
@@ -124,6 +125,7 @@ pub async fn run_decay_cycle(
     State(state): State<AppStateWrite>,
     Json(payload): Json<RunDecayRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("memory_decay")?;
     let result = state
         .em_memory_service
         .run_decay_cycle(payload.session_id.as_deref())
@@ -213,3 +215,4 @@ mod tests {
         }
     }
 }
+

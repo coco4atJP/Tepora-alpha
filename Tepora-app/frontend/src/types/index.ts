@@ -7,17 +7,94 @@ export interface Message {
 	mode?: "chat" | "search" | "agent";
 	agentName?: string;
 	nodeId?: string;
-	thinking?: string; // Chain of Thought content
-	isComplete?: boolean; // ストリーミングメッセージの完了フラグ
+	thinking?: string;
+	isComplete?: boolean;
 }
 
 export interface SearchResult {
 	title: string;
-	url: string; // Changed from link to url to match usage
+	url: string;
 	snippet: string;
 }
 
-// WebSocketメッセージタイプ
+export type ApprovalDecision = "deny" | "once" | "always_until_expiry";
+export type PermissionScopeKind = "native_tool" | "mcp_server";
+export type PermissionRiskLevel = "low" | "medium" | "high" | "critical";
+
+export interface PiiFinding {
+	category: string;
+	preview: string;
+}
+
+export interface PermissionEntry {
+	scope_kind: PermissionScopeKind;
+	scope_name: string;
+	decision: ApprovalDecision;
+	expires_at?: string | null;
+	created_at?: string | null;
+	updated_at?: string | null;
+}
+
+export interface AuditVerifyResult {
+	valid: boolean;
+	entries: number;
+	failure_at?: number | null;
+	message?: string | null;
+}
+
+export interface CredentialStatus {
+	provider: string;
+	status: string;
+	present: boolean;
+	expires_at?: string | null;
+	last_rotated_at?: string | null;
+}
+
+export interface BackupEnvelope {
+	version: number;
+	algorithm: string;
+	nonce_hex: string;
+	ciphertext_hex: string;
+}
+
+export interface BackupManifest {
+	schema_version: number;
+	exported_at: string;
+	include_chat_history: boolean;
+	include_settings: boolean;
+	include_characters: boolean;
+	include_executors: boolean;
+}
+
+export interface BackupExportPayload {
+	filename: string;
+	archive: BackupEnvelope;
+	manifest: BackupManifest;
+}
+
+export interface BackupImportResult {
+	stage: string;
+	manifest: BackupManifest;
+	sessions: number;
+	applied: boolean;
+}
+
+export interface ToolConfirmationRequest {
+	requestId: string;
+	toolName: string;
+	toolArgs: Record<string, unknown>;
+	description?: string;
+	scope: PermissionScopeKind;
+	scopeName: string;
+	riskLevel: PermissionRiskLevel;
+	expiryOptions: number[];
+}
+
+export interface ToolConfirmationResponse {
+	decision: ApprovalDecision;
+	ttlSeconds?: number;
+}
+
 export interface AgentActivity {
 	status: "pending" | "processing" | "completed" | "error";
 	agent_name: string;
@@ -25,7 +102,6 @@ export interface AgentActivity {
 	step: number;
 }
 
-// Backend format (received via WebSocket)
 export interface ActivityLogEntry {
 	id: string;
 	status: "pending" | "processing" | "done" | "error";
@@ -33,19 +109,6 @@ export interface ActivityLogEntry {
 	agentName?: string;
 }
 
-// Tool Confirmation Request (from backend)
-export interface ToolConfirmationRequest {
-	requestId: string;
-	toolName: string;
-	toolArgs: Record<string, unknown>;
-	description?: string;
-}
-
-// ============================================================================
-// WebSocket Message Types
-// ============================================================================
-
-// Incoming message types (from server)
 export interface WebSocketMessage {
 	type:
 	| "chunk"
@@ -64,9 +127,9 @@ export interface WebSocketMessage {
 	| "memory_generation"
 	| "thought";
 	message?: string;
-	messages?: Message[]; // For history loading
-	sessionId?: string; // For session_changed event
-	status?: "started" | "completed"; // For memory_generation event
+	messages?: Message[];
+	sessionId?: string;
+	status?: "started" | "completed";
 	mode?: string;
 	agentName?: string;
 	nodeId?: string;
@@ -78,29 +141,29 @@ export interface WebSocketMessage {
 	| ToolConfirmationRequest;
 }
 
-// Outgoing message types (to server)
 export type WebSocketOutgoingMessage =
 	| {
-		type?: undefined;
-		message: string;
-		mode: ChatMode;
-		attachments?: Attachment[];
-		skipWebSearch?: boolean;
-		thinkingBudget?: number; // Configurable depth of Chain of Thought (0 = off, 1 = CoT, >1 = Parallel)
-		sessionId?: string;
-		agentId?: string;
-		agentMode?: AgentMode;
-	}
+			type?: undefined;
+			message: string;
+			mode: ChatMode;
+			attachments?: Attachment[];
+			skipWebSearch?: boolean;
+			thinkingBudget?: number;
+			sessionId?: string;
+			agentId?: string;
+			agentMode?: AgentMode;
+		}
 	| { type: "stop" }
 	| { type: "get_stats" }
 	| { type: "set_session"; sessionId: string }
 	| {
-		type: "tool_confirmation_response";
-		requestId: string;
-		approved: boolean;
-	};
+			type: "tool_confirmation_response";
+			requestId: string;
+			decision: ApprovalDecision;
+			ttlSeconds?: number;
+			approved?: boolean;
+		};
 
-// システムステータス
 export interface SystemStatus {
 	initialized: boolean;
 	em_llm_enabled: boolean;
@@ -108,8 +171,6 @@ export interface SystemStatus {
 	memory_events: number;
 }
 
-// メモリ統計
-// バックエンドの EM-LLM integrator が返す実際の構造に合わせた型定義
 export interface MemorySystemStats {
 	total_events: number;
 	total_tokens_in_memory: number;
@@ -133,15 +194,10 @@ export interface MemorySystemStats {
 	llm_config?: Record<string, unknown>;
 }
 
-// メモリ統計全体
 export interface MemoryStats {
 	char_memory?: MemorySystemStats;
 	prof_memory?: MemorySystemStats;
 }
-
-// ============================================================================
-// Session Types
-// ============================================================================
 
 export interface Session {
 	id: string;
@@ -152,19 +208,19 @@ export interface Session {
 	preview?: string;
 }
 
-// チャットモード
 export type ChatMode = "chat" | "search" | "agent";
 export type AgentMode = "high" | "fast" | "direct";
 
-// 添付ファイル
 export interface Attachment {
 	name: string;
-	content: string; // Base64 encoded content or text
-	type: string; // MIME type
-	path?: string; // Optional file path (for local files if applicable)
+	content: string;
+	type: string;
+	path?: string;
+	url?: string;
+	piiConfirmed?: boolean;
+	piiFindings?: PiiFinding[];
 }
 
-// Configuration Types (Matches Backend Schema)
 export interface CharacterConfig {
 	name: string;
 	description: string;
@@ -174,7 +230,6 @@ export interface CharacterConfig {
 	avatar_path?: string;
 }
 
-// Custom Agent Types (GPTs/Gems-style)
 export interface CustomAgentToolPolicy {
 	allow_all?: boolean;
 	allowed_tools: string[];
@@ -200,14 +255,12 @@ export interface ToolInfo {
 	description: string;
 }
 
-// Deprecated/Legacy types (Transitioning)
 export interface PersonaPreset {
 	key: string;
 	preview: string;
 	name?: string;
 }
 
-// AI Model Types
 export interface ModelInfo {
 	id: string;
 	display_name: string;

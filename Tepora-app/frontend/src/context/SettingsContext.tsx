@@ -648,3 +648,5 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
 	return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };
+
+

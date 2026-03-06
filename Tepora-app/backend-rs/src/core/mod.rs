@@ -3,3 +3,4 @@ pub mod errors;
 pub mod logging;
 pub mod native_tools;
 pub mod security;
+pub mod security_controls;

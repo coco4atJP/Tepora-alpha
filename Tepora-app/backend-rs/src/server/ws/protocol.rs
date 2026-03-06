@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::core::security_controls::ToolApprovalResponsePayload;
+
 pub const WS_APP_PROTOCOL: &str = "tepora.v1";
 pub const WS_TOKEN_PREFIX: &str = "tepora-token.";
 
@@ -25,6 +27,7 @@ pub struct WsIncomingMessage {
     #[serde(rename = "requestId")]
     pub request_id: Option<String>,
     pub approved: Option<bool>,
-    /// Execution timeout in milliseconds
+    #[serde(flatten)]
+    pub approval: ToolApprovalResponsePayload,
     pub timeout: Option<u64>,
 }

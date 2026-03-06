@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import type { ToolConfirmationResponse } from '../types';
 import { Transport } from './index';
 import { logger } from '../utils/logger';
 
@@ -37,11 +38,12 @@ export class IpcTransport implements Transport {
         };
     }
 
-    confirmTool(requestId: string, approved: boolean): void {
+    confirmTool(requestId: string, response: ToolConfirmationResponse): void {
         this.send({
             type: "tool_confirmation_response",
             requestId,
-            approved,
+            decision: response.decision,
+            ttlSeconds: response.ttlSeconds,
         });
     }
 }

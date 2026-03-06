@@ -10,7 +10,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { AgentMode, Attachment, ChatMode, ToolConfirmationRequest } from "../types";
+import type { ApprovalDecision, AgentMode, Attachment, ChatMode, ToolConfirmationRequest, ToolConfirmationResponse } from "../types";
 import { getWsBase } from "../utils/api";
 import { getSessionToken, refreshSessionToken } from "../utils/sessionToken";
 import { backendReady, isDesktop } from "../utils/sidecar";
@@ -61,7 +61,7 @@ interface WebSocketActions {
 
 	// Tool confirmation
 	setPendingToolConfirmation: (request: ToolConfirmationRequest | null) => void;
-	handleToolConfirmation: (requestId: string, approved: boolean, remember: boolean) => void;
+	handleToolConfirmation: (requestId: string, decision: ApprovalDecision, ttlSeconds?: number) => void;
 	isToolApproved: (toolName: string) => boolean;
 	approveToolForSession: (toolName: string) => void;
 }
@@ -238,17 +238,7 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						case "tool_confirmation_request":
 							if (data.data) {
 								const request = data.data as ToolConfirmationRequest;
-								const state = get();
-								if (state.approvedTools.has(request.toolName)) {
-									// Auto-approve if already approved in session
-									state.sendRaw({
-										type: "tool_confirmation_response",
-										requestId: request.requestId,
-										approved: true,
-									});
-								} else {
-									set({ pendingToolConfirmation: request }, false, "setToolConfirmation");
-								}
+								set({ pendingToolConfirmation: request }, false, "setToolConfirmation");
 							}
 							break;
 
@@ -626,31 +616,32 @@ export const useWebSocketStore = create<WebSocketStore>()(
 					set({ pendingToolConfirmation: request }, false, "setPendingToolConfirmation");
 				},
 
-				handleToolConfirmation: (requestId, approved, remember) => {
+				handleToolConfirmation: (requestId, decision, ttlSeconds) => {
 					const state = get();
 					const { pendingToolConfirmation } = state;
 					const transportMode = activeTransportMode ?? resolveTransportMode();
+					const response: ToolConfirmationResponse = {
+						decision,
+						ttlSeconds,
+					};
 
 					if (!pendingToolConfirmation) return;
 
 					if (state.isConnected) {
 						if (transportMode === "ipc") {
 							import("../transport/factory").then(({ getTransport }) => {
-								getTransport("ipc").confirmTool(requestId, approved);
+								getTransport("ipc").confirmTool(requestId, response);
 							});
 						} else if (state.socket) {
 							state.socket.send(
 								JSON.stringify({
 									type: "tool_confirmation_response",
 									requestId,
-									approved,
+									decision,
+									ttlSeconds,
 								}),
 							);
 						}
-					}
-
-					if (approved && remember) {
-						state.approveToolForSession(pendingToolConfirmation.toolName);
 					}
 
 					set({ pendingToolConfirmation: null }, false, "clearToolConfirmation");
@@ -674,3 +665,4 @@ export const useWebSocketStore = create<WebSocketStore>()(
 		{ name: "websocket-store" },
 	),
 );
+

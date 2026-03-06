@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use crate::actor::ActorDispatchError;
 use crate::core::errors::ApiError;
+use crate::core::security_controls::{detect_pii_in_attachments, ToolApprovalResponsePayload};
 use crate::graph::{AgentState, NodeContext};
 use crate::models::event::{AgentEvent, AgentEventType};
 use crate::state::{AppState, AppStateWrite};
@@ -45,7 +46,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<WsIncomingMessage>();
     let pending = Arc::new(Mutex::new(HashMap::<
         String,
-        tokio::sync::oneshot::Sender<bool>,
+        tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>,
     >::new()));
 
     tokio::spawn(async move {
@@ -123,7 +124,7 @@ async fn handle_message(
     sender: &mut SplitSink<WebSocket, Message>,
     state: &Arc<AppState>,
     current_session_id: &mut String,
-    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
     data: WsIncomingMessage,
 ) -> Result<(), ApiError> {
@@ -219,7 +220,18 @@ async fn handle_message(
             return Ok(());
         }
         "tool_confirmation_response" => {
-            if let (Some(request_id), Some(approved)) = (data.request_id.clone(), data.approved) {
+            if let Some(request_id) = data.request_id.clone() {
+                let approval = if data.approval.approved.is_some() || !matches!(data.approval.decision, crate::core::security_controls::ApprovalDecision::Once) || data.approval.ttl_seconds.is_some() {
+                    data.approval.clone()
+                } else if let Some(approved) = data.approved {
+                    if approved {
+                        ToolApprovalResponsePayload::approved_once()
+                    } else {
+                        ToolApprovalResponsePayload::denied()
+                    }
+                } else {
+                    ToolApprovalResponsePayload::denied()
+                };
                 if state.is_redesign_enabled("actor_model") {
                     let session_id = data
                         .session_id
@@ -234,7 +246,7 @@ async fn handle_message(
                                 crate::actor::messages::SessionCommand::ToolApprovalResponse {
                                     session_id: session_id.clone(),
                                     request_id,
-                                    approved,
+                                    approval,
                                 },
                             )
                             .await
@@ -246,7 +258,7 @@ async fn handle_message(
                     }
                 } else if let Ok(mut map) = pending.lock() {
                     if let Some(reply_to) = map.remove(&request_id) {
-                        let _ = reply_to.send(approved);
+                        let _ = reply_to.send(approval);
                     }
                 }
             }
@@ -341,13 +353,37 @@ async fn handle_message_internal(
     sender: &mut SplitSink<WebSocket, Message>,
     state: &Arc<AppState>,
     current_session_id: &mut String,
-    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
     data: WsIncomingMessage,
     is_regenerate: bool,
 ) -> Result<(), ApiError> {
     let message_text = data.message.unwrap_or_default();
     let attachments = data.attachments;
+    if state.security.is_lockdown_enabled() {
+        return Err(ApiError::Conflict(
+            "Privacy Lockdown is enabled; new chat requests are blocked".to_string(),
+        ));
+    }
+    let pii_findings = detect_pii_in_attachments(&attachments);
+    if !pii_findings.is_empty() {
+        let categories = pii_findings
+            .iter()
+            .map(|finding| finding.category.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+            .join(", ");
+        state.security.record_audit(
+            "attachment_pii_warning",
+            "blocked",
+            json!({ "categories": categories }),
+        )?;
+        return Err(ApiError::Conflict(format!(
+            "Attachment contains potential PII and requires confirmation: {}",
+            categories
+        )));
+    }
     if message_text.is_empty() && attachments.is_empty() {
         return Ok(());
     }
@@ -817,3 +853,5 @@ fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
         ActorDispatchError::Internal { reason, .. } => ApiError::internal(reason),
     }
 }
+
+

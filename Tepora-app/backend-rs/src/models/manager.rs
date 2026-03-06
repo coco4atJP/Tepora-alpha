@@ -1059,7 +1059,7 @@ fn migrate_legacy_loader_roles(registry: &mut ModelRegistry) -> bool {
             .capabilities
             .as_ref()
             .map(|caps| !caps.completion && !caps.tool_use && !caps.vision)
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         if has_name_hint || has_embedding_like_caps {
             model.role = "embedding".to_string();
@@ -1225,7 +1225,7 @@ fn determine_ollama_role(
                     .any(|hint| cap.contains(hint))
             })
         })
-        .unwrap_or(false);
+        .unwrap_or(true);
     let has_text_capability = capabilities
         .map(|caps| {
             caps.iter().any(|cap| {
@@ -1233,7 +1233,7 @@ fn determine_ollama_role(
                 TEXT_CAPABILITY_HINTS.iter().any(|hint| cap.contains(hint))
             })
         })
-        .unwrap_or(false);
+        .unwrap_or(true);
 
     if is_embedding_by_family || has_embedding_capability {
         "embedding".to_string()
@@ -1521,7 +1521,7 @@ fn evaluate_download_policy_from_config(
         .get("model_download")
         .and_then(|v| v.get("require_allowlist"))
         .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+        .unwrap_or(true);
     let warn_on_unlisted = config
         .get("model_download")
         .and_then(|v| v.get("warn_on_unlisted"))
@@ -1531,12 +1531,12 @@ fn evaluate_download_policy_from_config(
         .get("model_download")
         .and_then(|v| v.get("require_revision"))
         .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+        .unwrap_or(true);
     let require_sha256 = config
         .get("model_download")
         .and_then(|v| v.get("require_sha256"))
         .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+        .unwrap_or(true);
 
     let owner = repo_id.split('/').next().unwrap_or("").to_lowercase();
     let allowset: HashSet<String> = allowlist.into_iter().map(|s| s.to_lowercase()).collect();
@@ -1738,6 +1738,16 @@ mod tests {
     }
 
     #[test]
+    fn policy_requires_sha_by_default_when_setting_is_absent() {
+        let config = json!({});
+        let policy = evaluate_download_policy_from_config(&config, "owner/model", None, None);
+        assert!(!policy.allowed);
+        assert!(policy
+            .warnings
+            .iter()
+            .any(|w| w.contains("SHA256 verification is required")));
+    }
+
     fn policy_rejects_invalid_sha_even_when_sha_not_required() {
         let config = json!({
             "model_download": {
@@ -1994,3 +2004,5 @@ mod tests {
         assert_eq!(sanitize_model_filename(""), None);
     }
 }
+
+

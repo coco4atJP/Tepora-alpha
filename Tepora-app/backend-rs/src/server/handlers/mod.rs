@@ -6,6 +6,7 @@ pub mod logs;
 pub mod mcp;
 pub mod memory;
 pub mod metrics;
+pub mod security;
 pub mod sessions;
 pub mod setup;
 pub mod tools;

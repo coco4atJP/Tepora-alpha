@@ -1,3 +1,4 @@
+import type { ToolConfirmationResponse } from '../types';
 import { Transport } from './index';
 import { useWebSocketStore } from '../stores/websocketStore';
 
@@ -20,8 +21,8 @@ export class WebsocketTransport implements Transport {
         };
     }
 
-    confirmTool(requestId: string, approved: boolean): void {
+    confirmTool(requestId: string, response: ToolConfirmationResponse): void {
         const store = useWebSocketStore.getState();
-        store.handleToolConfirmation(requestId, approved, false);
+        store.handleToolConfirmation(requestId, response.decision, response.ttlSeconds);
     }
 }

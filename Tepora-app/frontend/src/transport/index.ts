@@ -1,3 +1,5 @@
+import type { ToolConfirmationResponse } from "../types";
+
 export interface Transport {
   /**
    * Send a raw message to the backend.
@@ -13,5 +15,5 @@ export interface Transport {
   /**
    * Convenience method to confirm or reject a tool execution.
    */
-  confirmTool(requestId: string, approved: boolean): void;
+  confirmTool(requestId: string, response: ToolConfirmationResponse): void;
 }

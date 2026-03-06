@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::core::errors::ApiError;
+use crate::core::security_controls::ToolApprovalResponsePayload;
 use crate::state::AppState;
 
 use super::state::AgentState;
@@ -21,7 +22,7 @@ pub struct NodeContext<'a> {
     /// Streamer for sending activity and results (WebSocket or Actor Message)
     pub sender: &'a mut GraphStreamer<'a>,
     /// Pending tool approvals
-    pub pending_approvals: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pub pending_approvals: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     /// Approved MCP tools for this session
     pub approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
 }
@@ -119,3 +120,4 @@ pub trait Node: Send + Sync {
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError>;
 }
+

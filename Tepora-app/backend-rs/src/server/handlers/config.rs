@@ -18,6 +18,7 @@ pub async fn update_config(
     State(state): State<AppStateWrite>,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("config_update")?;
     state.config.update_config(payload, false)?;
     Ok(Json(json!({"status": "success"})))
 }
@@ -26,6 +27,7 @@ pub async fn patch_config(
     State(state): State<AppStateWrite>,
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("config_patch")?;
     state.config.update_config(payload, true)?;
     Ok(Json(json!({"status": "success"})))
 }
@@ -33,7 +35,11 @@ pub async fn patch_config(
 pub async fn rotate_secrets(
     State(state): State<AppStateWrite>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("secret_rotation")?;
     let rotated = state.config.rotate_secrets()?;
+    state
+        .security
+        .record_audit("secrets_rotated", "success", json!({"rotated": rotated}))?;
     Ok(Json(json!({
         "status": "success",
         "rotated": rotated,

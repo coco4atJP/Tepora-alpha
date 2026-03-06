@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
 
 use super::messages::{SessionCommand, SessionEvent};
+use crate::core::security_controls::ToolApprovalResponsePayload;
 use crate::graph::stream::GraphStreamer;
 use crate::graph::{AgentState, Mode};
 use crate::state::AppState;
@@ -16,7 +17,7 @@ pub struct SessionActor {
     pub events_tx: broadcast::Sender<SessionEvent>,
     pub current_task: Option<tokio::task::JoinHandle<()>>,
     pub pending_approvals:
-        Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+        Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     pub approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
 }
 
@@ -95,7 +96,7 @@ impl SessionActor {
                 SessionCommand::ToolApprovalResponse {
                     session_id,
                     request_id,
-                    approved,
+                    approval,
                 } => {
                     if session_id != self.session_id {
                         tracing::debug!(
@@ -109,7 +110,7 @@ impl SessionActor {
                     match self.pending_approvals.lock() {
                         Ok(mut pending) => {
                             if let Some(reply_to) = pending.remove(&request_id) {
-                                let _ = reply_to.send(approved);
+                                let _ = reply_to.send(approval);
                             } else {
                                 tracing::warn!(
                                     "Tool approval response received for unknown request_id: {}",
@@ -136,7 +137,7 @@ impl SessionActor {
         app_state: Arc<AppState>,
         events_tx: broadcast::Sender<SessionEvent>,
         pending_approvals: Arc<
-            std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>,
+            std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>,
         >,
         approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
         message: String,
@@ -260,3 +261,5 @@ impl SessionActor {
         });
     }
 }
+
+

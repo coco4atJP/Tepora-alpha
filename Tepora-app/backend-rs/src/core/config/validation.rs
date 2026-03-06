@@ -79,6 +79,17 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
     if let Some(privacy) = expect_optional_object(root, "privacy")? {
         validate_bool_field(privacy, "privacy.allow_web_search", "allow_web_search")?;
         validate_string_array_field(privacy, "privacy.url_denylist", "url_denylist")?;
+        validate_string_enum_field(
+            privacy,
+            "privacy.url_policy_preset",
+            "url_policy_preset",
+            &["strict", "balanced", "permissive"],
+        )?;
+        if let Some(lockdown) = expect_optional_object(privacy, "lockdown")? {
+            validate_bool_field(lockdown, "privacy.lockdown.enabled", "enabled")?;
+            validate_optional_string_field(lockdown, "privacy.lockdown.updated_at", "updated_at")?;
+            validate_optional_string_field(lockdown, "privacy.lockdown.reason", "reason")?;
+        }
     }
 
     if let Some(search) = expect_optional_object(root, "search")? {
@@ -106,6 +117,56 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
             download,
             "model_download.allow_repo_owners",
             "allow_repo_owners",
+        )?;
+    }
+
+    if let Some(permissions) = expect_optional_object(root, "permissions")? {
+        validate_u64_field(
+            permissions,
+            "permissions.default_ttl_seconds",
+            "default_ttl_seconds",
+            60,
+            31_536_000,
+        )?;
+        validate_permission_section(permissions, "permissions.native_tools", "native_tools")?;
+        validate_permission_section(permissions, "permissions.mcp_servers", "mcp_servers")?;
+    }
+
+    if let Some(credentials) = expect_optional_object(root, "credentials")? {
+        for (provider, value) in credentials {
+            let path_prefix = format!("credentials.{}", provider);
+            let entry = value
+                .as_object()
+                .ok_or_else(|| config_type_error(&path_prefix, "object"))?;
+            validate_optional_string_field(entry, &format!("{}.expires_at", path_prefix), "expires_at")?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.last_rotated_at", path_prefix),
+                "last_rotated_at",
+            )?;
+            validate_optional_string_field(entry, &format!("{}.status", path_prefix), "status")?;
+        }
+    }
+
+    if let Some(backup) = expect_optional_object(root, "backup")? {
+        validate_bool_field(backup, "backup.enable_restore", "enable_restore")?;
+        validate_bool_field(backup, "backup.include_chat_history", "include_chat_history")?;
+        validate_bool_field(backup, "backup.include_settings", "include_settings")?;
+        validate_bool_field(backup, "backup.include_characters", "include_characters")?;
+        validate_bool_field(backup, "backup.include_executors", "include_executors")?;
+        if let Some(encryption) = expect_optional_object(backup, "encryption")? {
+            validate_bool_field(encryption, "backup.encryption.enabled", "enabled")?;
+            validate_optional_string_field(encryption, "backup.encryption.algorithm", "algorithm")?;
+        }
+    }
+
+    if let Some(quarantine) = expect_optional_object(root, "quarantine")? {
+        validate_bool_field(quarantine, "quarantine.enabled", "enabled")?;
+        validate_bool_field(quarantine, "quarantine.required", "required")?;
+        validate_string_array_field(
+            quarantine,
+            "quarantine.required_transports",
+            "required_transports",
         )?;
     }
 
@@ -317,9 +378,61 @@ fn validate_string_array_field(
     Ok(())
 }
 
+fn validate_string_enum_field(
+    section: &Map<String, Value>,
+    path: &str,
+    key: &str,
+    allowed: &[&str],
+) -> Result<(), ApiError> {
+    let Some(value) = section.get(key) else {
+        return Ok(());
+    };
+    let Some(text) = value.as_str() else {
+        return Err(config_type_error(path, "string"));
+    };
+    if allowed.iter().any(|item| *item == text) {
+        return Ok(());
+    }
+    Err(ApiError::BadRequest(format!(
+        "Invalid config at '{}': expected one of {}",
+        path,
+        allowed.join(", ")
+    )))
+}
+
+fn validate_permission_section(
+    root: &Map<String, Value>,
+    path: &str,
+    key: &str,
+) -> Result<(), ApiError> {
+    let Some(value) = root.get(key) else {
+        return Ok(());
+    };
+    let Some(section) = value.as_object() else {
+        return Err(config_type_error(path, "object"));
+    };
+    for (name, entry) in section {
+        let entry_path = format!("{}.{}", path, name);
+        let entry = entry
+            .as_object()
+            .ok_or_else(|| config_type_error(&entry_path, "object"))?;
+        validate_string_enum_field(
+            entry,
+            &format!("{}.decision", entry_path),
+            "decision",
+            &["deny", "once", "always_until_expiry"],
+        )?;
+        validate_optional_string_field(entry, &format!("{}.expires_at", entry_path), "expires_at")?;
+        validate_optional_string_field(entry, &format!("{}.created_at", entry_path), "created_at")?;
+        validate_optional_string_field(entry, &format!("{}.updated_at", entry_path), "updated_at")?;
+    }
+    Ok(())
+}
+
 fn config_type_error(path: &str, expected: &str) -> ApiError {
     ApiError::BadRequest(format!(
         "Invalid config at '{}': expected {}",
         path, expected
     ))
 }
+

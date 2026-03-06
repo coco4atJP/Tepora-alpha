@@ -6,9 +6,9 @@ export const ENDPOINTS = {
 	HEALTH: "health",
 	SHUTDOWN: "api/shutdown",
 	SESSIONS: {
-		LIST: "api/sessions", // GET for list, POST for create
-		DETAIL: (id: string) => `api/sessions/${id}`, // DELETE, PATCH
-		METRICS: (id: string) => `api/sessions/${id}/metrics`, // GET for agent events
+		LIST: "api/sessions",
+		DETAIL: (id: string) => `api/sessions/${id}`,
+		METRICS: (id: string) => `api/sessions/${id}/metrics`,
 	},
 	METRICS: {
 		RUNTIME: "api/metrics/runtime",
@@ -62,6 +62,21 @@ export const ENDPOINTS = {
 		GET: "api/config",
 		UPDATE: "api/config",
 		ROTATE_SECRETS: "api/config/secrets/rotate",
+	},
+	SECURITY: {
+		LOCKDOWN: "api/security/lockdown",
+		PERMISSIONS: "api/security/permissions",
+		PERMISSION: (kind: string, name: string) =>
+			`api/security/permissions/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`,
+		AUDIT_VERIFY: "api/security/audit/verify",
+	},
+	CREDENTIALS: {
+		STATUS: "api/credentials/status",
+		ROTATE: "api/credentials/rotate",
+	},
+	BACKUP: {
+		EXPORT: "api/backup/export",
+		IMPORT: "api/backup/import",
 	},
 	TOOLS: "api/tools",
 	MEMORY: {

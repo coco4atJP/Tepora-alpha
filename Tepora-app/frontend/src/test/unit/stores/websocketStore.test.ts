@@ -656,7 +656,7 @@ describe("websocketStore", () => {
                 },
             });
 
-            useWebSocketStore.getState().handleToolConfirmation("req-confirm", true, false);
+            useWebSocketStore.getState().handleToolConfirmation("req-confirm", "once");
 
             // pendingが解除
             expect(useWebSocketStore.getState().pendingToolConfirmation).toBeNull();
@@ -670,7 +670,7 @@ describe("websocketStore", () => {
             expect(responseCall).toBeDefined();
         });
 
-        it("remember=trueの場合にツールがセッション承認済みリストに追加される", async () => {
+        it("承認応答はバックエンド管理のためセッション承認済みリストに追加しない", async () => {
             await useWebSocketStore.getState().connect();
             const ws = MockWebSocket.instances[0];
             ws.simulateOpen();
@@ -684,9 +684,9 @@ describe("websocketStore", () => {
                 },
             });
 
-            useWebSocketStore.getState().handleToolConfirmation("req-remember", true, true);
+            useWebSocketStore.getState().handleToolConfirmation("req-remember", "always_until_expiry", 3600);
 
-            expect(useWebSocketStore.getState().isToolApproved("remember_tool")).toBe(true);
+            expect(useWebSocketStore.getState().isToolApproved("remember_tool")).toBe(false);
         });
 
         it("remember=falseの場合はセッション承認済みリストに追加されない", async () => {
@@ -703,7 +703,7 @@ describe("websocketStore", () => {
                 },
             });
 
-            useWebSocketStore.getState().handleToolConfirmation("req-no-remember", true, false);
+            useWebSocketStore.getState().handleToolConfirmation("req-no-remember", "once");
 
             expect(useWebSocketStore.getState().isToolApproved("forget_tool")).toBe(false);
         });
@@ -720,3 +720,4 @@ describe("websocketStore", () => {
         });
     });
 });
+

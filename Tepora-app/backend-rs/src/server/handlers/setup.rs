@@ -340,6 +340,7 @@ pub async fn setup_run(
     State(state): State<AppStateWrite>,
     Json(payload): Json<SetupRunRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("model_download")?;
     let job_id = Uuid::new_v4().to_string();
     state.setup.set_job_id(Some(job_id.clone()))?;
     state
@@ -720,6 +721,12 @@ pub async fn setup_download_model(
     State(state): State<AppStateWrite>,
     Json(payload): Json<DownloadModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
+    state.security.ensure_lockdown_disabled("model_download")?;
+    state.security.record_audit(
+        "model_download_requested",
+        "requested",
+        json!({"repo_id": payload.repo_id, "filename": payload.filename}),
+    )?;
     // C-1 fix: 単一モデルダウンロードの本実装
     let role = payload.role.as_deref().unwrap_or("text");
     let consent = payload.acknowledge_warnings.unwrap_or(false);
@@ -1694,3 +1701,4 @@ async fn install_latest_llama_binary(
 
     Ok(release.tag_name)
 }
+

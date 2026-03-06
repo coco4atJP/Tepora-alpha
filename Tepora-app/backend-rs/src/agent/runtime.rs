@@ -10,6 +10,10 @@ use crate::state::AppState;
 use crate::llm::ChatMessage;
 use crate::models::types::ModelRuntimeConfig;
 use crate::core::errors::ApiError;
+use crate::core::security_controls::{
+    ApprovalDecision, PermissionRiskLevel, PermissionScopeKind, ToolApprovalRequestPayload,
+    ToolApprovalResponsePayload,
+};
 use crate::tools::execute_tool;
 use super::modes::RequestedAgentMode;
 use super::policy::CustomToolPolicy;
@@ -42,7 +46,7 @@ pub async fn run_agent_mode(
     requested_agent_id: Option<&str>,
     requested_agent_mode: Option<&str>,
     sender: &mut SplitSink<WebSocket, Message>,
-    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
 ) -> Result<String, ApiError> {
     let requested_mode = RequestedAgentMode::parse(requested_agent_mode);
@@ -572,7 +576,7 @@ fn format_attachments(attachments: &[Value]) -> Option<String> {
 
 async fn request_tool_approval(
     sender: &mut SplitSink<WebSocket, Message>,
-    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     tool_name: &str,
     tool_args: &Value,
     timeout_secs: u64,
@@ -632,3 +636,5 @@ fn choose_agent_from_manager(
             tool_policy: agent.tool_policy.to_custom_tool_policy(),
         })
 }
+
+
