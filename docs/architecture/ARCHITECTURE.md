@@ -155,7 +155,7 @@ graph TD
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
-| **状態管理**       | Zustand        | -          | クライアント状態        |
+| **状態管理**       | Zustand        | 5.x        | クライアント状態        |
 | **データフェッチ** | TanStack Query | 5.x        | サーバー状態/キャッシュ |
 | **スタイリング**   | Tailwind CSS   | 4.x        | ユーティリティCSS       |
 | **ルーティング**   | React Router   | 7.x        | SPA routing             |
@@ -255,21 +255,24 @@ backend-rs/
 │   │   ├── workers/            # Worker 実装群 [v4.0]
 │   │   └── ...
 │   │
-|   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
-|   │   └── knowledge.rs        # 知識ドメイン
-|   │
-|   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
-|   │   └── knowledge.rs        # 知識ユースケース
-|   │
-|   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
-|   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
-|   │   ├── knowledge_store/    # 知識ストア (rag)
-|   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
-|   │   └── transport/          # トランスポートアダプタ
-|   │
-|   ├── models/                 # ModelManager (モデル管理)
+│   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+│   │   ├── errors.rs           # ドメインエラー
+│   │   └── knowledge.rs        # 知識ドメイン
+│   │
+│   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
+│   │   └── knowledge.rs        # 知識ユースケース
+│   │
+│   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+│   │   ├── episodic.rs         # エピソード記憶アダプタ
+│   │   ├── knowledge.rs        # 知識アダプタ
+│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+│   │   ├── knowledge_store/    # 知識ストア (rag)
+│   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
+│   │   └── transport/          # トランスポートアダプタ
+│   │
+│   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -307,7 +310,7 @@ frontend/
 │   │   ├── session/            # セッション管理
 │   │   └── navigation/         # ナビゲーション
 │   │
-│   ├── pages/                  # ルートページ (logs, memory)
+│   ├── pages/                  # ルートページ (logs, memory, modelHub)
 │   ├── api/                    # ルーターローダー等
 │   ├── components/             # 共有UIコンポーネント
 │   ├── hooks/                  # カスタムフック
@@ -880,6 +883,7 @@ interface WebSocketActions {
 | `SetupWizard`   | 初期セットアップフロー           |
 | `Logs`          | ログ閲覧ページ (`/logs`)         |
 | `Memory`        | メモリ統計ページ (`/memory`)     |
+| `ModelHub`      | モデル管理ページ (`/models`)     |
 
 ### 6.7 サイドカー連携
 
@@ -1024,6 +1028,14 @@ ws://127.0.0.1:{port}/ws
 | `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
 | `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
 | `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
+#### Memory API [v4.0]
+
+| メソッド  | エンドポイント                    | 説明                                   |
+| --------- | --------------------------------- | -------------------------------------- |
+| `POST`  | `/api/memory/compress`          | 手動での記憶圧縮を実行                 |
+| `POST`  | `/api/memory/compaction_jobs`   | コンパクションジョブ(背景処理)を実行   |
+| `POST`  | `/api/memory/decay`             | 記憶の減衰(Decay)処理を実行            |
 
 #### MCP API
 
