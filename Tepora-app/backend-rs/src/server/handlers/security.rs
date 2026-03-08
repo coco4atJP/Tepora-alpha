@@ -72,7 +72,9 @@ pub async fn verify_audit(
 pub async fn credential_statuses(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
-    Ok(Json(json!({ "credentials": state.security.credential_statuses()? })))
+    Ok(Json(
+        json!({ "credentials": state.security.credential_statuses()? }),
+    ))
 }
 
 pub async fn rotate_credential(
@@ -92,7 +94,10 @@ pub async fn export_backup(
     Json(payload): Json<BackupExportRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     state.security.ensure_lockdown_disabled("backup_export")?;
-    let archive = state.security.export_backup(&payload, &state.history).await?;
+    let archive = state
+        .security
+        .export_backup(&payload, &state.history)
+        .await?;
     Ok(Json(json!({ "success": true, "archive": archive })))
 }
 
@@ -103,6 +108,9 @@ pub async fn import_backup(
     if payload.stage.eq_ignore_ascii_case("apply") {
         state.security.ensure_lockdown_disabled("backup_import")?;
     }
-    let result = state.security.import_backup(&payload, &state.history).await?;
+    let result = state
+        .security
+        .import_backup(&payload, &state.history)
+        .await?;
     Ok(Json(json!({ "success": true, "result": result })))
 }

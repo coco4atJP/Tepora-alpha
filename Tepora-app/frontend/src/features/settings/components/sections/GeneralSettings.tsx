@@ -56,6 +56,31 @@ const GeneralSettings: React.FC = () => {
 	const [credentialExpiryDrafts, setCredentialExpiryDrafts] = useState<Record<string, string>>({});
 	const [rotatingProvider, setRotatingProvider] = useState<string | null>(null);
 
+	const refreshCredentialStatuses = async () => {
+		setCredentialLoading(true);
+		try {
+			const data = await apiClient.get<{ credentials: CredentialStatus[] }>(ENDPOINTS.CREDENTIALS.STATUS);
+			setCredentialStatuses(data.credentials);
+			setCredentialExpiryDrafts(prev => {
+				const next = { ...prev };
+				for (const status of data.credentials) {
+					if (!(status.provider in next)) {
+						next[status.provider] = status.expires_at ?? "";
+					}
+				}
+				return next;
+			});
+		} catch (error) {
+			console.error("Failed to load credential statuses", error);
+		} finally {
+			setCredentialLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		void refreshCredentialStatuses();
+	}, []);
+
 	if (!config) return null;
 
 	const appConfig = config.app;
@@ -125,10 +150,6 @@ const GeneralSettings: React.FC = () => {
 			setCredentialLoading(false);
 		}
 	};
-
-	useEffect(() => {
-		void refreshCredentialStatuses();
-	}, []);
 
 	const handleRotateCredential = async (provider: keyof typeof providerFieldMap) => {
 		const secretField = providerFieldMap[provider];

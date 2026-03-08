@@ -138,7 +138,11 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
             let entry = value
                 .as_object()
                 .ok_or_else(|| config_type_error(&path_prefix, "object"))?;
-            validate_optional_string_field(entry, &format!("{}.expires_at", path_prefix), "expires_at")?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.expires_at", path_prefix),
+                "expires_at",
+            )?;
             validate_optional_string_field(
                 entry,
                 &format!("{}.last_rotated_at", path_prefix),
@@ -150,7 +154,11 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
 
     if let Some(backup) = expect_optional_object(root, "backup")? {
         validate_bool_field(backup, "backup.enable_restore", "enable_restore")?;
-        validate_bool_field(backup, "backup.include_chat_history", "include_chat_history")?;
+        validate_bool_field(
+            backup,
+            "backup.include_chat_history",
+            "include_chat_history",
+        )?;
         validate_bool_field(backup, "backup.include_settings", "include_settings")?;
         validate_bool_field(backup, "backup.include_characters", "include_characters")?;
         validate_bool_field(backup, "backup.include_executors", "include_executors")?;
@@ -393,7 +401,7 @@ fn validate_string_enum_field(
     let Some(text) = value.as_str() else {
         return Err(config_type_error(path, "string"));
     };
-    if allowed.iter().any(|item| *item == text) {
+    if allowed.contains(&text) {
         return Ok(());
     }
     Err(ApiError::BadRequest(format!(
@@ -438,4 +446,3 @@ fn config_type_error(path: &str, expected: &str) -> ApiError {
         path, expected
     ))
 }
-

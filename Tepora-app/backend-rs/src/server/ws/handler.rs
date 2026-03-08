@@ -221,7 +221,13 @@ async fn handle_message(
         }
         "tool_confirmation_response" => {
             if let Some(request_id) = data.request_id.clone() {
-                let approval = if data.approval.approved.is_some() || !matches!(data.approval.decision, crate::core::security_controls::ApprovalDecision::Once) || data.approval.ttl_seconds.is_some() {
+                let approval = if data.approval.approved.is_some()
+                    || !matches!(
+                        data.approval.decision,
+                        crate::core::security_controls::ApprovalDecision::Once
+                    )
+                    || data.approval.ttl_seconds.is_some()
+                {
                     data.approval.clone()
                 } else if let Some(approved) = data.approved {
                     if approved {
@@ -853,5 +859,3 @@ fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
         ActorDispatchError::Internal { reason, .. } => ApiError::internal(reason),
     }
 }
-
-

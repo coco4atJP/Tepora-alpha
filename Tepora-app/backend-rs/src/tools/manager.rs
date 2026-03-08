@@ -946,5 +946,3 @@ mod tests {
         assert!(allow_web_search(&config));
     }
 }
-
-

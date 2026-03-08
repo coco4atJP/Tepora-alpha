@@ -514,5 +514,3 @@ fn next_backup_path(source: &std::path::Path, timestamp: &str) -> std::path::Pat
 
     parent.join(format!("{}.bak.{}.overflow", base_name, timestamp))
 }
-
-

@@ -2009,5 +2009,3 @@ mod tests {
         assert_eq!(sanitize_model_filename(""), None);
     }
 }
-
-

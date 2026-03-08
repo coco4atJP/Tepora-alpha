@@ -21,10 +21,11 @@ const DEFAULT_PERMISSION_TTL_SECONDS: u64 = 24 * 60 * 60;
 const EXPIRING_SOON_DAYS: i64 = 7;
 const AUDIT_LOG_FILE_NAME: &str = "security-audit.ndjson";
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Deny,
+    #[default]
     Once,
     AlwaysUntilExpiry,
 }
@@ -32,12 +33,6 @@ pub enum ApprovalDecision {
 impl ApprovalDecision {
     pub fn is_allowed(self) -> bool {
         matches!(self, Self::Once | Self::AlwaysUntilExpiry)
-    }
-}
-
-impl Default for ApprovalDecision {
-    fn default() -> Self {
-        Self::Once
     }
 }
 
@@ -64,19 +59,14 @@ impl PermissionScopeKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PermissionRiskLevel {
     Low,
+    #[default]
     Medium,
     High,
     Critical,
-}
-
-impl Default for PermissionRiskLevel {
-    fn default() -> Self {
-        Self::Medium
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -299,7 +289,11 @@ impl SecurityControls {
 
     pub fn ensure_lockdown_disabled(&self, capability: &str) -> Result<(), ApiError> {
         if self.is_lockdown_enabled() {
-            self.record_audit("lockdown_reject", "blocked", json!({ "capability": capability }))?;
+            self.record_audit(
+                "lockdown_reject",
+                "blocked",
+                json!({ "capability": capability }),
+            )?;
             return Err(ApiError::Conflict(format!(
                 "Privacy Lockdown is enabled; '{}' is currently blocked",
                 capability
@@ -316,7 +310,10 @@ impl SecurityControls {
         let privacy = ensure_object(root, "privacy");
         let lockdown = ensure_object(privacy, "lockdown");
         lockdown.insert("enabled".to_string(), Value::Bool(enabled));
-        lockdown.insert("updated_at".to_string(), Value::String(Utc::now().to_rfc3339()));
+        lockdown.insert(
+            "updated_at".to_string(),
+            Value::String(Utc::now().to_rfc3339()),
+        );
         if let Some(reason) = reason {
             lockdown.insert("reason".to_string(), Value::String(reason.to_string()));
         }
@@ -350,7 +347,10 @@ impl SecurityControls {
         let mut config = self.config.load_config()?;
         let mut entries = Vec::new();
         let mut changed = false;
-        for scope_kind in [PermissionScopeKind::NativeTool, PermissionScopeKind::McpServer] {
+        for scope_kind in [
+            PermissionScopeKind::NativeTool,
+            PermissionScopeKind::McpServer,
+        ] {
             changed |= collect_permissions(&mut config, scope_kind, &mut entries)?;
         }
         if changed {
@@ -375,7 +375,9 @@ impl SecurityControls {
         if changed {
             self.config.update_config(config, false)?;
         }
-        Ok(entries.into_iter().find(|entry| entry.scope_name == scope_name))
+        Ok(entries
+            .into_iter()
+            .find(|entry| entry.scope_name == scope_name))
     }
 
     pub fn persist_permission(
@@ -434,7 +436,10 @@ impl SecurityControls {
         let mut config = self.config.load_config()?;
         let mut removed = false;
         if let Some(root) = config.as_object_mut() {
-            if let Some(permissions) = root.get_mut("permissions").and_then(|value| value.as_object_mut()) {
+            if let Some(permissions) = root
+                .get_mut("permissions")
+                .and_then(|value| value.as_object_mut())
+            {
                 if let Some(section) = permissions
                     .get_mut(scope_kind.config_key())
                     .and_then(|value| value.as_object_mut())
@@ -454,7 +459,12 @@ impl SecurityControls {
         Ok(removed)
     }
 
-    pub fn record_audit(&self, event_type: &str, outcome: &str, payload: Value) -> Result<(), ApiError> {
+    pub fn record_audit(
+        &self,
+        event_type: &str,
+        outcome: &str,
+        payload: Value,
+    ) -> Result<(), ApiError> {
         let path = self.audit_log_path();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(ApiError::internal)?;
@@ -463,7 +473,8 @@ impl SecurityControls {
         let timestamp = Utc::now().to_rfc3339();
         let canonical_payload = serde_json::to_string(&payload).map_err(ApiError::internal)?;
         let entry_hash = digest_hex(
-            format!("{prev_hash}|{timestamp}|{event_type}|{outcome}|{canonical_payload}").as_bytes(),
+            format!("{prev_hash}|{timestamp}|{event_type}|{outcome}|{canonical_payload}")
+                .as_bytes(),
         );
         let record = AuditRecord {
             event_id: uuid::Uuid::new_v4().to_string(),
@@ -548,7 +559,9 @@ impl SecurityControls {
                 .and_then(|value| value.as_str())
                 .map(|value| !value.trim().is_empty())
                 .unwrap_or(false);
-            let metadata = config.get("credentials").and_then(|value| value.get(provider));
+            let metadata = config
+                .get("credentials")
+                .and_then(|value| value.get(provider));
             let expires_at = metadata
                 .and_then(|value| value.get("expires_at"))
                 .and_then(|value| value.as_str())
@@ -642,7 +655,9 @@ impl SecurityControls {
         history: &HistoryStore,
     ) -> Result<BackupExportPayload, ApiError> {
         if request.passphrase.trim().is_empty() {
-            return Err(ApiError::BadRequest("Backup passphrase is required".to_string()));
+            return Err(ApiError::BadRequest(
+                "Backup passphrase is required".to_string(),
+            ));
         }
         let config = self.config.load_config()?;
         let manifest = BackupManifest {
@@ -707,11 +722,14 @@ impl SecurityControls {
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
         if stage == "apply" && !restore_enabled {
-            return Err(ApiError::Conflict("Backup restore is disabled in settings".to_string()));
+            return Err(ApiError::Conflict(
+                "Backup restore is disabled in settings".to_string(),
+            ));
         }
 
         let decrypted = decrypt_backup(&request.passphrase, &request.archive)?;
-        let payload: BackupPayload = serde_json::from_slice(&decrypted).map_err(ApiError::internal)?;
+        let payload: BackupPayload =
+            serde_json::from_slice(&decrypted).map_err(ApiError::internal)?;
         if payload.manifest.schema_version > 2 {
             return Err(ApiError::Conflict(format!(
                 "Backup schema_version={} is newer than this app supports",
@@ -736,7 +754,9 @@ impl SecurityControls {
                         .await?;
                 }
                 if let Some(title) = session.session.title.as_deref() {
-                    let _ = history.update_session_title(&session.session.id, title).await;
+                    let _ = history
+                        .update_session_title(&session.session.id, title)
+                        .await;
                 }
             }
         }
@@ -834,7 +854,10 @@ fn collect_permissions(
     let Some(root) = config.as_object_mut() else {
         return Ok(false);
     };
-    let Some(permissions) = root.get_mut("permissions").and_then(|value| value.as_object_mut()) else {
+    let Some(permissions) = root
+        .get_mut("permissions")
+        .and_then(|value| value.as_object_mut())
+    else {
         return Ok(false);
     };
     let Some(section) = permissions
@@ -914,9 +937,7 @@ fn build_backup_config(config: &Value, request: &BackupExportRequest) -> Option<
     if request.include_settings {
         return Some(config.clone());
     }
-    let Some(root) = config.as_object() else {
-        return None;
-    };
+    let root = config.as_object()?;
     let mut partial = Map::new();
     if request.include_characters {
         if let Some(value) = root.get("characters") {
@@ -953,7 +974,9 @@ fn encrypt_backup(passphrase: &str, plaintext: &[u8]) -> Result<BackupEnvelope, 
 
 fn decrypt_backup(passphrase: &str, archive: &BackupEnvelope) -> Result<Vec<u8>, ApiError> {
     if archive.version != 1 {
-        return Err(ApiError::BadRequest("Unsupported backup archive version".to_string()));
+        return Err(ApiError::BadRequest(
+            "Unsupported backup archive version".to_string(),
+        ));
     }
     let key = Sha256::digest(passphrase.as_bytes());
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(ApiError::internal)?;
@@ -967,7 +990,12 @@ fn decrypt_backup(passphrase: &str, archive: &BackupEnvelope) -> Result<Vec<u8>,
         .map_err(|_| ApiError::BadRequest("Backup decryption failed".to_string()))
 }
 
-fn collect_regex_findings(regex: &Regex, text: &str, category: &str, findings: &mut Vec<PiiFinding>) {
+fn collect_regex_findings(
+    regex: &Regex,
+    text: &str,
+    category: &str,
+    findings: &mut Vec<PiiFinding>,
+) {
     for found in regex.find_iter(text) {
         findings.push(PiiFinding {
             category: category.to_string(),
@@ -978,7 +1006,11 @@ fn collect_regex_findings(regex: &Regex, text: &str, category: &str, findings: &
 
 fn collect_phone_findings(text: &str, findings: &mut Vec<PiiFinding>) {
     for found in phone_regex().find_iter(text) {
-        let digits = found.as_str().chars().filter(|value| value.is_ascii_digit()).count();
+        let digits = found
+            .as_str()
+            .chars()
+            .filter(|value| value.is_ascii_digit())
+            .count();
         if digits >= 10 {
             findings.push(PiiFinding {
                 category: "phone".to_string(),
@@ -1052,7 +1084,8 @@ fn api_key_regex() -> &'static Regex {
 fn token_regex() -> &'static Regex {
     static TOKEN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
     TOKEN.get_or_init(|| {
-        Regex::new(r"(?i)\b(?:token|bearer|jwt)[=: ]+[a-z0-9._\-]{16,}\b").expect("valid token regex")
+        Regex::new(r"(?i)\b(?:token|bearer|jwt)[=: ]+[a-z0-9._\-]{16,}\b")
+            .expect("valid token regex")
     })
 }
 
@@ -1079,6 +1112,3 @@ fn luhn_valid(digits: &str) -> bool {
     }
     sum % 10 == 0
 }
-
-
-

@@ -155,7 +155,7 @@ graph TD
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
-| **状態管理**       | Zustand        | -          | クライアント状態        |
+| **状態管理**       | Zustand        | 5.x        | クライアント状態        |
 | **データフェッチ** | TanStack Query | 5.x        | サーバー状態/キャッシュ |
 | **スタイリング**   | Tailwind CSS   | 4.x        | ユーティリティCSS       |
 | **ルーティング**   | React Router   | 7.x        | SPA routing             |
@@ -244,16 +244,19 @@ backend-rs/
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── exclusive_manager.rs # ExclusiveAgentManager [v4.0]
 │   │   ├── execution.rs        # エージェント実行ランタイム
-│   │   ├── planner.rs          # 実行計画生成
+│   │   ├── instructions.rs     # インストラクション管理
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   └── ...
+│   │   ├── planner.rs          # 実行計画生成
+│   │   ├── policy.rs           # 実行ポリシー定義
+│   │   └── runtime.rs          # カスタムエージェントのランタイム
 │   │
 │   ├── context/                # ========== コンテキストパイプライン ==========
 │   │   ├── pipeline.rs         # ContextPipeline (レガシー + v4 bridge)
 │   │   ├── pipeline_context.rs # PipelineContext (v4.0 構造体) [v4.0]
+│   │   ├── prompt.rs           # プロンプト生成ヘルパー
+│   │   ├── window.rs           # コンテキストウィンドウ管理
 │   │   ├── worker.rs           # ContextWorker trait + WorkerPipeline [v4.0]
-│   │   ├── workers/            # Worker 実装群 [v4.0]
-│   │   └── ...
+│   │   └── workers/            # Worker 実装群 [v4.0]
 │   │
 |   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
 |   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
@@ -1024,6 +1027,14 @@ ws://127.0.0.1:{port}/ws
 | `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
 | `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
 | `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
+#### Memory API
+
+| メソッド   | エンドポイント                      | 説明                               |
+| ---------- | ----------------------------------- | ---------------------------------- |
+| `POST`     | `/api/memory/compress`              | メモリの圧縮                       |
+| `POST`     | `/api/memory/compaction_jobs`       | コンパクションジョブの実行         |
+| `POST`     | `/api/memory/decay`                 | 減衰（Decay）処理                  |
 
 #### MCP API
 

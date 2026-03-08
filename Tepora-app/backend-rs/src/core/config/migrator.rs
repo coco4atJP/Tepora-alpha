@@ -110,7 +110,9 @@ fn parse_schema_version(config: &Value) -> Result<u64, ApiError> {
 
 fn set_schema_version(config: &mut Value, version: u64) -> Result<(), ApiError> {
     let Some(root) = ensure_root_object(config) else {
-        return Err(ApiError::BadRequest("config root must be an object".to_string()));
+        return Err(ApiError::BadRequest(
+            "config root must be an object".to_string(),
+        ));
     };
 
     root.insert(

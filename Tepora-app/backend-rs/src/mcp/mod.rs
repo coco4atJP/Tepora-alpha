@@ -704,7 +704,8 @@ impl McpManager {
         if self.quarantine_requires_safe_runner(if is_wasm_command { "wasm" } else { "stdio" })
             && !is_wasm_command
         {
-            let reason = "Quarantine is required for stdio MCP servers but no safe runner is available";
+            let reason =
+                "Quarantine is required for stdio MCP servers but no safe runner is available";
             self.audit_quarantine_reject(server_name, "stdio", reason);
             return Err(reason.to_string());
         }
@@ -1164,5 +1165,3 @@ mod tests {
         assert_eq!(output, "Line 1\nLine 2");
     }
 }
-
-
