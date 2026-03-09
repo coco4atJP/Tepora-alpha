@@ -51,9 +51,15 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/api/config/secrets/rotate", post(config::rotate_secrets))
         .route("/api/security/lockdown", post(security::set_lockdown))
         .route("/api/security/permissions", get(security::list_permissions))
-        .route("/api/security/permissions/:kind/:name", delete(security::revoke_permission))
+        .route(
+            "/api/security/permissions/:kind/:name",
+            delete(security::revoke_permission),
+        )
         .route("/api/security/audit/verify", get(security::verify_audit))
-        .route("/api/credentials/status", get(security::credential_statuses))
+        .route(
+            "/api/credentials/status",
+            get(security::credential_statuses),
+        )
         .route("/api/credentials/rotate", post(security::rotate_credential))
         .route("/api/backup/export", post(security::export_backup))
         .route("/api/backup/import", post(security::import_backup))
@@ -299,4 +305,3 @@ fn default_local_origins() -> Vec<String> {
         "http://127.0.0.1:8000".to_string(),
     ]
 }
-

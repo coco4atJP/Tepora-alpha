@@ -22,7 +22,8 @@ pub struct NodeContext<'a> {
     /// Streamer for sending activity and results (WebSocket or Actor Message)
     pub sender: &'a mut GraphStreamer<'a>,
     /// Pending tool approvals
-    pub pending_approvals: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
+    pub pending_approvals:
+        Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
     /// Approved MCP tools for this session
     pub approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
 }
@@ -120,4 +121,3 @@ pub trait Node: Send + Sync {
         ctx: &mut NodeContext<'_>,
     ) -> Result<NodeOutput, GraphError>;
 }
-

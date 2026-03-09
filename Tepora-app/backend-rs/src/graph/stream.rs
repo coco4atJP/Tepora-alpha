@@ -8,9 +8,7 @@ use uuid::Uuid;
 
 use crate::actor::SessionEvent;
 use crate::core::errors::ApiError;
-use crate::core::security_controls::{
-    ToolApprovalRequestPayload, ToolApprovalResponsePayload,
-};
+use crate::core::security_controls::{ToolApprovalRequestPayload, ToolApprovalResponsePayload};
 
 pub enum GraphStreamer<'a> {
     WebSocket(&'a mut SplitSink<WebSocket, Message>),
@@ -119,7 +117,9 @@ impl<'a> GraphStreamer<'a> {
 
     pub async fn request_tool_approval(
         &mut self,
-        pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
+        pending: Arc<
+            Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>,
+        >,
         mut request: ToolApprovalRequestPayload,
         timeout_secs: u64,
     ) -> Result<ToolApprovalResponsePayload, ApiError> {

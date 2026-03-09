@@ -111,6 +111,7 @@ pub struct McpServerPermission {
 pub struct McpToolInfo {
     pub name: String,
     pub description: String,
+    pub input_schema: Option<Value>,
 }
 
 trait SafeMcpService: Send + Sync {
@@ -276,23 +277,9 @@ impl McpManager {
 
         for (server_name, entry) in clients.iter() {
             for tool_value in &entry.tools {
-                let name = tool_value
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                if name.is_empty() {
-                    continue;
+                if let Some(tool) = mcp_tool_info_from_value(server_name, tool_value) {
+                    result.push(tool);
                 }
-                let description = tool_value
-                    .get("description")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                result.push(McpToolInfo {
-                    name: format!("{}_{}", server_name, name),
-                    description,
-                });
             }
         }
 
@@ -704,7 +691,8 @@ impl McpManager {
         if self.quarantine_requires_safe_runner(if is_wasm_command { "wasm" } else { "stdio" })
             && !is_wasm_command
         {
-            let reason = "Quarantine is required for stdio MCP servers but no safe runner is available";
+            let reason =
+                "Quarantine is required for stdio MCP servers but no safe runner is available";
             self.audit_quarantine_reject(server_name, "stdio", reason);
             return Err(reason.to_string());
         }
@@ -1041,6 +1029,28 @@ fn looks_like_wasm_server_command(command: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn mcp_tool_info_from_value(server_name: &str, tool_value: &Value) -> Option<McpToolInfo> {
+    let name = tool_value.get("name").and_then(|v| v.as_str())?.trim();
+    if name.is_empty() {
+        return None;
+    }
+
+    let description = tool_value
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let input_schema = tool_value
+        .get("inputSchema")
+        .or_else(|| tool_value.get("input_schema"))
+        .cloned();
+
+    Some(McpToolInfo {
+        name: format!("{}_{}", server_name, name),
+        description,
+        input_schema,
+    })
+}
 fn build_tool_arguments(args: &Value) -> Map<String, Value> {
     if let Some(obj) = args.as_object() {
         obj.clone()
@@ -1104,6 +1114,7 @@ fn format_content_item(item: &rmcp::model::Content) -> String {
 mod tests {
     use super::*;
     use rmcp::model::{Annotated, CallToolResult, Content, RawContent, RawTextContent};
+    use serde_json::json;
 
     fn make_text_content(text: &str) -> Content {
         Annotated {
@@ -1113,6 +1124,59 @@ mod tests {
             }),
             annotations: None,
         }
+    }
+
+    #[test]
+    fn test_mcp_tool_info_from_value_extracts_schema() {
+        let tool = mcp_tool_info_from_value(
+            "demo",
+            &json!({
+                "name": "echo",
+                "description": "Echo input",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "message": { "type": "string" }
+                    },
+                    "required": ["message"]
+                }
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(tool.name, "demo_echo");
+        assert_eq!(tool.description, "Echo input");
+        assert_eq!(
+            tool.input_schema,
+            Some(json!({
+                "type": "object",
+                "properties": {
+                    "message": { "type": "string" }
+                },
+                "required": ["message"]
+            }))
+        );
+    }
+
+    #[test]
+    fn test_mcp_tool_info_from_value_accepts_snake_case_schema_key() {
+        let tool = mcp_tool_info_from_value(
+            "demo",
+            &json!({
+                "name": "echo",
+                "description": "Echo input",
+                "input_schema": { "type": "object" }
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(tool.input_schema, Some(json!({ "type": "object" })));
+    }
+
+    #[test]
+    fn test_mcp_tool_info_from_value_rejects_missing_name() {
+        assert!(mcp_tool_info_from_value("demo", &json!({ "description": "missing" })).is_none());
+        assert!(mcp_tool_info_from_value("demo", &json!({ "name": "   " })).is_none());
     }
 
     #[test]
@@ -1164,5 +1228,3 @@ mod tests {
         assert_eq!(output, "Line 1\nLine 2");
     }
 }
-
-

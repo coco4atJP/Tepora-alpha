@@ -328,7 +328,11 @@ impl Node for AgentExecutorNode {
                             .server_name_for_tool(&name)
                             .await
                             .unwrap_or_else(|_| name.clone());
-                        (PermissionScopeKind::McpServer, server_name, PermissionRiskLevel::High)
+                        (
+                            PermissionScopeKind::McpServer,
+                            server_name,
+                            PermissionRiskLevel::High,
+                        )
                     } else {
                         let risk_level = if name.contains("search") {
                             PermissionRiskLevel::Medium
@@ -346,7 +350,8 @@ impl Node for AgentExecutorNode {
                     {
                         match saved_permission.decision {
                             ApprovalDecision::Deny => {
-                                let denial = format!("Tool `{}` is denied by saved security policy.", name);
+                                let denial =
+                                    format!("Tool `{}` is denied by saved security policy.", name);
                                 ctx.sender
                                     .send_activity("tool_node", "error", &denial, "Tool Handler")
                                     .await
@@ -372,8 +377,15 @@ impl Node for AgentExecutorNode {
                                 ToolApprovalRequestPayload {
                                     request_id: String::new(),
                                     tool_name: name.clone(),
-                                    tool_args: if args.is_object() { args.clone() } else { json!({ "input": args }) },
-                                    description: Some(format!("Tool '{}' requires your approval to execute.", name)),
+                                    tool_args: if args.is_object() {
+                                        args.clone()
+                                    } else {
+                                        json!({ "input": args })
+                                    },
+                                    description: Some(format!(
+                                        "Tool '{}' requires your approval to execute.",
+                                        name
+                                    )),
                                     scope: scope_kind,
                                     scope_name: scope_name.clone(),
                                     risk_level,
@@ -389,7 +401,12 @@ impl Node for AgentExecutorNode {
                             let _ = ctx
                                 .app_state
                                 .security
-                                .persist_permission(scope_kind, &scope_name, ApprovalDecision::Deny, None)
+                                .persist_permission(
+                                    scope_kind,
+                                    &scope_name,
+                                    ApprovalDecision::Deny,
+                                    None,
+                                )
                                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                             let denial = format!("Tool `{}` was not approved by the user.", name);
                             ctx.sender
@@ -558,4 +575,3 @@ fn pipeline_mode_from_graph(mode: AgentMode) -> PipelineMode {
         AgentMode::Direct => PipelineMode::AgentDirect,
     }
 }
-

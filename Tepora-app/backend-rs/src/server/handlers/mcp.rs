@@ -109,8 +109,10 @@ pub async fn mcp_config(State(state): State<AppStateRead>) -> Result<impl IntoRe
 pub async fn mcp_update_config(
     State(state): State<AppStateWrite>,
     Json(payload): Json<Value>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_config_update")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_config_update")?;
     state.mcp.update_config(&payload).await?;
     Ok(Json(json!({"success": true})))
 }
@@ -238,8 +240,10 @@ pub async fn mcp_store(
 pub async fn mcp_install_preview(
     State(state): State<AppStateRead>,
     Json(payload): Json<McpInstallPreviewRequest>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_install_preview")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_install_preview")?;
     let server = state
         .mcp_registry
         .get_server_by_id(&payload.server_id)
@@ -288,8 +292,10 @@ pub async fn mcp_install_preview(
 pub async fn mcp_install_confirm(
     State(state): State<AppStateWrite>,
     Json(payload): Json<McpInstallConfirmRequest>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_install_confirm")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_install_confirm")?;
     let pending = {
         let store = pending_consents();
         let mut guard = store.lock().map_err(ApiError::internal)?;
@@ -342,7 +348,9 @@ pub async fn mcp_approve_server(
     Path(server_name): Path<String>,
     Json(payload): Json<McpApproveRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_approve_server")?;
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_approve_server")?;
     let decision = match payload.decision.as_deref().unwrap_or("always_until_expiry") {
         "deny" => ApprovalDecision::Deny,
         "once" => ApprovalDecision::Once,
@@ -358,13 +366,17 @@ pub async fn mcp_approve_server(
                 None,
             )?;
             let (policy, _) = state.mcp.revoke_server(&server_name)?;
-            Ok(Json(json!({"success": true, "policy": policy, "decision": "deny"})))
+            Ok(Json(
+                json!({"success": true, "policy": policy, "decision": "deny"}),
+            ))
         }
         ApprovalDecision::Once => {
             let policy = state
                 .mcp
                 .approve_server(&server_name, payload.transport_types)?;
-            Ok(Json(json!({"success": true, "policy": policy, "decision": "once"})))
+            Ok(Json(
+                json!({"success": true, "policy": policy, "decision": "once"}),
+            ))
         }
         ApprovalDecision::AlwaysUntilExpiry => {
             state.security.persist_permission(
@@ -376,7 +388,9 @@ pub async fn mcp_approve_server(
             let policy = state
                 .mcp
                 .approve_server(&server_name, payload.transport_types)?;
-            Ok(Json(json!({"success": true, "policy": policy, "decision": "always_until_expiry", "ttl_seconds": payload.ttl_seconds})))
+            Ok(Json(
+                json!({"success": true, "policy": policy, "decision": "always_until_expiry", "ttl_seconds": payload.ttl_seconds}),
+            ))
         }
     }
 }
@@ -384,8 +398,10 @@ pub async fn mcp_approve_server(
 pub async fn mcp_revoke_server(
     State(state): State<AppStateWrite>,
     Path(server_name): Path<String>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_revoke_server")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_revoke_server")?;
     let (policy, removed) = state.mcp.revoke_server(&server_name)?;
     if !removed {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -396,8 +412,10 @@ pub async fn mcp_revoke_server(
 pub async fn mcp_enable_server(
     State(state): State<AppStateWrite>,
     Path(server_name): Path<String>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_enable_server")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_enable_server")?;
     let ok = state.mcp.set_server_enabled(&server_name, true).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -408,8 +426,10 @@ pub async fn mcp_enable_server(
 pub async fn mcp_disable_server(
     State(state): State<AppStateWrite>,
     Path(server_name): Path<String>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_disable_server")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_disable_server")?;
     let ok = state.mcp.set_server_enabled(&server_name, false).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -420,8 +440,10 @@ pub async fn mcp_disable_server(
 pub async fn mcp_delete_server(
     State(state): State<AppStateWrite>,
     Path(server_name): Path<String>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_delete_server")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_delete_server")?;
     let ok = state.mcp.delete_server(&server_name).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
@@ -437,9 +459,10 @@ pub async fn mcp_policy(State(state): State<AppStateRead>) -> Result<impl IntoRe
 pub async fn mcp_update_policy(
     State(state): State<AppStateWrite>,
     Json(payload): Json<Value>,
- ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("mcp_update_policy")?;
+) -> Result<impl IntoResponse, ApiError> {
+    state
+        .security
+        .ensure_lockdown_disabled("mcp_update_policy")?;
     let policy = state.mcp.update_policy(&payload)?;
     Ok(Json(json!({"success": true, "policy": policy})))
 }
-

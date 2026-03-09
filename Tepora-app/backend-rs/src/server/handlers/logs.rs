@@ -48,9 +48,11 @@ pub async fn receive_frontend_logs(
         return Ok(Json(json!({ "status": "ignored" })));
     }
     if state.security.is_lockdown_enabled() {
-        state
-            .security
-            .record_audit("frontend_log_forward", "blocked", json!({ "level": payload.level }))?;
+        state.security.record_audit(
+            "frontend_log_forward",
+            "blocked",
+            json!({ "level": payload.level }),
+        )?;
         return Ok(Json(json!({ "status": "ignored", "reason": "lockdown" })));
     }
 

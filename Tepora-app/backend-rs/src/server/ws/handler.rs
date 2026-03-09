@@ -6,6 +6,7 @@ use axum::extract::{State, WebSocketUpgrade};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use chrono::Utc;
+use futures_util::future::BoxFuture;
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
@@ -120,8 +121,32 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     tracing::info!("WebSocket connection closed");
 }
 
-async fn handle_message(
-    sender: &mut SplitSink<WebSocket, Message>,
+trait JsonPayloadSink {
+    fn send_payload<'a>(&'a mut self, payload: Value) -> BoxFuture<'a, Result<(), ApiError>>;
+
+    fn websocket_sink(&mut self) -> Option<&mut SplitSink<WebSocket, Message>> {
+        None
+    }
+}
+
+impl JsonPayloadSink for SplitSink<WebSocket, Message> {
+    fn send_payload<'a>(&'a mut self, payload: Value) -> BoxFuture<'a, Result<(), ApiError>> {
+        Box::pin(async move {
+            let text = serde_json::to_string(&payload).map_err(ApiError::internal)?;
+            self.send(Message::Text(text))
+                .await
+                .map_err(ApiError::internal)?;
+            Ok(())
+        })
+    }
+
+    fn websocket_sink(&mut self) -> Option<&mut SplitSink<WebSocket, Message>> {
+        Some(self)
+    }
+}
+
+async fn handle_message<S: JsonPayloadSink + ?Sized>(
+    sender: &mut S,
     state: &Arc<AppState>,
     current_session_id: &mut String,
     pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
@@ -221,7 +246,13 @@ async fn handle_message(
         }
         "tool_confirmation_response" => {
             if let Some(request_id) = data.request_id.clone() {
-                let approval = if data.approval.approved.is_some() || !matches!(data.approval.decision, crate::core::security_controls::ApprovalDecision::Once) || data.approval.ttl_seconds.is_some() {
+                let approval = if data.approval.approved.is_some()
+                    || !matches!(
+                        data.approval.decision,
+                        crate::core::security_controls::ApprovalDecision::Once
+                    )
+                    || data.approval.ttl_seconds.is_some()
+                {
                     data.approval.clone()
                 } else if let Some(approved) = data.approved {
                     if approved {
@@ -318,8 +349,15 @@ async fn handle_message(
 
                 // Recursively call handle_message to process the "new" user message
                 // This time it will not be "regenerate" and will insert the new assistant response
+                let Some(websocket_sender) = sender.websocket_sink() else {
+                    return Err(ApiError::BadRequest(
+                        "deterministic replay only supports control-path WebSocket messages"
+                            .to_string(),
+                    ));
+                };
+
                 return handle_message_internal(
-                    sender,
+                    websocket_sender,
                     state,
                     current_session_id,
                     pending,
@@ -336,8 +374,14 @@ async fn handle_message(
         _ => {}
     }
 
+    let Some(websocket_sender) = sender.websocket_sink() else {
+        return Err(ApiError::BadRequest(
+            "deterministic replay only supports control-path WebSocket messages".to_string(),
+        ));
+    };
+
     handle_message_internal(
-        sender,
+        websocket_sender,
         state,
         current_session_id,
         pending,
@@ -662,8 +706,8 @@ fn resolve_embedding_model_id(state: &AppState) -> String {
         .unwrap_or_else(|| "default".to_string())
 }
 
-async fn send_history(
-    sender: &mut SplitSink<WebSocket, Message>,
+async fn send_history<S: JsonPayloadSink + ?Sized>(
+    sender: &mut S,
     state: &Arc<AppState>,
     session_id: &str,
 ) -> Result<(), ApiError> {
@@ -692,7 +736,7 @@ async fn send_history(
                 .to_string();
 
             json!({
-                "id": Uuid::new_v4().to_string(),
+                "id": msg.id.to_string(),
                 "role": role,
                 "content": msg.content,
                 "timestamp": timestamp,
@@ -705,16 +749,11 @@ async fn send_history(
     send_json(sender, json!({"type": "history", "messages": formatted})).await
 }
 
-pub async fn send_json(
-    sender: &mut SplitSink<WebSocket, Message>,
+async fn send_json<S: JsonPayloadSink + ?Sized>(
+    sender: &mut S,
     payload: Value,
 ) -> Result<(), ApiError> {
-    let text = serde_json::to_string(&payload).map_err(ApiError::internal)?;
-    sender
-        .send(Message::Text(text))
-        .await
-        .map_err(ApiError::internal)?;
-    Ok(())
+    sender.send_payload(payload).await
 }
 
 fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
@@ -854,4 +893,246 @@ fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    use std::env;
+    use std::fs;
+    use std::path::Path;
+    use std::sync::Mutex as StdMutex;
+
+    use serde_json::json;
+    use tempfile::{tempdir, TempDir};
+
+    static ENV_LOCK: StdMutex<()> = StdMutex::new(());
+
+    struct EnvGuard {
+        originals: Vec<(String, Option<String>)>,
+    }
+
+    impl EnvGuard {
+        fn new() -> Self {
+            Self {
+                originals: Vec::new(),
+            }
+        }
+
+        fn set_var(&mut self, key: &str, value: impl AsRef<str>) {
+            let key_string = key.to_string();
+            if !self
+                .originals
+                .iter()
+                .any(|(existing, _)| existing == &key_string)
+            {
+                self.originals
+                    .push((key_string.clone(), env::var(&key_string).ok()));
+            }
+            env::set_var(key, value.as_ref());
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            for (key, previous) in self.originals.iter().rev() {
+                match previous {
+                    Some(value) => env::set_var(key, value),
+                    None => env::remove_var(key),
+                }
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct ReplaySink {
+        payloads: Vec<Value>,
+    }
+
+    impl JsonPayloadSink for ReplaySink {
+        fn send_payload<'a>(&'a mut self, payload: Value) -> BoxFuture<'a, Result<(), ApiError>> {
+            Box::pin(async move {
+                self.payloads.push(payload);
+                Ok(())
+            })
+        }
+    }
+
+    async fn init_replay_state() -> (TempDir, EnvGuard, Arc<AppState>) {
+        let sandbox = tempdir().expect("failed to create tempdir");
+        let project_root = sandbox.path().join("project");
+        let data_dir = sandbox.path().join("data");
+        fs::create_dir_all(&project_root).expect("failed to create project root");
+        fs::create_dir_all(&data_dir).expect("failed to create data dir");
+
+        let config_path = project_root.join("config.yml");
+        fs::write(
+            &config_path,
+            "features:\n  redesign:\n    actor_model: false\n",
+        )
+        .expect("failed to write config");
+
+        let mut env_guard = EnvGuard::new();
+        configure_replay_environment(&mut env_guard, &project_root, &data_dir, &config_path);
+
+        let state = AppState::initialize()
+            .await
+            .expect("AppState should initialize for ws replay tests");
+
+        (sandbox, env_guard, state)
+    }
+
+    fn configure_replay_environment(
+        env_guard: &mut EnvGuard,
+        project_root: &Path,
+        data_dir: &Path,
+        config_path: &Path,
+    ) {
+        env_guard.set_var("TEPORA_ROOT", project_root.to_string_lossy());
+        env_guard.set_var("TEPORA_DATA_DIR", data_dir.to_string_lossy());
+        env_guard.set_var("TEPORA_CONFIG_PATH", config_path.to_string_lossy());
+        env_guard.set_var("TEPORA_PERF_PROBE_ENABLED", "1");
+    }
+
+    async fn replay_session_messages(
+        state: Arc<AppState>,
+        messages: Vec<WsIncomingMessage>,
+    ) -> Result<Vec<Value>, ApiError> {
+        let mut sink = ReplaySink::default();
+        let mut current_session_id = "default".to_string();
+        let pending = Arc::new(Mutex::new(HashMap::<
+            String,
+            tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>,
+        >::new()));
+        let approved_mcp_tools = Arc::new(Mutex::new(HashSet::<String>::new()));
+
+        for message in messages {
+            handle_message(
+                &mut sink,
+                &state,
+                &mut current_session_id,
+                pending.clone(),
+                approved_mcp_tools.clone(),
+                message,
+            )
+            .await?;
+        }
+
+        Ok(sink.payloads)
+    }
+
+    fn set_session_message(session_id: &str) -> WsIncomingMessage {
+        WsIncomingMessage {
+            msg_type: Some("set_session".to_string()),
+            session_id: Some(session_id.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn perf_probe_message() -> WsIncomingMessage {
+        WsIncomingMessage {
+            msg_type: Some("perf_probe".to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn ws_session_deterministic_replay_produces_stable_transcript() {
+        let _lock = ENV_LOCK.lock().expect("failed to acquire env lock");
+        let (_sandbox, _env_guard, state) = init_replay_state().await;
+
+        let session_id = "replay-session";
+        let history_id = state
+            .history
+            .add_message(
+                session_id,
+                "human",
+                "replay me",
+                Some(json!({
+                    "timestamp": "2026-03-09T00:00:00Z",
+                    "mode": "chat"
+                })),
+            )
+            .await
+            .expect("failed to seed history");
+
+        let sequence = vec![set_session_message(session_id), perf_probe_message()];
+        let first = replay_session_messages(state.clone(), sequence.clone())
+            .await
+            .expect("first replay should succeed");
+        let second = replay_session_messages(state, sequence)
+            .await
+            .expect("second replay should succeed");
+
+        let expected = vec![
+            json!({"type": "session_changed", "sessionId": session_id}),
+            json!({
+                "type": "history",
+                "messages": [{
+                    "id": history_id.to_string(),
+                    "role": "user",
+                    "content": "replay me",
+                    "timestamp": "2026-03-09T00:00:00Z",
+                    "mode": "chat",
+                    "isComplete": true
+                }]
+            }),
+            json!({"type": "status", "message": "perf_probe_ready"}),
+            json!({"type": "chunk", "message": "probe"}),
+            json!({"type": "done"}),
+        ];
+
+        assert_eq!(first, expected);
+        assert_eq!(second, expected);
+    }
+
+    #[tokio::test]
+    async fn ws_session_deterministic_replay_uses_persisted_history_ids() {
+        let _lock = ENV_LOCK.lock().expect("failed to acquire env lock");
+        let (_sandbox, _env_guard, state) = init_replay_state().await;
+
+        let session_id = "history-replay-session";
+        let first_id = state
+            .history
+            .add_message(
+                session_id,
+                "human",
+                "hello",
+                Some(json!({
+                    "timestamp": "2026-03-09T00:00:00Z",
+                    "mode": "chat"
+                })),
+            )
+            .await
+            .expect("failed to seed first history message");
+        let second_id = state
+            .history
+            .add_message(
+                session_id,
+                "ai",
+                "world",
+                Some(json!({
+                    "timestamp": "2026-03-09T00:00:01Z",
+                    "mode": "chat"
+                })),
+            )
+            .await
+            .expect("failed to seed second history message");
+
+        let replay = replay_session_messages(state, vec![set_session_message(session_id)])
+            .await
+            .expect("replay should succeed");
+        let history_payload = replay
+            .into_iter()
+            .find(|payload| payload.get("type") == Some(&Value::String("history".to_string())))
+            .expect("history payload should be present");
+        let ids: Vec<String> = history_payload["messages"]
+            .as_array()
+            .expect("history messages should be an array")
+            .iter()
+            .filter_map(|message| message.get("id").and_then(|value| value.as_str()))
+            .map(|value| value.to_string())
+            .collect();
+
+        assert_eq!(ids, vec![first_id.to_string(), second_id.to_string()]);
+    }
+}

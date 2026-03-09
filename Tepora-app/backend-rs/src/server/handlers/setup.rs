@@ -1701,4 +1701,3 @@ async fn install_latest_llama_binary(
 
     Ok(release.tag_name)
 }
-

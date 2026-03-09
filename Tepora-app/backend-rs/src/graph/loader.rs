@@ -75,3 +75,96 @@ pub fn load_workflow_from_json(def: &WorkflowDef) -> Result<GraphRuntime, GraphE
 
     builder.build()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn fixture_path(relative: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative)
+    }
+
+    fn normalize_newlines(value: &str) -> String {
+        value.replace("\r\n", "\n")
+    }
+
+    fn read_fixture(relative: &str) -> String {
+        let path = fixture_path(relative);
+        fs::read_to_string(&path).expect("fixture should be readable")
+    }
+
+    fn canonical_workflow_json(relative: &str) -> String {
+        let raw = read_fixture(relative);
+        let value: serde_json::Value =
+            serde_json::from_str(&raw).expect("fixture should be valid json");
+        let workflow: WorkflowDef =
+            serde_json::from_value(value).expect("fixture should deserialize");
+        let serialized = serde_json::to_string_pretty(&workflow)
+            .expect("workflow should serialize in canonical form");
+        format!("{}\n", serialized)
+    }
+
+    fn assert_workflow_fixture(
+        input_relative: &str,
+        golden_relative: &str,
+        expected_nodes: &[&str],
+    ) {
+        let input_path = fixture_path(input_relative);
+        let raw = read_fixture(input_relative);
+        let value: serde_json::Value =
+            serde_json::from_str(&raw).expect("fixture should be valid json");
+
+        assert!(
+            crate::graph::schema::validate_workflow_json(&value).is_ok(),
+            "fixture should satisfy workflow schema: {}",
+            input_path.display()
+        );
+
+        let workflow: WorkflowDef =
+            serde_json::from_value(value).expect("fixture should deserialize");
+        let runtime =
+            load_workflow_from_json(&workflow).expect("fixture should load into graph runtime");
+        let golden = read_fixture(golden_relative);
+
+        assert_eq!(
+            canonical_workflow_json(input_relative),
+            normalize_newlines(&golden)
+        );
+        assert_eq!(runtime.node_ids().len(), expected_nodes.len());
+        for node_id in expected_nodes {
+            assert!(
+                runtime.get_node(node_id).is_some(),
+                "missing node {node_id}"
+            );
+        }
+    }
+
+    #[test]
+    fn default_workflow_json_matches_golden_fixture() {
+        assert_workflow_fixture(
+            "workflows/default.json",
+            "tests/fixtures/workflows/default.canonical.json",
+            &[
+                "router",
+                "chat",
+                "planner",
+                "supervisor",
+                "agent_executor",
+                "search_agentic",
+                "synthesizer",
+                "thinking",
+            ],
+        );
+    }
+
+    #[test]
+    fn tool_node_workflow_fixture_matches_golden_fixture() {
+        assert_workflow_fixture(
+            "tests/fixtures/workflows/tool_node.json",
+            "tests/fixtures/workflows/tool_node.canonical.json",
+            &["tool_call", "chat"],
+        );
+    }
+}
