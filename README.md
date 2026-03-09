@@ -1,4 +1,4 @@
-![Tepora Header](image/Tepora_logo.png)
+![Tepora Header](image/Tepora_log.png)
 
 # Tepora (V4.0 BETA)
 
@@ -95,6 +95,9 @@ Teporaは、最先端の技術実験場でもあります。
 
 * 📂 [包括的アーキテクチャ仕様書](docs/architecture/ARCHITECTURE.md)
 * 📂 [開発者セットアップガイド](docs/guides/development.md)
+* 📂 `task doctor` による開発環境診断 (`task doctor`)
+* 🧱 `task test:arch` による backend レイヤー適合テスト実行
+* 🧪 `task test:flaky` による flaky test quarantine lane 実行
 
 ## 💐 謝辞 (Acknowledgments)
 
@@ -117,3 +120,4 @@ Teporaは、最先端の技術実験場でもあります。
 <p align="center">
   Made with ❤️ and 🍵 by Tepora Project
 </p>
+
