@@ -11,6 +11,52 @@ env:
   RUST_TOOLCHAIN: "stable"
 
 jobs:
+  commit-convention:
+    name: Commit Convention
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Determine commit range
+        id: range
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "from=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "to=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            echo "from=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "to=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "from=" >> "$GITHUB_OUTPUT"
+            echo "to=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate conventional commit messages
+        shell: bash
+        run: |
+          if [ -n "${{ steps.range.outputs.from }}" ]; then
+            npm run commitlint -- --from "${{ steps.range.outputs.from }}" --to "${{ steps.range.outputs.to }}"
+          else
+            npm run commitlint -- --to "${{ steps.range.outputs.to }}"
+          fi
+
   # ============================================
   # Backend Quality Gate
   # ============================================
@@ -184,6 +230,67 @@ jobs:
         run: npm run test:dev-sync
 
   # ============================================
+  # Flaky Test Quarantine Lane
+  # ============================================
+  flaky-quarantine:
+    name: Flaky Test Quarantine
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app
+    outputs:
+      status: ${{ steps.capture.outputs.status }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run flaky quarantine lane
+        id: quarantine
+        continue-on-error: true
+        run: npm run test:flaky
+
+      - name: Capture quarantine status
+        id: capture
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.quarantine.outcome }}" = "success" ]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=warn" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload flaky quarantine artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-quarantine-report
+          path: |
+            Tepora-app/tests/flaky/quarantine-report.json
+            Tepora-app/tests/flaky/quarantine-report.md
+
+      - name: Append quarantine summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f tests/flaky/quarantine-report.md ]; then
+            cat tests/flaky/quarantine-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "# Flaky Test Quarantine Report" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+  # ============================================
   # Perf p95 Gate
   # ============================================
   perf-p95-gate:
@@ -261,7 +368,7 @@ jobs:
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [backend-quality, backend-wasm-e2e-windows, frontend-quality, dev-sync-e2e, perf-p95-gate, backend-security, frontend-security]
+    needs: [commit-convention, backend-quality, backend-wasm-e2e-windows, frontend-quality, dev-sync-e2e, flaky-quarantine, perf-p95-gate, backend-security, frontend-security]
     if: always()
 
     steps:
@@ -269,6 +376,12 @@ jobs:
         run: |
           echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.commit-convention.result }}" == "success" ]; then
+            echo "✅ Commit Convention: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Commit Convention: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
 
           if [ "${{ needs.backend-quality.result }}" == "success" ]; then
             echo "✅ Backend Quality: PASSED" >> $GITHUB_STEP_SUMMARY
@@ -286,6 +399,12 @@ jobs:
             echo "✅ Dev Sync Pseudo E2E: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Dev Sync Pseudo E2E: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.flaky-quarantine.outputs.status }}" == "pass" ]; then
+            echo "✅ Flaky Quarantine Lane: CLEAN" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Flaky Quarantine Lane: CHECK REPORT" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ needs.perf-p95-gate.result }}" == "success" ]; then
@@ -314,8 +433,7 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Fail if quality checks failed
-          if [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ] || [ "${{ needs.dev-sync-e2e.result }}" != "success" ] || [ "${{ needs.perf-p95-gate.result }}" != "success" ]; then
+          if [ "${{ needs.commit-convention.result }}" != "success" ] || [ "${{ needs.backend-quality.result }}" != "success" ] || [ "${{ needs.backend-wasm-e2e-windows.result }}" != "success" ] || [ "${{ needs.frontend-quality.result }}" != "success" ] || [ "${{ needs.dev-sync-e2e.result }}" != "success" ] || [ "${{ needs.perf-p95-gate.result }}" != "success" ]; then
             echo "❌ **QUALITY GATE FAILED**" >> $GITHUB_STEP_SUMMARY
             exit 1
           else

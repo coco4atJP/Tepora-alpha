@@ -1,0 +1,86 @@
+name: Release Notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      from:
+        description: Optional start ref
+        required: false
+        type: string
+      to:
+        description: Optional end ref
+        required: false
+        type: string
+      version:
+        description: Optional release label
+        required: false
+        type: string
+
+jobs:
+  generate-release-notes:
+    name: Generate Release Notes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Tepora-app
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: Tepora-app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Determine note range
+        id: range
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.from }}" ]; then
+            echo "from=${{ inputs.from }}" >> "$GITHUB_OUTPUT"
+          else
+            PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+            echo "from=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "${{ inputs.to }}" ]; then
+            echo "to=${{ inputs.to }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "to=${GITHUB_REF_NAME:-HEAD}" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME:-manual}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          if [ -n "${{ steps.range.outputs.from }}" ]; then
+            npm run release-notes -- --from "${{ steps.range.outputs.from }}" --to "${{ steps.range.outputs.to }}" --version "${{ steps.range.outputs.version }}" --output "$RUNNER_TEMP/release-notes.md"
+          else
+            npm run release-notes -- --to "${{ steps.range.outputs.to }}" --version "${{ steps.range.outputs.version }}" --output "$RUNNER_TEMP/release-notes.md"
+          fi
+
+      - name: Publish release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes-${{ steps.range.outputs.version }}
+          path: ${{ runner.temp }}/release-notes.md
+
+      - name: Append release notes to summary
+        shell: bash
+        run: |
+          cat "$RUNNER_TEMP/release-notes.md" >> "$GITHUB_STEP_SUMMARY"

@@ -49,6 +49,16 @@ tasks:
     cmds:
       - task -d Tepora-app test-backend
 
+  test:arch:
+    desc: "Delegate: test:arch"
+    cmds:
+      - task -d Tepora-app test:arch
+
+  test:ws-replay:
+    desc: "Delegate: test:ws-replay"
+    cmds:
+      - task -d Tepora-app test:ws-replay
+
   test-frontend:
     desc: "Delegate: test-frontend"
     cmds:
@@ -58,6 +68,31 @@ tasks:
     desc: "Delegate: test-dev-sync"
     cmds:
       - task -d Tepora-app test-dev-sync
+
+  test:changed:
+    desc: "Delegate: test:changed"
+    cmds:
+      - task -d Tepora-app test:changed
+
+  test:flaky:
+    desc: "Delegate: test:flaky"
+    cmds:
+      - task -d Tepora-app test:flaky
+
+  test:behavior:
+    desc: "Delegate: test:behavior"
+    cmds:
+      - task -d Tepora-app test:behavior
+
+  commitlint:
+    desc: "Delegate: commitlint"
+    cmds:
+      - task -d Tepora-app commitlint
+
+  release-notes:
+    desc: "Delegate: release-notes"
+    cmds:
+      - task -d Tepora-app release-notes
 
   lint:
     desc: "Delegate: lint"
@@ -149,6 +184,11 @@ tasks:
     cmds:
       - task -d Tepora-app install
 
+  doctor:
+    desc: "Delegate: doctor"
+    cmds:
+      - task -d Tepora-app doctor
+
   install-backend:
     desc: "Delegate: install-backend"
     cmds:
@@ -199,7 +239,18 @@ tasks:
     cmds:
       - task -d Tepora-app pre-commit
 
+  pre-commit:fast:
+    desc: "Delegate: pre-commit:fast"
+    cmds:
+      - task -d Tepora-app pre-commit:fast
+
+  pre-commit:full:
+    desc: "Delegate: pre-commit:full"
+    cmds:
+      - task -d Tepora-app pre-commit:full
+
   pre-commit:install:
     desc: "Delegate: pre-commit:install"
     cmds:
       - task -d Tepora-app pre-commit:install
+

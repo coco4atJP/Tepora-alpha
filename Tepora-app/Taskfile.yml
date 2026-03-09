@@ -74,6 +74,18 @@ tasks:
     cmds:
       - cargo test
 
+  test:arch:
+    desc: "Run backend architecture conformance tests"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo test --test architecture_conformance
+
+  test:ws-replay:
+    desc: "Run deterministic WebSocket session replay tests"
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - cargo test ws_session_deterministic_replay --lib
+
   test-frontend:
     desc: "Run frontend tests"
     dir: "{{.FRONTEND_DIR}}"
@@ -84,6 +96,31 @@ tasks:
     desc: "Run dev_sync pseudo E2E tests"
     cmds:
       - npm run test:dev-sync
+
+  test:changed:
+    desc: "Run only the test suites affected by the current diff"
+    cmds:
+      - npm run test:changed
+
+  test:flaky:
+    desc: "Run the flaky-test quarantine lane"
+    cmds:
+      - npm run test:flaky
+
+  test:behavior:
+    desc: "Run model behavior A/B smoke evaluation"
+    cmds:
+      - npm run test:behavior
+
+  commitlint:
+    desc: "Validate commit messages against conventional commits"
+    cmds:
+      - npm run commitlint
+
+  release-notes:
+    desc: "Generate release notes from conventional commits"
+    cmds:
+      - npm run release-notes
 
   # === Linting ===
   lint:
@@ -210,6 +247,11 @@ tasks:
       - task: install-backend
       - task: install-frontend
 
+  doctor:
+    desc: "Diagnose the local Tepora development environment"
+    cmds:
+      - node scripts/task_doctor.mjs
+
   install-backend:
     desc: "Fetch backend dependencies"
     dir: "{{.BACKEND_DIR}}"
@@ -274,12 +316,24 @@ tasks:
 
   # === Pre-commit ===
   pre-commit:
-    desc: "Run pre-commit checks on all files"
+    desc: "Run fast pre-commit checks on staged files"
     cmds:
-      - pre-commit run --all-files
+      - task: pre-commit:fast
+
+  pre-commit:fast:
+    desc: "Run fast pre-commit checks on staged files"
+    cmds:
+      - pre-commit run --hook-stage pre-commit
+
+  pre-commit:full:
+    desc: "Run full pre-push checks on all files"
+    cmds:
+      - pre-commit run --hook-stage pre-commit --all-files
+      - pre-commit run --hook-stage pre-push --all-files
 
   pre-commit:install:
-    desc: "Install pre-commit hooks"
+    desc: "Install pre-commit and pre-push hooks"
     cmds:
       - pip install pre-commit
-      - pre-commit install
+      - pre-commit install --hook-type pre-commit --hook-type pre-push
+

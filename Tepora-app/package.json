@@ -1,6 +1,13 @@
 {
   "scripts": {
     "test:dev-sync": "node --test tests/dev_sync.e2e.test.mjs",
+    "test:changed": "node scripts/test_changed.mjs",
+    "flaky:check": "node scripts/flaky_check.mjs",
+    "test:flaky": "node scripts/flaky_quarantine.mjs",
+    "eval:behavior": "node scripts/model_behavior_eval.mjs",
+    "test:behavior": "node scripts/model_behavior_eval.mjs --dataset tests/evals/model_behavior.dataset.json --variant baseline=tests/evals/model_behavior.baseline.responses.json --variant candidate=tests/evals/model_behavior.candidate.responses.json --baseline baseline --candidate candidate --fail-on-regression",
+    "commitlint": "node scripts/check_commit_convention.mjs",
+    "release-notes": "node scripts/release_notes.mjs",
     "perf:collect": "node tests/perf/ci_perf_probe.mjs",
     "perf:gate": "node tests/perf/perf_gate.mjs",
     "test:perf": "npm run perf:collect && npm run perf:gate"
@@ -9,3 +16,4 @@
     "ws": "^8.19.0"
   }
 }
+
