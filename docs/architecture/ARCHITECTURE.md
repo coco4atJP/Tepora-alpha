@@ -307,7 +307,7 @@ frontend/
 │   │   ├── session/            # セッション管理
 │   │   └── navigation/         # ナビゲーション
 │   │
-│   ├── pages/                  # ルートページ (logs, memory)
+│   ├── pages/                  # ルートページ (logs, memory, ModelHub)
 │   ├── api/                    # ルーターローダー等
 │   ├── components/             # 共有UIコンポーネント
 │   ├── hooks/                  # カスタムフック
@@ -880,6 +880,7 @@ interface WebSocketActions {
 | `SetupWizard`   | 初期セットアップフロー           |
 | `Logs`          | ログ閲覧ページ (`/logs`)         |
 | `Memory`        | メモリ統計ページ (`/memory`)     |
+| `ModelHub`      | モデルハブページ (`/model-hub`) |
 
 ### 6.7 サイドカー連携
 
