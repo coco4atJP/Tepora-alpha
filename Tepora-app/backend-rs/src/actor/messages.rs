@@ -23,22 +23,38 @@ pub enum SessionCommand {
         agent_mode: Option<String>,
         skip_web_search: bool,
     },
-    StopGeneration { session_id: String },
+    StopGeneration {
+        session_id: String,
+    },
     ToolApprovalResponse {
         session_id: String,
         request_id: String,
         approval: ToolApprovalResponsePayload,
     },
-    Shutdown { session_id: String },
+    Shutdown {
+        session_id: String,
+    },
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SessionEvent {
-    Token { session_id: String, text: String },
-    Thought { session_id: String, content: String },
-    Status { session_id: String, message: String },
-    Error { session_id: String, message: String },
+    Token {
+        session_id: String,
+        text: String,
+    },
+    Thought {
+        session_id: String,
+        content: String,
+    },
+    Status {
+        session_id: String,
+        message: String,
+    },
+    Error {
+        session_id: String,
+        message: String,
+    },
     NodeCompleted {
         session_id: String,
         #[serde(rename = "nodeId")]
@@ -49,5 +65,7 @@ pub enum SessionEvent {
         session_id: String,
         status: String,
     },
-    GenerationComplete { session_id: String },
+    GenerationComplete {
+        session_id: String,
+    },
 }

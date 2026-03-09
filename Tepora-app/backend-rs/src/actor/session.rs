@@ -16,8 +16,11 @@ pub struct SessionActor {
     pub app_state: Arc<AppState>,
     pub events_tx: broadcast::Sender<SessionEvent>,
     pub current_task: Option<tokio::task::JoinHandle<()>>,
-    pub pending_approvals:
-        Arc<std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
+    pub pending_approvals: Arc<
+        std::sync::Mutex<
+            HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>,
+        >,
+    >,
     pub approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
 }
 
@@ -137,7 +140,9 @@ impl SessionActor {
         app_state: Arc<AppState>,
         events_tx: broadcast::Sender<SessionEvent>,
         pending_approvals: Arc<
-            std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>,
+            std::sync::Mutex<
+                HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>,
+            >,
         >,
         approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
         message: String,
@@ -261,5 +266,3 @@ impl SessionActor {
         });
     }
 }
-
-
