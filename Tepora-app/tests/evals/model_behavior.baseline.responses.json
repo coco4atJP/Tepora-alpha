@@ -1,0 +1,8 @@
+{
+  "label": "baseline",
+  "responses": {
+    "capital_answer": "Paris is the capital of France and a major European city.",
+    "json_answer": "{\"answer\":\"Paris\",\"confidence\":\"medium\"}",
+    "cautious_tone": "I recommend reviewing the document before sending."
+  }
+}

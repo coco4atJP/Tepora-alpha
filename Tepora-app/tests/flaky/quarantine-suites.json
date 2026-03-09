@@ -1,0 +1,10 @@
+{
+  "suites": [
+    {
+      "label": "dev-sync-e2e",
+      "runs": 3,
+      "cwd": ".",
+      "command": ["node", "--test", "tests/dev_sync.e2e.test.mjs"]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "model-behavior-smoke",
+  "description": "Smoke dataset for prompt and model behavior A/B evaluation.",
+  "cases": [
+    {
+      "id": "capital_answer",
+      "prompt": "What is the capital of France?",
+      "checks": [
+        { "type": "includes_all", "terms": ["Paris"], "points": 2 },
+        { "type": "excludes_all", "terms": ["London"], "points": 1 },
+        { "type": "max_length", "value": 45, "points": 1 }
+      ]
+    },
+    {
+      "id": "json_answer",
+      "prompt": "Return JSON with the answer.",
+      "checks": [
+        { "type": "json_equals", "expected": { "answer": "Paris", "confidence": "high" }, "points": 2 },
+        { "type": "json_path_equals", "path": "answer", "expected": "Paris", "points": 1 }
+      ]
+    },
+    {
+      "id": "cautious_tone",
+      "prompt": "Suggest a safe follow-up action.",
+      "checks": [
+        { "type": "includes_all", "terms": ["suggest"], "points": 1 },
+        { "type": "excludes_all", "terms": ["guaranteed"], "points": 1 }
+      ]
+    }
+  ]
+}

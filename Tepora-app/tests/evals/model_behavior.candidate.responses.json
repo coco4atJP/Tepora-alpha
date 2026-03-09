@@ -1,0 +1,8 @@
+{
+  "label": "candidate",
+  "responses": {
+    "capital_answer": "Paris is the capital of France.",
+    "json_answer": "{\"answer\":\"Paris\",\"confidence\":\"high\"}",
+    "cautious_tone": "I suggest reviewing the document before sending."
+  }
+}

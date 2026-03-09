@@ -1,0 +1,54 @@
+{
+  "configPath": "E:\\Tepora_Project\\Tepora-app\\tests\\flaky\\quarantine-suites.json",
+  "generatedAt": "2026-03-08T14:29:30.739Z",
+  "summary": {
+    "overallStatus": "stable_pass",
+    "suiteCount": 1,
+    "counts": {
+      "stable_pass": 1,
+      "flaky": 0,
+      "stable_fail": 0
+    }
+  },
+  "reports": [
+    {
+      "label": "dev-sync-e2e",
+      "cwd": "E:\\Tepora_Project\\Tepora-app",
+      "command": [
+        "node",
+        "--test",
+        "tests/dev_sync.e2e.test.mjs"
+      ],
+      "runsRequested": 3,
+      "status": "stable_pass",
+      "passedRuns": 3,
+      "failedRuns": 0,
+      "attempts": [
+        {
+          "attempt": 1,
+          "exitCode": 0,
+          "signal": null,
+          "stdout": "✔ dev_sync forwards backend port to frontend and terminates child processes (238.7187ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 315.4714\n",
+          "stderr": "",
+          "durationMs": 360
+        },
+        {
+          "attempt": 2,
+          "exitCode": 0,
+          "signal": null,
+          "stdout": "✔ dev_sync forwards backend port to frontend and terminates child processes (206.7337ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 265.8419\n",
+          "stderr": "",
+          "durationMs": 313
+        },
+        {
+          "attempt": 3,
+          "exitCode": 0,
+          "signal": null,
+          "stdout": "✔ dev_sync forwards backend port to frontend and terminates child processes (260.2153ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 320.9371\n",
+          "stderr": "",
+          "durationMs": 362
+        }
+      ]
+    }
+  ]
+}

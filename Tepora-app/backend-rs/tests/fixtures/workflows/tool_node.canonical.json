@@ -1,0 +1,41 @@
+{
+  "name": "tool_node_workflow",
+  "entry_node": "tool_call",
+  "nodes": [
+    {
+      "id": "tool_call",
+      "type": "ToolNode",
+      "metadata": {
+        "label": "Call Search Tool",
+        "tool_args": {
+          "limit": 3,
+          "query": "tepora"
+        },
+        "tool_name": "native_search",
+        "x": 120,
+        "y": 80
+      }
+    },
+    {
+      "id": "chat",
+      "type": "ChatNode",
+      "metadata": {
+        "label": "Summarize Result",
+        "x": 360,
+        "y": 80
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "tool_call",
+      "to": "chat",
+      "condition": null,
+      "metadata": {
+        "edge_type": "default"
+      }
+    }
+  ],
+  "max_steps": 8,
+  "execution_timeout_ms": 4000
+}
