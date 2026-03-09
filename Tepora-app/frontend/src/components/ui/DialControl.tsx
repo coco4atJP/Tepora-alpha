@@ -192,7 +192,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 		<div className={`flex flex-col items-center select-none ${className}`} style={{ width: size }}>
 			<div
 				ref={dialRef}
-				className="relative cursor-pointer group"
+				className="relative cursor-pointer group flex items-center justify-center rounded-full transition-transform hover:scale-[1.02]"
 				onMouseDown={handleMouseDown}
 				style={{ width: size, height: size }}
 				role="slider"
@@ -201,12 +201,24 @@ export const DialControl: React.FC<DialControlProps> = ({
 				aria-valuemin={min}
 				aria-valuemax={max}
 				aria-label={label}
-				onKeyDown={() => {
-					/* Add keyboard support if needed */
+				onKeyDown={(e) => {
+					// FIX: Added basic keyboard support for accessibility
+					if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+						e.preventDefault();
+						const nextVal = Math.min(value + step, max);
+						onChange(Number.parseFloat(nextVal.toFixed(2)));
+					} else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+						e.preventDefault();
+						const prevVal = Math.max(value - step, min);
+						onChange(Number.parseFloat(prevVal.toFixed(2)));
+					} else if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						handleEditStart(e as unknown as React.MouseEvent);
+					}
 				}}
 			>
-				{/* Background Glow */}
-				<div className="absolute inset-0 bg-gold-400/5 rounded-full blur-xl group-hover:bg-gold-400/10 transition-all duration-300" />
+				{/* Background Subtly Adjusted */}
+				<div className="absolute inset-0 bg-white/[0.02] border border-white/5 shadow-inner shadow-black/50 rounded-full group-hover:border-white/10 transition-colors duration-300" />
 
 				<svg
 					width={size}
@@ -222,7 +234,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 						cy={size / 2}
 						r={radius}
 						fill="transparent"
-						stroke="rgba(255, 255, 255, 0.1)"
+						stroke="rgba(255, 255, 255, 0.05)"
 						strokeWidth={strokeWidth}
 						strokeDasharray={circumference}
 						strokeDashoffset={trackOffset}
@@ -234,13 +246,12 @@ export const DialControl: React.FC<DialControlProps> = ({
 						cy={size / 2}
 						r={radius}
 						fill="transparent"
-						stroke="var(--s-accent, #d4bf80)"
+						stroke="var(--s-accent, #bd4b26)"
 						strokeWidth={strokeWidth}
 						strokeDasharray={circumference}
 						strokeDashoffset={progressOffset}
 						strokeLinecap="round"
-						className={`transition-all duration-75 ${isDragging ? "opacity-100" : "opacity-80"}`}
-						style={{ filter: "drop-shadow(0 0 4px rgba(212, 191, 128, 0.5))" }}
+						className={`transition-all duration-75 ${isDragging ? "opacity-100 drop-shadow-[0_0_8px_rgba(189,75,38,0.6)]" : "opacity-90 drop-shadow-[0_0_2px_rgba(189,75,38,0.3)]"}`}
 					/>
 				</svg>
 
@@ -253,7 +264,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 							ref={inputRef}
 							type="text"
 							inputMode="decimal"
-							className="w-20 bg-transparent text-center text-2xl font-light text-white tracking-tighter outline-none focus:ring-1 focus:ring-gold-400/50 rounded selection:bg-gold-500/30 -ml-1"
+							className="w-16 bg-black/40 border border-white/10 text-center text-xl font-medium text-white tracking-tight outline-none focus:border-tea-400 rounded-lg selection:bg-tea-500/30"
 							value={inputValue}
 							onChange={(e) => setInputValue(e.target.value)}
 							onBlur={commitEdit}
@@ -261,17 +272,17 @@ export const DialControl: React.FC<DialControlProps> = ({
 						/>
 					) : (
 						<span
-							className="text-2xl font-light text-white tracking-tighter hover:text-gold-300 transition-colors pointer-events-auto cursor-text -ml-1"
+							className="text-2xl font-semibold text-white/90 tracking-tight hover:text-tea-300 transition-colors pointer-events-auto cursor-text text-shadow-sm"
 							onClick={handleEditStart}
 							title="Click to edit"
 						>
 							{value}
 						</span>
 					)}
-					{unit && <span className="text-xs text-gray-500 -mt-1 pointer-events-none">{unit}</span>}
+					{unit && <span className="text-[10px] font-medium text-white/40 uppercase tracking-widest mt-1 pointer-events-none">{unit}</span>}
 				</div>
 			</div>
-			<div className="mt-2 text-sm font-medium text-gray-400">{label}</div>
+			<div className="mt-4 text-xs font-semibold tracking-widest text-white/40 uppercase text-center">{label}</div>
 		</div>
 	);
 };

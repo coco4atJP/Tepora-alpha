@@ -3,8 +3,7 @@ import {
     Database,
     HardDrive,
     Settings2,
-    Trash2,
-    Tag
+    Trash2
 } from "lucide-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -80,14 +79,13 @@ export const ModelCard: React.FC<ModelCardProps> = ({
     return (
         <div className={`
             relative group flex flex-col justify-between
-            bg-gradient-to-br from-white/[0.03] to-white/[0.01]
-            backdrop-blur-xl border border-white/10 rounded-2xl p-5
-            hover:border-gold-500/30 hover:shadow-[0_8px_32px_-8px_rgba(252,211,77,0.15)]
-            hover:-translate-y-1 transition-all duration-300 ease-out
+            bg-black/40 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-5
+            hover:border-tea-400/30 hover:bg-black/60
+            transition-all duration-300 ease-out
             overflow-hidden
         `}>
-            {/* Ambient Background Glow inside the card */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gold-400/5 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-gold-400/10 transition-colors pointer-events-none" />
+            {/* Ambient Background Glow inside the card (Reduced) */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-tea-400/5 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-tea-400/10 transition-colors pointer-events-none" />
 
             {/* Content Top */}
             <div className="space-y-4 mb-5 relative z-10">
@@ -106,21 +104,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 {/* Tags visualization */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                     {tags.map((tag, idx) => (
-                        <span key={idx} className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-tea-200/80 font-mono">
-                            <Tag size={10} className="text-tea-400/50" />
+                        <span key={idx} className="flex items-center px-1.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.05] text-[10px] text-tea-200/60 font-medium tracking-wide">
                             {tag}
                         </span>
                     ))}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-tea-100/80 pt-2">
-                    <div className="flex items-center gap-2 bg-black/40 rounded-lg px-3 py-2 border border-white/5 shadow-inner">
-                        <HardDrive size={14} className="text-tea-400/70" />
-                        <span className="font-medium tracking-wide">{formatSize(model.file_size)}</span>
+                    <div className="flex items-center gap-2 px-1 py-1 min-w-0">
+                        <HardDrive size={14} className="text-white/30 shrink-0" />
+                        <span className="font-medium tracking-wide text-white/70">{formatSize(model.file_size)}</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-black/40 rounded-lg px-3 py-2 border border-white/5 shadow-inner min-w-0">
-                        <Cpu size={14} className="text-tea-400/70 shrink-0" />
-                        <span className="truncate font-medium min-w-0 flex-1 tracking-wide" title={model.filename}>{model.filename || "Unknown"}</span>
+                    <div className="flex items-center gap-2 px-1 py-1 min-w-0">
+                        <Cpu size={14} className="text-white/30 shrink-0" />
+                        <span className="truncate font-medium min-w-0 flex-1 tracking-wide text-white/70" title={model.filename}>{model.filename || "Unknown"}</span>
                     </div>
                 </div>
             </div>
@@ -144,11 +141,11 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             )}
 
             {/* Actions Bottom */}
-            <div className="flex items-center gap-2 pt-4 border-t border-white/10 opacity-80 group-hover:opacity-100 transition-opacity duration-300 mt-auto min-h-[52px] relative z-10">
+            <div className="flex items-center gap-2 pt-4 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 mt-auto min-h-[52px] relative z-10">
                 {onSettings && (
                     <button
                         onClick={() => onSettings(model)}
-                        className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-tea-100/90 text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)]"
+                        className="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-tea-100/80 text-[11px] font-semibold tracking-widest uppercase transition-all flex items-center justify-center gap-2"
                         title={t("common.settings", "Settings")}
                     >
                         <Settings2 size={14} />
@@ -158,10 +155,10 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
                 <button
                     onClick={() => onDelete(model.id)}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/5 hover:border-red-500/30 text-tea-100/60 hover:text-red-400 transition-all flex items-center justify-center hover:shadow-[0_4px_12px_rgba(239,68,68,0.1)] shrink-0"
+                    className="p-2.5 rounded-lg bg-white/[0.03] hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 text-white/40 hover:text-red-400 transition-all flex items-center justify-center shrink-0"
                     title={t("common.delete", "Delete")}
                 >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                 </button>
             </div>
         </div>

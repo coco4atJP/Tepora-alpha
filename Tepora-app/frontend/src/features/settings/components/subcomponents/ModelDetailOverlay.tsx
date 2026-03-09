@@ -4,7 +4,6 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { DialControl } from "../../../../components/ui/DialControl";
-import { FitText } from "../../../../components/ui/FitText";
 import { FormGroup, FormInput } from "../SettingsComponents";
 
 interface ModelConfig {
@@ -60,90 +59,95 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 				if (e.key === "Escape") onClose();
 			}}
 		>
-			<div className="glass-tepora rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 bg-[#0A0A0C]/90">
+			<div className="bg-[#0A0A0C] border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 				{/* Header */}
-				<div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
-					<h3 id="model-detail-overlay-title" className="flex items-center gap-2 min-w-0 flex-1">
-						<Sliders size={20} className="text-gold-400" />
-						<div className="min-w-0 h-7 flex items-center">
-							<FitText className="text-lg font-medium text-white" minFontSize={12} maxFontSize={18}>
+				<div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/[0.02]">
+					<h3 id="model-detail-overlay-title" className="flex items-center gap-3 min-w-0 flex-1">
+						<div className="w-8 h-8 rounded-lg bg-tea-500/10 border border-tea-500/20 flex items-center justify-center">
+							<Sliders size={16} className="text-tea-400" />
+						</div>
+						<div className="min-w-0 flex items-center">
+							<span className="text-base font-semibold text-white/90 tracking-wide truncate">
 								{title}
-							</FitText>
+							</span>
 						</div>
 					</h3>
 					<button
 						type="button"
 						onClick={onClose}
-						className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+						className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
 						aria-label={t("common.aria.close")}
 					>
 						<X size={20} />
 					</button>
 				</div>
 
-				<div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+				<div className="p-6 md:p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
 					{/* Primary Settings (Dials) */}
 					{!isEmbedding && (
-						<div className="space-y-6">
-							<div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs text-purple-200 flex items-center gap-2">
-								<Sliders size={14} />
-								{t("settings.sections.models.detail.changes_note") ||
-									"Changes to model parameters will apply on next load."}
+						<div className="space-y-4">
+							<div className="flex items-center justify-between">
+								<h4 className="text-sm font-semibold text-white/80 tracking-wide">{t("settings.sections.models.detail.generation_params", "Generation Parameters")}</h4>
 							</div>
 
-							<div className="flex flex-wrap justify-center gap-12 p-8 bg-black/20 rounded-2xl border border-white/5">
-								<DialControl
-									label={t("settings.models_settings.configurations.temp") || "Temperature"}
-									value={config.temperature ?? 0.7}
-									min={0}
-									max={2.0}
-									step={0.1}
-									onChange={(v) => update("temperature", v)}
-									className="scale-110"
-								/>
+							<div className="p-6 bg-black/40 rounded-xl border border-white/5">
+								<div className="flex flex-wrap justify-center gap-10 md:gap-16">
+									<DialControl
+										label={t("settings.models_settings.configurations.temp") || "Temperature"}
+										value={config.temperature ?? 0.7}
+										min={0}
+										max={2.0}
+										step={0.1}
+										onChange={(v) => update("temperature", v)}
+										size={100}
+									/>
 
-								<DialControl
-									label={t("settings.models_settings.configurations.top_p") || "Top P"}
-									value={config.top_p ?? 0.9}
-									min={0}
-									max={1.0}
-									step={0.05}
-									onChange={(v) => update("top_p", v)}
-									className="scale-110"
-								/>
+									<DialControl
+										label={t("settings.models_settings.configurations.top_p") || "Top P"}
+										value={config.top_p ?? 0.9}
+										min={0}
+										max={1.0}
+										step={0.05}
+										onChange={(v) => update("top_p", v)}
+										size={100}
+									/>
 
-								<DialControl
-									label={
-										t("settings.models_settings.configurations.repeat_penalty") || "Repeat Penalty"
-									}
-									value={config.repeat_penalty ?? 1.1}
-									min={1.0}
-									max={2.0}
-									step={0.05}
-									onChange={(v) => update("repeat_penalty", v)}
-									className="scale-110"
-								/>
+									<DialControl
+										label={
+											t("settings.models_settings.configurations.repeat_penalty") || "Repeat Penalty"
+										}
+										value={config.repeat_penalty ?? 1.1}
+										min={1.0}
+										max={2.0}
+										step={0.05}
+										onChange={(v) => update("repeat_penalty", v)}
+										size={100}
+									/>
 
-								<DialControl
-									label={t("settings.models_settings.configurations.top_k") || "Top K"}
-									value={config.top_k ?? 40}
-									min={1}
-									max={100}
-									step={1}
-									onChange={(v) => update("top_k", v)}
-									className="scale-110"
-								/>
-							</div>
+									<DialControl
+										label={t("settings.models_settings.configurations.top_k") || "Top K"}
+										value={config.top_k ?? 40}
+										min={1}
+										max={100}
+										step={1}
+										onChange={(v) => update("top_k", v)}
+										size={100}
+									/>
+								</div>
 
-							<div className="text-center text-xs text-gray-500 italic">
-								{t("settings.sections.models.detail.dials_hint") || "Drag dials to adjust values"}
+								<div className="flex items-center justify-center gap-2 mt-8 text-xs text-white/30 font-medium">
+									<span className="w-1.5 h-1.5 rounded-full bg-white/20"></span>
+									{t("settings.sections.models.detail.dials_hint", "Drag dials to adjust or click value to type")}
+									<span className="w-1.5 h-1.5 rounded-full bg-white/20"></span>
+								</div>
 							</div>
 						</div>
 					)}
 
-					{/* Context Window & Advanced */}
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-						<div className="col-span-1 md:col-span-2">
+					{/* Context Window */}
+					<div className="space-y-4">
+						<h4 className="text-sm font-semibold text-white/80 tracking-wide">{t("settings.sections.models.detail.system_params", "System Parameters")}</h4>
+						<div className="p-5 bg-black/40 rounded-xl border border-white/5">
 							<FormGroup
 								label={t("settings.sections.models.detail.n_ctx") || "Context Window (n_ctx)"}
 								description={
@@ -159,14 +163,14 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 										step="1024"
 										value={config.n_ctx}
 										onChange={(e) => update("n_ctx", parseInt(e.target.value, 10))}
-										className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+										className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-tea-500 hover:accent-tea-400 transition-colors"
 									/>
 									<FormInput
 										type="number"
 										value={config.n_ctx}
 										onChange={(v) => update("n_ctx", v as number)}
 										step={1024}
-										className="w-24 text-center font-mono"
+										className="w-24 text-center font-mono text-sm"
 									/>
 								</div>
 							</FormGroup>
@@ -174,20 +178,21 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 					</div>
 
 					{/* Advanced Toggle */}
-					<div className="border-t border-white/5 pt-6">
+					<div className="pt-2">
 						<button
 							type="button"
 							onClick={() => setShowAdvanced(!showAdvanced)}
-							className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-gray-300 uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+							className="w-full py-3 px-4 rounded-xl text-xs font-semibold text-white/50 hover:text-white/90 hover:bg-white/[0.02] uppercase tracking-widest flex items-center justify-between transition-all border border-transparent hover:border-white/5"
 						>
-							{showAdvanced
-								? t("settings.sections.models.detail.hide_advanced") || "Hide Advanced Settings"
-								: t("settings.sections.models.detail.show_advanced") || "Show Advanced Settings"}
+							<span>{showAdvanced
+								? t("settings.sections.models.detail.hide_advanced", "Hide Advanced Settings")
+								: t("settings.sections.models.detail.show_advanced", "Show Advanced Settings")}</span>
+							<span className="text-[10px]">&gt;</span>
 						</button>
 
 						{/* Advanced Settings */}
 						{showAdvanced && (
-							<div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2">
+							<div className="mt-4 p-5 md:p-6 bg-black/40 rounded-xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 animate-in fade-in slide-in-from-top-2">
 								<FormGroup
 									label={
 										t("settings.models_settings.configurations.gpu_layers") ||
@@ -234,17 +239,17 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 										step={64}
 									/>
 								</FormGroup>
-								<div className="col-span-1 md:col-span-2">
+								<div className="col-span-1 md:col-span-2 mt-2">
 									<FormGroup
 										label={
-											t("settings.models_settings.configurations.path") || "File Path (Read-only)"
+											t("settings.models_settings.configurations.path", "File Path (Read-only)")
 										}
 									>
 										<FormInput
 											value={config.path}
 											onChange={() => { }}
 											disabled
-											className="opacity-50 font-mono text-xs bg-black/40"
+											className="opacity-50 font-mono text-xs bg-black/60 border-white/5 cursor-default"
 										/>
 									</FormGroup>
 								</div>
@@ -253,11 +258,16 @@ export const ModelDetailOverlay: React.FC<ModelDetailOverlayProps> = ({
 					</div>
 				</div>
 
-				<div className="p-4 border-t border-white/5 bg-black/20 text-right">
+				{/* Footer */}
+				<div className="px-6 py-4 border-t border-white/5 bg-black/40 flex items-center justify-between">
+					<div className="text-xs text-white/40 flex items-center gap-2">
+						<Sliders size={12} />
+						{t("settings.sections.models.detail.changes_note", "Changes apply on next load")}
+					</div>
 					<button
 						type="button"
 						onClick={onClose}
-						className="px-6 py-2 bg-white text-black font-medium rounded-lg hover:bg-gray-200 transition-colors"
+						className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white font-medium text-sm rounded-lg transition-colors border border-white/10"
 					>
 						{t("common.close") || "Done"}
 					</button>

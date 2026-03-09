@@ -42,7 +42,7 @@ const textExtensions = new Set([
 const emailPattern = /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/gi;
 const phonePattern = /(?:\+?\d[\d\-\s().]{7,}\d)/g;
 const apiKeyPattern = /\b(?:sk-[a-z0-9]{20,}|ghp_[a-z0-9]{20,}|AIza[0-9A-Za-z\-_]{20,}|AKIA[0-9A-Z]{16})\b/gi;
-const tokenPattern = /\b(?:token|bearer|jwt)[=: ]+[a-z0-9._\-]{16,}\b/gi;
+const tokenPattern = /\b(?:token|bearer|jwt)[=: ]+[a-z0-9._-]{16,}\b/gi;
 const cardPattern = /\b(?:\d[ -]*?){13,19}\b/g;
 
 const preview = (value: string) => {
