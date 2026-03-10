@@ -354,6 +354,7 @@ pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,        // パス設定
     pub config: ConfigService,       // 設定ファイルの読み書き
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>, // セッショントークン
+    pub security: Arc<SecurityControls>, // 認証・セキュリティ設定
     pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
     pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
     pub llm: LlmService,             // LLMサービス (高レベル抽象化)
