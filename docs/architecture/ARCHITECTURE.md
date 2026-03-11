@@ -257,6 +257,7 @@ backend-rs/
 │   │
 |   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
 |   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+|   │   ├── errors.rs           # ドメインエラー
 |   │   └── knowledge.rs        # 知識ドメイン
 |   │
 |   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
@@ -264,7 +265,9 @@ backend-rs/
 |   │   └── knowledge.rs        # 知識ユースケース
 |   │
 |   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+|   │   ├── episodic.rs         # エピソード記憶インフラ
 |   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+|   │   ├── knowledge.rs        # 知識インフラ
 |   │   ├── knowledge_store/    # 知識ストア (rag)
 |   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
 |   │   └── transport/          # トランスポートアダプタ
@@ -354,6 +357,7 @@ pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,        // パス設定
     pub config: ConfigService,       // 設定ファイルの読み書き
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>, // セッショントークン
+    pub security: Arc<SecurityControls>, // セキュリティ
     pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
     pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
     pub llm: LlmService,             // LLMサービス (高レベル抽象化)
@@ -1024,6 +1028,14 @@ ws://127.0.0.1:{port}/ws
 | `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
 | `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
 | `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+
+#### メモリ管理API
+
+| メソッド   | エンドポイント                      | 説明                               |
+| ---------- | ----------------------------------- | ---------------------------------- |
+| `POST`   | `/api/memory/compress`            | 記憶圧縮ジョブのキューイング       |
+| `GET`    | `/api/memory/compaction_jobs`     | 圧縮ジョブのリスト取得             |
+| `POST`   | `/api/memory/decay`               | 記憶減衰（Decay）処理の手動実行     |
 
 #### MCP API
 
