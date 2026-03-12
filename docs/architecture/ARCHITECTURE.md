@@ -109,6 +109,7 @@ graph TD
     State --> History[history/mod.rs]
     State --> MCP[mcp/mod.rs]
     State --> Models[models/manager.rs]
+    State --> Security[core/security_controls.rs]
 
     MCP --> McpRegistry[mcp/registry.rs]
     MCP --> McpInstaller[mcp/installer.rs]
@@ -178,6 +179,7 @@ graph TD
 Tepora_Project/
 ├── Tepora-app/                 # アプリケーション本体
 │   ├── backend-rs/             # Rust バックエンド
+│   │   └── workflows/          # 宣言的グラフ定義 (JSON)
 │   └── frontend/               # React フロントエンド
 ├── docs/                       # ドキュメント
 │   ├── architecture/           # アーキテクチャ設計（本書）
@@ -202,7 +204,7 @@ backend-rs/
 │   │   └── mod.rs
 │   │
 │   ├── server/                 # ========== サーバー層 ==========
-│   │   ├── handlers/           # REST API ハンドラ
+│   │   ├── handlers/           # REST API ハンドラ (agents, auth, config, 等)
 │   │   ├── ws/                 # WebSocket ハンドラ
 │   │   ├── router.rs           # ルーティング定義
 │   │   └── mod.rs
@@ -210,8 +212,10 @@ backend-rs/
 │   ├── core/                   # ========== コア機能 ==========
 │   │   ├── config/             # 設定管理
 │   │   ├── security.rs         # 認証・セキュリティ
+│   │   ├── security_controls.rs# 認証・セキュリティ設定
 │   │   ├── errors.rs           # エラー定義
 │   │   ├── logging.rs          # ログ設定
+│   │   ├── native_tools.rs     # ネイティブツール定義
 │   │   └── mod.rs
 │   │
 │   ├── state/                  # ========== 状態管理 ==========
@@ -237,7 +241,10 @@ backend-rs/
 │   │   ├── mod.rs              # モジュール公開
 │   │   ├── runtime.rs          # GraphRuntime (実行エンジン)
 │   │   ├── builder.rs          # GraphBuilder (構築ヘルパー)
+│   │   ├── schema.rs           # Workflow JSON スキーマ
+│   │   ├── loader.rs           # JSON からのロード
 │   │   ├── state.rs            # AgentState 定義
+│   │   ├── stream.rs           # ストリーミング補助
 │   │   ├── node.rs             # Node トレイト定義
 │   │   └── nodes/              # ノード実装 (chat, search, agentic, thinking, etc.)
 │   │
@@ -255,21 +262,27 @@ backend-rs/
 │   │   ├── workers/            # Worker 実装群 [v4.0]
 │   │   └── ...
 │   │
-|   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
-|   │   └── knowledge.rs        # 知識ドメイン
-|   │
-|   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
-|   │   └── knowledge.rs        # 知識ユースケース
-|   │
-|   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
-|   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
-|   │   ├── knowledge_store/    # 知識ストア (rag)
-|   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
-|   │   └── transport/          # トランスポートアダプタ
-|   │
-|   ├── models/                 # ModelManager (モデル管理)
+│   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+│   │   ├── errors.rs           # エラー定義
+│   │   ├── knowledge.rs        # 知識ドメイン
+│   │   └── mod.rs
+│   │
+│   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
+│   │   ├── knowledge.rs        # 知識ユースケース
+│   │   └── mod.rs
+│   │
+│   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+│   │   ├── knowledge_store/    # 知識ストア (rag)
+│   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
+│   │   ├── transport/          # トランスポートアダプタ
+│   │   ├── episodic.rs         # トランスポートアダプタ
+│   │   ├── knowledge.rs        # トランスポートアダプタ
+│   │   └── mod.rs
+│   │
+│   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -354,6 +367,7 @@ pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,        // パス設定
     pub config: ConfigService,       // 設定ファイルの読み書き
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>, // セッショントークン
+    pub security: Arc<SecurityControls>, // セキュリティ設定
     pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
     pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
     pub llm: LlmService,             // LLMサービス (高レベル抽象化)
@@ -409,6 +423,9 @@ pub struct GraphRuntime {
 | `add_edge(from, to)`                        | 無条件エッジを追加   |
 | `add_conditional_edge(from, to, condition)` | 条件付きエッジを追加 |
 | `run(state, ctx, timeout_override)`         | グラフを実行         |
+
+> [!NOTE]
+> `is_declarative=true` 設定時（`features.redesign.declarative_graph: true`）は、`workflows/default.json` から JSON スキーマ（`src/graph/schema.rs`）に基づいてグラフが動的にロードされます（`src/graph/loader.rs`）。
 
 #### AgentState (グラフ状態)
 

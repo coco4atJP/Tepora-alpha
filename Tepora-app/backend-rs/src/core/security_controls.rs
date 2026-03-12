@@ -21,10 +21,11 @@ const DEFAULT_PERMISSION_TTL_SECONDS: u64 = 24 * 60 * 60;
 const EXPIRING_SOON_DAYS: i64 = 7;
 const AUDIT_LOG_FILE_NAME: &str = "security-audit.ndjson";
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Deny,
+    #[default]
     Once,
     AlwaysUntilExpiry,
 }
@@ -32,12 +33,6 @@ pub enum ApprovalDecision {
 impl ApprovalDecision {
     pub fn is_allowed(self) -> bool {
         matches!(self, Self::Once | Self::AlwaysUntilExpiry)
-    }
-}
-
-impl Default for ApprovalDecision {
-    fn default() -> Self {
-        Self::Once
     }
 }
 
@@ -64,19 +59,14 @@ impl PermissionScopeKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PermissionRiskLevel {
     Low,
+    #[default]
     Medium,
     High,
     Critical,
-}
-
-impl Default for PermissionRiskLevel {
-    fn default() -> Self {
-        Self::Medium
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -947,9 +937,7 @@ fn build_backup_config(config: &Value, request: &BackupExportRequest) -> Option<
     if request.include_settings {
         return Some(config.clone());
     }
-    let Some(root) = config.as_object() else {
-        return None;
-    };
+    let root = config.as_object()?;
     let mut partial = Map::new();
     if request.include_characters {
         if let Some(value) = root.get("characters") {

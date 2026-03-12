@@ -401,7 +401,7 @@ fn validate_string_enum_field(
     let Some(text) = value.as_str() else {
         return Err(config_type_error(path, "string"));
     };
-    if allowed.iter().any(|item| *item == text) {
+    if allowed.contains(&text) {
         return Ok(());
     }
     Err(ApiError::BadRequest(format!(
