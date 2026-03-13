@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle, Info, X, XCircle } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -27,6 +28,7 @@ const styles = {
 };
 
 export const Toast: React.FC<ToastProps> = ({ id, type, message, duration = 5000, onDismiss }) => {
+	const { t } = useTranslation();
 	const Icon = icons[type];
 	const [isVisible, setIsVisible] = useState(false);
 
@@ -64,7 +66,7 @@ export const Toast: React.FC<ToastProps> = ({ id, type, message, duration = 5000
 				type="button"
 				onClick={handleDismiss}
 				className="p-1 hover:bg-white/10 rounded-full transition-colors"
-				aria-label="Close notification"
+				aria-label={t("common.aria.close_notification", "Close notification")}
 			>
 				<X className="w-4 h-4 opacity-70 hover:opacity-100" />
 			</button>

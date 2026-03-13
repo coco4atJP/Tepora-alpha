@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { FitText } from "./FitText";
 
 interface ModalProps {
@@ -23,6 +24,7 @@ const Modal: React.FC<ModalProps> = ({
 	size = "md",
 	customContent = false,
 }) => {
+	const { t } = useTranslation();
 	const overlayRef = useRef<HTMLButtonElement>(null);
 
 	// Close on Escape key
@@ -73,7 +75,7 @@ const Modal: React.FC<ModalProps> = ({
 				onKeyDown={(e) => {
 					if (e.key === "Escape") onClose();
 				}}
-				aria-label="Close modal"
+				aria-label={t("common.aria.close_modal", "Close dialog")}
 			/>
 
 			{/* Modal Container */}
@@ -100,7 +102,7 @@ const Modal: React.FC<ModalProps> = ({
 						type="button"
 						onClick={onClose}
 						className="p-1 rounded-md text-theme-subtext hover:text-theme-text hover:bg-theme-glass-highlight transition-colors"
-						aria-label="Close"
+						aria-label={t("common.aria.close", "Close")}
 					>
 						<X size={20} />
 					</button>

@@ -144,7 +144,7 @@ const ChatInterface: React.FC = () => {
 									? "text-gold-300 bg-gold-500/15"
 									: "text-tea-200/70 hover:text-gold-300 hover:bg-gold-500/10"
 								}`}
-							aria-label="Agent Metrics"
+							aria-label={t("common.aria.agent_metrics", "Agent Metrics")}
 						>
 							<Activity className="w-5 h-5" />
 						</Button>

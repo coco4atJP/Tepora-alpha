@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface DialControlProps {
 	value: number;
@@ -23,6 +24,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 	unit = "",
 	className = "",
 }) => {
+	const { t } = useTranslation();
 	const [isDragging, setIsDragging] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 	const [inputValue, setInputValue] = useState("");
@@ -274,7 +276,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 						<span
 							className="text-2xl font-semibold text-white/90 tracking-tight hover:text-tea-300 transition-colors pointer-events-auto cursor-text text-shadow-sm relative group/edit px-2 py-1"
 							onClick={handleEditStart}
-							title="Click to edit"
+							title={t("common.click_to_edit", "Click to edit")}
 						>
 							{value}
 						</span>

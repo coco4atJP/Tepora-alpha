@@ -8,10 +8,10 @@ export const ThemeSelector: React.FC = () => {
 	const { theme, setTheme } = useTheme();
 
 	const options = [
-		{ id: "system", label: "System", icon: Monitor },
-		{ id: "tepora", label: "Tepora", icon: Coffee },
-		{ id: "light", label: "Light", icon: Sun },
-		{ id: "dark", label: "Dark", icon: Moon },
+		{ id: "system", label: t("settings.appearance.themes.system", "System"), icon: Monitor },
+		{ id: "tepora", label: t("settings.appearance.themes.tepora", "Tepora"), icon: Coffee },
+		{ id: "light", label: t("settings.appearance.themes.light", "Light"), icon: Sun },
+		{ id: "dark", label: t("settings.appearance.themes.dark", "Dark"), icon: Moon },
 	] as const;
 
 	return (
@@ -45,10 +45,10 @@ export const ThemeSelector: React.FC = () => {
 				})}
 			</div>
 			<p className="text-xs text-theme-subtext opacity-70 px-1">
-				{theme === "tepora" && "The signature classic Tea Salon experience."}
-				{theme === "light" && "A bright, crisp workspace."}
-				{theme === "dark" && "A neutral, focused dark environment."}
-				{theme === "system" && "Matches your operating system preference."}
+				{theme === "tepora" && t("settings.appearance.themes.tepora_desc", "The signature classic Tea Salon experience.")}
+				{theme === "light" && t("settings.appearance.themes.light_desc", "A bright, crisp workspace.")}
+				{theme === "dark" && t("settings.appearance.themes.dark_desc", "A neutral, focused dark environment.")}
+				{theme === "system" && t("settings.appearance.themes.system_desc", "Matches your operating system preference.")}
 			</p>
 		</div>
 	);

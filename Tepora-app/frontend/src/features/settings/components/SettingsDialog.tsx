@@ -6,7 +6,7 @@ import { FitText } from "../../../components/ui/FitText";
 import Modal from "../../../components/ui/Modal";
 import { useSettings } from "../../../hooks/useSettings";
 import { SettingsSidebar } from "./SettingsComponents";
-import { NAV_ITEMS } from "./SettingsConstants";
+import { getNavItems } from "./SettingsConstants";
 import { SettingsLayout } from "./SettingsLayout";
 import CharacterSettings from "./sections/CharacterSettings";
 import ExecutionAgentSettings from "./sections/ExecutionAgentSettings";
@@ -92,7 +92,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			memory: "settings.sections.memory.label",
 			other: "settings.sections.other.label",
 		};
-		const fallbackLabel = NAV_ITEMS.find((item) => item.id === id)?.label || id;
+		const fallbackLabel = getNavItems(t).find((item) => item.id === id)?.label || id;
 		return t(keyMap[id] || id, fallbackLabel);
 	};
 
@@ -109,10 +109,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 				<div className="flex-1 flex h-full w-full min-w-0 min-h-0 overflow-hidden">
 					{/* Sidebar */}
 					<SettingsSidebar
-						items={NAV_ITEMS.map((item) => ({
+						items={getNavItems(t).map((item) => ({
 							...item,
-							label: t(`settings.sections.${item.id}.label`, item.label),
-							// Translate group name if exists
 							group: item.group ? t(`settings.groups.${item.group}`, item.group) : undefined,
 						}))}
 						activeItem={activeSection}

@@ -163,6 +163,10 @@
 		"daysAgo": "Hace {{count}} días",
 		"confirm": "Confirmar",
 		"delete": "Eliminar",
+		"copy": "Copiar",
+		"copied": "Copiado",
+		"refresh": "Actualizar",
+		"click_to_edit": "Haz clic para editar",
 		"aria": {
 			"close": "Cerrar",
 			"move_up": "Mover arriba",
@@ -170,7 +174,13 @@
 			"delete": "Eliminar",
 			"add_item": "Agregar ítem",
 			"remove_item": "Eliminar ítem",
-			"cancel": "Cancelar"
+			"cancel": "Cancelar",
+			"agent_metrics": "Métricas del agente",
+			"thinking": "Pensando",
+			"close_modal": "Cerrar diálogo",
+			"close_notification": "Cerrar notificación",
+			"copy_code": "Copiar código",
+			"settings_categories": "Categorías de configuración"
 		},
 		"browse": "Examinar",
 		"active": "Activo",
@@ -222,6 +232,11 @@
 			"agent_auto": "Automático",
 			"thinking_mode": "Modo pensamiento"
 		},
+		"modes": {
+			"search": "Búsqueda",
+			"agent": "Agente",
+			"chat": "Chat"
+		},
 		"messages_aria_label": "Mensajes de chat",
 		"jump_to_latest": "Ir al mensaje mas reciente",
 		"jump_to_latest_short": "Ultimo",
@@ -232,7 +247,9 @@
 		"error": "Error",
 		"info": "Información",
 		"newMessageFrom": "Nuevo mensaje de {{role}}",
-		"scrollToBottom": "Ir al final"
+		"scrollToBottom": "Ir al final",
+		"regenerate": "Regenerar",
+		"click_to_expand": "Haga clic para expandir"
 	},
 	"agent": {
 		"title": "Actividad del agente",
@@ -282,14 +299,25 @@
 		"messages": "Mensajes",
 		"char": "Char",
 		"prof": "Prof",
-		"events_suffix": "eventos"
+		"events_suffix": "eventos",
+		"generating_memory": "Generando memoria"
 	},
 	"settings": {
 		"title": "Configuración",
 		"subtitle": "Administrar configuración de IA",
 		"appearance": {
 			"title": "Tema",
-			"description": "Elige tu tema preferido."
+			"description": "Elige tu tema preferido.",
+			"themes": {
+				"system": "Sistema",
+				"tepora": "Tepora",
+				"light": "Claro",
+				"dark": "Oscuro",
+				"system_desc": "Coincide con la preferencia de tu sistema operativo.",
+				"tepora_desc": "La clásica experiencia del Salón de Té.",
+				"light_desc": "Un espacio de trabajo brillante y nítido.",
+				"dark_desc": "Un entorno oscuro, neutral y enfocado."
+			}
 		},
 		"thinking": {
 			"title": "Proceso de Pensamiento",
@@ -404,7 +432,31 @@
 			"privacy": {
 				"label": "Privacidad",
 				"title": "Configuración de privacidad",
-				"description": "Administrar comunicaciones externas y configuración de intercambio de datos."
+				"description": "Administrar comunicaciones externas y configuración de intercambio de datos.",
+				"web_search": {
+					"label": "Búsqueda web",
+					"description": "Permitir que el modelo busque información en internet.",
+					"warning_title": "Advertencia de Privacidad de Búsqueda Web",
+					"warning_query": "Sus consultas de búsqueda se enviarán al motor de búsqueda configurado.",
+					"warning_api": "Asegúrese de confiar en el proveedor de la API de búsqueda especificado en Ajustes Generales."
+				},
+				"isolation_mode": {
+					"label": "Modo de aislamiento",
+					"description": "Restringir el acceso a herramientas externas y ejecución de código.",
+					"warning_title": "Advertencia del modo de aislamiento",
+					"warning_mcp": "Los servidores MCP estarán desactivados.",
+					"warning_local": "La ejecución de comandos locales estará bloqueada.",
+					"warning_web_search": "La búsqueda web estará desactivada."
+				},
+				"redact_pii": {
+					"label": "Redactar información personal identificable",
+					"description": "Enmascarar automáticamente la información personal antes de enviarla a proveedores y herramientas."
+				},
+				"url_denylist": {
+					"label": "Lista negra de URLs",
+					"description": "Lista de dominios separados por comas que no se deben acceder.",
+					"placeholder": "ej. example.com, restringido.org"
+				}
 			},
 			"mcp": {
 				"label": "Herramientas MCP",
@@ -743,6 +795,28 @@
 		},
 		"groups": {
 			"custom": "Personalizado"
+		},
+		"nav": {
+			"general": "General",
+			"privacy": "Privacidad",
+			"data_storage": "Almacenamiento de Datos",
+			"system_performance": "Rendimiento del Sistema",
+			"agents": "Personajes",
+			"execution_agents": "Agentes de Ejecución",
+			"models": "Modelos",
+			"mcp": "Herramientas MCP",
+			"memory": "Memoria",
+			"other": "Otro"
+		},
+		"backup": {
+			"stage": {
+				"apply": "Aplicar"
+			}
+		},
+		"character_edit": {
+			"choose_emoji": "Elegir Emoji",
+			"upload_image": "Subir Imagen",
+			"clear_avatar": "Limpiar"
 		},
 		"fields": {
 			"language": {

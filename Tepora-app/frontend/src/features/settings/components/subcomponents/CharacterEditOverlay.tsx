@@ -176,7 +176,7 @@ export const CharacterEditOverlay: React.FC<CharacterEditOverlayProps> = ({
 													type="button"
 													onClick={() => setShowEmojiPicker(!showEmojiPicker)}
 													className="p-1.5 rounded-full bg-gray-800 hover:bg-gray-700 border border-white/10 text-gold-400 shadow-lg transition-colors"
-													title="Choose Emoji"
+													title={t("settings.character_edit.choose_emoji", "Choose Emoji")}
 												>
 													<Smile size={14} />
 												</button>
@@ -204,7 +204,7 @@ export const CharacterEditOverlay: React.FC<CharacterEditOverlayProps> = ({
 												type="button"
 												onClick={handleBrowseAvatar}
 												className="p-1.5 rounded-full bg-gray-800 hover:bg-gray-700 border border-white/10 text-blue-400 shadow-lg transition-colors"
-												title="Upload Image"
+												title={t("settings.character_edit.upload_image", "Upload Image")}
 											>
 												<ImageIcon size={14} />
 											</button>
@@ -222,7 +222,7 @@ export const CharacterEditOverlay: React.FC<CharacterEditOverlayProps> = ({
 														});
 													}}
 													className="p-1.5 rounded-full bg-gray-800 hover:bg-gray-700 border border-white/10 text-red-400 shadow-lg transition-colors"
-													title="Clear"
+													title={t("settings.character_edit.clear_avatar", "Clear")}
 												>
 													<X size={14} />
 												</button>

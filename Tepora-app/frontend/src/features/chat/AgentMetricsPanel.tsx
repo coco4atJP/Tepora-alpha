@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { AgentEventType } from "../../api/metrics";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -58,6 +59,7 @@ interface AgentMetricsPanelProps {
 }
 
 const AgentMetricsPanel: React.FC<AgentMetricsPanelProps> = ({ isOpen, onClose }) => {
+	const { t } = useTranslation();
 	const currentSessionId = useSessionStore((s) => s.currentSessionId);
 	const { events, runtime, loading, error, fetchMetrics } = useAgentMetrics(currentSessionId);
 	const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
@@ -93,7 +95,7 @@ const AgentMetricsPanel: React.FC<AgentMetricsPanelProps> = ({ isOpen, onClose }
 				<div className="flex items-center gap-2">
 					<Activity className="w-4 h-4 text-gold-300" />
 					<span className="text-xs font-semibold text-gold-200 tracking-wide uppercase">
-						Agent Metrics
+						{t("common.aria.agent_metrics", "Agent Metrics")}
 					</span>
 					<span className="text-[10px] text-tea-200/50 font-mono ml-2">
 						{currentSessionId === "default" ? "-" : currentSessionId.slice(0, 8)}
@@ -105,7 +107,7 @@ const AgentMetricsPanel: React.FC<AgentMetricsPanelProps> = ({ isOpen, onClose }
 						onClick={fetchMetrics}
 						disabled={loading}
 						className="p-1.5 rounded-lg text-tea-200/60 hover:text-gold-300 hover:bg-white/5 transition-colors disabled:opacity-40"
-						title="Refresh"
+						title={t("common.refresh", "Refresh")}
 					>
 						<RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
 					</button>
@@ -166,7 +168,7 @@ const AgentMetricsPanel: React.FC<AgentMetricsPanelProps> = ({ isOpen, onClose }
 				)}
 				{!loading && events.length === 0 && !error && (
 					<div className="text-xs text-tea-200/40 py-3 text-center">
-						No events recorded for this session yet.
+						{t("chat.no_events", "No events recorded for this session yet.")}
 					</div>
 				)}
 				{events.map((event) => (

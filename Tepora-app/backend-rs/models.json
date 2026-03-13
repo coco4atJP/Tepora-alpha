@@ -28,7 +28,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-embeddinggemma:latest",
@@ -58,7 +60,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-lfm2.5-thinking:latest",
@@ -88,7 +92,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-rnj-1:8b",
@@ -122,7 +128,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-ibm/granite-4-h-tiny",
@@ -152,7 +160,9 @@
       },
       "publisher": "ibm",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-mistralai/ministral-3-3b",
@@ -182,7 +192,9 @@
       },
       "publisher": "mistralai",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-text-embedding-nomic-embed-text-v1.5",
@@ -208,7 +220,9 @@
       "capabilities": null,
       "publisher": "nomic-ai",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-gemma3n:latest",
@@ -238,7 +252,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-text-embedding-granite-embedding-278m-multilingual",
@@ -264,7 +280,9 @@
       "capabilities": null,
       "publisher": "lmstudio-community",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-qwen3.5-27b",
@@ -294,7 +312,9 @@
       },
       "publisher": "unsloth",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-qwen/qwen3.5-35b-a3b",
@@ -324,7 +344,9 @@
       },
       "publisher": "qwen",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-qwen3.5:27b",
@@ -354,7 +376,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-lfm2:latest",
@@ -384,7 +408,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-qwen3.5-27b@q3_k_s",
@@ -414,7 +440,9 @@
       },
       "publisher": "unsloth",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-qwen3.5-27b@q4_k_xl",
@@ -444,7 +472,9 @@
       },
       "publisher": "unsloth",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "lmstudio-qwen3.5-35b-a3b",
@@ -474,7 +504,9 @@
       },
       "publisher": "unsloth",
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-qwen3.5:9b",
@@ -504,7 +536,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-qwen3.5:4b",
@@ -534,7 +568,9 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     },
     {
       "id": "ollama-glm-4.7-flash:q4_K_M",
@@ -564,13 +600,16 @@
       },
       "publisher": null,
       "description": null,
-      "format": "gguf"
+      "format": "gguf",
+      "tokenizer_path": null,
+      "tokenizer_format": null
     }
   ],
   "role_assignments": {
-    "character": "ollama-gemma3n:latest",
     "embedding": "ollama-embeddinggemma:latest",
-    "professional": "ollama-qwen3.5:9b"
+    "character": "ollama-qwen3.5:4b",
+    "professional": "ollama-qwen3.5:9b",
+    "character:assist": "ollama-rnj-1:8b"
   },
   "role_order": {
     "text": [

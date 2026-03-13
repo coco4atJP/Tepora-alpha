@@ -132,6 +132,7 @@ function renderIcon(
 
 const CodeBlock = ({ language, code }: { language: string; code: string }) => {
 	const [copied, setCopied] = React.useState(false);
+	const { t } = useTranslation();
 
 	const handleCopy = async () => {
 		try {
@@ -156,7 +157,7 @@ const CodeBlock = ({ language, code }: { language: string; code: string }) => {
 				<button
 					onClick={handleCopy}
 					className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 group-hover/code:opacity-100 hover:text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
-					aria-label="Copy code"
+					aria-label={t("common.aria.copy_code", "Copy code")}
 				>
 					{copied ? (
 						<Check className="w-3.5 h-3.5 text-green-400" />
@@ -164,7 +165,7 @@ const CodeBlock = ({ language, code }: { language: string; code: string }) => {
 						<Copy className="w-3.5 h-3.5" />
 					)}
 					<span className="text-[10px] uppercase tracking-widest opacity-70 hidden sm:inline-block">
-						{copied ? "Copied" : "Copy"}
+						{copied ? t("common.copied", "Copied") : t("common.copy", "Copy")}
 					</span>
 				</button>
 			</div>
@@ -332,7 +333,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 									)}
 									<div className="flex-1" />
 									<span className={`text-[10px] opacity-50 transition-opacity ${isThinkingOpen ? "hidden" : "block"}`}>
-										Click to expand
+										{t("chat.click_to_expand", "Click to expand")}
 									</span>
 								</button>
 								<div className={`grid transition-all duration-300 ease-out ${isThinkingOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>

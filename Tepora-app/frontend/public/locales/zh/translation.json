@@ -163,6 +163,10 @@
 		"daysAgo": "{{count}}天前",
 		"confirm": "确认",
 		"delete": "删除",
+		"copy": "复制",
+		"copied": "已复制",
+		"refresh": "刷新",
+		"click_to_edit": "点击编辑",
 		"aria": {
 			"close": "关闭",
 			"move_up": "上移",
@@ -170,7 +174,13 @@
 			"delete": "删除",
 			"add_item": "添加项",
 			"remove_item": "移除项",
-			"cancel": "取消"
+			"cancel": "取消",
+			"agent_metrics": "代理指标",
+			"thinking": "正在思考",
+			"close_modal": "关闭对话框",
+			"close_notification": "关闭通知",
+			"copy_code": "复制代码",
+			"settings_categories": "设置类别"
 		},
 		"browse": "浏览",
 		"active": "活跃",
@@ -222,6 +232,11 @@
 			"agent_auto": "自动选择",
 			"thinking_mode": "思考模式"
 		},
+		"modes": {
+			"search": "搜索",
+			"agent": "代理",
+			"chat": "聊天"
+		},
 		"messages_aria_label": "聊天消息",
 		"jump_to_latest": "跳转到最新消息",
 		"jump_to_latest_short": "最新",
@@ -232,7 +247,9 @@
 		"error": "错误",
 		"info": "信息",
 		"newMessageFrom": "来自 {{role}} 的新消息",
-		"scrollToBottom": "滚动到底部"
+		"scrollToBottom": "滚动到底部",
+		"regenerate": "重新生成",
+		"click_to_expand": "点击展开"
 	},
 	"agent": {
 		"title": "代理活动",
@@ -282,14 +299,25 @@
 		"messages": "消息",
 		"char": "Char",
 		"prof": "Prof",
-		"events_suffix": "事件"
+		"events_suffix": "事件",
+		"generating_memory": "生成记忆"
 	},
 	"settings": {
 		"title": "设置",
 		"subtitle": "管理 AI 配置",
 		"appearance": {
 			"title": "主题",
-			"description": "选择偏好的主题。"
+			"description": "选择偏好的主题。",
+			"themes": {
+				"system": "系统",
+				"tepora": "Tepora",
+				"light": "浅色",
+				"dark": "深色",
+				"system_desc": "跟随您的操作系统偏好设置。",
+				"tepora_desc": "标志性的经典茶室体验。",
+				"light_desc": "一个明亮、清爽的工作空间。",
+				"dark_desc": "一个中性、专注的深色环境。"
+			}
 		},
 		"thinking": {
 			"title": "思考过程",
@@ -404,7 +432,31 @@
 			"privacy": {
 				"label": "隐私",
 				"title": "隐私设置",
-				"description": "管理外部通信和数据共享设置。"
+				"description": "管理外部通信和数据共享设置。",
+				"web_search": {
+					"label": "网络搜索",
+					"description": "允许模型在互联网上搜索信息。",
+					"warning_title": "网络搜索隐私警告",
+					"warning_query": "您的搜索查询将发送到配置的搜索引擎。",
+					"warning_api": "确保您信任在常规设置中指定的搜索API提供商。"
+				},
+				"isolation_mode": {
+					"label": "隔离模式",
+					"description": "限制访问外部工具和执行代码。",
+					"warning_title": "隔离模式警告",
+					"warning_mcp": "MCP服务器将被禁用。",
+					"warning_local": "本地命令执行将被拦截。",
+					"warning_web_search": "网络搜索将被禁用。"
+				},
+				"redact_pii": {
+					"label": "编辑个人身份信息",
+					"description": "在发送给提供商和工具之前自动屏蔽个人身份信息。"
+				},
+				"url_denylist": {
+					"label": "URL黑名单",
+					"description": "禁止访问的域名的逗号分隔列表。",
+					"placeholder": "例如：example.com，restricted.org"
+				}
 			},
 			"mcp": {
 				"label": "MCP 工具",
@@ -743,6 +795,28 @@
 		},
 		"groups": {
 			"custom": "自定义"
+		},
+		"nav": {
+			"general": "通用",
+			"privacy": "隐私",
+			"data_storage": "数据存储",
+			"system_performance": "系统性能",
+			"agents": "角色",
+			"execution_agents": "执行代理",
+			"models": "模型",
+			"mcp": "MCP工具",
+			"memory": "记忆",
+			"other": "其他"
+		},
+		"backup": {
+			"stage": {
+				"apply": "应用"
+			}
+		},
+		"character_edit": {
+			"choose_emoji": "选择表情",
+			"upload_image": "上传图片",
+			"clear_avatar": "清除"
 		},
 		"fields": {
 			"language": {

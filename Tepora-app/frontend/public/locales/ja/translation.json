@@ -154,6 +154,10 @@
 		"daysAgo": "{{count}}日前",
 		"confirm": "確認",
 		"delete": "削除",
+		"copy": "コピー",
+		"copied": "コピーしました",
+		"refresh": "更新",
+		"click_to_edit": "クリックして編集",
 		"aria": {
 			"close": "閉じる",
 			"move_up": "上へ移動",
@@ -161,7 +165,13 @@
 			"delete": "削除",
 			"add_item": "項目を追加",
 			"remove_item": "項目を削除",
-			"cancel": "キャンセル"
+			"cancel": "キャンセル",
+			"agent_metrics": "エージェントメトリクス",
+			"thinking": "思考中",
+			"close_modal": "ダイアログを閉じる",
+			"close_notification": "通知を閉じる",
+			"copy_code": "コードをコピー",
+			"settings_categories": "設定カテゴリ"
 		},
 		"refreshing": "更新中...",
 		"scan_providers": "プロバイダーをスキャン",
@@ -240,7 +250,9 @@
 		},
 		"error": "エラー",
 		"info": "情報",
-		"generationStopped": "生成が停止しました"
+		"generationStopped": "生成が停止しました",
+		"regenerate": "再生成",
+		"click_to_expand": "クリックして展開"
 	},
 	"agent": {
 		"title": "エージェント状況",
@@ -298,7 +310,17 @@
 		"subtitle": "AIの設定を管理します",
 		"appearance": {
 			"title": "テーマ",
-			"description": "テーマを選択します。"
+			"description": "テーマを選択します。",
+			"themes": {
+				"system": "システム",
+				"tepora": "Tepora",
+				"light": "ライト",
+				"dark": "ダーク",
+				"system_desc": "OSの設定に従います。",
+				"tepora_desc": "Tepora 定番のティーサロン体験。",
+				"light_desc": "明るく、クリアな作業環境。",
+				"dark_desc": "落ち着いたダーク環境。"
+			}
 		},
 		"thinking": {
 			"title": "Thinking プロセス",
@@ -760,6 +782,28 @@
 		},
 		"groups": {
 			"custom": "カスタム"
+		},
+		"nav": {
+			"general": "一般",
+			"privacy": "プライバシー",
+			"data_storage": "データ管理",
+			"system_performance": "システム",
+			"agents": "キャラクター",
+			"execution_agents": "プロフェッショナル",
+			"models": "モデル",
+			"mcp": "MCPツール",
+			"memory": "メモリ",
+			"other": "その他"
+		},
+		"backup": {
+			"stage": {
+				"apply": "適用"
+			}
+		},
+		"character_edit": {
+			"choose_emoji": "絵文字を選択",
+			"upload_image": "画像をアップロード",
+			"clear_avatar": "クリア"
 		},
 		"fields": {
 			"language": {

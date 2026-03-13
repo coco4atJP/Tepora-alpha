@@ -114,6 +114,7 @@ env/
 # User configuration (may contain API keys or personal settings)
 config.yml
 config.yaml
+Tepora-app/backend-rs/execution_agents/
 
 # Cache directories
 .pytest_cache/

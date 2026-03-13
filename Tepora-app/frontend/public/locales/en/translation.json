@@ -168,6 +168,10 @@
 		"daysAgo": "{{count}} days ago",
 		"confirm": "Confirm",
 		"delete": "Delete",
+		"copy": "Copy",
+		"copied": "Copied",
+		"refresh": "Refresh",
+		"click_to_edit": "Click to edit",
 		"aria": {
 			"close": "Close",
 			"move_up": "Move up",
@@ -175,7 +179,13 @@
 			"delete": "Delete",
 			"add_item": "Add item",
 			"remove_item": "Remove item",
-			"cancel": "Cancel"
+			"cancel": "Cancel",
+			"agent_metrics": "Agent Metrics",
+			"thinking": "Thinking",
+			"close_modal": "Close dialog",
+			"close_notification": "Close notification",
+			"copy_code": "Copy code",
+			"settings_categories": "Settings Categories"
 		},
 		"browse": "Browse",
 		"active": "Active",
@@ -236,6 +246,10 @@
 			"chat": "Chat"
 		},
 		"generationStopped": "Generation stopped",
+		"error": "Error",
+		"info": "Info",
+		"regenerate": "Regenerate",
+		"click_to_expand": "Click to expand",
 		"status": {
 			"thinking": "Thinking"
 		}
@@ -296,7 +310,17 @@
 		"subtitle": "Manage your AI configuration",
 		"appearance": {
 			"title": "Theme",
-			"description": "Choose your preferred theme."
+			"description": "Choose your preferred theme.",
+			"themes": {
+				"system": "System",
+				"tepora": "Tepora",
+				"light": "Light",
+				"dark": "Dark",
+				"system_desc": "Matches your operating system preference.",
+				"tepora_desc": "The signature classic Tea Salon experience.",
+				"light_desc": "A bright, crisp workspace.",
+				"dark_desc": "A neutral, focused dark environment."
+			}
 		},
 		"thinking": {
 			"title": "Thinking Process",
@@ -758,6 +782,28 @@
 		},
 		"groups": {
 			"custom": "Custom"
+		},
+		"nav": {
+			"general": "General",
+			"privacy": "Privacy",
+			"data_storage": "Data Storage",
+			"system_performance": "System Performance",
+			"agents": "Characters",
+			"execution_agents": "Execution Agents",
+			"models": "Models",
+			"mcp": "MCP Tools",
+			"memory": "Memory",
+			"other": "Other"
+		},
+		"backup": {
+			"stage": {
+				"apply": "Apply"
+			}
+		},
+		"character_edit": {
+			"choose_emoji": "Choose Emoji",
+			"upload_image": "Upload Image",
+			"clear_avatar": "Clear"
 		},
 		"fields": {
 			"language": {
