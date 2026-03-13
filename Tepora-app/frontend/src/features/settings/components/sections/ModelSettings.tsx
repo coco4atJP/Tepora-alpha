@@ -48,7 +48,7 @@ const ModelSettings: React.FC = () => {
 	const {
 		config,
 		originalConfig,
-		customAgents,
+		executionAgents,
 		updateLlmManager,
 		updateModel,
 		updateSearch,
@@ -215,7 +215,7 @@ const ModelSettings: React.FC = () => {
 	const embeddingModels = models.filter((m) => m.role === "embedding");
 	const getActiveId = (role: string) => models.find((m) => m.role === role && m.is_active)?.id;
 	const characterEntries = Object.entries(config.characters || {});
-	const customAgentEntries = Object.values(customAgents || {}).sort((a, b) => {
+	const executionAgentEntries = Object.values(executionAgents || {}).sort((a, b) => {
 		if (a.priority !== b.priority) return a.priority - b.priority;
 		return a.name.localeCompare(b.name);
 	});
@@ -362,21 +362,21 @@ const ModelSettings: React.FC = () => {
 
 					<div className="space-y-3">
 						<h3 className="text-sm font-medium text-gray-300">
-							{t("settings.sections.models.agent_roles_title", "Custom Agent Role Mapping")}
+							{t("settings.sections.models.agent_roles_title", "Execution Agent Role Mapping")}
 						</h3>
 						<p className="text-xs text-gray-500">
 							{t(
 								"settings.sections.models.agent_roles_desc",
-								"Assign a text model per custom agent. Leave empty to inherit default professional/character routing.",
+								"Assign a text model per execution agent. Leave empty to inherit default professional/character routing.",
 							)}
 						</p>
-						{customAgentEntries.length === 0 ? (
+						{executionAgentEntries.length === 0 ? (
 							<div className="text-xs text-gray-500 bg-black/20 border border-white/5 rounded-xl px-4 py-3">
-								{t("settings.sections.models.no_custom_agents", "No custom agents configured.")}
+								{t("settings.sections.models.no_execution_agents", "No execution agents configured.")}
 							</div>
 						) : (
 							<div className="space-y-2">
-								{customAgentEntries.map((agent) => (
+								{executionAgentEntries.map((agent) => (
 									<div
 										key={agent.id}
 										className="bg-black/20 border border-white/5 rounded-xl px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center"
@@ -600,6 +600,36 @@ const ModelSettings: React.FC = () => {
 					</FormGroup>
 
 					<FormGroup
+						label={t("settings.sections.extended.tokenizer_path", "Tokenizer Path")}
+						description={t(
+							"settings.sections.extended.tokenizer_path_desc",
+							"Optional backend tokenizer.json path. Leave empty to auto-discover for local models or fall back to provider usage for remote models.",
+						)}
+					>
+						<FormInput
+							value={readString("models_gguf.text_model.tokenizer_path", "")}
+							onChange={(value) =>
+								updateConfigPath("models_gguf.text_model.tokenizer_path", value)}
+							placeholder="models/tokenizer.json"
+						/>
+					</FormGroup>
+
+					<FormGroup
+						label={t("settings.sections.extended.tokenizer_format", "Tokenizer Format")}
+						description={t(
+							"settings.sections.extended.tokenizer_format_desc",
+							"Optional tokenizer format hint for backend token counting diagnostics.",
+						)}
+					>
+						<FormInput
+							value={readString("models_gguf.text_model.tokenizer_format", "")}
+							onChange={(value) =>
+								updateConfigPath("models_gguf.text_model.tokenizer_format", value)}
+							placeholder="tokenizer_json"
+						/>
+					</FormGroup>
+
+					<FormGroup
 						label={t("settings.sections.extended.loader_specific_text", "Text Model Loader-specific Settings")}
 						description={t(
 							"settings.sections.extended.loader_specific_text_desc",
@@ -637,4 +667,9 @@ const ModelSettings: React.FC = () => {
 };
 
 export default ModelSettings;
+
+
+
+
+
 

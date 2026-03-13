@@ -193,6 +193,7 @@ impl SqliteMemoryRepository {
             "CREATE TABLE IF NOT EXISTS memory_events (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
+                character_id TEXT,
                 scope TEXT NOT NULL,
                 episode_id TEXT NOT NULL,
                 event_seq INTEGER NOT NULL,
@@ -217,6 +218,8 @@ impl SqliteMemoryRepository {
         .execute(&self.pool)
         .await
         .map_err(ApiError::internal)?;
+        self.ensure_nullable_text_column("memory_events", "character_id")
+            .await?;
 
         // --- memory_edges ---
         sqlx::query(
@@ -270,6 +273,8 @@ impl SqliteMemoryRepository {
         for ddl in [
             "CREATE INDEX IF NOT EXISTS idx_me_session_scope_created
                 ON memory_events(session_id, scope, created_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_me_character_scope_created
+                ON memory_events(character_id, scope, created_at DESC)",
             "CREATE INDEX IF NOT EXISTS idx_me_session_scope_strength
                 ON memory_events(session_id, scope, strength DESC)",
             "CREATE INDEX IF NOT EXISTS idx_me_session_scope_layer_strength
@@ -285,6 +290,34 @@ impl SqliteMemoryRepository {
                 .map_err(ApiError::internal)?;
         }
 
+        Ok(())
+    }
+
+    async fn ensure_nullable_text_column(
+        &self,
+        table_name: &str,
+        column_name: &str,
+    ) -> Result<(), ApiError> {
+        let pragma = format!("PRAGMA table_info({})", table_name);
+        let rows = sqlx::query(&pragma)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
+
+        let exists = rows.iter().any(|row| {
+            row.try_get::<String, _>("name")
+                .map(|value| value == column_name)
+                .unwrap_or(false)
+        });
+        if exists {
+            return Ok(());
+        }
+
+        let ddl = format!("ALTER TABLE {} ADD COLUMN {} TEXT", table_name, column_name);
+        sqlx::query(&ddl)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
         Ok(())
     }
 
@@ -337,6 +370,7 @@ impl SqliteMemoryRepository {
         MemoryEvent {
             id: row.get("id"),
             session_id: row.get("session_id"),
+            character_id: row.try_get("character_id").unwrap_or(None),
             scope: std::str::FromStr::from_str(&scope_raw).unwrap_or_default(),
             episode_id: row.get("episode_id"),
             event_seq: row.get::<i64, _>("event_seq").max(0) as u32,
@@ -407,14 +441,15 @@ impl MemoryRepository for SqliteMemoryRepository {
 
         sqlx::query(
             "INSERT OR REPLACE INTO memory_events
-                (id, session_id, scope, episode_id, event_seq, source_turn_id, source_role,
+                (id, session_id, character_id, scope, episode_id, event_seq, source_turn_id, source_role,
                  content, summary, embedding, surprise_mean, surprise_max,
                  importance, strength, memory_layer, access_count, last_accessed_at,
                  decay_anchor_at, created_at, updated_at, is_deleted)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
         )
         .bind(&event.id)
         .bind(&event.session_id)
+        .bind(&event.character_id)
         .bind(event.scope.as_str())
         .bind(&event.episode_id)
         .bind(event.event_seq as i64)
@@ -490,7 +525,7 @@ impl MemoryRepository for SqliteMemoryRepository {
 
     async fn retrieve_similar(
         &self,
-        session_id: &str,
+        session_id: Option<&str>,
         scope: Option<MemoryScope>,
         query_embedding: &[f32],
         limit: usize,
@@ -498,28 +533,40 @@ impl MemoryRepository for SqliteMemoryRepository {
         if query_embedding.is_empty() || limit == 0 {
             return Ok(Vec::new());
         }
-
-        let rows = if let Some(scope) = scope {
-            sqlx::query(
+        let rows = match (session_id, scope) {
+            (Some(sid), Some(scope)) => sqlx::query(
                 "SELECT * FROM memory_events
-                 WHERE session_id = ?1 AND scope = ?2 AND is_deleted = 0",
+                     WHERE session_id = ?1 AND scope = ?2 AND is_deleted = 0",
             )
-            .bind(session_id)
+            .bind(sid)
             .bind(scope.as_str())
             .fetch_all(&self.pool)
             .await
-            .map_err(ApiError::internal)?
-        } else {
-            sqlx::query(
+            .map_err(ApiError::internal)?,
+            (Some(sid), None) => sqlx::query(
                 "SELECT * FROM memory_events
-                 WHERE session_id = ?1 AND is_deleted = 0",
+                     WHERE session_id = ?1 AND is_deleted = 0",
             )
-            .bind(session_id)
+            .bind(sid)
             .fetch_all(&self.pool)
             .await
-            .map_err(ApiError::internal)?
+            .map_err(ApiError::internal)?,
+            (None, Some(scope)) => sqlx::query(
+                "SELECT * FROM memory_events
+                     WHERE scope = ?1 AND is_deleted = 0",
+            )
+            .bind(scope.as_str())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?,
+            (None, None) => sqlx::query(
+                "SELECT * FROM memory_events
+                     WHERE is_deleted = 0",
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?,
         };
-
         let mut scored: Vec<ScoredEvent> = Vec::with_capacity(rows.len());
         for row in &rows {
             let event = Self::row_to_event(row, &self.encryption_key);
@@ -532,17 +579,14 @@ impl MemoryRepository for SqliteMemoryRepository {
                 score: sim as f64,
             });
         }
-
         scored.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         scored.truncate(limit);
-
         Ok(scored)
     }
-
     async fn update_strength(&self, id: &str, strength: f64) -> Result<(), ApiError> {
         let now = Utc::now().to_rfc3339();
         sqlx::query("UPDATE memory_events SET strength = ?2, updated_at = ?3 WHERE id = ?1")
@@ -854,12 +898,12 @@ impl MemoryRepository for SqliteMemoryRepository {
 
     async fn scope_stats(
         &self,
-        session_id: &str,
+        session_id: Option<&str>,
         scope: MemoryScope,
     ) -> Result<ScopeStats, ApiError> {
-        let total_events = self.count_events(Some(session_id), Some(scope)).await?;
-        let layer_counts = self.count_by_layer(Some(session_id), Some(scope)).await?;
-        let mean_strength = self.average_strength(Some(session_id), Some(scope)).await?;
+        let total_events = self.count_events(session_id, Some(scope)).await?;
+        let layer_counts = self.count_by_layer(session_id, Some(scope)).await?;
+        let mean_strength = self.average_strength(session_id, Some(scope)).await?;
         Ok(ScopeStats {
             total_events,
             layer_counts,
@@ -1002,50 +1046,84 @@ impl MemoryRepository for SqliteMemoryRepository {
 
     async fn list_compaction_jobs(
         &self,
-        session_id: &str,
+        session_id: Option<&str>,
         scope: Option<MemoryScope>,
         status: Option<CompactionStatus>,
     ) -> Result<Vec<CompactionJob>, ApiError> {
-        let rows = match (scope, status) {
-            (Some(sc), Some(st)) => {
+        let rows = match (session_id, scope, status) {
+            (Some(sid), Some(sc), Some(st)) => {
                 sqlx::query(
                     "SELECT * FROM memory_compaction_jobs WHERE session_id = ?1 AND scope = ?2 AND status = ?3 ORDER BY created_at DESC",
                 )
-                .bind(session_id)
+                .bind(sid)
                 .bind(sc.as_str())
                 .bind(st.as_str())
                 .fetch_all(&self.pool)
                 .await
                 .map_err(ApiError::internal)?
             }
-            (Some(sc), None) => {
+            (Some(sid), Some(sc), None) => {
                 sqlx::query(
                     "SELECT * FROM memory_compaction_jobs WHERE session_id = ?1 AND scope = ?2 ORDER BY created_at DESC",
                 )
-                .bind(session_id)
+                .bind(sid)
                 .bind(sc.as_str())
                 .fetch_all(&self.pool)
                 .await
                 .map_err(ApiError::internal)?
             }
-            (None, Some(st)) => {
+            (Some(sid), None, Some(st)) => {
                 sqlx::query(
                     "SELECT * FROM memory_compaction_jobs WHERE session_id = ?1 AND status = ?2 ORDER BY created_at DESC",
                 )
-                .bind(session_id)
+                .bind(sid)
                 .bind(st.as_str())
                 .fetch_all(&self.pool)
                 .await
                 .map_err(ApiError::internal)?
             }
-            (None, None) => {
+            (Some(sid), None, None) => {
                 sqlx::query(
                     "SELECT * FROM memory_compaction_jobs WHERE session_id = ?1 ORDER BY created_at DESC",
                 )
-                .bind(session_id)
+                .bind(sid)
                 .fetch_all(&self.pool)
                 .await
                 .map_err(ApiError::internal)?
+            }
+            (None, Some(sc), Some(st)) => {
+                sqlx::query(
+                    "SELECT * FROM memory_compaction_jobs WHERE scope = ?1 AND status = ?2 ORDER BY created_at DESC",
+                )
+                .bind(sc.as_str())
+                .bind(st.as_str())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
+            }
+            (None, Some(sc), None) => {
+                sqlx::query(
+                    "SELECT * FROM memory_compaction_jobs WHERE scope = ?1 ORDER BY created_at DESC",
+                )
+                .bind(sc.as_str())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
+            }
+            (None, None, Some(st)) => {
+                sqlx::query(
+                    "SELECT * FROM memory_compaction_jobs WHERE status = ?1 ORDER BY created_at DESC",
+                )
+                .bind(st.as_str())
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::internal)?
+            }
+            (None, None, None) => {
+                sqlx::query("SELECT * FROM memory_compaction_jobs ORDER BY created_at DESC")
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(ApiError::internal)?
             }
         };
         Ok(rows.iter().map(Self::row_to_compaction_job).collect())

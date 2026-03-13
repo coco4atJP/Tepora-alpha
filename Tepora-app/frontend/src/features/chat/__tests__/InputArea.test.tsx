@@ -49,7 +49,7 @@ const mockConfig = {
 vi.mock("../../../hooks/useSettings", () => ({
 	useSettings: () => ({
 		config: mockConfig,
-		customAgents: {},
+		executionAgents: {},
 	}),
 }));
 
@@ -347,3 +347,4 @@ describe("InputArea", () => {
 		});
 	});
 });
+

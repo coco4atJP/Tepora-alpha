@@ -26,7 +26,7 @@ const InputArea: React.FC = () => {
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const { customAgents, config } = useSettings();
+	const { executionAgents, config } = useSettings();
 
 	const isIdle = useSelector(chatActor, (state) => state.matches("idle"));
 	const isGenerating = useSelector(chatActor, (state) => state.matches("generating"));
@@ -36,7 +36,7 @@ const InputArea: React.FC = () => {
 	const canSend = (isIdle || isError) && isConnected && (message.trim().length > 0 || attachments.length > 0);
 	const isProcessing = isGenerating;
 
-	const availableAgents = Object.values(customAgents).filter(
+	const availableAgents = Object.values(executionAgents).filter(
 		(agent) => agent.enabled,
 	);
 
@@ -111,7 +111,7 @@ const InputArea: React.FC = () => {
 			<div
 				className={`relative flex items-end gap-2 p-3 rounded-full glass-input transition-all duration-500 ${isProcessing
 					? "ring-1 ring-gold-500/50 shadow-[0_0_40px_-5px_rgba(255,215,0,0.25)] bg-theme-overlay"
-					: "hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-theme-overlay shadow-2xl border border-white/10 group-focus-within:border-gold-400/50 group-focus-within:shadow-[0_0_30px_rgba(255,215,0,0.15)]"
+					: "hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-theme-overlay shadow-2xl border border-white/10 group-focus-within:border-gold-400/50 group-focus-within:shadow-[0_0_20px_rgba(255,215,0,0.1)]"
 					} backdrop-blur-xl`}
 			>
 				{/* Persona Switcher */}
@@ -127,7 +127,7 @@ const InputArea: React.FC = () => {
 								value={selectedAgentMode}
 								onChange={(e) => setSelectedAgentMode(e.target.value)}
 								disabled={isProcessing}
-								className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 focus:border-tea-500"
+								className="h-8 pl-3 pr-2 py-0 rounded-full bg-black/20 hover:bg-black/40 transition-colors border border-white/5 hover:border-white/10 text-[11px] text-tea-200 font-semibold focus:outline-none focus:ring-1 focus:ring-tea-500/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-none"
 								title={t("chat.input.agent_mode", "Agent mode")}
 							>
 								<option value="">{t("chat.input.agent_mode_fast", "Fast (Auto)")}</option>
@@ -141,7 +141,7 @@ const InputArea: React.FC = () => {
 									value={selectedAgentId}
 									onChange={(e) => setSelectedAgentId(e.target.value)}
 									disabled={isProcessing}
-									className="h-9 px-3 rounded-full bg-black/30 border border-white/10 text-xs text-gray-200 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 focus:border-tea-500"
+									className="h-8 pl-3 pr-2 py-0 rounded-full bg-black/20 hover:bg-black/40 transition-colors border border-white/5 hover:border-white/10 text-[11px] text-tea-200 font-semibold max-w-[140px] truncate focus:outline-none focus:ring-1 focus:ring-tea-500/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-none"
 									title={t("chat.input.select_agent", "Select agent")}
 								>
 									<option value="">{t("chat.input.agent_auto", "Auto (Supervisor)")}</option>
@@ -165,7 +165,7 @@ const InputArea: React.FC = () => {
 					placeholder={getPlaceholder()}
 					disabled={isProcessing || !isConnected}
 					aria-label={t("chat.input.aria_label")}
-					className="flex-1 bg-transparent border-none outline-none text-theme-text placeholder-theme-subtext resize-none min-h-[44px] max-h-[200px] py-3 px-2 leading-relaxed font-sans text-[0.95rem] scrollbar-thin scrollbar-thumb-theme-border scrollbar-track-transparent"
+					className="flex-1 bg-transparent border-none outline-none text-theme-text placeholder-theme-subtext resize-none min-h-[44px] max-h-[200px] py-3 px-2 leading-relaxed font-sans text-[0.95rem] scrollbar-thin scrollbar-thumb-theme-border scrollbar-track-transparent disabled:opacity-50 disabled:cursor-not-allowed"
 					rows={1}
 					style={{ maxHeight: "200px" }}
 				/>
@@ -176,7 +176,7 @@ const InputArea: React.FC = () => {
 						type="button"
 						onClick={() => setThinkingBudget((prev) => (prev + 1) % 4)}
 						disabled={isProcessing}
-						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 relative ${thinkingBudget > 0
+						className={`w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center active:scale-90 relative disabled:opacity-50 disabled:cursor-not-allowed ${thinkingBudget > 0
 							? "bg-semantic-thinking/20 text-semantic-thinking ring-1 ring-semantic-thinking/50 shadow-[0_0_10px_-2px_rgba(168,85,247,0.3)]"
 							: "text-gray-500 hover:text-semantic-thinking hover:bg-semantic-thinking/10"
 							}`}
@@ -197,7 +197,7 @@ const InputArea: React.FC = () => {
 							size="icon"
 							onClick={() => stopGeneration()}
 							aria-label={t("chat.input.stop_generation")}
-							className="rounded-full w-10 h-10 shadow-lg"
+							className="rounded-full w-10 h-10 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							<Square className="w-4 h-4 fill-current" aria-hidden="true" />
 						</Button>
@@ -208,13 +208,13 @@ const InputArea: React.FC = () => {
 							onClick={handleSend}
 							disabled={!canSend}
 							aria-label={t("chat.input.send_message")}
-							className={`rounded-full w-10 h-10 transition-all duration-300 ${message.trim() || attachments.length > 0
+							className={`rounded-full w-10 h-10 flex items-center justify-center transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${message.trim() || attachments.length > 0
 								? "shadow-[0_0_20px_rgba(234,179,8,0.4)]"
 								: "opacity-50"
 								}`}
 						>
 							<Send
-								className={`w-4 h-4 ${message.trim() || attachments.length > 0 ? "ml-0.5" : ""}`}
+								className="w-4 h-4"
 								aria-hidden="true"
 							/>
 						</Button>
@@ -233,3 +233,4 @@ const InputArea: React.FC = () => {
 };
 
 export default InputArea;
+

@@ -36,6 +36,28 @@ pub struct ChatRequest {
     pub num_ctx: Option<i32>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TokenUsage {
+    pub prompt_tokens: Option<usize>,
+    pub completion_tokens: Option<usize>,
+    pub total_tokens: Option<usize>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NormalizedAssistantTurn {
+    pub visible_text: String,
+    pub model_thinking: String,
+    pub finish_reason: Option<String>,
+    pub usage: Option<TokenUsage>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NormalizedStreamChunk {
+    pub visible_text: String,
+    pub model_thinking: String,
+    pub done: bool,
+    pub usage: Option<TokenUsage>,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct ProviderModel {

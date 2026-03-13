@@ -21,7 +21,7 @@ describe("useSettings", () => {
 		const mockContextValue: SettingsContextValue = {
 			config: null,
 			originalConfig: null,
-			customAgents: {},
+			executionAgents: {},
 			loading: false,
 			error: null,
 			hasChanges: false,
@@ -43,9 +43,6 @@ describe("useSettings", () => {
 			updateCharacter: vi.fn(),
 			addCharacter: vi.fn(),
 			deleteCharacter: vi.fn(),
-			updateCustomAgent: vi.fn(),
-			addCustomAgent: vi.fn(),
-			deleteCustomAgent: vi.fn(),
 			setActiveAgent: vi.fn(),
 			saveConfig: vi.fn(),
 			resetConfig: vi.fn(),
@@ -59,3 +56,5 @@ describe("useSettings", () => {
 		expect(result.current).toBe(mockContextValue);
 	});
 });
+
+

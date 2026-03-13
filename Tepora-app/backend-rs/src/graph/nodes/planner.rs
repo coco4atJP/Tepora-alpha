@@ -1,6 +1,3 @@
-// Planner Node
-// Generates execution plan for complex agent tasks.
-
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,7 +8,7 @@ use crate::agent::execution::{
 };
 use crate::agent::planner::generate_execution_plan;
 use crate::context::pipeline::ContextPipeline;
-use crate::context::pipeline_context::PipelineMode;
+use crate::context::pipeline_context::{PipelineMode, PipelineStage};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState};
 
@@ -84,6 +81,14 @@ impl Node for PlannerNode {
 
         let selected_agent =
             resolve_selected_agent(ctx.app_state, state.selected_agent_id.as_deref());
+        let planner_messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+            let mut staged = pipeline_ctx.clone();
+            staged.stage = PipelineStage::AgentPlanner;
+            staged.to_messages()
+        } else {
+            state.chat_history.clone()
+        };
+
         let agent_chat_config =
             build_agent_chat_config(ctx.app_state, ctx.config, selected_agent.as_ref());
         let model_id =
@@ -92,6 +97,7 @@ impl Node for PlannerNode {
             ctx.app_state,
             &agent_chat_config,
             &state.input,
+            &planner_messages,
             selected_agent.as_ref(),
             state.thinking_budget > 0,
             &model_id,

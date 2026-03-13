@@ -107,7 +107,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 				{hasAttachments && (
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">
-							<span className="text-[10px] font-bold uppercase tracking-wider text-tea-300/80">
+							<span className="text-xs font-semibold uppercase tracking-wider text-tea-300/80">
 								{t("rag_context.files", "Files")} ({attachments.length})
 							</span>
 						</div>
@@ -158,7 +158,7 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 				{hasSearchResults && (
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">
-							<span className="text-[10px] font-bold uppercase tracking-wider text-tea-300/80">
+							<span className="text-xs font-semibold uppercase tracking-wider text-tea-300/80">
 								{t("rag_context.web_results", "Web Results")} ({searchResults?.length ?? 0})
 							</span>
 						</div>

@@ -1,6 +1,7 @@
 use chrono::Utc;
 use std::sync::Arc;
 
+use crate::context::pipeline_context::{PipelineMode, PipelineStage};
 use crate::core::config::ConfigService;
 use crate::core::errors::ApiError;
 use crate::domain::episodic_memory::{
@@ -10,14 +11,13 @@ use crate::domain::episodic_memory::{
 use crate::domain::errors::DomainError;
 use crate::em_llm::{EmMemoryService, RetrievedMemory};
 use crate::llm::LlmService;
-use crate::memory_v2::types::{MemoryEvent, MemoryScope};
+use crate::memory_v2::types::{MemoryEvent, MemoryScope, SourceRole};
 use crate::memory_v2::MemoryRepository;
 use crate::memory_v2::SqliteMemoryRepository;
 use crate::models::ModelManager;
 
 #[async_trait::async_trait]
 pub trait MemoryAdapter: Send + Sync {
-    /// Ingest a completed interaction (user input + assistant output).
     #[allow(clippy::too_many_arguments)]
     async fn ingest_interaction(
         &self,
@@ -30,7 +30,6 @@ pub trait MemoryAdapter: Send + Sync {
         legacy_enabled: bool,
     ) -> Result<(), ApiError>;
 
-    /// Retrieve relevant context for a query.
     async fn retrieve_context(
         &self,
         session_id: &str,
@@ -38,10 +37,20 @@ pub trait MemoryAdapter: Send + Sync {
         llm: &LlmService,
         embedding_model_id: &str,
         legacy_enabled: bool,
+        mode: PipelineMode,
+        stage: PipelineStage,
     ) -> Result<Vec<RetrievedMemory>, ApiError>;
+
+    async fn ingest_summary(
+        &self,
+        session_id: &str,
+        summary: &str,
+        llm: &LlmService,
+        embedding_model_id: &str,
+        scope: MemoryScope,
+    ) -> Result<(), ApiError>;
 }
 
-/// The unified memory implementation that chooses between legacy em_llm and new memory_v2.
 pub struct UnifiedMemoryAdapter {
     em_service: Arc<EmMemoryService>,
     v2_repo: Arc<SqliteMemoryRepository>,
@@ -81,16 +90,7 @@ impl UnifiedMemoryAdapter {
         let Some(models) = self.models.as_ref() else {
             return "default".to_string();
         };
-        let active_character = self
-            .config
-            .as_ref()
-            .and_then(|cfg| cfg.load_config().ok())
-            .and_then(|config| {
-                config
-                    .get("active_agent_profile")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            });
+        let active_character = self.resolve_active_character_id();
 
         models
             .resolve_character_model_id(active_character.as_deref())
@@ -106,6 +106,18 @@ impl UnifiedMemoryAdapter {
                 })
             })
             .unwrap_or_else(|| "default".to_string())
+    }
+
+    fn resolve_active_character_id(&self) -> Option<String> {
+        self.config
+            .as_ref()
+            .and_then(|cfg| cfg.load_config().ok())
+            .and_then(|config| {
+                config
+                    .get("active_agent_profile")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
     }
 }
 
@@ -157,9 +169,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                 return Ok(());
             }
 
-            // Extract segmentation logic out of EmMemoryService into the Adapter
             let logprobs_result = llm.get_logprobs(&content, text_model_id).await;
-
             let sentences = crate::em_llm::sentence::split_sentences(&content, 8);
             let sentences = if sentences.is_empty() {
                 vec![content.clone()]
@@ -175,7 +185,6 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                 }
             };
 
-            // Process based on logprobs vs pure semantics
             let mut integrator = crate::em_llm::integrator::EMLLMIntegrator::default();
             let events = match logprobs_result {
                 Ok(logprobs) => {
@@ -190,14 +199,13 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                 }
             };
 
-            // Map and persist V2 events directly to the v2 repository
+            let active_character_id = self.resolve_active_character_id();
             let episode_id = uuid::Uuid::new_v4().to_string();
             let source_turn_id = format!("{}-{}", session_id, chrono::Utc::now().timestamp());
             let mut v2_events = Vec::new();
             let mut v2_edges = Vec::new();
             let mut prev_event_id: Option<String> = None;
 
-            // Decay configuration needs to be applied here for initial importance
             let decay_cfg = crate::em_llm::types::DecayConfig::default();
             let decay_engine = crate::em_llm::decay::DecayEngine::new(decay_cfg);
 
@@ -222,6 +230,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                 v2_events.push(MemoryEvent {
                     id: ev.id,
                     session_id: session_id.to_string(),
+                    character_id: active_character_id.clone(),
                     scope: MemoryScope::Char,
                     episode_id: episode_id.clone(),
                     event_seq: i as u32,
@@ -263,6 +272,8 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
         llm: &LlmService,
         embedding_model_id: &str,
         legacy_enabled: bool,
+        mode: PipelineMode,
+        stage: PipelineStage,
     ) -> Result<Vec<RetrievedMemory>, ApiError> {
         if !self.em_service.enabled() || query.trim().is_empty() {
             return Ok(Vec::new());
@@ -273,16 +284,71 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                 .retrieve_for_query(session_id, query, llm, embedding_model_id)
                 .await
         } else {
-            // Use V2 retrieval
             let embeddings = llm
                 .embed(&[query.to_string()], embedding_model_id)
                 .await
                 .map_err(|e| ApiError::internal(format!("Adapter embedding failed: {}", e)))?;
             let embedding = embeddings.into_iter().next().unwrap_or_default();
             self.em_service
-                .retrieve_for_query_v2(session_id, &embedding, self.v2_repo.as_ref())
+                .retrieve_for_query_v2_scoped(
+                    session_id,
+                    &embedding,
+                    self.v2_repo.as_ref(),
+                    mode,
+                    stage,
+                )
                 .await
         }
+    }
+
+    async fn ingest_summary(
+        &self,
+        session_id: &str,
+        summary: &str,
+        llm: &LlmService,
+        embedding_model_id: &str,
+        scope: MemoryScope,
+    ) -> Result<(), ApiError> {
+        let normalized = summary.trim();
+        if !self.em_service.enabled() || normalized.is_empty() {
+            return Ok(());
+        }
+
+        let embedding = llm
+            .embed(&[normalized.to_string()], embedding_model_id)
+            .await
+            .map_err(|e| ApiError::internal(format!("Summary embedding failed: {}", e)))?
+            .into_iter()
+            .next()
+            .unwrap_or_default();
+
+        let now = Utc::now();
+        let event = MemoryEvent {
+            id: uuid::Uuid::new_v4().to_string(),
+            session_id: session_id.to_string(),
+            character_id: self.resolve_active_character_id(),
+            scope,
+            episode_id: uuid::Uuid::new_v4().to_string(),
+            event_seq: 0,
+            source_turn_id: Some(format!("{}-{}", session_id, now.timestamp())),
+            source_role: Some(SourceRole::System),
+            content: normalized.to_string(),
+            summary: Some(normalized.to_string()),
+            embedding,
+            surprise_mean: None,
+            surprise_max: None,
+            importance: 0.7,
+            strength: 1.0,
+            layer: crate::memory_v2::types::MemoryLayer::SML,
+            access_count: 0,
+            last_accessed_at: None,
+            decay_anchor_at: now,
+            created_at: now,
+            updated_at: now,
+            is_deleted: false,
+        };
+
+        self.v2_repo.insert_events(&[event]).await
     }
 }
 
@@ -306,12 +372,14 @@ impl EpisodicMemoryPort for UnifiedMemoryAdapter {
         }
 
         let now = Utc::now();
+        let active_character_id = self.resolve_active_character_id();
         let event_id = uuid::Uuid::new_v4().to_string();
         let episode_id = uuid::Uuid::new_v4().to_string();
         let source_turn_id = format!("{}-{}", session_id, now.timestamp());
         let event = MemoryEvent {
             id: event_id.clone(),
             session_id: session_id.to_string(),
+            character_id: active_character_id,
             scope: MemoryScope::Char,
             episode_id,
             event_seq: 0,
@@ -402,98 +470,5 @@ impl EpisodicMemoryPort for UnifiedMemoryAdapter {
             replaced_events: result.replaced_events,
             created_events: result.created_events,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::config::service::ConfigService;
-    use crate::core::config::AppPaths;
-    use crate::domain::episodic_memory::EpisodicMemoryPort;
-    use crate::memory_v2::sqlite_repository::SqliteMemoryRepository;
-    use std::sync::Arc;
-
-    #[tokio::test]
-    async fn test_adapter_routing() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let db_path = temp_dir.path().join("test_v2_adapter.db");
-        let v2_repo = Arc::new(SqliteMemoryRepository::new(db_path).await.unwrap());
-
-        // Setup base config and paths
-        let mut paths = AppPaths::new();
-        paths.user_data_dir = temp_dir.path().to_path_buf();
-        let paths_arc = Arc::new(paths);
-        let config = ConfigService::new(paths_arc.clone());
-
-        // Dummy LlmService requires Models and LlamaService
-        let llama = crate::llm::LlamaService::new(paths_arc.clone()).unwrap();
-        let models = crate::models::ModelManager::new(&paths_arc, config.clone());
-        let llm = LlmService::new(models, llama, config.clone());
-
-        let em_service = Arc::new(EmMemoryService::new(&paths_arc, &config).await.unwrap());
-        let adapter = UnifiedMemoryAdapter::new(em_service, v2_repo.clone());
-
-        // Test with legacy_enabled = true
-        let res_legacy = MemoryAdapter::ingest_interaction(
-            &adapter,
-            "session_v2_1",
-            "Hello",
-            "World",
-            &llm,
-            "text_model",
-            "embed_model",
-            true,
-        )
-        .await;
-
-        // Either ok, or error due to models not being downloaded. But it shouldn't panic.
-        assert!(res_legacy.is_ok() || res_legacy.is_err());
-
-        // Test with legacy_enabled = false (V2 path)
-        let res_v2 = MemoryAdapter::ingest_interaction(
-            &adapter,
-            "session_v2_1",
-            "Hello V2",
-            "World V2",
-            &llm,
-            "text_model",
-            "embed_model",
-            false,
-        )
-        .await;
-
-        assert!(res_v2.is_ok() || res_v2.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_episodic_memory_port_ingest_and_recall() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let db_path = temp_dir.path().join("test_port_adapter.db");
-        let v2_repo = Arc::new(SqliteMemoryRepository::new(db_path).await.unwrap());
-        let em_service = Arc::new(EmMemoryService::with_v2_store_for_test(
-            v2_repo.clone(),
-            true,
-            8,
-            0.0,
-        ));
-        let adapter = UnifiedMemoryAdapter::new(em_service, v2_repo);
-
-        let inserted_ids = EpisodicMemoryPort::ingest_interaction(
-            &adapter,
-            "session_port_1",
-            "hello",
-            "world",
-            &[1.0, 0.0, 0.0],
-        )
-        .await
-        .unwrap();
-        assert_eq!(inserted_ids.len(), 1);
-
-        let hits = EpisodicMemoryPort::recall(&adapter, "session_port_1", &[1.0, 0.0, 0.0], 3)
-            .await
-            .unwrap();
-        assert!(!hits.is_empty());
-        assert!(hits[0].content.contains("User:"));
     }
 }

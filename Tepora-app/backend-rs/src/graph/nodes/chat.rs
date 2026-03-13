@@ -77,21 +77,16 @@ impl Node for ChatNode {
             state.pipeline_context = Some(pipeline_ctx);
         }
 
-        let mut messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+        if let Some(pipeline_ctx) = state.pipeline_context.as_mut() {
+            pipeline_ctx.reasoning.app_thinking_digest = state.thought_process.clone();
+            pipeline_ctx.user_input = state.input.clone();
+        }
+
+        let messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
             ContextPipeline::pipeline_to_context_result(pipeline_ctx).messages
         } else {
             state.chat_history.clone()
         };
-
-        if let Some(thought) = &state.thought_process {
-            messages.push(crate::llm::ChatMessage {
-                role: "system".to_string(),
-                content: format!(
-                    "Your reasoning process (use this to inform your response):\n{}",
-                    thought
-                ),
-            });
-        }
 
         let active_character = ctx
             .config
@@ -109,7 +104,7 @@ impl Node for ChatNode {
         let mut stream = ctx
             .app_state
             .llm
-            .stream_chat(request, &model_id)
+            .stream_chat_normalized(request, &model_id)
             .await
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
@@ -118,15 +113,25 @@ impl Node for ChatNode {
         while let Some(chunk_result) = stream.recv().await {
             match chunk_result {
                 Ok(chunk) => {
-                    if chunk.is_empty() {
+                    if !chunk.model_thinking.is_empty() {
+                        let _ = ctx
+                            .sender
+                            .send_json(json!({
+                                "type": "thought",
+                                "content": chunk.model_thinking,
+                                "mode": "chat",
+                            }))
+                            .await;
+                    }
+                    if chunk.visible_text.is_empty() {
                         continue;
                     }
-                    full_response.push_str(&chunk);
+                    full_response.push_str(&chunk.visible_text);
                     let _ = ctx
                         .sender
                         .send_json(json!({
                             "type": "chunk",
-                            "message": chunk,
+                            "message": chunk.visible_text,
                             "mode": "chat",
                         }))
                         .await;

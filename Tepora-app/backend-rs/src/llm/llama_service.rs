@@ -42,7 +42,7 @@ impl Drop for LlamaManager {
     }
 }
 
-use crate::llm::types::ChatMessage;
+use crate::llm::types::{ChatMessage, NormalizedAssistantTurn, NormalizedStreamChunk};
 
 // Removed duplicate struct ChatMessage
 
@@ -290,12 +290,12 @@ impl LlamaService {
         Ok(result)
     }
 
-    pub async fn chat(
+    pub async fn chat_normalized(
         &self,
         config: &ModelRuntimeConfig,
         messages: Vec<ChatMessage>,
         timeout: Duration,
-    ) -> Result<String, ApiError> {
+    ) -> Result<NormalizedAssistantTurn, ApiError> {
         self.ensure_running(config, timeout).await?;
 
         let manager = self.inner.lock().await;
@@ -322,7 +322,6 @@ impl LlamaService {
             "repeat_penalty": config.repeat_penalty.unwrap_or(1.1),
             "stop": stop
         });
-        // Add optional llama.cpp parameters
         if let Some(obj) = body.as_object_mut() {
             if let Some(v) = config.seed {
                 obj.insert("seed".into(), json!(v));
@@ -381,17 +380,39 @@ impl LlamaService {
         }
 
         let data: Value = res.json().await.map_err(ApiError::internal)?;
-        let content = extract_field_text(&data, &["content", "text", "response"]);
-        let reasoning = extract_field_text(&data, &["reasoning", "reasoning_content", "thinking"]);
-        Ok(compose_reasoned_content(&reasoning, &content))
+        Ok(NormalizedAssistantTurn {
+            visible_text: extract_field_text(&data, &["content", "text", "response"]),
+            model_thinking: extract_field_text(
+                &data,
+                &["reasoning", "reasoning_content", "thinking"],
+            ),
+            finish_reason: data
+                .get("stop_type")
+                .and_then(|value| value.as_str())
+                .map(str::to_string),
+            usage: None,
+        })
     }
 
-    pub async fn stream_chat(
+    pub async fn chat(
         &self,
         config: &ModelRuntimeConfig,
         messages: Vec<ChatMessage>,
         timeout: Duration,
-    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+    ) -> Result<String, ApiError> {
+        let normalized = self.chat_normalized(config, messages, timeout).await?;
+        Ok(compose_reasoned_content(
+            &normalized.model_thinking,
+            &normalized.visible_text,
+        ))
+    }
+
+    pub async fn stream_chat_normalized(
+        &self,
+        config: &ModelRuntimeConfig,
+        messages: Vec<ChatMessage>,
+        timeout: Duration,
+    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
         self.ensure_running(config, timeout).await?;
 
         let manager = self.inner.lock().await;
@@ -409,7 +430,6 @@ impl LlamaService {
             "top_k": config.top_k.unwrap_or(40),
             "repeat_penalty": config.repeat_penalty.unwrap_or(1.1),
         });
-        // Add optional llama.cpp parameters
         if let Some(obj) = body.as_object_mut() {
             if let Some(v) = config.seed {
                 obj.insert("seed".into(), json!(v));
@@ -456,7 +476,6 @@ impl LlamaService {
         let client = self.client.clone();
 
         tokio::spawn(async move {
-            let mut is_reasoning_open = false;
             let mut res = match client.post(&url).json(&body).send().await {
                 Ok(r) => r,
                 Err(e) => {
@@ -470,31 +489,29 @@ impl LlamaService {
                 for line in text.lines() {
                     if let Some(json_str) = line.strip_prefix("data: ") {
                         if let Ok(val) = serde_json::from_str::<Value>(json_str) {
-                            let mut chunk_to_send = String::new();
                             let reasoning = extract_field_text(
                                 &val,
                                 &["reasoning", "reasoning_content", "thinking"],
                             );
-                            if !reasoning.is_empty() {
-                                if !is_reasoning_open {
-                                    chunk_to_send.push_str("<think>\n");
-                                    is_reasoning_open = true;
-                                }
-                                chunk_to_send.push_str(&reasoning);
-                            }
-
                             let content =
                                 extract_field_text(&val, &["content", "text", "response"]);
-                            if !content.is_empty() {
-                                if is_reasoning_open {
-                                    chunk_to_send.push_str("\n</think>\n");
-                                    is_reasoning_open = false;
-                                }
-                                chunk_to_send.push_str(&content);
-                            }
+                            let done = val.get("stop").and_then(|value| value.as_bool())
+                                == Some(true)
+                                || val.get("stopped_eos").and_then(|value| value.as_bool())
+                                    == Some(true)
+                                || val.get("stopped_word").and_then(|value| value.as_bool())
+                                    == Some(true);
 
-                            if !chunk_to_send.is_empty()
-                                && tx.send(Ok(chunk_to_send)).await.is_err()
+                            if (!reasoning.is_empty() || !content.is_empty() || done)
+                                && tx
+                                    .send(Ok(NormalizedStreamChunk {
+                                        visible_text: content,
+                                        model_thinking: reasoning,
+                                        done,
+                                        usage: None,
+                                    }))
+                                    .await
+                                    .is_err()
                             {
                                 return;
                             }
@@ -502,11 +519,47 @@ impl LlamaService {
                     }
                 }
             }
-            if is_reasoning_open {
-                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-            }
+            let _ = tx
+                .send(Ok(NormalizedStreamChunk {
+                    visible_text: String::new(),
+                    model_thinking: String::new(),
+                    done: true,
+                    usage: None,
+                }))
+                .await;
         });
 
+        Ok(rx)
+    }
+
+    pub async fn stream_chat(
+        &self,
+        config: &ModelRuntimeConfig,
+        messages: Vec<ChatMessage>,
+        timeout: Duration,
+    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+        let mut normalized = self
+            .stream_chat_normalized(config, messages, timeout)
+            .await?;
+        let (tx, rx) = mpsc::channel(100);
+        tokio::spawn(async move {
+            while let Some(item) = normalized.recv().await {
+                match item {
+                    Ok(chunk) => {
+                        let merged =
+                            compose_reasoned_content(&chunk.model_thinking, &chunk.visible_text);
+                        if (!merged.is_empty() || chunk.done) && tx.send(Ok(merged)).await.is_err()
+                        {
+                            return;
+                        }
+                    }
+                    Err(err) => {
+                        let _ = tx.send(Err(err)).await;
+                        return;
+                    }
+                }
+            }
+        });
         Ok(rx)
     }
 

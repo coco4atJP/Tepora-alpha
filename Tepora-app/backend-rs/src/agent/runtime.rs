@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+﻿use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::stream::SplitSink;
@@ -21,7 +21,7 @@ use super::instructions::build_agent_instructions;
 use super::planner::{generate_execution_plan, requires_fast_mode_planning};
 
 #[derive(Debug, Clone)]
-pub struct CustomAgentRuntime {
+pub struct ExecutionAgentRuntime {
     pub id: String,
     pub name: String,
     pub system_prompt: String,
@@ -174,6 +174,7 @@ pub async fn run_agent_mode(
             state,
             &agent_chat_config,
             user_input,
+            &messages,
             selected_agent.as_ref(),
             thinking_mode,
         )
@@ -414,7 +415,7 @@ pub async fn run_agent_mode(
     Ok(fallback)
 }
 
-fn build_agent_chat_config(config: &Value, selected_agent: Option<&CustomAgentRuntime>) -> Value {
+fn build_agent_chat_config(config: &Value, selected_agent: Option<&ExecutionAgentRuntime>) -> Value {
     let mut overridden = config.clone();
     let Some(model_key) = selected_agent
         .and_then(|agent| agent.model_config_name.as_deref())
@@ -624,11 +625,11 @@ fn choose_agent_from_manager(
     state: &AppState,
     requested_agent_id: Option<&str>,
     user_input: &str,
-) -> Option<CustomAgentRuntime> {
+) -> Option<ExecutionAgentRuntime> {
     state
         .exclusive_agents
         .choose_agent(requested_agent_id, user_input)
-        .map(|agent| CustomAgentRuntime {
+        .map(|agent| ExecutionAgentRuntime {
             id: agent.id,
             name: agent.name,
             system_prompt: agent.system_prompt,
@@ -636,5 +637,8 @@ fn choose_agent_from_manager(
             tool_policy: agent.tool_policy.to_custom_tool_policy(),
         })
 }
+
+
+
 
 

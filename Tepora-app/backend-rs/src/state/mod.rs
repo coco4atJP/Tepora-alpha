@@ -308,7 +308,7 @@ impl AppState {
 
         if exclusive_agents.list_all().is_empty() {
             if let Err(e) = exclusive_agents.create_default_config() {
-                tracing::warn!("Failed to create default custom_agents config: {}", e);
+                tracing::warn!("Failed to create default execution-agent packages: {}", e);
             }
         }
 

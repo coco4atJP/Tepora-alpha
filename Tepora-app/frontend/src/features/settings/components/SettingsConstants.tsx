@@ -6,10 +6,8 @@ export const NAV_ITEMS: NavItem[] = [
 	{ id: "privacy", label: "Privacy", icon: <Shield size={18} /> },
 	{ id: "data_storage", label: "Data Storage", icon: <HardDrive size={18} /> },
 	{ id: "system_performance", label: "System Performance", icon: <Cpu size={18} /> },
-	// Custom Group
 	{ id: "agents", label: "Characters", icon: <Users size={18} />, group: "custom" },
-	{ id: "custom_agents", label: "Professional", icon: <Briefcase size={18} />, group: "custom" },
-
+	{ id: "execution_agents", label: "Execution Agents", icon: <Briefcase size={18} />, group: "custom" },
 	{ id: "models", label: "Models", icon: <SlidersHorizontal size={18} /> },
 	{ id: "mcp", label: "MCP Tools", icon: <Database size={18} /> },
 	{ id: "memory", label: "Memory", icon: <Brain size={18} /> },

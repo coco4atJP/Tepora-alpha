@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
+use crate::agent::exclusive_manager::{ExclusiveAgentManager, ExecutionAgent};
+
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
 use crate::history::{HistoryMessage, HistoryStore, SessionInfo};
@@ -238,6 +240,8 @@ pub struct BackupPayload {
     pub manifest: BackupManifest,
     #[serde(default)]
     pub config: Option<Value>,
+    #[serde(default)]
+    pub execution_agents: Vec<ExecutionAgent>,
     #[serde(default)]
     pub sessions: Vec<BackupSession>,
 }
@@ -663,6 +667,7 @@ impl SecurityControls {
         &self,
         request: &BackupExportRequest,
         history: &HistoryStore,
+        exclusive_agents: &ExclusiveAgentManager,
     ) -> Result<BackupExportPayload, ApiError> {
         if request.passphrase.trim().is_empty() {
             return Err(ApiError::BadRequest(
@@ -692,6 +697,11 @@ impl SecurityControls {
         let payload = BackupPayload {
             manifest: manifest.clone(),
             config: config_payload,
+            execution_agents: if request.include_executors {
+                exclusive_agents.list_all()
+            } else {
+                Vec::new()
+            },
             sessions,
         };
         let serialized = serde_json::to_vec(&payload).map_err(ApiError::internal)?;
@@ -717,6 +727,7 @@ impl SecurityControls {
         &self,
         request: &BackupImportRequest,
         history: &HistoryStore,
+        exclusive_agents: &ExclusiveAgentManager,
     ) -> Result<BackupImportResult, ApiError> {
         let stage = request.stage.trim().to_lowercase();
         if !["verify", "dry_run", "apply"].contains(&stage.as_str()) {
@@ -750,6 +761,9 @@ impl SecurityControls {
         if stage == "apply" {
             if let Some(config_value) = payload.config.clone() {
                 self.config.update_config(config_value, false)?;
+            }
+            if payload.manifest.include_executors {
+                exclusive_agents.replace_all(payload.execution_agents.clone())?;
             }
             for session in &payload.sessions {
                 let _ = history.delete_session(&session.session.id).await;
@@ -956,11 +970,7 @@ fn build_backup_config(config: &Value, request: &BackupExportRequest) -> Option<
             partial.insert("characters".to_string(), value.clone());
         }
     }
-    if request.include_executors {
-        if let Some(value) = root.get("custom_agents") {
-            partial.insert("custom_agents".to_string(), value.clone());
-        }
-    }
+
     if partial.is_empty() {
         None
     } else {

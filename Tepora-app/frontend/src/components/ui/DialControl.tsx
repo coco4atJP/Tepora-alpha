@@ -192,7 +192,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 		<div className={`flex flex-col items-center select-none ${className}`} style={{ width: size }}>
 			<div
 				ref={dialRef}
-				className="relative cursor-pointer group flex items-center justify-center rounded-full transition-transform hover:scale-[1.02]"
+				className="relative cursor-grab active:cursor-grabbing group flex items-center justify-center rounded-full transition-transform hover:scale-[1.02]"
 				onMouseDown={handleMouseDown}
 				style={{ width: size, height: size }}
 				role="slider"
@@ -272,7 +272,7 @@ export const DialControl: React.FC<DialControlProps> = ({
 						/>
 					) : (
 						<span
-							className="text-2xl font-semibold text-white/90 tracking-tight hover:text-tea-300 transition-colors pointer-events-auto cursor-text text-shadow-sm"
+							className="text-2xl font-semibold text-white/90 tracking-tight hover:text-tea-300 transition-colors pointer-events-auto cursor-text text-shadow-sm relative group/edit px-2 py-1"
 							onClick={handleEditStart}
 							title="Click to edit"
 						>

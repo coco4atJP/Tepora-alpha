@@ -67,7 +67,7 @@ pub const NATIVE_TOOLS: &[NativeTool] = &[
 
 // --- エイリアス解決 ---
 
-/// `agents.yaml` 等で使用される短縮名・エイリアスを正準名に解決する。
+/// ExecutionAgent package 等で使用される短縮名・エイリアスを正準名に解決する。
 ///
 /// # 変換例
 /// - `"web_search"` / `"search"` → `"native_search"`

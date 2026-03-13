@@ -163,6 +163,10 @@ pub struct ModelEntry {
     pub description: Option<String>,
     #[serde(default)]
     pub format: Option<String>, // "gguf", "mlx" 等
+    #[serde(default)]
+    pub tokenizer_path: Option<String>,
+    #[serde(default)]
+    pub tokenizer_format: Option<String>,
 }
 
 /// モデルレジストリ（models.json ルート）

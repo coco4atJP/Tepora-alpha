@@ -27,6 +27,7 @@ mod sqlite_repository_tests {
         MemoryEvent {
             id: id.to_string(),
             session_id: session_id.to_string(),
+            character_id: None,
             scope,
             episode_id: episode_id.to_string(),
             event_seq: seq,
@@ -244,7 +245,7 @@ mod sqlite_repository_tests {
         .unwrap();
 
         let results = repo
-            .retrieve_similar("s1", Some(MemoryScope::Char), &[1.0, 0.0, 0.0], 2)
+            .retrieve_similar(Some("s1"), Some(MemoryScope::Char), &[1.0, 0.0, 0.0], 2)
             .await
             .unwrap();
         assert_eq!(results.len(), 2);
@@ -283,7 +284,7 @@ mod sqlite_repository_tests {
             .unwrap();
 
         let results = repo
-            .retrieve_similar("s1", None, &[1.0, 0.0], 10)
+            .retrieve_similar(Some("s1"), None, &[1.0, 0.0], 10)
             .await
             .unwrap();
         assert_eq!(results.len(), 1);
@@ -304,7 +305,10 @@ mod sqlite_repository_tests {
         ))
         .await
         .unwrap();
-        let results = repo.retrieve_similar("s1", None, &[], 10).await.unwrap();
+        let results = repo
+            .retrieve_similar(Some("s1"), None, &[], 10)
+            .await
+            .unwrap();
         assert!(results.is_empty());
     }
 
@@ -557,7 +561,10 @@ mod sqlite_repository_tests {
         .unwrap();
         repo.update_layer("ss2", MemoryLayer::LML).await.unwrap();
 
-        let stats = repo.scope_stats("s1", MemoryScope::Char).await.unwrap();
+        let stats = repo
+            .scope_stats(Some("s1"), MemoryScope::Char)
+            .await
+            .unwrap();
         assert_eq!(stats.total_events, 2);
         assert_eq!(stats.layer_counts.sml, 1);
         assert_eq!(stats.layer_counts.lml, 1);
@@ -675,7 +682,7 @@ mod sqlite_repository_tests {
         repo.create_compaction_job(&job).await.unwrap();
 
         let jobs = repo
-            .list_compaction_jobs("s1", None, Some(CompactionStatus::Queued))
+            .list_compaction_jobs(Some("s1"), None, Some(CompactionStatus::Queued))
             .await
             .unwrap();
         assert_eq!(jobs.len(), 1);
@@ -692,7 +699,7 @@ mod sqlite_repository_tests {
         repo.update_compaction_job(&updated_job).await.unwrap();
 
         let jobs = repo
-            .list_compaction_jobs("s1", None, Some(CompactionStatus::Done))
+            .list_compaction_jobs(Some("s1"), None, Some(CompactionStatus::Done))
             .await
             .unwrap();
         assert_eq!(jobs.len(), 1);

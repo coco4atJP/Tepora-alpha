@@ -318,6 +318,9 @@ impl MemoryCompressor {
             let new_event = MemoryEvent {
                 id: new_id.clone(),
                 session_id: session_id.to_string(),
+                character_id: selected
+                    .first()
+                    .and_then(|event| event.character_id.clone()),
                 scope,
                 episode_id: "[compressed]".to_string(),
                 event_seq: 0,

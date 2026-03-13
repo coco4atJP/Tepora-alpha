@@ -9,7 +9,9 @@ use tokio::sync::mpsc;
 use crate::core::config::ConfigService;
 use crate::core::errors::ApiError;
 use crate::llm::llama_service::LlamaService;
-use crate::llm::types::{ChatMessage, ChatRequest};
+use crate::llm::types::{
+    ChatMessage, ChatRequest, NormalizedAssistantTurn, NormalizedStreamChunk, TokenUsage,
+};
 use crate::models::types::{ModelEntry, ModelRuntimeConfig};
 use crate::models::ModelManager;
 
@@ -46,6 +48,14 @@ impl LlmService {
     }
 
     pub async fn chat(&self, request: ChatRequest, model_id: &str) -> Result<String, ApiError> {
+        Ok(self.chat_normalized(request, model_id).await?.visible_text)
+    }
+
+    pub async fn chat_normalized(
+        &self,
+        request: ChatRequest,
+        model_id: &str,
+    ) -> Result<NormalizedAssistantTurn, ApiError> {
         let target = self.resolve_model_target(model_id, &request)?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
@@ -58,7 +68,7 @@ impl LlmService {
                         content: m.content.clone(),
                     })
                     .collect();
-                self.llama.chat(&config, messages, timeout).await
+                self.llama.chat_normalized(&config, messages, timeout).await
             }
             ModelExecutionTarget::OpenAiCompatible {
                 loader,
@@ -108,6 +118,33 @@ impl LlmService {
         request: ChatRequest,
         model_id: &str,
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+        let mut normalized = self.stream_chat_normalized(request, model_id).await?;
+        let (tx, rx) = mpsc::channel(128);
+        tokio::spawn(async move {
+            while let Some(item) = normalized.recv().await {
+                match item {
+                    Ok(chunk) => {
+                        if !chunk.visible_text.is_empty()
+                            && tx.send(Ok(chunk.visible_text)).await.is_err()
+                        {
+                            return;
+                        }
+                    }
+                    Err(err) => {
+                        let _ = tx.send(Err(err)).await;
+                        return;
+                    }
+                }
+            }
+        });
+        Ok(rx)
+    }
+
+    pub async fn stream_chat_normalized(
+        &self,
+        request: ChatRequest,
+        model_id: &str,
+    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
         let target = self.resolve_model_target(model_id, &request)?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
@@ -120,7 +157,9 @@ impl LlmService {
                         content: m.content.clone(),
                     })
                     .collect();
-                self.llama.stream_chat(&config, messages, timeout).await
+                self.llama
+                    .stream_chat_normalized(&config, messages, timeout)
+                    .await
             }
             ModelExecutionTarget::OpenAiCompatible {
                 loader,
@@ -409,7 +448,7 @@ impl LlmService {
         base_url: &str,
         model_name: &str,
         request: ChatRequest,
-    ) -> Result<String, ApiError> {
+    ) -> Result<NormalizedAssistantTurn, ApiError> {
         let endpoint = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
         let mut body = json!({
             "model": model_name,
@@ -444,6 +483,12 @@ impl LlmService {
             if let Some(v) = request.presence_penalty {
                 obj.insert("presence_penalty".to_string(), json!(v));
             }
+            if loader.eq_ignore_ascii_case("lmstudio") {
+                obj.insert(
+                    "stream_options".to_string(),
+                    json!({ "include_usage": true }),
+                );
+            }
         }
 
         let request_timeout = self.get_external_loader_request_timeout();
@@ -463,20 +508,26 @@ impl LlmService {
         }
 
         let payload: Value = response.json().await.map_err(ApiError::internal)?;
-        let content = payload
+        let choice = payload
             .get("choices")
             .and_then(|v| v.as_array())
-            .and_then(|choices| choices.first())
+            .and_then(|choices| choices.first());
+        let message = choice
             .and_then(|choice| choice.get("message"))
-            .map(|message| {
-                let text = extract_field_text(message, &["content", "text"]);
-                let reasoning =
-                    extract_field_text(message, &["reasoning", "reasoning_content", "thinking"]);
-                compose_reasoned_content(&reasoning, &text)
-            })
-            .unwrap_or_default();
+            .unwrap_or(&Value::Null);
 
-        Ok(content)
+        Ok(NormalizedAssistantTurn {
+            visible_text: extract_field_text(message, &["content", "text"]),
+            model_thinking: extract_field_text(
+                message,
+                &["reasoning", "reasoning_content", "thinking"],
+            ),
+            finish_reason: choice
+                .and_then(|choice| choice.get("finish_reason"))
+                .and_then(|value| value.as_str())
+                .map(str::to_string),
+            usage: extract_usage(&payload),
+        })
     }
 
     async fn stream_chat_openai_compatible(
@@ -485,7 +536,7 @@ impl LlmService {
         base_url: &str,
         model_name: &str,
         request: ChatRequest,
-    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
         let endpoint = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
         let mut body = json!({
             "model": model_name,
@@ -544,7 +595,6 @@ impl LlmService {
         let loader_name = loader.to_string();
         tokio::spawn(async move {
             let mut buffer = String::new();
-            let mut is_reasoning_open = false;
             loop {
                 let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
                 let next = match next {
@@ -577,9 +627,14 @@ impl LlmService {
                                 continue;
                             }
                             if line == "data: [DONE]" {
-                                if is_reasoning_open {
-                                    let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-                                }
+                                let _ = tx
+                                    .send(Ok(NormalizedStreamChunk {
+                                        visible_text: String::new(),
+                                        model_thinking: String::new(),
+                                        done: true,
+                                        usage: None,
+                                    }))
+                                    .await;
                                 return;
                             }
 
@@ -605,9 +660,6 @@ impl LlmService {
                                 .and_then(|choices| choices.first())
                                 .and_then(|choice| choice.get("delta"));
 
-                            let mut chunk_to_send = String::new();
-
-                            // Track reasoning/thinking content from OpenAI-compatible variants
                             let reasoning = delta
                                 .map(|d| {
                                     extract_field_text(
@@ -616,28 +668,20 @@ impl LlmService {
                                     )
                                 })
                                 .unwrap_or_default();
-                            if !reasoning.is_empty() {
-                                if !is_reasoning_open {
-                                    chunk_to_send.push_str("<think>\n");
-                                    is_reasoning_open = true;
-                                }
-                                chunk_to_send.push_str(&reasoning);
-                            }
-
-                            // Track standard content
                             let content = delta
                                 .map(|d| extract_field_text(d, &["content", "text"]))
                                 .unwrap_or_default();
-                            if !content.is_empty() {
-                                if is_reasoning_open {
-                                    chunk_to_send.push_str("\n</think>\n");
-                                    is_reasoning_open = false;
-                                }
-                                chunk_to_send.push_str(&content);
-                            }
 
-                            if !chunk_to_send.is_empty()
-                                && tx.send(Ok(chunk_to_send)).await.is_err()
+                            if (!reasoning.is_empty() || !content.is_empty())
+                                && tx
+                                    .send(Ok(NormalizedStreamChunk {
+                                        visible_text: content,
+                                        model_thinking: reasoning,
+                                        done: false,
+                                        usage: extract_usage(&parsed),
+                                    }))
+                                    .await
+                                    .is_err()
                             {
                                 return;
                             }
@@ -656,51 +700,48 @@ impl LlmService {
             }
 
             let trailing = buffer.trim();
-            if trailing.is_empty() || trailing == "data: [DONE]" {
-                return;
-            }
-            if let Some(data) = trailing.strip_prefix("data: ") {
-                if let Ok(parsed) = serde_json::from_str::<Value>(data) {
-                    let delta = parsed
-                        .get("choices")
-                        .and_then(|v| v.as_array())
-                        .and_then(|choices| choices.first())
-                        .and_then(|choice| choice.get("delta"));
+            if !trailing.is_empty() && trailing != "data: [DONE]" {
+                if let Some(data) = trailing.strip_prefix("data: ") {
+                    if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                        let delta = parsed
+                            .get("choices")
+                            .and_then(|v| v.as_array())
+                            .and_then(|choices| choices.first())
+                            .and_then(|choice| choice.get("delta"));
 
-                    let mut chunk_to_send = String::new();
+                        let reasoning = delta
+                            .map(|d| {
+                                extract_field_text(
+                                    d,
+                                    &["reasoning", "reasoning_content", "thinking"],
+                                )
+                            })
+                            .unwrap_or_default();
+                        let content = delta
+                            .map(|d| extract_field_text(d, &["content", "text"]))
+                            .unwrap_or_default();
 
-                    let reasoning = delta
-                        .map(|d| {
-                            extract_field_text(d, &["reasoning", "reasoning_content", "thinking"])
-                        })
-                        .unwrap_or_default();
-                    if !reasoning.is_empty() {
-                        if !is_reasoning_open {
-                            chunk_to_send.push_str("<think>\n");
-                            is_reasoning_open = true;
+                        if !reasoning.is_empty() || !content.is_empty() {
+                            let _ = tx
+                                .send(Ok(NormalizedStreamChunk {
+                                    visible_text: content,
+                                    model_thinking: reasoning,
+                                    done: false,
+                                    usage: extract_usage(&parsed),
+                                }))
+                                .await;
                         }
-                        chunk_to_send.push_str(&reasoning);
-                    }
-
-                    let content = delta
-                        .map(|d| extract_field_text(d, &["content", "text"]))
-                        .unwrap_or_default();
-                    if !content.is_empty() {
-                        if is_reasoning_open {
-                            chunk_to_send.push_str("\n</think>\n");
-                            is_reasoning_open = false;
-                        }
-                        chunk_to_send.push_str(&content);
-                    }
-
-                    if !chunk_to_send.is_empty() {
-                        let _ = tx.send(Ok(chunk_to_send)).await;
                     }
                 }
             }
-            if is_reasoning_open {
-                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-            }
+            let _ = tx
+                .send(Ok(NormalizedStreamChunk {
+                    visible_text: String::new(),
+                    model_thinking: String::new(),
+                    done: true,
+                    usage: None,
+                }))
+                .await;
         });
 
         Ok(rx)
@@ -711,7 +752,7 @@ impl LlmService {
         base_url: &str,
         model_name: &str,
         request: ChatRequest,
-    ) -> Result<String, ApiError> {
+    ) -> Result<NormalizedAssistantTurn, ApiError> {
         let endpoint = format!("{}/api/chat", base_url.trim_end_matches('/'));
         let mut body = json!({
             "model": model_name,
@@ -801,10 +842,18 @@ impl LlmService {
 
         let payload: Value = response.json().await.map_err(ApiError::internal)?;
         let message = payload.get("message").unwrap_or(&Value::Null);
-        let text = extract_field_text(message, &["content", "text"]);
-        let reasoning =
-            extract_field_text(message, &["thinking", "reasoning", "reasoning_content"]);
-        Ok(compose_reasoned_content(&reasoning, &text))
+        Ok(NormalizedAssistantTurn {
+            visible_text: extract_field_text(message, &["content", "text"]),
+            model_thinking: extract_field_text(
+                message,
+                &["thinking", "reasoning", "reasoning_content"],
+            ),
+            finish_reason: payload
+                .get("done_reason")
+                .and_then(|value| value.as_str())
+                .map(str::to_string),
+            usage: extract_usage(&payload),
+        })
     }
 
     async fn stream_chat_ollama_native(
@@ -812,7 +861,7 @@ impl LlmService {
         base_url: &str,
         model_name: &str,
         request: ChatRequest,
-    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
         let endpoint = format!("{}/api/chat", base_url.trim_end_matches('/'));
         let mut body = json!({
             "model": model_name,
@@ -837,7 +886,6 @@ impl LlmService {
             if let Some(v) = request.max_tokens {
                 options.insert("num_predict".to_string(), json!(v));
             }
-            // Common parameters
             if let Some(v) = request.seed {
                 options.insert("seed".to_string(), json!(v));
             }
@@ -850,7 +898,6 @@ impl LlmService {
             if let Some(v) = request.min_p {
                 options.insert("min_p".to_string(), json!(v));
             }
-            // Ollama-specific sampling parameters
             if let Some(v) = request.tfs_z {
                 options.insert("tfs_z".to_string(), json!(v));
             }
@@ -904,7 +951,6 @@ impl LlmService {
         let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
         tokio::spawn(async move {
             let mut buffer = String::new();
-            let mut is_reasoning_open = false;
             loop {
                 let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
                 let next = match next {
@@ -955,39 +1001,28 @@ impl LlmService {
                             }
 
                             let message = parsed.get("message").unwrap_or(&Value::Null);
-                            let mut chunk_to_send = String::new();
-
                             let reasoning = extract_field_text(
                                 message,
                                 &["thinking", "reasoning", "reasoning_content"],
                             );
-                            if !reasoning.is_empty() {
-                                if !is_reasoning_open {
-                                    chunk_to_send.push_str("<think>\n");
-                                    is_reasoning_open = true;
-                                }
-                                chunk_to_send.push_str(&reasoning);
-                            }
-
                             let content = extract_field_text(message, &["content", "text"]);
-                            if !content.is_empty() {
-                                if is_reasoning_open {
-                                    chunk_to_send.push_str("\n</think>\n");
-                                    is_reasoning_open = false;
-                                }
-                                chunk_to_send.push_str(&content);
-                            }
+                            let done = parsed.get("done").and_then(|v| v.as_bool()) == Some(true);
 
-                            if !chunk_to_send.is_empty()
-                                && tx.send(Ok(chunk_to_send)).await.is_err()
+                            if (!reasoning.is_empty() || !content.is_empty() || done)
+                                && tx
+                                    .send(Ok(NormalizedStreamChunk {
+                                        visible_text: content,
+                                        model_thinking: reasoning,
+                                        done,
+                                        usage: extract_usage(&parsed),
+                                    }))
+                                    .await
+                                    .is_err()
                             {
                                 return;
                             }
 
-                            if parsed.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                                if is_reasoning_open {
-                                    let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-                                }
+                            if done {
                                 return;
                             }
                         }
@@ -1008,38 +1043,34 @@ impl LlmService {
             if !trailing.is_empty() {
                 if let Ok(parsed) = serde_json::from_str::<Value>(trailing) {
                     let message = parsed.get("message").unwrap_or(&Value::Null);
-                    let mut chunk_to_send = String::new();
-
                     let reasoning = extract_field_text(
                         message,
                         &["thinking", "reasoning", "reasoning_content"],
                     );
-                    if !reasoning.is_empty() {
-                        if !is_reasoning_open {
-                            chunk_to_send.push_str("<think>\n");
-                            is_reasoning_open = true;
-                        }
-                        chunk_to_send.push_str(&reasoning);
-                    }
-
                     let content = extract_field_text(message, &["content", "text"]);
-                    if !content.is_empty() {
-                        if is_reasoning_open {
-                            chunk_to_send.push_str("\n</think>\n");
-                            is_reasoning_open = false;
-                        }
-                        chunk_to_send.push_str(&content);
-                    }
+                    let done = parsed.get("done").and_then(|v| v.as_bool()) == Some(true);
 
-                    if !chunk_to_send.is_empty() {
-                        let _ = tx.send(Ok(chunk_to_send)).await;
+                    if !reasoning.is_empty() || !content.is_empty() || done {
+                        let _ = tx
+                            .send(Ok(NormalizedStreamChunk {
+                                visible_text: content,
+                                model_thinking: reasoning,
+                                done,
+                                usage: extract_usage(&parsed),
+                            }))
+                            .await;
                     }
                 }
             }
 
-            if is_reasoning_open {
-                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-            }
+            let _ = tx
+                .send(Ok(NormalizedStreamChunk {
+                    visible_text: String::new(),
+                    model_thinking: String::new(),
+                    done: true,
+                    usage: None,
+                }))
+                .await;
         });
 
         Ok(rx)
@@ -1050,7 +1081,7 @@ impl LlmService {
         base_url: &str,
         model_name: &str,
         request: ChatRequest,
-    ) -> Result<String, ApiError> {
+    ) -> Result<NormalizedAssistantTurn, ApiError> {
         let endpoint = format!("{}/api/v1/chat", base_url.trim_end_matches('/'));
 
         // Convert ChatMessage to LM Studio v1 input format
@@ -1135,7 +1166,12 @@ impl LlmService {
             }
         }
 
-        Ok(compose_reasoned_content(&reasoning_text, &message_text))
+        Ok(NormalizedAssistantTurn {
+            visible_text: message_text,
+            model_thinking: reasoning_text,
+            finish_reason: None,
+            usage: extract_usage(&payload),
+        })
     }
 
     async fn stream_chat_lmstudio_native(
@@ -1143,10 +1179,9 @@ impl LlmService {
         base_url: &str,
         model_name: &str,
         request: ChatRequest,
-    ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
+    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
         let endpoint = format!("{}/api/v1/chat", base_url.trim_end_matches('/'));
 
-        // Convert ChatMessage to LM Studio v1 input format
         let mut system_prompt: Option<String> = None;
         let mut input_items: Vec<Value> = Vec::new();
         for msg in &request.messages {
@@ -1215,8 +1250,6 @@ impl LlmService {
         let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
         tokio::spawn(async move {
             let mut buffer = String::new();
-            let mut is_reasoning_open = false;
-            // LM Studio v1 SSE format: "event: <type>\ndata: <json>\n\n"
             loop {
                 let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
                 let next = match next {
@@ -1240,8 +1273,11 @@ impl LlmService {
                     Ok(bytes) => {
                         buffer.push_str(&String::from_utf8_lossy(&bytes));
 
-                        // Parse SSE events: "event: <type>\ndata: <json>\n\n"
-                        while let Some(double_newline) = buffer.find("\n\n") {
+                        while let Some(double_newline) = buffer.find(
+                            "
+
+",
+                        ) {
                             let event_block = buffer[..double_newline].to_string();
                             buffer = buffer[(double_newline + 2)..].to_string();
 
@@ -1256,12 +1292,7 @@ impl LlmService {
                             }
 
                             match event_type.as_str() {
-                                "reasoning.start" => {
-                                    if !is_reasoning_open {
-                                        let _ = tx.send(Ok("<think>\n".to_string())).await;
-                                        is_reasoning_open = true;
-                                    }
-                                }
+                                "reasoning.start" | "reasoning.end" => {}
                                 "reasoning.delta" => {
                                     if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
                                         let content = parsed
@@ -1269,16 +1300,18 @@ impl LlmService {
                                             .and_then(|v| v.as_str())
                                             .unwrap_or("");
                                         if !content.is_empty()
-                                            && tx.send(Ok(content.to_string())).await.is_err()
+                                            && tx
+                                                .send(Ok(NormalizedStreamChunk {
+                                                    visible_text: String::new(),
+                                                    model_thinking: content.to_string(),
+                                                    done: false,
+                                                    usage: extract_usage(&parsed),
+                                                }))
+                                                .await
+                                                .is_err()
                                         {
                                             return;
                                         }
-                                    }
-                                }
-                                "reasoning.end" => {
-                                    if is_reasoning_open {
-                                        let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-                                        is_reasoning_open = false;
                                     }
                                 }
                                 "message.delta" => {
@@ -1288,16 +1321,32 @@ impl LlmService {
                                             .and_then(|v| v.as_str())
                                             .unwrap_or("");
                                         if !content.is_empty()
-                                            && tx.send(Ok(content.to_string())).await.is_err()
+                                            && tx
+                                                .send(Ok(NormalizedStreamChunk {
+                                                    visible_text: content.to_string(),
+                                                    model_thinking: String::new(),
+                                                    done: false,
+                                                    usage: extract_usage(&parsed),
+                                                }))
+                                                .await
+                                                .is_err()
                                         {
                                             return;
                                         }
                                     }
                                 }
                                 "chat.end" => {
-                                    if is_reasoning_open {
-                                        let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-                                    }
+                                    let usage = serde_json::from_str::<Value>(&event_data)
+                                        .ok()
+                                        .and_then(|payload| extract_usage(&payload));
+                                    let _ = tx
+                                        .send(Ok(NormalizedStreamChunk {
+                                            visible_text: String::new(),
+                                            model_thinking: String::new(),
+                                            done: true,
+                                            usage,
+                                        }))
+                                        .await;
                                     return;
                                 }
                                 "error" => {
@@ -1316,9 +1365,7 @@ impl LlmService {
                                         return;
                                     }
                                 }
-                                _ => {
-                                    // chat.start, model_load.*, prompt_processing.*, message.start, message.end, tool_call.* - skip
-                                }
+                                _ => {}
                             }
                         }
                     }
@@ -1334,9 +1381,14 @@ impl LlmService {
                 }
             }
 
-            if is_reasoning_open {
-                let _ = tx.send(Ok("\n</think>\n".to_string())).await;
-            }
+            let _ = tx
+                .send(Ok(NormalizedStreamChunk {
+                    visible_text: String::new(),
+                    model_thinking: String::new(),
+                    done: true,
+                    usage: None,
+                }))
+                .await;
         });
 
         Ok(rx)
@@ -1453,6 +1505,7 @@ impl LlmService {
     }
 }
 
+#[cfg(test)]
 fn compose_reasoned_content(reasoning: &str, content: &str) -> String {
     if reasoning.trim().is_empty() {
         content.to_string()
@@ -1492,6 +1545,140 @@ fn value_to_text(value: &Value) -> String {
         }
         _ => String::new(),
     }
+}
+
+#[cfg(test)]
+#[derive(Debug, Default)]
+struct ThinkTagDecoder {
+    buffer: String,
+    in_think: bool,
+}
+
+#[cfg(test)]
+impl ThinkTagDecoder {
+    fn push(&mut self, chunk: &str) -> Vec<NormalizedStreamChunk> {
+        self.buffer.push_str(chunk);
+        let mut out = Vec::new();
+
+        loop {
+            if self.in_think {
+                if let Some(end) = self.buffer.find("</think>") {
+                    let reasoning = self.buffer[..end].to_string();
+                    if !reasoning.is_empty() {
+                        out.push(NormalizedStreamChunk {
+                            visible_text: String::new(),
+                            model_thinking: reasoning,
+                            done: false,
+                            usage: None,
+                        });
+                    }
+                    self.buffer.drain(..end + "</think>".len());
+                    self.in_think = false;
+                    continue;
+                }
+
+                let keep = trailing_prefix_len(&self.buffer, "</think>");
+                let emit_len = self.buffer.len().saturating_sub(keep);
+                if emit_len == 0 {
+                    break;
+                }
+                let reasoning = self.buffer[..emit_len].to_string();
+                self.buffer.drain(..emit_len);
+                if !reasoning.is_empty() {
+                    out.push(NormalizedStreamChunk {
+                        visible_text: String::new(),
+                        model_thinking: reasoning,
+                        done: false,
+                        usage: None,
+                    });
+                }
+                break;
+            }
+
+            if let Some(start) = self.buffer.find("<think>") {
+                let visible = self.buffer[..start].to_string();
+                if !visible.is_empty() {
+                    out.push(NormalizedStreamChunk {
+                        visible_text: visible,
+                        model_thinking: String::new(),
+                        done: false,
+                        usage: None,
+                    });
+                }
+                self.buffer.drain(..start + "<think>".len());
+                self.in_think = true;
+                continue;
+            }
+
+            let keep = trailing_prefix_len(&self.buffer, "<think>");
+            let emit_len = self.buffer.len().saturating_sub(keep);
+            if emit_len == 0 {
+                break;
+            }
+            let visible = self.buffer[..emit_len].to_string();
+            self.buffer.drain(..emit_len);
+            if !visible.is_empty() {
+                out.push(NormalizedStreamChunk {
+                    visible_text: visible,
+                    model_thinking: String::new(),
+                    done: false,
+                    usage: None,
+                });
+            }
+            break;
+        }
+
+        out
+    }
+
+    fn finish(&mut self) -> Vec<NormalizedStreamChunk> {
+        if self.buffer.is_empty() {
+            return Vec::new();
+        }
+
+        let chunk = if self.in_think {
+            NormalizedStreamChunk {
+                visible_text: String::new(),
+                model_thinking: self.buffer.clone(),
+                done: true,
+                usage: None,
+            }
+        } else {
+            NormalizedStreamChunk {
+                visible_text: self.buffer.clone(),
+                model_thinking: String::new(),
+                done: true,
+                usage: None,
+            }
+        };
+        self.buffer.clear();
+        self.in_think = false;
+        vec![chunk]
+    }
+}
+
+#[cfg(test)]
+fn split_reasoned_content(content: &str) -> NormalizedAssistantTurn {
+    let mut decoder = ThinkTagDecoder::default();
+    let mut normalized = NormalizedAssistantTurn::default();
+    for chunk in decoder.push(content).into_iter().chain(decoder.finish()) {
+        normalized.visible_text.push_str(&chunk.visible_text);
+        normalized.model_thinking.push_str(&chunk.model_thinking);
+    }
+    normalized.visible_text = normalized.visible_text.trim().to_string();
+    normalized.model_thinking = normalized.model_thinking.trim().to_string();
+    normalized
+}
+
+#[cfg(test)]
+fn trailing_prefix_len(buffer: &str, marker: &str) -> usize {
+    let max_len = buffer.len().min(marker.len().saturating_sub(1));
+    for len in (1..=max_len).rev() {
+        if buffer.ends_with(&marker[..len]) {
+            return len;
+        }
+    }
+    0
 }
 
 fn normalize_loader_name(model: &ModelEntry) -> String {
@@ -1547,6 +1734,52 @@ fn loader_base_url(config: &Value, loader: &str, default_url: String) -> String 
         .unwrap_or(default_url)
 }
 
+fn extract_usage(payload: &Value) -> Option<TokenUsage> {
+    let usage = payload.get("usage");
+    let prompt_tokens = usage
+        .and_then(|value| value.get("prompt_tokens"))
+        .and_then(|value| value.as_u64())
+        .or_else(|| {
+            usage
+                .and_then(|value| value.get("input_tokens"))
+                .and_then(|value| value.as_u64())
+        })
+        .or_else(|| {
+            payload
+                .get("prompt_eval_count")
+                .and_then(|value| value.as_u64())
+        })
+        .map(|value| value as usize);
+    let completion_tokens = usage
+        .and_then(|value| value.get("completion_tokens"))
+        .and_then(|value| value.as_u64())
+        .or_else(|| {
+            usage
+                .and_then(|value| value.get("output_tokens"))
+                .and_then(|value| value.as_u64())
+        })
+        .or_else(|| payload.get("eval_count").and_then(|value| value.as_u64()))
+        .map(|value| value as usize);
+    let total_tokens = usage
+        .and_then(|value| value.get("total_tokens"))
+        .and_then(|value| value.as_u64())
+        .map(|value| value as usize)
+        .or_else(|| match (prompt_tokens, completion_tokens) {
+            (Some(prompt), Some(completion)) => Some(prompt + completion),
+            _ => None,
+        });
+
+    if prompt_tokens.is_none() && completion_tokens.is_none() && total_tokens.is_none() {
+        None
+    } else {
+        Some(TokenUsage {
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+        })
+    }
+}
+
 fn unreachable_loader_error(loader: &str, base_url: &str, err: reqwest::Error) -> ApiError {
     ApiError::Internal(format!(
         "Failed to reach '{}' loader at {}: {}",
@@ -1596,6 +1829,8 @@ mod tests {
             publisher: None,
             description: None,
             format: None,
+            tokenizer_path: None,
+            tokenizer_format: None,
         }
     }
 
@@ -1674,6 +1909,30 @@ mod tests {
     }
 
     #[test]
+    fn extract_usage_supports_openai_and_ollama_shapes() {
+        let openai_payload = json!({
+            "usage": {
+                "prompt_tokens": 12,
+                "completion_tokens": 8,
+                "total_tokens": 20
+            }
+        });
+        let openai_usage = extract_usage(&openai_payload).expect("openai usage");
+        assert_eq!(openai_usage.prompt_tokens, Some(12));
+        assert_eq!(openai_usage.completion_tokens, Some(8));
+        assert_eq!(openai_usage.total_tokens, Some(20));
+
+        let ollama_payload = json!({
+            "prompt_eval_count": 14,
+            "eval_count": 6
+        });
+        let ollama_usage = extract_usage(&ollama_payload).expect("ollama usage");
+        assert_eq!(ollama_usage.prompt_tokens, Some(14));
+        assert_eq!(ollama_usage.completion_tokens, Some(6));
+        assert_eq!(ollama_usage.total_tokens, Some(20));
+    }
+
+    #[test]
     fn compose_reasoned_content_wraps_think_block() {
         assert_eq!(
             compose_reasoned_content("chain", "answer"),
@@ -1684,5 +1943,39 @@ mod tests {
             "<think>\nchain\n</think>"
         );
         assert_eq!(compose_reasoned_content("", "answer"), "answer");
+    }
+
+    #[test]
+    fn split_reasoned_content_separates_visible_and_thinking() {
+        let normalized = split_reasoned_content(
+            "<think>
+chain
+</think>
+answer",
+        );
+        assert_eq!(normalized.model_thinking, "chain");
+        assert_eq!(normalized.visible_text, "answer");
+    }
+
+    #[test]
+    fn think_tag_decoder_handles_split_markers() {
+        let mut decoder = ThinkTagDecoder::default();
+        let mut chunks = Vec::new();
+        chunks.extend(decoder.push("<thi"));
+        chunks.extend(decoder.push("nk>abc"));
+        chunks.extend(decoder.push("</thi"));
+        chunks.extend(decoder.push("nk>done"));
+        chunks.extend(decoder.finish());
+
+        let reasoning = chunks
+            .iter()
+            .map(|chunk| chunk.model_thinking.as_str())
+            .collect::<String>();
+        let visible = chunks
+            .iter()
+            .map(|chunk| chunk.visible_text.as_str())
+            .collect::<String>();
+        assert_eq!(reasoning, "abc");
+        assert_eq!(visible, "done");
     }
 }

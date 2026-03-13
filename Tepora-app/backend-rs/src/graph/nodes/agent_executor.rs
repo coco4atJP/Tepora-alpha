@@ -1,6 +1,7 @@
 // Agent Executor Node
 // ReAct loop for tool-using agents with policy and confirmation flow.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -19,8 +20,9 @@ use crate::core::security_controls::{
     ApprovalDecision, PermissionRiskLevel, PermissionScopeKind, ToolApprovalRequestPayload,
 };
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
-use crate::graph::state::{AgentMode, AgentState};
+use crate::graph::state::{AgentMode, AgentState, Artifact};
 use crate::llm::{ChatMessage, ChatRequest};
+use crate::memory_v2::types::MemoryScope;
 use crate::models::event::{AgentEvent, AgentEventType};
 use crate::tools::execute_tool;
 
@@ -161,15 +163,10 @@ impl Node for AgentExecutorNode {
             });
         }
 
-        if let Some(plan) = &state.shared_context.current_plan {
-            messages.push(ChatMessage {
-                role: "system".to_string(),
-                content: format!(
-                    "Planner output (follow this unless strong evidence requires adjustment):\n{}",
-                    plan
-                ),
-            });
-        }
+        messages.push(ChatMessage {
+            role: "system".to_string(),
+            content: build_executor_task_packet(state, selected_agent.as_ref()),
+        });
 
         messages.push(ChatMessage {
             role: "user".to_string(),
@@ -222,6 +219,18 @@ impl Node for AgentExecutorNode {
                         content
                     };
 
+                    let embedding_model_id = resolve_embedding_model_id(ctx.app_state);
+                    let _ = ctx
+                        .app_state
+                        .memory_adapter
+                        .ingest_summary(
+                            &state.session_id,
+                            &final_content,
+                            &ctx.app_state.llm,
+                            &embedding_model_id,
+                            MemoryScope::Prof,
+                        )
+                        .await;
                     state.output = Some(final_content.clone());
                     state.agent_outcome = Some("final".to_string());
 
@@ -492,9 +501,20 @@ impl Node for AgentExecutorNode {
                         .add_message(&state.session_id, "tool", &tool_payload, Some(tool_kwargs))
                         .await;
 
+                    let tool_summary = summarize_tool_output(&name, &execution.output);
+                    state.shared_context.artifacts.push(Artifact {
+                        artifact_type: "tool_summary".to_string(),
+                        content: tool_summary.clone(),
+                        metadata: HashMap::from([
+                            ("tool".to_string(), json!(name)),
+                            ("step".to_string(), json!(step + 1)),
+                        ]),
+                    });
+                    state.shared_context.notes.push(tool_summary.clone());
+
                     messages.push(ChatMessage {
                         role: "system".to_string(),
-                        content: tool_payload,
+                        content: tool_summary,
                     });
 
                     ctx.sender
@@ -574,4 +594,85 @@ fn pipeline_mode_from_graph(mode: AgentMode) -> PipelineMode {
         AgentMode::Low => PipelineMode::AgentLow,
         AgentMode::Direct => PipelineMode::AgentDirect,
     }
+}
+
+fn build_executor_task_packet(
+    state: &AgentState,
+    selected_agent: Option<&crate::agent::execution::SelectedAgentRuntime>,
+) -> String {
+    let selected = selected_agent
+        .map(|agent| format!("{} ({})", agent.name, agent.id))
+        .unwrap_or_else(|| "default".to_string());
+    let plan = state
+        .shared_context
+        .current_plan
+        .as_deref()
+        .unwrap_or("No planner output. Solve directly and keep steps minimal.");
+    let note_summary = if state.shared_context.notes.is_empty() {
+        "No prior executor notes.".to_string()
+    } else {
+        state
+            .shared_context
+            .notes
+            .iter()
+            .rev()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    format!(
+        "Execution task packet:\n- Executor: {selected}\n- User goal: {goal}\n- Plan:\n{plan}\n- Working notes:\n{notes}\n\nUse the packaged skill prompt as the detailed execution instructions. Update progress using concise summaries only.",
+        selected = selected,
+        goal = state.input,
+        plan = plan,
+        notes = note_summary,
+    )
+}
+
+fn summarize_tool_output(tool_name: &str, output: &str) -> String {
+    const MAX_CHARS: usize = 480;
+    let normalized = output.split_whitespace().collect::<Vec<_>>().join(" ");
+    let trimmed = if normalized.chars().count() > MAX_CHARS {
+        let shortened: String = normalized.chars().take(MAX_CHARS).collect();
+        format!("{}...", shortened)
+    } else {
+        normalized
+    };
+
+    format!(
+        "Tool `{}` summary:\n{}",
+        tool_name,
+        if trimmed.is_empty() {
+            "No useful output returned.".to_string()
+        } else {
+            trimmed
+        }
+    )
+}
+
+fn resolve_embedding_model_id(app_state: &crate::state::AppState) -> String {
+    app_state
+        .models
+        .get_registry()
+        .ok()
+        .and_then(|registry| {
+            registry
+                .role_assignments
+                .get("embedding")
+                .cloned()
+                .or_else(|| {
+                    registry
+                        .models
+                        .iter()
+                        .find(|model| model.role == "embedding")
+                        .map(|model| model.id.clone())
+                })
+                .or_else(|| registry.models.first().map(|model| model.id.clone()))
+        })
+        .unwrap_or_else(|| "default".to_string())
 }

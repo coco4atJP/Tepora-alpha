@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::context::pipeline::ContextPipeline;
-use crate::context::pipeline_context::PipelineMode;
+use crate::context::pipeline_context::{PipelineArtifact, PipelineMode, PipelineStage, RagChunk};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentState, Artifact};
 use crate::llm::{ChatMessage, ChatRequest};
@@ -36,6 +36,22 @@ struct RagArtifactChunk {
     source: String,
     content: String,
     score: f32,
+}
+
+#[derive(Debug, Clone)]
+struct SelectedChunkBrief {
+    source: String,
+    chunk_id: String,
+    claim: String,
+    evidence_strength: f32,
+}
+
+#[derive(Debug, Clone)]
+struct ReportBrief {
+    answer_outline: String,
+    key_findings: Vec<String>,
+    open_uncertainties: Vec<String>,
+    citation_map: Vec<String>,
 }
 
 #[async_trait]
@@ -72,7 +88,6 @@ impl Node for AgenticSearchNode {
             state.pipeline_context = Some(pipeline_ctx);
         }
 
-        // Stage 1: Query Generation
         let _ = ctx
             .sender
             .send_json(json!({
@@ -88,6 +103,14 @@ impl Node for AgenticSearchNode {
 
         let sub_queries = self.generate_sub_queries(state, ctx).await?;
         state.search_queries = sub_queries.clone();
+        state.shared_context.artifacts.push(Artifact {
+            artifact_type: "query_plan_brief".to_string(),
+            content: render_query_plan_brief(&sub_queries),
+            metadata: HashMap::from([(
+                "queries".to_string(),
+                serde_json::to_value(&sub_queries).unwrap_or(Value::Null),
+            )]),
+        });
 
         let _ = ctx
             .sender
@@ -102,7 +125,6 @@ impl Node for AgenticSearchNode {
             }))
             .await;
 
-        // Stage 2: RAG-centric retrieval and chunk window expansion
         let _ = ctx
             .sender
             .send_json(json!({
@@ -118,6 +140,7 @@ impl Node for AgenticSearchNode {
 
         let (selected_chunks, display_results) =
             self.search_and_select(state, ctx, &sub_queries).await?;
+        let chunk_briefs = build_selected_chunk_briefs(&selected_chunks);
 
         state.search_results = Some(display_results.clone());
         let _ = ctx
@@ -134,22 +157,6 @@ impl Node for AgenticSearchNode {
             .map(|chunk| Value::String(chunk.source.clone()))
             .collect::<Vec<_>>();
 
-        let artifact_text = selected_chunks
-            .iter()
-            .enumerate()
-            .map(|(index, chunk)| {
-                format!(
-                    "[{}] chunk_id={} source={} score={:.3}\n{}",
-                    index + 1,
-                    chunk.chunk_id,
-                    chunk.source,
-                    chunk.score,
-                    chunk.content
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
-
         let mut metadata = HashMap::new();
         metadata.insert("chunk_ids".to_string(), Value::Array(chunk_ids));
         metadata.insert("sources".to_string(), Value::Array(sources));
@@ -157,10 +164,27 @@ impl Node for AgenticSearchNode {
             "query_count".to_string(),
             Value::Number(serde_json::Number::from(sub_queries.len() as u64)),
         );
+        metadata.insert(
+            "briefs".to_string(),
+            serde_json::to_value(
+                chunk_briefs
+                    .iter()
+                    .map(|brief| {
+                        json!({
+                            "source": brief.source,
+                            "chunk_id": brief.chunk_id,
+                            "claim": brief.claim,
+                            "evidence_strength": brief.evidence_strength,
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap_or(Value::Null),
+        );
 
         state.shared_context.artifacts.push(Artifact {
-            artifact_type: "search_chunks".to_string(),
-            content: artifact_text,
+            artifact_type: "selected_chunk_briefs".to_string(),
+            content: render_selected_chunk_briefs(&chunk_briefs),
             metadata,
         });
 
@@ -177,7 +201,6 @@ impl Node for AgenticSearchNode {
             }))
             .await;
 
-        // Stage 3: Artifact-based report
         let _ = ctx
             .sender
             .send_json(json!({
@@ -192,10 +215,29 @@ impl Node for AgenticSearchNode {
             .await;
 
         let report = self.generate_report(state, ctx, &selected_chunks).await?;
+        let report_brief = build_report_brief(&report, &chunk_briefs);
 
         state.shared_context.artifacts.push(Artifact {
-            artifact_type: "research_report".to_string(),
-            content: report.clone(),
+            artifact_type: "report_brief".to_string(),
+            content: render_report_brief(&report_brief),
+            metadata: HashMap::from([
+                (
+                    "key_findings".to_string(),
+                    serde_json::to_value(&report_brief.key_findings).unwrap_or(Value::Null),
+                ),
+                (
+                    "open_uncertainties".to_string(),
+                    serde_json::to_value(&report_brief.open_uncertainties).unwrap_or(Value::Null),
+                ),
+                (
+                    "citation_map".to_string(),
+                    serde_json::to_value(&report_brief.citation_map).unwrap_or(Value::Null),
+                ),
+            ]),
+        });
+        state.shared_context.artifacts.push(Artifact {
+            artifact_type: "final_constraints".to_string(),
+            content: build_final_constraints(&state.input),
             metadata: HashMap::new(),
         });
 
@@ -212,7 +254,6 @@ impl Node for AgenticSearchNode {
             }))
             .await;
 
-        // Stage 4: Persona-enabled final synthesis
         let _ = ctx
             .sender
             .send_json(json!({
@@ -226,7 +267,9 @@ impl Node for AgenticSearchNode {
             }))
             .await;
 
-        let final_answer = self.synthesize_answer(state, ctx, &report).await?;
+        let final_answer = self
+            .synthesize_answer(state, ctx, &chunk_briefs, &report_brief)
+            .await?;
 
         let _ = ctx
             .sender
@@ -395,11 +438,9 @@ impl AgenticSearchNode {
             }
         }
 
-        // Re-run similarity search after potential ingest.
         self.merge_similarity_results(state, ctx, &state.input, &mut merged)
             .await?;
 
-        // Expand top chunk windows for better artifact quality.
         let mut ranked = merged.into_values().collect::<Vec<_>>();
         ranked.sort_by(|a, b| {
             b.score
@@ -559,24 +600,51 @@ impl AgenticSearchNode {
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        let messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: concat!(
-                    "You are a research analyst. ",
-                    "Generate a concise, evidence-grounded report from chunk artifacts.\n",
-                    "1. Summarize key findings\n",
-                    "2. Note uncertainties or conflicts\n",
-                    "3. Reference chunk IDs as [chunk_id]\n",
-                    "4. Use the user's language"
-                )
-                .to_string(),
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: format!("Question: {}\n\nArtifacts:\n{}", state.input, sources),
-            },
-        ];
+        let app_state = Arc::new(ctx.app_state.clone());
+        let mut stage_ctx = ContextPipeline::build_v4(
+            &app_state,
+            &state.session_id,
+            &state.input,
+            PipelineMode::SearchAgentic,
+            true,
+        )
+        .await
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        stage_ctx.stage = PipelineStage::SearchReportBuild;
+        stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
+        stage_ctx.rag_chunks = chunks
+            .iter()
+            .map(|chunk| RagChunk {
+                chunk_id: chunk.chunk_id.clone(),
+                content: chunk.content.clone(),
+                source: chunk.source.clone(),
+                score: chunk.score,
+                metadata: HashMap::new(),
+            })
+            .collect();
+
+        let mut messages = ContextPipeline::pipeline_to_context_result(&stage_ctx).messages;
+        if let Some(last) = messages.last() {
+            if last.role == "user" && last.content.trim() == state.input.trim() {
+                messages.pop();
+            }
+        }
+        messages.push(ChatMessage {
+            role: "system".to_string(),
+            content: concat!(
+                "You are a research analyst. ",
+                "Generate a concise, evidence-grounded report from chunk artifacts.\n",
+                "1. Summarize key findings\n",
+                "2. Note uncertainties or conflicts\n",
+                "3. Reference chunk IDs as [chunk_id]\n",
+                "4. Use the user's language"
+            )
+            .to_string(),
+        });
+        messages.push(ChatMessage {
+            role: "user".to_string(),
+            content: format!("Question: {}\n\nArtifacts:\n{}", state.input, sources),
+        });
 
         let active_character = ctx
             .config
@@ -602,21 +670,23 @@ impl AgenticSearchNode {
         &self,
         state: &AgentState,
         ctx: &mut NodeContext<'_>,
-        report: &str,
+        chunk_briefs: &[SelectedChunkBrief],
+        report_brief: &ReportBrief,
     ) -> Result<String, GraphError> {
-        // Stage4 is persona-enabled by switching to SearchFast pipeline context.
         let app_state = Arc::new(ctx.app_state.clone());
-        let stage4_ctx = ContextPipeline::build_v4(
+        let mut stage_ctx = ContextPipeline::build_v4(
             &app_state,
             &state.session_id,
             &state.input,
-            PipelineMode::SearchFast,
+            PipelineMode::SearchAgentic,
             true,
         )
         .await
         .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        stage_ctx.stage = PipelineStage::SearchFinalSynthesis;
+        stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
 
-        let mut messages = ContextPipeline::pipeline_to_context_result(&stage4_ctx).messages;
+        let mut messages = ContextPipeline::pipeline_to_context_result(&stage_ctx).messages;
         if let Some(last) = messages.last() {
             if last.role == "user" && last.content.trim() == state.input.trim() {
                 messages.pop();
@@ -628,11 +698,14 @@ impl AgenticSearchNode {
             content: format!(
                 concat!(
                     "You have completed deep research. ",
-                    "Use the report below to provide the final user-facing answer.\n",
+                    "Use the brief below to provide the final user-facing answer.\n",
+                    "Do not assume you can inspect raw chunks or a full report.\n",
                     "Keep citations tied to chunk IDs or source URLs when possible.\n\n",
-                    "Research report:\n{}"
+                    "Selected chunk briefs:\n{}\n\n",
+                    "Report brief:\n{}"
                 ),
-                report
+                render_selected_chunk_briefs(chunk_briefs),
+                render_report_brief(report_brief)
             ),
         });
         messages.push(ChatMessage {
@@ -655,7 +728,7 @@ impl AgenticSearchNode {
         let mut stream = ctx
             .app_state
             .llm
-            .stream_chat(request, &model_id)
+            .stream_chat_normalized(request, &model_id)
             .await
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
@@ -663,15 +736,26 @@ impl AgenticSearchNode {
         while let Some(chunk_result) = stream.recv().await {
             match chunk_result {
                 Ok(chunk) => {
-                    if chunk.is_empty() {
+                    if !chunk.model_thinking.is_empty() {
+                        let _ = ctx
+                            .sender
+                            .send_json(json!({
+                                "type": "thought",
+                                "content": chunk.model_thinking,
+                                "mode": "search",
+                            }))
+                            .await;
+                    }
+
+                    if chunk.visible_text.is_empty() {
                         continue;
                     }
-                    full_response.push_str(&chunk);
+                    full_response.push_str(&chunk.visible_text);
                     let _ = ctx
                         .sender
                         .send_json(json!({
                             "type": "chunk",
-                            "message": chunk,
+                            "message": chunk.visible_text,
                             "mode": "search",
                         }))
                         .await;
@@ -733,4 +817,171 @@ fn dedupe_search_results(
     }
 
     out
+}
+
+fn build_selected_chunk_briefs(chunks: &[RagArtifactChunk]) -> Vec<SelectedChunkBrief> {
+    chunks
+        .iter()
+        .take(6)
+        .map(|chunk| SelectedChunkBrief {
+            source: chunk.source.clone(),
+            chunk_id: chunk.chunk_id.clone(),
+            claim: truncate_text(first_meaningful_line(&chunk.content), 180),
+            evidence_strength: (chunk.score * 100.0).round() / 100.0,
+        })
+        .collect()
+}
+
+fn render_selected_chunk_briefs(briefs: &[SelectedChunkBrief]) -> String {
+    briefs
+        .iter()
+        .enumerate()
+        .map(|(index, brief)| {
+            format!(
+                "[{}] chunk_id={} source={} strength={:.2}\n{}",
+                index + 1,
+                brief.chunk_id,
+                brief.source,
+                brief.evidence_strength,
+                brief.claim
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+fn render_query_plan_brief(sub_queries: &[String]) -> String {
+    let lines = sub_queries
+        .iter()
+        .take(5)
+        .enumerate()
+        .map(|(index, query)| format!("- Query {}: {}", index + 1, query.trim()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("[Query Plan Brief]\n{}", lines)
+}
+
+fn build_report_brief(report: &str, chunk_briefs: &[SelectedChunkBrief]) -> ReportBrief {
+    let lines = report
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let answer_outline = lines
+        .first()
+        .map(|line| truncate_text(line, 180))
+        .unwrap_or_else(|| {
+            "Summarize the strongest findings and cite the supporting chunks.".to_string()
+        });
+
+    let mut key_findings = lines
+        .iter()
+        .filter(|line| {
+            line.starts_with("- ")
+                || line.starts_with("* ")
+                || line.starts_with("1.")
+                || line.starts_with("2.")
+        })
+        .take(4)
+        .map(|line| truncate_text(line.trim_start_matches(['-', '*', ' ']).trim(), 160))
+        .collect::<Vec<_>>();
+    if key_findings.is_empty() {
+        key_findings = chunk_briefs
+            .iter()
+            .take(4)
+            .map(|brief| brief.claim.clone())
+            .collect();
+    }
+
+    let open_uncertainties = lines
+        .iter()
+        .filter(|line| {
+            let lowered = line.to_lowercase();
+            lowered.contains("uncertain")
+                || lowered.contains("unknown")
+                || lowered.contains("may ")
+                || lowered.contains("might ")
+                || line.contains("不明")
+                || line.contains("不確実")
+                || line.contains("追加確認")
+        })
+        .take(3)
+        .map(|line| truncate_text(line, 160))
+        .collect::<Vec<_>>();
+
+    let citation_map = chunk_briefs
+        .iter()
+        .take(6)
+        .map(|brief| format!("{} -> {}", brief.chunk_id, brief.source))
+        .collect::<Vec<_>>();
+
+    ReportBrief {
+        answer_outline,
+        key_findings,
+        open_uncertainties,
+        citation_map,
+    }
+}
+
+fn render_report_brief(brief: &ReportBrief) -> String {
+    let mut sections = vec![format!("[Answer Outline]\n{}", brief.answer_outline)];
+    if !brief.key_findings.is_empty() {
+        sections.push(format!(
+            "[Key Findings]\n{}",
+            brief
+                .key_findings
+                .iter()
+                .map(|item| format!("- {}", item))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    if !brief.open_uncertainties.is_empty() {
+        sections.push(format!(
+            "[Open Uncertainties]\n{}",
+            brief
+                .open_uncertainties
+                .iter()
+                .map(|item| format!("- {}", item))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    if !brief.citation_map.is_empty() {
+        sections.push(format!(
+            "[Citation Map]\n{}",
+            brief
+                .citation_map
+                .iter()
+                .map(|item| format!("- {}", item))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    sections.join("\n\n")
+}
+
+fn build_final_constraints(user_input: &str) -> String {
+    format!(
+        "[Final Constraints]\n- Answer the user's request directly.\n- Preserve the user's language.\n- Cite chunk IDs or source URLs when possible.\n- User request: {}",
+        truncate_text(user_input.trim(), 180)
+    )
+}
+
+fn shared_artifacts_to_pipeline(artifacts: &[Artifact]) -> Vec<PipelineArtifact> {
+    artifacts
+        .iter()
+        .map(|artifact| PipelineArtifact {
+            artifact_type: artifact.artifact_type.clone(),
+            content: artifact.content.clone(),
+            metadata: artifact.metadata.clone(),
+        })
+        .collect()
+}
+
+fn first_meaningful_line(text: &str) -> &str {
+    text.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or(text.trim())
 }

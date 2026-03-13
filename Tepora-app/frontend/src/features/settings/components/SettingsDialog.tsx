@@ -9,7 +9,7 @@ import { SettingsSidebar } from "./SettingsComponents";
 import { NAV_ITEMS } from "./SettingsConstants";
 import { SettingsLayout } from "./SettingsLayout";
 import CharacterSettings from "./sections/CharacterSettings";
-import CustomAgentSettings from "./sections/CustomAgentSettings";
+import ExecutionAgentSettings from "./sections/ExecutionAgentSettings";
 import GeneralSettings from "./sections/GeneralSettings";
 import DataStorageSettings from "./sections/DataStorageSettings";
 import SystemPerformanceSettings from "./sections/SystemPerformanceSettings";
@@ -28,7 +28,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 	const { t } = useTranslation();
 	const {
 		config,
-		customAgents,
+		executionAgents,
 		loading,
 		error,
 		hasChanges,
@@ -42,11 +42,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 		saveConfig,
 
 		resetConfig,
-
-		// Custom Agent functions
-		updateCustomAgent,
-		addCustomAgent,
-		deleteCustomAgent,
 	} = useSettings();
 
 	const [activeSection, setActiveSection] = useState("general");
@@ -91,7 +86,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			data_storage: "settings.sections.extended.storage_title",
 			system_performance: "settings.sections.extended.performance_title",
 			agents: "settings.sections.agents.label",
-			custom_agents: "settings.sections.custom_agents.label",
+			execution_agents: "settings.sections.execution_agents.label",
 			mcp: "settings.sections.mcp.label",
 			models: "settings.sections.models.label",
 			memory: "settings.sections.memory.label",
@@ -170,7 +165,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 
 								{/* Scrollable Body */}
 								<main className="settings-main">
-									<div className="w-full max-w-full space-y-8 pb-20">
+									<div className="w-full max-w-full space-y-6 pb-12">
 										{activeSection === "general" && <GeneralSettings />}
 										{activeSection === "privacy" && (
 											<PrivacySettings privacyConfig={config.privacy} onUpdate={updatePrivacy} />
@@ -187,13 +182,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onDeleteProfile={deleteCharacter}
 											/>
 										)}
-										{activeSection === "custom_agents" && (
-											<CustomAgentSettings
-												agents={customAgents}
-												onUpdateAgent={updateCustomAgent}
-												onAddAgent={addCustomAgent}
-												onDeleteAgent={deleteCustomAgent}
-											/>
+										{activeSection === "execution_agents" && (
+											<ExecutionAgentSettings agents={executionAgents} />
 										)}
 										{activeSection === "mcp" && <McpSettings />}
 										{activeSection === "models" && <ModelSettings />}
@@ -254,3 +244,4 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 };
 
 export default SettingsDialog;
+

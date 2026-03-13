@@ -1,7 +1,4 @@
-//! PersonaWorker — Injects persona / character configuration.
-//!
-//! Only applies to user-facing agents (ChatMode, SearchFast, SynthesisAgent).
-//! See §3 Persona 配置ルール in UPGRADE_PROPOSAL_v4.
+//! PersonaWorker — Injects persona / character configuration from active_agent_profile.
 
 use std::sync::Arc;
 
@@ -11,7 +8,6 @@ use crate::context::pipeline_context::{PersonaConfig, PipelineContext};
 use crate::context::worker::{ContextWorker, WorkerError};
 use crate::state::AppState;
 
-/// Worker that injects persona configuration based on mode eligibility.
 pub struct PersonaWorker;
 
 impl PersonaWorker {
@@ -35,55 +31,63 @@ impl ContextWorker for PersonaWorker {
     async fn execute(
         &self,
         ctx: &mut PipelineContext,
-        state: &Arc<AppState>,
+        _state: &Arc<AppState>,
     ) -> Result<(), WorkerError> {
-        // Only inject persona for user-facing modes
         if !ctx.mode.has_persona() {
             return Err(WorkerError::skipped("persona", "mode does not use persona"));
         }
 
-        let config = state.config.load_config().unwrap_or_default();
+        let config = ctx.config();
+        let active_character = config
+            .get("active_agent_profile")
+            .and_then(|value| value.as_str())
+            .unwrap_or("bunny_girl");
 
-        // Read persona config from application settings
-        let persona_section = config.get("persona");
+        let Some(character) = config
+            .get("characters")
+            .and_then(|characters| characters.get(active_character))
+        else {
+            return Err(WorkerError::skipped(
+                "persona",
+                "no active character config found",
+            ));
+        };
 
-        if let Some(persona) = persona_section {
-            let name = persona
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Tepora")
-                .to_string();
+        let name = character
+            .get("name")
+            .and_then(|value| value.as_str())
+            .unwrap_or("Tepora")
+            .to_string();
 
-            let description = persona
-                .get("description")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+        let description = character
+            .get("description")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string();
 
-            let traits: Vec<String> = persona
-                .get("traits")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect()
-                })
-                .unwrap_or_default();
+        let traits = character
+            .get("traits")
+            .and_then(|value| value.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
 
-            let prompt_text = persona
-                .get("prompt")
-                .and_then(|v| v.as_str())
-                .map(String::from);
+        let prompt_text = character
+            .get("system_prompt")
+            .or_else(|| character.get("prompt"))
+            .and_then(|value| value.as_str())
+            .map(str::to_string);
 
-            ctx.persona = Some(PersonaConfig {
-                name,
-                description,
-                traits,
-                prompt_text,
-            });
-        } else {
-            return Err(WorkerError::skipped("persona", "no persona config found"));
-        }
+        ctx.persona = Some(PersonaConfig {
+            name,
+            description,
+            traits,
+            prompt_text,
+        });
 
         Ok(())
     }

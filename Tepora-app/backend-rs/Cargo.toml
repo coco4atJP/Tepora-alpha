@@ -20,6 +20,7 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+toml = "0.8"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
@@ -49,6 +50,7 @@ regex = "1"
 keyring = "3.6.3"
 rand = "0.8"
 jsonschema = "0.42.2"
+tokenizers = "0.20"
 
 [dev-dependencies]
 tempfile = "3"
@@ -68,3 +70,5 @@ optional = true
 default = []
 redesign_crdt = []
 redesign_sandbox = ["wasmtime", "wasmtime-wasi"]
+
+

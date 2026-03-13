@@ -50,7 +50,7 @@ pub trait MemoryRepository: Send + Sync {
     /// by cosine similarity, excluding soft-deleted events.
     async fn retrieve_similar(
         &self,
-        session_id: &str,
+        session_id: Option<&str>,
         scope: Option<MemoryScope>,
         query_embedding: &[f32],
         limit: usize,
@@ -115,7 +115,7 @@ pub trait MemoryRepository: Send + Sync {
     /// Per-scope statistics.
     async fn scope_stats(
         &self,
-        session_id: &str,
+        session_id: Option<&str>,
         scope: MemoryScope,
     ) -> Result<ScopeStats, ApiError>;
 
@@ -159,7 +159,7 @@ pub trait MemoryRepository: Send + Sync {
     /// List compaction jobs for a session+scope.
     async fn list_compaction_jobs(
         &self,
-        session_id: &str,
+        session_id: Option<&str>,
         scope: Option<MemoryScope>,
         status: Option<CompactionStatus>,
     ) -> Result<Vec<CompactionJob>, ApiError>;

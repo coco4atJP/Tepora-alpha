@@ -2,14 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
-import type { CharacterConfig, CustomAgentConfig } from "../types";
+import type { CharacterConfig, ExecutionAgentConfig } from "../types";
 import { isDesktop } from "../utils/api";
 import { apiClient } from "../utils/api-client";
 import { configureLogger } from "../utils/logger";
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface ModelConfig {
 	path: string;
@@ -75,10 +71,8 @@ export interface Config {
 		};
 	};
 	models_gguf: Record<string, ModelConfig>;
-	// Refactored Agent Config
 	characters: Record<string, CharacterConfig>;
 	active_agent_profile: string;
-
 	tools: {
 		google_search_api_key?: string;
 		google_search_engine_id?: string;
@@ -86,18 +80,15 @@ export interface Config {
 		bing_search_api_key?: string;
 		search_provider?: "google" | "duckduckgo" | "brave" | "bing";
 	};
-
 	privacy: {
 		allow_web_search: boolean;
 		redact_pii: boolean;
 		isolation_mode?: boolean;
 		url_denylist?: string[];
 	};
-
 	search?: {
 		embedding_rerank?: boolean;
 	};
-
 	model_download?: {
 		allow_repo_owners?: string[];
 		require_allowlist?: boolean;
@@ -105,16 +96,13 @@ export interface Config {
 		require_revision?: boolean;
 		require_sha256?: boolean;
 	};
-
 	server?: {
 		host?: string;
 		allowed_origins?: string[];
 		cors_allowed_origins?: string[];
 		ws_allowed_origins?: string[];
 	};
-
 	loaders?: Record<string, { base_url?: string }>;
-
 	thinking?: {
 		chat_default?: boolean;
 		search_default?: boolean;
@@ -127,60 +115,28 @@ export interface Config {
 export interface SettingsContextValue {
 	config: Config | null;
 	originalConfig: Config | null;
-	customAgents: Record<string, CustomAgentConfig>;
+	executionAgents: Record<string, ExecutionAgentConfig>;
 	loading: boolean;
 	error: string | null;
 	hasChanges: boolean;
 	saving: boolean;
-	// Actions
 	fetchConfig: () => Promise<void>;
 	updateApp: <K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => void;
-	updateLlmManager: <K extends keyof Config["llm_manager"]>(
-		field: K,
-		value: Config["llm_manager"][K],
-	) => void;
-	updateChatHistory: <K extends keyof Config["chat_history"]>(
-		field: K,
-		value: Config["chat_history"][K],
-	) => void;
+	updateLlmManager: <K extends keyof Config["llm_manager"]>(field: K, value: Config["llm_manager"][K]) => void;
+	updateChatHistory: <K extends keyof Config["chat_history"]>(field: K, value: Config["chat_history"][K]) => void;
 	updateEmLlm: <K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => void;
 	updateModel: (modelKey: keyof Config["models_gguf"], modelConfig: ModelConfig) => void;
-
-	// Tools Actions
 	updateTools: <K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => void;
-
-	// Privacy Actions
 	updatePrivacy: <K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => void;
-
-	// Search Actions
 	updateSearch: <K extends keyof NonNullable<Config["search"]>>(field: K, value: NonNullable<Config["search"]>[K]) => void;
-
-	// Model Download Actions
 	updateModelDownload: <K extends keyof NonNullable<Config["model_download"]>>(field: K, value: NonNullable<Config["model_download"]>[K]) => void;
-
-	// Server Actions
 	updateServer: <K extends keyof NonNullable<Config["server"]>>(field: K, value: NonNullable<Config["server"]>[K]) => void;
-
-	// Loaders Actions
 	updateLoaderBaseUrl: (loaderName: string, baseUrl: string) => void;
-
-	// Thinking Actions
 	updateThinking: <K extends keyof NonNullable<Config["thinking"]>>(field: K, value: NonNullable<Config["thinking"]>[K]) => void;
-
-	// Generic path-based updater for extended settings
 	updateConfigPath: (path: string, value: unknown) => void;
-
-	// Character Actions
 	updateCharacter: (key: string, config: CharacterConfig) => void;
 	addCharacter: (key: string) => void;
-
 	deleteCharacter: (key: string) => void;
-
-	// Custom Agent Actions
-	updateCustomAgent: (id: string, agent: CustomAgentConfig) => Promise<void>;
-	addCustomAgent: (agent: CustomAgentConfig) => Promise<void>;
-	deleteCustomAgent: (id: string) => Promise<void>;
-
 	setActiveAgent: (key: string) => void;
 	saveConfig: (override?: Config) => Promise<boolean>;
 	resetConfig: () => void;
@@ -188,10 +144,6 @@ export interface SettingsContextValue {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const SettingsContext = createContext<SettingsContextValue | null>(null);
-
-// ============================================================================
-// Provider
-// ============================================================================
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -205,7 +157,7 @@ function setNestedValue<T>(target: T, path: string, value: unknown): T {
 
 	const root: Record<string, unknown> = { ...target };
 	let cursor: Record<string, unknown> = root;
-	let sourceCursor: Record<string, unknown> = target;
+	let sourceCursor: Record<string, unknown> = target as Record<string, unknown>;
 
 	for (let i = 0; i < keys.length - 1; i += 1) {
 		const key = keys[i];
@@ -227,12 +179,6 @@ function setNestedValue<T>(target: T, path: string, value: unknown): T {
 
 function normalizeConfig(data: Config): Config {
 	const modelsGguf = { ...(data.models_gguf || {}) } as Record<string, unknown>;
-
-	if (!data.models_gguf) {
-		// If it was missing, we just return the data with empty models_gguf
-		// But we should still ensure other required fields like tools are present if we are doing that below
-	}
-
 	const legacyCharacter = modelsGguf.character_model as ModelConfig | undefined;
 	const legacyProfessional = modelsGguf.professional as ModelConfig | undefined;
 	const legacyTextSource = legacyCharacter ?? legacyProfessional;
@@ -269,7 +215,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	} = useServerConfig();
 	const [config, setConfig] = useState<Config | null>(null);
 	const [originalConfig, setOriginalConfig] = useState<Config | null>(null);
-	const [customAgents, setCustomAgents] = useState<Record<string, CustomAgentConfig>>({});
+	const [executionAgents, setExecutionAgents] = useState<Record<string, ExecutionAgentConfig>>({});
 	const [saving, setSaving] = useState(false);
 
 	const hasChanges = useMemo(() => {
@@ -284,24 +230,22 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
 	const loading = isConfigLoading || (!config && isConfigFetching);
 
-	const fetchCustomAgents = useCallback(async () => {
+	const fetchExecutionAgents = useCallback(async () => {
 		try {
-			const data = await apiClient.get<{ agents: CustomAgentConfig[] }>("api/custom-agents");
-			const agentsMap: Record<string, CustomAgentConfig> = {};
-			if (data.agents) {
-				for (const agent of data.agents) {
-					agentsMap[agent.id] = agent;
-				}
+			const data = await apiClient.get<{ agents: ExecutionAgentConfig[] }>("api/execution-agents");
+			const agentsMap: Record<string, ExecutionAgentConfig> = {};
+			for (const agent of data.agents || []) {
+				agentsMap[agent.id] = agent;
 			}
-			setCustomAgents(agentsMap);
-		} catch (e) {
-			console.error("Failed to fetch custom agents", e);
+			setExecutionAgents(agentsMap);
+		} catch (fetchError) {
+			console.error("Failed to fetch execution agents", fetchError);
 		}
 	}, []);
 
 	const fetchConfig = useCallback(async () => {
-		await Promise.all([refetchConfig(), fetchCustomAgents()]);
-	}, [refetchConfig, fetchCustomAgents]);
+		await Promise.all([refetchConfig(), fetchExecutionAgents()]);
+	}, [refetchConfig, fetchExecutionAgents]);
 
 	const normalizedServerConfig = useMemo(() => {
 		if (!serverConfig) return null;
@@ -309,19 +253,17 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	}, [serverConfig]);
 
 	useEffect(() => {
-		fetchCustomAgents();
-	}, [fetchCustomAgents]);
+		fetchExecutionAgents();
+	}, [fetchExecutionAgents]);
 
 	useEffect(() => {
 		if (!normalizedServerConfig) return;
 		configureLogger(!!normalizedServerConfig.features?.redesign?.frontend_logging);
 
-		// Expose transport_mode to window for non-React stores (like websocketStore)
-		if (typeof window !== 'undefined') {
+		if (typeof window !== "undefined") {
 			const win = window as unknown as { __TRANSPORT_MODE__?: "ipc" | "websocket" };
 			const raw = normalizedServerConfig.features?.redesign?.transport_mode;
-			const configuredMode =
-				raw === "ipc" || raw === "websocket" ? raw : undefined;
+			const configuredMode = raw === "ipc" || raw === "websocket" ? raw : undefined;
 			if (configuredMode) {
 				win.__TRANSPORT_MODE__ = configuredMode;
 			} else if (!win.__TRANSPORT_MODE__) {
@@ -335,13 +277,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		}
 	}, [normalizedServerConfig, config, originalConfig, hasChanges]);
 
-	// Update functions
-	const updateApp = useCallback(
-		<K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => {
-			setConfig((prev) => (prev ? { ...prev, app: { ...prev.app, [field]: value } } : prev));
-		},
-		[],
-	);
+	const updateApp = useCallback(<K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => {
+		setConfig((prev) => (prev ? { ...prev, app: { ...prev.app, [field]: value } } : prev));
+	}, []);
 
 	const updateLlmManager = useCallback(
 		<K extends keyof Config["llm_manager"]>(field: K, value: Config["llm_manager"][K]) => {
@@ -355,44 +293,25 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	const updateChatHistory = useCallback(
 		<K extends keyof Config["chat_history"]>(field: K, value: Config["chat_history"][K]) => {
 			setConfig((prev) =>
-				prev
-					? {
-						...prev,
-						chat_history: { ...prev.chat_history, [field]: value },
-					}
-					: prev,
+				prev ? { ...prev, chat_history: { ...prev.chat_history, [field]: value } } : prev,
 			);
 		},
 		[],
 	);
 
-	const updateEmLlm = useCallback(
-		<K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => {
-			setConfig((prev) => (prev ? { ...prev, em_llm: { ...prev.em_llm, [field]: value } } : prev));
-		},
-		[],
-	);
+	const updateEmLlm = useCallback(<K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => {
+		setConfig((prev) => (prev ? { ...prev, em_llm: { ...prev.em_llm, [field]: value } } : prev));
+	}, []);
 
-	const updateModel = useCallback(
-		(modelKey: keyof Config["models_gguf"], modelConfig: ModelConfig) => {
-			setConfig((prev) =>
-				prev
-					? {
-						...prev,
-						models_gguf: { ...prev.models_gguf, [modelKey]: modelConfig },
-					}
-					: prev,
-			);
-		},
-		[],
-	);
+	const updateModel = useCallback((modelKey: keyof Config["models_gguf"], modelConfig: ModelConfig) => {
+		setConfig((prev) =>
+			prev ? { ...prev, models_gguf: { ...prev.models_gguf, [modelKey]: modelConfig } } : prev,
+		);
+	}, []);
 
-	const updateTools = useCallback(
-		<K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => {
-			setConfig((prev) => (prev ? { ...prev, tools: { ...prev.tools, [field]: value } } : prev));
-		},
-		[],
-	);
+	const updateTools = useCallback(<K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => {
+		setConfig((prev) => (prev ? { ...prev, tools: { ...prev.tools, [field]: value } } : prev));
+	}, []);
 
 	const updatePrivacy = useCallback(
 		<K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => {
@@ -413,7 +332,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	);
 
 	const updateModelDownload = useCallback(
-		<K extends keyof NonNullable<Config["model_download"]>>(field: K, value: NonNullable<Config["model_download"]>[K]) => {
+		<K extends keyof NonNullable<Config["model_download"]>>(
+			field: K,
+			value: NonNullable<Config["model_download"]>[K],
+		) => {
 			setConfig((prev) =>
 				prev ? { ...prev, model_download: { ...(prev.model_download || {}), [field]: value } } : prev,
 			);
@@ -430,25 +352,22 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[],
 	);
 
-	const updateLoaderBaseUrl = useCallback(
-		(loaderName: string, baseUrl: string) => {
-			setConfig((prev) =>
-				prev
-					? {
-						...prev,
-						loaders: {
-							...(prev.loaders || {}),
-							[loaderName]: {
-								...((prev.loaders || {})[loaderName] || {}),
-								base_url: baseUrl,
-							},
+	const updateLoaderBaseUrl = useCallback((loaderName: string, baseUrl: string) => {
+		setConfig((prev) =>
+			prev
+				? {
+					...prev,
+					loaders: {
+						...(prev.loaders || {}),
+						[loaderName]: {
+							...((prev.loaders || {})[loaderName] || {}),
+							base_url: baseUrl,
 						},
-					}
-					: prev,
-			);
-		},
-		[],
-	);
+					},
+				}
+				: prev,
+		);
+	}, []);
 
 	const updateThinking = useCallback(
 		<K extends keyof NonNullable<Config["thinking"]>>(field: K, value: NonNullable<Config["thinking"]>[K]) => {
@@ -463,82 +382,31 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		setConfig((prev) => (prev ? setNestedValue(prev, path, value) : prev));
 	}, []);
 
-	// Character Management
 	const updateCharacter = useCallback((key: string, charConfig: CharacterConfig) => {
 		setConfig((prev) =>
-			prev
-				? {
-					...prev,
-					characters: { ...prev.characters, [key]: charConfig },
-				}
-				: prev,
+			prev ? { ...prev, characters: { ...prev.characters, [key]: charConfig } } : prev,
 		);
 	}, []);
 
 	const addCharacter = useCallback((key: string) => {
 		const defaultChar: CharacterConfig = {
-			name: key, // Default name to key
+			name: key,
 			description: "",
 			system_prompt: "You are a helpful assistant.",
 		};
 		setConfig((prev) =>
-			prev
-				? {
-					...prev,
-					characters: { ...prev.characters, [key]: defaultChar },
-				}
-				: prev,
+			prev ? { ...prev, characters: { ...prev.characters, [key]: defaultChar } } : prev,
 		);
 	}, []);
 
 	const deleteCharacter = useCallback((key: string) => {
 		setConfig((prev) => {
 			if (!prev) return prev;
-			if (prev.active_agent_profile === key) return prev; // Can't delete active
+			if (prev.active_agent_profile === key) return prev;
 			const { [key]: _unused, ...rest } = prev.characters;
 			return { ...prev, characters: rest };
 		});
 	}, []);
-
-	// Custom Agent Management
-	const updateCustomAgent = useCallback(
-		async (id: string, agent: CustomAgentConfig) => {
-			try {
-				await apiClient.put(`api/custom-agents/${id}`, agent);
-				await fetchCustomAgents();
-			} catch (e) {
-				console.error("Failed to update custom agent", e);
-				throw e;
-			}
-		},
-		[fetchCustomAgents],
-	);
-
-	const addCustomAgent = useCallback(
-		async (agent: CustomAgentConfig) => {
-			try {
-				await apiClient.post("api/custom-agents", agent);
-				await fetchCustomAgents();
-			} catch (e) {
-				console.error("Failed to add custom agent", e);
-				throw e;
-			}
-		},
-		[fetchCustomAgents],
-	);
-
-	const deleteCustomAgent = useCallback(
-		async (id: string) => {
-			try {
-				await apiClient.delete(`api/custom-agents/${id}`);
-				await fetchCustomAgents();
-			} catch (e) {
-				console.error("Failed to delete custom agent", e);
-				throw e;
-			}
-		},
-		[fetchCustomAgents],
-	);
 
 	const setActiveAgent = useCallback((key: string) => {
 		setConfig((prev) => (prev ? { ...prev, active_agent_profile: key } : prev));
@@ -551,14 +419,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			try {
 				setSaving(true);
 				await apiClient.post("api/config", configToSave);
-
-				// Update local state if override was used, to ensure consistency
 				if (override) {
 					setConfig(override);
 				}
-
 				setOriginalConfig(configToSave);
-				// Keep react-query cache in sync so consumers (e.g. App language sync) update immediately.
 				queryClient.setQueryData(["config"], configToSave);
 				return true;
 			} catch (err) {
@@ -579,7 +443,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		() => ({
 			config,
 			originalConfig,
-			customAgents,
+			executionAgents,
 			loading,
 			error,
 			hasChanges,
@@ -601,11 +465,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
-
-			updateCustomAgent,
-			addCustomAgent,
-			deleteCustomAgent,
-
 			setActiveAgent,
 			saveConfig,
 			resetConfig,
@@ -613,7 +472,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[
 			config,
 			originalConfig,
-			customAgents,
+			executionAgents,
 			loading,
 			error,
 			hasChanges,
@@ -635,11 +494,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
-
-			updateCustomAgent,
-			addCustomAgent,
-			deleteCustomAgent,
-
 			setActiveAgent,
 			saveConfig,
 			resetConfig,

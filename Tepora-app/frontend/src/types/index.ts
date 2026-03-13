@@ -230,25 +230,27 @@ export interface CharacterConfig {
 	avatar_path?: string;
 }
 
-export interface CustomAgentToolPolicy {
+export interface ExecutionAgentToolPolicy {
 	allow_all?: boolean;
 	allowed_tools: string[];
 	denied_tools: string[];
 	require_confirmation: string[];
 }
 
-export interface CustomAgentConfig {
+export interface ExecutionAgentConfig {
 	id: string;
 	name: string;
 	description: string;
+	controller_summary?: string;
 	icon?: string;
 	system_prompt: string;
-	tool_policy: CustomAgentToolPolicy;
+	tool_policy: ExecutionAgentToolPolicy;
 	model_config_name?: string;
 	tags: string[];
 	priority: number;
 	enabled: boolean;
 }
+
 
 export interface ToolInfo {
 	name: string;
@@ -271,4 +273,11 @@ export interface ModelInfo {
 	source: string;
 	loader?: string;
 	is_active?: boolean;
+	tokenizer_path?: string;
+	tokenizer_format?: string;
 }
+
+
+
+
+

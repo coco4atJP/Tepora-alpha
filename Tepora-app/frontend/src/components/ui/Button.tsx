@@ -51,7 +51,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 		// Glow effect only for primary
 		const glowEffect =
 			variant === "primary" ? (
-				<span className="absolute inset-0 w-full h-full bg-gradient-to-br from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none animate-shimmer" />
+				<span className="absolute inset-0 w-full h-full bg-gradient-to-br from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 			) : null;
 
 		return (

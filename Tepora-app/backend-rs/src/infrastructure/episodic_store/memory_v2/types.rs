@@ -162,6 +162,7 @@ impl SourceRole {
 pub struct MemoryEvent {
     pub id: String,
     pub session_id: String,
+    pub character_id: Option<String>,
     pub scope: MemoryScope,
     pub episode_id: String,
     pub event_seq: u32,

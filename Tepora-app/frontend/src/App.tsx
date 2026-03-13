@@ -68,12 +68,18 @@ function App() {
 	// Loading State
 	if (reqLoading) {
 		return (
-			<div className="min-h-screen w-full flex items-center justify-center bg-[#050201]">
-				<div className="text-center">
-					<div className="text-gold-400 animate-pulse text-lg mb-2">
+			<div className="min-h-screen w-full flex items-center justify-center bg-[#050201] relative overflow-hidden">
+				<div className="absolute inset-0 z-0 flex items-center justify-center">
+					<div className="w-[40vw] h-[40vw] bg-[radial-gradient(circle,rgba(219,140,37,0.15)_0%,transparent_60%)] animate-slow-breathe pointer-events-none rounded-full" />
+				</div>
+				<div className="text-center z-10">
+					<div className="text-transparent bg-clip-text bg-gradient-to-r from-gold-400 via-tea-100 to-gold-300 animate-tea-wave text-2xl mb-3 font-[Playfair_Display] tracking-widest drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]">
+						TEPORA
+					</div>
+					<div className="text-gold-400/80 animate-pulse text-sm mb-2 font-medium tracking-wide">
 						{t("app.loading", "Connecting to server…")}
 					</div>
-					<div className="text-gray-500 text-sm">
+					<div className="text-gray-500/60 text-xs tracking-wider">
 						{t("app.loadingHint", "This may take a few seconds")}
 					</div>
 				</div>

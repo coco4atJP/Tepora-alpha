@@ -1,13 +1,14 @@
 // Search Node
 // Search Fast flow: web search -> fetch -> rag_ingest -> rag_search -> answer.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
 
 use crate::context::pipeline::ContextPipeline;
-use crate::context::pipeline_context::PipelineMode;
+use crate::context::pipeline_context::{PipelineMode, RagChunk};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llm::ChatRequest;
@@ -60,18 +61,6 @@ impl Node for SearchNode {
             .await
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
             state.pipeline_context = Some(pipeline_ctx);
-        }
-
-        let mut messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
-            ContextPipeline::pipeline_to_context_result(pipeline_ctx).messages
-        } else {
-            state.chat_history.clone()
-        };
-
-        if let Some(last) = messages.last() {
-            if last.role == "user" && last.content.trim() == state.input.trim() {
-                messages.pop();
-            }
         }
 
         let search_enabled = ctx
@@ -244,33 +233,32 @@ impl Node for SearchNode {
             return Ok(NodeOutput::Final);
         }
 
-        let rag_context = rag_chunks
-            .iter()
-            .enumerate()
-            .map(|(index, item)| {
-                format!(
-                    "[{}] chunk_id={} source={} score={:.3}\n{}",
-                    index + 1,
-                    item.chunk.chunk_id,
-                    item.chunk.source,
-                    item.score,
-                    item.chunk.content
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        if let Some(pipeline_ctx) = state.pipeline_context.as_mut() {
+            pipeline_ctx.search_results = web_results.clone();
+            pipeline_ctx.rag_chunks = rag_chunks
+                .iter()
+                .map(|item| RagChunk {
+                    chunk_id: item.chunk.chunk_id.clone(),
+                    content: item.chunk.content.clone(),
+                    source: item.chunk.source.clone(),
+                    score: item.score,
+                    metadata: match item.chunk.metadata.clone() {
+                        Some(serde_json::Value::Object(map)) => {
+                            map.into_iter().collect::<HashMap<_, _>>()
+                        }
+                        _ => HashMap::new(),
+                    },
+                })
+                .collect();
+            pipeline_ctx.reasoning.app_thinking_digest = state.thought_process.clone();
+            pipeline_ctx.user_input = state.input.clone();
+        }
 
-        messages.push(crate::llm::ChatMessage {
-            role: "system".to_string(),
-            content: format!(
-                "Use the following RAG evidence to answer. Cite using chunk_id/source when relevant:\n{}",
-                rag_context
-            ),
-        });
-        messages.push(crate::llm::ChatMessage {
-            role: "user".to_string(),
-            content: state.input.clone(),
-        });
+        let messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+            ContextPipeline::pipeline_to_context_result(pipeline_ctx).messages
+        } else {
+            state.chat_history.clone()
+        };
 
         let active_character = ctx
             .config
@@ -288,7 +276,7 @@ impl Node for SearchNode {
         let mut stream = ctx
             .app_state
             .llm
-            .stream_chat(request, &model_id)
+            .stream_chat_normalized(request, &model_id)
             .await
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
@@ -296,15 +284,25 @@ impl Node for SearchNode {
         while let Some(chunk_result) = stream.recv().await {
             match chunk_result {
                 Ok(chunk) => {
-                    if chunk.is_empty() {
+                    if !chunk.model_thinking.is_empty() {
+                        let _ = ctx
+                            .sender
+                            .send_json(json!({
+                                "type": "thought",
+                                "content": chunk.model_thinking,
+                                "mode": "search",
+                            }))
+                            .await;
+                    }
+                    if chunk.visible_text.is_empty() {
                         continue;
                     }
-                    full_response.push_str(&chunk);
+                    full_response.push_str(&chunk.visible_text);
                     let _ = ctx
                         .sender
                         .send_json(json!({
                             "type": "chunk",
-                            "message": chunk,
+                            "message": chunk.visible_text,
                             "mode": "search",
                         }))
                         .await;

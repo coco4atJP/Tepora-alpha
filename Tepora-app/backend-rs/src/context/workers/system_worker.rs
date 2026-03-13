@@ -1,17 +1,14 @@
-//! SystemWorker — Builds the system prompt from config.
-//!
-//! Reads `system_prompt` from the application config and injects it as the
-//! highest-priority `SystemPart` into the `PipelineContext`.
+//! SystemWorker — Builds the system prompt from the active character config.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 
 use crate::context::pipeline_context::PipelineContext;
+use crate::context::prompt::extract_system_prompt;
 use crate::context::worker::{ContextWorker, WorkerError};
 use crate::state::AppState;
 
-/// Worker that constructs the system prompt.
 pub struct SystemWorker;
 
 impl SystemWorker {
@@ -35,40 +32,34 @@ impl ContextWorker for SystemWorker {
     async fn execute(
         &self,
         ctx: &mut PipelineContext,
-        state: &Arc<AppState>,
+        _state: &Arc<AppState>,
     ) -> Result<(), WorkerError> {
-        let config = state.config.load_config().unwrap_or_default();
+        let config = ctx.config();
 
-        // Extract the system prompt from config
-        let system_prompt = config
-            .get("system_prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        if !system_prompt.trim().is_empty() {
-            ctx.add_system_part("base_system", &system_prompt, 200);
+        if let Some(system_prompt) =
+            extract_system_prompt(&config).filter(|prompt| !prompt.trim().is_empty())
+        {
+            ctx.add_system_part("base_system", system_prompt, 200);
         }
 
-        // Add mode-specific context
         let mode_context = match ctx.mode {
             crate::context::pipeline_context::PipelineMode::Chat => {
-                "You are in chat mode. Have a natural conversation with the user."
+                "You are in chat mode. Prefer concise, grounded answers and rely on memory cards instead of replaying old transcript turns."
             }
             crate::context::pipeline_context::PipelineMode::SearchFast => {
-                "You are in search mode. Answer the user's question using the provided search results and RAG context."
+                "You are in search mode. Use retrieved evidence and memory cards to answer, and avoid relying on raw search dumps."
             }
             crate::context::pipeline_context::PipelineMode::SearchAgentic => {
-                "You are in agentic search mode. Perform multi-step research to thoroughly answer the user's question."
+                "You are in agentic search mode. Keep intermediate reasoning compact and use evidence summaries for synthesis."
             }
             crate::context::pipeline_context::PipelineMode::AgentHigh => {
-                "You are a synthesis agent. Coordinate with planning and execution agents to accomplish the user's task."
+                "You are a synthesis agent. Prefer artifact summaries and concise working context over raw execution traces."
             }
             crate::context::pipeline_context::PipelineMode::AgentLow => {
-                "You are a synthesis agent (speed-optimized). Select and execute the best agent for the user's task."
+                "You are a speed-oriented synthesis agent. Prefer concise memory and task summaries over long transcripts."
             }
             crate::context::pipeline_context::PipelineMode::AgentDirect => {
-                "You are an execution agent. Directly perform the user's task using the available tools."
+                "You are an execution agent. Use local context, task state, and selected tools without replaying full chat history."
             }
         };
 

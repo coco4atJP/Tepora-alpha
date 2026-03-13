@@ -148,14 +148,14 @@ const CodeBlock = ({ language, code }: { language: string; code: string }) => {
 			aria-label={`${language} code block`}
 			className="grid w-full max-w-full my-4 rounded-xl border border-white/10 shadow-lg group/code glow-border overflow-hidden"
 		>
-			<div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 text-xs text-gray-400 font-mono">
+			<div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/10 text-xs text-gray-400 font-mono">
 				<div className="flex items-center gap-2">
 					<Terminal className="w-3.5 h-3.5 opacity-50 text-tea-400" />
-					<span className="uppercase tracking-wider font-bold text-[10px]">{language}</span>
+					<span className="uppercase tracking-wider font-bold text-[11px]">{language}</span>
 				</div>
 				<button
 					onClick={handleCopy}
-					className="flex items-center gap-1.5 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
+					className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 group-hover/code:opacity-100 hover:text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/50 px-2 py-1 rounded hover:bg-white/5 cursor-pointer"
 					aria-label="Copy code"
 				>
 					{copied ? (
@@ -277,7 +277,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 			className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-message-in group`}
 		>
 			<div
-				className={`flex max-w-[90%] md:max-w-[85%] min-w-0 ${message.role === "user" ? "flex-row-reverse" : "flex-row"} gap-4`}
+				className={`flex max-w-[90%] md:max-w-[85%] lg:max-w-[48rem] min-w-0 ${message.role === "user" ? "flex-row-reverse" : "flex-row"} gap-4`}
 			>
 				{/* Icon */}
 				<div
@@ -313,12 +313,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
 						{/* Thinking Process */}
 						{hasThinking && (
-							<details
-								className="mb-4 group/thinking rounded-lg bg-black/20 border border-white/5 overflow-hidden open:pb-2"
-								open={isThinkingOpen}
-								onToggle={(e) => setIsThinkingOpen(e.currentTarget.open)}
-							>
-								<summary className="flex items-center gap-2 px-3 py-2 text-xs font-mono text-gray-400 cursor-pointer hover:bg-white/5 transition-colors select-none">
+							<div className="mb-4 rounded-lg bg-black/20 border border-white/5 overflow-hidden flex flex-col group/thinking">
+								<button
+									type="button"
+									onClick={() => setIsThinkingOpen(!isThinkingOpen)}
+									className="flex items-center gap-2 px-3 py-2 text-xs font-mono text-gray-400 cursor-pointer hover:bg-white/5 transition-colors select-none w-full text-left"
+								>
 									<Bot className={`w-3 h-3 ${isCurrentlyThinking ? 'text-purple-400 animate-pulse' : 'text-gray-500'}`} />
 									<span className={`opacity-80 ${isCurrentlyThinking ? 'text-purple-300' : ''}`}>
 										{t("chat.status.thinking") || "Thinking Process"}
@@ -331,19 +331,23 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 										</span>
 									)}
 									<div className="flex-1" />
-									<span className="text-[10px] opacity-50 group-open/thinking:hidden">
+									<span className={`text-[10px] opacity-50 transition-opacity ${isThinkingOpen ? "hidden" : "block"}`}>
 										Click to expand
 									</span>
-								</summary>
-								<div className="px-3 pt-2 text-xs font-mono text-gray-400/80 leading-relaxed whitespace-pre-wrap border-t border-white/5 break-words">
-									{extractedThinking.trimStart()}
+								</button>
+								<div className={`grid transition-all duration-300 ease-out ${isThinkingOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+									<div className="overflow-hidden">
+										<div className="px-3 pt-2 text-xs font-mono text-gray-400/80 leading-relaxed whitespace-pre-wrap border-t border-white/5 break-words">
+											{extractedThinking.trimStart()}
+										</div>
+									</div>
 								</div>
-							</details>
+							</div>
 						)}
 
 						<div
 							className={`markdown-content prose prose-theme max-w-none break-words whitespace-pre-wrap
-                                prose-p:leading-7 prose-p:my-3
+                            prose-p:leading-relaxed prose-p:my-4
                                 prose-headings:font-display prose-headings:font-normal
                                 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic
                                 prose-ul:my-2 prose-li:my-1
@@ -384,7 +388,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
 					{/* Timestamp & Actions */}
 					<div
-						className={`text-[10px] opacity-40 mt-1.5 font-mono flex items-center gap-2 ${message.role === "user" ? "justify-end text-gold-200/50" : "justify-start text-gray-500"}`}
+						className={`text-[10px] opacity-40 group-hover:opacity-60 transition-opacity mt-1.5 font-mono flex items-center gap-2 ${message.role === "user" ? "justify-end text-gold-200/50" : "justify-start text-gray-500"}`}
 					>
 						<span>{message.timestamp.toLocaleTimeString("ja-JP")}</span>
 						<button

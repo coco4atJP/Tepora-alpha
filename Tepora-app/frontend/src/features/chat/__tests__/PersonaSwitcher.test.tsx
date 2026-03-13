@@ -82,7 +82,7 @@ const createMockSettings = (activeProfile = "default"): SettingsContextValue => 
 		},
 	} as Config,
 	originalConfig: null,
-	customAgents: {},
+	executionAgents: {},
 	loading: false,
 	error: null,
 	hasChanges: false,
@@ -104,9 +104,6 @@ const createMockSettings = (activeProfile = "default"): SettingsContextValue => 
 	updateCharacter: vi.fn(),
 	addCharacter: vi.fn(),
 	deleteCharacter: vi.fn(),
-	updateCustomAgent: vi.fn(),
-	addCustomAgent: vi.fn(),
-	deleteCustomAgent: vi.fn(),
 	setActiveAgent: vi.fn(),
 	saveConfig: vi.fn().mockResolvedValue(true),
 	resetConfig: vi.fn(),
@@ -165,3 +162,5 @@ describe("PersonaSwitcher", () => {
 		expect(screen.getByText("Barista")).toBeInTheDocument();
 	});
 });
+
+

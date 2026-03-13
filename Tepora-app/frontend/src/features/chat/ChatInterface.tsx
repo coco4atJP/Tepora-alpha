@@ -175,9 +175,7 @@ const ChatInterface: React.FC = () => {
 
 			<div className="flex-1 overflow-hidden relative min-h-0 w-full max-w-5xl mx-auto flex flex-col pt-4">
 				{messages.length === 0 ? (
-					<div
-						className={`h-full flex flex-col justify-center items-center ${currentMode === "chat" ? "pb-[30vh]" : "pb-[30vh]"}`}
-					>
+					<div className="flex-1 flex flex-col justify-center items-center pb-[5vh]">
 						<EmptyState />
 					</div>
 				) : (
@@ -186,9 +184,9 @@ const ChatInterface: React.FC = () => {
 			</div>
 
 			<div
-				className={`w-full z-20 max-w-[56rem] mx-auto transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${shouldCenterInput
-					? "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[10vh] px-4 w-11/12 lg:w-4/5 xl:w-[60rem] drop-shadow-2xl"
-					: "relative shrink-0 p-3 md:p-6 pb-safe w-full drop-shadow-md"
+				className={`w-full z-20 mx-auto transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${shouldCenterInput
+					? "max-w-[48rem] mb-[15vh] px-4 sm:w-11/12 drop-shadow-2xl"
+					: "max-w-[56rem] shrink-0 p-3 md:p-6 pb-safe w-full drop-shadow-md"
 				}`}
 			>
 				<InputArea />

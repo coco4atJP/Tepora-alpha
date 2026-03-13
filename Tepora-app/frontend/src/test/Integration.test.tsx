@@ -12,7 +12,7 @@ vi.mock("../hooks/useSettings", () => ({
 				graph_execution_timeout: 300,
 			},
 		},
-		customAgents: {},
+		executionAgents: {},
 	}),
 }));
 
@@ -249,6 +249,7 @@ describe("ChatInterface Integration", () => {
 					toolName: "native_web_fetch",
 					toolArgs: { url: "https://example.com" },
 					description: "Fetch URL",
+					expiryOptions: [3600, 86400], // Mock expiry options
 				},
 				handleToolConfirmation: mockHandleToolConfirmation,
 				stopGeneration: mockStopGeneration,
@@ -257,10 +258,12 @@ describe("ChatInterface Integration", () => {
 
 		render(<ChatInterface />);
 
-		fireEvent.click(screen.getByRole("checkbox"));
-		fireEvent.click(screen.getByRole("button", { name: "許可" }));
+		// Target the "allow_until_expiry" button
+		fireEvent.click(screen.getByRole("button", { name: /期限付きで常時許可/ }));
 
-		expect(mockHandleToolConfirmation).toHaveBeenCalledWith("req-allow", true, true);
+		// Because we didn't change the select, it uses the default TTL (which is preset to 86400 or the first option depending on the component logic).
+		// The component logic prefers 86400 if available.
+		expect(mockHandleToolConfirmation).toHaveBeenCalledWith("req-allow", "always_until_expiry", 86400);
 	});
 
 	it("executes tool confirmation deny flow", () => {
@@ -274,6 +277,7 @@ describe("ChatInterface Integration", () => {
 					toolName: "native_web_fetch",
 					toolArgs: { url: "https://example.com" },
 					description: "Fetch URL",
+					expiryOptions: [3600],
 				},
 				handleToolConfirmation: mockHandleToolConfirmation,
 				stopGeneration: mockStopGeneration,
@@ -282,9 +286,9 @@ describe("ChatInterface Integration", () => {
 
 		render(<ChatInterface />);
 
-		fireEvent.click(screen.getByRole("button", { name: "拒否" }));
+		fireEvent.click(screen.getByRole("button", { name: /拒否/ }));
 
-		expect(mockHandleToolConfirmation).toHaveBeenCalledWith("req-deny", false, false);
+		expect(mockHandleToolConfirmation).toHaveBeenCalledWith("req-deny", "deny", undefined);
 	});
 
 	it("creates new session when button clicked", () => {
@@ -300,3 +304,4 @@ describe("ChatInterface Integration", () => {
 		// Wait for promise resolution (implicit if we dont use await here, check if test passes first)
 	});
 });
+

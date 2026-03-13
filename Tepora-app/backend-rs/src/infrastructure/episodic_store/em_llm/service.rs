@@ -5,6 +5,7 @@ use rand::Rng;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::context::pipeline_context::{PipelineMode, PipelineStage};
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
 use crate::infrastructure::episodic_store::{
@@ -49,6 +50,9 @@ pub struct RetrievedMemory {
     pub source: String,
     pub strength: f64,
     pub memory_layer: MemoryLayer,
+    pub scope: MemoryScope,
+    pub session_id: String,
+    pub character_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -311,6 +315,7 @@ impl EmMemoryService {
             v2_events.push(MemoryEvent {
                 id: ev.id,
                 session_id: session_id.to_string(),
+                character_id: None,
                 scope: MemoryScope::Char,
                 episode_id: episode_id.clone(),
                 event_seq: i as u32,
@@ -398,33 +403,59 @@ impl EmMemoryService {
         }
         let kc = limit.saturating_sub(ks);
 
-        // Stage 1: Similarity based retrieval
-        let similar_events = v2_store
-            .retrieve_similar(session_id, None, query_embedding, ks)
+        let local_limit = ks.max(limit.saturating_sub(1)).max(1);
+        let global_limit = ks.max(limit.saturating_sub(1)).max(1);
+
+        let session_local_events = v2_store
+            .retrieve_similar(
+                Some(session_id),
+                Some(MemoryScope::Char),
+                query_embedding,
+                local_limit,
+            )
+            .await?;
+        let global_events = v2_store
+            .retrieve_similar(None, Some(MemoryScope::Char), query_embedding, global_limit)
             .await?;
 
-        // Use HashMap to deduplicate and keep track of scored events
         let mut candidates: std::collections::HashMap<String, ScoredEvent> =
             std::collections::HashMap::new();
         let mut edges_to_fetch = Vec::new();
+        let mut similarity_scores: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
 
-        for scored in similar_events {
-            edges_to_fetch.push(scored.event.id.clone());
-            candidates.insert(scored.event.id.clone(), scored);
+        for scored in session_local_events
+            .into_iter()
+            .chain(global_events.into_iter())
+        {
+            let event_id = scored.event.id.clone();
+            let normalized = scored.event.content.trim().to_ascii_lowercase();
+            let duplicate = candidates.values().any(|existing| {
+                existing.event.source_turn_id == scored.event.source_turn_id
+                    && !existing.event.source_turn_id.is_none()
+                    || existing
+                        .event
+                        .content
+                        .trim()
+                        .eq_ignore_ascii_case(&normalized)
+            });
+            if duplicate {
+                continue;
+            }
+
+            similarity_scores.insert(event_id.clone(), scored.score);
+            edges_to_fetch.push(event_id.clone());
+            candidates.entry(event_id).or_insert(scored);
         }
 
-        // Stage 2: Contiguity based retrieval
-        // Fetch adjacent events via TemporalNext edges (unidirectional)
         let mut contiguity_added = 0;
         let mut current_layer_edges = edges_to_fetch;
         let mut distance = 1;
-
         let mut contiguity_weights: std::collections::HashMap<String, f32> =
             std::collections::HashMap::new();
 
         while contiguity_added < kc && !current_layer_edges.is_empty() {
             let mut next_layer = Vec::new();
-            // Simple exponential decay for temporal distance weight
             let weight = 0.9f32.powi(distance);
 
             for event_id in current_layer_edges {
@@ -441,13 +472,14 @@ impl EmMemoryService {
                         }
                         if !candidates.contains_key(&edge.to_event_id) {
                             if let Ok(Some(adj_ev)) = v2_store.get_event(&edge.to_event_id).await {
-                                next_layer.push(adj_ev.id.clone());
-                                contiguity_weights.insert(adj_ev.id.clone(), weight);
+                                let next_id = adj_ev.id.clone();
+                                next_layer.push(next_id.clone());
+                                contiguity_weights.insert(next_id.clone(), weight);
                                 candidates.insert(
-                                    adj_ev.id.clone(),
+                                    next_id,
                                     ScoredEvent {
                                         event: adj_ev,
-                                        score: 0.0, // Initial similarity is 0.0 unless computed
+                                        score: 0.0,
                                     },
                                 );
                                 contiguity_added += 1;
@@ -456,52 +488,45 @@ impl EmMemoryService {
                     }
                 }
             }
+
             current_layer_edges = next_layer;
             distance += 1;
         }
 
-        // Stage 3: FadeMem Ranking
         let now = Utc::now();
         let mut final_scored = Vec::new();
         let decay_engine = crate::em_llm::decay::DecayEngine::new(self.decay_config.clone());
 
         for (_, mut scored) in candidates {
-            // If the event was fetched via contiguity but we want to know its semantic relevance,
-            // we compute the cosine similarity here if embedding is available.
-            if scored.score == 0.0 && !scored.event.embedding.is_empty() {
-                scored.score = {
-                    let a = query_embedding;
-                    let b = &scored.event.embedding;
-                    let dot: f64 = a
-                        .iter()
-                        .zip(b.iter())
-                        .map(|(x, y)| (*x as f64) * (*y as f64))
-                        .sum();
-                    let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-                    let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-                    if norm_a == 0.0 || norm_b == 0.0 {
-                        0.0
-                    } else {
-                        (dot / (norm_a * norm_b)).clamp(-1.0, 1.0)
-                    }
-                };
-            }
+            let semantic_score = if scored.score > 0.0 {
+                scored.score
+            } else if !scored.event.embedding.is_empty() {
+                let a = query_embedding;
+                let b = &scored.event.embedding;
+                let dot: f64 = a
+                    .iter()
+                    .zip(b.iter())
+                    .map(|(x, y)| (*x as f64) * (*y as f64))
+                    .sum();
+                let norm_a: f64 = a.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+                let norm_b: f64 = b.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+                if norm_a == 0.0 || norm_b == 0.0 {
+                    0.0
+                } else {
+                    (dot / (norm_a * norm_b)).clamp(-1.0, 1.0)
+                }
+            } else {
+                0.0
+            };
+            scored.score = semantic_score;
 
-            // Apply contiguity weight
-            if let Some(w) = contiguity_weights.get(&scored.event.id) {
-                // Boost semantic similarity score by the temporal weight
-                scored.score = (scored.score + (*w as f64)).clamp(0.0, 1.0);
+            if let Some(weight) = contiguity_weights.get(&scored.event.id) {
+                scored.score = (scored.score + (*weight as f64)).clamp(0.0, 1.0);
             }
 
             let age_days = (now - scored.event.created_at).num_seconds() as f64 / 86400.0;
-            let semantic_relevance = scored.score;
-
-            // Update importance dynamically
-            let new_importance = decay_engine.importance_score(
-                semantic_relevance,
-                scored.event.access_count,
-                age_days,
-            );
+            let new_importance =
+                decay_engine.importance_score(scored.score, scored.event.access_count, age_days);
             if (new_importance - scored.event.importance).abs() > 1e-9 {
                 scored.event.importance = new_importance;
                 if let Err(e) = v2_store
@@ -524,33 +549,40 @@ impl EmMemoryService {
                 scored.event.layer,
                 days_since_anchor,
             );
-
-            // Update the event's strength to the newly decayed effective strength,
-            // so reinforcement builds on the decayed value instead of the old anchor value.
             scored.event.strength = effective_strength;
 
-            let retrieval_score = crate::em_llm::ranking::compute_retrieval_score(
-                scored.score as f32, // use the base similarity
+            let base_score = crate::em_llm::ranking::compute_retrieval_score(
+                scored.score as f32,
                 effective_strength,
             );
+            let layer_bonus = if scored.event.layer == MemoryLayer::LML {
+                0.10
+            } else {
+                0.0
+            };
+            let session_bonus = if scored.event.session_id == session_id {
+                0.20
+            } else {
+                0.0
+            };
+            let recency_bonus = if scored.event.last_accessed_at.is_some() {
+                0.05
+            } else {
+                0.0
+            };
+            let prompt_score = base_score + layer_bonus + session_bonus + recency_bonus;
 
-            // Filter out extremely low retrieval scores
-            if retrieval_score >= self.min_score as f64 {
-                final_scored.push((scored, retrieval_score));
+            if prompt_score >= self.min_score as f64 {
+                final_scored.push((scored, prompt_score));
             }
         }
 
-        // Sort descending by retrieval score
         final_scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         final_scored.truncate(self.retrieval_limit);
 
-        // Reinforce accessed memories
         let mut results = Vec::new();
         for (scored, score) in final_scored {
-            // Reinforce using FadeMem logarithmic formula
-            // We provide `1` as the access_count_in_window for this immediate reinforcement.
             let new_strength = decay_engine.reinforce(scored.event.strength, 1);
-
             if let Err(e) = v2_store.record_access(&scored.event.id, new_strength).await {
                 tracing::warn!(
                     "Failed to record access for V2 event {}: {}",
@@ -565,12 +597,121 @@ impl EmMemoryService {
                 source: format!("em://{}/evt/{}", scored.event.session_id, scored.event.id),
                 strength: new_strength,
                 memory_layer: scored.event.layer,
+                scope: scored.event.scope,
+                session_id: scored.event.session_id,
+                character_id: scored.event.character_id,
             });
         }
 
         Ok(results)
     }
 
+    pub async fn retrieve_for_query_v2_scoped(
+        &self,
+        session_id: &str,
+        query_embedding: &[f32],
+        v2_store: &dyn MemoryRepository,
+        mode: PipelineMode,
+        stage: PipelineStage,
+    ) -> Result<Vec<RetrievedMemory>, ApiError> {
+        let mut results = self
+            .retrieve_for_query_v2(session_id, query_embedding, v2_store)
+            .await?;
+
+        if !matches!(
+            mode,
+            PipelineMode::AgentHigh | PipelineMode::AgentLow | PipelineMode::AgentDirect
+        ) {
+            return Ok(results);
+        }
+
+        let prof_limit = if stage == PipelineStage::AgentExecutor {
+            3
+        } else {
+            2
+        };
+        let prof_local = v2_store
+            .retrieve_similar(
+                Some(session_id),
+                Some(MemoryScope::Prof),
+                query_embedding,
+                prof_limit,
+            )
+            .await?;
+        let prof_global = v2_store
+            .retrieve_similar(None, Some(MemoryScope::Prof), query_embedding, prof_limit)
+            .await?;
+
+        let scope_bonus = match stage {
+            PipelineStage::AgentExecutor => 0.08,
+            PipelineStage::AgentPlanner | PipelineStage::AgentSynthesizer => 0.05,
+            _ => 0.03,
+        };
+        let char_bonus = match stage {
+            PipelineStage::AgentExecutor => 0.0,
+            _ => 0.03,
+        };
+
+        let mut seen = results
+            .iter()
+            .map(|item| item.source.clone())
+            .collect::<std::collections::HashSet<_>>();
+
+        for scored in prof_local.into_iter().chain(prof_global.into_iter()) {
+            if !seen.insert(format!(
+                "em://{}/evt/{}",
+                scored.event.session_id, scored.event.id
+            )) {
+                continue;
+            }
+            let base_score = crate::em_llm::ranking::compute_retrieval_score(
+                scored.score as f32,
+                scored.event.strength,
+            );
+            let session_bonus = if scored.event.session_id == session_id {
+                0.15
+            } else {
+                0.0
+            };
+            let layer_bonus = if scored.event.layer == MemoryLayer::LML {
+                0.10
+            } else {
+                0.0
+            };
+            let score = base_score
+                + layer_bonus
+                + session_bonus
+                + scope_bonus
+                + if scored.event.scope == MemoryScope::Char {
+                    char_bonus
+                } else {
+                    0.0
+                };
+
+            results.push(RetrievedMemory {
+                content: scored
+                    .event
+                    .summary
+                    .clone()
+                    .unwrap_or(scored.event.content.clone()),
+                relevance_score: score as f32,
+                source: format!("em://{}/evt/{}", scored.event.session_id, scored.event.id),
+                strength: scored.event.strength,
+                memory_layer: scored.event.layer,
+                scope: scored.event.scope,
+                session_id: scored.event.session_id,
+                character_id: scored.event.character_id,
+            });
+        }
+
+        results.sort_by(|a, b| {
+            b.relevance_score
+                .partial_cmp(&a.relevance_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(self.retrieval_limit);
+        Ok(results)
+    }
     pub async fn stats(&self) -> Result<EmMemoryStats, ApiError> {
         let v2_store = self.v2_store.as_ref();
         let total_events = v2_store.count_events(None, None).await?;
@@ -750,7 +891,7 @@ impl EmMemoryService {
         status: Option<CompactionStatus>,
     ) -> Result<Vec<CompactionJob>, ApiError> {
         self.v2_store
-            .list_compaction_jobs(session_id, scope, status)
+            .list_compaction_jobs(Some(session_id), scope, status)
             .await
     }
 
@@ -780,7 +921,10 @@ impl EmMemoryService {
     pub async fn fail_compaction_job(&self, session_id: &str, job_id: &str) {
         let v2_store = self.v2_store.as_ref();
         let now = chrono::Utc::now();
-        let existing_job = match v2_store.list_compaction_jobs(session_id, None, None).await {
+        let existing_job = match v2_store
+            .list_compaction_jobs(Some(session_id), None, None)
+            .await
+        {
             Ok(jobs) => jobs.into_iter().find(|job| job.id == job_id),
             Err(e) => {
                 tracing::warn!(
@@ -830,6 +974,7 @@ impl EmMemoryService {
         let v2_event = MemoryEvent {
             id: uuid::Uuid::new_v4().to_string(),
             session_id: session_id.to_string(),
+            character_id: None,
             scope: MemoryScope::Char,
             episode_id,
             event_seq: 0,

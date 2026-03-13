@@ -118,11 +118,6 @@ impl WorkerPipeline {
         }
     }
 
-    pub fn with_config(mut self, config: PipelineConfig) -> Self {
-        self.config = config;
-        self
-    }
-
     /// Add a worker to the end of the pipeline.
     pub fn add_worker(mut self, worker: Box<dyn ContextWorker>) -> Self {
         self.workers.push(worker);
@@ -179,11 +174,13 @@ impl WorkerPipeline {
     }
 
     /// Number of workers in the pipeline.
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.workers.len()
     }
 
     /// Whether the pipeline has no workers.
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.workers.is_empty()
     }

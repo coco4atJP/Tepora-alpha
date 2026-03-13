@@ -10,32 +10,43 @@ pub async fn generate_execution_plan(
     state: &AppState,
     chat_config: &Value,
     user_input: &str,
+    context_messages: &[ChatMessage],
     selected_agent: Option<&SelectedAgentRuntime>,
     thinking_mode: bool,
     model_id: &str,
 ) -> Result<String, ApiError> {
     let selected = selected_agent
-        .map(|agent| format!("{} ({})", agent.name, agent.id))
+        .map(|agent| {
+            if agent.controller_summary.trim().is_empty() {
+                format!("{} ({})", agent.name, agent.id)
+            } else {
+                format!(
+                    "{} ({})\nSummary: {}",
+                    agent.name, agent.id, agent.controller_summary
+                )
+            }
+        })
         .unwrap_or_else(|| "default".to_string());
     let detail = if thinking_mode { "detailed" } else { "compact" };
 
-    let planning_messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: "You are a planner for a tool-using AI agent.\n\
-Create a practical execution plan with up to 6 ordered steps.\n\
-Use concise markdown bullets and include fallback actions.\n\
-Do not add any text before or after the plan."
-                .to_string(),
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: format!(
-                "User request:\n{}\n\nPreferred executor:\n{}\n\nDetail level:\n{}",
-                user_input, selected, detail
-            ),
-        },
-    ];
+    let mut planning_messages = context_messages.to_vec();
+    if let Some(last) = planning_messages.last() {
+        if last.role == "user" && last.content.trim() == user_input.trim() {
+            planning_messages.pop();
+        }
+    }
+
+    planning_messages.push(ChatMessage {
+        role: "system".to_string(),
+        content: "You are a planner for a tool-using AI agent.\nCreate a practical execution plan with up to 6 ordered steps.\nUse concise markdown bullets and include fallback actions.\nDo not add any text before or after the plan.".to_string(),
+    });
+    planning_messages.push(ChatMessage {
+        role: "user".to_string(),
+        content: format!(
+            "User request:\n{}\n\nPreferred executor:\n{}\n\nDetail level:\n{}",
+            user_input, selected, detail
+        ),
+    });
 
     let request = ChatRequest::new(planning_messages).with_config(chat_config);
     let plan = state.llm.chat(request, model_id).await?;

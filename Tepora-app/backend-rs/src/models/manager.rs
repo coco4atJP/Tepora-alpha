@@ -49,6 +49,8 @@ struct DiscoveredModel {
     publisher: Option<String>,
     description: Option<String>,
     format: Option<String>,
+    tokenizer_path: Option<String>,
+    tokenizer_format: Option<String>,
 }
 
 impl DiscoveredModel {
@@ -78,6 +80,8 @@ impl DiscoveredModel {
             publisher: self.publisher,
             description: self.description,
             format: self.format,
+            tokenizer_path: self.tokenizer_path,
+            tokenizer_format: self.tokenizer_format,
         }
     }
 }
@@ -187,6 +191,8 @@ impl InferenceDiscoveryLayer for OllamaDiscoveryLayer {
                 publisher: None,
                 description: None,
                 format: details.format.clone(),
+                tokenizer_path: None,
+                tokenizer_format: None,
             });
         }
 
@@ -258,6 +264,8 @@ impl InferenceDiscoveryLayer for LmStudioDiscoveryLayer {
                 publisher: model.publisher,
                 description: model.description,
                 format: model.format,
+                tokenizer_path: None,
+                tokenizer_format: None,
             });
         }
 
@@ -320,6 +328,8 @@ impl InferenceDiscoveryLayer for LlamaCppDiscoveryLayer {
                 quantization: model.quantization.clone(),
                 context_length,
                 architecture,
+                tokenizer_path: model.tokenizer_path.clone(),
+                tokenizer_format: model.tokenizer_format.clone(),
                 chat_template: model.chat_template.clone(),
                 stop_tokens: model.stop_tokens.clone(),
                 default_temperature: model.default_temperature,
@@ -436,6 +446,8 @@ impl ModelManager {
             publisher: None,
             description: None,
             format: Some("gguf".to_string()),
+            tokenizer_path: None,
+            tokenizer_format: None,
         };
 
         let mut registry = self.load_registry()?;
@@ -877,6 +889,8 @@ impl ModelManager {
             publisher: None,
             description: None,
             format: Some("gguf".to_string()),
+            tokenizer_path: None,
+            tokenizer_format: None,
         };
 
         registry.models.push(entry.clone());
@@ -1912,6 +1926,8 @@ mod tests {
             publisher: None,
             description: None,
             format: Some("gguf".to_string()),
+            tokenizer_path: None,
+            tokenizer_format: None,
         }
     }
 

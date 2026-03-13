@@ -238,7 +238,26 @@ export const useWebSocketStore = create<WebSocketStore>()(
 						case "tool_confirmation_request":
 							if (data.data) {
 								const request = data.data as ToolConfirmationRequest;
-								set({ pendingToolConfirmation: request }, false, "setToolConfirmation");
+								const approvedTools = get().approvedTools;
+								if (approvedTools.has(request.toolName)) {
+									const transportMode = activeTransportMode ?? resolveTransportMode();
+									if (transportMode === "ipc") {
+										import("../transport/factory").then(({ getTransport }) => {
+											getTransport("ipc").confirmTool(request.requestId, { decision: "once" });
+										});
+									} else if (get().socket) {
+										get().socket?.send(
+											JSON.stringify({
+												type: "tool_confirmation_response",
+												requestId: request.requestId,
+												decision: "once",
+											}),
+										);
+									}
+									set({ pendingToolConfirmation: null }, false, "autoApproveToolConfirmation");
+								} else {
+									set({ pendingToolConfirmation: request }, false, "setToolConfirmation");
+								}
 							}
 							break;
 
@@ -665,4 +684,5 @@ export const useWebSocketStore = create<WebSocketStore>()(
 		{ name: "websocket-store" },
 	),
 );
+
 

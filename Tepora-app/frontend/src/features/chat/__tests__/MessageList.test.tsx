@@ -15,7 +15,7 @@ vi.mock("../../../stores", () => ({
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
-	useSettings: () => ({ config: {}, customAgents: {} }),
+	useSettings: () => ({ config: {}, executionAgents: {} }),
 }));
 
 import { useChatStore } from "../../../stores";
@@ -95,4 +95,5 @@ describe("MessageList", () => {
 		expect(scrollIntoViewMock).toHaveBeenCalled();
 	});
 });
+
 

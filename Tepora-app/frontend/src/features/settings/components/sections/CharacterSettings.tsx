@@ -5,17 +5,14 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
 import { useSettings } from "../../../../hooks/useSettings";
 import type { CharacterConfig } from "../../../../types";
-import {
-	type AgentProfile,
-	SettingsSection,
-} from "../SettingsComponents";
+import { type AgentProfile, SettingsSection } from "../SettingsComponents";
 import { CharacterEditOverlay, type CharacterEditState } from "../subcomponents/CharacterEditOverlay";
 
 interface CharacterSettingsProps {
 	profiles: Record<string, CharacterConfig>;
 	activeProfileId: string;
 	onUpdateProfile: (key: string, profile: CharacterConfig) => void;
-	onSetActive?: (key: string) => void; // Keep for interface compatibility but optional
+	onSetActive?: (key: string) => void;
 	onAddProfile: (key: string) => void;
 	onDeleteProfile: (key: string) => void;
 }
@@ -28,13 +25,9 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 	onDeleteProfile,
 }) => {
 	const { t } = useTranslation();
-
 	const [editState, setEditState] = useState<CharacterEditState | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [deleteConfirm, setDeleteConfirm] = useState<{
-		key: string;
-		isOpen: boolean;
-	} | null>(null);
+	const [deleteConfirm, setDeleteConfirm] = useState<{ key: string; isOpen: boolean } | null>(null);
 
 	const showError = useCallback((message: string) => {
 		setErrorMessage(message);
@@ -125,12 +118,19 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		const isActive = activeProfileId === key;
 
 		return (
-			<button
+			<div
 				key={key}
-				type="button"
+				role="button"
+				tabIndex={0}
 				onClick={() => handleSelectCharacter(key, config)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						handleSelectCharacter(key, config);
+					}
+				}}
 				className={`
-					flex flex-col p-4 rounded-xl border transition-all duration-200 group text-left
+					flex flex-col p-4 rounded-xl border transition-all duration-200 group text-left cursor-pointer
 					${isActive ? "bg-gold-500/10 border-gold-500/30 shadow-[0_0_15px_rgba(251,191,36,0.1)]" : "bg-black/20 border-white/5 hover:bg-white/5 hover:border-white/10"}
 				`}
 			>
@@ -139,7 +139,11 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						{config.icon || <User size={20} className={isActive ? "text-gold-400" : "text-gray-400"} />}
 					</div>
 					<div className="flex items-center gap-2">
-						{isActive && <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-gold-400 bg-gold-400/10 px-2 py-0.5 rounded-md"><Check size={12} /> Active</span>}
+						{isActive && (
+							<span className="flex items-center gap-1 rounded-md bg-gold-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold-400">
+								<Check size={12} /> Active
+							</span>
+						)}
 						{!isActive && (
 							<button
 								type="button"
@@ -161,7 +165,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 						<p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{config.description}</p>
 					)}
 				</div>
-			</button>
+			</div>
 		);
 	};
 
@@ -183,7 +187,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 					</button>
 				</div>
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{profiles && Object.entries(profiles).map(([key, config]) => renderGridItem(key, config))}
 				</div>
 			</div>
@@ -215,10 +219,10 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 				</div>
 			)}
 
-			<div className="mt-8 pt-6 border-t border-white/5 opacity-50 hover:opacity-100 transition-opacity">
+			<div className="mt-8 border-t border-white/5 pt-6 opacity-50 transition-opacity hover:opacity-100">
 				<div className="flex items-center justify-between">
 					<span
-						className="text-xs text-gray-500 cursor-help"
+						className="cursor-help text-xs text-gray-500"
 						title={t(
 							"settings.sections.agents.nsfw_desc",
 							"Allows generation of sensitive content. Use with caution.",
@@ -246,7 +250,7 @@ const NsfwToggle: React.FC = () => {
 				checked={config.app.nsfw_enabled}
 				onChange={(e) => updateApp("nsfw_enabled", e.target.checked)}
 			/>
-			<div className="w-9 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-900"></div>
+			<div className="w-9 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-900" />
 		</label>
 	);
 };

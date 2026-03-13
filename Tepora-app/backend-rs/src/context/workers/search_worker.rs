@@ -48,7 +48,7 @@ impl ContextWorker for SearchWorker {
             return Err(WorkerError::skipped("search", "mode does not use search"));
         }
 
-        let config = state.config.load_config().unwrap_or_default();
+        let config = ctx.config();
 
         // Check global web search setting
         let allow_search = config
@@ -65,10 +65,10 @@ impl ContextWorker for SearchWorker {
         }
 
         // Perform the search
-        match search::perform_search(&config, &ctx.user_input).await {
+        match search::perform_search(config, &ctx.user_input).await {
             Ok(results) => {
                 let reranked =
-                    rerank_search_results_with_embeddings(state, &config, &ctx.user_input, results)
+                    rerank_search_results_with_embeddings(state, config, &ctx.user_input, results)
                         .await;
                 ctx.search_results = reranked;
             }

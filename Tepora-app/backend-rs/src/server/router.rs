@@ -85,15 +85,10 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             get(metrics::get_session_metrics),
         )
         .route("/api/metrics/runtime", get(metrics::get_runtime_metrics))
+        .route("/api/execution-agents", get(agents::list_execution_agents))
         .route(
-            "/api/custom-agents",
-            get(agents::list_custom_agents).post(agents::create_custom_agent),
-        )
-        .route(
-            "/api/custom-agents/:agent_id",
-            get(agents::get_custom_agent)
-                .put(agents::update_custom_agent)
-                .delete(agents::delete_custom_agent),
+            "/api/execution-agents/:agent_id",
+            get(agents::get_execution_agent),
         )
         .route("/api/tools", get(tools::list_tools))
         .route("/api/memory/compress", post(memory::compress_memories))

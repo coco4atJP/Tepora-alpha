@@ -10,6 +10,7 @@ use crate::state::AppState;
 pub struct SelectedAgentRuntime {
     pub id: String,
     pub name: String,
+    pub controller_summary: String,
     pub system_prompt: String,
     pub model_config_name: Option<String>,
     pub assigned_model_id: Option<String>,
@@ -20,6 +21,14 @@ pub struct SelectedAgentRuntime {
 pub enum AgentDecision {
     Final(String),
     ToolCall { name: String, args: Value },
+}
+
+pub fn approval_timeout(config: &Value) -> u64 {
+    config
+        .get("app")
+        .and_then(|v| v.get("tool_approval_timeout"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(300)
 }
 
 pub async fn build_allowed_tool_list(
@@ -79,6 +88,7 @@ fn map_selected_agent(
     SelectedAgentRuntime {
         id: agent.id,
         name: agent.name,
+        controller_summary: agent.controller_summary,
         system_prompt: agent.system_prompt,
         model_config_name: agent.model_config_name,
         assigned_model_id,
@@ -258,12 +268,4 @@ pub fn format_attachments(attachments: &[Value]) -> Option<String> {
         "User provided attachments. Use them if relevant:\\n{}",
         blocks.join("\n---\n")
     ))
-}
-
-pub fn approval_timeout(config: &Value) -> u64 {
-    config
-        .get("app")
-        .and_then(|v| v.get("tool_approval_timeout"))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(300)
 }

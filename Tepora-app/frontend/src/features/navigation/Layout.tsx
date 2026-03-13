@@ -41,12 +41,18 @@ const MobileNavButton: React.FC<MobileNavButtonProps> = ({
 	<Button
 		variant={isActive ? "primary" : "ghost"}
 		onClick={() => onClick(mode)}
-		className={`flex flex-col items-center justify-center p-2 h-auto w-full rounded-lg transition-all duration-300 ${isActive ? "bg-white/10" : ""}`}
+		className={`flex flex-col items-center justify-center p-2 h-auto w-full rounded-lg transition-all duration-300 relative overflow-hidden hover:bg-white/5`}
 	>
-		<Icon size={20} className={isActive ? "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" : ""} />
-		<span className={`text-[10px] mt-1 font-medium tracking-wide ${isActive ? "text-gold-400" : ""}`}>
+		{isActive && (
+			<div className="absolute inset-0 bg-gradient-to-t from-gold-500/10 to-transparent animate-fade-in pointer-events-none" />
+		)}
+		<Icon size={20} className={`relative z-10 transition-transform duration-300 ${isActive ? "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)] scale-110" : "scale-100 opacity-70"}`} />
+		<span className={`text-[10px] mt-1 font-medium tracking-wide relative z-10 transition-colors duration-300 ${isActive ? "text-gold-400" : "opacity-70"}`}>
 			{label}
 		</span>
+		{isActive && (
+			<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-t-full bg-gold-400 shadow-[0_0_8px_rgba(255,215,0,0.8)] animate-slide-up pointer-events-none" />
+		)}
 	</Button>
 );
 
@@ -66,7 +72,7 @@ const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
 	<div className="absolute inset-x-3 top-3 bottom-[5.5rem] z-20 lg:hidden">
 		<div className="h-full rounded-2xl glass-panel border border-white/10 shadow-2xl overflow-hidden flex flex-col">
 			<div className="shrink-0 px-3 py-2 border-b border-white/10 flex items-center justify-between">
-				<span className="text-[10px] font-bold tracking-[0.2em] uppercase text-gold-200">
+				<span className="text-xs font-semibold tracking-wider uppercase text-gold-200">
 					{title}
 				</span>
 				<Button
@@ -302,14 +308,14 @@ const Layout: React.FC = () => {
 					<>
 						<div className="absolute inset-0 bg-gradient-to-b from-black/80 via-[#100a08]/70 to-black/90"></div>
 						<div className="absolute inset-0 bg-gradient-to-tr from-gold-500/10 via-transparent to-tea-500/5 opacity-60"></div>
-						<div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(120,60,20,0.1)_0%,transparent_50%)] pointer-events-none"></div>
-						<div className="absolute bottom-[-20%] right-[-10%] w-[70vw] h-[70vw] bg-[radial-gradient(circle,rgba(60,30,20,0.1)_0%,transparent_50%)] pointer-events-none"></div>
+						<div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(120,60,20,0.1)_0%,transparent_50%)] pointer-events-none animate-slow-breathe" style={{ animationDelay: '0s' }}></div>
+						<div className="absolute bottom-[-20%] right-[-10%] w-[70vw] h-[70vw] bg-[radial-gradient(circle,rgba(60,30,20,0.1)_0%,transparent_50%)] pointer-events-none animate-slow-breathe" style={{ animationDelay: '-7.5s', animationDuration: '20s' }}></div>
 					</>
 				)}
 			</div>
 
-			<div className="relative z-10 flex-1 w-full px-2 md:px-4 py-2 md:py-4 mt-2">
-				<div className="mx-auto h-full w-full max-w-[1440px] grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-3 lg:gap-5 min-h-0">
+			<div className="relative z-10 flex-1 w-full px-2 md:px-4 py-2 md:py-4">
+				<div className="mx-auto h-full w-full max-w-[1440px] grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-3 lg:gap-6 min-h-0">
 					<div className="h-full flex flex-col min-h-0 order-1 w-full overflow-hidden">
 						<div className="flex-1 glass-tepora rounded-2xl md:rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 ring-1 ring-white/5 min-h-0 flex flex-col">
 							<div className="absolute inset-0 z-0 flex flex-col">
@@ -384,7 +390,7 @@ const Layout: React.FC = () => {
 							{currentMode === "agent" && <AgentStatus activityLog={activityLog} />}
 							{currentMode === "chat" && (
 								<div className="h-full glass-panel rounded-3xl p-6 border border-white/10 flex flex-col justify-center text-center">
-									<p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gold-300/80">
+									<p className="text-xs font-semibold uppercase tracking-wider text-gold-300/80">
 										{t("dial.chat")}
 									</p>
 									<p className="mt-3 text-sm text-theme-subtext leading-relaxed">

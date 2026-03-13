@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.04
+**ドキュメントバージョン**: 5.06
 **アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-03-06
+**最終更新日**: 2026-03-13
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -249,8 +249,9 @@ backend-rs/
 │   │   └── ...
 │   │
 │   ├── context/                # ========== コンテキストパイプライン ==========
-│   │   ├── pipeline.rs         # ContextPipeline (レガシー + v4 bridge)
-│   │   ├── pipeline_context.rs # PipelineContext (v4.0 構造体) [v4.0]
+│   │   ├── pipeline.rs         # ContextPipeline (config snapshot + budget/tokenizer 解決)
+│   │   ├── controller.rs       # ContextController (memory-first render + token budgeting)
+│   │   ├── pipeline_context.rs # PipelineContext (interaction_tail / local_context / reasoning) [v4.0]
 │   │   ├── worker.rs           # ContextWorker trait + WorkerPipeline [v4.0]
 │   │   ├── workers/            # Worker 実装群 [v4.0]
 │   │   └── ...
@@ -507,7 +508,7 @@ graph TD
 | `AgenticSearchNode` | `nodes/search_agentic.rs` | 4段階ディープサーチパイプライン**[v4.0]** |
 | `SupervisorNode`    | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）          |
 | `PlannerNode`       | `nodes/planner.rs`        | タスク計画の立案                                |
-| `AgentExecutorNode` | `nodes/agent_executor.rs` | ReActループでツールを実行し最終応答を生成       |
+| `AgentExecutorNode` | `nodes/agent_executor.rs` | task packet + summary-only tool replay で executor を回す ReAct ループ |
 | `ToolNode`          | `nodes/tool.rs`           | 補助ノード（現行デフォルトグラフ未接続）        |
 | `SynthesizerNode`   | `nodes/synthesizer.rs`    | 補助ノード（現行デフォルトグラフ未接続）        |
 
@@ -551,25 +552,28 @@ graph TD
 
 **ファイル**: `src/agent/exclusive_manager.rs`
 
-レガシーの `config.yml` 内 `custom_agents` セクションに替わり、独立した `agents.yaml` ファイルでエージェント定義を管理します。
+ExecutionAgent 定義は file-based package として管理します。実体は `<user_data_dir>/execution_agents/<id>/agent.toml` と `SKILL.md` です。controller 側は `controller_summary` だけを見て executor を選び、executor 側だけが `SKILL.md` の全文を参照します。executor 実行時は planner output と直近 notes をまとめた task packet を渡し、tool の生 output は history に保存しつつ step 間では summary のみを再注入します。
 
-| 機能                            | 説明                                                          |
-| ------------------------------- | ------------------------------------------------------------- |
-| **CRUD + ホットリロード** | `agents.yaml` の動的読み込み・書き込み                      |
-| **エージェント自動選択**  | タグマッチング + priority ベースのスコアリング                |
-| **ツール名解決**          | `web_search` → `native_search`, `mcp:tool` → `tool` |
-| **デフォルト設定生成**    | `create_default_config()` で初期 agents.yaml を生成         |
+| 機能                            | 説明                                                                 |
+| ------------------------------- | -------------------------------------------------------------------- |
+| **CRUD + ホットリロード** | package directory の動的読み込み・書き込み                            |
+| **エージェント自動選択**  | タグマッチング + priority ベースのスコアリング                       |
+| **ツール名解決**          | `web_search` → `native_search`, `mcp:tool` → `tool`        |
+| **storage**               | `<user_data_dir>/execution_agents/<id>/agent.toml` + `SKILL.md` を唯一の正本として使用 |
+| **デフォルト設定生成**    | `create_default_config()` で初期 package 群を生成                    |
 
-```yaml
-# agents.yaml
-agents:
-  coder:
-    name: "Code Assistant"
-    description: "コーディングに特化"
-    priority: 10
-    tags: ["code", "programming"]
-    tool_policy:
-      allow_all: true
+```toml
+# <user_data_dir>/execution_agents/coder/agent.toml
+id = "coder"
+name = "Code Assistant"
+description = "コーディングに特化"
+controller_summary = "Use for implementation, debugging, refactoring, and code review tasks."
+enabled = true
+priority = 10
+tags = ["code", "programming"]
+
+[tool_policy]
+allow_all = true
 ```
 
 ### 5.5 Agentic Search [v4.0]
@@ -589,8 +593,8 @@ graph LR
 | ------------------------------- | --------------------------------------------------- |
 | **Query生成**             | LLMでサブクエリを生成（元クエリ含め最大5件まで）     |
 | **並列検索+チャンク選択** | RAG類似検索 + テキスト検索 + 必要時Web検索を統合     |
-| **リサーチレポート**      | 検索結果をLLMで構造化レポートに合成                 |
-| **最終合成**              | レポート+元コンテキストからストリーミング回答を生成 |
+| **リサーチレポート**      | selected chunk brief + evidence から report brief を生成 |
+| **最終合成**              | `report_brief` + `selected_chunk_briefs` + memory だけでストリーミング回答を生成 |
 
 **ルーティング判定** (`RouterNode` 内):
 
@@ -604,8 +608,9 @@ graph LR
 複雑な推論を必要とするリクエストに対して **Thinking Mode** をサポートしています。
 
 - **動作**: `ThinkingNode` が最終回答の前に実行され、ステップバイステップの思考プロセスを生成
-- **統合**: 生成された思考プロセスは `AgentState.thought_process` に保存
+- **統合**: 生成された思考プロセスは `AgentState.thought_process` に保存され、WorkerPipeline 経由の応答では `PipelineContext.reasoning.app_thinking_digest` として扱われます
 - **制御**: クライアントからのリクエストパラメータ `thinkingBudget: <number>` で有効化
+- **現状**: model-side reasoning (`thinking` / `reasoning_content` / `<think>`) は provider 実装内部の段階で `visible_text` と `model_thinking` に正規化され、Chat / Search / SearchAgentic / Synthesizer の stream では `thought` イベントとして別送されます。旧来の `<think>` 連結文字列は互換ラッパ内にのみ残ります
 
 ### 5.7 コンテキストパイプライン (WorkerPipeline) [v4.0]
 
@@ -621,18 +626,22 @@ graph LR
     TOOL --> SEARCH[SearchWorker]
     SEARCH --> RAG[RagWorker]
     RAG --> CTX[PipelineContext]
+    CTX --> CTRL[ContextController]
+    CTRL --> MSG[Vec ChatMessage]
 ```
 
-| Worker            | 責務                                                         |
-| ----------------- | ------------------------------------------------------------ |
-| `SystemWorker`  | config からシステムプロンプト構築 + モード別コンテキスト注入 |
-| `PersonaWorker` | ペルソナ設定の注入 (モード適格性チェック付き)                |
-| `MemoryWorker`  | 会話履歴 + 長期記憶のロード                                  |
-| `ToolWorker`    | 利用可能ツール定義の注入 (Native + MCP)                      |
-| `SearchWorker`  | Web検索実行 + リランキング                                   |
-| `RagWorker`     | RAGストアからのベクトル検索                                  |
+| Worker            | 責務                                                                  |
+| ----------------- | --------------------------------------------------------------------- |
+| `SystemWorker`  | `active_agent_profile` と `characters.*` から system prompt を構築     |
+| `PersonaWorker` | アクティブキャラクターの persona を注入                               |
+| `MemoryWorker`  | `interaction_tail` の抽出、`local_context` の生成、cross-session memory の取得 |
+| `ToolWorker`    | 利用可能ツール定義の注入 (Native + MCP)                               |
+| `SearchWorker`  | Web検索実行 + リランキング                                            |
+| `RagWorker`     | RAGストアからのベクトル検索                                           |
 
-**PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) に基づいて Worker の有効/無効が決定されます。デフォルトのトークン予算は `max_tokens=12288`, `reserved_output=2048` です。
+**ContextController**: `PipelineContext` を memory-first に render するコンポーネントです。`system -> memory cards -> local_context -> compressed evidence -> interaction_tail -> user_input` の順で並べ、stage-aware recipe に基づいて block を collect / dedupe / compress / drop / render します。token 数は backend tokenizer を正本として数え、tokenizer asset が解決できない remote model のみ heuristic / provider usage fallback を許可します。debug/tracing 有効時は `input_tokens_estimated`, `estimation_source`, `dropped_blocks`, `compressed_blocks` を trace に残します。
+
+**PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体です。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) と `PipelineStage` (SearchQueryGenerate, SearchChunkSelect, SearchReportBuild, SearchFinalSynthesis, AgentPlanner, AgentExecutor, AgentSynthesizer) に基づいて Worker / recipe が切り替わります。主要 field は `config_snapshot`, `interaction_tail`, `local_context`, `memory_chunks`, `rag_chunks`, `artifacts`, `reasoning`, `tokenizer_spec` です。token budget は固定値ではなく active model の `context_length` / `n_ctx` に追従し、`reserved_output`, `safety_margin`, `available_input_budget`, `estimation_source` を保持します。
 
 ### 5.8 LlamaService & LlmService
 
@@ -654,7 +663,10 @@ pub struct LlamaService {
 - Chat Completions API の提供
 - ヘルスチェック
 
-`LlmService` は `ModelManager` のレジストリを参照して `ModelRuntimeConfig` を組み立て、`chat` / `stream_chat` / `embed` を高レベルAPIとして提供します。`ModelManager` 側では Ollama / LM Studio のモデル一覧同期（`refresh_*_models`）も実装されています。
+`LlmService` は `ModelManager` のレジストリを参照して `ModelRuntimeConfig` を組み立て、`chat` / `stream_chat` / `embed` を高レベルAPIとして提供します。加えて `chat_normalized` / `stream_chat_normalized` により `visible_text` と `model_thinking` を分離した戻り値を提供します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。Ollama / LM Studio / OpenAI-compatible / llama.cpp の各 provider は内部で native に reasoning を正規化し、旧来の `chat` / `stream_chat` はこの normalized 戻り値を可視テキスト優先の互換形へ変換する薄いラッパです。`ModelManager` 側では Ollama / LM Studio のモデル一覧同期（`refresh_*_models`）も実装されています。
+
+> [!NOTE]
+> 2026-03-13 時点で provider-native な normalized transport は導入済みです。Chat / Search / SearchAgentic / Synthesizer は `visible_text` と `model_thinking` を分離して扱い、frontend へは通常 `chunk` と `thought` を別イベントで送ります。`<think>` 形式の連結は後方互換のための string API にのみ残されています。
 
 ### 5.9 MCP (Model Context Protocol)
 
@@ -680,6 +692,9 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 - **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
 - **FadeMem 統合**: 重要度(Importance)主導の層間遷移(SML/LML)や時間経過による減衰(Decay)、手動での記憶圧縮(Compression)が行われます。
 - **イベント駆動保存**: 従来の会話ターン単位の保存から、意味的な一貫性を持つ「イベント原子」としての保存単位へ再定義しています。
+- **Cross-Session Retrieval**: retrieval は session 固定 filter ではなく、same-session を bonus 付きで優遇する cross-session rerank に移行しています。
+- **Character-aware Memory**: `memory_events.character_id` に `active_agent_profile` を保持し、同一キャラクターの継続記憶を優先できます。
+- **PROF Memory**: Agent 系は `CHAR` に加えて task packet / artifact summary を `PROF` にも保存し、planner / executor / synthesizer で二層記憶として再利用します。
 
 **ファイル**: `src/infrastructure/episodic_store/memory_v2/` (移行中), `src/infrastructure/episodic_store/em_llm/` (v1)
 
@@ -688,13 +703,15 @@ flowchart LR
     U[User Turn] --> I[Ingestion Pipeline]
     I --> S1[Segmentation EM-LLM]
     S1 --> S2[Boundary Refinement]
-    S2 --> S3[Event Representation]
+    S2 --> S3[Event Representation + character_id]
     S3 --> P[(Memory DB v2)]
 
-    Q[Query] --> R1[Candidate Retrieval Ks]
-    R1 --> R2[Contiguity Retrieval Kc]
-    R2 --> R3[FadeMem Re-ranking]
-    R3 --> Ctx[PipelineContext.memory_chunks]
+    Q[Query] --> L1[Session-local Candidates]
+    Q --> L2[Cross-session Candidates]
+    L1 --> R2[Contiguity Expansion]
+    L2 --> R2
+    R2 --> R3[Prompt Re-ranking same-session bonus]
+    R3 --> Ctx[Memory Cards for ContextController]
 
     BG[Background Decay] --> P
     UI[User Manual Compress] --> CMP[LLM Conflict/Fusion]
@@ -1015,15 +1032,18 @@ ws://127.0.0.1:{port}/ws
 | `DELETE` | `/api/sessions/{id}`          | セッション削除     |
 | `GET`    | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 
-#### Custom Agent API
+#### Execution Agent API
 
 | メソッド   | エンドポイント                | 説明                         |
 | ---------- | ----------------------------- | ---------------------------- |
-| `GET`    | `/api/custom-agents`        | エージェント一覧             |
-| `POST`   | `/api/custom-agents`        | エージェント作成             |
-| `GET`    | `/api/custom-agents/{id}`   | エージェント詳細             |
-| `PUT`    | `/api/custom-agents/{id}`   | エージェント更新             |
-| `DELETE` | `/api/custom-agents/{id}`   | エージェント削除             |
+| `GET`    | `/api/execution-agents`        | ExecutionAgent 一覧取得       |
+
+| `GET`    | `/api/execution-agents/{id}`   | ExecutionAgent 詳細           |
+
+
+
+> [!NOTE]
+> 公開APIは `execution-agents` に統一され、ExecutionAgent の実体も file-based package registry のみを使用します。
 
 #### MCP API
 
@@ -1084,7 +1104,7 @@ graph TB
         SecretsYml[secrets.yaml - 機密設定]
         McpJson[config/mcp_tools_config.json - MCP接続設定]
         McpPolicy[config/mcp_policy.json - MCPポリシー]
-        AgentsYml[config/agents.yaml - Agent定義]
+        ExecutionAgentPackages[user_data/execution_agents/<id> - ExecutionAgent package]
     end
   
     subgraph Services["設定サービス / スキーマ"]
@@ -1099,7 +1119,7 @@ graph TB
     ConfigValidation --> ConfigSvc
     McpManager --> McpJson
     McpManager --> McpPolicy
-    AgentManager --> AgentsYml
+    AgentManager --> ExecutionAgentPackages
 ```
 
 ### config.yml 主要セクション
@@ -1146,6 +1166,8 @@ models_gguf:
     port: 8088
     n_ctx: 8192
     n_gpu_layers: -1
+    tokenizer_path: "models/tokenizer.json"
+    tokenizer_format: "tokenizer_json"
   embedding_model:
     path: "models/embedding-model.gguf"
     port: 8090
@@ -1171,12 +1193,12 @@ USER_DATA_DIR/
 ├── tepora_core.db              # SQLite: チャット履歴 + RAGベクトル
 ├── models.json                 # モデルレジストリ
 ├── models/                     # ダウンロード/登録モデル
+├── execution_agents/           # ExecutionAgent packages [v6]
 ├── logs/                       # アプリログ
 ├── bin/llama.cpp/current/      # llama.cppバイナリ
 └── config/
     ├── mcp_tools_config.json   # MCP接続設定
-    ├── mcp_policy.json         # MCP接続ポリシー
-    └── agents.yaml             # エージェント定義 [v4.0]
+    └── mcp_policy.json         # MCP接続ポリシー
 ```
 
 **OS別データディレクトリ**:
@@ -1306,3 +1328,10 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
+
+
+
+
+
+
+

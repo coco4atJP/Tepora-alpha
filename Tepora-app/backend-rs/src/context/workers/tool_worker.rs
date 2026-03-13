@@ -44,11 +44,11 @@ impl ContextWorker for ToolWorker {
 
         let mut tool_definitions = Vec::new();
 
-        let isolation = state
-            .config
-            .load_config()
-            .ok()
-            .and_then(|c| c.get("privacy")?.get("isolation_mode")?.as_bool())
+        let isolation = ctx
+            .config()
+            .get("privacy")
+            .and_then(|c| c.get("isolation_mode"))
+            .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
         // 1. Native tools — web_search, fetch_url

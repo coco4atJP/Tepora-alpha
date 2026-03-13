@@ -50,8 +50,7 @@ impl ContextWorker for RagWorker {
             return Err(WorkerError::skipped("rag", "empty user input"));
         }
 
-        let config = state.config.load_config().unwrap_or_default();
-        let model_cfg = ModelRuntimeConfig::for_embedding(&config)
+        let model_cfg = ModelRuntimeConfig::for_embedding(ctx.config())
             .map_err(|e| WorkerError::failed("rag", format!("config error: {e}")))?;
 
         let embeddings = state
