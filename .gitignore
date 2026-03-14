@@ -160,6 +160,7 @@ Tepora-app/backend/sqlite_*/
 /models/
 /models_bak/
 /models.json
+Tepora-app/backend-rs/models.json
 
 # Binary backups
 bin/
@@ -174,3 +175,4 @@ docs/archives/
 gha-creds-*.json
 # Perf reports
 Tepora-app/tests/perf/perf-results.json
+
