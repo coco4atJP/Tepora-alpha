@@ -250,7 +250,6 @@ backend-rs/
 │   │   ├── modes.rs            # RequestedAgentMode
 │   │   ├── planner.rs          # 実行計画生成
 │   │   ├── policy.rs           # エージェントポリシー
-│   │   ├── runtime.rs          # エージェントランタイム
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── context/                # ========== コンテキストパイプライン ==========
@@ -367,6 +366,7 @@ pub struct AppStateCompat {
     pub paths: Arc<AppPaths>,        // パス設定
     pub config: ConfigService,       // 設定ファイルの読み書き
     pub session_token: Arc<tokio::sync::RwLock<SessionToken>>, // セッショントークン
+    pub security: Arc<SecurityControls>, // 認証・セキュリティ
     pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
     pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
     pub llm: LlmService,             // LLMサービス (高レベル抽象化)
@@ -678,12 +678,14 @@ pub struct LlamaService {
 
 2026-03-14 時点の `models` モジュールは以下の分割です。
 
+- `event.rs`: モデル状態のイベント通知定義。
 - `manager.rs`: 公開 API とオーケストレーションだけを持つ Facade。
 - `registry.rs`: `models.json` の load/save、migration、upsert、削除、role assignment、順序管理。
 - `discovery.rs`: Ollama / LM Studio / llama.cpp のモデル検出と discovered model 正規化。
 - `download.rs`: Hugging Face URL 解決、download policy、SHA256 検証、更新確認。
 - `metadata.rs`: GGUF 読み取り、role/context/architecture 推論、ファイル名サニタイズ。
 - `selection.rs`: active text / embedding / agent モデル解決と assignment rule 検証。
+- `types.rs`: 型定義。
 
 `ModelManager` の公開面は維持しつつ、`resolve_character_model` / `resolve_embedding_model` / `find_first_model_by_role` の entry-returning API を追加し、setup 系を除く呼び出し側の `get_registry()` 直参照を減らしています。これにより `context/pipeline.rs` や memory worker はレジストリ内部構造に依存せず、必要な問い合わせだけを `ModelManager` に委譲します。
 
