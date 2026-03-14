@@ -74,10 +74,7 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 			: humanizeToolName(request.toolName);
 
 	const translatedDescription = t(`tool_confirmation.descriptions.${request.toolName}`);
-	const fallbackDescription = t(
-		"tool_confirmation.description",
-		"このツールを実行しようとしています。",
-	);
+	const fallbackDescription = t("tool_confirmation.description", "このツールを実行しようとしています。");
 	const description =
 		translatedDescription !== `tool_confirmation.descriptions.${request.toolName}`
 			? translatedDescription

@@ -7,7 +7,7 @@ import SearchResults from "../SearchResults";
 describe("SearchResults", () => {
 	it("renders empty state", () => {
 		render(<SearchResults results={[]} />);
-		expect(screen.getByText("検索結果待機中...")).toBeInTheDocument();
+		expect(screen.getByText("search.no_results")).toBeInTheDocument();
 	});
 
 	it("renders results correctly", () => {

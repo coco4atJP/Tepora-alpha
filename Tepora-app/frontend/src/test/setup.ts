@@ -32,7 +32,7 @@ const translations: Record<string, string> = {
 	// Search Results
 	"searchResults.title": "Search Results",
 	"searchResults.empty": "No results found",
-	"search.no_results": "検索結果待機中...",
+	"search.no_results": "search.no_results",
 	"search.hits": "results",
 	"search.title": "Search Results",
 
