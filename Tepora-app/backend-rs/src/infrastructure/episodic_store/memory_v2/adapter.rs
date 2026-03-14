@@ -93,18 +93,11 @@ impl UnifiedMemoryAdapter {
         let active_character = self.resolve_active_character_id();
 
         models
-            .resolve_character_model_id(active_character.as_deref())
+            .resolve_character_model(active_character.as_deref())
             .ok()
             .flatten()
-            .or_else(|| {
-                models.get_registry().ok().and_then(|registry| {
-                    registry
-                        .models
-                        .iter()
-                        .find(|model| model.role == "text")
-                        .map(|model| model.id.clone())
-                })
-            })
+            .or_else(|| models.find_first_model_by_role("text").ok().flatten())
+            .map(|model| model.id)
             .unwrap_or_else(|| "default".to_string())
     }
 

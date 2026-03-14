@@ -108,7 +108,7 @@ graph TD
     State --> Config[core/config/*]
     State --> History[history/mod.rs]
     State --> MCP[mcp/mod.rs]
-    State --> Models[models/manager.rs]
+    State --> Models[models/*]
 
     MCP --> McpRegistry[mcp/registry.rs]
     MCP --> McpInstaller[mcp/installer.rs]
@@ -282,7 +282,7 @@ backend-rs/
 │   │   ├── knowledge.rs        # 知識インフラ統合
 │   │   └── mod.rs              # モジュール公開
 │   │
-│   ├── models/                 # ModelManager (モデル管理)
+│   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -674,7 +674,18 @@ pub struct LlamaService {
 - Chat Completions API の提供
 - ヘルスチェック
 
-`LlmService` は `ModelManager` のレジストリを参照して `ModelRuntimeConfig` を組み立て、`chat` / `stream_chat` / `embed` を高レベルAPIとして提供します。加えて `chat_normalized` / `stream_chat_normalized` により `visible_text` と `model_thinking` を分離した戻り値を提供します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。Ollama / LM Studio / OpenAI-compatible / llama.cpp の各 provider は内部で native に reasoning を正規化し、旧来の `chat` / `stream_chat` はこの normalized 戻り値を可視テキスト優先の互換形へ変換する薄いラッパです。`ModelManager` 側では Ollama / LM Studio のモデル一覧同期（`refresh_*_models`）も実装されています。
+`LlmService` は `ModelManager` を通じて `ModelRuntimeConfig` を組み立て、`chat` / `stream_chat` / `embed` を高レベルAPIとして提供します。加えて `chat_normalized` / `stream_chat_normalized` により `visible_text` と `model_thinking` を分離した戻り値を提供します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。Ollama / LM Studio / OpenAI-compatible / llama.cpp の各 provider は内部で native に reasoning を正規化し、旧来の `chat` / `stream_chat` はこの normalized 戻り値を可視テキスト優先の互換形へ変換する薄いラッパです。
+
+2026-03-14 時点の `models` モジュールは以下の分割です。
+
+- `manager.rs`: 公開 API とオーケストレーションだけを持つ Facade。
+- `registry.rs`: `models.json` の load/save、migration、upsert、削除、role assignment、順序管理。
+- `discovery.rs`: Ollama / LM Studio / llama.cpp のモデル検出と discovered model 正規化。
+- `download.rs`: Hugging Face URL 解決、download policy、SHA256 検証、更新確認。
+- `metadata.rs`: GGUF 読み取り、role/context/architecture 推論、ファイル名サニタイズ。
+- `selection.rs`: active text / embedding / agent モデル解決と assignment rule 検証。
+
+`ModelManager` の公開面は維持しつつ、`resolve_character_model` / `resolve_embedding_model` / `find_first_model_by_role` の entry-returning API を追加し、setup 系を除く呼び出し側の `get_registry()` 直参照を減らしています。これにより `context/pipeline.rs` や memory worker はレジストリ内部構造に依存せず、必要な問い合わせだけを `ModelManager` に委譲します。
 
 > [!NOTE]
 > 2026-03-13 時点で provider-native な normalized transport は導入済みです。Chat / Search / SearchAgentic / Synthesizer は `visible_text` と `model_thinking` を分離して扱い、frontend へは通常 `chunk` と `thought` を別イベントで送ります。`<think>` 形式の連結は後方互換のための string API にのみ残されています。

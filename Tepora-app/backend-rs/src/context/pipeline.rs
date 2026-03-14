@@ -79,33 +79,23 @@ fn resolve_token_budget(state: &Arc<AppState>, config: &Value, mode: PipelineMod
 }
 
 fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
-    let registry = state.models.get_registry().ok();
     let active_character = config
         .get("active_agent_profile")
         .and_then(|value| value.as_str());
 
     let context_from_registry = state
         .models
-        .resolve_character_model_id(active_character)
+        .resolve_character_model(active_character)
         .ok()
         .flatten()
-        .and_then(|model_id| {
-            registry.as_ref().and_then(|registry| {
-                registry
-                    .models
-                    .iter()
-                    .find(|model| model.id == model_id)
-                    .and_then(|model| model.context_length)
-            })
-        });
+        .and_then(|model| model.context_length);
 
-    let context_from_assignment = registry.as_ref().and_then(|registry| {
-        registry
-            .role_assignments
-            .get("text")
-            .and_then(|model_id| registry.models.iter().find(|model| model.id == *model_id))
-            .and_then(|model| model.context_length)
-    });
+    let context_from_assignment = state
+        .models
+        .find_first_model_by_role("text")
+        .ok()
+        .flatten()
+        .and_then(|model| model.context_length);
 
     let context_from_config = config
         .get("models_gguf")
@@ -125,7 +115,6 @@ fn clamp(value: usize, min: usize, max: usize) -> usize {
 }
 
 fn resolve_tokenizer_spec(state: &Arc<AppState>, config: &Value) -> ModelTokenizerSpec {
-    let registry = state.models.get_registry().ok();
     let active_character = config
         .get("active_agent_profile")
         .and_then(|value| value.as_str());
@@ -142,22 +131,14 @@ fn resolve_tokenizer_spec(state: &Arc<AppState>, config: &Value) -> ModelTokeniz
         .and_then(|value| value.as_str())
         .map(ToString::to_string);
 
-    let active_model_id = state
+    let active_model = state
         .models
-        .resolve_character_model_id(active_character)
+        .resolve_character_model(active_character)
         .ok()
         .flatten()
-        .or_else(|| {
-            registry
-                .as_ref()
-                .and_then(|registry| registry.role_assignments.get("text").cloned())
-        });
-
-    let registry_entry = active_model_id.as_ref().and_then(|model_id| {
-        registry
-            .as_ref()
-            .and_then(|registry| registry.models.iter().find(|model| model.id == *model_id))
-    });
+        .or_else(|| state.models.find_first_model_by_role("text").ok().flatten());
+    let active_model_id = active_model.as_ref().map(|model| model.id.clone());
+    let registry_entry = active_model.as_ref();
 
     let discovered_path = config_path
         .clone()

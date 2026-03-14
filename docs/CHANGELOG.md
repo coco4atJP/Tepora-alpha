@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactored backend `models` into a thin `ModelManager` facade plus dedicated `registry`, `discovery`, `download`, `metadata`, and `selection` modules.
+- Added entry-returning model lookup APIs (`resolve_character_model`, `resolve_embedding_model`, `find_first_model_by_role`) and reduced direct `get_registry()` traversal outside setup handlers.
+
 ## [0.4.5] - 2026-03-14
 
 ### Added

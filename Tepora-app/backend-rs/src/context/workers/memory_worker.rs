@@ -102,32 +102,22 @@ impl ContextWorker for MemoryWorker {
 }
 
 fn resolve_embedding_model_id(state: &Arc<AppState>) -> Option<String> {
-    let registry = match state.models.get_registry() {
-        Ok(registry) => registry,
+    match state.models.resolve_embedding_model() {
+        Ok(Some(model)) => Some(model.id),
+        Ok(None) => {
+            tracing::warn!(
+                "MemoryWorker: no embedding model is configured; skipping episodic retrieval"
+            );
+            None
+        }
         Err(err) => {
             tracing::warn!(
                 "MemoryWorker: failed to load model registry for embedding lookup: {}",
                 err
             );
-            return None;
+            None
         }
-    };
-
-    if let Some(model_id) = registry.role_assignments.get("embedding").cloned() {
-        return Some(model_id);
     }
-
-    if let Some(model_id) = registry
-        .models
-        .iter()
-        .find(|model| model.role == "embedding")
-        .map(|model| model.id.clone())
-    {
-        return Some(model_id);
-    }
-
-    tracing::warn!("MemoryWorker: no embedding model is configured; skipping episodic retrieval");
-    None
 }
 
 fn extract_interaction_tail(history_messages: &[HistoryMessage]) -> Option<InteractionTail> {

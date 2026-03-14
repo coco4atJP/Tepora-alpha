@@ -664,21 +664,16 @@ fn summarize_tool_output(tool_name: &str, output: &str) -> String {
 fn resolve_embedding_model_id(app_state: &crate::state::AppState) -> String {
     app_state
         .models
-        .get_registry()
+        .resolve_embedding_model()
         .ok()
-        .and_then(|registry| {
-            registry
-                .role_assignments
-                .get("embedding")
-                .cloned()
-                .or_else(|| {
-                    registry
-                        .models
-                        .iter()
-                        .find(|model| model.role == "embedding")
-                        .map(|model| model.id.clone())
-                })
-                .or_else(|| registry.models.first().map(|model| model.id.clone()))
+        .flatten()
+        .map(|model| model.id)
+        .or_else(|| {
+            app_state
+                .models
+                .list_models()
+                .ok()
+                .and_then(|models| models.into_iter().next().map(|model| model.id))
         })
         .unwrap_or_else(|| "default".to_string())
 }
