@@ -222,10 +222,12 @@ backend-rs/
 │   ├── llm/                    # ========== LLM 統合 ==========
 │   │   ├── llama_cpp.rs        # llama.cpp バインディング
 │   │   ├── llama_service.rs    # LlamaService (推論サーバー管理)
-│   │   ├── service.rs          # LlmService (高レベル抽象化)
-│   │   ├── provider.rs         # プロバイダー抽象化
-│   │   ├── ollama.rs           # Ollama 統合
 │   │   ├── lmstudio.rs         # LM Studio 統合
+│   │   ├── ollama.rs           # Ollama 統合
+│   │   ├── provider.rs         # プロバイダー抽象化
+│   │   ├── service.rs          # LlmService (高レベル抽象化)
+│   │   ├── tests.rs            # LLM関連テスト
+│   │   ├── types.rs            # LLM関連の型定義
 │   │   └── mod.rs
 │   │
 │   ├── mcp/                    # ========== MCP ==========
@@ -244,33 +246,43 @@ backend-rs/
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── exclusive_manager.rs # ExclusiveAgentManager [v4.0]
 │   │   ├── execution.rs        # エージェント実行ランタイム
-│   │   ├── planner.rs          # 実行計画生成
+│   │   ├── instructions.rs     # エージェントインストラクション
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   └── ...
+│   │   ├── planner.rs          # 実行計画生成
+│   │   ├── policy.rs           # エージェントポリシー
+│   │   ├── runtime.rs          # エージェントランタイム
+│   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── context/                # ========== コンテキストパイプライン ==========
-│   │   ├── pipeline.rs         # ContextPipeline (config snapshot + budget/tokenizer 解決)
 │   │   ├── controller.rs       # ContextController (memory-first render + token budgeting)
+│   │   ├── pipeline.rs         # ContextPipeline (config snapshot + budget/tokenizer 解決)
 │   │   ├── pipeline_context.rs # PipelineContext (interaction_tail / local_context / reasoning) [v4.0]
+│   │   ├── prompt.rs           # プロンプト生成・管理
 │   │   ├── worker.rs           # ContextWorker trait + WorkerPipeline [v4.0]
 │   │   ├── workers/            # Worker 実装群 [v4.0]
-│   │   └── ...
+│   │   └── mod.rs              # モジュール公開
 │   │
-|   │   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
-|   │   └── knowledge.rs        # 知識ドメイン
-|   │
-|   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
-|   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
-|   │   └── knowledge.rs        # 知識ユースケース
-|   │
-|   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
-|   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
-|   │   ├── knowledge_store/    # 知識ストア (rag)
-|   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
-|   │   └── transport/          # トランスポートアダプタ
-|   │
-|   ├── models/                 # ModelManager (モデル管理)
+│   ├── domain/                 # ========== ドメイン層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ドメイン
+│   │   ├── errors.rs           # ドメインエラー
+│   │   ├── knowledge.rs        # 知識ドメイン
+│   │   └── mod.rs              # モジュール公開
+│   │
+│   ├── application/            # ========== アプリケーション層 (v2移行中) ==========
+│   │   ├── episodic_memory.rs  # エピソード記憶ユースケース
+│   │   ├── knowledge.rs        # 知識ユースケース
+│   │   └── mod.rs              # モジュール公開
+│   │
+│   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
+│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+│   │   ├── knowledge_store/    # 知識ストア (rag)
+│   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
+│   │   ├── transport/          # トランスポートアダプタ
+│   │   ├── episodic.rs         # エピソード記憶インフラ統合
+│   │   ├── knowledge.rs        # 知識インフラ統合
+│   │   └── mod.rs              # モジュール公開
+│   │
+│   ├── models/                 # ModelManager (モデル管理)
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
