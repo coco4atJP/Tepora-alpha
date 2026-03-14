@@ -26,7 +26,7 @@ const InputArea: React.FC = () => {
 	const isConnected = useWebSocketStore((state) => state.isConnected);
 	const sendMessage = useWebSocketStore((state) => state.sendMessage);
 	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const { executionAgents, config } = useSettings();
+	const { agentSkills, config } = useSettings();
 
 	const isIdle = useSelector(chatActor, (state) => state.matches("idle"));
 	const isGenerating = useSelector(chatActor, (state) => state.matches("generating"));
@@ -36,9 +36,7 @@ const InputArea: React.FC = () => {
 	const canSend = (isIdle || isError) && isConnected && (message.trim().length > 0 || attachments.length > 0);
 	const isProcessing = isGenerating;
 
-	const availableAgents = Object.values(executionAgents).filter(
-		(agent) => agent.enabled,
-	);
+	const availableAgents = Object.values(agentSkills).filter((skill) => skill.valid);
 
 	const handleSend = () => {
 		if (canSend) {
@@ -142,12 +140,12 @@ const InputArea: React.FC = () => {
 									onChange={(e) => setSelectedAgentId(e.target.value)}
 									disabled={isProcessing}
 									className="h-8 pl-3 pr-2 py-0 rounded-full bg-black/20 hover:bg-black/40 transition-colors border border-white/5 hover:border-white/10 text-[11px] text-tea-200 font-semibold max-w-[140px] truncate focus:outline-none focus:ring-1 focus:ring-tea-500/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-none"
-									title={t("chat.input.select_agent", "Select agent")}
+									title={t("chat.input.select_agent", "Select Agent Skill")}
 								>
 									<option value="">{t("chat.input.agent_auto", "Auto (Supervisor)")}</option>
-									{availableAgents.map((agent) => (
-										<option key={agent.id} value={agent.id}>
-											{agent.icon || "🤖"} {agent.name}
+									{availableAgents.map((skill) => (
+										<option key={skill.id} value={skill.id}>
+											{skill.name}
 										</option>
 									))}
 								</select>

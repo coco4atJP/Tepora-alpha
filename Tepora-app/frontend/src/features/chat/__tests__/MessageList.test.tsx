@@ -15,7 +15,7 @@ vi.mock("../../../stores", () => ({
 }));
 
 vi.mock("../../../hooks/useSettings", () => ({
-	useSettings: () => ({ config: {}, executionAgents: {} }),
+	useSettings: () => ({ config: {}, agentSkills: {}, skillRoots: [] }),
 }));
 
 import { useChatStore } from "../../../stores";

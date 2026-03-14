@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.06
-**アプリケーションバージョン**: 4.0 (BETA) (v0.4.0)
-**最終更新日**: 2026-03-13
+**ドキュメントバージョン**: 5.08
+**アプリケーションバージョン**: 4.5 (BETA) (v0.4.5)
+**最終更新日**: 2026-03-14
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -77,7 +77,7 @@ graph TD
             Graph[Tepora Graph Engine]
             LLM[LLM Service]
             MCP[MCP Manager]
-            EAM[ExclusiveAgentManager]
+            SR[SkillRegistry]
         end
     
         Backend <-->|Model Loading| GGUF[GGUF Models]
@@ -244,7 +244,7 @@ backend-rs/
 │   │   └── nodes/              # ノード実装 (chat, search, agentic, thinking, etc.)
 │   │
 │   ├── agent/                  # ========== エージェント管理 ==========
-│   │   ├── exclusive_manager.rs # ExclusiveAgentManager [v4.0]
+│   │   ├── skill_registry.rs   # SkillRegistry / Agent Skills package管理 [v7.0]
 │   │   ├── execution.rs        # エージェント実行ランタイム
 │   │   ├── instructions.rs     # エージェントインストラクション
 │   │   ├── modes.rs            # RequestedAgentMode
@@ -374,7 +374,7 @@ pub struct AppStateCompat {
     pub mcp_registry: McpRegistry,   // MCPサーバーカタログ
     pub models: ModelManager,        // モデル管理
     pub setup: SetupState,           // セットアップ状態
-    pub exclusive_agents: ExclusiveAgentManager, // エージェント定義管理
+    pub skill_registry: SkillRegistry,     // Agent Skills package管理
     pub graph_runtime: Arc<GraphRuntime>,        // グラフランタイム
     pub em_memory_service: Arc<EmMemoryService>, // エピソード記憶 (レガシー)
     pub rate_limiters: Arc<RateLimiters>,        // レート制限
@@ -540,13 +540,13 @@ graph TD
   
     subgraph "Execution Layer"
         EXEC[AgentExecutorNode]
-        EAM[ExclusiveAgentManager]
+        SR[SkillRegistry]
     end
   
     SUP -->|high or complex low| PLAN
     SUP -->|direct / simple low| EXEC
     PLAN --> EXEC
-    EAM -->|agent definitions| SUP
+    SR -->|skill summaries| SUP
 ```
 
 **AgentMode (ルーティングモード)** [v4.0: `Fast` → `Low` にリネーム]:
@@ -560,32 +560,31 @@ graph TD
 > [!NOTE]
 > `"fast"` は serde / parse でレガシーエイリアスとして引き続き受け入れられます。
 
-### 5.4.1 ExclusiveAgentManager [v4.0]
+### 5.4.1 SkillRegistry / Agent Skills [v7.0]
 
-**ファイル**: `src/agent/exclusive_manager.rs`
+**ファイル**: `src/agent/skill_registry.rs`
 
-ExecutionAgent 定義は file-based package として管理します。実体は `<user_data_dir>/execution_agents/<id>/agent.toml` と `SKILL.md` です。controller 側は `controller_summary` だけを見て executor を選び、executor 側だけが `SKILL.md` の全文を参照します。executor 実行時は planner output と直近 notes をまとめた task packet を渡し、tool の生 output は history に保存しつつ step 間では summary のみを再注入します。
+Agent Skills は標準 `SKILL.md` レイアウトの package として管理します。Supervisor は `SKILL.md` frontmatter の `name` / `description` と妥当性情報を見て実行先を選び、Execution は選択された package の `SKILL.md` 本文、`references/`, `scripts/`, `assets/`, `agents/openai.yaml` を使ってタスクを実行します。Planner は長期タスクや分解が必要な場合の補助に限定されます。
 
-| 機能                            | 説明                                                                 |
-| ------------------------------- | -------------------------------------------------------------------- |
-| **CRUD + ホットリロード** | package directory の動的読み込み・書き込み                            |
-| **エージェント自動選択**  | タグマッチング + priority ベースのスコアリング                       |
-| **ツール名解決**          | `web_search` → `native_search`, `mcp:tool` → `tool`        |
-| **storage**               | `<user_data_dir>/execution_agents/<id>/agent.toml` + `SKILL.md` を唯一の正本として使用 |
-| **デフォルト設定生成**    | `create_default_config()` で初期 package 群を生成                    |
+| 機能                        | 説明                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| **スキル探索**              | 複数の skill root を走査し、標準 `SKILL.md` package を index 化                      |
+| **Supervisor 用インデックス** | `name`, `description`, `valid`, `enabled` などの軽量 summary を提供                  |
+| **Execution 用ロード**      | `SKILL.md` 本文、`references/`, `scripts/`, `assets/`, `agents/openai.yaml` を解決  |
+| **CRUD + 保存**             | Skill package の作成・更新・削除・export/import を提供                              |
+| **storage**                 | `project/.agents/skills` と `<user_data_dir>/skills` を既定 root として使用          |
+| **設定連携**                | `config.yml` の `agent_skills.roots` で root の追加、無効化、ラベル付けを制御        |
 
-```toml
-# <user_data_dir>/execution_agents/coder/agent.toml
-id = "coder"
-name = "Code Assistant"
-description = "コーディングに特化"
-controller_summary = "Use for implementation, debugging, refactoring, and code review tasks."
-enabled = true
-priority = 10
-tags = ["code", "programming"]
+```md
+# .agents/skills/coder/SKILL.md
+---
+name: coder
+description: Use for implementation, debugging, refactoring, and code review tasks.
+---
 
-[tool_policy]
-allow_all = true
+# Coder
+
+Follow the implementation workflow for software tasks.
 ```
 
 ### 5.5 Agentic Search [v4.0]
@@ -1044,18 +1043,19 @@ ws://127.0.0.1:{port}/ws
 | `DELETE` | `/api/sessions/{id}`          | セッション削除     |
 | `GET`    | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 
-#### Execution Agent API
+#### Agent Skills API
 
 | メソッド   | エンドポイント                | 説明                         |
 | ---------- | ----------------------------- | ---------------------------- |
-| `GET`    | `/api/execution-agents`        | ExecutionAgent 一覧取得       |
-
-| `GET`    | `/api/execution-agents/{id}`   | ExecutionAgent 詳細           |
+| `GET`    | `/api/agent-skills`           | Agent Skill 一覧と root 情報取得 |
+| `GET`    | `/api/agent-skills/{id}`      | Agent Skill package 詳細取得 |
+| `POST`   | `/api/agent-skills`           | Agent Skill package 保存     |
+| `DELETE` | `/api/agent-skills/{id}`      | Agent Skill package 削除     |
 
 
 
 > [!NOTE]
-> 公開APIは `execution-agents` に統一され、ExecutionAgent の実体も file-based package registry のみを使用します。
+> 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
 
 #### MCP API
 
@@ -1116,14 +1116,15 @@ graph TB
         SecretsYml[secrets.yaml - 機密設定]
         McpJson[config/mcp_tools_config.json - MCP接続設定]
         McpPolicy[config/mcp_policy.json - MCPポリシー]
-        ExecutionAgentPackages[user_data/execution_agents/<id> - ExecutionAgent package]
+        UserSkills[user_data/skills/<id> - user skill package]
+        ProjectSkills[project/.agents/skills/<id> - bundled skill package]
     end
   
     subgraph Services["設定サービス / スキーマ"]
         ConfigSvc[src/core/config/service.rs]
         ConfigValidation[src/core/config/validation.rs]
         McpManager[src/mcp/mod.rs]
-        AgentManager[src/agent/exclusive_manager.rs]
+        SkillRegistry[src/agent/skill_registry.rs]
     end
   
     ConfigYml --> ConfigSvc
@@ -1131,7 +1132,8 @@ graph TB
     ConfigValidation --> ConfigSvc
     McpManager --> McpJson
     McpManager --> McpPolicy
-    AgentManager --> ExecutionAgentPackages
+    SkillRegistry --> UserSkills
+    SkillRegistry --> ProjectSkills
 ```
 
 ### config.yml 主要セクション
@@ -1205,7 +1207,7 @@ USER_DATA_DIR/
 ├── tepora_core.db              # SQLite: チャット履歴 + RAGベクトル
 ├── models.json                 # モデルレジストリ
 ├── models/                     # ダウンロード/登録モデル
-├── execution_agents/           # ExecutionAgent packages [v6]
+├── skills/                     # User Agent Skills packages [v7]
 ├── logs/                       # アプリログ
 ├── bin/llama.cpp/current/      # llama.cppバイナリ
 └── config/

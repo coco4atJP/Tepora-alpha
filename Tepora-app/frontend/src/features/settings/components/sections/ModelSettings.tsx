@@ -48,7 +48,7 @@ const ModelSettings: React.FC = () => {
 	const {
 		config,
 		originalConfig,
-		executionAgents,
+		agentSkills,
 		updateLlmManager,
 		updateModel,
 		updateSearch,
@@ -215,10 +215,7 @@ const ModelSettings: React.FC = () => {
 	const embeddingModels = models.filter((m) => m.role === "embedding");
 	const getActiveId = (role: string) => models.find((m) => m.role === role && m.is_active)?.id;
 	const characterEntries = Object.entries(config.characters || {});
-	const executionAgentEntries = Object.values(executionAgents || {}).sort((a, b) => {
-		if (a.priority !== b.priority) return a.priority - b.priority;
-		return a.name.localeCompare(b.name);
-	});
+	const executionAgentEntries = Object.values(agentSkills || {}).sort((a, b) => a.name.localeCompare(b.name));
 
 	const readString = (path: string, fallback = "") => {
 		const value = getPathValue<unknown>(config, path, fallback);
@@ -362,17 +359,17 @@ const ModelSettings: React.FC = () => {
 
 					<div className="space-y-3">
 						<h3 className="text-sm font-medium text-gray-300">
-							{t("settings.sections.models.agent_roles_title", "Execution Agent Role Mapping")}
+							{t("settings.sections.models.agent_roles_title", "Agent Skill Model Mapping")}
 						</h3>
 						<p className="text-xs text-gray-500">
 							{t(
 								"settings.sections.models.agent_roles_desc",
-								"Assign a text model per execution agent. Leave empty to inherit default professional/character routing.",
+								"Assign a text model per Agent Skill. Leave empty to inherit default professional/character routing.",
 							)}
 						</p>
 						{executionAgentEntries.length === 0 ? (
 							<div className="text-xs text-gray-500 bg-black/20 border border-white/5 rounded-xl px-4 py-3">
-								{t("settings.sections.models.no_execution_agents", "No execution agents configured.")}
+								{t("settings.sections.models.no_execution_agents", "No Agent Skills are available.")}
 							</div>
 						) : (
 							<div className="space-y-2">

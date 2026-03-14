@@ -4,7 +4,7 @@ use std::sync::Arc;
 use axum::extract::FromRef;
 
 use crate::actor::ActorManager;
-use crate::agent::exclusive_manager::ExclusiveAgentManager;
+use crate::agent::skill_registry::SkillRegistry;
 use crate::application::episodic_memory::EpisodicMemoryUseCase;
 use crate::application::knowledge::KnowledgeUseCase;
 use crate::core::config::{AppPaths, ConfigService};
@@ -30,6 +30,8 @@ pub mod setup;
 
 use error::InitializationError;
 use setup::SetupState;
+
+const DEFAULT_STARTUP_AUTO_BACKUP_LIMIT: usize = 10;
 
 #[allow(dead_code)]
 /// Marker type for read-only application state access.
@@ -151,7 +153,7 @@ pub struct AppAiState {
     pub llama: LlamaService,
     pub llm: LlmService,
     pub models: ModelManager,
-    pub exclusive_agents: ExclusiveAgentManager,
+    pub skill_registry: SkillRegistry,
 }
 
 #[derive(Clone)]
@@ -192,7 +194,7 @@ pub struct AppStateCompat {
     pub mcp_registry: McpRegistry,
     pub models: ModelManager,
     pub setup: SetupState,
-    pub exclusive_agents: ExclusiveAgentManager,
+    pub skill_registry: SkillRegistry,
     pub graph_runtime: Arc<GraphRuntime>,
     pub em_memory_service: Arc<EmMemoryService>,
     pub rate_limiters: Arc<RateLimiters>,
@@ -244,7 +246,7 @@ impl AppState {
             mcp_registry: integration.mcp_registry.clone(),
             models: ai.models.clone(),
             setup: core.setup.clone(),
-            exclusive_agents: ai.exclusive_agents.clone(),
+            skill_registry: ai.skill_registry.clone(),
             graph_runtime: runtime.graph_runtime.clone(),
             em_memory_service: memory.em_memory_service.clone(),
             rate_limiters: runtime.rate_limiters.clone(),
@@ -289,9 +291,10 @@ impl AppState {
     pub async fn initialize() -> Result<Arc<Self>, InitializationError> {
         let paths = Arc::new(AppPaths::new());
         let config = ConfigService::new(paths.clone());
+        let startup_config = config.load_config().unwrap_or_default();
         let security = Arc::new(SecurityControls::new(paths.clone(), config.clone()));
         let session_token = Arc::new(tokio::sync::RwLock::new(init_session_token()));
-        backup_sqlite_databases(paths.as_ref());
+        backup_sqlite_databases(paths.as_ref(), &startup_config);
 
         let history = HistoryStore::new(paths.db_path.clone())
             .await
@@ -304,18 +307,10 @@ impl AppState {
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
-        let exclusive_agents = ExclusiveAgentManager::new(paths.as_ref(), config.clone());
+        let skill_registry = SkillRegistry::new(paths.as_ref(), config.clone());
 
-        if exclusive_agents.list_all().is_empty() {
-            if let Err(e) = exclusive_agents.create_default_config() {
-                tracing::warn!("Failed to create default execution-agent packages: {}", e);
-            }
-        }
-
-        let is_declarative = config
-            .load_config()
-            .ok()
-            .and_then(|c| c.get("features").cloned())
+        let is_declarative = startup_config
+            .get("features")
             .and_then(|f| f.get("redesign").cloned())
             .and_then(|r| r.get("declarative_graph").cloned())
             .and_then(|v| v.as_bool())
@@ -413,7 +408,7 @@ impl AppState {
             llama: llama.clone(),
             llm: llm.clone(),
             models: models.clone(),
-            exclusive_agents: exclusive_agents.clone(),
+            skill_registry: skill_registry.clone(),
         });
         let integration = Arc::new(AppIntegrationState {
             mcp: mcp.clone(),
@@ -460,7 +455,8 @@ impl AppState {
     }
 }
 
-fn backup_sqlite_databases(paths: &AppPaths) {
+fn backup_sqlite_databases(paths: &AppPaths, config: &serde_json::Value) {
+    let backup_limit = startup_auto_backup_limit(config);
     let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
     let candidates = [
         paths.db_path.clone(),
@@ -475,11 +471,16 @@ fn backup_sqlite_databases(paths: &AppPaths) {
 
         let backup = next_backup_path(&source, &timestamp);
         match std::fs::copy(&source, &backup) {
-            Ok(_) => tracing::info!(
-                source = %source.display(),
-                backup = %backup.display(),
-                "Created startup database backup"
-            ),
+            Ok(_) => {
+                tracing::info!(
+                    source = %source.display(),
+                    backup = %backup.display(),
+                    limit = backup_limit,
+                    "Created startup database backup"
+                );
+
+                prune_startup_backups(&source, backup_limit);
+            }
             Err(err) => tracing::warn!(
                 source = %source.display(),
                 backup = %backup.display(),
@@ -513,4 +514,122 @@ fn next_backup_path(source: &std::path::Path, timestamp: &str) -> std::path::Pat
     }
 
     parent.join(format!("{}.bak.{}.overflow", base_name, timestamp))
+}
+
+fn startup_auto_backup_limit(config: &serde_json::Value) -> usize {
+    config
+        .get("backup")
+        .and_then(|backup| backup.get("startup_auto_backup_limit"))
+        .and_then(|value| value.as_u64())
+        .map(|value| value as usize)
+        .unwrap_or(DEFAULT_STARTUP_AUTO_BACKUP_LIMIT)
+}
+
+fn prune_startup_backups(source: &std::path::Path, limit: usize) {
+    if limit == 0 {
+        return;
+    }
+
+    let mut backups = list_startup_backups(source);
+    if backups.len() <= limit {
+        return;
+    }
+
+    backups.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+    for stale_backup in backups.into_iter().skip(limit) {
+        match std::fs::remove_file(&stale_backup) {
+            Ok(_) => tracing::info!(
+                source = %source.display(),
+                backup = %stale_backup.display(),
+                limit,
+                "Removed old startup database backup"
+            ),
+            Err(err) => tracing::warn!(
+                source = %source.display(),
+                backup = %stale_backup.display(),
+                limit,
+                "Failed to remove old startup database backup: {}",
+                err
+            ),
+        }
+    }
+}
+
+fn list_startup_backups(source: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let Some(base_name) = source.file_name().and_then(|name| name.to_str()) else {
+        return Vec::new();
+    };
+    let Some(parent) = source.parent() else {
+        return Vec::new();
+    };
+    let backup_prefix = format!("{}.bak.", base_name);
+
+    std::fs::read_dir(parent)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.filter_map(Result::ok))
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.starts_with(&backup_prefix))
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        list_startup_backups, prune_startup_backups, startup_auto_backup_limit,
+        DEFAULT_STARTUP_AUTO_BACKUP_LIMIT,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn startup_backup_limit_uses_default_when_unset() {
+        assert_eq!(
+            startup_auto_backup_limit(&json!({})),
+            DEFAULT_STARTUP_AUTO_BACKUP_LIMIT
+        );
+    }
+
+    #[test]
+    fn startup_backup_limit_reads_configured_value() {
+        assert_eq!(
+            startup_auto_backup_limit(&json!({
+                "backup": {
+                    "startup_auto_backup_limit": 7
+                }
+            })),
+            7
+        );
+    }
+
+    #[test]
+    fn prune_startup_backups_keeps_only_newest_files_for_database() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let source = temp_dir.path().join("tepora.db");
+        std::fs::write(&source, b"db").expect("write source db");
+
+        let stale = temp_dir.path().join("tepora.db.bak.20260101000000");
+        let newest = temp_dir.path().join("tepora.db.bak.20260102000000");
+        let latest = temp_dir.path().join("tepora.db.bak.20260103000000");
+        let other_db_backup = temp_dir.path().join("rag.db.bak.20260101000000");
+
+        std::fs::write(&stale, b"old").expect("write stale backup");
+        std::fs::write(&newest, b"newer").expect("write newer backup");
+        std::fs::write(&latest, b"latest").expect("write latest backup");
+        std::fs::write(&other_db_backup, b"other").expect("write unrelated backup");
+
+        prune_startup_backups(&source, 2);
+
+        let remaining = list_startup_backups(&source);
+        assert_eq!(remaining.len(), 2);
+        assert!(!stale.exists());
+        assert!(newest.exists());
+        assert!(latest.exists());
+        assert!(other_db_backup.exists());
+    }
 }

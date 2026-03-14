@@ -60,9 +60,9 @@ impl Node for SupervisorNode {
             {
                 let enabled = ctx
                     .app_state
-                    .exclusive_agents
+                    .skill_registry
                     .get(requested)
-                    .map(|agent| agent.enabled)
+                    .map(|skill| skill.summary.valid)
                     .unwrap_or(false);
                 if !enabled {
                     return Err(GraphError::new(

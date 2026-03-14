@@ -96,7 +96,7 @@ pub async fn export_backup(
     state.security.ensure_lockdown_disabled("backup_export")?;
     let archive = state
         .security
-        .export_backup(&payload, &state.history, &state.exclusive_agents)
+        .export_backup(&payload, &state.history, &state.skill_registry)
         .await?;
     Ok(Json(json!({ "success": true, "archive": archive })))
 }
@@ -110,7 +110,7 @@ pub async fn import_backup(
     }
     let result = state
         .security
-        .import_backup(&payload, &state.history, &state.exclusive_agents)
+        .import_backup(&payload, &state.history, &state.skill_registry)
         .await?;
     Ok(Json(json!({ "success": true, "result": result })))
 }

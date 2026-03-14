@@ -9,7 +9,7 @@ export function getNavItems(t: TFunction): NavItem[] {
 		{ id: "data_storage", label: t("settings.nav.data_storage", "Data Storage"), icon: <HardDrive size={18} /> },
 		{ id: "system_performance", label: t("settings.nav.system_performance", "System Performance"), icon: <Cpu size={18} /> },
 		{ id: "agents", label: t("settings.nav.agents", "Characters"), icon: <Users size={18} />, group: "custom" },
-		{ id: "execution_agents", label: t("settings.nav.execution_agents", "Execution Agents"), icon: <Briefcase size={18} />, group: "custom" },
+		{ id: "agent_skills", label: t("settings.nav.execution_agents", "Agent Skills"), icon: <Briefcase size={18} />, group: "custom" },
 		{ id: "models", label: t("settings.nav.models", "Models"), icon: <SlidersHorizontal size={18} /> },
 		{ id: "mcp", label: t("settings.nav.mcp", "MCP Tools"), icon: <Database size={18} /> },
 		{ id: "memory", label: t("settings.nav.memory", "Memory"), icon: <Brain size={18} /> },

@@ -802,7 +802,7 @@
 			"data_storage": "数据存储",
 			"system_performance": "系统性能",
 			"agents": "角色",
-			"execution_agents": "执行代理",
+			"execution_agents": "Agent Skills",
 			"models": "模型",
 			"mcp": "MCP工具",
 			"memory": "记忆",

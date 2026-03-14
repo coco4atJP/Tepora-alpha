@@ -9,7 +9,7 @@ import { SettingsSidebar } from "./SettingsComponents";
 import { getNavItems } from "./SettingsConstants";
 import { SettingsLayout } from "./SettingsLayout";
 import CharacterSettings from "./sections/CharacterSettings";
-import ExecutionAgentSettings from "./sections/ExecutionAgentSettings";
+import AgentSkillsSettings from "./sections/AgentSkillsSettings";
 import GeneralSettings from "./sections/GeneralSettings";
 import DataStorageSettings from "./sections/DataStorageSettings";
 import SystemPerformanceSettings from "./sections/SystemPerformanceSettings";
@@ -28,7 +28,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 	const { t } = useTranslation();
 	const {
 		config,
-		executionAgents,
+		agentSkills,
 		loading,
 		error,
 		hasChanges,
@@ -86,7 +86,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 			data_storage: "settings.sections.extended.storage_title",
 			system_performance: "settings.sections.extended.performance_title",
 			agents: "settings.sections.agents.label",
-			execution_agents: "settings.sections.execution_agents.label",
+			agent_skills: "settings.sections.execution_agents.label",
 			mcp: "settings.sections.mcp.label",
 			models: "settings.sections.models.label",
 			memory: "settings.sections.memory.label",
@@ -180,8 +180,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												onDeleteProfile={deleteCharacter}
 											/>
 										)}
-										{activeSection === "execution_agents" && (
-											<ExecutionAgentSettings agents={executionAgents} />
+										{activeSection === "agent_skills" && (
+											<AgentSkillsSettings agents={agentSkills} />
 										)}
 										{activeSection === "mcp" && <McpSettings />}
 										{activeSection === "models" && <ModelSettings />}

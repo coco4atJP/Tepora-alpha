@@ -12,7 +12,7 @@ import MessageBubble from "./MessageBubble";
 const MessageList: React.FC = () => {
 	const messages = useChatStore((state) => state.messages);
 	const regenerateResponse = useWebSocketStore((state) => state.regenerateResponse);
-	const { config, executionAgents } = useSettings();
+	const { config, agentSkills } = useSettings();
 	const { t } = useTranslation();
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const endOfMessagesRef = useRef<HTMLDivElement>(null);
@@ -92,20 +92,17 @@ const MessageList: React.FC = () => {
 				}
 			}
 
-			// Execution Agent Check
-			if (executionAgents) {
-				const agent = Object.values(executionAgents).find(
-					(a) => a.name === msg.agentName,
-				);
-				if (agent) {
+			if (agentSkills) {
+				const skill = Object.values(agentSkills).find((item) => item.name === msg.agentName);
+				if (skill) {
 					return {
-						icon: agent.icon,
+						icon: "🧩",
 					};
 				}
 			}
 			return {};
 		},
-		[config, executionAgents],
+		[config, agentSkills],
 	);
 
 	return (

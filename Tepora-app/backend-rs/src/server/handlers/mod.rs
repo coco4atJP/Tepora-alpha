@@ -1,4 +1,3 @@
-pub mod agents;
 pub mod auth;
 pub mod config;
 pub mod health;
@@ -9,5 +8,6 @@ pub mod metrics;
 pub mod security;
 pub mod sessions;
 pub mod setup;
+pub mod skills;
 pub mod tools;
 pub mod utils;

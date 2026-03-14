@@ -230,25 +230,74 @@ export interface CharacterConfig {
 	avatar_path?: string;
 }
 
-export interface ExecutionAgentToolPolicy {
-	allow_all?: boolean;
-	allowed_tools: string[];
-	denied_tools: string[];
-	require_confirmation: string[];
+export interface SkillRootConfig {
+	path: string;
+	enabled: boolean;
+	label?: string;
 }
 
-export interface ExecutionAgentConfig {
+export interface SkillRootInfo extends SkillRootConfig {
+	writable: boolean;
+}
+
+export interface SkillFileEntry {
+	path: string;
+	kind: string;
+	content: string;
+	encoding: "utf8" | "hex" | string;
+}
+
+export interface AgentSkillSummary {
 	id: string;
 	name: string;
 	description: string;
-	controller_summary?: string;
-	icon?: string;
-	system_prompt: string;
-	tool_policy: ExecutionAgentToolPolicy;
-	model_config_name?: string;
-	tags: string[];
-	priority: number;
-	enabled: boolean;
+	package_dir: string;
+	root_path: string;
+	root_label?: string;
+	metadata: Record<string, unknown>;
+	display_name?: string;
+	short_description?: string;
+	valid: boolean;
+	writable: boolean;
+	warnings: string[];
+}
+
+export interface AgentSkillPackage {
+	id: string;
+	name: string;
+	description: string;
+	package_dir: string;
+	root_path: string;
+	root_label?: string;
+	metadata: Record<string, unknown>;
+	display_name?: string;
+	short_description?: string;
+	valid: boolean;
+	writable: boolean;
+	warnings: string[];
+	skill_markdown: string;
+	skill_body: string;
+	openai_yaml?: string | null;
+	references: SkillFileEntry[];
+	scripts: SkillFileEntry[];
+	assets: SkillFileEntry[];
+	other_files: SkillFileEntry[];
+}
+
+export interface AgentSkillsResponse {
+	roots: SkillRootInfo[];
+	skills: AgentSkillSummary[];
+}
+
+export interface AgentSkillSaveRequest {
+	id: string;
+	root_path?: string;
+	skill_markdown: string;
+	openai_yaml?: string | null;
+	references: SkillFileEntry[];
+	scripts: SkillFileEntry[];
+	assets: SkillFileEntry[];
+	other_files: SkillFileEntry[];
 }
 
 

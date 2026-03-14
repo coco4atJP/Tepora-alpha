@@ -49,7 +49,8 @@ const mockConfig = {
 vi.mock("../../../hooks/useSettings", () => ({
 	useSettings: () => ({
 		config: mockConfig,
-		executionAgents: {},
+		agentSkills: {},
+		skillRoots: [],
 	}),
 }));
 

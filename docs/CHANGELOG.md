@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-03-14
+
 ### Added
 - Added proposal catalog document: `docs/planning/PROJECT_IMPROVEMENT_CATALOG_2026-03-05.md` (60 improvement items with rationale and expected impact).
 - Added `dev_sync` pseudo E2E test (`npm run test:dev-sync`) and made it a required CI quality gate.
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added model behavior A/B evaluation tooling (`task test:behavior`, `npm run eval:behavior`) with rubric-based scoring, pairwise regression checks, and Markdown/JSON report generation.
 
 ### Changed
+- Replaced the legacy ExecutionAgent package system with an Agent Skills-compatible registry based on standard `SKILL.md` packages, including Supervisor skill discovery, Execution skill loading, configurable skill roots, and settings UI/API support for editing full skill packages.
 - Consolidated task definitions into `Tepora-app/Taskfile.yml`; root `Taskfile.yml` now delegates as a compatibility wrapper.
 - Enforced feature boundary lint in frontend (`chat/navigation/session/settings` cannot import each other directly).
 - Updated developer setup docs to use `task install-*` and `task doctor` instead of the old `npm ci --legacy-peer-deps` flow.

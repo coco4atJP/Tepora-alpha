@@ -2,7 +2,7 @@
 //!
 //! ネイティブツール名の正準名、説明、エイリアス解決を一元管理する。
 //! `server/handlers/tools.rs`・`agent/execution.rs`・
-//! `agent/exclusive_manager.rs` はここを参照する。
+//! `agent/skill_registry.rs` はここを参照する。
 
 // --- 正準名定数 ---
 
@@ -67,7 +67,7 @@ pub const NATIVE_TOOLS: &[NativeTool] = &[
 
 // --- エイリアス解決 ---
 
-/// ExecutionAgent package 等で使用される短縮名・エイリアスを正準名に解決する。
+/// Agent Skill package 等で使用される短縮名・エイリアスを正準名に解決する。
 ///
 /// # 変換例
 /// - `"web_search"` / `"search"` → `"native_search"`

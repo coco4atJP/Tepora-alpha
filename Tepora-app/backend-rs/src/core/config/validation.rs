@@ -154,6 +154,13 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
 
     if let Some(backup) = expect_optional_object(root, "backup")? {
         validate_bool_field(backup, "backup.enable_restore", "enable_restore")?;
+        validate_u64_field(
+            backup,
+            "backup.startup_auto_backup_limit",
+            "startup_auto_backup_limit",
+            1,
+            1_000,
+        )?;
         validate_bool_field(
             backup,
             "backup.include_chat_history",
@@ -226,6 +233,23 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
                 &format!("{}.avatar_path", path_prefix),
                 "avatar_path",
             )?;
+        }
+    }
+
+    if let Some(agent_skills) = expect_optional_object(root, "agent_skills")? {
+        if let Some(value) = agent_skills.get("roots") {
+            let Some(roots) = value.as_array() else {
+                return Err(config_type_error("agent_skills.roots", "array"));
+            };
+            for (index, root_value) in roots.iter().enumerate() {
+                let path_prefix = format!("agent_skills.roots[{}]", index);
+                let root_entry = root_value
+                    .as_object()
+                    .ok_or_else(|| config_type_error(&path_prefix, "object"))?;
+                validate_required_string_field(root_entry, &format!("{}.path", path_prefix), "path")?;
+                validate_bool_field(root_entry, &format!("{}.enabled", path_prefix), "enabled")?;
+                validate_optional_string_field(root_entry, &format!("{}.label", path_prefix), "label")?;
+            }
         }
     }
 

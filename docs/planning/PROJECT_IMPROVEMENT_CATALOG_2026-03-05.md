@@ -1,7 +1,7 @@
 # Tepora 改善提案カタログ（2026-03-05）
 
 **作成日**: 2026-03-05
-**対象**: Tepora v0.4.0（Rust Backend + React/Tauri Frontend）
+**対象**: Tepora v0.4.5（Rust Backend + React/Tauri Frontend）
 **目的**: 改善提案を一覧化し、「なぜ必要か」と「見込める効果」を明文化する。
 
 ---

@@ -138,10 +138,16 @@ impl Node for AgentExecutorNode {
             .unwrap_or(self.max_steps as u64) as usize;
 
         if let Some(agent) = selected_agent.as_ref() {
-            if !agent.system_prompt.trim().is_empty() {
+            if !agent.skill_body.trim().is_empty() {
                 messages.push(ChatMessage {
                     role: "system".to_string(),
-                    content: agent.system_prompt.clone(),
+                    content: agent.skill_body.clone(),
+                });
+            }
+            if let Some(resource_prompt) = agent.resource_prompt.as_ref() {
+                messages.push(ChatMessage {
+                    role: "system".to_string(),
+                    content: resource_prompt.clone(),
                 });
             }
         }
@@ -626,7 +632,7 @@ fn build_executor_task_packet(
     };
 
     format!(
-        "Execution task packet:\n- Executor: {selected}\n- User goal: {goal}\n- Plan:\n{plan}\n- Working notes:\n{notes}\n\nUse the packaged skill prompt as the detailed execution instructions. Update progress using concise summaries only.",
+        "Execution task packet:\n- Executor: {selected}\n- User goal: {goal}\n- Plan:\n{plan}\n- Working notes:\n{notes}\n\nFollow the selected Agent Skill package. The SKILL.md body is the primary execution instruction. Use packaged references/scripts/assets when relevant and keep progress updates concise.",
         selected = selected,
         goal = state.input,
         plan = plan,

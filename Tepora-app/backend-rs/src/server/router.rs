@@ -8,7 +8,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::server::handlers::{
-    agents, auth, config, health, logs, mcp, memory, metrics, security, sessions, setup, tools,
+    auth, config, health, logs, mcp, memory, metrics, security, sessions, setup, skills, tools,
 };
 use crate::server::middleware::auth::require_api_key_middleware;
 use crate::server::middleware::rate_limit::rate_limit_middleware;
@@ -85,10 +85,10 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             get(metrics::get_session_metrics),
         )
         .route("/api/metrics/runtime", get(metrics::get_runtime_metrics))
-        .route("/api/execution-agents", get(agents::list_execution_agents))
+        .route("/api/agent-skills", get(skills::list_agent_skills).post(skills::save_agent_skill))
         .route(
-            "/api/execution-agents/:agent_id",
-            get(agents::get_execution_agent),
+            "/api/agent-skills/:skill_id",
+            get(skills::get_agent_skill).delete(skills::delete_agent_skill),
         )
         .route("/api/tools", get(tools::list_tools))
         .route("/api/memory/compress", post(memory::compress_memories))

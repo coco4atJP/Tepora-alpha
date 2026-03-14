@@ -12,7 +12,8 @@ vi.mock("../hooks/useSettings", () => ({
 				graph_execution_timeout: 300,
 			},
 		},
-		executionAgents: {},
+		agentSkills: {},
+		skillRoots: [],
 	}),
 }));
 

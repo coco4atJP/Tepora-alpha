@@ -193,7 +193,7 @@ cd Tepora-app
 # Verify the latest commit as conventional commits
 task commitlint
 # Generate release notes from an arbitrary range
-task release-notes -- --from v0.4.0 --to HEAD --version vNext
+task release-notes -- --from v0.4.5 --to HEAD --version vNext
 ```
 In CI, commit messages are verified per push/pull request, and pushing a tag automatically generates a release notes artifact.
 
@@ -423,7 +423,7 @@ cd Tepora-app
 # 直近コミットを conventional commits として検証
 task commitlint
 # 任意レンジから release notes を生成
-task release-notes -- --from v0.4.0 --to HEAD --version vNext
+task release-notes -- --from v0.4.5 --to HEAD --version vNext
 ```
 CI では push / pull request ごとにコミットメッセージを検証し、tag push では release notes artifact を自動生成します。
 

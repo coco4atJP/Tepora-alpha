@@ -682,7 +682,7 @@ mod tests {
         let mcp_registry = crate::mcp::registry::McpRegistry::new(&new_paths_arc);
         let models = crate::models::ModelManager::new(&new_paths_arc, config.clone());
         let setup = crate::state::setup::SetupState::new(&new_paths_arc);
-        let exclusive_agents = crate::agent::exclusive_manager::ExclusiveAgentManager::new(
+        let skill_registry = crate::agent::skill_registry::SkillRegistry::new(
             new_paths_arc.as_ref(),
             config.clone(),
         );
@@ -715,7 +715,7 @@ mod tests {
             llama: llama.clone(),
             llm: llm.clone(),
             models: models.clone(),
-            exclusive_agents: exclusive_agents.clone(),
+            skill_registry: skill_registry.clone(),
         });
         let integration = Arc::new(crate::state::AppIntegrationState {
             mcp: mcp.clone(),

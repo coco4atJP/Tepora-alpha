@@ -7,7 +7,7 @@ info:
     This document outlines the available endpoints for managing sessions, configuration, MCP servers, and more.
     
     **Note**: This specification is currently manually maintained. Future iterations should aim to generate this automatically using `utoipa` or similar crates from the Rust codebase.
-  version: 0.4.0
+  version: 0.4.5
 servers:
   - url: http://localhost:3001
     description: Local Development Server

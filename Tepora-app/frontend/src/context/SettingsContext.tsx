@@ -2,7 +2,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
-import type { CharacterConfig, ExecutionAgentConfig } from "../types";
+import type {
+	AgentSkillPackage,
+	AgentSkillSaveRequest,
+	AgentSkillSummary,
+	AgentSkillsResponse,
+	CharacterConfig,
+	SkillRootConfig,
+	SkillRootInfo,
+} from "../types";
 import { isDesktop } from "../utils/api";
 import { apiClient } from "../utils/api-client";
 import { configureLogger } from "../utils/logger";
@@ -107,6 +115,9 @@ export interface Config {
 		chat_default?: boolean;
 		search_default?: boolean;
 	};
+	agent_skills?: {
+		roots?: SkillRootConfig[];
+	};
 	features?: {
 		redesign?: Record<string, unknown>;
 	};
@@ -115,12 +126,17 @@ export interface Config {
 export interface SettingsContextValue {
 	config: Config | null;
 	originalConfig: Config | null;
-	executionAgents: Record<string, ExecutionAgentConfig>;
+	agentSkills: Record<string, AgentSkillSummary>;
+	skillRoots: SkillRootInfo[];
 	loading: boolean;
 	error: string | null;
 	hasChanges: boolean;
 	saving: boolean;
 	fetchConfig: () => Promise<void>;
+	fetchAgentSkills: () => Promise<void>;
+	getAgentSkill: (id: string) => Promise<AgentSkillPackage>;
+	saveAgentSkill: (payload: AgentSkillSaveRequest) => Promise<AgentSkillPackage>;
+	deleteAgentSkill: (id: string) => Promise<void>;
 	updateApp: <K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => void;
 	updateLlmManager: <K extends keyof Config["llm_manager"]>(field: K, value: Config["llm_manager"][K]) => void;
 	updateChatHistory: <K extends keyof Config["chat_history"]>(field: K, value: Config["chat_history"][K]) => void;
@@ -215,7 +231,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	} = useServerConfig();
 	const [config, setConfig] = useState<Config | null>(null);
 	const [originalConfig, setOriginalConfig] = useState<Config | null>(null);
-	const [executionAgents, setExecutionAgents] = useState<Record<string, ExecutionAgentConfig>>({});
+	const [agentSkills, setAgentSkills] = useState<Record<string, AgentSkillSummary>>({});
+	const [skillRoots, setSkillRoots] = useState<SkillRootInfo[]>([]);
 	const [saving, setSaving] = useState(false);
 
 	const hasChanges = useMemo(() => {
@@ -230,22 +247,47 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
 	const loading = isConfigLoading || (!config && isConfigFetching);
 
-	const fetchExecutionAgents = useCallback(async () => {
+	const fetchAgentSkills = useCallback(async () => {
 		try {
-			const data = await apiClient.get<{ agents: ExecutionAgentConfig[] }>("api/execution-agents");
-			const agentsMap: Record<string, ExecutionAgentConfig> = {};
-			for (const agent of data.agents || []) {
-				agentsMap[agent.id] = agent;
+			const data = await apiClient.get<AgentSkillsResponse>("api/agent-skills");
+			const nextSkills: Record<string, AgentSkillSummary> = {};
+			for (const skill of data.skills || []) {
+				nextSkills[skill.id] = skill;
 			}
-			setExecutionAgents(agentsMap);
+			setAgentSkills(nextSkills);
+			setSkillRoots(data.roots || []);
 		} catch (fetchError) {
-			console.error("Failed to fetch execution agents", fetchError);
+			console.error("Failed to fetch Agent Skills", fetchError);
 		}
 	}, []);
 
+	const getAgentSkill = useCallback(async (id: string) => {
+		return apiClient.get<AgentSkillPackage>(`api/agent-skills/${encodeURIComponent(id)}`);
+	}, []);
+
+	const saveAgentSkill = useCallback(
+		async (payload: AgentSkillSaveRequest) => {
+			const response = await apiClient.post<{ success: boolean; skill: AgentSkillPackage }>(
+				"api/agent-skills",
+				payload,
+			);
+			await fetchAgentSkills();
+			return response.skill;
+		},
+		[fetchAgentSkills],
+	);
+
+	const deleteAgentSkill = useCallback(
+		async (id: string) => {
+			await apiClient.delete(`api/agent-skills/${encodeURIComponent(id)}`);
+			await fetchAgentSkills();
+		},
+		[fetchAgentSkills],
+	);
+
 	const fetchConfig = useCallback(async () => {
-		await Promise.all([refetchConfig(), fetchExecutionAgents()]);
-	}, [refetchConfig, fetchExecutionAgents]);
+		await Promise.all([refetchConfig(), fetchAgentSkills()]);
+	}, [refetchConfig, fetchAgentSkills]);
 
 	const normalizedServerConfig = useMemo(() => {
 		if (!serverConfig) return null;
@@ -253,8 +295,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	}, [serverConfig]);
 
 	useEffect(() => {
-		fetchExecutionAgents();
-	}, [fetchExecutionAgents]);
+		fetchAgentSkills();
+	}, [fetchAgentSkills]);
 
 	useEffect(() => {
 		if (!normalizedServerConfig) return;
@@ -443,12 +485,17 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		() => ({
 			config,
 			originalConfig,
-			executionAgents,
+			agentSkills,
+			skillRoots,
 			loading,
 			error,
 			hasChanges,
 			saving,
 			fetchConfig,
+			fetchAgentSkills,
+			getAgentSkill,
+			saveAgentSkill,
+			deleteAgentSkill,
 			updateApp,
 			updateLlmManager,
 			updateChatHistory,
@@ -472,12 +519,17 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[
 			config,
 			originalConfig,
-			executionAgents,
+			agentSkills,
+			skillRoots,
 			loading,
 			error,
 			hasChanges,
 			saving,
 			fetchConfig,
+			fetchAgentSkills,
+			getAgentSkill,
+			saveAgentSkill,
+			deleteAgentSkill,
 			updateApp,
 			updateLlmManager,
 			updateChatHistory,

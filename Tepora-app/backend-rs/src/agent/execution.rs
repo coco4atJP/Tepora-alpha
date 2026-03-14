@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::agent::policy::CustomToolPolicy;
-use crate::core::native_tools::NATIVE_TOOLS;
+use crate::agent::skill_registry::AgentSkillPackage;
+use crate::core::native_tools::{resolve_tool_alias, NATIVE_TOOLS};
 use crate::state::AppState;
 
 #[derive(Debug, Clone)]
@@ -11,8 +13,8 @@ pub struct SelectedAgentRuntime {
     pub id: String,
     pub name: String,
     pub controller_summary: String,
-    pub system_prompt: String,
-    pub model_config_name: Option<String>,
+    pub skill_body: String,
+    pub resource_prompt: Option<String>,
     pub assigned_model_id: Option<String>,
     pub tool_policy: CustomToolPolicy,
 }
@@ -21,6 +23,18 @@ pub struct SelectedAgentRuntime {
 pub enum AgentDecision {
     Final(String),
     ToolCall { name: String, args: Value },
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct SkillToolPolicy {
+    #[serde(default)]
+    allow_all: Option<bool>,
+    #[serde(default)]
+    allowed_tools: Vec<String>,
+    #[serde(default)]
+    denied_tools: Vec<String>,
+    #[serde(default)]
+    require_confirmation: Vec<String>,
 }
 
 pub fn approval_timeout(config: &Value) -> u64 {
@@ -57,9 +71,10 @@ pub fn choose_agent_from_manager(
     user_input: &str,
 ) -> Option<SelectedAgentRuntime> {
     state
-        .exclusive_agents
-        .choose_agent(requested_agent_id, user_input)
-        .map(|agent| map_selected_agent(state, agent))
+        .skill_registry
+        .choose_skill(requested_agent_id, user_input)
+        .and_then(|skill| state.skill_registry.get(&skill.id))
+        .map(|skill| map_selected_agent(state, skill))
 }
 
 pub fn resolve_selected_agent(
@@ -70,29 +85,67 @@ pub fn resolve_selected_agent(
         .map(str::trim)
         .filter(|value| !value.is_empty())?;
     state
-        .exclusive_agents
+        .skill_registry
         .get(selected_agent_id)
-        .map(|agent| map_selected_agent(state, agent))
+        .map(|skill| map_selected_agent(state, skill))
 }
 
-fn map_selected_agent(
-    state: &AppState,
-    agent: crate::agent::exclusive_manager::ExecutionAgent,
-) -> SelectedAgentRuntime {
+fn map_selected_agent(state: &AppState, skill: AgentSkillPackage) -> SelectedAgentRuntime {
     let assigned_model_id = state
         .models
-        .resolve_agent_model_id(Some(&agent.id))
+        .resolve_agent_model_id(Some(&skill.summary.id))
         .ok()
         .flatten();
 
     SelectedAgentRuntime {
-        id: agent.id,
-        name: agent.name,
-        controller_summary: agent.controller_summary,
-        system_prompt: agent.system_prompt,
-        model_config_name: agent.model_config_name,
+        id: skill.summary.id.clone(),
+        name: skill.summary.name.clone(),
+        controller_summary: skill.summary.description.clone(),
+        skill_body: skill.skill_body.clone(),
+        resource_prompt: crate::agent::skill_registry::build_skill_resource_prompt(&skill),
         assigned_model_id,
-        tool_policy: agent.tool_policy.to_custom_tool_policy(),
+        tool_policy: extract_tool_policy(&skill),
+    }
+}
+
+fn extract_tool_policy(skill: &AgentSkillPackage) -> CustomToolPolicy {
+    let candidate = skill
+        .summary
+        .metadata
+        .get("tool_policy")
+        .cloned()
+        .or_else(|| {
+            skill.summary
+                .metadata
+                .get("metadata")
+                .and_then(|value| value.get("tool_policy"))
+                .cloned()
+        });
+
+    let Some(candidate) = candidate else {
+        return CustomToolPolicy::allow_all_policy();
+    };
+    let Ok(policy) = serde_json::from_value::<SkillToolPolicy>(candidate) else {
+        return CustomToolPolicy::allow_all_policy();
+    };
+
+    CustomToolPolicy {
+        allow_all: policy.allow_all.unwrap_or(policy.allowed_tools.is_empty()),
+        allowed_tools: policy
+            .allowed_tools
+            .iter()
+            .map(|tool| resolve_tool_alias(tool))
+            .collect(),
+        denied_tools: policy
+            .denied_tools
+            .iter()
+            .map(|tool| resolve_tool_alias(tool))
+            .collect(),
+        require_confirmation: policy
+            .require_confirmation
+            .iter()
+            .map(|tool| resolve_tool_alias(tool))
+            .collect(),
     }
 }
 
@@ -102,26 +155,6 @@ pub fn build_agent_chat_config(
     selected_agent: Option<&SelectedAgentRuntime>,
 ) -> Value {
     let mut overridden = config.clone();
-
-    if let Some(model_key) = selected_agent
-        .and_then(|agent| agent.model_config_name.as_deref())
-        .filter(|value| !value.is_empty())
-    {
-        if let Some(model_entry) = config
-            .get("models_gguf")
-            .and_then(|v| v.get(model_key))
-            .cloned()
-        {
-            if let Some(root) = overridden.as_object_mut() {
-                let models_gguf = root
-                    .entry("models_gguf".to_string())
-                    .or_insert_with(|| Value::Object(Default::default()));
-                if let Some(models_obj) = models_gguf.as_object_mut() {
-                    models_obj.insert("text_model".to_string(), model_entry);
-                }
-            }
-        }
-    }
 
     if let Some(model_id) = selected_agent
         .and_then(|agent| agent.assigned_model_id.as_deref())
