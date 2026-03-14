@@ -1,6 +1,6 @@
 ![Tepora Header](image/Tepora_log.png)
 
-# Tepora (V4.0 BETA)
+# Tepora (V4.5 BETA)
 
 **ただのツールではありません。あなたの「記憶」を共有するパートナーです。**
 
@@ -120,4 +120,3 @@ Teporaは、最先端の技術実験場でもあります。
 <p align="center">
   Made with ❤️ and 🍵 by Tepora Project
 </p>
-
