@@ -45,16 +45,17 @@ const SkillFileListEditor: React.FC<{
 	files: SkillFileEntry[];
 	onChange: (files: SkillFileEntry[]) => void;
 }> = ({ title, files, onChange }) => {
+	const { t } = useTranslation();
 	return (
 		<div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
 			<div className="flex items-center justify-between gap-3">
 				<div className="text-sm font-semibold text-white">{title}</div>
 				<Button size="sm" variant="ghost" onClick={() => onChange([...files, emptyFile(title.toLowerCase())])}>
-					Add File
+					{t("settings.sections.execution_agents.add_file", "Add File")}
 				</Button>
 			</div>
 			{files.length === 0 ? (
-				<div className="text-xs text-gray-500">No files.</div>
+				<div className="text-xs text-gray-500">{t("settings.sections.execution_agents.no_files", "No files.")}</div>
 			) : (
 				<div className="space-y-4">
 					{files.map((file, index) => (
@@ -219,17 +220,17 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 		>
 			<div className="space-y-6">
 				<div className="rounded-2xl border border-gold-400/10 bg-gold-400/5 p-4 text-sm leading-6 text-gold-100/85">
-					<div className="font-semibold text-gold-300">Agent Skills Layout</div>
-					<div>`SKILL.md` with YAML frontmatter is required. Optional package content includes `agents/openai.yaml`, `references/`, `scripts/`, and `assets/`.</div>
+					<div className="font-semibold text-gold-300">{t("settings.sections.execution_agents.layout_title", "Agent Skills Layout")}</div>
+					<div>{t("settings.sections.execution_agents.layout_desc", "`SKILL.md` with YAML frontmatter is required. Optional package content includes `agents/openai.yaml`, `references/`, `scripts/`, and `assets/`.")}</div>
 				</div>
 
 				<div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
 					<div className="flex items-center gap-2 text-sm font-semibold text-white">
 						<FolderTree size={16} />
-						<span>Skill Roots</span>
+						<span>{t("settings.sections.execution_agents.roots_title", "Skill Roots")}</span>
 					</div>
 					<div className="text-xs text-gray-400">
-						Root changes are stored in settings. Save settings to apply added or removed roots before creating packages in them.
+						{t("settings.sections.execution_agents.roots_desc", "Root changes are stored in settings. Save settings to apply added or removed roots before creating packages in them.")}
 					</div>
 					<div className="space-y-4">
 						{configuredRoots.map((root, index) => (
@@ -287,11 +288,11 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 								])
 							}
 						>
-							Add Root
+							{t("settings.sections.execution_agents.add_root", "Add Root")}
 						</Button>
 						<Button variant="ghost" onClick={() => void fetchAgentSkills()}>
 							<RefreshCw size={14} />
-							Refresh
+							{t("settings.sections.execution_agents.refresh", "Refresh")}
 						</Button>
 					</div>
 					<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -301,10 +302,10 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 								<div className="mt-1 break-all text-gray-400">{root.path}</div>
 								<div className="mt-2 flex gap-2">
 									<span className={`rounded-md px-2 py-1 ${root.enabled ? "bg-emerald-500/10 text-emerald-300" : "bg-white/5 text-gray-500"}`}>
-										{root.enabled ? "Enabled" : "Disabled"}
+										{root.enabled ? t("settings.sections.execution_agents.enabled", "Enabled") : t("settings.sections.execution_agents.disabled", "Disabled")}
 									</span>
 									<span className={`rounded-md px-2 py-1 ${root.writable ? "bg-sky-500/10 text-sky-300" : "bg-white/5 text-gray-500"}`}>
-										{root.writable ? "Writable" : "Read-only"}
+										{root.writable ? t("settings.sections.execution_agents.writable", "Writable") : t("settings.sections.execution_agents.readonly", "Read-only")}
 									</span>
 								</div>
 							</div>
@@ -315,7 +316,7 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 				<div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
 					<div className="space-y-4">
 						<div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-							<div className="mb-3 text-sm font-semibold text-white">Packages</div>
+							<div className="mb-3 text-sm font-semibold text-white">{t("settings.sections.execution_agents.packages_title", "Packages")}</div>
 							<div className="mb-3 flex gap-2">
 								<FormInput value={newSkillId} onChange={(value) => setNewSkillId(value as string)} placeholder="new-skill" />
 								<Button onClick={createNewSkill}>
@@ -325,7 +326,7 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 							<div className="space-y-2">
 								{entries.length === 0 ? (
 									<div className="rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-sm text-gray-400">
-										No Agent Skills found.
+										{t("settings.sections.execution_agents.no_skills", "No Agent Skills found.")}
 									</div>
 								) : (
 									entries.map((skill) => (
@@ -345,10 +346,10 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 											</div>
 											<div className="mt-2 flex gap-2">
 												<span className={`rounded-md px-2 py-1 text-[11px] ${skill.valid ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
-													{skill.valid ? "Valid" : "Needs Fix"}
+													{skill.valid ? t("settings.sections.execution_agents.valid", "Valid") : t("settings.sections.execution_agents.needs_fix", "Needs Fix")}
 												</span>
 												<span className={`rounded-md px-2 py-1 text-[11px] ${skill.writable ? "bg-sky-500/10 text-sky-300" : "bg-white/5 text-gray-500"}`}>
-													{skill.writable ? "Writable" : "Read-only"}
+													{skill.writable ? t("settings.sections.execution_agents.writable", "Writable") : t("settings.sections.execution_agents.readonly", "Read-only")}
 												</span>
 											</div>
 										</button>
@@ -361,11 +362,11 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 					<div className="space-y-4">
 						{isLoadingSkill ? (
 							<div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-gray-400">
-								Loading package...
+								{t("settings.sections.execution_agents.loading_package", "Loading package...")}
 							</div>
 						) : !editingSkill ? (
 							<div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-gray-400">
-								Select a skill package to edit.
+								{t("settings.sections.execution_agents.select_skill", "Select a skill package to edit.")}
 							</div>
 						) : (
 							<>
@@ -378,17 +379,17 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 										<div className="flex gap-2">
 											<Button onClick={handleSaveSkill} disabled={isSavingSkill}>
 												<Save size={14} />
-												{isSavingSkill ? "Saving..." : "Save Skill"}
+												{isSavingSkill ? t("settings.sections.execution_agents.saving_skill", "Saving...") : t("settings.sections.execution_agents.save_skill", "Save Skill")}
 											</Button>
 											<Button variant="ghost" onClick={handleDeleteSkill} disabled={isDeletingSkill}>
 												<Trash2 size={14} />
-												Delete
+												{t("settings.sections.execution_agents.delete_skill", "Delete")}
 											</Button>
 										</div>
 									</div>
 
 									<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-										<FormGroup label="Skill ID">
+										<FormGroup label={t("settings.sections.execution_agents.skill_id", "Skill ID")}>
 											<FormInput
 												value={editingSkill.id}
 												onChange={(value) =>
@@ -396,13 +397,13 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 												}
 											/>
 										</FormGroup>
-										<FormGroup label="Target Root">
+										<FormGroup label={t("settings.sections.execution_agents.target_root", "Target Root")}>
 											<select
 												value={editingSkill.root_path}
 												onChange={(event) => setEditingSkill({ ...editingSkill, root_path: event.target.value })}
 												className="h-11 w-full rounded-xl border border-white/10 bg-[#0B0E13] px-3 text-sm text-white outline-none focus:border-gold-400/40"
 											>
-												<option value="">Select root</option>
+												<option value="">{t("settings.sections.execution_agents.select_root", "Select root")}</option>
 												{skillRoots.map((root) => (
 													<option key={root.path} value={root.path}>
 														{root.label || root.path}
@@ -456,7 +457,7 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 
 								{editingSkill.warnings.length > 0 && (
 									<div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
-										<div className="font-semibold text-red-300">Validation Warnings</div>
+										<div className="font-semibold text-red-300">{t("settings.sections.execution_agents.validation_warnings", "Validation Warnings")}</div>
 										<div className="mt-2 whitespace-pre-wrap">{editingSkill.warnings.join("\n")}</div>
 									</div>
 								)}
