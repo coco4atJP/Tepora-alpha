@@ -1,33 +1,18 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
-use futures_util::StreamExt;
 use reqwest::Client;
-use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
 use crate::core::config::ConfigService;
 use crate::core::errors::ApiError;
-use crate::llm::llama_service::LlamaService;
-use crate::llm::types::{
-    ChatMessage, ChatRequest, NormalizedAssistantTurn, NormalizedStreamChunk, TokenUsage,
+use crate::llm::external_loader_common::{
+    external_loader_request_timeout, external_loader_stream_idle_timeout, process_terminate_timeout,
 };
-use crate::models::types::{ModelEntry, ModelRuntimeConfig};
+use crate::llm::llama_service::LlamaService;
+use crate::llm::lmstudio_native_client;
+use crate::llm::model_resolution::{resolve_model_target, ModelExecutionTarget};
+use crate::llm::ollama_native_client;
+use crate::llm::openai_compatible_client;
+use crate::llm::types::{ChatMessage, ChatRequest, NormalizedAssistantTurn, NormalizedStreamChunk};
 use crate::models::ModelManager;
-
-#[derive(Debug)]
-enum ModelExecutionTarget {
-    LlamaCpp(ModelRuntimeConfig),
-    OpenAiCompatible {
-        loader: String,
-        base_url: String,
-        model_name: String,
-    },
-}
-
-const DEFAULT_PROCESS_TERMINATE_TIMEOUT: Duration = Duration::from_secs(5);
-const DEFAULT_EXTERNAL_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
-const DEFAULT_EXTERNAL_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct LlmService {
@@ -56,29 +41,29 @@ impl LlmService {
         request: ChatRequest,
         model_id: &str,
     ) -> Result<NormalizedAssistantTurn, ApiError> {
-        let target = self.resolve_model_target(model_id, &request)?;
+        let target = resolve_model_target(&self.models, &self.config, model_id, &request)?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
-                let timeout = self.get_process_terminate_timeout();
-                let messages = request
-                    .messages
-                    .iter()
-                    .map(|m| ChatMessage {
-                        role: m.role.clone(),
-                        content: m.content.clone(),
-                    })
-                    .collect();
-                self.llama.chat_normalized(&config, messages, timeout).await
+                let timeout = process_terminate_timeout(&self.config);
+                self.llama
+                    .chat_normalized(&config, clone_messages(&request), timeout)
+                    .await
             }
             ModelExecutionTarget::OpenAiCompatible {
                 loader,
                 base_url,
                 model_name,
             } => {
+                let request_timeout = external_loader_request_timeout(&self.config);
                 if loader.eq_ignore_ascii_case("ollama") {
-                    match self
-                        .chat_ollama_native(&base_url, &model_name, request.clone())
-                        .await
+                    match ollama_native_client::chat(
+                        &self.http,
+                        &base_url,
+                        &model_name,
+                        request.clone(),
+                        request_timeout,
+                    )
+                    .await
                     {
                         Ok(content) => Ok(content),
                         Err(err) => {
@@ -86,14 +71,26 @@ impl LlmService {
                                 "Ollama native chat failed, falling back to OpenAI-compatible API: {}",
                                 err
                             );
-                            self.chat_openai_compatible(&loader, &base_url, &model_name, request)
-                                .await
+                            openai_compatible_client::chat(
+                                &self.http,
+                                &loader,
+                                &base_url,
+                                &model_name,
+                                request,
+                                request_timeout,
+                            )
+                            .await
                         }
                     }
                 } else if loader.eq_ignore_ascii_case("lmstudio") {
-                    match self
-                        .chat_lmstudio_native(&base_url, &model_name, request.clone())
-                        .await
+                    match lmstudio_native_client::chat(
+                        &self.http,
+                        &base_url,
+                        &model_name,
+                        request.clone(),
+                        request_timeout,
+                    )
+                    .await
                     {
                         Ok(content) => Ok(content),
                         Err(err) => {
@@ -101,13 +98,27 @@ impl LlmService {
                                 "LM Studio native chat failed, falling back to OpenAI-compatible API: {}",
                                 err
                             );
-                            self.chat_openai_compatible(&loader, &base_url, &model_name, request)
-                                .await
+                            openai_compatible_client::chat(
+                                &self.http,
+                                &loader,
+                                &base_url,
+                                &model_name,
+                                request,
+                                request_timeout,
+                            )
+                            .await
                         }
                     }
                 } else {
-                    self.chat_openai_compatible(&loader, &base_url, &model_name, request)
-                        .await
+                    openai_compatible_client::chat(
+                        &self.http,
+                        &loader,
+                        &base_url,
+                        &model_name,
+                        request,
+                        request_timeout,
+                    )
+                    .await
                 }
             }
         }
@@ -145,20 +156,12 @@ impl LlmService {
         request: ChatRequest,
         model_id: &str,
     ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
-        let target = self.resolve_model_target(model_id, &request)?;
+        let target = resolve_model_target(&self.models, &self.config, model_id, &request)?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
-                let timeout = self.get_process_terminate_timeout();
-                let messages = request
-                    .messages
-                    .iter()
-                    .map(|m| ChatMessage {
-                        role: m.role.clone(),
-                        content: m.content.clone(),
-                    })
-                    .collect();
+                let timeout = process_terminate_timeout(&self.config);
                 self.llama
-                    .stream_chat_normalized(&config, messages, timeout)
+                    .stream_chat_normalized(&config, clone_messages(&request), timeout)
                     .await
             }
             ModelExecutionTarget::OpenAiCompatible {
@@ -166,10 +169,18 @@ impl LlmService {
                 base_url,
                 model_name,
             } => {
+                let request_timeout = external_loader_request_timeout(&self.config);
+                let stream_idle_timeout = external_loader_stream_idle_timeout(&self.config);
                 if loader.eq_ignore_ascii_case("ollama") {
-                    match self
-                        .stream_chat_ollama_native(&base_url, &model_name, request.clone())
-                        .await
+                    match ollama_native_client::stream_chat(
+                        &self.http,
+                        &base_url,
+                        &model_name,
+                        request.clone(),
+                        request_timeout,
+                        stream_idle_timeout,
+                    )
+                    .await
                     {
                         Ok(stream) => Ok(stream),
                         Err(err) => {
@@ -177,19 +188,28 @@ impl LlmService {
                                 "Ollama native stream failed, falling back to OpenAI-compatible API: {}",
                                 err
                             );
-                            self.stream_chat_openai_compatible(
+                            openai_compatible_client::stream_chat(
+                                &self.http,
                                 &loader,
                                 &base_url,
                                 &model_name,
                                 request,
+                                request_timeout,
+                                stream_idle_timeout,
                             )
                             .await
                         }
                     }
                 } else if loader.eq_ignore_ascii_case("lmstudio") {
-                    match self
-                        .stream_chat_lmstudio_native(&base_url, &model_name, request.clone())
-                        .await
+                    match lmstudio_native_client::stream_chat(
+                        &self.http,
+                        &base_url,
+                        &model_name,
+                        request.clone(),
+                        request_timeout,
+                        stream_idle_timeout,
+                    )
+                    .await
                     {
                         Ok(stream) => Ok(stream),
                         Err(err) => {
@@ -197,18 +217,29 @@ impl LlmService {
                                 "LM Studio native stream failed, falling back to OpenAI-compatible API: {}",
                                 err
                             );
-                            self.stream_chat_openai_compatible(
+                            openai_compatible_client::stream_chat(
+                                &self.http,
                                 &loader,
                                 &base_url,
                                 &model_name,
                                 request,
+                                request_timeout,
+                                stream_idle_timeout,
                             )
                             .await
                         }
                     }
                 } else {
-                    self.stream_chat_openai_compatible(&loader, &base_url, &model_name, request)
-                        .await
+                    openai_compatible_client::stream_chat(
+                        &self.http,
+                        &loader,
+                        &base_url,
+                        &model_name,
+                        request,
+                        request_timeout,
+                        stream_idle_timeout,
+                    )
+                    .await
                 }
             }
         }
@@ -219,10 +250,15 @@ impl LlmService {
         inputs: &[String],
         model_id: &str,
     ) -> Result<Vec<Vec<f32>>, ApiError> {
-        let target = self.resolve_model_target(model_id, &ChatRequest::new(vec![]))?;
+        let target = resolve_model_target(
+            &self.models,
+            &self.config,
+            model_id,
+            &ChatRequest::new(vec![]),
+        )?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
-                let timeout = self.get_process_terminate_timeout();
+                let timeout = process_terminate_timeout(&self.config);
                 self.llama.embed(&config, inputs, timeout).await
             }
             ModelExecutionTarget::OpenAiCompatible {
@@ -230,25 +266,30 @@ impl LlmService {
                 base_url,
                 model_name,
             } => {
-                self.embed_openai_compatible(&loader, &base_url, &model_name, inputs)
-                    .await
+                let request_timeout = external_loader_request_timeout(&self.config);
+                openai_compatible_client::embed(
+                    &self.http,
+                    &loader,
+                    &base_url,
+                    &model_name,
+                    inputs,
+                    request_timeout,
+                )
+                .await
             }
         }
     }
 
-    /// Fetches the logprobs for a given text.
-    /// This is required for true EM-LLM surprise-based segmentation.
-    /// Currently, this returns an 'Unsupported' error to trigger the fallback, but serves as the API hook.
     pub async fn get_logprobs(
         &self,
         text: &str,
         model_id: &str,
     ) -> Result<Vec<(String, f64)>, ApiError> {
         let request = ChatRequest::new(vec![]);
-        let target = self.resolve_model_target(model_id, &request)?;
+        let target = resolve_model_target(&self.models, &self.config, model_id, &request)?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
-                let timeout = self.get_process_terminate_timeout();
+                let timeout = process_terminate_timeout(&self.config);
                 self.llama.get_logprobs(&config, text, timeout).await
             }
             ModelExecutionTarget::OpenAiCompatible {
@@ -256,1726 +297,33 @@ impl LlmService {
                 base_url,
                 model_name,
             } => {
-                self.get_logprobs_openai_compatible(&loader, &base_url, &model_name, text)
-                    .await
+                let request_timeout = external_loader_request_timeout(&self.config);
+                openai_compatible_client::get_logprobs(
+                    &self.http,
+                    &loader,
+                    &base_url,
+                    &model_name,
+                    text,
+                    request_timeout,
+                )
+                .await
             }
         }
     }
 
     pub async fn shutdown(&self) -> Result<(), ApiError> {
-        let timeout = self.get_process_terminate_timeout();
+        let timeout = process_terminate_timeout(&self.config);
         self.llama.stop(timeout).await
     }
+}
 
-    fn get_process_terminate_timeout(&self) -> Duration {
-        if let Ok(config) = self.config.load_config() {
-            if let Some(val) = config
-                .get("llm_manager")
-                .and_then(|m| m.get("process_terminate_timeout"))
-                .and_then(|v| v.as_u64())
-            {
-                return Duration::from_millis(val);
-            }
-        }
-        DEFAULT_PROCESS_TERMINATE_TIMEOUT
-    }
-
-    fn get_external_loader_request_timeout(&self) -> Duration {
-        if let Ok(config) = self.config.load_config() {
-            if let Some(val) = config
-                .get("llm_manager")
-                .and_then(|m| {
-                    m.get("external_request_timeout_ms")
-                        .or_else(|| m.get("health_check_timeout"))
-                })
-                .and_then(|v| v.as_u64())
-            {
-                return Duration::from_millis(val.max(1));
-            }
-        }
-        DEFAULT_EXTERNAL_REQUEST_TIMEOUT
-    }
-
-    fn get_external_loader_stream_idle_timeout(&self) -> Duration {
-        if let Ok(config) = self.config.load_config() {
-            if let Some(val) = config
-                .get("llm_manager")
-                .and_then(|m| m.get("stream_idle_timeout_ms"))
-                .and_then(|v| v.as_u64())
-            {
-                return Duration::from_millis(val.max(1));
-            }
-        }
-        DEFAULT_EXTERNAL_STREAM_IDLE_TIMEOUT
-    }
-
-    fn resolve_model_target(
-        &self,
-        model_id: &str,
-        request: &ChatRequest,
-    ) -> Result<ModelExecutionTarget, ApiError> {
-        let model_entry = self
-            .models
-            .get_model(model_id)?
-            .ok_or_else(|| ApiError::BadRequest(format!("Model not found: {}", model_id)))?;
-        let config = self.config.load_config().unwrap_or(Value::Null);
-        let loader = normalize_loader_name(&model_entry);
-
-        match loader.as_str() {
-            "ollama" => {
-                let model_name =
-                    resolve_loader_model_name(&model_entry, "ollama://").ok_or_else(|| {
-                        ApiError::BadRequest(format!(
-                            "Model '{}' has no resolvable Ollama model name",
-                            model_id
-                        ))
-                    })?;
-                let base_url =
-                    loader_base_url(&config, "ollama", "http://localhost:11434".to_string());
-                Ok(ModelExecutionTarget::OpenAiCompatible {
-                    loader,
-                    base_url,
-                    model_name,
-                })
-            }
-            "lmstudio" => {
-                let model_name =
-                    resolve_loader_model_name(&model_entry, "lmstudio://").ok_or_else(|| {
-                        ApiError::BadRequest(format!(
-                            "Model '{}' has no resolvable LM Studio model name",
-                            model_id
-                        ))
-                    })?;
-                let base_url =
-                    loader_base_url(&config, "lmstudio", "http://localhost:1234".to_string());
-                Ok(ModelExecutionTarget::OpenAiCompatible {
-                    loader,
-                    base_url,
-                    model_name,
-                })
-            }
-            "llama_cpp" => {
-                let model_config = self.resolve_llama_model_config(&model_entry, &config, request)?;
-                Ok(ModelExecutionTarget::LlamaCpp(model_config))
-            }
-            other => Err(ApiError::BadRequest(format!(
-                "Model '{}' has unsupported loader '{}'. Supported loaders are: llama_cpp, ollama, lmstudio",
-                model_id, other
-            ))),
-        }
-    }
-
-    fn resolve_llama_model_config(
-        &self,
-        model_entry: &ModelEntry,
-        app_config: &Value,
-        request: &ChatRequest,
-    ) -> Result<ModelRuntimeConfig, ApiError> {
-        if model_entry.file_path.starts_with("ollama://")
-            || model_entry.file_path.starts_with("lmstudio://")
-        {
-            return Err(ApiError::BadRequest(format!(
-                "Model '{}' points to remote URI '{}', but was routed to llama.cpp",
-                model_entry.id, model_entry.file_path
-            )));
-        }
-
-        let models_config = app_config.get("models_gguf");
-        let text_model_defaults = models_config.and_then(|m| m.get("text_model"));
-        let embedding_model_defaults = models_config.and_then(|m| m.get("embedding_model"));
-
-        let defaults = if model_entry.role == "embedding" {
-            embedding_model_defaults
-        } else {
-            text_model_defaults
-        };
-
-        let n_ctx = defaults
-            .and_then(|v| v.get("n_ctx").and_then(|x| x.as_u64()))
-            .unwrap_or(2048) as usize;
-        let n_gpu_layers = defaults
-            .and_then(|v| v.get("n_gpu_layers").and_then(|x| x.as_i64()))
-            .unwrap_or(-1) as i32;
-        let port = defaults
-            .and_then(|v| v.get("port").and_then(|x| x.as_u64()))
-            .unwrap_or(if model_entry.role == "embedding" {
-                8090
-            } else {
-                8088
-            }) as u16;
-
-        let predict_len = request.max_tokens.map(|v| v as usize);
-        let temperature = request.temperature.map(|v| v as f32);
-        let top_p = request.top_p.map(|v| v as f32);
-        let top_k = request.top_k.map(|v| v as i32);
-        let repeat_penalty = request.repeat_penalty.map(|v| v as f32);
-        let stop = request
-            .stop
-            .clone()
-            .or_else(|| model_entry.stop_tokens.clone());
-
-        Ok(ModelRuntimeConfig {
-            model_key: model_entry.id.clone(),
-            model_path: PathBuf::from(model_entry.file_path.clone()),
-            port,
-            n_ctx,
-            n_gpu_layers,
-            predict_len,
-            temperature,
-            top_p,
-            top_k,
-            repeat_penalty,
-            stop,
-            seed: request.seed,
-            frequency_penalty: request.frequency_penalty.map(|v| v as f32),
-            presence_penalty: request.presence_penalty.map(|v| v as f32),
-            min_p: request.min_p.map(|v| v as f32),
-            tfs_z: request.tfs_z.map(|v| v as f32),
-            typical_p: request.typical_p.map(|v| v as f32),
-            mirostat: request.mirostat,
-            mirostat_tau: request.mirostat_tau.map(|v| v as f32),
-            mirostat_eta: request.mirostat_eta.map(|v| v as f32),
-            repeat_last_n: request.repeat_last_n,
-            penalize_nl: request.penalize_nl,
-            n_keep: request.n_keep,
-            cache_prompt: request.cache_prompt,
+fn clone_messages(request: &ChatRequest) -> Vec<ChatMessage> {
+    request
+        .messages
+        .iter()
+        .map(|m| ChatMessage {
+            role: m.role.clone(),
+            content: m.content.clone(),
         })
-    }
-
-    async fn chat_openai_compatible(
-        &self,
-        loader: &str,
-        base_url: &str,
-        model_name: &str,
-        request: ChatRequest,
-    ) -> Result<NormalizedAssistantTurn, ApiError> {
-        let endpoint = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
-        let mut body = json!({
-            "model": model_name,
-            "messages": request.messages,
-            "stream": false,
-        });
-        if let Some(obj) = body.as_object_mut() {
-            if let Some(v) = request.temperature {
-                obj.insert("temperature".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_p {
-                obj.insert("top_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_k {
-                obj.insert("top_k".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_penalty {
-                obj.insert("repeat_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.max_tokens {
-                obj.insert("max_tokens".to_string(), json!(v));
-            }
-            if let Some(ref v) = request.stop {
-                obj.insert("stop".to_string(), json!(v));
-            }
-            if let Some(v) = request.seed {
-                obj.insert("seed".to_string(), json!(v));
-            }
-            if let Some(v) = request.frequency_penalty {
-                obj.insert("frequency_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.presence_penalty {
-                obj.insert("presence_penalty".to_string(), json!(v));
-            }
-            if loader.eq_ignore_ascii_case("lmstudio") {
-                obj.insert(
-                    "stream_options".to_string(),
-                    json!({ "include_usage": true }),
-                );
-            }
-        }
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error(loader, &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error(loader, base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "{} chat request failed ({}): {}",
-                loader, status, text
-            )));
-        }
-
-        let payload: Value = response.json().await.map_err(ApiError::internal)?;
-        let choice = payload
-            .get("choices")
-            .and_then(|v| v.as_array())
-            .and_then(|choices| choices.first());
-        let message = choice
-            .and_then(|choice| choice.get("message"))
-            .unwrap_or(&Value::Null);
-
-        Ok(NormalizedAssistantTurn {
-            visible_text: extract_field_text(message, &["content", "text"]),
-            model_thinking: extract_field_text(
-                message,
-                &["reasoning", "reasoning_content", "thinking"],
-            ),
-            finish_reason: choice
-                .and_then(|choice| choice.get("finish_reason"))
-                .and_then(|value| value.as_str())
-                .map(str::to_string),
-            usage: extract_usage(&payload),
-        })
-    }
-
-    async fn stream_chat_openai_compatible(
-        &self,
-        loader: &str,
-        base_url: &str,
-        model_name: &str,
-        request: ChatRequest,
-    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
-        let endpoint = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
-        let mut body = json!({
-            "model": model_name,
-            "messages": request.messages,
-            "stream": true,
-        });
-        if let Some(obj) = body.as_object_mut() {
-            if let Some(v) = request.temperature {
-                obj.insert("temperature".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_p {
-                obj.insert("top_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_k {
-                obj.insert("top_k".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_penalty {
-                obj.insert("repeat_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.max_tokens {
-                obj.insert("max_tokens".to_string(), json!(v));
-            }
-            if let Some(ref v) = request.stop {
-                obj.insert("stop".to_string(), json!(v));
-            }
-            if let Some(v) = request.seed {
-                obj.insert("seed".to_string(), json!(v));
-            }
-            if let Some(v) = request.frequency_penalty {
-                obj.insert("frequency_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.presence_penalty {
-                obj.insert("presence_penalty".to_string(), json!(v));
-            }
-        }
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error(loader, &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error(loader, base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "{} streaming request failed ({}): {}",
-                loader, status, text
-            )));
-        }
-
-        let (tx, rx) = mpsc::channel(128);
-        let mut byte_stream = response.bytes_stream();
-        let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
-        let loader_name = loader.to_string();
-        tokio::spawn(async move {
-            let mut buffer = String::new();
-            loop {
-                let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
-                let next = match next {
-                    Ok(value) => value,
-                    Err(_) => {
-                        let _ = tx
-                            .send(Err(ApiError::Internal(format!(
-                                "{} stream idle timeout after {} ms",
-                                loader_name,
-                                stream_idle_timeout.as_millis()
-                            ))))
-                            .await;
-                        return;
-                    }
-                };
-
-                let Some(next) = next else {
-                    break;
-                };
-
-                match next {
-                    Ok(bytes) => {
-                        buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-                        while let Some(newline_index) = buffer.find('\n') {
-                            let line = buffer[..newline_index].trim().to_string();
-                            buffer = buffer[(newline_index + 1)..].to_string();
-
-                            if line.is_empty() {
-                                continue;
-                            }
-                            if line == "data: [DONE]" {
-                                let _ = tx
-                                    .send(Ok(NormalizedStreamChunk {
-                                        visible_text: String::new(),
-                                        model_thinking: String::new(),
-                                        done: true,
-                                        usage: None,
-                                    }))
-                                    .await;
-                                return;
-                            }
-
-                            let Some(data) = line.strip_prefix("data: ") else {
-                                continue;
-                            };
-                            let parsed = match serde_json::from_str::<Value>(data) {
-                                Ok(value) => value,
-                                Err(err) => {
-                                    let _ = tx
-                                        .send(Err(ApiError::Internal(format!(
-                                            "Invalid streaming payload: {}",
-                                            err
-                                        ))))
-                                        .await;
-                                    return;
-                                }
-                            };
-
-                            let delta = parsed
-                                .get("choices")
-                                .and_then(|v| v.as_array())
-                                .and_then(|choices| choices.first())
-                                .and_then(|choice| choice.get("delta"));
-
-                            let reasoning = delta
-                                .map(|d| {
-                                    extract_field_text(
-                                        d,
-                                        &["reasoning", "reasoning_content", "thinking"],
-                                    )
-                                })
-                                .unwrap_or_default();
-                            let content = delta
-                                .map(|d| extract_field_text(d, &["content", "text"]))
-                                .unwrap_or_default();
-
-                            if (!reasoning.is_empty() || !content.is_empty())
-                                && tx
-                                    .send(Ok(NormalizedStreamChunk {
-                                        visible_text: content,
-                                        model_thinking: reasoning,
-                                        done: false,
-                                        usage: extract_usage(&parsed),
-                                    }))
-                                    .await
-                                    .is_err()
-                            {
-                                return;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        let _ = tx
-                            .send(Err(ApiError::Internal(format!(
-                                "Streaming transport failed: {}",
-                                err
-                            ))))
-                            .await;
-                        return;
-                    }
-                }
-            }
-
-            let trailing = buffer.trim();
-            if !trailing.is_empty() && trailing != "data: [DONE]" {
-                if let Some(data) = trailing.strip_prefix("data: ") {
-                    if let Ok(parsed) = serde_json::from_str::<Value>(data) {
-                        let delta = parsed
-                            .get("choices")
-                            .and_then(|v| v.as_array())
-                            .and_then(|choices| choices.first())
-                            .and_then(|choice| choice.get("delta"));
-
-                        let reasoning = delta
-                            .map(|d| {
-                                extract_field_text(
-                                    d,
-                                    &["reasoning", "reasoning_content", "thinking"],
-                                )
-                            })
-                            .unwrap_or_default();
-                        let content = delta
-                            .map(|d| extract_field_text(d, &["content", "text"]))
-                            .unwrap_or_default();
-
-                        if !reasoning.is_empty() || !content.is_empty() {
-                            let _ = tx
-                                .send(Ok(NormalizedStreamChunk {
-                                    visible_text: content,
-                                    model_thinking: reasoning,
-                                    done: false,
-                                    usage: extract_usage(&parsed),
-                                }))
-                                .await;
-                        }
-                    }
-                }
-            }
-            let _ = tx
-                .send(Ok(NormalizedStreamChunk {
-                    visible_text: String::new(),
-                    model_thinking: String::new(),
-                    done: true,
-                    usage: None,
-                }))
-                .await;
-        });
-
-        Ok(rx)
-    }
-
-    async fn chat_ollama_native(
-        &self,
-        base_url: &str,
-        model_name: &str,
-        request: ChatRequest,
-    ) -> Result<NormalizedAssistantTurn, ApiError> {
-        let endpoint = format!("{}/api/chat", base_url.trim_end_matches('/'));
-        let mut body = json!({
-            "model": model_name,
-            "messages": request.messages,
-            "stream": false,
-            "think": true,
-        });
-
-        if let Some(obj) = body.as_object_mut() {
-            let mut options = serde_json::Map::new();
-            if let Some(v) = request.temperature {
-                options.insert("temperature".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_p {
-                options.insert("top_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_k {
-                options.insert("top_k".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_penalty {
-                options.insert("repeat_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.max_tokens {
-                options.insert("num_predict".to_string(), json!(v));
-            }
-            // Common parameters
-            if let Some(v) = request.seed {
-                options.insert("seed".to_string(), json!(v));
-            }
-            if let Some(v) = request.frequency_penalty {
-                options.insert("frequency_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.presence_penalty {
-                options.insert("presence_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.min_p {
-                options.insert("min_p".to_string(), json!(v));
-            }
-            // Ollama-specific sampling parameters
-            if let Some(v) = request.tfs_z {
-                options.insert("tfs_z".to_string(), json!(v));
-            }
-            if let Some(v) = request.typical_p {
-                options.insert("typical_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.mirostat {
-                options.insert("mirostat".to_string(), json!(v));
-            }
-            if let Some(v) = request.mirostat_tau {
-                options.insert("mirostat_tau".to_string(), json!(v));
-            }
-            if let Some(v) = request.mirostat_eta {
-                options.insert("mirostat_eta".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_last_n {
-                options.insert("repeat_last_n".to_string(), json!(v));
-            }
-            if let Some(v) = request.penalize_nl {
-                options.insert("penalize_newline".to_string(), json!(v));
-            }
-            if let Some(v) = request.num_ctx {
-                options.insert("num_ctx".to_string(), json!(v));
-            }
-            if !options.is_empty() {
-                obj.insert("options".to_string(), Value::Object(options));
-            }
-            if let Some(ref v) = request.stop {
-                obj.insert("stop".to_string(), json!(v));
-            }
-        }
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error("ollama", &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error("ollama", base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "ollama native chat request failed ({}): {}",
-                status, text
-            )));
-        }
-
-        let payload: Value = response.json().await.map_err(ApiError::internal)?;
-        let message = payload.get("message").unwrap_or(&Value::Null);
-        Ok(NormalizedAssistantTurn {
-            visible_text: extract_field_text(message, &["content", "text"]),
-            model_thinking: extract_field_text(
-                message,
-                &["thinking", "reasoning", "reasoning_content"],
-            ),
-            finish_reason: payload
-                .get("done_reason")
-                .and_then(|value| value.as_str())
-                .map(str::to_string),
-            usage: extract_usage(&payload),
-        })
-    }
-
-    async fn stream_chat_ollama_native(
-        &self,
-        base_url: &str,
-        model_name: &str,
-        request: ChatRequest,
-    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
-        let endpoint = format!("{}/api/chat", base_url.trim_end_matches('/'));
-        let mut body = json!({
-            "model": model_name,
-            "messages": request.messages,
-            "stream": true,
-            "think": true,
-        });
-        if let Some(obj) = body.as_object_mut() {
-            let mut options = serde_json::Map::new();
-            if let Some(v) = request.temperature {
-                options.insert("temperature".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_p {
-                options.insert("top_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_k {
-                options.insert("top_k".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_penalty {
-                options.insert("repeat_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.max_tokens {
-                options.insert("num_predict".to_string(), json!(v));
-            }
-            if let Some(v) = request.seed {
-                options.insert("seed".to_string(), json!(v));
-            }
-            if let Some(v) = request.frequency_penalty {
-                options.insert("frequency_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.presence_penalty {
-                options.insert("presence_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.min_p {
-                options.insert("min_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.tfs_z {
-                options.insert("tfs_z".to_string(), json!(v));
-            }
-            if let Some(v) = request.typical_p {
-                options.insert("typical_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.mirostat {
-                options.insert("mirostat".to_string(), json!(v));
-            }
-            if let Some(v) = request.mirostat_tau {
-                options.insert("mirostat_tau".to_string(), json!(v));
-            }
-            if let Some(v) = request.mirostat_eta {
-                options.insert("mirostat_eta".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_last_n {
-                options.insert("repeat_last_n".to_string(), json!(v));
-            }
-            if let Some(v) = request.penalize_nl {
-                options.insert("penalize_newline".to_string(), json!(v));
-            }
-            if let Some(v) = request.num_ctx {
-                options.insert("num_ctx".to_string(), json!(v));
-            }
-            if !options.is_empty() {
-                obj.insert("options".to_string(), Value::Object(options));
-            }
-            if let Some(ref v) = request.stop {
-                obj.insert("stop".to_string(), json!(v));
-            }
-        }
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error("ollama", &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error("ollama", base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "ollama native streaming request failed ({}): {}",
-                status, text
-            )));
-        }
-
-        let (tx, rx) = mpsc::channel(128);
-        let mut byte_stream = response.bytes_stream();
-        let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
-        tokio::spawn(async move {
-            let mut buffer = String::new();
-            loop {
-                let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
-                let next = match next {
-                    Ok(value) => value,
-                    Err(_) => {
-                        let _ = tx
-                            .send(Err(ApiError::Internal(format!(
-                                "ollama stream idle timeout after {} ms",
-                                stream_idle_timeout.as_millis()
-                            ))))
-                            .await;
-                        return;
-                    }
-                };
-
-                let Some(next) = next else {
-                    break;
-                };
-
-                match next {
-                    Ok(bytes) => {
-                        buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-                        while let Some(newline_index) = buffer.find('\n') {
-                            let line = buffer[..newline_index].trim().to_string();
-                            buffer = buffer[(newline_index + 1)..].to_string();
-
-                            if line.is_empty() {
-                                continue;
-                            }
-
-                            let parsed = match serde_json::from_str::<Value>(&line) {
-                                Ok(value) => value,
-                                Err(err) => {
-                                    let _ = tx
-                                        .send(Err(ApiError::Internal(format!(
-                                            "Invalid Ollama streaming payload: {}",
-                                            err
-                                        ))))
-                                        .await;
-                                    return;
-                                }
-                            };
-
-                            if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
-                                let _ = tx.send(Err(ApiError::Internal(err.to_string()))).await;
-                                return;
-                            }
-
-                            let message = parsed.get("message").unwrap_or(&Value::Null);
-                            let reasoning = extract_field_text(
-                                message,
-                                &["thinking", "reasoning", "reasoning_content"],
-                            );
-                            let content = extract_field_text(message, &["content", "text"]);
-                            let done = parsed.get("done").and_then(|v| v.as_bool()) == Some(true);
-
-                            if (!reasoning.is_empty() || !content.is_empty() || done)
-                                && tx
-                                    .send(Ok(NormalizedStreamChunk {
-                                        visible_text: content,
-                                        model_thinking: reasoning,
-                                        done,
-                                        usage: extract_usage(&parsed),
-                                    }))
-                                    .await
-                                    .is_err()
-                            {
-                                return;
-                            }
-
-                            if done {
-                                return;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        let _ = tx
-                            .send(Err(ApiError::Internal(format!(
-                                "Ollama streaming transport failed: {}",
-                                err
-                            ))))
-                            .await;
-                        return;
-                    }
-                }
-            }
-
-            let trailing = buffer.trim();
-            if !trailing.is_empty() {
-                if let Ok(parsed) = serde_json::from_str::<Value>(trailing) {
-                    let message = parsed.get("message").unwrap_or(&Value::Null);
-                    let reasoning = extract_field_text(
-                        message,
-                        &["thinking", "reasoning", "reasoning_content"],
-                    );
-                    let content = extract_field_text(message, &["content", "text"]);
-                    let done = parsed.get("done").and_then(|v| v.as_bool()) == Some(true);
-
-                    if !reasoning.is_empty() || !content.is_empty() || done {
-                        let _ = tx
-                            .send(Ok(NormalizedStreamChunk {
-                                visible_text: content,
-                                model_thinking: reasoning,
-                                done,
-                                usage: extract_usage(&parsed),
-                            }))
-                            .await;
-                    }
-                }
-            }
-
-            let _ = tx
-                .send(Ok(NormalizedStreamChunk {
-                    visible_text: String::new(),
-                    model_thinking: String::new(),
-                    done: true,
-                    usage: None,
-                }))
-                .await;
-        });
-
-        Ok(rx)
-    }
-
-    async fn chat_lmstudio_native(
-        &self,
-        base_url: &str,
-        model_name: &str,
-        request: ChatRequest,
-    ) -> Result<NormalizedAssistantTurn, ApiError> {
-        let endpoint = format!("{}/api/v1/chat", base_url.trim_end_matches('/'));
-
-        // Convert ChatMessage to LM Studio v1 input format
-        // System prompt is extracted separately; user/assistant messages go into "input"
-        let mut system_prompt: Option<String> = None;
-        let mut input_items: Vec<Value> = Vec::new();
-        for msg in &request.messages {
-            if msg.role == "system" {
-                system_prompt = Some(msg.content.clone());
-            } else {
-                input_items.push(json!({
-                    "type": "message",
-                    "role": msg.role,
-                    "content": msg.content
-                }));
-            }
-        }
-
-        let mut body = json!({
-            "model": model_name,
-            "input": input_items,
-            "stream": false,
-        });
-
-        if let Some(obj) = body.as_object_mut() {
-            if let Some(ref sp) = system_prompt {
-                obj.insert("system_prompt".to_string(), json!(sp));
-            }
-            if let Some(v) = request.temperature {
-                obj.insert("temperature".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_p {
-                obj.insert("top_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_k {
-                obj.insert("top_k".to_string(), json!(v));
-            }
-            if let Some(v) = request.min_p {
-                obj.insert("min_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_penalty {
-                obj.insert("repeat_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.max_tokens {
-                obj.insert("max_output_tokens".to_string(), json!(v));
-            }
-            if let Some(v) = request.seed {
-                obj.insert("seed".to_string(), json!(v));
-            }
-        }
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error("lmstudio", &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error("lmstudio", base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "lmstudio native chat request failed ({}): {}",
-                status, text
-            )));
-        }
-
-        // LM Studio v1 response: { "output": [ { "type": "reasoning", "content": "..." }, { "type": "message", "content": "..." } ] }
-        let payload: Value = response.json().await.map_err(ApiError::internal)?;
-        let mut reasoning_text = String::new();
-        let mut message_text = String::new();
-
-        if let Some(outputs) = payload.get("output").and_then(|v| v.as_array()) {
-            for item in outputs {
-                let item_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
-                let content = item.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                match item_type {
-                    "reasoning" => reasoning_text.push_str(content),
-                    "message" => message_text.push_str(content),
-                    _ => {} // tool_call, invalid_tool_call etc. - skip
-                }
-            }
-        }
-
-        Ok(NormalizedAssistantTurn {
-            visible_text: message_text,
-            model_thinking: reasoning_text,
-            finish_reason: None,
-            usage: extract_usage(&payload),
-        })
-    }
-
-    async fn stream_chat_lmstudio_native(
-        &self,
-        base_url: &str,
-        model_name: &str,
-        request: ChatRequest,
-    ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
-        let endpoint = format!("{}/api/v1/chat", base_url.trim_end_matches('/'));
-
-        let mut system_prompt: Option<String> = None;
-        let mut input_items: Vec<Value> = Vec::new();
-        for msg in &request.messages {
-            if msg.role == "system" {
-                system_prompt = Some(msg.content.clone());
-            } else {
-                input_items.push(json!({
-                    "type": "message",
-                    "role": msg.role,
-                    "content": msg.content
-                }));
-            }
-        }
-
-        let mut body = json!({
-            "model": model_name,
-            "input": input_items,
-            "stream": true,
-        });
-
-        if let Some(obj) = body.as_object_mut() {
-            if let Some(ref sp) = system_prompt {
-                obj.insert("system_prompt".to_string(), json!(sp));
-            }
-            if let Some(v) = request.temperature {
-                obj.insert("temperature".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_p {
-                obj.insert("top_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.top_k {
-                obj.insert("top_k".to_string(), json!(v));
-            }
-            if let Some(v) = request.min_p {
-                obj.insert("min_p".to_string(), json!(v));
-            }
-            if let Some(v) = request.repeat_penalty {
-                obj.insert("repeat_penalty".to_string(), json!(v));
-            }
-            if let Some(v) = request.max_tokens {
-                obj.insert("max_output_tokens".to_string(), json!(v));
-            }
-            if let Some(v) = request.seed {
-                obj.insert("seed".to_string(), json!(v));
-            }
-        }
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error("lmstudio", &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error("lmstudio", base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "lmstudio native streaming request failed ({}): {}",
-                status, text
-            )));
-        }
-
-        let (tx, rx) = mpsc::channel(128);
-        let mut byte_stream = response.bytes_stream();
-        let stream_idle_timeout = self.get_external_loader_stream_idle_timeout();
-        tokio::spawn(async move {
-            let mut buffer = String::new();
-            loop {
-                let next = tokio::time::timeout(stream_idle_timeout, byte_stream.next()).await;
-                let next = match next {
-                    Ok(value) => value,
-                    Err(_) => {
-                        let _ = tx
-                            .send(Err(ApiError::Internal(format!(
-                                "lmstudio stream idle timeout after {} ms",
-                                stream_idle_timeout.as_millis()
-                            ))))
-                            .await;
-                        return;
-                    }
-                };
-
-                let Some(next) = next else {
-                    break;
-                };
-
-                match next {
-                    Ok(bytes) => {
-                        buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-                        while let Some(double_newline) = buffer.find(
-                            "
-
-",
-                        ) {
-                            let event_block = buffer[..double_newline].to_string();
-                            buffer = buffer[(double_newline + 2)..].to_string();
-
-                            let mut event_type = String::new();
-                            let mut event_data = String::new();
-                            for line in event_block.lines() {
-                                if let Some(t) = line.strip_prefix("event: ") {
-                                    event_type = t.trim().to_string();
-                                } else if let Some(d) = line.strip_prefix("data: ") {
-                                    event_data = d.trim().to_string();
-                                }
-                            }
-
-                            match event_type.as_str() {
-                                "reasoning.start" | "reasoning.end" => {}
-                                "reasoning.delta" => {
-                                    if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
-                                        let content = parsed
-                                            .get("content")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("");
-                                        if !content.is_empty()
-                                            && tx
-                                                .send(Ok(NormalizedStreamChunk {
-                                                    visible_text: String::new(),
-                                                    model_thinking: content.to_string(),
-                                                    done: false,
-                                                    usage: extract_usage(&parsed),
-                                                }))
-                                                .await
-                                                .is_err()
-                                        {
-                                            return;
-                                        }
-                                    }
-                                }
-                                "message.delta" => {
-                                    if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
-                                        let content = parsed
-                                            .get("content")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("");
-                                        if !content.is_empty()
-                                            && tx
-                                                .send(Ok(NormalizedStreamChunk {
-                                                    visible_text: content.to_string(),
-                                                    model_thinking: String::new(),
-                                                    done: false,
-                                                    usage: extract_usage(&parsed),
-                                                }))
-                                                .await
-                                                .is_err()
-                                        {
-                                            return;
-                                        }
-                                    }
-                                }
-                                "chat.end" => {
-                                    let usage = serde_json::from_str::<Value>(&event_data)
-                                        .ok()
-                                        .and_then(|payload| extract_usage(&payload));
-                                    let _ = tx
-                                        .send(Ok(NormalizedStreamChunk {
-                                            visible_text: String::new(),
-                                            model_thinking: String::new(),
-                                            done: true,
-                                            usage,
-                                        }))
-                                        .await;
-                                    return;
-                                }
-                                "error" => {
-                                    if let Ok(parsed) = serde_json::from_str::<Value>(&event_data) {
-                                        let err_msg = parsed
-                                            .get("error")
-                                            .and_then(|e| e.get("message"))
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("Unknown LM Studio error");
-                                        let _ = tx
-                                            .send(Err(ApiError::Internal(format!(
-                                                "LM Studio error: {}",
-                                                err_msg
-                                            ))))
-                                            .await;
-                                        return;
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        let _ = tx
-                            .send(Err(ApiError::Internal(format!(
-                                "LM Studio streaming transport failed: {}",
-                                err
-                            ))))
-                            .await;
-                        return;
-                    }
-                }
-            }
-
-            let _ = tx
-                .send(Ok(NormalizedStreamChunk {
-                    visible_text: String::new(),
-                    model_thinking: String::new(),
-                    done: true,
-                    usage: None,
-                }))
-                .await;
-        });
-
-        Ok(rx)
-    }
-
-    async fn embed_openai_compatible(
-        &self,
-        loader: &str,
-        base_url: &str,
-        model_name: &str,
-        inputs: &[String],
-    ) -> Result<Vec<Vec<f32>>, ApiError> {
-        let endpoint = format!("{}/v1/embeddings", base_url.trim_end_matches('/'));
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&json!({
-            "model": model_name,
-            "input": inputs,
-        }));
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error(loader, &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error(loader, base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "{} embedding request failed ({}): {}",
-                loader, status, text
-            )));
-        }
-
-        let payload: Value = response.json().await.map_err(ApiError::internal)?;
-        let mut embeddings = Vec::new();
-        if let Some(items) = payload.get("data").and_then(|v| v.as_array()) {
-            for item in items {
-                let vector = item
-                    .get("embedding")
-                    .and_then(|v| v.as_array())
-                    .map(|values| {
-                        values
-                            .iter()
-                            .filter_map(|value| value.as_f64().map(|f| f as f32))
-                            .collect::<Vec<f32>>()
-                    })
-                    .unwrap_or_default();
-                embeddings.push(vector);
-            }
-        }
-        Ok(embeddings)
-    }
-
-    async fn get_logprobs_openai_compatible(
-        &self,
-        loader: &str,
-        base_url: &str,
-        model_name: &str,
-        text: &str,
-    ) -> Result<Vec<(String, f64)>, ApiError> {
-        let endpoint = format!("{}/v1/completions", base_url.trim_end_matches('/'));
-        let body = json!({
-            "model": model_name,
-            "prompt": text,
-            "max_tokens": 1,
-            "logprobs": 1,
-            "echo": true,
-        });
-
-        let request_timeout = self.get_external_loader_request_timeout();
-        let response = self.http.post(&endpoint).json(&body);
-        let response = tokio::time::timeout(request_timeout, response.send())
-            .await
-            .map_err(|_| loader_timeout_error(loader, &endpoint, request_timeout, "request"))?
-            .map_err(|err| unreachable_loader_error(loader, base_url, err))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let err_text = response.text().await.unwrap_or_default();
-            return Err(ApiError::Internal(format!(
-                "{} logprobs request failed ({}): {}",
-                loader, status, err_text
-            )));
-        }
-
-        let payload: Value = response.json().await.map_err(ApiError::internal)?;
-
-        let mut result = Vec::new();
-
-        if let Some(choices) = payload.get("choices").and_then(|v| v.as_array()) {
-            if let Some(first_choice) = choices.first() {
-                if let Some(logprobs) = first_choice.get("logprobs") {
-                    let tokens = logprobs.get("tokens").and_then(|v| v.as_array());
-                    let token_logprobs = logprobs.get("token_logprobs").and_then(|v| v.as_array());
-
-                    if let (Some(ts), Some(lps)) = (tokens, token_logprobs) {
-                        for (token_val, logprob_val) in ts.iter().zip(lps.iter()) {
-                            let token_str = token_val.as_str().unwrap_or("").to_string();
-                            let logprob_f64 = logprob_val.as_f64().unwrap_or(0.0);
-                            result.push((token_str, logprob_f64));
-                        }
-                    }
-                }
-            }
-        }
-
-        if result.is_empty() {
-            return Err(ApiError::Internal(format!(
-                "{} did not return valid logprobs in the response.",
-                loader
-            )));
-        }
-
-        Ok(result)
-    }
-}
-
-#[cfg(test)]
-fn compose_reasoned_content(reasoning: &str, content: &str) -> String {
-    if reasoning.trim().is_empty() {
-        content.to_string()
-    } else if content.is_empty() {
-        format!("<think>\n{}\n</think>", reasoning)
-    } else {
-        format!("<think>\n{}\n</think>\n{}", reasoning, content)
-    }
-}
-
-fn extract_field_text(value: &Value, keys: &[&str]) -> String {
-    for key in keys {
-        if let Some(candidate) = value.get(*key) {
-            let text = value_to_text(candidate);
-            if !text.trim().is_empty() {
-                return text;
-            }
-        }
-    }
-    String::new()
-}
-
-fn value_to_text(value: &Value) -> String {
-    match value {
-        Value::String(text) => text.clone(),
-        Value::Array(items) => items.iter().map(value_to_text).collect::<Vec<_>>().join(""),
-        Value::Object(obj) => {
-            for key in ["text", "content", "reasoning", "thinking"] {
-                if let Some(candidate) = obj.get(key) {
-                    let text = value_to_text(candidate);
-                    if !text.trim().is_empty() {
-                        return text;
-                    }
-                }
-            }
-            String::new()
-        }
-        _ => String::new(),
-    }
-}
-
-#[cfg(test)]
-#[derive(Debug, Default)]
-struct ThinkTagDecoder {
-    buffer: String,
-    in_think: bool,
-}
-
-#[cfg(test)]
-impl ThinkTagDecoder {
-    fn push(&mut self, chunk: &str) -> Vec<NormalizedStreamChunk> {
-        self.buffer.push_str(chunk);
-        let mut out = Vec::new();
-
-        loop {
-            if self.in_think {
-                if let Some(end) = self.buffer.find("</think>") {
-                    let reasoning = self.buffer[..end].to_string();
-                    if !reasoning.is_empty() {
-                        out.push(NormalizedStreamChunk {
-                            visible_text: String::new(),
-                            model_thinking: reasoning,
-                            done: false,
-                            usage: None,
-                        });
-                    }
-                    self.buffer.drain(..end + "</think>".len());
-                    self.in_think = false;
-                    continue;
-                }
-
-                let keep = trailing_prefix_len(&self.buffer, "</think>");
-                let emit_len = self.buffer.len().saturating_sub(keep);
-                if emit_len == 0 {
-                    break;
-                }
-                let reasoning = self.buffer[..emit_len].to_string();
-                self.buffer.drain(..emit_len);
-                if !reasoning.is_empty() {
-                    out.push(NormalizedStreamChunk {
-                        visible_text: String::new(),
-                        model_thinking: reasoning,
-                        done: false,
-                        usage: None,
-                    });
-                }
-                break;
-            }
-
-            if let Some(start) = self.buffer.find("<think>") {
-                let visible = self.buffer[..start].to_string();
-                if !visible.is_empty() {
-                    out.push(NormalizedStreamChunk {
-                        visible_text: visible,
-                        model_thinking: String::new(),
-                        done: false,
-                        usage: None,
-                    });
-                }
-                self.buffer.drain(..start + "<think>".len());
-                self.in_think = true;
-                continue;
-            }
-
-            let keep = trailing_prefix_len(&self.buffer, "<think>");
-            let emit_len = self.buffer.len().saturating_sub(keep);
-            if emit_len == 0 {
-                break;
-            }
-            let visible = self.buffer[..emit_len].to_string();
-            self.buffer.drain(..emit_len);
-            if !visible.is_empty() {
-                out.push(NormalizedStreamChunk {
-                    visible_text: visible,
-                    model_thinking: String::new(),
-                    done: false,
-                    usage: None,
-                });
-            }
-            break;
-        }
-
-        out
-    }
-
-    fn finish(&mut self) -> Vec<NormalizedStreamChunk> {
-        if self.buffer.is_empty() {
-            return Vec::new();
-        }
-
-        let chunk = if self.in_think {
-            NormalizedStreamChunk {
-                visible_text: String::new(),
-                model_thinking: self.buffer.clone(),
-                done: true,
-                usage: None,
-            }
-        } else {
-            NormalizedStreamChunk {
-                visible_text: self.buffer.clone(),
-                model_thinking: String::new(),
-                done: true,
-                usage: None,
-            }
-        };
-        self.buffer.clear();
-        self.in_think = false;
-        vec![chunk]
-    }
-}
-
-#[cfg(test)]
-fn split_reasoned_content(content: &str) -> NormalizedAssistantTurn {
-    let mut decoder = ThinkTagDecoder::default();
-    let mut normalized = NormalizedAssistantTurn::default();
-    for chunk in decoder.push(content).into_iter().chain(decoder.finish()) {
-        normalized.visible_text.push_str(&chunk.visible_text);
-        normalized.model_thinking.push_str(&chunk.model_thinking);
-    }
-    normalized.visible_text = normalized.visible_text.trim().to_string();
-    normalized.model_thinking = normalized.model_thinking.trim().to_string();
-    normalized
-}
-
-#[cfg(test)]
-fn trailing_prefix_len(buffer: &str, marker: &str) -> usize {
-    let max_len = buffer.len().min(marker.len().saturating_sub(1));
-    for len in (1..=max_len).rev() {
-        if buffer.ends_with(&marker[..len]) {
-            return len;
-        }
-    }
-    0
-}
-
-fn normalize_loader_name(model: &ModelEntry) -> String {
-    let direct = model.loader.trim().to_ascii_lowercase();
-    if !direct.is_empty() {
-        return direct;
-    }
-
-    if model.file_path.starts_with("ollama://") || model.source.eq_ignore_ascii_case("ollama") {
-        return "ollama".to_string();
-    }
-    if model.file_path.starts_with("lmstudio://") || model.source.eq_ignore_ascii_case("lmstudio") {
-        return "lmstudio".to_string();
-    }
-    "llama_cpp".to_string()
-}
-
-fn resolve_loader_model_name(model: &ModelEntry, scheme_prefix: &str) -> Option<String> {
-    if let Some(name) = model
-        .loader_model_name
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        return Some(name.to_string());
-    }
-
-    if let Some(name) = model
-        .file_path
-        .strip_prefix(scheme_prefix)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        return Some(name.to_string());
-    }
-
-    let filename = model.filename.trim();
-    if filename.is_empty() {
-        return None;
-    }
-    Some(filename.to_string())
-}
-
-fn loader_base_url(config: &Value, loader: &str, default_url: String) -> String {
-    config
-        .get("loaders")
-        .and_then(|v| v.get(loader))
-        .and_then(|v| v.get("base_url"))
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.trim_end_matches('/').to_string())
-        .unwrap_or(default_url)
-}
-
-fn extract_usage(payload: &Value) -> Option<TokenUsage> {
-    let usage = payload.get("usage");
-    let prompt_tokens = usage
-        .and_then(|value| value.get("prompt_tokens"))
-        .and_then(|value| value.as_u64())
-        .or_else(|| {
-            usage
-                .and_then(|value| value.get("input_tokens"))
-                .and_then(|value| value.as_u64())
-        })
-        .or_else(|| {
-            payload
-                .get("prompt_eval_count")
-                .and_then(|value| value.as_u64())
-        })
-        .map(|value| value as usize);
-    let completion_tokens = usage
-        .and_then(|value| value.get("completion_tokens"))
-        .and_then(|value| value.as_u64())
-        .or_else(|| {
-            usage
-                .and_then(|value| value.get("output_tokens"))
-                .and_then(|value| value.as_u64())
-        })
-        .or_else(|| payload.get("eval_count").and_then(|value| value.as_u64()))
-        .map(|value| value as usize);
-    let total_tokens = usage
-        .and_then(|value| value.get("total_tokens"))
-        .and_then(|value| value.as_u64())
-        .map(|value| value as usize)
-        .or_else(|| match (prompt_tokens, completion_tokens) {
-            (Some(prompt), Some(completion)) => Some(prompt + completion),
-            _ => None,
-        });
-
-    if prompt_tokens.is_none() && completion_tokens.is_none() && total_tokens.is_none() {
-        None
-    } else {
-        Some(TokenUsage {
-            prompt_tokens,
-            completion_tokens,
-            total_tokens,
-        })
-    }
-}
-
-fn unreachable_loader_error(loader: &str, base_url: &str, err: reqwest::Error) -> ApiError {
-    ApiError::Internal(format!(
-        "Failed to reach '{}' loader at {}: {}",
-        loader, base_url, err
-    ))
-}
-
-fn loader_timeout_error(loader: &str, endpoint: &str, timeout: Duration, phase: &str) -> ApiError {
-    ApiError::Internal(format!(
-        "{} {} timed out after {} ms ({})",
-        loader,
-        phase,
-        timeout.as_millis(),
-        endpoint
-    ))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::models::types::ModelEntry;
-    use serde_json::json;
-
-    fn model_entry(loader: &str, source: &str, file_path: &str) -> ModelEntry {
-        ModelEntry {
-            id: "model-1".to_string(),
-            display_name: "Model 1".to_string(),
-            role: "text".to_string(),
-            file_size: 1,
-            filename: "model-name".to_string(),
-            source: source.to_string(),
-            file_path: file_path.to_string(),
-            loader: loader.to_string(),
-            loader_model_name: None,
-            repo_id: None,
-            revision: None,
-            sha256: None,
-            added_at: "2026-01-01T00:00:00Z".to_string(),
-            parameter_size: None,
-            quantization: None,
-            context_length: None,
-            architecture: None,
-            chat_template: None,
-            stop_tokens: None,
-            default_temperature: None,
-            capabilities: None,
-            publisher: None,
-            description: None,
-            format: None,
-            tokenizer_path: None,
-            tokenizer_format: None,
-        }
-    }
-
-    #[test]
-    fn normalize_loader_prefers_explicit_loader() {
-        let entry = model_entry("lmstudio", "local", "models/text/model.gguf");
-        assert_eq!(normalize_loader_name(&entry), "lmstudio");
-    }
-
-    #[test]
-    fn normalize_loader_infers_from_uri_scheme() {
-        let entry = model_entry("", "local", "ollama://qwen3:latest");
-        assert_eq!(normalize_loader_name(&entry), "ollama");
-    }
-
-    #[test]
-    fn normalize_loader_preserves_unknown_loader_value() {
-        let entry = model_entry("custom_loader", "local", "models/text/model.gguf");
-        assert_eq!(normalize_loader_name(&entry), "custom_loader");
-    }
-
-    #[test]
-    fn resolve_loader_model_name_prefers_loader_model_name() {
-        let mut entry = model_entry("ollama", "ollama", "ollama://ignored");
-        entry.loader_model_name = Some("real-name:latest".to_string());
-        assert_eq!(
-            resolve_loader_model_name(&entry, "ollama://").as_deref(),
-            Some("real-name:latest")
-        );
-    }
-
-    #[test]
-    fn resolve_loader_model_name_falls_back_to_uri() {
-        let entry = model_entry("ollama", "ollama", "ollama://qwen3:latest");
-        assert_eq!(
-            resolve_loader_model_name(&entry, "ollama://").as_deref(),
-            Some("qwen3:latest")
-        );
-    }
-
-    #[test]
-    fn loader_base_url_uses_config_override() {
-        let config = json!({
-            "loaders": {
-                "ollama": {
-                    "base_url": "http://127.0.0.1:11434/"
-                }
-            }
-        });
-        assert_eq!(
-            loader_base_url(&config, "ollama", "http://localhost:11434".to_string()),
-            "http://127.0.0.1:11434"
-        );
-    }
-
-    #[test]
-    fn loader_base_url_uses_default_when_missing() {
-        let config = json!({});
-        assert_eq!(
-            loader_base_url(&config, "lmstudio", "http://localhost:1234".to_string()),
-            "http://localhost:1234"
-        );
-    }
-
-    #[test]
-    fn extract_field_text_supports_reasoning_aliases() {
-        let payload = json!({
-            "reasoning": [{"text": "step-1"}, {"text": "step-2"}],
-            "content": "final"
-        });
-        assert_eq!(
-            extract_field_text(&payload, &["reasoning", "reasoning_content", "thinking"]),
-            "step-1step-2"
-        );
-        assert_eq!(extract_field_text(&payload, &["content"]), "final");
-    }
-
-    #[test]
-    fn extract_usage_supports_openai_and_ollama_shapes() {
-        let openai_payload = json!({
-            "usage": {
-                "prompt_tokens": 12,
-                "completion_tokens": 8,
-                "total_tokens": 20
-            }
-        });
-        let openai_usage = extract_usage(&openai_payload).expect("openai usage");
-        assert_eq!(openai_usage.prompt_tokens, Some(12));
-        assert_eq!(openai_usage.completion_tokens, Some(8));
-        assert_eq!(openai_usage.total_tokens, Some(20));
-
-        let ollama_payload = json!({
-            "prompt_eval_count": 14,
-            "eval_count": 6
-        });
-        let ollama_usage = extract_usage(&ollama_payload).expect("ollama usage");
-        assert_eq!(ollama_usage.prompt_tokens, Some(14));
-        assert_eq!(ollama_usage.completion_tokens, Some(6));
-        assert_eq!(ollama_usage.total_tokens, Some(20));
-    }
-
-    #[test]
-    fn compose_reasoned_content_wraps_think_block() {
-        assert_eq!(
-            compose_reasoned_content("chain", "answer"),
-            "<think>\nchain\n</think>\nanswer"
-        );
-        assert_eq!(
-            compose_reasoned_content("chain", ""),
-            "<think>\nchain\n</think>"
-        );
-        assert_eq!(compose_reasoned_content("", "answer"), "answer");
-    }
-
-    #[test]
-    fn split_reasoned_content_separates_visible_and_thinking() {
-        let normalized = split_reasoned_content(
-            "<think>
-chain
-</think>
-answer",
-        );
-        assert_eq!(normalized.model_thinking, "chain");
-        assert_eq!(normalized.visible_text, "answer");
-    }
-
-    #[test]
-    fn think_tag_decoder_handles_split_markers() {
-        let mut decoder = ThinkTagDecoder::default();
-        let mut chunks = Vec::new();
-        chunks.extend(decoder.push("<thi"));
-        chunks.extend(decoder.push("nk>abc"));
-        chunks.extend(decoder.push("</thi"));
-        chunks.extend(decoder.push("nk>done"));
-        chunks.extend(decoder.finish());
-
-        let reasoning = chunks
-            .iter()
-            .map(|chunk| chunk.model_thinking.as_str())
-            .collect::<String>();
-        let visible = chunks
-            .iter()
-            .map(|chunk| chunk.visible_text.as_str())
-            .collect::<String>();
-        assert_eq!(reasoning, "abc");
-        assert_eq!(visible, "done");
-    }
+        .collect()
 }

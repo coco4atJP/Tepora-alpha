@@ -220,12 +220,17 @@ backend-rs/
 │   │   └── setup.rs            # セットアップ状態
 │   │
 │   ├── llm/                    # ========== LLM 統合 ==========
+│   │   ├── external_loader_common.rs # 外部LLM loader共通処理
 │   │   ├── llama_cpp.rs        # llama.cpp バインディング
 │   │   ├── llama_service.rs    # LlamaService (推論サーバー管理)
+│   │   ├── lmstudio_native_client.rs # LM Studio native client
 │   │   ├── lmstudio.rs         # LM Studio 統合
+│   │   ├── model_resolution.rs # モデル解決とルーティング
+│   │   ├── ollama_native_client.rs # Ollama native client
 │   │   ├── ollama.rs           # Ollama 統合
+│   │   ├── openai_compatible_client.rs # OpenAI互換 client
 │   │   ├── provider.rs         # プロバイダー抽象化
-│   │   ├── service.rs          # LlmService (高レベル抽象化)
+│   │   ├── service.rs          # LlmService (オーケストレーション)
 │   │   ├── tests.rs            # LLM関連テスト
 │   │   ├── types.rs            # LLM関連の型定義
 │   │   └── mod.rs
@@ -674,7 +679,17 @@ pub struct LlamaService {
 - Chat Completions API の提供
 - ヘルスチェック
 
-`LlmService` は `ModelManager` を通じて `ModelRuntimeConfig` を組み立て、`chat` / `stream_chat` / `embed` を高レベルAPIとして提供します。加えて `chat_normalized` / `stream_chat_normalized` により `visible_text` と `model_thinking` を分離した戻り値を提供します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。Ollama / LM Studio / OpenAI-compatible / llama.cpp の各 provider は内部で native に reasoning を正規化し、旧来の `chat` / `stream_chat` はこの normalized 戻り値を可視テキスト優先の互換形へ変換する薄いラッパです。
+`LlmService` は高レベル API を維持しつつ、現在は orchestration に責務を絞っています。`chat` / `stream_chat` / `embed` / `get_logprobs` の公開面と provider fallback を担当し、詳細実装は下位モジュールへ委譲します。`chat_normalized` / `stream_chat_normalized` は `visible_text` と `model_thinking` を分離した戻り値を提供します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。
+
+2026-03-15 時点の LLM モジュール分割は以下です。
+
+- `service.rs`: `LlmService` の公開 API、provider ルーティング、native -> OpenAI-compatible fallback。
+- `model_resolution.rs`: loader 判定、base URL 解決、`ModelRuntimeConfig` 構築。
+- `external_loader_common.rs`: タイムアウト読取、共通 HTTP POST、usage/field 抽出、stream 補助。
+- `openai_compatible_client.rs`: OpenAI Compatible chat/stream/embed/logprobs。
+- `ollama_native_client.rs`: Ollama native chat/stream。
+- `lmstudio_native_client.rs`: LM Studio native chat/stream。
+- `llama_service.rs`: llama.cpp server process 管理と local inference。
 
 2026-03-14 時点の `models` モジュールは以下の分割です。
 
@@ -1355,7 +1370,6 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
-
 
 
 
