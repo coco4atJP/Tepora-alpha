@@ -1,8 +1,12 @@
 import { AlertCircle, Check, Edit2, Plus, RefreshCw, Trash2, User } from "lucide-react";
 import type React from "react";
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SettingsContext } from "../../context/SettingsContext";
+import {
+	useAgentProfiles,
+	useSettingsConfigActions,
+	useSettingsState,
+} from "../../context/SettingsContext";
 import type { CharacterConfig } from "../../types";
 import { logger } from "../../utils/logger";
 import { CharacterEditOverlay, type CharacterEditState } from "../settings/components/subcomponents/CharacterEditOverlay";
@@ -10,7 +14,10 @@ import type { AgentProfile } from "../settings/components/SettingsComponents";
 
 const PersonaSwitcher: React.FC = () => {
 	const { t } = useTranslation();
-	const settings = useContext(SettingsContext);
+	const { config } = useSettingsState();
+	const { setActiveAgent, updateCharacter, addCharacter, deleteCharacter, activeAgentProfile } =
+		useAgentProfiles();
+	const { saveConfig } = useSettingsConfigActions();
 
 	// State for UI
 	const [isOpen, setIsOpen] = useState(false);
@@ -26,15 +33,12 @@ const PersonaSwitcher: React.FC = () => {
 		setTimeout(() => setErrorMessage(null), 4000);
 	}, []);
 
-	if (!settings || !settings.config) {
+	if (!config) {
 		return null; // Or a loading spinner
 	}
 
-	const { config, setActiveAgent, updateCharacter, addCharacter, deleteCharacter, saveConfig } =
-		settings;
-
 	const characters = config.characters || {};
-	const currentPersonaId = config.active_agent_profile;
+	const currentPersonaId = activeAgentProfile || config.active_agent_profile;
 	const existingKeys = Object.keys(characters);
 
 	const characterToAgentProfile = (charConfig: CharacterConfig): AgentProfile => ({

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 
-import { useSettings } from "../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../context/SettingsContext";
 import { modelsApi } from "../api/models";
 import { ModelCard } from "../features/settings/components/ModelCard";
 import { loadersApi } from "../api/loaders";
@@ -18,7 +18,8 @@ interface ModelHubProps {
 
 const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
     const { t } = useTranslation();
-    const { updateModel, config } = useSettings();
+    const { updateModel } = useSettingsConfigActions();
+    const { config } = useSettingsState();
     const [models, setModels] = useState<ModelInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");

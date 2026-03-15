@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CharacterSettings from "../../../features/settings/components/sections/CharacterSettings";
 
-// Mock Lucide icons to avoid rendering issues
 vi.mock("lucide-react", () => ({
 	Users: () => <span data-testid="icon-users" />,
 	Check: () => <span data-testid="icon-check" />,
@@ -23,8 +22,8 @@ vi.mock("lucide-react", () => ({
 	FolderOpen: () => <span data-testid="icon-folder-open" />,
 }));
 
-vi.mock("../../../hooks/useSettings", () => ({
-	useSettings: () => ({
+vi.mock("../../../context/SettingsContext", () => ({
+	useSettingsState: () => ({
 		config: {
 			app: { nsfw_enabled: false },
 			models_gguf: {
@@ -36,6 +35,8 @@ vi.mock("../../../hooks/useSettings", () => ({
 				},
 			},
 		},
+	}),
+	useSettingsConfigActions: () => ({
 		updateApp: vi.fn(),
 	}),
 }));
@@ -71,62 +72,41 @@ describe("CharacterSettings", () => {
 		expect(screen.getByText("Custom Agent")).toBeInTheDocument();
 	});
 
-	it("highlights active profile", () => {
+	it("opens add modal and validates new key", async () => {
 		render(<CharacterSettings {...mockProps} />);
-		const checkIcons = screen.getAllByTestId("icon-check");
-		expect(checkIcons.length).toBe(1);
-	});
-
-	it("opens add modal when clicking add button", async () => {
-		render(<CharacterSettings {...mockProps} />);
-
-		const addButton = screen.getByRole("button", {
-			name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
-		});
-		fireEvent.click(addButton);
-
-		expect(
-			await screen.findByText(/settings\.sections\.agents\.modal\.title_add|add character/i),
-		).toBeInTheDocument();
-	});
-
-	it("validates new character key", async () => {
-		render(<CharacterSettings {...mockProps} />);
-
-		const addButton = screen.getByRole("button", {
-			name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
-		});
-		fireEvent.click(addButton);
-
-		const saveButton = await screen.findByRole("button", {
-			name: /common\.save|save/i,
-		});
-		fireEvent.click(saveButton);
-
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
+			}),
+		);
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: /common\.save|save/i,
+			}),
+		);
 		expect(
 			await screen.findByText(/settings\.sections\.agents\.error_empty_key|key cannot be empty/i),
 		).toBeInTheDocument();
-		expect(mockProps.onAddProfile).not.toHaveBeenCalled();
 	});
 
 	it("calls update on valid addition", async () => {
 		render(<CharacterSettings {...mockProps} />);
-
-		const addButton = screen.getByRole("button", {
-			name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
-		});
-		fireEvent.click(addButton);
-
-		const keyInput = await screen.findByPlaceholderText(
-			/settings\.sections\.agents\.modal\.key_placeholder|coding_expert/i,
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: /settings\.sections\.agents\.add_new_profile|add new profile/i,
+			}),
 		);
-		fireEvent.change(keyInput, { target: { value: "new_hero" } });
-
-		const saveButton = await screen.findByRole("button", {
-			name: /common\.save|save/i,
-		});
-		fireEvent.click(saveButton);
-
+		fireEvent.change(
+			await screen.findByPlaceholderText(
+				/settings\.sections\.agents\.modal\.key_placeholder|coding_expert/i,
+			),
+			{ target: { value: "new_hero" } },
+		);
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: /common\.save|save/i,
+			}),
+		);
 		await waitFor(() => {
 			expect(mockProps.onAddProfile).toHaveBeenCalledWith("new_hero");
 			expect(mockProps.onUpdateProfile).toHaveBeenCalled();

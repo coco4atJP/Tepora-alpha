@@ -4,7 +4,12 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FitText } from "../../../components/ui/FitText";
 import Modal from "../../../components/ui/Modal";
-import { useSettings } from "../../../hooks/useSettings";
+import {
+	useAgentProfiles,
+	useAgentSkills,
+	useSettingsConfigActions,
+	useSettingsState,
+} from "../../../context/SettingsContext";
 import { SettingsSidebar } from "./SettingsComponents";
 import { getNavItems } from "./SettingsConstants";
 import { SettingsLayout } from "./SettingsLayout";
@@ -28,21 +33,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 	const { t } = useTranslation();
 	const {
 		config,
-		agentSkills,
 		loading,
 		error,
 		hasChanges,
 		saving,
-		fetchConfig,
-		updatePrivacy,
-		updateCharacter,
-		setActiveAgent,
-		addCharacter,
-		deleteCharacter,
-		saveConfig,
-
-		resetConfig,
-	} = useSettings();
+	} = useSettingsState();
+	const { fetchConfig, updatePrivacy, saveConfig, resetConfig } = useSettingsConfigActions();
+	const { agentSkills } = useAgentSkills();
+	const { updateCharacter, setActiveAgent, addCharacter, deleteCharacter } = useAgentProfiles();
 
 	const [activeSection, setActiveSection] = useState("general");
 	const [toast, setToast] = useState<{
@@ -242,4 +240,3 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 };
 
 export default SettingsDialog;
-

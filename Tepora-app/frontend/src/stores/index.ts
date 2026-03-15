@@ -8,4 +8,6 @@
 export type { Session } from "../types";
 export { type ChatStore, useChatStore } from "./chatStore";
 export { type SessionStore, useSessionStore } from "./sessionStore";
-export { useWebSocketStore, type WebSocketStore } from "./websocketStore";
+export { socketCommands } from "./socketCommands";
+export { type SocketConnectionStore, useSocketConnectionStore } from "./socketConnectionStore";
+export { type ToolConfirmationStore, useToolConfirmationStore } from "./toolConfirmationStore";

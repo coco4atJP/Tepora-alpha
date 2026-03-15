@@ -3,9 +3,9 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
-import type { Config } from "../../../../context/SettingsContext";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import { useMcpPolicy } from "../../../../hooks/useMcp";
-import { useSettings } from "../../../../hooks/useSettings";
+import type { Config } from "../../../../types/settings";
 import type { AuditVerifyResult, PermissionEntry } from "../../../../types";
 import { apiClient } from "../../../../utils/api-client";
 import { ENDPOINTS } from "../../../../utils/endpoints";
@@ -115,7 +115,8 @@ const formatTimestamp = (value?: string | null) => value ? new Date(value).toLoc
 
 const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpdate }) => {
 	const { t } = useTranslation();
-	const { config, updateModelDownload, updateConfigPath, fetchConfig } = useSettings();
+	const { config } = useSettingsState();
+	const { updateModelDownload, updateConfigPath, fetchConfig } = useSettingsConfigActions();
 	const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
 	const [permissionsLoading, setPermissionsLoading] = useState(false);
 	const [auditResult, setAuditResult] = useState<AuditVerifyResult | null>(null);
@@ -673,5 +674,4 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 };
 
 export default PrivacySettings;
-
 

@@ -4,7 +4,7 @@
 
 import type React from "react";
 import { useSessions } from "../../../hooks/useSessions";
-import { useSessionStore, useWebSocketStore } from "../../../stores";
+import { socketCommands, useSessionStore } from "../../../stores";
 import { SessionHistory } from "./SessionHistory";
 
 interface SessionHistoryPanelProps {
@@ -16,10 +16,9 @@ export const SessionHistoryPanel: React.FC<SessionHistoryPanelProps> = ({ onSess
 
 	// Get currentSessionId from Stores
 	const currentSessionId = useSessionStore((state) => state.currentSessionId);
-	const setSession = useWebSocketStore((state) => state.setSession);
 
 	const handleSelectSession = (sessionId: string) => {
-		setSession(sessionId);
+		socketCommands.setSession(sessionId);
 		if (onSessionSelect) {
 			onSessionSelect();
 		}
@@ -28,7 +27,7 @@ export const SessionHistoryPanel: React.FC<SessionHistoryPanelProps> = ({ onSess
 	const handleCreateSession = async () => {
 		const session = await createSession();
 		if (session) {
-			setSession(session.id);
+			socketCommands.setSession(session.id);
 		}
 	};
 
@@ -44,14 +43,14 @@ export const SessionHistoryPanel: React.FC<SessionHistoryPanelProps> = ({ onSess
 				// If we deleted the last session, create a new one immediately
 				const session = await createSession();
 				if (session) {
-					setSession(session.id);
+					socketCommands.setSession(session.id);
 				}
 			} else if (sessionId === currentSessionId) {
 				// If we deleted the currently active session, switch to another one
 				// We find the first one that isn't the deleted one.
 				const nextSession = sessions.find((s) => s.id !== sessionId);
 				if (nextSession) {
-					setSession(nextSession.id);
+					socketCommands.setSession(nextSession.id);
 				}
 			}
 		}

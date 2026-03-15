@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Config as AppConfig } from "../context/SettingsContext";
+import type { Config as AppConfig } from "../types/settings";
 import type { RequirementsStatus } from "../features/settings/components/SetupWizard/types";
 import { apiClient } from "../utils/api-client";
 

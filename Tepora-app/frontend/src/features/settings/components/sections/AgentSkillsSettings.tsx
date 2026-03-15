@@ -3,7 +3,11 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
-import { useSettings } from "../../../../hooks/useSettings";
+import {
+	useAgentSkills,
+	useSettingsConfigActions,
+	useSettingsState,
+} from "../../../../context/SettingsContext";
 import type { AgentSkillPackage, AgentSkillSummary, SkillFileEntry, SkillRootConfig } from "../../../../types";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 
@@ -102,15 +106,15 @@ const SkillFileListEditor: React.FC<{
 
 const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => {
 	const { t } = useTranslation();
+	const { config } = useSettingsState();
 	const {
-		config,
 		skillRoots,
-		updateConfigPath,
 		fetchAgentSkills,
 		getAgentSkill,
 		saveAgentSkill,
 		deleteAgentSkill,
-	} = useSettings();
+	} = useAgentSkills();
+	const { updateConfigPath } = useSettingsConfigActions();
 	const entries = useMemo(
 		() => Object.values(agents).sort((a, b) => a.name.localeCompare(b.name)),
 		[agents],

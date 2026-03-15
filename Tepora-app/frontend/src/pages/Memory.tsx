@@ -1,7 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useChatStore, useSessionStore, useWebSocketStore } from "../stores";
+import { socketCommands, useChatStore, useSessionStore, useSocketConnectionStore } from "../stores";
 import { apiClient } from "../utils/api-client";
 import { logger } from "../utils/logger";
 
@@ -139,8 +139,7 @@ const JobRow: React.FC<{ job: CompactionJob }> = ({ job }) => {
 
 const Memory: React.FC = () => {
 	const memoryStats = useChatStore((state) => state.memoryStats);
-	const isConnected = useWebSocketStore((state) => state.isConnected);
-	const requestStats = useWebSocketStore((state) => state.requestStats);
+	const isConnected = useSocketConnectionStore((state) => state.isConnected);
 	const currentSessionId = useSessionStore((state) => state.currentSessionId);
 	const { t } = useTranslation();
 
@@ -172,10 +171,10 @@ const Memory: React.FC = () => {
 	// Refresh stats and jobs when connected.
 	useEffect(() => {
 		if (isConnected) {
-			requestStats();
+			socketCommands.requestStats();
 			fetchJobs();
 			const interval = setInterval(() => {
-				requestStats();
+				socketCommands.requestStats();
 				// Only poll jobs if any are active (queued/running).
 				if (hasActiveJobRef.current) {
 					void fetchJobs();
@@ -183,7 +182,7 @@ const Memory: React.FC = () => {
 			}, 5000);
 			return () => clearInterval(interval);
 		}
-	}, [isConnected, requestStats, fetchJobs]);
+	}, [isConnected, fetchJobs]);
 
 	const handleCompress = async () => {
 		try {

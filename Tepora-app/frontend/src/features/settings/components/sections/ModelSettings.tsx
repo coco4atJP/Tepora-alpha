@@ -2,7 +2,11 @@ import { Cpu, Database, HardDrive, List, MessageSquare, RefreshCw, SlidersHorizo
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../../../../hooks/useSettings";
+import {
+	useAgentSkills,
+	useSettingsConfigActions,
+	useSettingsState,
+} from "../../../../context/SettingsContext";
 import { modelsApi, resolveEmbeddingModelPath } from "../../../../api/models";
 import type { ModelRoles } from "../../../../api/models";
 import { loadersApi } from "../../../../api/loaders";
@@ -48,13 +52,10 @@ const ModelSettings: React.FC = () => {
 	const {
 		config,
 		originalConfig,
-		agentSkills,
-		updateLlmManager,
-		updateModel,
-		updateSearch,
-		updateLoaderBaseUrl,
-		updateConfigPath,
-	} = useSettings();
+	} = useSettingsState();
+	const { agentSkills } = useAgentSkills();
+	const { updateLlmManager, updateModel, updateSearch, updateLoaderBaseUrl, updateConfigPath } =
+		useSettingsConfigActions();
 	const [models, setModels] = useState<ModelInfo[]>([]);
 	const [isModelHubOpen, setIsModelHubOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -664,8 +665,6 @@ const ModelSettings: React.FC = () => {
 };
 
 export default ModelSettings;
-
-
 
 
 

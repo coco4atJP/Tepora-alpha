@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
-import { useSettings } from "../../hooks/useSettings";
-import { useWebSocketStore } from "../../stores";
+import { useAgentSkills, useSettingsState } from "../../context/SettingsContext";
+import { socketCommands, useSocketConnectionStore } from "../../stores";
 import type { ChatInterfaceContext } from "./ChatInterface";
 import PersonaSwitcher from "./PersonaSwitcher";
 import { useSelector } from "@xstate/react";
@@ -23,10 +23,9 @@ const InputArea: React.FC = () => {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	// Stores & State Machine
-	const isConnected = useWebSocketStore((state) => state.isConnected);
-	const sendMessage = useWebSocketStore((state) => state.sendMessage);
-	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const { agentSkills, config } = useSettings();
+	const isConnected = useSocketConnectionStore((state) => state.isConnected);
+	const { agentSkills } = useAgentSkills();
+	const { config } = useSettingsState();
 
 	const isIdle = useSelector(chatActor, (state) => state.matches("idle"));
 	const isGenerating = useSelector(chatActor, (state) => state.matches("generating"));
@@ -40,7 +39,7 @@ const InputArea: React.FC = () => {
 
 	const handleSend = () => {
 		if (canSend) {
-			sendMessage(
+			socketCommands.sendMessage(
 				message,
 				currentMode,
 				attachments,
@@ -193,7 +192,7 @@ const InputArea: React.FC = () => {
 						<Button
 							variant="danger"
 							size="icon"
-							onClick={() => stopGeneration()}
+							onClick={() => socketCommands.stopGeneration()}
 							aria-label={t("chat.input.stop_generation")}
 							className="rounded-full w-10 h-10 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
 						>
@@ -231,4 +230,3 @@ const InputArea: React.FC = () => {
 };
 
 export default InputArea;
-

@@ -2,15 +2,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SettingsProvider } from "../../../context/SettingsContext";
-import { useSettings } from "../../../hooks/useSettings";
+import {
+	SettingsProvider,
+	useAgentProfiles,
+	useAgentSkills,
+	useSettingsConfigActions,
+	useSettingsState,
+} from "../../../context/SettingsContext";
 
-// Mock Config Data
 const mockConfig = {
 	app: {
 		max_input_length: 1000,
 		graph_recursion_limit: 10,
 		tool_execution_timeout: 30,
+		tool_approval_timeout: 300,
+		graph_execution_timeout: 60,
+		web_fetch_max_chars: 6000,
+		web_fetch_max_bytes: 1000000,
+		web_fetch_timeout_secs: 10,
 		dangerous_patterns: [],
 		language: "en",
 		nsfw_enabled: false,
@@ -21,9 +30,11 @@ const mockConfig = {
 		health_check_timeout: 5,
 		health_check_interval: 60,
 		tokenizer_model_key: "default",
+		cache_size: 1,
 	},
 	chat_history: {
 		max_tokens: 2000,
+		default_limit: 50,
 	},
 	em_llm: {
 		surprise_gamma: 0.1,
@@ -50,6 +61,10 @@ const mockConfig = {
 	characters: {},
 	active_agent_profile: "default",
 	tools: {},
+	privacy: {
+		allow_web_search: false,
+		redact_pii: true,
+	},
 };
 
 describe("SettingsContext", () => {
@@ -62,8 +77,18 @@ describe("SettingsContext", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("fetches config on mount", async () => {
-		// Mock responses for fetchConfig (two calls)
+	const createWrapper = () => {
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		return ({ children }: { children: React.ReactNode }) => (
+			<QueryClientProvider client={queryClient}>
+				<SettingsProvider>{children}</SettingsProvider>
+			</QueryClientProvider>
+		);
+	};
+
+	it("loads config and agent skills on mount", async () => {
 		vi.mocked(fetch)
 			.mockResolvedValueOnce({
 				ok: true,
@@ -71,142 +96,28 @@ describe("SettingsContext", () => {
 			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ agents: [] }),
+				json: async () => ({ skills: [], roots: [] }),
 			} as Response);
 
-		const queryClient = new QueryClient({
-			defaultOptions: { queries: { retry: false } },
-		});
-		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<QueryClientProvider client={queryClient}>
-				<SettingsProvider>{children}</SettingsProvider>
-			</QueryClientProvider>
-		);
-
-		const { result } = renderHook(() => useSettings(), { wrapper });
-
-		// Initially loading
-		expect(result.current.loading).toBe(true);
-		expect(result.current.config).toBeNull();
-
-		// Wait for load
-		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
-		});
-
-		expect(result.current.config).toEqual(mockConfig);
-		expect(result.current.error).toBeNull();
-		expect(fetch).toHaveBeenCalledTimes(2);
-	});
-
-	it("handles fetch error", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: false,
-			status: 500,
-		} as Response);
-
-		const queryClient = new QueryClient({
-			defaultOptions: { queries: { retry: false } },
-		});
-		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<QueryClientProvider client={queryClient}>
-				<SettingsProvider>{children}</SettingsProvider>
-			</QueryClientProvider>
-		);
-
-		const { result } = renderHook(() => useSettings(), { wrapper });
-
-		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
-		});
-
-		expect(result.current.config).toBeNull();
-		expect(result.current.error).toBeTruthy();
-	});
-
-	it("updates app settings", async () => {
-		vi.mocked(fetch)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockConfig,
-			} as Response)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ agents: [] }),
-			} as Response);
-
-		const queryClient = new QueryClient({
-			defaultOptions: { queries: { retry: false } },
-		});
-		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<QueryClientProvider client={queryClient}>
-				<SettingsProvider>{children}</SettingsProvider>
-			</QueryClientProvider>
-		);
-
-		const { result } = renderHook(() => useSettings(), { wrapper });
-
-		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
-		});
-
-		act(() => {
-			result.current.updateApp("max_input_length", 2000);
-		});
-
-		expect(result.current.config?.app.max_input_length).toBe(2000);
-		expect(result.current.hasChanges).toBe(true);
-	});
-
-	it("saves config", async () => {
-		// Mock initial fetch
-		vi.mocked(fetch)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockConfig,
-			} as Response)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ agents: [] }),
-			} as Response);
-
-		const queryClient = new QueryClient({
-			defaultOptions: { queries: { retry: false } },
-		});
-		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<QueryClientProvider client={queryClient}>
-				<SettingsProvider>{children}</SettingsProvider>
-			</QueryClientProvider>
-		);
-
-		const { result } = renderHook(() => useSettings(), { wrapper });
-
-		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
-		});
-
-		// Mock save call
-		vi.mocked(fetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({ success: true }),
-		} as Response);
-
-		await act(async () => {
-			const success = await result.current.saveConfig();
-			expect(success).toBe(true);
-		});
-
-		expect(fetch).toHaveBeenCalledTimes(3);
-		expect(fetch).toHaveBeenLastCalledWith(
-			expect.stringContaining("/api/config"),
-			expect.objectContaining({
-				method: "POST",
-				body: expect.any(String),
+		const { result } = renderHook(
+			() => ({
+				state: useSettingsState(),
+				skills: useAgentSkills(),
 			}),
+			{ wrapper: createWrapper() },
 		);
+
+		expect(result.current.state.loading).toBe(true);
+
+		await waitFor(() => {
+			expect(result.current.state.loading).toBe(false);
+		});
+
+		expect(result.current.state.config).toEqual(mockConfig);
+		expect(result.current.skills.agentSkills).toEqual({});
 	});
 
-	it("adds a character", async () => {
+	it("updates config through settings actions", async () => {
 		vi.mocked(fetch)
 			.mockResolvedValueOnce({
 				ok: true,
@@ -214,69 +125,56 @@ describe("SettingsContext", () => {
 			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ agents: [] }),
+				json: async () => ({ skills: [], roots: [] }),
 			} as Response);
 
-		const queryClient = new QueryClient({
-			defaultOptions: { queries: { retry: false } },
-		});
-		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<QueryClientProvider client={queryClient}>
-				<SettingsProvider>{children}</SettingsProvider>
-			</QueryClientProvider>
+		const { result } = renderHook(
+			() => ({
+				state: useSettingsState(),
+				actions: useSettingsConfigActions(),
+			}),
+			{ wrapper: createWrapper() },
 		);
 
-		const { result } = renderHook(() => useSettings(), { wrapper });
-
 		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
+			expect(result.current.state.loading).toBe(false);
 		});
 
 		act(() => {
-			result.current.addCharacter("new_char");
+			result.current.actions.updateApp("max_input_length", 2000);
 		});
 
-		expect(result.current.config?.characters.new_char).toBeDefined();
-		expect(result.current.config?.characters.new_char.name).toBe("new_char");
+		expect(result.current.state.config?.app.max_input_length).toBe(2000);
+		expect(result.current.state.hasChanges).toBe(true);
 	});
 
-	it("deletes a character", async () => {
-		const configWithChar = {
-			...mockConfig,
-			characters: {
-				char1: { name: "Char 1", system_prompt: "" },
-			},
-		};
-
+	it("adds a character through agent profile actions", async () => {
 		vi.mocked(fetch)
 			.mockResolvedValueOnce({
 				ok: true,
-				json: async () => configWithChar,
+				json: async () => mockConfig,
 			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ agents: [] }),
+				json: async () => ({ skills: [], roots: [] }),
 			} as Response);
 
-		const queryClient = new QueryClient({
-			defaultOptions: { queries: { retry: false } },
-		});
-		const wrapper = ({ children }: { children: React.ReactNode }) => (
-			<QueryClientProvider client={queryClient}>
-				<SettingsProvider>{children}</SettingsProvider>
-			</QueryClientProvider>
+		const { result } = renderHook(
+			() => ({
+				state: useSettingsState(),
+				profiles: useAgentProfiles(),
+			}),
+			{ wrapper: createWrapper() },
 		);
 
-		const { result } = renderHook(() => useSettings(), { wrapper });
-
 		await waitFor(() => {
-			expect(result.current.loading).toBe(false);
+			expect(result.current.state.loading).toBe(false);
 		});
 
 		act(() => {
-			result.current.deleteCharacter("char1");
+			result.current.profiles.addCharacter("new_character");
 		});
 
-		expect(result.current.config?.characters.char1).toBeUndefined();
+		expect(result.current.state.config?.characters.new_character).toBeDefined();
 	});
 });

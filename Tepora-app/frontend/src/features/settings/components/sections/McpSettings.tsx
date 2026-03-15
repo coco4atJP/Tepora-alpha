@@ -20,7 +20,7 @@ import {
 	useMcpConfig,
 	useMcpServers,
 } from "../../../../hooks/useMcp";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { McpStoreModal } from "../subcomponents/McpStoreModal";
 
@@ -30,7 +30,8 @@ import { McpStoreModal } from "../subcomponents/McpStoreModal";
  */
 const McpSettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, updateApp } = useSettings();
+	const { config } = useSettingsState();
+	const { updateApp } = useSettingsConfigActions();
 	const { servers, status, loading, error, refresh, toggleServer, removeServer } = useMcpServers();
 	const { saveConfig, saving: savingConfig, error: configSaveError } = useMcpConfig();
 	const [showStore, setShowStore] = useState(false);

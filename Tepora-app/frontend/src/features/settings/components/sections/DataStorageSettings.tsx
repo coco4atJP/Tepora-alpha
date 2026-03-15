@@ -3,7 +3,7 @@ import type React from "react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import type { BackupEnvelope, BackupExportPayload, BackupImportResult } from "../../../../types";
 import { apiClient } from "../../../../utils/api-client";
 import { ENDPOINTS } from "../../../../utils/endpoints";
@@ -37,7 +37,8 @@ const formatTimestamp = (value?: string | null) => value ? new Date(value).toLoc
 
 const DataStorageSettings: React.FC = () => {
     const { t } = useTranslation();
-    const { config, updateConfigPath } = useSettings();
+    const { config } = useSettingsState();
+    const { updateConfigPath } = useSettingsConfigActions();
     const [exportPassphrase, setExportPassphrase] = useState("");
     const [exportBusy, setExportBusy] = useState(false);
     const [exportMessage, setExportMessage] = useState<string | null>(null);
@@ -319,4 +320,3 @@ const DataStorageSettings: React.FC = () => {
 };
 
 export default DataStorageSettings;
-

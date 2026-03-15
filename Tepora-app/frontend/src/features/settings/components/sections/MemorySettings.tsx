@@ -1,7 +1,7 @@
 import { Brain, Clock } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import {
 	CollapsibleSection,
 	FormGroup,
@@ -12,7 +12,8 @@ import {
 
 const MemorySettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateEmLlm, updateChatHistory, updateConfigPath } = useSettings();
+	const { config, originalConfig } = useSettingsState();
+	const { updateEmLlm, updateChatHistory, updateConfigPath } = useSettingsConfigActions();
 
 	if (!config) return null;
 

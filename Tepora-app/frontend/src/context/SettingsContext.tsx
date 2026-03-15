@@ -1,142 +1,34 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
-import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
+import type { AgentSkillsResponse } from "../types";
 import type {
 	AgentSkillPackage,
 	AgentSkillSaveRequest,
 	AgentSkillSummary,
-	AgentSkillsResponse,
 	CharacterConfig,
-	SkillRootConfig,
+	Config,
+	ModelConfig,
 	SkillRootInfo,
-} from "../types";
+} from "../types/settings";
 import { isDesktop } from "../utils/api";
 import { apiClient } from "../utils/api-client";
 import { configureLogger } from "../utils/logger";
 
-export interface ModelConfig {
-	path: string;
-	port: number;
-	n_ctx: number;
-	n_gpu_layers: number;
-	temperature?: number;
-	top_p?: number;
-	top_k?: number;
-	repeat_penalty?: number;
-	logprobs?: boolean;
-	max_tokens?: number;
-	predict_len?: number;
-}
-
-export interface Config {
-	app: {
-		max_input_length: number;
-		graph_recursion_limit: number;
-		tool_execution_timeout: number;
-		tool_approval_timeout: number;
-		graph_execution_timeout: number;
-		web_fetch_max_chars: number;
-		web_fetch_max_bytes: number;
-		web_fetch_timeout_secs: number;
-		dangerous_patterns: string[];
-		language: string;
-		nsfw_enabled: boolean;
-		setup_completed?: boolean;
-		mcp_config_path: string;
-	};
-	llm_manager: {
-		loader?: string;
-		process_terminate_timeout: number;
-		health_check_timeout: number;
-		health_check_interval: number;
-		tokenizer_model_key: string;
-		cache_size: number;
-	};
-	chat_history: {
-		max_tokens: number;
-		default_limit: number;
-	};
-	em_llm: {
-		surprise_gamma: number;
-		min_event_size: number;
-		max_event_size: number;
-		total_retrieved_events: number;
-		repr_topk: number;
-		use_boundary_refinement: boolean;
-		decay?: {
-			lambda_base?: number;
-			importance_modulation?: number;
-			beta_lml?: number;
-			beta_sml?: number;
-			promote_threshold?: number;
-			demote_threshold?: number;
-			prune_threshold?: number;
-			reinforcement_delta?: number;
-			alpha?: number;
-			beta?: number;
-			gamma?: number;
-		};
-	};
-	models_gguf: Record<string, ModelConfig>;
-	characters: Record<string, CharacterConfig>;
-	active_agent_profile: string;
-	tools: {
-		google_search_api_key?: string;
-		google_search_engine_id?: string;
-		brave_search_api_key?: string;
-		bing_search_api_key?: string;
-		search_provider?: "google" | "duckduckgo" | "brave" | "bing";
-	};
-	privacy: {
-		allow_web_search: boolean;
-		redact_pii: boolean;
-		isolation_mode?: boolean;
-		url_denylist?: string[];
-	};
-	search?: {
-		embedding_rerank?: boolean;
-	};
-	model_download?: {
-		allow_repo_owners?: string[];
-		require_allowlist?: boolean;
-		warn_on_unlisted?: boolean;
-		require_revision?: boolean;
-		require_sha256?: boolean;
-	};
-	server?: {
-		host?: string;
-		allowed_origins?: string[];
-		cors_allowed_origins?: string[];
-		ws_allowed_origins?: string[];
-	};
-	loaders?: Record<string, { base_url?: string }>;
-	thinking?: {
-		chat_default?: boolean;
-		search_default?: boolean;
-	};
-	agent_skills?: {
-		roots?: SkillRootConfig[];
-	};
-	features?: {
-		redesign?: Record<string, unknown>;
-	};
-}
-
-export interface SettingsContextValue {
+export interface SettingsStateValue {
 	config: Config | null;
 	originalConfig: Config | null;
-	agentSkills: Record<string, AgentSkillSummary>;
-	skillRoots: SkillRootInfo[];
 	loading: boolean;
 	error: string | null;
 	hasChanges: boolean;
 	saving: boolean;
+}
+
+export interface SettingsConfigActionsValue {
 	fetchConfig: () => Promise<void>;
-	fetchAgentSkills: () => Promise<void>;
-	getAgentSkill: (id: string) => Promise<AgentSkillPackage>;
-	saveAgentSkill: (payload: AgentSkillSaveRequest) => Promise<AgentSkillPackage>;
-	deleteAgentSkill: (id: string) => Promise<void>;
+	saveConfig: (override?: Config) => Promise<boolean>;
+	resetConfig: () => void;
 	updateApp: <K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => void;
 	updateLlmManager: <K extends keyof Config["llm_manager"]>(field: K, value: Config["llm_manager"][K]) => void;
 	updateChatHistory: <K extends keyof Config["chat_history"]>(field: K, value: Config["chat_history"][K]) => void;
@@ -150,16 +42,30 @@ export interface SettingsContextValue {
 	updateLoaderBaseUrl: (loaderName: string, baseUrl: string) => void;
 	updateThinking: <K extends keyof NonNullable<Config["thinking"]>>(field: K, value: NonNullable<Config["thinking"]>[K]) => void;
 	updateConfigPath: (path: string, value: unknown) => void;
+}
+
+export interface AgentSkillsValue {
+	agentSkills: Record<string, AgentSkillSummary>;
+	skillRoots: SkillRootInfo[];
+	fetchAgentSkills: () => Promise<void>;
+	getAgentSkill: (id: string) => Promise<AgentSkillPackage>;
+	saveAgentSkill: (payload: AgentSkillSaveRequest) => Promise<AgentSkillPackage>;
+	deleteAgentSkill: (id: string) => Promise<void>;
+}
+
+export interface AgentProfilesValue {
+	characters: Record<string, CharacterConfig>;
+	activeAgentProfile: string | null;
 	updateCharacter: (key: string, config: CharacterConfig) => void;
 	addCharacter: (key: string) => void;
 	deleteCharacter: (key: string) => void;
 	setActiveAgent: (key: string) => void;
-	saveConfig: (override?: Config) => Promise<boolean>;
-	resetConfig: () => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const SettingsContext = createContext<SettingsContextValue | null>(null);
+const SettingsStateContext = createContext<SettingsStateValue | null>(null);
+const SettingsConfigActionsContext = createContext<SettingsConfigActionsValue | null>(null);
+const AgentSkillsContext = createContext<AgentSkillsValue | null>(null);
+const AgentProfilesContext = createContext<AgentProfilesValue | null>(null);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -481,21 +387,23 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		setConfig(originalConfig);
 	}, [originalConfig]);
 
-	const value = useMemo<SettingsContextValue>(
+	const settingsStateValue = useMemo<SettingsStateValue>(
 		() => ({
 			config,
 			originalConfig,
-			agentSkills,
-			skillRoots,
 			loading,
 			error,
 			hasChanges,
 			saving,
+		}),
+		[config, originalConfig, loading, error, hasChanges, saving],
+	);
+
+	const settingsConfigActionsValue = useMemo<SettingsConfigActionsValue>(
+		() => ({
 			fetchConfig,
-			fetchAgentSkills,
-			getAgentSkill,
-			saveAgentSkill,
-			deleteAgentSkill,
+			saveConfig,
+			resetConfig,
 			updateApp,
 			updateLlmManager,
 			updateChatHistory,
@@ -509,27 +417,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateLoaderBaseUrl,
 			updateThinking,
 			updateConfigPath,
-			updateCharacter,
-			addCharacter,
-			deleteCharacter,
-			setActiveAgent,
-			saveConfig,
-			resetConfig,
 		}),
 		[
-			config,
-			originalConfig,
-			agentSkills,
-			skillRoots,
-			loading,
-			error,
-			hasChanges,
-			saving,
 			fetchConfig,
-			fetchAgentSkills,
-			getAgentSkill,
-			saveAgentSkill,
-			deleteAgentSkill,
+			saveConfig,
+			resetConfig,
 			updateApp,
 			updateLlmManager,
 			updateChatHistory,
@@ -543,16 +435,79 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 			updateLoaderBaseUrl,
 			updateThinking,
 			updateConfigPath,
-			updateCharacter,
-			addCharacter,
-			deleteCharacter,
-			setActiveAgent,
-			saveConfig,
-			resetConfig,
 		],
 	);
 
-	return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+	const agentSkillsValue = useMemo<AgentSkillsValue>(
+		() => ({
+			agentSkills,
+			skillRoots,
+			fetchAgentSkills,
+			getAgentSkill,
+			saveAgentSkill,
+			deleteAgentSkill,
+		}),
+		[
+			agentSkills,
+			skillRoots,
+			fetchAgentSkills,
+			getAgentSkill,
+			saveAgentSkill,
+			deleteAgentSkill,
+		],
+	);
+
+	const agentProfilesValue = useMemo<AgentProfilesValue>(
+		() => ({
+			characters: config?.characters || {},
+			activeAgentProfile: config?.active_agent_profile || null,
+			updateCharacter,
+			addCharacter,
+			deleteCharacter,
+			setActiveAgent,
+		}),
+		[
+			config?.characters,
+			config?.active_agent_profile,
+			updateCharacter,
+			addCharacter,
+			deleteCharacter,
+			setActiveAgent,
+		],
+	);
+
+	return (
+		<SettingsStateContext.Provider value={settingsStateValue}>
+			<SettingsConfigActionsContext.Provider value={settingsConfigActionsValue}>
+				<AgentSkillsContext.Provider value={agentSkillsValue}>
+					<AgentProfilesContext.Provider value={agentProfilesValue}>{children}</AgentProfilesContext.Provider>
+				</AgentSkillsContext.Provider>
+			</SettingsConfigActionsContext.Provider>
+		</SettingsStateContext.Provider>
+	);
 };
 
+function useRequiredContext<T>(context: React.Context<T | null>, hookName: string): T {
+	const value = useContext(context);
+	if (!value) {
+		throw new Error(`${hookName} must be used within a SettingsProvider`);
+	}
+	return value;
+}
+
+export function useSettingsState(): SettingsStateValue {
+	return useRequiredContext(SettingsStateContext, "useSettingsState");
+}
+
+export function useSettingsConfigActions(): SettingsConfigActionsValue {
+	return useRequiredContext(SettingsConfigActionsContext, "useSettingsConfigActions");
+}
+
+export function useAgentSkills(): AgentSkillsValue {
+	return useRequiredContext(AgentSkillsContext, "useAgentSkills");
+}
+
+export function useAgentProfiles(): AgentProfilesValue {
+	return useRequiredContext(AgentProfilesContext, "useAgentProfiles");
+}
 

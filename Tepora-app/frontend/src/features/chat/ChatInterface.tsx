@@ -8,7 +8,7 @@ import { useToast } from "../../context/ToastContext";
 import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useSessions } from "../../hooks/useSessions";
-import { useChatStore, useWebSocketStore } from "../../stores";
+import { socketCommands, useChatStore, useToolConfirmationStore } from "../../stores";
 import type { Attachment, ChatMode } from "../../types";
 import AgentMetricsPanel from "./AgentMetricsPanel";
 import { EmptyState } from "./components/EmptyState";
@@ -46,10 +46,10 @@ const ChatInterface: React.FC = () => {
 		}
 	}, [error, showToast, clearError]);
 
-	const stopGeneration = useWebSocketStore((state) => state.stopGeneration);
-	const pendingToolConfirmation = useWebSocketStore((state) => state.pendingToolConfirmation);
-	const handleToolConfirmation = useWebSocketStore((state) => state.handleToolConfirmation);
-	const setSession = useWebSocketStore((state) => state.setSession);
+	const stopGeneration = socketCommands.stopGeneration;
+	const pendingToolConfirmation = useToolConfirmationStore((state) => state.pendingToolConfirmation);
+	const handleToolConfirmation = socketCommands.handleToolConfirmation;
+	const setSession = socketCommands.setSession;
 
 	const [showShortcuts, setShowShortcuts] = useState(false);
 	const [showMetrics, setShowMetrics] = useState(false);

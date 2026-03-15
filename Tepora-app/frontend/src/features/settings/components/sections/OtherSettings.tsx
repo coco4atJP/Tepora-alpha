@@ -2,7 +2,7 @@ import { Clock, Cpu, Download } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import { apiClient } from "../../../../utils/api-client";
 import { logger } from "../../../../utils/logger";
 import Updater from "../components/Updater";
@@ -16,7 +16,8 @@ import {
 
 const OtherSettings: React.FC = () => {
 	const { t } = useTranslation();
-	const { config, originalConfig, updateApp, updateLlmManager } = useSettings();
+	const { config, originalConfig } = useSettingsState();
+	const { updateApp, updateLlmManager } = useSettingsConfigActions();
 
 	if (!config) return null;
 

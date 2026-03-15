@@ -3,7 +3,7 @@ import type React from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import type { CharacterConfig } from "../../../../types";
 import { type AgentProfile, SettingsSection } from "../SettingsComponents";
 import { CharacterEditOverlay, type CharacterEditState } from "../subcomponents/CharacterEditOverlay";
@@ -238,7 +238,8 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 };
 
 const NsfwToggle: React.FC = () => {
-	const { config, updateApp } = useSettings();
+	const { config } = useSettingsState();
+	const { updateApp } = useSettingsConfigActions();
 
 	if (!config) return null;
 

@@ -1,7 +1,7 @@
 import { Cpu } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -23,7 +23,8 @@ function getPathValue<T>(source: unknown, path: string, fallback: T): T {
 
 const SystemPerformanceSettings: React.FC = () => {
     const { t } = useTranslation();
-    const { config, updateConfigPath } = useSettings();
+    const { config } = useSettingsState();
+    const { updateConfigPath } = useSettingsConfigActions();
 
     if (!config) return null;
 

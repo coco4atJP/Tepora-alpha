@@ -14,7 +14,7 @@ import SetupWizard from "./features/settings/components/SetupWizard";
 import { useRequirements, useServerConfig } from "./hooks/useServerConfig";
 import Logs from "./pages/Logs";
 import Memory from "./pages/Memory";
-import { useWebSocketStore } from "./stores";
+import { socketCommands } from "./stores";
 
 // ルーターをコンポーネント外で一度だけ作成
 const router = createBrowserRouter(
@@ -40,9 +40,8 @@ function App() {
 
 	// Manage WebSocket lifecycle explicitly (avoid import-time side effects)
 	useEffect(() => {
-		const { connect, disconnect } = useWebSocketStore.getState();
-		connect();
-		return () => disconnect();
+		void socketCommands.connect();
+		return () => socketCommands.disconnect();
 	}, []);
 
 	const {

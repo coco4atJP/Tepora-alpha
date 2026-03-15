@@ -3,7 +3,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import type { CredentialStatus } from "../../../../types";
 import { apiClient } from "../../../../utils/api-client";
 import { ENDPOINTS } from "../../../../utils/endpoints";
@@ -50,7 +50,8 @@ const formatTimestamp = (value?: string | null) => value ? new Date(value).toLoc
 
 const GeneralSettings: React.FC = () => {
 	const { t, i18n } = useTranslation();
-	const { config, originalConfig, updateApp, updateTools, updateThinking, updateConfigPath, fetchConfig } = useSettings();
+	const { config, originalConfig } = useSettingsState();
+	const { updateApp, updateTools, updateThinking, updateConfigPath, fetchConfig } = useSettingsConfigActions();
 	const [credentialStatuses, setCredentialStatuses] = useState<CredentialStatus[]>([]);
 	const [credentialLoading, setCredentialLoading] = useState(false);
 	const [credentialExpiryDrafts, setCredentialExpiryDrafts] = useState<Record<string, string>>({});

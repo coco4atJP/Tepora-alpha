@@ -7,8 +7,8 @@ import { Button } from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import DynamicBackground from "../../components/ui/DynamicBackground";
 import { useTheme } from "../../context/ThemeContext";
-import { useSettings } from "../../hooks/useSettings";
-import { useChatStore, useWebSocketStore } from "../../stores";
+import { useSettingsState } from "../../context/SettingsContext";
+import { useChatStore, useSocketConnectionStore } from "../../stores";
 import type { Attachment, ChatMode } from "../../types";
 import { logger } from "../../utils/logger";
 import { detectPii, isTextLikeFile } from "../../utils/piiDetection";
@@ -133,7 +133,7 @@ const Layout: React.FC = () => {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { t } = useTranslation();
 	const { activeTheme } = useTheme();
-	const { config } = useSettings();
+	const { config } = useSettingsState();
 	const isTepora = activeTheme === "tepora";
 	const setChatError = useChatStore((state) => state.setError);
 	const privacyConfig = config?.privacy as
@@ -154,7 +154,7 @@ const Layout: React.FC = () => {
 	const searchResults = useChatStore((state) => state.searchResults);
 	const memoryStats = useChatStore((state) => state.memoryStats);
 	const activityLog = useChatStore((state) => state.activityLog);
-	const isConnected = useWebSocketStore((state) => state.isConnected);
+	const isConnected = useSocketConnectionStore((state) => state.isConnected);
 
 	const handleModeChange = useCallback((mode: ChatMode) => {
 		setCurrentMode(mode);
@@ -449,4 +449,3 @@ const Layout: React.FC = () => {
 };
 
 export default Layout;
-

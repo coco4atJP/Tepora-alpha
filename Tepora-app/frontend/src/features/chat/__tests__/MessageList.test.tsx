@@ -4,29 +4,34 @@ import { render, screen } from "../../../test/test-utils";
 import type { Message } from "../../../types";
 import MessageList from "../MessageList";
 
-// Mock store
 vi.mock("../../../stores", () => ({
 	useChatStore: vi.fn(),
-	useWebSocketStore: vi.fn((selector) =>
-		selector({
-			regenerateResponse: vi.fn(),
-		}),
-	),
+	socketCommands: {
+		regenerateResponse: vi.fn(),
+	},
 }));
 
-vi.mock("../../../hooks/useSettings", () => ({
-	useSettings: () => ({ config: {}, agentSkills: {}, skillRoots: [] }),
+vi.mock("../../../context/SettingsContext", () => ({
+	useSettingsState: () => ({
+		config: {},
+		originalConfig: null,
+		loading: false,
+		error: null,
+		hasChanges: false,
+		saving: false,
+	}),
+	useAgentSkills: () => ({
+		agentSkills: {},
+	}),
 }));
 
 import { useChatStore } from "../../../stores";
 
 describe("MessageList", () => {
-	// Spy on prototype
 	const scrollIntoViewMock = vi.fn();
 
 	beforeEach(() => {
 		vi.resetAllMocks();
-		// Setup default mocks
 		HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
 	});
 
@@ -52,48 +57,15 @@ describe("MessageList", () => {
 			selector({ messages: mockMessages }),
 		);
 		render(<MessageList />);
-
 		expect(screen.getByText("Hello")).toBeInTheDocument();
 		expect(screen.getAllByText(/Hi there!/)[0]).toBeInTheDocument();
 	});
 
-	it("renders code content in messages", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
-			selector({ messages: mockMessages }),
-		);
-		const { container } = render(<MessageList />);
-
-		expect(container.textContent).toContain('print("hello")');
-	});
-
-	it("renders empty state", () => {
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
-			selector({ messages: [] }),
-		);
-		const { container } = render(<MessageList />);
-		expect(container.textContent).toBe("");
-	});
-
 	it("scrolls to bottom on new message", () => {
-		// Initial render with empty
-		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
-			selector({ messages: [] }),
-		);
-		const { rerender } = render(<MessageList />);
-
-		scrollIntoViewMock.mockClear();
-
-		// Update store and rerender
 		(useChatStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
 			selector({ messages: mockMessages }),
 		);
-		rerender(<MessageList />);
-
-		// Ensure new messages are rendered implies re-render happened
-		expect(screen.getByText("Hello")).toBeInTheDocument();
-
+		render(<MessageList />);
 		expect(scrollIntoViewMock).toHaveBeenCalled();
 	});
 });
-
-

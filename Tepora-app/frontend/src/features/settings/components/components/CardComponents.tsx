@@ -5,7 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Check, Cpu, FolderOpen } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../../../../hooks/useSettings";
+import { useSettingsState } from "../../../../context/SettingsContext";
 import { logger } from "../../../../utils/logger";
 import { FormGroup, FormInput } from "./FormComponents";
 
@@ -34,7 +34,7 @@ export interface ModelCardProps {
 
 export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, isEmbedding }) => {
 	const { t } = useTranslation();
-	const { originalConfig } = useSettings();
+	const { originalConfig } = useSettingsState();
 	const originalModelConfig = originalConfig?.models_gguf[name];
 
 	const isDirty = (field: keyof ModelConfig) => {

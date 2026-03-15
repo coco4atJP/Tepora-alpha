@@ -4,15 +4,16 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SkeletonLoader } from "../../components/ui/SkeletonLoader";
-import { useSettings } from "../../hooks/useSettings";
-import { useChatStore, useWebSocketStore } from "../../stores";
+import { useAgentSkills, useSettingsState } from "../../context/SettingsContext";
+import { socketCommands, useChatStore } from "../../stores";
 import type { Message } from "../../types";
 import MessageBubble from "./MessageBubble";
 
 const MessageList: React.FC = () => {
 	const messages = useChatStore((state) => state.messages);
-	const regenerateResponse = useWebSocketStore((state) => state.regenerateResponse);
-	const { config, agentSkills } = useSettings();
+	const regenerateResponse = socketCommands.regenerateResponse;
+	const { config } = useSettingsState();
+	const { agentSkills } = useAgentSkills();
 	const { t } = useTranslation();
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const endOfMessagesRef = useRef<HTMLDivElement>(null);
@@ -174,4 +175,3 @@ const MessageList: React.FC = () => {
 };
 
 export default MessageList;
-

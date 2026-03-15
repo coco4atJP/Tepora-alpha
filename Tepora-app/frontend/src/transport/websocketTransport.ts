@@ -1,11 +1,10 @@
 import type { ToolConfirmationResponse } from '../types';
 import { Transport } from './index';
-import { useWebSocketStore } from '../stores/websocketStore';
+import { socketCommands } from '../stores/socketCommands';
 
 export class WebsocketTransport implements Transport {
     send(data: Record<string, unknown>): void {
-        const store = useWebSocketStore.getState();
-        store.sendRaw(data);
+        socketCommands.sendRaw(data);
     }
 
     subscribe(handler: (message: unknown) => void): () => void {
@@ -22,7 +21,6 @@ export class WebsocketTransport implements Transport {
     }
 
     confirmTool(requestId: string, response: ToolConfirmationResponse): void {
-        const store = useWebSocketStore.getState();
-        store.handleToolConfirmation(requestId, response.decision, response.ttlSeconds);
+        socketCommands.handleToolConfirmation(requestId, response.decision, response.ttlSeconds);
     }
 }

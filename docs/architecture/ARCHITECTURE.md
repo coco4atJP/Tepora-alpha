@@ -103,7 +103,7 @@ graph TD
     Graph --> Nodes[graph/nodes/*]
     Nodes --> Pipeline[context/pipeline.rs]
     Nodes --> LLM[llm/service.rs]
-    Nodes --> Tools[tools/manager.rs]
+    Nodes --> Tools[tools/dispatcher.rs]
 
     State --> Config[core/config/*]
     State --> History[history/mod.rs]
@@ -116,6 +116,9 @@ graph TD
     MCP --> McpTools[mcp/tool_executor.rs]
     MCP --> McpRegistry[mcp/registry.rs]
     MCP --> McpInstaller[mcp/installer.rs]
+    Tools --> ToolRag[tools/rag.rs]
+    Tools --> ToolWeb[tools/web.rs]
+    Tools --> ToolSecurity[tools/web_security.rs]
 ```
 
 > [!IMPORTANT]
@@ -328,7 +331,10 @@ frontend/
 │   ├── stores/                 # ========== Zustand状態管理 ==========
 │   │   ├── chatStore.ts        # チャット状態 (メッセージ、ストリーミング)
 │   │   ├── sessionStore.ts     # セッション状態
-│   │   └── websocketStore.ts   # WebSocket接続状態
+│   │   ├── socketConnectionStore.ts  # 接続状態
+│   │   ├── toolConfirmationStore.ts  # ツール承認状態
+│   │   ├── socketCommands.ts         # 接続/送信コマンド
+│   │   └── messageRouter.ts          # 受信メッセージルーティング
 │   │
 │   ├── features/               # ========== Feature-Sliced Design ==========
 │   │   ├── chat/               # チャット機能
@@ -896,20 +902,23 @@ interface SessionActions {
 }
 ```
 
-### 6.4 websocketStore
+### 6.4 Socket Modules
 
-**ファイル**: `src/stores/websocketStore.ts`
+**ファイル**: `src/stores/socketConnectionStore.ts`, `src/stores/toolConfirmationStore.ts`, `src/stores/socketCommands.ts`, `src/stores/messageRouter.ts`
 
 ```typescript
-interface WebSocketState {
+interface SocketConnectionState {
   isConnected: boolean;
   socket: WebSocket | null;
   reconnectAttempts: number;
+}
+
+interface ToolConfirmationState {
   pendingToolConfirmation: ToolConfirmationRequest | null;
   approvedTools: Set<string>;
 }
 
-interface WebSocketActions {
+const socketCommands = {
   connect: () => Promise<void>;
   disconnect: () => void;
   sendMessage: (
@@ -926,8 +935,13 @@ interface WebSocketActions {
   setSession: (sessionId: string) => void;
   stopGeneration: () => void;
   requestStats: () => void;
-  handleToolConfirmation: (requestId: string, approved: boolean, remember: boolean) => void;
-}
+  regenerateResponse: () => void;
+  handleToolConfirmation: (
+    requestId: string,
+    decision: ApprovalDecision,
+    ttlSeconds?: number
+  ) => void;
+};
 ```
 
 ### 6.5 機能ディレクトリ (`features/`)
@@ -1386,7 +1400,6 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
-
 
 
 

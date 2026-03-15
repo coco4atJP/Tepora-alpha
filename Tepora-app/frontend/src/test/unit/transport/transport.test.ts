@@ -12,13 +12,10 @@ vi.mock('@tauri-apps/api/event', () => ({
     listen: vi.fn().mockResolvedValue(() => { })
 }));
 
-// Mock Zustand WebSocket Store
-vi.mock('../../../stores/websocketStore', () => ({
-    useWebSocketStore: {
-        getState: vi.fn().mockReturnValue({
-            sendRaw: vi.fn(),
-            handleToolConfirmation: vi.fn()
-        })
+vi.mock('../../../stores/socketCommands', () => ({
+    socketCommands: {
+        sendRaw: vi.fn(),
+        handleToolConfirmation: vi.fn()
     }
 }));
 
