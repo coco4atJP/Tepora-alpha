@@ -42,7 +42,7 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     let db_latency_ms = db_start.elapsed().as_millis();
 
     // Check MCP status
-    let mcp_statuses = state.mcp.status_snapshot().await;
+    let mcp_statuses = state.integration.mcp.status_snapshot().await;
     let mcp_connected = mcp_statuses
         .values()
         .filter(|s| s.status == "connected")

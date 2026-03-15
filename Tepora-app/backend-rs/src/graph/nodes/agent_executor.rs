@@ -324,7 +324,12 @@ impl Node for AgentExecutorNode {
 
                     let mut requires_confirmation = active_policy.requires_confirmation(&name);
                     let (scope_kind, scope_name, risk_level) = if mcp_tool_set.contains(&name) {
-                        let policy = ctx.app_state.mcp.load_policy().unwrap_or_default();
+                        let policy = ctx
+                            .app_state
+                            .integration
+                            .mcp
+                            .load_policy()
+                            .unwrap_or_default();
                         let is_first_use = {
                             let set = ctx
                                 .approved_mcp_tools
@@ -339,6 +344,7 @@ impl Node for AgentExecutorNode {
                         };
                         let server_name = ctx
                             .app_state
+                            .integration
                             .mcp
                             .server_name_for_tool(&name)
                             .await
@@ -465,7 +471,7 @@ impl Node for AgentExecutorNode {
                     let execution = match execute_tool(
                         Some(ctx.app_state),
                         &agent_chat_config,
-                        Some(&ctx.app_state.mcp),
+                        Some(&ctx.app_state.integration.mcp),
                         Some(&state.session_id),
                         &name,
                         &args,

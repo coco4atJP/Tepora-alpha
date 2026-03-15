@@ -91,7 +91,7 @@ impl ContextWorker for ToolWorker {
         let mcp_tools = if isolation {
             Vec::new()
         } else {
-            state.mcp.list_tools().await
+            state.integration.mcp.list_tools().await
         };
         for tool in mcp_tools {
             tool_definitions.push(format!("mcp:{} — {}", tool.name, tool.description));

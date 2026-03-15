@@ -53,9 +53,9 @@ async fn main() -> anyhow::Result<()> {
 
     let app_state = AppState::initialize().await?;
 
-    if let Err(e) = app_state.mcp.initialize().await {
+    if let Err(e) = app_state.integration.mcp.initialize().await {
         tracing::warn!("MCP Manager initialization finished with warning: {}", e);
-        if let Some(err_msg) = app_state.mcp.init_error().await {
+        if let Some(err_msg) = app_state.integration.mcp.init_error().await {
             tracing::warn!("MCP Initialization detailed error: {}", err_msg);
         }
     }

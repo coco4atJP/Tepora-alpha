@@ -384,7 +384,7 @@ impl AgenticSearchNode {
                 let search = execute_tool(
                     Some(ctx.app_state),
                     ctx.config,
-                    Some(&ctx.app_state.mcp),
+                    Some(&ctx.app_state.integration.mcp),
                     Some(&state.session_id),
                     "native_search",
                     &json!({ "query": query, "limit": 5 }),
@@ -402,7 +402,7 @@ impl AgenticSearchNode {
                         let fetched = execute_tool(
                             Some(ctx.app_state),
                             ctx.config,
-                            Some(&ctx.app_state.mcp),
+                            Some(&ctx.app_state.integration.mcp),
                             Some(&state.session_id),
                             "native_web_fetch",
                             &json!({ "url": result.url }),
@@ -419,7 +419,7 @@ impl AgenticSearchNode {
                         let _ = execute_tool(
                             Some(ctx.app_state),
                             ctx.config,
-                            Some(&ctx.app_state.mcp),
+                            Some(&ctx.app_state.integration.mcp),
                             Some(&state.session_id),
                             "native_rag_ingest",
                             &json!({
@@ -452,7 +452,7 @@ impl AgenticSearchNode {
             let window = execute_tool(
                 Some(ctx.app_state),
                 ctx.config,
-                Some(&ctx.app_state.mcp),
+                Some(&ctx.app_state.integration.mcp),
                 Some(&state.session_id),
                 "native_rag_get_chunk_window",
                 &json!({
@@ -505,7 +505,7 @@ impl AgenticSearchNode {
         let result = execute_tool(
             Some(ctx.app_state),
             ctx.config,
-            Some(&ctx.app_state.mcp),
+            Some(&ctx.app_state.integration.mcp),
             Some(&state.session_id),
             "native_rag_search",
             &json!({ "query": query, "limit": 12 }),
@@ -547,7 +547,7 @@ impl AgenticSearchNode {
         let result = execute_tool(
             Some(ctx.app_state),
             ctx.config,
-            Some(&ctx.app_state.mcp),
+            Some(&ctx.app_state.integration.mcp),
             Some(&state.session_id),
             "native_rag_text_search",
             &json!({ "pattern": query, "limit": 12 }),

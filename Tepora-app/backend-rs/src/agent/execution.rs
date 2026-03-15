@@ -51,7 +51,7 @@ pub async fn build_allowed_tool_list(
 ) -> (Vec<String>, HashSet<String>) {
     let mut tool_list: Vec<String> = NATIVE_TOOLS.iter().map(|t| t.name.to_string()).collect();
 
-    let mcp_tools = state.mcp.list_tools().await;
+    let mcp_tools = state.integration.mcp.list_tools().await;
     let mut mcp_tool_set = HashSet::new();
     for tool in mcp_tools {
         mcp_tool_set.insert(tool.name.clone());

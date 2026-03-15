@@ -97,7 +97,7 @@ impl Node for SearchNode {
             match execute_tool(
                 Some(ctx.app_state),
                 ctx.config,
-                Some(&ctx.app_state.mcp),
+                Some(&ctx.app_state.integration.mcp),
                 Some(&state.session_id),
                 "native_search",
                 &json!({ "query": state.input, "limit": 8 }),
@@ -128,7 +128,7 @@ impl Node for SearchNode {
                         let fetched = execute_tool(
                             Some(ctx.app_state),
                             ctx.config,
-                            Some(&ctx.app_state.mcp),
+                            Some(&ctx.app_state.integration.mcp),
                             Some(&state.session_id),
                             "native_web_fetch",
                             &json!({ "url": result.url }),
@@ -145,7 +145,7 @@ impl Node for SearchNode {
                         let _ = execute_tool(
                             Some(ctx.app_state),
                             ctx.config,
-                            Some(&ctx.app_state.mcp),
+                            Some(&ctx.app_state.integration.mcp),
                             Some(&state.session_id),
                             "native_rag_ingest",
                             &json!({
@@ -197,7 +197,7 @@ impl Node for SearchNode {
         let rag_execution = execute_tool(
             Some(ctx.app_state),
             ctx.config,
-            Some(&ctx.app_state.mcp),
+            Some(&ctx.app_state.integration.mcp),
             Some(&state.session_id),
             "native_rag_search",
             &json!({ "query": state.input, "limit": rag_limit }),

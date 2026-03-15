@@ -107,9 +107,13 @@ graph TD
 
     State --> Config[core/config/*]
     State --> History[history/mod.rs]
-    State --> MCP[mcp/mod.rs]
+    State --> MCP[mcp/manager.rs]
     State --> Models[models/*]
 
+    MCP --> McpConfig[mcp/config_store.rs]
+    MCP --> McpPolicy[mcp/policy_manager.rs]
+    MCP --> McpConnection[mcp/connection_manager.rs]
+    MCP --> McpTools[mcp/tool_executor.rs]
     MCP --> McpRegistry[mcp/registry.rs]
     MCP --> McpInstaller[mcp/installer.rs]
 ```
@@ -236,9 +240,17 @@ backend-rs/
 │   │   └── mod.rs
 │   │
 │   ├── mcp/                    # ========== MCP ==========
-│   │   ├── mod.rs              # McpManager (MCP接続管理)
+│   │   ├── mod.rs              # MCP公開面と再エクスポート
+│   │   ├── manager.rs          # McpManager facade / orchestrator
+│   │   ├── config_store.rs     # MCP設定I/Oとパス解決
+│   │   ├── policy_manager.rs   # MCPポリシー管理
+│   │   ├── connection_manager.rs # MCP接続ライフサイクル
+│   │   ├── tool_executor.rs    # MCPツール列挙・実行
+│   │   ├── state.rs            # MCP共有ランタイム状態
+│   │   ├── types.rs            # MCP関連型定義
 │   │   ├── registry.rs         # MCPサーバーカタログ
-│   │   └── installer.rs        # MCPサーバーインストーラー
+│   │   ├── installer.rs        # MCPサーバーインストーラー
+│   │   └── tests.rs            # MCP関連テスト
 │   │
 │   ├── graph/                  # ========== グラフエンジン ==========
 │   │   ├── mod.rs              # モジュール公開
@@ -711,16 +723,20 @@ pub struct LlamaService {
 
 TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`git`, `filesystem` など）と接続します。
 
-**ファイル**: `src/mcp/mod.rs`, `src/mcp/registry.rs`, `src/mcp/installer.rs`, `src/sandbox/mod.rs`
+**ファイル**: `src/mcp/mod.rs`, `src/mcp/manager.rs`, `src/mcp/config_store.rs`, `src/mcp/policy_manager.rs`, `src/mcp/connection_manager.rs`, `src/mcp/tool_executor.rs`, `src/mcp/registry.rs`, `src/mcp/installer.rs`, `src/sandbox/mod.rs`
 
 | コンポーネント    | 責務                                       |
 | ----------------- | ------------------------------------------ |
-| `McpManager`    | MCP接続のライフサイクル管理                |
+| `McpManager`    | facade。公開APIを保ったまま下位責務を調停 |
+| `McpConfigStore` | `mcp_tools_config.json` とパス解決の管理 |
+| `McpPolicyManager` | `mcp_policy.json` と接続許可判定の管理 |
+| `McpConnectionManager` | stdio / HTTP / Wasm 接続と quarantine 制御 |
+| `McpToolExecutor` | ツール列挙、解決、実行、結果整形 |
 | `McpRegistry`   | 利用可能なMCPサーバーのカタログ管理        |
 | `mcp_installer` | `npm` / `pip` を使った自動インストール |
 | `sandbox`       | WASMベースのセキュアなMCP実行をサポート（`.wasm` ファイルの `stdio` 起動連携） |
 
-`McpManager` は `mcp_tools_config.json` と `mcp_policy.json` を管理し、`LOCAL_ONLY` などの接続ポリシー、ブロックコマンド、初回利用承認を適用します。
+`McpManager` は公開入口を維持しつつ、設定I/O、ポリシー、接続、ツール実行を専用コンポーネントへ委譲します。これにより `mcp_tools_config.json` / `mcp_policy.json` の管理、`LOCAL_ONLY` などの接続ポリシー適用、quarantine 制御、ツール実行整形が責務別に分離されています。
 
 ### 5.10 メモリシステム (EM-LLM × FadeMem v2)
 
@@ -1151,7 +1167,7 @@ graph TB
     subgraph Services["設定サービス / スキーマ"]
         ConfigSvc[src/core/config/service.rs]
         ConfigValidation[src/core/config/validation.rs]
-        McpManager[src/mcp/mod.rs]
+        McpManager[src/mcp/manager.rs]
         SkillRegistry[src/agent/skill_registry.rs]
     end
   
@@ -1370,7 +1386,6 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
-
 
 
 

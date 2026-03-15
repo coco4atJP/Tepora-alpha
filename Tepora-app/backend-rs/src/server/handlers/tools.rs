@@ -62,7 +62,7 @@ pub fn build_tools_response(
 }
 
 pub async fn list_tools(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
-    let mcp_tools = state.mcp.list_tools().await;
+    let mcp_tools = state.integration.mcp.list_tools().await;
     Ok(Json(build_tools_response(NATIVE_TOOLS, mcp_tools)))
 }
 

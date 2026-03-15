@@ -54,7 +54,7 @@ impl Node for ToolNode {
         let result = execute_tool(
             Some(ctx.app_state),
             ctx.config,
-            Some(&ctx.app_state.mcp),
+            Some(&ctx.app_state.integration.mcp),
             Some(&state.session_id),
             &self.tool_name,
             &self.tool_args,
