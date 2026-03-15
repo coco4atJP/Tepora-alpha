@@ -285,7 +285,9 @@ impl InferenceDiscoveryLayer for LlamaCppDiscoveryLayer {
                 }
             }
 
-            let file_size = fs::metadata(&path).map(|m| m.len()).unwrap_or(model.file_size);
+            let file_size = fs::metadata(&path)
+                .map(|m| m.len())
+                .unwrap_or(model.file_size);
             discovered.push(DiscoveredModel {
                 id: model.id.clone(),
                 display_name: model.display_name.clone(),

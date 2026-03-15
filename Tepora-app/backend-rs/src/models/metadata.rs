@@ -466,7 +466,10 @@ mod tests {
     #[test]
     fn extract_context_length_uses_arch_specific_key() {
         let mut info = HashMap::new();
-        info.insert("gemma3.context_length".to_string(), Value::Number(32768.into()));
+        info.insert(
+            "gemma3.context_length".to_string(),
+            Value::Number(32768.into()),
+        );
         let result = extract_context_length(Some(&info), Some("gemma3"));
         assert_eq!(result, Some(32768));
     }

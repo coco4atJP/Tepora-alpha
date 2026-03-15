@@ -115,7 +115,8 @@ fn extract_tool_policy(skill: &AgentSkillPackage) -> CustomToolPolicy {
         .get("tool_policy")
         .cloned()
         .or_else(|| {
-            skill.summary
+            skill
+                .summary
                 .metadata
                 .get("metadata")
                 .and_then(|value| value.get("tool_policy"))

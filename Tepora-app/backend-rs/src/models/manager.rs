@@ -278,9 +278,14 @@ impl ModelManager {
         ))
     }
 
-    pub fn resolve_agent_model_id(&self, agent_id: Option<&str>) -> Result<Option<String>, ApiError> {
+    pub fn resolve_agent_model_id(
+        &self,
+        agent_id: Option<&str>,
+    ) -> Result<Option<String>, ApiError> {
         let registry = self.store.load()?;
-        Ok(selection::resolve_agent_model_id_from_registry(&registry, agent_id))
+        Ok(selection::resolve_agent_model_id_from_registry(
+            &registry, agent_id,
+        ))
     }
 
     pub fn resolve_embedding_model(&self) -> Result<Option<ModelEntry>, ApiError> {
@@ -290,7 +295,9 @@ impl ModelManager {
 
     pub fn resolve_embedding_model_id(&self) -> Result<Option<String>, ApiError> {
         let registry = self.store.load()?;
-        Ok(selection::resolve_embedding_model_id_from_registry(&registry))
+        Ok(selection::resolve_embedding_model_id_from_registry(
+            &registry,
+        ))
     }
 
     pub fn find_first_model_by_role(&self, role: &str) -> Result<Option<ModelEntry>, ApiError> {

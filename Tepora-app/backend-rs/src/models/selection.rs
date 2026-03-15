@@ -71,12 +71,20 @@ pub(crate) fn resolve_character_model(
     active_character_id: Option<&str>,
 ) -> Option<ModelEntry> {
     let model_id = resolve_character_model_id_from_registry(registry, active_character_id)?;
-    registry.models.iter().find(|model| model.id == model_id).cloned()
+    registry
+        .models
+        .iter()
+        .find(|model| model.id == model_id)
+        .cloned()
 }
 
 pub(crate) fn resolve_embedding_model(registry: &ModelRegistry) -> Option<ModelEntry> {
     let model_id = resolve_embedding_model_id_from_registry(registry)?;
-    registry.models.iter().find(|model| model.id == model_id).cloned()
+    registry
+        .models
+        .iter()
+        .find(|model| model.id == model_id)
+        .cloned()
 }
 
 pub(crate) fn find_first_model_by_role(registry: &ModelRegistry, role: &str) -> Option<ModelEntry> {
@@ -170,7 +178,10 @@ mod tests {
     #[test]
     fn resolve_character_model_prefers_character_specific_assignment() {
         let mut registry = ModelRegistry {
-            models: vec![make_model_entry("text-a", "text"), make_model_entry("text-b", "text")],
+            models: vec![
+                make_model_entry("text-a", "text"),
+                make_model_entry("text-b", "text"),
+            ],
             ..Default::default()
         };
         registry

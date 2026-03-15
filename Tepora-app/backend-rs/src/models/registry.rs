@@ -175,7 +175,9 @@ impl ModelRegistryStore {
             }
         }
 
-        registry.role_assignments.retain(|_, value| value != model_id);
+        registry
+            .role_assignments
+            .retain(|_, value| value != model_id);
         for order in registry.role_order.values_mut() {
             order.retain(|id| id != model_id);
         }

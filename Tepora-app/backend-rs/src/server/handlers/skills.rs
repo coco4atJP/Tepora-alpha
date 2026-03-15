@@ -31,7 +31,9 @@ pub async fn save_agent_skill(
     State(state): State<AppStateWrite>,
     Json(payload): Json<AgentSkillSaveRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("agent_skill_save")?;
+    state
+        .security
+        .ensure_lockdown_disabled("agent_skill_save")?;
     let skill = state.skill_registry.save_package(payload)?;
     Ok(Json(json!({ "success": true, "skill": skill })))
 }
@@ -40,7 +42,9 @@ pub async fn delete_agent_skill(
     State(state): State<AppStateWrite>,
     Path(skill_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("agent_skill_delete")?;
+    state
+        .security
+        .ensure_lockdown_disabled("agent_skill_delete")?;
     let removed = state.skill_registry.delete(&skill_id)?;
     if !removed {
         return Err(ApiError::NotFound("Agent Skill not found".to_string()));

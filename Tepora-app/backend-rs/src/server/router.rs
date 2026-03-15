@@ -85,7 +85,10 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             get(metrics::get_session_metrics),
         )
         .route("/api/metrics/runtime", get(metrics::get_runtime_metrics))
-        .route("/api/agent-skills", get(skills::list_agent_skills).post(skills::save_agent_skill))
+        .route(
+            "/api/agent-skills",
+            get(skills::list_agent_skills).post(skills::save_agent_skill),
+        )
         .route(
             "/api/agent-skills/:skill_id",
             get(skills::get_agent_skill).delete(skills::delete_agent_skill),

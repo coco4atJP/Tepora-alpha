@@ -246,9 +246,17 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
                 let root_entry = root_value
                     .as_object()
                     .ok_or_else(|| config_type_error(&path_prefix, "object"))?;
-                validate_required_string_field(root_entry, &format!("{}.path", path_prefix), "path")?;
+                validate_required_string_field(
+                    root_entry,
+                    &format!("{}.path", path_prefix),
+                    "path",
+                )?;
                 validate_bool_field(root_entry, &format!("{}.enabled", path_prefix), "enabled")?;
-                validate_optional_string_field(root_entry, &format!("{}.label", path_prefix), "label")?;
+                validate_optional_string_field(
+                    root_entry,
+                    &format!("{}.label", path_prefix),
+                    "label",
+                )?;
             }
         }
     }

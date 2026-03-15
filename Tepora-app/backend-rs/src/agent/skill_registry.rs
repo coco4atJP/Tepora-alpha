@@ -143,7 +143,11 @@ impl SkillRegistry {
         let mut seen = HashSet::new();
         let mut skills = Vec::new();
 
-        for root in self.configured_roots().into_iter().filter(|root| root.enabled) {
+        for root in self
+            .configured_roots()
+            .into_iter()
+            .filter(|root| root.enabled)
+        {
             let root_path = PathBuf::from(&root.path);
             let writable = fs::create_dir_all(&root_path).is_ok();
             let entries = match fs::read_dir(&root_path) {
@@ -162,14 +166,21 @@ impl SkillRegistry {
                 if !seen.insert(id.to_string()) {
                     continue;
                 }
-                if let Some(summary) = self.load_skill_summary(&path, &root, writable).ok().flatten()
+                if let Some(summary) = self
+                    .load_skill_summary(&path, &root, writable)
+                    .ok()
+                    .flatten()
                 {
                     skills.push(summary);
                 }
             }
         }
 
-        skills.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.id.cmp(&right.id)));
+        skills.sort_by(|left, right| {
+            left.name
+                .cmp(&right.name)
+                .then_with(|| left.id.cmp(&right.id))
+        });
         skills
     }
 
@@ -214,13 +225,18 @@ impl SkillRegistry {
         ranked.into_iter().next().map(|(skill, _)| skill)
     }
 
-    pub fn save_package(&self, request: AgentSkillSaveRequest) -> Result<AgentSkillPackage, ApiError> {
+    pub fn save_package(
+        &self,
+        request: AgentSkillSaveRequest,
+    ) -> Result<AgentSkillPackage, ApiError> {
         let target_root = if let Some(root_path) = request.root_path.as_deref() {
             let root = self
                 .configured_roots()
                 .into_iter()
                 .find(|root| root.path == root_path && root.enabled)
-                .ok_or_else(|| ApiError::BadRequest("Selected skill root is not enabled".to_string()))?;
+                .ok_or_else(|| {
+                    ApiError::BadRequest("Selected skill root is not enabled".to_string())
+                })?;
             PathBuf::from(root.path)
         } else if let Some(existing) = self.find_skill_path(&request.id) {
             existing.0.parent().map(Path::to_path_buf).ok_or_else(|| {
@@ -234,9 +250,15 @@ impl SkillRegistry {
         fs::create_dir_all(&target_dir).map_err(ApiError::internal)?;
         validate_skill_markdown(&request.skill_markdown)?;
 
-        fs::write(target_dir.join("SKILL.md"), request.skill_markdown.as_bytes())
-            .map_err(ApiError::internal)?;
-        write_optional_text_file(target_dir.join("agents").join("openai.yaml"), request.openai_yaml.as_deref())?;
+        fs::write(
+            target_dir.join("SKILL.md"),
+            request.skill_markdown.as_bytes(),
+        )
+        .map_err(ApiError::internal)?;
+        write_optional_text_file(
+            target_dir.join("agents").join("openai.yaml"),
+            request.openai_yaml.as_deref(),
+        )?;
         write_skill_files(&target_dir, "references", &request.references)?;
         write_skill_files(&target_dir, "scripts", &request.scripts)?;
         write_skill_files(&target_dir, "assets", &request.assets)?;
@@ -252,7 +274,9 @@ impl SkillRegistry {
                 .and_then(|item| item.label),
         };
         self.load_skill_package(&target_dir, &root, true)?
-            .ok_or_else(|| ApiError::Internal("Saved skill package could not be reloaded".to_string()))
+            .ok_or_else(|| {
+                ApiError::Internal("Saved skill package could not be reloaded".to_string())
+            })
     }
 
     pub fn delete(&self, skill_id: &str) -> Result<bool, ApiError> {
@@ -285,7 +309,9 @@ impl SkillRegistry {
             .into_iter()
             .find(|root| root.enabled)
             .map(|root| PathBuf::from(root.path))
-            .ok_or_else(|| ApiError::BadRequest("No enabled Agent Skills root is configured".to_string()))?;
+            .ok_or_else(|| {
+                ApiError::BadRequest("No enabled Agent Skills root is configured".to_string())
+            })?;
 
         for skill in &bundle.skills {
             self.save_package(AgentSkillSaveRequest {
@@ -321,7 +347,8 @@ impl SkillRegistry {
         let Some(root) = config.as_object() else {
             return self.default_roots();
         };
-        let Some(agent_skills) = root.get("agent_skills").and_then(|value| value.as_object()) else {
+        let Some(agent_skills) = root.get("agent_skills").and_then(|value| value.as_object())
+        else {
             return self.default_roots();
         };
         let Some(roots) = agent_skills.get("roots").and_then(|value| value.as_array()) else {
@@ -367,7 +394,11 @@ impl SkillRegistry {
     }
 
     fn first_writable_root(&self) -> Result<PathBuf, ApiError> {
-        for root in self.configured_roots().into_iter().filter(|root| root.enabled) {
+        for root in self
+            .configured_roots()
+            .into_iter()
+            .filter(|root| root.enabled)
+        {
             let path = PathBuf::from(&root.path);
             if fs::create_dir_all(&path).is_ok() {
                 return Ok(path);
@@ -378,11 +409,12 @@ impl SkillRegistry {
         ))
     }
 
-    fn find_skill_path(
-        &self,
-        skill_id: &str,
-    ) -> Option<(PathBuf, SkillRootConfig, bool)> {
-        for root in self.configured_roots().into_iter().filter(|root| root.enabled) {
+    fn find_skill_path(&self, skill_id: &str) -> Option<(PathBuf, SkillRootConfig, bool)> {
+        for root in self
+            .configured_roots()
+            .into_iter()
+            .filter(|root| root.enabled)
+        {
             let path = PathBuf::from(&root.path).join(skill_id);
             if path.is_dir() {
                 let writable = fs::create_dir_all(path.parent().unwrap_or(path.as_path())).is_ok();
@@ -503,9 +535,9 @@ fn ensure_object<'a>(root: &'a mut Map<String, Value>, key: &str) -> &'a mut Map
 }
 
 fn validate_skill_markdown(markdown: &str) -> Result<(), ApiError> {
-    parse_skill_markdown(markdown).map(|_| ()).map_err(|err| {
-        ApiError::BadRequest(format!("Invalid SKILL.md content: {}", err))
-    })
+    parse_skill_markdown(markdown)
+        .map(|_| ())
+        .map_err(|err| ApiError::BadRequest(format!("Invalid SKILL.md content: {}", err)))
 }
 
 struct ParsedSkillMarkdown {
@@ -579,7 +611,9 @@ fn split_frontmatter(markdown: &str) -> Option<(String, String)> {
     Some((frontmatter.join("\n"), body.join("\n").trim().to_string()))
 }
 
-fn parse_openai_yaml_summary(input: Option<&str>) -> Result<(Option<String>, Option<String>), ApiError> {
+fn parse_openai_yaml_summary(
+    input: Option<&str>,
+) -> Result<(Option<String>, Option<String>), ApiError> {
     let Some(input) = input else {
         return Ok((None, None));
     };
@@ -620,7 +654,12 @@ fn collect_other_files(package_dir: &Path) -> Result<Vec<SkillFileEntry>, ApiErr
         let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
             continue;
         };
-        if name == "SKILL.md" || name == "agents" || name == "references" || name == "scripts" || name == "assets" {
+        if name == "SKILL.md"
+            || name == "agents"
+            || name == "references"
+            || name == "scripts"
+            || name == "assets"
+        {
             continue;
         }
         if path.is_dir() {
@@ -783,7 +822,8 @@ pub fn build_skill_resource_prompt(skill: &AgentSkillPackage) -> Option<String> 
     if !skill.references.is_empty() {
         sections.push(format!(
             "references: {}",
-            skill.references
+            skill
+                .references
                 .iter()
                 .map(|file| file.path.clone())
                 .collect::<Vec<_>>()
@@ -793,7 +833,8 @@ pub fn build_skill_resource_prompt(skill: &AgentSkillPackage) -> Option<String> 
     if !skill.scripts.is_empty() {
         sections.push(format!(
             "scripts: {}",
-            skill.scripts
+            skill
+                .scripts
                 .iter()
                 .map(|file| file.path.clone())
                 .collect::<Vec<_>>()
@@ -803,7 +844,8 @@ pub fn build_skill_resource_prompt(skill: &AgentSkillPackage) -> Option<String> 
     if !skill.assets.is_empty() {
         sections.push(format!(
             "assets: {}",
-            skill.assets
+            skill
+                .assets
                 .iter()
                 .map(|file| file.path.clone())
                 .collect::<Vec<_>>()
@@ -857,7 +899,11 @@ mod tests {
     fn loads_skill_package_from_default_root() {
         let temp = TempDir::new().unwrap();
         let registry = setup_registry(&temp);
-        let skill_dir = temp.path().join(".agents").join("skills").join("code-review");
+        let skill_dir = temp
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("code-review");
         fs::create_dir_all(skill_dir.join("references")).unwrap();
         fs::write(
             skill_dir.join("SKILL.md"),
