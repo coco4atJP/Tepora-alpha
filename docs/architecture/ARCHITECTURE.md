@@ -1091,13 +1091,25 @@ ws://127.0.0.1:{port}/ws
 | --------- | ------------------------ | ---------------------- |
 | `GET`   | `/health`              | ヘルスチェック         |
 | `GET`   | `/api/status`          | システムステータス     |
+| `POST`  | `/api/shutdown`        | サーバーシャットダウン |
+| `POST`  | `/api/auth/refresh`    | トークンリフレッシュ   |
 | `GET`   | `/api/config`          | 設定取得               |
 | `POST`  | `/api/config`          | 設定更新（全体）       |
 | `PATCH` | `/api/config`          | 設定更新（部分）       |
+| `POST`  | `/api/config/secrets/rotate`| シークレットローテーション |
+| `POST`  | `/api/security/lockdown` | ロックダウン設定     |
+| `GET`   | `/api/security/permissions`| パーミッション一覧     |
+| `DELETE`| `/api/security/permissions/{kind}/{name}`| パーミッション削除   |
+| `GET`   | `/api/security/audit/verify`| 監査検証             |
+| `GET`   | `/api/credentials/status`| 認証情報ステータス     |
+| `POST`  | `/api/credentials/rotate`| 認証情報ローテーション |
+| `POST`  | `/api/backup/export`   | バックアップエクスポート |
+| `POST`  | `/api/backup/import`   | バックアップインポート |
 | `GET`   | `/api/logs`            | ログファイル一覧       |
+| `POST`  | `/api/logs/frontend`   | フロントエンドログ受信 |
 | `GET`   | `/api/logs/{filename}` | ログ内容取得           |
+| `GET`   | `/api/metrics/runtime` | ランタイムメトリクス取得 |
 | `GET`   | `/api/tools`           | 利用可能ツール一覧     |
-| `POST`  | `/api/shutdown`        | サーバーシャットダウン |
 
 #### セッションAPI
 
@@ -1109,6 +1121,7 @@ ws://127.0.0.1:{port}/ws
 | `PATCH`  | `/api/sessions/{id}`          | セッション名更新   |
 | `DELETE` | `/api/sessions/{id}`          | セッション削除     |
 | `GET`    | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
+| `GET`    | `/api/sessions/{id}/metrics`  | セッションメトリクス取得 |
 
 #### Agent Skills API
 
@@ -1123,6 +1136,14 @@ ws://127.0.0.1:{port}/ws
 
 > [!NOTE]
 > 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
+
+#### Memory API
+
+| メソッド  | エンドポイント                  | 説明               |
+| --------- | ------------------------------- | ------------------ |
+| `POST`  | `/api/memory/compress`        | メモリの圧縮       |
+| `GET`   | `/api/memory/compaction_jobs` | 圧縮ジョブの取得   |
+| `POST`  | `/api/memory/decay`           | メモリの減衰処理   |
 
 #### MCP API
 
