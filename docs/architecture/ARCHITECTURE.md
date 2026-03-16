@@ -216,7 +216,9 @@ backend-rs/
 │   │
 │   ├── core/                   # ========== コア機能 ==========
 │   │   ├── config/             # 設定管理
+│   │   ├── native_tools.rs     # ネイティブツールの定義
 │   │   ├── security.rs         # 認証・セキュリティ
+│   │   ├── security_controls.rs # セキュリティ制御機構
 │   │   ├── errors.rs           # エラー定義
 │   │   ├── logging.rs          # ログ設定
 │   │   └── mod.rs
@@ -259,7 +261,10 @@ backend-rs/
 │   │   ├── mod.rs              # モジュール公開
 │   │   ├── runtime.rs          # GraphRuntime (実行エンジン)
 │   │   ├── builder.rs          # GraphBuilder (構築ヘルパー)
+│   │   ├── loader.rs           # 宣言的グラフのロード機能
+│   │   ├── schema.rs           # 宣言的グラフのスキーマ定義
 │   │   ├── state.rs            # AgentState 定義
+│   │   ├── stream.rs           # ストリーム処理機能
 │   │   ├── node.rs             # Node トレイト定義
 │   │   └── nodes/              # ノード実装 (chat, search, agentic, thinking, etc.)
 │   │
@@ -308,6 +313,9 @@ backend-rs/
 │   ├── a2a/                    # Agent-to-Agent (将来)
 │   ├── crdt/                   # PoCモジュール (テスト用)
 │   └── sandbox/                # PoCモジュール (分離環境)
+│
+├── workflows/                  # 宣言的ワークフロー定義
+│   └── default.json            # デフォルトグラフ構成
 │
 └── Cargo.toml
 ```
@@ -413,6 +421,7 @@ pub struct AppStateCompat {
 ### 5.2 グラフエンジン (`src/graph/`)
 
 Python版 LangGraph の概念を Rust ネイティブな `petgraph` で再実装しました。
+また、`workflows/` ディレクトリに配置された JSON ファイルからの宣言的ワークフロー定義のロード機能（`loader.rs` および `schema.rs`）を備えており、`features.redesign.declarative_graph` 設定フラグにより条件付きで有効化されます。
 
 #### GraphRuntime
 
