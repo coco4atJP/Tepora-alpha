@@ -8,6 +8,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { SettingsProvider } from "./context/SettingsContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { V2AppEntry, shouldBootV2 } from "./v2/app/entry";
 
 import { getSessionToken } from "./utils/sessionToken";
 import { logger } from "./utils/logger";
@@ -46,16 +47,20 @@ async function init() {
 
 	ReactDOM.createRoot(rootElement).render(
 		<React.StrictMode>
-			<ErrorBoundary>
-				<QueryClientProvider client={queryClient}>
-					<SettingsProvider>
-						<ThemeProvider>
-							<App />
-						</ThemeProvider>
-					</SettingsProvider>
-					<ReactQueryDevtools initialIsOpen={false} />
-				</QueryClientProvider>
-			</ErrorBoundary>
+			{shouldBootV2() ? (
+				<V2AppEntry />
+			) : (
+				<ErrorBoundary>
+					<QueryClientProvider client={queryClient}>
+						<SettingsProvider>
+							<ThemeProvider>
+								<App />
+							</ThemeProvider>
+						</SettingsProvider>
+						<ReactQueryDevtools initialIsOpen={false} />
+					</QueryClientProvider>
+				</ErrorBoundary>
+			)}
 		</React.StrictMode>,
 	);
 }

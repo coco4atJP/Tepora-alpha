@@ -4,6 +4,25 @@
 - 対象計画: `FRONTEND_V2_IMPLEMENTATION_PLAN.md`
 - 主担当: ロジック担当
 - 目的: v2 に必要な状態管理、契約同期、transport 接続、screen container 実装を段階的に進める
+- 実装更新日: 2026-03-17
+- 現在ステータス: 完了
+
+## 実施結果サマリ
+
+- `L-001` `L-002` `L-003`: 完了
+- `L-101`: 完了
+  - 方針文書: `FRONTEND_V2_CONTRACT_SYNC_STRATEGY.md`
+- `L-102` `L-103` `L-104`: 完了
+- `L-201` `L-202` `L-203` `L-204`: 完了
+- `L-301` `L-302` `L-303` `L-304`: 完了
+  - `L-304` は「直近履歴 window の bounded refetch」で達成
+- `L-401` `L-402` `L-403`: 完了
+- `L-501`: 完了
+  - validator / adapter / machine / query hook / integration test を追加済み
+- `L-502`: 完了
+  - 比較チェック: `FRONTEND_V2_PARITY_CHECKLIST.md`
+- `L-503`: 完了
+  - 縮退計画: `FRONTEND_V2_V1_RETIREMENT_PLAN.md`
 
 ---
 

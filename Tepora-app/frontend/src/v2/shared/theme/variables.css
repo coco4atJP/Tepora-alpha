@@ -1,0 +1,55 @@
+/* src/v2/shared/theme/variables.css */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600&family=Quicksand:wght@300;400;500;600&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=Shippori+Mincho:wght@400;500;600&display=swap');
+
+:root {
+  /* Typography */
+  --font-sans: 'Nunito', 'Quicksand', 'Zen Kaku Gothic New', sans-serif;
+  --font-serif: 'Playfair Display', 'Lora', 'Shippori Mincho', serif;
+
+  /* Theme: Light (Milk Tea) - Default */
+  --color-bg: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-primary: #3B332D;
+  --color-secondary: #D66A44;
+  --color-text-main: #1A1614;
+  --color-text-muted: #7E736A;
+  --color-border: #E5E0DA;
+  
+  --radius-md: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 24px;
+}
+
+[data-theme="dark"] {
+  /* Theme: Dark (Roastery) */
+  --color-bg: #181512;
+  --color-surface: #241F1A;
+  --color-primary: #DA9B64;
+  --color-secondary: #453A31;
+  --color-text-main: #E8E2DA;
+  --color-text-muted: #9E8E81;
+  --color-border: #332C25;
+}
+
+[data-theme="tepora"] {
+  /* Theme: Tepora (Earl Grey) */
+  --color-bg: #F9F6F0;
+  --color-surface: #FFFFFF;
+  --color-primary: #5C3A21;
+  --color-secondary: #B85A1C;
+  --color-text-main: #2C1E16;
+  --color-text-muted: #8C7A6B;
+  --color-border: #E8E2DB;
+}
+
+/* Base Body Styles for v2 */
+body.v2-app {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  margin: 0;
+  padding: 0;
+  /* Spacious Luxury: prevent overflow on root */
+  overflow: hidden; 
+}

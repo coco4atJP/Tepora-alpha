@@ -414,3 +414,6 @@ features/chat/
 
 - ロジック担当タスク: `FRONTEND_V2_LOGIC_TASKLIST.md`
 - デザイン担当タスク: `FRONTEND_V2_DESIGN_TASKLIST.md`
+- 契約同期方針: `FRONTEND_V2_CONTRACT_SYNC_STRATEGY.md`
+- v1-v2 比較チェック: `FRONTEND_V2_PARITY_CHECKLIST.md`
+- v1 縮退計画: `FRONTEND_V2_V1_RETIREMENT_PLAN.md`
