@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tepora UI - Ultra Minimal Settings</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <style>
+        :root {
+            --bg-base: #0a0604;
+            --bg-panel: #120c0a;
+            --bg-gradient: radial-gradient(circle at 50% 100%, #1a1412 0%, #0a0604 100%);
+            
+            --glass-bg: rgba(26, 17, 14, 0.75);
+            --glass-border: rgba(255, 230, 200, 0.1);
+            --glass-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+            --text-main: #fdfaf6;
+            --text-muted: rgba(226, 209, 193, 0.5);
+            --color-gold: #fcd34d;
+            --color-gold-muted: rgba(252, 211, 77, 0.3);
+            --color-tea: #bd4b26;
+
+            --font-sans: 'Outfit', sans-serif;
+            --font-serif: 'Playfair Display', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* ----------------------------------
+           Hidden / Hover Sidebars (Left & Right)
+        ----------------------------------- */
+        
+        .sidebar-left-trigger {
+            position: fixed; top: 0; left: 0; width: 40px; height: 100vh; z-index: 40;
+            display: flex; align-items: center; justify-content: flex-start; padding-left: 10px;
+        }
+        
+        .sidebar-left {
+            position: fixed; top: 0; left: -340px; width: 320px; height: 100vh;
+            background: rgba(10, 6, 4, 0.75); border-right: 1px solid rgba(255,255,255,0.03);
+            display: flex; flex-direction: column; padding: 40px 32px; z-index: 50;
+            backdrop-filter: blur(40px); transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 20px 0 50px rgba(0,0,0,0.3);
+        }
+
+        .sidebar-left-trigger:hover ~ .sidebar-left, .sidebar-left:hover { left: 0; }
+
+        .sidebar-right-trigger {
+            position: fixed; top: 0; right: 0; width: 40px; height: 100vh; z-index: 40;
+            display: flex; align-items: center; justify-content: flex-end; padding-right: 10px;
+            display: none; /* Controlled by JS */
+        }
+
+        .sidebar-right {
+            position: fixed; top: 0; right: -380px; width: 360px; height: 100vh;
+            background: rgba(10, 6, 4, 0.75); border-left: 1px solid rgba(255,255,255,0.03);
+            display: flex; flex-direction: column; padding: 40px 32px; z-index: 50;
+            backdrop-filter: blur(40px); transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: -20px 0 50px rgba(0,0,0,0.3);
+        }
+
+        .sidebar-right-trigger:hover ~ .sidebar-right, .sidebar-right:hover { right: 0; }
+
+        .trigger-icon {
+            color: rgba(255,255,255,0.2); transition: all 0.3s; pointer-events: none;
+        }
+        .sidebar-left-trigger:hover .trigger-icon, .sidebar-right-trigger:hover .trigger-icon {
+            color: var(--color-gold); transform: scale(1.1);
+        }
+
+        /* Sidebar Internals */
+        .brand {
+            font-family: var(--font-serif); font-size: 1.8rem; color: var(--color-gold);
+            margin-bottom: 40px; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: space-between;
+            font-style: italic;
+        }
+
+        .session-btn {
+            background: transparent; border: 1px solid rgba(252, 211, 77, 0.3); color: var(--color-gold);
+            padding: 12px 20px; border-radius: 30px; font-size: 0.95rem; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 40px; width: 100%;
+        }
+        .session-btn:hover { background: rgba(252, 211, 77, 0.05); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(252, 211, 77, 0.1); }
+
+        .history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 8px; margin-right: -8px;}
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        
+        .history-item { padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; transition: all 0.3s; font-weight: 300; letter-spacing: 0.02em;}
+        .history-item:hover { background: rgba(255,255,255,0.03); color: var(--text-main); transform: translateX(4px);}
+        .history-item.active { background: rgba(255,255,255,0.05); color: var(--text-main); font-weight: 400;}
+
+        /* RIGHT PANEL INTERNALS */
+        .panel-header {
+            display: flex; align-items: center; gap: 12px; color: var(--color-gold);
+            font-family: var(--font-serif); font-size: 1.3rem; margin-bottom: 40px; padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.03); font-style: italic;
+        }
+        
+        .section-title {
+            font-size: 0.7rem; color: rgba(252, 211, 77, 0.5); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; margin-top: 32px; font-weight: 600;
+        }
+
+        /* Reusable Config List */
+        .config-list { display: flex; flex-direction: column; gap: 12px; }
+        
+        .config-toggle {
+            padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.02); 
+            border: 1px solid rgba(255,255,255,0.02); color: var(--text-muted); font-size: 0.9rem;
+            display: flex; align-items: flex-start; gap: 16px; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .config-toggle.active { background: rgba(252, 211, 77, 0.05); border-color: rgba(252, 211, 77, 0.15); color: var(--color-gold); }
+        .config-toggle:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+        .config-toggle i { margin-top: 2px; opacity: 0.8; }
+
+        .source-chip {
+            padding: 10px 16px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03);
+            font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 12px;
+        }
+
+        /* Dropdown style select */
+        .select-box {
+            width: 100%; padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05); color: var(--text-main); font-size: 0.9rem;
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;
+        }
+        .select-box:hover { border-color: rgba(252, 211, 77, 0.3); background: rgba(255,255,255,0.04); }
+
+        /* ----------------------------------
+           Main App Area
+        ----------------------------------- */
+        .main-col { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
+
+        .window-controls {
+            position: absolute; top: 20px; left: 20px; display: flex; gap: 8px; z-index: 20; opacity: 0.3; transition: opacity 0.3s;
+        }
+        .window-controls:hover { opacity: 1; }
+        .win-dot { width: 12px; height: 12px; border-radius: 50%; background: #555; }
+        .win-dot.close { background: #ff5f56; } .win-dot.min { background: #ffbd2e; } .win-dot.max { background: #27c93f; }
+
+        /* VIEW CONTAINERS (Chat vs Settings) */
+        .view-container {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(20px);
+        }
+        .view-container.active {
+            opacity: 1; pointer-events: auto; transform: translateY(0);
+        }
+
+        /* Chat View specific */
+        .history-area {
+            flex: 1; overflow-y: auto; padding: 60px 20px 140px 20px;
+            display: flex; flex-direction: column; gap: 48px; align-items: center;
+        }
+        .history-area::-webkit-scrollbar { width: 4px; }
+        .history-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
+
+        .msg-row { width: 100%; max-width: 760px; display: flex; gap: 24px; line-height: 1.7; font-size: 1.05rem; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .msg-row.user { justify-content: flex-end;}
+        .msg-user-content { background: rgba(255,255,255,0.02); padding: 16px 24px; border-radius: 20px; color: var(--text-muted); font-weight: 300; letter-spacing: 0.02em; font-size: 1.1rem;}
+        .msg-row.ai { color: var(--text-main); }
+        .msg-ai-content { padding-left: 20px; border-left: 1px solid rgba(252, 211, 77, 0.2); }
+        .ai-header { font-family: var(--font-serif); color: var(--color-gold); font-size: 1.2rem; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; font-style: italic; }
+
+        /* ----------------------------------
+           Command Area (Floating Input)
+        ----------------------------------- */
+        .command-wrapper {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 800px; z-index: 50; padding: 0 20px;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        /* Hide command wrapper when settings are active */
+        body[data-view="settings"] .command-wrapper {
+            opacity: 0; pointer-events: none; transform: translate(-50%, 20px);
+        }
+
+        .command-box {
+            background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.03); border-radius: 24px; box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            backdrop-filter: blur(30px); display: flex; flex-direction: column; padding: 16px 24px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+        .command-box:focus-within { border-color: rgba(252, 211, 77, 0.2); box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 40px rgba(189, 75, 38, 0.1); transform: translateY(-2px); }
+
+        .input-row { display: flex; align-items: center; gap: 16px; }
+
+        /* Hover-expandable Dial UI */
+        .dial-container { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; z-index: 100;}
+        .dial-collapsed { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, rgba(252, 211, 77, 0.1) 0%, rgba(189, 75, 38, 0.1) 100%); border: 1px solid rgba(252, 211, 77, 0.3); display: flex; align-items: center; justify-content: center; color: var(--color-gold); cursor: pointer; transition: all 0.3s; }
+        .dial-expanded { position: absolute; top: 50%; left: 50%; width: 180px; height: 180px; margin-top: -90px; margin-left: -90px; border-radius: 50%; background: rgba(10, 6, 4, 0.95); border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 10px 40px rgba(0,0,0,0.9), inset 0 0 20px rgba(252, 211, 77, 0.05); backdrop-filter: blur(12px); opacity: 0; transform: scale(0.5) rotate(-45deg); pointer-events: none; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; align-items: center; justify-content: center; }
+        .dial-container:hover .dial-expanded { opacity: 1; transform: scale(1) rotate(0deg); pointer-events: auto; }
+        .dial-container:hover .dial-collapsed { transform: scale(0.8); opacity: 0.5; }
+
+        .dial-item { position: absolute; width: 44px; height: 44px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: rgba(255,255,255,0.5); background: transparent; cursor: pointer; transition: all 0.2s; border: none; outline: none; }
+        .dial-item[data-mode="chat"] { top: 10px; left: 68px; }
+        .dial-item[data-mode="search"] { top: 68px; left: 10px; }
+        .dial-item[data-mode="agent"] { top: 68px; right: 10px; }
+        .dial-item:hover, .dial-item.active { color: var(--color-gold); background: rgba(252, 211, 77, 0.1); transform: scale(1.15); box-shadow: 0 0 15px rgba(252, 211, 77, 0.2); }
+        .dial-label { position: absolute; bottom: -22px; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; transition: opacity 0.2s; white-space: nowrap; font-family: var(--font-sans); color: var(--color-gold); }
+        .dial-item:hover .dial-label { opacity: 1; transform: translateY(5px); }
+
+        .dial-center-knob { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #1f1612, #000); border: 1px solid rgba(255,255,255,0.1); position: absolute; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5); z-index: 10; cursor: pointer; transition: all 0.2s; }
+        .dial-center-knob:hover { color: var(--color-gold); transform: scale(1.1); box-shadow: 0 0 15px rgba(252, 211, 77, 0.2);}
+
+        .main-input { flex: 1; background: transparent; border: none; outline: none; font-size: 1.15rem; color: var(--text-main); font-family: var(--font-sans); padding: 8px 0; }
+        .main-input::placeholder { color: rgba(255,255,255,0.2); font-weight: 300; }
+        .send-btn { width: 44px; height: 44px; border-radius: 50%; background: transparent; border: none; color: rgba(255,255,255,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+        .main-input:not(:placeholder-shown) ~ .send-btn { background: var(--color-gold); color: var(--bg-base); box-shadow: 0 0 20px rgba(252, 211, 77, 0.3); }
+
+        /* Footer Tools */
+        .command-footer { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 0 60px; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 8px; }
+        .footer-tools { display: flex; gap: 16px; }
+        .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 0.75rem; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: color 0.2s; font-family: var(--font-sans); }
+        .tool-btn:hover, .tool-btn.active { color: var(--color-gold); }
+        .shortcut-hint { font-size: 0.7rem; color: rgba(255,255,255,0.2); font-family: monospace; }
+        
+        /* ----------------------------------
+           NEW: Settings Full-Page View (Ultra Minimal)
+        ----------------------------------- */
+        
+        #settings-view {
+            padding: 8vh 12vw;
+            display: flex; gap: 6vw;
+            overflow-y: hidden; /* Main container is hidden, we scroll the right pane */
+        }
+
+        /* Settings Header / Back Button */
+        .settings-header-fixed {
+            position: absolute; top: 40px; right: 40px; z-index: 100;
+            opacity: 0; transform: translateY(-10px); transition: all 0.4s 0.2s;
+        }
+        .view-container.active .settings-header-fixed { opacity: 1; transform: translateY(0); }
+        
+        .btn-close-settings {
+            background: transparent; border: none; color: var(--text-muted); font-size: 1rem;
+            display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s;
+            font-family: var(--font-sans); padding: 8px 16px; border-radius: 20px;
+        }
+        .btn-close-settings:hover {
+            color: var(--text-main); background: rgba(255,255,255,0.05); transform: translateX(-4px);
+        }
+
+        /* Left Side: Generous Typography Nav */
+        .settings-sidebar {
+            flex: 0 0 240px;
+            display: flex; flex-direction: column; gap: 40px;
+            padding-top: 20px;
+            opacity: 0; transform: translateX(-20px); transition: all 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s;
+        }
+        .view-container.active .settings-sidebar { opacity: 1; transform: translateX(0); }
+        
+        .nav-group { display: flex; flex-direction: column; gap: 16px;}
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; color: rgba(252, 211, 77, 0.5); font-weight: 600;}
+        
+        .huge-nav-link {
+            font-family: var(--font-serif); font-size: 2rem; color: var(--text-muted);
+            text-decoration: none; position: relative; display: inline-block; cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            align-self: flex-start;
+        }
+        .huge-nav-link.active { color: var(--text-main); font-size: 2.2rem; transform: translateX(12px); }
+        .huge-nav-link:hover:not(.active) { color: var(--color-gold); transform: translateX(8px); }
+        
+        /* Right Side: Flowing Content Area */
+        .settings-main {
+            flex: 1; max-width: 700px;
+            padding-top: 20px; padding-bottom: 20vh;
+            display: flex; flex-direction: column; gap: 80px; /* Huge vertical spacing */
+            overflow-y: auto; scroll-behavior: smooth;
+            padding-right: 20px; /* Scrollbar padding */
+            opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16,1,0.3,1) 0.2s;
+        }
+        .view-container.active .settings-main { opacity: 1; transform: translateY(0); }
+        
+        .settings-main::-webkit-scrollbar { width: 4px; }
+        .settings-main::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        .settings-section-container {
+            display: flex; flex-direction: column; gap: 40px;
+        }
+
+        .settings-section-title {
+            font-family: var(--font-serif); font-size: 1.5rem; color: var(--color-gold);
+            margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-weight: 400; font-style: italic; letter-spacing: 0.05em;
+        }
+
+        /* Minimal Config Row */
+        .config-row {
+            display: flex; flex-direction: column; gap: 16px; transition: opacity 0.3s;
+        }
+        .config-row:hover { opacity: 1; }
+        .config-row-header {
+            display: flex; justify-content: space-between; align-items: baseline;
+        }
+        .config-row-title {
+            font-size: 1.1rem; color: var(--text-main); font-weight: 300; letter-spacing: 0.02em;
+        }
+        .config-row-desc {
+            font-size: 0.85rem; color: var(--text-muted); font-weight: 300; line-height: 1.6; max-width: 80%;
+        }
+
+        /* Clean Radio/Selection Groups without boxes */
+        .selection-group {
+            display: flex; gap: 32px; margin-top: 8px; flex-wrap: wrap;
+        }
+        .selection-item {
+            color: var(--text-muted); cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; gap: 12px; font-size: 1rem;
+        }
+        .selection-item:hover { color: var(--text-main); transform: translateX(2px); }
+        .selection-item.active { color: var(--color-gold); }
+        .selection-dot {
+            width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s;
+        }
+        .selection-item:hover .selection-dot { border-color: rgba(255,255,255,0.5); }
+        .selection-item.active .selection-dot { border-color: var(--color-gold); background: rgba(252, 211, 77, 0.2); }
+        .selection-item.active .selection-dot::after {
+            content: ''; width: 6px; height: 6px; background: var(--color-gold); border-radius: 50%;
+        }
+
+        /* Subline Slider */
+        .line-slider-container {
+            position: relative; width: 100%; max-width: 400px; padding: 20px 0;
+        }
+        .line-track {
+            height: 1px; background: rgba(255,255,255,0.1); width: 100%; position: relative;
+        }
+        .line-fill {
+            position: absolute; top: 0; left: 0; height: 1px; background: var(--color-gold); width: 50%; transition: width 0.2s;
+        }
+        .line-thumb {
+            position: absolute; top: -6px; left: 50%; margin-left: -6px;
+            width: 12px; height: 12px; background: var(--bg-base); border: 2px solid var(--color-gold); border-radius: 50%;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .line-thumb:hover { transform: scale(1.5); background: var(--color-gold); }
+        .slider-labels { display: flex; justify-content: space-between; margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); }
+
+        /* Very simple toggle switch minimal */
+        .min-toggle {
+            width: 36px; height: 18px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.2);
+            position: relative; cursor: pointer; transition: all 0.3s;
+        }
+        .min-toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
+            border-radius: 50%; background: rgba(255,255,255,0.5); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .min-toggle.on { border-color: var(--color-gold); background: rgba(252, 211, 77, 0.1); }
+        .min-toggle.on::after { left: 20px; background: var(--color-gold); }
+
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    </style>
+</head>
+<body data-view="chat">
+
+    <!-- LEFT SIDEBAR (History) -->
+    <div class="sidebar-left-trigger" title="Show History">
+        <i data-feather="list" class="trigger-icon" style="width: 20px; height: 20px;"></i>
+    </div>
+
+    <aside class="sidebar-left">
+        <div class="brand">
+            TEPORA
+            <button class="tool-btn"><i data-feather="sidebar"></i></button>
+        </div>
+        <button class="session-btn">
+            <i data-feather="plus" style="width:16px; height:16px;"></i> 新しい対話
+        </button>
+        <div class="history-list">
+            <div class="history-item active">フロントエンド設計プロトタイプ</div>
+            <div class="history-item">バックエンドAPI規約の策定</div>
+            <div class="history-item">Tauriウィンドウの透過設定</div>
+            <div class="history-item">Rustエラーハンドリング</div>
+        </div>
+    </aside>
+
+    <!-- RIGHT SIDEBAR (Dynamic based on Mode) -->
+    <div class="sidebar-right-trigger" id="right-sidebar-trigger" title="Operations">
+        <i data-feather="sliders" class="trigger-icon" id="right-trigger-icon" style="width: 20px; height: 20px;"></i>
+    </div>
+
+    <aside class="sidebar-right" id="right-sidebar">
+        <!-- Content will be injected by JS based on Mode -->
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-col">
+        <div class="window-controls">
+            <div class="win-dot close"></div>
+            <div class="win-dot min"></div>
+            <div class="win-dot max"></div>
+        </div>
+
+        <!-- VIEW 1: Chat Interface -->
+        <div class="view-container active" id="chat-view">
+            <div class="history-area" id="chat-history"></div>
+        </div>
+
+        <!-- VIEW 2: Ultra Minimal Settings -->
+        <div class="view-container" id="settings-view">
+            
+            <div class="settings-header-fixed">
+                <button class="btn-close-settings" id="close-settings-btn">
+                    <i data-feather="arrow-left" style="width: 18px;"></i> Return to Session
+                </button>
+            </div>
+
+            <div class="settings-sidebar">
+                <div class="nav-group">
+                    <div class="nav-label">General</div>
+                    <div class="huge-nav-link active" data-target="sec-appearance">Appearance</div>
+                    <div class="huge-nav-link" data-target="sec-behavior">Behavior</div>
+                </div>
+                <div class="nav-group" style="margin-top: 20px;">
+                    <div class="nav-label">Engine</div>
+                    <div class="huge-nav-link" data-target="sec-models">Models</div>
+                    <div class="huge-nav-link" data-target="sec-context">Context</div>
+                    <div class="huge-nav-link" data-target="sec-tools">Tools</div>
+                </div>
+            </div>
+
+            <div class="settings-main" id="settings-scroll-area">
+                
+                <div id="sec-appearance" class="settings-section-container">
+                    <h2 class="settings-section-title">Aesthetics & Theme</h2>
+                    
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Color Palette</span>
+                        </div>
+                        <div class="config-row-desc">Select the primary atmosphere for your workspace. Tepora uses deeply considered semantic color tokens to ensure readability while maintaining emotional warmth.</div>
+                        
+                        <div class="selection-group">
+                            <div class="selection-item">
+                                <div class="selection-dot"></div> Milk Tea (Light)
+                            </div>
+                            <div class="selection-item">
+                                <div class="selection-dot"></div> Roastery (Dark)
+                            </div>
+                            <div class="selection-item active">
+                                <div class="selection-dot"></div> Earl Grey (Auto)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Font Stack</span>
+                        </div>
+                        <div class="config-row-desc">The structural sans-serif font used for interface elements and main body text. Affects readability and overall geometric feel.</div>
+                        
+                        <div class="selection-group" style="flex-direction: column; gap:16px;">
+                            <div class="selection-item active">
+                                <div class="selection-dot"></div> 
+                                <span style="font-family: 'Outfit', sans-serif;">Outfit (Modern Geometric)</span>
+                            </div>
+                            <div class="selection-item">
+                                <div class="selection-dot"></div> 
+                                <span style="font-family: 'Nunito', sans-serif;">Nunito (Soft & Rounded)</span>
+                            </div>
+                            <div class="selection-item">
+                                <div class="selection-dot"></div> 
+                                <span style="font-family: system-ui, sans-serif;">System Native (Performance)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Interface Scale</span>
+                        </div>
+                        <div class="config-row-desc">Uniformly scales the application's layout geometry.</div>
+                        
+                        <div class="line-slider-container" style="margin-top: 20px;" id="demo-slider">
+                            <div class="line-track" id="demo-track">
+                                <div class="line-fill" id="demo-fill"></div>
+                                <div class="line-thumb" id="demo-thumb"></div>
+                            </div>
+                            <div class="slider-labels">
+                                <span>Compact</span>
+                                <span>Default</span>
+                                <span>Spacious</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sec-behavior" class="settings-section-container">
+                    <h2 class="settings-section-title">Behavior & Interaction</h2>
+                    
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Spatial Animations</span>
+                            <div class="min-toggle on"></div>
+                        </div>
+                        <div class="config-row-desc">Enable smooth, physics-based transitions when navigating between views and opening panels. Disable for a more instantaneous, rigid feel.</div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Auto-Collapse Sidebars</span>
+                            <div class="min-toggle"></div>
+                        </div>
+                        <div class="config-row-desc">Automatically hide sidebars when the mouse leaves their area. If disabled, sidebars will "pin" until you click away.</div>
+                    </div>
+                </div>
+
+                <div id="sec-models" class="settings-section-container">
+                    <h2 class="settings-section-title">AI Models & Routing</h2>
+                    
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Default Reasoning Engine</span>
+                        </div>
+                        <div class="config-row-desc">Select the primary LLM used for standard chat and reasoning tasks when not explicitly routed by the Agent Supervisor.</div>
+                        
+                        <div class="selection-group">
+                            <div class="selection-item active">
+                                <div class="selection-dot"></div> Gemini 2.5 Pro
+                            </div>
+                            <div class="selection-item">
+                                <div class="selection-dot"></div> Claude 3.7 Sonnet
+                            </div>
+                            <div class="selection-item">
+                                <div class="selection-dot"></div> GPT-4o
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="sec-context" class="settings-section-container">
+                    <h2 class="settings-section-title">Memory & Context</h2>
+                    
+                    <div class="config-row">
+                        <div class="config-row-header">
+                            <span class="config-row-title">Local RAG Indexing</span>
+                            <div class="min-toggle on"></div>
+                        </div>
+                        <div class="config-row-desc">Allow Tepora to maintain a local SQLite vector database of your workspace files for instantaneous retrieval. Data never leaves your machine unless explicitly sent to the AI.</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Floating Command Area (Shared, but fades out in Settings) -->
+        <div class="command-wrapper">
+            <div class="command-box">
+                <div class="input-row">
+                    <!-- Dial UI -->
+                    <div class="dial-container">
+                        <div class="dial-collapsed" id="current-mode-icon"><i data-feather="message-square" style="width:20px; height:20px;"></i></div>
+                        <div class="dial-expanded">
+                            <button class="dial-item active" data-mode="chat"><i data-feather="message-square" style="width:18px; height:18px;"></i><span class="dial-label">Chat</span></button>
+                            <button class="dial-item" data-mode="search"><i data-feather="globe" style="width:18px; height:18px;"></i><span class="dial-label">Search</span></button>
+                            <button class="dial-item" data-mode="agent"><i data-feather="cpu" style="width:18px; height:18px;"></i><span class="dial-label">Agent</span></button>
+                            <div class="dial-center-knob" id="open-settings-dial" title="Settings"><i data-feather="settings" style="width:16px; height:16px;"></i></div>
+                        </div>
+                    </div>
+
+                    <input type="text" class="main-input" id="main-input" placeholder="Teporaにメッセージを送信...">
+
+                    <button class="send-btn" id="send-btn"><i data-feather="arrow-up" style="width:20px; height:20px;"></i></button>
+                </div>
+
+                <!-- Footer Tools -->
+                <div class="command-footer">
+                    <div class="footer-tools" id="footer-tools">
+                        <!-- Injected by JS -->
+                    </div>
+                    <div class="shortcut-hint">Press ↵ to Send</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+
+    <!-- Templates for Right Sidebar (Same as before) -->
+    <template id="tpl-rag-sidebar">
+        <div class="panel-header">
+            <i data-feather="database" style="color: var(--color-gold);"></i> RAG Operations
+        </div>
+        
+        <div class="section-title">4-Stage Pipeline Output</div>
+        <div class="config-list">
+            <div class="config-toggle active">
+                <i data-feather="search" style="width: 18px; height: 18px;"></i>
+                <div>
+                    <div style="font-weight: 500; color: var(--text-main);">Agentic Deep Search</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top:2px;">Query generation & deep reasoning</div>
+                </div>
+            </div>
+            <div class="config-toggle active">
+                <i data-feather="file-text" style="width: 18px; height: 18px;"></i>
+                <div>
+                    <div style="font-weight: 500; color: var(--text-main);">Local Context</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top:2px;">SQLite In-process RAG</div>
+                </div>
+            </div>
+            <div class="config-toggle">
+                <i data-feather="globe" style="width: 18px; height: 18px;"></i>
+                <div>
+                    <div style="font-weight: 500; color: var(--text-main);">Web Search</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top:2px;">Fetch external live data</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Active Data Sources</div>
+        <div class="config-list">
+            <div class="source-chip">
+                <i data-feather="hard-drive"></i> Tepora Docs <span style="margin-left:auto; font-size:0.7rem; color:var(--color-gold-muted);">120 chunks</span>
+            </div>
+            <div class="source-chip">
+                <i data-feather="folder"></i> src/backend-rs <span style="margin-left:auto; font-size:0.7rem; color:var(--color-gold-muted);">450 chunks</span>
+            </div>
+            <div class="source-chip" style="cursor: pointer; justify-content:center; background: rgba(252, 211, 77, 0.05); color: var(--color-gold); border-color: rgba(252, 211, 77, 0.2); margin-top: 8px;">
+                <i data-feather="plus"></i> Add Context Source
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-agent-sidebar">
+        <div class="panel-header">
+            <i data-feather="cpu" style="color: var(--color-gold);"></i> Agent Execution
+        </div>
+        
+        <div class="section-title">Target Agent / Skill</div>
+        <div class="select-box" style="margin-bottom: 8px;">
+            <span><i data-feather="users" style="width:14px; margin-right:8px; vertical-align:middle;"></i> Auto (Supervisor)</span>
+            <i data-feather="chevron-down"></i>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 24px;">
+            Supervisor will analyze the prompt and route to the most appropriate skill (Coder, Writer, etc).
+        </div>
+
+        <div class="section-title">Execution Mode</div>
+        <div class="config-list">
+            <div class="config-toggle">
+                <i data-feather="layers" style="width: 18px; height: 18px;"></i>
+                <div>
+                    <div style="font-weight: 500; color: var(--text-main);">High (Planner Loop)</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top:2px;">Creates an execution plan before acting. Good for complex tasks.</div>
+                </div>
+            </div>
+            <div class="config-toggle active">
+                <i data-feather="zap" style="width: 18px; height: 18px;"></i>
+                <div>
+                    <div style="font-weight: 500; color: var(--text-main);">Low (Direct Execution)</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top:2px;">Acts immediately on the prompt. Fast and efficient.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Tools Access</div>
+        <div class="config-list">
+             <div class="source-chip" style="justify-content: space-between;">
+                <span><i data-feather="terminal" style="margin-right:8px; vertical-align:middle;"></i> bash CLI</span>
+                <div style="width: 32px; height: 16px; background: var(--color-gold); border-radius: 8px; position: relative;"><div style="position:absolute; right:2px; top:2px; width:12px; height:12px; border-radius:50%; background:var(--bg-panel);"></div></div>
+            </div>
+            <div class="source-chip" style="justify-content: space-between;">
+                <span><i data-feather="edit" style="margin-right:8px; vertical-align:middle;"></i> File Editor</span>
+                <div style="width: 32px; height: 16px; background: var(--color-gold); border-radius: 8px; position: relative;"><div style="position:absolute; right:2px; top:2px; width:12px; height:12px; border-radius:50%; background:var(--bg-panel);"></div></div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        feather.replace();
+
+        const state = { mode: 'chat', view: 'chat' }; // views: 'chat', 'settings'
+        
+        const currentIcon = document.getElementById('current-mode-icon');
+        const inputField = document.getElementById('main-input');
+        const footerTools = document.getElementById('footer-tools');
+        const chatHistory = document.getElementById('chat-history');
+        const rightTrigger = document.getElementById('right-sidebar-trigger');
+        const rightTriggerIcon = document.getElementById('right-trigger-icon');
+        const rightSidebar = document.getElementById('right-sidebar');
+
+        const chatView = document.getElementById('chat-view');
+        const settingsView = document.getElementById('settings-view');
+
+        const modeConfigs = {
+            chat: {
+                icon: 'message-square',
+                placeholder: 'Teporaにメッセージを送信...',
+                showRightSidebar: false,
+                tools: `
+                    <button class="tool-btn active"><i data-feather="zap" style="width:14px; height:14px;"></i> Thinking: On</button>
+                    <button class="tool-btn"><i data-feather="paperclip" style="width:14px; height:14px;"></i> Attach</button>
+                `,
+                messages: `<div class="msg-row ai"><div class="msg-ai-content"><div class="ai-header"><i data-feather="message-square" style="width:18px; height:18px;"></i> Tepora</div><p>画面左端にホバーで対話履歴。<br>ダイヤル中央の「設定ノブ」をクリックして、新しいフルスクリーンのSettings Viewをご確認ください。</p></div></div>`
+            },
+            search: {
+                icon: 'globe',
+                placeholder: 'Agentic Search で深堀り調査を行う...',
+                showRightSidebar: true,
+                triggerIcon: 'database',
+                sidebarTemplate: 'tpl-rag-sidebar',
+                tools: `
+                    <button class="tool-btn"><i data-feather="sliders" style="width:14px; height:14px;"></i> Filters</button>
+                `,
+                messages: `<div class="msg-row ai"><div class="msg-ai-content"><div class="ai-header" style="color: #06b6d4;"><i data-feather="globe" style="width:18px; height:18px;"></i> Agentic Search</div><p>右端からRAGパイプラインのコントロールパネルが表示されます。（データベースアイコンにホバー）</p></div></div>`
+            },
+            agent: {
+                icon: 'cpu',
+                placeholder: 'エージェントにタスクを設定...',
+                showRightSidebar: true,
+                triggerIcon: 'sliders',
+                sidebarTemplate: 'tpl-agent-sidebar',
+                tools: `
+                    <button class="tool-btn"><i data-feather="paperclip" style="width:14px; height:14px;"></i> Attach Files</button>
+                `,
+                messages: `<div class="msg-row ai"><div class="msg-ai-content"><div class="ai-header"><i data-feather="cpu" style="width:18px; height:18px;"></i> Agent Control</div><p>右端から「Agent Executionパネル」が表示されます。<br>Supervisorか直接Skill指定か、実行モード（High/Low）などのTepora特有のアーキテクチャが設定できます。（スライダーアイコンにホバー）</p></div></div>`
+            }
+        };
+
+        function switchMode(newMode) {
+            state.mode = newMode;
+            const config = modeConfigs[newMode];
+
+            currentIcon.innerHTML = `<i data-feather="${config.icon}" style="width:20px; height:20px;"></i>`;
+            document.querySelectorAll('.dial-item').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === newMode));
+
+            inputField.placeholder = config.placeholder;
+            
+            if (config.showRightSidebar && state.view !== 'settings') {
+                rightTrigger.style.display = 'flex';
+                rightTriggerIcon.setAttribute('data-feather', config.triggerIcon);
+                rightSidebar.innerHTML = document.getElementById(config.sidebarTemplate).innerHTML;
+            } else {
+                rightTrigger.style.display = 'none';
+            }
+            
+            footerTools.innerHTML = config.tools;
+            chatHistory.innerHTML = config.messages;
+
+            feather.replace();
+            
+            document.querySelectorAll('.config-toggle').forEach(btn => {
+                btn.addEventListener('click', () => btn.classList.toggle('active'));
+            });
+        }
+
+        document.querySelectorAll('.dial-item').forEach(btn => {
+            btn.addEventListener('click', (e) => switchMode(e.currentTarget.dataset.mode));
+        });
+
+        document.getElementById('send-btn').addEventListener('click', () => {
+            if(!inputField.value.trim()) return;
+            const txt = inputField.value;
+            inputField.value = '';
+            const userMsg = document.createElement('div');
+            userMsg.className = 'msg-row user mt-6';
+            userMsg.innerHTML = `<div class="msg-user-content">${txt}</div>`;
+            chatHistory.appendChild(userMsg);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        });
+
+        inputField.addEventListener('keypress', (e) => { if(e.key === 'Enter') document.getElementById('send-btn').click(); });
+
+        // VIEW SWITCHING LOGIC (Chat <-> Settings)
+        function switchView(viewName) {
+            state.view = viewName;
+            document.body.setAttribute('data-view', viewName);
+            
+            if (viewName === 'settings') {
+                chatView.classList.remove('active');
+                
+                // Slight delay to allow reflow for staggered animation
+                setTimeout(() => {
+                    settingsView.classList.add('active');
+                    // Reset scroll position on open
+                    document.getElementById('settings-scroll-area').scrollTop = 0;
+                }, 50);
+                
+                rightTrigger.style.display = 'none'; // Hide right sidebar trigger in settings
+            } else {
+                settingsView.classList.remove('active');
+                chatView.classList.add('active');
+                switchMode(state.mode); // Restore right sidebar state if needed
+            }
+        }
+
+        document.getElementById('open-settings-dial').addEventListener('click', () => {
+            switchView('settings');
+        });
+
+        document.getElementById('close-settings-btn').addEventListener('click', () => {
+            switchView('chat');
+        });
+
+        // Demo Selection Interactions
+        document.querySelectorAll('.selection-item').forEach(item => {
+            item.addEventListener('click', function() {
+                // Find siblings and remove active class
+                const group = this.closest('.selection-group');
+                group.querySelectorAll('.selection-item').forEach(sibling => sibling.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Toggle Interactions
+        document.querySelectorAll('.min-toggle').forEach(tgl => {
+            tgl.addEventListener('click', function() {
+                this.classList.toggle('on');
+            });
+        });
+
+        // Settings Navigation (ScrollSpy & Click)
+        const scrollArea = document.getElementById('settings-scroll-area');
+        const navLinks = document.querySelectorAll('.huge-nav-link');
+        const sections = document.querySelectorAll('.settings-section-container');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                if(!targetId) return;
+                const targetEl = document.getElementById(targetId);
+                if(targetEl) {
+                    scrollArea.scrollTo({
+                        top: targetEl.offsetTop - scrollArea.offsetTop - 20,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Simple Intersection Observer to highlight active nav link as you scroll
+        const observerOptions = {
+            root: scrollArea,
+            rootMargin: '-50% 0px -50% 0px', // Trigger when section passes middle of screen
+            threshold: 0
+        };
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    navLinks.forEach(link => {
+                        if(link.getAttribute('data-target') === entry.target.id) {
+                            link.classList.add('active');
+                        } else {
+                            link.classList.remove('active');
+                        }
+                    });
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(sec => observer.observe(sec));
+        
+        // Demo Line Slider logic
+        const lineTrack = document.getElementById('demo-track');
+        const lineFill = document.getElementById('demo-fill');
+        const lineThumb = document.getElementById('demo-thumb');
+        
+        if (lineTrack && lineFill && lineThumb) {
+            lineTrack.addEventListener('click', (e) => {
+                const rect = lineTrack.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                let percent = (clickX / rect.width) * 100;
+                percent = Math.max(0, Math.min(100, percent)); // clamp
+                lineFill.style.width = percent + '%';
+                lineThumb.style.left = percent + '%';
+            });
+        }
+
+        switchMode('chat');
+    </script>
+</body>
+</html>
