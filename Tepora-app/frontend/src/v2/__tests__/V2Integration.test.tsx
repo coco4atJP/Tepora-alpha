@@ -4,7 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { V2Workspace } from "../app/V2Workspace";
 import { useWorkspaceStore } from "../app/model/workspaceStore";
-import { v2ApiClient } from "../shared/lib/api-client";
+import { V2ApiError, v2ApiClient } from "../shared/lib/api-client";
+import { consentRequiredErrorResponseSchema } from "../shared/contracts";
 import { v2TransportAdapter } from "../shared/lib/transportAdapter";
 
 vi.mock("../shared/lib/api-client", () => ({
@@ -13,6 +14,16 @@ vi.mock("../shared/lib/api-client", () => ({
 		post: vi.fn(),
 		patch: vi.fn(),
 		delete: vi.fn(),
+	},
+	V2ApiError: class extends Error {
+		readonly status: number;
+		readonly data: unknown;
+
+		constructor(message: string, status: number, data: unknown) {
+			super(message);
+			this.status = status;
+			this.data = data;
+		}
 	},
 }));
 
@@ -89,6 +100,26 @@ describe("V2 Frontend Integration", () => {
 		preview?: string | null;
 	}>;
 	let sessionMessagesFixture: Record<string, unknown[]>;
+	let setupModelsFixture: {
+		models: Array<{
+			id: string;
+			display_name: string;
+			role: string;
+			file_size: number;
+			filename?: string;
+			source: string;
+			loader?: string;
+			repo_id?: string | null;
+			revision?: string | null;
+			sha256?: string | null;
+			is_active?: boolean;
+		}>;
+	};
+	let progressResponses: Array<{
+		status: string;
+		progress: number;
+		message: string;
+	}>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -115,6 +146,47 @@ describe("V2 Frontend Integration", () => {
 			"test-session-2": [],
 			"created-session": [],
 		};
+		setupModelsFixture = {
+			models: [
+				{
+					id: "model-text-1",
+					display_name: "Text Model",
+					role: "text",
+					file_size: 1024 * 1024 * 128,
+					filename: "text.gguf",
+					source: "owner/text-model",
+					loader: "llama_cpp",
+					repo_id: "owner/text-model",
+					revision: "main",
+					sha256: "a".repeat(64),
+					is_active: true,
+				},
+				{
+					id: "model-embed-1",
+					display_name: "Embedding Model",
+					role: "embedding",
+					file_size: 1024 * 1024 * 64,
+					filename: "embed.gguf",
+					source: "owner/embed-model",
+					loader: "llama_cpp",
+					repo_id: "owner/embed-model",
+					revision: "main",
+					sha256: "b".repeat(64),
+				},
+			],
+		};
+		progressResponses = [
+			{
+				status: "downloading",
+				progress: 0.4,
+				message: "Downloading model...",
+			},
+			{
+				status: "completed",
+				progress: 1,
+				message: "Download completed!",
+			},
+		];
 
 		(v2ApiClient.get as unknown as ReturnType<typeof vi.fn>).mockImplementation(
 			async (url: string) => {
@@ -159,12 +231,42 @@ describe("V2 Frontend Integration", () => {
 					return { sessions: sessionsFixture };
 				}
 
+				if (url === "/api/setup/models") {
+					return setupModelsFixture;
+				}
+
+				if (url.startsWith("/api/setup/model/update-check")) {
+					return {
+						update_available: true,
+						reason: "sha256_mismatch",
+						current_revision: "main",
+						latest_revision: "new-revision",
+						current_sha256: "a".repeat(64),
+						latest_sha256: "c".repeat(64),
+					};
+				}
+
+				if (url === "/api/setup/progress") {
+					return progressResponses.length > 1
+						? progressResponses.shift()
+						: progressResponses[0];
+				}
+
+				if (url === "/api/setup/binary/update-info") {
+					return {
+						has_update: true,
+						current_version: "b1000",
+						latest_version: "b1001",
+						release_notes: "Bug fixes",
+					};
+				}
+
 				return {};
 			},
 		);
 
 		(v2ApiClient.post as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			async (url: string) => {
+			async (url: string, _schema: unknown, body?: unknown) => {
 				if (url === "/api/sessions") {
 					const createdSession = {
 						id: "created-session",
@@ -177,11 +279,34 @@ describe("V2 Frontend Integration", () => {
 					return { session: createdSession };
 				}
 
+				if (url === "/api/setup/model/download") {
+					const payload = body as { acknowledge_warnings?: boolean } | undefined;
+					if (payload?.acknowledge_warnings === false) {
+						const consentPayload = consentRequiredErrorResponseSchema.parse({
+							error: "Download requires confirmation",
+							requires_consent: true,
+							warnings: ["Owner is outside the allowlist"],
+						});
+						throw new V2ApiError(
+							"Download requires confirmation",
+							409,
+							consentPayload,
+						);
+					}
+
+					return { success: true, job_id: "job-download-1" };
+				}
+
+				if (url === "/api/setup/binary/update") {
+					return { success: true, job_id: "job-binary-1" };
+				}
+
 				return {};
 			},
 		);
 
 		(v2ApiClient.patch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+		(v2ApiClient.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
 	});
 
 	it("loads sessions, sends a message, and renders the streamed response", async () => {
@@ -368,6 +493,52 @@ describe("V2 Frontend Integration", () => {
 				ttlSeconds: undefined,
 			});
 		});
+	});
+
+	it("renders the models section, checks updates, and completes a confirmed download", async () => {
+		renderWorkspace({ isSettingsOpen: true });
+
+		expect(
+			await screen.findByText(
+				"Core session and language defaults used across v2 screens.",
+			),
+		).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "Models" }));
+
+		expect(
+			await screen.findByRole("heading", { name: "Download Model" }),
+		).toBeInTheDocument();
+		expect(await screen.findByText("Text Model")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "Check Updates" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Update available")).toBeInTheDocument();
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Update" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Confirm Download")).toBeInTheDocument();
+			expect(screen.getByText("Owner is outside the allowlist")).toBeInTheDocument();
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Proceed" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Download completed!")).toBeInTheDocument();
+		});
+
+		expect(v2ApiClient.post).toHaveBeenCalledWith(
+			"/api/setup/model/download",
+			expect.anything(),
+			expect.objectContaining({
+				repo_id: "owner/text-model",
+				filename: "text.gguf",
+				acknowledge_warnings: true,
+			}),
+		);
 	});
 
 	it("includes safe attachments in the send payload", async () => {

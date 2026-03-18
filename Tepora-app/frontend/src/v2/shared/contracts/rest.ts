@@ -101,6 +101,100 @@ export const requirementsResponseSchema = z
 	})
 	.passthrough();
 
+export const setupModelSchema = z
+	.object({
+		id: z.string().min(1),
+		display_name: z.string().min(1),
+		role: z.string().min(1),
+		file_size: z.number().nonnegative(),
+		filename: z.string().optional(),
+		file_path: z.string().optional(),
+		source: z.string().min(1),
+		loader: z.string().optional(),
+		is_active: z.boolean().optional(),
+		repo_id: z.string().nullable().optional(),
+		revision: z.string().nullable().optional(),
+		sha256: z.string().nullable().optional(),
+	})
+	.passthrough();
+
+export const setupModelsResponseSchema = z.object({
+	models: z.array(setupModelSchema),
+});
+
+export const modelUpdateReasonSchema = z.enum([
+	"revision_mismatch",
+	"sha256_mismatch",
+	"up_to_date",
+	"insufficient_data",
+	"unknown",
+]);
+
+export const modelUpdateCheckResponseSchema = z.object({
+	update_available: z.boolean(),
+	reason: modelUpdateReasonSchema,
+	current_revision: z.string().nullable().optional(),
+	latest_revision: z.string().nullable().optional(),
+	current_sha256: z.string().nullable().optional(),
+	latest_sha256: z.string().nullable().optional(),
+});
+
+export const startModelDownloadRequestSchema = z.object({
+	repo_id: z.string().min(1),
+	filename: z.string().min(1),
+	role: z.string().min(1),
+	display_name: z.string().min(1),
+	revision: z.string().optional(),
+	sha256: z.string().optional(),
+	acknowledge_warnings: z.boolean().optional(),
+});
+
+export const startModelDownloadResponseSchema = z.object({
+	success: z.boolean(),
+	job_id: z.string().min(1).optional(),
+});
+
+export const setupProgressResponseSchema = z.object({
+	status: z.string().min(1),
+	progress: z.number(),
+	message: z.string(),
+});
+
+export const binaryUpdateInfoResponseSchema = z.object({
+	has_update: z.boolean(),
+	current_version: z.string().min(1),
+	latest_version: z.string().nullable().optional(),
+	release_notes: z.string().nullable().optional(),
+});
+
+export const startBinaryUpdateRequestSchema = z.object({
+	variant: z.string().optional(),
+});
+
+export const startBinaryUpdateResponseSchema = z.object({
+	success: z.boolean(),
+	job_id: z.string().min(1).optional(),
+});
+
+export const consentWarningSchema = z.union([
+	z.string(),
+	z
+		.object({
+			repo_id: z.string().optional(),
+			filename: z.string().optional(),
+			warnings: z.array(z.string()).optional(),
+		})
+		.passthrough(),
+]);
+
+export const consentRequiredErrorResponseSchema = z
+	.object({
+		error: z.string().optional(),
+		requires_consent: z.literal(true),
+		warnings: z.array(consentWarningSchema),
+	})
+	.passthrough();
+
 export const apiErrorResponseSchema = z
 	.object({
 		error: z.string().optional(),
@@ -115,3 +209,14 @@ export type SessionHistoryMessage = z.infer<typeof sessionHistoryMessageSchema>;
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
 export type V2Config = z.infer<typeof configResponseSchema>;
+export type SetupModel = z.infer<typeof setupModelSchema>;
+export type SetupModelsResponse = z.infer<typeof setupModelsResponseSchema>;
+export type ModelUpdateCheckResponse = z.infer<typeof modelUpdateCheckResponseSchema>;
+export type ModelUpdateReason = z.infer<typeof modelUpdateReasonSchema>;
+export type StartModelDownloadRequest = z.infer<typeof startModelDownloadRequestSchema>;
+export type StartModelDownloadResponse = z.infer<typeof startModelDownloadResponseSchema>;
+export type SetupProgressResponse = z.infer<typeof setupProgressResponseSchema>;
+export type BinaryUpdateInfoResponse = z.infer<typeof binaryUpdateInfoResponseSchema>;
+export type StartBinaryUpdateRequest = z.infer<typeof startBinaryUpdateRequestSchema>;
+export type StartBinaryUpdateResponse = z.infer<typeof startBinaryUpdateResponseSchema>;
+export type ConsentRequiredErrorResponse = z.infer<typeof consentRequiredErrorResponseSchema>;

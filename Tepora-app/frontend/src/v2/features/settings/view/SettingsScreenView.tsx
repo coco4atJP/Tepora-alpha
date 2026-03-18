@@ -22,9 +22,11 @@ export const SettingsScreenView: React.FC<SettingsScreenViewWrapperProps> = ({
   onSave,
   state,
   errorMessage,
+  customSectionContent,
 }) => {
   
   const activeSection = sections.find(s => s.id === activeSectionId) || sections[0];
+  const navItems = sections.map((section) => ({ id: section.id, label: section.title }));
 
   return (
     <SettingsView
@@ -32,6 +34,7 @@ export const SettingsScreenView: React.FC<SettingsScreenViewWrapperProps> = ({
       onClose={onClose}
       activeSection={activeSectionId}
       onSectionChange={onSectionChange}
+      navItems={navItems}
     >
       {activeSection && (
         <div className="flex flex-col gap-10">
@@ -45,71 +48,77 @@ export const SettingsScreenView: React.FC<SettingsScreenViewWrapperProps> = ({
             </p>
           )}
 
-          <div className="flex flex-col gap-8">
-            {activeSection.fields.map(field => (
-              <div key={field.id} className="flex flex-col gap-3">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex flex-col">
-                    <label className="text-text-main font-medium">{field.label}</label>
-                    {field.description && (
-                      <span className="text-text-muted text-sm font-light mt-1">{field.description}</span>
-                    )}
+          {customSectionContent?.[activeSection.id] ? (
+            <div>{customSectionContent[activeSection.id]}</div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-8">
+                {activeSection.fields.map(field => (
+                  <div key={field.id} className="flex flex-col gap-3">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex flex-col">
+                        <label className="text-text-main font-medium">{field.label}</label>
+                        {field.description && (
+                          <span className="text-text-muted text-sm font-light mt-1">{field.description}</span>
+                        )}
+                      </div>
+                      
+                      <div className="min-w-[200px] flex justify-end">
+                        {field.kind === 'toggle' && (
+                          <Toggle 
+                            checked={field.value as boolean} 
+                            onChange={(e) => onFieldChange(field.id, e.target.checked)} 
+                          />
+                        )}
+                        {field.kind === 'text' && (
+                          <TextField 
+                            value={(field.value as string) || ''} 
+                            onChange={(e) => onFieldChange(field.id, e.target.value)} 
+                            placeholder={field.label}
+                          />
+                        )}
+                        {field.kind === 'number' && (
+                          <TextField 
+                            type="number"
+                            value={(field.value as number) || 0} 
+                            onChange={(e) => onFieldChange(field.id, Number(e.target.value))} 
+                          />
+                        )}
+                        {field.kind === 'select' && field.options && (
+                          <Select 
+                            value={(field.value as string) || ''} 
+                            onChange={(e) => onFieldChange(field.id, e.target.value)}
+                          >
+                            {field.options.map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </Select>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="min-w-[200px] flex justify-end">
-                    {field.kind === 'toggle' && (
-                      <Toggle 
-                        checked={field.value as boolean} 
-                        onChange={(e) => onFieldChange(field.id, e.target.checked)} 
-                      />
-                    )}
-                    {field.kind === 'text' && (
-                      <TextField 
-                        value={(field.value as string) || ''} 
-                        onChange={(e) => onFieldChange(field.id, e.target.value)} 
-                        placeholder={field.label}
-                      />
-                    )}
-                    {field.kind === 'number' && (
-                      <TextField 
-                        type="number"
-                        value={(field.value as number) || 0} 
-                        onChange={(e) => onFieldChange(field.id, Number(e.target.value))} 
-                      />
-                    )}
-                    {field.kind === 'select' && field.options && (
-                      <Select 
-                        value={(field.value as string) || ''} 
-                        onChange={(e) => onFieldChange(field.id, e.target.value)}
-                      >
-                        {field.options.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </Select>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div className="mt-10 pt-6 border-t border-white/5 flex items-center justify-between">
-            {errorMessage ? (
-              <div className="text-red-400 text-sm">{errorMessage}</div>
-            ) : (
-              <div className="text-text-muted text-sm opacity-50">
-                {state === 'saving' ? 'Saving...' : state === 'ready' ? 'All changes saved.' : ''}
+              <div className="mt-10 pt-6 border-t border-white/5 flex items-center justify-between">
+                {errorMessage ? (
+                  <div className="text-red-400 text-sm">{errorMessage}</div>
+                ) : (
+                  <div className="text-text-muted text-sm opacity-50">
+                    {state === 'saving' ? 'Saving...' : state === 'ready' ? 'All changes saved.' : ''}
+                  </div>
+                )}
+                
+                <button
+                  onClick={onSave}
+                  disabled={state === 'saving' || state === 'loading'}
+                  className="bg-primary text-[#FAFAFA] px-6 py-2 rounded-full text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  Save Changes
+                </button>
               </div>
-            )}
-            
-            <button
-              onClick={onSave}
-              disabled={state === 'saving' || state === 'loading'}
-              className="bg-primary text-[#FAFAFA] px-6 py-2 rounded-full text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              Save Changes
-            </button>
-          </div>
+            </>
+          )}
         </div>
       )}
     </SettingsView>

@@ -8,6 +8,7 @@ export const SETTINGS_SECTION_IDS = [
 	"general",
 	"appearance",
 	"agents",
+	"models",
 	"advanced",
 ] as const;
 
@@ -194,6 +195,13 @@ export function buildSettingsSections(
 					value: config.privacy?.redact_pii ?? true,
 				},
 			],
+		},
+		{
+			id: "models",
+			title: "Models",
+			description:
+				"Manage installed text and embedding models, remote downloads, and llama.cpp updates.",
+			fields: [],
 		},
 		{
 			id: "advanced",

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
 	configResponseSchema,
+	setupModelsResponseSchema,
 	type V2Config,
 } from "../../../shared/contracts";
 import { v2ApiClient } from "../../../shared/lib/api-client";
@@ -11,6 +12,7 @@ const configWriteResponseSchema = z.object({}).passthrough();
 
 export const v2SettingsQueryKeys = {
 	config: () => ["v2", "config"] as const,
+	models: () => ["v2", "settings", "models"] as const,
 };
 
 export function useV2ConfigQuery() {
@@ -43,6 +45,30 @@ export function useSaveV2ConfigMutation() {
 		onSettled: () => {
 			void queryClient.invalidateQueries({
 				queryKey: v2SettingsQueryKeys.config(),
+			});
+		},
+	});
+}
+
+export function useV2SetupModelsQuery() {
+	return useQuery(
+		v2StaticQueryOptions({
+			queryKey: v2SettingsQueryKeys.models(),
+			queryFn: () =>
+				v2ApiClient.get("/api/setup/models", setupModelsResponseSchema),
+		}),
+	);
+}
+
+export function useDeleteSetupModelMutation() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (modelId: string) =>
+			v2ApiClient.delete(`/api/setup/model/${encodeURIComponent(modelId)}`, configWriteResponseSchema),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({
+				queryKey: v2SettingsQueryKeys.models(),
 			});
 		},
 	});

@@ -5,6 +5,7 @@ export interface SettingsViewProps {
   onClose: () => void;
   activeSection: string;
   onSectionChange: (sectionId: string) => void;
+  navItems: Array<{ id: string; label: string }>;
   children?: React.ReactNode; // Right side content
 }
 
@@ -13,15 +14,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onClose,
   activeSection,
   onSectionChange,
+  navItems,
   children,
 }) => {
-  const navItems = [
-    { id: 'general', label: 'General' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'agents', label: 'Agents' },
-    { id: 'advanced', label: 'Advanced' },
-  ];
-
   return (
     <div
       className={`absolute inset-0 z-[60] bg-bg transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex pt-[8vh] px-[12vw] gap-[6vw] overflow-hidden ${

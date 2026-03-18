@@ -1,7 +1,8 @@
-import { useEffect, useReducer } from "react";
+import { createElement, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import type { SettingsScreenViewWrapperProps } from "../view/SettingsScreenView";
 import { useSaveV2ConfigMutation, useV2ConfigQuery } from "./queries";
+import { ModelManagementSection } from "../view/ModelManagementSection";
 import {
 	buildConfigPatch,
 	buildSettingsSections,
@@ -51,6 +52,7 @@ export function useSettingsScreenModel({
 				sectionId:
 					sectionId === "appearance" ||
 					sectionId === "agents" ||
+					sectionId === "models" ||
 					sectionId === "advanced"
 						? sectionId
 						: "general",
@@ -67,6 +69,9 @@ export function useSettingsScreenModel({
 							? "error"
 							: "ready",
 		sections,
+		customSectionContent: {
+			models: createElement(ModelManagementSection),
+		},
 		errorMessage:
 			state.errorMessage ??
 			(configQuery.error instanceof Error ? configQuery.error.message : null),

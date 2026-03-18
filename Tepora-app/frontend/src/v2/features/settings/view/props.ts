@@ -1,3 +1,5 @@
+import type React from "react";
+
 export interface SettingsFieldViewModel {
 	id: string;
 	label: string;
@@ -20,6 +22,7 @@ export interface SettingsSectionViewModel {
 export interface SettingsScreenViewProps {
 	state: "loading" | "ready" | "saving" | "error";
 	sections: SettingsSectionViewModel[];
+	customSectionContent?: Partial<Record<string, React.ReactNode>>;
 	errorMessage: string | null;
 	onFieldChange: (fieldId: string, value: string | number | boolean) => void;
 	onSave: () => Promise<void>;

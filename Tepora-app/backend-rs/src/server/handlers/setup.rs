@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::{Path, Query, State};
-use axum::http::header;
-use axum::response::IntoResponse;
+use axum::http::{header, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use chrono::Utc;
 use flate2::read::GzDecoder;
@@ -210,6 +210,12 @@ pub struct DownloadModelRequest {
     #[serde(default)]
     pub role: Option<String>,
     #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub revision: Option<String>,
+    #[serde(default)]
+    pub sha256: Option<String>,
+    #[serde(default)]
     pub acknowledge_warnings: Option<bool>,
 }
 
@@ -339,7 +345,7 @@ pub async fn setup_default_models(
 pub async fn setup_run(
     State(state): State<AppStateWrite>,
     Json(payload): Json<SetupRunRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+) -> Result<Response, ApiError> {
     state.security.ensure_lockdown_disabled("model_download")?;
     let job_id = Uuid::new_v4().to_string();
     state.setup.set_job_id(Some(job_id.clone()))?;
@@ -369,7 +375,8 @@ pub async fn setup_run(
                 "success": false,
                 "requires_consent": false,
                 "warnings": policy.warnings
-            })));
+            }))
+            .into_response());
         }
         if policy.requires_consent {
             warnings.push(json!({
@@ -383,11 +390,16 @@ pub async fn setup_run(
 
     if !warnings.is_empty() && payload.acknowledge_warnings != Some(true) {
         state.setup.set_job_id(None)?;
-        return Ok(Json(json!({
-            "success": false,
-            "requires_consent": true,
-            "warnings": warnings
-        })));
+        return Ok((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": "Download requires confirmation",
+                "success": false,
+                "requires_consent": true,
+                "warnings": warnings
+            })),
+        )
+            .into_response());
     }
 
     let consent = payload.acknowledge_warnings.unwrap_or(false);
@@ -407,7 +419,7 @@ pub async fn setup_run(
     let state_clone = state.clone();
     tokio::spawn(run_download_job(state_clone, dl_tasks));
 
-    Ok(Json(json!({"success": true, "job_id": job_id})))
+    Ok(Json(json!({"success": true, "job_id": job_id})).into_response())
 }
 
 pub async fn setup_progress(
@@ -464,6 +476,9 @@ pub async fn setup_models(
                 "file_path": model.file_path,
                 "source": model.source,
                 "loader": model.loader,
+                "repo_id": model.repo_id,
+                "revision": model.revision,
+                "sha256": model.sha256,
                 "is_active": is_active,
             })
         })
@@ -720,62 +735,56 @@ pub async fn setup_check_model(
 pub async fn setup_download_model(
     State(state): State<AppStateWrite>,
     Json(payload): Json<DownloadModelRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+) -> Result<Response, ApiError> {
     state.security.ensure_lockdown_disabled("model_download")?;
     state.security.record_audit(
         "model_download_requested",
         "requested",
         json!({"repo_id": payload.repo_id, "filename": payload.filename}),
     )?;
-    // C-1 fix: 単一モデルダウンロードの本実装
-    let role = payload.role.as_deref().unwrap_or("text");
-    let consent = payload.acknowledge_warnings.unwrap_or(false);
-    let display_name = payload.filename.clone();
+    let dl_task = build_download_task_from_request(&payload);
+    let consent = dl_task.consent;
 
-    // ポリシー確認
-    let policy =
-        state
-            .models
-            .evaluate_download_policy(&payload.repo_id, &payload.filename, None, None);
+    let policy = state.models.evaluate_download_policy(
+        &payload.repo_id,
+        &payload.filename,
+        dl_task.revision.as_deref(),
+        dl_task.sha256.as_deref(),
+    );
     if !policy.allowed {
-        return Ok(Json(json!({
-            "success": false,
-            "requires_consent": false,
-            "warnings": policy.warnings
-        })));
+        return Ok((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "Download blocked by policy requirements",
+                "requires_consent": false,
+                "warnings": policy.warnings,
+            })),
+        )
+            .into_response());
     }
     if policy.requires_consent && !consent {
-        return Err(ApiError::Conflict(
-            json!({
+        return Ok((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": "Download requires confirmation",
                 "success": false,
                 "requires_consent": true,
                 "warnings": policy.warnings
-            })
-            .to_string(),
-        ));
+            })),
+        )
+            .into_response());
     }
 
-    // 非同期ダウンロード開始
     let job_id = uuid::Uuid::new_v4().to_string();
     state.setup.set_job_id(Some(job_id.clone()))?;
     state
         .setup
         .update_progress("pending", 0.0, "Starting download...")?;
 
-    let dl_task = DownloadTask {
-        repo_id: payload.repo_id.clone(),
-        filename: payload.filename.clone(),
-        role: role.to_string(),
-        display_name,
-        revision: None,
-        sha256: None,
-        consent,
-    };
-
     let state_clone = state.clone();
     tokio::spawn(run_download_job(state_clone, vec![dl_task]));
 
-    Ok(Json(json!({"success": true, "job_id": job_id})))
+    Ok(Json(json!({"success": true, "job_id": job_id})).into_response())
 }
 
 pub async fn setup_register_local_model(
@@ -841,7 +850,13 @@ pub async fn setup_model_update_check(
                             Some(entry.file_size),
                         )
                         .await?;
-                    return Ok(Json(result));
+                    let normalized = normalize_model_update_check_response(
+                        &result,
+                        entry.revision.as_deref(),
+                        entry.sha256.as_deref(),
+                        Some(entry.file_size),
+                    );
+                    return Ok(Json(normalized));
                 }
             }
             Err(ApiError::NotFound("Model not found".to_string()))
@@ -855,7 +870,9 @@ pub async fn setup_model_update_check(
                 .models
                 .check_update(repo_id, filename, revision, None, None)
                 .await?;
-            Ok(Json(result))
+            Ok(Json(normalize_model_update_check_response(
+                &result, revision, None, None,
+            )))
         }
     }
 }
@@ -924,6 +941,101 @@ pub async fn setup_binary_update(
 
 fn success_response() -> Json<Value> {
     Json(json!({"success": true}))
+}
+
+fn normalize_model_update_check_response(
+    result: &Value,
+    current_revision: Option<&str>,
+    current_sha256: Option<&str>,
+    current_size: Option<u64>,
+) -> Value {
+    let update_available = result
+        .get("has_update")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let latest_tag = result
+        .get("remote_etag")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let remote_size = result.get("remote_size").and_then(|value| value.as_u64());
+
+    let reason = if let (Some(current), Some(latest)) = (current_sha256, latest_tag.as_deref()) {
+        if current.trim() == latest.trim() {
+            "up_to_date"
+        } else {
+            "sha256_mismatch"
+        }
+    } else if !update_available {
+        if latest_tag.is_none() && remote_size.is_none() {
+            "insufficient_data"
+        } else {
+            "up_to_date"
+        }
+    } else if latest_tag.is_some() {
+        "revision_mismatch"
+    } else if let (Some(current), Some(remote)) = (current_size, remote_size) {
+        if current == remote {
+            "up_to_date"
+        } else {
+            "unknown"
+        }
+    } else {
+        "insufficient_data"
+    };
+
+    json!({
+        "update_available": update_available,
+        "reason": reason,
+        "current_revision": current_revision
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        "latest_revision": latest_tag,
+        "current_sha256": current_sha256
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        "latest_sha256": result
+            .get("remote_etag")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    })
+}
+
+fn build_download_task_from_request(payload: &DownloadModelRequest) -> DownloadTask {
+    let role = payload
+        .role
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("text");
+    let display_name = payload
+        .display_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&payload.filename);
+
+    DownloadTask {
+        repo_id: payload.repo_id.clone(),
+        filename: payload.filename.clone(),
+        role: role.to_string(),
+        display_name: display_name.to_string(),
+        revision: payload
+            .revision
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        sha256: payload
+            .sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        consent: payload.acknowledge_warnings.unwrap_or(false),
+    }
 }
 
 fn ensure_role_model_exists(
@@ -1700,4 +1812,98 @@ async fn install_latest_llama_binary(
     let _ = state.llama.refresh_binary_path(&state.paths).await;
 
     Ok(release.tag_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_download_task_preserves_revision_sha_and_display_name() {
+        let payload = DownloadModelRequest {
+            repo_id: "owner/model".to_string(),
+            filename: "model.gguf".to_string(),
+            role: Some("embedding".to_string()),
+            display_name: Some("Embedding Model".to_string()),
+            revision: Some("main".to_string()),
+            sha256: Some("a".repeat(64)),
+            acknowledge_warnings: Some(true),
+        };
+
+        let task = build_download_task_from_request(&payload);
+
+        assert_eq!(task.repo_id, "owner/model");
+        assert_eq!(task.filename, "model.gguf");
+        assert_eq!(task.role, "embedding");
+        assert_eq!(task.display_name, "Embedding Model");
+        assert_eq!(task.revision.as_deref(), Some("main"));
+        assert_eq!(task.sha256.as_deref(), Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(task.consent);
+    }
+
+    #[test]
+    fn build_download_task_falls_back_to_filename_and_text_role() {
+        let payload = DownloadModelRequest {
+            repo_id: "owner/model".to_string(),
+            filename: "model.gguf".to_string(),
+            role: Some("   ".to_string()),
+            display_name: Some("  ".to_string()),
+            revision: None,
+            sha256: None,
+            acknowledge_warnings: None,
+        };
+
+        let task = build_download_task_from_request(&payload);
+
+        assert_eq!(task.role, "text");
+        assert_eq!(task.display_name, "model.gguf");
+        assert_eq!(task.revision, None);
+        assert_eq!(task.sha256, None);
+        assert!(!task.consent);
+    }
+
+    #[test]
+    fn normalize_update_check_prefers_hash_reason() {
+        let normalized = normalize_model_update_check_response(
+            &json!({
+                "has_update": true,
+                "remote_size": 42,
+                "remote_etag": "new-hash"
+            }),
+            Some("main"),
+            Some("old-hash"),
+            Some(12),
+        );
+
+        assert_eq!(
+            normalized.get("update_available").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            normalized.get("reason").and_then(Value::as_str),
+            Some("sha256_mismatch")
+        );
+        assert_eq!(
+            normalized.get("current_revision").and_then(Value::as_str),
+            Some("main")
+        );
+        assert_eq!(
+            normalized.get("latest_sha256").and_then(Value::as_str),
+            Some("new-hash")
+        );
+    }
+
+    #[test]
+    fn normalize_update_check_marks_insufficient_data() {
+        let normalized = normalize_model_update_check_response(&json!({}), None, None, None);
+
+        assert_eq!(
+            normalized.get("update_available").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            normalized.get("reason").and_then(Value::as_str),
+            Some("insufficient_data")
+        );
+    }
 }
