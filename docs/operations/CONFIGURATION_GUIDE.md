@@ -1,157 +1,166 @@
 # Tepora 設定運用ガイド
 
-**最終更新**: 2026-03-14
+**最終更新**: 2026-03-18
 **対象バージョン**: v0.4.5
 
----
+この文書は、現行の Rust バックエンド実装に合わせて設定の読み書き場所、秘密情報の扱い、主要キーを整理したものです。
 
-## 1. 設定ファイル全体像
+## 1. 設定の読み込みと保存先
 
-```
-backend-rs/
-├── config.yml          # メイン設定ファイル
-├── secrets.yaml        # 将来的なシークレット管理用（現在は空）
+### 1.1 パス解決ルール
+
+`ConfigService` は次の順序で設定ファイルを解決します。
+
+1. `TEPORA_CONFIG_PATH` があればそのパスを使用
+2. `USER_DATA_DIR/config.yml` があればそれを使用
+3. なければ `project_root/config.yml` を初期値として読む
+
+保存先は常に次です。
+
+- 公開設定: `USER_DATA_DIR/config.yml`
+- 機密設定: `USER_DATA_DIR/secrets.yaml`
+
+読み込み時は `config.yml` と `secrets.yaml` をマージします。
+
+### 1.2 USER_DATA_DIR
+
+- Windows: `%LOCALAPPDATA%\Tepora`
+- macOS: `~/Library/Application Support/Tepora`
+- Linux: `~/.local/share/tepora`
+
+> デバッグビルドでは `USER_DATA_DIR` は `backend-rs/` 直下になります。`TEPORA_DATA_DIR` を設定すると明示的に上書きできます。
+
+## 2. 実際に使われる設定関連ファイル
+
+```text
+USER_DATA_DIR/
+├── config.yml
+├── secrets.yaml
+├── setup_state.json
+├── models.json
+├── tepora_core.db
+├── em_memory.db
+├── rag.db
+├── logs/
+├── bin/llama.cpp/current/
 └── config/
-    ├── agents.yaml           # エージェントプロファイル定義
-    ├── mcp_policy.json       # MCPツール実行ポリシー
-    └── mcp_tools_config.json # MCPサーバー接続設定
+    ├── mcp_policy.json
+    └── mcp_tools_config.json
 ```
 
----
+### 補足
 
-## 2. config.yml
+- `setup_state.json`: セットアップウィザードの進捗と選択ローダーを保持
+- `models.json`: モデルレジストリ
+- `mcp_policy.json`: MCP 実行ポリシー
+- `mcp_tools_config.json`: MCP サーバー定義
 
-アプリケーションのメイン設定ファイル。起動時に自動読み込みされる。
+## 3. 秘密情報の扱い
 
-### セクション一覧
+- API キーやトークン系の値は `secrets.yaml` に分離保存されます。
+- 一部の機密値は OS の Secret Store / Keyring 参照へ正規化されることがあります。
+- `GET /api/config` のレスポンスでは機密値が `****` にマスクされます。
+- `POST /api/config` / `PATCH /api/config` で `****` を送ると、既存値を保持したまま更新できます。
 
-| セクション | 説明 |
-|-----------|------|
-| `active_agent_profile` | 現在使用中のエージェントプロファイル名（`string`） |
-| `app` | アプリケーション基本設定 |
-| `characters` | ペルソナ（キャラクター）定義 |
-| `custom_agents` | ユーザー定義エージェント |
-| `llm_manager` | LLMバックエンド選択 |
-| `models_gguf` | ローカルモデル設定 |
-| `tools` | ツール設定 |
+## 4. 主要設定セクション
 
-### 2.1 `app`
+| セクション | 用途 |
+|---|---|
+| `app` | 言語、セットアップ完了フラグ、入力上限などの基本設定 |
+| `server` | CORS 許可 origin などのサーバー設定 |
+| `privacy` | Web 検索許可、lockdown、URL ポリシー |
+| `permissions` | 権限 TTL の既定値 |
+| `tools` | 検索プロバイダーなどのツール設定 |
+| `llm_manager` | 現在のローダー選択 (`llama_cpp` / `ollama` / `lmstudio`) |
+| `models_gguf` | テキストモデル / 埋め込みモデル / 個別モデル定義 |
+| `model_download` | ダウンロードの SHA256 検証や同意要件 |
+| `default_models` | セットアップウィザードに出す推奨モデル |
+| `characters` | キャラクタープロファイル |
+| `custom_agents` | 汎用 / researcher / coder などの追加エージェント定義 |
 
-| キー | 型 | デフォルト | 説明 |
-|-----|-----|----------|------|
-| `language` | `string` | `ja` | UIの表示言語（`en`, `ja`, `es`, `zh`） |
-| `setup_completed` | `bool` | `false` | セットアップウィザード完了フラグ |
+## 5. 実運用でよく見るキー
 
-### 2.2 `characters`
-
-キャラクター（ペルソナ）の定義。キー名がキャラクターIDとなる。
+### `app`
 
 ```yaml
-characters:
-  <character_id>:
-    name: "表示名"
-    description: "キャラクターの説明"
-    system_prompt: |
-      <persona_definition>
-      ...
-      </persona_definition>
+app:
+  language: ja
+  setup_completed: true
+  em_memory_enabled: true
 ```
 
-### 2.3 `custom_agents`
-
-ユーザーが定義するエージェントプロファイル。タスク分類に応じて自動選択される。
+### `privacy`
 
 ```yaml
-custom_agents:
-  <agent_id>:
-    name: "表示名"
-    description: "説明"
-    enabled: true
-    system_prompt: "追加プロンプト"
-    priority: 0          # 数値が大きいほど優先
-    tags: ["tag1"]       # マッチングに使用
-    model_config_name: null  # null = デフォルトモデル使用
-    icon: null
-    tool_policy:
-      allow_all: true        # true = 全ツール許可
-      allowed_tools: []      # allow_all が null/false の場合に有効
-      denied_tools: []
-      require_confirmation: []
+privacy:
+  allow_web_search: true
+  url_policy_preset: balanced
+  lockdown:
+    enabled: false
+    reason: null
 ```
 
-### 2.4 `llm_manager`
+### `llm_manager`
 
-| キー | 型 | 値 | 説明 |
-|-----|-----|---|------|
-| `loader` | `string` | `ollama` / `llama-server` | LLMバックエンドの種類 |
+```yaml
+llm_manager:
+  loader: ollama
+```
 
-### 2.5 `models_gguf`
+### `models_gguf`
 
-ローカルモデルの接続設定。
+```yaml
+models_gguf:
+  text_model:
+    path: ollama://gemma3n:latest
+    port: 8088
+    n_ctx: 8192
+    n_gpu_layers: -1
+  embedding_model:
+    path: ollama://embeddinggemma:latest
+    port: 8081
+    n_ctx: 2048
+    n_gpu_layers: -1
+```
 
-| パス | 型 | 説明 |
-|-----|-----|------|
-| `text_model.path` | `string` | テキストモデルのパス（例: `ollama://model`, `lmstudio://model`） |
-| `text_model.port` | `u16` | テキストモデルの待受ポート |
-| `text_model.n_ctx` | `u32` | コンテキスト長 |
-| `text_model.n_gpu_layers` | `i32` | GPU利用レイヤー数（`-1` = 全GPU） |
-| `embedding_model.*` | — | 埋め込みモデル（同構造） |
+> `port` は主に `llama_cpp` 実行時に意味を持ちます。`ollama://...` や `lmstudio://...` を使う場合は、対応ローダーの接続先解決が優先されます。
 
-> **注意**: `port` は `llama-server` ローダー使用時のみ有効。`ollama` 使用時は Ollama 側のデフォルトポートが使われる。
+### `model_download`
 
-### 2.6 `tools`
+```yaml
+model_download:
+  require_sha256: true
+```
 
-| キー | 型 | 値 | 説明 |
-|-----|-----|---|------|
-| `search_provider` | `string` | `google` / `duckduckgo` | Web検索プロバイダー |
+## 6. MCP 関連設定
 
----
+### `config/mcp_policy.json`
 
-## 3. secrets.yaml
+- `policy`: 既定は `LOCAL_ONLY`
+- `blocked_commands`
+- `require_tool_confirmation`
+- `first_use_confirmation`
 
-将来的に外部 API キー等のシークレット情報を格納するために設計されたファイル。
+### `config/mcp_tools_config.json`
 
-**現状**: 空オブジェクト `{}` であり、アプリケーション内で読み込まれていない。
+- `mcpServers` 配下にサーバー定義を保存
+- UI / API 経由の追加・削除・有効化・無効化に追従
 
-**設計意図**: ユーザーが利用する外部サービス（検索API等）のキーを `config.yml` から分離して管理する予定地。本番展開時には `.gitignore` への追加とファイルパーミッション制御を推奨。
+## 7. 環境変数
 
----
+| 環境変数 | 説明 |
+|---|---|
+| `TEPORA_ROOT` | project root を明示 |
+| `TEPORA_DATA_DIR` | USER_DATA_DIR を明示 |
+| `TEPORA_CONFIG_PATH` | 読み書きする config.yml を明示 |
+| `TEPORA_PORT` | サーバー待受ポート |
+| `PORT` | `TEPORA_PORT` 未設定時のフォールバック |
+| `TEPORA_HOST` | サーバーバインドアドレス |
+| `TEPORA_ENV` | `production` 時の一部セキュリティ挙動に影響 |
+| `RUST_LOG` | Rust tracing のログレベル |
 
-## 4. config/ ディレクトリ
+## 8. 運用メモ
 
-### 4.1 `agents.yaml`
-
-`config.yml` の `custom_agents` セクションとは別に、プリセットのエージェント定義を保持する。
-構造は `custom_agents` と同等だが、アプリケーション同梱の初期定義として使用される。
-
-### 4.2 `mcp_policy.json`
-
-MCPツールの実行ポリシーを定義する。
-
-| キー | 型 | 説明 |
-|-----|-----|------|
-| `policy` | `string` | `LOCAL_ONLY` = ローカルプロセスのみ許可 |
-| `blocked_commands` | `string[]` | ブロック対象のコマンドパターン |
-| `require_tool_confirmation` | `bool` | ツール実行前にユーザー確認を求めるか |
-| `first_use_confirmation` | `bool` | 初回使用時の確認を求めるか |
-
-### 4.3 `mcp_tools_config.json`
-
-外部MCPサーバーの接続定義。初期値は空 `{"mcpServers": {}}`。
-ユーザーがMCPサーバーを追加すると、ここにサーバー定義が保存される。
-
----
-
-## 5. 環境変数による上書き
-
-| 環境変数 | デフォルト | 説明 |
-|---------|----------|------|
-| `TEPORA_PORT` | `3001` | サーバー待受ポート（最優先） |
-| `PORT` | `3001` | サーバー待受ポート（フォールバック） |
-| `TEPORA_HOST` | `127.0.0.1` | サーバーバインドアドレス |
-| `TEPORA_ENV` | (未設定) | `production` 設定時にセキュリティ検証を強化 |
-| `RUST_LOG` | `info,backend_rs=debug` | トレーシングフィルタ |
-
----
-
-*本ドキュメントは中期的改善項目 #8（設定運用ガイド整備）として作成された。*
+- 起動時に `tepora_core.db`、`em_memory.db`、`rag.db` の自動バックアップが作成されます。
+- `backup.startup_auto_backup_limit` で保持数を調整できます。
+- `privacy.lockdown.enabled` が有効な場合、一部の危険操作や外部アクセスは API 側で拒否されます。

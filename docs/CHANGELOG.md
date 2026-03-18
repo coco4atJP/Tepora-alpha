@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Updated README, user guide, web development guide, configuration guide, and architecture docs to match the current Rust/Tauri implementation, local-first networking model, setup wizard flow, and API surface.
 - Refactored backend `models` into a thin `ModelManager` facade plus dedicated `registry`, `discovery`, `download`, `metadata`, and `selection` modules.
 - Added entry-returning model lookup APIs (`resolve_character_model`, `resolve_embedding_model`, `find_first_model_by_role`) and reduced direct `get_registry()` traversal outside setup handlers.
 - Refactored backend `llm/service.rs` into a thin orchestration layer and extracted model resolution, external-loader shared utilities, and provider-specific clients for OpenAI-compatible, Ollama native, and LM Studio native flows.

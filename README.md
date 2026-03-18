@@ -1,122 +1,86 @@
 ![Tepora Header](image/Tepora_log.png)
 
-# Tepora (V4.5 BETA)
+# Tepora (v0.4.5 Beta)
 
-**ただのツールではありません。あなたの「記憶」を共有するパートナーです。**
+Tepora は、Rust バックエンドと React + Tauri フロントエンドで構成された、local-first なデスクトップ AI パートナーです。会話履歴、エピソード記憶、モデル設定、MCP 連携をローカルに保持しつつ、必要に応じて Web 検索や外部モデルプロバイダーも扱えます。
 
-> "Welcome to the Cyber Tea Salon."
-> 既存のチャットAIは、画面を閉じればあなたのことを忘れてしまいます。
-> Teporaは違います。昨日の会話も、あなたの好みも、ずっと覚えています。
+## 特徴
 
----
+- **Local-first desktop app**: 推奨実行環境は Tauri デスクトップアプリです。Rust 製の Axum バックエンドを sidecar として起動し、HTTP / WebSocket でフロントエンドと接続します。
+- **複数の LLM ローダー**: セットアップウィザードから `llama.cpp`、`Ollama`、`LM Studio` を選択できます。ランタイムには OpenAI-compatible クライアントも実装されています。
+- **記憶と継続性**: EM-LLM ベースのエピソード記憶、RAG、セッション履歴、記憶圧縮ジョブを備えています。
+- **エージェント実行**: Chat / Search / Agent の 3 モード、Agent Skills、MCP サーバー連携、ツール承認フローを提供します。
+- **運用と保守**: `task doctor`、`task test:arch`、`task test:ws-replay`、`task test:behavior`、`task test:changed` など、現行の開発フローに沿ったタスクを整備しています。
 
-## ☕ Tepora（テポラ）とは？
+## ネットワーク利用について
 
-**「機能」ではなく「体験」を。**
+Tepora は **local-first** ですが、**always-offline** ではありません。
 
-Teporaは、無機質な「ChatGPTの代替品」を目指してはいません。
-私たちが目指すのは、ガラス細工のような美しいインターフェース（Cyber Tea Salon）と、あなたを深く理解する記憶システム（EM-LLM）を備えた、唯一無二の**パートナーAI**です。
+- `llama.cpp` やローカルの Ollama / LM Studio を使う会話はオフライン構成で運用できます。
+- モデルダウンロード、Web 検索、ネットワーク越しの MCP サーバー、OpenAI-compatible エンドポイントを使う場合は、明示的な設定と権限付与が必要です。
+- `privacy.lockdown.enabled` や `privacy.allow_web_search` によって、外部アクセスを抑制できます。
 
-仕事の悩みも、ふとしたアイデアも、Teporaなら「この前話していた件ですが...」と文脈を汲み取ってサポートしてくれます。
+## リポジトリ構成
 
-<!--
-  Main UI Screenshot Placeholder
-  推奨: 透明感のあるウィンドウとチャット画面のスクリーンショット
--->
-
-<!-- ![Main Interface](placeholder_main_ui.png) -->
-
-## ✨ なぜ、Teporaなのか？ (Why Tepora?)
-
-### 1. 驚異的な記憶力：EM-LLM System
-
-他のローカルLLMツールとの最大の違い、それは「エピソード記憶」です。
-Teporaは会話の中の重要な出来事を自動的に長期記憶として保存します。
-
-* **Before:** 「このプロジェクトの要件は...（毎回説明が必要）」
-* **With Tepora:** 「例のプロジェクトの件ですね。前回の続きから進めましょうか？」
-
-### 2. あなただけの「Cyber Tea Salon」
-
-デスクトップに広がるのは、ノイズのない落ち着いた空間。
-タスクをこなすだけの事務的な画面ではなく、思わず起動したくなるような、心地よい居場所を提供します。
-
-### 3. プライバシーと自由（完全ローカル動作）
-
-すべての記憶と会話は、あなたのPCの中にだけ存在します。
-クラウドにアップロードされることはありません。誰にも気兼ねなく、本当の自分を出せる場所です。
-
-### 4. ふたりの専門家
-
-* **CharacterAgent (Main Agent)**: あなたのメンタルとモチベーションを支える、親しみやすいパートナー。
-* **Professional Agent**: 検索や分析ツールを使いこなす、頼れる実務家。
-
-<!--
-  Settings/Agent Select Screenshot Placeholder
--->
-
-<!-- ![Agent Selection](placeholder_agents.png) -->
-
-## 🚀 早期アクセス (Early Access)
-
-現在、Teporaは開発者向けのプレビュー版（Alpha）です。
-一般公開に向けた準備中ですが、少しだけ早く「未来のパートナー」に会いに来ませんか？
-
-### 必要なもの
-
-- 少し強めのPC (GPU搭載を推奨)
-- **Rust** / **Node.js 18+**
-- 冒険心
-
-### 始め方（開発者・アーリーアダプター向け）
-
-```bash
-# Cyber Tea Salonへの招待状を受け取る
-git clone https://github.com/coco4atJP/Tepora.git
+```text
+Tepora_Project/
+├── Tepora-app/
+│   ├── backend-rs/      # Rust backend (Axum, GraphRuntime, MCP, Models, Memory)
+│   ├── frontend/        # React frontend + Tauri shell
+│   ├── scripts/         # build/dev/test helper scripts
+│   └── Taskfile.yml     # canonical task definitions
+├── docs/                # architecture, guides, operations
+├── scripts/             # root-level helper scripts
+└── Taskfile.yml         # wrapper that delegates to Tepora-app/Taskfile.yml
 ```
 
-セットアップの詳細は、[開発者ガイド (docs/guides/development.md)](docs/guides/development.md) をご覧ください。
-一般ユーザー向けのマニュアルは [ユーザーガイド (docs/user_guide.md)](docs/user_guide.md) を参照してください。
+## クイックスタート
 
----
+### 前提条件
 
-## 🛠️ For Developers & Engineers
+- Node.js 18+
+- Rust stable
+- [Task](https://taskfile.dev/)
 
-![Tepora Architecture](image/tepora_architecture.png)
+### セットアップ
 
-Teporaは、最先端の技術実験場でもあります。
-"Memory-Augmented Generation" の実用化や、美しくモダンなTauriアプリケーションの開発に興味がある方の参加をお待ちしています。
+```bash
+git clone https://github.com/coco4atJP/Tepora.git
+cd Tepora
+task install
+task doctor
+```
 
-* **Core:** Rust, MCP (Tooling), Llama.cpp (Local Inference), EM-LLM & FadeMem v2 (Memory Architecture)
-* **GUI:** Tauri (Rust), React 19 + TypeScript, Tailwind CSS v4
-* **Engine/DB:** petgraph (State Machine), SQLite (In-process RAG & Persistence)
+### 開発起動
 
-### Documentation
+```bash
+# Browser-oriented dev (backend + frontend with dynamic port sync)
+task dev
 
-* 📂 [包括的アーキテクチャ仕様書](docs/architecture/ARCHITECTURE.md)
-* 📂 [開発者セットアップガイド](docs/guides/development.md)
-* 📂 `task doctor` による開発環境診断 (`task doctor`)
-* 🧱 `task test:arch` による backend レイヤー適合テスト実行
-* 🧪 `task test:flaky` による flaky test quarantine lane 実行
+# Tauri desktop dev
+task dev-tauri
+```
 
-## 💐 謝辞 (Acknowledgments)
+### 代表的な検証コマンド
 
-本プロジェクトは、以下の革新的な技術とコミュニティに称賛を送り、深く感謝を示します。
+```bash
+task test
+task test:changed
+task test:arch
+task test:ws-replay
+task test:behavior
+task test:flaky
+task quality
+```
 
-* **MCP Community**: ツール連携の基盤として。
-* **Llama.cpp**: ローカル推論の中核として。
-* **Ollama** & **LMStudio**: ローカル推論エンジンでの採用。
-* **Tauri**: 美しいデスクトップ体験の実現のために。
-* **Jan.ai & Community**: ローカルLLMの可能性を広げた先駆者として。
-* **Research Authors of EM-LLM**: 私たちの「記憶」の源泉となった論文の著者の皆様。
-* 他 参考 参照に使用させていただいた皆様。
+## ドキュメント
 
-* [X] 本プロジェクトは100％をAgentが作成しています。人間の関与は意思決定と指示出しのみです。
-* [X] Gemini (main)、Claude、ChatGPTに深くお礼申し上げます。
-* [X] また、Antigravity IDE、Jules、Codexとそのチームに深く感謝をいたします。
+- [アーキテクチャ仕様書](docs/architecture/ARCHITECTURE.md)
+- [開発ガイド](docs/guides/development.md)
+- [Web 開発ガイド](docs/guides/web_development.md)
+- [設定運用ガイド](docs/operations/CONFIGURATION_GUIDE.md)
+- [ユーザーガイド](docs/user_guide.md)
 
----
+## ライセンス
 
-<p align="center">
-  Made with ❤️ and 🍵 by Tepora Project
-</p>
+[LICENSE](LICENSE) を参照してください。

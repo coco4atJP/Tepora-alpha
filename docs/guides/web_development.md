@@ -1,252 +1,206 @@
-# ⚠️ Tepora Web Interface API & Architecture Guide / Tepora Web API・アーキテクチャガイド
+# Tepora Web Interface / Browser Development Guide
 
 [English](#english) | [日本語](#japanese)
 
 > [!IMPORTANT]
-> This document pertains to the **development web interface**.
-> Tepora's recommended runtime environment is the **Tauri desktop app**.
-> For local development setup instructions, see [development.md](./development.md). The backend has been migrated to Rust (`Tepora-app/backend-rs`). Descriptions related to Python/FastAPI are considered legacy.
-> ------
-> このドキュメントは、**開発用Webインターフェース**に関するものです。
-> Teporaの推奨実行環境は **Tauriデスクトップアプリ** です。
-> ローカル開発環境の立ち上げ手順については、[development.md](./development.md) を参照してください。バックエンドは Rust (`Tepora-app/backend-rs`) に移行済みです。Python/FastAPIに関する記述はレガシー扱いです。
+> Tepora の推奨実行環境は **Tauri デスクトップアプリ** です。この文書は、React フロントエンドをブラウザで開発・確認するときの構成と API の要点をまとめたものです。
 
 <div id="english"></div>
 
-# Tepora Web Interface - Setup Guide (English)
+## English
 
-## 🎯 Overview
-Tepora now supports a Web interface! It offers a modern and easy-to-use UI.
+### Overview
 
-## 🏗️ Architecture
+The current frontend can run in two modes:
 
-### Backend
-- **Axum** - Web framework built in Rust
-- **WebSocket** - Real-time streaming communications
-- **Tokio** - Asynchronous runtime
+- **Desktop mode**: Tauri launches the Rust backend as a sidecar and the UI prefers IPC-aware transport.
+- **Browser development mode**: `task dev` starts the Rust backend plus Vite, and the UI connects over localhost HTTP / WebSocket.
 
-### Frontend
-- **React 19** - UI library
-- **TypeScript** - Type safety
-- **Vite 7** - Extremely fast build tool
-- **Tailwind CSS v4** - Modern styling (via Vite plugin)
-- **TanStack Query** - Async state management and caching
-- **Lucide React** - Icon library
+The frontend also contains a separate **V2 entrypoint** that boots automatically for routes under `/v2`.
 
-For detailed technical stacks and version information, please refer to [ARCHITECTURE.md](../architecture/ARCHITECTURE.md).
+### Relevant structure
 
-## 🎨 Features
-
-### Chat Modes
-- **💬 CHAT**: The character agent responds directly.
-- **🔍 SEARCH**: Gets the latest information using basic web searches.
-- **🤖 AGENT**: The agent model executes tasks using tools.
-
-> [!NOTE]
-> The model in use can be changed from the settings screen.
-
-### Real-time Functionality
-- **WebSocket Streaming**: Responses appear in real-time.
-- **Connection Status**: Visually confirm the connection status.
-- **EM-LLM Stats**: View the status of the memory system over time.
-
-### UI/UX
-- **Dark Mode**: Comes standard with an eye-friendly dark theme.
-- **Responsive Design**: UI reflows for windows and supports mobile layouts.
-- **Keyboard Shortcuts**: Enter to send, Shift+Enter for new line.
-- **Animations**: Smooth message display transitions.
-
-## 📁 Project Structure
-
-```
-Tepora_Project/
-├── Taskfile.yml               # Task runner definitions
-├── Tepora-app/
-│   ├── backend-rs/
-│   │   ├── Cargo.toml         # Rust dependencies
-│   │   └── src/
-│   │       ├── api.rs         # API routing
-│   │       ├── ws.rs          # WebSocket processing
-│   │       ├── mcp.rs         # MCP management
-│   │       └── models.rs      # Model management
-│   └── frontend/
-│       ├── package.json       # Node.js dependencies
-│       ├── vite.config.ts     # Vite configurations
-│       ├── tsconfig.json      # TypeScript configurations
-│       └── src/
-│           ├── main.tsx       # React entry point
-│           ├── App.tsx        # Main app component
-│           ├── components/    # UI components
-│           ├── context/       # React Context
-│           ├── hooks/         # Custom hooks
-│           ├── pages/         # Page components
-│           ├── types/         # TypeScript definitions
-│           └── utils/         # Utilities
-└── docs/                      # Documentation
+```text
+Tepora-app/
+├── backend-rs/
+│   └── src/
+│       ├── main.rs
+│       ├── server/
+│       │   ├── router.rs
+│       │   ├── handlers/
+│       │   └── ws/
+│       ├── state/mod.rs
+│       ├── llm/
+│       ├── mcp/
+│       ├── models/
+│       └── context/
+└── frontend/
+    ├── src/
+    │   ├── main.tsx
+    │   ├── App.tsx
+    │   ├── transport/
+    │   ├── stores/
+    │   ├── features/
+    │   ├── pages/
+    │   └── v2/
+    └── src-tauri/
 ```
 
-## 📝 For Developers
+### Development commands
 
-### API Endpoints
-For detailed API specifications, please refer to the "Data Flow and API Specifications" section in [ARCHITECTURE.md](../architecture/ARCHITECTURE.md).
+```bash
+# Browser-oriented development
+task dev
 
-**Main Endpoints Overview:**
-- `GET /health` - Health check
-- `GET /api/config` - Get configuration info
-- `POST /api/config` - Update configuration
-- `WS /ws` - Chat communication and status notifications
+# Frontend only
+task dev-frontend
 
-#### WebSocket Message Format
+# Backend only
+task dev-backend
 
-**To Server (Client → Server):**
+# Desktop/Tauri development
+task dev-tauri
+```
+
+`task dev` runs `scripts/dev_sync.mjs`, starts the backend on a dynamic port, prints `TEPORA_PORT=...`, and injects the synchronized port into the frontend flow.
+
+### Transport and auth
+
+- REST base URL: `http://127.0.0.1:{port}`
+- WebSocket URL: `ws://127.0.0.1:{port}/ws`
+- REST auth: `x-api-key`
+- WebSocket auth: `Sec-WebSocket-Protocol` with `tepora.v1` and `tepora-token.{hex-token}`
+
+### Major API groups
+
+- System: `/health`, `/api/status`, `/api/shutdown`, `/api/auth/refresh`
+- Config and logs: `/api/config`, `/api/config/secrets/rotate`, `/api/logs`, `/api/logs/frontend`
+- Sessions: `/api/sessions`, `/api/sessions/:id/messages`, `/api/sessions/:id/metrics`
+- Setup and models: `/api/setup/*`
+- Memory operations: `/api/memory/compress`, `/api/memory/compaction_jobs`, `/api/memory/decay`
+- Security: `/api/security/*`, `/api/credentials/*`, `/api/backup/*`
+- Agent Skills: `/api/agent-skills`
+- MCP: `/api/mcp/*`
+
+### WebSocket message families
+
+Client to server:
+
 ```json
 {
-  "message": "User's input",
-  "mode": "chat" // "chat" | "search" | "agent", etc.
+  "message": "user input",
+  "mode": "chat",
+  "sessionId": "optional-session-id",
+  "attachments": [],
+  "agentId": "optional-agent-id"
 }
 ```
 
-**From Server (Server → Client):**
-```json
-{
-  "type": "chunk", // "chunk" | "status" | "error" | "stats" | "done"
-  "message": "AI's response",
-  "data": { }
-}
-```
+Server to client events include `chunk`, `status`, `activity`, `history`, `tool_confirmation_request`, `download_progress`, `done`, and `error`.
 
-### Customizations
-#### Editing System Prompts
-Edit `agents.yaml` directly to update the agent's `system_prompt`.
+### Notes for frontend changes
 
-## 📄 License
-The same license as the existing Tepora project applies.
-
-## 🙏 Acknowledgments
-- [Axum](https://github.com/tokio-rs/axum)
-- [React](https://react.dev/)
-- [Vite](https://vitejs.dev/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [TanStack Query](https://tanstack.com/query)
-- [Lucide](https://lucide.dev/)
-
----
+- `src/App.tsx` is the legacy/main shell for `/`.
+- `src/v2/` contains the newer route tree and providers for `/v2`.
+- Desktop startup behavior lives in `src/utils/sidecar.ts`.
+- Socket routing and tool confirmation state live under `src/stores/`.
 
 <div id="japanese"></div>
 
-# Tepora Web Interface - セットアップガイド (日本語)
+## 日本語
 
-## 🎯 概要
-TeporaがWebインターフェースに対応しました！モダンで使いやすいUIを提供します。
+### 概要
 
-## 🏗️ アーキテクチャ
+現在のフロントエンドは 2 つの実行形態を持っています。
 
-### バックエンド
-- **Axum** - Rust製のWebフレームワーク
-- **WebSocket** - リアルタイムストリーミング通信
-- **Tokio** - 非同期ランタイム
+- **デスクトップモード**: Tauri が Rust バックエンドを sidecar 起動し、UI は IPC 寄りの transport を優先します。
+- **ブラウザ開発モード**: `task dev` で Rust バックエンドと Vite を同時起動し、localhost の HTTP / WebSocket で接続します。
 
-### フロントエンド
-- **React 19** - UIライブラリ
-- **TypeScript** - 型安全性
-- **Vite 7** - 高速ビルドツール
-- **Tailwind CSS v4** - モダンなスタイリング（Viteプラグイン方式）
-- **TanStack Query** - 非同期状態管理・キャッシュ
-- **Lucide React** - アイコンライブラリ
+また、`/v2` 配下では **V2 エントリーポイント** が起動します。
 
-詳細な技術スタック・バージョン情報は [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) を参照してください。
+### 関連ディレクトリ
 
-## 🎨 機能
-
-### チャットモード
-- **💬 CHAT**: キャラクターエージェントが直接応答
-- **🔍 SEARCH**: Web検索を使用して最新情報を取得
-- **🤖 AGENT**: エージェントモデルがツールを使用してタスクを実行
-
-> [!NOTE]
-> 使用するモデルは設定画面から変更可能です。
-
-### リアルタイム機能
-- **WebSocketストリーミング**: 応答がリアルタイムで表示
-- **接続ステータス**: 接続状態を視覚的に確認
-- **EM-LLM統計**: メモリシステムの状態を表示
-
-### UI/UX
-- **ダークモード**: 目に優しいダークテーマ
-- **レスポンシブデザイン**: モバイルでも使いやすい
-- **キーボードショートカット**: Enter送信、Shift+Enterで改行
-- **アニメーション**: スムーズなメッセージ表示
-
-## 📁 プロジェクト構造
-
-```
-Tepora_Project/
-├── Taskfile.yml               # タスクランナー定義
-├── Tepora-app/
-│   ├── backend-rs/
-│   │   ├── Cargo.toml         # Rust依存関係
-│   │   └── src/
-│   │       ├── api.rs         # APIルーティング
-│   │       ├── ws.rs          # WebSocket処理
-│   │       ├── mcp.rs         # MCP管理
-│   │       └── models.rs      # モデル管理
-│   └── frontend/
-│       ├── package.json       # Node.js依存関係
-│       ├── vite.config.ts     # Vite設定
-│       ├── tsconfig.json      # TypeScript設定
-│       └── src/
-│           ├── main.tsx       # Reactエントリーポイント
-│           ├── App.tsx        # メインアプリコンポーネント
-│           ├── components/    # UIコンポーネント
-│           ├── context/       # React Context
-│           ├── hooks/         # カスタムフック
-│           ├── pages/         # ページコンポーネント
-│           ├── types/         # TypeScript型定義
-│           └── utils/         # ユーティリティ
-└── docs/                      # ドキュメント
+```text
+Tepora-app/
+├── backend-rs/
+│   └── src/
+│       ├── main.rs
+│       ├── server/
+│       │   ├── router.rs
+│       │   ├── handlers/
+│       │   └── ws/
+│       ├── state/mod.rs
+│       ├── llm/
+│       ├── mcp/
+│       ├── models/
+│       └── context/
+└── frontend/
+    ├── src/
+    │   ├── main.tsx
+    │   ├── App.tsx
+    │   ├── transport/
+    │   ├── stores/
+    │   ├── features/
+    │   ├── pages/
+    │   └── v2/
+    └── src-tauri/
 ```
 
-## 📝 開発者向け情報
+### 開発コマンド
 
-### API エンドポイント
-詳細なAPI仕様は [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) の「データフローとAPI仕様」セクションを参照してください。
+```bash
+# ブラウザ向け開発
+task dev
 
-**主要エンドポイント概要:**
-- `GET /health` - ヘルスチェック
-- `GET /api/config` - 設定情報取得
-- `POST /api/config` - 設定更新
-- `WS /ws` - チャット通信と状態通知
+# フロントエンドのみ
+task dev-frontend
 
-#### WebSocket メッセージフォーマット
+# バックエンドのみ
+task dev-backend
 
-**送信（クライアント→サーバー）:**
+# Tauri デスクトップ開発
+task dev-tauri
+```
+
+`task dev` は `scripts/dev_sync.mjs` を介してバックエンドを動的ポートで起動し、`TEPORA_PORT=...` を検出してフロントエンドへ同期します。
+
+### 通信と認証
+
+- REST Base URL: `http://127.0.0.1:{port}`
+- WebSocket URL: `ws://127.0.0.1:{port}/ws`
+- REST 認証: `x-api-key`
+- WebSocket 認証: `Sec-WebSocket-Protocol` に `tepora.v1` と `tepora-token.{hex-token}`
+
+### 主な API グループ
+
+- システム: `/health`, `/api/status`, `/api/shutdown`, `/api/auth/refresh`
+- 設定とログ: `/api/config`, `/api/config/secrets/rotate`, `/api/logs`, `/api/logs/frontend`
+- セッション: `/api/sessions`, `/api/sessions/:id/messages`, `/api/sessions/:id/metrics`
+- セットアップとモデル: `/api/setup/*`
+- メモリ保守: `/api/memory/compress`, `/api/memory/compaction_jobs`, `/api/memory/decay`
+- セキュリティ: `/api/security/*`, `/api/credentials/*`, `/api/backup/*`
+- Agent Skills: `/api/agent-skills`
+- MCP: `/api/mcp/*`
+
+### WebSocket の概要
+
+送信例:
+
 ```json
 {
-  "message": "ユーザーの入力",
-  "mode": "chat" // "chat" | "search" | "agent" など
+  "message": "ユーザー入力",
+  "mode": "chat",
+  "sessionId": "optional-session-id",
+  "attachments": [],
+  "agentId": "optional-agent-id"
 }
 ```
 
-**受信（サーバー→クライアント）:**
-```json
-{
-  "type": "chunk", // "chunk" | "status" | "error" | "stats" | "done"
-  "message": "AIの応答",
-  "data": { }
-}
-```
+受信イベントには `chunk`, `status`, `activity`, `history`, `tool_confirmation_request`, `download_progress`, `done`, `error` などがあります。
 
-### カスタマイズ
-#### システムプロンプトの変更
-`agents.yaml` を直接編集してエージェントの `system_prompt` を更新します。
+### フロントエンド改修時の見どころ
 
-## 📄 ライセンス
-既存のTeporaプロジェクトと同じライセンスが適用されます。
-
-## 🙏 謝辞
-- [Axum](https://github.com/tokio-rs/axum)
-- [React](https://react.dev/)
-- [Vite](https://vitejs.dev/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [TanStack Query](https://tanstack.com/query)
-- [Lucide](https://lucide.dev/)
+- `/` 系の現行 UI は `src/App.tsx`
+- `/v2` 系は `src/v2/`
+- sidecar 起動制御は `src/utils/sidecar.ts`
+- WebSocket 受信ルーティングやツール承認は `src/stores/` 配下
