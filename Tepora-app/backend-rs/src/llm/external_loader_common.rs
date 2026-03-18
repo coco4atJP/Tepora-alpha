@@ -12,6 +12,10 @@ use crate::llm::types::{NormalizedAssistantTurn, NormalizedStreamChunk};
 const DEFAULT_PROCESS_TERMINATE_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_EXTERNAL_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const DEFAULT_EXTERNAL_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const DEFAULT_HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+const DEFAULT_HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(500);
+const DEFAULT_STREAM_CHANNEL_BUFFER: usize = 128;
+const DEFAULT_STREAM_INTERNAL_BUFFER: usize = 100;
 
 pub(crate) fn process_terminate_timeout(config: &ConfigService) -> Duration {
     if let Ok(config) = config.load_config() {
@@ -53,6 +57,61 @@ pub(crate) fn external_loader_stream_idle_timeout(config: &ConfigService) -> Dur
         }
     }
     DEFAULT_EXTERNAL_STREAM_IDLE_TIMEOUT
+}
+
+pub(crate) fn health_check_timeout(config: &ConfigService) -> Duration {
+    if let Ok(config) = config.load_config() {
+        if let Some(val) = config
+            .get("llm_manager")
+            .and_then(|m| m.get("health_check_timeout"))
+            .and_then(|v| v.as_u64())
+        {
+            return Duration::from_millis(val.max(1));
+        }
+    }
+    DEFAULT_HEALTH_CHECK_TIMEOUT
+}
+
+pub(crate) fn health_check_interval(config: &ConfigService) -> Duration {
+    if let Ok(config) = config.load_config() {
+        if let Some(val) = config
+            .get("llm_manager")
+            .and_then(|m| {
+                m.get("health_check_interval_ms")
+                    .or_else(|| m.get("health_check_interval"))
+            })
+            .and_then(|v| v.as_u64())
+        {
+            return Duration::from_millis(val.max(1));
+        }
+    }
+    DEFAULT_HEALTH_CHECK_INTERVAL
+}
+
+pub(crate) fn stream_channel_buffer(config: &ConfigService) -> usize {
+    if let Ok(config) = config.load_config() {
+        if let Some(val) = config
+            .get("llm_manager")
+            .and_then(|m| m.get("stream_channel_buffer"))
+            .and_then(|v| v.as_u64())
+        {
+            return val.clamp(1, 65_536) as usize;
+        }
+    }
+    DEFAULT_STREAM_CHANNEL_BUFFER
+}
+
+pub(crate) fn stream_internal_buffer(config: &ConfigService) -> usize {
+    if let Ok(config) = config.load_config() {
+        if let Some(val) = config
+            .get("llm_manager")
+            .and_then(|m| m.get("stream_internal_buffer"))
+            .and_then(|v| v.as_u64())
+        {
+            return val.clamp(1, 65_536) as usize;
+        }
+    }
+    DEFAULT_STREAM_INTERNAL_BUFFER
 }
 
 pub(crate) fn build_openai_compatible_chat_body(

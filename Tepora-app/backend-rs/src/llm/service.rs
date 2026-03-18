@@ -4,7 +4,8 @@ use tokio::sync::mpsc;
 use crate::core::config::ConfigService;
 use crate::core::errors::ApiError;
 use crate::llm::external_loader_common::{
-    external_loader_request_timeout, external_loader_stream_idle_timeout, process_terminate_timeout,
+    external_loader_request_timeout, external_loader_stream_idle_timeout,
+    process_terminate_timeout, stream_channel_buffer, stream_internal_buffer,
 };
 use crate::llm::llama_service::LlamaService;
 use crate::llm::lmstudio_native_client;
@@ -130,7 +131,7 @@ impl LlmService {
         model_id: &str,
     ) -> Result<mpsc::Receiver<Result<String, ApiError>>, ApiError> {
         let mut normalized = self.stream_chat_normalized(request, model_id).await?;
-        let (tx, rx) = mpsc::channel(128);
+        let (tx, rx) = mpsc::channel(stream_channel_buffer(&self.config));
         tokio::spawn(async move {
             while let Some(item) = normalized.recv().await {
                 match item {
@@ -171,6 +172,7 @@ impl LlmService {
             } => {
                 let request_timeout = external_loader_request_timeout(&self.config);
                 let stream_idle_timeout = external_loader_stream_idle_timeout(&self.config);
+                let internal_buffer = stream_internal_buffer(&self.config);
                 if loader.eq_ignore_ascii_case("ollama") {
                     match ollama_native_client::stream_chat(
                         &self.http,
@@ -179,6 +181,7 @@ impl LlmService {
                         request.clone(),
                         request_timeout,
                         stream_idle_timeout,
+                        internal_buffer,
                     )
                     .await
                     {
@@ -196,6 +199,7 @@ impl LlmService {
                                 request,
                                 request_timeout,
                                 stream_idle_timeout,
+                                internal_buffer,
                             )
                             .await
                         }
@@ -208,6 +212,7 @@ impl LlmService {
                         request.clone(),
                         request_timeout,
                         stream_idle_timeout,
+                        internal_buffer,
                     )
                     .await
                     {
@@ -225,6 +230,7 @@ impl LlmService {
                                 request,
                                 request_timeout,
                                 stream_idle_timeout,
+                                internal_buffer,
                             )
                             .await
                         }
@@ -238,6 +244,7 @@ impl LlmService {
                         request,
                         request_timeout,
                         stream_idle_timeout,
+                        internal_buffer,
                     )
                     .await
                 }

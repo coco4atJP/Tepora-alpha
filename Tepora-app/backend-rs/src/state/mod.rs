@@ -300,8 +300,8 @@ impl AppState {
             .await
             .map_err(|e| InitializationError::History(e.into()))?;
 
-        let llama =
-            LlamaService::new(paths.clone()).map_err(|e| InitializationError::Llm(e.into()))?;
+        let llama = LlamaService::new_with_config(paths.clone(), config.clone())
+            .map_err(|e| InitializationError::Llm(e.into()))?;
 
         let mcp = McpManager::new(paths.clone(), config.clone());
         let mcp_registry = McpRegistry::new(&paths);

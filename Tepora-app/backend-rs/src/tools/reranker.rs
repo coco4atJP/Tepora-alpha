@@ -33,7 +33,11 @@ pub async fn rerank_search_results_with_embeddings(
     };
     let embeddings: Vec<Vec<f32>> = match state
         .llama
-        .embed(&model_cfg, &inputs, std::time::Duration::from_secs(5))
+        .embed(
+            &model_cfg,
+            &inputs,
+            std::time::Duration::from_millis(rag_embedding_timeout_ms(config)),
+        )
         .await
     {
         Ok(vectors) => vectors,
@@ -83,4 +87,13 @@ fn embedding_rerank_enabled(config: &Value) -> bool {
         .and_then(|v| v.get("embedding_rerank"))
         .and_then(|v| v.as_bool())
         .unwrap_or(true)
+}
+
+fn rag_embedding_timeout_ms(config: &Value) -> u64 {
+    config
+        .get("rag")
+        .and_then(|v| v.get("embedding_timeout_ms"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5_000)
+        .clamp(1, 3_600_000)
 }

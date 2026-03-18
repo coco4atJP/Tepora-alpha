@@ -32,14 +32,18 @@ pub async fn execute_rag_search(
     let limit = args
         .get("limit")
         .and_then(|v| v.as_u64())
-        .unwrap_or(5)
+        .unwrap_or_else(|| rag_search_default_limit(config) as u64)
         .clamp(1, 20) as usize;
     let sid = session_id.unwrap_or("default");
 
     let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
     let embeddings = state
         .llama
-        .embed(&model_cfg, &[query], std::time::Duration::from_secs(5))
+        .embed(
+            &model_cfg,
+            &[query],
+            std::time::Duration::from_millis(rag_embedding_timeout_ms(config)),
+        )
         .await?;
     let query_embedding = embeddings
         .first()
@@ -131,6 +135,7 @@ pub async fn execute_rag_ingest(
 
 pub async fn execute_rag_text_search(
     state: Option<&AppState>,
+    config: &Value,
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
@@ -152,7 +157,7 @@ pub async fn execute_rag_text_search(
     let limit = args
         .get("limit")
         .and_then(|v| v.as_u64())
-        .unwrap_or(10)
+        .unwrap_or_else(|| rag_text_search_default_limit(config) as u64)
         .clamp(1, 50) as usize;
     let sid = session_id.unwrap_or("default");
 
@@ -219,6 +224,7 @@ pub async fn execute_rag_get_chunk(
 
 pub async fn execute_rag_get_chunk_window(
     state: Option<&AppState>,
+    config: &Value,
     session_id: Option<&str>,
     args: &Value,
 ) -> Result<ToolExecution, ApiError> {
@@ -241,7 +247,7 @@ pub async fn execute_rag_get_chunk_window(
         .or_else(|| args.get("max_chars"))
         .or_else(|| args.get("maxChars"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(1200)
+        .unwrap_or_else(|| rag_chunk_window_default_chars(config) as u64)
         .clamp(128, 20000) as usize;
 
     let sid = session_id.unwrap_or("default");
@@ -343,4 +349,40 @@ fn domain_error_to_api_error(err: DomainError) -> ApiError {
         DomainError::NotSupported(message) => ApiError::NotImplemented(message),
         DomainError::Storage(message) => ApiError::Internal(message),
     }
+}
+
+fn rag_search_default_limit(config: &Value) -> usize {
+    config
+        .get("rag")
+        .and_then(|v| v.get("search_default_limit"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5)
+        .clamp(1, 20) as usize
+}
+
+fn rag_text_search_default_limit(config: &Value) -> usize {
+    config
+        .get("rag")
+        .and_then(|v| v.get("text_search_default_limit"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10)
+        .clamp(1, 50) as usize
+}
+
+fn rag_embedding_timeout_ms(config: &Value) -> u64 {
+    config
+        .get("rag")
+        .and_then(|v| v.get("embedding_timeout_ms"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5_000)
+        .clamp(1, 3_600_000)
+}
+
+fn rag_chunk_window_default_chars(config: &Value) -> usize {
+    config
+        .get("rag")
+        .and_then(|v| v.get("chunk_window_default_chars"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1_200)
+        .clamp(128, 20_000) as usize
 }

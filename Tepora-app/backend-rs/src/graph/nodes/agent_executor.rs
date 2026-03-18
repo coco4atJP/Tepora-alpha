@@ -162,7 +162,7 @@ impl Node for AgentExecutorNode {
             ),
         });
 
-        if let Some(attachment_text) = format_attachments(&state.search_attachments) {
+        if let Some(attachment_text) = format_attachments(ctx.config, &state.search_attachments) {
             messages.push(ChatMessage {
                 role: "system".to_string(),
                 content: attachment_text,

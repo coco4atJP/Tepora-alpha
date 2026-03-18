@@ -63,6 +63,7 @@ pub(crate) async fn stream_chat(
     request: ChatRequest,
     request_timeout: Duration,
     stream_idle_timeout: Duration,
+    buffer_capacity: usize,
 ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
     let endpoint = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
     let body = build_openai_compatible_chat_body(loader, model_name, request, true);
@@ -77,7 +78,7 @@ pub(crate) async fn stream_chat(
         )));
     }
 
-    let (tx, rx) = mpsc::channel(128);
+    let (tx, rx) = mpsc::channel(buffer_capacity.max(1));
     let mut byte_stream = response.bytes_stream();
     let loader_name = loader.to_string();
     tokio::spawn(async move {

@@ -94,96 +94,101 @@ impl ChatRequest {
     }
 
     pub fn with_config(mut self, config: &serde_json::Value) -> Self {
+        if let Some(defaults) = config.get("llm_defaults") {
+            self.apply_sampling_config(defaults);
+        }
+
         // Try to find model config in standard locations
         let model_cfg = config
             .get("models_gguf")
             .and_then(|v| v.get("text_model").or_else(|| v.get("character_model")));
 
         if let Some(cfg) = model_cfg {
-            self.temperature = cfg
-                .get("temperature")
-                .and_then(|v| v.as_f64())
-                .or(self.temperature);
-            self.top_p = cfg.get("top_p").and_then(|v| v.as_f64()).or(self.top_p);
-            self.top_k = cfg.get("top_k").and_then(|v| v.as_i64()).or(self.top_k);
-            self.repeat_penalty = cfg
-                .get("repeat_penalty")
-                .and_then(|v| v.as_f64())
-                .or(self.repeat_penalty);
-            self.max_tokens = cfg
-                .get("max_tokens")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32)
-                .or(self.max_tokens);
-            // Read stop tokens from config if not already set
-            if self.stop.is_none() {
-                if let Some(stops) = cfg.get("stop").and_then(|v| v.as_array()) {
-                    let tokens: Vec<String> = stops
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect();
-                    if !tokens.is_empty() {
-                        self.stop = Some(tokens);
-                    }
-                }
-            }
-            // Common parameters
-            self.seed = cfg.get("seed").and_then(|v| v.as_i64()).or(self.seed);
-            self.frequency_penalty = cfg
-                .get("frequency_penalty")
-                .and_then(|v| v.as_f64())
-                .or(self.frequency_penalty);
-            self.presence_penalty = cfg
-                .get("presence_penalty")
-                .and_then(|v| v.as_f64())
-                .or(self.presence_penalty);
-            self.min_p = cfg.get("min_p").and_then(|v| v.as_f64()).or(self.min_p);
-            // Shared llama.cpp/Ollama parameters
-            self.tfs_z = cfg.get("tfs_z").and_then(|v| v.as_f64()).or(self.tfs_z);
-            self.typical_p = cfg
-                .get("typical_p")
-                .and_then(|v| v.as_f64())
-                .or(self.typical_p);
-            self.mirostat = cfg
-                .get("mirostat")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32)
-                .or(self.mirostat);
-            self.mirostat_tau = cfg
-                .get("mirostat_tau")
-                .and_then(|v| v.as_f64())
-                .or(self.mirostat_tau);
-            self.mirostat_eta = cfg
-                .get("mirostat_eta")
-                .and_then(|v| v.as_f64())
-                .or(self.mirostat_eta);
-            self.repeat_last_n = cfg
-                .get("repeat_last_n")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32)
-                .or(self.repeat_last_n);
-            self.penalize_nl = cfg
-                .get("penalize_nl")
-                .and_then(|v| v.as_bool())
-                .or(self.penalize_nl);
-            // llama.cpp specific
-            self.n_keep = cfg
-                .get("n_keep")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32)
-                .or(self.n_keep);
-            self.cache_prompt = cfg
-                .get("cache_prompt")
-                .and_then(|v| v.as_bool())
-                .or(self.cache_prompt);
-            // Ollama specific
-            self.num_ctx = cfg
-                .get("num_ctx")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32)
-                .or(self.num_ctx);
+            self.apply_sampling_config(cfg);
         }
 
         self
+    }
+
+    fn apply_sampling_config(&mut self, config: &serde_json::Value) {
+        self.temperature = config
+            .get("temperature")
+            .and_then(|v| v.as_f64())
+            .or(self.temperature);
+        self.top_p = config.get("top_p").and_then(|v| v.as_f64()).or(self.top_p);
+        self.top_k = config.get("top_k").and_then(|v| v.as_i64()).or(self.top_k);
+        self.repeat_penalty = config
+            .get("repeat_penalty")
+            .and_then(|v| v.as_f64())
+            .or(self.repeat_penalty);
+        self.max_tokens = config
+            .get("max_tokens")
+            .or_else(|| config.get("predict_len"))
+            .or_else(|| config.get("n_predict"))
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or(self.max_tokens);
+        if self.stop.is_none() {
+            if let Some(stops) = config.get("stop").and_then(|v| v.as_array()) {
+                let tokens: Vec<String> = stops
+                    .iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect();
+                if !tokens.is_empty() {
+                    self.stop = Some(tokens);
+                }
+            }
+        }
+        self.seed = config.get("seed").and_then(|v| v.as_i64()).or(self.seed);
+        self.frequency_penalty = config
+            .get("frequency_penalty")
+            .and_then(|v| v.as_f64())
+            .or(self.frequency_penalty);
+        self.presence_penalty = config
+            .get("presence_penalty")
+            .and_then(|v| v.as_f64())
+            .or(self.presence_penalty);
+        self.min_p = config.get("min_p").and_then(|v| v.as_f64()).or(self.min_p);
+        self.tfs_z = config.get("tfs_z").and_then(|v| v.as_f64()).or(self.tfs_z);
+        self.typical_p = config
+            .get("typical_p")
+            .and_then(|v| v.as_f64())
+            .or(self.typical_p);
+        self.mirostat = config
+            .get("mirostat")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or(self.mirostat);
+        self.mirostat_tau = config
+            .get("mirostat_tau")
+            .and_then(|v| v.as_f64())
+            .or(self.mirostat_tau);
+        self.mirostat_eta = config
+            .get("mirostat_eta")
+            .and_then(|v| v.as_f64())
+            .or(self.mirostat_eta);
+        self.repeat_last_n = config
+            .get("repeat_last_n")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or(self.repeat_last_n);
+        self.penalize_nl = config
+            .get("penalize_nl")
+            .and_then(|v| v.as_bool())
+            .or(self.penalize_nl);
+        self.n_keep = config
+            .get("n_keep")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or(self.n_keep);
+        self.cache_prompt = config
+            .get("cache_prompt")
+            .and_then(|v| v.as_bool())
+            .or(self.cache_prompt);
+        self.num_ctx = config
+            .get("num_ctx")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
+            .or(self.num_ctx);
     }
 }

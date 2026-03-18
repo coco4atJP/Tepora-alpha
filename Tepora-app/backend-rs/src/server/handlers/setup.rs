@@ -1837,7 +1837,10 @@ mod tests {
         assert_eq!(task.role, "embedding");
         assert_eq!(task.display_name, "Embedding Model");
         assert_eq!(task.revision.as_deref(), Some("main"));
-        assert_eq!(task.sha256.as_deref(), Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert_eq!(
+            task.sha256.as_deref(),
+            Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
         assert!(task.consent);
     }
 

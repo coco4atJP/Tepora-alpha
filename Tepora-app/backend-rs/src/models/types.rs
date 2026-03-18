@@ -276,6 +276,18 @@ impl ModelRuntimeConfig {
                     .collect::<Vec<String>>()
             })
             .filter(|v| !v.is_empty());
+        let llm_defaults = config.get("llm_defaults");
+        let stop = stop.or_else(|| {
+            llm_defaults
+                .and_then(|defaults| defaults.get("stop"))
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect::<Vec<String>>()
+                })
+                .filter(|v| !v.is_empty())
+        });
 
         Ok(Self {
             model_key: role_key.to_string(),
@@ -289,70 +301,85 @@ impl ModelRuntimeConfig {
                 .get("n_gpu_layers")
                 .and_then(|v| v.as_i64())
                 .unwrap_or(-1) as i32,
-            predict_len: model_cfg
-                .get("predict_len")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            temperature: model_cfg
-                .get("temperature")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            top_p: model_cfg
-                .get("top_p")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            top_k: model_cfg
-                .get("top_k")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32),
-            repeat_penalty: model_cfg
-                .get("repeat_penalty")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
+            predict_len: read_config_usize(
+                model_cfg,
+                llm_defaults,
+                &["predict_len", "max_tokens", "n_predict"],
+            ),
+            temperature: read_config_f32(model_cfg, llm_defaults, "temperature"),
+            top_p: read_config_f32(model_cfg, llm_defaults, "top_p"),
+            top_k: read_config_i32(model_cfg, llm_defaults, "top_k"),
+            repeat_penalty: read_config_f32(model_cfg, llm_defaults, "repeat_penalty"),
             stop,
-            seed: model_cfg.get("seed").and_then(|v| v.as_i64()),
-            frequency_penalty: model_cfg
-                .get("frequency_penalty")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            presence_penalty: model_cfg
-                .get("presence_penalty")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            min_p: model_cfg
-                .get("min_p")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            tfs_z: model_cfg
-                .get("tfs_z")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            typical_p: model_cfg
-                .get("typical_p")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            mirostat: model_cfg
-                .get("mirostat")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32),
-            mirostat_tau: model_cfg
-                .get("mirostat_tau")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            mirostat_eta: model_cfg
-                .get("mirostat_eta")
-                .and_then(|v| v.as_f64())
-                .map(|v| v as f32),
-            repeat_last_n: model_cfg
-                .get("repeat_last_n")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32),
-            penalize_nl: model_cfg.get("penalize_nl").and_then(|v| v.as_bool()),
-            n_keep: model_cfg
-                .get("n_keep")
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32),
-            cache_prompt: model_cfg.get("cache_prompt").and_then(|v| v.as_bool()),
+            seed: read_config_i64(model_cfg, llm_defaults, "seed"),
+            frequency_penalty: read_config_f32(model_cfg, llm_defaults, "frequency_penalty"),
+            presence_penalty: read_config_f32(model_cfg, llm_defaults, "presence_penalty"),
+            min_p: read_config_f32(model_cfg, llm_defaults, "min_p"),
+            tfs_z: read_config_f32(model_cfg, llm_defaults, "tfs_z"),
+            typical_p: read_config_f32(model_cfg, llm_defaults, "typical_p"),
+            mirostat: read_config_i32(model_cfg, llm_defaults, "mirostat"),
+            mirostat_tau: read_config_f32(model_cfg, llm_defaults, "mirostat_tau"),
+            mirostat_eta: read_config_f32(model_cfg, llm_defaults, "mirostat_eta"),
+            repeat_last_n: read_config_i32(model_cfg, llm_defaults, "repeat_last_n"),
+            penalize_nl: read_config_bool(model_cfg, llm_defaults, "penalize_nl"),
+            n_keep: read_config_i32(model_cfg, llm_defaults, "n_keep"),
+            cache_prompt: read_config_bool(model_cfg, llm_defaults, "cache_prompt"),
         })
     }
+}
+
+fn read_config_i64(
+    model_cfg: &serde_json::Value,
+    defaults: Option<&serde_json::Value>,
+    key: &str,
+) -> Option<i64> {
+    model_cfg
+        .get(key)
+        .and_then(|v| v.as_i64())
+        .or_else(|| defaults.and_then(|v| v.get(key)).and_then(|v| v.as_i64()))
+}
+
+fn read_config_i32(
+    model_cfg: &serde_json::Value,
+    defaults: Option<&serde_json::Value>,
+    key: &str,
+) -> Option<i32> {
+    read_config_i64(model_cfg, defaults, key).map(|v| v as i32)
+}
+
+fn read_config_usize(
+    model_cfg: &serde_json::Value,
+    defaults: Option<&serde_json::Value>,
+    keys: &[&str],
+) -> Option<usize> {
+    keys.iter().find_map(|key| {
+        model_cfg
+            .get(*key)
+            .and_then(|v| v.as_u64())
+            .or_else(|| defaults.and_then(|v| v.get(*key)).and_then(|v| v.as_u64()))
+            .map(|v| v as usize)
+    })
+}
+
+fn read_config_f32(
+    model_cfg: &serde_json::Value,
+    defaults: Option<&serde_json::Value>,
+    key: &str,
+) -> Option<f32> {
+    model_cfg
+        .get(key)
+        .and_then(|v| v.as_f64())
+        .or_else(|| defaults.and_then(|v| v.get(key)).and_then(|v| v.as_f64()))
+        .map(|v| v as f32)
+}
+
+fn read_config_bool(
+    model_cfg: &serde_json::Value,
+    defaults: Option<&serde_json::Value>,
+    key: &str,
+) -> Option<bool> {
+    model_cfg
+        .get(key)
+        .and_then(|v| v.as_bool())
+        .or_else(|| defaults.and_then(|v| v.get(key)).and_then(|v| v.as_bool()))
 }

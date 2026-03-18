@@ -33,15 +33,13 @@ pub async fn execute_tool(
         "rag_search" | "native_rag_search" => {
             execute_rag_search(state, config, session_id, args).await
         }
-        "rag_ingest" | "native_rag_ingest" => {
-            execute_rag_ingest(state, session_id, args).await
-        }
+        "rag_ingest" | "native_rag_ingest" => execute_rag_ingest(state, session_id, args).await,
         "rag_text_search" | "native_rag_text_search" => {
-            execute_rag_text_search(state, session_id, args).await
+            execute_rag_text_search(state, config, session_id, args).await
         }
         "rag_get_chunk" | "native_rag_get_chunk" => execute_rag_get_chunk(state, args).await,
         "rag_get_chunk_window" | "native_rag_get_chunk_window" => {
-            execute_rag_get_chunk_window(state, session_id, args).await
+            execute_rag_get_chunk_window(state, config, session_id, args).await
         }
         "rag_clear_session" | "native_rag_clear_session" => {
             execute_rag_clear_session(state, session_id, args).await
@@ -72,7 +70,9 @@ mod tests {
     #[tokio::test]
     async fn unknown_tool_is_rejected_without_mcp() {
         let result = execute_tool(None, &json!({}), None, None, "missing_tool", &json!({})).await;
-        assert!(matches!(result, Err(ApiError::BadRequest(message)) if message.contains("missing_tool")));
+        assert!(
+            matches!(result, Err(ApiError::BadRequest(message)) if message.contains("missing_tool"))
+        );
     }
 
     #[tokio::test]
