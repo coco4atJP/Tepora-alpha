@@ -1,17 +1,67 @@
-//! Integration tests for memory_v2 repository.
+//! Integration tests for the memory module.
+
+#[path = "tests_algorithm.rs"]
+mod tests_algorithm;
 
 #[cfg(test)]
 mod sqlite_repository_tests {
-    use chrono::Utc;
+    use std::path::PathBuf;
 
-    use crate::memory_v2::repository::MemoryRepository;
-    use crate::memory_v2::sqlite_repository::SqliteMemoryRepository;
-    use crate::memory_v2::types::*;
+    use chrono::{Duration, Utc};
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+    use crate::memory::repository::MemoryRepository;
+    use crate::memory::sqlite_repository::SqliteMemoryRepository;
+    use crate::memory::types::*;
+
+    fn make_repo_path(prefix: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("{prefix}-{}.db", uuid::Uuid::new_v4()))
+    }
 
     async fn make_repo() -> SqliteMemoryRepository {
-        let path =
-            std::env::temp_dir().join(format!("tepora-memory-v2-test-{}.db", uuid::Uuid::new_v4()));
+        let path = make_repo_path("tepora-memory-v2-test");
         SqliteMemoryRepository::new(path).await.unwrap()
+    }
+
+    async fn create_table(path: &PathBuf, table_name: &str) {
+        let options = SqliteConnectOptions::new()
+            .filename(path)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+
+        let ddl = format!(
+            "CREATE TABLE {table_name} (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, content TEXT)"
+        );
+        sqlx::query(&ddl).execute(&pool).await.unwrap();
+        sqlx::query(&format!(
+            "INSERT INTO {table_name} (id, session_id, content) VALUES ('legacy-1', 's1', 'legacy')"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    async fn list_table_names(path: &PathBuf, like_pattern: &str) -> Vec<String> {
+        let options = SqliteConnectOptions::new()
+            .filename(path)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+
+        sqlx::query_scalar::<_, String>(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE ?1 ORDER BY name",
+        )
+        .bind(like_pattern)
+        .fetch_all(&pool)
+        .await
+        .unwrap()
     }
 
     fn make_event(
@@ -78,6 +128,37 @@ mod sqlite_repository_tests {
         // If we get here without error, schema init succeeded.
         let count = repo.count_events(None, None).await.unwrap();
         assert_eq!(count, 0);
+    }
+
+    #[tokio::test]
+    async fn schema_init_retires_legacy_v1_table() {
+        let path = make_repo_path("tepora-memory-v2-retire");
+        create_table(&path, "episodic_events").await;
+
+        let repo = SqliteMemoryRepository::new(path.clone()).await.unwrap();
+        assert_eq!(repo.count_events(None, None).await.unwrap(), 0);
+
+        let retired_tables = list_table_names(&path, "episodic_events_retired_%").await;
+        assert_eq!(retired_tables.len(), 1);
+        assert_eq!(
+            list_table_names(&path, "episodic_events").await,
+            Vec::<String>::new()
+        );
+    }
+
+    #[tokio::test]
+    async fn schema_init_drops_expired_retired_tables() {
+        let path = make_repo_path("tepora-memory-v2-drop-retired");
+        let old_suffix = (Utc::now() - Duration::days(31)).format("%Y%m%d").to_string();
+        let old_table = format!("episodic_events_retired_{old_suffix}");
+        create_table(&path, &old_table).await;
+
+        let _repo = SqliteMemoryRepository::new(path.clone()).await.unwrap();
+
+        assert_eq!(
+            list_table_names(&path, &old_table).await,
+            Vec::<String>::new()
+        );
     }
 
     // =================================================================

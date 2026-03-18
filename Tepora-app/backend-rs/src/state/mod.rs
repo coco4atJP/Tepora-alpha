@@ -12,13 +12,13 @@ use crate::core::security::{init_session_token, SessionToken};
 use crate::core::security_controls::SecurityControls;
 use crate::domain::episodic_memory::EpisodicMemoryPort;
 use crate::domain::knowledge::KnowledgePort;
-use crate::em_llm::EmMemoryService;
 use crate::graph::{build_tepora_graph, GraphRuntime};
 use crate::history::HistoryStore;
 use crate::infrastructure::episodic_store::{MemoryAdapter, UnifiedMemoryAdapter};
 use crate::infrastructure::knowledge_store::RagKnowledgeAdapter;
 use crate::llm::LlamaService;
 use crate::llm::LlmService;
+use crate::memory::MemoryService;
 use crate::mcp::registry::McpRegistry;
 use crate::mcp::McpManager;
 use crate::models::ModelManager;
@@ -172,7 +172,7 @@ pub struct AppRuntimeState {
 
 #[derive(Clone)]
 pub struct AppMemoryState {
-    pub em_memory_service: Arc<EmMemoryService>,
+    pub memory_service: Arc<MemoryService>,
     pub memory_adapter: Arc<dyn MemoryAdapter>,
     pub episodic_memory: Arc<dyn EpisodicMemoryPort>,
     pub knowledge: Arc<dyn KnowledgePort>,
@@ -196,7 +196,7 @@ pub struct AppStateCompat {
     pub setup: SetupState,
     pub skill_registry: SkillRegistry,
     pub graph_runtime: Arc<GraphRuntime>,
-    pub em_memory_service: Arc<EmMemoryService>,
+    pub memory_service: Arc<MemoryService>,
     pub rate_limiters: Arc<RateLimiters>,
     pub actor_manager: Arc<ActorManager>,
     pub memory_adapter: Arc<dyn MemoryAdapter>,
@@ -248,7 +248,7 @@ impl AppState {
             setup: core.setup.clone(),
             skill_registry: ai.skill_registry.clone(),
             graph_runtime: runtime.graph_runtime.clone(),
-            em_memory_service: memory.em_memory_service.clone(),
+            memory_service: memory.memory_service.clone(),
             rate_limiters: runtime.rate_limiters.clone(),
             actor_manager: runtime.actor_manager.clone(),
             memory_adapter: memory.memory_adapter.clone(),
@@ -362,8 +362,8 @@ impl AppState {
             Arc::new(build_tepora_graph(&config).map_err(|e| InitializationError::Graph(e.into()))?)
         };
 
-        let em_memory_service = Arc::new(
-            EmMemoryService::new(paths.as_ref(), &config)
+        let memory_service = Arc::new(
+            MemoryService::new(paths.as_ref(), &config)
                 .await
                 .map_err(|e| InitializationError::EmMemory(e.into()))?,
         );
@@ -385,8 +385,8 @@ impl AppState {
         let rate_limiters = Arc::new(RateLimiters::new());
         let actor_manager = Arc::new(ActorManager::new());
         let unified_memory_adapter = Arc::new(UnifiedMemoryAdapter::new_with_runtime(
-            em_memory_service.clone(),
-            em_memory_service.v2_store.clone(),
+            memory_service.clone(),
+            memory_service.v2_store.clone(),
             llm.clone(),
             models.clone(),
             config.clone(),
@@ -421,7 +421,7 @@ impl AppState {
             actor_manager: actor_manager.clone(),
         });
         let memory = Arc::new(AppMemoryState {
-            em_memory_service: em_memory_service.clone(),
+            memory_service: memory_service.clone(),
             memory_adapter: memory_adapter.clone(),
             episodic_memory: episodic_memory.clone(),
             knowledge: knowledge.clone(),
@@ -440,7 +440,7 @@ impl AppState {
 
         // Start background tasks only after all state initialization succeeds.
         app_state
-            .em_memory_service
+            .memory_service
             .clone()
             .spawn_background_worker();
 

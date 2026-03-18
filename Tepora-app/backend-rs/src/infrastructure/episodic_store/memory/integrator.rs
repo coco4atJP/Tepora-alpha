@@ -3,8 +3,11 @@
 //! This module provides the EMLLMIntegrator class that orchestrates
 //! all EM-LLM components for memory formation and retrieval.
 
-use crate::em_llm::{
-    EMBoundaryRefiner, EMConfig, EMEventSegmenter, EMTwoStageRetrieval, EpisodicEvent,
+use super::{
+    boundary::EMBoundaryRefiner,
+    retrieval::EMTwoStageRetrieval,
+    segmenter::EMEventSegmenter,
+    types::{EMConfig, EpisodicEvent},
 };
 
 /// Main integration class for the EM-LLM system.

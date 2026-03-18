@@ -9,15 +9,13 @@ pub mod application;
 pub mod context;
 pub mod core;
 pub mod domain;
-#[path = "infrastructure/episodic_store/em_llm/mod.rs"]
-pub mod em_llm;
 pub mod graph;
 pub mod history;
 pub mod infrastructure;
 pub mod llm;
 pub mod mcp;
-#[path = "infrastructure/episodic_store/memory_v2/mod.rs"]
-pub mod memory_v2;
+#[path = "infrastructure/episodic_store/memory/mod.rs"]
+pub mod memory;
 pub mod models;
 #[path = "infrastructure/knowledge_store/rag/mod.rs"]
 pub mod rag;

@@ -98,7 +98,7 @@ pub async fn shutdown(State(state): State<AppStateRead>) -> Result<impl IntoResp
 
 pub async fn get_status(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let total_messages = state.history.get_total_message_count().await.unwrap_or(0);
-    let memory_stats = state.em_memory_service.stats().await?;
+    let memory_stats = state.memory_service.stats().await?;
     Ok(Json(json!({
         "initialized": true,
         "core_version": "v2",

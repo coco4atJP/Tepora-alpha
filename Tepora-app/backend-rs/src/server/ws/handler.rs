@@ -182,7 +182,7 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
             return Ok(());
         }
         "get_stats" => {
-            let stats = state.em_memory_service.stats().await?;
+            let stats = state.memory_service.stats().await?;
             send_json(
                 sender,
                 json!({

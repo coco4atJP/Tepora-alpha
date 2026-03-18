@@ -17,14 +17,15 @@ use crate::llm::LlmService;
 use super::compression::{CompressionResult, MemoryCompressor};
 use super::decay::DecayEngine;
 use super::integrator::EMLLMIntegrator;
+use super::ranking::compute_retrieval_score;
 use super::sentence::split_sentences;
-use super::types::{DecayConfig, MemoryLayer};
+use super::types::{DecayConfig, EpisodicEvent, MemoryLayer, TimeUnit};
 
 const KEYRING_SERVICE: &str = "tepora-backend";
 const KEYRING_USER: &str = "em_memory_encryption_key";
 
 #[derive(Debug, Clone, Serialize)]
-pub struct EmMemoryStats {
+pub struct MemoryStats {
     pub enabled: bool,
     pub total_events: usize,
     pub retrieval_limit: usize,
@@ -64,7 +65,7 @@ pub struct DecayCycleResult {
 }
 
 #[derive(Clone)]
-pub struct EmMemoryService {
+pub struct MemoryService {
     pub v2_store: Arc<SqliteMemoryRepository>,
     enabled: bool,
     retrieval_limit: usize,
@@ -73,7 +74,7 @@ pub struct EmMemoryService {
     decay_interval_hours: f64,
 }
 
-impl EmMemoryService {
+impl MemoryService {
     pub async fn new(paths: &AppPaths, config_service: &ConfigService) -> Result<Self, ApiError> {
         let config = config_service
             .load_config()
@@ -281,7 +282,7 @@ impl EmMemoryService {
     async fn save_v2_events(
         &self,
         session_id: &str,
-        events: Vec<crate::em_llm::types::EpisodicEvent>,
+        events: Vec<EpisodicEvent>,
         v2_store: &dyn MemoryRepository,
     ) -> Result<Vec<String>, ApiError> {
         // 4. Map to v2 MemoryEvent and save
@@ -495,7 +496,7 @@ impl EmMemoryService {
 
         let now = Utc::now();
         let mut final_scored = Vec::new();
-        let decay_engine = crate::em_llm::decay::DecayEngine::new(self.decay_config.clone());
+        let decay_engine = DecayEngine::new(self.decay_config.clone());
 
         for (_, mut scored) in candidates {
             let semantic_score = if scored.score > 0.0 {
@@ -551,7 +552,7 @@ impl EmMemoryService {
             );
             scored.event.strength = effective_strength;
 
-            let base_score = crate::em_llm::ranking::compute_retrieval_score(
+            let base_score = compute_retrieval_score(
                 scored.score as f32,
                 effective_strength,
             );
@@ -664,7 +665,7 @@ impl EmMemoryService {
             )) {
                 continue;
             }
-            let base_score = crate::em_llm::ranking::compute_retrieval_score(
+            let base_score = compute_retrieval_score(
                 scored.score as f32,
                 scored.event.strength,
             );
@@ -712,7 +713,7 @@ impl EmMemoryService {
         results.truncate(self.retrieval_limit);
         Ok(results)
     }
-    pub async fn stats(&self) -> Result<EmMemoryStats, ApiError> {
+    pub async fn stats(&self) -> Result<MemoryStats, ApiError> {
         let v2_store = self.v2_store.as_ref();
         let total_events = v2_store.count_events(None, None).await?;
         let layer_counts = v2_store.count_by_layer(None, None).await?;
@@ -734,7 +735,7 @@ impl EmMemoryService {
             .average_strength(None, Some(MemoryScope::Prof))
             .await?;
 
-        Ok(EmMemoryStats {
+        Ok(MemoryStats {
             enabled: self.enabled,
             total_events,
             retrieval_limit: self.retrieval_limit,
@@ -1103,8 +1104,8 @@ fn parse_decay_config(config: &Value) -> DecayConfig {
             .and_then(|v| v.get("time_unit"))
             .and_then(|v| v.as_str())
         {
-            Some("hours") => crate::em_llm::types::TimeUnit::Hours,
-            _ => crate::em_llm::types::TimeUnit::Days,
+            Some("hours") => TimeUnit::Hours,
+            _ => TimeUnit::Days,
         },
         transition_hysteresis: read_decay_f64(
             section,
@@ -1145,12 +1146,12 @@ mod tests {
 
     use super::*;
 
-    async fn test_service() -> EmMemoryService {
+    async fn test_service() -> MemoryService {
         let path = std::env::temp_dir().join(format!(
             "tepora-memory-v2-service-test-{}.db",
             uuid::Uuid::new_v4()
         ));
-        EmMemoryService::with_v2_path_for_test(path, true, 5, 0.0)
+        MemoryService::with_v2_path_for_test(path, true, 5, 0.0)
             .await
             .unwrap()
     }

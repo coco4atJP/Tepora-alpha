@@ -11,7 +11,7 @@
 //! 3. Identify boundaries where surprise exceeds threshold: T = μ + γσ
 //! 4. Create events between boundaries
 
-use crate::em_llm::types::{EMConfig, EpisodicEvent};
+use super::types::{EMConfig, EpisodicEvent};
 
 /// Event segmenter based on surprise scores and semantic change.
 ///

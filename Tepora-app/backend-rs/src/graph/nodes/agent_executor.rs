@@ -22,7 +22,7 @@ use crate::core::security_controls::{
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState, Artifact};
 use crate::llm::{ChatMessage, ChatRequest};
-use crate::memory_v2::types::MemoryScope;
+use crate::memory::MemoryScope;
 use crate::models::event::{AgentEvent, AgentEventType};
 use crate::tools::execute_tool;
 

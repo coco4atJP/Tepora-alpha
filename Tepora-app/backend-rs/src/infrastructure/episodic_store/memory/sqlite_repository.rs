@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 //! SQLite implementation of `MemoryRepository`.
 //!
-//! Uses the same `em_memory.db` file as the existing `EmMemoryStore`, adding
-//! the new `memory_events`, `memory_edges`, and `memory_compaction_*` tables
-//! alongside the legacy `episodic_events` table.
+//! `memory_events`, `memory_edges`, and `memory_compaction_*` are the only
+//! active tables. Any legacy `episodic_events` table is retired on startup.
 
 use std::path::PathBuf;
 
@@ -23,7 +22,7 @@ use super::types::{
 };
 
 // ---------------------------------------------------------------------------
-// Helpers (shared with em_llm::store — could be extracted later)
+// Helpers
 // ---------------------------------------------------------------------------
 
 fn serialize_embedding(embedding: &[f32]) -> Vec<u8> {
@@ -75,7 +74,27 @@ fn parse_memory_layer(raw: &str) -> MemoryLayer {
     }
 }
 
+fn is_safe_sql_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
+fn parse_retired_table_date(table_name: &str) -> Option<chrono::NaiveDate> {
+    let suffix = table_name.strip_prefix(LEGACY_V1_RETIRED_PREFIX)?;
+    let date_str = suffix.split('_').next()?;
+    if date_str.len() != 8 || !date_str.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    chrono::NaiveDate::parse_from_str(date_str, "%Y%m%d").ok()
+}
+
 const ENCRYPTION_PREFIX: &str = "ENC:";
+const LEGACY_V1_TABLE: &str = "episodic_events";
+const LEGACY_V1_RETIRED_PREFIX: &str = "episodic_events_retired_";
+const LEGACY_V1_RETENTION_DAYS: i64 = 30;
 
 // ---------------------------------------------------------------------------
 // SqliteMemoryRepository
@@ -188,6 +207,10 @@ impl SqliteMemoryRepository {
 
     /// Schema initialisation — idempotent (CREATE IF NOT EXISTS).
     async fn init_schema(&self) -> Result<(), ApiError> {
+        let now = Utc::now();
+        self.retire_legacy_v1_table(now).await?;
+        self.drop_expired_retired_tables(now).await?;
+
         // --- memory_events ---
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS memory_events (
@@ -291,6 +314,105 @@ impl SqliteMemoryRepository {
         }
 
         Ok(())
+    }
+
+    async fn retire_legacy_v1_table(&self, now: DateTime<Utc>) -> Result<(), ApiError> {
+        if !self.table_exists(LEGACY_V1_TABLE).await? {
+            return Ok(());
+        }
+
+        let target_table = self.next_retired_table_name(now).await?;
+        let ddl = format!("ALTER TABLE {LEGACY_V1_TABLE} RENAME TO {target_table}");
+        sqlx::query(&ddl)
+            .execute(&self.pool)
+            .await
+            .map_err(ApiError::internal)?;
+
+        tracing::info!(
+            retired_table = %target_table,
+            "Retired legacy episodic_events table"
+        );
+        Ok(())
+    }
+
+    async fn drop_expired_retired_tables(&self, now: DateTime<Utc>) -> Result<(), ApiError> {
+        for table_name in self.list_tables_with_prefix(LEGACY_V1_RETIRED_PREFIX).await? {
+            let Some(created_on) = parse_retired_table_date(&table_name) else {
+                continue;
+            };
+
+            let age_days = now
+                .date_naive()
+                .signed_duration_since(created_on)
+                .num_days();
+            if age_days <= LEGACY_V1_RETENTION_DAYS {
+                continue;
+            }
+
+            let ddl = format!("DROP TABLE IF EXISTS {table_name}");
+            sqlx::query(&ddl)
+                .execute(&self.pool)
+                .await
+                .map_err(ApiError::internal)?;
+
+            tracing::info!(
+                retired_table = %table_name,
+                age_days,
+                "Dropped expired retired episodic_events table"
+            );
+        }
+
+        Ok(())
+    }
+
+    async fn next_retired_table_name(&self, now: DateTime<Utc>) -> Result<String, ApiError> {
+        let base = format!("{LEGACY_V1_RETIRED_PREFIX}{}", now.format("%Y%m%d"));
+        if !self.table_exists(&base).await? {
+            return Ok(base);
+        }
+
+        for suffix in 1..=999 {
+            let candidate = format!("{base}_{suffix}");
+            if !self.table_exists(&candidate).await? {
+                return Ok(candidate);
+            }
+        }
+
+        Err(ApiError::internal(
+            "Failed to allocate retired episodic_events table name",
+        ))
+    }
+
+    async fn table_exists(&self, table_name: &str) -> Result<bool, ApiError> {
+        if !is_safe_sql_identifier(table_name) {
+            return Ok(false);
+        }
+
+        let exists = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        )
+        .bind(table_name)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(ApiError::internal)?;
+
+        Ok(exists > 0)
+    }
+
+    async fn list_tables_with_prefix(&self, prefix: &str) -> Result<Vec<String>, ApiError> {
+        let pattern = format!("{prefix}%");
+        let rows = sqlx::query_scalar::<_, String>(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE ?1 ORDER BY name",
+        )
+        .bind(pattern)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(ApiError::internal)?;
+
+        Ok(rows
+            .into_iter()
+            .filter(|name| is_safe_sql_identifier(name))
+            .collect())
     }
 
     async fn ensure_nullable_text_column(

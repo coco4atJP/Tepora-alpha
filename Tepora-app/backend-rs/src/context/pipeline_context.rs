@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::em_llm::types::MemoryLayer;
 use crate::infrastructure::episodic_store::MemoryScope;
 use crate::llm::ChatMessage;
+use crate::memory::MemoryLayer;
 use crate::tools::search::SearchResult;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -12,7 +12,7 @@
 //! 3. For each retrieved event, also retrieve Kc temporally adjacent events
 //! 4. Combine and deduplicate results
 
-use crate::em_llm::types::{EMConfig, EpisodicEvent};
+use super::types::{EMConfig, EpisodicEvent};
 
 /// Two-stage retrieval system (similarity buffer + contiguity buffer).
 ///

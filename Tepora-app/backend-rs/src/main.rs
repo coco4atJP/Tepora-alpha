@@ -13,15 +13,13 @@ mod application;
 mod context;
 mod core;
 mod domain;
-#[path = "infrastructure/episodic_store/em_llm/mod.rs"]
-mod em_llm;
 mod graph;
 mod history;
 mod infrastructure;
 mod llm;
 mod mcp;
-#[path = "infrastructure/episodic_store/memory_v2/mod.rs"]
-mod memory_v2;
+#[path = "infrastructure/episodic_store/memory/mod.rs"]
+mod memory;
 mod models;
 #[path = "infrastructure/knowledge_store/rag/mod.rs"]
 mod rag;

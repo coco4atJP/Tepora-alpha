@@ -298,7 +298,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── infrastructure/         # ========== インフラストラクチャ層 (v2移行中) ==========
-│   │   ├── episodic_store/     # エピソード記憶ストア (em_llm / memory_v2)
+│   │   ├── episodic_store/     # エピソード記憶ストア (memory)
 │   │   ├── knowledge_store/    # 知識ストア (rag)
 │   │   ├── observability/      # メトリクス・監視 (RuntimeMetrics等)
 │   │   ├── transport/          # トランスポートアダプタ
@@ -410,7 +410,7 @@ pub struct AppStateCompat {
     pub setup: SetupState,           // セットアップ状態
     pub skill_registry: SkillRegistry,     // Agent Skills package管理
     pub graph_runtime: Arc<GraphRuntime>,        // グラフランタイム
-    pub em_memory_service: Arc<EmMemoryService>, // エピソード記憶 (レガシー)
+    pub memory_service: Arc<MemoryService>,      // エピソード記憶
     pub rate_limiters: Arc<RateLimiters>,        // レート制限
     pub actor_manager: Arc<ActorManager>,        // CQRSアクター管理
     pub memory_adapter: Arc<dyn MemoryAdapter>,  // 統合メモリアダプタ
@@ -758,8 +758,8 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 
 ### 5.10 メモリシステム (EM-LLM × FadeMem v2)
 
-現在、ICLR 2025採択論文「EM-LLM」とarXiv 2601.18642「FadeMem」を統合したアーキテクチャ(v2)へ移行・実装を進めています。
-詳細な設計原則、DBスキーマ、段階移行計画については `docs/planning/MEMORY_SYSTEM_FULL_REDESIGN_EMLLM_FADEMEM_2026-02-23.md` を参照してください。
+ICLR 2025採択論文「EM-LLM」と arXiv 2601.18642「FadeMem」を統合したメモリシステムは、`src/infrastructure/episodic_store/memory/` に単一実装として統合されています。
+詳細な設計原則、DB スキーマ、受け入れ基準は `docs/archives/MEMORY_SYSTEM_FULL_REDESIGN_EMLLM_FADEMEM_2026-02-23.md` を参照してください。
 
 **特徴**:
 - **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
@@ -769,7 +769,7 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 - **Character-aware Memory**: `memory_events.character_id` に `active_agent_profile` を保持し、同一キャラクターの継続記憶を優先できます。
 - **PROF Memory**: Agent 系は `CHAR` に加えて task packet / artifact summary を `PROF` にも保存し、planner / executor / synthesizer で二層記憶として再利用します。
 
-**ファイル**: `src/infrastructure/episodic_store/memory_v2/` (移行中), `src/infrastructure/episodic_store/em_llm/` (v1)
+**ファイル**: `src/infrastructure/episodic_store/memory/`
 
 ```mermaid
 flowchart LR
@@ -777,7 +777,7 @@ flowchart LR
     I --> S1[Segmentation EM-LLM]
     S1 --> S2[Boundary Refinement]
     S2 --> S3[Event Representation + character_id]
-    S3 --> P[(Memory DB v2)]
+    S3 --> P[(Memory DB)]
 
     Q[Query] --> L1[Session-local Candidates]
     Q --> L2[Cross-session Candidates]
@@ -1426,7 +1426,6 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
-
 
 
 

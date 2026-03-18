@@ -1,8 +1,6 @@
 use serde::Serialize;
 
 use crate::core::errors::ApiError;
-use crate::em_llm::store::{EmMemoryStore, MemoryEventRecord};
-use crate::em_llm::types::MemoryLayer;
 use crate::infrastructure::episodic_store::{
     CompactionJob, CompactionMember, CompactionStatus, MemoryEdge, MemoryEdgeType, MemoryEvent,
     MemoryLayer as V2MemoryLayer, MemoryRepository, MemoryScope, SourceRole,
@@ -39,159 +37,6 @@ impl MemoryCompressor {
         }
     }
 
-    /// Execute compression for one session.
-    pub async fn compress(
-        &self,
-        session_id: &str,
-        store: &EmMemoryStore,
-        llm: &LlmService,
-        model_id: &str,
-    ) -> Result<CompressionResult, ApiError> {
-        let events = store.get_all_events_with_metadata(Some(session_id)).await?;
-        if events.len() < 2 {
-            return Ok(CompressionResult {
-                scanned_events: events.len(),
-                merged_groups: 0,
-                replaced_events: 0,
-                created_events: 0,
-            });
-        }
-
-        let groups = self.build_candidate_groups(&events);
-        let mut merged_groups = 0usize;
-        let mut replaced_events = 0usize;
-        let mut created_events = 0usize;
-
-        for group in groups {
-            if group.len() < 2 {
-                continue;
-            }
-
-            let selected = group
-                .into_iter()
-                .map(|idx| events[idx].clone())
-                .collect::<Vec<_>>();
-
-            let merged_content = match self.fuse_group_with_llm(&selected, llm, model_id).await {
-                Ok(text) if !text.trim().is_empty() => text,
-                Ok(_) => fallback_merge_content(&selected),
-                Err(err) => {
-                    tracing::warn!(
-                        "Memory compression LLM step failed; using fallback merge: {}",
-                        err
-                    );
-                    fallback_merge_content(&selected)
-                }
-            };
-
-            let merged_embedding = average_embedding(&selected);
-            if merged_embedding.is_empty() {
-                continue;
-            }
-
-            let new_id = uuid::Uuid::new_v4().to_string();
-            store
-                .insert_event(
-                    &new_id,
-                    session_id,
-                    "[compressed]",
-                    "[compressed]",
-                    &merged_content,
-                    &merged_embedding,
-                )
-                .await?;
-
-            let mean_strength =
-                selected.iter().map(|e| e.strength).sum::<f64>() / selected.len() as f64;
-            store.update_memory_strength(&new_id, mean_strength).await?;
-
-            let merged_layer = if selected.iter().any(|e| e.memory_layer == MemoryLayer::LML) {
-                MemoryLayer::LML
-            } else {
-                MemoryLayer::SML
-            };
-            store.update_memory_layer(&new_id, merged_layer).await?;
-
-            let old_ids = selected.iter().map(|e| e.id.clone()).collect::<Vec<_>>();
-            let deleted = store.delete_events_by_ids(&old_ids).await?;
-
-            merged_groups += 1;
-            replaced_events += deleted;
-            created_events += 1;
-        }
-
-        Ok(CompressionResult {
-            scanned_events: events.len(),
-            merged_groups,
-            replaced_events,
-            created_events,
-        })
-    }
-
-    fn build_candidate_groups(&self, events: &[MemoryEventRecord]) -> Vec<Vec<usize>> {
-        let mut used = vec![false; events.len()];
-        let mut groups = Vec::new();
-
-        for i in 0..events.len() {
-            if used[i] {
-                continue;
-            }
-
-            let mut group = vec![i];
-            for j in (i + 1)..events.len() {
-                if used[j] {
-                    continue;
-                }
-
-                let similarity = cosine_similarity(&events[i].embedding, &events[j].embedding);
-                if similarity >= self.similarity_threshold {
-                    group.push(j);
-                }
-            }
-
-            if group.len() >= 2 {
-                for idx in &group {
-                    used[*idx] = true;
-                }
-                groups.push(group);
-            }
-        }
-
-        groups
-    }
-
-    async fn fuse_group_with_llm(
-        &self,
-        group: &[MemoryEventRecord],
-        llm: &LlmService,
-        model_id: &str,
-    ) -> Result<String, ApiError> {
-        let memory_text = group
-            .iter()
-            .enumerate()
-            .map(|(idx, event)| format!("[{}] {}", idx + 1, event.content))
-            .collect::<Vec<_>>()
-            .join("\n\n");
-
-        let messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: "あなたは会話メモリ圧縮エンジンです。重複や表現揺れを統合し、矛盾がある場合は最新情報を優先してください。".to_string(),
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: format!(
-                    "以下のメモリ群を1つの短い統合メモリにまとめてください。事実は保持し、冗長性を除去してください。\n\n{}",
-                    memory_text
-                ),
-            },
-        ];
-
-        let mut request = ChatRequest::new(messages);
-        request.max_tokens = Some(256);
-        llm.chat(request, model_id).await
-    }
-
     pub async fn compress_v2(
         &self,
         session_id: &str,
@@ -207,8 +52,7 @@ impl MemoryCompressor {
     /// Execute compression for one session, tracking lifecycle via a `CompactionJob`.
     ///
     /// If `job_id` is provided, the existing job record is transitioned to `running`,
-    /// then `done`/`failed`. If `None`, the compression is run without job tracking
-    /// (used as an internal helper by the synchronous legacy path).
+    /// then `done`/`failed`. If `None`, the compression is run without job tracking.
     pub async fn compress_v2_with_job(
         &self,
         session_id: &str,
@@ -265,7 +109,7 @@ impl MemoryCompressor {
             return Ok(result);
         }
 
-        let groups = self.build_candidate_groups_v2(&events);
+        let groups = self.build_candidate_groups(&events);
         let mut merged_groups = 0usize;
         let mut replaced_events = 0usize;
         let mut created_events = 0usize;
@@ -283,19 +127,19 @@ impl MemoryCompressor {
                 .map(|idx| events[idx].clone())
                 .collect::<Vec<_>>();
 
-            let merged_content = match self.fuse_group_with_llm_v2(&selected, llm, model_id).await {
+            let merged_content = match self.fuse_group_with_llm(&selected, llm, model_id).await {
                 Ok(text) if !text.trim().is_empty() => text,
-                Ok(_) => fallback_merge_content_v2(&selected),
+                Ok(_) => fallback_merge_content(&selected),
                 Err(err) => {
                     tracing::warn!(
                         "Memory compression LLM step failed; using fallback merge: {}",
                         err
                     );
-                    fallback_merge_content_v2(&selected)
+                    fallback_merge_content(&selected)
                 }
             };
 
-            let merged_embedding = average_embedding_v2(&selected);
+            let merged_embedding = average_embedding(&selected);
             if merged_embedding.is_empty() {
                 continue;
             }
@@ -437,7 +281,7 @@ impl MemoryCompressor {
         }
     }
 
-    fn build_candidate_groups_v2(&self, events: &[MemoryEvent]) -> Vec<Vec<usize>> {
+    fn build_candidate_groups(&self, events: &[MemoryEvent]) -> Vec<Vec<usize>> {
         let mut used = vec![false; events.len()];
         let mut groups = Vec::new();
 
@@ -469,7 +313,7 @@ impl MemoryCompressor {
         groups
     }
 
-    async fn fuse_group_with_llm_v2(
+    async fn fuse_group_with_llm(
         &self,
         group: &[MemoryEvent],
         llm: &LlmService,
@@ -509,7 +353,7 @@ impl MemoryCompressor {
     }
 }
 
-fn fallback_merge_content(group: &[MemoryEventRecord]) -> String {
+fn fallback_merge_content(group: &[MemoryEvent]) -> String {
     group
         .iter()
         .map(|event| event.content.trim())
@@ -518,38 +362,7 @@ fn fallback_merge_content(group: &[MemoryEventRecord]) -> String {
         .join("\n---\n")
 }
 
-fn average_embedding(group: &[MemoryEventRecord]) -> Vec<f32> {
-    let Some(first) = group.first() else {
-        return Vec::new();
-    };
-    let dim = first.embedding.len();
-    if dim == 0 || group.iter().any(|e| e.embedding.len() != dim) {
-        return Vec::new();
-    }
-
-    let mut out = vec![0.0f32; dim];
-    for event in group {
-        for (i, value) in event.embedding.iter().enumerate() {
-            out[i] += *value;
-        }
-    }
-    let denom = group.len() as f32;
-    for value in &mut out {
-        *value /= denom;
-    }
-    out
-}
-
-fn fallback_merge_content_v2(group: &[MemoryEvent]) -> String {
-    group
-        .iter()
-        .map(|event| event.content.trim())
-        .filter(|text| !text.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n---\n")
-}
-
-fn average_embedding_v2(group: &[MemoryEvent]) -> Vec<f32> {
+fn average_embedding(group: &[MemoryEvent]) -> Vec<f32> {
     let Some(first) = group.first() else {
         return Vec::new();
     };

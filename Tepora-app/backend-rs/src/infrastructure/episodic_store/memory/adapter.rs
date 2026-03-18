@@ -9,12 +9,16 @@ use crate::domain::episodic_memory::{
     EpisodicMemoryPort,
 };
 use crate::domain::errors::DomainError;
-use crate::em_llm::{EmMemoryService, RetrievedMemory};
 use crate::llm::LlmService;
-use crate::memory_v2::types::{MemoryEvent, MemoryScope, SourceRole};
-use crate::memory_v2::MemoryRepository;
-use crate::memory_v2::SqliteMemoryRepository;
 use crate::models::ModelManager;
+
+use super::decay::DecayEngine;
+use super::integrator::EMLLMIntegrator;
+use super::repository::MemoryRepository;
+use super::sentence::split_sentences;
+use super::service::{MemoryService, RetrievedMemory};
+use super::sqlite_repository::SqliteMemoryRepository;
+use super::types::{DecayConfig, MemoryEdge, MemoryEdgeType, MemoryEvent, MemoryLayer, MemoryScope, SourceRole};
 
 #[async_trait::async_trait]
 pub trait MemoryAdapter: Send + Sync {
@@ -52,7 +56,7 @@ pub trait MemoryAdapter: Send + Sync {
 }
 
 pub struct UnifiedMemoryAdapter {
-    em_service: Arc<EmMemoryService>,
+    em_service: Arc<MemoryService>,
     v2_repo: Arc<SqliteMemoryRepository>,
     llm: Option<LlmService>,
     models: Option<ModelManager>,
@@ -60,7 +64,7 @@ pub struct UnifiedMemoryAdapter {
 }
 
 impl UnifiedMemoryAdapter {
-    pub fn new(em_service: Arc<EmMemoryService>, v2_repo: Arc<SqliteMemoryRepository>) -> Self {
+    pub fn new(em_service: Arc<MemoryService>, v2_repo: Arc<SqliteMemoryRepository>) -> Self {
         Self {
             em_service,
             v2_repo,
@@ -71,7 +75,7 @@ impl UnifiedMemoryAdapter {
     }
 
     pub fn new_with_runtime(
-        em_service: Arc<EmMemoryService>,
+        em_service: Arc<MemoryService>,
         v2_repo: Arc<SqliteMemoryRepository>,
         llm: LlmService,
         models: ModelManager,
@@ -163,7 +167,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
             }
 
             let logprobs_result = llm.get_logprobs(&content, text_model_id).await;
-            let sentences = crate::em_llm::sentence::split_sentences(&content, 8);
+            let sentences = split_sentences(&content, 8);
             let sentences = if sentences.is_empty() {
                 vec![content.clone()]
             } else {
@@ -178,7 +182,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                 }
             };
 
-            let mut integrator = crate::em_llm::integrator::EMLLMIntegrator::default();
+            let mut integrator = EMLLMIntegrator::default();
             let events = match logprobs_result {
                 Ok(logprobs) => {
                     integrator.process_logprobs_for_memory(&logprobs, Some(&sentence_embeddings))
@@ -199,19 +203,19 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
             let mut v2_edges = Vec::new();
             let mut prev_event_id: Option<String> = None;
 
-            let decay_cfg = crate::em_llm::types::DecayConfig::default();
-            let decay_engine = crate::em_llm::decay::DecayEngine::new(decay_cfg);
+            let decay_cfg = DecayConfig::default();
+            let decay_engine = DecayEngine::new(decay_cfg);
 
             for (i, ev) in events.into_iter().enumerate() {
                 let event_content = ev.tokens.join(" ");
 
                 if let Some(prev_id) = prev_event_id {
-                    v2_edges.push(crate::memory_v2::types::MemoryEdge {
+                    v2_edges.push(MemoryEdge {
                         id: uuid::Uuid::new_v4().to_string(),
                         session_id: session_id.to_string(),
                         from_event_id: prev_id,
                         to_event_id: ev.id.clone(),
-                        edge_type: crate::memory_v2::types::MemoryEdgeType::TemporalNext,
+                        edge_type: MemoryEdgeType::TemporalNext,
                         weight: 1.0,
                         created_at: chrono::Utc::now(),
                     });
@@ -239,7 +243,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
                     surprise_max: ev.surprise_scores.iter().cloned().reduce(f64::max),
                     importance: initial_importance,
                     strength: 1.0,
-                    layer: crate::memory_v2::types::MemoryLayer::SML,
+                    layer: MemoryLayer::SML,
                     access_count: 0,
                     last_accessed_at: None,
                     decay_anchor_at: chrono::Utc::now(),
@@ -332,7 +336,7 @@ impl MemoryAdapter for UnifiedMemoryAdapter {
             surprise_max: None,
             importance: 0.7,
             strength: 1.0,
-            layer: crate::memory_v2::types::MemoryLayer::SML,
+            layer: MemoryLayer::SML,
             access_count: 0,
             last_accessed_at: None,
             decay_anchor_at: now,
@@ -385,7 +389,7 @@ impl EpisodicMemoryPort for UnifiedMemoryAdapter {
             surprise_max: None,
             importance: 0.5,
             strength: 1.0,
-            layer: crate::memory_v2::types::MemoryLayer::SML,
+            layer: MemoryLayer::SML,
             access_count: 0,
             last_accessed_at: None,
             decay_anchor_at: now,

@@ -52,7 +52,7 @@ impl ContextWorker for MemoryWorker {
 
         ctx.interaction_tail = extract_interaction_tail(&history_messages);
 
-        if state.em_memory_service.enabled() && !ctx.user_input.trim().is_empty() {
+        if state.memory_service.enabled() && !ctx.user_input.trim().is_empty() {
             if let Some(embedding_model_id) = resolve_embedding_model_id(state) {
                 let legacy_enabled = state.is_redesign_enabled("legacy_memory");
 
@@ -504,7 +504,7 @@ mod tests {
     use crate::domain::knowledge::{
         ContextConfig, KnowledgeChunk, KnowledgeHit, KnowledgePort, KnowledgeSource,
     };
-    use crate::em_llm::RetrievedMemory;
+    use crate::memory::RetrievedMemory;
     use crate::infrastructure::episodic_store::{MemoryAdapter, MemoryScope};
     use crate::models::types::{ModelEntry, ModelRegistry};
     use crate::test_support::ENV_LOCK;
@@ -708,8 +708,8 @@ mod tests {
             config.clone(),
         );
         let graph_runtime = Arc::new(crate::graph::GraphBuilder::new().build().unwrap());
-        let em_memory_service = Arc::new(
-            crate::em_llm::EmMemoryService::new(new_paths_arc.as_ref(), &config)
+        let memory_service = Arc::new(
+            crate::memory::MemoryService::new(new_paths_arc.as_ref(), &config)
                 .await
                 .unwrap(),
         );
@@ -749,7 +749,7 @@ mod tests {
             actor_manager: actor_manager.clone(),
         });
         let memory = Arc::new(crate::state::AppMemoryState {
-            em_memory_service: em_memory_service.clone(),
+            memory_service: memory_service.clone(),
             memory_adapter: adapter.clone() as Arc<dyn MemoryAdapter>,
             episodic_memory: adapter.clone() as Arc<dyn EpisodicMemoryPort>,
             knowledge: adapter.clone() as Arc<dyn KnowledgePort>,

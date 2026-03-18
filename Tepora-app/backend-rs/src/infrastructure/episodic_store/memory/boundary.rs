@@ -10,7 +10,7 @@
 //! 2. Evaluating boundary positions using modularity or conductance
 //! 3. Adjusting boundaries to optimize the chosen metric
 
-use crate::em_llm::types::{EMConfig, EpisodicEvent};
+use super::types::{EMConfig, EpisodicEvent};
 
 /// Refines event boundaries using graph-theoretic metrics.
 ///

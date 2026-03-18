@@ -7,9 +7,187 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// Re-export MemoryLayer from existing em_llm module to avoid duplication.
-// Note: em_llm::types is private, but MemoryLayer is re-exported at crate::em_llm level.
-pub use crate::em_llm::MemoryLayer;
+/// Represents a single episodic event in the EM-LLM system.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpisodicEvent {
+    pub id: String,
+    pub tokens: Vec<String>,
+    pub start_position: usize,
+    pub end_position: usize,
+    pub surprise_scores: Vec<f64>,
+    pub representative_tokens: Option<Vec<usize>>,
+    pub summary: Option<String>,
+    pub embedding: Option<Vec<f32>>,
+    pub timestamp: f64,
+    pub session_id: Option<String>,
+    pub sequence_number: Option<u64>,
+}
+
+impl EpisodicEvent {
+    pub fn new(
+        id: String,
+        tokens: Vec<String>,
+        start_position: usize,
+        end_position: usize,
+        surprise_scores: Vec<f64>,
+    ) -> Self {
+        Self {
+            id,
+            tokens,
+            start_position,
+            end_position,
+            surprise_scores,
+            representative_tokens: None,
+            summary: None,
+            embedding: None,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0),
+            session_id: None,
+            sequence_number: None,
+        }
+    }
+
+    pub fn text(&self) -> String {
+        self.tokens.join("")
+    }
+
+    pub fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
+    }
+}
+
+/// Memory tier used by FadeMem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+#[allow(clippy::upper_case_acronyms)]
+pub enum MemoryLayer {
+    LML,
+    #[default]
+    SML,
+}
+
+impl MemoryLayer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LML => "LML",
+            Self::SML => "SML",
+        }
+    }
+}
+
+/// Time unit for decay calculations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum TimeUnit {
+    Hours,
+    #[default]
+    Days,
+}
+
+/// FadeMem decay parameters.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecayConfig {
+    pub lambda_base: f64,
+    pub importance_modulation: f64,
+    pub beta_lml: f64,
+    pub beta_sml: f64,
+    pub promote_threshold: f64,
+    pub demote_threshold: f64,
+    pub prune_threshold: f64,
+    pub reinforcement_delta: f64,
+    pub alpha: f64,
+    pub beta: f64,
+    pub gamma: f64,
+    pub frequency_growth_rate: f64,
+    pub recency_time_constant: f64,
+    #[serde(default)]
+    pub time_unit: TimeUnit,
+    #[serde(default)]
+    pub transition_hysteresis: f64,
+    pub retrieval_similarity_ratio: f32,
+}
+
+impl Default for DecayConfig {
+    fn default() -> Self {
+        Self {
+            lambda_base: 0.1,
+            importance_modulation: 2.0,
+            beta_lml: 0.8,
+            beta_sml: 1.2,
+            promote_threshold: 0.7,
+            demote_threshold: 0.3,
+            prune_threshold: 0.05,
+            reinforcement_delta: 0.05,
+            alpha: 0.5,
+            beta: 0.3,
+            gamma: 0.2,
+            frequency_growth_rate: 0.2,
+            recency_time_constant: 7.0,
+            time_unit: TimeUnit::Days,
+            transition_hysteresis: 0.05,
+            retrieval_similarity_ratio: 0.7,
+        }
+    }
+}
+
+/// Configuration parameters for the EM-LLM system.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EMConfig {
+    pub surprise_window: usize,
+    pub surprise_gamma: f64,
+    pub min_event_size: usize,
+    pub max_event_size: usize,
+    pub similarity_buffer_ratio: f64,
+    pub contiguity_buffer_ratio: f64,
+    pub total_retrieved_events: usize,
+    pub repr_topk: usize,
+    pub recency_weight: f64,
+    pub use_boundary_refinement: bool,
+    pub refinement_metric: String,
+    pub refinement_search_range: usize,
+    pub encryption_enabled: bool,
+    #[serde(default)]
+    pub decay: DecayConfig,
+    pub decay_interval_hours: f64,
+}
+
+impl Default for EMConfig {
+    fn default() -> Self {
+        Self {
+            surprise_window: 128,
+            surprise_gamma: 1.0,
+            min_event_size: 8,
+            max_event_size: 128,
+            similarity_buffer_ratio: 0.7,
+            contiguity_buffer_ratio: 0.3,
+            total_retrieved_events: 4,
+            repr_topk: 4,
+            recency_weight: 0.1,
+            use_boundary_refinement: true,
+            refinement_metric: "modularity".to_string(),
+            refinement_search_range: 16,
+            encryption_enabled: false,
+            decay: DecayConfig::default(),
+            decay_interval_hours: 0.0,
+        }
+    }
+}
+
+impl EMConfig {
+    pub fn similarity_buffer_size(&self) -> usize {
+        ((self.total_retrieved_events as f64) * self.similarity_buffer_ratio).round() as usize
+    }
+
+    pub fn contiguity_buffer_size(&self) -> usize {
+        ((self.total_retrieved_events as f64) * self.contiguity_buffer_ratio).round() as usize
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Enums

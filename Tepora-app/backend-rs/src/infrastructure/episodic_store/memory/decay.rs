@@ -1,4 +1,4 @@
-use crate::em_llm::types::{DecayConfig, MemoryLayer};
+use super::types::{DecayConfig, MemoryLayer, TimeUnit};
 
 /// Memory decay engine based on FadeMem-style adaptive forgetting.
 #[derive(Debug, Clone)]
@@ -24,8 +24,8 @@ impl DecayEngine {
 
         // Convert days to the configured time unit
         let time_since_creation = match self.config.time_unit {
-            crate::em_llm::types::TimeUnit::Days => time_since_creation_days,
-            crate::em_llm::types::TimeUnit::Hours => time_since_creation_days * 24.0,
+            TimeUnit::Days => time_since_creation_days,
+            TimeUnit::Hours => time_since_creation_days * 24.0,
         };
 
         // Newer memories get higher recency signal.
@@ -48,8 +48,8 @@ impl DecayEngine {
         elapsed_days: f64,
     ) -> f64 {
         let elapsed = match self.config.time_unit {
-            crate::em_llm::types::TimeUnit::Days => elapsed_days.max(0.0),
-            crate::em_llm::types::TimeUnit::Hours => (elapsed_days * 24.0).max(0.0),
+            TimeUnit::Days => elapsed_days.max(0.0),
+            TimeUnit::Hours => (elapsed_days * 24.0).max(0.0),
         };
         let importance = importance.clamp(0.0, 1.0);
         let lambda =
@@ -129,10 +129,10 @@ mod tests {
     #[test]
     fn test_time_unit_parameterization() {
         let mut config_days = DecayConfig::default();
-        config_days.time_unit = crate::em_llm::types::TimeUnit::Days;
+        config_days.time_unit = TimeUnit::Days;
 
         let mut config_hours = DecayConfig::default();
-        config_hours.time_unit = crate::em_llm::types::TimeUnit::Hours;
+        config_hours.time_unit = TimeUnit::Hours;
 
         let engine_days = DecayEngine::new(config_days);
         let engine_hours = DecayEngine::new(config_hours);

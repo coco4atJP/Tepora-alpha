@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use crate::em_llm::types::MemoryLayer;
 use crate::llm::ChatMessage;
+use crate::memory::MemoryLayer;
 use serde_json::{Map, Value};
 use tokenizers::Tokenizer;
 

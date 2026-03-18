@@ -1,4 +1,4 @@
-//! Comprehensive unit tests for the EM-LLM module.
+//! Comprehensive unit tests for the memory algorithm module.
 //!
 //! This file covers regression tests for all EM-LLM components:
 //! - `types`: EpisodicEvent と EMConfig の境界値・エッジケース
@@ -10,7 +10,7 @@
 
 #[cfg(test)]
 mod types_tests {
-    use crate::em_llm::types::{EMConfig, EpisodicEvent};
+    use crate::memory::types::{EMConfig, EpisodicEvent};
 
     // ---------------------------------------------------------------
     // EpisodicEvent
@@ -101,8 +101,8 @@ mod types_tests {
 // ===================================================================
 #[cfg(test)]
 mod segmenter_tests {
-    use crate::em_llm::segmenter::EMEventSegmenter;
-    use crate::em_llm::types::EMConfig;
+    use crate::memory::segmenter::EMEventSegmenter;
+    use crate::memory::types::EMConfig;
 
     fn make_segmenter(
         min_size: usize,
@@ -308,8 +308,8 @@ mod segmenter_tests {
 // ===================================================================
 #[cfg(test)]
 mod boundary_tests {
-    use crate::em_llm::boundary::EMBoundaryRefiner;
-    use crate::em_llm::types::{EMConfig, EpisodicEvent};
+    use crate::memory::boundary::EMBoundaryRefiner;
+    use crate::memory::types::{EMConfig, EpisodicEvent};
 
     fn refiner() -> EMBoundaryRefiner {
         EMBoundaryRefiner::new(EMConfig::default())
@@ -501,8 +501,8 @@ mod boundary_tests {
 // ===================================================================
 #[cfg(test)]
 mod retrieval_tests {
-    use crate::em_llm::retrieval::EMTwoStageRetrieval;
-    use crate::em_llm::types::{EMConfig, EpisodicEvent};
+    use crate::memory::retrieval::EMTwoStageRetrieval;
+    use crate::memory::types::{EMConfig, EpisodicEvent};
 
     fn make_event(id: &str, emb: Vec<f32>, seq: u64) -> EpisodicEvent {
         let mut e = EpisodicEvent::new(id.to_string(), vec!["t".to_string()], 0, 1, vec![0.5]);
@@ -680,167 +680,5 @@ mod retrieval_tests {
             new_score > old_score,
             "newer event should have higher score after recency boost"
         );
-    }
-}
-
-// ===================================================================
-#[cfg(test)]
-mod store_tests {
-    use crate::em_llm::store::EmMemoryStore;
-    use crate::em_llm::DecayConfig;
-
-    async fn make_store() -> EmMemoryStore {
-        let path =
-            std::env::temp_dir().join(format!("tepora-em-store-tests-{}.db", uuid::Uuid::new_v4()));
-        EmMemoryStore::with_path(path).await.unwrap()
-    }
-
-    #[tokio::test]
-    async fn count_events_initially_zero() {
-        let store = make_store().await;
-        assert_eq!(store.count_events(None).await.unwrap(), 0);
-    }
-
-    #[tokio::test]
-    async fn count_events_increments_on_insert() {
-        let store = make_store().await;
-        store
-            .insert_event("a", "s1", "u", "r", "c", &[1.0, 0.0])
-            .await
-            .unwrap();
-        store
-            .insert_event("b", "s1", "u", "r", "c", &[0.0, 1.0])
-            .await
-            .unwrap();
-        assert_eq!(store.count_events(None).await.unwrap(), 2);
-    }
-
-    #[tokio::test]
-    async fn count_events_with_session_filter() {
-        let store = make_store().await;
-        store
-            .insert_event("a", "session-A", "u", "r", "c", &[1.0, 0.0])
-            .await
-            .unwrap();
-        store
-            .insert_event("b", "session-A", "u", "r", "c", &[0.9, 0.1])
-            .await
-            .unwrap();
-        store
-            .insert_event("c", "session-B", "u", "r", "c", &[0.0, 1.0])
-            .await
-            .unwrap();
-
-        assert_eq!(store.count_events(Some("session-A")).await.unwrap(), 2);
-        assert_eq!(store.count_events(Some("session-B")).await.unwrap(), 1);
-        assert_eq!(store.count_events(None).await.unwrap(), 3);
-    }
-
-    #[tokio::test]
-    async fn retrieve_similar_without_session_filter_returns_all() {
-        let store = make_store().await;
-        store
-            .insert_event("a", "s1", "u", "r", "content-a", &[1.0, 0.0, 0.0])
-            .await
-            .unwrap();
-        store
-            .insert_event("b", "s2", "u", "r", "content-b", &[1.0, 0.0, 0.0])
-            .await
-            .unwrap();
-
-        let results = store
-            .retrieve_similar(&[1.0, 0.0, 0.0], None, 10, &DecayConfig::default())
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn retrieve_similar_filters_by_session() {
-        let store = make_store().await;
-        store
-            .insert_event("a", "sess-1", "u", "r", "c-a", &[1.0, 0.0])
-            .await
-            .unwrap();
-        store
-            .insert_event("b", "sess-2", "u", "r", "c-b", &[1.0, 0.0])
-            .await
-            .unwrap();
-
-        let results = store
-            .retrieve_similar(&[1.0, 0.0], Some("sess-1"), 10, &DecayConfig::default())
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].id, "a");
-    }
-
-    #[tokio::test]
-    async fn retrieve_similar_respects_limit() {
-        let store = make_store().await;
-        for i in 0..10 {
-            store
-                .insert_event(&format!("e{}", i), "s1", "u", "r", "c", &[1.0, 0.0])
-                .await
-                .unwrap();
-        }
-        let results = store
-            .retrieve_similar(&[1.0, 0.0], None, 3, &DecayConfig::default())
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 3);
-    }
-
-    #[tokio::test]
-    async fn retrieve_similar_sorted_by_score_descending() {
-        let store = make_store().await;
-        store
-            .insert_event("similar", "s1", "u", "r", "c", &[1.0, 0.0, 0.0])
-            .await
-            .unwrap();
-        store
-            .insert_event("dissimilar", "s1", "u", "r", "c", &[0.0, 1.0, 0.0])
-            .await
-            .unwrap();
-
-        let results = store
-            .retrieve_similar(&[1.0, 0.0, 0.0], Some("s1"), 10, &DecayConfig::default())
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].id, "similar");
-        assert!(results[0].score > results[1].score);
-    }
-
-    #[tokio::test]
-    async fn insert_or_replace_same_id() {
-        let store = make_store().await;
-        store
-            .insert_event("dup", "s1", "u1", "r1", "content1", &[1.0, 0.0])
-            .await
-            .unwrap();
-        store
-            .insert_event("dup", "s1", "u2", "r2", "content2", &[0.0, 1.0])
-            .await
-            .unwrap();
-
-        // COUNT should be 1 because INSERT OR REPLACE
-        assert_eq!(store.count_events(None).await.unwrap(), 1);
-    }
-
-    #[tokio::test]
-    async fn retrieve_similar_zero_vector_returns_zero_scores() {
-        let store = make_store().await;
-        store
-            .insert_event("e1", "s1", "u", "r", "c", &[1.0, 0.0, 0.0])
-            .await
-            .unwrap();
-
-        let results = store
-            .retrieve_similar(&[0.0, 0.0, 0.0], Some("s1"), 10, &DecayConfig::default())
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 1);
-        assert!((results[0].score).abs() < 1e-6);
     }
 }

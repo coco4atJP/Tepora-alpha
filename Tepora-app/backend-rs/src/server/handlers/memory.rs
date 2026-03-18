@@ -62,13 +62,13 @@ pub async fn compress_memories(
 
     // Persist the initial job record.
     state
-        .em_memory_service
+        .memory_service
         .create_compaction_job(&job)
         .await
         .map_err(|e| ApiError::internal(format!("Failed to create compaction job: {e}")))?;
 
     // Clone necessary state for the background task.
-    let bg_service = state.em_memory_service.clone();
+    let bg_service = state.memory_service.clone();
     let bg_llm = state.llm.clone();
     let bg_job_id = job_id.clone();
     let bg_session_id = session_id.clone();
@@ -111,7 +111,7 @@ pub async fn list_compaction_jobs(
     };
 
     let jobs = state
-        .em_memory_service
+        .memory_service
         .list_compaction_jobs(&session_id, scope, status)
         .await?;
 
@@ -127,7 +127,7 @@ pub async fn run_decay_cycle(
 ) -> Result<impl IntoResponse, ApiError> {
     state.security.ensure_lockdown_disabled("memory_decay")?;
     let result = state
-        .em_memory_service
+        .memory_service
         .run_decay_cycle(payload.session_id.as_deref())
         .await?;
 

@@ -1,15 +1,16 @@
 # メモリシステム アーキテクチャ
 
-**最終更新**: 2026-03-14
+**最終更新**: 2026-03-18
 **バージョン**: v0.4.5
 
 ---
 
 ## 1. 概要
 
-Tepora のバックエンドには、メモリ関連の処理を担う3つのモジュールが存在する。
-本ドキュメントは、各モジュールの責務・依存関係・運用ステータスを明確にし、
-段階的な統合計画を記録するものである。
+Tepora のエピソード記憶は、`src/infrastructure/episodic_store/memory/` に統合された単一モジュールとして実装されている。
+このモジュールは EM-LLM の形成・検索アルゴリズムと FadeMem の減衰・層管理をまとめて提供し、永続化には SQLite ベースの `MemoryRepository` を使用する。
+
+外部互換は維持しており、REST `/api/memory/*`、WebSocket payload、フロントエンド契約、設定キー `em_llm.*`、DB テーブル `memory_events` / `memory_edges` / `memory_compaction_*` は継続利用する。
 
 ---
 
@@ -17,44 +18,26 @@ Tepora のバックエンドには、メモリ関連の処理を担う3つのモ
 
 | モジュール | パス | ステータス | 責務 |
 |-----------|------|-----------|------|
-| `memory` | `src/memory/` | **非推奨（Deprecated）** | ベクトルストア抽象層（VectorStore trait）+ LanceDB実装 |
-| `em_llm` | `src/em_llm/` | **現行（Active）** | EM-LLM エピソード記憶サービス本体。イベント分割・圧縮・減衰・検索・統合を実装 |
-| `memory_v2` | `src/memory_v2/` | **現行（Active）** | 再設計された永続化層。SQLite ベースのリポジトリ + 型定義 |
+| `memory` | `src/infrastructure/episodic_store/memory/` | **現行（Active）** | EM-LLM × FadeMem の統合実装。取り込み・検索・減衰・圧縮・永続化・v1テーブル退役を提供 |
 
-### 2.1 `memory/`（非推奨）
-
-- `VectorStore` trait による抽象化と `LanceDbVectorStore` (旧Qdrant) 実装
-- `MemorySystem<V>` によるエピソード記憶の CRUD
-- **現在どのモジュールからも使用されていない**
-- v0.5.0 で削除予定
-
-### 2.2 `em_llm/`（現行）
-
-ICLR 2025 論文 "Human-inspired Episodic Memory for Infinite Context LLMs" に基づく実装。
+### 2.1 `memory/`（現行）
 
 | サブモジュール | 責務 |
 |---------------|------|
-| `service.rs` | メモリサービスの主ファサード。イベント保存・検索・バックグラウンド処理 |
-| `store.rs` | イベントストア（内部で `memory_v2::SqliteMemoryRepository` を利用） |
+| `service.rs` | `MemoryService`。メモリ保存・検索・減衰・統計・バックグラウンド処理の主ファサード |
+| `repository.rs` | `MemoryRepository` trait と検索用スコア型 |
+| `sqlite_repository.rs` | SQLite 実装。`memory_*` テーブル管理と旧 `episodic_events` 退役処理を担当 |
+| `adapter.rs` | `MemoryAdapter` / `UnifiedMemoryAdapter`。ドメインポートとの橋渡し |
+| `types.rs` | `MemoryEvent`, `MemoryScope`, `MemoryLayer`, `EMConfig`, `DecayConfig` など共有型の正本 |
 | `boundary.rs` | イベント境界の精緻化 |
-| `compression.rs` | メモリ圧縮・コンパクション |
-| `decay.rs` | 時間減衰エンジン |
-| `retrieval.rs` | 二段階検索（意味的 + 時間的） |
 | `segmenter.rs` | イベントセグメンテーション |
+| `retrieval.rs` | 二段階検索（意味的 + 連続性） |
+| `ranking.rs` | 検索再スコアリング |
+| `decay.rs` | FadeMem 減衰エンジン |
+| `compression.rs` | 手動圧縮・コンパクション |
 | `integrator.rs` | EM-LLM 統合ロジック |
-| `sentence.rs` | 文レベル処理ユーティリティ |
-| `types.rs` | EM設定・エピソードイベント型 |
-
-### 2.3 `memory_v2/`（現行）
-
-EM-LLM × FadeMem の再設計に基づくデータ永続化層。
-
-| サブモジュール | 責務 |
-|---------------|------|
-| `repository.rs` | `MemoryRepository` trait 定義 |
-| `sqlite_repository.rs` | SQLite 実装（主ストレージ） |
-| `types.rs` | `MemoryEvent`, `MemoryLayer`, `CompactionJob` 等の型 |
-| `tests.rs` | リポジトリのユニットテスト |
+| `sentence.rs` | 文分割ユーティリティ |
+| `tests.rs` | リポジトリ・アルゴリズム統合テスト入口 |
 
 ---
 
@@ -62,56 +45,51 @@ EM-LLM × FadeMem の再設計に基づくデータ永続化層。
 
 ```mermaid
 graph TD
-    A[context/workers/memory_worker.rs] --> B[em_llm/service.rs]
-    B --> C[em_llm/store.rs]
-    B --> D[memory_v2/repository.rs]
-    B --> E[memory_v2/types.rs]
-    C --> D
-    F[em_llm/compression.rs] --> D
-    F --> E
-    G[server/handlers/memory.rs] --> E
-    G --> B
-    H[server/ws/handler.rs] --> B
-    I[state/mod.rs] --> B
-
-    style J fill:#f66,stroke:#333
-    J[memory/ — 非推奨] -.->|未使用| A
+    A[context/workers/memory_worker.rs] --> B[memory/service.rs]
+    B --> C[memory/repository.rs]
+    B --> D[memory/types.rs]
+    C --> E[memory/sqlite_repository.rs]
+    F[memory/compression.rs] --> C
+    F --> D
+    G[memory/adapter.rs] --> B
+    G --> C
+    H[server/handlers/memory.rs] --> B
+    H --> D
+    I[server/ws/handler.rs] --> B
+    J[state/mod.rs] --> B
 ```
 
 **主要な依存フロー:**
 
-1. **リクエスト受信** → `server/handlers/memory.rs` or `server/ws/handler.rs`
+1. **リクエスト受信** → `server/handlers/memory.rs` または `server/ws/handler.rs`
 2. **コンテキスト構築** → `context/workers/memory_worker.rs`
-3. **メモリサービス呼び出し** → `em_llm/service.rs`（`EmMemoryService`）
-4. **永続化** → `memory_v2/sqlite_repository.rs`（`SqliteMemoryRepository`）
+3. **メモリサービス呼び出し** → `memory/service.rs`（`MemoryService`）
+4. **永続化** → `memory/sqlite_repository.rs`（`SqliteMemoryRepository`）
 
 ---
 
-## 4. 移行ロードマップ
+## 4. 統合完了状態
 
-`memory_v2/mod.rs` に記載されている phases 1-6 に基づく計画：
+2026-03-18 時点で、メモリ再設計の実装統合は完了している。
 
-| フェーズ | 内容 | ステータス |
-|---------|------|-----------|
-| Phase 1 | `memory_v2` の型定義とリポジトリ trait を導入 | ✅ 完了 |
-| Phase 2 | `em_llm` が `memory_v2` のリポジトリを使用するよう切替 | ✅ 完了 |
-| Phase 3 | `memory/`（旧VectorStore）を非推奨化 | ✅ 完了（本改善にて実施） |
-| Phase 4 | `em_llm` の上位ロジックを `memory_v2` 配下に段階移動 | 🔲 未着手 |
-| Phase 5 | `em_llm/` を `memory_v2/` に完全統合 | 🔲 未着手 |
-| Phase 6 | `memory_v2` を `memory` にリネーム（最終整理） | 🔲 未着手 |
-
-> **注意**: Phase 4〜6 は重大なリファクタリングを伴うため、
-> 機能追加が一段落するタイミングで段階的に実施する。
+| 項目 | 内容 | ステータス |
+|------|------|-----------|
+| 形成パイプライン | EM-LLM の segmentation / refinement / retrieval / integration を本番経路で利用 | ✅ 完了 |
+| 永続化 | SQLite ベースの `MemoryRepository` / `SqliteMemoryRepository` に統一 | ✅ 完了 |
+| FadeMem | `MemoryLayer`、減衰、強化、手動圧縮を単一モジュールに集約 | ✅ 完了 |
+| v1 退役 | 旧 `episodic_events` の退役と退役テーブル自動クリーンアップを実装 | ✅ 完了 |
+| モジュール統合 | 旧 `em_llm` / `memory_v2` を廃止し、`memory` を唯一の実装入口に整理 | ✅ 完了 |
 
 ---
 
 ## 5. 関連ファイル
 
-- `src/state/mod.rs` — `EmMemoryService` を `AppState` に保持
+- `src/infrastructure/episodic_store/memory/mod.rs` — メモリ実装の公開入口
+- `src/state/mod.rs` — `MemoryService` を `AppState` に保持
 - `src/server/handlers/memory.rs` — メモリ関連 API ハンドラー
 - `src/server/ws/handler.rs` — WebSocket 経由のメモリ操作
 - `src/context/workers/memory_worker.rs` — コンテキストパイプラインのメモリ取得
 
 ---
 
-*本ドキュメントは中期的改善項目 #7（メモリ実装の統合整理）として作成された。*
+*本ドキュメントは、統合後の単一メモリ実装の責務と依存関係を記録する。*
