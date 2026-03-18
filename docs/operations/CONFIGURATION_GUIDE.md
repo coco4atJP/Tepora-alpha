@@ -94,6 +94,7 @@ app:
 ```yaml
 privacy:
   allow_web_search: true
+  isolation_mode: false
   url_policy_preset: balanced
   lockdown:
     enabled: false
@@ -105,6 +106,13 @@ privacy:
 ```yaml
 llm_manager:
   loader: ollama
+  process_terminate_timeout: 5000
+  external_request_timeout_ms: 120000
+  stream_idle_timeout_ms: 60000
+  health_check_timeout: 15000
+  health_check_interval_ms: 500
+  stream_channel_buffer: 128
+  stream_internal_buffer: 100
 ```
 
 ### `models_gguf`
@@ -116,14 +124,69 @@ models_gguf:
     port: 8088
     n_ctx: 8192
     n_gpu_layers: -1
+    max_tokens: 1024
+    repeat_penalty: 1.1
+    stop:
+      - "User:"
+      - "System:"
   embedding_model:
     path: ollama://embeddinggemma:latest
     port: 8081
     n_ctx: 2048
     n_gpu_layers: -1
+    num_ctx: 2048
 ```
 
 > `port` は主に `llama_cpp` 実行時に意味を持ちます。`ollama://...` や `lmstudio://...` を使う場合は、対応ローダーの接続先解決が優先されます。
+
+### `llm_defaults`
+
+```yaml
+llm_defaults:
+  n_predict: 1024
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  repeat_penalty: 1.1
+```
+
+### `rag`
+
+```yaml
+rag:
+  search_default_limit: 5
+  text_search_default_limit: 10
+  embedding_timeout_ms: 5000
+  chunk_window_default_chars: 1200
+```
+
+### `agent`
+
+```yaml
+agent:
+  max_attachments: 5
+  attachment_preview_chars: 500
+```
+
+### `context_window`
+
+```yaml
+context_window:
+  chat:
+    system_cap: 20
+    memory_cap: 45
+    local_context_cap: 20
+    interaction_tail_cap: 5
+  search_agentic:
+    search_report_build:
+      evidence_cap: 35
+      artifact_summary_cap: 15
+      evidence_limit: 5
+      artifact_limit: 3
+```
+
+- `*_cap: 0` はその block kind の非必須コンテキストを無効化します。
+- `*_cap` を省略した場合は mode / stage の既定 recipe を使います。
 
 ### `model_download`
 

@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::em_llm::types::MemoryLayer;
 use crate::llm::ChatMessage;
+use serde_json::{Map, Value};
 use tokenizers::Tokenizer;
 
 use super::pipeline_context::{
@@ -47,6 +48,17 @@ pub struct WindowRecipe {
     pub include_app_thinking_digest: bool,
     pub include_model_thinking_digest: bool,
     pub include_scratchpad: bool,
+}
+
+#[derive(Debug, Clone)]
+struct RecipeControls {
+    drop_order: Vec<ContextBlockKind>,
+    compression_order: Vec<ContextBlockKind>,
+    evidence_limit: usize,
+    artifact_limit: usize,
+    include_app_thinking_digest: bool,
+    include_model_thinking_digest: bool,
+    include_scratchpad: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -123,7 +135,7 @@ pub struct ContextController {
 impl ContextController {
     pub fn new(ctx: &PipelineContext) -> Self {
         Self {
-            recipe: WindowRecipe::for_mode(ctx.mode, ctx.stage),
+            recipe: WindowRecipe::for_mode(ctx.mode, ctx.stage, ctx.config()),
             budget: ctx.token_budget.clone(),
             estimator: TokenEstimator::new(ctx.tokenizer_spec.clone()),
         }
@@ -358,7 +370,7 @@ impl ContextController {
 
     fn compress_blocks(
         &self,
-        blocks: &mut Vec<ContextBlock>,
+        blocks: &mut [ContextBlock],
         diagnostics: &mut ContextRenderDiagnostics,
     ) {
         let available = self.budget.available_input_budget();
@@ -431,6 +443,7 @@ impl ContextController {
         for (kind, share) in &self.recipe.caps {
             let cap = available.saturating_mul(*share) / 100;
             if cap == 0 {
+                remove_optional_blocks_of_kind(blocks, *kind, diagnostics, "disabled");
                 continue;
             }
             loop {
@@ -517,8 +530,8 @@ impl ContextController {
 }
 
 impl WindowRecipe {
-    pub fn for_mode(mode: PipelineMode, stage: PipelineStage) -> Self {
-        match (mode, stage) {
+    pub fn for_mode(mode: PipelineMode, stage: PipelineStage, config: &Value) -> Self {
+        let mut recipe = match (mode, stage) {
             (PipelineMode::Chat, _) => recipe(
                 stage,
                 &[
@@ -528,25 +541,27 @@ impl WindowRecipe {
                     (ContextBlockKind::InteractionTail, 5),
                     (ContextBlockKind::UserInput, 10),
                 ],
-                vec![
-                    ContextBlockKind::ModelThinkingDigest,
-                    ContextBlockKind::ArtifactSummary,
-                    ContextBlockKind::InteractionTail,
-                    ContextBlockKind::LocalContext,
-                    ContextBlockKind::Memory,
-                    ContextBlockKind::Evidence,
-                ],
-                vec![
-                    ContextBlockKind::ArtifactSummary,
-                    ContextBlockKind::InteractionTail,
-                    ContextBlockKind::LocalContext,
-                    ContextBlockKind::Memory,
-                ],
-                0,
-                0,
-                false,
-                false,
-                false,
+                controls(
+                    vec![
+                        ContextBlockKind::ModelThinkingDigest,
+                        ContextBlockKind::ArtifactSummary,
+                        ContextBlockKind::InteractionTail,
+                        ContextBlockKind::LocalContext,
+                        ContextBlockKind::Memory,
+                        ContextBlockKind::Evidence,
+                    ],
+                    vec![
+                        ContextBlockKind::ArtifactSummary,
+                        ContextBlockKind::InteractionTail,
+                        ContextBlockKind::LocalContext,
+                        ContextBlockKind::Memory,
+                    ],
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::SearchFast, PipelineStage::SearchQueryGenerate) => recipe(
                 stage,
@@ -557,13 +572,15 @@ impl WindowRecipe {
                     (ContextBlockKind::InteractionTail, 5),
                     (ContextBlockKind::UserInput, 25),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                2,
-                1,
-                false,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    2,
+                    1,
+                    false,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::SearchFast, _) => recipe(
                 stage,
@@ -576,13 +593,15 @@ impl WindowRecipe {
                     (ContextBlockKind::AppThinkingDigest, 5),
                     (ContextBlockKind::UserInput, 10),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                4,
-                2,
-                true,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    4,
+                    2,
+                    true,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::SearchAgentic, PipelineStage::SearchQueryGenerate) => recipe(
                 stage,
@@ -593,13 +612,15 @@ impl WindowRecipe {
                     (ContextBlockKind::InteractionTail, 7),
                     (ContextBlockKind::UserInput, 20),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                1,
-                1,
-                false,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    1,
+                    1,
+                    false,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::SearchAgentic, PipelineStage::SearchChunkSelect) => recipe(
                 stage,
@@ -611,13 +632,15 @@ impl WindowRecipe {
                     (ContextBlockKind::ArtifactSummary, 10),
                     (ContextBlockKind::UserInput, 5),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                5,
-                2,
-                false,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    5,
+                    2,
+                    false,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::SearchAgentic, PipelineStage::SearchReportBuild) => recipe(
                 stage,
@@ -630,13 +653,15 @@ impl WindowRecipe {
                     (ContextBlockKind::AppThinkingDigest, 5),
                     (ContextBlockKind::UserInput, 5),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                5,
-                3,
-                true,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    5,
+                    3,
+                    true,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::SearchAgentic, _) => recipe(
                 stage,
@@ -649,13 +674,15 @@ impl WindowRecipe {
                     (ContextBlockKind::AppThinkingDigest, 5),
                     (ContextBlockKind::UserInput, 5),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                4,
-                4,
-                true,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    4,
+                    4,
+                    true,
+                    false,
+                    false,
+                ),
             ),
             (
                 PipelineMode::AgentHigh | PipelineMode::AgentLow | PipelineMode::AgentDirect,
@@ -670,13 +697,15 @@ impl WindowRecipe {
                     (ContextBlockKind::ArtifactSummary, 10),
                     (ContextBlockKind::UserInput, 15),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                1,
-                2,
-                false,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    1,
+                    2,
+                    false,
+                    false,
+                    false,
+                ),
             ),
             (
                 PipelineMode::AgentHigh | PipelineMode::AgentLow | PipelineMode::AgentDirect,
@@ -691,13 +720,15 @@ impl WindowRecipe {
                     (ContextBlockKind::InteractionTail, 5),
                     (ContextBlockKind::UserInput, 20),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                2,
-                5,
-                true,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    2,
+                    5,
+                    true,
+                    false,
+                    false,
+                ),
             ),
             (
                 PipelineMode::AgentHigh | PipelineMode::AgentLow | PipelineMode::AgentDirect,
@@ -711,13 +742,15 @@ impl WindowRecipe {
                     (ContextBlockKind::ArtifactSummary, 25),
                     (ContextBlockKind::UserInput, 12),
                 ],
-                default_drop_order(),
-                default_compression_order(),
-                2,
-                5,
-                false,
-                false,
-                false,
+                controls(
+                    default_drop_order(),
+                    default_compression_order(),
+                    2,
+                    5,
+                    false,
+                    false,
+                    false,
+                ),
             ),
             (PipelineMode::AgentHigh | PipelineMode::AgentLow | PipelineMode::AgentDirect, _) => {
                 recipe(
@@ -730,22 +763,42 @@ impl WindowRecipe {
                         (ContextBlockKind::ArtifactSummary, 15),
                         (ContextBlockKind::InteractionTail, 5),
                     ],
-                    default_drop_order(),
-                    default_compression_order(),
-                    3,
-                    4,
-                    true,
-                    false,
-                    true,
+                    controls(
+                        default_drop_order(),
+                        default_compression_order(),
+                        3,
+                        4,
+                        true,
+                        false,
+                        true,
+                    ),
                 )
             }
-        }
+        };
+        apply_context_window_overrides(config, mode, stage, &mut recipe);
+        recipe
     }
 }
 
 fn recipe(
     stage: PipelineStage,
     caps: &[(ContextBlockKind, usize)],
+    controls: RecipeControls,
+) -> WindowRecipe {
+    WindowRecipe {
+        stage,
+        caps: caps.iter().copied().collect(),
+        drop_order: controls.drop_order,
+        compression_order: controls.compression_order,
+        evidence_limit: controls.evidence_limit,
+        artifact_limit: controls.artifact_limit,
+        include_app_thinking_digest: controls.include_app_thinking_digest,
+        include_model_thinking_digest: controls.include_model_thinking_digest,
+        include_scratchpad: controls.include_scratchpad,
+    }
+}
+
+fn controls(
     drop_order: Vec<ContextBlockKind>,
     compression_order: Vec<ContextBlockKind>,
     evidence_limit: usize,
@@ -753,10 +806,8 @@ fn recipe(
     include_app_thinking_digest: bool,
     include_model_thinking_digest: bool,
     include_scratchpad: bool,
-) -> WindowRecipe {
-    WindowRecipe {
-        stage,
-        caps: caps.iter().copied().collect(),
+) -> RecipeControls {
+    RecipeControls {
         drop_order,
         compression_order,
         evidence_limit,
@@ -788,6 +839,141 @@ fn default_compression_order() -> Vec<ContextBlockKind> {
     ]
 }
 
+fn apply_context_window_overrides(
+    config: &Value,
+    mode: PipelineMode,
+    stage: PipelineStage,
+    recipe: &mut WindowRecipe,
+) {
+    let Some(overrides) = context_window_recipe_config(config, mode, stage) else {
+        return;
+    };
+
+    apply_cap_override(overrides, "system_cap", ContextBlockKind::System, recipe);
+    apply_cap_override(overrides, "memory_cap", ContextBlockKind::Memory, recipe);
+    apply_cap_override(
+        overrides,
+        "local_context_cap",
+        ContextBlockKind::LocalContext,
+        recipe,
+    );
+    apply_cap_override(
+        overrides,
+        "interaction_tail_cap",
+        ContextBlockKind::InteractionTail,
+        recipe,
+    );
+    apply_cap_override(
+        overrides,
+        "evidence_cap",
+        ContextBlockKind::Evidence,
+        recipe,
+    );
+    apply_cap_override(
+        overrides,
+        "artifact_summary_cap",
+        ContextBlockKind::ArtifactSummary,
+        recipe,
+    );
+    apply_cap_override(
+        overrides,
+        "app_thinking_digest_cap",
+        ContextBlockKind::AppThinkingDigest,
+        recipe,
+    );
+    apply_cap_override(
+        overrides,
+        "model_thinking_digest_cap",
+        ContextBlockKind::ModelThinkingDigest,
+        recipe,
+    );
+    apply_cap_override(
+        overrides,
+        "user_input_cap",
+        ContextBlockKind::UserInput,
+        recipe,
+    );
+
+    if let Some(limit) = overrides.get("evidence_limit").and_then(|v| v.as_u64()) {
+        recipe.evidence_limit = limit as usize;
+    }
+    if let Some(limit) = overrides.get("artifact_limit").and_then(|v| v.as_u64()) {
+        recipe.artifact_limit = limit as usize;
+    }
+}
+
+fn apply_cap_override(
+    overrides: &Map<String, Value>,
+    key: &str,
+    block_kind: ContextBlockKind,
+    recipe: &mut WindowRecipe,
+) {
+    if let Some(share) = overrides.get(key).and_then(|v| v.as_u64()) {
+        recipe.caps.insert(block_kind, share as usize);
+    }
+}
+
+fn context_window_recipe_config(
+    config: &Value,
+    mode: PipelineMode,
+    stage: PipelineStage,
+) -> Option<&Map<String, Value>> {
+    let context_window = config.get("context_window")?.as_object()?;
+    let mode_entry = context_window
+        .get(context_window_mode_key(mode))?
+        .as_object()?;
+    if is_context_window_recipe_object(mode_entry) {
+        return Some(mode_entry);
+    }
+    mode_entry
+        .get(context_window_stage_key(stage))
+        .or_else(|| mode_entry.get("default"))
+        .and_then(|value| value.as_object())
+}
+
+fn context_window_mode_key(mode: PipelineMode) -> &'static str {
+    match mode {
+        PipelineMode::Chat => "chat",
+        PipelineMode::SearchFast => "search_fast",
+        PipelineMode::SearchAgentic => "search_agentic",
+        PipelineMode::AgentHigh => "agent_high",
+        PipelineMode::AgentLow => "agent_low",
+        PipelineMode::AgentDirect => "agent_direct",
+    }
+}
+
+fn context_window_stage_key(stage: PipelineStage) -> &'static str {
+    match stage {
+        PipelineStage::Main => "main",
+        PipelineStage::SearchQueryGenerate => "search_query_generate",
+        PipelineStage::SearchChunkSelect => "search_chunk_select",
+        PipelineStage::SearchReportBuild => "search_report_build",
+        PipelineStage::SearchFinalSynthesis => "search_final_synthesis",
+        PipelineStage::AgentPlanner => "agent_planner",
+        PipelineStage::AgentExecutor => "agent_executor",
+        PipelineStage::AgentSynthesizer => "agent_synthesizer",
+    }
+}
+
+fn is_context_window_recipe_object(section: &Map<String, Value>) -> bool {
+    section.keys().any(|key| {
+        matches!(
+            key.as_str(),
+            "system_cap"
+                | "memory_cap"
+                | "local_context_cap"
+                | "interaction_tail_cap"
+                | "evidence_cap"
+                | "artifact_summary_cap"
+                | "app_thinking_digest_cap"
+                | "model_thinking_digest_cap"
+                | "user_input_cap"
+                | "evidence_limit"
+                | "artifact_limit"
+        )
+    })
+}
+
 fn total_tokens(blocks: &[ContextBlock], estimator: &TokenEstimator) -> TokenCountBreakdown {
     let mut total_tokens = 0usize;
     let mut source = TokenEstimateSource::Heuristic;
@@ -801,6 +987,26 @@ fn total_tokens(blocks: &[ContextBlock], estimator: &TokenEstimator) -> TokenCou
     TokenCountBreakdown {
         total_tokens,
         source,
+    }
+}
+
+fn remove_optional_blocks_of_kind(
+    blocks: &mut Vec<ContextBlock>,
+    kind: ContextBlockKind,
+    diagnostics: &mut ContextRenderDiagnostics,
+    reason: &str,
+) {
+    let mut index = 0;
+    while index < blocks.len() {
+        if blocks[index].kind == kind && !blocks[index].required {
+            let removed = blocks.remove(index);
+            diagnostics.dropped_blocks.push(format!(
+                "{}:{:?}:{}",
+                reason, removed.kind, removed.source_key
+            ));
+        } else {
+            index += 1;
+        }
     }
 }
 
@@ -1050,6 +1256,10 @@ fn load_tokenizer(path: &str) -> Option<Arc<Tokenizer>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::pipeline_context::{
+        MemoryChunk, PipelineArtifact, PipelineContext, PipelineMode, RagChunk, TokenBudget,
+    };
+    use crate::infrastructure::episodic_store::MemoryScope;
 
     #[test]
     fn trim_to_tokens_respects_multibyte_budget() {
@@ -1067,5 +1277,104 @@ mod tests {
         let japanese = estimate_tokens("あいうえおかきくけこさしすせそ");
 
         assert!(japanese > ascii);
+    }
+
+    fn memory_chunk(content: &str) -> MemoryChunk {
+        MemoryChunk {
+            content: content.to_string(),
+            relevance_score: 1.0,
+            source: "test".to_string(),
+            strength: 1.0,
+            memory_layer: MemoryLayer::SML,
+            scope: MemoryScope::Prof,
+            session_id: "s1".to_string(),
+            character_id: None,
+        }
+    }
+
+    #[test]
+    fn zero_memory_cap_disables_optional_memory_blocks() {
+        let ctx = PipelineContext::new("s1", "t1", PipelineMode::Chat, "keep user input")
+            .with_token_budget(TokenBudget::with_margin(2048, 128, 64))
+            .with_config_snapshot(serde_json::json!({
+                "context_window": {
+                    "chat": {
+                        "memory_cap": 0
+                    }
+                }
+            }));
+        let mut ctx = ctx;
+        ctx.memory_chunks = vec![memory_chunk("memory content should be removed")];
+
+        let messages = ContextController::new(&ctx).render(&ctx);
+        let rendered = messages
+            .iter()
+            .map(|message| message.content.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(!rendered.contains("[Memory]"));
+        assert!(rendered.contains("keep user input"));
+    }
+
+    #[test]
+    fn zero_evidence_and_artifact_caps_disable_optional_blocks() {
+        let ctx = PipelineContext::new("s1", "t1", PipelineMode::SearchAgentic, "summarize")
+            .with_stage(PipelineStage::SearchReportBuild)
+            .with_token_budget(TokenBudget::with_margin(2048, 128, 64))
+            .with_config_snapshot(serde_json::json!({
+                "context_window": {
+                    "search_agentic": {
+                        "search_report_build": {
+                            "evidence_cap": 0,
+                            "artifact_summary_cap": 0,
+                            "evidence_limit": 5,
+                            "artifact_limit": 5
+                        }
+                    }
+                }
+            }));
+        let mut ctx = ctx;
+        ctx.rag_chunks = vec![RagChunk {
+            chunk_id: "chunk-1".to_string(),
+            content: "evidence content".to_string(),
+            source: "source".to_string(),
+            score: 1.0,
+            metadata: HashMap::new(),
+        }];
+        ctx.artifacts = vec![PipelineArtifact {
+            artifact_type: "report".to_string(),
+            content: "artifact body".to_string(),
+            metadata: HashMap::new(),
+        }];
+
+        let messages = ContextController::new(&ctx).render(&ctx);
+        let rendered = messages
+            .iter()
+            .map(|message| message.content.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(!rendered.contains("[Evidence"));
+        assert!(!rendered.contains("[Artifact Summary"));
+        assert!(rendered.contains("summarize"));
+    }
+
+    #[test]
+    fn zero_user_input_cap_keeps_required_user_message() {
+        let ctx = PipelineContext::new("s1", "t1", PipelineMode::Chat, "required user input")
+            .with_token_budget(TokenBudget::with_margin(2048, 128, 64))
+            .with_config_snapshot(serde_json::json!({
+                "context_window": {
+                    "chat": {
+                        "user_input_cap": 0
+                    }
+                }
+            }));
+
+        let messages = ContextController::new(&ctx).render(&ctx);
+        assert!(messages.iter().any(|message| {
+            message.role == "user" && message.content.contains("required user input")
+        }));
     }
 }

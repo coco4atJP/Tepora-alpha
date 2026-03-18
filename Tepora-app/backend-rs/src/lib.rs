@@ -23,6 +23,8 @@ pub mod models;
 pub mod rag;
 pub mod server;
 pub mod state;
+#[cfg(test)]
+pub mod test_support;
 pub mod tools;
 
 #[cfg(test)]

@@ -265,13 +265,26 @@ fn parse_decision_from_value(value: &Value) -> Option<AgentDecision> {
     None
 }
 
-pub fn format_attachments(attachments: &[Value]) -> Option<String> {
+pub fn format_attachments(config: &Value, attachments: &[Value]) -> Option<String> {
     if attachments.is_empty() {
         return None;
     }
 
+    let max_attachments = config
+        .get("agent")
+        .and_then(|v| v.get("max_attachments"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5)
+        .clamp(1, 100) as usize;
+    let preview_chars = config
+        .get("agent")
+        .and_then(|v| v.get("attachment_preview_chars"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(500)
+        .clamp(1, 1_000_000) as usize;
+
     let mut blocks = Vec::new();
-    for attachment in attachments.iter().take(5) {
+    for attachment in attachments.iter().take(max_attachments) {
         if let Some(obj) = attachment.as_object() {
             let name = obj
                 .get("name")
@@ -282,11 +295,7 @@ pub fn format_attachments(attachments: &[Value]) -> Option<String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("(path unavailable)");
             let content = obj.get("content").and_then(|v| v.as_str()).unwrap_or("");
-            let preview = if content.len() > 500 {
-                format!("{}... (truncated)", &content[..500])
-            } else {
-                content.to_string()
-            };
+            let preview = truncate_attachment_preview(content, preview_chars);
             blocks.push(format!(
                 "Attachment: {}\\nPath: {}\\nPreview: {}",
                 name, path, preview
@@ -302,4 +311,59 @@ pub fn format_attachments(attachments: &[Value]) -> Option<String> {
         "User provided attachments. Use them if relevant:\\n{}",
         blocks.join("\n---\n")
     ))
+}
+
+fn truncate_attachment_preview(content: &str, preview_chars: usize) -> String {
+    let mut chars = content.chars();
+    let preview: String = chars.by_ref().take(preview_chars).collect();
+    if chars.next().is_some() {
+        format!("{}... (truncated)", preview)
+    } else {
+        content.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn truncate_attachment_preview_handles_ascii() {
+        let preview = truncate_attachment_preview("abcdefghijklmnopqrstuvwxyz", 5);
+        assert_eq!(preview, "abcde... (truncated)");
+    }
+
+    #[test]
+    fn truncate_attachment_preview_handles_multibyte_text() {
+        let preview = truncate_attachment_preview("これは日本語の長い添付テキストです", 6);
+        assert_eq!(preview, "これは日本語... (truncated)");
+    }
+
+    #[test]
+    fn truncate_attachment_preview_handles_emoji() {
+        let preview = truncate_attachment_preview("🙂🙂🙂🙂🙂🙂", 4);
+        assert_eq!(preview, "🙂🙂🙂🙂... (truncated)");
+    }
+
+    #[test]
+    fn format_attachments_respects_max_attachment_limit() {
+        let config = json!({
+            "agent": {
+                "max_attachments": 2,
+                "attachment_preview_chars": 10
+            }
+        });
+        let attachments = vec![
+            json!({ "name": "a", "path": "/tmp/a", "content": "one" }),
+            json!({ "name": "b", "path": "/tmp/b", "content": "two" }),
+            json!({ "name": "c", "path": "/tmp/c", "content": "three" }),
+        ];
+
+        let formatted = format_attachments(&config, &attachments).unwrap();
+        assert_eq!(formatted.matches("Attachment: ").count(), 2);
+        assert!(formatted.contains("Attachment: a"));
+        assert!(formatted.contains("Attachment: b"));
+        assert!(!formatted.contains("Attachment: c"));
+    }
 }

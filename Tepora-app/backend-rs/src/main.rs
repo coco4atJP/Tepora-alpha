@@ -27,6 +27,8 @@ mod models;
 mod rag;
 mod server;
 mod state;
+#[cfg(test)]
+mod test_support;
 mod tools;
 
 // PoC modules (test-only, Day 7)

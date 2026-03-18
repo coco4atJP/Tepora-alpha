@@ -11,17 +11,21 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 
-use crate::core::config::AppPaths;
+use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
+use crate::llm::external_loader_common::{
+    health_check_interval, health_check_timeout, process_terminate_timeout, stream_channel_buffer,
+    stream_internal_buffer,
+};
 use crate::models::types::ModelRuntimeConfig;
 
 const DEFAULT_SERVER_PORT: u16 = 8080;
-const MAX_SERVER_RETRIES: u32 = 30;
 
 #[derive(Clone)]
 pub struct LlamaService {
     inner: Arc<Mutex<LlamaManager>>,
     client: Client,
+    config: Option<ConfigService>,
 }
 
 struct LlamaManager {
@@ -30,6 +34,11 @@ struct LlamaManager {
     running: Arc<AtomicBool>,
     server_path: PathBuf,
     model_config: Option<ModelRuntimeConfig>,
+}
+
+struct PendingLlamaProcess {
+    child: Child,
+    port: u16,
 }
 
 impl Drop for LlamaManager {
@@ -48,6 +57,13 @@ use crate::llm::types::{ChatMessage, NormalizedAssistantTurn, NormalizedStreamCh
 
 impl LlamaService {
     pub fn new(paths: Arc<AppPaths>) -> Result<Self, ApiError> {
+        Self::new_with_config(paths, Option::<ConfigService>::None)
+    }
+
+    pub fn new_with_config(
+        paths: Arc<AppPaths>,
+        config: impl Into<Option<ConfigService>>,
+    ) -> Result<Self, ApiError> {
         let server_path = Self::find_server_binary(&paths)?;
         Ok(Self {
             inner: Arc::new(Mutex::new(LlamaManager {
@@ -58,6 +74,7 @@ impl LlamaService {
                 model_config: None,
             })),
             client: Client::new(),
+            config: config.into(),
         })
     }
 
@@ -91,7 +108,7 @@ impl LlamaService {
 
         if manager.running.load(Ordering::SeqCst) {
             if let Some(current) = &manager.model_config {
-                if current.model_path == config.model_path {
+                if should_reuse_running_config(current, config) {
                     return Ok(());
                 }
             }
@@ -112,6 +129,23 @@ impl LlamaService {
         manager: &mut LlamaManager,
         config: &ModelRuntimeConfig,
     ) -> Result<(), ApiError> {
+        let pending = self.spawn_pending_process(manager, config)?;
+        self.complete_startup(
+            manager,
+            config,
+            pending,
+            resolved_health_timeout(self.config.as_ref()),
+            resolved_health_interval(self.config.as_ref()),
+            resolved_shutdown_timeout(self.config.as_ref()),
+        )
+        .await
+    }
+
+    fn spawn_pending_process(
+        &self,
+        manager: &LlamaManager,
+        config: &ModelRuntimeConfig,
+    ) -> Result<PendingLlamaProcess, ApiError> {
         let port = if config.port > 0 {
             config.port
         } else {
@@ -150,13 +184,30 @@ impl LlamaService {
             }
         });
 
-        manager.child_process = Some(child);
-        manager.port = port;
+        Ok(PendingLlamaProcess { child, port })
+    }
+
+    async fn complete_startup(
+        &self,
+        manager: &mut LlamaManager,
+        config: &ModelRuntimeConfig,
+        mut pending: PendingLlamaProcess,
+        health_timeout: Duration,
+        health_interval: Duration,
+        shutdown_timeout: Duration,
+    ) -> Result<(), ApiError> {
+        if let Err(err) = self
+            .wait_for_health_with_settings(pending.port, health_timeout, health_interval)
+            .await
+        {
+            terminate_child_process(&mut pending.child, shutdown_timeout).await;
+            return Err(err);
+        }
+
+        manager.port = pending.port;
         manager.model_config = Some(config.clone());
         manager.running.store(true, Ordering::SeqCst);
-
-        self.wait_for_health(port).await?;
-
+        manager.child_process = Some(pending.child);
         Ok(())
     }
 
@@ -166,46 +217,32 @@ impl LlamaService {
         timeout: Duration,
     ) -> Result<(), ApiError> {
         if let Some(mut child) = manager.child_process.take() {
-            if let Some(pid) = child.id() {
-                tracing::info!("Stopping llama-server process (pid={})", pid);
-            }
-
-            if let Err(err) = child.start_kill() {
-                tracing::warn!("Failed to signal llama-server process: {}", err);
-            }
-
-            match tokio::time::timeout(timeout, child.wait()).await {
-                Ok(Ok(status)) => {
-                    tracing::info!("llama-server stopped with status: {}", status);
-                }
-                Ok(Err(err)) => {
-                    tracing::warn!(
-                        "Failed to wait for llama-server process termination: {}",
-                        err
-                    );
-                }
-                Err(_) => {
-                    tracing::warn!(
-                        "Timed out waiting {:?} for llama-server process termination",
-                        timeout
-                    );
-                }
-            }
+            terminate_child_process(&mut child, timeout).await;
         }
         manager.running.store(false, Ordering::SeqCst);
         manager.model_config = None;
         Ok(())
     }
 
-    async fn wait_for_health(&self, port: u16) -> Result<(), ApiError> {
+    async fn wait_for_health_with_settings(
+        &self,
+        port: u16,
+        total_timeout: Duration,
+        interval: Duration,
+    ) -> Result<(), ApiError> {
         let url = format!("http://localhost:{}/health", port);
-        for _ in 0..MAX_SERVER_RETRIES {
+        let started = tokio::time::Instant::now();
+
+        while started.elapsed() < total_timeout {
             if self.client.get(&url).send().await.is_ok() {
                 return Ok(());
             }
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(interval).await;
         }
-        Err(ApiError::internal("Timed out waiting for llama-server"))
+        Err(ApiError::internal(format!(
+            "Timed out waiting for llama-server after {} ms",
+            total_timeout.as_millis()
+        )))
     }
 
     pub async fn get_logprobs(
@@ -472,7 +509,12 @@ impl LlamaService {
             }
         }
 
-        let (tx, rx) = mpsc::channel(100);
+        let buffer_capacity = self
+            .config
+            .as_ref()
+            .map(stream_internal_buffer)
+            .unwrap_or(100);
+        let (tx, rx) = mpsc::channel(buffer_capacity);
         let client = self.client.clone();
 
         tokio::spawn(async move {
@@ -541,7 +583,12 @@ impl LlamaService {
         let mut normalized = self
             .stream_chat_normalized(config, messages, timeout)
             .await?;
-        let (tx, rx) = mpsc::channel(100);
+        let buffer_capacity = self
+            .config
+            .as_ref()
+            .map(stream_channel_buffer)
+            .unwrap_or(128);
+        let (tx, rx) = mpsc::channel(buffer_capacity);
         tokio::spawn(async move {
             while let Some(item) = normalized.recv().await {
                 match item {
@@ -653,5 +700,190 @@ fn value_to_text(value: &Value) -> String {
             String::new()
         }
         _ => String::new(),
+    }
+}
+
+fn should_reuse_running_config(
+    current: &ModelRuntimeConfig,
+    requested: &ModelRuntimeConfig,
+) -> bool {
+    current.model_path == requested.model_path
+        && current.port == requested.port
+        && current.n_ctx == requested.n_ctx
+        && current.n_gpu_layers == requested.n_gpu_layers
+}
+
+fn resolved_health_timeout(config: Option<&ConfigService>) -> Duration {
+    config
+        .map(health_check_timeout)
+        .unwrap_or_else(|| Duration::from_secs(15))
+}
+
+fn resolved_health_interval(config: Option<&ConfigService>) -> Duration {
+    config
+        .map(health_check_interval)
+        .unwrap_or_else(|| Duration::from_millis(500))
+}
+
+fn resolved_shutdown_timeout(config: Option<&ConfigService>) -> Duration {
+    config
+        .map(process_terminate_timeout)
+        .unwrap_or_else(|| Duration::from_secs(5))
+}
+
+async fn terminate_child_process(child: &mut Child, timeout: Duration) {
+    if let Some(pid) = child.id() {
+        tracing::info!("Stopping llama-server process (pid={})", pid);
+    }
+
+    if let Err(err) = child.start_kill() {
+        tracing::warn!("Failed to signal llama-server process: {}", err);
+    }
+
+    match tokio::time::timeout(timeout, child.wait()).await {
+        Ok(Ok(status)) => {
+            tracing::info!("llama-server stopped with status: {}", status);
+        }
+        Ok(Err(err)) => {
+            tracing::warn!(
+                "Failed to wait for llama-server process termination: {}",
+                err
+            );
+        }
+        Err(_) => {
+            tracing::warn!(
+                "Timed out waiting {:?} for llama-server process termination",
+                timeout
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn runtime_config() -> ModelRuntimeConfig {
+        ModelRuntimeConfig {
+            model_key: "text_model".to_string(),
+            model_path: PathBuf::from("/tmp/model.gguf"),
+            port: DEFAULT_SERVER_PORT,
+            n_ctx: 2048,
+            n_gpu_layers: -1,
+            predict_len: Some(1024),
+            temperature: Some(0.7),
+            top_p: Some(0.9),
+            top_k: None,
+            repeat_penalty: None,
+            stop: None,
+            seed: None,
+            frequency_penalty: None,
+            presence_penalty: None,
+            min_p: None,
+            tfs_z: None,
+            typical_p: None,
+            mirostat: None,
+            mirostat_tau: None,
+            mirostat_eta: None,
+            repeat_last_n: None,
+            penalize_nl: None,
+            n_keep: None,
+            cache_prompt: None,
+        }
+    }
+
+    fn test_manager() -> LlamaManager {
+        LlamaManager {
+            child_process: None,
+            port: DEFAULT_SERVER_PORT,
+            running: Arc::new(AtomicBool::new(false)),
+            server_path: PathBuf::from("llama-server"),
+            model_config: None,
+        }
+    }
+
+    #[test]
+    fn should_reuse_running_config_only_checks_startup_fields() {
+        let current = runtime_config();
+        let mut sampling_change = runtime_config();
+        sampling_change.temperature = Some(0.2);
+        sampling_change.predict_len = Some(32);
+        assert!(should_reuse_running_config(&current, &sampling_change));
+
+        let mut port_change = runtime_config();
+        port_change.port = 9001;
+        assert!(!should_reuse_running_config(&current, &port_change));
+
+        let mut ctx_change = runtime_config();
+        ctx_change.n_ctx = 4096;
+        assert!(!should_reuse_running_config(&current, &ctx_change));
+
+        let mut gpu_change = runtime_config();
+        gpu_change.n_gpu_layers = 16;
+        assert!(!should_reuse_running_config(&current, &gpu_change));
+    }
+
+    #[tokio::test]
+    async fn complete_startup_cleans_up_failed_health_check_without_mutating_manager() {
+        let paths = Arc::new(AppPaths::new());
+        let service = LlamaService::new(paths).unwrap();
+        let mut manager = test_manager();
+        let config = runtime_config();
+
+        let child = Command::new("/bin/sh")
+            .arg("-c")
+            .arg("sleep 5")
+            .spawn()
+            .unwrap();
+
+        let result = service
+            .complete_startup(
+                &mut manager,
+                &config,
+                PendingLlamaProcess { child, port: 9 },
+                Duration::from_millis(25),
+                Duration::from_millis(10),
+                Duration::from_millis(100),
+            )
+            .await;
+
+        assert!(result.is_err());
+        assert!(!manager.running.load(Ordering::SeqCst));
+        assert!(manager.child_process.is_none());
+        assert!(manager.model_config.is_none());
+        assert_eq!(manager.port, DEFAULT_SERVER_PORT);
+    }
+
+    #[tokio::test]
+    async fn complete_startup_can_retry_after_previous_failure() {
+        let paths = Arc::new(AppPaths::new());
+        let service = LlamaService::new(paths).unwrap();
+        let mut manager = test_manager();
+        let config = runtime_config();
+
+        for _ in 0..2 {
+            let child = Command::new("/bin/sh")
+                .arg("-c")
+                .arg("sleep 5")
+                .spawn()
+                .unwrap();
+
+            let result = service
+                .complete_startup(
+                    &mut manager,
+                    &config,
+                    PendingLlamaProcess { child, port: 9 },
+                    Duration::from_millis(25),
+                    Duration::from_millis(10),
+                    Duration::from_millis(100),
+                )
+                .await;
+
+            assert!(result.is_err());
+            assert!(!manager.running.load(Ordering::SeqCst));
+            assert!(manager.child_process.is_none());
+            assert!(manager.model_config.is_none());
+        }
     }
 }

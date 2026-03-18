@@ -897,15 +897,13 @@ fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
 mod tests {
     use super::*;
 
+    use crate::test_support::ENV_LOCK;
     use std::env;
     use std::fs;
     use std::path::Path;
-    use std::sync::Mutex as StdMutex;
 
     use serde_json::json;
     use tempfile::{tempdir, TempDir};
-
-    static ENV_LOCK: StdMutex<()> = StdMutex::new(());
 
     struct EnvGuard {
         originals: Vec<(String, Option<String>)>,

@@ -63,6 +63,74 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
             1_000,
             3_600_000, // 1 hour
         )?;
+        validate_u64_field(app, "app.history_limit", "history_limit", 1, 1_000)?;
+        validate_u64_field(
+            app,
+            "app.entity_extraction_limit",
+            "entity_extraction_limit",
+            1,
+            100,
+        )?;
+    }
+
+    if let Some(llm_manager) = expect_optional_object(root, "llm_manager")? {
+        validate_optional_string_field(llm_manager, "llm_manager.loader", "loader")?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.process_terminate_timeout",
+            "process_terminate_timeout",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.external_request_timeout_ms",
+            "external_request_timeout_ms",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.stream_idle_timeout_ms",
+            "stream_idle_timeout_ms",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.health_check_timeout",
+            "health_check_timeout",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.health_check_interval",
+            "health_check_interval",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.health_check_interval_ms",
+            "health_check_interval_ms",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.stream_channel_buffer",
+            "stream_channel_buffer",
+            1,
+            65_536,
+        )?;
+        validate_u64_field(
+            llm_manager,
+            "llm_manager.stream_internal_buffer",
+            "stream_internal_buffer",
+            1,
+            65_536,
+        )?;
     }
 
     if let Some(server) = expect_optional_object(root, "server")? {
@@ -78,6 +146,7 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
 
     if let Some(privacy) = expect_optional_object(root, "privacy")? {
         validate_bool_field(privacy, "privacy.allow_web_search", "allow_web_search")?;
+        validate_bool_field(privacy, "privacy.isolation_mode", "isolation_mode")?;
         validate_string_array_field(privacy, "privacy.url_denylist", "url_denylist")?;
         validate_string_enum_field(
             privacy,
@@ -94,6 +163,73 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
 
     if let Some(search) = expect_optional_object(root, "search")? {
         validate_bool_field(search, "search.embedding_rerank", "embedding_rerank")?;
+    }
+
+    if let Some(rag) = expect_optional_object(root, "rag")? {
+        validate_u64_field(
+            rag,
+            "rag.search_default_limit",
+            "search_default_limit",
+            1,
+            20,
+        )?;
+        validate_u64_field(
+            rag,
+            "rag.text_search_default_limit",
+            "text_search_default_limit",
+            1,
+            50,
+        )?;
+        validate_u64_field(
+            rag,
+            "rag.embedding_timeout_ms",
+            "embedding_timeout_ms",
+            1,
+            3_600_000,
+        )?;
+        validate_u64_field(
+            rag,
+            "rag.chunk_window_default_chars",
+            "chunk_window_default_chars",
+            128,
+            20_000,
+        )?;
+    }
+
+    if let Some(agent) = expect_optional_object(root, "agent")? {
+        validate_u64_field(agent, "agent.max_attachments", "max_attachments", 1, 100)?;
+        validate_u64_field(
+            agent,
+            "agent.attachment_preview_chars",
+            "attachment_preview_chars",
+            1,
+            1_000_000,
+        )?;
+    }
+
+    if let Some(tools) = expect_optional_object(root, "tools")? {
+        validate_string_enum_field(
+            tools,
+            "tools.search_provider",
+            "search_provider",
+            &["google", "duckduckgo", "brave", "bing"],
+        )?;
+        validate_optional_string_field(
+            tools,
+            "tools.brave_search_api_key",
+            "brave_search_api_key",
+        )?;
+        validate_optional_string_field(tools, "tools.bing_search_api_key", "bing_search_api_key")?;
+        validate_optional_string_field(
+            tools,
+            "tools.google_search_api_key",
+            "google_search_api_key",
+        )?;
+        validate_optional_string_field(
+            tools,
+            "tools.google_search_engine_id",
+            "google_search_engine_id",
+        )?;
     }
 
     if let Some(download) = expect_optional_object(root, "model_download")? {
@@ -207,7 +343,27 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
                 -1,
                 1_000_000,
             )?;
+            validate_sampling_config(entry, &path_prefix)?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.tokenizer_path", path_prefix),
+                "tokenizer_path",
+            )?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.tokenizer_format", path_prefix),
+                "tokenizer_format",
+            )?;
+            validate_optional_string_field(
+                entry,
+                &format!("{}.loader_specific_settings", path_prefix),
+                "loader_specific_settings",
+            )?;
         }
+    }
+
+    if let Some(llm_defaults) = expect_optional_object(root, "llm_defaults")? {
+        validate_sampling_config(llm_defaults, "llm_defaults")?;
     }
 
     if let Some(characters) = expect_optional_object(root, "characters")? {
@@ -287,6 +443,10 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
         }
     }
 
+    if let Some(context_window) = expect_optional_object(root, "context_window")? {
+        validate_context_window_config(context_window, "context_window")?;
+    }
+
     Ok(())
 }
 
@@ -335,6 +495,20 @@ fn validate_u64_field(
         )));
     }
     Ok(())
+}
+
+fn validate_number_field(
+    section: &Map<String, Value>,
+    path: &str,
+    key: &str,
+) -> Result<(), ApiError> {
+    let Some(value) = section.get(key) else {
+        return Ok(());
+    };
+    if value.as_f64().is_some() {
+        return Ok(());
+    }
+    Err(config_type_error(path, "number"))
 }
 
 fn validate_i64_field(
@@ -433,7 +607,7 @@ fn validate_string_enum_field(
     let Some(text) = value.as_str() else {
         return Err(config_type_error(path, "string"));
     };
-    if allowed.iter().any(|item| *item == text) {
+    if allowed.contains(&text) {
         return Ok(());
     }
     Err(ApiError::BadRequest(format!(
@@ -469,6 +643,197 @@ fn validate_permission_section(
         validate_optional_string_field(entry, &format!("{}.created_at", entry_path), "created_at")?;
         validate_optional_string_field(entry, &format!("{}.updated_at", entry_path), "updated_at")?;
     }
+    Ok(())
+}
+
+fn validate_sampling_config(
+    section: &Map<String, Value>,
+    path_prefix: &str,
+) -> Result<(), ApiError> {
+    validate_number_field(
+        section,
+        &format!("{}.temperature", path_prefix),
+        "temperature",
+    )?;
+    validate_number_field(section, &format!("{}.top_p", path_prefix), "top_p")?;
+    validate_i64_field(
+        section,
+        &format!("{}.top_k", path_prefix),
+        "top_k",
+        0,
+        1_000_000,
+    )?;
+    validate_number_field(
+        section,
+        &format!("{}.repeat_penalty", path_prefix),
+        "repeat_penalty",
+    )?;
+    validate_i64_field(
+        section,
+        &format!("{}.max_tokens", path_prefix),
+        "max_tokens",
+        1,
+        1_000_000,
+    )?;
+    validate_i64_field(
+        section,
+        &format!("{}.predict_len", path_prefix),
+        "predict_len",
+        1,
+        1_000_000,
+    )?;
+    validate_string_array_field(section, &format!("{}.stop", path_prefix), "stop")?;
+    validate_i64_field(
+        section,
+        &format!("{}.seed", path_prefix),
+        "seed",
+        i64::MIN,
+        i64::MAX,
+    )?;
+    validate_number_field(
+        section,
+        &format!("{}.frequency_penalty", path_prefix),
+        "frequency_penalty",
+    )?;
+    validate_number_field(
+        section,
+        &format!("{}.presence_penalty", path_prefix),
+        "presence_penalty",
+    )?;
+    validate_number_field(section, &format!("{}.min_p", path_prefix), "min_p")?;
+    validate_number_field(section, &format!("{}.tfs_z", path_prefix), "tfs_z")?;
+    validate_number_field(section, &format!("{}.typical_p", path_prefix), "typical_p")?;
+    validate_i64_field(
+        section,
+        &format!("{}.mirostat", path_prefix),
+        "mirostat",
+        0,
+        100,
+    )?;
+    validate_number_field(
+        section,
+        &format!("{}.mirostat_tau", path_prefix),
+        "mirostat_tau",
+    )?;
+    validate_number_field(
+        section,
+        &format!("{}.mirostat_eta", path_prefix),
+        "mirostat_eta",
+    )?;
+    validate_i64_field(
+        section,
+        &format!("{}.repeat_last_n", path_prefix),
+        "repeat_last_n",
+        -1,
+        1_000_000,
+    )?;
+    validate_bool_field(
+        section,
+        &format!("{}.penalize_nl", path_prefix),
+        "penalize_nl",
+    )?;
+    validate_i64_field(
+        section,
+        &format!("{}.n_keep", path_prefix),
+        "n_keep",
+        -1,
+        1_000_000,
+    )?;
+    validate_bool_field(
+        section,
+        &format!("{}.cache_prompt", path_prefix),
+        "cache_prompt",
+    )?;
+    validate_i64_field(
+        section,
+        &format!("{}.num_ctx", path_prefix),
+        "num_ctx",
+        1,
+        10_000_000,
+    )?;
+    Ok(())
+}
+
+fn validate_context_window_config(
+    section: &Map<String, Value>,
+    path_prefix: &str,
+) -> Result<(), ApiError> {
+    for (key, value) in section {
+        let entry_path = format!("{}.{}", path_prefix, key);
+        let entry = value
+            .as_object()
+            .ok_or_else(|| config_type_error(&entry_path, "object"))?;
+        if is_context_window_recipe(entry) {
+            validate_context_window_recipe(entry, &entry_path)?;
+            continue;
+        }
+        for (nested_key, nested_value) in entry {
+            let nested_path = format!("{}.{}", entry_path, nested_key);
+            let nested = nested_value
+                .as_object()
+                .ok_or_else(|| config_type_error(&nested_path, "object"))?;
+            validate_context_window_recipe(nested, &nested_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn is_context_window_recipe(section: &Map<String, Value>) -> bool {
+    section.keys().any(|key| {
+        matches!(
+            key.as_str(),
+            "system_cap"
+                | "memory_cap"
+                | "local_context_cap"
+                | "interaction_tail_cap"
+                | "evidence_cap"
+                | "artifact_summary_cap"
+                | "app_thinking_digest_cap"
+                | "model_thinking_digest_cap"
+                | "user_input_cap"
+                | "evidence_limit"
+                | "artifact_limit"
+        )
+    })
+}
+
+fn validate_context_window_recipe(
+    section: &Map<String, Value>,
+    path_prefix: &str,
+) -> Result<(), ApiError> {
+    for field in [
+        "system_cap",
+        "memory_cap",
+        "local_context_cap",
+        "interaction_tail_cap",
+        "evidence_cap",
+        "artifact_summary_cap",
+        "app_thinking_digest_cap",
+        "model_thinking_digest_cap",
+        "user_input_cap",
+    ] {
+        validate_u64_field(
+            section,
+            &format!("{}.{}", path_prefix, field),
+            field,
+            0,
+            100,
+        )?;
+    }
+    validate_u64_field(
+        section,
+        &format!("{}.evidence_limit", path_prefix),
+        "evidence_limit",
+        0,
+        100,
+    )?;
+    validate_u64_field(
+        section,
+        &format!("{}.artifact_limit", path_prefix),
+        "artifact_limit",
+        0,
+        100,
+    )?;
     Ok(())
 }
 

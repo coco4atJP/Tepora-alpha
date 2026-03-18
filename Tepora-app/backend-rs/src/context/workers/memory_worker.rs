@@ -41,9 +41,10 @@ impl ContextWorker for MemoryWorker {
         ctx: &mut PipelineContext,
         state: &Arc<AppState>,
     ) -> Result<(), WorkerError> {
+        let history_limit = configured_history_limit(ctx.config(), self.history_limit);
         let history_messages = state
             .history
-            .get_history(&ctx.session_id, self.history_limit.max(2))
+            .get_history(&ctx.session_id, history_limit.max(2))
             .await
             .map_err(|e| {
                 WorkerError::retryable("memory", format!("Failed to load history: {e}"))
@@ -91,6 +92,7 @@ impl ContextWorker for MemoryWorker {
         }
 
         ctx.local_context = build_local_context(
+            ctx.config(),
             &ctx.user_input,
             &ctx.working_memory,
             ctx.interaction_tail.as_ref(),
@@ -174,12 +176,14 @@ fn normalize_history_message(message: &HistoryMessage) -> Option<ChatMessage> {
 }
 
 fn build_local_context(
+    config: &Value,
     user_input: &str,
     working_memory: &HashMap<String, Value>,
     interaction_tail: Option<&InteractionTail>,
     memory_chunks: &[MemoryChunk],
 ) -> LocalContext {
     let mut local_context = LocalContext::default();
+    let entity_limit = configured_entity_extraction_limit(config);
 
     local_context.goal = working_memory
         .get("goal")
@@ -211,7 +215,7 @@ fn build_local_context(
 
     if let Some(tail) = interaction_tail {
         for message in &tail.messages {
-            for entity in extract_entities(&message.content) {
+            for entity in extract_entities(&message.content, entity_limit) {
                 push_unique(&mut local_context.session_entities, entity);
             }
 
@@ -231,7 +235,7 @@ fn build_local_context(
         }
     }
 
-    for entity in extract_entities(user_input) {
+    for entity in extract_entities(user_input, entity_limit) {
         push_unique(&mut local_context.session_entities, entity);
     }
     for question in extract_questions(user_input) {
@@ -242,7 +246,7 @@ fn build_local_context(
         if let Some(summary) = summarize_line(&memory.content, 96) {
             push_unique(&mut local_context.resolved_points, summary);
         }
-        for entity in extract_entities(&memory.content) {
+        for entity in extract_entities(&memory.content, entity_limit) {
             push_unique(&mut local_context.session_entities, entity);
         }
     }
@@ -273,7 +277,7 @@ fn read_string_list(value: Option<&Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn extract_entities(input: &str) -> Vec<String> {
+fn extract_entities(input: &str, limit: usize) -> Vec<String> {
     const ASCII_STOPWORDS: &[&str] = &[
         "the", "and", "this", "that", "with", "from", "into", "your", "you", "for", "are", "was",
         "were", "have", "has", "had", "not", "but", "about", "what", "when", "where", "will",
@@ -288,7 +292,7 @@ fn extract_entities(input: &str) -> Vec<String> {
                 if (2..=12).contains(&len) {
                     push_unique(&mut entities, fragment);
                 }
-                if entities.len() >= 6 {
+                if entities.len() >= limit {
                     return entities;
                 }
             }
@@ -304,12 +308,29 @@ fn extract_entities(input: &str) -> Vec<String> {
             push_unique(&mut entities, candidate);
         }
 
-        if entities.len() >= 6 {
+        if entities.len() >= limit {
             break;
         }
     }
 
     entities
+}
+
+fn configured_history_limit(config: &Value, fallback: i64) -> i64 {
+    config
+        .get("app")
+        .and_then(|v| v.get("history_limit"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(fallback)
+}
+
+fn configured_entity_extraction_limit(config: &Value) -> usize {
+    config
+        .get("app")
+        .and_then(|v| v.get("entity_extraction_limit"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(6)
+        .clamp(1, 100) as usize
 }
 
 fn tokenize_entity_candidates(input: &str) -> Vec<String> {
@@ -486,12 +507,15 @@ mod tests {
     use crate::em_llm::RetrievedMemory;
     use crate::infrastructure::episodic_store::{MemoryAdapter, MemoryScope};
     use crate::models::types::{ModelEntry, ModelRegistry};
+    use crate::test_support::ENV_LOCK;
     use std::sync::atomic::{AtomicBool, Ordering};
 
     #[test]
     fn extract_entities_filters_ascii_stopwords_and_keeps_japanese_phrases() {
-        let entities =
-            extract_entities("the project uses 検索モード と MemoryWorker for task continuity");
+        let entities = extract_entities(
+            "the project uses 検索モード と MemoryWorker for task continuity",
+            6,
+        );
 
         assert!(entities.iter().any(|entity| entity == "検索モード"));
         assert!(entities.iter().any(|entity| entity == "MemoryWorker"));
@@ -654,12 +678,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_worker_adapter_routing() {
+        let _env_lock = ENV_LOCK.lock().expect("failed to acquire env lock");
         let paths = Arc::new(crate::core::config::AppPaths::new());
         let temp_dir = tempfile::tempdir().unwrap();
         let mut new_paths = (*paths).clone();
         new_paths.user_data_dir = temp_dir.path().to_path_buf();
+        new_paths.log_dir = temp_dir.path().join("logs");
+        new_paths.db_path = temp_dir.path().join("tepora_core.db");
+        new_paths.secrets_path = temp_dir.path().join("secrets.yaml");
         let new_paths_arc = Arc::new(new_paths);
-        let config = crate::core::config::service::ConfigService::new(new_paths_arc.clone());
+        let config = crate::core::config::service::ConfigService::new_with_secret_store(
+            new_paths_arc.clone(),
+            Arc::new(crate::core::config::secrets::MemorySecretStore::default()),
+        );
 
         let session_token = Arc::new(tokio::sync::RwLock::new(
             crate::core::security::init_session_token(),
