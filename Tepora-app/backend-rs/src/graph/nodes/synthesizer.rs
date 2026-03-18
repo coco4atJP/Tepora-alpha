@@ -10,7 +10,7 @@ use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::{PipelineArtifact, PipelineMode, PipelineStage};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState};
-use crate::llm::{ChatMessage, ChatRequest};
+use crate::llm::ChatRequest;
 
 pub struct SynthesizerNode;
 
@@ -91,7 +91,7 @@ impl Node for SynthesizerNode {
         let model_id =
             resolve_execution_model_id(ctx.app_state, ctx.config, selected_agent.as_ref());
 
-        let mut messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+        let messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
             let mut staged = pipeline_ctx.clone();
             staged.stage = PipelineStage::AgentSynthesizer;
             staged.artifacts.extend(
@@ -108,25 +108,15 @@ impl Node for SynthesizerNode {
                     })
                     .collect::<Vec<_>>(),
             );
+            staged.add_system_part(
+                "synthesizer_instruction",
+                "Use only summarized artifacts, stable memory, and local context to produce the final user-facing answer. Do not rely on raw tool output or scratchpad text.",
+                130,
+            );
             staged.to_messages()
         } else {
             state.chat_history.clone()
         };
-
-        if let Some(last) = messages.last() {
-            if last.role == "user" && last.content.trim() == state.input.trim() {
-                messages.pop();
-            }
-        }
-
-        messages.push(ChatMessage {
-            role: "system".to_string(),
-            content: "Use only summarized artifacts, stable memory, and local context to produce the final user-facing answer. Do not rely on raw tool output or scratchpad text.".to_string(),
-        });
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: state.input.clone(),
-        });
 
         let request = ChatRequest::new(messages).with_config(&agent_chat_config);
         let mut stream = ctx

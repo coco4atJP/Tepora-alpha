@@ -159,7 +159,6 @@ pub struct PersonaConfig {
     pub name: String,
     pub description: String,
     pub traits: Vec<String>,
-    pub prompt_text: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -348,23 +347,11 @@ impl PipelineContext {
     pub(crate) fn build_system_prompt(&self) -> String {
         let mut parts = self.system_parts.clone();
         parts.sort_by(|a, b| b.priority.cmp(&a.priority));
-
-        let mut sections: Vec<String> = parts.iter().map(|p| p.content.clone()).collect();
-
-        if let Some(persona) = &self.persona {
-            let persona_section = if let Some(prompt) = &persona.prompt_text {
-                prompt.clone()
-            } else {
-                let traits = persona.traits.join(", ");
-                format!(
-                    "Your persona is {}. {}\nTraits: {}",
-                    persona.name, persona.description, traits
-                )
-            };
-            sections.push(persona_section);
-        }
-
-        sections.join("\n\n")
+        parts
+            .iter()
+            .map(|p| p.content.clone())
+            .collect::<Vec<_>>()
+            .join("\n\n")
     }
 
     pub(crate) fn scratchpad_messages(&self) -> Vec<ChatMessage> {
@@ -405,6 +392,19 @@ impl PipelineContext {
             label: label.into(),
             content: content.into(),
             priority,
+        });
+    }
+
+    pub fn add_artifact(
+        &mut self,
+        artifact_type: impl Into<String>,
+        content: impl Into<String>,
+        metadata: HashMap<String, Value>,
+    ) {
+        self.artifacts.push(PipelineArtifact {
+            artifact_type: artifact_type.into(),
+            content: content.into(),
+            metadata,
         });
     }
 }
@@ -481,13 +481,11 @@ mod tests {
             name: "Tepora".to_string(),
             description: "A calm tea-loving AI".to_string(),
             traits: vec!["warm".to_string(), "calm".to_string()],
-            prompt_text: None,
         });
 
         let msgs = ctx.to_messages();
         let system = &msgs[0].content;
-        assert!(system.contains("Tepora"));
-        assert!(system.contains("warm"));
+        assert!(system.contains("Base prompt"));
     }
 
     #[test]

@@ -6,6 +6,14 @@ pub struct ChatMessage {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructuredResponseSpec {
+    pub name: String,
+    pub schema: serde_json::Value,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
@@ -34,6 +42,8 @@ pub struct ChatRequest {
     pub cache_prompt: Option<bool>,
     // --- Ollama specific ---
     pub num_ctx: Option<i32>,
+    // --- Structured outputs ---
+    pub structured_response: Option<StructuredResponseSpec>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -41,6 +51,7 @@ pub struct TokenUsage {
     pub prompt_tokens: Option<usize>,
     pub completion_tokens: Option<usize>,
     pub total_tokens: Option<usize>,
+    pub cached_prompt_tokens: Option<usize>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NormalizedAssistantTurn {
@@ -90,7 +101,13 @@ impl ChatRequest {
             n_keep: None,
             cache_prompt: None,
             num_ctx: None,
+            structured_response: None,
         }
+    }
+
+    pub fn with_structured_response(mut self, spec: StructuredResponseSpec) -> Self {
+        self.structured_response = Some(spec);
+        self
     }
 
     pub fn with_config(mut self, config: &serde_json::Value) -> Self {

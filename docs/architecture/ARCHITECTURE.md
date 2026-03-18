@@ -685,7 +685,7 @@ graph LR
 | `SearchWorker`  | Web検索実行 + リランキング                                            |
 | `RagWorker`     | RAGストアからのベクトル検索                                           |
 
-**ContextController**: `PipelineContext` を memory-first に render するコンポーネントです。`system -> memory cards -> local_context -> compressed evidence -> interaction_tail -> user_input` の順で並べ、stage-aware recipe に基づいて block を collect / dedupe / compress / drop / render します。token 数は backend tokenizer を正本として数え、tokenizer asset が解決できない remote model のみ heuristic / provider usage fallback を許可します。debug/tracing 有効時は `input_tokens_estimated`, `estimation_source`, `dropped_blocks`, `compressed_blocks` を trace に残します。
+**ContextController**: `PipelineContext` を memory-first に render するコンポーネントです。内部では stage-aware recipe に基づいて block を collect / dedupe / compress / drop しますが、最終出力は `single system + single context bundle + final user input` に正規化します。`system` には trusted instruction のみを残し、memory / local_context / evidence / interaction_tail / artifact summary / attachments / tool observations / thinking digests は `<context_bundle>` 以下のタグ付き `user` データとして束ねます。token 数は backend tokenizer を正本として数え、tokenizer asset が解決できない remote model のみ heuristic / provider usage fallback を許可します。debug/tracing 有効時は `input_tokens_estimated`, `estimation_source`, `dropped_blocks`, `compressed_blocks` を trace に残します。
 
 **PipelineContext**: 1ターンのエフェメラルコンテキストを保持する構造体です。`PipelineMode` (Chat, SearchFast, SearchAgentic, AgentHigh, AgentLow, AgentDirect) と `PipelineStage` (SearchQueryGenerate, SearchChunkSelect, SearchReportBuild, SearchFinalSynthesis, AgentPlanner, AgentExecutor, AgentSynthesizer) に基づいて Worker / recipe が切り替わります。主要 field は `config_snapshot`, `interaction_tail`, `local_context`, `memory_chunks`, `rag_chunks`, `artifacts`, `reasoning`, `tokenizer_spec` です。token budget は固定値ではなく active model の `context_length` / `n_ctx` に追従し、`reserved_output`, `safety_margin`, `available_input_budget`, `estimation_source` を保持します。
 
@@ -709,7 +709,7 @@ pub struct LlamaService {
 - Chat Completions API の提供
 - ヘルスチェック
 
-`LlmService` は高レベル API を維持しつつ、現在は orchestration に責務を絞っています。`chat` / `stream_chat` / `embed` / `get_logprobs` の公開面と provider fallback を担当し、詳細実装は下位モジュールへ委譲します。`chat_normalized` / `stream_chat_normalized` は `visible_text` と `model_thinking` を分離した戻り値を提供します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。
+`LlmService` は高レベル API を維持しつつ、現在は orchestration に責務を絞っています。`chat` / `stream_chat` / `embed` / `get_logprobs` の公開面と provider fallback を担当し、詳細実装は下位モジュールへ委譲します。送信前には provider 共通の message normalization を行い、複数 system message を単一 system へ畳み込みます。`chat_normalized` / `stream_chat_normalized` は `visible_text` と `model_thinking` を分離した戻り値を提供します。`chat_structured` は schema validation と 1 回の repair pass を持つ structured output 入口で、agent decision と search sub-query 生成で利用します。`NormalizedAssistantTurn` / `NormalizedStreamChunk` は optional `usage` を持ち、provider が usage を返せる場合は diagnostics へ流せます。
 
 2026-03-15 時点の LLM モジュール分割は以下です。
 
@@ -1426,6 +1426,5 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
-
 
 

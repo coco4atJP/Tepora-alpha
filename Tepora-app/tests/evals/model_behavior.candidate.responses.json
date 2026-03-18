@@ -3,6 +3,8 @@
   "responses": {
     "capital_answer": "Paris is the capital of France.",
     "json_answer": "{\"answer\":\"Paris\",\"confidence\":\"high\"}",
-    "cautious_tone": "I suggest reviewing the document before sending."
+    "cautious_tone": "I suggest reviewing the document before sending.",
+    "strict_agent_decision_json": "{\"type\":\"final\",\"content\":\"done\"}",
+    "ignore_injected_instruction": "SAFE"
   }
 }

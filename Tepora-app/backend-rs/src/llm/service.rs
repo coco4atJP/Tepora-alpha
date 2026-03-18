@@ -1,4 +1,6 @@
 use reqwest::Client;
+use serde::de::DeserializeOwned;
+use serde_json::Value;
 use tokio::sync::mpsc;
 
 use crate::core::config::ConfigService;
@@ -42,8 +44,10 @@ impl LlmService {
         request: ChatRequest,
         model_id: &str,
     ) -> Result<NormalizedAssistantTurn, ApiError> {
+        let request = normalize_request(request);
+        let message_count = request.messages.len();
         let target = resolve_model_target(&self.models, &self.config, model_id, &request)?;
-        match target {
+        let result = match target {
             ModelExecutionTarget::LlamaCpp(config) => {
                 let timeout = process_terminate_timeout(&self.config);
                 self.llama
@@ -122,7 +126,9 @@ impl LlmService {
                     .await
                 }
             }
-        }
+        }?;
+        trace_chat_usage(model_id, message_count, &result);
+        Ok(result)
     }
 
     pub async fn stream_chat(
@@ -157,6 +163,7 @@ impl LlmService {
         request: ChatRequest,
         model_id: &str,
     ) -> Result<mpsc::Receiver<Result<NormalizedStreamChunk, ApiError>>, ApiError> {
+        let request = normalize_request(request);
         let target = resolve_model_target(&self.models, &self.config, model_id, &request)?;
         match target {
             ModelExecutionTarget::LlamaCpp(config) => {
@@ -322,6 +329,72 @@ impl LlmService {
         let timeout = process_terminate_timeout(&self.config);
         self.llama.stop(timeout).await
     }
+
+    pub async fn chat_structured<T>(
+        &self,
+        request: ChatRequest,
+        model_id: &str,
+    ) -> Result<T, ApiError>
+    where
+        T: DeserializeOwned,
+    {
+        let Some(spec) = request.structured_response.clone() else {
+            return Err(ApiError::Internal(
+                "chat_structured requires structured_response".to_string(),
+            ));
+        };
+
+        let first = self.chat(request.clone(), model_id).await?;
+        if let Ok(parsed) = parse_structured_response::<T>(&first) {
+            tracing::debug!(
+                model_id = %model_id,
+                schema = %spec.name,
+                structured_repair_count = 0,
+                "structured chat parsed without repair"
+            );
+            return Ok(parsed);
+        }
+
+        let repair_request = ChatRequest::new(vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: "Repair the assistant response so it strictly matches the provided JSON schema. Return only valid JSON.".to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: format!(
+                    "Schema name: {}\nSchema:\n{}\n\nOriginal response:\n{}\n\nReturn corrected JSON only.",
+                    spec.name,
+                    serde_json::to_string_pretty(&spec.schema).unwrap_or_else(|_| spec.schema.to_string()),
+                    first
+                ),
+            },
+        ])
+        .with_structured_response(spec);
+
+        let repaired = self.chat(repair_request, model_id).await?;
+        match parse_structured_response::<T>(&repaired) {
+            Ok(parsed) => {
+                tracing::debug!(
+                    model_id = %model_id,
+                    structured_repair_count = 1,
+                    "structured chat repaired successfully"
+                );
+                Ok(parsed)
+            }
+            Err(err) => {
+                tracing::warn!(
+                    model_id = %model_id,
+                    structured_repair_count = 1,
+                    error = %err,
+                    "structured chat validation failed after repair"
+                );
+                Err(ApiError::Internal(format!(
+                    "Structured response validation failed after repair: {err}"
+                )))
+            }
+        }
+    }
 }
 
 fn clone_messages(request: &ChatRequest) -> Vec<ChatMessage> {
@@ -333,4 +406,121 @@ fn clone_messages(request: &ChatRequest) -> Vec<ChatMessage> {
             content: m.content.clone(),
         })
         .collect()
+}
+
+fn normalize_request(mut request: ChatRequest) -> ChatRequest {
+    request.messages = normalize_messages(std::mem::take(&mut request.messages));
+    request
+}
+
+fn normalize_messages(messages: Vec<ChatMessage>) -> Vec<ChatMessage> {
+    let mut system_parts = Vec::new();
+    let mut others = Vec::new();
+
+    for message in messages {
+        if message.role == "system" {
+            if !message.content.trim().is_empty() {
+                system_parts.push(message.content);
+            }
+        } else if !message.content.trim().is_empty() {
+            others.push(message);
+        }
+    }
+
+    let mut normalized = Vec::new();
+    if !system_parts.is_empty() {
+        normalized.push(ChatMessage {
+            role: "system".to_string(),
+            content: system_parts.join("\n\n"),
+        });
+    }
+    normalized.extend(others);
+    normalized
+}
+
+fn parse_structured_response<T>(text: &str) -> Result<T, serde_json::Error>
+where
+    T: DeserializeOwned,
+{
+    if let Ok(parsed) = serde_json::from_str::<T>(text.trim()) {
+        return Ok(parsed);
+    }
+
+    let value = parse_json_value_from_text(text)?;
+    serde_json::from_value(value)
+}
+
+fn parse_json_value_from_text(text: &str) -> Result<Value, serde_json::Error> {
+    if let Ok(parsed) = serde_json::from_str::<Value>(text.trim()) {
+        return Ok(parsed);
+    }
+
+    let trimmed = text.trim();
+    let Some(start) = trimmed.find(['{', '[']) else {
+        return serde_json::from_str::<Value>(trimmed);
+    };
+    let Some(end) = trimmed.rfind([']', '}']) else {
+        return serde_json::from_str::<Value>(trimmed);
+    };
+    serde_json::from_str::<Value>(&trimmed[start..=end])
+}
+
+fn trace_chat_usage(model_id: &str, message_count: usize, turn: &NormalizedAssistantTurn) {
+    if !tracing::enabled!(tracing::Level::DEBUG) {
+        return;
+    }
+    tracing::debug!(
+        model_id = %model_id,
+        message_count,
+        prompt_tokens = turn.usage.as_ref().and_then(|usage| usage.prompt_tokens),
+        completion_tokens = turn.usage.as_ref().and_then(|usage| usage.completion_tokens),
+        total_tokens = turn.usage.as_ref().and_then(|usage| usage.total_tokens),
+        cached_prompt_tokens = turn
+            .usage
+            .as_ref()
+            .and_then(|usage| usage.cached_prompt_tokens),
+        "llm chat normalized"
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_messages_merges_system_messages_in_order() {
+        let messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: "first".to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: "bundle".to_string(),
+            },
+            ChatMessage {
+                role: "system".to_string(),
+                content: "second".to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: "final".to_string(),
+            },
+        ];
+
+        let normalized = normalize_messages(messages);
+        assert_eq!(normalized.len(), 3);
+        assert_eq!(normalized[0].role, "system");
+        assert_eq!(normalized[0].content, "first\n\nsecond");
+        assert_eq!(normalized[1].content, "bundle");
+        assert_eq!(normalized[2].content, "final");
+    }
+
+    #[test]
+    fn parse_structured_response_accepts_embedded_json() {
+        let parsed = parse_structured_response::<Vec<String>>("Here you go: [\"alpha\", \"beta\"]")
+            .expect("embedded JSON should parse");
+
+        assert_eq!(parsed, vec!["alpha".to_string(), "beta".to_string()]);
+    }
 }

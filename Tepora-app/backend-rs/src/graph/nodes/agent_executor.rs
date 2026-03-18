@@ -8,12 +8,15 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::agent::execution::{
-    approval_timeout, build_agent_chat_config, build_allowed_tool_list, format_attachments,
-    parse_agent_decision, resolve_execution_model_id, resolve_selected_agent, AgentDecision,
+    agent_decision_structured_spec, approval_timeout, build_agent_chat_config,
+    build_allowed_tool_list, format_attachments, resolve_execution_model_id,
+    resolve_selected_agent, structured_payload_to_agent_decision, AgentDecision,
+    AgentDecisionPayload,
 };
 use crate::agent::instructions::build_agent_instructions;
 use crate::agent::modes::RequestedAgentMode;
 use crate::agent::policy::CustomToolPolicy;
+use crate::context::controller::render_untrusted_xml_element;
 use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::PipelineMode;
 use crate::core::security_controls::{
@@ -116,7 +119,46 @@ impl Node for AgentExecutorNode {
         }
 
         let mut messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
-            ContextPipeline::pipeline_to_context_result(pipeline_ctx).messages
+            let mut staged = pipeline_ctx.clone();
+            staged.stage = crate::context::pipeline_context::PipelineStage::AgentExecutor;
+            if let Some(agent) = selected_agent.as_ref() {
+                if !agent.skill_body.trim().is_empty() {
+                    staged.add_system_part("agent_skill", agent.skill_body.clone(), 145);
+                }
+                if let Some(resource_prompt) = agent.resource_prompt.as_ref() {
+                    staged.add_system_part("agent_resources", resource_prompt.clone(), 140);
+                }
+            }
+            staged.add_system_part(
+                "agent_instructions",
+                build_agent_instructions(
+                    &tool_list,
+                    requested_mode,
+                    state.thinking_budget > 0,
+                    selected_agent.as_ref(),
+                ),
+                135,
+            );
+            if let Some(attachment_text) = format_attachments(ctx.config, &state.search_attachments)
+            {
+                staged.add_artifact("attachments", attachment_text, HashMap::new());
+            }
+            if let Some(plan) = state.shared_context.current_plan.as_deref() {
+                staged.add_artifact("execution_plan", plan, HashMap::new());
+            }
+            if !state.shared_context.notes.is_empty() {
+                staged.add_artifact(
+                    "execution_notes",
+                    state.shared_context.notes.join("\n"),
+                    HashMap::new(),
+                );
+            }
+            staged.add_system_part(
+                "executor_task_packet",
+                build_executor_task_packet(state, selected_agent.as_ref()),
+                130,
+            );
+            staged.to_messages()
         } else {
             state.chat_history.clone()
         };
@@ -137,43 +179,6 @@ impl Node for AgentExecutorNode {
             .and_then(|v| v.as_u64())
             .unwrap_or(self.max_steps as u64) as usize;
 
-        if let Some(agent) = selected_agent.as_ref() {
-            if !agent.skill_body.trim().is_empty() {
-                messages.push(ChatMessage {
-                    role: "system".to_string(),
-                    content: agent.skill_body.clone(),
-                });
-            }
-            if let Some(resource_prompt) = agent.resource_prompt.as_ref() {
-                messages.push(ChatMessage {
-                    role: "system".to_string(),
-                    content: resource_prompt.clone(),
-                });
-            }
-        }
-
-        messages.push(ChatMessage {
-            role: "system".to_string(),
-            content: build_agent_instructions(
-                &tool_list,
-                requested_mode,
-                state.thinking_budget > 0,
-                selected_agent.as_ref(),
-            ),
-        });
-
-        if let Some(attachment_text) = format_attachments(ctx.config, &state.search_attachments) {
-            messages.push(ChatMessage {
-                role: "system".to_string(),
-                content: attachment_text,
-            });
-        }
-
-        messages.push(ChatMessage {
-            role: "system".to_string(),
-            content: build_executor_task_packet(state, selected_agent.as_ref()),
-        });
-
         messages.push(ChatMessage {
             role: "user".to_string(),
             content: state.input.clone(),
@@ -186,11 +191,13 @@ impl Node for AgentExecutorNode {
                 .await
                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
-            let request = ChatRequest::new(messages.clone()).with_config(&agent_chat_config);
-            let response = ctx
+            let request = ChatRequest::new(messages.clone())
+                .with_config(&agent_chat_config)
+                .with_structured_response(agent_decision_structured_spec());
+            let decision_payload = ctx
                 .app_state
                 .llm
-                .chat(request, &model_id)
+                .chat_structured::<AgentDecisionPayload>(request, &model_id)
                 .await
                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
 
@@ -206,7 +213,7 @@ impl Node for AgentExecutorNode {
                     metadata: json!({
                         "step": step + 1,
                         "model_id": model_id,
-                        "response_length": response.len(),
+                        "decision_type": decision_payload.action_type,
                     }),
                     created_at: chrono::Utc::now(),
                 })
@@ -215,15 +222,12 @@ impl Node for AgentExecutorNode {
                 tracing::warn!(error = %e, "Failed to save agent event");
             }
 
-            let decision = parse_agent_decision(&response);
+            let decision = structured_payload_to_agent_decision(decision_payload)
+                .map_err(|err| GraphError::new(self.id(), err))?;
 
             match decision {
                 AgentDecision::Final(content) => {
-                    let final_content = if content.trim().is_empty() {
-                        response.trim().to_string()
-                    } else {
-                        content
-                    };
+                    let final_content = content;
 
                     let embedding_model_id = resolve_embedding_model_id(ctx.app_state);
                     let _ = ctx
@@ -290,8 +294,8 @@ impl Node for AgentExecutorNode {
                             .await
                             .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                         messages.push(ChatMessage {
-                            role: "system".to_string(),
-                            content: rejection,
+                            role: "user".to_string(),
+                            content: render_tool_observation("policy", &name, &rejection),
                         });
                         continue;
                     }
@@ -378,8 +382,8 @@ impl Node for AgentExecutorNode {
                                     .await
                                     .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                                 messages.push(ChatMessage {
-                                    role: "system".to_string(),
-                                    content: denial,
+                                    role: "user".to_string(),
+                                    content: render_tool_observation("denied", &name, &denial),
                                 });
                                 continue;
                             }
@@ -435,8 +439,8 @@ impl Node for AgentExecutorNode {
                                 .await
                                 .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
                             messages.push(ChatMessage {
-                                role: "system".to_string(),
-                                content: denial.clone(),
+                                role: "user".to_string(),
+                                content: render_tool_observation("denied", &name, &denial),
                             });
                             let _ = ctx
                                 .sender
@@ -488,8 +492,8 @@ impl Node for AgentExecutorNode {
                                     GraphError::new(self.id(), send_err.to_string())
                                 })?;
                             messages.push(ChatMessage {
-                                role: "system".to_string(),
-                                content: failure,
+                                role: "user".to_string(),
+                                content: render_tool_observation("failure", &name, &failure),
                             });
                             continue;
                         }
@@ -525,8 +529,8 @@ impl Node for AgentExecutorNode {
                     state.shared_context.notes.push(tool_summary.clone());
 
                     messages.push(ChatMessage {
-                        role: "system".to_string(),
-                        content: tool_summary,
+                        role: "user".to_string(),
+                        content: render_tool_observation("result", &name, &tool_summary),
                     });
 
                     ctx.sender
@@ -615,34 +619,11 @@ fn build_executor_task_packet(
     let selected = selected_agent
         .map(|agent| format!("{} ({})", agent.name, agent.id))
         .unwrap_or_else(|| "default".to_string());
-    let plan = state
-        .shared_context
-        .current_plan
-        .as_deref()
-        .unwrap_or("No planner output. Solve directly and keep steps minimal.");
-    let note_summary = if state.shared_context.notes.is_empty() {
-        "No prior executor notes.".to_string()
-    } else {
-        state
-            .shared_context
-            .notes
-            .iter()
-            .rev()
-            .take(3)
-            .cloned()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
 
     format!(
-        "Execution task packet:\n- Executor: {selected}\n- User goal: {goal}\n- Plan:\n{plan}\n- Working notes:\n{notes}\n\nFollow the selected Agent Skill package. The SKILL.md body is the primary execution instruction. Use packaged references/scripts/assets when relevant and keep progress updates concise.",
+        "Execution task packet:\n- Executor: {selected}\n- User goal: {goal}\n\nFollow the selected Agent Skill package. The SKILL.md body is the primary execution instruction. Use the context bundle for plan, notes, attachments, and tool observations. Keep progress updates concise.",
         selected = selected,
         goal = state.input,
-        plan = plan,
-        notes = note_summary,
     )
 }
 
@@ -664,6 +645,14 @@ fn summarize_tool_output(tool_name: &str, output: &str) -> String {
         } else {
             trimmed
         }
+    )
+}
+
+fn render_tool_observation(kind: &str, tool_name: &str, content: &str) -> String {
+    render_untrusted_xml_element(
+        "tool_observation",
+        &[("kind", kind), ("tool", tool_name)],
+        content,
     )
 }
 

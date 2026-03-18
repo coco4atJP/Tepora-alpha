@@ -35,11 +35,48 @@ impl ContextWorker for SystemWorker {
         _state: &Arc<AppState>,
     ) -> Result<(), WorkerError> {
         let config = ctx.config();
+        let active_character = config
+            .get("active_agent_profile")
+            .and_then(|value| value.as_str())
+            .unwrap_or("bunny_girl");
+        let character = config
+            .get("characters")
+            .and_then(|characters| characters.get(active_character));
 
         if let Some(system_prompt) =
             extract_system_prompt(&config).filter(|prompt| !prompt.trim().is_empty())
         {
             ctx.add_system_part("base_system", system_prompt, 200);
+        } else if let Some(character) = character {
+            let name = character
+                .get("name")
+                .and_then(|value| value.as_str())
+                .unwrap_or("Tepora");
+            let description = character
+                .get("description")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let traits = character
+                .get("traits")
+                .and_then(|value| value.as_array())
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| item.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .unwrap_or_default();
+
+            let fallback_prompt = if traits.trim().is_empty() {
+                format!("Your persona is {}. {}", name, description)
+            } else {
+                format!(
+                    "Your persona is {}. {}\nTraits: {}",
+                    name, description, traits
+                )
+            };
+            ctx.add_system_part("base_system", fallback_prompt, 200);
         }
 
         let mode_context = match ctx.mode {

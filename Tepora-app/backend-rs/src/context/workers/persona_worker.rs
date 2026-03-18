@@ -76,17 +76,10 @@ impl ContextWorker for PersonaWorker {
             })
             .unwrap_or_default();
 
-        let prompt_text = character
-            .get("system_prompt")
-            .or_else(|| character.get("prompt"))
-            .and_then(|value| value.as_str())
-            .map(str::to_string);
-
         ctx.persona = Some(PersonaConfig {
             name,
             description,
             traits,
-            prompt_text,
         });
 
         Ok(())

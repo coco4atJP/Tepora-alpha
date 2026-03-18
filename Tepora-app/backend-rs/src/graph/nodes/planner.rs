@@ -6,11 +6,12 @@ use serde_json::json;
 use crate::agent::execution::{
     build_agent_chat_config, resolve_execution_model_id, resolve_selected_agent,
 };
-use crate::agent::planner::generate_execution_plan;
 use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::{PipelineMode, PipelineStage};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState};
+use crate::llm::ChatRequest;
+use std::collections::HashMap;
 
 pub struct PlannerNode;
 
@@ -84,6 +85,37 @@ impl Node for PlannerNode {
         let planner_messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
             let mut staged = pipeline_ctx.clone();
             staged.stage = PipelineStage::AgentPlanner;
+            let selected = selected_agent
+                .as_ref()
+                .map(|agent| {
+                    if agent.controller_summary.trim().is_empty() {
+                        format!("{} ({})", agent.name, agent.id)
+                    } else {
+                        format!(
+                            "{} ({})\nSummary: {}",
+                            agent.name, agent.id, agent.controller_summary
+                        )
+                    }
+                })
+                .unwrap_or_else(|| "default".to_string());
+            let detail = if state.thinking_budget > 0 {
+                "detailed"
+            } else {
+                "compact"
+            };
+            staged.add_system_part(
+                "planner_instruction",
+                "You are a planner for a tool-using AI agent.\nCreate a practical execution plan with up to 6 ordered steps.\nUse concise markdown bullets and include fallback actions.\nDo not add any text before or after the plan.",
+                130,
+            );
+            staged.add_artifact(
+                "planner_preferences",
+                format!(
+                    "Preferred executor:\n{}\n\nDetail level:\n{}",
+                    selected, detail
+                ),
+                HashMap::new(),
+            );
             staged.to_messages()
         } else {
             state.chat_history.clone()
@@ -93,17 +125,21 @@ impl Node for PlannerNode {
             build_agent_chat_config(ctx.app_state, ctx.config, selected_agent.as_ref());
         let model_id =
             resolve_execution_model_id(ctx.app_state, ctx.config, selected_agent.as_ref());
-        let plan = generate_execution_plan(
-            ctx.app_state,
-            &agent_chat_config,
-            &state.input,
-            &planner_messages,
-            selected_agent.as_ref(),
-            state.thinking_budget > 0,
-            &model_id,
-        )
-        .await
-        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        let plan = ctx
+            .app_state
+            .llm
+            .chat(
+                ChatRequest::new(planner_messages).with_config(&agent_chat_config),
+                &model_id,
+            )
+            .await
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        let plan = if plan.trim().is_empty() {
+            "- Clarify objective and constraints\n- Gather required evidence\n- Execute tools safely\n- Synthesize final answer"
+                .to_string()
+        } else {
+            plan.trim().to_string()
+        };
 
         state.shared_context.current_plan = Some(plan);
 

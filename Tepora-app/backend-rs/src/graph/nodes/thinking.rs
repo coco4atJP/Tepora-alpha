@@ -1,11 +1,16 @@
 // Thinking Node
 // Chain of Thought (CoT) reasoning
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serde_json::json;
 
+use crate::context::pipeline::ContextPipeline;
+use crate::context::pipeline_context::{PipelineContext, PipelineMode};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
+use crate::llm::ChatRequest;
 use crate::models::event::{AgentEvent, AgentEventType};
 
 pub struct ThinkingNode;
@@ -13,6 +18,44 @@ pub struct ThinkingNode;
 impl ThinkingNode {
     pub fn new() -> Self {
         Self
+    }
+
+    async fn base_context(
+        &self,
+        state: &AgentState,
+        ctx: &NodeContext<'_>,
+    ) -> Result<PipelineContext, GraphError> {
+        if let Some(existing) = state.pipeline_context.as_ref() {
+            let mut staged = existing.clone();
+            staged.user_input = state.input.clone();
+            return Ok(staged);
+        }
+
+        let app_state = Arc::new(ctx.app_state.clone());
+        ContextPipeline::build_v4(
+            &app_state,
+            &state.session_id,
+            &state.input,
+            PipelineMode::Chat,
+            state.skip_web_search,
+        )
+        .await
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))
+    }
+
+    fn thinking_messages(
+        &self,
+        base_ctx: &PipelineContext,
+        user_input: &str,
+        extra_instruction: Option<&str>,
+    ) -> Vec<crate::llm::types::ChatMessage> {
+        let mut staged = base_ctx.clone();
+        staged.user_input = user_input.to_string();
+        staged.add_system_part("thinking_instruction", THINKING_SYSTEM_PROMPT, 130);
+        if let Some(extra_instruction) = extra_instruction.filter(|value| !value.trim().is_empty()) {
+            staged.add_system_part("thinking_variant", extra_instruction, 125);
+        }
+        staged.to_messages()
     }
 }
 
@@ -84,21 +127,12 @@ impl Node for ThinkingNode {
             .resolve_character_model_id(active_character)
             .map_err(|e| GraphError::new(self.id(), e.to_string()))?
             .unwrap_or_else(|| "default".to_string());
+        let base_ctx = self.base_context(state, ctx).await?;
 
         let final_thought = if num_paths == 1 {
             // Standard CoT (Level 1)
-            let thinking_messages = vec![
-                crate::llm::types::ChatMessage {
-                    role: "system".to_string(),
-                    content: THINKING_SYSTEM_PROMPT.to_string(),
-                },
-                crate::llm::types::ChatMessage {
-                    role: "user".to_string(),
-                    content: state.input.clone(),
-                },
-            ];
-            let request =
-                crate::llm::types::ChatRequest::new(thinking_messages).with_config(ctx.config);
+            let thinking_messages = self.thinking_messages(&base_ctx, &state.input, None);
+            let request = ChatRequest::new(thinking_messages).with_config(ctx.config);
             let response = ctx.app_state.llm.chat(request, &model_id).await.map_err(
                 |e: crate::core::errors::ApiError| GraphError::new(self.id(), e.to_string()),
             )?;
@@ -128,22 +162,15 @@ impl Node for ThinkingNode {
 
             for i in 0..num_paths {
                 let perspective = perspectives[(i as usize) % perspectives.len()];
-                let prompt = format!("{}\n\nApproach constraint: {}\n\nVERY IMPORTANT: Keep your output under 500 words. Output ONLY the reasoning process.", THINKING_SYSTEM_PROMPT, perspective);
-
-                let messages = vec![
-                    crate::llm::types::ChatMessage {
-                        role: "system".to_string(),
-                        content: prompt,
-                    },
-                    crate::llm::types::ChatMessage {
-                        role: "user".to_string(),
-                        content: state.input.clone(),
-                    },
-                ];
+                let prompt = format!(
+                    "Approach constraint: {}\n\nVERY IMPORTANT: Keep your output under 500 words. Output ONLY the reasoning process.",
+                    perspective
+                );
+                let messages = self.thinking_messages(&base_ctx, &state.input, Some(&prompt));
 
                 // Allow slightly higher temperature for diversity, if supported by the LLM implementation config
                 // We pass the same config for now, but rely on the distinct system prompts for diversity.
-                let request = crate::llm::types::ChatRequest::new(messages).with_config(ctx.config);
+                let request = ChatRequest::new(messages).with_config(ctx.config);
                 let llm = ctx.app_state.llm.clone();
                 let m_id = model_id.clone();
 
@@ -189,13 +216,15 @@ impl Node for ThinkingNode {
                 valid_paths.join("\n---\n")
             );
 
-            let synthesis_messages = vec![crate::llm::types::ChatMessage {
-                role: "user".to_string(),
-                content: synthesis_prompt,
-            }];
-
+            let synthesis_messages = self.thinking_messages(
+                &base_ctx,
+                &synthesis_prompt,
+                Some(
+                    "Synthesize the strongest reasoning into a single unified thought process. Output only the reasoning.",
+                ),
+            );
             let synthesis_request =
-                crate::llm::types::ChatRequest::new(synthesis_messages).with_config(ctx.config);
+                ChatRequest::new(synthesis_messages).with_config(ctx.config);
             let synthesized = ctx
                 .app_state
                 .llm

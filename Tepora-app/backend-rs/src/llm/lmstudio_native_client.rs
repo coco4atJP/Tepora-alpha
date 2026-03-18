@@ -236,11 +236,13 @@ pub(crate) async fn stream_chat(
 }
 
 fn build_lmstudio_chat_body(model_name: &str, request: ChatRequest, stream: bool) -> Value {
-    let mut system_prompt: Option<String> = None;
+    let mut system_parts: Vec<String> = Vec::new();
     let mut input_items: Vec<Value> = Vec::new();
     for msg in &request.messages {
         if msg.role == "system" {
-            system_prompt = Some(msg.content.clone());
+            if !msg.content.trim().is_empty() {
+                system_parts.push(msg.content.clone());
+            }
         } else {
             input_items.push(json!({
                 "type": "message",
@@ -255,6 +257,12 @@ fn build_lmstudio_chat_body(model_name: &str, request: ChatRequest, stream: bool
         "input": input_items,
         "stream": stream,
     });
+
+    let system_prompt = if system_parts.is_empty() {
+        None
+    } else {
+        Some(system_parts.join("\n\n"))
+    };
 
     if let Some(obj) = body.as_object_mut() {
         if let Some(ref sp) = system_prompt {
@@ -284,4 +292,38 @@ fn build_lmstudio_chat_body(model_name: &str, request: ChatRequest, stream: bool
     }
 
     body
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::llm::types::ChatMessage;
+
+    #[test]
+    fn build_lmstudio_chat_body_concatenates_all_system_messages() {
+        let body = build_lmstudio_chat_body(
+            "model",
+            ChatRequest::new(vec![
+                ChatMessage {
+                    role: "system".to_string(),
+                    content: "alpha".to_string(),
+                },
+                ChatMessage {
+                    role: "user".to_string(),
+                    content: "bundle".to_string(),
+                },
+                ChatMessage {
+                    role: "system".to_string(),
+                    content: "beta".to_string(),
+                },
+            ]),
+            false,
+        );
+
+        let system_prompt = body
+            .get("system_prompt")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        assert_eq!(system_prompt, "alpha\n\nbeta");
+    }
 }

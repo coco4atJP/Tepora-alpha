@@ -569,37 +569,9 @@ const ModelSettings: React.FC = () => {
 						/>
 					</FormGroup>
 
-					<FormGroup
-						label={t("settings.sections.extended.system_prompt_prefix", "System Prompt Prefix")}
-						description={t(
-							"settings.sections.extended.system_prompt_prefix_desc",
-							"Prepended text for system prompts.",
-						)}
-					>
-						<FormInput
-							value={readString("models_gguf.text_model.system_prompt_prefix", "")}
-							onChange={(value) =>
-								updateConfigPath("models_gguf.text_model.system_prompt_prefix", value)}
-						/>
-					</FormGroup>
-
-					<FormGroup
-						label={t("settings.sections.extended.system_prompt_suffix", "System Prompt Suffix")}
-						description={t(
-							"settings.sections.extended.system_prompt_suffix_desc",
-							"Appended text for system prompts.",
-						)}
-					>
-						<FormInput
-							value={readString("models_gguf.text_model.system_prompt_suffix", "")}
-							onChange={(value) =>
-								updateConfigPath("models_gguf.text_model.system_prompt_suffix", value)}
-						/>
-					</FormGroup>
-
-					<FormGroup
-						label={t("settings.sections.extended.tokenizer_path", "Tokenizer Path")}
-						description={t(
+						<FormGroup
+							label={t("settings.sections.extended.tokenizer_path", "Tokenizer Path")}
+							description={t(
 							"settings.sections.extended.tokenizer_path_desc",
 							"Optional backend tokenizer.json path. Leave empty to auto-discover for local models or fall back to provider usage for remote models.",
 						)}
@@ -665,7 +637,6 @@ const ModelSettings: React.FC = () => {
 };
 
 export default ModelSettings;
-
 
 
 

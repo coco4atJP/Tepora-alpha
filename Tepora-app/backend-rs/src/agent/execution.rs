@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 
-use serde::Deserialize;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use crate::agent::policy::CustomToolPolicy;
 use crate::agent::skill_registry::AgentSkillPackage;
 use crate::core::native_tools::{resolve_tool_alias, NATIVE_TOOLS};
+use crate::llm::types::StructuredResponseSpec;
 use crate::state::AppState;
 
 #[derive(Debug, Clone)]
@@ -23,6 +24,18 @@ pub struct SelectedAgentRuntime {
 pub enum AgentDecision {
     Final(String),
     ToolCall { name: String, args: Value },
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AgentDecisionPayload {
+    #[serde(rename = "type")]
+    pub action_type: String,
+    #[serde(default)]
+    pub tool_name: Option<String>,
+    #[serde(default)]
+    pub tool_args: Option<Value>,
+    #[serde(default)]
+    pub content: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -211,6 +224,78 @@ pub fn parse_agent_decision(text: &str) -> AgentDecision {
         }
     }
     AgentDecision::Final(text.trim().to_string())
+}
+
+pub fn agent_decision_structured_spec() -> StructuredResponseSpec {
+    StructuredResponseSpec {
+        name: "agent_decision".to_string(),
+        description: Some("Structured agent decision payload".to_string()),
+        schema: json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": ["tool_call", "final"]
+                },
+                "tool_name": {
+                    "type": ["string", "null"]
+                },
+                "tool_args": {
+                    "type": ["object", "null"],
+                    "additionalProperties": true
+                },
+                "content": {
+                    "type": ["string", "null"]
+                }
+            },
+            "required": ["type"],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "type": { "const": "tool_call" }
+                        }
+                    },
+                    "then": {
+                        "required": ["tool_name", "tool_args"]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": { "const": "final" }
+                        }
+                    },
+                    "then": {
+                        "required": ["content"]
+                    }
+                }
+            ]
+        }),
+    }
+}
+
+pub fn structured_payload_to_agent_decision(
+    payload: AgentDecisionPayload,
+) -> Result<AgentDecision, String> {
+    match payload.action_type.as_str() {
+        "tool_call" => {
+            let name = payload
+                .tool_name
+                .filter(|value| !value.trim().is_empty())
+                .ok_or_else(|| "tool_call requires tool_name".to_string())?;
+            let args = payload
+                .tool_args
+                .unwrap_or_else(|| Value::Object(Default::default()));
+            if !args.is_object() {
+                return Err("tool_call requires tool_args to be an object".to_string());
+            }
+            Ok(AgentDecision::ToolCall { name, args })
+        }
+        "final" => Ok(AgentDecision::Final(payload.content.unwrap_or_default())),
+        other => Err(format!("unsupported agent decision type: {other}")),
+    }
 }
 
 fn parse_json_from_text(text: &str) -> Option<Value> {

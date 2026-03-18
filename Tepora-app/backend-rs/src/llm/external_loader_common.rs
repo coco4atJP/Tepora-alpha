@@ -154,6 +154,19 @@ pub(crate) fn build_openai_compatible_chat_body(
         if let Some(v) = request.presence_penalty {
             obj.insert("presence_penalty".to_string(), json!(v));
         }
+        if let Some(spec) = request.structured_response {
+            obj.insert(
+                "response_format".to_string(),
+                json!({
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": spec.name,
+                        "schema": spec.schema,
+                        "strict": true,
+                    }
+                }),
+            );
+        }
         if !stream && loader.eq_ignore_ascii_case("lmstudio") {
             obj.insert(
                 "stream_options".to_string(),
@@ -194,6 +207,11 @@ pub(crate) fn extract_field_text(value: &Value, keys: &[&str]) -> String {
 
 pub(crate) fn extract_usage(payload: &Value) -> Option<TokenUsage> {
     let usage = payload.get("usage");
+    let cached_prompt_tokens = usage
+        .and_then(|value| value.get("prompt_tokens_details"))
+        .and_then(|value| value.get("cached_tokens"))
+        .and_then(|value| value.as_u64())
+        .map(|value| value as usize);
     let prompt_tokens = usage
         .and_then(|value| value.get("prompt_tokens"))
         .and_then(|value| value.as_u64())
@@ -234,6 +252,7 @@ pub(crate) fn extract_usage(payload: &Value) -> Option<TokenUsage> {
             prompt_tokens,
             completion_tokens,
             total_tokens,
+            cached_prompt_tokens,
         })
     }
 }
@@ -452,13 +471,17 @@ mod tests {
             "usage": {
                 "prompt_tokens": 12,
                 "completion_tokens": 8,
-                "total_tokens": 20
+                "total_tokens": 20,
+                "prompt_tokens_details": {
+                    "cached_tokens": 5
+                }
             }
         });
         let openai_usage = extract_usage(&openai_payload).expect("openai usage");
         assert_eq!(openai_usage.prompt_tokens, Some(12));
         assert_eq!(openai_usage.completion_tokens, Some(8));
         assert_eq!(openai_usage.total_tokens, Some(20));
+        assert_eq!(openai_usage.cached_prompt_tokens, Some(5));
 
         let ollama_payload = json!({
             "prompt_eval_count": 14,
@@ -468,6 +491,7 @@ mod tests {
         assert_eq!(ollama_usage.prompt_tokens, Some(14));
         assert_eq!(ollama_usage.completion_tokens, Some(6));
         assert_eq!(ollama_usage.total_tokens, Some(20));
+        assert_eq!(ollama_usage.cached_prompt_tokens, None);
     }
 
     #[test]

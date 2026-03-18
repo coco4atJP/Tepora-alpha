@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::agent::execution::choose_agent_from_manager;
-use crate::agent::planner::requires_fast_mode_planning;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentMode, AgentState, SupervisorRoute};
 
@@ -21,6 +20,34 @@ impl Default for SupervisorNode {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn requires_fast_mode_planning(user_input: &str) -> bool {
+    let lowered = user_input.to_lowercase();
+    if lowered.len() > 220 {
+        return true;
+    }
+
+    let indicators = [
+        "step by step",
+        "plan",
+        "roadmap",
+        "architecture",
+        "migration",
+        "strategy",
+        "analysis",
+        "complex",
+        "比較",
+        "分析",
+        "計画",
+        "設計",
+        "段階",
+        "手順",
+        "移行",
+        "包括",
+        "複雑",
+    ];
+    indicators.iter().any(|keyword| lowered.contains(keyword))
 }
 
 #[async_trait]

@@ -25,11 +25,9 @@ pub fn build_agent_instructions(
 {selected_agent_text}\n\
 {thinking_note}\n\
 You have access to the following tools: {tools}.\n\
-When you need to use a tool, respond ONLY with JSON in this format:\n\
-{{\"type\":\"tool_call\",\"tool_name\":\"<tool>\",\"tool_args\":{{...}}}}\n\
-When you have the final answer, respond ONLY with JSON in this format:\n\
-{{\"type\":\"final\",\"content\":\"...\"}}\n\
-Do not include any extra text outside the JSON.",
+Return your next action through the structured decision channel.\n\
+Use `type=tool_call` when invoking a tool and `type=final` when responding to the user.\n\
+Do not include extra commentary or alternate formats.",
         mode = mode.as_str()
     )
 }

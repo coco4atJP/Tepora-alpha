@@ -4,6 +4,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
+use crate::context::controller::render_untrusted_xml_element;
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::tools::execute_tool;
@@ -73,8 +74,12 @@ impl Node for ToolNode {
 
                 // Add tool result to scratchpad
                 state.agent_scratchpad.push(crate::llm::ChatMessage {
-                    role: "system".to_string(),
-                    content: format!("Tool `{}` result:\n{}", self.tool_name, execution.output),
+                    role: "user".to_string(),
+                    content: render_untrusted_xml_element(
+                        "tool_observation",
+                        &[("kind", "result"), ("tool", self.tool_name.as_str())],
+                        &execution.output,
+                    ),
                 });
 
                 let _ = ctx
@@ -96,8 +101,12 @@ impl Node for ToolNode {
                 let failure = format!("Tool `{}` failed: {}", self.tool_name, err);
 
                 state.agent_scratchpad.push(crate::llm::ChatMessage {
-                    role: "system".to_string(),
-                    content: failure.clone(),
+                    role: "user".to_string(),
+                    content: render_untrusted_xml_element(
+                        "tool_observation",
+                        &[("kind", "failure"), ("tool", self.tool_name.as_str())],
+                        &failure,
+                    ),
                 });
 
                 let _ = ctx

@@ -11,7 +11,8 @@ use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::{PipelineArtifact, PipelineMode, PipelineStage, RagChunk};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentState, Artifact};
-use crate::llm::{ChatMessage, ChatRequest};
+use crate::llm::types::StructuredResponseSpec;
+use crate::llm::ChatRequest;
 use crate::rag::{ChunkSearchResult, StoredChunk};
 use crate::tools::execute_tool;
 use crate::tools::search::SearchResult;
@@ -297,23 +298,25 @@ impl AgenticSearchNode {
         state: &AgentState,
         ctx: &mut NodeContext<'_>,
     ) -> Result<Vec<String>, GraphError> {
-        let messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: concat!(
+        let messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+            let mut staged = pipeline_ctx.clone();
+            staged.stage = PipelineStage::SearchQueryGenerate;
+            staged.add_system_part(
+                "query_generation_instruction",
+                concat!(
                     "You are a search query decomposition expert. ",
-                    "Given a user question, generate 2-4 focused search sub-queries ",
-                    "that together cover all aspects of the question.\n",
-                    "Return ONLY a JSON array of strings, e.g. [\"query1\", \"query2\"].\n",
-                    "Do not include any text outside the JSON array."
-                )
-                .to_string(),
-            },
-            ChatMessage {
+                    "Generate 2-4 focused search sub-queries that jointly cover the user request. ",
+                    "Return only the structured sub-query array."
+                ),
+                130,
+            );
+            staged.to_messages()
+        } else {
+            vec![crate::llm::ChatMessage {
                 role: "user".to_string(),
                 content: state.input.clone(),
-            },
-        ];
+            }]
+        };
 
         let active_character = ctx
             .config
@@ -327,17 +330,18 @@ impl AgenticSearchNode {
             .flatten()
             .unwrap_or_else(|| "default".to_string());
 
-        let request = ChatRequest::new(messages).with_config(ctx.config);
-        let response = ctx
+        let request = ChatRequest::new(messages)
+            .with_config(ctx.config)
+            .with_structured_response(sub_query_structured_spec());
+        let parsed = ctx
             .app_state
             .llm
-            .chat(request, &model_id)
+            .chat_structured::<Vec<String>>(request, &model_id)
             .await
             .map_err(|err| {
                 GraphError::new(self.id(), format!("sub-query generation failed: {err}"))
             })?;
 
-        let parsed = parse_json_payload::<Vec<String>>(&response).unwrap_or_default();
         let mut queries = vec![state.input.clone()];
         for query in parsed {
             let query = query.trim().to_string();
@@ -600,16 +604,9 @@ impl AgenticSearchNode {
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        let app_state = Arc::new(ctx.app_state.clone());
-        let mut stage_ctx = ContextPipeline::build_v4(
-            &app_state,
-            &state.session_id,
-            &state.input,
-            PipelineMode::SearchAgentic,
-            true,
-        )
-        .await
-        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        let mut stage_ctx = self
+            .build_stage_context(state, ctx, PipelineStage::SearchReportBuild)
+            .await?;
         stage_ctx.stage = PipelineStage::SearchReportBuild;
         stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
         stage_ctx.rag_chunks = chunks
@@ -623,15 +620,9 @@ impl AgenticSearchNode {
             })
             .collect();
 
-        let mut messages = ContextPipeline::pipeline_to_context_result(&stage_ctx).messages;
-        if let Some(last) = messages.last() {
-            if last.role == "user" && last.content.trim() == state.input.trim() {
-                messages.pop();
-            }
-        }
-        messages.push(ChatMessage {
-            role: "system".to_string(),
-            content: concat!(
+        stage_ctx.add_system_part(
+            "report_generation_instruction",
+            concat!(
                 "You are a research analyst. ",
                 "Generate a concise, evidence-grounded report from chunk artifacts.\n",
                 "1. Summarize key findings\n",
@@ -640,11 +631,11 @@ impl AgenticSearchNode {
                 "4. Use the user's language"
             )
             .to_string(),
-        });
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: format!("Question: {}\n\nArtifacts:\n{}", state.input, sources),
-        });
+            130,
+        );
+        stage_ctx.add_artifact("selected_chunk_sources", sources, HashMap::new());
+
+        let messages = stage_ctx.to_messages();
 
         let active_character = ctx
             .config
@@ -673,45 +664,35 @@ impl AgenticSearchNode {
         chunk_briefs: &[SelectedChunkBrief],
         report_brief: &ReportBrief,
     ) -> Result<String, GraphError> {
-        let app_state = Arc::new(ctx.app_state.clone());
-        let mut stage_ctx = ContextPipeline::build_v4(
-            &app_state,
-            &state.session_id,
-            &state.input,
-            PipelineMode::SearchAgentic,
-            true,
-        )
-        .await
-        .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+        let mut stage_ctx = self
+            .build_stage_context(state, ctx, PipelineStage::SearchFinalSynthesis)
+            .await?;
         stage_ctx.stage = PipelineStage::SearchFinalSynthesis;
         stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
 
-        let mut messages = ContextPipeline::pipeline_to_context_result(&stage_ctx).messages;
-        if let Some(last) = messages.last() {
-            if last.role == "user" && last.content.trim() == state.input.trim() {
-                messages.pop();
-            }
-        }
+        stage_ctx.add_system_part(
+            "final_synthesis_instruction",
+            concat!(
+                "You have completed deep research. ",
+                "Use the context bundle to provide the final user-facing answer.\n",
+                "Do not assume you can inspect raw chunks or a full report.\n",
+                "Keep citations tied to chunk IDs or source URLs when possible."
+            )
+            .to_string(),
+            130,
+        );
+        stage_ctx.add_artifact(
+            "selected_chunk_briefs",
+            render_selected_chunk_briefs(chunk_briefs),
+            HashMap::new(),
+        );
+        stage_ctx.add_artifact(
+            "report_brief",
+            render_report_brief(report_brief),
+            HashMap::new(),
+        );
 
-        messages.push(ChatMessage {
-            role: "system".to_string(),
-            content: format!(
-                concat!(
-                    "You have completed deep research. ",
-                    "Use the brief below to provide the final user-facing answer.\n",
-                    "Do not assume you can inspect raw chunks or a full report.\n",
-                    "Keep citations tied to chunk IDs or source URLs when possible.\n\n",
-                    "Selected chunk briefs:\n{}\n\n",
-                    "Report brief:\n{}"
-                ),
-                render_selected_chunk_briefs(chunk_briefs),
-                render_report_brief(report_brief)
-            ),
-        });
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: state.input.clone(),
-        });
+        let messages = stage_ctx.to_messages();
 
         let active_character = ctx
             .config
@@ -768,6 +749,35 @@ impl AgenticSearchNode {
 
         Ok(full_response)
     }
+
+    async fn build_stage_context(
+        &self,
+        state: &AgentState,
+        ctx: &NodeContext<'_>,
+        stage: PipelineStage,
+    ) -> Result<crate::context::pipeline_context::PipelineContext, GraphError> {
+        if let Some(base_ctx) = state.pipeline_context.as_ref() {
+            let mut staged = base_ctx.clone();
+            staged.stage = stage;
+            staged.user_input = state.input.clone();
+            return Ok(staged);
+        }
+
+        let app_state = Arc::new(ctx.app_state.clone());
+        ContextPipeline::build_v4(
+            &app_state,
+            &state.session_id,
+            &state.input,
+            PipelineMode::SearchAgentic,
+            true,
+        )
+        .await
+        .map(|mut pipeline_ctx| {
+            pipeline_ctx.stage = stage;
+            pipeline_ctx
+        })
+        .map_err(|err| GraphError::new(self.id(), err.to_string()))
+    }
 }
 
 fn parse_json_payload<T>(output: &str) -> Option<T>
@@ -786,6 +796,21 @@ where
     }
 
     serde_json::from_str::<T>(&trimmed[start..=end]).ok()
+}
+
+fn sub_query_structured_spec() -> StructuredResponseSpec {
+    StructuredResponseSpec {
+        name: "search_sub_queries".to_string(),
+        description: Some("Focused search sub-query list".to_string()),
+        schema: json!({
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 4
+        }),
+    }
 }
 
 fn truncate_text(text: &str, max_len: usize) -> String {
