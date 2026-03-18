@@ -69,10 +69,7 @@ pub async fn execute_rag_search(
         .collect::<Vec<_>>();
     let output = serde_json::to_string_pretty(&legacy_results).unwrap_or_default();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 pub async fn execute_rag_ingest(
@@ -127,10 +124,7 @@ pub async fn execute_rag_ingest(
     })
     .to_string();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 pub async fn execute_rag_text_search(
@@ -178,10 +172,7 @@ pub async fn execute_rag_text_search(
         .collect::<Vec<_>>();
     let output = serde_json::to_string_pretty(&legacy_results).unwrap_or_default();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 pub async fn execute_rag_get_chunk(
@@ -216,10 +207,7 @@ pub async fn execute_rag_get_chunk(
     });
     let output = serde_json::to_string_pretty(&legacy_result).unwrap_or_default();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 pub async fn execute_rag_get_chunk_window(
@@ -268,10 +256,7 @@ pub async fn execute_rag_get_chunk_window(
         .collect::<Vec<_>>();
     let output = serde_json::to_string_pretty(&legacy_result).unwrap_or_default();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 pub async fn execute_rag_clear_session(
@@ -301,10 +286,7 @@ pub async fn execute_rag_clear_session(
     })
     .to_string();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 pub async fn execute_rag_reindex(
@@ -333,10 +315,7 @@ pub async fn execute_rag_reindex(
     })
     .to_string();
 
-    Ok(ToolExecution {
-        output,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(output, None))
 }
 
 fn require_state(state: Option<&AppState>) -> Result<&AppState, ApiError> {

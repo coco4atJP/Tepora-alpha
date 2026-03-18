@@ -34,10 +34,7 @@ pub async fn execute_search(config: &Value, args: &Value) -> Result<ToolExecutio
     let results = perform_search(config, &query).await?;
     let output = serde_json::to_string_pretty(&results).unwrap_or_default();
 
-    Ok(ToolExecution {
-        output,
-        search_results: Some(results),
-    })
+    Ok(ToolExecution::native(output, Some(results)))
 }
 
 pub async fn execute_web_fetch(config: &Value, args: &Value) -> Result<ToolExecution, ApiError> {
@@ -124,8 +121,5 @@ pub async fn execute_web_fetch(config: &Value, args: &Value) -> Result<ToolExecu
         text
     };
 
-    Ok(ToolExecution {
-        output: truncated,
-        search_results: None,
-    })
+    Ok(ToolExecution::native(truncated, None))
 }

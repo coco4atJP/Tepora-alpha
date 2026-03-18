@@ -6,6 +6,7 @@ pub mod a2a;
 pub mod actor;
 pub mod agent;
 pub mod application;
+pub mod cli;
 pub mod context;
 pub mod core;
 pub mod domain;

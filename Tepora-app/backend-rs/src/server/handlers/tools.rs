@@ -5,6 +5,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::cli::CliToolInfo;
 use crate::core::errors::ApiError;
 use crate::core::native_tools::{NativeTool, NATIVE_TOOLS};
 use crate::mcp::McpToolInfo;
@@ -15,6 +16,7 @@ use crate::state::AppStateRead;
 pub enum ToolSource {
     Native,
     Mcp,
+    Cli,
 }
 
 #[derive(Debug, Clone, Serialize, JsonSchema, PartialEq)]
@@ -49,21 +51,37 @@ fn mcp_tool_descriptor(tool: McpToolInfo) -> ToolDescriptor {
     }
 }
 
+fn cli_tool_descriptor(tool: CliToolInfo) -> ToolDescriptor {
+    ToolDescriptor {
+        name: tool.name,
+        description: tool.description,
+        source: ToolSource::Cli,
+        input_schema: Some(tool.input_schema),
+    }
+}
+
 pub fn build_tools_response(
     native_tools: &[NativeTool],
     mcp_tools: Vec<McpToolInfo>,
+    cli_tools: Vec<CliToolInfo>,
 ) -> ToolsListResponse {
     let mut tools = native_tools
         .iter()
         .map(native_tool_descriptor)
         .collect::<Vec<_>>();
     tools.extend(mcp_tools.into_iter().map(mcp_tool_descriptor));
+    tools.extend(cli_tools.into_iter().map(cli_tool_descriptor));
     ToolsListResponse { tools }
 }
 
 pub async fn list_tools(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let mcp_tools = state.integration.mcp.list_tools().await;
-    Ok(Json(build_tools_response(NATIVE_TOOLS, mcp_tools)))
+    let cli_tools = state.integration.cli.list_tools().await;
+    Ok(Json(build_tools_response(
+        NATIVE_TOOLS,
+        mcp_tools,
+        cli_tools,
+    )))
 }
 
 #[cfg(test)]
@@ -79,6 +97,7 @@ mod tests {
                 name: "native_search",
                 description: "Search the web",
             }],
+            Vec::new(),
             Vec::new(),
         );
 
@@ -111,6 +130,7 @@ mod tests {
                     "required": ["message"]
                 })),
             }],
+            Vec::new(),
         );
 
         assert_eq!(
@@ -151,5 +171,52 @@ mod tests {
         assert!(required.contains(&json!("source")));
         assert!(!required.contains(&json!("inputSchema")));
         assert!(tool_schema["properties"].get("inputSchema").is_some());
+    }
+
+    #[test]
+    fn cli_tools_response_includes_source_and_schema() {
+        let response = build_tools_response(
+            &[],
+            Vec::new(),
+            vec![CliToolInfo {
+                name: "cli:github_search".to_string(),
+                description: "Search GitHub via GitHub CLI".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                        }
+                    },
+                    "required": ["args"]
+                }),
+                risk_level: crate::core::security_controls::PermissionRiskLevel::Medium,
+                profile_name: "github_search".to_string(),
+            }],
+        );
+
+        assert_eq!(
+            serde_json::to_value(response).unwrap(),
+            json!({
+                "tools": [
+                    {
+                        "name": "cli:github_search",
+                        "description": "Search GitHub via GitHub CLI",
+                        "source": "cli",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "args": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                }
+                            },
+                            "required": ["args"]
+                        }
+                    }
+                ]
+            })
+        );
     }
 }

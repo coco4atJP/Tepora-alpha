@@ -504,8 +504,8 @@ mod tests {
     use crate::domain::knowledge::{
         ContextConfig, KnowledgeChunk, KnowledgeHit, KnowledgePort, KnowledgeSource,
     };
-    use crate::memory::RetrievedMemory;
     use crate::infrastructure::episodic_store::{MemoryAdapter, MemoryScope};
+    use crate::memory::RetrievedMemory;
     use crate::models::types::{ModelEntry, ModelRegistry};
     use crate::test_support::ENV_LOCK;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -699,6 +699,7 @@ mod tests {
             .await
             .unwrap();
         let llama = crate::llm::LlamaService::new(new_paths_arc.clone()).unwrap();
+        let cli = crate::cli::CliProfileManager::new(new_paths_arc.clone(), config.clone());
         let mcp = crate::mcp::McpManager::new(new_paths_arc.clone(), config.clone());
         let mcp_registry = crate::mcp::registry::McpRegistry::new(&new_paths_arc);
         let models = crate::models::ModelManager::new(&new_paths_arc, config.clone());
@@ -739,6 +740,7 @@ mod tests {
             skill_registry: skill_registry.clone(),
         });
         let integration = Arc::new(crate::state::AppIntegrationState {
+            cli: cli.clone(),
             mcp: mcp.clone(),
             mcp_registry: mcp_registry.clone(),
         });

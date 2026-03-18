@@ -89,7 +89,7 @@ impl Node for AgentExecutorNode {
             .map(|agent| agent.tool_policy.clone())
             .unwrap_or_else(CustomToolPolicy::allow_all_policy);
 
-        let (tool_list, mcp_tool_set) =
+        let (tool_list, mcp_tool_set, cli_tool_set) =
             build_allowed_tool_list(ctx.app_state, &active_policy).await;
         let agent_name = selected_agent
             .as_ref()
@@ -358,6 +358,15 @@ impl Node for AgentExecutorNode {
                             server_name,
                             PermissionRiskLevel::High,
                         )
+                    } else if cli_tool_set.contains(&name) {
+                        let risk_level = ctx
+                            .app_state
+                            .integration
+                            .cli
+                            .risk_level_for_tool(&name)
+                            .await
+                            .unwrap_or(PermissionRiskLevel::High);
+                        (PermissionScopeKind::NativeTool, name.clone(), risk_level)
                     } else {
                         let risk_level = if name.contains("search") {
                             PermissionRiskLevel::Medium
