@@ -74,6 +74,20 @@ export function useDeleteSetupModelMutation() {
 	});
 }
 
+export function useSetActiveSetupModelMutation() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (payload: { model_id: string; role: "text" | "embedding" }) =>
+			v2ApiClient.post("/api/setup/model/active", configWriteResponseSchema, payload),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({
+				queryKey: v2SettingsQueryKeys.models(),
+			});
+		},
+	});
+}
+
 function deepMerge(
 	target: Record<string, unknown>,
 	source: Record<string, unknown>,

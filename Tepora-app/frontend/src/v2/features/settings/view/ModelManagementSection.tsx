@@ -300,11 +300,8 @@ export const ModelManagementSection: React.FC = () => {
 							disabled={isBusy || startDownload.isPending}
 						/>
 					</FormField>
-					<div className="md:col-span-2 flex justify-end">
-						<Button
-							type="submit"
-							disabled={isBusy || startDownload.isPending}
-						>
+					<div className="flex justify-end md:col-span-2">
+						<Button type="submit" disabled={isBusy || startDownload.isPending}>
 							{startDownload.isPending ? "Starting..." : "Download Model"}
 						</Button>
 					</div>

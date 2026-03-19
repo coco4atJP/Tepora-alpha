@@ -429,14 +429,9 @@ describe("V2 Frontend Integration", () => {
 	it("edits and saves settings through the integrated settings screen", async () => {
 		renderWorkspace({ isSettingsOpen: true });
 
-		expect(
-			await screen.findByText(
-				"Core session and language defaults used across v2 screens.",
-			),
-		).toBeInTheDocument();
+		expect(await screen.findByText("Language")).toBeInTheDocument();
 
-		const languageSelect = screen.getAllByRole("combobox")[0];
-		fireEvent.change(languageSelect, { target: { value: "en" } });
+		fireEvent.click(screen.getByRole("button", { name: "English" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
@@ -498,18 +493,14 @@ describe("V2 Frontend Integration", () => {
 	it("renders the models section, checks updates, and completes a confirmed download", async () => {
 		renderWorkspace({ isSettingsOpen: true });
 
-		expect(
-			await screen.findByText(
-				"Core session and language defaults used across v2 screens.",
-			),
-		).toBeInTheDocument();
+		expect(await screen.findByText("Language")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "Models" }));
 
 		expect(
 			await screen.findByRole("heading", { name: "Download Model" }),
 		).toBeInTheDocument();
-		expect(await screen.findByText("Text Model")).toBeInTheDocument();
+		expect((await screen.findAllByText("Text Model")).length).toBeGreaterThan(0);
 
 		fireEvent.click(screen.getByRole("button", { name: "Check Updates" }));
 
