@@ -759,7 +759,7 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 ### 5.10 メモリシステム (EM-LLM × FadeMem v2)
 
 ICLR 2025採択論文「EM-LLM」と arXiv 2601.18642「FadeMem」を統合したメモリシステムは、`src/infrastructure/episodic_store/memory/` に単一実装として統合されています。
-詳細な設計原則、DB スキーマ、受け入れ基準は `docs/archives/MEMORY_SYSTEM_FULL_REDESIGN_EMLLM_FADEMEM_2026-02-23.md` を参照してください。
+詳細な設計原則、DB スキーマ、受け入れ基準は `docs/architecture/MEMORY_ARCHITECTURE.md` を参照してください。
 
 **特徴**:
 - **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
