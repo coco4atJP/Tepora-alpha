@@ -74,10 +74,8 @@ pub async fn build_allowed_tool_list(
     let cli_tools = state.integration.cli.list_tools().await;
     let mut cli_tool_set = HashSet::new();
     for tool in cli_tools {
-        if active_policy.allowed_tools.contains(&tool.name) {
-            cli_tool_set.insert(tool.name.clone());
-            tool_list.push(tool.name);
-        }
+        cli_tool_set.insert(tool.name.clone());
+        tool_list.push(tool.name);
     }
 
     tool_list.retain(|tool_name| active_policy.is_tool_allowed(tool_name));

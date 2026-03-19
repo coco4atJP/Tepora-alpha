@@ -21,6 +21,7 @@ pub async fn execute_cli_profile(
 
     let resolved_bin = which::which(&profile.bin).unwrap_or_else(|_| PathBuf::from(&profile.bin));
     let mut command = Command::new(resolved_bin);
+    command.kill_on_drop(true);
     command.args(&input.args);
     command.args(&profile.default_args);
     if let Some(json_mode) = profile.json_mode.as_ref() {
@@ -172,7 +173,15 @@ fn truncate_text(text: &str, limit: usize) -> (String, bool) {
     if text.len() <= limit {
         return (text.to_string(), false);
     }
-    let mut truncated = text[..limit].to_string();
+    let mut end = 0usize;
+    for (idx, ch) in text.char_indices() {
+        let next = idx + ch.len_utf8();
+        if next > limit {
+            break;
+        }
+        end = next;
+    }
+    let mut truncated = text[..end].to_string();
     truncated.push_str("\n...[truncated]");
     (truncated, true)
 }
@@ -231,6 +240,7 @@ fn summarize_for_error(stderr: &str, stdout: &str) -> String {
 mod tests {
     use serde_json::json;
     use std::fs;
+    use std::time::Duration;
     use tempfile::tempdir;
 
     use super::*;
@@ -328,5 +338,76 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, ApiError::Forbidden));
+    }
+
+    #[test]
+    fn truncation_respects_utf8_boundaries() {
+        let text = "こんにちは世界";
+        let (truncated, was_truncated) = truncate_text(text, 5);
+
+        assert!(was_truncated);
+        assert!(truncated.starts_with("こ"));
+        assert!(!truncated.starts_with("�"));
+        assert!(truncated.ends_with("...[truncated]"));
+    }
+
+    #[tokio::test]
+    async fn timeout_kills_child_process() {
+        let dir = tempdir().unwrap();
+        let script_path = dir.path().join("sleepy.sh");
+        let marker_path = dir.path().join("marker.txt");
+        fs::write(
+            &script_path,
+            format!(
+                "#!/bin/sh\nsleep 1\nprintf 'done' > '{}'\n",
+                marker_path.display()
+            ),
+        )
+        .unwrap();
+
+        let mut perms = fs::metadata(&script_path).unwrap().permissions();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            perms.set_mode(0o755);
+            fs::set_permissions(&script_path, perms).unwrap();
+        }
+
+        let profile = CliProfileConfig {
+            enabled: true,
+            bin: "/bin/sh".to_string(),
+            description: "sleepy".to_string(),
+            allowed_prefixes: vec![vec![script_path.to_string_lossy().to_string()]],
+            default_args: vec![],
+            json_mode: None,
+            cwd_policy: super::super::types::CliCwdPolicy {
+                mode: "workspace".to_string(),
+                path: None,
+            },
+            env_allowlist: vec![],
+            timeout_ms: 100,
+            risk_level: crate::core::security_controls::PermissionRiskLevel::Medium,
+            max_output_bytes: 2048,
+        };
+
+        let err = execute_cli_profile(
+            dir.path(),
+            "sleepy",
+            &profile,
+            CliToolInput {
+                args: vec![script_path.to_string_lossy().to_string()],
+                cwd: Some(".".to_string()),
+                reason: None,
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, ApiError::ServiceUnavailable(_)));
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        assert!(
+            !marker_path.exists(),
+            "timed out child should have been killed"
+        );
     }
 }
