@@ -4,6 +4,7 @@ import {
 	startTransition,
 	useDeferredValue,
 	useEffect,
+	useMemo,
 	useReducer,
 	useState,
 } from "react";
@@ -75,8 +76,11 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 	const [actionError, setActionError] = useState<string | null>(null);
 	const deferredMessages = useDeferredValue(pipelineState.messages);
 
-	const sessions = sessionsQuery.data ?? [];
-	const sessionMessages = messagesQuery.data ?? [];
+	const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
+	const sessionMessages = useMemo(
+		() => messagesQuery.data ?? [],
+		[messagesQuery.data],
+	);
 	const isBusy =
 		machineSnapshot.matches("sending") ||
 		machineSnapshot.matches("streaming") ||

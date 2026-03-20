@@ -11,12 +11,12 @@
 
 ### Overview
 
-The current frontend can run in two modes:
+The current frontend runs in two environments:
 
 - **Desktop mode**: Tauri launches the Rust backend as a sidecar and the UI prefers IPC-aware transport.
 - **Browser development mode**: `task dev` starts the Rust backend plus Vite, and the UI connects over localhost HTTP / WebSocket.
 
-The frontend also contains a separate **V2 entrypoint** that boots automatically for routes under `/v2`.
+The canonical frontend now boots from `/` and `/settings`. Legacy V1 code is archived under `src/legacy/` and is not part of the runtime path.
 
 ### Relevant structure
 
@@ -37,12 +37,11 @@ Tepora-app/
 └── frontend/
     ├── src/
     │   ├── main.tsx
-    │   ├── App.tsx
-    │   ├── transport/
-    │   ├── stores/
+    │   ├── app/
     │   ├── features/
-    │   ├── pages/
-    │   └── v2/
+    │   ├── shared/
+    │   ├── legacy/
+    │   └── utils/
     └── src-tauri/
 ```
 
@@ -100,10 +99,11 @@ Server to client events include `chunk`, `status`, `activity`, `history`, `tool_
 
 ### Notes for frontend changes
 
-- `src/App.tsx` is the legacy/main shell for `/`.
-- `src/v2/` contains the newer route tree and providers for `/v2`.
+- `src/app/` contains the canonical entry, router, and providers.
+- `src/features/` and `src/shared/` contain the active frontend implementation.
+- `src/legacy/` is an archive only and should not be used for runtime changes.
 - Desktop startup behavior lives in `src/utils/sidecar.ts`.
-- Socket routing and tool confirmation state live under `src/stores/`.
+- Transport and auth helpers for the active runtime live under `src/utils/`.
 
 <div id="japanese"></div>
 
@@ -111,12 +111,12 @@ Server to client events include `chunk`, `status`, `activity`, `history`, `tool_
 
 ### 概要
 
-現在のフロントエンドは 2 つの実行形態を持っています。
+現在のフロントエンドは 2 つの実行環境で動作します。
 
 - **デスクトップモード**: Tauri が Rust バックエンドを sidecar 起動し、UI は IPC 寄りの transport を優先します。
 - **ブラウザ開発モード**: `task dev` で Rust バックエンドと Vite を同時起動し、localhost の HTTP / WebSocket で接続します。
 
-また、`/v2` 配下では **V2 エントリーポイント** が起動します。
+canonical frontend は `/` と `/settings` で起動します。旧 V1 コードは `src/legacy/` に退避されており、runtime には参加しません。
 
 ### 関連ディレクトリ
 
@@ -137,12 +137,11 @@ Tepora-app/
 └── frontend/
     ├── src/
     │   ├── main.tsx
-    │   ├── App.tsx
-    │   ├── transport/
-    │   ├── stores/
+    │   ├── app/
     │   ├── features/
-    │   ├── pages/
-    │   └── v2/
+    │   ├── shared/
+    │   ├── legacy/
+    │   └── utils/
     └── src-tauri/
 ```
 
@@ -200,7 +199,8 @@ task dev-tauri
 
 ### フロントエンド改修時の見どころ
 
-- `/` 系の現行 UI は `src/App.tsx`
-- `/v2` 系は `src/v2/`
+- 現行 UI の起点は `src/app/`
+- active frontend 実装は `src/features/` と `src/shared/`
+- `src/legacy/` は archive 専用
 - sidecar 起動制御は `src/utils/sidecar.ts`
-- WebSocket 受信ルーティングやツール承認は `src/stores/` 配下
+- 通信・認証系ヘルパーは `src/utils/` 配下

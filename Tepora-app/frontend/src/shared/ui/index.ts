@@ -1,4 +1,4 @@
-// src/v2/shared/ui/index.ts
+// src/shared/ui/index.ts
 export * from './Button';
 export * from './IconButton';
 export * from './TextField';

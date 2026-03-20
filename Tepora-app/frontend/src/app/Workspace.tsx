@@ -6,11 +6,11 @@ import { SessionSidebar } from "../features/session/screen/SessionSidebar";
 import { SettingsScreen } from "../features/settings/screen/SettingsScreen";
 import { AppShellLayout } from "../shared/ui/AppShellLayout";
 
-interface V2WorkspaceProps {
+interface WorkspaceProps {
 	isSettingsOpen?: boolean;
 }
 
-export function V2Workspace({ isSettingsOpen = false }: V2WorkspaceProps) {
+export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 	const navigate = useNavigate();
 	const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
 	const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
@@ -27,7 +27,7 @@ export function V2Workspace({ isSettingsOpen = false }: V2WorkspaceProps) {
 				mainContent={
 					<ChatScreen
 						onOpenSettings={() => {
-							navigate("/v2/settings");
+							navigate("/settings");
 						}}
 						onOpenLeftSidebar={() => setIsLeftSidebarOpen(true)}
 						onOpenRightSidebar={() => setIsRightSidebarOpen(true)}
@@ -37,7 +37,7 @@ export function V2Workspace({ isSettingsOpen = false }: V2WorkspaceProps) {
 			<SettingsScreen
 				isOpen={isSettingsOpen}
 				onClose={() => {
-					navigate("/v2");
+					navigate("/");
 				}}
 			/>
 		</div>

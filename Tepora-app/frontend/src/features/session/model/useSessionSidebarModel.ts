@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { useWorkspaceStore } from "../../../app/model/workspaceStore";
 import type { SessionSidebarViewProps } from "../view/props";
 import {
@@ -19,7 +19,7 @@ export function useSessionSidebarModel(): SessionSidebarViewProps {
 	const deleteSessionMutation = useDeleteSessionMutation();
 	const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
-	const sessions = sessionsQuery.data ?? [];
+	const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
 
 	useEffect(() => {
 		if (selectedSessionId || sessions.length === 0) {

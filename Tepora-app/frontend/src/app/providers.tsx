@@ -9,25 +9,25 @@ import { useTranslation } from "react-i18next";
 import { useV2ConfigQuery } from "../features/settings/model/queries";
 import { createV2QueryClient } from "../shared/lib/queryClient";
 
-interface V2ProvidersProps {
+interface AppProvidersProps {
 	children: ReactNode;
 }
 
-interface V2RootBoundaryProps {
+interface AppRootBoundaryProps {
 	children: ReactNode;
 	onReset: () => void;
 }
 
-interface V2RootBoundaryState {
+interface AppRootBoundaryState {
 	hasError: boolean;
 }
 
-class V2RootBoundary extends Component<V2RootBoundaryProps, V2RootBoundaryState> {
-	override state: V2RootBoundaryState = {
+class AppRootBoundary extends Component<AppRootBoundaryProps, AppRootBoundaryState> {
+	override state: AppRootBoundaryState = {
 		hasError: false,
 	};
 
-	static getDerivedStateFromError(): V2RootBoundaryState {
+	static getDerivedStateFromError(): AppRootBoundaryState {
 		return { hasError: true };
 	}
 
@@ -41,7 +41,7 @@ class V2RootBoundary extends Component<V2RootBoundaryProps, V2RootBoundaryState>
 			return (
 				<div className="min-h-screen bg-[var(--v2-color-canvas,#0d1117)] text-[var(--v2-color-foreground,#f8fafc)]">
 					<div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-4 px-6 text-center">
-						<h1 className="text-2xl font-semibold">Frontend v2 failed to render</h1>
+						<h1 className="text-2xl font-semibold">Frontend failed to render</h1>
 						<p className="max-w-xl text-sm text-[var(--v2-color-muted,#94a3b8)]">
 							The route-level logic rail is mounted, but an unrecovered error
 							occurred before the design layer was attached.
@@ -51,7 +51,7 @@ class V2RootBoundary extends Component<V2RootBoundaryProps, V2RootBoundaryState>
 							onClick={this.handleReset}
 							className="rounded-full border border-white/20 px-4 py-2 text-sm"
 						>
-							Reset v2 boundary
+							Reset frontend
 						</button>
 					</div>
 				</div>
@@ -78,7 +78,7 @@ function resolveTheme(theme: string | undefined) {
 	return "tepora";
 }
 
-function V2EnvironmentSync() {
+function AppEnvironmentSync() {
 	const { i18n } = useTranslation();
 	const configQuery = useV2ConfigQuery();
 
@@ -128,17 +128,17 @@ function V2EnvironmentSync() {
 
 const v2QueryClient = createV2QueryClient();
 
-export function V2Providers({ children }: V2ProvidersProps) {
+export function AppProviders({ children }: AppProvidersProps) {
 	return (
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
-				<V2RootBoundary onReset={reset}>
+				<AppRootBoundary onReset={reset}>
 					<QueryClientProvider client={v2QueryClient}>
-						<V2EnvironmentSync />
+						<AppEnvironmentSync />
 						{children}
 						<ReactQueryDevtools initialIsOpen={false} />
 					</QueryClientProvider>
-				</V2RootBoundary>
+				</AppRootBoundary>
 			)}
 		</QueryErrorResetBoundary>
 	);

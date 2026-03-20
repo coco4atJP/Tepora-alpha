@@ -1,19 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.tsx";
 import "./index.css";
 import "./i18n";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import ErrorBoundary from "./components/ui/ErrorBoundary";
-import { SettingsProvider } from "./context/SettingsContext";
-import { ThemeProvider } from "./context/ThemeContext";
-import { V2AppEntry, shouldBootV2 } from "./v2/app/entry";
+import { AppEntry } from "./app/entry";
 
 import { getSessionToken } from "./utils/sessionToken";
 import { logger } from "./utils/logger";
-
-const queryClient = new QueryClient();
 
 import { backendReady, isDesktop, startSidecar } from "./utils/sidecar";
 
@@ -47,20 +39,7 @@ async function init() {
 
 	ReactDOM.createRoot(rootElement).render(
 		<React.StrictMode>
-			{shouldBootV2() ? (
-				<V2AppEntry />
-			) : (
-				<ErrorBoundary>
-					<QueryClientProvider client={queryClient}>
-						<SettingsProvider>
-							<ThemeProvider>
-								<App />
-							</ThemeProvider>
-						</SettingsProvider>
-						<ReactQueryDevtools initialIsOpen={false} />
-					</QueryClientProvider>
-				</ErrorBoundary>
-			)}
+			<AppEntry />
 		</React.StrictMode>,
 	);
 }

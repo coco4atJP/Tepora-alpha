@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
 	consentRequiredErrorResponseSchema,
 	type SetupModel,
@@ -81,19 +81,22 @@ export const ModelManagementSection: React.FC = () => {
 		})) ?? [];
 	const filteredModels = normalizedModels.filter((model) => model.role === activeRole);
 	const remoteModels = filteredModels.filter((model) => Boolean(model.repo_id));
-	const progressSnapshot =
-		activeJob && progressQuery.data
-			? progressQuery.data
-			: activeJob
-				? {
-						status: "pending",
-						progress: 0,
-						message:
-							activeJob.type === "binary"
-								? "Preparing binary update..."
-								: "Preparing download...",
-					}
-				: null;
+	const progressSnapshot = useMemo(
+		() =>
+			activeJob && progressQuery.data
+				? progressQuery.data
+				: activeJob
+					? {
+							status: "pending",
+							progress: 0,
+							message:
+								activeJob.type === "binary"
+									? "Preparing binary update..."
+									: "Preparing download...",
+						}
+					: null,
+		[activeJob, progressQuery.data],
+	);
 	const isBusy = isSetupJobRunning(progressSnapshot?.status);
 
 	useEffect(() => {

@@ -8,6 +8,13 @@ const FEATURE_NAMES = ["chat", "navigation", "session", "settings"];
 const FEATURE_BOUNDARY_EXCEPTIONS = [
 	"src/features/chat/PersonaSwitcher.tsx",
 	"src/features/navigation/Layout.tsx",
+	"src/features/chat/model/useChatScreenModel.ts",
+	"src/features/chat/view/ChatMessageList.tsx",
+	"src/features/chat/view/QuickPersonaSwitcher.tsx",
+];
+const REFRESH_EXPORT_EXCEPTIONS = [
+	"src/app/router.tsx",
+	"src/features/settings/model/editor.tsx",
 ];
 
 function createFeatureBoundaryConfig(featureName) {
@@ -41,7 +48,7 @@ function createFeatureBoundaryConfig(featureName) {
 }
 
 export default tseslint.config(
-	{ ignores: ["dist", "src-tauri", "node_modules", "coverage"] },
+	{ ignores: ["dist", "src-tauri", "node_modules", "coverage", "src/legacy"] },
 	{
 		extends: [js.configs.recommended, ...tseslint.configs.recommended],
 		files: ["**/*.{ts,tsx}"],
@@ -70,6 +77,12 @@ export default tseslint.config(
 		files: FEATURE_BOUNDARY_EXCEPTIONS,
 		rules: {
 			"no-restricted-imports": "off",
+		},
+	},
+	{
+		files: REFRESH_EXPORT_EXCEPTIONS,
+		rules: {
+			"react-refresh/only-export-components": "off",
 		},
 	},
 );

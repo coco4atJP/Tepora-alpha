@@ -2,13 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { V2Workspace } from "../app/V2Workspace";
-import { useWorkspaceStore } from "../app/model/workspaceStore";
-import { V2ApiError, v2ApiClient } from "../shared/lib/api-client";
-import { consentRequiredErrorResponseSchema } from "../shared/contracts";
-import { v2TransportAdapter } from "../shared/lib/transportAdapter";
+import { Workspace } from "../../app/Workspace";
+import { useWorkspaceStore } from "../../app/model/workspaceStore";
+import { V2ApiError, v2ApiClient } from "../../shared/lib/api-client";
+import { consentRequiredErrorResponseSchema } from "../../shared/contracts";
+import { v2TransportAdapter } from "../../shared/lib/transportAdapter";
 
-vi.mock("../shared/lib/api-client", () => ({
+vi.mock("../../shared/lib/api-client", () => ({
 	v2ApiClient: {
 		get: vi.fn(),
 		post: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock("../shared/lib/api-client", () => ({
 	},
 }));
 
-vi.mock("../shared/lib/transportAdapter", () => {
+vi.mock("../../shared/lib/transportAdapter", () => {
 	type Subscriber = (message: unknown) => void;
 	type ConnectionSubscriber = (snapshot: unknown) => void;
 
@@ -84,14 +84,14 @@ function renderWorkspace(options?: { isSettingsOpen?: boolean }) {
 
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<MemoryRouter initialEntries={[options?.isSettingsOpen ? "/v2/settings" : "/v2"]}>
-				<V2Workspace isSettingsOpen={options?.isSettingsOpen} />
+			<MemoryRouter initialEntries={[options?.isSettingsOpen ? "/settings" : "/"]}>
+				<Workspace isSettingsOpen={options?.isSettingsOpen} />
 			</MemoryRouter>
 		</QueryClientProvider>,
 	);
 }
 
-describe("V2 Frontend Integration", () => {
+describe("Frontend Integration", () => {
 	let sessionsFixture: Array<{
 		id: string;
 		title: string | null;
