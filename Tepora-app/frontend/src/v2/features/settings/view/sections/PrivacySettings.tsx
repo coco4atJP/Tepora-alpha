@@ -19,7 +19,13 @@ function parseList(value: string): string[] {
 		.filter(Boolean);
 }
 
-export const PrivacySettings: React.FC = () => {
+interface PrivacySettingsProps {
+	activeTab?: string;
+}
+
+export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
+	activeTab = "Privacy",
+}) => {
 	const editor = useSettingsEditor();
 	const allowWebSearch = editor.readBoolean("privacy.allow_web_search", false);
 	const isolationMode = editor.readBoolean("privacy.isolation_mode", false);
@@ -34,7 +40,80 @@ export const PrivacySettings: React.FC = () => {
 		.readStringList("quarantine.required_transports", [])
 		.join(", ");
 
-	return (
+	if (activeTab === "Permissions") {
+		return (
+			<div className="flex flex-col">
+				<SettingsSectionGroup title="Permissions">
+					<SettingsRow
+						label="Default Approval TTL"
+						description="Seconds to retain temporary approvals."
+					>
+						<div className="w-full max-w-xs">
+							<TextField
+								type="number"
+								value={editor.readNumber("permissions.default_ttl_seconds", 86400)}
+								onChange={(event) =>
+									editor.updateField(
+										"permissions.default_ttl_seconds",
+										Number(event.target.value) || 0,
+									)
+								}
+								min={60}
+							/>
+						</div>
+					</SettingsRow>
+				</SettingsSectionGroup>
+			</div>
+		);
+	}
+
+	return activeTab === "Quarantine" ? (
+		<div className="flex flex-col">
+			<SettingsSectionGroup title="Quarantine">
+				<SettingsRow
+					label="MCP Quarantine"
+					description="Enable quarantine checks for risky MCP transports"
+				>
+					<MinToggle
+						checked={quarantineEnabled}
+						onChange={(checked) =>
+							editor.updateField("quarantine.enabled", checked)
+						}
+						label={quarantineEnabled ? "Enabled" : "Disabled"}
+					/>
+				</SettingsRow>
+				<SettingsRow
+					label="Quarantine Required"
+					description="Reject execution if the transport cannot satisfy quarantine rules"
+				>
+					<MinToggle
+						checked={quarantineRequired}
+						onChange={(checked) =>
+							editor.updateField("quarantine.required", checked)
+						}
+						label={quarantineRequired ? "Required" : "Optional"}
+					/>
+				</SettingsRow>
+				<SettingsRow
+					label="Required Transports"
+					description="Comma-separated transport names that must satisfy quarantine"
+				>
+					<div className="w-full max-w-xl">
+						<TextField
+							value={requiredTransports}
+							onChange={(event) =>
+								editor.updateField(
+									"quarantine.required_transports",
+									parseList(event.target.value),
+								)
+							}
+							placeholder="stdio, wasm"
+						/>
+					</div>
+				</SettingsRow>
+			</SettingsSectionGroup>
+		</div>
+	) : (
 		<div className="flex flex-col">
 			<SettingsSectionGroup title="Privacy">
 				<SettingsRow
@@ -93,50 +172,6 @@ export const PrivacySettings: React.FC = () => {
 								)
 							}
 							placeholder="e.g. *.example.com, localhost"
-						/>
-					</div>
-				</SettingsRow>
-			</SettingsSectionGroup>
-
-			<SettingsSectionGroup title="Quarantine">
-				<SettingsRow
-					label="MCP Quarantine"
-					description="Enable quarantine checks for risky MCP transports"
-				>
-					<MinToggle
-						checked={quarantineEnabled}
-						onChange={(checked) =>
-							editor.updateField("quarantine.enabled", checked)
-						}
-						label={quarantineEnabled ? "Enabled" : "Disabled"}
-					/>
-				</SettingsRow>
-				<SettingsRow
-					label="Quarantine Required"
-					description="Reject execution if the transport cannot satisfy quarantine rules"
-				>
-					<MinToggle
-						checked={quarantineRequired}
-						onChange={(checked) =>
-							editor.updateField("quarantine.required", checked)
-						}
-						label={quarantineRequired ? "Required" : "Optional"}
-					/>
-				</SettingsRow>
-				<SettingsRow
-					label="Required Transports"
-					description="Comma-separated transport names that must satisfy quarantine"
-				>
-					<div className="w-full max-w-xl">
-						<TextField
-							value={requiredTransports}
-							onChange={(event) =>
-								editor.updateField(
-									"quarantine.required_transports",
-									parseList(event.target.value),
-								)
-							}
-							placeholder="stdio, wasm"
 						/>
 					</div>
 				</SettingsRow>

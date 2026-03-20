@@ -432,7 +432,6 @@ describe("V2 Frontend Integration", () => {
 		expect(await screen.findByText("Language")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "English" }));
-		fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
 		await waitFor(() => {
 			expect(v2ApiClient.patch).toHaveBeenCalled();
@@ -453,6 +452,7 @@ describe("V2 Frontend Integration", () => {
 		renderWorkspace();
 
 		expect(await screen.findByText("Test Session")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Open mode panel" }));
 
 		const transportMock = v2TransportAdapter as unknown as {
 			__simulateIncoming: (message: unknown) => void;
@@ -477,7 +477,7 @@ describe("V2 Frontend Integration", () => {
 			});
 		});
 
-		expect(await screen.findByText("Approval Required")).toBeInTheDocument();
+		expect(await screen.findByText("Approval required")).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Approve once" }));
 
 		await waitFor(() => {
@@ -496,6 +496,7 @@ describe("V2 Frontend Integration", () => {
 		expect(await screen.findByText("Language")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "Models" }));
+		fireEvent.click(screen.getByRole("button", { name: "Model Hub" }));
 
 		expect(
 			await screen.findByRole("heading", { name: "Download Model" }),

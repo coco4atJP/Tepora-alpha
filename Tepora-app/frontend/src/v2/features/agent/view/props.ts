@@ -14,6 +14,8 @@ export interface AgentPanelSectionViewModel {
 
 export interface AgentPanelViewProps {
 	state: "idle" | "loading" | "ready" | "error";
+	title: string;
+	subtitle: string;
 	sections: AgentPanelSectionViewModel[];
 	activeContext: AgentContextChipViewModel[];
 	toolConfirmation: null | {

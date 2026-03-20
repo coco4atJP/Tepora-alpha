@@ -32,9 +32,10 @@ type SettingsEditorAction =
 	| { type: "FIELD_CHANGED"; fieldId: string; value: unknown }
 	| { type: "SAVE_STARTED" }
 	| { type: "SAVE_SUCCEEDED" }
-	| { type: "SAVE_FAILED"; message: string };
+	| { type: "SAVE_FAILED"; message: string }
+	| { type: "RESET" };
 
-interface SettingsEditorContextValue {
+export interface SettingsEditorContextValue {
 	state: EditorStatus;
 	errorMessage: string | null;
 	hasUnsavedChanges: boolean;
@@ -51,6 +52,7 @@ interface SettingsEditorContextValue {
 	readStringList: (path: string, fallback?: string[]) => string[];
 	updateField: (path: string, value: unknown) => void;
 	save: () => Promise<void>;
+	reset: () => void;
 	activateModel: (modelId: string, role: "text" | "embedding") => Promise<void>;
 }
 
@@ -161,6 +163,9 @@ export function SettingsEditorProvider({
 					});
 				}
 			},
+			reset: () => {
+				dispatch({ type: "RESET" });
+			},
 			activateModel: async (modelId, role) => {
 				try {
 					await setActiveModelMutation.mutateAsync({
@@ -270,6 +275,14 @@ function settingsEditorReducer(
 				...state,
 				status: "error",
 				errorMessage: action.message,
+			};
+		case "RESET":
+			return {
+				...state,
+				draft: state.baseline,
+				dirtyFields: [],
+				status: "ready",
+				errorMessage: null,
 			};
 		default:
 			return state;

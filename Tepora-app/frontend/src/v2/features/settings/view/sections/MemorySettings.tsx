@@ -5,7 +5,13 @@ import { SettingsRow } from "../../../../shared/ui/SettingsRow";
 import { SettingsSectionGroup } from "../../../../shared/ui/SettingsSectionGroup";
 import { useSettingsEditor } from "../../model/editor";
 
-export const MemorySettings: React.FC = () => {
+interface MemorySettingsProps {
+	activeTab?: string;
+}
+
+export const MemorySettings: React.FC<MemorySettingsProps> = ({
+	activeTab = "Basics",
+}) => {
 	const editor = useSettingsEditor();
 	const episodicMemory = editor.readBoolean("app.em_memory_enabled", true);
 	const historyLimit = editor.readNumber("app.history_limit", 6);
@@ -13,9 +19,34 @@ export const MemorySettings: React.FC = () => {
 	const decayLambda = editor.readNumber("em_llm.decay.lambda_base", 0.1);
 	const promoteThreshold = editor.readNumber("em_llm.decay.promote_threshold", 0.7);
 
+	if (activeTab === "Retrieval") {
+		return (
+			<div className="flex flex-col">
+				<SettingsSectionGroup title="Retrieval">
+					<SettingsRow
+						label="Promote Threshold"
+						description="Importance threshold used to strengthen memory retention"
+					>
+						<LineSlider
+							min={0}
+							max={1}
+							step={0.01}
+							value={promoteThreshold}
+							onChange={(value) =>
+								editor.updateField("em_llm.decay.promote_threshold", value)
+							}
+						/>
+					</SettingsRow>
+				</SettingsSectionGroup>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col">
-			<SettingsSectionGroup title="Basics">
+			<SettingsSectionGroup title={activeTab === "Decay Engine" ? "Decay Engine" : "Basics"}>
+				{activeTab === "Basics" ? (
+					<>
 				<SettingsRow
 					label="Episodic Memory"
 					description="Continuously learn from conversations and reuse memory"
@@ -52,9 +83,10 @@ export const MemorySettings: React.FC = () => {
 						}
 					/>
 				</SettingsRow>
-			</SettingsSectionGroup>
-
-			<SettingsSectionGroup title="Decay Engine">
+					</>
+				) : null}
+				{activeTab === "Decay Engine" ? (
+					<>
 				<SettingsRow
 					label="Decay Rate"
 					description="Base decay applied to older episodic memories"
@@ -83,6 +115,8 @@ export const MemorySettings: React.FC = () => {
 						}
 					/>
 				</SettingsRow>
+					</>
+				) : null}
 			</SettingsSectionGroup>
 		</div>
 	);

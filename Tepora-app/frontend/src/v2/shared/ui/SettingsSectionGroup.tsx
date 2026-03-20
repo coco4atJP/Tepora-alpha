@@ -7,11 +7,13 @@ interface SettingsSectionGroupProps {
 
 export const SettingsSectionGroup: React.FC<SettingsSectionGroupProps> = ({ title, children }) => {
     return (
-        <div className="flex flex-col gap-8 mb-24">
+        <div className="flex flex-col gap-[40px] mb-8">
             {title && (
-                <h3 className="font-display text-2xl text-gold-500 italic font-light tracking-wide">{title}</h3>
+                <h2 className="font-serif text-[1.5rem] text-gold mb-6 pb-3 border-b border-white/5 font-normal italic tracking-[0.05em]">
+                    {title}
+                </h2>
             )}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
                 {children}
             </div>
         </div>

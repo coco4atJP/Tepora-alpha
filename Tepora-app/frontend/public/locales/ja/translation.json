@@ -1194,6 +1194,75 @@
 		"search_placeholder": "モデルを検索...",
 		"no_models_found": "モデルが見つかりません"
 	},
+	"v2": {
+		"common": {
+			"loading": "読み込み中...",
+			"save": "保存",
+			"saving": "保存中...",
+			"cancel": "キャンセル",
+			"enabled": "有効",
+			"disabled": "無効"
+		},
+		"mode": {
+			"chat": "チャット",
+			"search": "検索",
+			"agent": "エージェント"
+		},
+		"chat": {
+			"assistantFallback": "アシスタント",
+			"emptyState": "今日は何を進めますか？",
+			"copy": "コピー",
+			"regenerate": "再生成",
+			"generating": "生成中",
+			"thinking": "思考ログ",
+			"inputPlaceholder": "ここに入力...",
+			"removeAttachment": "添付を外す",
+			"stop": "生成を停止",
+			"send": "送信",
+			"thinkingOn": "熟考モード 有効",
+			"thinkingOff": "熟考モード 無効",
+			"attach": "添付",
+			"enterToSend": "Enterで送信",
+			"reconnecting": "再接続中..."
+		},
+		"session": {
+			"historyTitle": "履歴",
+			"historySubtitle": "セッション",
+			"newSession": "新規セッション",
+			"empty": "まだ履歴はありません。",
+			"previewFallback": "まだプレビューはありません",
+			"rename": "名前変更",
+			"delete": "削除",
+			"deleteTitle": "セッションを削除",
+			"deleteMessage": "このセッションと履歴メッセージを削除しますか？",
+			"openHistory": "履歴を開く"
+		},
+		"persona": {
+			"switch": "キャラクターを切り替え",
+			"active": "現在のキャラクター",
+			"available": "利用可能なキャラクター",
+			"noDescription": "説明はありません"
+		},
+		"agent": {
+			"openPanel": "モードパネルを開く",
+			"activeContext": "現在のコンテキスト",
+			"approvalRequired": "承認が必要です",
+			"deny": "拒否",
+			"approveOnce": "今回のみ許可",
+			"allowTemporary": "一定時間許可",
+			"risk": "リスク"
+		},
+		"settings": {
+			"open": "設定を開く",
+			"label": "設定",
+			"return": "セッションに戻る",
+			"saving": "変更を保存中...",
+			"pendingSave": "まもなく保存します...",
+			"allSaved": "変更は自動保存されています",
+			"autoSave": "自動保存有効",
+			"loadError": "設定の読み込みに失敗しました。"
+		}
+	},
 	"model": {
 		"role": {
 			"text": "テキスト",

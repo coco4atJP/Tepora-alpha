@@ -1,61 +1,208 @@
-import React from 'react';
-import type { SessionSidebarViewProps } from './props';
+import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
+import type { SessionSidebarViewProps } from "./props";
+
+function formatSessionTime(value: string) {
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return value;
+	}
+
+	return new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	}).format(date);
+}
 
 export const SessionSidebarView: React.FC<SessionSidebarViewProps> = ({
-  state,
-  sessions,
-  errorMessage,
-  onSelectSession,
-  onCreateSession,
+	state,
+	sessions,
+	errorMessage,
+	pendingSessionId,
+	onSelectSession,
+	onCreateSession,
+	onRenameSession,
+	onDeleteSession,
 }) => {
-  return (
-    <div className="flex flex-col h-full overflow-hidden text-text-main">
-      <div className="flex items-center justify-between mb-10">
-        <div className="font-serif text-[1.8rem] text-primary tracking-[0.08em] italic">
-          History
-        </div>
-      </div>
+	const { t } = useTranslation();
+	const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+	const [titleDraft, setTitleDraft] = useState("");
+	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-      <button
-        onClick={onCreateSession}
-        disabled={state === 'loading'}
-        className="w-full bg-transparent border border-primary/30 text-primary py-3 px-5 rounded-[30px] text-[0.95rem] cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center justify-center gap-3 mb-10 hover:bg-primary/5 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(252,211,77,0.1)] disabled:opacity-50"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        New Session
-      </button>
+	const deleteTarget = useMemo(
+		() => sessions.find((session) => session.id === deleteTargetId) ?? null,
+		[deleteTargetId, sessions],
+	);
 
-      {errorMessage && (
-        <div className="text-red-400 text-sm mb-4 px-2">{errorMessage}</div>
-      )}
+	return (
+		<div className="flex h-full flex-col overflow-hidden text-text-main">
+			<div className="mb-8 flex items-center justify-between gap-4">
+				<div>
+					<div className="font-serif text-[1.8rem] text-primary tracking-[0.08em] italic">
+						{t("v2.session.historyTitle", "History")}
+					</div>
+					<div className="mt-2 text-xs uppercase tracking-[0.18em] text-text-muted">
+						{t("v2.session.historySubtitle", "Sessions")}
+					</div>
+				</div>
+			</div>
 
-      <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-2 -mr-2 custom-scrollbar">
-        {state === 'loading' && sessions.length === 0 ? (
-          <div className="text-text-muted text-sm px-4">Loading sessions...</div>
-        ) : sessions.length === 0 ? (
-          <div className="text-text-muted text-sm px-4 opacity-50">No history found.</div>
-        ) : (
-          sessions.map((session) => (
-            <div
-              key={session.id}
-              onClick={() => onSelectSession(session.id)}
-              className={`p-3 px-4 rounded-xl text-[0.9rem] cursor-pointer transition-all duration-300 font-light tracking-[0.02em] ${
-                session.isSelected
-                  ? 'bg-white/5 text-text-main font-normal'
-                  : 'text-text-muted hover:bg-white/5 hover:text-text-main hover:translate-x-1'
-              }`}
-            >
-              <div className="font-sans mb-1 truncate">{session.title}</div>
-              {session.preview && (
-                <div className="text-[0.75rem] opacity-60 truncate">{session.preview}</div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
+			<button
+				type="button"
+				onClick={() => void onCreateSession()}
+				disabled={state === "loading"}
+				className="mb-8 flex w-full items-center justify-center gap-3 rounded-[30px] border border-primary/30 bg-transparent px-5 py-3 text-[0.95rem] text-primary transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:bg-primary/5 hover:shadow-[0_4px_12px_rgba(140,101,62,0.12)] disabled:opacity-50"
+			>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+					<line x1="12" y1="5" x2="12" y2="19" />
+					<line x1="5" y1="12" x2="19" y2="12" />
+				</svg>
+				{t("v2.session.newSession", "New Session")}
+			</button>
+
+			{errorMessage ? (
+				<div className="mb-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+					{errorMessage}
+				</div>
+			) : null}
+
+			<div className="custom-scrollbar -mr-2 flex flex-1 flex-col gap-3 overflow-y-auto pr-2">
+				{state === "loading" && sessions.length === 0 ? (
+					<div className="px-4 text-sm text-text-muted">
+						{t("v2.common.loading", "Loading...")}
+					</div>
+				) : sessions.length === 0 ? (
+					<div className="px-4 text-sm text-text-muted/70">
+						{t("v2.session.empty", "No history yet.")}
+					</div>
+				) : (
+					sessions.map((session) => {
+						const isEditing = editingSessionId === session.id;
+						const isPending = pendingSessionId === session.id;
+						return (
+							<div
+								key={session.id}
+								className={`group rounded-[20px] border px-4 py-3 transition-all ${
+									session.isSelected
+										? "border-primary/20 bg-white/65 shadow-[0_10px_25px_rgba(92,58,33,0.08)]"
+										: "border-transparent bg-white/35 hover:border-primary/15 hover:bg-white/60"
+								}`}
+							>
+								<div className="flex items-start gap-3">
+									<button
+										type="button"
+										onClick={() => onSelectSession(session.id)}
+										className="min-w-0 flex-1 text-left"
+									>
+										<div className="flex items-center justify-between gap-3">
+											<div className="truncate text-[0.95rem] font-medium text-text-main">
+												{session.title}
+											</div>
+											<div className="shrink-0 text-[0.68rem] uppercase tracking-[0.18em] text-text-muted">
+												{formatSessionTime(session.updatedAt)}
+											</div>
+										</div>
+										<div className="mt-2 max-h-[3rem] overflow-hidden text-sm leading-6 text-text-muted">
+											{session.preview ??
+												t("v2.session.previewFallback", "No preview yet")}
+										</div>
+									</button>
+
+									<div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+										<button
+											type="button"
+											className="rounded-full border border-white/10 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.14em] text-text-muted transition-colors hover:border-primary/20 hover:text-primary"
+											onClick={() => {
+												setEditingSessionId(session.id);
+												setTitleDraft(session.title);
+											}}
+											disabled={isPending}
+										>
+											{t("v2.session.rename", "Rename")}
+										</button>
+										<button
+											type="button"
+											className="rounded-full border border-red-400/20 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.14em] text-red-300 transition-colors hover:bg-red-500/10"
+											onClick={() => setDeleteTargetId(session.id)}
+											disabled={isPending}
+										>
+											{t("v2.session.delete", "Delete")}
+										</button>
+									</div>
+								</div>
+
+								{isEditing ? (
+									<form
+										className="mt-3 flex items-center gap-2"
+										onSubmit={(event) => {
+											event.preventDefault();
+											const nextTitle = titleDraft.trim();
+											if (!nextTitle) {
+												return;
+											}
+											void onRenameSession(session.id, nextTitle).then(() => {
+												setEditingSessionId(null);
+											});
+										}}
+									>
+										<input
+											autoFocus
+											value={titleDraft}
+											onChange={(event) => setTitleDraft(event.target.value)}
+											className="min-w-0 flex-1 rounded-full border border-primary/20 bg-white/80 px-4 py-2 text-sm text-text-main outline-none transition-colors focus:border-primary/40"
+										/>
+										<button
+											type="submit"
+											className="rounded-full border border-primary/20 px-3 py-2 text-xs uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary/5"
+											disabled={isPending || !titleDraft.trim()}
+										>
+											{isPending ? t("v2.common.saving", "Saving...") : t("v2.common.save", "Save")}
+										</button>
+										<button
+											type="button"
+											className="rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.14em] text-text-muted transition-colors hover:text-text-main"
+											onClick={() => {
+												setEditingSessionId(null);
+												setTitleDraft("");
+											}}
+										>
+											{t("v2.common.cancel", "Cancel")}
+										</button>
+									</form>
+								) : null}
+							</div>
+						);
+					})
+				)}
+			</div>
+
+			<ConfirmDialog
+				isOpen={Boolean(deleteTarget)}
+				title={t("v2.session.deleteTitle", "Delete session")}
+				message={
+					deleteTarget
+						? t(
+							"v2.session.deleteMessage",
+							"Delete this session and remove all messages from history?",
+						  )
+						: ""
+				}
+				variant="danger"
+				confirmLabel={t("v2.session.delete", "Delete")}
+				cancelLabel={t("v2.common.cancel", "Cancel")}
+				onCancel={() => setDeleteTargetId(null)}
+				onConfirm={() => {
+					if (!deleteTarget) {
+						return;
+					}
+					void onDeleteSession(deleteTarget.id).then(() => {
+						setDeleteTargetId(null);
+					});
+				}}
+			/>
+		</div>
+	);
 };

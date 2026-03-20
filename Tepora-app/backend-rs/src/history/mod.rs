@@ -135,23 +135,47 @@ impl HistoryStore {
             .map_err(ApiError::internal)?;
 
         if let Some(row) = row {
-            // Fetch message count and preview potentially?
-            // For now just basic info
             let count: i64 = sqlx::query("SELECT COUNT(*) FROM messages WHERE session_id = ?")
                 .bind(session_id)
                 .fetch_one(&self.pool)
                 .await
                 .map(|r| r.get(0))
                 .unwrap_or(0);
+            let first_message = sqlx::query(
+                "SELECT content FROM messages WHERE session_id = ? ORDER BY id ASC LIMIT 1",
+            )
+            .bind(session_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(ApiError::internal)?
+            .and_then(|message_row| message_row.try_get::<String, _>("content").ok());
+            let latest_message = sqlx::query(
+                "SELECT content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 1",
+            )
+            .bind(session_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(ApiError::internal)?
+            .and_then(|message_row| message_row.try_get::<String, _>("content").ok());
+            let created_at = row.try_get::<String, _>("created_at").unwrap_or_default();
+            let explicit_title = row.try_get::<Option<String>, _>("title").unwrap_or(None);
 
             Ok(Some(SessionInfo {
                 id: row.try_get::<String, _>("id").unwrap_or_default(),
-                title: row.try_get::<Option<String>, _>("title").unwrap_or(None),
-                created_at: row.try_get::<String, _>("created_at").unwrap_or_default(),
+                title: resolve_session_title(
+                    explicit_title,
+                    first_message.as_deref(),
+                    latest_message.as_deref(),
+                    &created_at,
+                ),
+                created_at,
                 updated_at: row.try_get::<String, _>("updated_at").unwrap_or_default(),
                 metadata: row.try_get::<Option<Value>, _>("metadata").unwrap_or(None),
                 message_count: count,
-                preview: None,
+                preview: latest_message
+                    .as_deref()
+                    .and_then(truncate_session_preview)
+                    .or_else(|| first_message.as_deref().and_then(truncate_session_preview)),
             }))
         } else {
             Ok(None)
@@ -161,7 +185,9 @@ impl HistoryStore {
     pub async fn list_sessions(&self) -> Result<Vec<SessionInfo>, ApiError> {
         let rows = sqlx::query(
             "SELECT s.id, s.title, s.created_at, s.updated_at, s.metadata, \
-             COUNT(m.id) as msg_count \
+             COUNT(m.id) as msg_count, \
+             (SELECT content FROM messages WHERE session_id = s.id ORDER BY id ASC LIMIT 1) as first_message, \
+             (SELECT content FROM messages WHERE session_id = s.id ORDER BY id DESC LIMIT 1) as latest_message \
              FROM sessions s \
              LEFT JOIN messages m ON s.id = m.session_id \
              GROUP BY s.id \
@@ -174,14 +200,26 @@ impl HistoryStore {
 
         let mut sessions = Vec::new();
         for row in rows {
+            let created_at = row.try_get::<String, _>("created_at").unwrap_or_default();
+            let explicit_title = row.try_get::<Option<String>, _>("title").unwrap_or(None);
+            let first_message = row.try_get::<Option<String>, _>("first_message").unwrap_or(None);
+            let latest_message = row.try_get::<Option<String>, _>("latest_message").unwrap_or(None);
             sessions.push(SessionInfo {
                 id: row.try_get::<String, _>("id").unwrap_or_default(),
-                title: row.try_get::<Option<String>, _>("title").unwrap_or(None),
-                created_at: row.try_get::<String, _>("created_at").unwrap_or_default(),
+                title: resolve_session_title(
+                    explicit_title,
+                    first_message.as_deref(),
+                    latest_message.as_deref(),
+                    &created_at,
+                ),
+                created_at,
                 updated_at: row.try_get::<String, _>("updated_at").unwrap_or_default(),
                 metadata: row.try_get::<Option<Value>, _>("metadata").unwrap_or(None),
                 message_count: row.try_get::<i64, _>("msg_count").unwrap_or(0),
-                preview: None,
+                preview: latest_message
+                    .as_deref()
+                    .and_then(truncate_session_preview)
+                    .or_else(|| first_message.as_deref().and_then(truncate_session_preview)),
             });
         }
         Ok(sessions)
@@ -430,4 +468,42 @@ impl HistoryStore {
             .map_err(ApiError::internal)?;
         Ok(())
     }
+}
+
+fn resolve_session_title(
+    explicit_title: Option<String>,
+    first_message: Option<&str>,
+    latest_message: Option<&str>,
+    created_at: &str,
+) -> Option<String> {
+    explicit_title
+        .filter(|title| !title.trim().is_empty())
+        .or_else(|| {
+            let base = first_message
+                .and_then(truncate_session_preview)
+                .or_else(|| latest_message.and_then(truncate_session_preview))?;
+            Some(format!("{base} · {}", format_session_timestamp(created_at)))
+        })
+        .or_else(|| Some(format!("New session · {}", format_session_timestamp(created_at))))
+}
+
+fn truncate_session_preview(content: &str) -> Option<String> {
+    let normalized = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let mut chars = normalized.chars();
+    let preview: String = chars.by_ref().take(44).collect();
+    if chars.next().is_some() {
+        Some(format!("{preview}..."))
+    } else {
+        Some(preview)
+    }
+}
+
+fn format_session_timestamp(value: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .map(|timestamp| timestamp.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|_| value.to_string())
 }

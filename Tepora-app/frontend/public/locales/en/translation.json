@@ -1208,5 +1208,74 @@
 		"subtitle": "Manage available AI models",
 		"search_placeholder": "Search models...",
 		"no_models_found": "No models found"
+	},
+	"v2": {
+		"common": {
+			"loading": "Loading...",
+			"save": "Save",
+			"saving": "Saving...",
+			"cancel": "Cancel",
+			"enabled": "Enabled",
+			"disabled": "Disabled"
+		},
+		"mode": {
+			"chat": "Chat",
+			"search": "Search",
+			"agent": "Agent"
+		},
+		"chat": {
+			"assistantFallback": "Assistant",
+			"emptyState": "How can I help today?",
+			"copy": "Copy",
+			"regenerate": "Regenerate",
+			"generating": "Generating",
+			"thinking": "Reasoning trace",
+			"inputPlaceholder": "Type here...",
+			"removeAttachment": "Remove attachment",
+			"stop": "Stop generation",
+			"send": "Send",
+			"thinkingOn": "Deliberate mode on",
+			"thinkingOff": "Deliberate mode off",
+			"attach": "Attach",
+			"enterToSend": "Enter to send",
+			"reconnecting": "Reconnecting..."
+		},
+		"session": {
+			"historyTitle": "History",
+			"historySubtitle": "Sessions",
+			"newSession": "New Session",
+			"empty": "No history yet.",
+			"previewFallback": "No preview yet",
+			"rename": "Rename",
+			"delete": "Delete",
+			"deleteTitle": "Delete session",
+			"deleteMessage": "Delete this session and remove all messages from history?",
+			"openHistory": "Open history"
+		},
+		"persona": {
+			"switch": "Switch character",
+			"active": "Active character",
+			"available": "Available characters",
+			"noDescription": "No description"
+		},
+		"agent": {
+			"openPanel": "Open mode panel",
+			"activeContext": "Active context",
+			"approvalRequired": "Approval required",
+			"deny": "Deny",
+			"approveOnce": "Approve once",
+			"allowTemporary": "Allow temporarily",
+			"risk": "risk"
+		},
+		"settings": {
+			"open": "Open settings",
+			"label": "Settings",
+			"return": "Return to Session",
+			"saving": "Saving changes...",
+			"pendingSave": "Saving soon...",
+			"allSaved": "All changes saved automatically",
+			"autoSave": "Auto-save enabled",
+			"loadError": "Failed to load settings."
+		}
 	}
 }

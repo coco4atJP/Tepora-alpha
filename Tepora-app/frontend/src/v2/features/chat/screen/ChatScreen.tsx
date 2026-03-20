@@ -5,9 +5,11 @@ import { ChatScreenView } from "../view/ChatScreenView";
 
 interface ChatScreenProps {
 	onOpenSettings?: () => void;
+	onOpenLeftSidebar?: () => void;
+	onOpenRightSidebar?: () => void;
 }
 
-export function ChatScreen({ onOpenSettings }: ChatScreenProps) {
+export function ChatScreen({ onOpenSettings, onOpenLeftSidebar, onOpenRightSidebar }: ChatScreenProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const model = useChatScreenModel();
 
@@ -31,6 +33,8 @@ export function ChatScreen({ onOpenSettings }: ChatScreenProps) {
 			<ChatScreenView
 				{...model}
 				onOpenSettings={onOpenSettings}
+				onOpenLeftSidebar={onOpenLeftSidebar}
+				onOpenRightSidebar={onOpenRightSidebar}
 				onAddAttachment={() => {
 					fileInputRef.current?.click();
 				}}

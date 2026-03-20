@@ -11,6 +11,9 @@
   --color-text-main: var(--color-text-main);
   --color-text-muted: var(--color-text-muted);
   --color-border: var(--color-border);
+  --color-gold: var(--color-gold);
+  --color-gold-muted: var(--color-gold-muted);
+  --color-tea: var(--color-tea);
 
   /* Typography */
   --font-sans: var(--font-sans);

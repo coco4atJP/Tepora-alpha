@@ -23,7 +23,13 @@ function parseRootPaths(value: string) {
 		}));
 }
 
-export const ToolsSettings: React.FC = () => {
+interface ToolsSettingsProps {
+	activeTab?: string;
+}
+
+export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
+	activeTab = "Web Search",
+}) => {
 	const editor = useSettingsEditor();
 	const provider = editor.readString("tools.search_provider", "duckduckgo");
 	const rootsValue = editor.draft
@@ -39,6 +45,67 @@ export const ToolsSettings: React.FC = () => {
 				.filter(Boolean)
 				.join(", ")
 		: "";
+
+	if (activeTab === "Agent Skills") {
+		return (
+			<div className="flex flex-col">
+				<SettingsSectionGroup title="Agent Skills">
+					<SettingsRow
+						label="Skill Roots"
+						description="Comma-separated skill root paths stored in backend config"
+					>
+						<div className="w-full max-w-2xl">
+							<TextField
+								value={rootPaths}
+								onChange={(event) =>
+									editor.updateField(
+										"agent_skills.roots",
+										parseRootPaths(event.target.value),
+									)
+								}
+								placeholder="/path/to/skills, /another/path"
+							/>
+						</div>
+					</SettingsRow>
+				</SettingsSectionGroup>
+			</div>
+		);
+	}
+
+	if (activeTab === "MCP") {
+		return (
+			<div className="flex flex-col">
+				<SettingsSectionGroup title="MCP">
+					<SettingsRow
+						label="MCP Config Path"
+						description="Path to the MCP configuration file used by the backend"
+					>
+						<div className="w-full max-w-2xl">
+							<TextField
+								value={editor.readString("app.mcp_config_path", "")}
+								onChange={(event) =>
+									editor.updateField("app.mcp_config_path", event.target.value)
+								}
+								placeholder="/absolute/path/to/mcp_tools_config.json"
+							/>
+						</div>
+					</SettingsRow>
+				</SettingsSectionGroup>
+			</div>
+		);
+	}
+
+	if (activeTab === "Credentials") {
+		return (
+			<div className="flex flex-col">
+				<SettingsSectionGroup title="Credentials">
+					<div className="rounded-[24px] border border-primary/10 bg-white/55 px-6 py-5 text-sm leading-7 text-text-muted">
+						Credentials are edited inline on each provider tab and saved through the backend secret store.
+					</div>
+				</SettingsSectionGroup>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col">
@@ -120,43 +187,6 @@ export const ToolsSettings: React.FC = () => {
 						</div>
 					</SettingsRow>
 				) : null}
-			</SettingsSectionGroup>
-
-			<SettingsSectionGroup title="Agent Skills">
-				<SettingsRow
-					label="Skill Roots"
-					description="Comma-separated skill root paths stored in backend config"
-				>
-					<div className="w-full max-w-2xl">
-						<TextField
-							value={rootPaths}
-							onChange={(event) =>
-								editor.updateField(
-									"agent_skills.roots",
-									parseRootPaths(event.target.value),
-								)
-							}
-							placeholder="/path/to/skills, /another/path"
-						/>
-					</div>
-				</SettingsRow>
-			</SettingsSectionGroup>
-
-			<SettingsSectionGroup title="MCP">
-				<SettingsRow
-					label="MCP Config Path"
-					description="Path to the MCP configuration file used by the backend"
-				>
-					<div className="w-full max-w-2xl">
-						<TextField
-							value={editor.readString("app.mcp_config_path", "")}
-							onChange={(event) =>
-								editor.updateField("app.mcp_config_path", event.target.value)
-							}
-							placeholder="/absolute/path/to/mcp_tools_config.json"
-						/>
-					</div>
-				</SettingsRow>
 			</SettingsSectionGroup>
 		</div>
 	);

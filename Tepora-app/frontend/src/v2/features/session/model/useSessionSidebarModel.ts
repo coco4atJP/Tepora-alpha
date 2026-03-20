@@ -1,7 +1,12 @@
-import { startTransition, useEffect } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useWorkspaceStore } from "../../../app/model/workspaceStore";
 import type { SessionSidebarViewProps } from "../view/props";
-import { useCreateSessionMutation, useV2SessionsQuery } from "./queries";
+import {
+	useCreateSessionMutation,
+	useDeleteSessionMutation,
+	useUpdateSessionMutation,
+	useV2SessionsQuery,
+} from "./queries";
 
 export function useSessionSidebarModel(): SessionSidebarViewProps {
 	const selectedSessionId = useWorkspaceStore((state) => state.selectedSessionId);
@@ -10,6 +15,9 @@ export function useSessionSidebarModel(): SessionSidebarViewProps {
 	);
 	const sessionsQuery = useV2SessionsQuery();
 	const createSessionMutation = useCreateSessionMutation();
+	const updateSessionMutation = useUpdateSessionMutation();
+	const deleteSessionMutation = useDeleteSessionMutation();
+	const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
 	const sessions = sessionsQuery.data ?? [];
 
@@ -35,12 +43,38 @@ export function useSessionSidebarModel(): SessionSidebarViewProps {
 		})),
 		errorMessage:
 			sessionsQuery.error instanceof Error ? sessionsQuery.error.message : null,
+		pendingSessionId,
 		onSelectSession: setSelectedSessionId,
 		onCreateSession: async () => {
 			const session = await createSessionMutation.mutateAsync(null);
 			startTransition(() => {
 				setSelectedSessionId(session.id);
 			});
+		},
+		onRenameSession: async (sessionId, title) => {
+			setPendingSessionId(sessionId);
+			try {
+				await updateSessionMutation.mutateAsync({
+					sessionId,
+					title,
+				});
+			} finally {
+				setPendingSessionId((current) => (current === sessionId ? null : current));
+			}
+		},
+		onDeleteSession: async (sessionId) => {
+			setPendingSessionId(sessionId);
+			try {
+				await deleteSessionMutation.mutateAsync(sessionId);
+				if (selectedSessionId === sessionId) {
+					const remainingSessions = sessions.filter((session) => session.id !== sessionId);
+					startTransition(() => {
+						setSelectedSessionId(remainingSessions[0]?.id ?? null);
+					});
+				}
+			} finally {
+				setPendingSessionId((current) => (current === sessionId ? null : current));
+			}
 		},
 	};
 }

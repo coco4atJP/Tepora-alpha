@@ -3,18 +3,29 @@
 
 :root {
   /* Typography */
-  --font-sans: 'Nunito', 'Quicksand', 'Zen Kaku Gothic New', sans-serif;
+  --font-sans: 'Outfit', 'Nunito', 'Quicksand', 'Zen Kaku Gothic New', sans-serif;
   --font-serif: 'Playfair Display', 'Lora', 'Shippori Mincho', serif;
 
   /* Theme: Light (Milk Tea) - Default */
-  --color-bg: #FAFAFA;
+  --color-bg: #f6f0e8;
   --color-surface: #FFFFFF;
-  --color-primary: #3B332D;
+  --color-primary: #5c3a21;
   --color-secondary: #D66A44;
-  --color-text-main: #1A1614;
-  --color-text-muted: #7E736A;
-  --color-border: #E5E0DA;
-  
+  --color-text-main: #251912;
+  --color-text-muted: #67584d;
+  --color-border: #ddd3ca;
+
+  /* Accent & Special Colors */
+  --color-gold: #d4bf80;
+  --color-gold-muted: rgba(212, 191, 128, 0.3);
+  --color-tea: #bd4b26;
+
+  /* Effects */
+  --bg-gradient: radial-gradient(circle at 50% 100%, #fffaf4 0%, #f6f0e8 100%);
+  --glass-bg: rgba(255, 250, 244, 0.88);
+  --glass-border: rgba(92, 58, 33, 0.1);
+  --glass-shadow: 0 20px 50px rgba(44, 30, 22, 0.08), 0 0 0 1px rgba(92, 58, 33, 0.05);
+
   --radius-md: 6px;
   --radius-xl: 12px;
   --radius-2xl: 16px;
@@ -30,6 +41,17 @@
   --color-text-main: #E8E2DA;
   --color-text-muted: #9E8E81;
   --color-border: #332C25;
+
+  /* Accent & Special Colors */
+  --color-gold: #fcd34d;
+  --color-gold-muted: rgba(252, 211, 77, 0.3);
+  --color-tea: #bd4b26;
+
+  /* Effects */
+  --bg-gradient: radial-gradient(circle at 50% 100%, #241F1A 0%, #181512 100%);
+  --glass-bg: rgba(26, 17, 14, 0.75);
+  --glass-border: rgba(255, 230, 200, 0.1);
+  --glass-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 [data-theme="tepora"] {
@@ -41,6 +63,17 @@
   --color-text-main: #2C1E16;
   --color-text-muted: #8C7A6B;
   --color-border: #E8E2DB;
+
+  /* Accent & Special Colors */
+  --color-gold: #aa9555;
+  --color-gold-muted: rgba(170, 149, 85, 0.3);
+  --color-tea: #bd4b26;
+
+  /* Effects */
+  --bg-gradient: radial-gradient(circle at 50% 100%, #FFFFFF 0%, #F9F6F0 100%);
+  --glass-bg: rgba(249, 246, 240, 0.85);
+  --glass-border: rgba(92, 58, 33, 0.1);
+  --glass-shadow: 0 20px 50px rgba(44,30,22,0.1), 0 0 0 1px rgba(92, 58, 33, 0.05);
 }
 
 /* Base Body Styles for v2 */
@@ -51,5 +84,8 @@ body.v2-app {
   margin: 0;
   padding: 0;
   /* Spacious Luxury: prevent overflow on root */
-  overflow: hidden; 
+  overflow: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

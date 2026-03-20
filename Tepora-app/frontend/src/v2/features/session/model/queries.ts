@@ -76,3 +76,56 @@ export function useCreateSessionMutation() {
 		},
 	});
 }
+
+export function useUpdateSessionMutation() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (payload: { sessionId: string; title: string }) => {
+			await v2ApiClient.patch(
+				`/api/sessions/${encodeURIComponent(payload.sessionId)}`,
+				createSessionResponseSchema.partial().passthrough(),
+				{ title: payload.title },
+			);
+			return payload;
+		},
+		onSuccess: ({ sessionId, title }) => {
+			queryClient.setQueryData<Session[]>(
+				v2SessionQueryKeys.sessions(),
+				(current = []) =>
+					current.map((session) =>
+						session.id === sessionId ? { ...session, title } : session,
+					),
+			);
+			void queryClient.invalidateQueries({
+				queryKey: v2SessionQueryKeys.sessions(),
+			});
+		},
+	});
+}
+
+export function useDeleteSessionMutation() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (sessionId: string) => {
+			await v2ApiClient.delete(
+				`/api/sessions/${encodeURIComponent(sessionId)}`,
+				createSessionResponseSchema.partial().passthrough(),
+			);
+			return sessionId;
+		},
+		onSuccess: (sessionId) => {
+			queryClient.setQueryData<Session[]>(
+				v2SessionQueryKeys.sessions(),
+				(current = []) => current.filter((session) => session.id !== sessionId),
+			);
+			queryClient.removeQueries({
+				queryKey: v2SessionQueryKeys.sessionMessages(sessionId),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: v2SessionQueryKeys.sessions(),
+			});
+		},
+	});
+}
