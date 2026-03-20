@@ -175,7 +175,7 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 									: "text-text-muted hover:text-text-main"
 							}`}
 						>
-							{category.label}
+							{t(`v2.settings.categories.${category.id.toLowerCase()}.label`, category.label)}
 							{activeCategory === category.id ? (
 								<span className="absolute -bottom-[21px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-gold shadow-[0_0_8px_rgba(170,149,85,0.8)]" />
 							) : null}
@@ -187,7 +187,7 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 			<div className="relative z-10 flex-none border-b border-border/30 bg-black/10 px-12 py-10">
 				<div className="mx-auto flex w-full max-w-5xl items-baseline gap-12">
 					<h2 className="shrink-0 border-r border-white/5 pr-8 font-serif text-4xl italic tracking-tight text-text-main">
-						{activeCategoryObj?.label}
+						{activeCategoryObj?.id ? t(`v2.settings.categories.${activeCategoryObj.id.toLowerCase()}.label`, activeCategoryObj.label) : activeCategoryObj?.label}
 					</h2>
 					<div className="no-scrollbar flex items-center gap-8 overflow-x-auto pb-1">
 						{activeCategoryObj?.tabs.map((tab) => (
@@ -200,7 +200,7 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 										: "border-transparent text-text-muted hover:text-text-main"
 								}`}
 							>
-								{tab}
+								{t(`v2.settings.categories.${activeCategoryObj.id.toLowerCase()}.tabs.${tab.toLowerCase().replace(/\s+/g, '_')}`, tab)}
 							</button>
 						))}
 					</div>

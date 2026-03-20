@@ -1275,7 +1275,114 @@
 			"pendingSave": "Saving soon...",
 			"allSaved": "All changes saved automatically",
 			"autoSave": "Auto-save enabled",
-			"loadError": "Failed to load settings."
+			"loadError": "Failed to load settings.",
+			"categories": {
+				"general": {
+					"label": "General",
+					"tabs": {
+						"basics": "Basics",
+						"thinking": "Thinking"
+					}
+				},
+				"appearance": {
+					"label": "Appearance",
+					"tabs": {
+						"theme": "Theme",
+						"typography": "Typography",
+						"code_blocks": "Code Blocks",
+						"notifications": "Notifications",
+						"shortcuts": "Shortcuts"
+					}
+				},
+				"characters": {
+					"label": "Characters",
+					"tabs": {
+						"personas": "Personas",
+						"custom_agents": "Custom Agents"
+					}
+				},
+				"models": {
+					"label": "Models",
+					"tabs": {
+						"hub": "Hub",
+						"defaults": "Defaults",
+						"embedding": "Embedding",
+						"loader": "Loader",
+						"advanced": "Advanced"
+					}
+				},
+				"privacy": {
+					"label": "Privacy",
+					"tabs": {
+						"privacy": "Privacy",
+						"quarantine": "Quarantine",
+						"permissions": "Permissions"
+					}
+				},
+				"tools": {
+					"label": "Tools",
+					"tabs": {
+						"web_search": "Web Search",
+						"agent_skills": "Agent Skills",
+						"mcp": "MCP",
+						"credentials": "Credentials"
+					}
+				},
+				"memory": {
+					"label": "Memory",
+					"tabs": {
+						"basics": "Basics",
+						"decay_engine": "Decay Engine",
+						"retrieval": "Retrieval"
+					}
+				},
+				"context": {
+					"label": "Context",
+					"tabs": {
+						"rag": "RAG",
+						"window_allocation": "Window Allocation"
+					}
+				},
+				"data": {
+					"label": "Data",
+					"tabs": {
+						"indexing": "Indexing",
+						"paths": "Paths",
+						"cache": "Cache",
+						"backup": "Backup"
+					}
+				},
+				"system": {
+					"label": "System",
+					"tabs": {
+						"integration": "Integration",
+						"performance": "Performance",
+						"updates": "Updates"
+					}
+				},
+				"advanced": {
+					"label": "Advanced",
+					"tabs": {
+						"execution": "Execution",
+						"agent": "Agent",
+						"model_dl": "Model DL",
+						"features": "Features",
+						"server": "Server"
+					}
+				}
+			},
+			"languages": {
+				"en": "English",
+				"ja": "Japanese",
+				"es": "Spanish",
+				"zh": "Chinese"
+			},
+			"themes": {
+				"system": "System",
+				"tepora": "Tepora",
+				"light": "Light",
+				"dark": "Dark"
+			}
 		}
 	}
 }

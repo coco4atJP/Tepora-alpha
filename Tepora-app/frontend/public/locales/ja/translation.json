@@ -1257,10 +1257,117 @@
 			"label": "設定",
 			"return": "セッションに戻る",
 			"saving": "変更を保存中...",
-			"pendingSave": "まもなく保存します...",
-			"allSaved": "変更は自動保存されています",
-			"autoSave": "自動保存有効",
-			"loadError": "設定の読み込みに失敗しました。"
+			"pendingSave": "まもなく保存されます...",
+			"allSaved": "すべての変更が自動保存されました",
+			"autoSave": "自動保存が有効です",
+			"loadError": "設定の読み込みに失敗しました。",
+			"categories": {
+				"general": {
+					"label": "一般",
+					"tabs": {
+						"basics": "基本",
+						"thinking": "思考プロセス"
+					}
+				},
+				"appearance": {
+					"label": "外観",
+					"tabs": {
+						"theme": "テーマ",
+						"typography": "タイポグラフィ",
+						"code_blocks": "コードブロック",
+						"notifications": "通知",
+						"shortcuts": "ショートカット"
+					}
+				},
+				"characters": {
+					"label": "キャラクター",
+					"tabs": {
+						"personas": "ペルソナ",
+						"custom_agents": "カスタムエージェント"
+					}
+				},
+				"models": {
+					"label": "モデル",
+					"tabs": {
+						"hub": "ハブ",
+						"defaults": "既定値",
+						"embedding": "埋め込み",
+						"loader": "ローダー",
+						"advanced": "高度な設定"
+					}
+				},
+				"privacy": {
+					"label": "プライバシー",
+					"tabs": {
+						"privacy": "プライバシー",
+						"quarantine": "隔離",
+						"permissions": "権限"
+					}
+				},
+				"tools": {
+					"label": "ツール",
+					"tabs": {
+						"web_search": "Web検索",
+						"agent_skills": "エージェントスキル",
+						"mcp": "MCP",
+						"credentials": "認証情報"
+					}
+				},
+				"memory": {
+					"label": "メモリ",
+					"tabs": {
+						"basics": "基本",
+						"decay_engine": "忘却エンジン",
+						"retrieval": "検索"
+					}
+				},
+				"context": {
+					"label": "コンテキスト",
+					"tabs": {
+						"rag": "RAG",
+						"window_allocation": "ウィンドウ割り当て"
+					}
+				},
+				"data": {
+					"label": "データ",
+					"tabs": {
+						"indexing": "インデックス",
+						"paths": "パス",
+						"cache": "キャッシュ",
+						"backup": "バックアップ"
+					}
+				},
+				"system": {
+					"label": "システム",
+					"tabs": {
+						"integration": "統合",
+						"performance": "パフォーマンス",
+						"updates": "更新"
+					}
+				},
+				"advanced": {
+					"label": "高度な設定",
+					"tabs": {
+						"execution": "実行",
+						"agent": "エージェント",
+						"model_dl": "モデルDL",
+						"features": "機能",
+						"server": "サーバー"
+					}
+				}
+			},
+			"languages": {
+				"en": "英語",
+				"ja": "日本語",
+				"es": "スペイン語",
+				"zh": "中国語"
+			},
+			"themes": {
+				"system": "システム",
+				"tepora": "Tepora",
+				"light": "ライト",
+				"dark": "ダーク"
+			}
 		}
 	},
 	"model": {

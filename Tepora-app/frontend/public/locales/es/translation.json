@@ -1216,5 +1216,122 @@
 	},
 	"store": {
 		"by_vendor": "por {{vendor}}"
+	},
+	"v2": {
+		"settings": {
+			"loadError": "Error al cargar la configuración.",
+			"saving": "Guardando cambios...",
+			"pendingSave": "Guardando pronto...",
+			"allSaved": "Todos los cambios guardados automáticamente",
+			"return": "Volver a la sesión",
+			"autoSave": "Autoguardado habilitado",
+			"categories": {
+				"general": {
+					"label": "General",
+					"tabs": {
+						"basics": "Básicos",
+						"thinking": "Pensamiento"
+					}
+				},
+				"appearance": {
+					"label": "Apariencia",
+					"tabs": {
+						"theme": "Tema",
+						"typography": "Tipografía",
+						"code_blocks": "Bloques de código",
+						"notifications": "Notificaciones",
+						"shortcuts": "Atajos"
+					}
+				},
+				"characters": {
+					"label": "Personajes",
+					"tabs": {
+						"personas": "Personas",
+						"custom_agents": "Agentes personalizados"
+					}
+				},
+				"models": {
+					"label": "Modelos",
+					"tabs": {
+						"hub": "Centro",
+						"defaults": "Predeterminados",
+						"embedding": "Incrustación",
+						"loader": "Cargador",
+						"advanced": "Avanzado"
+					}
+				},
+				"privacy": {
+					"label": "Privacidad",
+					"tabs": {
+						"privacy": "Privacidad",
+						"quarantine": "Cuarentena",
+						"permissions": "Permisos"
+					}
+				},
+				"tools": {
+					"label": "Herramientas",
+					"tabs": {
+						"web_search": "Búsqueda web",
+						"agent_skills": "Habilidades de agente",
+						"mcp": "MCP",
+						"credentials": "Credenciales"
+					}
+				},
+				"memory": {
+					"label": "Memoria",
+					"tabs": {
+						"basics": "Básicos",
+						"decay_engine": "Motor de decaimiento",
+						"retrieval": "Recuperación"
+					}
+				},
+				"context": {
+					"label": "Contexto",
+					"tabs": {
+						"rag": "RAG",
+						"window_allocation": "Asignación de ventana"
+					}
+				},
+				"data": {
+					"label": "Datos",
+					"tabs": {
+						"indexing": "Indexación",
+						"paths": "Rutas",
+						"cache": "Caché",
+						"backup": "Respaldo"
+					}
+				},
+				"system": {
+					"label": "Sistema",
+					"tabs": {
+						"integration": "Integración",
+						"performance": "Rendimiento",
+						"updates": "Actualizaciones"
+					}
+				},
+				"advanced": {
+					"label": "Avanzado",
+					"tabs": {
+						"execution": "Ejecución",
+						"agent": "Agente",
+						"model_dl": "Modelos",
+						"features": "Características",
+						"server": "Servidor"
+					}
+				}
+			},
+			"languages": {
+				"en": "Inglés",
+				"ja": "Japonés",
+				"es": "Español",
+				"zh": "Chino"
+			},
+			"themes": {
+				"system": "Sistema",
+				"tepora": "Tepora",
+				"light": "Claro",
+				"dark": "Oscuro"
+			}
+		}
 	}
 }

@@ -105,7 +105,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 					{LANGUAGE_OPTIONS.map((option) => (
 						<SelectionDot
 							key={option.value}
-							label={option.label}
+							label={t(`v2.settings.languages.${option.value}`, option.label)}
 							selected={language === option.value}
 							onClick={() => editor.updateField("app.language", option.value)}
 						/>

@@ -1216,5 +1216,122 @@
 	},
 	"store": {
 		"by_vendor": "{{vendor}} 提供"
+	},
+	"v2": {
+		"settings": {
+			"loadError": "加载设置失败。",
+			"saving": "正在保存更改...",
+			"pendingSave": "即将保存...",
+			"allSaved": "所有更改已自动保存",
+			"return": "返回会话",
+			"autoSave": "已启用自动保存",
+			"categories": {
+				"general": {
+					"label": "常规",
+					"tabs": {
+						"basics": "基本",
+						"thinking": "思考"
+					}
+				},
+				"appearance": {
+					"label": "外观",
+					"tabs": {
+						"theme": "主题",
+						"typography": "排版",
+						"code_blocks": "代码块",
+						"notifications": "通知",
+						"shortcuts": "快捷键"
+					}
+				},
+				"characters": {
+					"label": "角色",
+					"tabs": {
+						"personas": "角色",
+						"custom_agents": "自定义代理"
+					}
+				},
+				"models": {
+					"label": "模型",
+					"tabs": {
+						"hub": "中心",
+						"defaults": "默认",
+						"embedding": "嵌入",
+						"loader": "加载器",
+						"advanced": "高级"
+					}
+				},
+				"privacy": {
+					"label": "隐私",
+					"tabs": {
+						"privacy": "隐私",
+						"quarantine": "隔离",
+						"permissions": "权限"
+					}
+				},
+				"tools": {
+					"label": "工具",
+					"tabs": {
+						"web_search": "网络搜索",
+						"agent_skills": "代理技能",
+						"mcp": "MCP",
+						"credentials": "凭证"
+					}
+				},
+				"memory": {
+					"label": "内存",
+					"tabs": {
+						"basics": "基本",
+						"decay_engine": "衰减引擎",
+						"retrieval": "检索"
+					}
+				},
+				"context": {
+					"label": "上下文",
+					"tabs": {
+						"rag": "RAG",
+						"window_allocation": "窗口分配"
+					}
+				},
+				"data": {
+					"label": "数据",
+					"tabs": {
+						"indexing": "索引",
+						"paths": "路径",
+						"cache": "缓存",
+						"backup": "备份"
+					}
+				},
+				"system": {
+					"label": "系统",
+					"tabs": {
+						"integration": "集成",
+						"performance": "性能",
+						"updates": "更新"
+					}
+				},
+				"advanced": {
+					"label": "高级",
+					"tabs": {
+						"execution": "执行",
+						"agent": "代理",
+						"model_dl": "模型下载",
+						"features": "功能",
+						"server": "服务器"
+					}
+				}
+			},
+			"languages": {
+				"en": "英语",
+				"ja": "日语",
+				"es": "西班牙语",
+				"zh": "中文"
+			},
+			"themes": {
+				"system": "系统",
+				"tepora": "Tepora",
+				"light": "浅色",
+				"dark": "深色"
+			}
+		}
 	}
 }

@@ -107,7 +107,7 @@ export const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({
 				{THEME_OPTIONS.map((option) => (
 					<SelectionDot
 						key={option.value}
-						label={option.label}
+						label={t(`v2.settings.themes.${option.value}`, option.label)}
 						selected={theme === option.value}
 						onClick={() => editor.updateField("ui.theme", option.value)}
 					/>
