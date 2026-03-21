@@ -46,6 +46,8 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 	const setActiveMode = useChatRuntimeStore((state) => state.setActiveMode);
 	const draft = useChatRuntimeStore((state) => state.draft);
 	const setDraft = useChatRuntimeStore((state) => state.setDraft);
+	const searchMode = useChatRuntimeStore((state) => state.searchMode);
+	const setSearchMode = useChatRuntimeStore((state) => state.setSearchMode);
 	const thinkingBudget = useChatRuntimeStore((state) => state.thinkingBudget);
 	const setThinkingBudget = useChatRuntimeStore(
 		(state) => state.setThinkingBudget,
@@ -256,6 +258,7 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 				message: content,
 				mode: activeMode,
 				sessionId: sessionId ?? undefined,
+				searchMode: activeMode === "search" ? searchMode : undefined,
 				attachments: composerAttachments.map((attachment) => ({
 					name: attachment.name,
 					content: attachment.content,
@@ -402,6 +405,7 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 		composer: {
 			attachments: composerAttachments,
 			thinkingBudget,
+			searchMode,
 			canSend: draft.trim().length > 0 && connection.status === "connected",
 			canStop:
 				machineSnapshot.matches("sending") || machineSnapshot.matches("streaming"),
@@ -419,6 +423,7 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 				machineSnapshot.context.lastError),
 		onDraftChange: setDraft,
 		onModeChange: setActiveMode,
+		onSearchModeChange: setSearchMode,
 		onThinkingBudgetChange: setThinkingBudget,
 		onSend: handleSend,
 		onStop: handleStop,

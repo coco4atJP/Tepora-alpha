@@ -23,6 +23,7 @@ mod memory;
 mod models;
 #[path = "infrastructure/knowledge_store/rag/mod.rs"]
 mod rag;
+mod search;
 mod server;
 mod state;
 #[cfg(test)]

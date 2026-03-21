@@ -42,6 +42,7 @@ function readConfigBoolean(
 export function useAgentPanelModel(): AgentPanelViewProps {
 	const { t } = useTranslation();
 	const activeMode = useWorkspaceStore((state) => state.activeMode);
+	const searchMode = useWorkspaceStore((state) => state.searchMode);
 	const selectedSessionId = useWorkspaceStore((state) => state.selectedSessionId);
 	const thinkingBudget = useWorkspaceStore((state) => state.thinkingBudget);
 	const connection = useWorkspaceStore((state) => state.connection);
@@ -109,6 +110,7 @@ export function useAgentPanelModel(): AgentPanelViewProps {
 							`${t("v2.agent.searchResults", "Vector results")}: ${readConfigNumber(configObject, ["rag", "search_default_limit"], 5)}`,
 							`${t("v2.agent.textResults", "Text results")}: ${readConfigNumber(configObject, ["rag", "text_search_default_limit"], 10)}`,
 							`${t("v2.agent.rerank", "Embedding rerank")}: ${readConfigBoolean(configObject, ["search", "embedding_rerank"], false) ? t("v2.common.enabled", "Enabled") : t("v2.common.disabled", "Disabled")}`,
+							`${t("v2.agent.searchStrategy", "Search strategy")}: ${searchMode === "deep" ? t("v2.search.deep", "Deep") : t("v2.search.quick", "Quick")}`,
 						].join("\n"),
 					},
 					{

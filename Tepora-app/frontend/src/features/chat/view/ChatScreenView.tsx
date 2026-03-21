@@ -22,6 +22,7 @@ export const ChatScreenView: React.FC<
 	onSend,
 	onStop,
 	onRegenerate,
+	onSearchModeChange,
 	onThinkingBudgetChange,
 	onAddAttachment,
 	onRemoveAttachment,
@@ -107,6 +108,7 @@ export const ChatScreenView: React.FC<
 					onStop={onStop}
 					activeMode={activeMode}
 					onModeChange={onModeChange}
+					onSearchModeChange={onSearchModeChange}
 					composer={composer}
 					onRegenerate={onRegenerate}
 					onThinkingBudgetChange={onThinkingBudgetChange}

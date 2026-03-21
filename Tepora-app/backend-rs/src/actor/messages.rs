@@ -18,6 +18,7 @@ pub enum SessionCommand {
         message: String,
         mode: String,
         attachments: Vec<Value>,
+        search_mode: Option<String>,
         thinking_budget: u8,
         agent_id: Option<String>,
         agent_mode: Option<String>,

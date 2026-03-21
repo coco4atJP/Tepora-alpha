@@ -14,6 +14,7 @@ use crate::graph::state::{AgentState, Artifact};
 use crate::llm::types::StructuredResponseSpec;
 use crate::llm::ChatRequest;
 use crate::rag::{ChunkSearchResult, StoredChunk};
+use crate::search::{EvidenceClaim, EvidenceGap, SearchEvidenceState, SearchMode};
 use crate::tools::execute_tool;
 use crate::tools::search::SearchResult;
 
@@ -144,6 +145,36 @@ impl Node for AgenticSearchNode {
         let chunk_briefs = build_selected_chunk_briefs(&selected_chunks);
 
         state.search_results = Some(display_results.clone());
+        state.search_evidence = SearchEvidenceState {
+            strategy: SearchMode::Deep,
+            query_plan: sub_queries.clone(),
+            explored_sources: build_explored_sources(
+                &state.search_attachments,
+                ctx.config
+                    .get("privacy")
+                    .and_then(|v| v.get("allow_web_search"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                    && !state.skip_web_search
+                    && !ctx
+                        .config
+                        .get("privacy")
+                        .and_then(|v| v.get("isolation_mode"))
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false),
+            ),
+            results: display_results.clone(),
+            claims: chunk_briefs
+                .iter()
+                .map(|brief| EvidenceClaim {
+                    topic: brief.source.clone(),
+                    summary: brief.claim.clone(),
+                    citations: vec![brief.chunk_id.clone(), brief.source.clone()],
+                    confidence: brief.evidence_strength,
+                })
+                .collect(),
+            gaps: Vec::new(),
+        };
         let _ = ctx
             .sender
             .send_json(json!({ "type": "search_results", "data": display_results }))
@@ -217,6 +248,14 @@ impl Node for AgenticSearchNode {
 
         let report = self.generate_report(state, ctx, &selected_chunks).await?;
         let report_brief = build_report_brief(&report, &chunk_briefs);
+        state.search_evidence.gaps = report_brief
+            .open_uncertainties
+            .iter()
+            .map(|item| EvidenceGap {
+                topic: state.input.clone(),
+                reason: item.clone(),
+            })
+            .collect();
 
         state.shared_context.artifacts.push(Artifact {
             artifact_type: "report_brief".to_string(),
@@ -842,6 +881,20 @@ fn dedupe_search_results(
     }
 
     out
+}
+
+fn build_explored_sources(
+    attachments: &[serde_json::Value],
+    web_enabled: bool,
+) -> Vec<String> {
+    let mut sources = vec!["session_rag".to_string(), "local_knowledge".to_string()];
+    if !attachments.is_empty() {
+        sources.insert(0, "attachments".to_string());
+    }
+    if web_enabled {
+        sources.push("web".to_string());
+    }
+    sources
 }
 
 fn build_selected_chunk_briefs(chunks: &[RagArtifactChunk]) -> Vec<SelectedChunkBrief> {

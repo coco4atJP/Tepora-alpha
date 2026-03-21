@@ -4,6 +4,7 @@ export const isoDatetimeSchema = z.string().min(1);
 
 export const chatModeSchema = z.enum(["chat", "search", "agent"]);
 export const agentModeSchema = z.enum(["high", "fast", "low", "direct"]);
+export const searchModeSchema = z.enum(["quick", "deep"]);
 
 export const sessionSchema = z
 	.object({
@@ -204,6 +205,7 @@ export const apiErrorResponseSchema = z
 
 export type ChatMode = z.infer<typeof chatModeSchema>;
 export type AgentMode = z.infer<typeof agentModeSchema>;
+export type SearchMode = z.infer<typeof searchModeSchema>;
 export type Session = z.infer<typeof sessionSchema>;
 export type SessionHistoryMessage = z.infer<typeof sessionHistoryMessageSchema>;
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;

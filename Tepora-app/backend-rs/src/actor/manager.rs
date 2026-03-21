@@ -569,6 +569,7 @@ mod tests {
             message: "Hello".to_string(),
             mode: "chat".to_string(),
             attachments: vec![],
+            search_mode: None,
             thinking_budget: 0,
             agent_id: None,
             agent_mode: None,

@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import type { SearchMode } from "../../../shared/contracts";
 import { RadialMenu, type ChatModeType } from "./RadialMenu";
 import type { ChatComposerAttachmentViewModel } from "./props";
 
@@ -11,11 +12,13 @@ export interface CommandAreaProps {
 	onRegenerate: () => void;
 	activeMode: ChatModeType;
 	onModeChange: (mode: ChatModeType) => void;
+	onSearchModeChange: (mode: SearchMode) => void;
 	onOpenSettings?: () => void;
 	onAddAttachment?: () => void;
 	composer: {
 		attachments: ChatComposerAttachmentViewModel[];
 		thinkingBudget: number;
+		searchMode: SearchMode;
 		canSend: boolean;
 		canStop: boolean;
 		canRegenerate: boolean;
@@ -33,6 +36,7 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 	onRegenerate,
 	activeMode,
 	onModeChange,
+	onSearchModeChange,
 	onOpenSettings,
 	onAddAttachment,
 	composer,
@@ -117,6 +121,33 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 
 			<div className="mt-3 flex items-center justify-between border-t border-dashed border-border pt-2.5 pl-[64px]">
 				<div className="flex flex-wrap items-center gap-4">
+					{activeMode === "search" ? (
+						<div className="flex items-center gap-1 rounded-full border border-border bg-white/45 p-1 text-[0.68rem] uppercase tracking-[0.14em] text-text-muted">
+							<button
+								type="button"
+								onClick={() => onSearchModeChange("quick")}
+								className={`rounded-full px-2.5 py-1 transition-colors ${
+									composer.searchMode === "quick"
+										? "bg-primary/12 text-primary"
+										: "hover:text-text-main"
+								}`}
+							>
+								{t("v2.search.quick", "Quick")}
+							</button>
+							<button
+								type="button"
+								onClick={() => onSearchModeChange("deep")}
+								className={`rounded-full px-2.5 py-1 transition-colors ${
+									composer.searchMode === "deep"
+										? "bg-primary/12 text-primary"
+										: "hover:text-text-main"
+								}`}
+							>
+								{t("v2.search.deep", "Deep")}
+							</button>
+						</div>
+					) : null}
+
 					<button
 						type="button"
 						onClick={() => onThinkingBudgetChange(composer.thinkingBudget > 0 ? 0 : 1)}

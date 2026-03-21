@@ -6,6 +6,7 @@ use super::messages::{SessionCommand, SessionEvent};
 use crate::core::security_controls::ToolApprovalResponsePayload;
 use crate::graph::stream::GraphStreamer;
 use crate::graph::{AgentState, Mode};
+use crate::search::SearchMode;
 use crate::state::AppState;
 
 use std::collections::{HashMap, HashSet};
@@ -51,6 +52,7 @@ impl SessionActor {
                     message,
                     mode,
                     attachments,
+                    search_mode,
                     thinking_budget,
                     agent_id,
                     agent_mode,
@@ -78,6 +80,7 @@ impl SessionActor {
                             message,
                             mode,
                             attachments,
+                            search_mode,
                             thinking_budget,
                             agent_id,
                             agent_mode,
@@ -148,6 +151,7 @@ impl SessionActor {
         message: String,
         mode_str: String,
         attachments: Vec<Value>,
+        search_mode: Option<String>,
         thinking_budget: u8,
         agent_id: Option<String>,
         agent_mode: Option<String>,
@@ -163,6 +167,7 @@ impl SessionActor {
 
         let mut agent_state = AgentState::new(session_id.clone(), message.clone(), mode);
         agent_state.search_attachments = attachments;
+        agent_state.search_mode = SearchMode::from_str(search_mode.as_deref());
         agent_state.thinking_budget = thinking_budget;
         agent_state.agent_id = agent_id.clone();
         agent_state.agent_mode = crate::graph::state::AgentMode::from_str(agent_mode.as_deref());

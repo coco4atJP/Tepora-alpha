@@ -1,6 +1,7 @@
 import type {
 	ApprovalDecision,
 	ChatMode,
+	SearchMode,
 	ToolConfirmationRequest,
 } from "../../../shared/contracts";
 import type { V2TransportConnectionStatus } from "../../../shared/lib/transportAdapter";
@@ -64,6 +65,7 @@ export interface ChatScreenViewProps {
 	composer: {
 		attachments: ChatComposerAttachmentViewModel[];
 		thinkingBudget: number;
+		searchMode: SearchMode;
 		canSend: boolean;
 		canStop: boolean;
 		canRegenerate: boolean;
@@ -72,6 +74,7 @@ export interface ChatScreenViewProps {
 	errorMessage: string | null;
 	onDraftChange: (draft: string) => void;
 	onModeChange: (mode: ChatMode) => void;
+	onSearchModeChange: (mode: SearchMode) => void;
 	onThinkingBudgetChange: (value: number) => void;
 	onSend: () => Promise<void>;
 	onStop: () => void;

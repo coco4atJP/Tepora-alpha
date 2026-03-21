@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.09
+**ドキュメントバージョン**: 5.10
 **アプリケーションバージョン**: 4.5 (BETA) (v0.4.5)
-**最終更新日**: 2026-03-18
+**最終更新日**: 2026-03-21
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -308,6 +308,7 @@ backend-rs/
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
 │   ├── history/                # HistoryStore (チャット履歴)
+│   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
 │   ├── a2a/                    # Agent-to-Agent (将来)
@@ -491,8 +492,10 @@ pub struct AgentState {
     pub thought_process: Option<String>,
   
     // Search Mode State
+    pub search_mode: SearchMode,           // Quick | Deep
     pub search_queries: Vec<String>,
     pub search_results: Option<Vec<SearchResult>>,
+    pub search_evidence: SearchEvidenceState, // evidence-first state
     pub search_attachments: Vec<Value>,
     pub skip_web_search: bool,
   
@@ -522,8 +525,8 @@ graph TD
     ROUTER -->|chat| THINK[ThinkingNode]
     THINK --> CHAT[ChatNode]
   
-    ROUTER -->|"search (simple)"| SEARCH[SearchNode - Fast]
-    ROUTER -->|"search (complex)"| AGENTIC["AgenticSearchNode - Deep Search [v4.0]"]
+    ROUTER -->|"search + quick"| SEARCH[SearchNode - Quick Search]
+    ROUTER -->|"search + deep"| AGENTIC["AgenticSearchNode - Deep Search [vNext]"]
   
     ROUTER -->|agent| SUPERVISOR{Supervisor}
   
@@ -547,8 +550,8 @@ graph TD
 | `RouterNode`        | `nodes/router.rs`         | 入力モードに基づいてChat/Search/Agentに分岐     |
 | `ThinkingNode`      | `nodes/thinking.rs`       | CoT（Chain of Thought）思考プロセス生成         |
 | `ChatNode`          | `nodes/chat.rs`           | LLMに対して直接対話応答を生成                   |
-| `SearchNode`        | `nodes/search.rs`         | Web検索 + fetch + RAG投入 + RAG検索 + 応答生成 |
-| `AgenticSearchNode` | `nodes/search_agentic.rs` | 4段階ディープサーチパイプライン**[v4.0]** |
+| `SearchNode`        | `nodes/search.rs`         | Quick Search: bounded retrieval + evidence-first 応答 |
+| `AgenticSearchNode` | `nodes/search_agentic.rs` | Deep Search: bounded agentic retrieval loop + evidence synthesis |
 | `SupervisorNode`    | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）          |
 | `PlannerNode`       | `nodes/planner.rs`        | タスク計画の立案                                |
 | `AgentExecutorNode` | `nodes/agent_executor.rs` | task packet + summary-only tool replay で executor を回す ReAct ループ |
@@ -618,11 +621,34 @@ description: Use for implementation, debugging, refactoring, and code review tas
 Follow the implementation workflow for software tasks.
 ```
 
-### 5.5 Agentic Search [v4.0]
+### 5.5 Search Mode vNext
+
+Search モードは vNext で **Quick / Deep を明示選択する設計**へ移行します。自動昇格ではなく、UI から `searchMode` を渡し、`RouterNode` はその値だけで Quick (`SearchNode`) / Deep (`AgenticSearchNode`) を選びます。
+
+```mermaid
+graph LR
+    INPUT["Search request<br/>mode=search, searchMode=quick|deep"] --> SCOPE["Scope selection<br/>attachments -> session -> local -> web"]
+    SCOPE --> RETRIEVE["Hybrid retrieval<br/>semantic + lexical + metadata"]
+    RETRIEVE --> EVIDENCE["SearchEvidenceState<br/>claims / gaps / citations / query plan"]
+    EVIDENCE --> QUICK["Quick Search response"]
+    EVIDENCE --> DEEP["Deep Search refinement"]
+    DEEP --> FINAL["Grounded answer + citations + uncertainties"]
+```
+
+**SearchEvidenceState** は Search vNext の中心状態で、検索結果そのものではなく「何を調べ、何が分かり、何が不足しているか」を保持します。現行実装では少なくとも以下を追跡します。
+
+- `strategy`: Quick / Deep
+- `query_plan`: 探索に使ったクエリ群
+- `explored_sources`: attachments / session_rag / local_knowledge / web
+- `results`: UI に見せる結果一覧
+- `claims`: 回答候補となる主張
+- `gaps`: 未確定事項や不足論点
+
+### 5.5.1 Deep Search [vNext]
 
 **ファイル**: `src/graph/nodes/search_agentic.rs`
 
-複雑な検索クエリに対して自動的に起動する4段階ディープサーチパイプラインです。
+Deep Search は、bounded agentic retrieval loop として設計します。現行実装は evidence-first 状態を作りつつ、次の4段階を踏みます。
 
 ```mermaid
 graph LR
@@ -640,10 +666,9 @@ graph LR
 
 **ルーティング判定** (`RouterNode` 内):
 
-- 200文字以上の入力 → Agentic
-- 深掘りキーワード検出 (`比較`, `分析`, `詳細`, `調査`, `深掘り` 等) → Agentic
-- `search_attachments` 非空 → Agentic
-- それ以外 → Fast (SearchNode)
+- `search_mode = quick` → `SearchNode`
+- `search_mode = deep` → `AgenticSearchNode`
+- 自動で Deep へ昇格しない
 
 ### 5.6 Thinking Mode (CoT)
 
@@ -1052,7 +1077,7 @@ ws://127.0.0.1:{port}/ws
 
 | type                           | 説明           | ペイロード                                                                    |
 | ------------------------------ | -------------- | ----------------------------------------------------------------------------- |
-| `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, thinkingBudget?, agentId?, agentMode?, timeout? }` |
+| `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, searchMode?, thinkingBudget?, agentId?, agentMode?, timeout? }` |
 | `regenerate`                   | 応答の再生成   | `{}`                                                                          |
 | `stop`                       | 実行キャンセル | `{}`                                                                        |
 | `get_stats`                  | メモリ統計要求 | `{}`                                                                        |
@@ -1060,7 +1085,7 @@ ws://127.0.0.1:{port}/ws
 | `tool_confirmation_response` | ツール承認応答 | `{ requestId, approved }`                                                   |
 
 > [!NOTE]
-> `mode` は通常 `chat` / `search` / `agent`。内部的に `search_agentic` も受理されます。
+> `mode` は通常 `chat` / `search` / `agent`。Search vNext では `searchMode: "quick" | "deep"` を併用し、内部的に `search_agentic` も受理されます。
 
 **サーバー → クライアント**:
 
@@ -1422,4 +1447,3 @@ task quality
 ---
 
 *本ドキュメントは Tepora Project の技術仕様を定義しています。*
-

@@ -13,6 +13,7 @@ use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
 use crate::llm::ChatRequest;
 use crate::rag::ChunkSearchResult;
+use crate::search::{EvidenceClaim, EvidenceGap, SearchEvidenceState, SearchMode};
 use crate::tools::execute_tool;
 
 pub struct SearchNode;
@@ -216,6 +217,20 @@ impl Node for SearchNode {
                 "RAG context is empty. I can only answer from existing session knowledge right now."
                     .to_string()
             };
+            state.search_evidence = SearchEvidenceState {
+                strategy: SearchMode::Quick,
+                query_plan: vec![state.input.clone()],
+                explored_sources: build_explored_sources(
+                    &state.search_attachments,
+                    search_enabled && !state.skip_web_search && !isolation,
+                ),
+                results: web_results.clone(),
+                claims: Vec::new(),
+                gaps: vec![EvidenceGap {
+                    topic: state.input.clone(),
+                    reason: fallback_message.clone(),
+                }],
+            };
 
             let _ = ctx
                 .sender
@@ -316,6 +331,26 @@ impl Node for SearchNode {
         let _ = ctx.sender.send_json(json!({"type": "done"})).await;
 
         state.search_results = Some(web_results);
+        state.search_evidence = SearchEvidenceState {
+            strategy: SearchMode::Quick,
+            query_plan: vec![state.input.clone()],
+            explored_sources: build_explored_sources(
+                &state.search_attachments,
+                search_enabled && !state.skip_web_search && !isolation,
+            ),
+            results: state.search_results.clone().unwrap_or_default(),
+            claims: rag_chunks
+                .iter()
+                .take(4)
+                .map(|item| EvidenceClaim {
+                    topic: item.chunk.source.clone(),
+                    summary: truncate_text(first_meaningful_line(&item.chunk.content), 180),
+                    citations: vec![item.chunk.chunk_id.clone(), item.chunk.source.clone()],
+                    confidence: item.score,
+                })
+                .collect(),
+            gaps: Vec::new(),
+        };
         state.output = Some(full_response);
         Ok(NodeOutput::Final)
     }
@@ -337,4 +372,35 @@ where
     }
 
     serde_json::from_str::<T>(&trimmed[start..=end]).ok()
+}
+
+fn first_meaningful_line(text: &str) -> String {
+    text.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn truncate_text(text: String, max_len: usize) -> String {
+    if text.chars().count() <= max_len {
+        return text;
+    }
+    let mut out = text.chars().take(max_len).collect::<String>();
+    out.push_str("...");
+    out
+}
+
+fn build_explored_sources(
+    attachments: &[serde_json::Value],
+    web_enabled: bool,
+) -> Vec<String> {
+    let mut sources = vec!["session_rag".to_string(), "local_knowledge".to_string()];
+    if !attachments.is_empty() {
+        sources.insert(0, "attachments".to_string());
+    }
+    if web_enabled {
+        sources.push("web".to_string());
+    }
+    sources
 }

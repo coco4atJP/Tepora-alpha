@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { agentModeSchema, chatModeSchema, sessionHistoryMessageSchema } from "./rest";
+import {
+	agentModeSchema,
+	chatModeSchema,
+	searchModeSchema,
+	sessionHistoryMessageSchema,
+} from "./rest";
 
 export const approvalDecisionSchema = z.enum([
 	"deny",
@@ -176,6 +181,7 @@ export const wsMessagePayloadSchema = z
 		sessionId: z.string().optional(),
 		attachments: z.array(attachmentSchema).optional(),
 		skipWebSearch: z.boolean().optional(),
+		searchMode: searchModeSchema.optional(),
 		thinkingBudget: z.number().int().min(0).max(3).optional(),
 		agentId: z.string().optional(),
 		agentMode: agentModeSchema.optional(),

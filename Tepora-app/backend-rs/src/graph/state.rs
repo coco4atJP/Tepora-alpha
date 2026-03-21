@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use crate::context::pipeline_context::PipelineContext;
 use crate::llm::ChatMessage;
+use crate::search::{SearchEvidenceState, SearchMode};
 use crate::tools::search::SearchResult;
 
 /// Execution modes for the graph
@@ -137,8 +138,10 @@ pub struct AgentState {
     pub thought_process: Option<String>,
 
     // Search mode state
+    pub search_mode: SearchMode,
     pub search_queries: Vec<String>,
     pub search_results: Option<Vec<SearchResult>>,
+    pub search_evidence: SearchEvidenceState,
     pub search_attachments: Vec<Value>,
     pub skip_web_search: bool,
 
@@ -164,8 +167,10 @@ impl AgentState {
             agent_outcome: None,
             thinking_budget: 0,
             thought_process: None,
+            search_mode: SearchMode::Quick,
             search_queries: Vec::new(),
             search_results: None,
+            search_evidence: SearchEvidenceState::default(),
             search_attachments: Vec::new(),
             skip_web_search: false,
             output: None,
@@ -179,6 +184,7 @@ impl AgentState {
         session_id: String,
         message: &str,
         mode: &str,
+        search_mode: Option<&str>,
         agent_id: Option<&str>,
         agent_mode: Option<&str>,
         thinking_budget: u8,
@@ -201,8 +207,10 @@ impl AgentState {
             agent_outcome: None,
             thinking_budget,
             thought_process: None,
+            search_mode: SearchMode::from_str(search_mode),
             search_queries: Vec::new(),
             search_results: None,
+            search_evidence: SearchEvidenceState::default(),
             search_attachments: attachments,
             skip_web_search,
             output: None,
@@ -407,8 +415,10 @@ mod tests {
         assert!(state.agent_outcome.is_none());
         assert_eq!(state.thinking_budget, 0);
         assert!(state.thought_process.is_none());
+        assert_eq!(state.search_mode, SearchMode::Quick);
         assert!(state.search_queries.is_empty());
         assert!(state.search_results.is_none());
+        assert!(state.search_evidence.results.is_empty());
         assert!(state.search_attachments.is_empty());
         assert!(!state.skip_web_search);
         assert!(state.output.is_none());
@@ -423,6 +433,7 @@ mod tests {
             "chat",
             None,
             None,
+            None,
             0,
             false,
             Vec::new(),
@@ -435,6 +446,7 @@ mod tests {
         assert!(state.agent_id.is_none());
         assert_eq!(state.agent_mode, AgentMode::Low);
         assert_eq!(state.thinking_budget, 0);
+        assert_eq!(state.search_mode, SearchMode::Quick);
         assert!(!state.skip_web_search);
     }
 
@@ -445,6 +457,7 @@ mod tests {
             "ws-session-2".to_string(),
             "complex query",
             "agent",
+            Some("deep"),
             Some("coder"),
             Some("high"),
             3,
@@ -457,6 +470,7 @@ mod tests {
         assert_eq!(state.agent_id.as_deref(), Some("coder"));
         assert_eq!(state.agent_mode, AgentMode::High);
         assert_eq!(state.thinking_budget, 3);
+        assert_eq!(state.search_mode, SearchMode::Deep);
         assert!(state.skip_web_search);
         assert_eq!(state.search_attachments.len(), 1);
     }
@@ -467,6 +481,7 @@ mod tests {
             "s".to_string(),
             "test",
             "agent",
+            None,
             None,
             Some("fast"),
             0,

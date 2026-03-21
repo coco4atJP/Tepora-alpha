@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatMode } from "../../shared/contracts";
+import type { ChatMode, SearchMode } from "../../shared/contracts";
 import type { V2TransportConnectionSnapshot } from "../../shared/lib/transportAdapter";
 
 export interface WorkspaceActivityItem {
@@ -22,6 +22,7 @@ export interface WorkspaceToolConfirmation {
 interface WorkspaceState {
 	selectedSessionId: string | null;
 	activeMode: ChatMode;
+	searchMode: SearchMode;
 	draft: string;
 	thinkingBudget: number;
 	connection: V2TransportConnectionSnapshot;
@@ -38,6 +39,7 @@ interface WorkspaceState {
 interface WorkspaceActions {
 	setSelectedSessionId: (sessionId: string | null) => void;
 	setActiveMode: (mode: ChatMode) => void;
+	setSearchMode: (mode: SearchMode) => void;
 	setDraft: (draft: string) => void;
 	setThinkingBudget: (value: number) => void;
 	setConnection: (snapshot: V2TransportConnectionSnapshot) => void;
@@ -74,6 +76,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>(
 	(set) => ({
 		selectedSessionId: null,
 		activeMode: "chat",
+		searchMode: "quick",
 		draft: "",
 		thinkingBudget: 0,
 		connection: idleConnection,
@@ -86,6 +89,9 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>(
 		},
 		setActiveMode: (activeMode) => {
 			set({ activeMode });
+		},
+		setSearchMode: (searchMode) => {
+			set({ searchMode });
 		},
 		setDraft: (draft) => {
 			set({ draft });

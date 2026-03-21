@@ -342,6 +342,11 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
                     if let Some(skip) = kwargs.get("skip_web_search").and_then(|v| v.as_bool()) {
                         new_data.skip_web_search = Some(skip);
                     }
+                    if let Some(search_mode) =
+                        kwargs.get("search_mode").and_then(|v| v.as_str())
+                    {
+                        new_data.search_mode = Some(search_mode.to_string());
+                    }
                 }
 
                 // Clear msg_type so it falls through to the normal generation flow
@@ -437,6 +442,7 @@ async fn handle_message_internal(
         .unwrap_or_else(|| current_session_id.clone());
     let mode = data.mode.unwrap_or_else(|| "chat".to_string());
     let thinking_budget = std::cmp::min(data.thinking_budget.unwrap_or(0), 3);
+    let search_mode = data.search_mode.clone();
     let requested_agent_id = data.agent_id;
     let requested_agent_mode = data.agent_mode;
     let skip_search = data.skip_web_search.unwrap_or(false);
@@ -488,6 +494,7 @@ async fn handle_message_internal(
         "mode": mode.clone(),
         "attachments": attachments_for_history,
         "thinking_budget": thinking_budget,
+        "search_mode": search_mode.clone(),
         "agent_id": requested_agent_id.clone(),
         "agent_mode": requested_agent_mode.clone(),
         "skip_web_search": data.skip_web_search,
@@ -510,6 +517,7 @@ async fn handle_message_internal(
             message: message_text.clone(),
             mode: mode.clone(),
             attachments: attachments.clone(),
+            search_mode: search_mode.clone(),
             thinking_budget,
             agent_id: requested_agent_id.clone(),
             agent_mode: requested_agent_mode.clone(),
@@ -601,6 +609,7 @@ async fn handle_message_internal(
         session_id.clone(),
         &message_text,
         &mode,
+        search_mode.as_deref(),
         requested_agent_id.as_deref(),
         requested_agent_mode.as_deref(),
         thinking_budget,

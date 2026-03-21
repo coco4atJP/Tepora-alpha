@@ -19,6 +19,7 @@ pub mod memory;
 pub mod models;
 #[path = "infrastructure/knowledge_store/rag/mod.rs"]
 pub mod rag;
+pub mod search;
 pub mod server;
 pub mod state;
 #[cfg(test)]
