@@ -279,7 +279,7 @@
 		"description": "Descripcion",
 		"instruction": "Prompt del sistema",
 		"error_exists": "Esta clave ya existe.",
-		"confirm_delete_title": "Eliminar persona?",
+		"confirm_delete_title": "Eliminar personaje?",
 		"confirm_delete": "Esta seguro de que desea eliminar esta persona? Esta accion no se puede deshacer."
 	},
 	"dial": {

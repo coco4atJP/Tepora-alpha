@@ -22,7 +22,6 @@ use super::sentence::split_sentences;
 use super::types::{DecayConfig, EpisodicEvent, MemoryLayer, TimeUnit};
 
 const KEYRING_SERVICE: &str = "tepora-backend";
-const KEYRING_USER: &str = "em_memory_encryption_key";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MemoryStats {
@@ -80,48 +79,62 @@ impl MemoryService {
             .load_config()
             .unwrap_or_else(|_| Value::Object(Default::default()));
 
-        let enabled = config
-            .get("em_llm")
+        let episodic_config = config.get("episodic_memory").or_else(|| config.get("em_llm"));
+
+        let enabled = episodic_config
             .and_then(|v| v.get("enabled"))
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
-        let retrieval_limit = config
-            .get("em_llm")
+        let retrieval_limit = episodic_config
             .and_then(|v| v.get("retrieval_limit"))
             .and_then(|v| v.as_u64())
             .unwrap_or(5)
             .clamp(1, 20) as usize;
 
-        let min_score = config
-            .get("em_llm")
+        let min_score = episodic_config
             .and_then(|v| v.get("min_score"))
             .and_then(|v| v.as_f64())
             .unwrap_or(0.15)
             .clamp(-1.0, 1.0) as f32;
 
         let decay_config = parse_decay_config(&config);
-        let decay_interval_hours = config
-            .get("em_llm")
+        let decay_interval_hours = episodic_config
             .and_then(|v| v.get("decay_interval_hours"))
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0)
             .clamp(0.0, 24.0);
 
-        if let Some(memory_version) = config
-            .get("em_llm")
+        if let Some(memory_version) = episodic_config
             .and_then(|v| v.get("memory_version"))
             .and_then(|v| v.as_str())
         {
             if !memory_version.eq_ignore_ascii_case("v2") {
                 tracing::warn!(
                     memory_version = memory_version,
-                    "em_llm.memory_version is deprecated and forced to v2"
+                    "episodic_memory.memory_version is deprecated and forced to v2"
                 );
             }
         }
 
-        let v2_db_path = paths.user_data_dir.join("em_memory.db");
+        let v2_db_path = paths.user_data_dir.join("episodic_memory.db");
+        let old_v2_db_path = paths.user_data_dir.join("em_memory.db");
+        if old_v2_db_path.exists() && !v2_db_path.exists() {
+            tracing::info!("Migrating em_memory.db to episodic_memory.db");
+            if let Err(e) = std::fs::rename(&old_v2_db_path, &v2_db_path) {
+                tracing::warn!("Failed to rename em_memory.db to episodic_memory.db: {}", e);
+            }
+            let old_wal = paths.user_data_dir.join("em_memory.db-wal");
+            let new_wal = paths.user_data_dir.join("episodic_memory.db-wal");
+            if old_wal.exists() {
+                let _ = std::fs::rename(&old_wal, &new_wal);
+            }
+            let old_shm = paths.user_data_dir.join("em_memory.db-shm");
+            let new_shm = paths.user_data_dir.join("episodic_memory.db-shm");
+            if old_shm.exists() {
+                let _ = std::fs::rename(&old_shm, &new_shm);
+            }
+        }
         let mut v2_repo = SqliteMemoryRepository::new(v2_db_path).await.map_err(|e| {
             ApiError::internal(format!("Failed to initialize v2 memory repository: {e}"))
         })?;
@@ -1009,20 +1022,17 @@ fn build_memory_text(user_input: &str, assistant_output: &str) -> String {
 }
 
 fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER)?;
+    let entry = keyring::Entry::new(KEYRING_SERVICE, "episodic_memory_encryption_key")?;
 
     match entry.get_password() {
-        Ok(hex_key) => {
-            let bytes = hex::decode(hex_key)
-                .map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
-            if bytes.len() != 32 {
-                return Err(anyhow::anyhow!("Invalid key length in keyring"));
-            }
-            let mut key = [0u8; 32];
-            key.copy_from_slice(&bytes);
-            Ok(key)
-        }
+        Ok(hex_key) => parse_hex_key(&hex_key),
         Err(keyring::Error::NoEntry) => {
+            // Fallback to old key
+            let old_entry = keyring::Entry::new(KEYRING_SERVICE, "em_memory_encryption_key")?;
+            if let Ok(old_hex) = old_entry.get_password() {
+                let _ = entry.set_password(&old_hex);
+                return parse_hex_key(&old_hex);
+            }
             tracing::info!("No encryption key found, generating new one...");
             let mut key = [0u8; 32];
             rand::thread_rng().fill(&mut key);
@@ -1034,9 +1044,21 @@ fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
     }
 }
 
+fn parse_hex_key(hex_key: &str) -> anyhow::Result<[u8; 32]> {
+    let bytes = hex::decode(hex_key)
+        .map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
+    if bytes.len() != 32 {
+        return Err(anyhow::anyhow!("Invalid key length in keyring"));
+    }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&bytes);
+    Ok(key)
+}
+
 fn parse_decay_config(config: &Value) -> DecayConfig {
     let defaults = DecayConfig::default();
-    let section = config.get("em_llm").and_then(|v| v.get("decay"));
+    let episodic_config = config.get("episodic_memory").or_else(|| config.get("em_llm"));
+    let section = episodic_config.and_then(|v| v.get("decay"));
 
     DecayConfig {
         lambda_base: read_decay_f64(
@@ -1115,7 +1137,7 @@ fn parse_decay_config(config: &Value) -> DecayConfig {
             1.0,
         ),
         retrieval_similarity_ratio: read_decay_f64(
-            config.get("em_llm").and_then(|v| v.get("retrieval")),
+            episodic_config.and_then(|v| v.get("retrieval")),
             "similarity_ratio",
             defaults.retrieval_similarity_ratio as f64,
             0.0,

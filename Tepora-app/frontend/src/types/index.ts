@@ -165,10 +165,11 @@ export type WebSocketOutgoingMessage =
 		};
 
 export interface SystemStatus {
-	initialized: boolean;
-	em_llm_enabled: boolean;
-	total_messages: number;
-	memory_events: number;
+	memory_usage: number; // in MB
+	episodic_memory_enabled: boolean;
+	total_episodic_memories: number;
+	character_memory?: MemorySystemStats;
+	professional_memory?: MemorySystemStats;
 }
 
 export interface MemorySystemStats {

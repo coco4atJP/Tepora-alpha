@@ -2,8 +2,8 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { socketCommands, useChatStore, useSessionStore, useSocketConnectionStore } from "../stores";
-import { apiClient } from "../utils/api-client";
-import { logger } from "../utils/logger";
+import { apiClient } from "../../utils/api-client";
+import { logger } from "../../utils/logger";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -247,33 +247,33 @@ const Memory: React.FC = () => {
 					<h2 className="text-xl font-bold text-blue-400 mb-4 border-b border-gray-700 pb-2">
 						{t("settings.memory.character_memory", "Character Memory (EM-LLM)")}
 					</h2>
-					{memoryStats?.char_memory ? (
+					{memoryStats?.character_memory ? (
 						<div className="space-y-4">
 							<StatItem
 								label={t("settings.memory.stats.total_events", "Total Events")}
-								value={memoryStats.char_memory.total_events}
+								value={memoryStats.character_memory.total_events}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.layer_lml", "LML Events")}
-								value={memoryStats.char_memory.layer_counts?.lml ?? 0}
+								value={memoryStats.character_memory.layer_counts?.lml ?? 0}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.layer_sml", "SML Events")}
-								value={memoryStats.char_memory.layer_counts?.sml ?? 0}
+								value={memoryStats.character_memory.layer_counts?.sml ?? 0}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.mean_strength", "Mean Strength")}
-								value={memoryStats.char_memory.mean_strength?.toFixed(3) ?? "0.000"}
+								value={memoryStats.character_memory.mean_strength?.toFixed(3) ?? "0.000"}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.total_tokens", "Total Tokens")}
-								value={memoryStats.char_memory.total_tokens_in_memory}
+								value={memoryStats.character_memory.total_tokens_in_memory}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.mean_event_size", "Mean Event Size")}
-								value={memoryStats.char_memory.mean_event_size?.toFixed(1) || "0.0"}
+								value={memoryStats.character_memory.mean_event_size?.toFixed(1) || "0.0"}
 							/>
-							{memoryStats.char_memory.surprise_statistics && (
+							{memoryStats.character_memory.surprise_statistics && (
 								<>
 									<div className="mt-4 pt-4 border-t border-gray-700">
 										<p className="text-sm text-gray-400 mb-2">
@@ -282,11 +282,11 @@ const Memory: React.FC = () => {
 									</div>
 									<StatItem
 										label={t("settings.memory.stats.mean_surprise", "Mean Surprise")}
-										value={memoryStats.char_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
+										value={memoryStats.character_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
 									/>
 									<StatItem
 										label={t("settings.memory.stats.max_surprise", "Max Surprise")}
-										value={memoryStats.char_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
+										value={memoryStats.character_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
 									/>
 								</>
 							)}
@@ -303,33 +303,33 @@ const Memory: React.FC = () => {
 					<h2 className="text-xl font-bold text-green-400 mb-4 border-b border-gray-700 pb-2">
 						{t("settings.memory.professional_memory", "Professional Memory (EM-LLM)")}
 					</h2>
-					{memoryStats?.prof_memory ? (
+					{memoryStats?.professional_memory ? (
 						<div className="space-y-4">
 							<StatItem
 								label={t("settings.memory.stats.total_events", "Total Events")}
-								value={memoryStats.prof_memory.total_events}
+								value={memoryStats.professional_memory.total_events}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.layer_lml", "LML Events")}
-								value={memoryStats.prof_memory.layer_counts?.lml ?? 0}
+								value={memoryStats.professional_memory.layer_counts?.lml ?? 0}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.layer_sml", "SML Events")}
-								value={memoryStats.prof_memory.layer_counts?.sml ?? 0}
+								value={memoryStats.professional_memory.layer_counts?.sml ?? 0}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.mean_strength", "Mean Strength")}
-								value={memoryStats.prof_memory.mean_strength?.toFixed(3) ?? "0.000"}
+								value={memoryStats.professional_memory.mean_strength?.toFixed(3) ?? "0.000"}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.total_tokens", "Total Tokens")}
-								value={memoryStats.prof_memory.total_tokens_in_memory}
+								value={memoryStats.professional_memory.total_tokens_in_memory}
 							/>
 							<StatItem
 								label={t("settings.memory.stats.mean_event_size", "Mean Event Size")}
-								value={memoryStats.prof_memory.mean_event_size?.toFixed(1) || "0.0"}
+								value={memoryStats.professional_memory.mean_event_size?.toFixed(1) || "0.0"}
 							/>
-							{memoryStats.prof_memory.surprise_statistics && (
+							{memoryStats.professional_memory.surprise_statistics && (
 								<>
 									<div className="mt-4 pt-4 border-t border-gray-700">
 										<p className="text-sm text-gray-400 mb-2">
@@ -338,11 +338,11 @@ const Memory: React.FC = () => {
 									</div>
 									<StatItem
 										label={t("settings.memory.stats.mean_surprise", "Mean Surprise")}
-										value={memoryStats.prof_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
+										value={memoryStats.professional_memory.surprise_statistics.mean?.toFixed(3) || "N/A"}
 									/>
 									<StatItem
 										label={t("settings.memory.stats.max_surprise", "Max Surprise")}
-										value={memoryStats.prof_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
+										value={memoryStats.professional_memory.surprise_statistics.max?.toFixed(3) || "N/A"}
 									/>
 								</>
 							)}

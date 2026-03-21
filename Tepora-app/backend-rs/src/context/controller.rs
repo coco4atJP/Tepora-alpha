@@ -1213,7 +1213,8 @@ fn prompt_score(chunk: &MemoryChunk, ctx: &PipelineContext) -> f32 {
 
 fn resolve_character_id(ctx: &PipelineContext) -> Option<String> {
     ctx.config()
-        .get("active_agent_profile")
+        .get("active_character")
+        .or_else(|| ctx.config().get("active_agent_profile"))
         .and_then(|value| value.as_str())
         .map(ToString::to_string)
 }

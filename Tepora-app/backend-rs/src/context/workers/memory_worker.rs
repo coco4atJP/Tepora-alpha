@@ -841,7 +841,7 @@ mod tests {
                 .entry("app")
                 .or_insert_with(|| serde_json::json!({}));
             app.as_object_mut().unwrap().insert(
-                "em_memory_enabled".to_string(),
+                "episodic_memory_enabled".to_string(),
                 serde_json::Value::Bool(true),
             );
 
@@ -889,7 +889,7 @@ mod tests {
                 .entry("app")
                 .or_insert_with(|| serde_json::json!({}));
             app.as_object_mut().unwrap().insert(
-                "em_memory_enabled".to_string(),
+                "episodic_memory_enabled".to_string(),
                 serde_json::Value::Bool(true),
             );
 

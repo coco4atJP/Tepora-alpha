@@ -26,7 +26,7 @@ pub enum PipelineMode {
 }
 
 impl PipelineMode {
-    pub fn has_persona(&self) -> bool {
+    pub fn has_character(&self) -> bool {
         matches!(
             self,
             PipelineMode::Chat
@@ -155,7 +155,7 @@ pub struct SystemPart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonaConfig {
+pub struct CharacterConfig {
     pub name: String,
     pub description: String,
     pub traits: Vec<String>,
@@ -258,7 +258,7 @@ pub struct PipelineContext {
     pub stage: PipelineStage,
     pub config_snapshot: Value,
     pub system_parts: Vec<SystemPart>,
-    pub persona: Option<PersonaConfig>,
+    pub character: Option<CharacterConfig>,
     pub user_input: String,
     pub working_memory: HashMap<String, Value>,
     pub local_context: LocalContext,
@@ -289,7 +289,7 @@ impl PipelineContext {
             stage: PipelineStage::Main,
             config_snapshot: Value::Null,
             system_parts: Vec::new(),
-            persona: None,
+            character: None,
             user_input: user_input.into(),
             working_memory: HashMap::new(),
             local_context: LocalContext::default(),
@@ -422,26 +422,26 @@ mod tests {
         assert_eq!(ctx.stage, PipelineStage::Main);
         assert_eq!(ctx.user_input, "hello");
         assert!(ctx.system_parts.is_empty());
-        assert!(ctx.persona.is_none());
+        assert!(ctx.character.is_none());
     }
 
     #[test]
     fn test_pipeline_mode_capabilities() {
-        assert!(PipelineMode::Chat.has_persona());
+        assert!(PipelineMode::Chat.has_character());
         assert!(!PipelineMode::Chat.has_tools());
         assert!(!PipelineMode::Chat.has_rag());
 
-        assert!(PipelineMode::SearchFast.has_persona());
+        assert!(PipelineMode::SearchFast.has_character());
         assert!(PipelineMode::SearchFast.has_tools());
         assert!(PipelineMode::SearchFast.has_rag());
         assert!(PipelineMode::SearchFast.has_web_search());
 
-        assert!(PipelineMode::AgentHigh.has_persona());
+        assert!(PipelineMode::AgentHigh.has_character());
         assert!(PipelineMode::AgentHigh.has_tools());
         assert!(PipelineMode::AgentHigh.has_scratchpad());
         assert!(PipelineMode::AgentHigh.has_sub_agents());
 
-        assert!(!PipelineMode::AgentDirect.has_persona());
+        assert!(!PipelineMode::AgentDirect.has_character());
         assert!(PipelineMode::AgentDirect.has_tools());
         assert!(!PipelineMode::AgentDirect.has_sub_agents());
     }
@@ -477,7 +477,7 @@ mod tests {
     fn test_to_messages_with_persona() {
         let mut ctx = PipelineContext::new("s1", "t1", PipelineMode::Chat, "hello");
         ctx.add_system_part("base", "Base prompt", 100);
-        ctx.persona = Some(PersonaConfig {
+        ctx.character = Some(CharacterConfig {
             name: "Tepora".to_string(),
             description: "A calm tea-loving AI".to_string(),
             traits: vec!["warm".to_string(), "calm".to_string()],

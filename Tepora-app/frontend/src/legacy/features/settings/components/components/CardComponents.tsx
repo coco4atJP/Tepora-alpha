@@ -35,7 +35,7 @@ export interface ModelCardProps {
 export const ModelCard: React.FC<ModelCardProps> = ({ name, config, onChange, isEmbedding }) => {
 	const { t } = useTranslation();
 	const { originalConfig } = useSettingsState();
-	const originalModelConfig = originalConfig?.models_gguf[name];
+	const originalModelConfig = originalConfig?.models?.[name];
 
 	const isDirty = (field: keyof ModelConfig) => {
 		if (!originalModelConfig) return false;
@@ -169,7 +169,7 @@ export interface AgentProfile {
 	description: string;
 	icon?: string;
 	avatar_path?: string;
-	persona: {
+	character: {
 		key?: string;
 		prompt?: string;
 	};
@@ -199,8 +199,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 		onChange({ ...profile, [field]: value });
 	};
 
-	const updatePersona = (field: "key" | "prompt", value: string) => {
-		onChange({ ...profile, persona: { ...profile.persona, [field]: value } });
+	const updateCharacter = (field: "key" | "prompt", value: string) => {
+		onChange({ ...profile, character: { ...profile.character, [field]: value } });
 	};
 
 	const handleBrowseAvatar = async () => {
@@ -296,8 +296,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 			</div>
 
 			<FormGroup
-				label={t("settings.sections.agents.card.persona")}
-				description={t("settings.sections.agents.card.persona_description")}
+				label={t("settings.sections.agents.card.character")}
+				description={t("settings.sections.agents.card.character_description")}
 			>
 				<div className="space-y-3">
 					<div className="grid grid-cols-[120px_1fr] gap-4 items-center">
@@ -316,8 +316,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 							{t("settings.sections.agents.card.custom_prompt")}
 						</span>
 						<textarea
-							value={profile.persona.prompt || ""}
-							onChange={(e) => updatePersona("prompt", e.target.value)}
+							value={profile.character.prompt || ""}
+							onChange={(e) => updateCharacter("prompt", e.target.value)}
 							className="settings-input settings-input--textarea w-full font-sans leading-relaxed text-sm p-3 glass-input rounded border border-white/10 focus:ring-1 focus:ring-tepora-accent/50"
 							rows={3}
 							placeholder={t("settings.sections.agents.card.custom_prompt_placeholder")}

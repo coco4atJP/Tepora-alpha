@@ -176,12 +176,17 @@ pub fn build_agent_chat_config(
     {
         if let Ok(Some(model_entry)) = state.models.get_model(model_id) {
             if let Some(root) = overridden.as_object_mut() {
-                let models_gguf = root
-                    .entry("models_gguf".to_string())
+                let target_key = if root.contains_key("models") || !root.contains_key("models_gguf") {
+                    "models"
+                } else {
+                    "models_gguf"
+                };
+                let models_config = root
+                    .entry(target_key.to_string())
                     .or_insert_with(|| Value::Object(Default::default()));
-                if let Some(models_obj) = models_gguf.as_object_mut() {
+                if let Some(models_obj) = models_config.as_object_mut() {
                     let text_model = models_obj
-                        .entry("text_model".to_string())
+                        .entry("text".to_string())
                         .or_insert_with(|| Value::Object(Default::default()));
                     if !text_model.is_object() {
                         *text_model = Value::Object(Default::default());
@@ -203,7 +208,10 @@ pub fn resolve_execution_model_id(
     config: &Value,
     selected_agent: Option<&SelectedAgentRuntime>,
 ) -> String {
-    let active_character = config.get("active_agent_profile").and_then(|v| v.as_str());
+    let active_character = config
+        .get("active_character")
+        .or_else(|| config.get("active_agent_profile"))
+        .and_then(|v| v.as_str());
 
     selected_agent
         .and_then(|agent| agent.assigned_model_id.clone())

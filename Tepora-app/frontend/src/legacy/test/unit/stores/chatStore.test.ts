@@ -1,3 +1,5 @@
+import "@testing-library/jest-dom";
+
 /**
  * chatStore Unit Tests
  *
@@ -304,7 +306,7 @@ describe("chatStore", () => {
     describe("setMemoryStats", () => {
         it("メモリ統計を設定できる", () => {
             const stats = {
-                char_memory: { total_events: 10, total_tokens_in_memory: 500, mean_event_size: 50 },
+                character_memory: { total_events: 10, total_tokens_in_memory: 500, mean_event_size: 50 },
             };
             useChatStore.getState().setMemoryStats(stats);
 
@@ -313,7 +315,7 @@ describe("chatStore", () => {
 
         it("nullでメモリ統計をクリアできる", () => {
             useChatStore.getState().setMemoryStats({
-                char_memory: { total_events: 10, total_tokens_in_memory: 500, mean_event_size: 50 },
+                character_memory: { total_events: 10, total_tokens_in_memory: 500, mean_event_size: 50 },
             });
             useChatStore.getState().setMemoryStats(null);
 
@@ -340,7 +342,7 @@ describe("chatStore", () => {
                 { title: "T", url: "http://example.com", snippet: "s" },
             ]);
             useChatStore.getState().setMemoryStats({
-                char_memory: { total_events: 5, total_tokens_in_memory: 100, mean_event_size: 20 },
+                character_memory: { total_events: 5, total_tokens_in_memory: 100, mean_event_size: 20 },
             });
 
             useChatStore.getState().reset();

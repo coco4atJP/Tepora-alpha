@@ -296,10 +296,12 @@ function normalizeConfigForEditor(config: V2Config): SettingsRecord {
 
 	return deepMerge(DEFAULT_EDITOR_CONFIG, {
 		...config,
-		active_agent_profile:
-			typeof config.active_agent_profile === "string" &&
-			config.active_agent_profile.length > 0
-				? config.active_agent_profile
+		active_character:
+			typeof config.active_character === "string" && config.active_character.length > 0
+				? config.active_character
+				: typeof config.active_character === "string" &&
+				  config.active_character.length > 0
+				? config.active_character
 				: defaultActiveCharacter,
 	}) as SettingsRecord;
 }
@@ -402,10 +404,10 @@ const DEFAULT_EDITOR_CONFIG: SettingsRecord = {
 		web_fetch_timeout_secs: 10,
 		history_limit: 6,
 		entity_extraction_limit: 6,
-		em_memory_enabled: true,
+		episodic_memory_enabled: true,
 		mcp_config_path: "",
 	},
-	active_agent_profile: "bunny_girl",
+	active_character: "bunny_girl",
 	thinking: {
 		chat_default: false,
 		search_default: false,

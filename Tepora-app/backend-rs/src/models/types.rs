@@ -241,22 +241,32 @@ pub struct ModelRuntimeConfig {
 impl ModelRuntimeConfig {
     #[allow(dead_code)]
     pub fn for_chat(config: &serde_json::Value) -> Result<Self, crate::core::errors::ApiError> {
-        Self::from_config(config, "text_model")
+        Self::from_config(config, "text")
     }
 
     pub fn for_embedding(
         config: &serde_json::Value,
     ) -> Result<Self, crate::core::errors::ApiError> {
-        Self::from_config(config, "embedding_model")
+        Self::from_config(config, "embedding")
     }
 
     fn from_config(
         config: &serde_json::Value,
         role_key: &str,
     ) -> Result<Self, crate::core::errors::ApiError> {
-        let models = config.get("models_gguf").and_then(|v| v.as_object());
+        let models = config.get("models").or_else(|| config.get("models_gguf")).and_then(|v| v.as_object());
         let model_cfg = models
-            .and_then(|m| m.get(role_key))
+            .and_then(|m| {
+                m.get(role_key).or_else(|| {
+                    if role_key == "text" {
+                        m.get("text_model").or_else(|| m.get("character_model"))
+                    } else if role_key == "embedding" {
+                        m.get("embedding_model")
+                    } else {
+                        None
+                    }
+                })
+            })
             .unwrap_or(&serde_json::Value::Null);
 
         let path_str = model_cfg.get("path").and_then(|v| v.as_str()).unwrap_or("");

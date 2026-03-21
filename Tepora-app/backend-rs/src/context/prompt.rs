@@ -2,7 +2,8 @@ use serde_json::Value;
 
 pub fn extract_system_prompt(config: &Value) -> Option<String> {
     let active = config
-        .get("active_agent_profile")
+        .get("active_character")
+        .or_else(|| config.get("active_agent_profile"))
         .and_then(|v| v.as_str())
         .unwrap_or("bunny_girl");
     config

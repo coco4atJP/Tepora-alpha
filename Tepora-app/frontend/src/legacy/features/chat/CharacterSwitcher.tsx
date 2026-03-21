@@ -12,10 +12,10 @@ import { logger } from "../../utils/logger";
 import { CharacterEditOverlay, type CharacterEditState } from "../settings/components/subcomponents/CharacterEditOverlay";
 import type { AgentProfile } from "../settings/components/SettingsComponents";
 
-const PersonaSwitcher: React.FC = () => {
+const CharacterSwitcher: React.FC = () => {
 	const { t } = useTranslation();
 	const { config } = useSettingsState();
-	const { setActiveAgent, updateCharacter, addCharacter, deleteCharacter, activeAgentProfile } =
+	const { setActiveAgent, updateCharacter, addCharacter, deleteCharacter, activeCharacter } =
 		useAgentProfiles();
 	const { saveConfig } = useSettingsConfigActions();
 
@@ -38,7 +38,7 @@ const PersonaSwitcher: React.FC = () => {
 	}
 
 	const characters = config.characters || {};
-	const currentPersonaId = activeAgentProfile || config.active_agent_profile;
+	const currentCharacterId = activeCharacter || config.active_character;
 	const existingKeys = Object.keys(characters);
 
 	const characterToAgentProfile = (charConfig: CharacterConfig): AgentProfile => ({
@@ -46,7 +46,7 @@ const PersonaSwitcher: React.FC = () => {
 		description: charConfig.description,
 		icon: charConfig.icon,
 		avatar_path: charConfig.avatar_path,
-		persona: {
+		character: {
 			prompt: charConfig.system_prompt,
 		},
 		tool_policy: {
@@ -63,7 +63,7 @@ const PersonaSwitcher: React.FC = () => {
 				description: "",
 				icon: "👤",
 				avatar_path: "",
-				persona: {
+				character: {
 					prompt: t("settings.sections.agents.default_prompt", "You are a helpful assistant."),
 				},
 				tool_policy: {
@@ -98,7 +98,7 @@ const PersonaSwitcher: React.FC = () => {
 			updateCharacter(targetKey, {
 				name: savedState.profile.label,
 				description: savedState.profile.description,
-				system_prompt: savedState.profile.persona.prompt || "",
+				system_prompt: savedState.profile.character.prompt || "",
 				model_config_name: savedState.model_config_name || undefined,
 				icon: savedState.profile.icon,
 				avatar_path: savedState.profile.avatar_path,
@@ -120,7 +120,7 @@ const PersonaSwitcher: React.FC = () => {
 
 	const handleDeleteRequest = (key: string, e: React.MouseEvent) => {
 		e.stopPropagation();
-		if (key === currentPersonaId) return;
+		if (key === currentCharacterId) return;
 
 		// Ensure at least one character remains
 		if (Object.keys(characters).length <= 1) {
@@ -159,7 +159,7 @@ const PersonaSwitcher: React.FC = () => {
 					type="button"
 					onClick={() => setIsOpen(!isOpen)}
 					className="glass-button p-2 flex items-center gap-2 hover:bg-white/10 transition-all group"
-					title={t("personas.switch")}
+					title={t("characters.switch")}
 				>
 					<div className="w-8 h-8 rounded-full bg-gradient-to-br from-tea-400 to-tea-700 flex items-center justify-center border border-white/10 shadow-lg">
 						<User className="w-4 h-4 text-white" />
@@ -186,13 +186,13 @@ const PersonaSwitcher: React.FC = () => {
 						<div className="absolute bottom-full left-0 mb-2 w-max min-w-[16rem] max-w-sm glass-panel rounded-xl overflow-hidden animate-fade-in z-50">
 							<div className="p-3 border-b border-white/5 flex justify-between items-center bg-black/40">
 								<h3 className="text-xs font-bold text-tea-200 uppercase tracking-wider">
-									{t("personas.select")}
+									{t("characters.select")}
 								</h3>
 								<button
 									type="button"
 									onClick={handleCreate}
 									className="p-1 hover:bg-white/10 rounded-full text-green-400 transition-colors"
-									title={t("personas.create")}
+									title={t("characters.create")}
 								>
 									<Plus size={14} />
 								</button>
@@ -204,14 +204,14 @@ const PersonaSwitcher: React.FC = () => {
 										key={key}
 										role="option"
 										tabIndex={0}
-										aria-selected={currentPersonaId === key}
+										aria-selected={currentCharacterId === key}
 										onClick={async () => {
 											if (!config) return;
 
 											// Create updated config for immediate persistence
 											const newConfig = {
 												...config,
-												active_agent_profile: key,
+												active_character: key,
 											};
 
 											setActiveAgent(key);
@@ -224,19 +224,19 @@ const PersonaSwitcher: React.FC = () => {
 												if (!config) return;
 												const newConfig = {
 													...config,
-													active_agent_profile: key,
+													active_character: key,
 												};
 												setActiveAgent(key);
 												await saveConfig(newConfig);
 												setIsOpen(false);
 											}
 										}}
-										className={`group w-full text-left flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${currentPersonaId === key ? "bg-white/10" : "hover:bg-white/5"
+										className={`group w-full text-left flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${currentCharacterId === key ? "bg-white/10" : "hover:bg-white/5"
 											}`}
 									>
 										<div className="flex items-center gap-3 overflow-hidden">
 											<div
-												className={`w-8 h-8 rounded-full flex items-center justify-center ${currentPersonaId === key
+												className={`w-8 h-8 rounded-full flex items-center justify-center ${currentCharacterId === key
 													? "bg-gold-500 text-black"
 													: "bg-tea-800 text-tea-200"
 													} shrink-0`}
@@ -245,7 +245,7 @@ const PersonaSwitcher: React.FC = () => {
 											</div>
 											<div className="min-w-0">
 												<div
-													className={`text-sm font-medium break-words ${currentPersonaId === key ? "text-gold-300" : "text-gray-200"
+													className={`text-sm font-medium break-words ${currentCharacterId === key ? "text-gold-300" : "text-gray-200"
 														}`}
 												>
 													{character.name}
@@ -253,7 +253,7 @@ const PersonaSwitcher: React.FC = () => {
 											</div>
 										</div>
 
-										{currentPersonaId === key && (
+										{currentCharacterId === key && (
 											<Check className="w-4 h-4 text-gold-400 ml-2 shrink-0" />
 										)}
 
@@ -267,7 +267,7 @@ const PersonaSwitcher: React.FC = () => {
 												<Edit2 size={12} />
 											</button>
 											{/* Delete button: Only show if NOT active profile */}
-											{key !== currentPersonaId && (
+											{key !== currentCharacterId && (
 												<button
 													type="button"
 													onClick={(e) => handleDeleteRequest(key, e)}
@@ -304,10 +304,10 @@ const PersonaSwitcher: React.FC = () => {
 						</div>
 
 						<h3 className="text-lg font-bold text-white">
-							{t("personas.confirm_delete_title") || "Delete Persona?"}
+							{t("characters.confirm_delete_title") || "Delete Persona?"}
 						</h3>
 						<p className="text-gray-400 text-sm">
-							{t("personas.confirm_delete") ||
+							{t("characters.confirm_delete") ||
 								"Are you sure you want to delete this persona? This action cannot be undone."}
 						</p>
 
@@ -347,4 +347,4 @@ const PersonaSwitcher: React.FC = () => {
 	);
 };
 
-export default PersonaSwitcher;
+export default CharacterSwitcher;

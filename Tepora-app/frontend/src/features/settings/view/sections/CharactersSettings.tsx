@@ -10,7 +10,7 @@ interface CharactersSettingsProps {
 }
 
 export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
-	activeTab = "Personas",
+	activeTab = "Characters",
 }) => {
 	const { t } = useTranslation();
 	const editor = useSettingsEditor();
@@ -31,7 +31,9 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 			  )
 			: [];
 
-	const activeProfile = editor.readString("active_agent_profile", characters[0]?.id ?? "");
+	const activeProfile =
+		editor.readString("active_character") ||
+		editor.readString("active_character", characters[0]?.id ?? "");
 	const activeCharacter = characters.find((character) => character.id === activeProfile) ?? null;
 
 	const customAgentsValue = editor.draft
@@ -75,7 +77,7 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 									</div>
 								</div>
 								<div className="mt-3 text-sm leading-7 text-text-muted">
-									{agent.description || t("v2.persona.noDescription", "No description")}
+									{agent.description || t("v2.character.noDescription", "No description")}
 								</div>
 								<div className="mt-4 text-xs uppercase tracking-[0.16em] text-text-muted">
 									{agent.tags.length > 0 ? agent.tags.join(", ") : t("v2.settings.noTags", "No tags")}
@@ -102,7 +104,7 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 
 	return (
 		<div className="flex flex-col gap-8">
-			<SettingsSectionGroup title={t("v2.settings.personas", "Personas")}>
+			<SettingsSectionGroup title={t("v2.settings.characters", "Characters")}>
 				<div className="grid gap-4 md:grid-cols-2">
 					{characters.map((character) => {
 						const selected = character.id === activeProfile;
@@ -110,7 +112,10 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 							<button
 								type="button"
 								key={character.id}
-								onClick={() => editor.updateField("active_agent_profile", character.id)}
+								onClick={() => {
+									editor.updateField("active_character", character.id);
+									editor.updateField("active_character", character.id);
+								}}
 								className={`rounded-[24px] border p-5 text-left transition-colors ${
 									selected
 										? "border-primary/20 bg-primary/8"
@@ -126,7 +131,7 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 											{character.name}
 										</div>
 										<div className="mt-1 text-sm text-text-muted">
-											{character.description || t("v2.persona.noDescription", "No description")}
+											{character.description || t("v2.character.noDescription", "No description")}
 										</div>
 									</div>
 								</div>

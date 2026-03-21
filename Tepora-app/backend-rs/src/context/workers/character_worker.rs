@@ -1,31 +1,31 @@
-//! PersonaWorker — Injects persona / character configuration from active_agent_profile.
+//! CharacterWorker — Injects character configuration from active_character.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::context::pipeline_context::{PersonaConfig, PipelineContext};
+use crate::context::pipeline_context::{CharacterConfig, PipelineContext};
 use crate::context::worker::{ContextWorker, WorkerError};
 use crate::state::AppState;
 
-pub struct PersonaWorker;
+pub struct CharacterWorker;
 
-impl PersonaWorker {
+impl CharacterWorker {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for PersonaWorker {
+impl Default for CharacterWorker {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl ContextWorker for PersonaWorker {
+impl ContextWorker for CharacterWorker {
     fn name(&self) -> &str {
-        "persona"
+        "character"
     }
 
     async fn execute(
@@ -33,13 +33,17 @@ impl ContextWorker for PersonaWorker {
         ctx: &mut PipelineContext,
         _state: &Arc<AppState>,
     ) -> Result<(), WorkerError> {
-        if !ctx.mode.has_persona() {
-            return Err(WorkerError::skipped("persona", "mode does not use persona"));
+        if !ctx.mode.has_character() {
+            return Err(WorkerError::skipped(
+                "character",
+                "mode does not use character",
+            ));
         }
 
         let config = ctx.config();
         let active_character = config
-            .get("active_agent_profile")
+            .get("active_character")
+            .or_else(|| config.get("active_agent_profile"))
             .and_then(|value| value.as_str())
             .unwrap_or("bunny_girl");
 
@@ -48,7 +52,7 @@ impl ContextWorker for PersonaWorker {
             .and_then(|characters| characters.get(active_character))
         else {
             return Err(WorkerError::skipped(
-                "persona",
+                "character",
                 "no active character config found",
             ));
         };
@@ -76,7 +80,7 @@ impl ContextWorker for PersonaWorker {
             })
             .unwrap_or_default();
 
-        ctx.persona = Some(PersonaConfig {
+        ctx.character = Some(CharacterConfig {
             name,
             description,
             traits,

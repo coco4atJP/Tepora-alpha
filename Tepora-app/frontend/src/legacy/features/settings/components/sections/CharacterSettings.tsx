@@ -86,7 +86,7 @@ const CharacterSettings: React.FC<CharacterSettingsProps> = ({
 		onUpdateProfile(targetKey, {
 			name: savedState.profile.label,
 			description: savedState.profile.description,
-			system_prompt: savedState.profile.persona.prompt || "",
+			system_prompt: savedState.profile.character.prompt || "",
 			model_config_name: savedState.model_config_name || undefined,
 			icon: savedState.profile.icon,
 			avatar_path: savedState.profile.avatar_path,

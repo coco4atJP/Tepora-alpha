@@ -461,6 +461,7 @@ fn backup_sqlite_databases(paths: &AppPaths, config: &serde_json::Value) {
     let candidates = [
         paths.db_path.clone(),
         paths.user_data_dir.join("em_memory.db"),
+        paths.user_data_dir.join("episodic_memory.db"),
         paths.user_data_dir.join("rag.db"),
     ];
 

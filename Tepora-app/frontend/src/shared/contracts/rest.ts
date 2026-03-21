@@ -58,7 +58,7 @@ export const configResponseSchema = z
 				graph_execution_timeout: z.number().int().positive().optional(),
 			})
 			.passthrough(),
-		active_agent_profile: z.string().optional(),
+		active_character: z.string().optional(),
 		tools: z
 			.object({
 				search_provider: z

@@ -1,3 +1,5 @@
+import "@testing-library/jest-dom";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { socketCommands } from "../../../stores/socketCommands";
 import { useChatStore } from "../../../stores/chatStore";

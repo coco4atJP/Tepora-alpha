@@ -282,7 +282,7 @@
 		"description": "Description",
 		"instruction": "System Prompt",
 		"error_exists": "This key already exists.",
-		"confirm_delete_title": "Delete Persona?",
+		"confirm_delete_title": "Delete Character?",
 		"confirm_delete": "Are you sure you want to delete this persona? This action cannot be undone."
 	},
 	"dial": {

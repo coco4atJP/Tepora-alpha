@@ -279,7 +279,7 @@
 		"description": "描述",
 		"instruction": "系统提示",
 		"error_exists": "该键已存在。",
-		"confirm_delete_title": "删除人设？",
+		"confirm_delete_title": "删除角色？",
 		"confirm_delete": "确定要删除此人设吗？此操作无法撤销。"
 	},
 	"dial": {

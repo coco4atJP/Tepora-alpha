@@ -111,7 +111,8 @@ impl UnifiedMemoryAdapter {
             .and_then(|cfg| cfg.load_config().ok())
             .and_then(|config| {
                 config
-                    .get("active_agent_profile")
+                    .get("active_character")
+                    .or_else(|| config.get("active_agent_profile"))
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string())
             })

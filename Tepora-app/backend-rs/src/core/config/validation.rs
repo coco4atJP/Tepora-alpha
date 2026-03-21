@@ -321,9 +321,10 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
         )?;
     }
 
-    if let Some(models_gguf) = expect_optional_object(root, "models_gguf")? {
-        for (model_name, value) in models_gguf {
-            let path_prefix = format!("models_gguf.{}", model_name);
+    let models_key = if root.contains_key("models") { "models" } else { "models_gguf" };
+    if let Some(models_config) = expect_optional_object(root, models_key)? {
+        for (model_name, value) in models_config {
+            let path_prefix = format!("{}.{}", models_key, model_name);
             let entry = value
                 .as_object()
                 .ok_or_else(|| config_type_error(&path_prefix, "object"))?;

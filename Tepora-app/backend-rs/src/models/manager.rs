@@ -334,25 +334,30 @@ impl ModelManager {
         let config_root = config
             .as_object_mut()
             .ok_or_else(|| ApiError::BadRequest("Invalid root configuration".to_string()))?;
-        let models_gguf = config_root
-            .entry("models_gguf".to_string())
+        let target_key = if config_root.contains_key("models") || !config_root.contains_key("models_gguf") {
+            "models"
+        } else {
+            "models_gguf"
+        };
+        let models_config = config_root
+            .entry(target_key.to_string())
             .or_insert_with(|| Value::Object(Default::default()))
             .as_object_mut()
-            .ok_or_else(|| ApiError::BadRequest("Invalid models_gguf configuration".to_string()))?;
+            .ok_or_else(|| ApiError::BadRequest(format!("Invalid {} configuration", target_key)))?;
 
         let key = if role == "embedding" {
-            "embedding_model"
+            "embedding"
         } else {
-            "text_model"
+            "text"
         };
 
-        let mut entry = models_gguf
+        let mut entry = models_config
             .get(key)
             .cloned()
             .unwrap_or_else(|| Value::Object(Default::default()));
         let entry_obj = entry
             .as_object_mut()
-            .ok_or_else(|| ApiError::BadRequest("Invalid models_gguf configuration".to_string()))?;
+            .ok_or_else(|| ApiError::BadRequest(format!("Invalid {} configuration", target_key)))?;
         entry_obj.insert("path".to_string(), Value::String(model.file_path.clone()));
         if !entry_obj.contains_key("port") {
             entry_obj.insert(
@@ -367,7 +372,7 @@ impl ModelManager {
             entry_obj.insert("n_gpu_layers".to_string(), Value::Number((-1).into()));
         }
 
-        models_gguf.insert(key.to_string(), entry);
+        models_config.insert(key.to_string(), entry);
         self.config.update_config(config, false)?;
         Ok(())
     }

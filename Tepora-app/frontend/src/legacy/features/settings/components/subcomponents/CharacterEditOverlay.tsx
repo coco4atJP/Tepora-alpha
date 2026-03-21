@@ -298,7 +298,7 @@ export const CharacterEditOverlay: React.FC<CharacterEditOverlayProps> = ({
 									</p>
 								</div>
 								<textarea
-									value={localState.profile.persona.prompt || ""}
+									value={localState.profile.character.prompt || ""}
 									onChange={(e) => setLocalState({
 										...localState,
 										profile: {

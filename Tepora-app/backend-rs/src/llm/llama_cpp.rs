@@ -57,11 +57,11 @@ impl LlamaCppProvider {
 
         // The key used in LlamaService is determined by role.
         // We wrap this in the structure expected by ModelRuntimeConfig::from_role
-        // However, ModelRuntimeConfig::for_chat checks "text_model" key.
+        // However, ModelRuntimeConfig::for_chat checks "text" key.
         Ok(json!({
-            "models_gguf": {
-                "text_model": model_config,
-                "embedding_model": model_config.clone() // reuse for simplicity if embed called
+            "models": {
+                "text": model_config,
+                "embedding": model_config.clone() // reuse for simplicity if embed called
             }
         }))
     }

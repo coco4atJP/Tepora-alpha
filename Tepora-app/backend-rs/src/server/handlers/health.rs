@@ -19,7 +19,8 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     // Check LLM availability via role_assignments
     let active_character = state.config.load_config().ok().and_then(|config| {
         config
-            .get("active_agent_profile")
+            .get("active_character")
+            .or_else(|| config.get("active_agent_profile"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
     });
@@ -102,7 +103,7 @@ pub async fn get_status(State(state): State<AppStateRead>) -> Result<impl IntoRe
     Ok(Json(json!({
         "initialized": true,
         "core_version": "v2",
-        "em_llm_enabled": memory_stats.enabled,
+        "episodic_memory_enabled": memory_stats.enabled,
         "degraded": false,
         "total_messages": total_messages,
         "memory_events": memory_stats.total_events,

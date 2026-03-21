@@ -88,7 +88,10 @@ export function useAgentPanelModel(): AgentPanelViewProps {
 	}, [configQuery.data?.custom_agents]);
 
 	const activeCharacter =
-		characters.find((character) => character.id === configQuery.data?.active_agent_profile) ??
+		characters.find(
+			(character) =>
+				character.id === (configQuery.data?.active_character ?? configQuery.data?.active_agent_profile),
+		) ??
 		characters[0] ??
 		null;
 
@@ -185,10 +188,10 @@ export function useAgentPanelModel(): AgentPanelViewProps {
 
 		return {
 			title: t("v2.agent.chatTitle", "Chat Overview"),
-			subtitle: t("v2.agent.chatSubtitle", "Current persona and session context"),
+			subtitle: t("v2.agent.chatSubtitle", "Current character and session context"),
 			sections: [
 				{
-					id: "chat-persona",
+					id: "chat-character",
 					title: t("v2.agent.characters", "Characters"),
 					body:
 						characters.length > 0

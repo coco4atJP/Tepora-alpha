@@ -140,7 +140,8 @@ pub async fn run_decay_cycle(
 fn resolve_default_text_model_id(state: &crate::state::AppState) -> String {
     let active_character = state.config.load_config().ok().and_then(|config| {
         config
-            .get("active_agent_profile")
+            .get("active_character")
+            .or_else(|| config.get("active_agent_profile"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
     });

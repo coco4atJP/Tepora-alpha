@@ -1,14 +1,16 @@
+import "@testing-library/jest-dom";
 import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "../../../test/test-utils";
 
-import PersonaSwitcher from "../PersonaSwitcher";
+import CharacterSwitcher from "../CharacterSwitcher";
 
 const profileActions = {
 	setActiveAgent: vi.fn(),
 	updateCharacter: vi.fn(),
 	addCharacter: vi.fn(),
 	deleteCharacter: vi.fn(),
+	activeCharacter: "default",
 	activeAgentProfile: "default",
 };
 
@@ -42,7 +44,7 @@ vi.mock("../../../context/SettingsContext", () => ({
 				max_tokens: 4096,
 				default_limit: 50,
 			},
-			em_llm: {
+			episodic_memory: {
 				surprise_gamma: 0.5,
 				min_event_size: 10,
 				max_event_size: 100,
@@ -50,7 +52,7 @@ vi.mock("../../../context/SettingsContext", () => ({
 				repr_topk: 3,
 				use_boundary_refinement: true,
 			},
-			models_gguf: {
+			models: {
 				text_model: { path: "model.gguf", port: 8000, n_ctx: 4096, n_gpu_layers: 0 },
 				embedding_model: { path: "embed.gguf", port: 8001, n_ctx: 512, n_gpu_layers: 0 },
 			},
@@ -66,6 +68,7 @@ vi.mock("../../../context/SettingsContext", () => ({
 					system_prompt: "You are a friendly barista.",
 				},
 			},
+			active_character: profileActions.activeCharacter,
 			active_agent_profile: profileActions.activeAgentProfile,
 			tools: {},
 			privacy: { allow_web_search: false, redact_pii: true },
@@ -82,23 +85,23 @@ vi.mock("../../../context/SettingsContext", () => ({
 	}),
 }));
 
-describe("PersonaSwitcher", () => {
+describe("CharacterSwitcher", () => {
 	it("renders correctly", () => {
-		render(<PersonaSwitcher />);
-		expect(screen.getByTitle("Switch Persona")).toBeInTheDocument();
+		render(<CharacterSwitcher />);
+		expect(screen.getByTitle("characters.switch")).toBeInTheDocument();
 	});
 
 	it("opens menu on click", () => {
-		render(<PersonaSwitcher />);
-		fireEvent.click(screen.getByTitle("Switch Persona"));
+		render(<CharacterSwitcher />);
+		fireEvent.click(screen.getByTitle("characters.switch"));
 		expect(screen.getByText("Tepora")).toBeInTheDocument();
 		expect(screen.getByText("Barista")).toBeInTheDocument();
 	});
 
-	it("calls setActiveAgent when a persona is selected", async () => {
-		render(<PersonaSwitcher />);
+	it("calls setActiveAgent when a character is selected", async () => {
+		render(<CharacterSwitcher />);
 		await act(async () => {
-			fireEvent.click(screen.getByTitle("Switch Persona"));
+			fireEvent.click(screen.getByTitle("characters.switch"));
 			fireEvent.click(screen.getByText("Barista"));
 		});
 		expect(profileActions.setActiveAgent).toHaveBeenCalledWith("casual");

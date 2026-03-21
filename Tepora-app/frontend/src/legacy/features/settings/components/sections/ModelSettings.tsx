@@ -100,7 +100,7 @@ const ModelSettings: React.FC = () => {
 
 	const llmConfig = config.llm_manager;
 	const originalLlmConfig = originalConfig?.llm_manager;
-	const modelsConfig = config.models_gguf || {};
+	const modelsConfig = config.models || {};
 
 	const isLlmDirty = (field: keyof typeof llmConfig) => {
 		if (!originalLlmConfig) return false;
@@ -564,8 +564,8 @@ const ModelSettings: React.FC = () => {
 						)}
 					>
 						<FormSwitch
-							checked={readBoolean("models_gguf.text_model.logprobs", false)}
-							onChange={(value) => updateConfigPath("models_gguf.text_model.logprobs", value)}
+							checked={readBoolean("models.text_model.logprobs", false)}
+							onChange={(value) => updateConfigPath("models.text_model.logprobs", value)}
 						/>
 					</FormGroup>
 
@@ -577,9 +577,9 @@ const ModelSettings: React.FC = () => {
 						)}
 					>
 						<FormInput
-							value={readString("models_gguf.text_model.tokenizer_path", "")}
+							value={readString("models.text_model.tokenizer_path", "")}
 							onChange={(value) =>
-								updateConfigPath("models_gguf.text_model.tokenizer_path", value)}
+								updateConfigPath("models.text_model.tokenizer_path", value)}
 							placeholder="models/tokenizer.json"
 						/>
 					</FormGroup>
@@ -592,9 +592,9 @@ const ModelSettings: React.FC = () => {
 						)}
 					>
 						<FormInput
-							value={readString("models_gguf.text_model.tokenizer_format", "")}
+							value={readString("models.text_model.tokenizer_format", "")}
 							onChange={(value) =>
-								updateConfigPath("models_gguf.text_model.tokenizer_format", value)}
+								updateConfigPath("models.text_model.tokenizer_format", value)}
 							placeholder="tokenizer_json"
 						/>
 					</FormGroup>
@@ -607,9 +607,9 @@ const ModelSettings: React.FC = () => {
 						)}
 					>
 						<FormInput
-							value={readString("models_gguf.text_model.loader_specific_settings", "")}
+							value={readString("models.text_model.loader_specific_settings", "")}
 							onChange={(value) =>
-								updateConfigPath("models_gguf.text_model.loader_specific_settings", value)}
+								updateConfigPath("models.text_model.loader_specific_settings", value)}
 							placeholder='{"rope_scaling":"linear"}'
 						/>
 					</FormGroup>
@@ -622,9 +622,9 @@ const ModelSettings: React.FC = () => {
 						)}
 					>
 						<FormInput
-							value={readString("models_gguf.embedding_model.loader_specific_settings", "")}
+							value={readString("models.embedding_model.loader_specific_settings", "")}
 							onChange={(value) =>
-								updateConfigPath("models_gguf.embedding_model.loader_specific_settings", value)}
+								updateConfigPath("models.embedding_model.loader_specific_settings", value)}
 							placeholder='{"rope_scaling":"linear"}'
 						/>
 					</FormGroup>

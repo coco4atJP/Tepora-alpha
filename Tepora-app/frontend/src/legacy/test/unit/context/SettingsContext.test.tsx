@@ -1,3 +1,5 @@
+import "@testing-library/jest-dom";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
@@ -36,7 +38,7 @@ const mockConfig = {
 		max_tokens: 2000,
 		default_limit: 50,
 	},
-	em_llm: {
+	episodic_memory: {
 		surprise_gamma: 0.1,
 		min_event_size: 10,
 		max_event_size: 100,
@@ -44,7 +46,7 @@ const mockConfig = {
 		repr_topk: 3,
 		use_boundary_refinement: true,
 	},
-	models_gguf: {
+	models: {
 		text_model: {
 			path: "model.gguf",
 			port: 8080,

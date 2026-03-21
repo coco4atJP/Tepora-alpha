@@ -58,7 +58,7 @@ export interface Config {
         max_tokens: number;
         default_limit: number;
     };
-    em_llm: {
+    episodic_memory: {
         surprise_gamma: number;
         min_event_size: number;
         max_event_size: number;
@@ -79,9 +79,9 @@ export interface Config {
             gamma?: number;
         };
     };
-    models_gguf: Record<string, ModelConfig>;
+    models: Record<string, ModelConfig>;
     characters: Record<string, CharacterConfig>;
-    active_agent_profile: string;
+    active_character: string;
     tools: {
         google_search_api_key?: string;
         google_search_engine_id?: string;

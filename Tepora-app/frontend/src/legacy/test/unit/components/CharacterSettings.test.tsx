@@ -1,3 +1,5 @@
+import "@testing-library/jest-dom";
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CharacterSettings from "../../../features/settings/components/sections/CharacterSettings";
@@ -26,7 +28,7 @@ vi.mock("../../../context/SettingsContext", () => ({
 	useSettingsState: () => ({
 		config: {
 			app: { nsfw_enabled: false },
-			models_gguf: {
+			models: {
 				text_model: {
 					path: "test.gguf",
 					port: 8080,

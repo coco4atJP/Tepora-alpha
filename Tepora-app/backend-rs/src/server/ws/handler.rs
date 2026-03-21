@@ -189,13 +189,13 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
                     "type": "stats",
                     "data": {
                         "total_events": stats.total_events,
-                        "em_llm_enabled": stats.enabled,
+                        "episodic_memory_enabled": stats.enabled,
                         "memory_events": stats.total_events,
                         "retrieval": {
                             "limit": stats.retrieval_limit,
                             "min_score": stats.min_score,
                         },
-                        "char_memory": {
+                        "character_memory": {
                             "total_events": stats.char_events,
                             "layer_counts": {
                                 "lml": stats.char_lml,
@@ -203,7 +203,7 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
                             },
                             "mean_strength": stats.char_mean_strength
                         },
-                        "prof_memory": {
+                        "professional_memory": {
                             "total_events": stats.prof_events,
                             "layer_counts": {
                                 "lml": stats.prof_lml,

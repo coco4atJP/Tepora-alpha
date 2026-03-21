@@ -272,7 +272,7 @@
 		"add_hint": "ファイルを追加するかWebを検索してください",
 		"web_results": "Web検索結果"
 	},
-	"personas": {
+	"characters": {
 		"switch": "ペルソナを切り替え",
 		"select": "ペルソナを選択",
 		"create": "ペルソナを作成",
@@ -282,7 +282,7 @@
 		"description": "説明",
 		"instruction": "システムプロンプト",
 		"error_exists": "このキーは既に存在します。",
-		"confirm_delete_title": "ペルソナを削除しますか？",
+		"confirm_delete_title": "キャラクターを削除しますか？",
 		"confirm_delete": "このペルソナを削除してもよろしいですか？この操作は元に戻せません。"
 	},
 	"dial": {
@@ -437,8 +437,8 @@
 					"label_placeholder": "キャラクター名",
 					"description": "説明",
 					"description_placeholder": "簡単な説明",
-					"persona": "ペルソナ",
-					"persona_description": "エージェントの性格と役割を定義します。",
+					"character": "ペルソナ",
+					"character_description": "エージェントの性格と役割を定義します。",
 					"preset_key": "プリセットキー",
 					"preset_key_placeholder": "例: default (任意)",
 					"select_preset": "プリセットを選択...",
@@ -1237,7 +1237,7 @@
 			"deleteMessage": "このセッションと履歴メッセージを削除しますか？",
 			"openHistory": "履歴を開く"
 		},
-		"persona": {
+		"character": {
 			"switch": "キャラクターを切り替え",
 			"active": "現在のキャラクター",
 			"available": "利用可能なキャラクター",
@@ -1261,6 +1261,8 @@
 			"allSaved": "すべての変更が自動保存されました",
 			"autoSave": "自動保存が有効です",
 			"loadError": "設定の読み込みに失敗しました。",
+			"characters": "キャラクター一覧",
+			"activeCharacter": "現在のアクティブなキャラクター",
 			"categories": {
 				"general": {
 					"label": "一般",
@@ -1282,7 +1284,7 @@
 				"characters": {
 					"label": "キャラクター",
 					"tabs": {
-						"personas": "ペルソナ",
+						"characters": "ペルソナ",
 						"custom_agents": "カスタムエージェント"
 					}
 				},

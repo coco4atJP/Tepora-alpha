@@ -38,8 +38,8 @@ vi.mock("react-router-dom", async () => {
 	};
 });
 
-vi.mock("../PersonaSwitcher", () => ({
-	default: () => <div data-testid="persona-switcher" />,
+vi.mock("../CharacterSwitcher", () => ({
+	default: () => <div data-testid="character-switcher" />,
 }));
 
 const mockConfig = {

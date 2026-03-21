@@ -13,11 +13,11 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 	activeTab = "Basics",
 }) => {
 	const editor = useSettingsEditor();
-	const episodicMemory = editor.readBoolean("app.em_memory_enabled", true);
+	const episodicMemory = editor.readBoolean("app.episodic_memory_enabled", true);
 	const historyLimit = editor.readNumber("app.history_limit", 6);
 	const entityLimit = editor.readNumber("app.entity_extraction_limit", 6);
-	const decayLambda = editor.readNumber("em_llm.decay.lambda_base", 0.1);
-	const promoteThreshold = editor.readNumber("em_llm.decay.promote_threshold", 0.7);
+	const decayLambda = editor.readNumber("episodic_memory.decay.lambda_base", 0.1);
+	const promoteThreshold = editor.readNumber("episodic_memory.decay.promote_threshold", 0.7);
 
 	if (activeTab === "Retrieval") {
 		return (
@@ -33,7 +33,7 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 							step={0.01}
 							value={promoteThreshold}
 							onChange={(value) =>
-								editor.updateField("em_llm.decay.promote_threshold", value)
+								editor.updateField("episodic_memory.decay.promote_threshold", value)
 							}
 						/>
 					</SettingsRow>
@@ -54,7 +54,7 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 					<MinToggle
 						checked={episodicMemory}
 						onChange={(checked) =>
-							editor.updateField("app.em_memory_enabled", checked)
+							editor.updateField("app.episodic_memory_enabled", checked)
 						}
 						label={episodicMemory ? "Active" : "Paused"}
 					/>
@@ -97,7 +97,7 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 						step={0.01}
 						value={decayLambda}
 						onChange={(value) =>
-							editor.updateField("em_llm.decay.lambda_base", value)
+							editor.updateField("episodic_memory.decay.lambda_base", value)
 						}
 					/>
 				</SettingsRow>
@@ -111,7 +111,7 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 						step={0.01}
 						value={promoteThreshold}
 						onChange={(value) =>
-							editor.updateField("em_llm.decay.promote_threshold", value)
+							editor.updateField("episodic_memory.decay.promote_threshold", value)
 						}
 					/>
 				</SettingsRow>

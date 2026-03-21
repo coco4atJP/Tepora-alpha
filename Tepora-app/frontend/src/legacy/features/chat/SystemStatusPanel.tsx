@@ -16,7 +16,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 	const isGeneratingMemory = useChatStore((s) => s.isGeneratingMemory);
 
 	const totalMemoryEvents =
-		(memoryStats?.char_memory?.total_events || 0) + (memoryStats?.prof_memory?.total_events || 0);
+		(memoryStats?.character_memory?.total_events || 0) + (memoryStats?.professional_memory?.total_events || 0);
 
 	return (
 		<div className="glass-panel p-6 w-full rounded-[2rem] animate-fade-in mt-auto backdrop-blur-2xl border border-white/5 shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
@@ -81,7 +81,7 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 				)}
 
 				{/* EM-LLM Memory */}
-				{systemStatus?.em_llm_enabled && (
+				{systemStatus?.episodic_memory_enabled && (
 					<div className="flex items-center justify-between group hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors duration-200">
 						<div className="flex items-center gap-2.5">
 							<div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
@@ -126,23 +126,23 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 			{memoryStats && totalMemoryEvents > 0 && (
 				<div className="mt-4 pt-3 border-t border-white/5">
 					<div className="grid grid-cols-2 gap-2 text-[10px]">
-						{memoryStats.char_memory && (
+						{memoryStats.character_memory && (
 							<div className="text-center p-1.5 rounded bg-white/5">
 								<div className="text-gray-500 uppercase tracking-wider mb-0.5">
 									{t("status.char")}
 								</div>
 								<div className="text-blue-400 font-bold">
-									{memoryStats.char_memory.total_events}
+									{memoryStats.character_memory.total_events}
 								</div>
 							</div>
 						)}
-						{memoryStats.prof_memory && (
+						{memoryStats.professional_memory && (
 							<div className="text-center p-1.5 rounded bg-white/5">
 								<div className="text-gray-500 uppercase tracking-wider mb-0.5">
 									{t("status.prof")}
 								</div>
 								<div className="text-purple-400 font-bold">
-									{memoryStats.prof_memory.total_events}
+									{memoryStats.professional_memory.total_events}
 								</div>
 							</div>
 						)}

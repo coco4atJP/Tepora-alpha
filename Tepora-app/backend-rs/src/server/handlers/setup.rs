@@ -286,15 +286,14 @@ pub async fn setup_requirements(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
     let config = state.config.load_config()?;
-    let text_path = config
-        .get("models_gguf")
-        .and_then(|v| v.get("text_model"))
+    let models = config.get("models").or_else(|| config.get("models_gguf"));
+    let text_path = models
+        .and_then(|v| v.get("text").or_else(|| v.get("text_model")))
         .and_then(|v| v.get("path"))
         .and_then(|v| v.as_str())
         .map(|s| resolve_model_path(s, &state.paths));
-    let embedding_path = config
-        .get("models_gguf")
-        .and_then(|v| v.get("embedding_model"))
+    let embedding_path = models
+        .and_then(|v| v.get("embedding").or_else(|| v.get("embedding_model")))
         .and_then(|v| v.get("path"))
         .and_then(|v| v.as_str())
         .map(|s| resolve_model_path(s, &state.paths));
@@ -456,7 +455,10 @@ pub async fn setup_models(
 ) -> Result<impl IntoResponse, ApiError> {
     let models = state.models.list_models()?;
     let config = state.config.load_config().unwrap_or(Value::Null);
-    let active_character = config.get("active_agent_profile").and_then(|v| v.as_str());
+    let active_character = config
+        .get("active_character")
+        .or_else(|| config.get("active_agent_profile"))
+        .and_then(|v| v.as_str());
     let active_text = state.models.resolve_character_model_id(active_character)?;
     let active_embedding = state.models.resolve_embedding_model_id()?;
     let payload: Vec<Value> = models

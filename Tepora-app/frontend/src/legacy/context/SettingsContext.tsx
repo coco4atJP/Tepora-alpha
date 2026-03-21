@@ -32,7 +32,7 @@ export interface SettingsConfigActionsValue {
 	updateApp: <K extends keyof Config["app"]>(field: K, value: Config["app"][K]) => void;
 	updateLlmManager: <K extends keyof Config["llm_manager"]>(field: K, value: Config["llm_manager"][K]) => void;
 	updateChatHistory: <K extends keyof Config["chat_history"]>(field: K, value: Config["chat_history"][K]) => void;
-	updateEmLlm: <K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => void;
+	updateEpisodicMemory: <K extends keyof Config["episodic_memory"]>(field: K, value: Config["episodic_memory"][K]) => void;
 	updateModel: (modelKey: keyof Config["models_gguf"], modelConfig: ModelConfig) => void;
 	updateTools: <K extends keyof Config["tools"]>(field: K, value: Config["tools"][K]) => void;
 	updatePrivacy: <K extends keyof Config["privacy"]>(field: K, value: Config["privacy"][K]) => void;
@@ -55,6 +55,8 @@ export interface AgentSkillsValue {
 
 export interface AgentProfilesValue {
 	characters: Record<string, CharacterConfig>;
+	activeCharacter: string | null;
+	/** @deprecated use activeCharacter */
 	activeAgentProfile: string | null;
 	updateCharacter: (key: string, config: CharacterConfig) => void;
 	addCharacter: (key: string) => void;
@@ -115,8 +117,11 @@ function normalizeConfig(data: Config): Config {
 		delete modelsGguf.professional;
 	}
 
+	const active_character = data.active_character ?? "";
+
 	return {
 		...data,
+		active_character,
 		tools: data.tools || {},
 		models_gguf: (modelsGguf as Config["models_gguf"]) || {},
 	};
@@ -247,8 +252,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		[],
 	);
 
-	const updateEmLlm = useCallback(<K extends keyof Config["em_llm"]>(field: K, value: Config["em_llm"][K]) => {
-		setConfig((prev) => (prev ? { ...prev, em_llm: { ...prev.em_llm, [field]: value } } : prev));
+	const updateEpisodicMemory = useCallback(<K extends keyof Config["episodic_memory"]>(field: K, value: Config["episodic_memory"][K]) => {
+		setConfig((prev) => (prev ? { ...prev, episodic_memory: { ...prev.episodic_memory, [field]: value } } : prev));
 	}, []);
 
 	const updateModel = useCallback((modelKey: keyof Config["models_gguf"], modelConfig: ModelConfig) => {
@@ -350,14 +355,15 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	const deleteCharacter = useCallback((key: string) => {
 		setConfig((prev) => {
 			if (!prev) return prev;
-			if (prev.active_agent_profile === key) return prev;
+			const currentActive = prev.active_character;
+			if (currentActive === key) return prev;
 			const { [key]: _unused, ...rest } = prev.characters;
 			return { ...prev, characters: rest };
 		});
 	}, []);
 
 	const setActiveAgent = useCallback((key: string) => {
-		setConfig((prev) => (prev ? { ...prev, active_agent_profile: key } : prev));
+		setConfig((prev) => (prev ? { ...prev, active_character: key } : prev));
 	}, []);
 
 	const saveConfig = useCallback(
@@ -460,7 +466,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 	const agentProfilesValue = useMemo<AgentProfilesValue>(
 		() => ({
 			characters: config?.characters || {},
-			activeAgentProfile: config?.active_agent_profile || null,
+			activeCharacter: config?.active_character || null,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,
@@ -468,7 +474,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 		}),
 		[
 			config?.characters,
-			config?.active_agent_profile,
+			config?.active_character,
 			updateCharacter,
 			addCharacter,
 			deleteCharacter,

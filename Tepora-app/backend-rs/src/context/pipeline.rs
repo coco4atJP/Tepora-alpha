@@ -1,7 +1,7 @@
 use super::pipeline_context::{ModelTokenizerSpec, PipelineContext, PipelineMode, TokenBudget};
 use super::worker::WorkerPipeline;
 use super::workers::memory_worker::MemoryWorker;
-use super::workers::persona_worker::PersonaWorker;
+use super::workers::character_worker::CharacterWorker;
 use super::workers::rag_worker::RagWorker;
 use super::workers::search_worker::SearchWorker;
 use super::workers::system_worker::SystemWorker;
@@ -42,7 +42,7 @@ impl ContextPipeline {
 
         let pipeline = WorkerPipeline::new()
             .add_worker(Box::new(SystemWorker))
-            .add_worker(Box::new(PersonaWorker))
+            .add_worker(Box::new(CharacterWorker))
             .add_worker(Box::new(MemoryWorker::default()))
             .add_worker(Box::new(ToolWorker))
             .add_worker(Box::new(SearchWorker::new(skip_web_search)))
@@ -80,7 +80,8 @@ fn resolve_token_budget(state: &Arc<AppState>, config: &Value, mode: PipelineMod
 
 fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
     let active_character = config
-        .get("active_agent_profile")
+        .get("active_character")
+        .or_else(|| config.get("active_agent_profile"))
         .and_then(|value| value.as_str());
 
     let context_from_registry = state
@@ -98,8 +99,9 @@ fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
         .and_then(|model| model.context_length);
 
     let context_from_config = config
-        .get("models_gguf")
-        .and_then(|value| value.get("text_model"))
+        .get("models")
+        .or_else(|| config.get("models_gguf"))
+        .and_then(|value| value.get("text").or_else(|| value.get("text_model")))
         .and_then(|value| value.get("n_ctx"))
         .and_then(|value| value.as_u64());
 
@@ -116,11 +118,13 @@ fn clamp(value: usize, min: usize, max: usize) -> usize {
 
 fn resolve_tokenizer_spec(state: &Arc<AppState>, config: &Value) -> ModelTokenizerSpec {
     let active_character = config
-        .get("active_agent_profile")
+        .get("active_character")
+        .or_else(|| config.get("active_agent_profile"))
         .and_then(|value| value.as_str());
     let config_model = config
-        .get("models_gguf")
-        .and_then(|value| value.get("text_model"));
+        .get("models")
+        .or_else(|| config.get("models_gguf"))
+        .and_then(|value| value.get("text").or_else(|| value.get("text_model")));
 
     let config_path = config_model
         .and_then(|value| value.get("tokenizer_path"))

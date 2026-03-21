@@ -61,24 +61,19 @@ async fn chat_command(
         }
         "get_stats" => {
             let stats = app_state.em_memory_service.stats().await.map_err(|e| e.to_string())?;
+            let character_stats = app_state.character_memory_service.stats().await.map_err(|e| e.to_string())?;
             let _ = app.emit(
                 "chat_event",
                 json!({
                     "type": "stats",
                     "data": {
                         "total_events": stats.total_events,
-                        "em_llm_enabled": stats.enabled,
-                        "memory_events": stats.total_events,
+                        "episodic_memory_enabled": stats.enabled,
+                        "total_episodic_memories": stats.total_memories,
                         "retrieval": {
                             "limit": stats.retrieval_limit,
                             "min_score": stats.min_score,
                         },
-                        "char_memory": {
-                            "total_events": stats.char_events,
-                            "layer_counts": {
-                                "lml": stats.char_lml,
-                                "sml": stats.char_sml
-                            },
                             "mean_strength": stats.char_mean_strength
                         },
                         "prof_memory": {

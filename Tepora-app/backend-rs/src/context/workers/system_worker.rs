@@ -36,7 +36,8 @@ impl ContextWorker for SystemWorker {
     ) -> Result<(), WorkerError> {
         let config = ctx.config();
         let active_character = config
-            .get("active_agent_profile")
+            .get("active_character")
+            .or_else(|| config.get("active_agent_profile"))
             .and_then(|value| value.as_str())
             .unwrap_or("bunny_girl");
         let character = config
@@ -69,10 +70,10 @@ impl ContextWorker for SystemWorker {
                 .unwrap_or_default();
 
             let fallback_prompt = if traits.trim().is_empty() {
-                format!("Your persona is {}. {}", name, description)
+                format!("Your character is {}. {}", name, description)
             } else {
                 format!(
-                    "Your persona is {}. {}\nTraits: {}",
+                    "Your character is {}. {}\nTraits: {}",
                     name, description, traits
                 )
             };

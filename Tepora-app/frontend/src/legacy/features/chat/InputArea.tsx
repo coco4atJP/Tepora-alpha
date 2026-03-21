@@ -7,7 +7,7 @@ import { Button } from "../../components/ui/Button";
 import { useAgentSkills, useSettingsState } from "../../context/SettingsContext";
 import { socketCommands, useSocketConnectionStore } from "../../stores";
 import type { ChatInterfaceContext } from "./ChatInterface";
-import PersonaSwitcher from "./PersonaSwitcher";
+import CharacterSwitcher from "./CharacterSwitcher";
 import { useSelector } from "@xstate/react";
 import { chatActor } from "../../machines/chatMachine";
 
@@ -111,9 +111,9 @@ const InputArea: React.FC = () => {
 					: "hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-theme-overlay shadow-2xl border border-white/10 group-focus-within:border-gold-400/50 group-focus-within:shadow-[0_0_20px_rgba(255,215,0,0.1)]"
 					} backdrop-blur-xl`}
 			>
-				{/* Persona Switcher */}
+				{/* Character Switcher */}
 				<div className="shrink-0 mb-1 ml-1">
-					<PersonaSwitcher />
+					<CharacterSwitcher />
 				</div>
 
 				{/* Agent Controls (Agent Mode Only) */}

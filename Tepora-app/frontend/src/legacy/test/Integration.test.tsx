@@ -1,8 +1,9 @@
+import "@testing-library/jest-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "./test-utils";
 
-vi.mock("../features/chat/PersonaSwitcher", () => ({
-	default: () => <div data-testid="persona-switcher" />,
+vi.mock("../features/chat/CharacterSwitcher", () => ({
+	default: () => <div data-testid="character-switcher" />,
 }));
 
 vi.mock("../context/SettingsContext", () => ({

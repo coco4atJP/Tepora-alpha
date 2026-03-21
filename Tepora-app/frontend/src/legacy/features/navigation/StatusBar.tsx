@@ -29,7 +29,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 				)}
 			</div>
 
-			{systemStatus?.em_llm_enabled && (
+			{systemStatus?.episodic_memory_enabled && (
 				<div className="flex items-center gap-2">
 					<Database className="w-4 h-4 text-blue-500" />
 					<span className="text-gray-400">
@@ -43,8 +43,8 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 
 			{memoryStats && (
 				<div className="text-gray-500 text-xs">
-					{(memoryStats.char_memory?.total_events || 0) +
-						(memoryStats.prof_memory?.total_events || 0)}{" "}
+					{(memoryStats.character_memory?.total_events || 0) +
+						(memoryStats.professional_memory?.total_events || 0)}{" "}
 					{t("status.events_suffix")}
 				</div>
 			)}

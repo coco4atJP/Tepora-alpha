@@ -119,7 +119,8 @@ impl Node for ThinkingNode {
         // Resolve model ID
         let active_character = ctx
             .config
-            .get("active_agent_profile")
+            .get("active_character")
+            .or_else(|| ctx.config.get("active_agent_profile"))
             .and_then(|v| v.as_str());
         let model_id = ctx
             .app_state

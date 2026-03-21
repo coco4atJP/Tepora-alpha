@@ -20,8 +20,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 		}
 
 		const activeProfileId =
-			typeof config.active_agent_profile === "string"
-				? config.active_agent_profile
+			typeof config.active_character === "string"
+				? config.active_character
+				: typeof config.active_character === "string"
+				? config.active_character
 				: undefined;
 		const activeCharacter = activeProfileId
 			? (config.characters as Record<string, Record<string, unknown>>)[activeProfileId]
@@ -37,7 +39,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 		return firstCharacter?.name
 			? String(firstCharacter.name)
 			: t("v2.chat.assistantFallback", "Assistant");
-	}, [config?.active_agent_profile, config?.characters, t]);
+	}, [config?.active_character, config?.characters, t]);
 
 	return (
 		<div className="custom-scrollbar flex h-full flex-1 flex-col items-center gap-14 overflow-y-auto px-5 pb-[180px] pt-[100px] lg:px-8 [mask-image:linear-gradient(to_bottom,transparent_0%,black_8%,black_100%)]">

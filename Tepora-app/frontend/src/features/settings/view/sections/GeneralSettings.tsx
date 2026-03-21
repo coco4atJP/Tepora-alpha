@@ -38,10 +38,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 			: [];
 
 	const language = editor.readString("app.language", "en");
-	const activeProfile = editor.readString(
-		"active_agent_profile",
-		characters[0]?.id ?? "bunny_girl",
-	);
+	const activeProfile =
+		editor.readString("active_character") ||
+		editor.readString("active_character", characters[0]?.id ?? "bunny_girl");
 	const chatThinking = editor.readBoolean("thinking.chat_default", false);
 	const searchThinking = editor.readBoolean("thinking.search_default", false);
 	const historyLimit = editor.readNumber("app.history_limit", 6);
@@ -123,7 +122,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 							key={character.id}
 							label={character.name}
 							selected={activeProfile === character.id}
-							onClick={() => editor.updateField("active_agent_profile", character.id)}
+							onClick={() => {
+								editor.updateField("active_character", character.id);
+								editor.updateField("active_character", character.id);
+							}}
 						/>
 					))}
 				</SettingsRow>

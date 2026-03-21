@@ -13,7 +13,7 @@ import {
 const MemorySettings: React.FC = () => {
 	const { t } = useTranslation();
 	const { config, originalConfig } = useSettingsState();
-	const { updateEmLlm, updateChatHistory, updateConfigPath } = useSettingsConfigActions();
+	const { updateEpisodicMemory, updateChatHistory, updateConfigPath } = useSettingsConfigActions();
 
 	if (!config) return null;
 
@@ -37,21 +37,21 @@ const MemorySettings: React.FC = () => {
 		default_limit: 50,
 	};
 
-	const emConfig = {
+	const episodicConfig = {
 		...defaultEmConfig,
-		...(config.em_llm || {}),
+		...(config.episodic_memory || {}),
 		decay: {
 			...defaultEmConfig.decay,
-			...(config.em_llm?.decay || {}),
+			...(config.episodic_memory?.decay || {}),
 		},
 	};
 	const historyConfig = config.chat_history || defaultHistoryConfig;
-	const originalEmConfig = originalConfig?.em_llm;
+	const originalEmConfig = originalConfig?.episodic_memory;
 	const originalHistoryConfig = originalConfig?.chat_history;
 
-	const isEmDirty = (field: keyof typeof emConfig) => {
+	const isEpisodicDirty = (field: keyof typeof episodicConfig) => {
 		if (!originalEmConfig) return false;
-		return emConfig[field] !== originalEmConfig[field];
+		return episodicConfig[field] !== originalEmConfig[field];
 	};
 
 	const isHistoryDirty = (field: keyof typeof historyConfig) => {
@@ -59,9 +59,9 @@ const MemorySettings: React.FC = () => {
 		return historyConfig[field] !== originalHistoryConfig[field];
 	};
 
-	const isDecayDirty = (field: keyof typeof emConfig.decay) => {
+	const isDecayDirty = (field: keyof typeof episodicConfig.decay) => {
 		if (!originalEmConfig?.decay) return false;
-		return emConfig.decay[field] !== originalEmConfig.decay[field];
+		return episodicConfig.decay[field] !== originalEmConfig.decay[field];
 	};
 
 	return (
@@ -139,12 +139,12 @@ const MemorySettings: React.FC = () => {
 						<FormGroup
 							label={t("settings.memory.surprise_gamma.label")}
 							tooltip={t("settings.memory.surprise_gamma.description")}
-							isDirty={isEmDirty("surprise_gamma")}
+							isDirty={isEpisodicDirty("surprise_gamma")}
 						>
 							<FormInput
 								type="number"
-								value={emConfig.surprise_gamma}
-								onChange={(v) => updateEmLlm("surprise_gamma", v as number)}
+								value={episodicConfig.surprise_gamma}
+								onChange={(v) => updateEpisodicMemory("surprise_gamma", v as number)}
 								min={0}
 								max={1}
 								step={0.05}
@@ -154,24 +154,24 @@ const MemorySettings: React.FC = () => {
 						<FormGroup
 							label={t("settings.memory.min_event_size.label")}
 							tooltip={t("settings.memory.min_event_size.description")}
-							isDirty={isEmDirty("min_event_size")}
+							isDirty={isEpisodicDirty("min_event_size")}
 						>
 							<FormInput
 								type="number"
-								value={emConfig.min_event_size}
-								onChange={(v) => updateEmLlm("min_event_size", v as number)}
+								value={episodicConfig.min_event_size}
+								onChange={(v) => updateEpisodicMemory("min_event_size", v as number)}
 								min={1}
 							/>
 						</FormGroup>
 						<FormGroup
 							label={t("settings.memory.max_event_size.label")}
 							tooltip={t("settings.memory.max_event_size.description")}
-							isDirty={isEmDirty("max_event_size")}
+							isDirty={isEpisodicDirty("max_event_size")}
 						>
 							<FormInput
 								type="number"
-								value={emConfig.max_event_size}
-								onChange={(v) => updateEmLlm("max_event_size", v as number)}
+								value={episodicConfig.max_event_size}
+								onChange={(v) => updateEpisodicMemory("max_event_size", v as number)}
 								min={1}
 							/>
 						</FormGroup>
@@ -179,12 +179,12 @@ const MemorySettings: React.FC = () => {
 						<FormGroup
 							label={t("settings.memory.retrieved_events.label")}
 							tooltip={t("settings.memory.retrieved_events.description")}
-							isDirty={isEmDirty("total_retrieved_events")}
+							isDirty={isEpisodicDirty("total_retrieved_events")}
 						>
 							<FormInput
 								type="number"
-								value={emConfig.total_retrieved_events}
-								onChange={(v) => updateEmLlm("total_retrieved_events", v as number)}
+								value={episodicConfig.total_retrieved_events}
+								onChange={(v) => updateEpisodicMemory("total_retrieved_events", v as number)}
 								min={1}
 								max={50}
 							/>
@@ -192,12 +192,12 @@ const MemorySettings: React.FC = () => {
 						<FormGroup
 							label={t("settings.memory.repr_topk.label")}
 							tooltip={t("settings.memory.repr_topk.description")}
-							isDirty={isEmDirty("repr_topk")}
+							isDirty={isEpisodicDirty("repr_topk")}
 						>
 							<FormInput
 								type="number"
-								value={emConfig.repr_topk}
-								onChange={(v) => updateEmLlm("repr_topk", v as number)}
+								value={episodicConfig.repr_topk}
+								onChange={(v) => updateEpisodicMemory("repr_topk", v as number)}
 								min={1}
 								max={50}
 							/>
@@ -206,15 +206,15 @@ const MemorySettings: React.FC = () => {
 						<FormGroup
 							label={t("settings.memory.boundary_refinement.label")}
 							tooltip={t("settings.memory.boundary_refinement.description")}
-							isDirty={isEmDirty("use_boundary_refinement")}
+							isDirty={isEpisodicDirty("use_boundary_refinement")}
 						>
 							<div className="flex items-center gap-3">
 								<FormSwitch
-									checked={emConfig.use_boundary_refinement}
-									onChange={(v) => updateEmLlm("use_boundary_refinement", v)}
+									checked={episodicConfig.use_boundary_refinement}
+									onChange={(v) => updateEpisodicMemory("use_boundary_refinement", v)}
 								/>
 								<span className="text-sm text-gray-400">
-									{emConfig.use_boundary_refinement ? t("common.enabled") : t("common.disabled")}
+									{episodicConfig.use_boundary_refinement ? t("common.enabled") : t("common.disabled")}
 								</span>
 							</div>
 						</FormGroup>
@@ -240,8 +240,8 @@ const MemorySettings: React.FC = () => {
 						>
 							<FormInput
 								type="number"
-								value={emConfig.decay.lambda_base}
-								onChange={(v) => updateConfigPath("em_llm.decay.lambda_base", v)}
+								value={episodicConfig.decay.lambda_base}
+								onChange={(v) => updateConfigPath("episodic_memory.decay.lambda_base", v)}
 								min={0.000001}
 								max={5}
 								step={0.01}
@@ -258,8 +258,8 @@ const MemorySettings: React.FC = () => {
 						>
 							<FormInput
 								type="number"
-								value={emConfig.decay.promote_threshold}
-								onChange={(v) => updateConfigPath("em_llm.decay.promote_threshold", v)}
+								value={episodicConfig.decay.promote_threshold}
+								onChange={(v) => updateConfigPath("episodic_memory.decay.promote_threshold", v)}
 								min={0}
 								max={1}
 								step={0.01}
@@ -276,8 +276,8 @@ const MemorySettings: React.FC = () => {
 						>
 							<FormInput
 								type="number"
-								value={emConfig.decay.demote_threshold}
-								onChange={(v) => updateConfigPath("em_llm.decay.demote_threshold", v)}
+								value={episodicConfig.decay.demote_threshold}
+								onChange={(v) => updateConfigPath("episodic_memory.decay.demote_threshold", v)}
 								min={0}
 								max={1}
 								step={0.01}
@@ -294,8 +294,8 @@ const MemorySettings: React.FC = () => {
 						>
 							<FormInput
 								type="number"
-								value={emConfig.decay.prune_threshold}
-								onChange={(v) => updateConfigPath("em_llm.decay.prune_threshold", v)}
+								value={episodicConfig.decay.prune_threshold}
+								onChange={(v) => updateConfigPath("episodic_memory.decay.prune_threshold", v)}
 								min={0}
 								max={1}
 								step={0.01}

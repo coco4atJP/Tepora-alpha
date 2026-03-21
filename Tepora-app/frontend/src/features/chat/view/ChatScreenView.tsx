@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { ChatScreenViewProps } from "./props";
 import { ChatMessageList } from "./ChatMessageList";
 import { CommandArea } from "./CommandArea";
-import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
+import { QuickCharacterSwitcher } from "./QuickCharacterSwitcher";
 
 export const ChatScreenView: React.FC<
 	ChatScreenViewProps & {
@@ -66,7 +66,7 @@ export const ChatScreenView: React.FC<
 				</button>
 
 				<div className="pointer-events-auto flex items-center gap-3">
-					<QuickPersonaSwitcher />
+					<QuickCharacterSwitcher />
 					<button
 						type="button"
 						onClick={onOpenRightSidebar}
