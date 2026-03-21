@@ -46,6 +46,7 @@ export function useAgentPanelModel(): AgentPanelViewProps {
 	const thinkingBudget = useWorkspaceStore((state) => state.thinkingBudget);
 	const connection = useWorkspaceStore((state) => state.connection);
 	const activity = useWorkspaceStore((state) => state.activity);
+	const searchResults = useWorkspaceStore((state) => state.searchResults);
 	const statusMessage = useWorkspaceStore((state) => state.statusMessage);
 	const toolConfirmation = useWorkspaceStore(
 		(state) => state.pendingToolConfirmation,
@@ -124,6 +125,20 @@ export function useAgentPanelModel(): AgentPanelViewProps {
 						]
 							.filter(Boolean)
 							.join("\n"),
+					},
+					{
+						id: "search-results",
+						title: t("v2.agent.webResults", "Web Results"),
+						body:
+							searchResults.length > 0
+								? searchResults
+										.slice(0, 8)
+										.map(
+											(result, index) =>
+												`${index + 1}. ${result.title}\n${result.url}\n${result.snippet}`,
+										)
+										.join("\n\n")
+								: t("v2.agent.noSearchResults", "No search results captured yet."),
 					},
 				],
 			};

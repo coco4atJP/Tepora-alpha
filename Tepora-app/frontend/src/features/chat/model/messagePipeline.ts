@@ -20,6 +20,11 @@ export interface ChatPipelineState {
 	pendingToolConfirmation: ChatToolConfirmationViewModel | null;
 	statusMessage: string | null;
 	activity: ChatActivityItemViewModel[];
+	searchResults: Array<{
+		title: string;
+		url: string;
+		snippet: string;
+	}>;
 	streams: Record<string, ChatStreamState>;
 	seenEventIds: Record<string, true>;
 }
@@ -53,6 +58,7 @@ export function createInitialChatPipelineState(): ChatPipelineState {
 		pendingToolConfirmation: null,
 		statusMessage: null,
 		activity: [],
+		searchResults: [],
 		streams: {},
 		seenEventIds: {},
 	};
@@ -204,6 +210,13 @@ function applyMessageImmediately(
 		return {
 			...state,
 			activity: [...filtered, nextItem].slice(-12),
+		};
+	}
+
+	if (message.type === "search_results") {
+		return {
+			...state,
+			searchResults: message.data,
 		};
 	}
 
@@ -436,4 +449,3 @@ export function chatPipelineReducer(
 			return state;
 	}
 }
-

@@ -86,7 +86,7 @@ fn embedding_rerank_enabled(config: &Value) -> bool {
         .get("search")
         .and_then(|v| v.get("embedding_rerank"))
         .and_then(|v| v.as_bool())
-        .unwrap_or(true)
+        .unwrap_or(false)
 }
 
 fn rag_embedding_timeout_ms(config: &Value) -> u64 {

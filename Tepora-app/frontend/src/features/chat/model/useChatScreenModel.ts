@@ -192,12 +192,14 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 	useEffect(() => {
 		setPanelState({
 			activity: pipelineState.activity,
+			searchResults: pipelineState.searchResults,
 			statusMessage: pipelineState.statusMessage,
 			pendingToolConfirmation: pipelineState.pendingToolConfirmation,
 		});
 	}, [
 		pipelineState.activity,
 		pipelineState.pendingToolConfirmation,
+		pipelineState.searchResults,
 		pipelineState.statusMessage,
 		setPanelState,
 	]);

@@ -27,6 +27,11 @@ interface WorkspaceState {
 	connection: V2TransportConnectionSnapshot;
 	statusMessage: string | null;
 	activity: WorkspaceActivityItem[];
+	searchResults: Array<{
+		title: string;
+		url: string;
+		snippet: string;
+	}>;
 	pendingToolConfirmation: WorkspaceToolConfirmation | null;
 }
 
@@ -39,6 +44,11 @@ interface WorkspaceActions {
 	setPanelState: (patch: {
 		statusMessage: string | null;
 		activity: WorkspaceActivityItem[];
+		searchResults: Array<{
+			title: string;
+			url: string;
+			snippet: string;
+		}>;
 		pendingToolConfirmation: WorkspaceToolConfirmation | null;
 	}) => void;
 	clearToolConfirmation: () => void;
@@ -69,6 +79,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>(
 		connection: idleConnection,
 		statusMessage: null,
 		activity: [],
+		searchResults: [],
 		pendingToolConfirmation: null,
 		setSelectedSessionId: (selectedSessionId) => {
 			set({ selectedSessionId });

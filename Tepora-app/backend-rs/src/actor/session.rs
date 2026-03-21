@@ -155,6 +155,8 @@ impl SessionActor {
     ) {
         let mode = match mode_str.as_str() {
             "chat" => Mode::Chat,
+            "search" => Mode::Search,
+            "search_agentic" => Mode::SearchAgentic,
             "agent" => Mode::Agent,
             _ => Mode::Chat,
         };
