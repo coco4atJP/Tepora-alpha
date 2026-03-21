@@ -33,47 +33,47 @@
 }
 
 [data-theme="dark"] {
-  /* Theme: Dark (Roastery) */
-  --color-bg: #181512;
-  --color-surface: #241F1A;
-  --color-primary: #DA9B64;
-  --color-secondary: #453A31;
-  --color-text-main: #E8E2DA;
-  --color-text-muted: #9E8E81;
-  --color-border: #332C25;
+  /* Theme: Dark (Standard with Warmth, Stone-950) */
+  --color-bg: #0c0a09;
+  --color-surface: #1c1917;
+  --color-primary: #d6d3d1;
+  --color-secondary: #a8a29e;
+  --color-text-main: #fafaf9;
+  --color-text-muted: #a8a29e;
+  --color-border: #292524;
 
   /* Accent & Special Colors */
   --color-gold: #fcd34d;
-  --color-gold-muted: rgba(252, 211, 77, 0.3);
+  --color-gold-muted: rgba(252, 211, 77, 0.15);
   --color-tea: #bd4b26;
 
   /* Effects */
-  --bg-gradient: radial-gradient(circle at 50% 100%, #241F1A 0%, #181512 100%);
-  --glass-bg: rgba(26, 17, 14, 0.75);
-  --glass-border: rgba(255, 230, 200, 0.1);
-  --glass-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --bg-gradient: radial-gradient(circle at 50% 100%, #1c1917 0%, #0c0a09 100%);
+  --glass-bg: rgba(28, 25, 23, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 [data-theme="tepora"] {
-  /* Theme: Tepora (Earl Grey) */
-  --color-bg: #F9F6F0;
-  --color-surface: #FFFFFF;
-  --color-primary: #5C3A21;
-  --color-secondary: #B85A1C;
-  --color-text-main: #2C1E16;
-  --color-text-muted: #8C7A6B;
-  --color-border: #E8E2DB;
+  /* Theme: Tepora (Legacy Cafe & Retro-Futurism) */
+  --color-bg: #120c0a;
+  --color-surface: #1a110e;
+  --color-primary: #db7225;
+  --color-secondary: #b85a1c;
+  --color-text-main: #fdfaf6;
+  --color-text-muted: #e2d1c1;
+  --color-border: #38241a;
 
   /* Accent & Special Colors */
-  --color-gold: #aa9555;
-  --color-gold-muted: rgba(170, 149, 85, 0.3);
-  --color-tea: #bd4b26;
+  --color-gold: #fcd34d;
+  --color-gold-muted: rgba(252, 211, 77, 0.15);
+  --color-tea: #db7225;
 
   /* Effects */
-  --bg-gradient: radial-gradient(circle at 50% 100%, #FFFFFF 0%, #F9F6F0 100%);
-  --glass-bg: rgba(249, 246, 240, 0.85);
-  --glass-border: rgba(92, 58, 33, 0.1);
-  --glass-shadow: 0 20px 50px rgba(44,30,22,0.1), 0 0 0 1px rgba(92, 58, 33, 0.05);
+  --bg-gradient: radial-gradient(circle at 50% 100%, #1a110e 0%, #120c0a 100%);
+  --glass-bg: rgba(26, 17, 14, 0.85);
+  --glass-border: rgba(255, 230, 200, 0.08);
+  --glass-shadow: 0 20px 50px rgba(10,5,0,0.8), 0 0 0 1px rgba(255, 230, 180, 0.05);
 }
 
 /* Base Body Styles for v2 */

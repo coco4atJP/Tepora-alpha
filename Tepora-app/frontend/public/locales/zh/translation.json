@@ -1331,7 +1331,37 @@
 				"tepora": "Tepora",
 				"light": "浅色",
 				"dark": "深色"
-			}
+			},
+			"agentSkills": "代理技能",
+			"skillRoots": "技能根路径",
+			"skillRootsDescription": "存储在后端配置中的逗号分隔的技能根路径",
+			"mcp": "MCP",
+			"mcpConfigPath": "MCP配置路径",
+			"mcpConfigPathDescription": "后端使用的MCP配置文件的路径",
+			"credentials": "凭证",
+			"credentialsDescription": "凭证在每个提供商选项卡上内联编辑，并通过后端安全存储保存。",
+			"webSearch": "网络搜索",
+			"provider": "提供商",
+			"googleApiKey": "Google API密钥",
+			"googleApiKeyDescription": "保存时通过后端服务器安全存储",
+			"googleApiKeyPlaceholder": "Google自定义搜索API密钥",
+			"googleEngineId": "Google搜索引擎ID",
+			"googleEngineIdPlaceholder": "自定义搜索引擎ID",
+			"braveApiKey": "Brave API密钥",
+			"braveApiKeyPlaceholder": "Brave搜索API密钥",
+			"bingApiKey": "Bing API密钥",
+			"bingApiKeyPlaceholder": "Bing搜索API密钥",
+			"performance": "性能",
+			"processTimeout": "进程超时",
+			"processTimeoutDescription": "强制关闭外部加载器前等待的毫秒数",
+			"updates": "更新",
+			"autoUpdate": "自动更新",
+			"autoUpdateDescription": "允许Tepora检查应用程序和运行时的更新。",
+			"integration": "集成",
+			"startOnLogin": "登录时启动",
+			"startOnLoginDescription": "在桌面会话开始时自动启动Tepora。",
+			"ollamaBaseUrl": "Ollama 基本URL",
+			"lmStudioBaseUrl": "LM Studio 基本URL"
 		}
 	}
 }

@@ -1331,7 +1331,37 @@
 				"tepora": "Tepora",
 				"light": "Claro",
 				"dark": "Oscuro"
-			}
+			},
+			"agentSkills": "Habilidades de agente",
+			"skillRoots": "Rutas de habilidades",
+			"skillRootsDescription": "Rutas de habilidades separadas por comas almacenadas en la configuración del servidor",
+			"mcp": "MCP",
+			"mcpConfigPath": "Ruta de configuración MCP",
+			"mcpConfigPathDescription": "Ruta al archivo de configuración MCP utilizado por el servidor",
+			"credentials": "Credenciales",
+			"credentialsDescription": "Las credenciales se editan en cada pestaña de proveedor y se guardan a través del almacén seguro del servidor.",
+			"webSearch": "Búsqueda web",
+			"provider": "Proveedor",
+			"googleApiKey": "Clave API de Google",
+			"googleApiKeyDescription": "Almacenado mediante el manejo de secretos del servidor cuando se guarda",
+			"googleApiKeyPlaceholder": "Clave API de Google Custom Search",
+			"googleEngineId": "ID del motor de Google",
+			"googleEngineIdPlaceholder": "ID de motor de búsqueda personalizado",
+			"braveApiKey": "Clave API de Brave",
+			"braveApiKeyPlaceholder": "Clave API de Brave Search",
+			"bingApiKey": "Clave API de Bing",
+			"bingApiKeyPlaceholder": "Clave API de Bing Search",
+			"performance": "Rendimiento",
+			"processTimeout": "Tiempo de espera del proceso",
+			"processTimeoutDescription": "Milisegundos para esperar antes de forzar el cierre del cargador externo",
+			"updates": "Actualizaciones",
+			"autoUpdate": "Actualización automática",
+			"autoUpdateDescription": "Permitir que Tepora busque actualizaciones de la aplicación y del tiempo de ejecución.",
+			"integration": "Integración",
+			"startOnLogin": "Iniciar al iniciar sesión",
+			"startOnLoginDescription": "Inicia Tepora automáticamente cuando comienza la sesión de escritorio.",
+			"ollamaBaseUrl": "URL base de Ollama",
+			"lmStudioBaseUrl": "URL base de LM Studio"
 		}
 	}
 }

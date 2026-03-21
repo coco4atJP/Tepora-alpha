@@ -117,7 +117,7 @@ export const ModelsSettings: React.FC<ModelsSettingsProps> = ({
 		if (activeTab === "Loader") {
 			return (
 				<SettingsSectionGroup title={t("v2.settings.loader", "Loader")}>
-					<SettingsRow label="Ollama Base URL">
+					<SettingsRow label={t("v2.settings.ollamaBaseUrl", "Ollama Base URL")}>
 						<div className="w-full max-w-xl">
 							<TextField
 								value={editor.readString("loaders.ollama.base_url", "http://localhost:11434")}
@@ -128,7 +128,7 @@ export const ModelsSettings: React.FC<ModelsSettingsProps> = ({
 							/>
 						</div>
 					</SettingsRow>
-					<SettingsRow label="LM Studio Base URL">
+					<SettingsRow label={t("v2.settings.lmStudioBaseUrl", "LM Studio Base URL")}>
 						<div className="w-full max-w-xl">
 							<TextField
 								value={editor.readString("loaders.lmstudio.base_url", "http://localhost:1234")}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { SelectionDot } from "../../../../shared/ui/SelectionDot";
 import { SettingsRow } from "../../../../shared/ui/SettingsRow";
 import { SettingsSectionGroup } from "../../../../shared/ui/SettingsSectionGroup";
@@ -30,6 +31,7 @@ interface ToolsSettingsProps {
 export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 	activeTab = "Web Search",
 }) => {
+	const { t } = useTranslation();
 	const editor = useSettingsEditor();
 	const provider = editor.readString("tools.search_provider", "duckduckgo");
 	const rootsValue = editor.draft
@@ -49,10 +51,10 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 	if (activeTab === "Agent Skills") {
 		return (
 			<div className="flex flex-col">
-				<SettingsSectionGroup title="Agent Skills">
+				<SettingsSectionGroup title={t("v2.settings.agentSkills", "Agent Skills")}>
 					<SettingsRow
-						label="Skill Roots"
-						description="Comma-separated skill root paths stored in backend config"
+						label={t("v2.settings.skillRoots", "Skill Roots")}
+						description={t("v2.settings.skillRootsDescription", "Comma-separated skill root paths stored in backend config")}
 					>
 						<div className="w-full max-w-2xl">
 							<TextField
@@ -63,7 +65,7 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 										parseRootPaths(event.target.value),
 									)
 								}
-								placeholder="/path/to/skills, /another/path"
+								placeholder={t("v2.settings.skillRootsPlaceholder", "/path/to/skills, /another/path")}
 							/>
 						</div>
 					</SettingsRow>
@@ -75,10 +77,10 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 	if (activeTab === "MCP") {
 		return (
 			<div className="flex flex-col">
-				<SettingsSectionGroup title="MCP">
+				<SettingsSectionGroup title={t("v2.settings.mcp", "MCP")}>
 					<SettingsRow
-						label="MCP Config Path"
-						description="Path to the MCP configuration file used by the backend"
+						label={t("v2.settings.mcpConfigPath", "MCP Config Path")}
+						description={t("v2.settings.mcpConfigPathDescription", "Path to the MCP configuration file used by the backend")}
 					>
 						<div className="w-full max-w-2xl">
 							<TextField
@@ -86,7 +88,7 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 								onChange={(event) =>
 									editor.updateField("app.mcp_config_path", event.target.value)
 								}
-								placeholder="/absolute/path/to/mcp_tools_config.json"
+								placeholder={t("v2.settings.mcpConfigPathPlaceholder", "/absolute/path/to/mcp_tools_config.json")}
 							/>
 						</div>
 					</SettingsRow>
@@ -98,9 +100,9 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 	if (activeTab === "Credentials") {
 		return (
 			<div className="flex flex-col">
-				<SettingsSectionGroup title="Credentials">
+				<SettingsSectionGroup title={t("v2.settings.credentials", "Credentials")}>
 					<div className="rounded-[24px] border border-primary/10 bg-white/55 px-6 py-5 text-sm leading-7 text-text-muted">
-						Credentials are edited inline on each provider tab and saved through the backend secret store.
+						{t("v2.settings.credentialsDescription", "Credentials are edited inline on each provider tab and saved through the backend secret store.")}
 					</div>
 				</SettingsSectionGroup>
 			</div>
@@ -109,8 +111,8 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 
 	return (
 		<div className="flex flex-col">
-			<SettingsSectionGroup title="Web Search">
-				<SettingsRow label="Provider">
+			<SettingsSectionGroup title={t("v2.settings.webSearch", "Web Search")}>
+				<SettingsRow label={t("v2.settings.provider", "Provider")}>
 					{PROVIDER_OPTIONS.map((option) => (
 						<SelectionDot
 							key={option.value}
@@ -123,8 +125,8 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 				{provider === "google" ? (
 					<>
 						<SettingsRow
-							label="Google API Key"
-							description="Stored via backend secrets handling when saved"
+							label={t("v2.settings.googleApiKey", "Google API Key")}
+							description={t("v2.settings.googleApiKeyDescription", "Stored via backend secrets handling when saved")}
 						>
 							<div className="w-full max-w-xl">
 								<TextField
@@ -135,11 +137,11 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 											event.target.value,
 										)
 									}
-									placeholder="Google Custom Search API key"
+									placeholder={t("v2.settings.googleApiKeyPlaceholder", "Google Custom Search API key")}
 								/>
 							</div>
 						</SettingsRow>
-						<SettingsRow label="Google Engine ID">
+						<SettingsRow label={t("v2.settings.googleEngineId", "Google Engine ID")}>
 							<div className="w-full max-w-xl">
 								<TextField
 									value={editor.readString("tools.google_search_engine_id", "")}
@@ -149,14 +151,14 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 											event.target.value,
 										)
 									}
-									placeholder="Custom Search Engine ID"
+									placeholder={t("v2.settings.googleEngineIdPlaceholder", "Custom Search Engine ID")}
 								/>
 							</div>
 						</SettingsRow>
 					</>
 				) : null}
 				{provider === "brave" ? (
-					<SettingsRow label="Brave API Key">
+					<SettingsRow label={t("v2.settings.braveApiKey", "Brave API Key")}>
 						<div className="w-full max-w-xl">
 							<TextField
 								value={editor.readString("tools.brave_search_api_key", "")}
@@ -166,13 +168,13 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 										event.target.value,
 									)
 								}
-								placeholder="Brave Search API key"
+								placeholder={t("v2.settings.braveApiKeyPlaceholder", "Brave Search API key")}
 							/>
 						</div>
 					</SettingsRow>
 				) : null}
 				{provider === "bing" ? (
-					<SettingsRow label="Bing API Key">
+					<SettingsRow label={t("v2.settings.bingApiKey", "Bing API Key")}>
 						<div className="w-full max-w-xl">
 							<TextField
 								value={editor.readString("tools.bing_search_api_key", "")}
@@ -182,7 +184,7 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 										event.target.value,
 									)
 								}
-								placeholder="Bing Search API key"
+								placeholder={t("v2.settings.bingApiKeyPlaceholder", "Bing Search API key")}
 							/>
 						</div>
 					</SettingsRow>

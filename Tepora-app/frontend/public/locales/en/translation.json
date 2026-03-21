@@ -1382,7 +1382,37 @@
 				"tepora": "Tepora",
 				"light": "Light",
 				"dark": "Dark"
-			}
+			},
+			"agentSkills": "Agent Skills",
+			"skillRoots": "Skill Roots",
+			"skillRootsDescription": "Comma-separated skill root paths stored in backend config",
+			"mcp": "MCP",
+			"mcpConfigPath": "MCP Config Path",
+			"mcpConfigPathDescription": "Path to the MCP configuration file used by the backend",
+			"credentials": "Credentials",
+			"credentialsDescription": "Credentials are edited inline on each provider tab and saved through the backend secret store.",
+			"webSearch": "Web Search",
+			"provider": "Provider",
+			"googleApiKey": "Google API Key",
+			"googleApiKeyDescription": "Stored via backend secrets handling when saved",
+			"googleApiKeyPlaceholder": "Google Custom Search API key",
+			"googleEngineId": "Google Engine ID",
+			"googleEngineIdPlaceholder": "Custom Search Engine ID",
+			"braveApiKey": "Brave API Key",
+			"braveApiKeyPlaceholder": "Brave Search API key",
+			"bingApiKey": "Bing API Key",
+			"bingApiKeyPlaceholder": "Bing Search API key",
+			"performance": "Performance",
+			"processTimeout": "Process Timeout",
+			"processTimeoutDescription": "Milliseconds to wait before forcing external loader shutdown",
+			"updates": "Updates",
+			"autoUpdate": "Auto Update",
+			"autoUpdateDescription": "Allow Tepora to check for app and runtime updates.",
+			"integration": "Integration",
+			"startOnLogin": "Start on Login",
+			"startOnLoginDescription": "Launch Tepora automatically when the desktop session starts.",
+			"ollamaBaseUrl": "Ollama Base URL",
+			"lmStudioBaseUrl": "LM Studio Base URL"
 		}
 	}
 }

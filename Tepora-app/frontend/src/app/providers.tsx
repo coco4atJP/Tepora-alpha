@@ -67,12 +67,8 @@ function resolveTheme(theme: string | undefined) {
 		return theme;
 	}
 
-	if (
-		theme === "system" &&
-		typeof window !== "undefined" &&
-		window.matchMedia("(prefers-color-scheme: dark)").matches
-	) {
-		return "dark";
+	if (theme === "system" && typeof window !== "undefined") {
+		return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 	}
 
 	return "tepora";

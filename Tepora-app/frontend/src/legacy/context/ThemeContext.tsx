@@ -25,9 +25,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 		const updateActiveTheme = () => {
 			if (theme === "system") {
 				const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-				// If system is dark, we default to Tepora as the "Dark" experience for this app unless specified otherwise
-				// But the plan said "Dark" -> Tepora. Let's stick to that.
-				setActiveTheme(isDark ? "tepora" : "light");
+				setActiveTheme(isDark ? "dark" : "light");
 			} else {
 				setActiveTheme(theme);
 			}

@@ -113,43 +113,43 @@
 }
 
 [data-theme="dark"] {
-	/* NEUTRAL DARK THEME (Slightly warmer off-black) */
-	--bg-app: #121214;
-	--bg-panel: rgba(24, 24, 28, 0.85);
-	--bg-overlay: rgba(15, 15, 18, 0.8);
+	/* NEUTRAL DARK THEME (Standard Dark with warmth) */
+	--bg-app: #0c0a09;
+	--bg-panel: rgba(28, 25, 23, 0.85);
+	--bg-overlay: rgba(12, 10, 9, 0.8);
 
-	--text-primary: #f8fafc;
-	--text-secondary: #cbd5e1;
-	--text-accent: #60a5fa;
+	--text-primary: #fafaf9;
+	--text-secondary: #a8a29e;
+	--text-accent: #fcd34d;
 
-	--border-subtle: rgba(255, 255, 255, 0.08);
-	--border-highlight: rgba(255, 255, 255, 0.15);
+	--border-subtle: rgba(255, 255, 255, 0.06);
+	--border-highlight: rgba(255, 255, 255, 0.12);
 
 	--radius-base: 1.25rem;
 	--radius-sm: 0.75rem;
 
 	/* Glassmorphism Variables - Neutral Dark */
-	--glass-bg: rgba(24, 24, 28, 0.7);
-	--glass-border-color: rgba(255, 255, 255, 0.08);
-	--glass-highlight: rgba(255, 255, 255, 0.05);
+	--glass-bg: rgba(28, 25, 23, 0.75);
+	--glass-border-color: rgba(255, 255, 255, 0.06);
+	--glass-highlight: rgba(255, 255, 255, 0.04);
 
 	--glass-gradient-base: linear-gradient(135deg,
-			rgba(35, 40, 50, 0.8),
-			rgba(20, 22, 28, 0.9));
+			rgba(41, 37, 36, 0.8),
+			rgba(28, 25, 23, 0.9));
 	--glass-gradient-tepora: linear-gradient(135deg,
-			rgba(40, 48, 65, 0.85),
-			rgba(55, 65, 85, 0.6),
-			rgba(70, 85, 110, 0.3));
+			rgba(41, 37, 36, 0.85),
+			rgba(28, 25, 23, 0.6),
+			rgba(12, 10, 9, 0.3));
 
 	--glass-shadow: 0 10px 32px -12px rgba(0, 0, 0, 0.46);
 	--glass-shadow-tepora: 0 10px 32px -12px rgba(0, 0, 0, 0.46);
 
-	--input-bg: rgba(24, 24, 28, 0.6);
-	--input-bg-focus: rgba(30, 30, 35, 0.9);
-	--input-border: rgba(255, 255, 255, 0.1);
+	--input-bg: rgba(28, 25, 23, 0.6);
+	--input-bg-focus: rgba(35, 30, 28, 0.9);
+	--input-border: rgba(255, 255, 255, 0.08);
 
 	--button-glass-bg: rgba(255, 255, 255, 0.05);
-	--button-glass-border: rgba(255, 255, 255, 0.1);
+	--button-glass-border: rgba(255, 255, 255, 0.08);
 
 	color-scheme: dark;
 }
