@@ -191,6 +191,7 @@ async fn chat_command(
         message: message_text.clone(),
         mode: data.mode.unwrap_or_else(|| "chat".to_string()),
         attachments: data.attachments.clone(),
+        search_mode: data.search_mode.clone(),
         thinking_budget: std::cmp::min(data.thinking_budget.unwrap_or(0), 3),
         agent_id: data.agent_id.clone(),
         agent_mode: data.agent_mode.clone(),

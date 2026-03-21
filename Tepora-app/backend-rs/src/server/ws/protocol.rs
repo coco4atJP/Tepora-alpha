@@ -33,3 +33,24 @@ pub struct WsIncomingMessage {
     pub approval: ToolApprovalResponsePayload,
     pub timeout: Option<u64>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::WsIncomingMessage;
+
+    #[test]
+    fn deserializes_search_mode_payload() {
+        let payload = r#"{
+            "message": "compare these documents",
+            "mode": "search",
+            "searchMode": "deep",
+            "thinkingBudget": 2
+        }"#;
+
+        let message: WsIncomingMessage = serde_json::from_str(payload).unwrap();
+
+        assert_eq!(message.mode.as_deref(), Some("search"));
+        assert_eq!(message.search_mode.as_deref(), Some("deep"));
+        assert_eq!(message.thinking_budget, Some(2));
+    }
+}
