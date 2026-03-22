@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { V2Config } from "../../../shared/contracts";
 import {
 	useSaveV2ConfigMutation,
 	useV2ConfigQuery,
@@ -35,6 +36,7 @@ export const QuickCharacterSwitcher: React.FC = () => {
 			: characters[0]?.id;
 	const activeCharacter =
 		characters.find((character) => character.id === activeProfileId) ?? characters[0] ?? null;
+	type CharacterConfigPatch = Pick<V2Config, "active_character">;
 
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
@@ -99,7 +101,7 @@ export const QuickCharacterSwitcher: React.FC = () => {
 										if (!selected) {
 											saveConfig({
 												active_character: character.id,
-											} as any);
+											} satisfies CharacterConfigPatch);
 										}
 										setIsOpen(false);
 									}}

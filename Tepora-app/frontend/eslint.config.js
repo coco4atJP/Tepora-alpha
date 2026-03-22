@@ -10,7 +10,7 @@ const FEATURE_BOUNDARY_EXCEPTIONS = [
 	"src/features/navigation/Layout.tsx",
 	"src/features/chat/model/useChatScreenModel.ts",
 	"src/features/chat/view/ChatMessageList.tsx",
-	"src/features/chat/view/QuickPersonaSwitcher.tsx",
+	"src/features/chat/view/QuickCharacterSwitcher.tsx",
 ];
 const REFRESH_EXPORT_EXCEPTIONS = [
 	"src/app/router.tsx",
