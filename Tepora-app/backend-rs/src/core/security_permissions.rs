@@ -4,10 +4,11 @@ use serde_json::{Map, Value};
 
 use crate::core::errors::ApiError;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Deny,
+    #[default]
     Once,
     AlwaysUntilExpiry,
 }
@@ -15,12 +16,6 @@ pub enum ApprovalDecision {
 impl ApprovalDecision {
     pub fn is_allowed(self) -> bool {
         matches!(self, Self::Once | Self::AlwaysUntilExpiry)
-    }
-}
-
-impl Default for ApprovalDecision {
-    fn default() -> Self {
-        Self::Once
     }
 }
 
@@ -47,19 +42,14 @@ impl PermissionScopeKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PermissionRiskLevel {
     Low,
+    #[default]
     Medium,
     High,
     Critical,
-}
-
-impl Default for PermissionRiskLevel {
-    fn default() -> Self {
-        Self::Medium
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

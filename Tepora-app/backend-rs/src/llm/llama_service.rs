@@ -234,8 +234,10 @@ impl LlamaService {
         let started = tokio::time::Instant::now();
 
         while started.elapsed() < total_timeout {
-            if self.client.get(&url).send().await.is_ok() {
-                return Ok(());
+            if let Ok(response) = self.client.get(&url).send().await {
+                if response.status().is_success() {
+                    return Ok(());
+                }
             }
             tokio::time::sleep(interval).await;
         }

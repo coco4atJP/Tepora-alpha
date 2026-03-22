@@ -82,9 +82,7 @@ pub fn build_backup_config(config: &Value, request: &BackupExportRequest) -> Opt
     if request.include_settings {
         return Some(config.clone());
     }
-    let Some(root) = config.as_object() else {
-        return None;
-    };
+    let root = config.as_object()?;
     let mut partial = Map::new();
     if request.include_characters {
         if let Some(value) = root.get("characters") {

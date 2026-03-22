@@ -257,6 +257,8 @@ mod tests {
 
     #[test]
     fn test_worker_error_traits() {
+        let _ = FailWorker;
+
         let retryable = WorkerError::retryable("w1", "transient");
         assert!(retryable.is_retryable());
         assert!(!retryable.is_skip());

@@ -207,7 +207,7 @@ impl AgentState {
             agent_outcome: None,
             thinking_budget,
             thought_process: None,
-            search_mode: SearchMode::from_str(search_mode),
+            search_mode: SearchMode::from_option(search_mode),
             search_queries: Vec::new(),
             search_results: None,
             search_evidence: SearchEvidenceState::default(),

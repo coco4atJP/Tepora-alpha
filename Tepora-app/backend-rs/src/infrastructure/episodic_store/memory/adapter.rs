@@ -22,9 +22,9 @@ use super::types::{
     DecayConfig, MemoryEdge, MemoryEdgeType, MemoryEvent, MemoryLayer, MemoryScope, SourceRole,
 };
 
+#[allow(clippy::too_many_arguments)]
 #[async_trait::async_trait]
 pub trait MemoryAdapter: Send + Sync {
-    #[allow(clippy::too_many_arguments)]
     async fn ingest_interaction(
         &self,
         session_id: &str,
