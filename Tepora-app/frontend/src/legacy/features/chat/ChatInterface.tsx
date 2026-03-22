@@ -9,7 +9,7 @@ import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useSessions } from "../../hooks/useSessions";
 import { socketCommands, useChatStore, useToolConfirmationStore } from "../../stores";
-import type { Attachment, ChatMode } from "../../types";
+import type { Attachment, ChatMode } from "../../../types";
 import AgentMetricsPanel from "./AgentMetricsPanel";
 import { EmptyState } from "./components/EmptyState";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
@@ -196,3 +196,4 @@ const ChatInterface: React.FC = () => {
 };
 
 export default ChatInterface;
+

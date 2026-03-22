@@ -2,7 +2,7 @@ import { Activity, Cpu, Database, MessageSquare } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSystemStatus } from "../../hooks/useSystemStatus";
-import type { MemoryStats } from "../../types";
+import type { MemoryStats } from "../../../types";
 import { useChatStore } from "../../stores/chatStore";
 
 interface SystemStatusPanelProps {
@@ -154,3 +154,4 @@ const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({ isConnected, memo
 };
 
 export default SystemStatusPanel;
+

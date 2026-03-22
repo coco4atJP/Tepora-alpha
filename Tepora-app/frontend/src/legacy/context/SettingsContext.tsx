@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useServerConfig } from "../hooks/useServerConfig";
-import type { AgentSkillsResponse } from "../types";
+import type { AgentSkillsResponse } from "../../types";
 import type {
 	AgentSkillPackage,
 	AgentSkillSaveRequest,
@@ -11,10 +11,10 @@ import type {
 	Config,
 	ModelConfig,
 	SkillRootInfo,
-} from "../types/settings";
-import { isDesktop } from "../utils/api";
-import { apiClient } from "../utils/api-client";
-import { configureLogger } from "../utils/logger";
+} from "../../types/settings";
+import { isDesktop } from "../../utils/api";
+import { apiClient } from "../../utils/api-client";
+import { configureLogger } from "../../utils/logger";
 
 export interface SettingsStateValue {
 	config: Config | null;
@@ -516,4 +516,5 @@ export function useAgentSkills(): AgentSkillsValue {
 export function useAgentProfiles(): AgentProfilesValue {
 	return useRequiredContext(AgentProfilesContext, "useAgentProfiles");
 }
+
 

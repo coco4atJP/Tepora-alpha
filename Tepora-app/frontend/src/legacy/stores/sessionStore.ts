@@ -9,10 +9,10 @@
 
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
-import type { Session } from "../types";
+import type { Session } from "../../types";
 
 // Re-export Session type for convenience
-export type { Session } from "../types";
+export type { Session } from "../../types";
 
 // ============================================================================
 // Types
@@ -154,3 +154,4 @@ export const useSessionStore = create<SessionStore>()(
 		{ name: "session-store" },
 	),
 );
+

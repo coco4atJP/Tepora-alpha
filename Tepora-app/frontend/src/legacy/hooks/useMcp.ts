@@ -8,8 +8,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, apiClient } from "../utils/api-client";
-import { ENDPOINTS } from "../utils/endpoints";
+import { ApiError, apiClient } from "../../utils/api-client";
+import { ENDPOINTS } from "../../utils/endpoints";
 import { useAsync } from "./useAsync";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -492,3 +492,4 @@ export function useMcpPolicy() {
 		refresh: fetchPolicy,
 	};
 }
+

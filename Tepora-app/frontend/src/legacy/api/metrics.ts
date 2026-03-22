@@ -1,5 +1,5 @@
-import { apiClient } from "../utils/api-client";
-import { ENDPOINTS } from "../utils/endpoints";
+import { apiClient } from "../../utils/api-client";
+import { ENDPOINTS } from "../../utils/endpoints";
 
 export type AgentEventType =
 	| "node_started"
@@ -41,3 +41,4 @@ export const metricsApi = {
 	getRuntimeMetrics: () =>
 		apiClient.get<RuntimeMetricsSnapshot>(ENDPOINTS.METRICS.RUNTIME),
 };
+

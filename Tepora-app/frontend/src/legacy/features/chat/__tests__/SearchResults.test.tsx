@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "../../../test/test-utils";
 
-import type { SearchResult } from "../../../types";
+import type { SearchResult } from "../../../../types";
 import SearchResults from "../SearchResults";
 
 describe("SearchResults", () => {
@@ -107,3 +107,4 @@ describe("SearchResults", () => {
 		expect(link).toHaveAttribute("href", "#");
 	});
 });
+

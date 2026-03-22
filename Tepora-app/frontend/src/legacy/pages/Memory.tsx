@@ -2,8 +2,8 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { socketCommands, useChatStore, useSessionStore, useSocketConnectionStore } from "../stores";
-import { apiClient } from "../../utils/api-client";
-import { logger } from "../../utils/logger";
+import { apiClient } from "../../../utils/api-client";
+import { logger } from "../../../utils/logger";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -390,3 +390,4 @@ const Memory: React.FC = () => {
 };
 
 export default Memory;
+

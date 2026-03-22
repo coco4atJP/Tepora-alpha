@@ -7,21 +7,21 @@ import { useSessionStore } from "../../../stores/sessionStore";
 import { useSocketConnectionStore } from "../../../stores/socketConnectionStore";
 import { useToolConfirmationStore } from "../../../stores/toolConfirmationStore";
 
-vi.mock("../../../utils/sidecar", () => ({
+vi.mock("../../../../utils/sidecar", () => ({
 	isDesktop: () => false,
 	backendReady: Promise.resolve(),
 }));
 
-vi.mock("../../../utils/api", () => ({
+vi.mock("../../../../utils/api", () => ({
 	getWsBase: () => "ws://localhost:3001",
 }));
 
-vi.mock("../../../utils/sessionToken", () => ({
+vi.mock("../../../../utils/sessionToken", () => ({
 	getSessionToken: () => Promise.resolve("test-token"),
 	refreshSessionToken: () => Promise.resolve("new-token"),
 }));
 
-vi.mock("../../../utils/wsAuth", () => ({
+vi.mock("../../../../utils/wsAuth", () => ({
 	buildWebSocketProtocols: () => ["tepora-auth.test-token"],
 }));
 
@@ -110,3 +110,4 @@ describe("socketCommands", () => {
 		expect(useToolConfirmationStore.getState().pendingToolConfirmation?.requestId).toBe("req-1");
 	});
 });
+

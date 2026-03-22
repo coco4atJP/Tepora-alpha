@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
 import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
-import type { CredentialStatus } from "../../../../types";
-import { apiClient } from "../../../../utils/api-client";
-import { ENDPOINTS } from "../../../../utils/endpoints";
+import type { CredentialStatus } from "../../../../../types";
+import { apiClient } from "../../../../../utils/api-client";
+import { ENDPOINTS } from "../../../../../utils/endpoints";
 import { ThemeSelector } from "../components/ThemeSelector";
 import { FormGroup, FormInput, FormList, FormSelect, FormSwitch, SettingsSection } from "../SettingsComponents";
 
@@ -406,3 +406,4 @@ const GeneralSettings: React.FC = () => {
 };
 
 export default GeneralSettings;
+

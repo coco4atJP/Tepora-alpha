@@ -7,8 +7,8 @@ import { useSettingsConfigActions, useSettingsState } from "../context/SettingsC
 import { modelsApi } from "../api/models";
 import { ModelCard } from "../features/settings/components/ModelCard";
 import { loadersApi } from "../api/loaders";
-import type { ModelInfo } from "../types";
-import { logger } from "../utils/logger";
+import type { ModelInfo } from "../../types";
+import { logger } from "../../utils/logger";
 import { ModelDetailOverlay } from "../features/settings/components/subcomponents/ModelDetailOverlay";
 
 interface ModelHubProps {
@@ -238,3 +238,4 @@ const ModelHub: React.FC<ModelHubProps> = ({ isOpen, onClose }) => {
 };
 
 export default ModelHub;
+

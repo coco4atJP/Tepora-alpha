@@ -13,7 +13,7 @@ import "@testing-library/jest-dom";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useSessionStore } from "../../../stores/sessionStore";
-import type { Session } from "../../../types";
+import type { Session } from "../../../../types";
 
 // ============================================================================
 // Helpers
@@ -301,3 +301,4 @@ describe("sessionStore", () => {
         });
     });
 });
+

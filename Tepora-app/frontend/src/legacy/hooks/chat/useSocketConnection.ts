@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getWsBase } from "../../utils/api";
-import { getSessionToken, refreshSessionToken } from "../../utils/sessionToken";
-import { backendReady, isDesktop } from "../../utils/sidecar";
-import { buildWebSocketProtocols } from "../../utils/wsAuth";
-import { logger } from "../../utils/logger";
+import { getWsBase } from "../../../utils/api";
+import { getSessionToken, refreshSessionToken } from "../../../utils/sessionToken";
+import { backendReady, isDesktop } from "../../../utils/sidecar";
+import { buildWebSocketProtocols } from "../../../utils/wsAuth";
+import { logger } from "../../../utils/logger";
 
 /**
  * Build WebSocket URL.
@@ -190,3 +190,4 @@ export const useSocketConnection = ({
 		wsRef,
 	};
 };
+

@@ -5,12 +5,12 @@ import type {
 	ChatMode,
 	ToolConfirmationRequest,
 	ToolConfirmationResponse,
-} from "../types";
-import { getWsBase } from "../utils/api";
-import { logger } from "../utils/logger";
-import { getSessionToken, refreshSessionToken } from "../utils/sessionToken";
-import { backendReady, isDesktop } from "../utils/sidecar";
-import { buildWebSocketProtocols } from "../utils/wsAuth";
+} from "../../types";
+import { getWsBase } from "../../utils/api";
+import { logger } from "../../utils/logger";
+import { getSessionToken, refreshSessionToken } from "../../utils/sessionToken";
+import { backendReady, isDesktop } from "../../utils/sidecar";
+import { buildWebSocketProtocols } from "../../utils/wsAuth";
 import { chatActor } from "../machines/chatMachine";
 import { routeIncomingMessage } from "./messageRouter";
 import { useChatStore } from "./chatStore";
@@ -368,3 +368,4 @@ export const socketCommands = {
 		useToolConfirmationStore.getState().clearPendingToolConfirmation();
 	},
 };
+

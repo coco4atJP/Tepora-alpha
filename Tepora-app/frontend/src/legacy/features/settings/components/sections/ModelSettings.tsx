@@ -10,13 +10,13 @@ import {
 import { modelsApi, resolveEmbeddingModelPath } from "../../../../api/models";
 import type { ModelRoles } from "../../../../api/models";
 import { loadersApi } from "../../../../api/loaders";
-import { logger } from "../../../../utils/logger";
+import { logger } from "../../../../../utils/logger";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 import { AddModelForm } from "../subcomponents/AddModelForm";
 import { ModelSelectionRow } from "../subcomponents/ModelSelectionRow";
 import { ModelSelector } from "../subcomponents/ModelSelector";
 import ModelHub from "../../../../pages/ModelHub";
-import type { ModelInfo } from "../../../../types";
+import type { ModelInfo } from "../../../../../types";
 
 interface ModelConfig {
 	path: string;
@@ -637,6 +637,7 @@ const ModelSettings: React.FC = () => {
 };
 
 export default ModelSettings;
+
 
 
 

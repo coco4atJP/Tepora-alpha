@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "../../../test/test-utils";
 
-import type { Message } from "../../../types";
+import type { Message } from "../../../../types";
 import MessageList from "../MessageList";
 
 vi.mock("../../../stores", () => ({
@@ -69,3 +69,4 @@ describe("MessageList", () => {
 		expect(scrollIntoViewMock).toHaveBeenCalled();
 	});
 });
+

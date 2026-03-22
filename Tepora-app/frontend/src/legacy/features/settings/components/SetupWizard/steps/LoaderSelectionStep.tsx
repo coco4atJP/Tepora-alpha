@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { SetupLoader } from "../types";
+import type { SetupLoader } from "../../types";
 
 interface LoaderSelectionStepProps {
 	selectedLoader: SetupLoader;
@@ -149,3 +149,4 @@ export function LoaderSelectionStep({
 		</div>
 	);
 }
+

@@ -1,8 +1,8 @@
 import { ChevronRight, ExternalLink, FileText, Globe, Plus, Search, X } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import type { Attachment, SearchResult } from "../../types";
-import { sanitizeUrl } from "../../utils/sanitizeUrl";
+import type { Attachment, SearchResult } from "../../../types";
+import { sanitizeUrl } from "../../../utils/sanitizeUrl";
 
 interface RagContextPanelProps {
 	attachments: Attachment[];
@@ -212,3 +212,4 @@ const RagContextPanel: React.FC<RagContextPanelProps> = ({
 };
 
 export default RagContextPanel;
+

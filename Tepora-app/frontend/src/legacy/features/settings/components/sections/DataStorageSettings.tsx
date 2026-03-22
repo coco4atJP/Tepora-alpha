@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
 import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
-import type { BackupEnvelope, BackupExportPayload, BackupImportResult } from "../../../../types";
-import { apiClient } from "../../../../utils/api-client";
-import { ENDPOINTS } from "../../../../utils/endpoints";
+import type { BackupEnvelope, BackupExportPayload, BackupImportResult } from "../../../../../types";
+import { apiClient } from "../../../../../utils/api-client";
+import { ENDPOINTS } from "../../../../../utils/endpoints";
 import {
     FormGroup,
     FormInput,
@@ -320,3 +320,4 @@ const DataStorageSettings: React.FC = () => {
 };
 
 export default DataStorageSettings;
+

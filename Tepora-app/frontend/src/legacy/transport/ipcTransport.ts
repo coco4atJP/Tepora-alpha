@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { ToolConfirmationResponse } from '../types';
+import type { ToolConfirmationResponse } from '../../types';
 import { Transport } from './index';
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 
 export class IpcTransport implements Transport {
     private handlers: Set<(message: unknown) => void> = new Set();
@@ -47,3 +47,4 @@ export class IpcTransport implements Transport {
         });
     }
 }
+

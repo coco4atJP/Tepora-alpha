@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { ErrorStepProps } from "../types";
+import type { ErrorStepProps } from "../../types";
 
 export default function ErrorStep({ error, onRetry, onSkip }: ErrorStepProps) {
 	const { t } = useTranslation();
@@ -37,3 +37,4 @@ export default function ErrorStep({ error, onRetry, onSkip }: ErrorStepProps) {
 		</div>
 	);
 }
+

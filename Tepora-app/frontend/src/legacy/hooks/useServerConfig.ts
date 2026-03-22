@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Config as AppConfig } from "../types/settings";
+import type { Config as AppConfig } from "../../types/settings";
 import type { RequirementsStatus } from "../features/settings/components/SetupWizard/types";
-import { apiClient } from "../utils/api-client";
+import { apiClient } from "../../utils/api-client";
 
 export function useRequirements() {
 	return useQuery({
@@ -22,3 +22,4 @@ export function useServerConfig() {
 		staleTime: 60000, // Config unlikely to change often externally
 	});
 }
+

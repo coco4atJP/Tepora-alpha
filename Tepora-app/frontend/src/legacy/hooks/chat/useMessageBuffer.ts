@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { ChatMode, Message, WebSocketMessage } from "../../types";
+import type { ChatMode, Message, WebSocketMessage } from "../../../types";
 
 export const useMessageBuffer = (setMessages: React.Dispatch<React.SetStateAction<Message[]>>) => {
 	const chunkBufferRef = useRef<string>("");
@@ -209,3 +209,4 @@ export const useMessageBuffer = (setMessages: React.Dispatch<React.SetStateActio
 		flushAndClose,
 	};
 };
+

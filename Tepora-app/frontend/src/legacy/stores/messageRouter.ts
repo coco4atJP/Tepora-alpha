@@ -1,6 +1,6 @@
 import { chatActor } from "../machines/chatMachine";
-import type { ToolConfirmationRequest } from "../types";
-import { logger } from "../utils/logger";
+import type { ToolConfirmationRequest } from "../../types";
+import { logger } from "../../utils/logger";
 import { useChatStore } from "./chatStore";
 import { useSessionStore } from "./sessionStore";
 import { useToolConfirmationStore } from "./toolConfirmationStore";
@@ -146,3 +146,4 @@ export function routeIncomingMessage(rawData: string, deps: RouterDeps) {
 		useChatStore.getState().setError("Failed to parse server message");
 	}
 }
+

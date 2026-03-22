@@ -8,7 +8,7 @@ import {
 	useSettingsConfigActions,
 	useSettingsState,
 } from "../../../../context/SettingsContext";
-import type { AgentSkillPackage, AgentSkillSummary, SkillFileEntry, SkillRootConfig } from "../../../../types";
+import type { AgentSkillPackage, AgentSkillSummary, SkillFileEntry, SkillRootConfig } from "../../../../../types";
 import { FormGroup, FormInput, FormSwitch, SettingsSection } from "../SettingsComponents";
 
 interface AgentSkillsSettingsProps {
@@ -475,3 +475,4 @@ const AgentSkillsSettings: React.FC<AgentSkillsSettingsProps> = ({ agents }) => 
 };
 
 export default AgentSkillsSettings;
+

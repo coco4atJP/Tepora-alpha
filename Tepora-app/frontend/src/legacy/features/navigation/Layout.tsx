@@ -9,9 +9,9 @@ import DynamicBackground from "../../components/ui/DynamicBackground";
 import { useTheme } from "../../context/ThemeContext";
 import { useSettingsState } from "../../context/SettingsContext";
 import { useChatStore, useSocketConnectionStore } from "../../stores";
-import type { Attachment, ChatMode } from "../../types";
-import { logger } from "../../utils/logger";
-import { detectPii, isTextLikeFile } from "../../utils/piiDetection";
+import type { Attachment, ChatMode } from "../../../types";
+import { logger } from "../../../utils/logger";
+import { detectPii, isTextLikeFile } from "../../../utils/piiDetection";
 import AgentStatus from "../chat/AgentStatus";
 import DialControl from "../chat/DialControl";
 import RagContextPanel from "../chat/RagContextPanel";
@@ -449,3 +449,4 @@ const Layout: React.FC = () => {
 };
 
 export default Layout;
+

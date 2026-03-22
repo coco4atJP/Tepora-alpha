@@ -5,7 +5,7 @@ import type {
 	Message,
 	SearchResult,
 	ToolConfirmationRequest,
-} from "../../types";
+} from "../../../types";
 
 export const useChatState = () => {
 	const [messages, setMessages] = useState<Message[]>([]);
@@ -62,3 +62,4 @@ export const useChatState = () => {
 		isToolApproved,
 	};
 };
+

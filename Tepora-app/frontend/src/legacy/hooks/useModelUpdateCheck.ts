@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import { apiClient } from "../utils/api-client";
-import { logger } from "../utils/logger";
+import { apiClient } from "../../utils/api-client";
+import { logger } from "../../utils/logger";
 
 export interface UpdateCheckResult {
 	update_available: boolean;
@@ -55,3 +55,4 @@ export const useModelUpdateCheck = (): UseModelUpdateCheck => {
 		checkAllModels,
 	};
 };
+

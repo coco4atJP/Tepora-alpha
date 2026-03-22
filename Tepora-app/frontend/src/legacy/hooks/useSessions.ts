@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
-import type { Session } from "../types";
-import { apiClient } from "../utils/api-client";
-import { ENDPOINTS } from "../utils/endpoints";
-import { logger } from "../utils/logger";
+import type { Session } from "../../types";
+import { apiClient } from "../../utils/api-client";
+import { ENDPOINTS } from "../../utils/endpoints";
+import { logger } from "../../utils/logger";
 
 // Re-export Session type for backward compatibility
-export type { Session } from "../types";
+export type { Session } from "../../types";
 
 interface UseSessionsReturn {
 	sessions: Session[];
@@ -126,3 +126,4 @@ export const useSessions = (): UseSessionsReturn => {
 		renameSession,
 	};
 };
+

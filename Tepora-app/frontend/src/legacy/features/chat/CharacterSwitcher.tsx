@@ -7,8 +7,8 @@ import {
 	useSettingsConfigActions,
 	useSettingsState,
 } from "../../context/SettingsContext";
-import type { CharacterConfig } from "../../types";
-import { logger } from "../../utils/logger";
+import type { CharacterConfig } from "../../../types";
+import { logger } from "../../../utils/logger";
 import { CharacterEditOverlay, type CharacterEditState } from "../settings/components/subcomponents/CharacterEditOverlay";
 import type { AgentProfile } from "../settings/components/SettingsComponents";
 
@@ -348,3 +348,4 @@ const CharacterSwitcher: React.FC = () => {
 };
 
 export default CharacterSwitcher;
+

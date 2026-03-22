@@ -46,7 +46,7 @@ const InputArea: React.FC = () => {
 				skipWebSearch,
 				thinkingBudget,
 				selectedAgentId || undefined,
-				(selectedAgentMode as import("../../types").AgentMode) || undefined,
+				(selectedAgentMode as import("../../../types").AgentMode) || undefined,
 				config?.app.graph_execution_timeout,
 			);
 			chatActor.send({ type: "SEND_MESSAGE", payload: message });
@@ -230,3 +230,4 @@ const InputArea: React.FC = () => {
 };
 
 export default InputArea;
+

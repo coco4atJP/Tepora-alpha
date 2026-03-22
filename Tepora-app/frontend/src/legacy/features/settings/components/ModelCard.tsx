@@ -8,7 +8,7 @@ import {
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { FitText } from "../../../components/ui/FitText";
-import type { ModelInfo } from "../../../types";
+import type { ModelInfo } from "../../../../types";
 
 interface ModelCardProps {
     model: ModelInfo;
@@ -182,3 +182,4 @@ function MessageSquareIcon({ className }: { className?: string }) {
         </svg>
     )
 }
+

@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
 import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
-import type { CharacterConfig } from "../../../../types";
+import type { CharacterConfig } from "../../../../../types";
 import { type AgentProfile, SettingsSection } from "../SettingsComponents";
 import { CharacterEditOverlay, type CharacterEditState } from "../subcomponents/CharacterEditOverlay";
 
@@ -257,3 +257,4 @@ const NsfwToggle: React.FC = () => {
 };
 
 export default CharacterSettings;
+

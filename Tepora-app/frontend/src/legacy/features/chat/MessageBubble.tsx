@@ -6,8 +6,8 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
-import type { Message } from "../../types";
-import { logger } from "../../utils/logger";
+import type { Message } from "../../../types";
+import { logger } from "../../../utils/logger";
 
 interface MessageBubbleProps {
 	message: Message;
@@ -422,3 +422,4 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 };
 
 export default React.memo(MessageBubble);
+

@@ -5,9 +5,9 @@
  * このモジュールに集約する。
  */
 
-import { apiClient } from "../utils/api-client";
-import { ENDPOINTS } from "../utils/endpoints";
-import type { ModelInfo } from "../types";
+import { apiClient } from "../../utils/api-client";
+import { ENDPOINTS } from "../../utils/endpoints";
+import type { ModelInfo } from "../../types";
 
 // --- 型定義 ---
 
@@ -92,3 +92,4 @@ export function resolveEmbeddingModelPath(model: ModelInfo): string {
     if (model.filename) return `models/embedding/${model.filename}`;
     return "";
 }
+

@@ -15,7 +15,7 @@ import "@testing-library/jest-dom";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatStore } from "../../../stores/chatStore";
-import type { AgentActivity, Message, SearchResult } from "../../../types";
+import type { AgentActivity, Message, SearchResult } from "../../../../types";
 
 // ストアを各テスト前にリセットするヘルパー
 const resetStore = () => {
@@ -355,3 +355,4 @@ describe("chatStore", () => {
         });
     });
 });
+

@@ -2,7 +2,7 @@ import { Database, Wifi, WifiOff } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSystemStatus } from "../../hooks/useSystemStatus";
-import type { MemoryStats } from "../../types";
+import type { MemoryStats } from "../../../types";
 
 interface StatusBarProps {
 	isConnected: boolean;
@@ -53,3 +53,4 @@ const StatusBar: React.FC<StatusBarProps> = ({ isConnected, memoryStats }) => {
 };
 
 export default StatusBar;
+

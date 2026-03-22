@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "../../../test/test-utils";
 
-import type { Message } from "../../../types";
+import type { Message } from "../../../../types";
 import MessageBubble from "../MessageBubble";
 
 describe("MessageBubble", () => {
@@ -74,3 +74,4 @@ describe("MessageBubble", () => {
 		expect(container.textContent).toContain('print("test")');
 	});
 });
+

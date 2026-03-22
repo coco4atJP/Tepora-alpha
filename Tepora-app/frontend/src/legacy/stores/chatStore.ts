@@ -18,7 +18,7 @@ import type {
 	MemoryStats,
 	Message,
 	SearchResult,
-} from "../types";
+} from "../../types";
 
 // ============================================================================
 // Types
@@ -248,3 +248,4 @@ export const useChatStore = create<ChatStore>()(
 		{ name: "chat-store" },
 	),
 );
+

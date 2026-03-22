@@ -1,6 +1,6 @@
 import { Check, PlayCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { CompleteStepProps } from "../types";
+import type { CompleteStepProps } from "../../types";
 
 export default function CompleteStep({ onFinish }: CompleteStepProps) {
 	const { t } = useTranslation();
@@ -27,3 +27,4 @@ export default function CompleteStep({ onFinish }: CompleteStepProps) {
 		</div>
 	);
 }
+

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ModelSelectionOverlay, type ModelInfo } from "./ModelSelectionOverlay";
 import { modelsApi } from "../../../../api/models";
-import { logger } from "../../../../utils/logger";
+import { logger } from "../../../../../utils/logger";
 
 interface ModelSelectorProps {
 	value: string | undefined;
@@ -88,3 +88,4 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 		</>
 	);
 };
+

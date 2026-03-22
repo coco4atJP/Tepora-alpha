@@ -6,7 +6,7 @@ import { Check, Cpu, FolderOpen } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsState } from "../../../../context/SettingsContext";
-import { logger } from "../../../../utils/logger";
+import { logger } from "../../../../../utils/logger";
 import { FormGroup, FormInput } from "./FormComponents";
 
 // ============================================================================
@@ -328,3 +328,4 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 		</div>
 	);
 };
+

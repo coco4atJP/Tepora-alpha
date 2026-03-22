@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 import React, { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isDesktop } from "../../../../utils/api";
-import { ApiError, apiClient } from "../../../../utils/api-client";
-import { logger } from "../../../../utils/logger";
+import { isDesktop } from "../../../../../utils/api";
+import { ApiError, apiClient } from "../../../../../utils/api-client";
+import { logger } from "../../../../../utils/logger";
 import { FormGroup, FormInput } from "../SettingsComponents";
 
 interface AddModelFormProps {
@@ -617,3 +617,4 @@ export const AddModelForm: React.FC<AddModelFormProps> = ({ onModelAdded }) => {
 		</div>
 	);
 };
+

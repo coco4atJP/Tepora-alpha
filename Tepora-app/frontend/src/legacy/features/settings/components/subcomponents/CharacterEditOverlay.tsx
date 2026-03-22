@@ -8,7 +8,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { type AgentProfile, FormGroup } from "../SettingsComponents";
 import { ModelSelector } from "./ModelSelector";
 import { FitText } from "../../../../components/ui/FitText";
-import { logger } from "../../../../utils/logger";
+import { logger } from "../../../../../utils/logger";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
 export interface CharacterEditState {
@@ -338,3 +338,4 @@ export const CharacterEditOverlay: React.FC<CharacterEditOverlayProps> = ({
 		document.body
 	);
 };
+

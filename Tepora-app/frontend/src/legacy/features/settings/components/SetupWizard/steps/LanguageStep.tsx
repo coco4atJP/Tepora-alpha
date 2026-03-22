@@ -1,6 +1,6 @@
 import { ChevronRight, Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { LanguageStepProps } from "../types";
+import type { LanguageStepProps } from "../../types";
 
 const languages = [
 	{ code: "en", label: "English", sub: "English", flag: "🇺🇸" },
@@ -50,3 +50,4 @@ export default function LanguageStep({ onSelectLanguage }: LanguageStepProps) {
 		</div>
 	);
 }
+

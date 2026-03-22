@@ -5,10 +5,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/Button";
 import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
 import { useMcpPolicy } from "../../../../hooks/useMcp";
-import type { Config } from "../../../../types/settings";
-import type { AuditVerifyResult, PermissionEntry } from "../../../../types";
-import { apiClient } from "../../../../utils/api-client";
-import { ENDPOINTS } from "../../../../utils/endpoints";
+import type { Config } from "../../../../../types/settings";
+import type { AuditVerifyResult, PermissionEntry } from "../../../../../types";
+import { apiClient } from "../../../../../utils/api-client";
+import { ENDPOINTS } from "../../../../../utils/endpoints";
 import { FormGroup, FormInput, FormList, FormSelect, FormSwitch, SettingsSection } from "../SettingsComponents";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -674,4 +674,5 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacyConfig, onUpda
 };
 
 export default PrivacySettings;
+
 

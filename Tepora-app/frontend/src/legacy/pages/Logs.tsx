@@ -2,7 +2,7 @@ import { RefreshCcw } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { apiClient } from "../utils/api-client";
+import { apiClient } from "../../utils/api-client";
 
 const Logs: React.FC = () => {
 	const { t } = useTranslation();
@@ -138,3 +138,4 @@ const Logs: React.FC = () => {
 };
 
 export default Logs;
+

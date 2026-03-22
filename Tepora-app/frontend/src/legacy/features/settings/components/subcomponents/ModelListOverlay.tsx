@@ -16,8 +16,8 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FitText } from "../../../../components/ui/FitText";
 import { useModelUpdateCheck } from "../../../../hooks/useModelUpdateCheck";
-import { apiClient } from "../../../../utils/api-client";
-import { logger } from "../../../../utils/logger";
+import { apiClient } from "../../../../../utils/api-client";
+import { logger } from "../../../../../utils/logger";
 
 interface ModelInfo {
 	id: string;
@@ -330,3 +330,4 @@ export const ModelListOverlay: React.FC<ModelListOverlayProps> = ({
 		document.body,
 	);
 };
+

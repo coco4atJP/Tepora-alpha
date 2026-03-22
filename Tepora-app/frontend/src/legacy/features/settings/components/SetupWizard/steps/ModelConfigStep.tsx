@@ -1,7 +1,7 @@
 import { CheckCircle, ChevronRight, Cpu, Download, Globe, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getKey } from "../reducer";
-import type { ModelConfigStepProps } from "../types";
+import type { ModelConfigStepProps } from "../../types";
 
 export default function ModelConfigStep({
 	state,
@@ -241,3 +241,4 @@ function AdvancedModelSelection({
 		</div>
 	);
 }
+

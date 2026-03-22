@@ -2,7 +2,7 @@ import { Bot, MessageSquare, Search, Settings } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ChatMode } from "../../types";
+import type { ChatMode } from "../../../types";
 
 interface DialControlProps {
 	currentMode: ChatMode;
@@ -195,3 +195,4 @@ const DialControl: React.FC<DialControlProps> = ({
 };
 
 export default DialControl;
+

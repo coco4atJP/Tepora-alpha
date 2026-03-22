@@ -23,7 +23,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 // Mock API utils
-vi.mock("../../../../utils/api-client", () => ({
+vi.mock("../../../../../utils/api-client", () => ({
 	apiClient: {
 		get: vi.fn(),
 		post: vi.fn(),
@@ -278,3 +278,4 @@ describe("AddModelForm", () => {
 		});
 	});
 });
+

@@ -12,7 +12,7 @@ import type React from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import type { Session } from "../../../types";
+import type { Session } from "../../../../types";
 
 interface SessionHistoryProps {
 	sessions: Session[];
@@ -233,3 +233,4 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 };
 
 export default SessionHistory;
+

@@ -1,5 +1,5 @@
-import { apiClient } from "../utils/api-client";
-import { ENDPOINTS } from "../utils/endpoints";
+import { apiClient } from "../../utils/api-client";
+import { ENDPOINTS } from "../../utils/endpoints";
 
 export const loadersApi = {
     refreshOllamaModels: () =>
@@ -8,3 +8,4 @@ export const loadersApi = {
     refreshLmStudioModels: () =>
         apiClient.post<void>(ENDPOINTS.LOADERS.LMSTUDIO.REFRESH),
 };
+

@@ -3,8 +3,8 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsConfigActions, useSettingsState } from "../../../../context/SettingsContext";
-import { apiClient } from "../../../../utils/api-client";
-import { logger } from "../../../../utils/logger";
+import { apiClient } from "../../../../../utils/api-client";
+import { logger } from "../../../../../utils/logger";
 import Updater from "../components/Updater";
 import {
 	CollapsibleSection,
@@ -345,3 +345,4 @@ const InferenceEngineUpdate: React.FC = () => {
 };
 
 export default OtherSettings;
+

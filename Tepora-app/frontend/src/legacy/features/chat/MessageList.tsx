@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { SkeletonLoader } from "../../components/ui/SkeletonLoader";
 import { useAgentSkills, useSettingsState } from "../../context/SettingsContext";
 import { socketCommands, useChatStore } from "../../stores";
-import type { Message } from "../../types";
+import type { Message } from "../../../types";
 import MessageBubble from "./MessageBubble";
 
 const MessageList: React.FC = () => {
@@ -175,3 +175,4 @@ const MessageList: React.FC = () => {
 };
 
 export default MessageList;
+

@@ -1,4 +1,4 @@
-import type { ToolConfirmationResponse } from "../types";
+import type { ToolConfirmationResponse } from "../../types";
 
 export interface Transport {
   /**
@@ -17,3 +17,4 @@ export interface Transport {
    */
   confirmTool(requestId: string, response: ToolConfirmationResponse): void;
 }
+

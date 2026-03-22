@@ -1,7 +1,7 @@
 import { BrainCircuit, CheckCircle2, Circle, Clock, Loader2 } from "lucide-react";
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import type { AgentActivity } from "../../types";
+import type { AgentActivity } from "../../../types";
 
 interface AgentStatusProps {
 	activityLog: AgentActivity[];
@@ -127,3 +127,4 @@ const AgentStatus: React.FC<AgentStatusProps> = ({ activityLog }) => {
 };
 
 export default AgentStatus;
+

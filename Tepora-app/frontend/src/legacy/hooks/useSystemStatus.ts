@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import type { SystemStatus } from "../types";
-import { apiClient } from "../utils/api-client";
+import type { SystemStatus } from "../../types";
+import { apiClient } from "../../utils/api-client";
 
 export function useSystemStatus() {
 	return useQuery({
@@ -11,3 +11,4 @@ export function useSystemStatus() {
 		retry: false,
 	});
 }
+

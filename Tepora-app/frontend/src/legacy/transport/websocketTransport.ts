@@ -1,4 +1,4 @@
-import type { ToolConfirmationResponse } from '../types';
+import type { ToolConfirmationResponse } from '../../types';
 import { Transport } from './index';
 import { socketCommands } from '../stores/socketCommands';
 
@@ -24,3 +24,4 @@ export class WebsocketTransport implements Transport {
         socketCommands.handleToolConfirmation(requestId, response.decision, response.ttlSeconds);
     }
 }
+

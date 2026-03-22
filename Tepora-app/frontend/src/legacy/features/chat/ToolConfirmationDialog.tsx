@@ -3,7 +3,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "../../components/ui/Modal";
 
-import type { ToolConfirmationRequest } from "../../types";
+import type { ToolConfirmationRequest } from "../../../types";
 
 interface ToolConfirmationDialogProps {
 	request: ToolConfirmationRequest | null;
@@ -191,3 +191,4 @@ const ToolConfirmationDialog: React.FC<ToolConfirmationDialogProps> = ({
 };
 
 export default ToolConfirmationDialog;
+

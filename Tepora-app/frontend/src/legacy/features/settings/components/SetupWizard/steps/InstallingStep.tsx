@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight, Sparkles, Terminal } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { InstallingStepProps } from "../types";
+import type { InstallingStepProps } from "../../types";
 
 export default function InstallingStep({ progress }: InstallingStepProps) {
 	const { t } = useTranslation();
@@ -109,3 +109,4 @@ export default function InstallingStep({ progress }: InstallingStepProps) {
 		</div>
 	);
 }
+

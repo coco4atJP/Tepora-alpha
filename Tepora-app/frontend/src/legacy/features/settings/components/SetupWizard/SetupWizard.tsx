@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRequirements } from "../../../../hooks/useServerConfig";
-import { ApiError, apiClient } from "../../../../utils/api-client";
-import { logger } from "../../../../utils/logger";
+import { ApiError, apiClient } from "../../../../../utils/api-client";
+import { logger } from "../../../../../utils/logger";
 import { getKey, initialState, setupReducer } from "./reducer";
 import { ConsentWarningModal, EmbeddingWarningModal } from "./SetupWarnings";
 import {
@@ -510,3 +510,4 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		</div>
 	);
 }
+

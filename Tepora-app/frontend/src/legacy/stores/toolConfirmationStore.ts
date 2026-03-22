@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { ToolConfirmationRequest } from "../types";
+import type { ToolConfirmationRequest } from "../../types";
 
 interface ToolConfirmationState {
 	pendingToolConfirmation: ToolConfirmationRequest | null;
@@ -49,3 +49,4 @@ export const useToolConfirmationStore = create<ToolConfirmationStore>()(
 		{ name: "tool-confirmation-store" },
 	),
 );
+
