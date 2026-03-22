@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 // Vitestのimport.meta.globを使用してlocalesディレクトリのJSONファイルを静的に読み込む
 // これによりNode.js固有のAPIを使用しなくても済む
-const translationModules = import.meta.glob('/public/locales/*/translation.json', {
+const translationModules = import.meta.glob('../../src/locales/*/translation.json', {
     eager: true,
     import: 'default',
 });

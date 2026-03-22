@@ -1,0 +1,1418 @@
+{
+	"store": {
+		"by_vendor": "by {{vendor}}"
+	},
+	"setup": {
+		"title": "Tepora Setup",
+		"checking": "Checking environment...",
+		"ready": "All systems ready!",
+		"binary_needed": "Inference engine setup required",
+		"models_needed": "Model download required",
+		"complete": "Setup complete!",
+		"error": "Error during setup",
+		"errors": {
+			"req_check_failed": "Requirements check failed",
+			"start_failed": "Failed to start setup",
+			"setup_failed_start": "Setup failed to start",
+			"finalize_failed": "Failed to finalize setup",
+			"save_config_failed": "Failed to save configuration. Please try again.",
+			"unknown": "Unknown error",
+			"preflight_failed": "Preflight failed"
+		},
+		"start": "Start Tepora",
+		"auto_setup": "Auto Setup",
+		"skip": "Skip",
+		"skip_setup": "Skip Setup",
+		"retry": "Retry",
+		"downloading": "Downloading...",
+		"steps": {
+			"language": "Language Selection",
+			"select_language": "Select Language",
+			"binary": "Inference Engine (llama.cpp)",
+			"models": "Models",
+			"language_desc": "Choose your preferred language to customize Tepora."
+		},
+		"status": {
+			"satisfied": "Installed",
+			"missing": "Missing",
+			"outdated": "Update Available",
+			"installed": "Installed",
+			"not_downloaded": "Not Downloaded"
+		},
+		"accessibility": {
+			"progress": "Progress"
+		},
+		"download_warning_title": "Confirm Model Download",
+		"download_warning_desc": "Some models are not in the allowlist. Please review the warnings and confirm to proceed.",
+		"download_warning_cancel": "Cancel",
+		"download_warning_confirm": "Proceed",
+		"advanced_settings": "Advanced Settings (Change Models)",
+		"model_settings": "Model Settings",
+		"model": "Model",
+		"checking_desc": "Checking system requirements and dependencies...",
+		"ready_desc": "Tepora is ready to be your AI companion.",
+		"all_set": "All Set!",
+		"installing": "Installing...",
+		"extracting": "Extracting...",
+		"failed": "Setup Failed",
+		"install_selected": "Install Selected Models",
+		"start_install": "Start Installation",
+		"custom": "Custom Configuration (Advanced)",
+		"custom_desc": "Specify your own GGUF model repositories and filenames.",
+		"custom_models": "Custom Models",
+		"launch": "Launch Tepora",
+		"storage_required": "Approx. 2GB+ per model required",
+		"storage_desc": "Tepora runs locally. Models will be stored in your AppData folder.",
+		"storage_requirement_label": "Storage Requirement:",
+		"storage_requirement_hint": "Models are stored locally in your AppData folder. Ensure you have sufficient disk space.",
+		"loading_recommendations": "Loading recommended models...",
+		"custom_repo_placeholder": "Repo ID (e.g. user/repo)",
+		"custom_filename_placeholder": "Filename (e.g. model.gguf)",
+		"model_role_text": "Text Model",
+		"model_role_embedding": "Embedding Model",
+		"approx_vram": "~2.5GB VRAM",
+		"installing_desc": "This may take a few minutes depending on your internet connection. We are preparing a personalized AI experience for you.",
+		"did_you_know": "Did you know?",
+		"offline_privacy_tip": "Tepora runs completely offline once installed. Your data stays on your device, ensuring maximum privacy and security.",
+		"hide_logs": "Hide detailed logs",
+		"show_logs": "Show detailed logs",
+		"installer_output": "Installer Output",
+		"embedding_warning_title": "Embedding Model Warning",
+		"embedding_warning_proceed": "Proceed",
+		"loader_title": "Loader Setup",
+		"step_lang": "Language",
+		"step_engine": "Engine",
+		"step_model": "Model",
+		"step_install": "Install",
+		"step_done": "Done",
+		"loader_select_title": "Select Loader",
+		"loader_select_desc": "Choose an inference engine"
+	},
+	"app": {
+		"loading": "Connecting to server...",
+		"loadingHint": "This may take a few seconds"
+	},
+	"errors": {
+		"unknownError": "An unknown error occurred.",
+		"connectionErrorTitle": "Connection Error",
+		"retryButton": "Retry Connection",
+		"viewLogsButton": "View Logs",
+		"troubleshootHint": "Make sure the backend server is running on the expected port."
+	},
+	"logs": {
+		"title": "Log Files",
+		"refresh": "Refresh List",
+		"refresh_content": "Refresh Content",
+		"loading_logs": "Loading logs...",
+		"loading_content": "Loading content...",
+		"no_logs": "No logs found",
+		"select_log": "Select a log",
+		"select_to_view": "Select a log file to view its content.",
+		"error_fetch": "Failed to fetch logs",
+		"error_content": "Failed to fetch log content",
+		"unknown_error": "An error occurred"
+	},
+	"tool_confirmation": {
+		"title": "Tool Execution Confirmation",
+		"description": "You are about to execute a tool.",
+		"params": "Parameters",
+		"allow_session": "Always allow this tool for this session",
+		"warning_deny": "⚠️ Denying will stop the process",
+		"deny": "Deny",
+		"allow": "Allow",
+		"names": {
+			"native_web_fetch": "Fetch Web Page",
+			"native_google_search": "Google Search"
+		},
+		"descriptions": {
+			"native_web_fetch": "Accesses a specified URL.",
+			"native_google_search": "Performs a Google web search."
+		}
+	},
+	"session_history": {
+		"title": "Sessions",
+		"new": "New Session",
+		"list_aria_label": "Session List",
+		"edit_title": "Edit session title",
+		"delete_title": "Delete Session",
+		"delete_message": "Are you sure you want to delete this session? All conversation history will be lost.",
+		"loading": "Loading...",
+		"empty": "No sessions yet",
+		"messages": "msgs"
+	},
+	"newSession": "New Session",
+	"sessionHistory": "Session History",
+	"close": "Close",
+	"common": {
+		"language": "Language",
+		"next": "Next",
+		"back": "Back",
+		"skip": "Skip",
+		"cancel": "Cancel",
+		"add": "Add",
+		"edit": "Edit",
+		"save": "Save",
+		"clear": "Clear",
+		"settings": "Settings",
+		"close": "Close",
+		"preparing": "Preparing...",
+		"ai": "AI",
+		"enabled": "Enabled",
+		"disabled": "Disabled",
+		"retry": "Retry",
+		"load_more": "Load more",
+		"update_now": "Update Now",
+		"error_prefix": "Error: ",
+		"today": "Today",
+		"yesterday": "Yesterday",
+		"daysAgo": "{{count}} days ago",
+		"confirm": "Confirm",
+		"delete": "Delete",
+		"copy": "Copy",
+		"copied": "Copied",
+		"refresh": "Refresh",
+		"click_to_edit": "Click to edit",
+		"aria": {
+			"close": "Close",
+			"move_up": "Move up",
+			"move_down": "Move down",
+			"delete": "Delete",
+			"add_item": "Add item",
+			"remove_item": "Remove item",
+			"cancel": "Cancel",
+			"agent_metrics": "Agent Metrics",
+			"thinking": "Thinking",
+			"close_modal": "Close dialog",
+			"close_notification": "Close notification",
+			"copy_code": "Copy code",
+			"settings_categories": "Settings Categories"
+		},
+		"browse": "Browse",
+		"active": "Active",
+		"activate": "Activate",
+		"no_data": "No data",
+		"refreshing": "Refreshing",
+		"scan_providers": "Scan providers",
+		"all": "All",
+		"loading": "Loading",
+		"clear_filters": "Clear filters"
+	},
+	"chat": {
+		"clear_history": "Clear History",
+		"role": {
+			"assistant": "Assistant",
+			"user": "You",
+			"system": "System"
+		},
+		"input": {
+			"placeholder": {
+				"connecting": "Connecting...",
+				"search": "Ask me to search...",
+				"agent": "Assign a task...",
+				"default": "Chat with Tepora..."
+			},
+			"system_ready": "System Ready",
+			"system_ready_hint": "Select a mode from the dial to begin",
+			"disconnected": "Disconnected",
+			"status": {
+				"thinking": "Thinking Process"
+			},
+			"web_search": "Web Search",
+			"web_search_toggle": "Web Search: {{state}}",
+			"attach_file": "Attach File",
+			"remove_attachment": "Remove attachment {{name}}",
+			"send": "Send Message",
+			"send_message": "Send Message",
+			"stop": "Stop Generation",
+			"stop_generation": "Stop Generation",
+			"mode_active": "{{mode}} MODE ACTIVE",
+			"aria_label": "Message Input",
+			"agent_mode": "Agent mode",
+			"agent_mode_fast": "Fast mode",
+			"agent_mode_high": "High accuracy mode",
+			"agent_mode_direct": "Direct",
+			"select_agent": "Select agent",
+			"agent_auto": "Auto",
+			"thinking_mode": "Thinking mode"
+		},
+		"messages_aria_label": "Chat messages",
+		"jump_to_latest": "Jump to latest message",
+		"jump_to_latest_short": "Latest",
+		"newMessageFrom": "New message from {{role}}",
+		"scrollToBottom": "Scroll to bottom",
+		"modes": {
+			"search": "Search",
+			"agent": "Agent",
+			"chat": "Chat"
+		},
+		"generationStopped": "Generation stopped",
+		"error": "Error",
+		"info": "Info",
+		"regenerate": "Regenerate",
+		"click_to_expand": "Click to expand",
+		"status": {
+			"thinking": "Thinking"
+		}
+	},
+	"agent": {
+		"title": "Agent Activity",
+		"waiting": "Waiting"
+	},
+	"search": {
+		"title": "Search",
+		"hits": "results",
+		"no_results": "No results found"
+	},
+	"rag_context": {
+		"title": "RAG Context",
+		"sources": "Sources",
+		"files": "Files",
+		"add_file": "Add File",
+		"no_sources": "No sources added",
+		"add_hint": "Add files or search the web",
+		"web_results": "Web Results"
+	},
+	"personas": {
+		"switch": "Switch Persona",
+		"select": "Select Persona",
+		"create": "Create Persona",
+		"create_new": "Create Persona",
+		"edit": "Edit Persona",
+		"name": "Name",
+		"description": "Description",
+		"instruction": "System Prompt",
+		"error_exists": "This key already exists.",
+		"confirm_delete_title": "Delete Character?",
+		"confirm_delete": "Are you sure you want to delete this persona? This action cannot be undone."
+	},
+	"dial": {
+		"chat": "CHAT",
+		"search": "SEARCH",
+		"agent": "AGENT"
+	},
+	"status": {
+		"title": "System Status",
+		"network": "Network",
+		"connected": "Connected",
+		"disconnected": "Disconnected",
+		"core_system": "Core System",
+		"ready": "Ready",
+		"loading": "Loading",
+		"events": "events",
+		"messages": "Messages",
+		"events_suffix": "events",
+		"char": "Char",
+		"prof": "Prof",
+		"generating_memory": "Generating memory..."
+	},
+	"settings": {
+		"title": "Settings",
+		"subtitle": "Manage your AI configuration",
+		"appearance": {
+			"title": "Theme",
+			"description": "Choose your preferred theme.",
+			"themes": {
+				"system": "System",
+				"tepora": "Tepora",
+				"light": "Light",
+				"dark": "Dark",
+				"system_desc": "Matches your operating system preference.",
+				"tepora_desc": "The signature classic Tea Salon experience.",
+				"light_desc": "A bright, crisp workspace.",
+				"dark_desc": "A neutral, focused dark environment."
+			}
+		},
+		"thinking": {
+			"title": "Thinking Process",
+			"description": "Configure the default behavior of the thinking process.",
+			"chat_default": "Default: Enable in Chat",
+			"chat_default_desc": "Automatically enable thinking process when starting a new chat session.",
+			"search_default": "Default: Enable in Search",
+			"search_default_desc": "Automatically enable thinking process when starting a new search session."
+		},
+		"placeholders": {
+			"mcp_config": "config/mcp_tools_config.json",
+			"google_api_key": "AIza...",
+			"google_engine_id": "0123456789...",
+			"regex": "RegEx pattern (e.g. system\\s*:)"
+		},
+		"search": {
+			"providers": {
+				"google": "Google Custom Search",
+				"duckduckgo": "DuckDuckGo",
+				"brave": "Brave Search",
+				"bing": "Bing Web Search (v7)"
+			}
+		},
+		"confirm_discard": "You have unsaved changes. Discard them?",
+		"toast": {
+			"save_success": "Settings saved successfully!",
+			"save_error": "Failed to save settings."
+		},
+		"save_bar": {
+			"reset": "Reset",
+			"save": "Save Changes",
+			"saving": "Saving...",
+			"unsaved": "Unsaved changes"
+		},
+		"sections": {
+			"general": {
+				"label": "General",
+				"title": "Application",
+				"description": "Core application settings and safety limits.",
+				"search_tool": {
+					"title": "Search Engine",
+					"description": "Configure the search engine and credentials.",
+					"provider_label": "Search Provider",
+					"provider_desc": "Select the search engine to use for native search capabilities."
+				},
+				"google_search": {
+					"title": "Google Search Settings",
+					"api_key_label": "Google Search API Key",
+					"api_key_desc": "Enter API Key for Google Custom Search JSON API.",
+					"engine_id_label": "Search Engine ID",
+					"engine_id_desc": "Enter Programmable Search Engine ID."
+				},
+				"brave_search": {
+					"title": "Brave Search Settings",
+					"api_key_label": "Brave Search API Key",
+					"api_key_desc": "Enter your Brave Search API Key (Subscription Token)."
+				},
+				"bing_search": {
+					"title": "Bing Search Settings",
+					"api_key_label": "Bing Search API Key",
+					"api_key_desc": "Enter your Bing Search v7 Subscription Key."
+				},
+				"app_settings": "Application Settings",
+				"advanced_settings": "Agent Settings",
+				"advanced_settings_desc": "Adjust attempt limits and safety constraints.",
+				"timeout_settings": "Timeout Settings",
+				"inference_engine": {
+					"title": "Inference Engine (llama.cpp)",
+					"description": "Manage llama.cpp binary updates",
+					"current_version": "Current Version",
+					"new_available": "New Version Available",
+					"check_updates": "Check for Updates",
+					"checking": "Checking...",
+					"starting": "Starting update...",
+					"completed": "Update completed!",
+					"failed": "Update failed",
+					"start_failed": "Failed to start update",
+					"error": "Error starting update"
+				},
+				"app_updater": "App Updater"
+			},
+			"updater": {
+				"title": "Software Update",
+				"description": "Manage Tepora updates.",
+				"current_version": "Current Version",
+				"new_version": "New Version",
+				"check_button": "Check for Updates",
+				"update_button": "Update Now",
+				"checking": "Checking...",
+				"downloading": "Downloading...",
+				"installing": "Installing...",
+				"relaunching": "Relaunching...",
+				"uptodate": "You are up to date!",
+				"error": "Update failed"
+			},
+			"agents": {
+				"label": "Characters",
+				"title": "Character List",
+				"description": "Manage character prompts and default models.",
+				"add_new_profile": "Add New Profile",
+				"new_profile_key_placeholder": "Profile ID (alphanumeric and underscores)",
+				"add": "Add",
+				"cancel": "Cancel",
+				"cannot_delete_active": "Cannot delete active profile",
+				"confirm_delete": "Delete this profile?",
+				"delete_confirm_title": "Delete Profile",
+				"card": {
+					"currently_active": "Currently Active",
+					"set_active": "Set as Active",
+					"active": "Active",
+					"set_active_short": "Set Active",
+					"delete": "Delete",
+					"label": "Label",
+					"label_placeholder": "Character Name",
+					"description": "Description",
+					"description_placeholder": "Short description",
+					"persona": "Persona",
+					"persona_description": "Define the agent's personality and role.",
+					"preset_key": "Preset Key",
+					"preset_key_placeholder": "e.g. default (Optional)",
+					"select_preset": "Select preset...",
+					"custom_prompt": "Custom Prompt (Override)",
+					"custom_prompt_placeholder": "You are a helpful AI assistant...",
+					"allowed_tools": "Allowed Tools",
+					"allowed_tools_description": "Use \"*\" for all.",
+					"denied_tools": "Denied Tools",
+					"tool_placeholder": "Tool name...",
+					"icon": "Icon",
+					"icon_placeholder": "Icon",
+					"avatar_path": "Avatar path",
+					"avatar_placeholder": "Avatar"
+				},
+				"tab": {
+					"characters": "Characters",
+					"professionals": "Professionals"
+				},
+				"professionals_coming_soon_title": "Professional Agents coming soon...",
+				"professionals_coming_soon_desc": "Agents for specialized task execution are currently under development.",
+				"modal": {
+					"title_add": "Add Character",
+					"title_edit": "Edit Character",
+					"key_label": "ID (Key)",
+					"key_desc": "Unique identifier used internally.",
+					"name_label": "Display Name",
+					"desc_label": "Description",
+					"prompt_label": "System Prompt",
+					"model_label": "Model",
+					"model_desc": "Select the model configuration for this agent.",
+					"key_placeholder": "e.g. my_agent"
+				},
+				"error_empty_key": "Please enter an ID.",
+				"error_duplicate_key": "This ID is already in use.",
+				"edit": "Edit",
+				"delete": "Delete",
+				"no_description": "No description",
+				"default_name": "New Character",
+				"default_prompt": "You are a helpful assistant.",
+				"nsfw_label": "Allow Restricted Content (nsf)",
+				"nsfw_desc": "Allow generation of restricted content. Use with caution."
+			},
+			"custom_agents": {
+				"label": "Professional",
+				"title": "Professional List",
+				"description": "Manage professional prompts, allowed tools, and default models.",
+				"add_new": "Add New Professional",
+				"no_description": "No description",
+				"default_name": "New Professional",
+				"default_prompt": "You are a helpful assistant.",
+				"confirm_delete": "Are you sure you want to delete this professional?",
+				"delete_confirm_title": "Delete Professional",
+				"error_empty_id": "Please enter an ID.",
+				"error_empty_name": "Please enter a name.",
+				"error_empty_prompt": "Please enter a system prompt.",
+				"error_duplicate_id": "This ID is already in use.",
+				"modal": {
+					"title_add": "Add Professional",
+					"title_edit": "Edit Professional",
+					"id_label": "Professional ID",
+					"id_desc": "Unique identifier (lowercase, no spaces)",
+					"icon_label": "Icon",
+					"name_label": "Name",
+					"description_label": "Description",
+					"prompt_label": "System Prompt",
+					"prompt_desc": "Define the agent's behavior and personality.",
+					"model_label": "Model",
+					"enabled_label": "Enabled",
+					"tools_label": "Allowed Tools",
+					"no_tools": "No tools available",
+					"allow_all_tools": "Allow All Tools (Blacklist mode)",
+					"tags_label": "Tags",
+					"priority_label": "Priority"
+				}
+			},
+			"privacy": {
+				"label": "Privacy",
+				"title": "Privacy Settings",
+				"description": "Manage external communications and data sharing settings.",
+				"isolation_mode": {
+					"label": "Isolation Mode (Airplane Mode)",
+					"description": "When enabled, blocks all external network communications. Only local LLMs will be available.",
+					"warning_title": "Isolation Mode is active",
+					"warning_web_search": "Web search and page fetching are disabled",
+					"warning_mcp": "MCP server tool calls are blocked",
+					"warning_local": "Local LLMs (llama.cpp / Ollama / LM Studio) remain available"
+				},
+				"web_search": {
+					"label": "Allow Internet Access",
+					"description": "Allow the AI to use internet search to retrieve information.",
+					"warning_title": "Data Sharing Notice",
+					"warning_query": "Search queries will be sent to Google API",
+					"warning_api": "Your configured API key will be used for search requests"
+				},
+				"redact_pii": {
+					"label": "Personal Data Protection",
+					"description": "Automatically redact personal information (emails, phone numbers, etc.) from logs and web search queries."
+				},
+				"url_denylist": {
+					"label": "URL Deny List",
+					"description": "Domains or patterns blocked from web fetch. Internal/private ranges are always blocked.",
+					"placeholder": "e.g. *.example.com"
+				}
+			},
+			"mcp": {
+				"label": "MCP Tools",
+				"title": "MCP Tools",
+				"description": "Manage Model Context Protocol servers.",
+				"config_title": "Config Path",
+				"config_description": "Set the MCP configuration file path.",
+				"store_title": "MCP Store",
+				"store_description": "Browse and install MCP servers from the store.",
+				"store_hint": "Search the registry and install servers.",
+				"registered_title": "Registered Servers",
+				"registered_description": "Start/stop servers and inspect configuration details."
+			},
+			"models": {
+				"label": "Models",
+				"title": "Models",
+				"description": "Configure LLM paths and parameters.",
+				"check_updates": "Check Updates",
+				"checking": "Checking...",
+				"update_available": "Update Available",
+				"up_to_date": "Up to date",
+				"check_failed": "Check Failed",
+				"update_btn": "Update Model",
+				"manager_title": "LLM Manager Settings",
+				"manager_description": "Configure how the system manages LLM processes and resources.",
+				"add_title": "Add Model",
+				"add_description": "Add new models to your local library.",
+				"list_title": "Model List (Manage)",
+				"list_description": "Manage, delete, and reorder registered models.",
+				"defaults_title": "Model Defaults",
+				"defaults_description": "Assign default models for each role.",
+				"cache_title": "Model Cache Limit",
+				"advanced_title": "Advanced Manager Settings",
+				"advanced_description": "Cache and resource settings",
+				"add_new_model": "Add New Model",
+				"no_models": "No models configured. Click 'Add New Model' to add one.",
+				"confirm_delete": "Are you sure you want to delete this model configuration?",
+				"manage_models": "Manage Models (Delete / Reorder)",
+				"text_model_title": "Text Model",
+				"text_model_desc": "Select the model used for text generation.",
+				"text_model_label": "Text Model",
+				"embedding_model_title": "Embedding Model",
+				"embedding_model_desc": "Select the model used for memory and retrieval.",
+				"executor_label": "Professional: {{taskType}}",
+				"executor_default_desc": "Default fallback professional model.",
+				"executor_task_desc": "Professional model for {{taskType}} tasks.",
+				"character_model_title": "Character Default Model",
+				"character_model_desc": "Select the default model used for characters.",
+				"character_model_label": "Character Model",
+				"executor_models_title": "Professional Default Models",
+				"executor_models_desc": "Assign default models for each professional task type.",
+				"add_task_placeholder": "Add task type (e.g., coding, browser)...",
+				"no_models_for_role": "No models found for this role.",
+				"defaults": {
+					"global": "Global Default"
+				},
+				"add_modal": {
+					"title": "Add Model",
+					"tab_local": "Local File",
+					"tab_huggingface": "Hugging Face",
+					"drop_zone": "Drag & Drop .gguf file here",
+					"drop_zone_hint": "or select file",
+					"drop_zone_active": "Drop file here...",
+					"file_selected": "Selected file",
+					"model_name": "Model Name (ID)",
+					"role_text": "Text Model",
+					"role_embedding": "Embedding Model",
+					"repo_id": "Repository ID",
+					"repo_id_placeholder": "user/repo",
+					"filename": "Filename",
+					"filename_placeholder": "model-Q4_K_M.gguf",
+					"download": "Download Model",
+					"downloading": "Downloading...",
+					"starting": "Starting download...",
+					"add_local": "Register Model",
+					"invalid_file": "Only .gguf files are supported",
+					"path_required": "Cannot resolve file path. This feature requires a desktop environment."
+				},
+				"consent_dialog": {
+					"title": "Confirm Download",
+					"description": "This download requires your confirmation before proceeding:",
+					"confirm": "Proceed",
+					"default_warning": "This download requires your confirmation."
+				},
+				"selection": {
+					"select_model": "Select a model...",
+					"no_models": "No models available",
+					"remove_mapping": "Remove Mapping",
+					"configure": "Model Configuration",
+					"no_config": "No configuration available"
+				},
+				"detail": {
+					"n_ctx": "Context Window (n_ctx)",
+					"n_ctx_desc": "Maximum number of tokens the model can process at once.",
+					"show_advanced": "Show Advanced Settings",
+					"hide_advanced": "Hide Advanced Settings",
+					"changes_note": "Changes to model parameters will apply on next load.",
+					"dials_hint": "Drag dials to adjust values",
+					"temp_desc": "Controls randomness.",
+					"top_p_desc": "Nucleus sampling."
+				},
+				"configurations": {
+					"path_placeholder": "e.g. /path/to/model.gguf"
+				},
+				"refresh_ollama": "Refresh Ollama",
+				"refresh_lmstudio": "Refresh LM Studio",
+				"search_title": "Search Settings",
+				"download_policy_title": "Download Policy",
+				"loaders_title": "Model Loaders",
+				"search_description": "Configure search result reranking with embedding models.",
+				"download_policy_description": "Security controls for downloading models from remote repositories.",
+				"loaders_description": "Configure base URLs for external model providers."
+			},
+			"other": {
+				"label": "Other",
+				"updates": {
+					"title": "Updates",
+					"description": "Manage application and inference engine updates."
+				},
+				"timeouts": {
+					"description": "Configure execution limits and timeouts.",
+					"model_manager": "Model Manager",
+					"tools": "Tools"
+				}
+			},
+			"memory": {
+				"label": "Memory",
+				"title": "EM-LLM (Episodic Memory)",
+				"description": "Configure episodic memory and history limits."
+			},
+			"chat_history": {
+				"title": "Local Context Window"
+			},
+			"extended": {
+				"ui_title": "UI Design & Notifications",
+				"ui_description": "Configure appearance details and background notifications.",
+				"font_family": "Font Family",
+				"font_family_desc": "UI font family for main text rendering.",
+				"font_family_placeholder": "e.g. Noto Sans",
+				"font_size": "Font Size",
+				"font_size_desc": "Base UI font size in pixels.",
+				"code_theme": "Code Highlight Theme",
+				"code_theme_desc": "Syntax highlighting theme for code blocks.",
+				"code_theme_placeholder": "e.g. github-dark",
+				"thinking_max_tokens": "Thinking Max Tokens",
+				"thinking_max_tokens_desc": "Upper limit for thinking token consumption.",
+				"code_wrap": "Code Block Wrap",
+				"code_wrap_desc": "Enable line wrapping for code blocks.",
+				"code_line_numbers": "Code Block Line Numbers",
+				"code_line_numbers_desc": "Display line numbers in code blocks.",
+				"notification_os": "Background Task OS Notification",
+				"notification_os_desc": "Show an OS notification when background tasks complete.",
+				"notification_sound": "Background Task Sound",
+				"notification_sound_desc": "Play a notification sound when background tasks complete.",
+				"shortcuts_title": "Shortcuts",
+				"shortcuts_description": "Configure keyboard shortcuts for quick actions.",
+				"shortcut_new_chat": "Shortcut: New Chat",
+				"shortcut_new_chat_desc": "Keyboard shortcut for starting a new chat.",
+				"shortcut_custom": "Additional Shortcuts",
+				"shortcut_custom_desc": "Add shortcuts as action=keybinding (for example: open_settings=Ctrl+,).",
+				"chunk_chars": "Chunk Size (Chars)",
+				"chunk_chars_desc": "Chunk size when indexing text by character count.",
+				"chunk_tokens": "Chunk Size (Tokens)",
+				"chunk_tokens_desc": "Chunk size when indexing text by token count.",
+				"chunk_overlap": "Chunk Overlap",
+				"chunk_overlap_desc": "Overlap size between consecutive chunks.",
+				"export_format": "Backup Export Format",
+				"export_format_desc": "Preferred format for backup exports.",
+				"watch_folders": "Watched Folders",
+				"watch_folders_desc": "Folders monitored for indexing targets.",
+				"watch_folders_placeholder": "e.g. D:\\docs",
+				"vector_store_dir": "Vector Store Directory",
+				"vector_store_dir_desc": "Storage path for vector database files.",
+				"vector_store_dir_placeholder": "e.g. E:\\Tepora\\db",
+				"model_files_dir": "Model Files Directory",
+				"model_files_dir_desc": "Storage path for model binaries.",
+				"model_files_dir_placeholder": "e.g. E:\\Tepora\\models",
+				"backup_chat_history": "Backup: Chat History",
+				"backup_settings": "Backup: Settings Data",
+				"backup_characters": "Backup: Characters",
+				"backup_executors": "Backup: Executors",
+				"restore_enabled": "Enable Backup Restore",
+				"character_import_export": "Character Import/Export",
+				"executor_import_export": "Executor Import/Export",
+				"cache_clear_on_start": "Clear Webfetch Cache on Startup",
+				"cache_cleanup_embeddings": "Cleanup Old Embeddings",
+				"cache_cleanup_temp": "Cleanup Temporary Files",
+				"cache_limit_mb": "Cache Capacity Limit (MB)",
+				"storage_title": "Data Management and Storage",
+				"storage_description": "Configure chunking, watched folders, storage paths, backups, and cache policies.",
+				"performance_title": "System Integration and Performance",
+				"performance_description": "Control startup behavior, tray mode, hardware acceleration, and resource limits.",
+				"auto_start": "Auto Start on OS Login",
+				"tray_resident": "Keep Running in System Tray",
+				"hardware_acceleration": "Hardware Acceleration",
+				"gpu_vram_limit": "GPU VRAM Limit (MB)",
+				"memory_limit": "Memory Limit (MB)",
+				"security_title": "Network and Server Security",
+				"security_description": "Configure core tool policy, network proxies, certificates, and server origins.",
+				"allowed_tools": "Core Tool Allow List",
+				"allowed_tools_desc": "Allowed tool names when using allow-list policy.",
+				"denied_tools": "Core Tool Deny List",
+				"denied_tools_desc": "Denied tool names when using deny-list policy.",
+				"tool_confirmation": "Tool Execution Confirmation",
+				"first_use_confirmation": "First-use Confirmation",
+				"dangerous_patterns": "Blocked Command Patterns",
+				"dangerous_patterns_desc": "Command patterns that should always be blocked.",
+				"proxy_http": "HTTP Proxy",
+				"proxy_http_desc": "Proxy URL for HTTP requests.",
+				"proxy_https": "HTTPS Proxy",
+				"proxy_https_desc": "Proxy URL for HTTPS requests.",
+				"custom_certificate": "Custom Certificate Path",
+				"custom_certificate_desc": "Path to custom CA certificate bundle.",
+				"server_host": "Server Host",
+				"server_host_desc": "Host binding for backend server.",
+				"allowed_origins": "Allowed Origins",
+				"allowed_origins_desc": "Origins permitted to access the backend.",
+				"cors_origins": "CORS Allowed Origins",
+				"cors_origins_desc": "Origins allowed by CORS policy.",
+				"ws_origins": "WebSocket Allowed Origins",
+				"ws_origins_desc": "Origins allowed for WebSocket connections.",
+				"models_title": "Model and LLM Extensions",
+				"models_description": "Set model defaults and advanced generation metadata not covered in the standard model cards.",
+				"character_default_model": "Character Default Model",
+				"supervisor_default_model": "Supervisor/Planner Default Model",
+				"executor_default_model": "Executor Default Model",
+				"logprobs": "Enable Logprobs",
+				"logprobs_desc": "Emit token-level log probabilities where supported.",
+				"system_prompt_prefix": "System Prompt Prefix",
+				"system_prompt_prefix_desc": "Prepended text for system prompts.",
+				"system_prompt_suffix": "System Prompt Suffix",
+				"system_prompt_suffix_desc": "Appended text for system prompts.",
+				"loader_specific_text": "Text Model Loader-specific Settings",
+				"loader_specific_text_desc": "Serialized loader-specific configuration for text model.",
+				"loader_specific_embedding": "Embedding Loader-specific Settings",
+				"loader_specific_embedding_desc": "Serialized loader-specific configuration for embedding model."
+			},
+			"execution_agents": {
+				"title": "Agent Skills",
+				"description": "Supervisor reads each skill's metadata, while Execution follows the selected SKILL.md package in full.",
+				"layout_title": "Agent Skills Layout",
+				"layout_desc": "`SKILL.md` with YAML frontmatter is required. Optional package content includes `agents/openai.yaml`, `references/`, `scripts/`, and `assets/`.",
+				"roots_title": "Skill Roots",
+				"roots_desc": "Root changes are stored in settings. Save settings to apply added or removed roots before creating packages in them.",
+				"add_file": "Add File",
+				"no_files": "No files.",
+				"packages_title": "Packages",
+				"no_skills": "No Agent Skills found.",
+				"loading_package": "Loading package...",
+				"select_skill": "Select a skill package to edit.",
+				"save_skill": "Save Skill",
+				"saving_skill": "Saving...",
+				"delete_skill": "Delete",
+				"validation_warnings": "Validation Warnings",
+				"target_root": "Target Root",
+				"skill_id": "Skill ID",
+				"add_root": "Add Root",
+				"refresh": "Refresh",
+				"enabled": "Enabled",
+				"disabled": "Disabled",
+				"writable": "Writable",
+				"readonly": "Read-only",
+				"valid": "Valid",
+				"needs_fix": "Needs Fix",
+				"select_root": "Select root"
+			}
+		},
+		"groups": {
+			"custom": "Custom"
+		},
+		"nav": {
+			"general": "General",
+			"privacy": "Privacy",
+			"data_storage": "Data Storage",
+			"system_performance": "System Performance",
+			"agents": "Characters",
+			"execution_agents": "Agent Skills",
+			"models": "Models",
+			"mcp": "MCP Tools",
+			"memory": "Memory",
+			"other": "Other"
+		},
+		"backup": {
+			"stage": {
+				"apply": "Apply"
+			}
+		},
+		"character_edit": {
+			"choose_emoji": "Choose Emoji",
+			"upload_image": "Upload Image",
+			"clear_avatar": "Clear"
+		},
+		"fields": {
+			"language": {
+				"label": "Interface Language",
+				"description": "Select your preferred language."
+			},
+			"max_input_length": {
+				"label": "Max Input Length",
+				"description": "Maximum characters allowed in user input."
+			},
+			"graph_recursion_limit": {
+				"label": "Max Attempts",
+				"description": "Maximum number of attempts for an agent (safety brake)."
+			},
+			"tool_execution_timeout": {
+				"label": "Tool Execution Timeout",
+				"description": "Seconds before a tool execution times out."
+			},
+			"tool_approval_timeout": {
+				"label": "Tool Approval Timeout",
+				"description": "Seconds before a tool approval request expires."
+			},
+			"web_fetch_max_chars": {
+				"label": "Web Fetch Max Chars",
+				"description": "Maximum characters to fetch from a web page."
+			},
+			"dangerous_patterns": {
+				"label": "Dangerous Patterns",
+				"description": "Regex patterns to block from user input for security.",
+				"placeholder": "Add regex pattern (e.g. system\\s*:)"
+			},
+			"cache_size": "Model Cache Limit",
+			"web_fetch_max_bytes": {
+				"label": "Max Fetch Size",
+				"description": "Maximum bytes to fetch from a web page."
+			},
+			"web_fetch_timeout_secs": {
+				"label": "Web Fetch Timeout",
+				"description": "Timeout in seconds for web fetch requests."
+			},
+			"graph_execution_timeout": {
+				"label": "Graph Execution Timeout",
+				"description": "Maximum execution time for an agent run."
+			},
+			"embedding_rerank": {
+				"label": "Rerank Search Results",
+				"description": "Rerank search results using the embedding model."
+			},
+			"require_allowlist": {
+				"label": "Require Allowlist",
+				"description": "Only allow downloading models in the allowlist."
+			},
+			"warn_on_unlisted": {
+				"label": "Warn on Unlisted",
+				"description": "Show a warning when downloading unlisted models."
+			},
+			"require_revision": {
+				"label": "Require Revision Hash",
+				"description": "Require a revision hash when downloading models."
+			},
+			"require_sha256": {
+				"label": "Require SHA256",
+				"description": "Verify file integrity with SHA256 checksum."
+			},
+			"allow_repo_owners": {
+				"label": "Allowed Repository Owners",
+				"description": "Repository owners to always allow without warnings.",
+				"placeholder": "e.g. TheBloke"
+			},
+			"ollama_base_url": {
+				"label": "Ollama Base URL",
+				"description": "API endpoint for Ollama.",
+				"placeholder": "http://localhost:11434"
+			},
+			"lmstudio_base_url": {
+				"label": "LM Studio Base URL",
+				"description": "API endpoint for LM Studio.",
+				"placeholder": "http://localhost:1234"
+			}
+		},
+		"descriptions": {
+			"cache_size": "Number of models to keep loaded in memory."
+		},
+		"memory": {
+			"max_tokens": {
+				"label": "Local Context Window",
+				"description": "Maximum tokens for the active conversation context."
+			},
+			"surprise_gamma": {
+				"label": "Surprise Gamma",
+				"description": "Sensitivity for event boundary detection (0.0 - 1.0)."
+			},
+			"min_event_size": {
+				"label": "Min Event Size",
+				"description": "Minimum tokens to form a memory event."
+			},
+			"max_event_size": {
+				"label": "Max Event Size",
+				"description": "Maximum tokens per memory event."
+			},
+			"retrieved_events": {
+				"label": "Retrieved Events",
+				"description": "Number of past events to recall."
+			},
+			"repr_topk": {
+				"label": "Repr Top K",
+				"description": "Top K tokens for event representation."
+			},
+			"boundary_refinement": {
+				"label": "Boundary Refinement",
+				"description": "Improve event segmentation accuracy."
+			},
+			"default_limit": {
+				"label": "Message Count",
+				"description": "Default number of messages to retrieve from history."
+			},
+			"explorer": {
+				"title": "Saved Events",
+				"description": "View and manage saved episodic events.",
+				"button": "Open List"
+			},
+			"episodic_params_title": "Episodic Memory Parameters",
+			"episodic_params_desc": "Advanced configuration for EM-LLM",
+			"title": "Title",
+			"connecting": "Connecting",
+			"character_memory": "Character memory",
+			"stats": {
+				"total_events": "Total events",
+				"total_tokens": "Total tokens",
+				"mean_event_size": "Mean event size",
+				"surprise_statistics": "Surprise statistics",
+				"mean_surprise": "Mean surprise",
+				"max_surprise": "Max surprise"
+			},
+			"compaction": {
+				"scanned": "Scanned:",
+				"merged_groups": "Merged groups:",
+				"replaced": "Replaced:",
+				"created": "Created:",
+				"elapsed": "Elapsed:",
+				"compressing": "Compressing...",
+				"failed": "Compression failed.",
+				"history": "Compaction Job History",
+				"no_jobs": "No compaction jobs yet. Click \"Compress Memories\" to start one.",
+				"refresh": "↺ Refresh",
+				"loading": "Loading..."
+			},
+			"professional_memory": "Professional memory"
+		},
+		"mcp_content": {
+			"info": {
+				"title": "Configuration Information",
+				"description": "MCP (Model Context Protocol) tools allow the AI to interact with external data and services. Currently, MCP configuration is managed via a local JSON configuration file."
+			},
+			"servers": {
+				"title": "Detected Servers",
+				"active": "Active"
+			},
+			"config_path": {
+				"title": "Configuration Path",
+				"readonly": "Read-only",
+				"helper": "To add new MCP servers, please edit this file directly and restart the backend."
+			}
+		},
+		"mcp": {
+			"refresh": "Refresh Status",
+			"details": {
+				"open": "Open details",
+				"title": "Server Details: {{name}}",
+				"autorun": {
+					"label": "Auto-run",
+					"description": "Enable this server on application startup."
+				},
+				"command": {
+					"label": "Command",
+					"description": "Executable used to launch the MCP server."
+				},
+				"args": {
+					"label": "Arguments",
+					"description": "One argument per line."
+				},
+				"env": {
+					"label": "Environment Variables",
+					"description": "Use KEY=VALUE format, one per line."
+				},
+				"env_invalid": "Use KEY=VALUE format for env vars.",
+				"command_required": "Command is required.",
+				"save_failed": "Failed to save config.",
+				"saving": "Saving..."
+			},
+			"policy": {
+				"title": "Security Policy",
+				"mode": {
+					"label": "Connection Mode",
+					"description": "Control which servers are allowed to connect.",
+					"local_only": "Local Only (Recommended)",
+					"stdio_only": "Stdio Only (Safest)",
+					"allowlist": "Allowlist Only"
+				},
+				"confirmation": {
+					"label": "Tool Confirmation",
+					"description": "Ask for permission before executing tools."
+				},
+				"first_use": {
+					"label": "First-use Confirmation",
+					"description": "Show confirmation on first tool invocation per session."
+				},
+				"blocked_commands": {
+					"label": "Blocked Commands",
+					"description": "Commands that MCP servers are never allowed to execute.",
+					"placeholder": "e.g. rm -rf"
+				}
+			},
+			"addServer": "Add Server",
+			"disabled": "Disabled",
+			"disable": "Disable",
+			"enable": "Enable",
+			"delete": "Delete",
+			"confirmDelete": "Confirm Delete",
+			"cancelDelete": "Cancel",
+			"noServers": {
+				"title": "No MCP Servers",
+				"description": "Click 'Add Server' to install servers from the official registry."
+			},
+			"status": {
+				"connected": "Connected ({{count}} tools)",
+				"connecting": "Connecting...",
+				"disconnected": "Disconnected",
+				"error": "Error",
+				"unknown": "Unknown"
+			},
+			"store": {
+				"title": "MCP Server Store",
+				"searchPlaceholder": "Search servers...",
+				"noResults": "No servers found",
+				"selectRuntime": "Select Runtime",
+				"runtimeDescription": "Choose a runtime to execute this server.",
+				"runtime": "Runtime",
+				"configure": "Configure",
+				"configDescription": "Enter the required environment variables.",
+				"confirm": "Confirm",
+				"install": "Install",
+				"preview": "Preview Command",
+				"installing": "Installing...",
+				"commandPreview": "Command Preview",
+				"securityWarnings": "Security Warnings",
+				"envVars": "Environment Variables",
+				"confirmInstall": "Confirm Install",
+				"pagination": "Showing {{from}}-{{to}} of {{total}} (Page {{page}}/{{totalPages}})",
+				"prevPage": "Previous page",
+				"nextPage": "Next page"
+			},
+			"config_path": {
+				"label": "MCP Configuration File",
+				"description": "Path to the JSON file defining MCP servers."
+			}
+		},
+		"models_settings": {
+			"global_manager": {
+				"title": "LLM Manager Global",
+				"description": "Process management and health check configuration.",
+				"terminate_timeout": "Terminate Timeout",
+				"health_check_timeout": "Health Check Timeout",
+				"health_check_interval": "Health Check Interval",
+				"tokenizer_model": "Tokenizer Model"
+			},
+			"download_manager": {
+				"title": "Download Manager",
+				"description": "Manage local model files."
+			},
+			"configurations": {
+				"title": "Model Configurations",
+				"description": "Detailed configuration for each model instance.",
+				"path": "Path",
+				"port": "Port",
+				"context": "Context",
+				"gpu_layers": "GPU Layers (-1 for all)",
+				"temp": "Temp",
+				"top_p": "Top P",
+				"top_k": "Top K",
+				"repeat_penalty": "Rep. Penalty",
+				"max_tokens": "Max Tokens",
+				"max_tokens_desc": "Maximum number of tokens to generate per response.",
+				"predict_len": "Predict Length",
+				"predict_len_desc": "Prediction length hint for the model server (0 = auto)."
+			}
+		},
+		"privacy": {
+			"web_search": {
+				"label": "Allow Internet Search",
+				"description": "Allow the AI to use internet search to retrieve information.",
+				"warning_title": "Data Sharing Notice",
+				"warning_query": "Search queries will be sent to the configured search API",
+				"warning_api": "Your configured API key will be used for search requests"
+			},
+			"url_denylist": {
+				"label": "URL Deny List",
+				"description": "Domains or patterns blocked from web fetch.",
+				"placeholder": "e.g. *.example.com"
+			},
+			"redact_pii": {
+				"label": "Personal Data Protection",
+				"description": "Automatically redact personal information from logs and web search queries."
+			}
+		}
+	},
+	"tool_errors": {
+		"search_disabled_privacy": "Web search is disabled by privacy settings.",
+		"search_disabled_api_keys": "Google Custom Search is disabled (API keys not configured).",
+		"search_timeout": "Search request timed out. Please try again later.",
+		"search_connection_error": "Connection failed. Please check your internet connection and try again.",
+		"search_rate_limit": "Rate limit exceeded. Please wait a moment and try again.",
+		"search_access_denied": "API access denied. Please check your API key and permissions.",
+		"search_http_error": "HTTP error occurred with status code {{status_code}}.",
+		"search_failed": "Failed to perform search: {{details}}",
+		"search_invalid_response": "Invalid response from Google API. Please try again.",
+		"search_unexpected_error": "Unexpected error occurred: {{details}}",
+		"search_api_error": "Google API Error: {{message}}",
+		"url_invalid_scheme": "URL must include a valid http/https scheme and host.",
+		"url_no_hostname": "Could not determine hostname from URL.",
+		"url_blocked_private": "Access to {{host}} is blocked for security reasons (private/local network).",
+		"url_blocked_private_ip": "Access to private/local IP addresses is blocked for security reasons.",
+		"fetch_failed": "Failed to retrieve content from {{url}}: {{details}}",
+		"fetch_not_html": "URL is not an HTML page (Content-Type: {{content_type}}).",
+		"tool_timeout": "Tool '{{tool_name}}' execution timed out.",
+		"tool_not_found": "Tool '{{tool_name}}' not found.",
+		"tool_no_method": "Tool '{{tool_name}}' has no callable method.",
+		"tool_execution_error": "Error executing tool '{{tool_name}}': {{details}}"
+	},
+	"errorBoundary": {
+		"title": "Something went wrong",
+		"message": "The UI encountered an unexpected error. Reload the app to continue.",
+		"details": "Error details",
+		"reload": "Reload"
+	},
+	"Close": "Close",
+	"error": "Error",
+	"info": "Info",
+	"empty": {
+		"capability": {
+			"search": {
+				"title": "Advanced Search",
+				"desc": "Search and summarize web information"
+			},
+			"code": {
+				"title": "Coding Assistance",
+				"desc": "Write, review, and refactor code"
+			},
+			"chat": {
+				"title": "Chat & Consult",
+				"desc": "Engage on various topics"
+			}
+		},
+		"hero": {
+			"subtitle": "How can I help you today?"
+		}
+	},
+	"shortcuts": {
+		"newSession": "New Session",
+		"stopGeneration": "Stop Generation",
+		"showHelp": "Show Help",
+		"title": "Keyboard Shortcuts",
+		"footer": "Use shortcuts for quick navigation"
+	},
+	"model": {
+		"role": {
+			"text": "Text",
+			"embedding": "Embedding"
+		}
+	},
+	"modelHub": {
+		"title": "Model Hub",
+		"subtitle": "Manage available AI models",
+		"search_placeholder": "Search models...",
+		"no_models_found": "No models found"
+	},
+	"v2": {
+		"common": {
+			"loading": "Loading...",
+			"save": "Save",
+			"saving": "Saving...",
+			"cancel": "Cancel",
+			"enabled": "Enabled",
+			"disabled": "Disabled"
+		},
+		"mode": {
+			"chat": "Chat",
+			"search": "Search",
+			"agent": "Agent"
+		},
+		"chat": {
+			"assistantFallback": "Assistant",
+			"emptyState": "How can I help today?",
+			"copy": "Copy",
+			"regenerate": "Regenerate",
+			"generating": "Generating",
+			"thinking": "Reasoning trace",
+			"inputPlaceholder": "Type here...",
+			"removeAttachment": "Remove attachment",
+			"stop": "Stop generation",
+			"send": "Send",
+			"thinkingOn": "Deliberate mode on",
+			"thinkingOff": "Deliberate mode off",
+			"attach": "Attach",
+			"enterToSend": "Enter to send",
+			"reconnecting": "Reconnecting..."
+		},
+		"session": {
+			"historyTitle": "History",
+			"historySubtitle": "Sessions",
+			"newSession": "New Session",
+			"empty": "No history yet.",
+			"previewFallback": "No preview yet",
+			"rename": "Rename",
+			"delete": "Delete",
+			"deleteTitle": "Delete session",
+			"deleteMessage": "Delete this session and remove all messages from history?",
+			"openHistory": "Open history"
+		},
+		"persona": {
+			"switch": "Switch character",
+			"active": "Active character",
+			"available": "Available characters",
+			"noDescription": "No description"
+		},
+		"agent": {
+			"openPanel": "Open mode panel",
+			"activeContext": "Active context",
+			"approvalRequired": "Approval required",
+			"deny": "Deny",
+			"approveOnce": "Approve once",
+			"allowTemporary": "Allow temporarily",
+			"risk": "risk"
+		},
+		"settings": {
+			"open": "Open settings",
+			"label": "Settings",
+			"return": "Return to Session",
+			"saving": "Saving changes...",
+			"pendingSave": "Saving soon...",
+			"allSaved": "All changes saved automatically",
+			"autoSave": "Auto-save enabled",
+			"loadError": "Failed to load settings.",
+			"categories": {
+				"general": {
+					"label": "General",
+					"tabs": {
+						"basics": "Basics",
+						"thinking": "Thinking"
+					}
+				},
+				"appearance": {
+					"label": "Appearance",
+					"tabs": {
+						"theme": "Theme",
+						"typography": "Typography",
+						"code_blocks": "Code Blocks",
+						"notifications": "Notifications",
+						"shortcuts": "Shortcuts"
+					}
+				},
+				"characters": {
+					"label": "Characters",
+					"tabs": {
+						"personas": "Personas",
+						"custom_agents": "Custom Agents"
+					}
+				},
+				"models": {
+					"label": "Models",
+					"tabs": {
+						"hub": "Hub",
+						"defaults": "Defaults",
+						"embedding": "Embedding",
+						"loader": "Loader",
+						"advanced": "Advanced"
+					}
+				},
+				"privacy": {
+					"label": "Privacy",
+					"tabs": {
+						"privacy": "Privacy",
+						"quarantine": "Quarantine",
+						"permissions": "Permissions"
+					}
+				},
+				"tools": {
+					"label": "Tools",
+					"tabs": {
+						"web_search": "Web Search",
+						"agent_skills": "Agent Skills",
+						"mcp": "MCP",
+						"credentials": "Credentials"
+					}
+				},
+				"memory": {
+					"label": "Memory",
+					"tabs": {
+						"basics": "Basics",
+						"decay_engine": "Decay Engine",
+						"retrieval": "Retrieval"
+					}
+				},
+				"context": {
+					"label": "Context",
+					"tabs": {
+						"rag": "RAG",
+						"window_allocation": "Window Allocation"
+					}
+				},
+				"data": {
+					"label": "Data",
+					"tabs": {
+						"indexing": "Indexing",
+						"paths": "Paths",
+						"cache": "Cache",
+						"backup": "Backup"
+					}
+				},
+				"system": {
+					"label": "System",
+					"tabs": {
+						"integration": "Integration",
+						"performance": "Performance",
+						"updates": "Updates"
+					}
+				},
+				"advanced": {
+					"label": "Advanced",
+					"tabs": {
+						"execution": "Execution",
+						"agent": "Agent",
+						"model_dl": "Model DL",
+						"features": "Features",
+						"server": "Server"
+					}
+				}
+			},
+			"languages": {
+				"en": "English",
+				"ja": "Japanese",
+				"es": "Spanish",
+				"zh": "Chinese"
+			},
+			"themes": {
+				"system": "System",
+				"tepora": "Tepora",
+				"light": "Light",
+				"dark": "Dark"
+			},
+			"agentSkills": "Agent Skills",
+			"skillRoots": "Skill Roots",
+			"skillRootsDescription": "Comma-separated skill root paths stored in backend config",
+			"mcp": "MCP",
+			"mcpConfigPath": "MCP Config Path",
+			"mcpConfigPathDescription": "Path to the MCP configuration file used by the backend",
+			"credentials": "Credentials",
+			"credentialsDescription": "Credentials are edited inline on each provider tab and saved through the backend secret store.",
+			"webSearch": "Web Search",
+			"provider": "Provider",
+			"googleApiKey": "Google API Key",
+			"googleApiKeyDescription": "Stored via backend secrets handling when saved",
+			"googleApiKeyPlaceholder": "Google Custom Search API key",
+			"googleEngineId": "Google Engine ID",
+			"googleEngineIdPlaceholder": "Custom Search Engine ID",
+			"braveApiKey": "Brave API Key",
+			"braveApiKeyPlaceholder": "Brave Search API key",
+			"bingApiKey": "Bing API Key",
+			"bingApiKeyPlaceholder": "Bing Search API key",
+			"performance": "Performance",
+			"processTimeout": "Process Timeout",
+			"processTimeoutDescription": "Milliseconds to wait before forcing external loader shutdown",
+			"updates": "Updates",
+			"autoUpdate": "Auto Update",
+			"autoUpdateDescription": "Allow Tepora to check for app and runtime updates.",
+			"integration": "Integration",
+			"startOnLogin": "Start on Login",
+			"startOnLoginDescription": "Launch Tepora automatically when the desktop session starts.",
+			"ollamaBaseUrl": "Ollama Base URL",
+			"lmStudioBaseUrl": "LM Studio Base URL"
+		}
+	}
+}
