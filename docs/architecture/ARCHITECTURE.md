@@ -1,8 +1,8 @@
 # Tepora Project - アーキテクチャ仕様書
 
-**ドキュメントバージョン**: 5.10
+**ドキュメントバージョン**: 5.11
 **アプリケーションバージョン**: 4.5 (BETA) (v0.4.5)
-**最終更新日**: 2026-03-21
+**最終更新日**: 2026-03-22
 **対象**: Rust Backend + React Frontend
 
 ---
@@ -209,23 +209,24 @@ backend-rs/
 │   │   └── mod.rs
 │   │
 │   ├── server/                 # ========== サーバー層 ==========
-│   │   ├── handlers/           # REST API ハンドラ
-│   │   ├── ws/                 # WebSocket ハンドラ
+│   │   ├── handlers/           # REST API ハンドラ (setup_flow/catalog/roles/models/binary を含む)
+│   │   ├── ws/                 # WebSocket ハンドラ (auth/request/control/session/actor_bridge に分割)
 │   │   ├── router.rs           # ルーティング定義
 │   │   └── mod.rs
 │   │
 │   ├── core/                   # ========== コア機能 ==========
-│   │   ├── config/             # 設定管理
+│   │   ├── config/             # 設定管理 (validation_primitives / validation_sections を含む)
 │   │   ├── native_tools.rs     # ネイティブツールの定義
 │   │   ├── security.rs         # 認証・セキュリティ
-│   │   ├── security_controls.rs # セキュリティ制御機構
+│   │   ├── security_controls.rs # セキュリティ制御 facade
 │   │   ├── errors.rs           # エラー定義
 │   │   ├── logging.rs          # ログ設定
 │   │   └── mod.rs
 │   │
 │   ├── state/                  # ========== 状態管理 ==========
 │   │   ├── error.rs            # 状態関連エラー
-│   │   ├── mod.rs              # AppState (アプリケーション状態)
+│   │   ├── bootstrap.rs        # AppState 初期化 / startup backup
+│   │   ├── mod.rs              # AppState (grouped state access)
 │   │   └── setup.rs            # セットアップ状態
 │   │
 │   ├── llm/                    # ========== LLM 統合 ==========
@@ -266,7 +267,7 @@ backend-rs/
 │   │   ├── state.rs            # AgentState 定義
 │   │   ├── stream.rs           # ストリーム処理機能
 │   │   ├── node.rs             # Node トレイト定義
-│   │   └── nodes/              # ノード実装 (chat, search, agentic, thinking, etc.)
+│   │   └── nodes/              # ノード実装 (search_agentic_support 等の helper 分割を含む)
 │   │
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── skill_registry.rs   # SkillRegistry / Agent Skills package管理 [v7.0]
@@ -278,7 +279,11 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── context/                # ========== コンテキストパイプライン ==========
-│   │   ├── controller.rs       # ContextController (memory-first render + token budgeting)
+│   │   ├── controller.rs       # ContextController facade
+│   │   ├── controller_blocks.rs # block collect / compress / drop
+│   │   ├── controller_recipe.rs # recipe / override 解決
+│   │   ├── controller_render.rs # render / trim / prompt score
+│   │   ├── controller_tokens.rs # token estimation / tokenizer cache
 │   │   ├── pipeline.rs         # ContextPipeline (config snapshot + budget/tokenizer 解決)
 │   │   ├── pipeline_context.rs # PipelineContext (interaction_tail / local_context / reasoning) [v4.0]
 │   │   ├── prompt.rs           # プロンプト生成・管理
@@ -344,8 +349,8 @@ frontend/
 │   ├── utils/                  # sidecar / auth / API base helpers
 │   ├── test/                   # active frontend tests
 │   ├── features/               # ========== Feature-Sliced Design ==========
-│   │   ├── chat/               # チャット機能
-│   │   ├── settings/           # 設定画面
+│   │   ├── chat/               # チャット機能 (screen state / lifecycle / composer actions に分割)
+│   │   ├── settings/           # 設定画面 (editor model / model management / layout model に分割)
 │   │   ├── session/            # セッション管理
 │   │   └── navigation/         # ナビゲーション
 │   │
@@ -377,46 +382,36 @@ frontend/
 
 ### 5.1 AppState (アプリケーション状態)
 
-`Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。
+`Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。現行実装は grouped state を明示 accessor で辿る形で、旧 `AppStateCompat` と暗黙 `Deref` は削除済みです。
 
 **ファイル**: `src/state/mod.rs`
 
 ```rust
-// グループ化されたドメイン状態群
 pub struct AppState {
     pub core: Arc<AppCoreState>,
     pub ai: Arc<AppAiState>,
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    compat: AppStateCompat, // Deref実装により、後方互換性を維持
-}
-
-// レガシーフィールド（Deref経由でアクセス可能）
-pub struct AppStateCompat {
-    pub paths: Arc<AppPaths>,        // パス設定
-    pub config: ConfigService,       // 設定ファイルの読み書き
-    pub session_token: Arc<tokio::sync::RwLock<SessionToken>>, // セッショントークン
-    pub security: Arc<SecurityControls>, // 認証・セキュリティ
-    pub history: HistoryStore,       // SQLiteへのチャット履歴アクセス
-    pub llama: LlamaService,         // 推論サーバー管理 (低レベル)
-    pub llm: LlmService,             // LLMサービス (高レベル抽象化)
-    pub mcp: McpManager,             // MCPクライアント管理
-    pub mcp_registry: McpRegistry,   // MCPサーバーカタログ
-    pub models: ModelManager,        // モデル管理
-    pub setup: SetupState,           // セットアップ状態
-    pub skill_registry: SkillRegistry,     // Agent Skills package管理
-    pub graph_runtime: Arc<GraphRuntime>,        // グラフランタイム
-    pub memory_service: Arc<MemoryService>,      // エピソード記憶
-    pub rate_limiters: Arc<RateLimiters>,        // レート制限
-    pub actor_manager: Arc<ActorManager>,        // CQRSアクター管理
-    pub memory_adapter: Arc<dyn MemoryAdapter>,  // 統合メモリアダプタ
-    pub episodic_memory: Arc<dyn EpisodicMemoryPort>, // ドメイン: エピソード記憶
-    pub knowledge: Arc<dyn KnowledgePort>,            // ドメイン: 知識
-    pub episodic_memory_use_case: Arc<EpisodicMemoryUseCase>, // Usecase: エピソード記憶
-    pub knowledge_use_case: Arc<KnowledgeUseCase>,            // Usecase: 知識
 }
 ```
+
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+
+```rust
+let state: AppStateRead = /* extractor */;
+let config = state.core().config.clone();
+let graph_runtime = state.ai().graph_runtime.clone();
+let history = state.runtime().history.clone();
+```
+
+### 5.1.1 近年の分割ポイント
+
+- `server/handlers/setup.rs` は setup flow / model catalog / role assignment / binary update に分割
+- `server/ws/handler.rs` は auth / request / control / session / actor bridge に分割
+- `core/security_controls.rs` は audit / backup / credentials / permissions / pii detection を個別モジュールへ分離
+- `context/controller.rs` は recipe / tokens / render / blocks の helper 群へ分離
+- `graph/nodes/search_agentic.rs` は support helper と stage context builder を使う orchestration 中心へ整理
 
 ### 5.2 グラフエンジン (`src/graph/`)
 

@@ -7,6 +7,7 @@ import {
 } from "../../../shared/contracts";
 import { v2ApiClient } from "../../../shared/lib/api-client";
 import { v2StaticQueryOptions } from "../../../shared/lib/queryClient";
+import { deepMerge } from "./configUtils";
 
 const configWriteResponseSchema = z.object({}).passthrough();
 
@@ -86,27 +87,4 @@ export function useSetActiveSetupModelMutation() {
 			});
 		},
 	});
-}
-
-function deepMerge(
-	target: Record<string, unknown>,
-	source: Record<string, unknown>,
-): Record<string, unknown> {
-	const nextTarget: Record<string, unknown> = { ...target };
-
-	for (const [key, value] of Object.entries(source)) {
-		const currentValue = nextTarget[key];
-		if (isRecord(currentValue) && isRecord(value)) {
-			nextTarget[key] = deepMerge(currentValue, value);
-			continue;
-		}
-
-		nextTarget[key] = value;
-	}
-
-	return nextTarget;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
