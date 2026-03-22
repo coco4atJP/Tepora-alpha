@@ -13,7 +13,7 @@ use crate::core::errors::ApiError;
 
 use super::types::ModelDownloadPolicy;
 
-type ProgressCallback = dyn Fn(f32, &str) + Sync;
+type ProgressCallback<'a> = dyn Fn(f32, &str) + Sync + 'a;
 
 pub(crate) struct DownloadedModelFile {
     pub path: PathBuf,
@@ -103,12 +103,12 @@ pub(crate) fn evaluate_download_policy_from_config(
     }
 }
 
-pub(crate) async fn download_model_file(
+pub(crate) async fn download_model_file<'a>(
     client: &Client,
     url: &str,
     target_path: &Path,
     expected_sha256: Option<&str>,
-    progress_cb: Option<&ProgressCallback>,
+    progress_cb: Option<&'a ProgressCallback<'a>>,
 ) -> Result<DownloadedModelFile, ApiError> {
     let response = client
         .get(url)

@@ -59,15 +59,14 @@ automerge = "0.5"
 tokio = { version = "1", features = ["macros"] }
 
 [dependencies.wasmtime]
-version = "40.0.4"
+version = "20"
 optional = true
 
 [dependencies.wasmtime-wasi]
-version = "40.0.4"
+version = "20"
 optional = true
 
 [features]
 default = []
 redesign_crdt = []
 redesign_sandbox = ["wasmtime", "wasmtime-wasi"]
-

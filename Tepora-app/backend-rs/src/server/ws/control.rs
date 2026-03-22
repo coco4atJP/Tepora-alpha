@@ -187,7 +187,7 @@ async fn handle_regenerate<S: JsonPayloadSink + ?Sized>(
     let session_id = data
         .session_id
         .clone()
-        .unwrap_or_else(|| current_session_id.clone());
+        .unwrap_or_else(|| current_session_id.to_string());
     if session_id.is_empty() {
         return Ok(ControlDispatch::Handled);
     }
