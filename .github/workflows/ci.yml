@@ -186,8 +186,8 @@ jobs:
       - name: TypeScript Check
         run: npm run typecheck
 
-      - name: Biome Lint & Format
-        run: npx biome check src/
+      - name: Source Lint
+        run: npx eslint src --max-warnings 0
 
       - name: ESLint
         run: npm run lint

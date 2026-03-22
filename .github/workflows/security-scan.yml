@@ -105,8 +105,18 @@ jobs:
 
       - name: Run npm audit
         id: npm_audit
+        shell: bash
         run: |
-          npm audit --audit-level=moderate 2>&1 | tee audit-output.txt || echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          set -o pipefail
+          if npm audit --audit-level=moderate 2>&1 | tee audit-output.txt; then
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+          elif grep -qiE 'audit endpoint returned an error|request to .*advisories/bulk failed' audit-output.txt; then
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            echo "audit_unavailable=1" >> "$GITHUB_OUTPUT"
+            echo "npm audit advisory endpoint unavailable; skipping failure." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Issue on Failure
         if: steps.npm_audit.outputs.exit_code == '1'

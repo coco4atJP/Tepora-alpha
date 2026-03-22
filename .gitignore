@@ -176,3 +176,7 @@ gha-creds-*.json
 # Perf reports
 Tepora-app/tests/perf/perf-results.json
 
+
+# Track frontend shared library sources
+!Tepora-app/frontend/src/shared/lib/
+!Tepora-app/frontend/src/shared/lib/**

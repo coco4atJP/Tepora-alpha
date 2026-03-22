@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 
-import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 
 // https://vitejs.dev/config/
@@ -9,7 +8,7 @@ export default defineConfig(({ mode }) => {
 	const apiPort = env.VITE_API_PORT || "8000";
 
 	return {
-		plugins: [react()],
+		plugins: [],
 		// Tauri expects a fixed port, fail if that port is not available
 		server: {
 			port: 5173,

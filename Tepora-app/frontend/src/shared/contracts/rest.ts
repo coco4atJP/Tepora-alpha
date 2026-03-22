@@ -46,6 +46,8 @@ export const sessionMessagesResponseSchema = z.object({
 	messages: z.array(sessionHistoryMessageSchema),
 });
 
+const namedRecordSchema = z.record(z.string(), z.record(z.string(), z.unknown()));
+
 export const configResponseSchema = z
 	.object({
 		app: z
@@ -58,7 +60,17 @@ export const configResponseSchema = z
 				graph_execution_timeout: z.number().int().positive().optional(),
 			})
 			.passthrough(),
+		ui: z
+			.object({
+				theme: z.string().optional(),
+				font_size: z.number().optional(),
+			})
+			.passthrough()
+			.optional(),
 		active_character: z.string().optional(),
+		active_agent_profile: z.string().optional(),
+		characters: namedRecordSchema.optional(),
+		custom_agents: namedRecordSchema.optional(),
 		tools: z
 			.object({
 				search_provider: z
