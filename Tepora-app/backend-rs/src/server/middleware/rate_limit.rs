@@ -38,7 +38,7 @@ impl Default for RateLimiters {
 
 /// 一般APIエンドポイント向けレート制限ミドルウェア。
 ///
-/// `AppState` に保持されている `rate_limiters.api` を使用し、
+/// `AppState` に保持されている `runtime.rate_limiters.api` を使用し、
 /// グローバルなトークンバケット方式でリクエスト数を制限する。
 /// 制限を超えた場合は 429 Too Many Requests を返す。
 pub async fn rate_limit_middleware(
@@ -49,7 +49,7 @@ pub async fn rate_limit_middleware(
     if !state.is_redesign_enabled("rate_limit") {
         return Ok(next.run(request).await);
     }
-    match state.rate_limiters.api.check() {
+    match state.runtime().rate_limiters.api.check() {
         Ok(_) => Ok(next.run(request).await),
         Err(_) => {
             tracing::warn!(

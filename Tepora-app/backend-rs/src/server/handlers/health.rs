@@ -17,7 +17,7 @@ fn resolve_overall_health(llm_status: &str, db_status: &str, mcp_status: &str) -
 
 pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     // Check LLM availability via role_assignments
-    let active_character = state.config.load_config().ok().and_then(|config| {
+    let active_character = state.core().config.load_config().ok().and_then(|config| {
         config
             .get("active_character")
             .or_else(|| config.get("active_agent_profile"))
@@ -26,6 +26,7 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
     });
 
     let (llm_status, llm_model) = match state
+        .ai()
         .models
         .resolve_character_model_id(active_character.as_deref())
     {
@@ -36,14 +37,14 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
 
     // Check database availability via a lightweight query
     let db_start = std::time::Instant::now();
-    let db_status = match state.history.get_total_message_count().await {
+    let db_status = match state.runtime().history.get_total_message_count().await {
         Ok(_) => "ok",
         Err(_) => "error",
     };
     let db_latency_ms = db_start.elapsed().as_millis();
 
     // Check MCP status
-    let mcp_statuses = state.integration.mcp.status_snapshot().await;
+    let mcp_statuses = state.integration().mcp.status_snapshot().await;
     let mcp_connected = mcp_statuses
         .values()
         .filter(|s| s.status == "connected")
@@ -85,7 +86,7 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
 }
 
 pub async fn shutdown(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
-    if let Err(err) = state.llm.shutdown().await {
+    if let Err(err) = state.ai().llm.shutdown().await {
         tracing::warn!("Failed to stop llama server via shutdown endpoint: {}", err);
     }
 
@@ -98,8 +99,13 @@ pub async fn shutdown(State(state): State<AppStateRead>) -> Result<impl IntoResp
 }
 
 pub async fn get_status(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
-    let total_messages = state.history.get_total_message_count().await.unwrap_or(0);
-    let memory_stats = state.memory_service.stats().await?;
+    let total_messages = state
+        .runtime()
+        .history
+        .get_total_message_count()
+        .await
+        .unwrap_or(0);
+    let memory_stats = state.memory().memory_service.stats().await?;
     Ok(Json(json!({
         "initialized": true,
         "core_version": "v2",

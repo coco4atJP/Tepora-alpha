@@ -87,6 +87,7 @@ impl Node for SupervisorNode {
             {
                 let enabled = ctx
                     .app_state
+                    .ai()
                     .skill_registry
                     .get(requested)
                     .map(|skill| skill.summary.valid)

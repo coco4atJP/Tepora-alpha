@@ -254,7 +254,10 @@ impl ModelRuntimeConfig {
         config: &serde_json::Value,
         role_key: &str,
     ) -> Result<Self, crate::core::errors::ApiError> {
-        let models = config.get("models").or_else(|| config.get("models_gguf")).and_then(|v| v.as_object());
+        let models = config
+            .get("models")
+            .or_else(|| config.get("models_gguf"))
+            .and_then(|v| v.as_object());
         let model_cfg = models
             .and_then(|m| {
                 m.get(role_key).or_else(|| {

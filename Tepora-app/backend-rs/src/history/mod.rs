@@ -202,8 +202,12 @@ impl HistoryStore {
         for row in rows {
             let created_at = row.try_get::<String, _>("created_at").unwrap_or_default();
             let explicit_title = row.try_get::<Option<String>, _>("title").unwrap_or(None);
-            let first_message = row.try_get::<Option<String>, _>("first_message").unwrap_or(None);
-            let latest_message = row.try_get::<Option<String>, _>("latest_message").unwrap_or(None);
+            let first_message = row
+                .try_get::<Option<String>, _>("first_message")
+                .unwrap_or(None);
+            let latest_message = row
+                .try_get::<Option<String>, _>("latest_message")
+                .unwrap_or(None);
             sessions.push(SessionInfo {
                 id: row.try_get::<String, _>("id").unwrap_or_default(),
                 title: resolve_session_title(
@@ -484,7 +488,12 @@ fn resolve_session_title(
                 .or_else(|| latest_message.and_then(truncate_session_preview))?;
             Some(format!("{base} · {}", format_session_timestamp(created_at)))
         })
-        .or_else(|| Some(format!("New session · {}", format_session_timestamp(created_at))))
+        .or_else(|| {
+            Some(format!(
+                "New session · {}",
+                format_session_timestamp(created_at)
+            ))
+        })
 }
 
 fn truncate_session_preview(content: &str) -> Option<String> {

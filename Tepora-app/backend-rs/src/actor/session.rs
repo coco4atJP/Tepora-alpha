@@ -179,6 +179,7 @@ impl SessionActor {
         });
 
         let config = app_state
+            .core()
             .config
             .load_config()
             .unwrap_or_else(|_| serde_json::json!({}));
@@ -197,6 +198,7 @@ impl SessionActor {
         };
 
         if let Err(e) = app_state
+            .runtime()
             .graph_runtime
             .run(&mut agent_state, &mut node_ctx, None)
             .await
@@ -219,6 +221,7 @@ impl SessionActor {
         });
 
         if let Err(e) = app_state
+            .runtime()
             .history
             .add_message(&session_id, "ai", &assistant_output, Some(assistant_kwargs))
             .await
@@ -227,6 +230,7 @@ impl SessionActor {
         }
 
         let text_model_id = app_state
+            .ai()
             .models
             .resolve_agent_model_id(agent_id.as_deref())
             .ok()
@@ -234,6 +238,7 @@ impl SessionActor {
             .unwrap_or_else(|| "default".to_string());
 
         let embedding_model_id = app_state
+            .ai()
             .models
             .resolve_embedding_model_id()
             .ok()
@@ -251,12 +256,13 @@ impl SessionActor {
 
         // Use tokio::spawn to not block the actor, or just await it. Awaiting is fine here since it's already in a spawned task.
         let _ = app_state
+            .memory()
             .memory_adapter
             .ingest_interaction(
                 &session_id,
                 &message_text_for_ingest,
                 &assistant_output,
-                &app_state.llm,
+                &app_state.ai().llm,
                 &text_model_id,
                 &embedding_model_id,
                 legacy_enabled,

@@ -11,8 +11,8 @@ pub async fn list_agent_skills(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
     Ok(Json(json!({
-        "roots": state.skill_registry.list_roots(),
-        "skills": state.skill_registry.list_all(),
+        "roots": state.ai().skill_registry.list_roots(),
+        "skills": state.ai().skill_registry.list_all(),
     })))
 }
 
@@ -21,6 +21,7 @@ pub async fn get_agent_skill(
     Path(skill_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let skill = state
+        .ai()
         .skill_registry
         .get(&skill_id)
         .ok_or_else(|| ApiError::NotFound("Agent Skill not found".to_string()))?;
@@ -32,9 +33,10 @@ pub async fn save_agent_skill(
     Json(payload): Json<AgentSkillSaveRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("agent_skill_save")?;
-    let skill = state.skill_registry.save_package(payload)?;
+    let skill = state.ai().skill_registry.save_package(payload)?;
     Ok(Json(json!({ "success": true, "skill": skill })))
 }
 
@@ -43,9 +45,10 @@ pub async fn delete_agent_skill(
     Path(skill_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("agent_skill_delete")?;
-    let removed = state.skill_registry.delete(&skill_id)?;
+    let removed = state.ai().skill_registry.delete(&skill_id)?;
     if !removed {
         return Err(ApiError::NotFound("Agent Skill not found".to_string()));
     }

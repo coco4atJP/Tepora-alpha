@@ -1,7 +1,7 @@
 use super::pipeline_context::{ModelTokenizerSpec, PipelineContext, PipelineMode, TokenBudget};
 use super::worker::WorkerPipeline;
-use super::workers::memory_worker::MemoryWorker;
 use super::workers::character_worker::CharacterWorker;
+use super::workers::memory_worker::MemoryWorker;
 use super::workers::rag_worker::RagWorker;
 use super::workers::search_worker::SearchWorker;
 use super::workers::system_worker::SystemWorker;
@@ -26,7 +26,7 @@ impl ContextPipeline {
         mode: PipelineMode,
         skip_web_search: bool,
     ) -> Result<PipelineContext, ApiError> {
-        let config = state.config.load_config().unwrap_or_default();
+        let config = state.core().config.load_config().unwrap_or_default();
         let token_budget = resolve_token_budget(state, &config, mode);
         let tokenizer_spec = resolve_tokenizer_spec(state, &config);
 
@@ -85,6 +85,7 @@ fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
         .and_then(|value| value.as_str());
 
     let context_from_registry = state
+        .ai()
         .models
         .resolve_character_model(active_character)
         .ok()
@@ -92,6 +93,7 @@ fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
         .and_then(|model| model.context_length);
 
     let context_from_assignment = state
+        .ai()
         .models
         .find_first_model_by_role("text")
         .ok()
@@ -136,11 +138,19 @@ fn resolve_tokenizer_spec(state: &Arc<AppState>, config: &Value) -> ModelTokeniz
         .map(ToString::to_string);
 
     let active_model = state
+        .ai()
         .models
         .resolve_character_model(active_character)
         .ok()
         .flatten()
-        .or_else(|| state.models.find_first_model_by_role("text").ok().flatten());
+        .or_else(|| {
+            state
+                .ai()
+                .models
+                .find_first_model_by_role("text")
+                .ok()
+                .flatten()
+        });
     let active_model_id = active_model.as_ref().map(|model| model.id.clone());
     let registry_entry = active_model.as_ref();
 

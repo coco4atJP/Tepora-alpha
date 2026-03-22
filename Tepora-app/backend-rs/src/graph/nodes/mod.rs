@@ -7,6 +7,7 @@ pub mod planner;
 pub mod router;
 pub mod search;
 pub mod search_agentic;
+mod search_agentic_support;
 pub mod supervisor;
 pub mod synthesizer;
 pub mod thinking;

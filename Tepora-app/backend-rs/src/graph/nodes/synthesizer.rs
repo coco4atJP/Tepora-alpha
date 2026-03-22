@@ -121,6 +121,7 @@ impl Node for SynthesizerNode {
         let request = ChatRequest::new(messages).with_config(&agent_chat_config);
         let mut stream = ctx
             .app_state
+            .ai()
             .llm
             .stream_chat_normalized(request, &model_id)
             .await

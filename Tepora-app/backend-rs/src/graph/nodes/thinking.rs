@@ -52,7 +52,8 @@ impl ThinkingNode {
         let mut staged = base_ctx.clone();
         staged.user_input = user_input.to_string();
         staged.add_system_part("thinking_instruction", THINKING_SYSTEM_PROMPT, 130);
-        if let Some(extra_instruction) = extra_instruction.filter(|value| !value.trim().is_empty()) {
+        if let Some(extra_instruction) = extra_instruction.filter(|value| !value.trim().is_empty())
+        {
             staged.add_system_part("thinking_variant", extra_instruction, 125);
         }
         staged.to_messages()
@@ -87,6 +88,7 @@ impl Node for ThinkingNode {
 
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -124,6 +126,7 @@ impl Node for ThinkingNode {
             .and_then(|v| v.as_str());
         let model_id = ctx
             .app_state
+            .ai()
             .models
             .resolve_character_model_id(active_character)
             .map_err(|e| GraphError::new(self.id(), e.to_string()))?
@@ -134,11 +137,17 @@ impl Node for ThinkingNode {
             // Standard CoT (Level 1)
             let thinking_messages = self.thinking_messages(&base_ctx, &state.input, None);
             let request = ChatRequest::new(thinking_messages).with_config(ctx.config);
-            let response = ctx.app_state.llm.chat(request, &model_id).await.map_err(
-                |e: crate::core::errors::ApiError| GraphError::new(self.id(), e.to_string()),
-            )?;
+            let response = ctx
+                .app_state
+                .ai()
+                .llm
+                .chat(request, &model_id)
+                .await
+                .map_err(|e: crate::core::errors::ApiError| {
+                    GraphError::new(self.id(), e.to_string())
+                })?;
 
-            if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
+            if let Err(e) = ctx.app_state.runtime().history.save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
                 session_id: state.session_id.clone(),
                 node_name: self.id().to_string(),
@@ -172,7 +181,7 @@ impl Node for ThinkingNode {
                 // Allow slightly higher temperature for diversity, if supported by the LLM implementation config
                 // We pass the same config for now, but rely on the distinct system prompts for diversity.
                 let request = ChatRequest::new(messages).with_config(ctx.config);
-                let llm = ctx.app_state.llm.clone();
+                let llm = ctx.app_state.ai().llm.clone();
                 let m_id = model_id.clone();
 
                 futures.push(async move { llm.chat(request, &m_id).await });
@@ -224,10 +233,10 @@ impl Node for ThinkingNode {
                     "Synthesize the strongest reasoning into a single unified thought process. Output only the reasoning.",
                 ),
             );
-            let synthesis_request =
-                ChatRequest::new(synthesis_messages).with_config(ctx.config);
+            let synthesis_request = ChatRequest::new(synthesis_messages).with_config(ctx.config);
             let synthesized = ctx
                 .app_state
+                .ai()
                 .llm
                 .chat(synthesis_request, &model_id)
                 .await
@@ -235,7 +244,7 @@ impl Node for ThinkingNode {
                     GraphError::new(self.id(), format!("Synthesis failed: {}", e))
                 })?;
 
-            if let Err(e) = ctx.app_state.history.save_agent_event(&AgentEvent {
+            if let Err(e) = ctx.app_state.runtime().history.save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
                 session_id: state.session_id.clone(),
                 node_name: self.id().to_string(),
@@ -275,6 +284,7 @@ impl Node for ThinkingNode {
 
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),

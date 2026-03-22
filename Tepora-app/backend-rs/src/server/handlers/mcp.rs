@@ -66,7 +66,7 @@ fn cleanup_expired_consents_locked(store: &mut HashMap<String, PendingConsent>) 
 }
 
 pub async fn mcp_status(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
-    let status = state.integration.mcp.status_snapshot().await;
+    let status = state.integration().mcp.status_snapshot().await;
     let mut servers = Map::new();
     for (name, entry) in status {
         servers.insert(
@@ -79,29 +79,29 @@ pub async fn mcp_status(State(state): State<AppStateRead>) -> Result<impl IntoRe
             }),
         );
     }
-    let error = state.integration.mcp.init_error().await;
+    let error = state.integration().mcp.init_error().await;
     Ok(Json(json!({
         "servers": servers,
-        "initialized": state.integration.mcp.initialized(),
-        "config_path": state.integration.mcp.config_path().to_string_lossy(),
+        "initialized": state.integration().mcp.initialized(),
+        "config_path": state.integration().mcp.config_path().to_string_lossy(),
         "error": error
     })))
 }
 
 pub async fn mcp_config(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
-    let config = state.integration.mcp.get_config().await;
+    let config = state.integration().mcp.get_config().await;
     let config_value =
         serde_json::to_value(&config).unwrap_or_else(|_| json!({ "mcpServers": {} }));
     let servers = config_value
         .get("mcpServers")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let error = state.integration.mcp.init_error().await;
+    let error = state.integration().mcp.init_error().await;
 
     Ok(Json(json!({
         "mcpServers": servers,
-        "initialized": state.integration.mcp.initialized(),
-        "config_path": state.integration.mcp.config_path().to_string_lossy(),
+        "initialized": state.integration().mcp.initialized(),
+        "config_path": state.integration().mcp.config_path().to_string_lossy(),
         "error": error
     })))
 }
@@ -111,9 +111,10 @@ pub async fn mcp_update_config(
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_config_update")?;
-    state.integration.mcp.update_config(&payload).await?;
+    state.integration().mcp.update_config(&payload).await?;
     Ok(Json(json!({"success": true})))
 }
 
@@ -131,7 +132,7 @@ pub async fn mcp_store(
     let search = params.search.as_deref();
 
     let mut servers = state
-        .integration
+        .integration()
         .mcp_registry
         .fetch_servers(refresh, search, None)
         .await
@@ -243,9 +244,11 @@ pub async fn mcp_install_preview(
     Json(payload): Json<McpInstallPreviewRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_install_preview")?;
     let server = state
+        .integration()
         .mcp_registry
         .get_server_by_id(&payload.server_id)
         .await?
@@ -295,6 +298,7 @@ pub async fn mcp_install_confirm(
     Json(payload): Json<McpInstallConfirmRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_install_confirm")?;
     let pending = {
@@ -312,7 +316,7 @@ pub async fn mcp_install_confirm(
         ));
     }
 
-    let mut servers = state.integration.mcp.get_config().await.mcp_servers;
+    let mut servers = state.integration().mcp.get_config().await.mcp_servers;
     let existing_names: std::collections::HashSet<String> = servers.keys().cloned().collect();
     let base_name = mcp_installer::normalize_server_key(
         pending
@@ -333,7 +337,7 @@ pub async fn mcp_install_confirm(
     servers.insert(server_name.clone(), config);
 
     state
-        .integration
+        .integration()
         .mcp
         .update_config(&json!({ "mcpServers": servers }))
         .await?;
@@ -351,6 +355,7 @@ pub async fn mcp_approve_server(
     Json(payload): Json<McpApproveRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_approve_server")?;
     let decision = match payload.decision.as_deref().unwrap_or("always_until_expiry") {
@@ -361,20 +366,20 @@ pub async fn mcp_approve_server(
 
     match decision {
         ApprovalDecision::Deny => {
-            state.security.persist_permission(
+            state.core().security.persist_permission(
                 PermissionScopeKind::McpServer,
                 &server_name,
                 ApprovalDecision::Deny,
                 None,
             )?;
-            let (policy, _) = state.integration.mcp.revoke_server(&server_name)?;
+            let (policy, _) = state.integration().mcp.revoke_server(&server_name)?;
             Ok(Json(
                 json!({"success": true, "policy": policy, "decision": "deny"}),
             ))
         }
         ApprovalDecision::Once => {
             let policy = state
-                .integration
+                .integration()
                 .mcp
                 .approve_server(&server_name, payload.transport_types)?;
             Ok(Json(
@@ -382,14 +387,14 @@ pub async fn mcp_approve_server(
             ))
         }
         ApprovalDecision::AlwaysUntilExpiry => {
-            state.security.persist_permission(
+            state.core().security.persist_permission(
                 PermissionScopeKind::McpServer,
                 &server_name,
                 ApprovalDecision::AlwaysUntilExpiry,
                 payload.ttl_seconds,
             )?;
             let policy = state
-                .integration
+                .integration()
                 .mcp
                 .approve_server(&server_name, payload.transport_types)?;
             Ok(Json(
@@ -404,9 +409,10 @@ pub async fn mcp_revoke_server(
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_revoke_server")?;
-    let (policy, removed) = state.integration.mcp.revoke_server(&server_name)?;
+    let (policy, removed) = state.integration().mcp.revoke_server(&server_name)?;
     if !removed {
         return Err(ApiError::NotFound("Server not found".to_string()));
     }
@@ -418,10 +424,11 @@ pub async fn mcp_enable_server(
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_enable_server")?;
     let ok = state
-        .integration
+        .integration()
         .mcp
         .set_server_enabled(&server_name, true)
         .await?;
@@ -436,10 +443,11 @@ pub async fn mcp_disable_server(
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_disable_server")?;
     let ok = state
-        .integration
+        .integration()
         .mcp
         .set_server_enabled(&server_name, false)
         .await?;
@@ -454,9 +462,10 @@ pub async fn mcp_delete_server(
     Path(server_name): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_delete_server")?;
-    let ok = state.integration.mcp.delete_server(&server_name).await?;
+    let ok = state.integration().mcp.delete_server(&server_name).await?;
     if !ok {
         return Err(ApiError::NotFound("Server not found".to_string()));
     }
@@ -464,7 +473,7 @@ pub async fn mcp_delete_server(
 }
 
 pub async fn mcp_policy(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
-    let policy = state.integration.mcp.load_policy()?;
+    let policy = state.integration().mcp.load_policy()?;
     Ok(Json(policy))
 }
 
@@ -473,8 +482,9 @@ pub async fn mcp_update_policy(
     Json(payload): Json<Value>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .core()
         .security
         .ensure_lockdown_disabled("mcp_update_policy")?;
-    let policy = state.integration.mcp.update_policy(&payload)?;
+    let policy = state.integration().mcp.update_policy(&payload)?;
     Ok(Json(json!({"success": true, "policy": policy})))
 }

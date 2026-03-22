@@ -365,7 +365,7 @@ mod tests {
             return;
         };
 
-        let manager = &app_state.actor_manager;
+        let manager = &app_state.runtime().actor_manager;
         for session_id in ["session_a", "session_b", "session_c"] {
             manager
                 .dispatch(
@@ -559,7 +559,7 @@ mod tests {
             return;
         };
 
-        let manager = &app_state.actor_manager;
+        let manager = &app_state.runtime().actor_manager;
         let mut rx = manager.subscribe();
 
         let session_id = "test_integration_session".to_string();

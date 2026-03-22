@@ -149,7 +149,9 @@ mod sqlite_repository_tests {
     #[tokio::test]
     async fn schema_init_drops_expired_retired_tables() {
         let path = make_repo_path("tepora-memory-v2-drop-retired");
-        let old_suffix = (Utc::now() - Duration::days(31)).format("%Y%m%d").to_string();
+        let old_suffix = (Utc::now() - Duration::days(31))
+            .format("%Y%m%d")
+            .to_string();
         let old_table = format!("episodic_events_retired_{old_suffix}");
         create_table(&path, &old_table).await;
 

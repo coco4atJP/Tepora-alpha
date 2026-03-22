@@ -5,32 +5,33 @@ use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{State, WebSocketUpgrade};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
-use chrono::Utc;
 use futures_util::future::BoxFuture;
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use uuid::Uuid;
 
-use crate::actor::ActorDispatchError;
 use crate::core::errors::ApiError;
-use crate::core::security_controls::{detect_pii_in_attachments, ToolApprovalResponsePayload};
+use crate::core::security_controls::ToolApprovalResponsePayload;
 use crate::graph::{AgentState, NodeContext};
-use crate::models::event::{AgentEvent, AgentEventType};
 use crate::state::{AppState, AppStateWrite};
 
-use super::protocol::{WsIncomingMessage, WS_APP_PROTOCOL, WS_TOKEN_PREFIX};
+use super::actor_bridge::route_via_actor_model;
+use super::auth::{validate_origin, validate_token};
+use super::control::{handle_control_message, ControlDispatch};
+use super::protocol::{WsIncomingMessage, WS_APP_PROTOCOL};
+use super::request::build_generation_request;
+use super::session::{build_history_payload, persist_graph_interaction};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppStateWrite>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, ApiError> {
-    if !validate_origin(&headers, &state) {
+    if !validate_origin(&headers, state.as_ref()) {
         tracing::warn!("WebSocket handshake rejected: Invalid Origin");
         return Err(ApiError::Forbidden);
     }
-    if !validate_token(&headers, &state).await {
+    if !validate_token(&headers, state.as_ref()).await {
         tracing::warn!("WebSocket handshake rejected: Invalid Token");
         return Err(ApiError::Unauthorized);
     }
@@ -113,6 +114,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
     if !current_session_id.is_empty() && state.is_redesign_enabled("actor_model") {
         state
+            .runtime()
             .actor_manager
             .shutdown_session(&current_session_id)
             .await;
@@ -121,7 +123,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     tracing::info!("WebSocket connection closed");
 }
 
-trait JsonPayloadSink {
+pub(super) type PendingApprovals =
+    Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>;
+
+pub(super) trait JsonPayloadSink {
     fn send_payload<'a>(&'a mut self, payload: Value) -> BoxFuture<'a, Result<(), ApiError>>;
 
     fn websocket_sink(&mut self) -> Option<&mut SplitSink<WebSocket, Message>> {
@@ -149,235 +154,27 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
     sender: &mut S,
     state: &Arc<AppState>,
     current_session_id: &mut String,
-    pending: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>>>,
+    pending: PendingApprovals,
     approved_mcp_tools: Arc<Mutex<HashSet<String>>>,
     data: WsIncomingMessage,
 ) -> Result<(), ApiError> {
-    let msg_type = data.msg_type.as_deref().unwrap_or("");
+    let control = handle_control_message(
+        sender,
+        state,
+        current_session_id,
+        pending.clone(),
+        data,
+        is_perf_probe_enabled(),
+    )
+    .await?;
 
-    match msg_type {
-        "stop" => {
-            send_json(sender, json!({"type": "stopped"})).await?;
-            if state.is_redesign_enabled("actor_model") {
-                let session_id = data
-                    .session_id
-                    .clone()
-                    .unwrap_or_else(|| current_session_id.clone());
-                if !session_id.is_empty() {
-                    if let Err(err) = state
-                        .actor_manager
-                        .dispatch(
-                            &session_id,
-                            state.clone(),
-                            crate::actor::messages::SessionCommand::StopGeneration {
-                                session_id: session_id.clone(),
-                            },
-                        )
-                        .await
-                    {
-                        tracing::warn!("Failed to dispatch stop command for {session_id}: {err}");
-                    }
-                }
-            }
-            return Ok(());
-        }
-        "get_stats" => {
-            let stats = state.memory_service.stats().await?;
-            send_json(
-                sender,
-                json!({
-                    "type": "stats",
-                    "data": {
-                        "total_events": stats.total_events,
-                        "episodic_memory_enabled": stats.enabled,
-                        "memory_events": stats.total_events,
-                        "retrieval": {
-                            "limit": stats.retrieval_limit,
-                            "min_score": stats.min_score,
-                        },
-                        "character_memory": {
-                            "total_events": stats.char_events,
-                            "layer_counts": {
-                                "lml": stats.char_lml,
-                                "sml": stats.char_sml
-                            },
-                            "mean_strength": stats.char_mean_strength
-                        },
-                        "professional_memory": {
-                            "total_events": stats.prof_events,
-                            "layer_counts": {
-                                "lml": stats.prof_lml,
-                                "sml": stats.prof_sml
-                            },
-                            "mean_strength": stats.prof_mean_strength
-                        }
-                    }
-                }),
-            )
-            .await?;
-            return Ok(());
-        }
-        "perf_probe" => {
-            if !is_perf_probe_enabled() {
-                return Err(ApiError::BadRequest(
-                    "perf_probe is disabled (set TEPORA_PERF_PROBE_ENABLED=1)".to_string(),
-                ));
-            }
-            send_json(
-                sender,
-                json!({"type": "status", "message": "perf_probe_ready"}),
-            )
-            .await?;
-            send_json(sender, json!({"type": "chunk", "message": "probe"})).await?;
-            send_json(sender, json!({"type": "done"})).await?;
-            return Ok(());
-        }
-        "set_session" => {
-            if let Some(session_id) = data.session_id {
-                *current_session_id = session_id;
-                send_json(
-                    sender,
-                    json!({"type": "session_changed", "sessionId": current_session_id}),
-                )
-                .await?;
-                send_history(sender, state, current_session_id).await?;
-            }
-            return Ok(());
-        }
-        "tool_confirmation_response" => {
-            if let Some(request_id) = data.request_id.clone() {
-                let approval = if data.approval.approved.is_some()
-                    || !matches!(
-                        data.approval.decision,
-                        crate::core::security_controls::ApprovalDecision::Once
-                    )
-                    || data.approval.ttl_seconds.is_some()
-                {
-                    data.approval.clone()
-                } else if let Some(approved) = data.approved {
-                    if approved {
-                        ToolApprovalResponsePayload::approved_once()
-                    } else {
-                        ToolApprovalResponsePayload::denied()
-                    }
-                } else {
-                    ToolApprovalResponsePayload::denied()
-                };
-                if state.is_redesign_enabled("actor_model") {
-                    let session_id = data
-                        .session_id
-                        .clone()
-                        .unwrap_or_else(|| current_session_id.clone());
-                    if !session_id.is_empty() {
-                        if let Err(err) = state
-                            .actor_manager
-                            .dispatch(
-                                &session_id,
-                                state.clone(),
-                                crate::actor::messages::SessionCommand::ToolApprovalResponse {
-                                    session_id: session_id.clone(),
-                                    request_id,
-                                    approval,
-                                },
-                            )
-                            .await
-                        {
-                            tracing::warn!(
-                                "Failed to dispatch tool approval response for {session_id}: {err}"
-                            );
-                        }
-                    }
-                } else if let Ok(mut map) = pending.lock() {
-                    if let Some(reply_to) = map.remove(&request_id) {
-                        let _ = reply_to.send(approval);
-                    }
-                }
-            }
-            return Ok(());
-        }
-        "regenerate" => {
-            let session_id = data
-                .session_id
-                .clone()
-                .unwrap_or_else(|| current_session_id.clone());
-            if session_id.is_empty() {
-                return Ok(());
-            }
-
-            // Acknowledge regeneration start
-            let _ = send_json(sender, json!({"type": "regenerate_started"})).await;
-
-            let last_user_message = state.history.get_last_user_message(&session_id).await?;
-            if let Some(user_msg) = last_user_message {
-                // Remove trailing assistant and system error messages
-                state
-                    .history
-                    .delete_trailing_assistant_messages(&session_id)
-                    .await?;
-
-                // Reroute into a mock incoming message to continue the generation as if it was sent by the user
-                let mut new_data = data.clone();
-                new_data.message = Some(user_msg.content);
-
-                if let Some(kwargs) = user_msg.additional_kwargs.as_ref() {
-                    new_data.mode = kwargs
-                        .get("mode")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string());
-                    new_data.agent_id = kwargs
-                        .get("agent_id")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string());
-                    new_data.agent_mode = kwargs
-                        .get("agent_mode")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string());
-
-                    if let Some(arr) = kwargs.get("attachments").and_then(|v| v.as_array()) {
-                        new_data.attachments = arr.clone();
-                    }
-                    if let Some(budget) = kwargs.get("thinking_budget").and_then(|v| v.as_u64()) {
-                        new_data.thinking_budget = Some(budget as u8);
-                    }
-                    if let Some(skip) = kwargs.get("skip_web_search").and_then(|v| v.as_bool()) {
-                        new_data.skip_web_search = Some(skip);
-                    }
-                    if let Some(search_mode) =
-                        kwargs.get("search_mode").and_then(|v| v.as_str())
-                    {
-                        new_data.search_mode = Some(search_mode.to_string());
-                    }
-                }
-
-                // Clear msg_type so it falls through to the normal generation flow
-                new_data.msg_type = None;
-
-                // Recursively call handle_message to process the "new" user message
-                // This time it will not be "regenerate" and will insert the new assistant response
-                let Some(websocket_sender) = sender.websocket_sink() else {
-                    return Err(ApiError::BadRequest(
-                        "deterministic replay only supports control-path WebSocket messages"
-                            .to_string(),
-                    ));
-                };
-
-                return handle_message_internal(
-                    websocket_sender,
-                    state,
-                    current_session_id,
-                    pending,
-                    approved_mcp_tools,
-                    new_data,
-                    true, // is_regenerate flag
-                )
-                .await;
-            } else {
-                let _ = send_json(sender, json!({"type": "error", "message": "No user message found to regenerate from."})).await;
-                return Ok(());
-            }
-        }
-        _ => {}
-    }
+    let (data, is_regenerate) = match control {
+        ControlDispatch::Handled => return Ok(()),
+        ControlDispatch::Forward {
+            data,
+            is_regenerate,
+        } => (data, is_regenerate),
+    };
 
     let Some(websocket_sender) = sender.websocket_sink() else {
         return Err(ApiError::BadRequest(
@@ -392,7 +189,7 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
         pending,
         approved_mcp_tools,
         data,
-        false,
+        is_regenerate,
     )
     .await
 }
@@ -407,218 +204,48 @@ async fn handle_message_internal(
     data: WsIncomingMessage,
     is_regenerate: bool,
 ) -> Result<(), ApiError> {
-    let message_text = data.message.unwrap_or_default();
-    let attachments = data.attachments;
-    if state.security.is_lockdown_enabled() {
-        return Err(ApiError::Conflict(
-            "Privacy Lockdown is enabled; new chat requests are blocked".to_string(),
-        ));
-    }
-    let pii_findings = detect_pii_in_attachments(&attachments);
-    if !pii_findings.is_empty() {
-        let categories = pii_findings
-            .iter()
-            .map(|finding| finding.category.clone())
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
-            .join(", ");
-        state.security.record_audit(
-            "attachment_pii_warning",
-            "blocked",
-            json!({ "categories": categories }),
-        )?;
-        return Err(ApiError::Conflict(format!(
-            "Attachment contains potential PII and requires confirmation: {}",
-            categories
-        )));
-    }
-    if message_text.is_empty() && attachments.is_empty() {
+    let request = build_generation_request(state, current_session_id, data)?;
+    if request.message_text.is_empty() && request.attachments.is_empty() {
         return Ok(());
     }
 
-    let session_id = data
-        .session_id
-        .unwrap_or_else(|| current_session_id.clone());
-    let mode = data.mode.unwrap_or_else(|| "chat".to_string());
-    let thinking_budget = std::cmp::min(data.thinking_budget.unwrap_or(0), 3);
-    let search_mode = data.search_mode.clone();
-    let requested_agent_id = data.agent_id;
-    let requested_agent_mode = data.agent_mode;
-    let skip_search = data.skip_web_search.unwrap_or(false);
-    let timestamp = Utc::now().to_rfc3339();
-    let attachments_for_history = attachments.clone();
-
-    let config = state.config.load_config()?;
-
-    // Input Validation
-    let max_input_length = config
-        .get("app")
-        .and_then(|app| app.get("max_input_length"))
-        .and_then(|v| v.as_u64())
-        .map(|v| v as usize)
-        .unwrap_or(4096);
-
-    if message_text.len() > max_input_length {
-        return Err(ApiError::BadRequest(format!(
-            "Message length {} exceeds maximum allowed {}",
-            message_text.len(),
-            max_input_length
-        )));
-    }
-
-    let dangerous_patterns = config
-        .get("app")
-        .and_then(|app| app.get("dangerous_patterns"))
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect::<Vec<String>>()
-        })
-        .unwrap_or_default();
-
-    for pattern in dangerous_patterns {
-        if let Ok(re) = regex::Regex::new(&pattern) {
-            if re.is_match(&message_text) {
-                return Err(ApiError::BadRequest(
-                    "Message contains restricted content".to_string(),
-                ));
-            }
-        }
-    }
-
-    // Prepare user kwargs
-    let user_kwargs = json!({
-        "timestamp": timestamp.clone(),
-        "mode": mode.clone(),
-        "attachments": attachments_for_history,
-        "thinking_budget": thinking_budget,
-        "search_mode": search_mode.clone(),
-        "agent_id": requested_agent_id.clone(),
-        "agent_mode": requested_agent_mode.clone(),
-        "skip_web_search": data.skip_web_search,
-    });
+    let config = state.core().config.load_config()?;
 
     if !is_regenerate {
         state
+            .runtime()
             .history
-            .add_message(&session_id, "human", &message_text, Some(user_kwargs))
+            .add_message(
+                &request.session_id,
+                "human",
+                &request.message_text,
+                Some(request.user_kwargs.clone()),
+            )
             .await?;
-        let _ = state.history.touch_session(&session_id).await;
+        let _ = state
+            .runtime()
+            .history
+            .touch_session(&request.session_id)
+            .await;
     }
 
-    // Feature Flag Check API logic
     if state.is_redesign_enabled("actor_model") {
-        tracing::info!("Routing message for session {} via Actor Model", session_id);
-
-        let command = crate::actor::messages::SessionCommand::ProcessMessage {
-            session_id: session_id.clone(),
-            message: message_text.clone(),
-            mode: mode.clone(),
-            attachments: attachments.clone(),
-            search_mode: search_mode.clone(),
-            thinking_budget,
-            agent_id: requested_agent_id.clone(),
-            agent_mode: requested_agent_mode.clone(),
-            skip_web_search: skip_search,
-        };
-
-        // Subscribe to global events before dispatching to not miss anything
-        let mut rx = state.actor_manager.subscribe();
-
-        if let Err(err) = state
-            .actor_manager
-            .dispatch(&session_id, state.clone(), command)
-            .await
-        {
-            record_queue_saturation_event(state, &session_id, &err).await;
-            return Err(map_actor_dispatch_error(err));
-        }
-
-        // Loop over events from the actor
-        while let Ok(event) = rx.recv().await {
-            use crate::actor::messages::SessionEvent;
-            match event {
-                SessionEvent::Token {
-                    session_id: ev_session,
-                    text,
-                } if ev_session == session_id => {
-                    let _ = send_json(sender, json!({ "type": "chunk", "message": text })).await;
-                }
-                SessionEvent::Thought {
-                    session_id: ev_session,
-                    content,
-                } if ev_session == session_id => {
-                    let _ =
-                        send_json(sender, json!({ "type": "thought", "content": content })).await;
-                }
-                SessionEvent::Status {
-                    session_id: ev_session,
-                    message,
-                } if ev_session == session_id => {
-                    let _ =
-                        send_json(sender, json!({ "type": "status", "message": message })).await;
-                }
-                SessionEvent::NodeCompleted {
-                    session_id: ev_session,
-                    node_id,
-                    output,
-                } if ev_session == session_id => {
-                    let _ = send_json(
-                        sender,
-                        json!({ "type": "node_completed", "nodeId": node_id, "output": output }),
-                    )
-                    .await;
-                }
-                SessionEvent::MemoryGeneration {
-                    session_id: ev_session,
-                    status,
-                } if ev_session == session_id => {
-                    let _ = send_json(
-                        sender,
-                        json!({ "type": "memory_generation", "status": status }),
-                    )
-                    .await;
-                }
-                SessionEvent::Error {
-                    session_id: ev_session,
-                    message,
-                } if ev_session == session_id => {
-                    let _ = send_json(sender, json!({ "type": "error", "message": message })).await;
-                }
-                SessionEvent::GenerationComplete {
-                    session_id: ev_session,
-                } if ev_session == session_id => {
-                    let _ = send_json(sender, json!({"type": "done"})).await;
-                    let _ = send_json(
-                        sender,
-                        json!({"type": "interaction_complete", "sessionId": session_id}),
-                    )
-                    .await;
-                    break;
-                }
-                _ => {} // Ignore events for other sessions
-            }
-        }
-
+        route_via_actor_model(sender, state, &request).await?;
         return Ok(());
     }
 
     let mut graph_state = AgentState::from_ws_message(
-        session_id.clone(),
-        &message_text,
-        &mode,
-        search_mode.as_deref(),
-        requested_agent_id.as_deref(),
-        requested_agent_mode.as_deref(),
-        thinking_budget,
-        skip_search,
-        attachments,
+        request.session_id.clone(),
+        &request.message_text,
+        &request.mode,
+        request.search_mode.as_deref(),
+        request.requested_agent_id.as_deref(),
+        request.requested_agent_mode.as_deref(),
+        request.thinking_budget,
+        request.skip_search,
+        request.attachments.clone(),
         Vec::new(),
     );
-
-    let timeout_override = data.timeout.map(std::time::Duration::from_millis);
 
     let mut graph_streamer = crate::graph::stream::GraphStreamer::WebSocket(sender);
 
@@ -631,63 +258,32 @@ async fn handle_message_internal(
     };
 
     state
+        .runtime()
         .graph_runtime
-        .run(&mut graph_state, &mut node_ctx, timeout_override)
+        .run(&mut graph_state, &mut node_ctx, request.timeout_override)
         .await
         .map_err(ApiError::from)?;
 
     let assistant_output = graph_state.output.clone().unwrap_or_default();
-
-    let assistant_kwargs = json!({
-        "timestamp": timestamp,
-        "mode": mode.clone(),
-        "thinking_budget": thinking_budget,
-        "agent_id": requested_agent_id,
-        "agent_mode": requested_agent_mode,
-    });
-    state
-        .history
-        .add_message(&session_id, "ai", &assistant_output, Some(assistant_kwargs))
-        .await?;
-
-    let text_model_id = state
-        .models
-        .resolve_agent_model_id(requested_agent_id.as_deref())
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "default".to_string());
-    let embedding_model_id = resolve_embedding_model_id(state);
-    let legacy_enabled = state.is_redesign_enabled("legacy_memory");
 
     let _ = send_json(
         sender,
         json!({
             "type": "memory_generation",
             "status": "started",
-            "sessionId": session_id,
+            "sessionId": request.session_id,
         }),
     )
     .await;
 
-    let _ = state
-        .memory_adapter
-        .ingest_interaction(
-            &session_id,
-            &message_text,
-            &assistant_output,
-            &state.llm,
-            &text_model_id,
-            &embedding_model_id,
-            legacy_enabled,
-        )
-        .await;
+    persist_graph_interaction(state, &request, &assistant_output).await?;
 
     let _ = send_json(
         sender,
         json!({
             "type": "memory_generation",
             "status": "completed",
-            "sessionId": session_id,
+            "sessionId": request.session_id,
         }),
     )
     .await;
@@ -698,189 +294,28 @@ async fn handle_message_internal(
         sender,
         json!({
             "type": "interaction_complete",
-            "sessionId": session_id,
+            "sessionId": request.session_id,
         }),
     )
     .await;
 
     Ok(())
 }
-
-fn resolve_embedding_model_id(state: &AppState) -> String {
-    state
-        .models
-        .resolve_embedding_model_id()
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "default".to_string())
-}
-
-async fn send_history<S: JsonPayloadSink + ?Sized>(
+pub(super) async fn send_history<S: JsonPayloadSink + ?Sized>(
     sender: &mut S,
     state: &Arc<AppState>,
     session_id: &str,
 ) -> Result<(), ApiError> {
-    let messages = state.history.get_history(session_id, 100).await?;
-    let formatted: Vec<Value> = messages
-        .into_iter()
-        .map(|msg| {
-            let role = match msg.message_type.as_str() {
-                "ai" => "assistant",
-                "system" => "system",
-                _ => "user",
-            };
-            let timestamp = msg
-                .additional_kwargs
-                .as_ref()
-                .and_then(|k| k.get("timestamp"))
-                .and_then(|v| v.as_str())
-                .unwrap_or(&msg.created_at)
-                .to_string();
-            let mode = msg
-                .additional_kwargs
-                .as_ref()
-                .and_then(|k| k.get("mode"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("chat")
-                .to_string();
-
-            json!({
-                "id": msg.id.to_string(),
-                "role": role,
-                "content": msg.content,
-                "timestamp": timestamp,
-                "mode": mode,
-                "isComplete": true
-            })
-        })
-        .collect();
-
-    send_json(sender, json!({"type": "history", "messages": formatted})).await
+    send_json(sender, build_history_payload(state, session_id).await?).await
 }
 
-async fn send_json<S: JsonPayloadSink + ?Sized>(
+pub(super) async fn send_json<S: JsonPayloadSink + ?Sized>(
     sender: &mut S,
     payload: Value,
 ) -> Result<(), ApiError> {
     sender.send_payload(payload).await
 }
 
-fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
-    let origin = headers.get("origin").and_then(|v| v.to_str().ok());
-    if let Some(o) = origin {
-        tracing::debug!("Checking Origin: {}", o);
-    } else {
-        tracing::debug!("No Origin header found");
-    }
-
-    if origin.is_none() {
-        let env = std::env::var("TEPORA_ENV").unwrap_or_else(|_| "production".to_string());
-        return env != "production";
-    }
-
-    let allowed = state
-        .config
-        .load_config()
-        .ok()
-        .and_then(|cfg| {
-            cfg.get("server")
-                .and_then(|server| server.as_object())
-                .and_then(|server| {
-                    server
-                        .get("ws_allowed_origins")
-                        .or_else(|| server.get("cors_allowed_origins"))
-                        .or_else(|| server.get("allowed_origins"))
-                        .cloned()
-                })
-        })
-        .and_then(|list| list.as_array().cloned())
-        .unwrap_or_else(|| {
-            vec![
-                Value::String("tauri://localhost".to_string()),
-                Value::String("https://tauri.localhost".to_string()),
-                Value::String("http://tauri.localhost".to_string()),
-                Value::String("http://localhost".to_string()),
-                Value::String("http://localhost:5173".to_string()),
-                Value::String("http://localhost:3000".to_string()),
-                Value::String("http://127.0.0.1:5173".to_string()),
-                Value::String("http://127.0.0.1:3000".to_string()),
-                Value::String("http://127.0.0.1:8000".to_string()),
-                Value::String("http://127.0.0.1".to_string()),
-            ]
-        });
-
-    let origin = origin.unwrap_or("");
-    for entry in allowed {
-        if let Some(allowed_origin) = entry.as_str() {
-            if origin == allowed_origin || origin.starts_with(&format!("{}/", allowed_origin)) {
-                return true;
-            }
-        }
-    }
-
-    // Allow any localhost/127.0.0.1 origin (useful for Vite random ports)
-    if origin.starts_with("http://localhost:") || origin.starts_with("http://127.0.0.1:") {
-        return true;
-    }
-
-    tracing::warn!("Origin blocked: {}", origin);
-    false
-}
-
-async fn validate_token(headers: &HeaderMap, state: &AppState) -> bool {
-    let token = state.session_token.read().await;
-    extract_token_from_protocol_header(headers)
-        .map(|extracted| extracted == token.value())
-        .unwrap_or(false)
-}
-
-fn extract_token_from_protocol_header(headers: &HeaderMap) -> Option<String> {
-    let protocol_header = headers.get("sec-websocket-protocol")?.to_str().ok()?;
-    for item in protocol_header.split(',') {
-        let protocol = item.trim();
-        let Some(encoded) = protocol.strip_prefix(WS_TOKEN_PREFIX) else {
-            continue;
-        };
-        if encoded.is_empty() {
-            return None;
-        }
-        let bytes = hex::decode(encoded).ok()?;
-        let token = String::from_utf8(bytes).ok()?;
-        if !token.is_empty() {
-            return Some(token);
-        }
-    }
-    None
-}
-
-async fn record_queue_saturation_event(
-    state: &Arc<AppState>,
-    session_id: &str,
-    err: &ActorDispatchError,
-) {
-    let reason = match err {
-        ActorDispatchError::SessionBusy(_) => "session_busy",
-        ActorDispatchError::TooManySessions { .. } => "too_many_sessions",
-        ActorDispatchError::Internal { .. } => return,
-    };
-    let event = AgentEvent {
-        id: Uuid::new_v4().to_string(),
-        session_id: session_id.to_string(),
-        node_name: "actor_manager".to_string(),
-        event_type: AgentEventType::QueueSaturated,
-        metadata: json!({
-            "reason": reason,
-        }),
-        created_at: chrono::Utc::now(),
-    };
-    if let Err(save_err) = state.history.save_agent_event(&event).await {
-        tracing::warn!(
-            "Failed to persist queue_saturated event for session {}: {}",
-            session_id,
-            save_err
-        );
-    }
-}
 fn is_perf_probe_enabled() -> bool {
     std::env::var("TEPORA_PERF_PROBE_ENABLED")
         .map(|raw| {
@@ -888,18 +323,6 @@ fn is_perf_probe_enabled() -> bool {
             normalized == "1" || normalized == "true"
         })
         .unwrap_or(false)
-}
-
-fn map_actor_dispatch_error(err: ActorDispatchError) -> ApiError {
-    match err {
-        ActorDispatchError::SessionBusy(session_id) => ApiError::ServiceUnavailable(format!(
-            "Session '{session_id}' is busy. Please retry in a moment."
-        )),
-        ActorDispatchError::TooManySessions { max_sessions } => ApiError::ServiceUnavailable(
-            format!("Too many active sessions (limit: {max_sessions})"),
-        ),
-        ActorDispatchError::Internal { reason, .. } => ApiError::internal(reason),
-    }
 }
 
 #[cfg(test)]
@@ -1049,6 +472,7 @@ mod tests {
 
         let session_id = "replay-session";
         let history_id = state
+            .runtime()
             .history
             .add_message(
                 session_id,
@@ -1099,6 +523,7 @@ mod tests {
 
         let session_id = "history-replay-session";
         let first_id = state
+            .runtime()
             .history
             .add_message(
                 session_id,
@@ -1112,6 +537,7 @@ mod tests {
             .await
             .expect("failed to seed first history message");
         let second_id = state
+            .runtime()
             .history
             .add_message(
                 session_id,

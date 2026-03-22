@@ -282,6 +282,7 @@ impl Node for SearchNode {
             .and_then(|v| v.as_str());
         let model_id = ctx
             .app_state
+            .ai()
             .models
             .resolve_character_model_id(active_character)
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?
@@ -291,6 +292,7 @@ impl Node for SearchNode {
 
         let mut stream = ctx
             .app_state
+            .ai()
             .llm
             .stream_chat_normalized(request, &model_id)
             .await
@@ -392,10 +394,7 @@ fn truncate_text(text: String, max_len: usize) -> String {
     out
 }
 
-fn build_explored_sources(
-    attachments: &[serde_json::Value],
-    web_enabled: bool,
-) -> Vec<String> {
+fn build_explored_sources(attachments: &[serde_json::Value], web_enabled: bool) -> Vec<String> {
     let mut sources = vec!["session_rag".to_string(), "local_knowledge".to_string()];
     if !attachments.is_empty() {
         sources.insert(0, "attachments".to_string());

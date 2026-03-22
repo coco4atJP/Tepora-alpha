@@ -8,15 +8,22 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::context::pipeline::ContextPipeline;
-use crate::context::pipeline_context::{PipelineArtifact, PipelineMode, PipelineStage, RagChunk};
+use crate::context::pipeline_context::{PipelineContext, PipelineMode, PipelineStage, RagChunk};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::{AgentState, Artifact};
-use crate::llm::types::StructuredResponseSpec;
 use crate::llm::ChatRequest;
 use crate::rag::{ChunkSearchResult, StoredChunk};
 use crate::search::{EvidenceClaim, EvidenceGap, SearchEvidenceState, SearchMode};
 use crate::tools::execute_tool;
 use crate::tools::search::SearchResult;
+
+use super::search_agentic_support::{
+    build_explored_sources, build_final_constraints, build_report_brief,
+    build_selected_chunk_briefs, dedupe_search_results, parse_json_payload,
+    render_query_plan_brief, render_report_brief, render_selected_chunk_briefs,
+    shared_artifacts_to_pipeline, sub_query_structured_spec, truncate_text, RagArtifactChunk,
+    ReportBrief, SelectedChunkBrief,
+};
 
 pub struct AgenticSearchNode;
 
@@ -30,30 +37,6 @@ impl Default for AgenticSearchNode {
     fn default() -> Self {
         Self::new()
     }
-}
-
-#[derive(Debug, Clone)]
-struct RagArtifactChunk {
-    chunk_id: String,
-    source: String,
-    content: String,
-    score: f32,
-}
-
-#[derive(Debug, Clone)]
-struct SelectedChunkBrief {
-    source: String,
-    chunk_id: String,
-    claim: String,
-    evidence_strength: f32,
-}
-
-#[derive(Debug, Clone)]
-struct ReportBrief {
-    answer_outline: String,
-    key_findings: Vec<String>,
-    open_uncertainties: Vec<String>,
-    citation_map: Vec<String>,
 }
 
 #[async_trait]
@@ -90,18 +73,13 @@ impl Node for AgenticSearchNode {
             state.pipeline_context = Some(pipeline_ctx);
         }
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_query_gen",
-                    "status": "processing",
-                    "message": "Generating search sub-queries...",
-                    "agentName": "Agentic Search"
-                }
-            }))
-            .await;
+        self.send_activity(
+            ctx,
+            "agentic_query_gen",
+            "processing",
+            "Generating search sub-queries...",
+        )
+        .await;
 
         let sub_queries = self.generate_sub_queries(state, ctx).await?;
         state.search_queries = sub_queries.clone();
@@ -114,31 +92,21 @@ impl Node for AgenticSearchNode {
             )]),
         });
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_query_gen",
-                    "status": "done",
-                    "message": format!("Generated {} sub-queries", sub_queries.len()),
-                    "agentName": "Agentic Search"
-                }
-            }))
-            .await;
+        self.send_activity(
+            ctx,
+            "agentic_query_gen",
+            "done",
+            format!("Generated {} sub-queries", sub_queries.len()),
+        )
+        .await;
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_chunk_select",
-                    "status": "processing",
-                    "message": "Collecting and selecting relevant chunks...",
-                    "agentName": "Agentic Search"
-                }
-            }))
-            .await;
+        self.send_activity(
+            ctx,
+            "agentic_chunk_select",
+            "processing",
+            "Collecting and selecting relevant chunks...",
+        )
+        .await;
 
         let (selected_chunks, display_results) =
             self.search_and_select(state, ctx, &sub_queries).await?;
@@ -220,31 +188,21 @@ impl Node for AgenticSearchNode {
             metadata,
         });
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_chunk_select",
-                    "status": "done",
-                    "message": format!("Selected {} chunks", selected_chunks.len()),
-                    "agentName": "Agentic Search"
-                }
-            }))
-            .await;
+        self.send_activity(
+            ctx,
+            "agentic_chunk_select",
+            "done",
+            format!("Selected {} chunks", selected_chunks.len()),
+        )
+        .await;
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_report",
-                    "status": "processing",
-                    "message": "Generating artifact report...",
-                    "agentName": "Agentic Search"
-                }
-            }))
-            .await;
+        self.send_activity(
+            ctx,
+            "agentic_report",
+            "processing",
+            "Generating artifact report...",
+        )
+        .await;
 
         let report = self.generate_report(state, ctx, &selected_chunks).await?;
         let report_brief = build_report_brief(&report, &chunk_briefs);
@@ -281,47 +239,22 @@ impl Node for AgenticSearchNode {
             metadata: HashMap::new(),
         });
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_report",
-                    "status": "done",
-                    "message": "Research report complete",
-                    "agentName": "Agentic Search"
-                }
-            }))
+        self.send_activity(ctx, "agentic_report", "done", "Research report complete")
             .await;
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_synthesize",
-                    "status": "processing",
-                    "message": "Synthesizing final answer...",
-                    "agentName": "Agentic Search"
-                }
-            }))
-            .await;
+        self.send_activity(
+            ctx,
+            "agentic_synthesize",
+            "processing",
+            "Synthesizing final answer...",
+        )
+        .await;
 
         let final_answer = self
             .synthesize_answer(state, ctx, &chunk_briefs, &report_brief)
             .await?;
 
-        let _ = ctx
-            .sender
-            .send_json(json!({
-                "type": "activity",
-                "data": {
-                    "id": "agentic_synthesize",
-                    "status": "done",
-                    "message": "Answer synthesized",
-                    "agentName": "Agentic Search"
-                }
-            }))
+        self.send_activity(ctx, "agentic_synthesize", "done", "Answer synthesized")
             .await;
 
         let _ = ctx.sender.send_json(json!({"type": "done"})).await;
@@ -357,24 +290,14 @@ impl AgenticSearchNode {
             }]
         };
 
-        let active_character = ctx
-            .config
-            .get("active_character")
-            .or_else(|| ctx.config.get("active_agent_profile"))
-            .and_then(|v| v.as_str());
-        let model_id = ctx
-            .app_state
-            .models
-            .resolve_character_model_id(active_character)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "default".to_string());
+        let model_id = self.resolve_model_id_best_effort(ctx);
 
         let request = ChatRequest::new(messages)
             .with_config(ctx.config)
             .with_structured_response(sub_query_structured_spec());
         let parsed = ctx
             .app_state
+            .ai()
             .llm
             .chat_structured::<Vec<String>>(request, &model_id)
             .await
@@ -408,79 +331,11 @@ impl AgenticSearchNode {
                 .await?;
         }
 
-        let search_enabled = ctx
-            .config
-            .get("privacy")
-            .and_then(|v| v.get("allow_web_search"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        let isolation = ctx
-            .config
-            .get("privacy")
-            .and_then(|v| v.get("isolation_mode"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        let mut web_results = Vec::new();
-        if search_enabled && !state.skip_web_search && !isolation {
-            for query in sub_queries.iter().take(3) {
-                let search = execute_tool(
-                    Some(ctx.app_state),
-                    ctx.config,
-                    Some(&ctx.app_state.integration.mcp),
-                    Some(&state.session_id),
-                    "native_search",
-                    &json!({ "query": query, "limit": 5 }),
-                )
-                .await;
-
-                let Ok(search) = search else {
-                    continue;
-                };
-
-                if let Some(results) = search.search_results {
-                    for result in results.iter().take(2) {
-                        web_results.push(result.clone());
-
-                        let fetched = execute_tool(
-                            Some(ctx.app_state),
-                            ctx.config,
-                            Some(&ctx.app_state.integration.mcp),
-                            Some(&state.session_id),
-                            "native_web_fetch",
-                            &json!({ "url": result.url }),
-                        )
-                        .await;
-
-                        let Ok(fetched) = fetched else {
-                            continue;
-                        };
-                        if fetched.output.trim().is_empty() {
-                            continue;
-                        }
-
-                        let _ = execute_tool(
-                            Some(ctx.app_state),
-                            ctx.config,
-                            Some(&ctx.app_state.integration.mcp),
-                            Some(&state.session_id),
-                            "native_rag_ingest",
-                            &json!({
-                                "content": fetched.output,
-                                "source": result.url,
-                                "metadata": {
-                                    "title": result.title,
-                                    "snippet": result.snippet,
-                                    "query": query,
-                                }
-                            }),
-                        )
-                        .await;
-                    }
-                }
-            }
-        }
+        let web_results = if self.can_use_web_search(state, ctx) {
+            self.collect_web_results(state, ctx, sub_queries).await
+        } else {
+            Vec::new()
+        };
 
         self.merge_similarity_results(state, ctx, &state.input, &mut merged)
             .await?;
@@ -492,6 +347,119 @@ impl AgenticSearchNode {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        self.expand_chunk_windows(state, ctx, &mut ranked).await;
+
+        let display_results = ranked
+            .iter()
+            .take(15)
+            .map(|chunk| SearchResult {
+                title: format!("RAG Chunk {}", chunk.chunk_id),
+                url: chunk.source.clone(),
+                snippet: truncate_text(&chunk.content, 240),
+            })
+            .collect::<Vec<_>>();
+
+        Ok((ranked, dedupe_search_results(web_results, display_results)))
+    }
+
+    fn can_use_web_search(&self, state: &AgentState, ctx: &NodeContext<'_>) -> bool {
+        ctx.config
+            .get("privacy")
+            .and_then(|v| v.get("allow_web_search"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+            && !state.skip_web_search
+            && !ctx
+                .config
+                .get("privacy")
+                .and_then(|v| v.get("isolation_mode"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+    }
+
+    async fn collect_web_results(
+        &self,
+        state: &AgentState,
+        ctx: &mut NodeContext<'_>,
+        sub_queries: &[String],
+    ) -> Vec<SearchResult> {
+        let mut web_results = Vec::new();
+
+        for query in sub_queries.iter().take(3) {
+            let search = execute_tool(
+                Some(ctx.app_state),
+                ctx.config,
+                Some(&ctx.app_state.integration.mcp),
+                Some(&state.session_id),
+                "native_search",
+                &json!({ "query": query, "limit": 5 }),
+            )
+            .await;
+
+            let Ok(search) = search else {
+                continue;
+            };
+
+            if let Some(results) = search.search_results {
+                for result in results.iter().take(2) {
+                    web_results.push(result.clone());
+                    self.ingest_web_result(state, ctx, query, result).await;
+                }
+            }
+        }
+
+        web_results
+    }
+
+    async fn ingest_web_result(
+        &self,
+        state: &AgentState,
+        ctx: &mut NodeContext<'_>,
+        query: &str,
+        result: &SearchResult,
+    ) {
+        let fetched = execute_tool(
+            Some(ctx.app_state),
+            ctx.config,
+            Some(&ctx.app_state.integration.mcp),
+            Some(&state.session_id),
+            "native_web_fetch",
+            &json!({ "url": result.url }),
+        )
+        .await;
+
+        let Ok(fetched) = fetched else {
+            return;
+        };
+        if fetched.output.trim().is_empty() {
+            return;
+        }
+
+        let _ = execute_tool(
+            Some(ctx.app_state),
+            ctx.config,
+            Some(&ctx.app_state.integration.mcp),
+            Some(&state.session_id),
+            "native_rag_ingest",
+            &json!({
+                "content": fetched.output,
+                "source": result.url,
+                "metadata": {
+                    "title": result.title,
+                    "snippet": result.snippet,
+                    "query": query,
+                }
+            }),
+        )
+        .await;
+    }
+
+    async fn expand_chunk_windows(
+        &self,
+        state: &AgentState,
+        ctx: &NodeContext<'_>,
+        ranked: &mut [RagArtifactChunk],
+    ) {
         for chunk in ranked.iter_mut().take(5) {
             let window = execute_tool(
                 Some(ctx.app_state),
@@ -525,18 +493,6 @@ impl AgenticSearchNode {
                 chunk.content = merged_text;
             }
         }
-
-        let display_results = ranked
-            .iter()
-            .take(15)
-            .map(|chunk| SearchResult {
-                title: format!("RAG Chunk {}", chunk.chunk_id),
-                url: chunk.source.clone(),
-                snippet: truncate_text(&chunk.content, 240),
-            })
-            .collect::<Vec<_>>();
-
-        Ok((ranked, dedupe_search_results(web_results, display_results)))
     }
 
     async fn merge_similarity_results(
@@ -627,38 +583,10 @@ impl AgenticSearchNode {
             return Ok("No RAG chunks available for report generation.".to_string());
         }
 
-        let sources = chunks
-            .iter()
-            .take(20)
-            .enumerate()
-            .map(|(index, chunk)| {
-                format!(
-                    "[{}] chunk_id={} source={} score={:.3}\n{}",
-                    index + 1,
-                    chunk.chunk_id,
-                    chunk.source,
-                    chunk.score,
-                    chunk.content
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
-
         let mut stage_ctx = self
-            .build_stage_context(state, ctx, PipelineStage::SearchReportBuild)
+            .build_shared_stage_context(state, ctx, PipelineStage::SearchReportBuild)
             .await?;
-        stage_ctx.stage = PipelineStage::SearchReportBuild;
-        stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
-        stage_ctx.rag_chunks = chunks
-            .iter()
-            .map(|chunk| RagChunk {
-                chunk_id: chunk.chunk_id.clone(),
-                content: chunk.content.clone(),
-                source: chunk.source.clone(),
-                score: chunk.score,
-                metadata: HashMap::new(),
-            })
-            .collect();
+        stage_ctx.rag_chunks = self.pipeline_rag_chunks(chunks);
 
         stage_ctx.add_system_part(
             "report_generation_instruction",
@@ -673,25 +601,19 @@ impl AgenticSearchNode {
             .to_string(),
             130,
         );
-        stage_ctx.add_artifact("selected_chunk_sources", sources, HashMap::new());
+        stage_ctx.add_artifact(
+            "selected_chunk_sources",
+            self.render_selected_chunk_sources(chunks),
+            HashMap::new(),
+        );
 
         let messages = stage_ctx.to_messages();
 
-        let active_character = ctx
-            .config
-            .get("active_character")
-            .or_else(|| ctx.config.get("active_agent_profile"))
-            .and_then(|v| v.as_str());
-        let model_id = ctx
-            .app_state
-            .models
-            .resolve_character_model_id(active_character)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "default".to_string());
+        let model_id = self.resolve_model_id_best_effort(ctx);
 
         let request = ChatRequest::new(messages).with_config(ctx.config);
         ctx.app_state
+            .ai()
             .llm
             .chat(request, &model_id)
             .await
@@ -706,50 +628,18 @@ impl AgenticSearchNode {
         report_brief: &ReportBrief,
     ) -> Result<String, GraphError> {
         let mut stage_ctx = self
-            .build_stage_context(state, ctx, PipelineStage::SearchFinalSynthesis)
+            .build_shared_stage_context(state, ctx, PipelineStage::SearchFinalSynthesis)
             .await?;
-        stage_ctx.stage = PipelineStage::SearchFinalSynthesis;
-        stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
-
-        stage_ctx.add_system_part(
-            "final_synthesis_instruction",
-            concat!(
-                "You have completed deep research. ",
-                "Use the context bundle to provide the final user-facing answer.\n",
-                "Do not assume you can inspect raw chunks or a full report.\n",
-                "Keep citations tied to chunk IDs or source URLs when possible."
-            )
-            .to_string(),
-            130,
-        );
-        stage_ctx.add_artifact(
-            "selected_chunk_briefs",
-            render_selected_chunk_briefs(chunk_briefs),
-            HashMap::new(),
-        );
-        stage_ctx.add_artifact(
-            "report_brief",
-            render_report_brief(report_brief),
-            HashMap::new(),
-        );
+        self.attach_final_synthesis_inputs(&mut stage_ctx, chunk_briefs, report_brief);
 
         let messages = stage_ctx.to_messages();
 
-        let active_character = ctx
-            .config
-            .get("active_character")
-            .or_else(|| ctx.config.get("active_agent_profile"))
-            .and_then(|v| v.as_str());
-        let model_id = ctx
-            .app_state
-            .models
-            .resolve_character_model_id(active_character)
-            .map_err(|err| GraphError::new(self.id(), err.to_string()))?
-            .unwrap_or_else(|| "default".to_string());
+        let model_id = self.resolve_model_id(ctx)?;
 
         let request = ChatRequest::new(messages).with_config(ctx.config);
         let mut stream = ctx
             .app_state
+            .ai()
             .llm
             .stream_chat_normalized(request, &model_id)
             .await
@@ -797,7 +687,7 @@ impl AgenticSearchNode {
         state: &AgentState,
         ctx: &NodeContext<'_>,
         stage: PipelineStage,
-    ) -> Result<crate::context::pipeline_context::PipelineContext, GraphError> {
+    ) -> Result<PipelineContext, GraphError> {
         if let Some(base_ctx) = state.pipeline_context.as_ref() {
             let mut staged = base_ctx.clone();
             staged.stage = stage;
@@ -820,249 +710,123 @@ impl AgenticSearchNode {
         })
         .map_err(|err| GraphError::new(self.id(), err.to_string()))
     }
-}
 
-fn parse_json_payload<T>(output: &str) -> Option<T>
-where
-    T: serde::de::DeserializeOwned,
-{
-    if let Ok(parsed) = serde_json::from_str::<T>(output) {
-        return Some(parsed);
+    async fn build_shared_stage_context(
+        &self,
+        state: &AgentState,
+        ctx: &NodeContext<'_>,
+        stage: PipelineStage,
+    ) -> Result<PipelineContext, GraphError> {
+        let mut stage_ctx = self.build_stage_context(state, ctx, stage).await?;
+        stage_ctx.artifacts = shared_artifacts_to_pipeline(&state.shared_context.artifacts);
+        Ok(stage_ctx)
     }
 
-    let trimmed = output.trim();
-    let start = trimmed.find(['[', '{'])?;
-    let end = trimmed.rfind([']', '}'])?;
-    if end < start {
-        return None;
-    }
-
-    serde_json::from_str::<T>(&trimmed[start..=end]).ok()
-}
-
-fn sub_query_structured_spec() -> StructuredResponseSpec {
-    StructuredResponseSpec {
-        name: "search_sub_queries".to_string(),
-        description: Some("Focused search sub-query list".to_string()),
-        schema: json!({
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
-            "minItems": 1,
-            "maxItems": 4
-        }),
-    }
-}
-
-fn truncate_text(text: &str, max_len: usize) -> String {
-    if text.chars().count() <= max_len {
-        return text.to_string();
-    }
-    let mut out = text.chars().take(max_len).collect::<String>();
-    out.push_str("...");
-    out
-}
-
-fn dedupe_search_results(
-    mut web_results: Vec<SearchResult>,
-    mut rag_results: Vec<SearchResult>,
-) -> Vec<SearchResult> {
-    let mut seen = std::collections::HashSet::new();
-    let mut out = Vec::new();
-
-    for item in web_results.drain(..) {
-        if seen.insert(item.url.clone()) {
-            out.push(item);
-        }
-    }
-
-    for item in rag_results.drain(..) {
-        if seen.insert(item.url.clone()) {
-            out.push(item);
-        }
-    }
-
-    out
-}
-
-fn build_explored_sources(
-    attachments: &[serde_json::Value],
-    web_enabled: bool,
-) -> Vec<String> {
-    let mut sources = vec!["session_rag".to_string(), "local_knowledge".to_string()];
-    if !attachments.is_empty() {
-        sources.insert(0, "attachments".to_string());
-    }
-    if web_enabled {
-        sources.push("web".to_string());
-    }
-    sources
-}
-
-fn build_selected_chunk_briefs(chunks: &[RagArtifactChunk]) -> Vec<SelectedChunkBrief> {
-    chunks
-        .iter()
-        .take(6)
-        .map(|chunk| SelectedChunkBrief {
-            source: chunk.source.clone(),
-            chunk_id: chunk.chunk_id.clone(),
-            claim: truncate_text(first_meaningful_line(&chunk.content), 180),
-            evidence_strength: (chunk.score * 100.0).round() / 100.0,
-        })
-        .collect()
-}
-
-fn render_selected_chunk_briefs(briefs: &[SelectedChunkBrief]) -> String {
-    briefs
-        .iter()
-        .enumerate()
-        .map(|(index, brief)| {
-            format!(
-                "[{}] chunk_id={} source={} strength={:.2}\n{}",
-                index + 1,
-                brief.chunk_id,
-                brief.source,
-                brief.evidence_strength,
-                brief.claim
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n")
-}
-
-fn render_query_plan_brief(sub_queries: &[String]) -> String {
-    let lines = sub_queries
-        .iter()
-        .take(5)
-        .enumerate()
-        .map(|(index, query)| format!("- Query {}: {}", index + 1, query.trim()))
-        .collect::<Vec<_>>()
-        .join("\n");
-    format!("[Query Plan Brief]\n{}", lines)
-}
-
-fn build_report_brief(report: &str, chunk_briefs: &[SelectedChunkBrief]) -> ReportBrief {
-    let lines = report
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>();
-    let answer_outline = lines
-        .first()
-        .map(|line| truncate_text(line, 180))
-        .unwrap_or_else(|| {
-            "Summarize the strongest findings and cite the supporting chunks.".to_string()
-        });
-
-    let mut key_findings = lines
-        .iter()
-        .filter(|line| {
-            line.starts_with("- ")
-                || line.starts_with("* ")
-                || line.starts_with("1.")
-                || line.starts_with("2.")
-        })
-        .take(4)
-        .map(|line| truncate_text(line.trim_start_matches(['-', '*', ' ']).trim(), 160))
-        .collect::<Vec<_>>();
-    if key_findings.is_empty() {
-        key_findings = chunk_briefs
+    fn pipeline_rag_chunks(&self, chunks: &[RagArtifactChunk]) -> Vec<RagChunk> {
+        chunks
             .iter()
-            .take(4)
-            .map(|brief| brief.claim.clone())
-            .collect();
+            .map(|chunk| RagChunk {
+                chunk_id: chunk.chunk_id.clone(),
+                content: chunk.content.clone(),
+                source: chunk.source.clone(),
+                score: chunk.score,
+                metadata: HashMap::new(),
+            })
+            .collect()
     }
 
-    let open_uncertainties = lines
-        .iter()
-        .filter(|line| {
-            let lowered = line.to_lowercase();
-            lowered.contains("uncertain")
-                || lowered.contains("unknown")
-                || lowered.contains("may ")
-                || lowered.contains("might ")
-                || line.contains("不明")
-                || line.contains("不確実")
-                || line.contains("追加確認")
-        })
-        .take(3)
-        .map(|line| truncate_text(line, 160))
-        .collect::<Vec<_>>();
-
-    let citation_map = chunk_briefs
-        .iter()
-        .take(6)
-        .map(|brief| format!("{} -> {}", brief.chunk_id, brief.source))
-        .collect::<Vec<_>>();
-
-    ReportBrief {
-        answer_outline,
-        key_findings,
-        open_uncertainties,
-        citation_map,
+    fn render_selected_chunk_sources(&self, chunks: &[RagArtifactChunk]) -> String {
+        chunks
+            .iter()
+            .take(20)
+            .enumerate()
+            .map(|(index, chunk)| {
+                format!(
+                    "[{}] chunk_id={} source={} score={:.3}\n{}",
+                    index + 1,
+                    chunk.chunk_id,
+                    chunk.source,
+                    chunk.score,
+                    chunk.content
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n")
     }
-}
 
-fn render_report_brief(brief: &ReportBrief) -> String {
-    let mut sections = vec![format!("[Answer Outline]\n{}", brief.answer_outline)];
-    if !brief.key_findings.is_empty() {
-        sections.push(format!(
-            "[Key Findings]\n{}",
-            brief
-                .key_findings
-                .iter()
-                .map(|item| format!("- {}", item))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
+    fn attach_final_synthesis_inputs(
+        &self,
+        stage_ctx: &mut PipelineContext,
+        chunk_briefs: &[SelectedChunkBrief],
+        report_brief: &ReportBrief,
+    ) {
+        stage_ctx.add_system_part(
+            "final_synthesis_instruction",
+            concat!(
+                "You have completed deep research. ",
+                "Use the context bundle to provide the final user-facing answer.\n",
+                "Do not assume you can inspect raw chunks or a full report.\n",
+                "Keep citations tied to chunk IDs or source URLs when possible."
+            )
+            .to_string(),
+            130,
+        );
+        stage_ctx.add_artifact(
+            "selected_chunk_briefs",
+            render_selected_chunk_briefs(chunk_briefs),
+            HashMap::new(),
+        );
+        stage_ctx.add_artifact(
+            "report_brief",
+            render_report_brief(report_brief),
+            HashMap::new(),
+        );
     }
-    if !brief.open_uncertainties.is_empty() {
-        sections.push(format!(
-            "[Open Uncertainties]\n{}",
-            brief
-                .open_uncertainties
-                .iter()
-                .map(|item| format!("- {}", item))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
+
+    fn configured_active_profile<'a>(&self, ctx: &'a NodeContext<'_>) -> Option<&'a str> {
+        ctx.config
+            .get("active_character")
+            .or_else(|| ctx.config.get("active_agent_profile"))
+            .and_then(|v| v.as_str())
     }
-    if !brief.citation_map.is_empty() {
-        sections.push(format!(
-            "[Citation Map]\n{}",
-            brief
-                .citation_map
-                .iter()
-                .map(|item| format!("- {}", item))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
+
+    fn resolve_model_id_best_effort(&self, ctx: &NodeContext<'_>) -> String {
+        ctx.app_state
+            .ai()
+            .models
+            .resolve_character_model_id(self.configured_active_profile(ctx))
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "default".to_string())
     }
-    sections.join("\n\n")
-}
 
-fn build_final_constraints(user_input: &str) -> String {
-    format!(
-        "[Final Constraints]\n- Answer the user's request directly.\n- Preserve the user's language.\n- Cite chunk IDs or source URLs when possible.\n- User request: {}",
-        truncate_text(user_input.trim(), 180)
-    )
-}
+    fn resolve_model_id(&self, ctx: &NodeContext<'_>) -> Result<String, GraphError> {
+        ctx.app_state
+            .ai()
+            .models
+            .resolve_character_model_id(self.configured_active_profile(ctx))
+            .map_err(|err| GraphError::new(self.id(), err.to_string()))
+            .map(|model_id| model_id.unwrap_or_else(|| "default".to_string()))
+    }
 
-fn shared_artifacts_to_pipeline(artifacts: &[Artifact]) -> Vec<PipelineArtifact> {
-    artifacts
-        .iter()
-        .map(|artifact| PipelineArtifact {
-            artifact_type: artifact.artifact_type.clone(),
-            content: artifact.content.clone(),
-            metadata: artifact.metadata.clone(),
-        })
-        .collect()
-}
-
-fn first_meaningful_line(text: &str) -> &str {
-    text.lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty())
-        .unwrap_or(text.trim())
+    async fn send_activity(
+        &self,
+        ctx: &mut NodeContext<'_>,
+        activity_id: &str,
+        status: &str,
+        message: impl Into<String>,
+    ) {
+        let _ = ctx
+            .sender
+            .send_json(json!({
+                "type": "activity",
+                "data": {
+                    "id": activity_id,
+                    "status": status,
+                    "message": message.into(),
+                    "agentName": self.name(),
+                }
+            }))
+            .await;
+    }
 }

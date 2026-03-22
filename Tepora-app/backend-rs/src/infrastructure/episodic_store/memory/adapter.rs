@@ -18,7 +18,9 @@ use super::repository::MemoryRepository;
 use super::sentence::split_sentences;
 use super::service::{MemoryService, RetrievedMemory};
 use super::sqlite_repository::SqliteMemoryRepository;
-use super::types::{DecayConfig, MemoryEdge, MemoryEdgeType, MemoryEvent, MemoryLayer, MemoryScope, SourceRole};
+use super::types::{
+    DecayConfig, MemoryEdge, MemoryEdgeType, MemoryEvent, MemoryLayer, MemoryScope, SourceRole,
+};
 
 #[async_trait::async_trait]
 pub trait MemoryAdapter: Send + Sync {

@@ -68,6 +68,7 @@ impl Node for AgentExecutorNode {
     ) -> Result<NodeOutput, GraphError> {
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -196,6 +197,7 @@ impl Node for AgentExecutorNode {
                 .with_structured_response(agent_decision_structured_spec());
             let decision_payload = ctx
                 .app_state
+                .ai()
                 .llm
                 .chat_structured::<AgentDecisionPayload>(request, &model_id)
                 .await
@@ -204,6 +206,7 @@ impl Node for AgentExecutorNode {
             // Log prompting event (note: full token usage depends on extended LLM traits, keeping it simple for now)
             if let Err(e) = ctx
                 .app_state
+                .runtime()
                 .history
                 .save_agent_event(&AgentEvent {
                     id: uuid::Uuid::new_v4().to_string(),
@@ -232,11 +235,12 @@ impl Node for AgentExecutorNode {
                     let embedding_model_id = resolve_embedding_model_id(ctx.app_state);
                     let _ = ctx
                         .app_state
+                        .memory()
                         .memory_adapter
                         .ingest_summary(
                             &state.session_id,
                             &final_content,
-                            &ctx.app_state.llm,
+                            &ctx.app_state.ai().llm,
                             &embedding_model_id,
                             MemoryScope::Prof,
                         )
@@ -269,6 +273,7 @@ impl Node for AgentExecutorNode {
 
                     if let Err(e) = ctx
                         .app_state
+                        .runtime()
                         .history
                         .save_agent_event(&AgentEvent {
                             id: uuid::Uuid::new_v4().to_string(),
@@ -302,6 +307,7 @@ impl Node for AgentExecutorNode {
 
                     if let Err(e) = ctx
                         .app_state
+                        .runtime()
                         .history
                         .save_agent_event(&AgentEvent {
                             id: uuid::Uuid::new_v4().to_string(),
@@ -369,6 +375,7 @@ impl Node for AgentExecutorNode {
 
                     if let Some(saved_permission) = ctx
                         .app_state
+                        .core()
                         .security
                         .permission_for(scope_kind, &scope_name)
                         .map_err(|err| GraphError::new(self.id(), err.to_string()))?
@@ -414,7 +421,11 @@ impl Node for AgentExecutorNode {
                                     scope: scope_kind,
                                     scope_name: scope_name.clone(),
                                     risk_level,
-                                    expiry_options: ctx.app_state.security.expiry_options_seconds(),
+                                    expiry_options: ctx
+                                        .app_state
+                                        .core()
+                                        .security
+                                        .expiry_options_seconds(),
                                 },
                                 approval_timeout(&agent_chat_config),
                             )
@@ -425,6 +436,7 @@ impl Node for AgentExecutorNode {
                         if matches!(decision, ApprovalDecision::Deny) {
                             let _ = ctx
                                 .app_state
+                                .core()
                                 .security
                                 .persist_permission(
                                     scope_kind,
@@ -455,6 +467,7 @@ impl Node for AgentExecutorNode {
                         if matches!(decision, ApprovalDecision::AlwaysUntilExpiry) {
                             let _ = ctx
                                 .app_state
+                                .core()
                                 .security
                                 .persist_permission(
                                     scope_kind,
@@ -513,6 +526,7 @@ impl Node for AgentExecutorNode {
                     });
                     let _ = ctx
                         .app_state
+                        .runtime()
                         .history
                         .add_message(&state.session_id, "tool", &tool_payload, Some(tool_kwargs))
                         .await;
@@ -578,6 +592,7 @@ impl Node for AgentExecutorNode {
 
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -658,6 +673,7 @@ fn render_tool_observation(kind: &str, tool_name: &str, content: &str) -> String
 
 fn resolve_embedding_model_id(app_state: &crate::state::AppState) -> String {
     app_state
+        .ai()
         .models
         .resolve_embedding_model()
         .ok()
@@ -665,6 +681,7 @@ fn resolve_embedding_model_id(app_state: &crate::state::AppState) -> String {
         .map(|model| model.id)
         .or_else(|| {
             app_state
+                .ai()
                 .models
                 .list_models()
                 .ok()

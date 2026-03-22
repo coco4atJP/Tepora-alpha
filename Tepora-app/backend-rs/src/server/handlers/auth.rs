@@ -13,7 +13,7 @@ pub async fn refresh_token(
         ));
     }
 
-    let mut token_lock = state.session_token.write().await;
+    let mut token_lock = state.core().session_token.write().await;
     let new_token = token_lock.reissue()?;
 
     let expires_at = token_lock.expires_at().to_rfc3339();

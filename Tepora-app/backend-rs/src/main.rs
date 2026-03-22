@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
-    if let Err(err) = app_state.llm.shutdown().await {
+    if let Err(err) = app_state.ai().llm.shutdown().await {
         tracing::warn!("Failed to stop llama server during shutdown: {}", err);
     }
 

@@ -43,6 +43,7 @@ impl ContextWorker for MemoryWorker {
     ) -> Result<(), WorkerError> {
         let history_limit = configured_history_limit(ctx.config(), self.history_limit);
         let history_messages = state
+            .runtime()
             .history
             .get_history(&ctx.session_id, history_limit.max(2))
             .await
@@ -52,16 +53,17 @@ impl ContextWorker for MemoryWorker {
 
         ctx.interaction_tail = extract_interaction_tail(&history_messages);
 
-        if state.memory_service.enabled() && !ctx.user_input.trim().is_empty() {
+        if state.memory().memory_service.enabled() && !ctx.user_input.trim().is_empty() {
             if let Some(embedding_model_id) = resolve_embedding_model_id(state) {
                 let legacy_enabled = state.is_redesign_enabled("legacy_memory");
 
                 match state
+                    .memory()
                     .memory_adapter
                     .retrieve_context(
                         &ctx.session_id,
                         &ctx.user_input,
-                        &state.llm,
+                        &state.ai().llm,
                         &embedding_model_id,
                         legacy_enabled,
                         ctx.mode,
@@ -104,7 +106,7 @@ impl ContextWorker for MemoryWorker {
 }
 
 fn resolve_embedding_model_id(state: &Arc<AppState>) -> Option<String> {
-    match state.models.resolve_embedding_model() {
+    match state.ai().models.resolve_embedding_model() {
         Ok(Some(model)) => Some(model.id),
         Ok(None) => {
             tracing::warn!(
@@ -504,8 +506,8 @@ mod tests {
     use crate::domain::knowledge::{
         ContextConfig, KnowledgeChunk, KnowledgeHit, KnowledgePort, KnowledgeSource,
     };
-    use crate::memory::RetrievedMemory;
     use crate::infrastructure::episodic_store::{MemoryAdapter, MemoryScope};
+    use crate::memory::RetrievedMemory;
     use crate::models::types::{ModelEntry, ModelRegistry};
     use crate::test_support::ENV_LOCK;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -770,6 +772,7 @@ mod tests {
         ));
 
         base_state
+            .ai()
             .models
             .save_registry(&ModelRegistry {
                 models: vec![ModelEntry {
@@ -816,6 +819,7 @@ mod tests {
         {
             let state_clone = (*base_state).clone();
             let mut config_val = state_clone
+                .core()
                 .config
                 .load_config()
                 .unwrap_or_else(|_| serde_json::json!({}));
@@ -846,6 +850,7 @@ mod tests {
             );
 
             state_clone
+                .core()
                 .config
                 .update_config(config_val.clone(), false)
                 .unwrap();
@@ -864,6 +869,7 @@ mod tests {
             let state_clone = (*base_state).clone();
 
             let mut config_val = state_clone
+                .core()
                 .config
                 .load_config()
                 .unwrap_or_else(|_| serde_json::json!({}));
@@ -894,6 +900,7 @@ mod tests {
             );
 
             state_clone
+                .core()
                 .config
                 .update_config(config_val.clone(), false)
                 .unwrap();

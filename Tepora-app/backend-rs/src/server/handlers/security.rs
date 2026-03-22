@@ -30,6 +30,7 @@ pub async fn set_lockdown(
     Json(payload): Json<LockdownRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let config = state
+        .core()
         .security
         .update_lockdown(payload.enabled, payload.reason.as_deref())?;
     Ok(Json(json!({ "success": true, "config": config })))
@@ -38,7 +39,7 @@ pub async fn set_lockdown(
 pub async fn list_permissions(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let permissions = state.security.list_permissions()?;
+    let permissions = state.core().security.list_permissions()?;
     Ok(Json(json!({ "permissions": permissions })))
 }
 
@@ -56,7 +57,7 @@ pub async fn revoke_permission(
             )))
         }
     };
-    let removed = state.security.revoke_permission(scope_kind, &name)?;
+    let removed = state.core().security.revoke_permission(scope_kind, &name)?;
     if !removed {
         return Err(ApiError::NotFound("Permission not found".to_string()));
     }
@@ -66,22 +67,22 @@ pub async fn revoke_permission(
 pub async fn verify_audit(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
-    Ok(Json(state.security.verify_audit_chain()?))
+    Ok(Json(state.core().security.verify_audit_chain()?))
 }
 
 pub async fn credential_statuses(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
-    Ok(Json(
-        json!({ "credentials": state.security.credential_statuses()? }),
-    ))
+    Ok(Json(json!({
+        "credentials": state.core().security.credential_statuses()?
+    })))
 }
 
 pub async fn rotate_credential(
     State(state): State<AppStateWrite>,
     Json(payload): Json<CredentialRotateRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.rotate_credential(
+    state.core().security.rotate_credential(
         &payload.provider,
         &payload.secret,
         payload.expires_at.as_deref(),
@@ -93,10 +94,18 @@ pub async fn export_backup(
     State(state): State<AppStateWrite>,
     Json(payload): Json<BackupExportRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("backup_export")?;
-    let archive = state
+    state
+        .core()
         .security
-        .export_backup(&payload, &state.history, &state.skill_registry)
+        .ensure_lockdown_disabled("backup_export")?;
+    let archive = state
+        .core()
+        .security
+        .export_backup(
+            &payload,
+            &state.runtime().history,
+            &state.ai().skill_registry,
+        )
         .await?;
     Ok(Json(json!({ "success": true, "archive": archive })))
 }
@@ -106,11 +115,19 @@ pub async fn import_backup(
     Json(payload): Json<BackupImportRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     if payload.stage.eq_ignore_ascii_case("apply") {
-        state.security.ensure_lockdown_disabled("backup_import")?;
+        state
+            .core()
+            .security
+            .ensure_lockdown_disabled("backup_import")?;
     }
     let result = state
+        .core()
         .security
-        .import_backup(&payload, &state.history, &state.skill_registry)
+        .import_backup(
+            &payload,
+            &state.runtime().history,
+            &state.ai().skill_registry,
+        )
         .await?;
     Ok(Json(json!({ "success": true, "result": result })))
 }

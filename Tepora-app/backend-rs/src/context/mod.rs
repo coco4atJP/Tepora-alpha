@@ -1,4 +1,8 @@
 pub mod controller;
+mod controller_blocks;
+mod controller_recipe;
+mod controller_render;
+mod controller_tokens;
 pub mod pipeline;
 pub mod pipeline_context;
 pub mod prompt;

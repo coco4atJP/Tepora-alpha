@@ -127,6 +127,7 @@ impl Node for PlannerNode {
             resolve_execution_model_id(ctx.app_state, ctx.config, selected_agent.as_ref());
         let plan = ctx
             .app_state
+            .ai()
             .llm
             .chat(
                 ChatRequest::new(planner_messages).with_config(&agent_chat_config),

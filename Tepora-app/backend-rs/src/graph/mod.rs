@@ -1,6 +1,6 @@
+pub mod builder;
 pub mod loader;
 pub mod node;
-pub mod builder;
 pub mod nodes;
 pub mod runtime;
 pub mod schema;
@@ -8,6 +8,7 @@ pub mod state;
 pub mod stream;
 
 pub use node::NodeContext;
+#[allow(unused_imports)]
 pub use runtime::{GraphBuilder, GraphRuntime};
 pub use state::{AgentState, Mode};
 

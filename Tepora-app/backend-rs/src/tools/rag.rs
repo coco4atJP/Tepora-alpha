@@ -38,6 +38,7 @@ pub async fn execute_rag_search(
 
     let model_cfg = ModelRuntimeConfig::for_embedding(config)?;
     let embeddings = state
+        .ai()
         .llama
         .embed(
             &model_cfg,
@@ -50,6 +51,7 @@ pub async fn execute_rag_search(
         .ok_or_else(|| ApiError::Internal("RAG query embedding is empty".to_string()))?;
 
     let results = state
+        .memory()
         .knowledge_use_case
         .search(query_embedding, limit, Some(sid))
         .await
@@ -106,6 +108,7 @@ pub async fn execute_rag_ingest(
 
     let user_metadata = args.get("metadata").cloned();
     let inserted = state
+        .memory()
         .knowledge_use_case
         .ingest(
             KnowledgeSource::Text {
@@ -162,6 +165,7 @@ pub async fn execute_rag_text_search(
     let sid = session_id.unwrap_or("default");
 
     let results = state
+        .memory()
         .knowledge_use_case
         .text_search(&pattern, limit, Some(sid))
         .await
@@ -203,6 +207,7 @@ pub async fn execute_rag_get_chunk(
     }
 
     let result = state
+        .memory()
         .knowledge_use_case
         .get_chunk(&chunk_id)
         .await
@@ -252,6 +257,7 @@ pub async fn execute_rag_get_chunk_window(
 
     let sid = session_id.unwrap_or("default");
     let result = state
+        .memory()
         .knowledge_use_case
         .get_chunk_window(&chunk_id, chars, Some(sid))
         .await
@@ -290,6 +296,7 @@ pub async fn execute_rag_clear_session(
         .unwrap_or_else(|| session_id.unwrap_or("default"));
 
     let deleted = state
+        .memory()
         .knowledge_use_case
         .clear_session(sid)
         .await
@@ -322,6 +329,7 @@ pub async fn execute_rag_reindex(
         .trim();
 
     state
+        .memory()
         .knowledge_use_case
         .reindex(embedding_model)
         .await

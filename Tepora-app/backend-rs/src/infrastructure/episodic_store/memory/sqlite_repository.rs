@@ -336,7 +336,10 @@ impl SqliteMemoryRepository {
     }
 
     async fn drop_expired_retired_tables(&self, now: DateTime<Utc>) -> Result<(), ApiError> {
-        for table_name in self.list_tables_with_prefix(LEGACY_V1_RETIRED_PREFIX).await? {
+        for table_name in self
+            .list_tables_with_prefix(LEGACY_V1_RETIRED_PREFIX)
+            .await?
+        {
             let Some(created_on) = parse_retired_table_date(&table_name) else {
                 continue;
             };

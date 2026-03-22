@@ -32,6 +32,7 @@ pub async fn rerank_search_results_with_embeddings(
         }
     };
     let embeddings: Vec<Vec<f32>> = match state
+        .ai()
         .llama
         .embed(
             &model_cfg,

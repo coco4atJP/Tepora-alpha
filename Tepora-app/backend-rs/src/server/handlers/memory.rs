@@ -32,11 +32,14 @@ pub async fn compress_memories(
     State(state): State<AppStateWrite>,
     Json(payload): Json<CompressMemoriesRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("memory_compress")?;
+    state
+        .core()
+        .security
+        .ensure_lockdown_disabled("memory_compress")?;
     let session_id = payload.session_id.unwrap_or_else(|| "default".to_string());
     let model_id = payload
         .model_id
-        .unwrap_or_else(|| resolve_default_text_model_id(&state));
+        .unwrap_or_else(|| resolve_default_text_model_id(state.as_ref()));
     let scope = match payload.scope.as_deref() {
         Some(s) => std::str::FromStr::from_str(s)?,
         None => MemoryScope::default(),
@@ -62,14 +65,15 @@ pub async fn compress_memories(
 
     // Persist the initial job record.
     state
+        .memory()
         .memory_service
         .create_compaction_job(&job)
         .await
         .map_err(|e| ApiError::internal(format!("Failed to create compaction job: {e}")))?;
 
     // Clone necessary state for the background task.
-    let bg_service = state.memory_service.clone();
-    let bg_llm = state.llm.clone();
+    let bg_service = state.memory().memory_service.clone();
+    let bg_llm = state.ai().llm.clone();
     let bg_job_id = job_id.clone();
     let bg_session_id = session_id.clone();
 
@@ -111,6 +115,7 @@ pub async fn list_compaction_jobs(
     };
 
     let jobs = state
+        .memory()
         .memory_service
         .list_compaction_jobs(&session_id, scope, status)
         .await?;
@@ -125,8 +130,12 @@ pub async fn run_decay_cycle(
     State(state): State<AppStateWrite>,
     Json(payload): Json<RunDecayRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.security.ensure_lockdown_disabled("memory_decay")?;
+    state
+        .core()
+        .security
+        .ensure_lockdown_disabled("memory_decay")?;
     let result = state
+        .memory()
         .memory_service
         .run_decay_cycle(payload.session_id.as_deref())
         .await?;
@@ -138,7 +147,7 @@ pub async fn run_decay_cycle(
 }
 
 fn resolve_default_text_model_id(state: &crate::state::AppState) -> String {
-    let active_character = state.config.load_config().ok().and_then(|config| {
+    let active_character = state.core().config.load_config().ok().and_then(|config| {
         config
             .get("active_character")
             .or_else(|| config.get("active_agent_profile"))
@@ -147,11 +156,19 @@ fn resolve_default_text_model_id(state: &crate::state::AppState) -> String {
     });
 
     state
+        .ai()
         .models
         .resolve_character_model(active_character.as_deref())
         .ok()
         .flatten()
-        .or_else(|| state.models.find_first_model_by_role("text").ok().flatten())
+        .or_else(|| {
+            state
+                .ai()
+                .models
+                .find_first_model_by_role("text")
+                .ok()
+                .flatten()
+        })
         .map(|model| model.id)
         .unwrap_or_else(|| "default".to_string())
 }

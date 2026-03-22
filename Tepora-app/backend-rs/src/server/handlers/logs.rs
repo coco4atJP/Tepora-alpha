@@ -19,7 +19,7 @@ use crate::state::AppStateRead;
 
 pub async fn get_logs(State(state): State<AppStateRead>) -> Result<impl IntoResponse, ApiError> {
     let mut logs = Vec::new();
-    let log_dir = &state.paths.log_dir;
+    let log_dir = &state.core().paths.log_dir;
     if let Ok(entries) = fs::read_dir(log_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -47,8 +47,8 @@ pub async fn receive_frontend_logs(
     if !state.is_redesign_enabled("frontend_logging") {
         return Ok(Json(json!({ "status": "ignored" })));
     }
-    if state.security.is_lockdown_enabled() {
-        state.security.record_audit(
+    if state.core().security.is_lockdown_enabled() {
+        state.core().security.record_audit(
             "frontend_log_forward",
             "blocked",
             json!({ "level": payload.level }),
@@ -76,16 +76,20 @@ pub async fn receive_frontend_logs(
         _ => {}
     }
 
-    if let Err(err) = log_forwarder::append_frontend_log(&state.paths.log_dir, &level, &sanitized) {
+    if let Err(err) =
+        log_forwarder::append_frontend_log(&state.core().paths.log_dir, &level, &sanitized)
+    {
         tracing::warn!(
             target: "frontend",
             error = %err,
             "Failed to persist frontend log entry"
         );
     } else {
-        state
-            .security
-            .record_audit("frontend_log_forward", "ok", json!({ "level": level }))?;
+        state.core().security.record_audit(
+            "frontend_log_forward",
+            "ok",
+            json!({ "level": level }),
+        )?;
     }
 
     Ok(Json(json!({ "status": "ok" })))
@@ -95,7 +99,7 @@ pub async fn get_log_content(
     State(state): State<AppStateRead>,
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let log_dir = &state.paths.log_dir;
+    let log_dir = &state.core().paths.log_dir;
     let safe_name = sanitize_log_filename(&filename)
         .ok_or_else(|| ApiError::BadRequest("Invalid log filename".to_string()))?;
     let path = log_dir.join(safe_name);

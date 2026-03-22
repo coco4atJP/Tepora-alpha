@@ -44,6 +44,7 @@ impl Node for ChatNode {
     ) -> Result<NodeOutput, GraphError> {
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -95,6 +96,7 @@ impl Node for ChatNode {
             .and_then(|v| v.as_str());
         let model_id = ctx
             .app_state
+            .ai()
             .models
             .resolve_character_model_id(active_character)
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?
@@ -104,6 +106,7 @@ impl Node for ChatNode {
 
         let mut stream = ctx
             .app_state
+            .ai()
             .llm
             .stream_chat_normalized(request, &model_id)
             .await
@@ -149,6 +152,7 @@ impl Node for ChatNode {
 
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -172,6 +176,7 @@ impl Node for ChatNode {
 
         if let Err(e) = ctx
             .app_state
+            .runtime()
             .history
             .save_agent_event(&AgentEvent {
                 id: uuid::Uuid::new_v4().to_string(),

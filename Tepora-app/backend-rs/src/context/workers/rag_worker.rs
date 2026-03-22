@@ -54,6 +54,7 @@ impl ContextWorker for RagWorker {
             .map_err(|e| WorkerError::failed("rag", format!("config error: {e}")))?;
 
         let embeddings = state
+            .ai()
             .llama
             .embed(
                 &model_cfg,
@@ -68,6 +69,7 @@ impl ContextWorker for RagWorker {
         };
 
         let results = state
+            .memory()
             .knowledge_use_case
             .search(query_embedding, self.max_chunks, Some(&ctx.session_id))
             .await

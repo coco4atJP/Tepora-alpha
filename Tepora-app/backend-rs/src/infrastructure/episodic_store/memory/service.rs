@@ -79,7 +79,9 @@ impl MemoryService {
             .load_config()
             .unwrap_or_else(|_| Value::Object(Default::default()));
 
-        let episodic_config = config.get("episodic_memory").or_else(|| config.get("em_llm"));
+        let episodic_config = config
+            .get("episodic_memory")
+            .or_else(|| config.get("em_llm"));
 
         let enabled = episodic_config
             .and_then(|v| v.get("enabled"))
@@ -565,10 +567,7 @@ impl MemoryService {
             );
             scored.event.strength = effective_strength;
 
-            let base_score = compute_retrieval_score(
-                scored.score as f32,
-                effective_strength,
-            );
+            let base_score = compute_retrieval_score(scored.score as f32, effective_strength);
             let layer_bonus = if scored.event.layer == MemoryLayer::LML {
                 0.10
             } else {
@@ -678,10 +677,7 @@ impl MemoryService {
             )) {
                 continue;
             }
-            let base_score = compute_retrieval_score(
-                scored.score as f32,
-                scored.event.strength,
-            );
+            let base_score = compute_retrieval_score(scored.score as f32, scored.event.strength);
             let session_bonus = if scored.event.session_id == session_id {
                 0.15
             } else {
@@ -1045,8 +1041,8 @@ fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
 }
 
 fn parse_hex_key(hex_key: &str) -> anyhow::Result<[u8; 32]> {
-    let bytes = hex::decode(hex_key)
-        .map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
+    let bytes =
+        hex::decode(hex_key).map_err(|_| anyhow::anyhow!("Invalid key format in keyring"))?;
     if bytes.len() != 32 {
         return Err(anyhow::anyhow!("Invalid key length in keyring"));
     }
@@ -1057,7 +1053,9 @@ fn parse_hex_key(hex_key: &str) -> anyhow::Result<[u8; 32]> {
 
 fn parse_decay_config(config: &Value) -> DecayConfig {
     let defaults = DecayConfig::default();
-    let episodic_config = config.get("episodic_memory").or_else(|| config.get("em_llm"));
+    let episodic_config = config
+        .get("episodic_memory")
+        .or_else(|| config.get("em_llm"));
     let section = episodic_config.and_then(|v| v.get("decay"));
 
     DecayConfig {

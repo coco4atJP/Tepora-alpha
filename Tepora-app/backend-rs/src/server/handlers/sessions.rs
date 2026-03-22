@@ -22,7 +22,7 @@ pub struct UpdateSessionRequest {
 pub async fn list_sessions(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let sessions = state.history.list_sessions().await?;
+    let sessions = state.runtime().history.list_sessions().await?;
     let result: Vec<Value> = sessions
         .into_iter()
         .map(|session| {
@@ -43,8 +43,12 @@ pub async fn create_session(
     State(state): State<AppStateWrite>,
     Json(payload): Json<CreateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let session_id = state.history.create_session(payload.title).await?;
-    let session = state.history.get_session(&session_id).await?;
+    let session_id = state
+        .runtime()
+        .history
+        .create_session(payload.title)
+        .await?;
+    let session = state.runtime().history.get_session(&session_id).await?;
     Ok(Json(json!({"session": session})))
 }
 
@@ -53,12 +57,17 @@ pub async fn get_session(
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let session = state
+        .runtime()
         .history
         .get_session(&session_id)
         .await?
         .ok_or_else(|| ApiError::NotFound("Session not found".to_string()))?;
 
-    let messages = state.history.get_history(&session_id, 100).await?;
+    let messages = state
+        .runtime()
+        .history
+        .get_history(&session_id, 100)
+        .await?;
     let message_payload: Vec<Value> = messages
         .into_iter()
         .map(|msg| {
@@ -84,7 +93,11 @@ pub async fn get_session_messages(
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(100);
 
-    let messages = state.history.get_history(&session_id, limit).await?;
+    let messages = state
+        .runtime()
+        .history
+        .get_history(&session_id, limit)
+        .await?;
 
     let formatted: Vec<Value> = messages
         .into_iter()
@@ -127,6 +140,7 @@ pub async fn update_session(
     Json(payload): Json<UpdateSessionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     state
+        .runtime()
         .history
         .update_session_title(&session_id, &payload.title)
         .await?;
@@ -138,7 +152,7 @@ pub async fn delete_session(
     State(state): State<AppStateWrite>,
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.history.delete_session(&session_id).await?;
+    state.runtime().history.delete_session(&session_id).await?;
     // if !success check removed
     Ok(Json(json!({"success": true})))
 }

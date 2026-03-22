@@ -334,11 +334,12 @@ impl ModelManager {
         let config_root = config
             .as_object_mut()
             .ok_or_else(|| ApiError::BadRequest("Invalid root configuration".to_string()))?;
-        let target_key = if config_root.contains_key("models") || !config_root.contains_key("models_gguf") {
-            "models"
-        } else {
-            "models_gguf"
-        };
+        let target_key =
+            if config_root.contains_key("models") || !config_root.contains_key("models_gguf") {
+                "models"
+            } else {
+                "models_gguf"
+            };
         let models_config = config_root
             .entry(target_key.to_string())
             .or_insert_with(|| Value::Object(Default::default()))

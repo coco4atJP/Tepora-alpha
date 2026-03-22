@@ -218,7 +218,7 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
 }
 
 fn build_cors_layer(state: &Arc<AppState>) -> CorsLayer {
-    let config = match state.config.load_config() {
+    let config = match state.core().config.load_config() {
         Ok(value) => value,
         Err(err) => {
             tracing::warn!(

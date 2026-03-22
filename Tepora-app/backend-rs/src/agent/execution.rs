@@ -84,9 +84,10 @@ pub fn choose_agent_from_manager(
     user_input: &str,
 ) -> Option<SelectedAgentRuntime> {
     state
+        .ai()
         .skill_registry
         .choose_skill(requested_agent_id, user_input)
-        .and_then(|skill| state.skill_registry.get(&skill.id))
+        .and_then(|skill| state.ai().skill_registry.get(&skill.id))
         .map(|skill| map_selected_agent(state, skill))
 }
 
@@ -98,6 +99,7 @@ pub fn resolve_selected_agent(
         .map(str::trim)
         .filter(|value| !value.is_empty())?;
     state
+        .ai()
         .skill_registry
         .get(selected_agent_id)
         .map(|skill| map_selected_agent(state, skill))
@@ -105,6 +107,7 @@ pub fn resolve_selected_agent(
 
 fn map_selected_agent(state: &AppState, skill: AgentSkillPackage) -> SelectedAgentRuntime {
     let assigned_model_id = state
+        .ai()
         .models
         .resolve_agent_model_id(Some(&skill.summary.id))
         .ok()
@@ -174,9 +177,10 @@ pub fn build_agent_chat_config(
         .and_then(|agent| agent.assigned_model_id.as_deref())
         .filter(|value| !value.is_empty())
     {
-        if let Ok(Some(model_entry)) = state.models.get_model(model_id) {
+        if let Ok(Some(model_entry)) = state.ai().models.get_model(model_id) {
             if let Some(root) = overridden.as_object_mut() {
-                let target_key = if root.contains_key("models") || !root.contains_key("models_gguf") {
+                let target_key = if root.contains_key("models") || !root.contains_key("models_gguf")
+                {
                     "models"
                 } else {
                     "models_gguf"
@@ -217,21 +221,13 @@ pub fn resolve_execution_model_id(
         .and_then(|agent| agent.assigned_model_id.clone())
         .or_else(|| {
             state
+                .ai()
                 .models
                 .resolve_character_model_id(active_character)
                 .ok()
                 .flatten()
         })
         .unwrap_or_else(|| "default".to_string())
-}
-
-pub fn parse_agent_decision(text: &str) -> AgentDecision {
-    if let Some(json_value) = parse_json_from_text(text) {
-        if let Some(decision) = parse_decision_from_value(&json_value) {
-            return decision;
-        }
-    }
-    AgentDecision::Final(text.trim().to_string())
 }
 
 pub fn agent_decision_structured_spec() -> StructuredResponseSpec {
@@ -304,58 +300,6 @@ pub fn structured_payload_to_agent_decision(
         "final" => Ok(AgentDecision::Final(payload.content.unwrap_or_default())),
         other => Err(format!("unsupported agent decision type: {other}")),
     }
-}
-
-fn parse_json_from_text(text: &str) -> Option<Value> {
-    let trimmed = text.trim();
-    if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
-        return Some(value);
-    }
-
-    let start = trimmed.find('{')?;
-    let end = trimmed.rfind('}')?;
-    if end <= start {
-        return None;
-    }
-    serde_json::from_str::<Value>(&trimmed[start..=end]).ok()
-}
-
-fn parse_decision_from_value(value: &Value) -> Option<AgentDecision> {
-    let action_type = value
-        .get("type")
-        .or_else(|| value.get("action"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if action_type == "tool_call" {
-        let name = value
-            .get("tool_name")
-            .or_else(|| value.get("name"))
-            .or_else(|| value.get("tool"))
-            .and_then(|v| v.as_str())?;
-        let args = value
-            .get("tool_args")
-            .or_else(|| value.get("args"))
-            .cloned()
-            .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
-        return Some(AgentDecision::ToolCall {
-            name: name.to_string(),
-            args,
-        });
-    }
-
-    if action_type == "final" {
-        let content = value
-            .get("content")
-            .or_else(|| value.get("message"))
-            .or_else(|| value.get("response"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        return Some(AgentDecision::Final(content));
-    }
-
-    None
 }
 
 pub fn format_attachments(config: &Value, attachments: &[Value]) -> Option<String> {
