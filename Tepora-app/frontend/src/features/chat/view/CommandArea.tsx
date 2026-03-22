@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { SearchMode } from "../../../shared/contracts";
 import { RadialMenu, type ChatModeType } from "./RadialMenu";
@@ -44,6 +44,14 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 	onRemoveAttachment,
 }) => {
 	const { t } = useTranslation();
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+	useEffect(() => {
+		if (textareaRef.current) {
+			textareaRef.current.style.height = "auto";
+			textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+		}
+	}, [draft]);
 
 	return (
 		<div className="flex flex-col rounded-[28px] border border-[color:var(--glass-border)] bg-[var(--glass-bg)] p-4 px-6 shadow-[var(--glass-shadow)] backdrop-blur-[30px] transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] focus-within:-translate-y-1 focus-within:border-primary/25 focus-within:shadow-[0_30px_60px_rgba(59,38,20,0.16)]">
@@ -68,7 +76,7 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 				</div>
 			) : null}
 
-			<div className="flex items-center gap-5">
+			<div className="flex items-end gap-5">
 				<RadialMenu
 					currentMode={activeMode}
 					onModeChange={onModeChange}
@@ -76,6 +84,7 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 				/>
 
 				<textarea
+					ref={textareaRef}
 					value={draft}
 					onChange={(event) => onDraftChange(event.target.value)}
 					onKeyDown={(event) => {
@@ -88,7 +97,7 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 					}}
 					placeholder={t("v2.chat.inputPlaceholder", "Type here...")}
 					rows={1}
-					style={{ minHeight: "32px", maxHeight: "200px" }}
+					style={{ minHeight: "32px", maxHeight: "400px" }}
 					className="custom-scrollbar flex-1 resize-none overflow-y-auto border-none bg-transparent py-2 text-[1.05rem] font-medium text-text-main outline-none placeholder:font-light placeholder:text-text-muted/55"
 				/>
 

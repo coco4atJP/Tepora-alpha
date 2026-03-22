@@ -15,12 +15,14 @@ const MODE_ITEMS: Array<{
 	defaultLabel: string;
 	icon: React.ReactNode;
 	positionClassName: string;
+	tooltipClassName?: string;
 }> = [
 	{
 		mode: "chat",
 		labelKey: "v2.mode.chat",
 		defaultLabel: "Chat",
 		positionClassName: "top-2 left-[68px]",
+		tooltipClassName: "-top-5 group-hover:-translate-y-1",
 		icon: (
 			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
 				<path d="M7 10h10" />
@@ -120,16 +122,13 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 							}`}
 						>
 							{item.icon}
-							<span className="absolute -bottom-5 whitespace-nowrap text-[0.65rem] uppercase tracking-widest text-gold opacity-0 transition-all duration-200 group-hover:translate-y-1 group-hover:opacity-100">
+							<span className={`absolute whitespace-nowrap text-[0.65rem] uppercase tracking-widest text-gold opacity-0 transition-all duration-200 group-hover:opacity-100 ${item.tooltipClassName || "-bottom-5 group-hover:translate-y-1"}`}>
 								{t(item.labelKey, item.defaultLabel)}
 							</span>
 						</button>
 					);
 				})}
 
-				<div className="absolute bottom-2 left-[68px] text-[0.6rem] uppercase tracking-[0.2em] text-text-muted/70">
-					{t("v2.settings.label", "Settings")}
-				</div>
 			</div>
 		</div>
 	);
