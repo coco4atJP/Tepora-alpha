@@ -145,7 +145,7 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden bg-bg text-text-main font-sans">
-			<div className="relative z-10 flex-none px-12 pb-4 pt-8">
+			<div className="relative z-10 flex-none px-8 pb-3 pt-5">
 				<button
 					onClick={() => {
 						if (editor.hasUnsavedChanges && editor.state !== "saving") {
@@ -163,7 +163,7 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 				</button>
 			</div>
 
-			<div className="relative z-10 flex-none border-b border-border/30 px-12 py-4">
+			<div className="relative z-10 flex-none border-b border-border/30 px-10 py-3">
 				<div className="no-scrollbar flex items-center justify-center gap-8 overflow-x-auto">
 					{SETTINGS_CATEGORIES.map((category) => (
 						<button
@@ -184,8 +184,8 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 				</div>
 			</div>
 
-			<div className="relative z-10 flex-none border-b border-border/30 bg-black/10 px-12 py-10">
-				<div className="mx-auto flex w-full max-w-5xl items-baseline gap-12">
+			<div className="relative z-10 flex-none border-b border-border/30 bg-black/10 px-10 py-8">
+				<div className="mx-auto flex w-full max-w-5xl items-baseline gap-10">
 					<h2 className="shrink-0 border-r border-white/5 pr-8 font-serif text-4xl italic tracking-tight text-text-main">
 						{activeCategoryObj?.id ? t(`v2.settings.categories.${activeCategoryObj.id.toLowerCase()}.label`, activeCategoryObj.label) : activeCategoryObj?.label}
 					</h2>
@@ -207,13 +207,13 @@ const SettingsLayoutContent: React.FC<SettingsLayoutProps> = ({ onClose }) => {
 				</div>
 			</div>
 
-			<div className="relative flex-1 overflow-y-auto px-12 py-12">
-				<div className="mx-auto min-h-[400px] max-w-5xl animate-in fade-in slide-in-from-bottom-4 pb-24 duration-500">
+			<div className="relative flex-1 overflow-y-auto no-scrollbar px-8 py-6">
+				<div className="mx-auto min-h-[400px] max-w-5xl animate-in fade-in slide-in-from-bottom-4 pb-12 duration-500">
 					{renderContent()}
 				</div>
 			</div>
 
-			<div className="relative z-20 flex-none border-t border-border/30 bg-bg/90 px-12 py-4 backdrop-blur-md">
+			<div className="relative z-20 flex-none border-t border-border/30 bg-bg/90 px-8 py-3 backdrop-blur-md">
 				<div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
 					<div
 						className={`text-xs font-medium uppercase tracking-wide ${

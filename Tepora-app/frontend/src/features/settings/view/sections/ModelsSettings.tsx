@@ -7,6 +7,8 @@ import { SettingsSectionGroup } from "../../../../shared/ui/SettingsSectionGroup
 import { TextField } from "../../../../shared/ui/TextField";
 import { useSettingsEditor } from "../../model/editor";
 import { ModelHubOverlay } from "../ModelHubOverlay";
+import { BinaryUpdatePanel } from "../components/BinaryUpdatePanel";
+import { DownloadModelPanel } from "../components/DownloadModelPanel";
 
 interface ModelsSettingsProps {
 	activeTab?: string;
@@ -44,6 +46,9 @@ export const ModelsSettings: React.FC<ModelsSettingsProps> = ({
 							</Button>
 						</div>
 					</SettingsRow>
+					<div className="mt-4">
+						<DownloadModelPanel />
+					</div>
 				</SettingsSectionGroup>
 			);
 		}
@@ -139,6 +144,9 @@ export const ModelsSettings: React.FC<ModelsSettingsProps> = ({
 							/>
 						</div>
 					</SettingsRow>
+					<div className="mt-6 border-t border-border/30 pt-6">
+						<BinaryUpdatePanel />
+					</div>
 				</SettingsSectionGroup>
 			);
 		}
