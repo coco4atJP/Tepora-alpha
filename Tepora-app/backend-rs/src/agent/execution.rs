@@ -61,7 +61,7 @@ pub fn approval_timeout(config: &Value) -> u64 {
 pub async fn build_allowed_tool_list(
     state: &AppState,
     active_policy: &CustomToolPolicy,
-) -> (Vec<String>, HashSet<String>) {
+) -> (Vec<String>, HashSet<String>, HashSet<String>) {
     let mut tool_list: Vec<String> = NATIVE_TOOLS.iter().map(|t| t.name.to_string()).collect();
 
     let mcp_tools = state.integration.mcp.list_tools().await;
@@ -71,11 +71,18 @@ pub async fn build_allowed_tool_list(
         tool_list.push(tool.name);
     }
 
+    let cli_tools = state.integration.cli.list_tools().await;
+    let mut cli_tool_set = HashSet::new();
+    for tool in cli_tools {
+        cli_tool_set.insert(tool.name.clone());
+        tool_list.push(tool.name);
+    }
+
     tool_list.retain(|tool_name| active_policy.is_tool_allowed(tool_name));
     tool_list.sort();
     tool_list.dedup();
 
-    (tool_list, mcp_tool_set)
+    (tool_list, mcp_tool_set, cli_tool_set)
 }
 
 pub fn choose_agent_from_manager(

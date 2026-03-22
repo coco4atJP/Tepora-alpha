@@ -7,6 +7,7 @@ use crate::actor::ActorManager;
 use crate::agent::skill_registry::SkillRegistry;
 use crate::application::episodic_memory::EpisodicMemoryUseCase;
 use crate::application::knowledge::KnowledgeUseCase;
+use crate::cli::CliProfileManager;
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::security::{init_session_token, SessionToken};
 use crate::core::security_controls::SecurityControls;
@@ -18,9 +19,9 @@ use crate::infrastructure::episodic_store::{MemoryAdapter, UnifiedMemoryAdapter}
 use crate::infrastructure::knowledge_store::RagKnowledgeAdapter;
 use crate::llm::LlamaService;
 use crate::llm::LlmService;
-use crate::memory::MemoryService;
 use crate::mcp::registry::McpRegistry;
 use crate::mcp::McpManager;
+use crate::memory::MemoryService;
 use crate::models::ModelManager;
 use crate::rag::{RagStore, SqliteRagStore};
 use crate::server::middleware::rate_limit::RateLimiters;
@@ -158,6 +159,7 @@ pub struct AppAiState {
 
 #[derive(Clone)]
 pub struct AppIntegrationState {
+    pub cli: CliProfileManager,
     pub mcp: McpManager,
     pub mcp_registry: McpRegistry,
 }
@@ -190,6 +192,7 @@ pub struct AppStateCompat {
     pub history: HistoryStore,
     pub llama: LlamaService,
     pub llm: LlmService,
+    pub cli: CliProfileManager,
     pub mcp: McpManager,
     pub mcp_registry: McpRegistry,
     pub models: ModelManager,
@@ -242,6 +245,7 @@ impl AppState {
             history: runtime.history.clone(),
             llama: ai.llama.clone(),
             llm: ai.llm.clone(),
+            cli: integration.cli.clone(),
             mcp: integration.mcp.clone(),
             mcp_registry: integration.mcp_registry.clone(),
             models: ai.models.clone(),
@@ -304,6 +308,7 @@ impl AppState {
             .map_err(|e| InitializationError::Llm(e.into()))?;
 
         let mcp = McpManager::new(paths.clone(), config.clone());
+        let cli = CliProfileManager::new(paths.clone(), config.clone());
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
@@ -411,6 +416,7 @@ impl AppState {
             skill_registry: skill_registry.clone(),
         });
         let integration = Arc::new(AppIntegrationState {
+            cli: cli.clone(),
             mcp: mcp.clone(),
             mcp_registry: mcp_registry.clone(),
         });
@@ -439,10 +445,7 @@ impl AppState {
         app_state.actor_manager.clone().start_gc();
 
         // Start background tasks only after all state initialization succeeds.
-        app_state
-            .memory_service
-            .clone()
-            .spawn_background_worker();
+        app_state.memory_service.clone().spawn_background_worker();
 
         let models_clone = app_state.models.clone();
         tokio::spawn(async move {

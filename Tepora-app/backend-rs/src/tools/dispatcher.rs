@@ -11,10 +11,80 @@ use super::rag::{
 use super::web::{execute_search, execute_web_fetch};
 use super::web_security::is_isolation_mode;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolExecutionKind {
+    Native,
+    Mcp,
+    Cli,
+}
+
 #[derive(Debug, Clone)]
 pub struct ToolExecution {
     pub output: String,
     pub search_results: Option<Vec<super::search::SearchResult>>,
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
+    pub exit_code: Option<i32>,
+    pub duration_ms: Option<u64>,
+    pub truncated: bool,
+    pub structured_output: Option<Value>,
+    pub execution_kind: ToolExecutionKind,
+}
+
+impl ToolExecution {
+    pub fn native(
+        output: String,
+        search_results: Option<Vec<super::search::SearchResult>>,
+    ) -> Self {
+        Self {
+            output,
+            search_results,
+            stdout: None,
+            stderr: None,
+            exit_code: None,
+            duration_ms: None,
+            truncated: false,
+            structured_output: None,
+            execution_kind: ToolExecutionKind::Native,
+        }
+    }
+
+    pub fn mcp(output: String) -> Self {
+        Self {
+            output,
+            search_results: None,
+            stdout: None,
+            stderr: None,
+            exit_code: None,
+            duration_ms: None,
+            truncated: false,
+            structured_output: None,
+            execution_kind: ToolExecutionKind::Mcp,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn cli(
+        output: String,
+        stdout: String,
+        stderr: String,
+        exit_code: Option<i32>,
+        duration_ms: u64,
+        truncated: bool,
+        structured_output: Option<Value>,
+    ) -> Self {
+        Self {
+            output,
+            search_results: None,
+            stdout: Some(stdout),
+            stderr: Some(stderr),
+            exit_code,
+            duration_ms: Some(duration_ms),
+            truncated,
+            structured_output,
+            execution_kind: ToolExecutionKind::Cli,
+        }
+    }
 }
 
 pub async fn execute_tool(
@@ -46,15 +116,17 @@ pub async fn execute_tool(
         }
         "rag_reindex" | "native_rag_reindex" => execute_rag_reindex(state, args).await,
         _ => {
+            if let Some(state) = state {
+                if tool_name.starts_with("cli:") {
+                    return state.integration.cli.execute_tool(tool_name, args).await;
+                }
+            }
             if is_isolation_mode(config) {
                 return Err(ApiError::Forbidden);
             }
             if let Some(manager) = mcp {
                 let output = manager.execute_tool(tool_name, args).await?;
-                return Ok(ToolExecution {
-                    output,
-                    search_results: None,
-                });
+                return Ok(ToolExecution::mcp(output));
             }
             Err(ApiError::BadRequest(format!("Unknown tool: {}", tool_name)))
         }

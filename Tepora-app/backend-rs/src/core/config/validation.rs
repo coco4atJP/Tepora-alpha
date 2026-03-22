@@ -232,6 +232,83 @@ pub fn validate_config(config: &Value) -> Result<(), ApiError> {
         )?;
     }
 
+    if let Some(cli_profiles) = expect_optional_object(root, "cli_profiles")? {
+        for (profile_name, value) in cli_profiles {
+            let path_prefix = format!("cli_profiles.{}", profile_name);
+            let profile = value
+                .as_object()
+                .ok_or_else(|| config_type_error(&path_prefix, "object"))?;
+            validate_bool_field(profile, &format!("{}.enabled", path_prefix), "enabled")?;
+            validate_required_string_field(profile, &format!("{}.bin", path_prefix), "bin")?;
+            validate_required_string_field(
+                profile,
+                &format!("{}.description", path_prefix),
+                "description",
+            )?;
+            validate_string_matrix_field(
+                profile,
+                &format!("{}.allowed_prefixes", path_prefix),
+                "allowed_prefixes",
+            )?;
+            validate_string_array_field(
+                profile,
+                &format!("{}.default_args", path_prefix),
+                "default_args",
+            )?;
+            validate_string_array_field(
+                profile,
+                &format!("{}.env_allowlist", path_prefix),
+                "env_allowlist",
+            )?;
+            validate_u64_field(
+                profile,
+                &format!("{}.timeout_ms", path_prefix),
+                "timeout_ms",
+                1,
+                3_600_000,
+            )?;
+            validate_u64_field(
+                profile,
+                &format!("{}.max_output_bytes", path_prefix),
+                "max_output_bytes",
+                256,
+                10_000_000,
+            )?;
+            validate_string_enum_field(
+                profile,
+                &format!("{}.risk_level", path_prefix),
+                "risk_level",
+                &["low", "medium", "high", "critical"],
+            )?;
+            if let Some(json_mode) = expect_optional_object(profile, "json_mode")? {
+                validate_string_enum_field(
+                    json_mode,
+                    &format!("{}.json_mode.strategy", path_prefix),
+                    "strategy",
+                    &["append_flags"],
+                )?;
+                validate_string_array_field(
+                    json_mode,
+                    &format!("{}.json_mode.flags", path_prefix),
+                    "flags",
+                )?;
+            }
+            if let Some(cwd_policy) = expect_optional_object(profile, "cwd_policy")? {
+                validate_string_enum_field(
+                    cwd_policy,
+                    &format!("{}.cwd_policy.mode", path_prefix),
+                    "mode",
+                    &["workspace", "fixed"],
+                )?;
+                validate_optional_string_field(
+                    cwd_policy,
+                    &format!("{}.cwd_policy.path", path_prefix),
+                    "path",
+                )?;
+            }
+        }
+    }
+
     if let Some(download) = expect_optional_object(root, "model_download")? {
         validate_bool_field(
             download,
@@ -591,6 +668,48 @@ fn validate_string_array_field(
                 "Invalid config at '{}[{}]': value cannot be empty",
                 path, index
             )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_string_matrix_field(
+    section: &Map<String, Value>,
+    path: &str,
+    key: &str,
+) -> Result<(), ApiError> {
+    let Some(value) = section.get(key) else {
+        return Ok(());
+    };
+    let Some(rows) = value.as_array() else {
+        return Err(config_type_error(path, "array of string arrays"));
+    };
+    for (row_index, row) in rows.iter().enumerate() {
+        let Some(items) = row.as_array() else {
+            return Err(config_type_error(
+                &format!("{}[{}]", path, row_index),
+                "array of strings",
+            ));
+        };
+        if items.is_empty() {
+            return Err(ApiError::BadRequest(format!(
+                "Invalid config at '{}[{}]': array cannot be empty",
+                path, row_index
+            )));
+        }
+        for (item_index, item) in items.iter().enumerate() {
+            let Some(text) = item.as_str() else {
+                return Err(config_type_error(
+                    &format!("{}[{}][{}]", path, row_index, item_index),
+                    "string",
+                ));
+            };
+            if text.trim().is_empty() {
+                return Err(ApiError::BadRequest(format!(
+                    "Invalid config at '{}[{}][{}]': value cannot be empty",
+                    path, row_index, item_index
+                )));
+            }
         }
     }
     Ok(())
