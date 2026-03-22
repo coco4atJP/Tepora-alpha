@@ -861,7 +861,7 @@ graph TB
 
 ### 6.2 chatStore
 
-**ファイル**: `src/stores/chatStore.ts`
+**ファイル**: `src/legacy/stores/chatStore.ts`
 
 ```typescript
 interface ChatState {
@@ -910,7 +910,7 @@ interface ChatActions {
 
 ### 6.3 sessionStore
 
-**ファイル**: `src/stores/sessionStore.ts`
+**ファイル**: `src/legacy/stores/sessionStore.ts`
 
 ```typescript
 interface SessionState {
@@ -932,7 +932,7 @@ interface SessionActions {
 
 ### 6.4 Socket Modules
 
-**ファイル**: `src/stores/socketConnectionStore.ts`, `src/stores/toolConfirmationStore.ts`, `src/stores/socketCommands.ts`, `src/stores/messageRouter.ts`
+**ファイル**: `src/legacy/stores/socketConnectionStore.ts`, `src/legacy/stores/toolConfirmationStore.ts`, `src/legacy/stores/socketCommands.ts`, `src/legacy/stores/messageRouter.ts`
 
 ```typescript
 interface SocketConnectionState {
