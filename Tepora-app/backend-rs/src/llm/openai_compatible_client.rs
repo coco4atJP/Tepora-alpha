@@ -55,6 +55,7 @@ pub(crate) async fn chat(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn stream_chat(
     http: &Client,
     loader: &str,

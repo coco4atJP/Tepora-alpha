@@ -173,7 +173,7 @@ async fn handle_message<S: JsonPayloadSink + ?Sized>(
         ControlDispatch::Forward {
             data,
             is_regenerate,
-        } => (data, is_regenerate),
+        } => (*data, is_regenerate),
     };
 
     let Some(websocket_sender) = sender.websocket_sink() else {

@@ -167,7 +167,7 @@ impl SessionActor {
 
         let mut agent_state = AgentState::new(session_id.clone(), message.clone(), mode);
         agent_state.search_attachments = attachments;
-        agent_state.search_mode = SearchMode::from_str(search_mode.as_deref());
+        agent_state.search_mode = SearchMode::from_optional_str(search_mode.as_deref());
         agent_state.thinking_budget = thinking_budget;
         agent_state.agent_id = agent_id.clone();
         agent_state.agent_mode = crate::graph::state::AgentMode::from_str(agent_mode.as_deref());

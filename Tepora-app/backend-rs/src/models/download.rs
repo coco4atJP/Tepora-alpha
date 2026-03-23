@@ -101,6 +101,7 @@ pub(crate) fn evaluate_download_policy_from_config(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) async fn download_model_file(
     client: &Client,
     url: &str,

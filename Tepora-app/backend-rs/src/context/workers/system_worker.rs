@@ -45,7 +45,7 @@ impl ContextWorker for SystemWorker {
             .and_then(|characters| characters.get(active_character));
 
         if let Some(system_prompt) =
-            extract_system_prompt(&config).filter(|prompt| !prompt.trim().is_empty())
+            extract_system_prompt(config).filter(|prompt| !prompt.trim().is_empty())
         {
             ctx.add_system_part("base_system", system_prompt, 200);
         } else if let Some(character) = character {

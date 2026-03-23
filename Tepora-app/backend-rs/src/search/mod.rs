@@ -11,7 +11,7 @@ pub enum SearchMode {
 }
 
 impl SearchMode {
-    pub fn from_str(value: Option<&str>) -> Self {
+    pub fn from_optional_str(value: Option<&str>) -> Self {
         match value
             .map(|item| item.trim().to_lowercase())
             .unwrap_or_else(|| "quick".to_string())

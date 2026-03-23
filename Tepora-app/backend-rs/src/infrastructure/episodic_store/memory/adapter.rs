@@ -36,6 +36,7 @@ pub trait MemoryAdapter: Send + Sync {
         legacy_enabled: bool,
     ) -> Result<(), ApiError>;
 
+    #[allow(clippy::too_many_arguments)]
     async fn retrieve_context(
         &self,
         session_id: &str,

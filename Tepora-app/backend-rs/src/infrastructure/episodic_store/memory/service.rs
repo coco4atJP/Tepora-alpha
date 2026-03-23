@@ -447,8 +447,8 @@ impl MemoryService {
             let event_id = scored.event.id.clone();
             let normalized = scored.event.content.trim().to_ascii_lowercase();
             let duplicate = candidates.values().any(|existing| {
-                existing.event.source_turn_id == scored.event.source_turn_id
-                    && !existing.event.source_turn_id.is_none()
+                (existing.event.source_turn_id == scored.event.source_turn_id
+                    && existing.event.source_turn_id.is_some())
                     || existing
                         .event
                         .content

@@ -12,7 +12,7 @@ use super::protocol::WsIncomingMessage;
 pub(super) enum ControlDispatch {
     Handled,
     Forward {
-        data: WsIncomingMessage,
+        data: Box<WsIncomingMessage>,
         is_regenerate: bool,
     },
 }
@@ -153,9 +153,9 @@ pub(super) async fn handle_control_message<S: JsonPayloadSink + ?Sized>(
             }
             Ok(ControlDispatch::Handled)
         }
-        "regenerate" => handle_regenerate(sender, state, current_session_id, data).await,
+        "regenerate" => handle_regenerate(sender, state, current_session_id.as_str(), data).await,
         _ => Ok(ControlDispatch::Forward {
-            data,
+            data: Box::new(data),
             is_regenerate: false,
         }),
     }
@@ -181,13 +181,13 @@ fn normalized_approval(data: &WsIncomingMessage) -> ToolApprovalResponsePayload 
 async fn handle_regenerate<S: JsonPayloadSink + ?Sized>(
     sender: &mut S,
     state: &Arc<AppState>,
-    current_session_id: &mut String,
+    current_session_id: &str,
     data: WsIncomingMessage,
 ) -> Result<ControlDispatch, ApiError> {
     let session_id = data
         .session_id
         .clone()
-        .unwrap_or_else(|| current_session_id.clone());
+        .unwrap_or_else(|| current_session_id.to_owned());
     if session_id.is_empty() {
         return Ok(ControlDispatch::Handled);
     }
@@ -239,7 +239,7 @@ async fn handle_regenerate<S: JsonPayloadSink + ?Sized>(
 
         new_data.msg_type = None;
         return Ok(ControlDispatch::Forward {
-            data: new_data,
+            data: Box::new(new_data),
             is_regenerate: true,
         });
     }
