@@ -1,4 +1,5 @@
 import React from "react";
+import { DialControl } from "../../../../shared/ui/DialControl";
 import { LineSlider } from "../../../../shared/ui/LineSlider";
 import { MinToggle } from "../../../../shared/ui/MinToggle";
 import { SettingsRow } from "../../../../shared/ui/SettingsRow";
@@ -23,20 +24,21 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 		return (
 			<div className="flex flex-col">
 				<SettingsSectionGroup title="Retrieval">
-					<SettingsRow
-						label="Promote Threshold"
-						description="Importance threshold used to strengthen memory retention"
-					>
-						<LineSlider
-							min={0}
-							max={1}
-							step={0.01}
-							value={promoteThreshold}
-							onChange={(value) =>
-								editor.updateField("episodic_memory.decay.promote_threshold", value)
-							}
-						/>
-					</SettingsRow>
+					<div className="p-6 bg-surface/30 rounded-[24px] border border-border/40">
+						<div className="flex flex-wrap justify-center gap-12">
+							<DialControl
+								label="Promote Threshold"
+								min={0}
+								max={1}
+								step={0.01}
+								value={promoteThreshold}
+								onChange={(value) =>
+									editor.updateField("episodic_memory.decay.promote_threshold", value)
+								}
+								description="Importance threshold used to strengthen memory retention"
+							/>
+						</div>
+					</div>
 				</SettingsSectionGroup>
 			</div>
 		);
@@ -86,36 +88,32 @@ export const MemorySettings: React.FC<MemorySettingsProps> = ({
 					</>
 				) : null}
 				{activeTab === "Decay Engine" ? (
-					<>
-				<SettingsRow
-					label="Decay Rate"
-					description="Base decay applied to older episodic memories"
-				>
-					<LineSlider
-						min={0}
-						max={1}
-						step={0.01}
-						value={decayLambda}
-						onChange={(value) =>
-							editor.updateField("episodic_memory.decay.lambda_base", value)
-						}
-					/>
-				</SettingsRow>
-				<SettingsRow
-					label="Promote Threshold"
-					description="Importance threshold used to strengthen memory retention"
-				>
-					<LineSlider
-						min={0}
-						max={1}
-						step={0.01}
-						value={promoteThreshold}
-						onChange={(value) =>
-							editor.updateField("episodic_memory.decay.promote_threshold", value)
-						}
-					/>
-				</SettingsRow>
-					</>
+					<div className="p-8 bg-surface/30 rounded-[24px] border border-border/40 mt-4">
+						<div className="flex flex-wrap justify-center gap-16 md:gap-24">
+							<DialControl
+								label="Decay Rate"
+								min={0}
+								max={1}
+								step={0.01}
+								value={decayLambda}
+								onChange={(value) =>
+									editor.updateField("episodic_memory.decay.lambda_base", value)
+								}
+								description="Base decay applied to older episodic memories"
+							/>
+							<DialControl
+								label="Promote Threshold"
+								min={0}
+								max={1}
+								step={0.01}
+								value={promoteThreshold}
+								onChange={(value) =>
+									editor.updateField("episodic_memory.decay.promote_threshold", value)
+								}
+								description="Importance threshold used to strengthen memory retention"
+							/>
+						</div>
+					</div>
 				) : null}
 			</SettingsSectionGroup>
 		</div>

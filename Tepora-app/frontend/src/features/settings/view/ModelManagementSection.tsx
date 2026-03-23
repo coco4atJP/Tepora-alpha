@@ -1,13 +1,16 @@
 import { Search } from "lucide-react";
-import React from "react";
+import React, { useState } from "react";
 import { normalizeModelRole } from "../../../shared/lib/modelManagement";
 import { AsyncJobStatus, Button } from "../../../shared/ui";
 import { useModelManagementSection } from "../model/useModelManagementSection";
 import { ModelManagementControls } from "./components/ModelManagementControls";
 import { ModelManagementDialogs } from "./components/ModelManagementDialogs";
+import { ModelSettingsModal } from "./components/ModelSettingsModal";
 import { SetupModelCard } from "./components/SetupModelCard";
+import type { SetupModel } from "../../../shared/contracts";
 
 export const ModelManagementSection: React.FC = () => {
+	const [settingsModalTarget, setSettingsModalTarget] = useState<SetupModel | null>(null);
 	const {
 		modelsQuery,
 		deleteModel,
@@ -102,6 +105,7 @@ export const ModelManagementSection: React.FC = () => {
 								isChecking={isChecking}
 								isDeleting={deleteModel.isPending}
 								isUpdating={startDownload.isPending}
+								onOpenSettings={() => setSettingsModalTarget(model)}
 								onCheck={() => void checkAllModels([model])}
 								onUpdate={() =>
 									void startDownloadFlow({
@@ -128,6 +132,12 @@ export const ModelManagementSection: React.FC = () => {
 				deleteTarget={deleteTarget}
 				onCancelDelete={() => setDeleteTarget(null)}
 				onConfirmDelete={() => void handleDelete()}
+			/>
+
+			<ModelSettingsModal
+				model={settingsModalTarget}
+				isOpen={settingsModalTarget !== null}
+				onClose={() => setSettingsModalTarget(null)}
 			/>
 		</div>
 	);

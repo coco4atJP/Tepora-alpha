@@ -1,7 +1,8 @@
-import { Cpu, Database, HardDrive, MessageSquare } from "lucide-react";
+import { Cpu, Database, HardDrive, MessageSquare, Sliders } from "lucide-react";
 import React, { useMemo } from "react";
 import type { SetupModel } from "../../../../shared/contracts";
 import { Button } from "../../../../shared/ui";
+import { useTranslation } from "react-i18next";
 
 interface SetupModelCardProps {
 	model: SetupModel;
@@ -13,6 +14,7 @@ interface SetupModelCardProps {
 	isChecking: boolean;
 	isDeleting: boolean;
 	isUpdating: boolean;
+	onOpenSettings: () => void;
 	onCheck: () => void;
 	onUpdate: () => void;
 	onDelete: () => void;
@@ -25,10 +27,13 @@ export const SetupModelCard: React.FC<SetupModelCardProps> = ({
 	isChecking,
 	isDeleting,
 	isUpdating,
+	onOpenSettings,
 	onCheck,
 	onUpdate,
 	onDelete,
 }) => {
+	const { t } = useTranslation();
+
 	const formatSize = (bytes: number) => {
 		if (bytes === 0) return "Unknown size";
 		const k = 1024;
@@ -58,7 +63,10 @@ export const SetupModelCard: React.FC<SetupModelCardProps> = ({
 	}, [model]);
 
 	return (
-		<div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:border-primary/30 hover:shadow-lg">
+		<div
+			className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:border-primary/30 hover:shadow-lg cursor-pointer"
+			onClick={() => onOpenSettings()}
+		>
 			{/* Ambient Hover Glow */}
 			<div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/5 blur-2xl transition-colors duration-500 group-hover:bg-primary/10" />
 
@@ -116,35 +124,52 @@ export const SetupModelCard: React.FC<SetupModelCardProps> = ({
 				</div>
 			</div>
 
+			{/* Settings Hint indicator */}
+			<div className="relative z-10 flex items-center justify-center py-1 text-text-muted/50">
+				<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+					<Sliders size={12} />
+					<span>{t("v2.settings.clickToAdjust", "Click to adjust parameters")}</span>
+				</div>
+			</div>
+
 			{/* Actions - Slide up on hover */}
-			<div className="relative z-10 mt-auto flex items-center gap-2 border-t border-border/60 pt-4 opacity-100 md:opacity-0 transition-opacity duration-200 group-hover:opacity-100 min-h-[52px]">
-				<Button
-					type="button"
-					variant="ghost"
-					onClick={onCheck}
-					disabled={isBusy || isChecking || !model.repo_id}
-					className="flex-1 px-2 py-1.5 text-[11px] h-auto min-h-0 uppercase tracking-widest border border-border/50"
-				>
-					Check
-				</Button>
-				<Button
-					type="button"
-					variant="secondary"
-					onClick={onUpdate}
-					disabled={isBusy || isUpdating || !model.repo_id || !status?.update_available}
-					className="flex-1 px-2 py-1.5 text-[11px] h-auto min-h-0 uppercase tracking-widest"
-				>
-					Update
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					onClick={onDelete}
-					disabled={isBusy || isDeleting}
-					className="border border-red-500/20 text-red-500 dark:text-red-400 hover:bg-red-500/10 shrink-0 px-3 py-1.5 h-auto min-h-0"
-				>
-					Delete
-				</Button>
+			<div className="relative z-10 mt-auto flex items-center gap-2 border-t border-border/60 pt-4 opacity-100 md:opacity-0 transition-opacity duration-200 group-hover:opacity-100 min-h-[52px]"
+				onClick={(e) => e.stopPropagation()}
+			>
+				{model.loader === "llama_cpp" ? (
+					<>
+						{status?.update_available ? (
+							<Button
+								type="button"
+								variant="secondary"
+								onClick={onUpdate}
+								disabled={isBusy || isUpdating || !model.repo_id}
+								className="flex-1 px-2 py-1.5 text-[11px] h-auto min-h-0 uppercase tracking-widest"
+							>
+								Update
+							</Button>
+						) : (
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={onCheck}
+								disabled={isBusy || isChecking || !model.repo_id || status?.reason === "up_to_date"}
+								className="flex-1 px-2 py-1.5 text-[11px] h-auto min-h-0 uppercase tracking-widest border border-border/50"
+							>
+								Updatecheck
+							</Button>
+						)}
+						<Button
+							type="button"
+							variant="ghost"
+							onClick={onDelete}
+							disabled={isBusy || isDeleting}
+							className="border border-red-500/20 text-red-500 dark:text-red-400 hover:bg-red-500/10 shrink-0 px-3 py-1.5 h-auto min-h-0"
+						>
+							Delete
+						</Button>
+					</>
+				) : null}
 			</div>
 		</div>
 	);

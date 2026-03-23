@@ -77,13 +77,16 @@ export const ModelCard: React.FC<ModelCardProps> = ({
     }, [model]);
 
     return (
-        <div className={`
-            relative group flex flex-col justify-between
-            bg-black/40 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-5
-            hover:border-tea-400/30 hover:bg-black/60
-            transition-all duration-300 ease-out
-            overflow-hidden
-        `}>
+        <div
+            className={`
+                relative group flex flex-col justify-between
+                bg-black/40 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-5
+                hover:border-tea-400/30 hover:bg-black/60
+                transition-all duration-300 ease-out
+                overflow-hidden cursor-pointer
+            `}
+            onClick={() => onSettings?.(model)}
+        >
             {/* Ambient Background Glow inside the card (Reduced) */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-tea-400/5 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-tea-400/10 transition-colors pointer-events-none" />
 
@@ -144,7 +147,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             <div className="flex items-center gap-2 pt-4 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 mt-auto min-h-[52px] relative z-10">
                 {onSettings && (
                     <button
-                        onClick={() => onSettings(model)}
+                        onClick={(e) => { e.stopPropagation(); onSettings(model); }}
                         className="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-tea-100/80 text-[11px] font-semibold tracking-widest uppercase transition-all flex items-center justify-center gap-2"
                         title={t("common.settings", "Settings")}
                     >
@@ -154,7 +157,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 )}
 
                 <button
-                    onClick={() => onDelete(model.id)}
+                    onClick={(e) => { e.stopPropagation(); onDelete(model.id); }}
                     className="p-2.5 rounded-lg bg-white/[0.03] hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 text-white/40 hover:text-red-400 transition-all flex items-center justify-center shrink-0"
                     title={t("common.delete", "Delete")}
                 >
