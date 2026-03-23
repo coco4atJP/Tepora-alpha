@@ -1218,7 +1218,70 @@
 		"by_vendor": "{{vendor}} 提供"
 	},
 	"v2": {
+		"common": {
+			"loading": "加载中...",
+			"save": "保存",
+			"saving": "保存中...",
+			"cancel": "取消",
+			"enabled": "已启用",
+			"disabled": "已禁用"
+		},
+		"mode": {
+			"chat": "聊天",
+			"search": "搜索",
+			"agent": "代理",
+			"openMenu": "打开模式与设置菜单"
+		},
+		"chat": {
+			"assistantFallback": "助手",
+			"emptyState": "今天我可以帮你做什么？",
+			"copy": "复制",
+			"copied": "已复制",
+			"regenerate": "重新生成",
+			"generating": "生成中",
+			"thinking": "推理记录",
+			"inputPlaceholder": "在这里输入...",
+			"removeAttachment": "移除附件",
+			"stop": "停止生成",
+			"send": "发送",
+			"thinkingOn": "深思模式已开启",
+			"thinkingOff": "深思模式已关闭",
+			"attach": "附加",
+			"enterToSend": "Enter 发送",
+			"enterToSendHint": "Enter 发送，Shift+Enter 换行",
+			"moreActions": "更多操作",
+			"reconnecting": "重新连接中..."
+		},
+		"session": {
+			"historyTitle": "历史记录",
+			"historySubtitle": "会话",
+			"newSession": "新会话",
+			"empty": "还没有历史记录。",
+			"previewFallback": "还没有预览",
+			"rename": "重命名",
+			"delete": "删除",
+			"deleteTitle": "删除会话",
+			"deleteMessage": "删除此会话并清除所有历史消息？",
+			"openHistory": "打开历史记录",
+			"moreActions": "会话操作"
+		},
+		"character": {
+			"switch": "切换角色",
+			"active": "当前角色",
+			"available": "可用角色",
+			"noDescription": "没有描述"
+		},
+		"agent": {
+			"openPanel": "打开模式面板",
+			"activeContext": "当前上下文",
+			"approvalRequired": "需要批准",
+			"deny": "拒绝",
+			"approveOnce": "仅批准一次",
+			"allowTemporary": "临时允许",
+			"risk": "风险"
+		},
 		"settings": {
+			"open": "打开设置",
 			"loadError": "加载设置失败。",
 			"saving": "正在保存更改...",
 			"pendingSave": "即将保存...",

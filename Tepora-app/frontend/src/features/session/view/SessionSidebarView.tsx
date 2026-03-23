@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import type { SessionSidebarViewProps } from "./props";
@@ -31,11 +31,41 @@ export const SessionSidebarView: React.FC<SessionSidebarViewProps> = ({
 	const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 	const [titleDraft, setTitleDraft] = useState("");
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+	const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
 	const deleteTarget = useMemo(
 		() => sessions.find((session) => session.id === deleteTargetId) ?? null,
 		[deleteTargetId, sessions],
 	);
+
+	useEffect(() => {
+		if (!openMenuId) {
+			return;
+		}
+
+		const handlePointerDown = (event: MouseEvent) => {
+			const currentMenu = menuRefs.current[openMenuId];
+			if (currentMenu?.contains(event.target as Node)) {
+				return;
+			}
+			setOpenMenuId(null);
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				setOpenMenuId(null);
+			}
+		};
+
+		document.addEventListener("mousedown", handlePointerDown);
+		document.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			document.removeEventListener("mousedown", handlePointerDown);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [openMenuId]);
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden text-text-main">
@@ -92,10 +122,10 @@ export const SessionSidebarView: React.FC<SessionSidebarViewProps> = ({
 								}`}
 							>
 								<div className="flex items-start gap-3">
-									<button
-										type="button"
-										onClick={() => onSelectSession(session.id)}
-										className="min-w-0 flex-1 text-left"
+										<button
+											type="button"
+											onClick={() => onSelectSession(session.id)}
+											className="min-w-0 flex-1 text-left"
 									>
 										<div className="flex items-center justify-between gap-3">
 											<div className="truncate text-[0.95rem] font-medium text-text-main">
@@ -109,30 +139,64 @@ export const SessionSidebarView: React.FC<SessionSidebarViewProps> = ({
 											{session.preview ??
 												t("v2.session.previewFallback", "No preview yet")}
 										</div>
-									</button>
+										</button>
 
-									<div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-										<button
-											type="button"
-											className="rounded-full border border-white/10 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.14em] text-text-muted transition-colors hover:border-primary/20 hover:text-primary"
-											onClick={() => {
-												setEditingSessionId(session.id);
-												setTitleDraft(session.title);
+										<div
+											ref={(node) => {
+												menuRefs.current[session.id] = node;
 											}}
-											disabled={isPending}
+											className="relative shrink-0"
 										>
-											{t("v2.session.rename", "Rename")}
-										</button>
-										<button
-											type="button"
-											className="rounded-full border border-red-400/20 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.14em] text-red-300 transition-colors hover:bg-red-500/10"
-											onClick={() => setDeleteTargetId(session.id)}
-											disabled={isPending}
-										>
-											{t("v2.session.delete", "Delete")}
-										</button>
+											<button
+												type="button"
+												aria-label={t("v2.session.moreActions", "Session actions")}
+												aria-expanded={openMenuId === session.id}
+												className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-text-muted transition-colors hover:border-primary/20 hover:text-primary disabled:opacity-50"
+												onClick={() =>
+													setOpenMenuId((current) =>
+														current === session.id ? null : session.id,
+													)
+												}
+												disabled={isPending}
+												title={t("v2.session.moreActions", "Session actions")}
+											>
+												<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+													<circle cx="5" cy="12" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<circle cx="19" cy="12" r="2" />
+												</svg>
+											</button>
+											{openMenuId === session.id ? (
+												<div className="absolute right-0 top-full z-20 mt-2 min-w-[10rem] rounded-[20px] border border-border bg-bg/95 p-2 shadow-[0_20px_50px_rgba(59,38,20,0.12)] backdrop-blur-xl">
+													<button
+														type="button"
+														role="menuitem"
+														className="flex w-full items-center rounded-[14px] px-3 py-2 text-left text-sm text-text-main transition-colors hover:bg-surface/60"
+														onClick={() => {
+															setEditingSessionId(session.id);
+															setTitleDraft(session.title);
+															setOpenMenuId(null);
+														}}
+														disabled={isPending}
+													>
+														{t("v2.session.rename", "Rename")}
+													</button>
+													<button
+														type="button"
+														role="menuitem"
+														className="flex w-full items-center rounded-[14px] px-3 py-2 text-left text-sm text-red-300 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+														onClick={() => {
+															setDeleteTargetId(session.id);
+															setOpenMenuId(null);
+														}}
+														disabled={isPending}
+													>
+														{t("v2.session.delete", "Delete")}
+													</button>
+												</div>
+											) : null}
+										</div>
 									</div>
-								</div>
 
 								{isEditing ? (
 									<form

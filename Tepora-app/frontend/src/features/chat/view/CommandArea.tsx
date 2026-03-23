@@ -212,12 +212,12 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 							{t("v2.chat.generating", "Generating")}
 						</div>
 					) : null}
-				</div>
+					</div>
 
-				<div className="text-[0.7rem] font-mono text-text-muted/50">
-					{t("v2.chat.enterToSend", "Enter to send")}
+					<div className="text-[0.7rem] font-mono text-text-muted/50">
+						{t("v2.chat.enterToSendHint", "Enter to send, Shift+Enter for newline")}
+					</div>
 				</div>
 			</div>
-		</div>
-	);
-};
+		);
+	};

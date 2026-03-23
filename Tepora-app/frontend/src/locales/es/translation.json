@@ -1218,7 +1218,70 @@
 		"by_vendor": "por {{vendor}}"
 	},
 	"v2": {
+		"common": {
+			"loading": "Cargando...",
+			"save": "Guardar",
+			"saving": "Guardando...",
+			"cancel": "Cancelar",
+			"enabled": "Habilitado",
+			"disabled": "Deshabilitado"
+		},
+		"mode": {
+			"chat": "Chat",
+			"search": "Buscar",
+			"agent": "Agente",
+			"openMenu": "Abrir menú de modos y configuración"
+		},
+		"chat": {
+			"assistantFallback": "Asistente",
+			"emptyState": "¿Cómo puedo ayudarte hoy?",
+			"copy": "Copiar",
+			"copied": "Copiado",
+			"regenerate": "Regenerar",
+			"generating": "Generando",
+			"thinking": "Rastro de razonamiento",
+			"inputPlaceholder": "Escribe aquí...",
+			"removeAttachment": "Quitar archivo adjunto",
+			"stop": "Detener generación",
+			"send": "Enviar",
+			"thinkingOn": "Modo deliberado activado",
+			"thinkingOff": "Modo deliberado desactivado",
+			"attach": "Adjuntar",
+			"enterToSend": "Enter para enviar",
+			"enterToSendHint": "Enter para enviar, Shift+Enter para nueva línea",
+			"moreActions": "Más acciones",
+			"reconnecting": "Reconectando..."
+		},
+		"session": {
+			"historyTitle": "Historial",
+			"historySubtitle": "Sesiones",
+			"newSession": "Nueva sesión",
+			"empty": "Todavía no hay historial.",
+			"previewFallback": "Aún no hay vista previa",
+			"rename": "Renombrar",
+			"delete": "Eliminar",
+			"deleteTitle": "Eliminar sesión",
+			"deleteMessage": "¿Eliminar esta sesión y borrar todos los mensajes del historial?",
+			"openHistory": "Abrir historial",
+			"moreActions": "Acciones de sesión"
+		},
+		"character": {
+			"switch": "Cambiar personaje",
+			"active": "Personaje activo",
+			"available": "Personajes disponibles",
+			"noDescription": "Sin descripción"
+		},
+		"agent": {
+			"openPanel": "Abrir panel de modo",
+			"activeContext": "Contexto activo",
+			"approvalRequired": "Se requiere aprobación",
+			"deny": "Denegar",
+			"approveOnce": "Aprobar una vez",
+			"allowTemporary": "Permitir temporalmente",
+			"risk": "riesgo"
+		},
 		"settings": {
+			"open": "Abrir configuración",
 			"loadError": "Error al cargar la configuración.",
 			"saving": "Guardando cambios...",
 			"pendingSave": "Guardando pronto...",

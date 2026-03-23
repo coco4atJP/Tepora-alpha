@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export type ChatModeType = "chat" | "search" | "agent";
@@ -71,23 +71,72 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 	onOpenSettings,
 }) => {
 	const { t } = useTranslation();
-	const [isExpanded, setIsExpanded] = useState(false);
+	const [isPinnedOpen, setIsPinnedOpen] = useState(false);
+	const [isHovered, setIsHovered] = useState(false);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const isExpanded = isPinnedOpen || isHovered;
+
+	useEffect(() => {
+		if (!isPinnedOpen) {
+			return;
+		}
+
+		const handlePointerDown = (event: MouseEvent) => {
+			if (containerRef.current?.contains(event.target as Node)) {
+				return;
+			}
+			setIsPinnedOpen(false);
+			setIsHovered(false);
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				setIsPinnedOpen(false);
+				setIsHovered(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handlePointerDown);
+		document.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			document.removeEventListener("mousedown", handlePointerDown);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [isPinnedOpen]);
 
 	return (
 		<div
+			ref={containerRef}
 			className="relative z-[100] flex h-11 w-11 items-center justify-center"
-			onMouseEnter={() => setIsExpanded(true)}
-			onMouseLeave={() => setIsExpanded(false)}
+			onMouseEnter={() => setIsHovered(true)}
+			onMouseLeave={() => {
+				setIsHovered(false);
+				if (!isPinnedOpen) {
+					setIsPinnedOpen(false);
+				}
+			}}
 		>
-			<div
+			<button
+				type="button"
+				aria-label={t("v2.mode.openMenu", "Open mode and settings menu")}
+				aria-expanded={isExpanded}
 				className={`absolute flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-primary/20 bg-surface/70 text-primary shadow-sm transition-all duration-300 ${
 					isExpanded
 						? "pointer-events-none scale-75 opacity-0"
 						: "scale-100 opacity-100 hover:scale-105 hover:bg-surface/90"
 				}`}
+				onClick={() => {
+					if (isPinnedOpen) {
+						setIsPinnedOpen(false);
+						setIsHovered(false);
+						return;
+					}
+					setIsPinnedOpen(true);
+				}}
 			>
 				{currentModeIcon(currentMode)}
-			</div>
+			</button>
 
 			<div
 				className={`absolute left-1/2 top-1/2 flex h-[180px] w-[180px] -ml-[90px] -mt-[90px] items-center justify-center rounded-full border border-[color:var(--glass-border)] bg-[var(--glass-bg)] shadow-[var(--glass-shadow)] backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
@@ -98,7 +147,11 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 			>
 				<button
 					type="button"
-					onClick={onOpenSettings}
+					onClick={() => {
+						onOpenSettings?.();
+						setIsPinnedOpen(false);
+						setIsHovered(false);
+					}}
 					className="absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border border-primary/15 bg-gradient-to-br from-surface to-bg text-text-muted shadow-sm transition-all duration-200 hover:scale-110 hover:text-gold hover:shadow-[0_0_18px_var(--color-gold-muted)]"
 					title={t("v2.settings.open", "Open settings")}
 				>
@@ -110,14 +163,18 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 
 				{MODE_ITEMS.map((item) => {
 					const active = currentMode === item.mode;
-					return (
-						<button
-							type="button"
-							key={item.mode}
-							onClick={() => onModeChange(item.mode)}
-							className={`group absolute flex h-11 w-11 flex-col items-center justify-center rounded-full transition-all duration-200 ${item.positionClassName} ${
-								active
-									? "scale-110 bg-gold/12 text-gold shadow-[0_0_18px_var(--color-gold-muted)]"
+						return (
+							<button
+								type="button"
+								key={item.mode}
+								onClick={() => {
+									onModeChange(item.mode);
+									setIsPinnedOpen(false);
+									setIsHovered(false);
+								}}
+								className={`group absolute flex h-11 w-11 flex-col items-center justify-center rounded-full transition-all duration-200 ${item.positionClassName} ${
+									active
+										? "scale-110 bg-gold/12 text-gold shadow-[0_0_18px_var(--color-gold-muted)]"
 									: "text-text-muted hover:scale-110 hover:bg-gold/10 hover:text-gold hover:shadow-[0_0_18px_var(--color-gold-muted)]"
 							}`}
 						>

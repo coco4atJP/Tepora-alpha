@@ -1221,12 +1221,14 @@
 		"mode": {
 			"chat": "Chat",
 			"search": "Search",
-			"agent": "Agent"
+			"agent": "Agent",
+			"openMenu": "Open mode and settings menu"
 		},
 		"chat": {
 			"assistantFallback": "Assistant",
 			"emptyState": "How can I help today?",
 			"copy": "Copy",
+			"copied": "Copied",
 			"regenerate": "Regenerate",
 			"generating": "Generating",
 			"thinking": "Reasoning trace",
@@ -1238,6 +1240,8 @@
 			"thinkingOff": "Deliberate mode off",
 			"attach": "Attach",
 			"enterToSend": "Enter to send",
+			"enterToSendHint": "Enter to send, Shift+Enter for newline",
+			"moreActions": "More actions",
 			"reconnecting": "Reconnecting..."
 		},
 		"session": {
@@ -1250,9 +1254,10 @@
 			"delete": "Delete",
 			"deleteTitle": "Delete session",
 			"deleteMessage": "Delete this session and remove all messages from history?",
-			"openHistory": "Open history"
+			"openHistory": "Open history",
+			"moreActions": "Session actions"
 		},
-		"persona": {
+		"character": {
 			"switch": "Switch character",
 			"active": "Active character",
 			"available": "Available characters",

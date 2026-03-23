@@ -98,7 +98,11 @@ export const ChatScreenView: React.FC<
 				</div>
 			) : null}
 
-			<ChatMessageList messages={messages} isEmpty={messages.length === 0} />
+			<ChatMessageList
+				messages={messages}
+				isEmpty={messages.length === 0}
+				onRegenerate={onRegenerate}
+			/>
 
 			<div className="absolute bottom-10 left-1/2 z-50 w-full max-w-[800px] -translate-x-1/2 px-5">
 				<CommandArea

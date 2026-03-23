@@ -1206,12 +1206,14 @@
 		"mode": {
 			"chat": "チャット",
 			"search": "検索",
-			"agent": "エージェント"
+			"agent": "エージェント",
+			"openMenu": "モードと設定メニューを開く"
 		},
 		"chat": {
 			"assistantFallback": "アシスタント",
 			"emptyState": "今日は何を進めますか？",
 			"copy": "コピー",
+			"copied": "コピーしました",
 			"regenerate": "再生成",
 			"generating": "生成中",
 			"thinking": "思考ログ",
@@ -1223,6 +1225,8 @@
 			"thinkingOff": "熟考モード 無効",
 			"attach": "添付",
 			"enterToSend": "Enterで送信",
+			"enterToSendHint": "Enterで送信、Shift+Enterで改行",
+			"moreActions": "その他の操作",
 			"reconnecting": "再接続中..."
 		},
 		"session": {
@@ -1235,7 +1239,8 @@
 			"delete": "削除",
 			"deleteTitle": "セッションを削除",
 			"deleteMessage": "このセッションと履歴メッセージを削除しますか？",
-			"openHistory": "履歴を開く"
+			"openHistory": "履歴を開く",
+			"moreActions": "セッション操作"
 		},
 		"character": {
 			"switch": "キャラクターを切り替え",

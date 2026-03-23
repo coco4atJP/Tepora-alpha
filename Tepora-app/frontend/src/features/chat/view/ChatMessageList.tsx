@@ -1,19 +1,26 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useV2ConfigQuery } from "../../settings/model/queries";
+import { logger } from "../../../utils/logger";
 import type { ChatMessageViewModel } from "./props";
 
 export interface ChatMessageListProps {
 	messages: ChatMessageViewModel[];
 	isEmpty: boolean;
+	onRegenerate: () => Promise<void>;
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 	messages,
 	isEmpty,
+	onRegenerate,
 }) => {
 	const { t } = useTranslation();
 	const { data: config } = useV2ConfigQuery();
+	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+	const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+	const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const copiedResetTimerRef = useRef<number | null>(null);
 	const assistantName = useMemo(() => {
 		if (!config?.characters || typeof config.characters !== "object") {
 			return t("v2.chat.assistantFallback", "Assistant");
@@ -40,6 +47,71 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 			? String(firstCharacter.name)
 			: t("v2.chat.assistantFallback", "Assistant");
 	}, [config?.active_character, config?.characters, t]);
+	const latestRegeneratableMessageId = useMemo(
+		() =>
+			[...messages]
+				.reverse()
+				.find(
+					(message) =>
+						(message.role === "assistant" || message.role === "system") &&
+						message.status === "complete",
+				)?.id ?? null,
+		[messages],
+	);
+
+	useEffect(() => {
+		if (!openMenuId) {
+			return;
+		}
+
+		const handlePointerDown = (event: MouseEvent) => {
+			const currentMenu = menuRefs.current[openMenuId];
+			if (currentMenu?.contains(event.target as Node)) {
+				return;
+			}
+			setOpenMenuId(null);
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				setOpenMenuId(null);
+			}
+		};
+
+		document.addEventListener("mousedown", handlePointerDown);
+		document.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			document.removeEventListener("mousedown", handlePointerDown);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [openMenuId]);
+
+	useEffect(
+		() => () => {
+			if (copiedResetTimerRef.current !== null) {
+				window.clearTimeout(copiedResetTimerRef.current);
+			}
+		},
+		[],
+	);
+
+	const handleCopyMessage = async (message: ChatMessageViewModel) => {
+		try {
+			await navigator.clipboard.writeText(message.content);
+			setCopiedMessageId(message.id);
+			setOpenMenuId(null);
+			if (copiedResetTimerRef.current !== null) {
+				window.clearTimeout(copiedResetTimerRef.current);
+			}
+			copiedResetTimerRef.current = window.setTimeout(() => {
+				setCopiedMessageId((current) => (current === message.id ? null : current));
+				copiedResetTimerRef.current = null;
+			}, 2000);
+		} catch (error) {
+			logger.error("[ChatMessageList] Failed to copy message", error);
+		}
+	};
 
 	return (
 		<div className="custom-scrollbar flex h-full flex-1 flex-col items-center gap-14 overflow-y-auto px-5 pb-[180px] pt-[100px] lg:px-8 [mask-image:linear-gradient(to_bottom,transparent_0%,black_8%,black_100%)]">
@@ -58,36 +130,76 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 							message.role === "user" ? "justify-end" : "justify-start"
 						}`}
 					>
-						<div
-							className={`absolute top-0 z-10 -mt-3 flex gap-2 opacity-0 transition-opacity duration-300 group-hover/message:opacity-100 ${
-								message.role === "user"
-									? "right-2 -translate-y-full"
-									: "-right-16"
-							}`}
-						>
-							<button
-								type="button"
-								className="rounded-md bg-surface/70 p-1.5 text-text-muted backdrop-blur-sm transition-colors hover:text-primary"
-								title={t("v2.chat.copy", "Copy")}
+						<div className="absolute right-0 top-0 z-20">
+							<div
+								ref={(node) => {
+									menuRefs.current[message.id] = node;
+								}}
+								className="relative flex items-center gap-2"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-									<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-									<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-								</svg>
-							</button>
-							{message.role === "assistant" ? (
+								{copiedMessageId === message.id ? (
+									<span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-primary">
+										{t("v2.chat.copied", "Copied")}
+									</span>
+								) : null}
 								<button
 									type="button"
-									className="rounded-md bg-surface/70 p-1.5 text-text-muted backdrop-blur-sm transition-colors hover:text-primary"
-									title={t("v2.chat.regenerate", "Regenerate")}
+									aria-label={t("v2.chat.moreActions", "More actions")}
+									aria-expanded={openMenuId === message.id}
+									className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-surface/70 text-text-muted backdrop-blur-sm transition-colors hover:text-primary"
+									onClick={() =>
+										setOpenMenuId((current) =>
+											current === message.id ? null : message.id,
+										)
+									}
+									title={t("v2.chat.moreActions", "More actions")}
 								>
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-										<polyline points="23 4 23 10 17 10" />
-										<polyline points="1 20 1 14 7 14" />
-										<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+										<circle cx="5" cy="12" r="2" />
+										<circle cx="12" cy="12" r="2" />
+										<circle cx="19" cy="12" r="2" />
 									</svg>
 								</button>
-							) : null}
+								{openMenuId === message.id ? (
+									<div
+										role="menu"
+										className="absolute right-0 top-full mt-2 min-w-[10rem] rounded-[20px] border border-border bg-bg/95 p-2 shadow-[0_20px_50px_rgba(59,38,20,0.12)] backdrop-blur-xl"
+									>
+										<button
+											type="button"
+											role="menuitem"
+											className="flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-left text-sm text-text-main transition-colors hover:bg-surface/60"
+											onClick={() => {
+												void handleCopyMessage(message);
+											}}
+										>
+											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+												<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+											</svg>
+											{t("v2.chat.copy", "Copy")}
+										</button>
+										{message.id === latestRegeneratableMessageId ? (
+											<button
+												type="button"
+												role="menuitem"
+												className="flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-left text-sm text-text-main transition-colors hover:bg-surface/60"
+												onClick={() => {
+													setOpenMenuId(null);
+													void onRegenerate();
+												}}
+											>
+												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+													<polyline points="23 4 23 10 17 10" />
+													<polyline points="1 20 1 14 7 14" />
+													<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+												</svg>
+												{t("v2.chat.regenerate", "Regenerate")}
+											</button>
+										) : null}
+									</div>
+								) : null}
+							</div>
 						</div>
 
 						{message.role === "user" ? (
