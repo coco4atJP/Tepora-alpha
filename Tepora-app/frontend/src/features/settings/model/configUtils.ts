@@ -30,6 +30,23 @@ const DEFAULT_EDITOR_CONFIG: SettingsRecord = {
 		brave_search_api_key: "",
 		bing_search_api_key: "",
 	},
+	credentials: {
+		google_search: {
+			expires_at: null,
+			last_rotated_at: null,
+			status: null,
+		},
+		brave_search: {
+			expires_at: null,
+			last_rotated_at: null,
+			status: null,
+		},
+		bing_search: {
+			expires_at: null,
+			last_rotated_at: null,
+			status: null,
+		},
+	},
 	privacy: {
 		allow_web_search: false,
 		redact_pii: true,
@@ -58,6 +75,7 @@ const DEFAULT_EDITOR_CONFIG: SettingsRecord = {
 		include_settings: true,
 		include_characters: true,
 		include_executors: true,
+		export_format: "json",
 		encryption: {
 			enabled: false,
 		},
@@ -88,14 +106,32 @@ const DEFAULT_EDITOR_CONFIG: SettingsRecord = {
 	ui: {
 		theme: "tepora",
 		font_size: 14,
+		code_block: {
+			syntax_theme: "github-dark",
+			wrap_lines: true,
+			show_line_numbers: true,
+		},
 	},
 	notifications: {
 		background_task: {
 			os_notification: false,
+			sound: false,
 		},
 	},
 	storage: {
 		location: "",
+		chunk_size_chars: 0,
+		chunk_size_tokens: 0,
+		chunk_overlap: 0,
+		watch_folders: [],
+		vector_store_dir: "",
+		model_files_dir: "",
+	},
+	cache: {
+		webfetch_clear_on_startup: false,
+		cleanup_old_embeddings: false,
+		cleanup_temp_files: false,
+		capacity_limit_mb: 0,
 	},
 	system: {
 		auto_start: false,
@@ -103,6 +139,19 @@ const DEFAULT_EDITOR_CONFIG: SettingsRecord = {
 	},
 	agent_skills: {
 		roots: [],
+	},
+	model_download: {
+		require_allowlist: true,
+		warn_on_unlisted: true,
+		require_revision: true,
+		require_sha256: true,
+		allow_repo_owners: [],
+	},
+	server: {
+		host: "",
+		allowed_origins: [],
+		cors_allowed_origins: [],
+		ws_allowed_origins: [],
 	},
 };
 

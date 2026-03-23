@@ -2,6 +2,118 @@ import { z } from "zod";
 
 export const isoDatetimeSchema = z.string().min(1);
 
+const stringRecordSchema = z.record(z.string(), z.string());
+export const skillFileEntrySchema = z
+	.object({
+		path: z.string(),
+		kind: z.string(),
+		content: z.string(),
+		encoding: z.string(),
+	})
+	.passthrough();
+export const skillRootConfigSchema = z
+	.object({
+		path: z.string(),
+		enabled: z.boolean().optional(),
+		label: z.string().optional(),
+	})
+	.passthrough();
+export const skillRootInfoSchema = skillRootConfigSchema.extend({
+	writable: z.boolean(),
+});
+export const agentSkillSummarySchema = z
+	.object({
+		id: z.string().min(1),
+		name: z.string().min(1),
+		description: z.string(),
+		package_dir: z.string(),
+		root_path: z.string(),
+		root_label: z.string().optional(),
+		metadata: z.record(z.string(), z.unknown()).optional(),
+		display_name: z.string().optional(),
+		short_description: z.string().optional(),
+		valid: z.boolean(),
+		writable: z.boolean(),
+		warnings: z.array(z.string()),
+	})
+	.passthrough();
+export const agentSkillPackageSchema = agentSkillSummarySchema.extend({
+	skill_markdown: z.string(),
+	skill_body: z.string(),
+	openai_yaml: z.string().nullable().optional(),
+	references: z.array(skillFileEntrySchema),
+	scripts: z.array(skillFileEntrySchema),
+	assets: z.array(skillFileEntrySchema),
+	other_files: z.array(skillFileEntrySchema),
+});
+export const credentialStatusSchema = z
+	.object({
+		provider: z.string().min(1),
+		status: z.string().min(1),
+		present: z.boolean(),
+		expires_at: z.string().nullable().optional(),
+		last_rotated_at: z.string().nullable().optional(),
+	})
+	.passthrough();
+export const mcpServerStatusSchema = z
+	.object({
+		status: z.enum(["connected", "disconnected", "error", "connecting"]),
+		tools_count: z.number().int().nonnegative(),
+		error_message: z.string().nullable().optional(),
+		last_connected: z.string().nullable().optional(),
+	})
+	.passthrough();
+export const mcpServerConfigSchema = z
+	.object({
+		command: z.string().min(1),
+		args: z.array(z.string()),
+		env: stringRecordSchema,
+		enabled: z.boolean(),
+		metadata: z
+			.object({
+				name: z.string().optional(),
+				description: z.string().optional(),
+			})
+			.passthrough()
+			.nullable()
+			.optional(),
+	})
+	.passthrough();
+export const mcpEnvVarSchema = z
+	.object({
+		name: z.string().min(1),
+		description: z.string().optional(),
+		isRequired: z.boolean(),
+		isSecret: z.boolean(),
+		default: z.string().optional(),
+	})
+	.passthrough();
+export const mcpPackageSchema = z
+	.object({
+		name: z.string().min(1),
+		runtimeHint: z.string().optional(),
+		registry: z.string().optional(),
+		version: z.string().optional(),
+	})
+	.passthrough();
+export const mcpStoreServerSchema = z
+	.object({
+		id: z.string().min(1),
+		name: z.string().min(1),
+		title: z.string().optional(),
+		description: z.string().optional(),
+		version: z.string().optional(),
+		vendor: z.string().optional(),
+		packages: z.array(mcpPackageSchema),
+		environmentVariables: z.array(mcpEnvVarSchema),
+		icon: z.string().optional(),
+		category: z.string().optional(),
+		sourceUrl: z.string().optional(),
+		homepage: z.string().optional(),
+		websiteUrl: z.string().optional(),
+	})
+	.passthrough();
+
 export const chatModeSchema = z.enum(["chat", "search", "agent"]);
 export const agentModeSchema = z.enum(["high", "fast", "low", "direct"]);
 export const searchModeSchema = z.enum(["quick", "deep"]);
@@ -91,6 +203,90 @@ export const configResponseSchema = z
 					.passthrough()
 					.optional(),
 			})
+			.passthrough()
+			.optional(),
+		server: z
+			.object({
+				host: z.string().optional(),
+				allowed_origins: z.array(z.string()).optional(),
+				cors_allowed_origins: z.array(z.string()).optional(),
+				ws_allowed_origins: z.array(z.string()).optional(),
+			})
+			.passthrough()
+			.optional(),
+		model_download: z
+			.object({
+				require_allowlist: z.boolean().optional(),
+				warn_on_unlisted: z.boolean().optional(),
+				require_revision: z.boolean().optional(),
+				require_sha256: z.boolean().optional(),
+				allow_repo_owners: z.array(z.string()).optional(),
+			})
+			.passthrough()
+			.optional(),
+		credentials: z.record(
+			z.string(),
+			z
+				.object({
+					expires_at: z.string().nullable().optional(),
+					last_rotated_at: z.string().nullable().optional(),
+					status: z.string().nullable().optional(),
+				})
+				.passthrough(),
+		).optional(),
+		ui: z
+			.object({
+				theme: z.string().optional(),
+				font_size: z.number().optional(),
+				code_block: z
+					.object({
+						syntax_theme: z.string().optional(),
+						wrap_lines: z.boolean().optional(),
+						show_line_numbers: z.boolean().optional(),
+					})
+					.passthrough()
+					.optional(),
+			})
+			.passthrough()
+			.optional(),
+		storage: z
+			.object({
+				location: z.string().optional(),
+				chunk_size_chars: z.number().optional(),
+				chunk_size_tokens: z.number().optional(),
+				chunk_overlap: z.number().optional(),
+				watch_folders: z.array(z.string()).optional(),
+				vector_store_dir: z.string().optional(),
+				model_files_dir: z.string().optional(),
+			})
+			.passthrough()
+			.optional(),
+		cache: z
+			.object({
+				webfetch_clear_on_startup: z.boolean().optional(),
+				cleanup_old_embeddings: z.boolean().optional(),
+				cleanup_temp_files: z.boolean().optional(),
+				capacity_limit_mb: z.number().optional(),
+			})
+			.passthrough()
+			.optional(),
+		notifications: z
+			.object({
+				background_task: z
+					.object({
+						os_notification: z.boolean().optional(),
+						sound: z.boolean().optional(),
+					})
+					.passthrough()
+					.optional(),
+			})
+			.passthrough()
+			.optional(),
+		agent_skills: z
+			.object({
+				roots: z.array(skillRootConfigSchema).optional(),
+			})
+			.passthrough()
 			.optional(),
 	})
 	.passthrough();
@@ -203,6 +399,91 @@ export const apiErrorResponseSchema = z
 	})
 	.passthrough();
 
+export const credentialStatusesResponseSchema = z.object({
+	credentials: z.array(credentialStatusSchema),
+});
+
+export const rotateCredentialRequestSchema = z.object({
+	provider: z.string().min(1),
+	secret: z.string().min(1),
+	expires_at: z.string().optional(),
+});
+
+export const agentSkillsResponseSchema = z.object({
+	roots: z.array(skillRootInfoSchema),
+	skills: z.array(agentSkillSummarySchema),
+});
+
+export const saveAgentSkillRequestSchema = z.object({
+	id: z.string().min(1),
+	root_path: z.string().optional(),
+	skill_markdown: z.string(),
+	openai_yaml: z.string().nullable().optional(),
+	references: z.array(skillFileEntrySchema),
+	scripts: z.array(skillFileEntrySchema),
+	assets: z.array(skillFileEntrySchema),
+	other_files: z.array(skillFileEntrySchema),
+});
+
+export const saveAgentSkillResponseSchema = z.object({
+	success: z.boolean(),
+	skill: agentSkillPackageSchema,
+});
+
+export const mcpStatusResponseSchema = z.object({
+	servers: z.record(z.string(), mcpServerStatusSchema).optional(),
+	initialized: z.boolean().optional(),
+	config_path: z.string().optional(),
+	error: z.string().nullable().optional(),
+});
+
+export const mcpConfigResponseSchema = z.object({
+	mcpServers: z.record(z.string(), mcpServerConfigSchema).optional(),
+	initialized: z.boolean().optional(),
+	config_path: z.string().optional(),
+	error: z.string().nullable().optional(),
+});
+
+export const mcpStoreResponseSchema = z.object({
+	servers: z.array(mcpStoreServerSchema),
+	total: z.number().int(),
+	page: z.number().int(),
+	page_size: z.number().int(),
+	has_more: z.boolean(),
+});
+
+export const mcpInstallPreviewRequestSchema = z.object({
+	server_id: z.string().min(1),
+	runtime: z.string().optional(),
+	env_values: stringRecordSchema.optional(),
+	server_name: z.string().optional(),
+});
+
+export const mcpInstallPreviewResponseSchema = z.object({
+	consent_id: z.string().min(1),
+	expires_in_seconds: z.number().int(),
+	server_id: z.string().min(1).optional(),
+	server_name: z.string().min(1).optional(),
+	description: z.string().optional(),
+	command: z.string().min(1),
+	args: z.array(z.string()),
+	env: stringRecordSchema,
+	full_command: z.string(),
+	warnings: z.array(z.string()),
+	requires_consent: z.boolean(),
+	runtime: z.string().nullable().optional(),
+});
+
+export const mcpInstallConfirmResponseSchema = z.object({
+	status: z.string().min(1),
+	server_name: z.string().min(1),
+	message: z.string().min(1),
+});
+
+export const successResponseSchema = z.object({
+	success: z.boolean(),
+});
+
 export type ChatMode = z.infer<typeof chatModeSchema>;
 export type AgentMode = z.infer<typeof agentModeSchema>;
 export type SearchMode = z.infer<typeof searchModeSchema>;
@@ -222,3 +503,24 @@ export type BinaryUpdateInfoResponse = z.infer<typeof binaryUpdateInfoResponseSc
 export type StartBinaryUpdateRequest = z.infer<typeof startBinaryUpdateRequestSchema>;
 export type StartBinaryUpdateResponse = z.infer<typeof startBinaryUpdateResponseSchema>;
 export type ConsentRequiredErrorResponse = z.infer<typeof consentRequiredErrorResponseSchema>;
+export type CredentialStatus = z.infer<typeof credentialStatusSchema>;
+export type CredentialStatusesResponse = z.infer<typeof credentialStatusesResponseSchema>;
+export type SkillFileEntry = z.infer<typeof skillFileEntrySchema>;
+export type SkillRootConfig = z.infer<typeof skillRootConfigSchema>;
+export type SkillRootInfo = z.infer<typeof skillRootInfoSchema>;
+export type AgentSkillSummary = z.infer<typeof agentSkillSummarySchema>;
+export type AgentSkillPackage = z.infer<typeof agentSkillPackageSchema>;
+export type AgentSkillsResponse = z.infer<typeof agentSkillsResponseSchema>;
+export type SaveAgentSkillRequest = z.infer<typeof saveAgentSkillRequestSchema>;
+export type SaveAgentSkillResponse = z.infer<typeof saveAgentSkillResponseSchema>;
+export type McpServerStatus = z.infer<typeof mcpServerStatusSchema>;
+export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
+export type McpEnvVar = z.infer<typeof mcpEnvVarSchema>;
+export type McpPackage = z.infer<typeof mcpPackageSchema>;
+export type McpStoreServer = z.infer<typeof mcpStoreServerSchema>;
+export type McpStatusResponse = z.infer<typeof mcpStatusResponseSchema>;
+export type McpConfigResponse = z.infer<typeof mcpConfigResponseSchema>;
+export type McpStoreResponse = z.infer<typeof mcpStoreResponseSchema>;
+export type McpInstallPreviewRequest = z.infer<typeof mcpInstallPreviewRequestSchema>;
+export type McpInstallPreviewResponse = z.infer<typeof mcpInstallPreviewResponseSchema>;
+export type McpInstallConfirmResponse = z.infer<typeof mcpInstallConfirmResponseSchema>;

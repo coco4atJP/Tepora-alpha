@@ -4,7 +4,10 @@ import { SelectionDot } from "../../../../shared/ui/SelectionDot";
 import { SettingsRow } from "../../../../shared/ui/SettingsRow";
 import { SettingsSectionGroup } from "../../../../shared/ui/SettingsSectionGroup";
 import { TextField } from "../../../../shared/ui/TextField";
-import { readNestedValue, useSettingsEditor } from "../../model/editor";
+import { useSettingsEditor } from "../../model/editor";
+import { AgentSkillsManagementPanel } from "../components/AgentSkillsManagementPanel";
+import { CredentialsManagementPanel } from "../components/CredentialsManagementPanel";
+import { McpManagementPanel } from "../components/McpManagementPanel";
 
 const PROVIDER_OPTIONS = [
 	{ label: "DuckDuckGo", value: "duckduckgo" },
@@ -12,17 +15,6 @@ const PROVIDER_OPTIONS = [
 	{ label: "Brave", value: "brave" },
 	{ label: "Bing", value: "bing" },
 ];
-
-function parseRootPaths(value: string) {
-	return value
-		.split(",")
-		.map((item) => item.trim())
-		.filter(Boolean)
-		.map((path) => ({
-			path,
-			enabled: true,
-		}));
-}
 
 interface ToolsSettingsProps {
 	activeTab?: string;
@@ -34,79 +26,17 @@ export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
 	const { t } = useTranslation();
 	const editor = useSettingsEditor();
 	const provider = editor.readString("tools.search_provider", "duckduckgo");
-	const rootsValue = editor.draft
-		? readNestedValue(editor.draft, "agent_skills.roots")
-		: undefined;
-	const rootPaths = Array.isArray(rootsValue)
-		? rootsValue
-				.map((entry) =>
-					entry && typeof entry === "object" && "path" in entry
-						? String((entry as { path?: unknown }).path ?? "")
-						: "",
-				)
-				.filter(Boolean)
-				.join(", ")
-		: "";
 
 	if (activeTab === "Agent Skills") {
-		return (
-			<div className="flex flex-col">
-				<SettingsSectionGroup title={t("v2.settings.agentSkills", "Agent Skills")}>
-					<SettingsRow
-						label={t("v2.settings.skillRoots", "Skill Roots")}
-						description={t("v2.settings.skillRootsDescription", "Comma-separated skill root paths stored in backend config")}
-					>
-						<div className="w-full max-w-2xl">
-							<TextField
-								value={rootPaths}
-								onChange={(event) =>
-									editor.updateField(
-										"agent_skills.roots",
-										parseRootPaths(event.target.value),
-									)
-								}
-								placeholder={t("v2.settings.skillRootsPlaceholder", "/path/to/skills, /another/path")}
-							/>
-						</div>
-					</SettingsRow>
-				</SettingsSectionGroup>
-			</div>
-		);
+		return <AgentSkillsManagementPanel />;
 	}
 
 	if (activeTab === "MCP") {
-		return (
-			<div className="flex flex-col">
-				<SettingsSectionGroup title={t("v2.settings.mcp", "MCP")}>
-					<SettingsRow
-						label={t("v2.settings.mcpConfigPath", "MCP Config Path")}
-						description={t("v2.settings.mcpConfigPathDescription", "Path to the MCP configuration file used by the backend")}
-					>
-						<div className="w-full max-w-2xl">
-							<TextField
-								value={editor.readString("app.mcp_config_path", "")}
-								onChange={(event) =>
-									editor.updateField("app.mcp_config_path", event.target.value)
-								}
-								placeholder={t("v2.settings.mcpConfigPathPlaceholder", "/absolute/path/to/mcp_tools_config.json")}
-							/>
-						</div>
-					</SettingsRow>
-				</SettingsSectionGroup>
-			</div>
-		);
+		return <McpManagementPanel />;
 	}
 
 	if (activeTab === "Credentials") {
-		return (
-			<div className="flex flex-col">
-				<SettingsSectionGroup title={t("v2.settings.credentials", "Credentials")}>
-					<div className="rounded-[24px] border border-primary/10 bg-white/55 px-6 py-5 text-sm leading-7 text-text-muted">
-						{t("v2.settings.credentialsDescription", "Credentials are edited inline on each provider tab and saved through the backend secret store.")}
-					</div>
-				</SettingsSectionGroup>
-			</div>
-		);
+		return <CredentialsManagementPanel />;
 	}
 
 	return (
