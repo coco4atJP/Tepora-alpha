@@ -214,7 +214,10 @@ const ModelSettings: React.FC = () => {
 
 	const textModels = models.filter((m) => m.role === "text");
 	const embeddingModels = models.filter((m) => m.role === "embedding");
-	const getActiveId = (role: string) => models.find((m) => m.role === role && m.is_active)?.id;
+	const getActiveId = (role: string) => {
+		const assignmentKey = role === "embedding" ? "embedding" : "character";
+		return models.find((m) => m.active_assignment_keys?.includes(assignmentKey))?.id;
+	};
 	const characterEntries = Object.entries(config.characters || {});
 	const executionAgentEntries = Object.values(agentSkills || {}).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -637,7 +640,6 @@ const ModelSettings: React.FC = () => {
 };
 
 export default ModelSettings;
-
 
 
 

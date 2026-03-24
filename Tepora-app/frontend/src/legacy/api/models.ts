@@ -58,13 +58,13 @@ export const modelsApi = {
             model_id,
         }),
 
-    /** アクティブモデルを設定（embedding / text） */
-    setActive: (model_id: string, role: string) =>
-        apiClient.post(ENDPOINTS.SETUP.MODEL_ACTIVE, { model_id, role }),
+    /** アクティブモデルを設定 */
+    setActive: (model_id: string, assignment_key: string) =>
+        apiClient.post(ENDPOINTS.SETUP.MODEL_ACTIVE, { model_id, assignment_key }),
 
     /** モデルの表示順を変更 */
-    reorder: (role: string, model_ids: string[]) =>
-        apiClient.post(ENDPOINTS.SETUP.MODEL_REORDER, { role, model_ids }),
+    reorder: (modality: string, model_ids: string[]) =>
+        apiClient.post(ENDPOINTS.SETUP.MODEL_REORDER, { modality, model_ids }),
 
     /** モデルを削除 */
     delete: (id: string) => apiClient.delete(ENDPOINTS.SETUP.MODEL_DETAIL(id)),
@@ -92,4 +92,3 @@ export function resolveEmbeddingModelPath(model: ModelInfo): string {
     if (model.filename) return `models/embedding/${model.filename}`;
     return "";
 }
-

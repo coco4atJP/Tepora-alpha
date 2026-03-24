@@ -67,14 +67,13 @@ pub struct ProfessionalRoleRequest {
 #[derive(Debug, Deserialize)]
 pub struct ActiveModelRequest {
     pub model_id: String,
-    #[serde(default)]
-    pub role: Option<String>,
+    pub assignment_key: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ReorderModelsRequest {
     #[serde(default)]
-    pub role: Option<String>,
+    pub modality: Option<String>,
     pub model_ids: Vec<String>,
 }
 
@@ -92,8 +91,9 @@ pub struct CheckModelRequest {
 pub struct DownloadModelRequest {
     pub repo_id: String,
     pub filename: String,
+    pub modality: String,
     #[serde(default)]
-    pub role: Option<String>,
+    pub assignment_key: Option<String>,
     #[serde(default)]
     pub display_name: Option<String>,
     #[serde(default)]
@@ -108,8 +108,7 @@ pub struct DownloadModelRequest {
 pub struct LocalModelRequest {
     #[serde(alias = "file_path")]
     pub path: String,
-    #[serde(default)]
-    pub role: Option<String>,
+    pub modality: String,
     #[serde(default)]
     pub display_name: Option<String>,
 }
@@ -254,7 +253,7 @@ pub async fn setup_set_active_model(
     State(state): State<AppStateWrite>,
     Json(payload): Json<ActiveModelRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    set_active_model(&state, &payload.model_id, payload.role.as_deref())?;
+    set_active_model(&state, &payload.model_id, &payload.assignment_key)?;
     Ok(success_response())
 }
 
@@ -262,7 +261,7 @@ pub async fn setup_reorder_models(
     State(state): State<AppStateWrite>,
     Json(payload): Json<ReorderModelsRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    reorder_models(&state, payload.role.as_deref(), payload.model_ids)?;
+    reorder_models(&state, payload.modality.as_deref(), payload.model_ids)?;
     Ok(Json(json!({"success": true})))
 }
 
@@ -296,7 +295,7 @@ pub async fn setup_register_local_model(
     let model_id = register_local_model(
         &state,
         &payload.path,
-        payload.role.as_deref(),
+        &payload.modality,
         payload.display_name.as_deref(),
     )?;
     Ok(Json(json!({"success": true, "model_id": model_id})))

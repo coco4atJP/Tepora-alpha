@@ -101,7 +101,7 @@ export function useSetActiveSetupModelMutation() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (payload: { model_id: string; role: "text" | "embedding" }) =>
+		mutationFn: (payload: { model_id: string; assignment_key: "character" | "embedding" }) =>
 			v2ApiClient.post("/api/setup/model/active", configWriteResponseSchema, payload),
 		onSuccess: () => {
 			void queryClient.invalidateQueries({

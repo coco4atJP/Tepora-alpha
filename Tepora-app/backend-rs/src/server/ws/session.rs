@@ -70,7 +70,14 @@ pub async fn persist_graph_interaction(
     let text_model_id = state
         .ai()
         .models
-        .resolve_agent_model_id(request.requested_agent_id.as_deref())
+        .resolve_assignment_model_id(
+            request
+                .requested_agent_id
+                .as_deref()
+                .map(|value| format!("agent:{value}"))
+                .as_deref()
+                .unwrap_or("professional"),
+        )
         .ok()
         .flatten()
         .unwrap_or_else(|| "default".to_string());
@@ -98,7 +105,7 @@ fn resolve_embedding_model_id(state: &AppState) -> String {
     state
         .ai()
         .models
-        .resolve_embedding_model_id()
+        .resolve_assignment_model_id("embedding")
         .ok()
         .flatten()
         .unwrap_or_else(|| "default".to_string())

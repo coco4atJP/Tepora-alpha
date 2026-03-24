@@ -112,7 +112,7 @@ pub struct ModelEntry {
     // --- 基本 ID ---
     pub id: String,
     pub display_name: String,
-    /// モデルの役割: "text" | "embedding"
+    /// モデルの modality: "text" | "embedding" | "vision" | "audio" | "image_generation" | ...
     pub role: String,
 
     // --- ストレージ情報 ---
@@ -174,10 +174,10 @@ pub struct ModelEntry {
 pub struct ModelRegistry {
     #[serde(default)]
     pub models: Vec<ModelEntry>,
-    /// role -> model_id のマッピング（アクティブモデル）
+    /// assignment_key -> model_id のマッピング
     #[serde(default)]
     pub role_assignments: HashMap<String, String>,
-    /// role -> [model_id, ...] の表示順
+    /// modality -> [model_id, ...] の表示順
     #[serde(default)]
     pub role_order: HashMap<String, Vec<String>>,
 }

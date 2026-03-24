@@ -10,7 +10,8 @@ export interface ActiveJobState {
 export interface DownloadPayload {
 	repo_id: string;
 	filename: string;
-	role: string;
+	modality: string;
+	assignment_key?: string;
 	display_name: string;
 	revision?: string;
 	sha256?: string;

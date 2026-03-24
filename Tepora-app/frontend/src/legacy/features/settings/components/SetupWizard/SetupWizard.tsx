@@ -80,7 +80,8 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				repo_id: string;
 				filename: string;
 				display_name: string;
-				role: string;
+				modality: string;
+				assignment_key?: string;
 			}>,
 			acknowledge_warnings: boolean,
 		) => {
@@ -171,7 +172,8 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 				repo_id: string;
 				filename: string;
 				display_name: string;
-				role: string;
+				modality: string;
+				assignment_key?: string;
 			}> = [];
 
 			if (showAdvanced && state.customModels) {
@@ -181,7 +183,8 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						repo_id: state.customModels.text.repo_id,
 						filename: state.customModels.text.filename,
 						display_name: state.customModels.text.display_name,
-						role: "text",
+						modality: "text",
+						assignment_key: "character",
 					});
 				}
 				if (state.customModels.embedding) {
@@ -189,19 +192,21 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						repo_id: state.customModels.embedding.repo_id,
 						filename: state.customModels.embedding.filename,
 						display_name: state.customModels.embedding.display_name,
-						role: "embedding",
+						modality: "embedding",
+						assignment_key: "embedding",
 					});
 				}
 			} else if (state.defaults) {
 				// Include text models only if NOT ollama
 				if (state.loader !== "ollama") {
-					state.defaults.text_models.forEach((m) => {
+					state.defaults.text_models.forEach((m, index) => {
 						if (state.selectedModels.has(getKey(m))) {
 							target_models.push({
 								repo_id: m.repo_id,
 								filename: m.filename,
 								display_name: m.display_name,
-								role: "text",
+								modality: "text",
+								assignment_key: index === 0 ? "character" : undefined,
 							});
 						}
 					});
@@ -212,7 +217,8 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 						repo_id: state.defaults.embedding.repo_id,
 						filename: state.defaults.embedding.filename,
 						display_name: state.defaults.embedding.display_name,
-						role: "embedding",
+						modality: "embedding",
+						assignment_key: "embedding",
 					});
 				}
 			}
@@ -510,4 +516,3 @@ export default function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 		</div>
 	);
 }
-

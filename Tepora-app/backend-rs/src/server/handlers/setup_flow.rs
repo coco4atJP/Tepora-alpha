@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use super::setup_models::{build_target_models, download_tasks_from_specs, run_download_job};
-use super::utils::{ensure_object_path, resolve_model_path};
+use super::utils::ensure_object_path;
 use crate::core::errors::ApiError;
 use crate::state::{AppStateRead, AppStateWrite};
 
@@ -47,21 +47,20 @@ pub fn preflight_payload(
 }
 
 pub fn requirements_payload(state: &AppStateRead) -> Result<Value, ApiError> {
-    let config = state.core().config.load_config()?;
-    let models = config.get("models").or_else(|| config.get("models_gguf"));
-    let text_path = models
-        .and_then(|v| v.get("text").or_else(|| v.get("text_model")))
-        .and_then(|v| v.get("path"))
-        .and_then(|v| v.as_str())
-        .map(|s| resolve_model_path(s, &state.core().paths));
-    let embedding_path = models
-        .and_then(|v| v.get("embedding").or_else(|| v.get("embedding_model")))
-        .and_then(|v| v.get("path"))
-        .and_then(|v| v.as_str())
-        .map(|s| resolve_model_path(s, &state.core().paths));
-
-    let text_ok = text_path.as_ref().map(|p| p.exists()).unwrap_or(false);
-    let embedding_ok = embedding_path.as_ref().map(|p| p.exists()).unwrap_or(false);
+    let text_model = state.ai().models.resolve_assignment_model("character")?;
+    let embedding_model = state.ai().models.resolve_assignment_model("embedding")?;
+    let text_ok = text_model
+        .as_ref()
+        .map(|model| model.file_path.starts_with("ollama://")
+            || model.file_path.starts_with("lmstudio://")
+            || std::path::Path::new(&model.file_path).exists())
+        .unwrap_or(false);
+    let embedding_ok = embedding_model
+        .as_ref()
+        .map(|model| model.file_path.starts_with("ollama://")
+            || model.file_path.starts_with("lmstudio://")
+            || std::path::Path::new(&model.file_path).exists())
+        .unwrap_or(false);
     let has_missing = !(text_ok && embedding_ok);
 
     Ok(json!({
@@ -69,8 +68,8 @@ pub fn requirements_payload(state: &AppStateRead) -> Result<Value, ApiError> {
         "has_missing": has_missing,
         "binary": {"status": "ok", "version": null},
         "models": {
-            "text": {"status": if text_ok { "ok" } else { "missing" }, "name": text_path.map(|p| p.to_string_lossy().to_string())},
-            "embedding": {"status": if embedding_ok { "ok" } else { "missing" }, "name": embedding_path.map(|p| p.to_string_lossy().to_string())}
+            "text": {"status": if text_ok { "ok" } else { "missing" }, "name": text_model.map(|m| m.display_name)},
+            "embedding": {"status": if embedding_ok { "ok" } else { "missing" }, "name": embedding_model.map(|m| m.display_name)}
         }
     }))
 }
@@ -146,7 +145,7 @@ pub fn start_setup_run(
     let config_snapshot = state.core().config.load_config()?;
     let mut target_models = build_target_models(target_models, &config_snapshot);
     if loader.as_deref() == Some("ollama") {
-        target_models.retain(|model| model.role.to_lowercase() == "embedding");
+        target_models.retain(|model| model.modality.eq_ignore_ascii_case("embedding"));
     }
 
     let mut warnings = Vec::new();

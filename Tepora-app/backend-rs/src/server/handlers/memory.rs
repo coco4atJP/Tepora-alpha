@@ -158,14 +158,20 @@ fn resolve_default_text_model_id(state: &crate::state::AppState) -> String {
     state
         .ai()
         .models
-        .resolve_character_model(active_character.as_deref())
+        .resolve_assignment_model(
+            active_character
+                .as_deref()
+                .map(|value| format!("character:{value}"))
+                .as_deref()
+                .unwrap_or("character"),
+        )
         .ok()
         .flatten()
         .or_else(|| {
             state
                 .ai()
                 .models
-                .find_first_model_by_role("text")
+                .find_first_model_by_modality("text")
                 .ok()
                 .flatten()
         })

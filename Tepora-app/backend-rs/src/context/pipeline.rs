@@ -87,7 +87,12 @@ fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
     let context_from_registry = state
         .ai()
         .models
-        .resolve_character_model(active_character)
+        .resolve_assignment_model(
+            active_character
+                .map(|value| format!("character:{value}"))
+                .as_deref()
+                .unwrap_or("character"),
+        )
         .ok()
         .flatten()
         .and_then(|model| model.context_length);
@@ -95,7 +100,7 @@ fn resolve_context_length(state: &Arc<AppState>, config: &Value) -> usize {
     let context_from_assignment = state
         .ai()
         .models
-        .find_first_model_by_role("text")
+        .find_first_model_by_modality("text")
         .ok()
         .flatten()
         .and_then(|model| model.context_length);
@@ -140,14 +145,19 @@ fn resolve_tokenizer_spec(state: &Arc<AppState>, config: &Value) -> ModelTokeniz
     let active_model = state
         .ai()
         .models
-        .resolve_character_model(active_character)
+        .resolve_assignment_model(
+            active_character
+                .map(|value| format!("character:{value}"))
+                .as_deref()
+                .unwrap_or("character"),
+        )
         .ok()
         .flatten()
         .or_else(|| {
             state
                 .ai()
                 .models
-                .find_first_model_by_role("text")
+                .find_first_model_by_modality("text")
                 .ok()
                 .flatten()
         });

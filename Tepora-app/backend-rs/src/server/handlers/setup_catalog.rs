@@ -37,25 +37,22 @@ pub async fn check_model(
 }
 
 pub fn models_payload(state: &AppStateRead) -> Result<Value, ApiError> {
-    let models = state.ai().models.list_models()?;
-    let config = state.core().config.load_config().unwrap_or(Value::Null);
-    let active_character = config
-        .get("active_character")
-        .or_else(|| config.get("active_agent_profile"))
-        .and_then(|v| v.as_str());
-    let active_text = state
-        .ai()
-        .models
-        .resolve_character_model_id(active_character)?;
-    let active_embedding = state.ai().models.resolve_embedding_model_id()?;
+    let registry = state.ai().models.get_registry()?;
+    let models = registry.models.clone();
     let payload: Vec<Value> = models
         .into_iter()
         .map(|model| {
-            let is_active = if model.role == "embedding" {
-                active_embedding.as_deref() == Some(&model.id)
-            } else {
-                active_text.as_deref() == Some(&model.id)
-            };
+            let active_assignment_keys = registry
+                .role_assignments
+                .iter()
+                .filter_map(|(assignment_key, assigned_model_id)| {
+                    if assigned_model_id == &model.id {
+                        Some(assignment_key.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
             json!({
                 "id": model.id,
                 "display_name": model.display_name,
@@ -68,7 +65,8 @@ pub fn models_payload(state: &AppStateRead) -> Result<Value, ApiError> {
                 "repo_id": model.repo_id,
                 "revision": model.revision,
                 "sha256": model.sha256,
-                "is_active": is_active,
+                "is_active": !active_assignment_keys.is_empty(),
+                "active_assignment_keys": active_assignment_keys,
             })
         })
         .collect();
@@ -77,22 +75,17 @@ pub fn models_payload(state: &AppStateRead) -> Result<Value, ApiError> {
 
 pub fn reorder_models(
     state: &AppStateWrite,
-    role: Option<&str>,
+    modality: Option<&str>,
     model_ids: Vec<String>,
 ) -> Result<(), ApiError> {
-    let role = role
+    let modality = modality
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or("text");
-    let normalized_role = if role.eq_ignore_ascii_case("embedding") {
-        "embedding"
-    } else {
-        "text"
-    };
     state
         .ai()
         .models
-        .reorder_models(normalized_role, model_ids)?;
+        .reorder_models(modality, model_ids)?;
     Ok(())
 }
 
@@ -159,19 +152,18 @@ pub async fn queue_model_download(
 pub fn register_local_model(
     state: &AppStateWrite,
     path: &str,
-    role: Option<&str>,
+    modality: &str,
     display_name: Option<&str>,
 ) -> Result<String, ApiError> {
     let path = Path::new(path);
     let filename = path.file_name().and_then(|v| v.to_str()).unwrap_or("model");
-    let role = role.unwrap_or("text");
     let display_name = display_name
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| format!("Local: {}", filename));
     let entry = state
         .ai()
         .models
-        .register_local_model(path, role, &display_name)?;
+        .register_local_model(path, modality, &display_name)?;
     Ok(entry.id)
 }
 

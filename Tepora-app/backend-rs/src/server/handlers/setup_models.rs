@@ -11,7 +11,8 @@ use crate::server::handlers::setup::{DownloadModelRequest, ModelUpdateCheckTarge
 pub struct ModelDownloadSpec {
     pub repo_id: String,
     pub filename: String,
-    pub role: String,
+    pub modality: String,
+    pub assignment_key: Option<String>,
     pub display_name: String,
     pub revision: Option<String>,
     pub sha256: Option<String>,
@@ -21,29 +22,12 @@ pub struct ModelDownloadSpec {
 pub struct DownloadTask {
     pub repo_id: String,
     pub filename: String,
-    pub role: String,
+    pub modality: String,
+    pub assignment_key: Option<String>,
     pub display_name: String,
     pub revision: Option<String>,
     pub sha256: Option<String>,
     pub consent: bool,
-}
-
-impl DownloadTask {
-    fn role_key(&self) -> &'static str {
-        if self.role.eq_ignore_ascii_case("embedding") {
-            "embedding"
-        } else {
-            "character"
-        }
-    }
-
-    fn config_role(&self) -> &'static str {
-        if self.role.eq_ignore_ascii_case("embedding") {
-            "embedding"
-        } else {
-            "text"
-        }
-    }
 }
 
 pub async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
@@ -61,13 +45,13 @@ pub async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
         let result = state
             .ai()
             .models
-            .download_from_huggingface(
-                &task.repo_id,
-                &task.filename,
-                &task.role,
-                &task.display_name,
-                task.revision.as_deref(),
-                task.sha256.as_deref(),
+                .download_from_huggingface(
+                    &task.repo_id,
+                    &task.filename,
+                    &task.modality,
+                    &task.display_name,
+                    task.revision.as_deref(),
+                    task.sha256.as_deref(),
                 task.consent,
                 Some(&progress_cb),
             )
@@ -75,21 +59,19 @@ pub async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
 
         match result {
             Ok(dl_result) if dl_result.success => {
-                if let Some(model_id) = dl_result.model_id.as_deref() {
-                    let role_key = task.role_key();
-                    let config_role = task.config_role();
-                    let assignment = state.ai().models.set_role_model(role_key, model_id);
-                    if assignment.as_ref().is_ok_and(|assigned| *assigned) {
-                        let _ = state
-                            .ai()
-                            .models
-                            .update_active_model_config(config_role, model_id);
-                    } else if let Err(err) = assignment {
+                if let (Some(model_id), Some(assignment_key)) =
+                    (dl_result.model_id.as_deref(), task.assignment_key.as_deref())
+                {
+                    let assignment = state
+                        .ai()
+                        .models
+                        .set_assignment_model(assignment_key, model_id);
+                    if let Err(err) = assignment {
                         tracing::warn!(
                             model_id = %model_id,
-                            role = %role_key,
+                            assignment_key = %assignment_key,
                             error = %err,
-                            "Failed to assign downloaded model to role"
+                            "Failed to assign downloaded model"
                         );
                     }
                 }
@@ -121,7 +103,8 @@ pub fn download_tasks_from_specs(
         .map(|model| DownloadTask {
             repo_id: model.repo_id,
             filename: model.filename,
-            role: model.role,
+            modality: model.modality,
+            assignment_key: model.assignment_key,
             display_name: model.display_name,
             revision: model.revision,
             sha256: model.sha256,
@@ -131,12 +114,7 @@ pub fn download_tasks_from_specs(
 }
 
 pub fn build_download_task_from_request(payload: &DownloadModelRequest) -> DownloadTask {
-    let role = payload
-        .role
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or("text");
+    let modality = payload.modality.trim();
     let display_name = payload
         .display_name
         .as_deref()
@@ -147,7 +125,13 @@ pub fn build_download_task_from_request(payload: &DownloadModelRequest) -> Downl
     DownloadTask {
         repo_id: payload.repo_id.clone(),
         filename: payload.filename.clone(),
-        role: role.to_string(),
+        modality: modality.to_string(),
+        assignment_key: payload
+            .assignment_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
         display_name: display_name.to_string(),
         revision: payload
             .revision
@@ -165,12 +149,12 @@ pub fn build_download_task_from_request(payload: &DownloadModelRequest) -> Downl
     }
 }
 
-pub fn ensure_role_model_exists(
+pub fn ensure_assignment_model_exists(
     state: &AppStateWrite,
-    role_key: &str,
+    assignment_key: &str,
     model_id: &str,
 ) -> Result<(), ApiError> {
-    let ok = state.ai().models.set_role_model(role_key, model_id)?;
+    let ok = state.ai().models.set_assignment_model(assignment_key, model_id)?;
     if ok {
         Ok(())
     } else {
@@ -178,11 +162,11 @@ pub fn ensure_role_model_exists(
     }
 }
 
-pub fn ensure_role_assignment_exists(
+pub fn ensure_assignment_exists(
     state: &AppStateWrite,
-    role_key: &str,
+    assignment_key: &str,
 ) -> Result<(), ApiError> {
-    let ok = state.ai().models.remove_role_assignment(role_key)?;
+    let ok = state.ai().models.remove_assignment(assignment_key)?;
     if ok {
         Ok(())
     } else {
@@ -205,10 +189,16 @@ pub fn build_target_models(payload: Option<Vec<Value>>, config: &Value) -> Vec<M
                 .unwrap_or("")
                 .to_string();
             let role = item
-                .get("role")
+                .get("modality")
                 .and_then(|v| v.as_str())
                 .unwrap_or("text")
                 .to_string();
+            let assignment_key = item
+                .get("assignment_key")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
             let display_name = item
                 .get("display_name")
                 .or_else(|| item.get("displayName"))
@@ -233,7 +223,8 @@ pub fn build_target_models(payload: Option<Vec<Value>>, config: &Value) -> Vec<M
             specs.push(ModelDownloadSpec {
                 repo_id,
                 filename,
-                role,
+                modality: role,
+                assignment_key,
                 display_name,
                 revision,
                 sha256,
@@ -288,7 +279,12 @@ pub fn collect_default_models(config: &Value) -> Vec<ModelDownloadSpec> {
             specs.push(ModelDownloadSpec {
                 repo_id,
                 filename,
-                role: "text".to_string(),
+                modality: "text".to_string(),
+                assignment_key: if specs.is_empty() {
+                    Some("character".to_string())
+                } else {
+                    None
+                },
                 display_name,
                 revision,
                 sha256,
@@ -331,7 +327,8 @@ pub fn collect_default_models(config: &Value) -> Vec<ModelDownloadSpec> {
             specs.push(ModelDownloadSpec {
                 repo_id,
                 filename,
-                role: "embedding".to_string(),
+                modality: "embedding".to_string(),
+                assignment_key: Some("embedding".to_string()),
                 display_name,
                 revision,
                 sha256,
@@ -452,7 +449,8 @@ mod tests {
         let payload = DownloadModelRequest {
             repo_id: "owner/model".to_string(),
             filename: "model.gguf".to_string(),
-            role: Some("embedding".to_string()),
+            modality: "embedding".to_string(),
+            assignment_key: Some("embedding".to_string()),
             display_name: Some("Embedding Model".to_string()),
             revision: Some("main".to_string()),
             sha256: Some("a".repeat(64)),
@@ -463,7 +461,8 @@ mod tests {
 
         assert_eq!(task.repo_id, "owner/model");
         assert_eq!(task.filename, "model.gguf");
-        assert_eq!(task.role, "embedding");
+        assert_eq!(task.modality, "embedding");
+        assert_eq!(task.assignment_key.as_deref(), Some("embedding"));
         assert_eq!(task.display_name, "Embedding Model");
         assert_eq!(task.revision.as_deref(), Some("main"));
         assert_eq!(
@@ -474,11 +473,12 @@ mod tests {
     }
 
     #[test]
-    fn build_download_task_falls_back_to_filename_and_text_role() {
+    fn build_download_task_falls_back_to_filename() {
         let payload = DownloadModelRequest {
             repo_id: "owner/model".to_string(),
             filename: "model.gguf".to_string(),
-            role: Some("   ".to_string()),
+            modality: "text".to_string(),
+            assignment_key: None,
             display_name: Some("  ".to_string()),
             revision: None,
             sha256: None,
@@ -487,7 +487,8 @@ mod tests {
 
         let task = build_download_task_from_request(&payload);
 
-        assert_eq!(task.role, "text");
+        assert_eq!(task.modality, "text");
+        assert_eq!(task.assignment_key, None);
         assert_eq!(task.display_name, "model.gguf");
         assert_eq!(task.revision, None);
         assert_eq!(task.sha256, None);

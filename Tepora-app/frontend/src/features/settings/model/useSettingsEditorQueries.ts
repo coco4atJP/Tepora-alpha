@@ -12,12 +12,13 @@ export function useSettingsEditorQueries() {
 	const setActiveModelMutation = useSetActiveSetupModelMutation();
 
 	const modelList = modelsQuery.data?.models ?? [];
-	const textModels = modelList.filter((model) => (model.role ?? "text") !== "embedding");
+	const textModels = modelList.filter((model) => model.role === "text");
 	const embeddingModels = modelList.filter((model) => model.role === "embedding");
 	const activeTextModelId =
-		textModels.find((model) => Boolean(model.is_active))?.id ?? null;
+		textModels.find((model) => model.active_assignment_keys?.includes("character"))?.id ?? null;
 	const activeEmbeddingModelId =
-		embeddingModels.find((model) => Boolean(model.is_active))?.id ?? null;
+		embeddingModels.find((model) => model.active_assignment_keys?.includes("embedding"))?.id ??
+		null;
 
 	return {
 		configQuery,

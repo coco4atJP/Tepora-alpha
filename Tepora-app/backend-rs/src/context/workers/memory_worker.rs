@@ -106,7 +106,7 @@ impl ContextWorker for MemoryWorker {
 }
 
 fn resolve_embedding_model_id(state: &Arc<AppState>) -> Option<String> {
-    match state.ai().models.resolve_embedding_model() {
+    match state.ai().models.resolve_assignment_model("embedding") {
         Ok(Some(model)) => Some(model.id),
         Ok(None) => {
             tracing::warn!(

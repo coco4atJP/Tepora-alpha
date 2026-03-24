@@ -100,10 +100,16 @@ impl UnifiedMemoryAdapter {
         let active_character = self.resolve_active_character_id();
 
         models
-            .resolve_character_model(active_character.as_deref())
+            .resolve_assignment_model(
+                active_character
+                    .as_deref()
+                    .map(|value| format!("character:{value}"))
+                    .as_deref()
+                    .unwrap_or("character"),
+            )
             .ok()
             .flatten()
-            .or_else(|| models.find_first_model_by_role("text").ok().flatten())
+            .or_else(|| models.find_first_model_by_modality("text").ok().flatten())
             .map(|model| model.id)
             .unwrap_or_else(|| "default".to_string())
     }

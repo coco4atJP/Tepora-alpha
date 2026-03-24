@@ -20,5 +20,5 @@ export interface SettingsEditorContextValue {
 	updateField: (path: string, value: unknown) => void;
 	save: () => Promise<void>;
 	reset: () => void;
-	activateModel: (modelId: string, role: "text" | "embedding") => Promise<void>;
+	activateModel: (modelId: string, assignmentKey: "character" | "embedding") => Promise<void>;
 }

@@ -93,10 +93,15 @@ fn resolve_llama_model_config(
     let text_model_defaults = models_config.and_then(|m| m.get("text_model"));
     let embedding_model_defaults = models_config.and_then(|m| m.get("embedding_model"));
 
-    let defaults = if model_entry.role == "embedding" {
-        embedding_model_defaults
-    } else {
-        text_model_defaults
+    let defaults = match model_entry.role.as_str() {
+        "embedding" => embedding_model_defaults,
+        "text" => text_model_defaults,
+        other => {
+            return Err(ApiError::BadRequest(format!(
+                "Model '{}' has unsupported runtime modality '{}'. Supported modalities are: text, embedding",
+                model_entry.id, other
+            )));
+        }
     };
 
     let n_ctx = defaults
@@ -107,11 +112,7 @@ fn resolve_llama_model_config(
         .unwrap_or(-1) as i32;
     let port = defaults
         .and_then(|v| v.get("port").and_then(|x| x.as_u64()))
-        .unwrap_or(if model_entry.role == "embedding" {
-            8090
-        } else {
-            8088
-        }) as u16;
+        .unwrap_or(if model_entry.role == "embedding" { 8090 } else { 8088 }) as u16;
 
     let predict_len = request.max_tokens.map(|v| v as usize);
     let temperature = request.temperature.map(|v| v as f32);

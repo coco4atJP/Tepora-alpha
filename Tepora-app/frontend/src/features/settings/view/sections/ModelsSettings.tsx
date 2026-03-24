@@ -67,7 +67,7 @@ export const ModelsSettings: React.FC<ModelsSettingsProps> = ({
 							<Select
 								value={editor.activeTextModelId ?? ""}
 								onChange={(event) =>
-									void editor.activateModel(event.target.value, "text")
+									void editor.activateModel(event.target.value, "character")
 								}
 								disabled={!editor.textModels.length || editor.isModelUpdating}
 							>

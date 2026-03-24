@@ -111,7 +111,7 @@ export const ModelManagementSection: React.FC = () => {
 									void startDownloadFlow({
 										repo_id: model.repo_id ?? model.source,
 										filename: model.filename ?? "",
-										role: normalizeModelRole(model.role),
+										modality: normalizeModelRole(model.role),
 										display_name: model.display_name,
 										revision: model.revision ?? undefined,
 										sha256: model.sha256 ?? undefined,

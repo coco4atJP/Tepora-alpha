@@ -93,11 +93,11 @@ export function useSettingsEditorModel(): SettingsEditorContextValue {
 			reset: () => {
 				dispatch({ type: "RESET" });
 			},
-			activateModel: async (modelId, role) => {
+			activateModel: async (modelId, assignmentKey) => {
 				try {
 					await setActiveModelMutation.mutateAsync({
 						model_id: modelId,
-						role,
+						assignment_key: assignmentKey,
 					});
 				} catch (error) {
 					dispatch({

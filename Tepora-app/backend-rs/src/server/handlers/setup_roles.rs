@@ -1,6 +1,6 @@
 use serde_json::{json, Map, Value};
 
-use super::setup_models::{ensure_role_assignment_exists, ensure_role_model_exists};
+use super::setup_models::{ensure_assignment_exists, ensure_assignment_model_exists};
 use crate::core::errors::ApiError;
 use crate::state::{AppStateRead, AppStateWrite};
 
@@ -34,7 +34,7 @@ pub fn set_character_role(state: &AppStateWrite, model_id: &str) -> Result<(), A
     let ok = state
         .ai()
         .models
-        .set_role_model("character", model_id)
+        .set_assignment_model("character", model_id)
         .map_err(|e| {
             tracing::warn!(model_id = %model_id, error = %e, "Failed to set character role");
             ApiError::BadRequest(format!(
@@ -49,14 +49,6 @@ pub fn set_character_role(state: &AppStateWrite, model_id: &str) -> Result<(), A
         )));
     }
 
-    state
-        .ai()
-        .models
-        .update_active_model_config("text", model_id)
-        .map_err(|e| {
-            tracing::warn!(model_id = %model_id, error = %e, "Failed to update active model config");
-            ApiError::BadRequest(format!("Failed to activate model '{}': {}", model_id, e))
-        })?;
     Ok(())
 }
 
@@ -65,8 +57,8 @@ pub fn set_professional_role(
     task_type: &str,
     model_id: &str,
 ) -> Result<(), ApiError> {
-    let role_key = professional_role_key(task_type);
-    ensure_role_model_exists(state, &role_key, model_id)
+    let assignment_key = professional_role_key(task_type);
+    ensure_assignment_model_exists(state, &assignment_key, model_id)
 }
 
 pub fn set_character_specific_role(
@@ -75,8 +67,8 @@ pub fn set_character_specific_role(
     model_id: &str,
 ) -> Result<(), ApiError> {
     let character_id = normalized_assignment_subject(character_id, "character_id")?;
-    let role_key = format!("character:{character_id}");
-    ensure_role_model_exists(state, &role_key, model_id)
+    let assignment_key = format!("character:{character_id}");
+    ensure_assignment_model_exists(state, &assignment_key, model_id)
 }
 
 pub fn delete_character_specific_role(
@@ -84,8 +76,8 @@ pub fn delete_character_specific_role(
     character_id: &str,
 ) -> Result<(), ApiError> {
     let character_id = normalized_assignment_subject(character_id, "character_id")?;
-    let role_key = format!("character:{character_id}");
-    ensure_role_assignment_exists(state, &role_key)
+    let assignment_key = format!("character:{character_id}");
+    ensure_assignment_exists(state, &assignment_key)
 }
 
 pub fn set_agent_role(
@@ -94,46 +86,39 @@ pub fn set_agent_role(
     model_id: &str,
 ) -> Result<(), ApiError> {
     let agent_id = normalized_assignment_subject(agent_id, "agent_id")?;
-    let role_key = format!("agent:{agent_id}");
-    ensure_role_model_exists(state, &role_key, model_id)
+    let assignment_key = format!("agent:{agent_id}");
+    ensure_assignment_model_exists(state, &assignment_key, model_id)
 }
 
 pub fn delete_agent_role(state: &AppStateWrite, agent_id: &str) -> Result<(), ApiError> {
     let agent_id = normalized_assignment_subject(agent_id, "agent_id")?;
-    let role_key = format!("agent:{agent_id}");
-    ensure_role_assignment_exists(state, &role_key)
+    let assignment_key = format!("agent:{agent_id}");
+    ensure_assignment_exists(state, &assignment_key)
 }
 
 pub fn delete_professional_role(state: &AppStateWrite, task_type: &str) -> Result<(), ApiError> {
-    ensure_role_assignment_exists(state, &professional_role_key(task_type))
+    ensure_assignment_exists(state, &professional_role_key(task_type))
 }
 
 pub fn set_active_model(
     state: &AppStateWrite,
     model_id: &str,
-    role: Option<&str>,
+    assignment_key: &str,
 ) -> Result<(), ApiError> {
-    let requested_role = role.unwrap_or("text").to_ascii_lowercase();
-    let (role_key, config_role) = if requested_role == "embedding" {
-        ("embedding", "embedding")
-    } else {
-        ("character", "text")
-    };
-
     let assigned = state
         .ai()
         .models
-        .set_role_model(role_key, model_id)
+        .set_assignment_model(assignment_key, model_id)
         .map_err(|e| {
             tracing::warn!(
                 model_id = %model_id,
-                role = %role_key,
+                assignment_key = %assignment_key,
                 error = %e,
-                "Failed to set active role assignment"
+                "Failed to set active assignment"
             );
             ApiError::BadRequest(format!(
-                "Failed to set '{}' role for model '{}': {}",
-                role_key, model_id, e
+                "Failed to set assignment '{}' for model '{}': {}",
+                assignment_key, model_id, e
             ))
         })?;
     if !assigned {
@@ -143,34 +128,6 @@ pub fn set_active_model(
         )));
     }
 
-    state
-        .ai()
-        .models
-        .update_active_model_config(config_role, model_id)
-        .map_err(|e| {
-            tracing::warn!(
-                model_id = %model_id,
-                role = %config_role,
-                error = %e,
-                "Failed to set active model"
-            );
-            match e {
-                ApiError::NotFound(_) => {
-                    ApiError::NotFound(format!("Model '{}' not found in registry", model_id))
-                }
-                ApiError::BadRequest(msg) => ApiError::BadRequest(format!(
-                    "Failed to activate model '{}': {}",
-                    model_id, msg
-                )),
-                ApiError::Conflict(msg) => {
-                    ApiError::Conflict(format!("Failed to activate model '{}': {}", model_id, msg))
-                }
-                ApiError::Internal(msg) => {
-                    ApiError::Internal(format!("Failed to activate model '{}': {}", model_id, msg))
-                }
-                other => other,
-            }
-        })?;
     Ok(())
 }
 

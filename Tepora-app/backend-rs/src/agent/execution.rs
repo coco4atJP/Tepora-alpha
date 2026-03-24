@@ -109,7 +109,7 @@ fn map_selected_agent(state: &AppState, skill: AgentSkillPackage) -> SelectedAge
     let assigned_model_id = state
         .ai()
         .models
-        .resolve_agent_model_id(Some(&skill.summary.id))
+        .resolve_assignment_model_id(&format!("agent:{}", skill.summary.id))
         .ok()
         .flatten();
 
@@ -167,44 +167,11 @@ fn extract_tool_policy(skill: &AgentSkillPackage) -> CustomToolPolicy {
 }
 
 pub fn build_agent_chat_config(
-    state: &AppState,
+    _state: &AppState,
     config: &Value,
-    selected_agent: Option<&SelectedAgentRuntime>,
+    _selected_agent: Option<&SelectedAgentRuntime>,
 ) -> Value {
-    let mut overridden = config.clone();
-
-    if let Some(model_id) = selected_agent
-        .and_then(|agent| agent.assigned_model_id.as_deref())
-        .filter(|value| !value.is_empty())
-    {
-        if let Ok(Some(model_entry)) = state.ai().models.get_model(model_id) {
-            if let Some(root) = overridden.as_object_mut() {
-                let target_key = if root.contains_key("models") || !root.contains_key("models_gguf")
-                {
-                    "models"
-                } else {
-                    "models_gguf"
-                };
-                let models_config = root
-                    .entry(target_key.to_string())
-                    .or_insert_with(|| Value::Object(Default::default()));
-                if let Some(models_obj) = models_config.as_object_mut() {
-                    let text_model = models_obj
-                        .entry("text".to_string())
-                        .or_insert_with(|| Value::Object(Default::default()));
-                    if !text_model.is_object() {
-                        *text_model = Value::Object(Default::default());
-                    }
-                    if let Some(text_model_obj) = text_model.as_object_mut() {
-                        text_model_obj
-                            .insert("path".to_string(), Value::String(model_entry.file_path));
-                    }
-                }
-            }
-        }
-    }
-
-    overridden
+    config.clone()
 }
 
 pub fn resolve_execution_model_id(
@@ -220,12 +187,10 @@ pub fn resolve_execution_model_id(
     selected_agent
         .and_then(|agent| agent.assigned_model_id.clone())
         .or_else(|| {
-            state
-                .ai()
-                .models
-                .resolve_character_model_id(active_character)
-                .ok()
-                .flatten()
+            let assignment_key = active_character
+                .map(|value| format!("character:{value}"))
+                .unwrap_or_else(|| "character".to_string());
+            state.ai().models.resolve_assignment_model_id(&assignment_key).ok().flatten()
         })
         .unwrap_or_else(|| "default".to_string())
 }

@@ -1,4 +1,5 @@
 use serde_json::{Map, Value};
+use std::path::PathBuf;
 
 pub fn ensure_object_path(config: &mut Value, path: &[&str], value: Value) {
     if path.is_empty() {
@@ -29,7 +30,6 @@ pub fn ensure_object_path(config: &mut Value, path: &[&str], value: Value) {
 }
 
 use crate::core::config::AppPaths;
-use std::path::PathBuf;
 
 pub fn absolutize_mcp_path(config: &mut Value, paths: &AppPaths) {
     let Some(app) = config.get_mut("app").and_then(|v| v.as_object_mut()) else {
@@ -48,20 +48,4 @@ pub fn absolutize_mcp_path(config: &mut Value, paths: &AppPaths) {
         "mcp_config_path".to_string(),
         Value::String(absolute.to_string_lossy().to_string()),
     );
-}
-
-pub fn resolve_model_path(raw: &str, paths: &AppPaths) -> PathBuf {
-    let candidate = PathBuf::from(raw);
-    if candidate.is_absolute() {
-        return candidate;
-    }
-    let user_candidate = paths.user_data_dir.join(&candidate);
-    if user_candidate.exists() {
-        return user_candidate;
-    }
-    let project_candidate = paths.project_root.join(&candidate);
-    if project_candidate.exists() {
-        return project_candidate;
-    }
-    user_candidate
 }

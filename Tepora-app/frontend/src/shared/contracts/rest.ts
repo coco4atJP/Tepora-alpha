@@ -309,6 +309,7 @@ export const setupModelSchema = z
 		source: z.string().min(1),
 		loader: z.string().optional(),
 		is_active: z.boolean().optional(),
+		active_assignment_keys: z.array(z.string()).optional(),
 		repo_id: z.string().nullable().optional(),
 		revision: z.string().nullable().optional(),
 		sha256: z.string().nullable().optional(),
@@ -339,7 +340,8 @@ export const modelUpdateCheckResponseSchema = z.object({
 export const startModelDownloadRequestSchema = z.object({
 	repo_id: z.string().min(1),
 	filename: z.string().min(1),
-	role: z.string().min(1),
+	modality: z.string().min(1),
+	assignment_key: z.string().optional(),
 	display_name: z.string().min(1),
 	revision: z.string().optional(),
 	sha256: z.string().optional(),

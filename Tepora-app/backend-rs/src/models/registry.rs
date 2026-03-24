@@ -186,22 +186,26 @@ impl ModelRegistryStore {
         Ok(true)
     }
 
-    pub(crate) fn set_role_model(&self, role: &str, model_id: &str) -> Result<bool, ApiError> {
+    pub(crate) fn set_assignment_model(
+        &self,
+        assignment_key: &str,
+        model_id: &str,
+    ) -> Result<bool, ApiError> {
         let mut registry = self.load()?;
         let Some(_) = registry.models.iter().find(|m| m.id == model_id) else {
             return Ok(false);
         };
-        validate_assignment_role(&registry, role, model_id)?;
+        validate_assignment_role(&registry, assignment_key, model_id)?;
         registry
             .role_assignments
-            .insert(role.to_string(), model_id.to_string());
+            .insert(assignment_key.to_string(), model_id.to_string());
         self.save(&registry)?;
         Ok(true)
     }
 
-    pub(crate) fn remove_role_assignment(&self, role: &str) -> Result<bool, ApiError> {
+    pub(crate) fn remove_assignment(&self, assignment_key: &str) -> Result<bool, ApiError> {
         let mut registry = self.load()?;
-        let removed = registry.role_assignments.remove(role).is_some();
+        let removed = registry.role_assignments.remove(assignment_key).is_some();
         self.save(&registry)?;
         Ok(removed)
     }

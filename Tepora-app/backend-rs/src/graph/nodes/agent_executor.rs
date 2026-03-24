@@ -675,7 +675,7 @@ fn resolve_embedding_model_id(app_state: &crate::state::AppState) -> String {
     app_state
         .ai()
         .models
-        .resolve_embedding_model()
+        .resolve_assignment_model("embedding")
         .ok()
         .flatten()
         .map(|model| model.id)

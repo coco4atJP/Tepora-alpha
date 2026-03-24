@@ -323,10 +323,10 @@ export interface ModelInfo {
 	source: string;
 	loader?: string;
 	is_active?: boolean;
+	active_assignment_keys?: string[];
 	tokenizer_path?: string;
 	tokenizer_format?: string;
 }
-
 
 
 

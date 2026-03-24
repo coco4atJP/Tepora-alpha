@@ -252,8 +252,28 @@ impl ModelManager {
         .await
     }
 
-    pub fn set_role_model(&self, role: &str, model_id: &str) -> Result<bool, ApiError> {
-        self.store.set_role_model(role, model_id)
+    pub fn set_assignment_model(
+        &self,
+        assignment_key: &str,
+        model_id: &str,
+    ) -> Result<bool, ApiError> {
+        self.store.set_assignment_model(assignment_key, model_id)
+    }
+
+    pub fn resolve_assignment_model(
+        &self,
+        assignment_key: &str,
+    ) -> Result<Option<ModelEntry>, ApiError> {
+        let registry = self.store.load()?;
+        selection::resolve_assignment_model_from_registry(&registry, assignment_key)
+    }
+
+    pub fn resolve_assignment_model_id(
+        &self,
+        assignment_key: &str,
+    ) -> Result<Option<String>, ApiError> {
+        let registry = self.store.load()?;
+        selection::resolve_assignment_model_id_from_registry(&registry, assignment_key)
     }
 
     pub fn resolve_character_model(
@@ -300,17 +320,24 @@ impl ModelManager {
         ))
     }
 
-    pub fn find_first_model_by_role(&self, role: &str) -> Result<Option<ModelEntry>, ApiError> {
+    pub fn find_first_model_by_modality(
+        &self,
+        modality: &str,
+    ) -> Result<Option<ModelEntry>, ApiError> {
         let registry = self.store.load()?;
-        Ok(selection::find_first_model_by_role(&registry, role))
+        Ok(selection::find_first_model_by_modality(&registry, modality))
     }
 
-    pub fn remove_role_assignment(&self, role: &str) -> Result<bool, ApiError> {
-        self.store.remove_role_assignment(role)
+    pub fn remove_assignment(&self, assignment_key: &str) -> Result<bool, ApiError> {
+        self.store.remove_assignment(assignment_key)
     }
 
-    pub fn reorder_models(&self, role: &str, model_ids: Vec<String>) -> Result<bool, ApiError> {
-        self.store.reorder_models(role, model_ids)
+    pub fn reorder_models(
+        &self,
+        modality: &str,
+        model_ids: Vec<String>,
+    ) -> Result<bool, ApiError> {
+        self.store.reorder_models(modality, model_ids)
     }
 
     pub fn evaluate_download_policy(
@@ -322,60 +349,6 @@ impl ModelManager {
     ) -> ModelDownloadPolicy {
         let config = self.config.load_config().unwrap_or(Value::Null);
         download::evaluate_download_policy_from_config(&config, repo_id, revision, expected_sha256)
-    }
-
-    pub fn update_active_model_config(&self, role: &str, model_id: &str) -> Result<(), ApiError> {
-        let registry = self.store.load()?;
-        let Some(model) = registry.models.iter().find(|m| m.id == model_id) else {
-            return Err(ApiError::NotFound("Model not found".to_string()));
-        };
-
-        let mut config = self.config.load_config()?;
-        let config_root = config
-            .as_object_mut()
-            .ok_or_else(|| ApiError::BadRequest("Invalid root configuration".to_string()))?;
-        let target_key =
-            if config_root.contains_key("models") || !config_root.contains_key("models_gguf") {
-                "models"
-            } else {
-                "models_gguf"
-            };
-        let models_config = config_root
-            .entry(target_key.to_string())
-            .or_insert_with(|| Value::Object(Default::default()))
-            .as_object_mut()
-            .ok_or_else(|| ApiError::BadRequest(format!("Invalid {} configuration", target_key)))?;
-
-        let key = if role == "embedding" {
-            "embedding"
-        } else {
-            "text"
-        };
-
-        let mut entry = models_config
-            .get(key)
-            .cloned()
-            .unwrap_or_else(|| Value::Object(Default::default()));
-        let entry_obj = entry
-            .as_object_mut()
-            .ok_or_else(|| ApiError::BadRequest(format!("Invalid {} configuration", target_key)))?;
-        entry_obj.insert("path".to_string(), Value::String(model.file_path.clone()));
-        if !entry_obj.contains_key("port") {
-            entry_obj.insert(
-                "port".to_string(),
-                Value::Number(if role == "embedding" { 8090 } else { 8088 }.into()),
-            );
-        }
-        if !entry_obj.contains_key("n_ctx") {
-            entry_obj.insert("n_ctx".to_string(), Value::Number(4096.into()));
-        }
-        if !entry_obj.contains_key("n_gpu_layers") {
-            entry_obj.insert("n_gpu_layers".to_string(), Value::Number((-1).into()));
-        }
-
-        models_config.insert(key.to_string(), entry);
-        self.config.update_config(config, false)?;
-        Ok(())
     }
 
     pub async fn refresh_all_loader_models(&self) -> Result<usize, ApiError> {

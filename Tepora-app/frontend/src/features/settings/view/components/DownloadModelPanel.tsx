@@ -42,7 +42,8 @@ export const DownloadModelPanel: React.FC = () => {
 		payload: {
 			repo_id: string;
 			filename: string;
-			role: string;
+			modality: string;
+			assignment_key?: string;
 			display_name: string;
 			revision?: string;
 			sha256?: string;
@@ -95,7 +96,8 @@ export const DownloadModelPanel: React.FC = () => {
 	const startDownloadFlow = async (payload: {
 		repo_id: string;
 		filename: string;
-		role: string;
+		modality: string;
+		assignment_key?: string;
 		display_name: string;
 		revision?: string;
 		sha256?: string;
@@ -134,7 +136,8 @@ export const DownloadModelPanel: React.FC = () => {
 		await startDownloadFlow({
 			repo_id: form.repoId.trim(),
 			filename: form.filename.trim(),
-			role: activeRole,
+			modality: activeRole,
+			assignment_key: activeRole === "embedding" ? "embedding" : "character",
 			display_name: form.displayName.trim() || form.filename.trim(),
 			revision: form.revision.trim() || undefined,
 			sha256: form.sha256.trim() || undefined,
