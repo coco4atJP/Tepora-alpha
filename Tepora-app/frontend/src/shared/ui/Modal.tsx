@@ -48,7 +48,7 @@ export const Modal: React.FC<ModalProps> = ({
 	}
 
 	return createPortal(
-		<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-md">
+		<div className="fixed inset-0 z-[120] flex items-center justify-center bg-bg/65 px-4 py-8 backdrop-blur-md">
 			<button
 				type="button"
 				aria-label="Close modal"
@@ -59,7 +59,7 @@ export const Modal: React.FC<ModalProps> = ({
 				variant="glass"
 				className={`relative z-[121] w-full ${sizeClasses[size]} max-h-[85vh] overflow-hidden`}
 			>
-				<div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+				<div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
 					<div>
 						{title ? (
 							<h2 className="font-serif text-xl text-text-main">{title}</h2>
@@ -68,7 +68,7 @@ export const Modal: React.FC<ModalProps> = ({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-full border border-white/10 px-3 py-1 text-sm text-text-muted transition-colors hover:border-primary/40 hover:text-text-main"
+						className="rounded-full border border-border/60 px-3 py-1 text-sm text-text-muted transition-colors hover:border-primary/40 hover:text-text-main"
 					>
 						Close
 					</button>

@@ -116,7 +116,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 					/>
 
 					{/* Main Content Area */}
-					<div className="flex-1 flex flex-col min-w-0 bg-[#0A0A0C]">
+					<div className="flex-1 flex flex-col min-w-0 bg-bg/90 text-text-main">
 						{/* Loading State */}
 						{loading && (
 							<div className="flex items-center justify-center h-full">
@@ -127,11 +127,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 						{/* Error State */}
 						{error && !loading && (
 							<div className="flex items-center justify-center flex-col gap-4 h-full">
-								<p className="text-red-400">{error}</p>
+								<p className="text-semantic-error">{error}</p>
 								<button
 									type="button"
 									onClick={fetchConfig}
-									className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors flex items-center gap-2"
+									className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface/70 px-4 py-2 text-text-main transition-colors hover:border-primary/20 hover:bg-surface"
 								>
 									<RotateCcw size={16} /> {t("common.retry")}
 								</button>
@@ -142,10 +142,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 						{!loading && !error && config && (
 							<>
 								{/* Fixed Header */}
-								<header className="flex-none px-8 py-6 border-b border-white/5 flex flex-col gap-1">
+								<header className="flex-none border-b border-border/50 bg-surface/30 px-8 py-6 flex flex-col gap-1">
 									<div className="h-8 flex items-center min-w-0">
 										<FitText
-											className="text-2xl font-light text-white tracking-tight"
+											className="font-serif text-2xl tracking-tight text-text-main"
 											minFontSize={14}
 											maxFontSize={24}
 										>
@@ -153,7 +153,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 										</FitText>
 									</div>
 									<div className="h-5 flex items-center min-w-0">
-										<FitText className="text-sm text-gray-400" minFontSize={10} maxFontSize={14}>
+										<FitText className="text-sm text-text-muted" minFontSize={10} maxFontSize={14}>
 											{t("settings.subtitle")}
 										</FitText>
 									</div>
@@ -189,16 +189,16 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 								</main>
 
 								{/* Fixed Footer */}
-								<div className="shrink-0 px-8 py-4 glass-tepora border-x-0 border-b-0 rounded-none z-10 relative mt-auto shadow-[0_-10px_30px_rgba(0,0,0,0.5)] bg-[#0A0A0C]/90">
+								<div className="glass-tepora relative z-10 mt-auto shrink-0 rounded-none border-x-0 border-b-0 border-t border-border/50 bg-surface/85 px-8 py-4 shadow-[0_-10px_24px_rgba(28,25,23,0.12)]">
 									<div className="flex items-center justify-end">
-										<div className="text-xs text-gray-500 mr-auto">
+										<div className="mr-auto text-xs text-text-muted">
 											{hasChanges ? t("settings.save_bar.unsaved") : ""}
 										</div>
 										<div className="flex items-center gap-3">
 											<button
 												type="button"
 												onClick={handleReset}
-												className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+												className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-4 py-2 text-sm text-text-muted transition-colors hover:border-primary/20 hover:bg-surface hover:text-text-main disabled:cursor-not-allowed disabled:opacity-50"
 												disabled={!hasChanges || saving}
 											>
 												<RotateCcw size={16} /> {t("settings.save_bar.reset")}
@@ -207,10 +207,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
 												type="button"
 												onClick={handleSave}
 												className={`
-													px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
+													flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all
 													${hasChanges
-														? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_15px_rgba(255,215,0,0.1)]"
-														: "bg-white/5 text-gray-400 cursor-not-allowed"
+														? "border-primary/20 bg-primary text-bg shadow-sm hover:bg-primary/90"
+														: "cursor-not-allowed border-border/50 bg-surface/50 text-text-muted"
 													}
 												`}
 												disabled={!hasChanges || saving}

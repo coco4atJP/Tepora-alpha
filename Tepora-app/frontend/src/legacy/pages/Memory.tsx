@@ -33,6 +33,9 @@ const STATUS_BADGES: Record<CompactionStatus, string> = {
 	failed: "bg-red-500/20 border-red-400/40 text-red-300",
 };
 
+const memoryCardClassName = "rounded-2xl border border-border/60 bg-surface/80 p-6 shadow-sm";
+const memorySectionTitleClassName = "mb-4 border-b border-border/60 pb-2 font-serif text-xl text-text-main";
+
 function isActiveStatus(status: CompactionStatus) {
 	return status === "queued" || status === "running";
 }
@@ -51,9 +54,9 @@ const StatItem: React.FC<{ label: string; value: number | string }> = ({
 	label,
 	value,
 }) => (
-	<div className="flex justify-between items-center border-b border-gray-700/50 pb-2 last:border-0">
-		<span className="text-gray-400">{label}</span>
-		<span className="text-white font-mono font-bold">{value}</span>
+	<div className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0">
+		<span className="text-text-muted">{label}</span>
+		<span className="font-mono font-bold text-text-main">{value}</span>
 	</div>
 );
 
@@ -64,47 +67,47 @@ const JobRow: React.FC<{ job: CompactionJob }> = ({ job }) => {
 			? `${((new Date(job.finished_at).getTime() - new Date(job.created_at).getTime()) / 1000).toFixed(1)}s`
 			: null;
 	return (
-		<div className="rounded-lg border border-gray-700 bg-gray-800/60 p-3 text-sm space-y-1.5">
+		<div className="space-y-1.5 rounded-xl border border-border/60 bg-surface/70 p-3 text-sm">
 			<div className="flex items-center justify-between gap-2">
 				<span
 					className={`px-2 py-0.5 rounded border text-xs font-semibold ${STATUS_BADGES[job.status]}`}
 				>
 					{job.status.toUpperCase()}
 				</span>
-				<span className="text-gray-500 font-mono text-xs truncate max-w-[160px]">
+				<span className="max-w-[160px] truncate font-mono text-xs text-text-muted/80">
 					{job.id}
 				</span>
-				<span className="text-gray-400 text-xs ml-auto">
+				<span className="ml-auto text-xs text-text-muted">
 					{formatDate(job.created_at)}
 				</span>
 			</div>
 			{job.status === "done" && (
-				<div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-gray-300 pt-1">
+				<div className="grid grid-cols-2 gap-x-4 gap-y-0.5 pt-1 text-text-muted">
 					<span>
 						{t("settings.memory.compaction.scanned", "Scanned:")}{" "}
-						<span className="font-mono text-white">{job.scanned_events}</span>
+						<span className="font-mono text-text-main">{job.scanned_events}</span>
 					</span>
 					<span>
 						{t("settings.memory.compaction.merged_groups", "Merged groups:")}{" "}
-						<span className="font-mono text-white">{job.merged_groups}</span>
+						<span className="font-mono text-text-main">{job.merged_groups}</span>
 					</span>
 					<span>
 						{t("settings.memory.compaction.replaced", "Replaced:")}{" "}
-						<span className="font-mono text-white">{job.replaced_events}</span>
+						<span className="font-mono text-text-main">{job.replaced_events}</span>
 					</span>
 					<span>
 						{t("settings.memory.compaction.created", "Created:")}{" "}
-						<span className="font-mono text-white">{job.created_events}</span>
+						<span className="font-mono text-text-main">{job.created_events}</span>
 					</span>
 					{elapsed && (
-						<span className="col-span-2 text-gray-500 text-xs">
+						<span className="col-span-2 text-xs text-text-muted/80">
 							{t("settings.memory.compaction.elapsed", "Elapsed:")} {elapsed}
 						</span>
 					)}
 				</div>
 			)}
 			{job.status === "running" && (
-				<div className="flex items-center gap-2 text-blue-400 text-xs pt-1">
+				<div className="flex items-center gap-2 pt-1 text-xs text-primary">
 					<svg
 						className="animate-spin h-3 w-3"
 						viewBox="0 0 24 24"
@@ -208,17 +211,17 @@ const Memory: React.FC = () => {
 	const hasActiveJob = jobs.some((j) => isActiveStatus(j.status));
 
 	return (
-		<div className="p-8 h-full overflow-auto">
+		<div className="h-full overflow-auto bg-bg/40 p-8 text-text-main">
 			{/* Header */}
 			<div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-				<h1 className="text-3xl font-bold text-white">
+				<h1 className="font-serif text-3xl text-text-main">
 					{t("settings.memory.title", "Memory Statistics")}
 				</h1>
 				<button
 					type="button"
 					onClick={handleCompress}
 					disabled={isSubmitting || hasActiveJob}
-					className="px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 disabled:opacity-50 transition-colors"
+					className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-text-main transition-colors hover:bg-primary/15 disabled:opacity-50"
 				>
 					{hasActiveJob
 						? t("settings.memory.compression.running", "Compressing…")
@@ -229,13 +232,13 @@ const Memory: React.FC = () => {
 			</div>
 
 			{errorMessage && (
-				<div className="bg-red-500/10 border border-red-500/50 text-red-300 p-3 rounded mb-6">
+				<div className="mb-6 rounded-xl border border-semantic-error/40 bg-semantic-error/10 p-3 text-semantic-error">
 					{errorMessage}
 				</div>
 			)}
 
 			{!isConnected && (
-				<div className="bg-yellow-500/10 border border-yellow-500 text-yellow-500 p-4 rounded mb-6">
+				<div className="mb-6 rounded-xl border border-semantic-warning/40 bg-semantic-warning/10 p-4 text-semantic-warning">
 					{t("settings.memory.connecting", "Connecting to memory system…")}
 				</div>
 			)}
@@ -243,8 +246,8 @@ const Memory: React.FC = () => {
 			{/* Memory stat cards */}
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 				{/* Character Memory */}
-				<div className="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-lg">
-					<h2 className="text-xl font-bold text-blue-400 mb-4 border-b border-gray-700 pb-2">
+				<div className={memoryCardClassName}>
+					<h2 className={memorySectionTitleClassName}>
 						{t("settings.memory.character_memory", "Character Memory (EM-LLM)")}
 					</h2>
 					{memoryStats?.character_memory ? (
@@ -275,8 +278,8 @@ const Memory: React.FC = () => {
 							/>
 							{memoryStats.character_memory.surprise_statistics && (
 								<>
-									<div className="mt-4 pt-4 border-t border-gray-700">
-										<p className="text-sm text-gray-400 mb-2">
+									<div className="mt-4 border-t border-border/60 pt-4">
+										<p className="mb-2 text-sm text-text-muted">
 											{t("settings.memory.stats.surprise_statistics", "Surprise Statistics")}
 										</p>
 									</div>
@@ -292,15 +295,15 @@ const Memory: React.FC = () => {
 							)}
 						</div>
 					) : (
-						<p className="text-gray-500 italic">
+						<p className="italic text-text-muted">
 							{t("common.no_data", "No data available")}
 						</p>
 					)}
 				</div>
 
 				{/* Professional Memory */}
-				<div className="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-lg">
-					<h2 className="text-xl font-bold text-green-400 mb-4 border-b border-gray-700 pb-2">
+				<div className={memoryCardClassName}>
+					<h2 className={memorySectionTitleClassName}>
 						{t("settings.memory.professional_memory", "Professional Memory (EM-LLM)")}
 					</h2>
 					{memoryStats?.professional_memory ? (
@@ -331,8 +334,8 @@ const Memory: React.FC = () => {
 							/>
 							{memoryStats.professional_memory.surprise_statistics && (
 								<>
-									<div className="mt-4 pt-4 border-t border-gray-700">
-										<p className="text-sm text-gray-400 mb-2">
+									<div className="mt-4 border-t border-border/60 pt-4">
+										<p className="mb-2 text-sm text-text-muted">
 											{t("settings.memory.stats.surprise_statistics", "Surprise Statistics")}
 										</p>
 									</div>
@@ -348,7 +351,7 @@ const Memory: React.FC = () => {
 							)}
 						</div>
 					) : (
-						<p className="text-gray-500 italic">
+						<p className="italic text-text-muted">
 							{t("common.no_data", "No data available")}
 						</p>
 					)}
@@ -356,22 +359,22 @@ const Memory: React.FC = () => {
 			</div>
 
 			{/* Compaction Job History */}
-			<div className="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-lg">
-				<div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
-					<h2 className="text-xl font-bold text-purple-400">
+			<div className={memoryCardClassName}>
+				<div className="mb-4 flex items-center justify-between border-b border-border/60 pb-2">
+					<h2 className="font-serif text-xl text-text-main">
 						{t("settings.memory.compaction_history", "Compaction Job History")}
 					</h2>
 					<button
 						type="button"
 						onClick={fetchJobs}
 						disabled={isLoadingJobs}
-						className="text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-40"
+						className="text-xs text-text-muted transition-colors hover:text-text-main disabled:opacity-40"
 					>
 						{isLoadingJobs ? t("settings.memory.compaction.loading", "Loading...") : t("settings.memory.compaction.refresh", "↺ Refresh")}
 					</button>
 				</div>
 				{jobs.length === 0 ? (
-					<p className="text-gray-500 italic text-sm">
+					<p className="text-sm italic text-text-muted">
 						{t(
 							"settings.memory.compaction.no_jobs",
 							"No compaction jobs yet. Click \"Compress Memories\" to start one.",
@@ -390,4 +393,3 @@ const Memory: React.FC = () => {
 };
 
 export default Memory;
-

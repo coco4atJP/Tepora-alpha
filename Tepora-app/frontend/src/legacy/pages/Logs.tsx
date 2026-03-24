@@ -60,18 +60,18 @@ const Logs: React.FC = () => {
 	}, [selectedLog, fetchLogContent]);
 
 	if (loading)
-		return <div className="p-8 text-white">{t("logs.loading_logs", "Loading logs...")}</div>;
+		return <div className="bg-bg/40 p-8 text-text-main">{t("logs.loading_logs", "Loading logs...")}</div>;
 
 	return (
-		<div className="flex h-full bg-gray-900">
+		<div className="flex h-full bg-bg/40 text-text-main">
 			{/* Sidebar List */}
-			<div className="w-64 border-r border-gray-800 bg-gray-900/50 flex flex-col">
-				<div className="p-4 border-b border-gray-800">
-					<h2 className="text-xl font-bold text-white">{t("logs.title", "Log Files")}</h2>
+			<div className="flex w-64 flex-col border-r border-border/60 bg-surface/40">
+				<div className="border-b border-border/60 p-4">
+					<h2 className="font-serif text-xl text-text-main">{t("logs.title", "Log Files")}</h2>
 					<button
 						type="button"
 						onClick={fetchLogs}
-						className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+						className="mt-2 flex items-center gap-1 text-xs text-primary transition-colors hover:text-secondary"
 					>
 						<RefreshCcw className="w-3.5 h-3.5" aria-hidden="true" />
 						{t("logs.refresh", "Refresh List")}
@@ -85,15 +85,15 @@ const Logs: React.FC = () => {
 							onClick={() => setSelectedLog(log)}
 							className={`w-full text-left px-4 py-3 text-sm truncate transition-colors ${
 								selectedLog === log
-									? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
-									: "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+									? "border-r-2 border-primary/40 bg-primary/10 text-text-main"
+									: "text-text-muted hover:bg-surface/80 hover:text-text-main"
 							}`}
 						>
 							{log}
 						</button>
 					))}
 					{logs.length === 0 && (
-						<div className="p-4 text-gray-500 text-sm text-center">
+						<div className="p-4 text-center text-sm text-text-muted">
 							{t("logs.no_logs", "No logs found")}
 						</div>
 					)}
@@ -103,19 +103,19 @@ const Logs: React.FC = () => {
 			{/* Main Content */}
 			<div className="flex-1 flex flex-col min-w-0">
 				{error && (
-					<div className="bg-red-500/10 border-b border-red-500 text-red-500 p-2 text-sm text-center">
+					<div className="border-b border-semantic-error/40 bg-semantic-error/10 p-2 text-center text-sm text-semantic-error">
 						{error}
 					</div>
 				)}
-				<div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
-					<h2 className="text-lg font-medium text-white truncate">
+				<div className="flex items-center justify-between border-b border-border/60 bg-surface/40 p-4">
+					<h2 className="truncate font-serif text-lg text-text-main">
 						{selectedLog || t("logs.select_log", "Select a log")}
 					</h2>
 					{selectedLog && (
 						<button
 							type="button"
 							onClick={() => fetchLogContent(selectedLog)}
-							className="text-sm text-gray-400 hover:text-white px-3 py-1 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
+							className="rounded-md border border-border/60 bg-surface/70 px-3 py-1 text-sm text-text-muted transition-colors hover:border-primary/20 hover:bg-surface hover:text-text-main"
 						>
 							{t("logs.refresh_content", "Refresh Content")}
 						</button>
@@ -124,11 +124,11 @@ const Logs: React.FC = () => {
 
 				<div className="flex-1 p-4 overflow-hidden relative">
 					{contentLoading && (
-						<div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-10 backdrop-blur-sm">
-							<div className="text-blue-400">{t("logs.loading_content", "Loading content...")}</div>
+						<div className="absolute inset-0 z-10 flex items-center justify-center bg-bg/70 backdrop-blur-sm">
+							<div className="text-primary">{t("logs.loading_content", "Loading content...")}</div>
 						</div>
 					)}
-					<div className="h-full bg-black/30 rounded-lg border border-gray-800 p-4 overflow-auto font-mono text-xs text-gray-300 whitespace-pre-wrap">
+					<div className="h-full overflow-auto rounded-xl border border-border/60 bg-surface/70 p-4 font-mono text-xs whitespace-pre-wrap text-text-muted">
 						{logContent || t("logs.select_to_view", "Select a log file to view its content.")}
 					</div>
 				</div>
@@ -138,4 +138,3 @@ const Logs: React.FC = () => {
 };
 
 export default Logs;
-
