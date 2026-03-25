@@ -334,7 +334,6 @@ frontend/
 ├── vite.config.ts
 ├── tailwind.config.cjs
 ├── public/
-│   └── locales/                # 翻訳 (en, ja, es, zh)
 │
 ├── src/
 │   ├── main.tsx                # エントリーポイント
@@ -343,28 +342,29 @@ frontend/
 │   │
 │   ├── app/                    # canonical app entry / router / providers
 │   ├── features/               # canonical frontend features
+│   ├── locales/                # 翻訳 (en, ja, es, zh)
 │   ├── shared/                 # canonical shared UI / contracts / libs
-│   ├── legacy/                 # archived V1 frontend (runtimeから除外)
-│   │
-│   ├── utils/                  # sidecar / auth / API base helpers
 │   ├── test/                   # active frontend tests
-│   ├── features/               # ========== Feature-Sliced Design ==========
-│   │   ├── chat/               # チャット機能 (screen state / lifecycle / composer actions に分割)
-│   │   ├── settings/           # 設定画面 (editor model / model management / layout model に分割)
-│   │   ├── session/            # セッション管理
-│   │   └── navigation/         # ナビゲーション
-│   │
-│   ├── pages/                  # ルートページ (logs, memory, model hub overlay)
-│   ├── api/                    # ルーターローダー等
-│   ├── components/             # 共有UIコンポーネント
-│   ├── hooks/                  # カスタムフック
-│   ├── machines/               # XStateステートマシン等
-│   ├── transport/              # 通信処理層
-│   ├── utils/                  # ユーティリティ
 │   ├── types/                  # 型定義
-│   ├── context/                # React Context
-│   ├── styles/                 # スタイル
-│   └── test/                   # テスト
+│   ├── utils/                  # sidecar / auth / API base helpers
+│   │
+│   ├── features/               # ========== Feature-Sliced Design ==========
+│   │   ├── agent/              # エージェント機能
+│   │   ├── chat/               # チャット機能 (screen state / lifecycle / composer actions に分割)
+│   │   ├── session/            # セッション管理
+│   │   ├── settings/           # 設定画面 (editor model / model management / layout model に分割)
+│   │   └── setup/              # セットアップウィザード
+│   │
+│   └── legacy/                 # archived V1 frontend (runtimeから除外)
+│       ├── api/                # ルーターローダー等
+│       ├── components/         # 共有UIコンポーネント
+│       ├── context/            # React Context
+│       ├── hooks/              # カスタムフック
+│       ├── machines/           # XStateステートマシン等
+│       ├── pages/              # ルートページ (logs, memory, model hub overlay)
+│       ├── stores/             # Zustandストア
+│       ├── styles/             # スタイル
+│       └── transport/          # 通信処理層
 │
 └── src-tauri/                  # Tauri設定と sidecar 同梱
     ├── tauri.conf.json
@@ -861,7 +861,7 @@ graph TB
 
 ### 6.2 chatStore
 
-**ファイル**: `src/stores/chatStore.ts`
+**ファイル**: `src/legacy/stores/chatStore.ts`
 
 ```typescript
 interface ChatState {
@@ -910,7 +910,7 @@ interface ChatActions {
 
 ### 6.3 sessionStore
 
-**ファイル**: `src/stores/sessionStore.ts`
+**ファイル**: `src/legacy/stores/sessionStore.ts`
 
 ```typescript
 interface SessionState {
@@ -932,7 +932,7 @@ interface SessionActions {
 
 ### 6.4 Socket Modules
 
-**ファイル**: `src/stores/socketConnectionStore.ts`, `src/stores/toolConfirmationStore.ts`, `src/stores/socketCommands.ts`, `src/stores/messageRouter.ts`
+**ファイル**: `src/legacy/stores/socketConnectionStore.ts`, `src/legacy/stores/toolConfirmationStore.ts`, `src/legacy/stores/socketCommands.ts`, `src/legacy/stores/messageRouter.ts`
 
 ```typescript
 interface SocketConnectionState {
