@@ -10,7 +10,7 @@ import {
 import { ToastProvider } from "./context/ToastContext";
 import ChatInterface from "./features/chat/ChatInterface";
 import Layout from "./features/navigation/Layout";
-import SetupWizard from "./features/settings/components/SetupWizard";
+import SetupScreen from "../features/setup/screen/SetupScreen";
 import { useRequirements, useServerConfig } from "./hooks/useServerConfig";
 import Logs from "./pages/Logs";
 import Memory from "./pages/Memory";
@@ -143,12 +143,11 @@ function App() {
 
 	if (shouldShowSetup) {
 		return (
-			<SetupWizard
+			<SetupScreen
 				onComplete={() => {
 					refetchRequirements();
 					refetchConfig();
 				}}
-				onSkip={() => setIsSkipped(true)}
 			/>
 		);
 	}
