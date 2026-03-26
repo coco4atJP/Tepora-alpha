@@ -334,7 +334,7 @@ frontend/
 ├── vite.config.ts
 ├── tailwind.config.cjs
 ├── public/
-│   └── locales/                # 翻訳 (en, ja, es, zh)
+│   └── assets/                 # 静的アセット
 │
 ├── src/
 │   ├── main.tsx                # エントリーポイント
@@ -344,27 +344,23 @@ frontend/
 │   ├── app/                    # canonical app entry / router / providers
 │   ├── features/               # canonical frontend features
 │   ├── shared/                 # canonical shared UI / contracts / libs
-│   ├── legacy/                 # archived V1 frontend (runtimeから除外)
-│   │
+│   ├── locales/                # 翻訳 (en, ja, es, zh)
+│   ├── types/                  # 型定義
 │   ├── utils/                  # sidecar / auth / API base helpers
 │   ├── test/                   # active frontend tests
-│   ├── features/               # ========== Feature-Sliced Design ==========
-│   │   ├── chat/               # チャット機能 (screen state / lifecycle / composer actions に分割)
-│   │   ├── settings/           # 設定画面 (editor model / model management / layout model に分割)
-│   │   ├── session/            # セッション管理
-│   │   └── navigation/         # ナビゲーション
 │   │
-│   ├── pages/                  # ルートページ (logs, memory, model hub overlay)
-│   ├── api/                    # ルーターローダー等
-│   ├── components/             # 共有UIコンポーネント
-│   ├── hooks/                  # カスタムフック
-│   ├── machines/               # XStateステートマシン等
-│   ├── transport/              # 通信処理層
-│   ├── utils/                  # ユーティリティ
-│   ├── types/                  # 型定義
-│   ├── context/                # React Context
-│   ├── styles/                 # スタイル
-│   └── test/                   # テスト
+│   └── legacy/                 # archived V1 frontend
+│       ├── api/                # 旧API通信層
+│       ├── components/         # 旧UIコンポーネント
+│       ├── context/            # 旧React Context
+│       ├── features/           # 旧機能モジュール
+│       ├── hooks/              # 旧カスタムフック
+│       ├── machines/           # 旧XStateステートマシン等
+│       ├── pages/              # 旧ルートページ (logs, memory, model hub overlay 等)
+│       ├── stores/             # 旧Zustandストア (chatStore, sessionStore 等)
+│       ├── styles/             # 旧スタイル
+│       ├── transport/          # 旧通信処理層
+│       └── test/               # 旧テスト
 │
 └── src-tauri/                  # Tauri設定と sidecar 同梱
     ├── tauri.conf.json
@@ -861,7 +857,7 @@ graph TB
 
 ### 6.2 chatStore
 
-**ファイル**: `src/stores/chatStore.ts`
+**ファイル**: `src/legacy/stores/chatStore.ts`
 
 ```typescript
 interface ChatState {
@@ -910,7 +906,7 @@ interface ChatActions {
 
 ### 6.3 sessionStore
 
-**ファイル**: `src/stores/sessionStore.ts`
+**ファイル**: `src/legacy/stores/sessionStore.ts`
 
 ```typescript
 interface SessionState {
@@ -932,7 +928,7 @@ interface SessionActions {
 
 ### 6.4 Socket Modules
 
-**ファイル**: `src/stores/socketConnectionStore.ts`, `src/stores/toolConfirmationStore.ts`, `src/stores/socketCommands.ts`, `src/stores/messageRouter.ts`
+**ファイル**: `src/legacy/stores/socketConnectionStore.ts`, `src/legacy/stores/toolConfirmationStore.ts`, `src/legacy/stores/socketCommands.ts`, `src/legacy/stores/messageRouter.ts`
 
 ```typescript
 interface SocketConnectionState {
@@ -976,10 +972,11 @@ const socketCommands = {
 
 | ディレクトリ             | 責務                                                   |
 | ------------------------ | ------------------------------------------------------ |
+| `features/agent/`      | エージェント管理、プロファイル設定                     |
 | `features/chat/`       | メッセージリスト、入力エリア、マークダウンレンダリング |
-| `features/settings/`   | 設定パネル、モデル管理、MCP管理UI                      |
 | `features/session/`    | セッション履歴管理                                     |
-| `features/navigation/` | サイドバー、レイアウト                                 |
+| `features/settings/`   | 設定パネル、モデル管理、MCP管理UI                      |
+| `features/setup/`      | 初期セットアップウィザード                             |
 
 ### 6.6 主要コンポーネント
 
