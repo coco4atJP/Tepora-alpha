@@ -79,13 +79,10 @@ function extractArchive(archivePath) {
 
   if (archivePath.endsWith(".zip")) {
     if (process.platform === "win32") {
+      // Use built-in tar command instead of PowerShell Expand-Archive for better reliability
       execFileSync(
-        "powershell",
-        [
-          "-NoProfile",
-          "-Command",
-          `Expand-Archive -Path \"${archivePath}\" -DestinationPath \"${FALLBACK_DIR}\" -Force`,
-        ],
+        "tar",
+        ["-xf", archivePath, "-C", FALLBACK_DIR],
         { stdio: "inherit" }
       );
     } else {

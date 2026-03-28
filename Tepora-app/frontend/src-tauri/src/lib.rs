@@ -4,6 +4,7 @@ use tauri_plugin_log::{Target, TargetKind};
 use tepora_backend::state::AppState;
 use tepora_backend::actor::ActorDispatchError;
 use tepora_backend::actor::messages::{SessionCommand, SessionEvent};
+use tepora_backend::core::security_controls::ToolApprovalResponsePayload;
 use tepora_backend::server::ws::protocol::WsIncomingMessage;
 use std::sync::Arc;
 use serde_json::json;
@@ -41,6 +42,7 @@ async fn chat_command(
             let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
             if !session_id.is_empty() {
                 if let Err(err) = app_state
+                    .runtime
                     .actor_manager
                     .dispatch(
                         &session_id,
@@ -60,8 +62,7 @@ async fn chat_command(
             return Ok(());
         }
         "get_stats" => {
-            let stats = app_state.em_memory_service.stats().await.map_err(|e| e.to_string())?;
-            let character_stats = app_state.character_memory_service.stats().await.map_err(|e| e.to_string())?;
+            let stats = app_state.memory.memory_service.stats().await.map_err(|e| e.to_string())?;
             let _ = app.emit(
                 "chat_event",
                 json!({
@@ -69,21 +70,20 @@ async fn chat_command(
                     "data": {
                         "total_events": stats.total_events,
                         "episodic_memory_enabled": stats.enabled,
-                        "total_episodic_memories": stats.total_memories,
+                        "total_episodic_memories": stats.char_events,
                         "retrieval": {
                             "limit": stats.retrieval_limit,
                             "min_score": stats.min_score,
                         },
-                            "mean_strength": stats.char_mean_strength
+                        "mean_strength": stats.char_mean_strength
+                    },
+                    "prof_memory": {
+                        "total_events": stats.prof_events,
+                        "layer_counts": {
+                            "lml": stats.prof_lml,
+                            "sml": stats.prof_sml
                         },
-                        "prof_memory": {
-                            "total_events": stats.prof_events,
-                            "layer_counts": {
-                                "lml": stats.prof_lml,
-                                "sml": stats.prof_sml
-                            },
-                            "mean_strength": stats.prof_mean_strength
-                        }
+                        "mean_strength": stats.prof_mean_strength
                     }
                 })
                 .to_string(),
@@ -98,6 +98,7 @@ async fn chat_command(
                 );
 
                 let messages = app_state
+                    .runtime
                     .history
                     .get_history(&session_id, 100)
                     .await
@@ -146,10 +147,17 @@ async fn chat_command(
             return Ok(());
         }
         "tool_confirmation_response" => {
-            if let (Some(request_id), Some(approved)) = (data.request_id.clone(), data.approved) {
+            if let Some(request_id) = data.request_id.clone() {
                 let session_id = data.session_id.unwrap_or_else(|| "default".to_string());
                 if !session_id.is_empty() {
+                    let approval = if data.approved.unwrap_or(false) {
+                        ToolApprovalResponsePayload::approved_once()
+                    } else {
+                        ToolApprovalResponsePayload::denied()
+                    };
+
                     if let Err(err) = app_state
+                        .runtime
                         .actor_manager
                         .dispatch(
                             &session_id,
@@ -157,7 +165,7 @@ async fn chat_command(
                             SessionCommand::ToolApprovalResponse {
                                 session_id: session_id.clone(),
                                 request_id,
-                                approved,
+                                approval,
                             },
                         )
                         .await
@@ -193,8 +201,9 @@ async fn chat_command(
         skip_web_search: data.skip_web_search.unwrap_or(false),
     };
 
-    let mut rx = app_state.actor_manager.subscribe();
+    let mut rx = app_state.runtime.actor_manager.subscribe();
     app_state
+        .runtime
         .actor_manager
         .dispatch(&session_id, app_state.clone(), command)
         .await
