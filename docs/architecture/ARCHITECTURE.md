@@ -162,7 +162,7 @@ graph TD
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
-| **状態管理**       | Zustand        | -          | クライアント状態        |
+| **状態管理**       | Zustand        | 5.x        | クライアント状態        |
 | **データフェッチ** | TanStack Query | 5.x        | サーバー状態/キャッシュ |
 | **スタイリング**   | Tailwind CSS   | 4.x        | ユーティリティCSS       |
 | **ルーティング**   | React Router   | 7.x        | SPA routing             |
@@ -343,28 +343,17 @@ frontend/
 │   │
 │   ├── app/                    # canonical app entry / router / providers
 │   ├── features/               # canonical frontend features
-│   ├── shared/                 # canonical shared UI / contracts / libs
-│   ├── legacy/                 # archived V1 frontend (runtimeから除外)
-│   │
-│   ├── utils/                  # sidecar / auth / API base helpers
-│   ├── test/                   # active frontend tests
-│   ├── features/               # ========== Feature-Sliced Design ==========
+│   │   ├── agent/              # エージェント関連機能
 │   │   ├── chat/               # チャット機能 (screen state / lifecycle / composer actions に分割)
-│   │   ├── settings/           # 設定画面 (editor model / model management / layout model に分割)
 │   │   ├── session/            # セッション管理
-│   │   └── navigation/         # ナビゲーション
-│   │
-│   ├── pages/                  # ルートページ (logs, memory, model hub overlay)
-│   ├── api/                    # ルーターローダー等
-│   ├── components/             # 共有UIコンポーネント
-│   ├── hooks/                  # カスタムフック
-│   ├── machines/               # XStateステートマシン等
-│   ├── transport/              # 通信処理層
-│   ├── utils/                  # ユーティリティ
+│   │   ├── settings/           # 設定画面 (editor model / model management / layout model に分割)
+│   │   └── setup/              # セットアップ関連機能
+│   ├── shared/                 # canonical shared UI / contracts / libs
+│   ├── legacy/                 # archived V1 frontend (api, components, context, hooks, machines, pages, stores, styles, transport 等)
+│   ├── locales/                # 翻訳リソース (en, es, ja, zh)
+│   ├── test/                   # active frontend tests
 │   ├── types/                  # 型定義
-│   ├── context/                # React Context
-│   ├── styles/                 # スタイル
-│   └── test/                   # テスト
+│   └── utils/                  # sidecar / auth / API base helpers
 │
 └── src-tauri/                  # Tauri設定と sidecar 同梱
     ├── tauri.conf.json
