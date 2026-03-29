@@ -53,17 +53,26 @@ fn discover_project_root() -> PathBuf {
         return PathBuf::from(root);
     }
 
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    if manifest_dir.join("config.yml").exists() {
-        return manifest_dir;
+    #[cfg(debug_assertions)]
+    {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        if manifest_dir.join("config.yml").exists() {
+            return manifest_dir;
+        }
+
+        let sibling_backend = manifest_dir.join("..").join("backend");
+        if sibling_backend.join("config.yml").exists() {
+            return sibling_backend;
+        }
     }
 
-    let sibling_backend = manifest_dir.join("..").join("backend");
-    if sibling_backend.join("config.yml").exists() {
-        return sibling_backend;
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(parent) = exe_path.parent() {
+            return parent.to_path_buf();
+        }
     }
 
-    env::current_dir().unwrap_or(manifest_dir)
+    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 fn discover_user_data_dir(project_root: &Path) -> PathBuf {

@@ -169,7 +169,8 @@ export const configResponseSchema = z
 				tool_execution_timeout: z.number().int().positive().optional(),
 				graph_execution_timeout: z.number().int().positive().optional(),
 			})
-			.passthrough(),
+			.passthrough()
+			.optional(),
 		active_character: z.string().optional(),
 		tools: z
 			.object({

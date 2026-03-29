@@ -49,6 +49,8 @@ aes-gcm = "0.10"
 regex = "1"
 keyring = "3.6.3"
 rand = "0.8"
+subtle = "2"
+argon2 = "0.5"
 jsonschema = "0.42.2"
 tokenizers = "0.22"
 

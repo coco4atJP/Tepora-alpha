@@ -151,6 +151,22 @@ impl McpPolicyManager {
         let policy = self.load_policy().map_err(|err| err.to_string())?;
         let transport = server.transport.to_lowercase();
 
+        // コマンドインジェクション検査
+        if contains_injection_risk(&server.command) {
+            return Err(format!(
+                "Command '{}' contains potentially dangerous characters",
+                server.command
+            ));
+        }
+        for arg in &server.args {
+            if contains_injection_risk(arg) {
+                return Err(format!(
+                    "Argument '{}' contains potentially dangerous characters",
+                    arg
+                ));
+            }
+        }
+
         let mut command_text = server.command.clone();
         if !server.args.is_empty() {
             command_text.push(' ');
@@ -182,7 +198,13 @@ impl McpPolicyManager {
         };
 
         match policy.policy.to_lowercase().as_str() {
-            "allow_all" => Ok(()),
+            "allow_all" => {
+                tracing::warn!(
+                    "MCP policy 'allow_all' permits any connection — server: '{}'",
+                    name
+                );
+                Ok(())
+            }
             "stdio_only" => {
                 if transport != "stdio" && !transport.is_empty() {
                     Err("Policy 'stdio_only' only allows stdio transport".to_string())
@@ -221,4 +243,11 @@ impl McpPolicyManager {
             other => Err(format!("Unknown MCP policy '{}'", other)),
         }
     }
+}
+
+/// シェルメタ文字やコマンドチェーン演算子を検出する。
+const DANGEROUS_COMMAND_CHARS: &[char] = &[';', '|', '`', '$', '(', ')'];
+
+fn contains_injection_risk(text: &str) -> bool {
+    text.contains("&&") || text.chars().any(|c| DANGEROUS_COMMAND_CHARS.contains(&c))
 }

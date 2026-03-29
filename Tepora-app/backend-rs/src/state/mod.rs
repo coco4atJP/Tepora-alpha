@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::extract::FromRef;
@@ -216,6 +217,8 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    /// 起動時に読み込んだ redesign フィーチャーフラグのキャッシュ。
+    redesign_flags: Arc<HashMap<String, bool>>,
 }
 
 impl AppState {
@@ -246,25 +249,36 @@ impl AppState {
         runtime: Arc<AppRuntimeState>,
         memory: Arc<AppMemoryState>,
     ) -> Self {
+        let redesign_flags = Arc::new(load_redesign_flags(&core.config));
         Self {
             core,
             ai,
             integration,
             runtime,
             memory,
+            redesign_flags,
         }
     }
 
-    /// Check if a specific redesign feature is enabled via feature flags.
+    /// Check if a specific redesign feature is enabled via cached feature flags.
     pub fn is_redesign_enabled(&self, feature: &str) -> bool {
-        self.core()
-            .config
-            .load_config()
-            .ok()
-            .and_then(|c| c.get("features").cloned())
-            .and_then(|f| f.get("redesign").cloned())
-            .and_then(|r| r.get(feature).cloned())
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
+        self.redesign_flags.get(feature).copied().unwrap_or(false)
     }
+}
+
+/// 起動時に config から redesign フィーチャーフラグを読み込みキャッシュする。
+fn load_redesign_flags(config: &ConfigService) -> HashMap<String, bool> {
+    config
+        .load_config()
+        .ok()
+        .and_then(|c| c.get("features").cloned())
+        .and_then(|f| f.get("redesign").cloned())
+        .and_then(|r| {
+            r.as_object().map(|obj| {
+                obj.iter()
+                    .filter_map(|(k, v)| v.as_bool().map(|b| (k.clone(), b)))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
 }

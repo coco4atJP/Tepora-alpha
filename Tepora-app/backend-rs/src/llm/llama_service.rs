@@ -80,6 +80,8 @@ impl LlamaService {
 
     fn find_server_binary(paths: &AppPaths) -> Result<PathBuf, ApiError> {
         let candidates = vec![
+            paths.project_root.join("resources").join("llama-cpu-fallback").join("llama-server.exe"),
+            paths.project_root.join("resources").join("llama-cpu-fallback").join("llama-server"),
             paths.project_root.join("bin/llama-server.exe"),
             paths.project_root.join("bin/llama-server"),
             PathBuf::from("llama-server"),

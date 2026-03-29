@@ -19,14 +19,14 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 	const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
 	// --- Setup detection (ported from legacy/App.tsx) ---
-	const { data: config, refetch: refetchConfig } = useV2ConfigQuery();
+	const { data: config, isLoading: configLoading, refetch: refetchConfig } = useV2ConfigQuery();
 	const { data: requirements, isLoading: reqLoading, refetch: refetchRequirements } = useRequirementsQuery();
 
 	const isSetupCompleted = config?.app?.setup_completed === true;
 	const shouldShowSetup =
 		!reqLoading &&
-		(!requirements?.is_ready || requirements?.has_missing) &&
-		!isSetupCompleted;
+		!configLoading &&
+		(!requirements?.is_ready || requirements?.has_missing || !isSetupCompleted);
 
 	if (shouldShowSetup) {
 		return (

@@ -5,18 +5,18 @@ import { SettingsRow } from "../../../../shared/ui/SettingsRow";
 import { SettingsSectionGroup } from "../../../../shared/ui/SettingsSectionGroup";
 import { readNestedValue, useSettingsEditor } from "../../model/editor";
 
-interface CharactersSettingsProps {
+interface CharacterAgentsSettingsProps {
 	activeTab?: string;
 }
 
-export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
-	activeTab = "Characters",
-}) => {
+export const CharacterAgentsSettings: React.FC<CharacterAgentsSettingsProps> = () => {
 	const { t } = useTranslation();
 	const editor = useSettingsEditor();
+	
 	const charactersValue = editor.draft
 		? readNestedValue(editor.draft, "characters")
 		: undefined;
+		
 	const characters =
 		charactersValue &&
 		typeof charactersValue === "object" &&
@@ -35,64 +35,6 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 		editor.readString("active_character") ||
 		editor.readString("active_character", characters[0]?.id ?? "");
 	const activeCharacter = characters.find((character) => character.id === activeProfile) ?? null;
-
-	const customAgentsValue = editor.draft
-		? readNestedValue(editor.draft, "custom_agents")
-		: undefined;
-	const customAgents =
-		customAgentsValue &&
-		typeof customAgentsValue === "object" &&
-		!Array.isArray(customAgentsValue)
-			? Object.entries(customAgentsValue as Record<string, Record<string, unknown>>).map(
-					([id, value]) => ({
-						id,
-						name: String(value.name ?? id),
-						description: String(value.description ?? ""),
-						enabled: value.enabled !== false,
-						tags: Array.isArray(value.tags)
-							? value.tags.map((tag) => String(tag))
-							: [],
-					}),
-			  )
-			: [];
-
-	if (activeTab === "Custom Agents") {
-		return (
-			<SettingsSectionGroup title={t("v2.settings.customAgents", "Custom Agents")}>
-				<div className="grid gap-4 md:grid-cols-2">
-					{customAgents.length > 0 ? (
-						customAgents.map((agent) => (
-							<div
-								key={agent.id}
-								className="rounded-[24px] border border-primary/10 bg-white/55 p-5"
-							>
-								<div className="flex items-center justify-between gap-3">
-									<div className="text-base font-medium text-text-main">
-										{agent.name}
-									</div>
-									<div className="rounded-full border border-primary/15 px-2.5 py-0.5 text-[0.68rem] uppercase tracking-[0.16em] text-primary/80">
-										{agent.enabled
-											? t("v2.common.enabled", "Enabled")
-											: t("v2.common.disabled", "Disabled")}
-									</div>
-								</div>
-								<div className="mt-3 text-sm leading-7 text-text-muted">
-									{agent.description || t("v2.character.noDescription", "No description")}
-								</div>
-								<div className="mt-4 text-xs uppercase tracking-[0.16em] text-text-muted">
-									{agent.tags.length > 0 ? agent.tags.join(", ") : t("v2.settings.noTags", "No tags")}
-								</div>
-							</div>
-						))
-					) : (
-						<div className="rounded-[24px] border border-primary/10 bg-white/55 px-6 py-5 text-sm leading-7 text-text-muted">
-							{t("v2.settings.noCustomAgents", "No custom agents are configured yet.")}
-						</div>
-					)}
-				</div>
-			</SettingsSectionGroup>
-		);
-	}
 
 	if (!activeCharacter) {
 		return (
@@ -113,7 +55,6 @@ export const CharactersSettings: React.FC<CharactersSettingsProps> = ({
 								type="button"
 								key={character.id}
 								onClick={() => {
-									editor.updateField("active_character", character.id);
 									editor.updateField("active_character", character.id);
 								}}
 								className={`rounded-[24px] border p-5 text-left transition-colors ${

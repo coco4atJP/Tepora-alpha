@@ -84,8 +84,14 @@ async fn main() -> anyhow::Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
-    if let Err(err) = app_state.ai().llm.shutdown().await {
-        tracing::warn!("Failed to stop llama server during shutdown: {}", err);
+    match app_state.ai().llm.shutdown().await {
+        Ok(()) => tracing::info!("LLM service shutdown successfully"),
+        Err(err) => {
+            tracing::error!("LLM shutdown failed (attempt 1): {}", err);
+            if let Err(retry_err) = app_state.ai().llm.shutdown().await {
+                tracing::error!("LLM shutdown retry also failed: {}", retry_err);
+            }
+        }
     }
 
     tracing::info!("Tepora backend shutdown complete");

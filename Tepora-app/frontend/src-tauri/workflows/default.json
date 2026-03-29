@@ -1,0 +1,175 @@
+{
+  "name": "default",
+  "entry_node": "router",
+  "max_steps": 50,
+  "execution_timeout_ms": 30000,
+  "nodes": [
+    {
+      "id": "router",
+      "type": "RouterNode",
+      "metadata": {
+        "label": "Initial Router",
+        "x": 100,
+        "y": 100
+      }
+    },
+    {
+      "id": "chat",
+      "type": "ChatNode",
+      "metadata": {
+        "label": "Chat Generator",
+        "x": 300,
+        "y": 100
+      }
+    },
+    {
+      "id": "planner",
+      "type": "PlannerNode",
+      "metadata": {
+        "label": "Task Planner",
+        "x": 300,
+        "y": 300
+      }
+    },
+    {
+      "id": "supervisor",
+      "type": "SupervisorNode",
+      "metadata": {
+        "label": "Agent Supervisor",
+        "x": 500,
+        "y": 300
+      }
+    },
+    {
+      "id": "agent_executor",
+      "type": "AgentExecutorNode",
+      "metadata": {
+        "label": "Tool Executor",
+        "x": 700,
+        "y": 300
+      }
+    },
+    {
+      "id": "search_agentic",
+      "type": "AgenticSearchNode",
+      "metadata": {
+        "label": "Web Searcher",
+        "x": 500,
+        "y": 500
+      }
+    },
+    {
+      "id": "synthesizer",
+      "type": "SynthesizerNode",
+      "metadata": {
+        "label": "Final Synthesizer",
+        "x": 900,
+        "y": 300
+      }
+    },
+    {
+      "id": "thinking",
+      "type": "ThinkingNode",
+      "metadata": {
+        "label": "Deep Thinker",
+        "x": 300,
+        "y": 500
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "router",
+      "to": "chat",
+      "condition": "chat",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "router",
+      "to": "planner",
+      "condition": "plan",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "router",
+      "to": "agent_executor",
+      "condition": "agent",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "router",
+      "to": "search_agentic",
+      "condition": "search",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "router",
+      "to": "thinking",
+      "condition": "thinking",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "planner",
+      "to": "supervisor",
+      "condition": "supervisor",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "supervisor",
+      "to": "search_agentic",
+      "condition": "search",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "supervisor",
+      "to": "agent_executor",
+      "condition": "agent",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "supervisor",
+      "to": "synthesizer",
+      "condition": "synthesize",
+      "metadata": {
+        "edge_type": "conditional"
+      }
+    },
+    {
+      "from": "search_agentic",
+      "to": "supervisor",
+      "metadata": {
+        "edge_type": "default"
+      }
+    },
+    {
+      "from": "agent_executor",
+      "to": "supervisor",
+      "metadata": {
+        "edge_type": "default"
+      }
+    },
+    {
+      "from": "thinking",
+      "to": "supervisor",
+      "metadata": {
+        "edge_type": "default"
+      }
+    }
+  ]
+}

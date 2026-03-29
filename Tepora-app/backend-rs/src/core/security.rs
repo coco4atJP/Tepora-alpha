@@ -6,7 +6,8 @@ use std::process::Command;
 
 use axum::http::HeaderMap;
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use rand::Rng;
+use subtle::ConstantTimeEq;
 
 use crate::core::errors::ApiError;
 
@@ -56,7 +57,8 @@ impl SessionToken {
     }
 
     pub fn reissue(&mut self) -> Result<String, ApiError> {
-        let new_token = format!("{}{}", Uuid::new_v4(), Uuid::new_v4());
+        let token_bytes: [u8; 32] = rand::thread_rng().gen();
+        let new_token = hex::encode(token_bytes);
         self.value = new_token.clone();
 
         let now = Utc::now();
@@ -110,7 +112,8 @@ pub fn init_session_token() -> SessionToken {
         }
     }
 
-    let token = format!("{}{}", Uuid::new_v4(), Uuid::new_v4());
+    let token_bytes: [u8; 32] = rand::thread_rng().gen();
+    let token = hex::encode(token_bytes);
     let token_path = session_token_path();
     if let Some(parent) = token_path.parent() {
         let _ = fs::create_dir_all(parent);
@@ -196,7 +199,9 @@ pub fn require_api_key(
         return Err(ApiError::Unauthorized);
     }
 
-    if header_value != expected.value() {
+    let input = header_value.as_bytes();
+    let expected_bytes = expected.value().as_bytes();
+    if input.len() != expected_bytes.len() || input.ct_ne(expected_bytes).into() {
         return Err(ApiError::Unauthorized);
     }
 
@@ -217,7 +222,12 @@ pub fn api_key_optional(headers: &HeaderMap, expected: &SessionToken) -> Option<
     headers
         .get(API_KEY_HEADER)
         .and_then(|value| value.to_str().ok())
-        .filter(|value| *value == expected.value())
+        .filter(|value| {
+            let input = value.as_bytes();
+            let expected_bytes = expected.value().as_bytes();
+            input.len() == expected_bytes.len()
+                && bool::from(input.ct_eq(expected_bytes))
+        })
         .map(|value| value.to_string())
 }
 

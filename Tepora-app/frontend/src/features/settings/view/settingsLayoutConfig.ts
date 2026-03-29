@@ -1,14 +1,18 @@
 export type NavCategory =
 	| "General"
 	| "Appearance"
-	| "Characters"
-	| "Models"
 	| "Privacy"
-	| "Tools"
-	| "Memory"
-	| "Context"
 	| "Data"
 	| "System"
+	| "Models"
+	| "Memory"
+	| "Context"
+	| "CharacterAgents"
+	| "ExecutiveAgents"
+	| "SupervisorAgent"
+	| "PlannerAgent"
+	| "SearchAgent"
+	| "Capabilities"
 	| "Advanced";
 
 export interface SettingsCategoryDefinition {
@@ -24,24 +28,11 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDefinition[] = [
 		label: "Appearance",
 		tabs: ["Theme", "Typography", "Code Blocks", "Notifications", "Shortcuts"],
 	},
-	{ id: "Characters", label: "Characters", tabs: ["Personas", "Custom Agents"] },
-	{
-		id: "Models",
-		label: "Models",
-		tabs: ["Hub", "Defaults", "Embedding", "Loader", "Advanced"],
-	},
 	{
 		id: "Privacy",
 		label: "Privacy",
 		tabs: ["Privacy", "Quarantine", "Permissions"],
 	},
-	{
-		id: "Tools",
-		label: "Tools",
-		tabs: ["Web Search", "Agent Skills", "MCP", "Credentials"],
-	},
-	{ id: "Memory", label: "Memory", tabs: ["Basics", "Decay Engine", "Retrieval"] },
-	{ id: "Context", label: "Context", tabs: ["RAG", "Window Allocation"] },
 	{ id: "Data", label: "Data", tabs: ["Indexing", "Paths", "Cache", "Backup"] },
 	{
 		id: "System",
@@ -49,8 +40,25 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDefinition[] = [
 		tabs: ["Integration", "Performance", "Updates"],
 	},
 	{
+		id: "Models",
+		label: "Models",
+		tabs: ["Hub", "Defaults", "Embedding", "Loader", "Advanced"],
+	},
+	{ id: "Memory", label: "Memory", tabs: ["Basics", "Decay Engine", "Retrieval"] },
+	{ id: "Context", label: "Context", tabs: ["RAG", "Window Allocation"] },
+	{ id: "CharacterAgents", label: "Character Agents", tabs: ["Personas"] },
+	{ id: "ExecutiveAgents", label: "Executive Agents", tabs: ["Agents & Skills"] },
+	{ id: "SupervisorAgent", label: "Supervisor Agent", tabs: ["Routing", "Execution"] },
+	{ id: "PlannerAgent", label: "Planner Agent", tabs: ["Planning"] },
+	{ id: "SearchAgent", label: "Search Agent", tabs: ["Retrieval", "Synthesis"] },
+	{
+		id: "Capabilities",
+		label: "Capabilities",
+		tabs: ["MCP Servers", "Web Search", "Credentials"],
+	},
+	{
 		id: "Advanced",
 		label: "Advanced",
-		tabs: ["Execution", "Agent", "Model DL", "Features", "Server"],
+		tabs: ["Model DL", "Features", "Server"],
 	},
 ];

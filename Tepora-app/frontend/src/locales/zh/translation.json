@@ -1,1430 +1,1485 @@
 {
-	"setup": {
-		"title": "Tepora 配置",
-		"checking": "正在检查环境...",
-		"ready": "所有系统准备就绪！",
-		"binary_needed": "需要设置推理引擎",
-		"models_needed": "需要下载模型",
-		"complete": "设置完成！",
-		"error": "设置过程中出错",
-		"errors": {
-			"req_check_failed": "要求检查失败",
-			"start_failed": "启动设置失败",
-			"setup_failed_start": "设置无法启动",
-			"finalize_failed": "完成设置失败",
-			"save_config_failed": "保存配置失败。请重试。",
-			"unknown": "未知错误",
-			"preflight_failed": "预检失败"
-		},
-		"start": "启动 Tepora",
-		"auto_setup": "自动设置",
-		"skip": "跳过",
-		"skip_setup": "跳过设置",
-		"retry": "重试",
-		"downloading": "正在下载...",
-		"steps": {
-			"language": "选择语言",
-			"select_language": "选择语言",
-			"binary": "推理引擎 (llama.cpp)",
-			"models": "模型",
-			"language_desc": "选择您的首选语言来自定义 Tepora。"
-		},
-		"status": {
-			"satisfied": "已安装",
-			"missing": "缺失",
-			"outdated": "可用更新",
-			"installed": "已安装",
-			"not_downloaded": "未下载"
-		},
-		"accessibility": {
-			"progress": "进度"
-		},
-		"download_warning_title": "确认模型下载",
-		"download_warning_desc": "某些模型不在允许列表中。请查看警告并确认继续。",
-		"download_warning_cancel": "取消",
-		"download_warning_confirm": "继续",
-		"advanced_settings": "高级设置 (更改模型)",
-		"model_settings": "模型设置",
-		"model": "模型",
-		"checking_desc": "正在检查系统需求和依赖...",
-		"ready_desc": "Tepora 已准备好成为你的 AI 伙伴。",
-		"all_set": "全部就绪！",
-		"installing": "安装中...",
-		"extracting": "解压中...",
-		"failed": "配置失败",
-		"install_selected": "安装所选模型",
-		"start_install": "开始安装",
-		"custom": "自定义配置（高级）",
-		"custom_desc": "指定你自己的 GGUF 模型仓库和文件名。",
-		"custom_models": "自定义模型",
-		"launch": "启动 Tepora",
-		"storage_required": "每个模型约需 2GB 以上空间",
-		"storage_desc": "Tepora 在本地运行。模型将存储在你的 AppData 文件夹中。",
-		"storage_requirement_label": "存储要求：",
-		"storage_requirement_hint": "模型存储在您的 AppData 文件夹中。请确保存储空间充足。",
-		"loading_recommendations": "正在加载推荐模型...",
-		"custom_repo_placeholder": "仓库 ID (例如 user/repo)",
-		"custom_filename_placeholder": "文件名 (例如 model.gguf)",
-		"model_role_text": "文本模型",
-		"model_role_embedding": "嵌入模型",
-		"approx_vram": "~2.5GB 显存",
-		"installing_desc": "这可能需要几分钟，具体取决于您的互联网连接。我们正在为您准备个性化的 AI 体验。",
-		"did_you_know": "你知道吗？",
-		"offline_privacy_tip": "Tepora 安装后完全离线运行。您的数据保留在您的设备上，确保最大的隐私和安全性。",
-		"hide_logs": "隐藏详细日志",
-		"show_logs": "显示详细日志",
-		"installer_output": "安装程序输出",
-		"embedding_warning_title": "嵌入模型警告",
-		"embedding_warning_proceed": "继续",
-		"loader_title": "加载器准备",
-		"step_lang": "语言",
-		"step_engine": "引擎",
-		"step_model": "模型",
-		"step_install": "安装",
-		"step_done": "完成",
-		"loader_select_title": "选择加载器",
-		"loader_select_desc": "请选择推理引擎"
-	},
-	"app": {
-		"loading": "连接服务器中...",
-		"loadingHint": "这可能需要几秒钟"
-	},
-	"errors": {
-		"unknownError": "发生未知错误。",
-		"connectionErrorTitle": "连接错误",
-		"retryButton": "重试连接",
-		"viewLogsButton": "查看日志",
-		"troubleshootHint": "请确保后端服务器正在预期的端口上运行。"
-	},
-	"logs": {
-		"title": "日志文件",
-		"refresh": "刷新列表",
-		"refresh_content": "刷新内容",
-		"loading_logs": "正在加载日志...",
-		"loading_content": "正在加载内容...",
-		"no_logs": "未找到日志",
-		"select_log": "选择日志",
-		"select_to_view": "选择日志文件以查看其内容。",
-		"error_fetch": "获取日志失败",
-		"error_content": "获取日志内容失败",
-		"unknown_error": "发生错误"
-	},
-	"tool_confirmation": {
-		"title": "工具执行确认",
-		"description": "即将执行一个工具。",
-		"params": "参数",
-		"allow_session": "在此会话中始终允许此工具",
-		"warning_deny": "⚠️ 拒绝将停止进程",
-		"deny": "拒绝",
-		"allow": "允许",
-		"names": {
-			"native_web_fetch": "获取网页",
-			"native_google_search": "谷歌搜索"
-		},
-		"descriptions": {
-			"native_web_fetch": "访问指定的URL。",
-			"native_google_search": "执行谷歌网页搜索。"
-		}
-	},
-	"session_history": {
-		"title": "会话历史",
-		"new": "新会话",
-		"list_aria_label": "会话列表",
-		"edit_title": "编辑会话标题",
-		"delete_title": "删除会话",
-		"delete_message": "确定要删除此会话吗？所有对话历史记录都将丢失。",
-		"loading": "加载中...",
-		"empty": "暂无会话",
-		"messages": "条消息"
-	},
-	"newSession": "新会话",
-	"sessionHistory": "会话历史",
-	"close": "关闭",
-	"common": {
-		"language": "语言",
-		"next": "下一步",
-		"back": "返回",
-		"skip": "跳过",
-		"cancel": "取消",
-		"add": "添加",
-		"edit": "编辑",
-		"save": "保存",
-		"clear": "清除",
-		"settings": "设置",
-		"close": "关闭",
-		"enabled": "启用",
-		"disabled": "已禁用",
-		"retry": "重试",
-		"load_more": "加载更多",
-		"update_now": "立即更新",
-		"error_prefix": "错误: ",
-		"today": "今天",
-		"yesterday": "昨天",
-		"daysAgo": "{{count}}天前",
-		"confirm": "确认",
-		"delete": "删除",
-		"copy": "复制",
-		"copied": "已复制",
-		"refresh": "刷新",
-		"click_to_edit": "点击编辑",
-		"aria": {
-			"close": "关闭",
-			"move_up": "上移",
-			"move_down": "下移",
-			"delete": "删除",
-			"add_item": "添加项",
-			"remove_item": "移除项",
-			"cancel": "取消",
-			"agent_metrics": "代理指标",
-			"thinking": "正在思考",
-			"close_modal": "关闭对话框",
-			"close_notification": "关闭通知",
-			"copy_code": "复制代码",
-			"settings_categories": "设置类别"
-		},
-		"browse": "浏览",
-		"active": "活跃",
-		"activate": "激活",
-		"no_data": "暂无数据",
-		"refreshing": "刷新中...",
-		"scan_providers": "扫描提供者",
-		"all": "全部",
-		"loading": "加载中...",
-		"clear_filters": "清除筛选",
-		"preparing": "准备中...",
-		"ai": "AI"
-	},
-	"chat": {
-		"clear_history": "清除历史记录",
-		"role": {
-			"assistant": "助手",
-			"user": "你",
-			"system": "系统"
-		},
-		"input": {
-			"placeholder": {
-				"connecting": "正在连接...",
-				"search": "让我搜索...",
-				"agent": "分配任务...",
-				"default": "与 Tepora 聊天..."
-			},
-			"system_ready": "系统就绪",
-			"system_ready_hint": "请选择一个模式开始",
-			"disconnected": "已断开连接",
-			"status": {
-				"thinking": "思考过程"
-			},
-			"web_search": "网络搜索",
-			"web_search_toggle": "网页搜索: {{state}}",
-			"attach_file": "附加文件",
-			"remove_attachment": "移除附件 {{name}}",
-			"send": "发送消息",
-			"send_message": "发送消息",
-			"stop": "停止生成",
-			"stop_generation": "停止生成",
-			"mode_active": "{{mode}} 模式已激活",
-			"aria_label": "消息输入",
-			"agent_mode": "代理模式",
-			"agent_mode_fast": "快速模式",
-			"agent_mode_high": "高精度模式",
-			"agent_mode_direct": "直接模式",
-			"select_agent": "选择代理",
-			"agent_auto": "自动选择",
-			"thinking_mode": "思考模式"
-		},
-		"modes": {
-			"search": "搜索",
-			"agent": "代理",
-			"chat": "聊天"
-		},
-		"messages_aria_label": "聊天消息",
-		"jump_to_latest": "跳转到最新消息",
-		"jump_to_latest_short": "最新",
-		"generationStopped": "生成已停止",
-		"status": {
-			"thinking": "思考中"
-		},
-		"error": "错误",
-		"info": "信息",
-		"newMessageFrom": "来自 {{role}} 的新消息",
-		"scrollToBottom": "滚动到底部",
-		"regenerate": "重新生成",
-		"click_to_expand": "点击展开"
-	},
-	"agent": {
-		"title": "代理活动",
-		"waiting": "等待中"
-	},
-	"search": {
-		"title": "搜索",
-		"hits": "结果",
-		"no_results": "未找到结果"
-	},
-	"rag_context": {
-		"title": "RAG上下文",
-		"sources": "来源",
-		"files": "文件",
-		"add_file": "添加文件",
-		"no_sources": "没有来源",
-		"add_hint": "添加文件或搜索网页",
-		"web_results": "网页结果"
-	},
-	"personas": {
-		"switch": "切换人设",
-		"select": "选择人设",
-		"create": "创建人设",
-		"create_new": "创建人设",
-		"edit": "编辑人设",
-		"name": "名称",
-		"description": "描述",
-		"instruction": "系统提示",
-		"error_exists": "该键已存在。",
-		"confirm_delete_title": "删除角色？",
-		"confirm_delete": "确定要删除此人设吗？此操作无法撤销。"
-	},
-	"dial": {
-		"chat": "聊天",
-		"search": "搜索",
-		"agent": "代理"
-	},
-	"status": {
-		"title": "系统状态",
-		"network": "网络",
-		"connected": "已连接",
-		"disconnected": "已断开",
-		"core_system": "核心系统",
-		"ready": "就绪",
-		"loading": "加载中",
-		"events": "事件",
-		"messages": "消息",
-		"char": "Char",
-		"prof": "Prof",
-		"events_suffix": "事件",
-		"generating_memory": "生成记忆"
-	},
-	"settings": {
-		"title": "设置",
-		"subtitle": "管理 AI 配置",
-		"appearance": {
-			"title": "主题",
-			"description": "选择偏好的主题。",
-			"themes": {
-				"system": "系统",
-				"tepora": "Tepora",
-				"light": "浅色",
-				"dark": "深色",
-				"system_desc": "跟随您的操作系统偏好设置。",
-				"tepora_desc": "标志性的经典茶室体验。",
-				"light_desc": "一个明亮、清爽的工作空间。",
-				"dark_desc": "一个中性、专注的深色环境。"
-			}
-		},
-		"thinking": {
-			"title": "思考过程",
-			"description": "配置思考过程的默认行为。",
-			"chat_default": "默认：在聊天中启用",
-			"chat_default_desc": "开始新的聊天会话时自动启用思考过程。",
-			"search_default": "默认：在搜索中启用",
-			"search_default_desc": "开始新的搜索会话时自动启用思考过程。"
-		},
-		"confirm_discard": "有未保存的更改。要放弃吗？",
-		"toast": {
-			"save_success": "设置已保存！",
-			"save_error": "保存设置失败。"
-		},
-		"save_bar": {
-			"reset": "重置",
-			"save": "保存更改",
-			"saving": "保存中...",
-			"unsaved": "有未保存的更改"
-		},
-		"models_settings": {
-			"global_manager": {
-				"title": "LLM 全局管理器",
-				"description": "流程管理和健康检查配置。",
-				"terminate_timeout": "终止超时",
-				"health_check_timeout": "健康检查超时",
-				"health_check_interval": "健康检查间隔",
-				"tokenizer_model": "分词器模型"
-			},
-			"download_manager": {
-				"title": "下载管理器",
-				"description": "管理本地模型文件。"
-			},
-			"configurations": {
-				"title": "模型配置",
-				"description": "每个模型实例的详细配置。",
-				"path": "路径",
-				"port": "端口",
-				"context": "上下文",
-				"gpu_layers": "GPU 层",
-				"temp": "Temp",
-				"top_p": "Top P",
-				"top_k": "Top K",
-				"repeat_penalty": "重复惩罚",
-				"max_tokens": "最大 token 数",
-				"max_tokens_desc": "每个响应生成的最大 token 数。",
-				"predict_len": "预测长度",
-				"predict_len_desc": "模型服务器的预测长度提示 (0 = 自动)。"
-			}
-		},
-		"sections": {
-			"general": {
-				"label": "常规",
-				"title": "应用程序",
-				"description": "核心应用程序设置和安全限制。",
-				"search_tool": {
-					"title": "搜索引擎",
-					"description": "设置搜索引擎与凭据。",
-					"provider_label": "搜索提供商",
-					"provider_desc": "选择用于本机搜索功能的搜索引擎。"
-				},
-				"google_search": {
-					"title": "谷歌搜索设置",
-					"api_key_label": "谷歌搜索 API 密钥",
-					"api_key_desc": "输入 Google Custom Search JSON API 的 API 密钥。",
-					"engine_id_label": "搜索引擎 ID",
-					"engine_id_desc": "输入 Programmable Search Engine ID。"
-				},
-				"app_settings": "应用程序设置",
-				"advanced_settings": "代理设置",
-				"advanced_settings_desc": "调整尝试次数与安全限制。",
-				"timeout_settings": "超时设置",
-				"inference_engine": {
-					"title": "推理引擎 (llama.cpp)",
-					"description": "管理 llama.cpp 二进制更新",
-					"current_version": "当前版本",
-					"new_available": "有新版本",
-					"check_updates": "检查更新",
-					"checking": "检查中...",
-					"starting": "正在开始更新...",
-					"completed": "更新完成！",
-					"failed": "更新失败",
-					"start_failed": "无法开始更新",
-					"error": "开始更新时出错"
-				},
-				"app_updater": "应用更新",
-				"brave_search": {
-					"title": "Brave 搜索设置",
-					"api_key_label": "Brave Search API 密钥",
-					"api_key_desc": "输入您的 Brave Search API 密钥 (Subscription Token)。"
-				},
-				"bing_search": {
-					"title": "Bing 搜索设置",
-					"api_key_label": "Bing Search API 密钥",
-					"api_key_desc": "输入您的 Bing Search v7 Subscription Key。"
-				}
-			},
-			"updater": {
-				"title": "软件更新",
-				"description": "管理 Tepora 更新。",
-				"current_version": "当前版本",
-				"new_version": "新版本",
-				"check_button": "检查更新",
-				"update_button": "立即更新",
-				"checking": "检查中...",
-				"downloading": "下载中...",
-				"installing": "安装中...",
-				"relaunching": "重启中...",
-				"uptodate": "已是最新！",
-				"error": "更新失败"
-			},
-			"privacy": {
-				"label": "隐私",
-				"title": "隐私设置",
-				"description": "管理外部通信和数据共享设置。",
-				"web_search": {
-					"label": "网络搜索",
-					"description": "允许模型在互联网上搜索信息。",
-					"warning_title": "网络搜索隐私警告",
-					"warning_query": "您的搜索查询将发送到配置的搜索引擎。",
-					"warning_api": "确保您信任在常规设置中指定的搜索API提供商。"
-				},
-				"isolation_mode": {
-					"label": "隔离模式",
-					"description": "限制访问外部工具和执行代码。",
-					"warning_title": "隔离模式警告",
-					"warning_mcp": "MCP服务器将被禁用。",
-					"warning_local": "本地命令执行将被拦截。",
-					"warning_web_search": "网络搜索将被禁用。"
-				},
-				"redact_pii": {
-					"label": "编辑个人身份信息",
-					"description": "在发送给提供商和工具之前自动屏蔽个人身份信息。"
-				},
-				"url_denylist": {
-					"label": "URL黑名单",
-					"description": "禁止访问的域名的逗号分隔列表。",
-					"placeholder": "例如：example.com，restricted.org"
-				}
-			},
-			"mcp": {
-				"label": "MCP 工具",
-				"title": "MCP 工具",
-				"description": "管理模型上下文协议服务器。",
-				"config_title": "配置路径",
-				"config_description": "设置 MCP 配置文件路径。",
-				"store_title": "MCP 商店",
-				"store_description": "从商店浏览并安装 MCP 服务器。",
-				"store_hint": "搜索注册表并安装服务器。",
-				"registered_title": "已注册服务器",
-				"registered_description": "启动/停止服务器并查看配置详情。"
-			},
-			"models": {
-				"label": "模型",
-				"title": "模型",
-				"description": "配置 LLM 路径和参数。",
-				"manager_title": "LLM 管理器设置",
-				"manager_description": "配置系统如何管理 LLM 进程和资源。",
-				"add_title": "添加模型",
-				"add_description": "添加并注册本地模型。",
-				"list_title": "模型列表（管理）",
-				"list_description": "管理已注册模型的删除与排序。",
-				"defaults_title": "模型默认值",
-				"defaults_description": "为不同用途设置默认模型。",
-				"cache_title": "模型缓存数",
-				"advanced_title": "高级管理器设置",
-				"advanced_description": "缓存和资源设置",
-				"add_new_model": "添加新模型",
-				"no_models": "没有配置模型。点击「添加新模型」添加一个。",
-				"no_models_for_role": "该角色没有模型。",
-				"confirm_delete": "确定要删除此模型配置吗？",
-				"manage_models": "管理模型（删除 / 重新排序）",
-				"text_model_title": "文本模型",
-				"text_model_desc": "选择用于文本生成的模型。",
-				"text_model_label": "文本模型",
-				"character_model_title": "角色默认模型",
-				"character_model_desc": "选择用于角色的默认模型。",
-				"character_model_label": "角色模型",
-				"embedding_model_title": "向量嵌入模型",
-				"embedding_model_desc": "选择用于记忆和检索的模型。",
-				"executor_label": "专业: {{taskType}}",
-				"executor_default_desc": "默认的专业模型。",
-				"executor_task_desc": "{{taskType}} 任务的专业模型。",
-				"executor_models_title": "专业默认模型",
-				"executor_models_desc": "为不同任务类型设置默认模型。",
-				"add_task_placeholder": "添加任务类型（例如：coding, browser）...",
-				"defaults": {
-					"global": "全局默认"
-				},
-				"check_updates": "检查更新",
-				"checking": "检查中...",
-				"update_available": "有可用更新",
-				"up_to_date": "已是最新",
-				"check_failed": "检查失败",
-				"update_btn": "更新模型",
-				"add_modal": {
-					"title": "添加模型",
-					"tab_local": "本地文件",
-					"tab_huggingface": "Hugging Face",
-					"drop_zone": "将 .gguf 文件拖放到此处",
-					"drop_zone_hint": "或选择文件",
-					"drop_zone_active": "将文件放在这里...",
-					"file_selected": "已选择的文件",
-					"model_name": "模型名称（ID）",
-					"role_text": "文本模型",
-					"role_embedding": "向量嵌入模型",
-					"repo_id": "仓库 ID",
-					"repo_id_placeholder": "用户/仓库",
-					"filename": "文件名",
-					"filename_placeholder": "model-Q4_K_M.gguf",
-					"download": "下载模型",
-					"downloading": "下载中...",
-					"starting": "开始下载...",
-					"add_local": "注册模型",
-					"invalid_file": "仅支持 .gguf 文件",
-					"path_required": "无法解析文件路径。此功能需要桌面环境。"
-				},
-				"consent_dialog": {
-					"title": "确认下载",
-					"description": "此下载需要你的确认才能继续：",
-					"confirm": "继续",
-					"default_warning": "此下载需要您的确认。"
-				},
-				"selection": {
-					"select_model": "选择模型...",
-					"no_models": "没有可用的模型",
-					"remove_mapping": "删除映射",
-					"configure": "模型配置",
-					"no_config": "没有可用配置"
-				},
-				"detail": {
-					"changes_note": "模型参数的更改将在下次加载时生效。",
-					"temp_desc": "控制随机性。",
-					"top_p_desc": "核心采样。",
-					"n_ctx": "上下文窗口（n_ctx）",
-					"n_ctx_desc": "模型一次可以处理的最大令牌数。",
-					"dials_hint": "拖动拨号盘以调整值",
-					"show_advanced": "显示高级设置",
-					"hide_advanced": "隐藏高级设置"
-				},
-				"configurations": {
-					"path_placeholder": "例如 /path/to/model.gguf"
-				},
-				"refresh_ollama": "刷新 Ollama",
-				"refresh_lmstudio": "刷新 LM Studio",
-				"search_title": "搜索设置",
-				"download_policy_title": "下载策略",
-				"loaders_title": "模型加载器",
-				"search_description": "配置使用嵌入模型进行搜索结果重新排名。",
-				"download_policy_description": "用于从远程库下载模型的安全控制。",
-				"loaders_description": "配置外部模型提供者的基础 URL。"
-			},
-			"agents": {
-				"label": "角色",
-				"title": "角色列表",
-				"description": "管理角色提示词与默认模型。",
-				"add_new_profile": "添加新档案",
-				"new_profile_key_placeholder": "档案 ID (字母数字和下划线)",
-				"add": "添加",
-				"cancel": "取消",
-				"cannot_delete_active": "无法删除当前激活的档案",
-				"confirm_delete": "删除此档案？",
-				"default_name": "新角色",
-				"default_prompt": "你是一个有帮助的助手。",
-				"delete": "删除",
-				"delete_confirm_title": "删除档案",
-				"edit": "编辑",
-				"error_duplicate_key": "该 ID 已被使用。",
-				"error_empty_key": "请输入 ID。",
-				"modal": {
-					"title_add": "添加角色",
-					"title_edit": "编辑角色",
-					"key_label": "ID (键)",
-					"key_desc": "系统内部使用的唯一标识符。",
-					"name_label": "显示名称",
-					"desc_label": "说明",
-					"prompt_label": "系统提示",
-					"model_label": "模型",
-					"model_desc": "选择此代理使用的模型配置。",
-					"key_placeholder": "请输入键"
-				},
-				"no_description": "无描述",
-				"nsfw_label": "允许受限内容(nsf)",
-				"nsfw_desc": "允许生成受限内容，请谨慎使用。",
-				"tab": {
-					"characters": "角色",
-					"professionals": "专业"
-				},
-				"professionals_coming_soon_title": "专业代理即将推出...",
-				"professionals_coming_soon_desc": "用于专门任务执行的代理目前正在开发中。",
-				"card": {
-					"label": "标签",
-					"label_placeholder": "代理名称",
-					"description": "描述",
-					"description_placeholder": "简短描述",
-					"persona": "角色",
-					"persona_description": "定义代理的个性和角色。",
-					"preset_key": "预设键",
-					"preset_key_placeholder": "例如：default（可选）",
-					"select_preset": "选择预设...",
-					"custom_prompt": "自定义提示（覆盖）",
-					"custom_prompt_placeholder": "你是一个有用的 AI 助手...",
-					"allowed_tools": "允许的工具",
-					"allowed_tools_description": "使用“*”表示全部。",
-					"denied_tools": "拒绝的工具",
-					"tool_placeholder": "工具名称...",
-					"currently_active": "当前活动",
-					"set_active": "设为活动",
-					"active": "活动",
-					"set_active_short": "设置",
-					"delete": "删除",
-					"icon": "图标",
-					"icon_placeholder": "图标",
-					"avatar_path": "头像路径",
-					"avatar_placeholder": "头像"
-				}
-			},
-			"custom_agents": {
-				"label": "专业",
-				"title": "专业列表",
-				"description": "管理专业提示词、允许工具与默认模型。",
-				"add_new": "新增专业",
-				"no_description": "无说明",
-				"default_name": "新专业",
-				"default_prompt": "你是一个有用的助手。",
-				"confirm_delete": "确定要删除此专业吗？",
-				"delete_confirm_title": "删除专业",
-				"error_empty_id": "请输入 ID。",
-				"error_empty_name": "请输入名称。",
-				"error_empty_prompt": "请输入系统提示。",
-				"error_duplicate_id": "此 ID 已在使用中。",
-				"modal": {
-					"title_add": "添加专业",
-					"title_edit": "编辑专业",
-					"id_label": "专业 ID",
-					"id_desc": "唯一标识符（小写，无空格）",
-					"icon_label": "图标",
-					"name_label": "名称",
-					"description_label": "说明",
-					"prompt_label": "系统提示",
-					"prompt_desc": "定义代理的行为和个性。",
-					"model_label": "模型",
-					"enabled_label": "启用",
-					"tools_label": "允许工具",
-					"no_tools": "无可用工具",
-					"tags_label": "标签",
-					"priority_label": "优先级",
-					"allow_all_tools": "允许所有工具（黑名单模式）"
-				}
-			},
-			"other": {
-				"label": "其他",
-				"updates": {
-					"title": "更新",
-					"description": "管理应用和推理引擎更新。"
-				},
-				"timeouts": {
-					"description": "设置执行限制与超时。",
-					"model_manager": "模型管理器",
-					"tools": "工具"
-				}
-			},
-			"memory": {
-				"label": "记忆",
-				"title": "EM-LLM (情景记忆)",
-				"description": "配置情景记忆和历史限制。"
-			},
-			"chat_history": {
-				"title": "本地上下文窗口"
-			},
-			"extended": {
-				"ui_title": "用户界面与通知",
-				"ui_description": "配置外观细节和后台通知。",
-				"font_family": "字体",
-				"font_family_desc": "主要文本渲染的界面字体。",
-				"font_family_placeholder": "例: Noto Sans",
-				"font_size": "字体大小",
-				"font_size_desc": "基础界面字体大小 (像素)。",
-				"code_theme": "代码高亮主题",
-				"code_theme_desc": "代码块的语法高亮主题。",
-				"code_theme_placeholder": "例: github-dark",
-				"thinking_max_tokens": "最大思考代币",
-				"thinking_max_tokens_desc": "思考代币消耗的上限。",
-				"code_wrap": "代码换行",
-				"code_wrap_desc": "为代码块启用自动换行。",
-				"code_line_numbers": "代码块行号",
-				"code_line_numbers_desc": "在代码块中显示行号。",
-				"notification_os": "后台任务系统通知",
-				"notification_os_desc": "完成后台任务时显示系统通知。",
-				"notification_sound": "后台任务声音",
-				"notification_sound_desc": "后台任务完成时播放提示音。",
-				"shortcuts_title": "快捷键",
-				"shortcuts_description": "配置快速操作的键盘快捷键。",
-				"shortcut_new_chat": "新建对话",
-				"shortcut_new_chat_desc": "启动新对话的键盘快捷键。",
-				"shortcut_custom": "附加快捷键",
-				"shortcut_custom_desc": "通过配置 action=keybinding 添加快捷键 (例如: open_settings=Ctrl+,)。",
-				"chunk_chars": "分块大小 (字符)",
-				"chunk_chars_desc": "按字符计数索引文本时的分块大小。",
-				"chunk_tokens": "分块大小 (Token)",
-				"chunk_tokens_desc": "按令牌数索引文本时的分块大小。",
-				"chunk_overlap": "分块重叠",
-				"chunk_overlap_desc": "连续分块之间的重叠大小。",
-				"export_format": "备份导出格式",
-				"export_format_desc": "备份导出的首选格式。",
-				"watch_folders": "监视文件夹",
-				"watch_folders_desc": "监视索引目标的文件夹。",
-				"watch_folders_placeholder": "例: D:\\docs",
-				"vector_store_dir": "向量存储目录",
-				"vector_store_dir_desc": "向量数据库文件的存储路径。",
-				"vector_store_dir_placeholder": "例: C:\\Tepora\\db",
-				"model_files_dir": "模型文件加载路径",
-				"model_files_dir_desc": "模型文件的存储路径。",
-				"model_files_dir_placeholder": "例: C:\\Tepora\\models",
-				"backup_chat_history": "文件备份: 聊天记录",
-				"backup_settings": "文件备份: 用户偏好",
-				"backup_characters": "文件备份: 自定义角色",
-				"backup_executors": "文件备份: 自定义任务",
-				"restore_enabled": "安全备份与覆盖",
-				"character_import_export": "角色批量系统加载",
-				"executor_import_export": "任务批量管理操作",
-				"cache_clear_on_start": "默认重置环境配置",
-				"cache_cleanup_embeddings": "废旧逻辑删除",
-				"cache_cleanup_temp": "空无文档清洗",
-				"cache_limit_mb": "限制使用空间 (MB)",
-				"storage_title": "文件目录与存储扩展",
-				"storage_description": "调整碎片大小与内容索引方案与模型基础参数",
-				"performance_title": "网络响应与资源保护",
-				"performance_description": "控制系统加载等操作",
-				"auto_start": "开启应用程序随系统启动的功能。",
-				"tray_resident": "启动时关闭托盘控制台，作为后台服务执行。",
-				"hardware_acceleration": "硬件辅助",
-				"gpu_vram_limit": "限制显卡",
-				"memory_limit": "限制内存资源使用率",
-				"security_title": "应用和服务器接口控制",
-				"security_description": "管理环境下的黑白名单和基础使用参数访问资源设置",
-				"allowed_tools": "允许功能池 (列表白名单)",
-				"allowed_tools_desc": "工具管理参数的使用方案白名单认证。",
-				"denied_tools": "风险屏蔽池 (管理黑名单)",
-				"denied_tools_desc": "黑名单保护体系。",
-				"tool_confirmation": "请求外部认证",
-				"first_use_confirmation": "工具确认规则设置",
-				"dangerous_patterns": "命令规则限制",
-				"dangerous_patterns_desc": "保护服务器命令。",
-				"proxy_http": "系统代理配置",
-				"proxy_http_desc": "设置本地使用的反向应用控制.",
-				"proxy_https": "访问安全通道",
-				"proxy_https_desc": "提供SSL资源共享下载等使用的安全设置网络.",
-				"custom_certificate": "受保护资源证明地址",
-				"custom_certificate_desc": "安全配置。",
-				"server_host": "网络分配端口",
-				"server_host_desc": "限制后端访问来源。",
-				"allowed_origins": "连接外部允许服务",
-				"allowed_origins_desc": "控制跨站点权限。",
-				"cors_origins": "网络配置协议限制跨源共享使用",
-				"cors_origins_desc": "允许其他网络来源使用当前接口。",
-				"ws_origins": "交互端口代理白名单协议。",
-				"ws_origins_desc": "安全保障策略。",
-				"models_title": "深度大模型核心数据",
-				"models_description": "管理控制大模型的特定工作系统，需要有一定的技术能力",
-				"character_default_model": "角色应用系统",
-				"supervisor_default_model": "规划与管理",
-				"executor_default_model": "特定工作负载使用",
-				"logprobs": "允许系统进行模型对数分布概率生成方案。",
-				"logprobs_desc": "需要有大模型后端本身支持开启这种环境。",
-				"system_prompt_prefix": "覆盖前端统一角色身份限定前置预设配置。",
-				"system_prompt_prefix_desc": "控制角色逻辑与设定使用环境前置保护",
-				"system_prompt_suffix": "角色约束强制重定位与规范性收尾限定控制处理。",
-				"system_prompt_suffix_desc": "防止格式混乱使用后置修正方案",
-				"loader_specific_text": "大语言模型生成负载使用特定属性参数JSON表",
-				"loader_specific_text_desc": "用于解决如rope编码错误或模型特定的技术负载处理",
-				"loader_specific_embedding": "理解向量映射重构使用技术分配参数模型表",
-				"loader_specific_embedding_desc": "控制嵌入长度重叠和环境使用方案"
-			},
-			"execution_agents": {
-				"title": "Agent 技能",
-				"description": "Supervisor 读取每个技能的元数据，而 Execution 完全遵循所选的 SKILL.md 资源包。",
-				"layout_title": "Agent 技能布局",
-				"layout_desc": "必须包含带有 YAML frontmatter 的 `SKILL.md`。可选资源包内容包括 `agents/openai.yaml`、`references/`、`scripts/` 和 `assets/`。",
-				"roots_title": "技能根目录",
-				"roots_desc": "根目录更改保存在设置中。请先保存设置以应用添加或删除的根目录，然后再在其中创建包。",
-				"add_file": "添加文件",
-				"no_files": "没有文件。",
-				"packages_title": "资源包",
-				"no_skills": "未找到 Agent 技能。",
-				"loading_package": "正在加载资源包...",
-				"select_skill": "选择要编辑的技能包。",
-				"save_skill": "保存技能",
-				"saving_skill": "保存中...",
-				"delete_skill": "删除",
-				"validation_warnings": "验证警告",
-				"target_root": "目标根目录",
-				"skill_id": "技能ID",
-				"add_root": "添加根目录",
-				"refresh": "刷新",
-				"enabled": "已启用",
-				"disabled": "已禁用",
-				"writable": "可写",
-				"readonly": "只读",
-				"valid": "有效",
-				"needs_fix": "需要修复",
-				"select_root": "选择根目录"
-			}
-		},
-		"groups": {
-			"custom": "自定义"
-		},
-		"nav": {
-			"general": "通用",
-			"privacy": "隐私",
-			"data_storage": "数据存储",
-			"system_performance": "系统性能",
-			"agents": "角色",
-			"execution_agents": "Agent 技能",
-			"models": "模型",
-			"mcp": "MCP工具",
-			"memory": "记忆",
-			"other": "其他"
-		},
-		"backup": {
-			"stage": {
-				"apply": "应用"
-			}
-		},
-		"character_edit": {
-			"choose_emoji": "选择表情",
-			"upload_image": "上传图片",
-			"clear_avatar": "清除"
-		},
-		"fields": {
-			"language": {
-				"label": "界面语言",
-				"description": "选择首选语言。"
-			},
-			"max_input_length": {
-				"label": "最大输入长度",
-				"description": "用户输入允许的最大字符数。"
-			},
-			"graph_recursion_limit": {
-				"label": "最大尝试次数",
-				"description": "代理可尝试的最大次数（安全限制）。"
-			},
-			"tool_execution_timeout": {
-				"label": "工具执行超时",
-				"description": "工具执行超时前的秒数。"
-			},
-			"tool_approval_timeout": {
-				"label": "工具审批超时",
-				"description": "工具审批请求过期前的秒数。"
-			},
-			"web_fetch_max_chars": {
-				"label": "网页抓取最大字符数",
-				"description": "从网页获取的最大字符数。"
-			},
-			"dangerous_patterns": {
-				"label": "危险模式",
-				"description": "为安全起见，阻止用户输入的正则表达式模式。",
-				"placeholder": "添加正则表达式模式 (例如 system\\s*:)"
-			},
-			"cache_size": "模型缓存数量",
-			"web_fetch_max_bytes": {
-				"label": "最大获取大小",
-				"description": "网页获取的最大字节数。"
-			},
-			"web_fetch_timeout_secs": {
-				"label": "网页获取超时",
-				"description": "网页获取的超时秒数。"
-			},
-			"graph_execution_timeout": {
-				"label": "图执行超时",
-				"description": "代理运行的最大执行时间。"
-			},
-			"embedding_rerank": {
-				"label": "重排搜索结果",
-				"description": "使用嵌入模型对搜索结果进行重排。"
-			},
-			"require_allowlist": {
-				"label": "必须在允许列表",
-				"description": "仅允许下载允许列表中的模型。"
-			},
-			"warn_on_unlisted": {
-				"label": "未列出时警告",
-				"description": "下载未列出的模型时显示警告。"
-			},
-			"require_revision": {
-				"label": "要求修订哈希",
-				"description": "下载模型时要求修订哈希。"
-			},
-			"require_sha256": {
-				"label": "要求 SHA256",
-				"description": "使用 SHA256 校验和验证文件完整性。"
-			},
-			"allow_repo_owners": {
-				"label": "允许的仓库所有者",
-				"description": "无条件允许的仓库所有者。",
-				"placeholder": "例如 TheBloke"
-			},
-			"ollama_base_url": {
-				"label": "Ollama 基础 URL",
-				"description": "Ollama 的 API 端点。",
-				"placeholder": "http://localhost:11434"
-			},
-			"lmstudio_base_url": {
-				"label": "LM Studio 基础 URL",
-				"description": "LM Studio 的 API 端点。",
-				"placeholder": "http://localhost:1234"
-			}
-		},
-		"descriptions": {
-			"cache_size": "内存中保留的模型数量。"
-		},
-		"privacy": {
-			"isolation_mode": {
-				"label": "隔离模式（飞行模式）",
-				"description": "启用后将阻止所有外部网络通信。仅可使用本地LLM。",
-				"warning_title": "隔离模式已启用",
-				"warning_web_search": "网络搜索和页面获取已禁用",
-				"warning_mcp": "MCP服务器工具调用已被阻止",
-				"warning_local": "本地LLM（llama.cpp / Ollama / LM Studio）仍可使用"
-			},
-			"web_search": {
-				"label": "允许联网",
-				"description": "允许AI使用互联网搜索来检索信息。",
-				"warning_title": "数据共享通知",
-				"warning_query": "搜索查询将发送到Google API",
-				"warning_api": "您配置的API密钥将用于搜索请求"
-			},
-			"redact_pii": {
-				"label": "个人信息保护",
-				"description": "自动从日志中删除个人信息（电子邮件地址、电话号码等），并在发送到外部服务之前从网页搜索查询中删除个人信息。"
-			},
-			"url_denylist": {
-				"label": "URL 拒绝列表",
-				"description": "阻止 Web 获取的域或模式。内部/私有范围始终被阻止。",
-				"placeholder": "例如 *.example.com"
-			}
-		},
-		"mcp_content": {
-			"info": {
-				"title": "配置信息",
-				"description": "MCP (模型上下文协议) 工具允许 AI 与外部数据和服务交互。目前，MCP 配置通过本地 JSON 配置文件进行管理。"
-			},
-			"servers": {
-				"title": "检测到的服务器",
-				"active": "活跃"
-			},
-			"config_path": {
-				"title": "配置路径",
-				"readonly": "只读",
-				"helper": "要添加新的 MCP 服务器，请直接编辑此文件并重启后端。"
-			}
-		},
-		"mcp": {
-			"refresh": "刷新状态",
-			"details": {
-				"open": "打开详情",
-				"title": "服务器详情：{{name}}",
-				"autorun": {
-					"label": "自动运行许可",
-					"description": "应用启动时自动启用此服务器。"
-				},
-				"command": {
-					"label": "命令",
-					"description": "用于启动 MCP 服务器的可执行命令。"
-				},
-				"args": {
-					"label": "参数",
-					"description": "每行一个参数。"
-				},
-				"env": {
-					"label": "环境变量",
-					"description": "使用 KEY=VALUE 格式，每行一个。"
-				},
-				"env_invalid": "环境变量需使用 KEY=VALUE 格式。",
-				"command_required": "命令为必填项。",
-				"save_failed": "保存配置失败。",
-				"saving": "保存中..."
-			},
-			"policy": {
-				"title": "安全策略",
-				"mode": {
-					"label": "连接模式",
-					"description": "控制允许连接的服务器范围。",
-					"local_only": "仅本地 (推荐)",
-					"stdio_only": "仅标准输入输出 (最安全)",
-					"allowlist": "仅允许列表"
-				},
-				"confirmation": {
-					"label": "工具确认",
-					"description": "在执行工具前请求许可。"
-				},
-				"first_use": {
-					"label": "首次使用确认",
-					"description": "每个会话首次调用工具时显示确认。"
-				},
-				"blocked_commands": {
-					"label": "封锁的命令",
-					"description": "MCP 服务器永远不允许执行的命令。",
-					"placeholder": "例如 rm -rf"
-				}
-			},
-			"addServer": "添加服务器",
-			"config_path": {
-				"label": "MCP 配置文件",
-				"description": "定义 MCP 服务器的 JSON 文件路径。"
-			},
-			"disabled": "已禁用",
-			"disable": "禁用",
-			"enable": "启用",
-			"delete": "删除",
-			"confirmDelete": "确认删除",
-			"cancelDelete": "取消删除",
-			"noServers": {
-				"title": "没有 MCP 服务器",
-				"description": "点击“添加服务器”从官方注册表安装服务器。"
-			},
-			"status": {
-				"connected": "已连接 ({{count}} 工具)",
-				"disconnected": "已断开",
-				"error": "错误",
-				"connecting": "连接中",
-				"unknown": "未知"
-			},
-			"store": {
-				"title": "MCP 服务器商店",
-				"searchPlaceholder": "搜索服务器...",
-				"noResults": "未找到服务器",
-				"selectRuntime": "选择运行时",
-				"runtimeDescription": "选择运行此服务器的运行时。",
-				"runtime": "运行环境",
-				"configure": "配置",
-				"configDescription": "输入所需的环境变量。",
-				"confirm": "确认",
-				"install": "安装",
-				"preview": "预览命令",
-				"installing": "安装中...",
-				"commandPreview": "命令预览",
-				"securityWarnings": "安全警告",
-				"envVars": "环境变量",
-				"confirmInstall": "确认安装",
-				"pagination": "显示 {{from}}-{{to}} / {{total}}（第 {{page}}/{{totalPages}} 页）",
-				"prevPage": "上一页",
-				"nextPage": "下一页"
-			}
-		},
-		"memory": {
-			"max_tokens": {
-				"label": "本地上下文窗口",
-				"description": "活动对话上下文的最大令牌数。"
-			},
-			"surprise_gamma": {
-				"label": "惊奇 Gamma",
-				"description": "事件边界检测的灵敏度 (0.0 - 1.0)。"
-			},
-			"min_event_size": {
-				"label": "最小事件大小",
-				"description": "形成记忆事件的最小 token 数。"
-			},
-			"max_event_size": {
-				"label": "最大事件大小",
-				"description": "每个记忆事件的最大 token 数。"
-			},
-			"retrieved_events": {
-				"label": "检索事件",
-				"description": "要召回的过去事件数量。"
-			},
-			"repr_topk": {
-				"label": "Repr Top K",
-				"description": "事件表示的 Top K token。"
-			},
-			"boundary_refinement": {
-				"label": "边界细化",
-				"description": "提高事件分割精度。"
-			},
-			"default_limit": {
-				"label": "消息数量",
-				"description": "从历史记录中检索的默认消息数。"
-			},
-			"explorer": {
-				"title": "已保存事件",
-				"description": "查看并管理已保存的事件。",
-				"button": "打开列表"
-			},
-			"episodic_params_title": "情景记忆参数",
-			"episodic_params_desc": "EM-LLM 的高级配置",
-			"title": "记忆",
-			"connecting": "连接中",
-			"character_memory": "角色记忆",
-			"stats": {
-				"total_events": "总事件数",
-				"total_tokens": "总 token 数",
-				"mean_event_size": "平均事件大小",
-				"surprise_statistics": "惊奇统计",
-				"mean_surprise": "平均惊奇值",
-				"max_surprise": "最大惊奇值"
-			},
-			"compaction": {
-				"scanned": "已扫描:",
-				"merged_groups": "已合并组:",
-				"replaced": "已替换:",
-				"created": "已创建:",
-				"elapsed": "耗时:",
-				"compressing": "压缩中...",
-				"failed": "压缩失败。",
-				"history": "内存压缩历史记录",
-				"no_jobs": "暂无压缩历史记录。点击“压缩内存”开始。",
-				"refresh": "↺ 刷新",
-				"loading": "加载中..."
-			},
-			"professional_memory": "专业记忆"
-		},
-		"placeholders": {
-			"mcp_config": "config/mcp_tools_config.json",
-			"google_api_key": "AIza...",
-			"google_engine_id": "0123456789...",
-			"regex": "正则表达式 (例如 system\\\\s*:)"
-		},
-		"search": {
-			"providers": {
-				"google": "Google 自定义搜索",
-				"duckduckgo": "DuckDuckGo",
-				"brave": "Brave 搜索",
-				"bing": "Bing 网页搜索 (v7)"
-			}
-		}
-	},
-	"tool_errors": {
-		"search_disabled_privacy": "隐私设置已禁用网络搜索。",
-		"search_disabled_api_keys": "Google自定义搜索已禁用（API密钥未配置）。",
-		"search_timeout": "搜索请求超时。请稍后重试。",
-		"search_connection_error": "连接失败。请检查您的互联网连接并重试。",
-		"search_rate_limit": "超出速率限制。请稍等片刻再试。",
-		"search_access_denied": "API访问被拒绝。请检查您的API密钥和权限。",
-		"search_http_error": "发生HTTP错误（状态码：{{status_code}}）。",
-		"search_failed": "搜索失败：{{details}}",
-		"search_invalid_response": "Google API返回无效响应。请重试。",
-		"search_unexpected_error": "发生意外错误：{{details}}",
-		"search_api_error": "Google API错误：{{message}}",
-		"url_invalid_scheme": "URL必须包含有效的http/https协议和主机。",
-		"url_no_hostname": "无法从URL确定主机名。",
-		"url_blocked_private": "出于安全原因，对 {{host}} 的访问已被阻止（私有/本地网络）。",
-		"url_blocked_private_ip": "出于安全原因，对私有/本地IP地址的访问已被阻止。",
-		"fetch_failed": "无法从 {{url}} 获取内容：{{details}}",
-		"fetch_not_html": "URL不是HTML页面（Content-Type：{{content_type}}）。",
-		"tool_timeout": "工具 '{{tool_name}}' 执行超时。",
-		"tool_not_found": "未找到工具 '{{tool_name}}'。",
-		"tool_no_method": "工具 '{{tool_name}}' 没有可调用的方法。",
-		"tool_execution_error": "执行工具 '{{tool_name}}' 时出错：{{details}}"
-	},
-	"errorBoundary": {
-		"title": "发生错误",
-		"message": "用户界面遇到意外错误。请重新加载应用以继续。",
-		"details": "错误详情",
-		"reload": "重新加载"
-	},
-	"Close": "关闭",
-	"error": "错误",
-	"info": "信息",
-	"empty": {
-		"capability": {
-			"search": {
-				"title": "高级搜索",
-				"desc": "搜索并汇总网络信息"
-			},
-			"code": {
-				"title": "编码助手",
-				"desc": "编写、审查和重构代码"
-			},
-			"chat": {
-				"title": "聊天与咨询",
-				"desc": "就各种话题进行对话"
-			}
-		},
-		"hero": {
-			"subtitle": "今天有什么我可以帮您的？"
-		}
-	},
-	"shortcuts": {
-		"newSession": "新建会话",
-		"stopGeneration": "停止生成",
-		"showHelp": "显示帮助",
-		"title": "键盘快捷键",
-		"footer": "使用快捷键提高操作效率"
-	},
-	"model": {
-		"role": {
-			"text": "文本",
-			"embedding": "嵌入"
-		}
-	},
-	"modelHub": {
-		"title": "模型中心",
-		"subtitle": "管理可用的 AI 模型",
-		"search_placeholder": "搜索模型...",
-		"no_models_found": "未找到模型"
-	},
-	"store": {
-		"by_vendor": "{{vendor}} 提供"
-	},
-	"v2": {
-		"common": {
-			"loading": "加载中...",
-			"save": "保存",
-			"saving": "保存中...",
-			"cancel": "取消",
-			"enabled": "已启用",
-			"disabled": "已禁用"
-		},
-		"mode": {
-			"chat": "聊天",
-			"search": "搜索",
-			"agent": "代理",
-			"openMenu": "打开模式与设置菜单"
-		},
-		"chat": {
-			"assistantFallback": "助手",
-			"emptyState": "今天我可以帮你做什么？",
-			"copy": "复制",
-			"copied": "已复制",
-			"regenerate": "重新生成",
-			"generating": "生成中",
-			"thinking": "推理记录",
-			"inputPlaceholder": "在这里输入...",
-			"removeAttachment": "移除附件",
-			"stop": "停止生成",
-			"send": "发送",
-			"thinkingOn": "深思模式已开启",
-			"thinkingOff": "深思模式已关闭",
-			"attach": "附加",
-			"enterToSend": "Enter 发送",
-			"enterToSendHint": "Enter 发送，Shift+Enter 换行",
-			"moreActions": "更多操作",
-			"reconnecting": "重新连接中..."
-		},
-		"session": {
-			"historyTitle": "历史记录",
-			"historySubtitle": "会话",
-			"newSession": "新会话",
-			"empty": "还没有历史记录。",
-			"previewFallback": "还没有预览",
-			"rename": "重命名",
-			"delete": "删除",
-			"deleteTitle": "删除会话",
-			"deleteMessage": "删除此会话并清除所有历史消息？",
-			"openHistory": "打开历史记录",
-			"moreActions": "会话操作"
-		},
-		"character": {
-			"switch": "切换角色",
-			"active": "当前角色",
-			"available": "可用角色",
-			"noDescription": "没有描述"
-		},
-		"agent": {
-			"openPanel": "打开模式面板",
-			"activeContext": "当前上下文",
-			"approvalRequired": "需要批准",
-			"deny": "拒绝",
-			"approveOnce": "仅批准一次",
-			"allowTemporary": "临时允许",
-			"risk": "风险"
-		},
-		"settings": {
-			"open": "打开设置",
-			"loadError": "加载设置失败。",
-			"saving": "正在保存更改...",
-			"pendingSave": "即将保存...",
-			"allSaved": "所有更改已自动保存",
-			"return": "返回会话",
-			"autoSave": "已启用自动保存",
-			"categories": {
-				"general": {
-					"label": "常规",
-					"tabs": {
-						"basics": "基本",
-						"thinking": "思考"
-					}
-				},
-				"appearance": {
-					"label": "外观",
-					"tabs": {
-						"theme": "主题",
-						"typography": "排版",
-						"code_blocks": "代码块",
-						"notifications": "通知",
-						"shortcuts": "快捷键"
-					}
-				},
-				"characters": {
-					"label": "角色",
-					"tabs": {
-						"personas": "角色",
-						"custom_agents": "自定义代理"
-					}
-				},
-				"models": {
-					"label": "模型",
-					"tabs": {
-						"hub": "中心",
-						"defaults": "默认",
-						"embedding": "嵌入",
-						"loader": "加载器",
-						"advanced": "高级"
-					}
-				},
-				"privacy": {
-					"label": "隐私",
-					"tabs": {
-						"privacy": "隐私",
-						"quarantine": "隔离",
-						"permissions": "权限"
-					}
-				},
-				"tools": {
-					"label": "工具",
-					"tabs": {
-						"web_search": "网络搜索",
-						"agent_skills": "代理技能",
-						"mcp": "MCP",
-						"credentials": "凭证"
-					}
-				},
-				"memory": {
-					"label": "内存",
-					"tabs": {
-						"basics": "基本",
-						"decay_engine": "衰减引擎",
-						"retrieval": "检索"
-					}
-				},
-				"context": {
-					"label": "上下文",
-					"tabs": {
-						"rag": "RAG",
-						"window_allocation": "窗口分配"
-					}
-				},
-				"data": {
-					"label": "数据",
-					"tabs": {
-						"indexing": "索引",
-						"paths": "路径",
-						"cache": "缓存",
-						"backup": "备份"
-					}
-				},
-				"system": {
-					"label": "系统",
-					"tabs": {
-						"integration": "集成",
-						"performance": "性能",
-						"updates": "更新"
-					}
-				},
-				"advanced": {
-					"label": "高级",
-					"tabs": {
-						"execution": "执行",
-						"agent": "代理",
-						"model_dl": "模型下载",
-						"features": "功能",
-						"server": "服务器"
-					}
-				}
-			},
-			"languages": {
-				"en": "英语",
-				"ja": "日语",
-				"es": "西班牙语",
-				"zh": "中文"
-			},
-			"themes": {
-				"system": "系统",
-				"tepora": "Tepora",
-				"light": "浅色",
-				"dark": "深色"
-			},
-			"agentSkills": "代理技能",
-			"skillRoots": "技能根路径",
-			"skillRootsDescription": "存储在后端配置中的逗号分隔的技能根路径",
-			"mcp": "MCP",
-			"mcpConfigPath": "MCP配置路径",
-			"mcpConfigPathDescription": "后端使用的MCP配置文件的路径",
-			"credentials": "凭证",
-			"credentialsDescription": "凭证在每个提供商选项卡上内联编辑，并通过后端安全存储保存。",
-			"webSearch": "网络搜索",
-			"provider": "提供商",
-			"googleApiKey": "Google API密钥",
-			"googleApiKeyDescription": "保存时通过后端服务器安全存储",
-			"googleApiKeyPlaceholder": "Google自定义搜索API密钥",
-			"googleEngineId": "Google搜索引擎ID",
-			"googleEngineIdPlaceholder": "自定义搜索引擎ID",
-			"braveApiKey": "Brave API密钥",
-			"braveApiKeyPlaceholder": "Brave搜索API密钥",
-			"bingApiKey": "Bing API密钥",
-			"bingApiKeyPlaceholder": "Bing搜索API密钥",
-			"performance": "性能",
-			"processTimeout": "进程超时",
-			"processTimeoutDescription": "强制关闭外部加载器前等待的毫秒数",
-			"updates": "更新",
-			"autoUpdate": "自动更新",
-			"autoUpdateDescription": "允许Tepora检查应用程序和运行时的更新。",
-			"integration": "集成",
-			"startOnLogin": "登录时启动",
-			"startOnLoginDescription": "在桌面会话开始时自动启动Tepora。",
-			"ollamaBaseUrl": "Ollama 基本URL",
-			"lmStudioBaseUrl": "LM Studio 基本URL"
-		}
-	}
+  "setup": {
+    "title": "Tepora 配置",
+    "checking": "正在检查环境...",
+    "ready": "所有系统准备就绪！",
+    "binary_needed": "需要设置推理引擎",
+    "models_needed": "需要下载模型",
+    "complete": "设置完成！",
+    "error": "设置过程中出错",
+    "errors": {
+      "req_check_failed": "要求检查失败",
+      "start_failed": "启动设置失败",
+      "setup_failed_start": "设置无法启动",
+      "finalize_failed": "完成设置失败",
+      "save_config_failed": "保存配置失败。请重试。",
+      "unknown": "未知错误",
+      "preflight_failed": "预检失败"
+    },
+    "start": "启动 Tepora",
+    "auto_setup": "自动设置",
+    "skip": "跳过",
+    "skip_setup": "跳过设置",
+    "retry": "重试",
+    "downloading": "正在下载...",
+    "steps": {
+      "language": "选择语言",
+      "select_language": "选择语言",
+      "binary": "推理引擎 (llama.cpp)",
+      "models": "模型",
+      "language_desc": "选择您的首选语言来自定义 Tepora。"
+    },
+    "status": {
+      "satisfied": "已安装",
+      "missing": "缺失",
+      "outdated": "可用更新",
+      "installed": "已安装",
+      "not_downloaded": "未下载"
+    },
+    "accessibility": {
+      "progress": "进度"
+    },
+    "download_warning_title": "确认模型下载",
+    "download_warning_desc": "某些模型不在允许列表中。请查看警告并确认继续。",
+    "download_warning_cancel": "取消",
+    "download_warning_confirm": "继续",
+    "advanced_settings": "高级设置 (更改模型)",
+    "model_settings": "模型设置",
+    "model": "模型",
+    "checking_desc": "正在检查系统需求和依赖...",
+    "ready_desc": "Tepora 已准备好成为你的 AI 伙伴。",
+    "all_set": "全部就绪！",
+    "installing": "安装中...",
+    "extracting": "解压中...",
+    "failed": "配置失败",
+    "install_selected": "安装所选模型",
+    "start_install": "开始安装",
+    "custom": "自定义配置（高级）",
+    "custom_desc": "指定你自己的 GGUF 模型仓库和文件名。",
+    "custom_models": "自定义模型",
+    "launch": "启动 Tepora",
+    "storage_required": "每个模型约需 2GB 以上空间",
+    "storage_desc": "Tepora 在本地运行。模型将存储在你的 AppData 文件夹中。",
+    "storage_requirement_label": "存储要求：",
+    "storage_requirement_hint": "模型存储在您的 AppData 文件夹中。请确保存储空间充足。",
+    "loading_recommendations": "正在加载推荐模型...",
+    "custom_repo_placeholder": "仓库 ID (例如 user/repo)",
+    "custom_filename_placeholder": "文件名 (例如 model.gguf)",
+    "model_role_text": "文本模型",
+    "model_role_embedding": "嵌入模型",
+    "approx_vram": "~2.5GB 显存",
+    "installing_desc": "这可能需要几分钟，具体取决于您的互联网连接。我们正在为您准备个性化的 AI 体验。",
+    "did_you_know": "你知道吗？",
+    "offline_privacy_tip": "Tepora 安装后完全离线运行。您的数据保留在您的设备上，确保最大的隐私和安全性。",
+    "hide_logs": "隐藏详细日志",
+    "show_logs": "显示详细日志",
+    "installer_output": "安装程序输出",
+    "embedding_warning_title": "嵌入模型警告",
+    "embedding_warning_proceed": "继续",
+    "loader_title": "加载器准备",
+    "step_lang": "语言",
+    "step_engine": "引擎",
+    "step_model": "模型",
+    "step_install": "安装",
+    "step_done": "完成",
+    "loader_select_title": "选择加载器",
+    "loader_select_desc": "请选择推理引擎"
+  },
+  "app": {
+    "loading": "连接服务器中...",
+    "loadingHint": "这可能需要几秒钟"
+  },
+  "errors": {
+    "unknownError": "发生未知错误。",
+    "connectionErrorTitle": "连接错误",
+    "retryButton": "重试连接",
+    "viewLogsButton": "查看日志",
+    "troubleshootHint": "请确保后端服务器正在预期的端口上运行。"
+  },
+  "logs": {
+    "title": "日志文件",
+    "refresh": "刷新列表",
+    "refresh_content": "刷新内容",
+    "loading_logs": "正在加载日志...",
+    "loading_content": "正在加载内容...",
+    "no_logs": "未找到日志",
+    "select_log": "选择日志",
+    "select_to_view": "选择日志文件以查看其内容。",
+    "error_fetch": "获取日志失败",
+    "error_content": "获取日志内容失败",
+    "unknown_error": "发生错误"
+  },
+  "tool_confirmation": {
+    "title": "工具执行确认",
+    "description": "即将执行一个工具。",
+    "params": "参数",
+    "allow_session": "在此会话中始终允许此工具",
+    "warning_deny": "⚠️ 拒绝将停止进程",
+    "deny": "拒绝",
+    "allow": "允许",
+    "names": {
+      "native_web_fetch": "获取网页",
+      "native_google_search": "谷歌搜索"
+    },
+    "descriptions": {
+      "native_web_fetch": "访问指定的URL。",
+      "native_google_search": "执行谷歌网页搜索。"
+    }
+  },
+  "session_history": {
+    "title": "会话历史",
+    "new": "新会话",
+    "list_aria_label": "会话列表",
+    "edit_title": "编辑会话标题",
+    "delete_title": "删除会话",
+    "delete_message": "确定要删除此会话吗？所有对话历史记录都将丢失。",
+    "loading": "加载中...",
+    "empty": "暂无会话",
+    "messages": "条消息"
+  },
+  "newSession": "新会话",
+  "sessionHistory": "会话历史",
+  "close": "关闭",
+  "common": {
+    "language": "语言",
+    "next": "下一步",
+    "back": "返回",
+    "skip": "跳过",
+    "cancel": "取消",
+    "add": "添加",
+    "edit": "编辑",
+    "save": "保存",
+    "clear": "清除",
+    "settings": "设置",
+    "close": "关闭",
+    "enabled": "启用",
+    "disabled": "已禁用",
+    "retry": "重试",
+    "load_more": "加载更多",
+    "update_now": "立即更新",
+    "error_prefix": "错误: ",
+    "today": "今天",
+    "yesterday": "昨天",
+    "daysAgo": "{{count}}天前",
+    "confirm": "确认",
+    "delete": "删除",
+    "copy": "复制",
+    "copied": "已复制",
+    "refresh": "刷新",
+    "click_to_edit": "点击编辑",
+    "aria": {
+      "close": "关闭",
+      "move_up": "上移",
+      "move_down": "下移",
+      "delete": "删除",
+      "add_item": "添加项",
+      "remove_item": "移除项",
+      "cancel": "取消",
+      "agent_metrics": "代理指标",
+      "thinking": "正在思考",
+      "close_modal": "关闭对话框",
+      "close_notification": "关闭通知",
+      "copy_code": "复制代码",
+      "settings_categories": "设置类别"
+    },
+    "browse": "浏览",
+    "active": "活跃",
+    "activate": "激活",
+    "no_data": "暂无数据",
+    "refreshing": "刷新中...",
+    "scan_providers": "扫描提供者",
+    "all": "全部",
+    "loading": "加载中...",
+    "clear_filters": "清除筛选",
+    "preparing": "准备中...",
+    "ai": "AI"
+  },
+  "chat": {
+    "clear_history": "清除历史记录",
+    "role": {
+      "assistant": "助手",
+      "user": "你",
+      "system": "系统"
+    },
+    "input": {
+      "placeholder": {
+        "connecting": "正在连接...",
+        "search": "让我搜索...",
+        "agent": "分配任务...",
+        "default": "与 Tepora 聊天..."
+      },
+      "system_ready": "系统就绪",
+      "system_ready_hint": "请选择一个模式开始",
+      "disconnected": "已断开连接",
+      "status": {
+        "thinking": "思考过程"
+      },
+      "web_search": "网络搜索",
+      "web_search_toggle": "网页搜索: {{state}}",
+      "attach_file": "附加文件",
+      "remove_attachment": "移除附件 {{name}}",
+      "send": "发送消息",
+      "send_message": "发送消息",
+      "stop": "停止生成",
+      "stop_generation": "停止生成",
+      "mode_active": "{{mode}} 模式已激活",
+      "aria_label": "消息输入",
+      "agent_mode": "代理模式",
+      "agent_mode_fast": "快速模式",
+      "agent_mode_high": "高精度模式",
+      "agent_mode_direct": "直接模式",
+      "select_agent": "选择代理",
+      "agent_auto": "自动选择",
+      "thinking_mode": "思考模式"
+    },
+    "modes": {
+      "search": "搜索",
+      "agent": "代理",
+      "chat": "聊天"
+    },
+    "messages_aria_label": "聊天消息",
+    "jump_to_latest": "跳转到最新消息",
+    "jump_to_latest_short": "最新",
+    "generationStopped": "生成已停止",
+    "status": {
+      "thinking": "思考中"
+    },
+    "error": "错误",
+    "info": "信息",
+    "newMessageFrom": "来自 {{role}} 的新消息",
+    "scrollToBottom": "滚动到底部",
+    "regenerate": "重新生成",
+    "click_to_expand": "点击展开"
+  },
+  "agent": {
+    "title": "代理活动",
+    "waiting": "等待中"
+  },
+  "search": {
+    "title": "搜索",
+    "hits": "结果",
+    "no_results": "未找到结果"
+  },
+  "rag_context": {
+    "title": "RAG上下文",
+    "sources": "来源",
+    "files": "文件",
+    "add_file": "添加文件",
+    "no_sources": "没有来源",
+    "add_hint": "添加文件或搜索网页",
+    "web_results": "网页结果"
+  },
+  "personas": {
+    "switch": "切换人设",
+    "select": "选择人设",
+    "create": "创建人设",
+    "create_new": "创建人设",
+    "edit": "编辑人设",
+    "name": "名称",
+    "description": "描述",
+    "instruction": "系统提示",
+    "error_exists": "该键已存在。",
+    "confirm_delete_title": "删除角色？",
+    "confirm_delete": "确定要删除此人设吗？此操作无法撤销。"
+  },
+  "dial": {
+    "chat": "聊天",
+    "search": "搜索",
+    "agent": "代理"
+  },
+  "status": {
+    "title": "系统状态",
+    "network": "网络",
+    "connected": "已连接",
+    "disconnected": "已断开",
+    "core_system": "核心系统",
+    "ready": "就绪",
+    "loading": "加载中",
+    "events": "事件",
+    "messages": "消息",
+    "char": "Char",
+    "prof": "Prof",
+    "events_suffix": "事件",
+    "generating_memory": "生成记忆"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "管理 AI 配置",
+    "appearance": {
+      "title": "主题",
+      "description": "选择偏好的主题。",
+      "themes": {
+        "system": "系统",
+        "tepora": "Tepora",
+        "light": "浅色",
+        "dark": "深色",
+        "system_desc": "跟随您的操作系统偏好设置。",
+        "tepora_desc": "标志性的经典茶室体验。",
+        "light_desc": "一个明亮、清爽的工作空间。",
+        "dark_desc": "一个中性、专注的深色环境。"
+      }
+    },
+    "thinking": {
+      "title": "思考过程",
+      "description": "配置思考过程的默认行为。",
+      "chat_default": "默认：在聊天中启用",
+      "chat_default_desc": "开始新的聊天会话时自动启用思考过程。",
+      "search_default": "默认：在搜索中启用",
+      "search_default_desc": "开始新的搜索会话时自动启用思考过程。"
+    },
+    "confirm_discard": "有未保存的更改。要放弃吗？",
+    "toast": {
+      "save_success": "设置已保存！",
+      "save_error": "保存设置失败。"
+    },
+    "save_bar": {
+      "reset": "重置",
+      "save": "保存更改",
+      "saving": "保存中...",
+      "unsaved": "有未保存的更改"
+    },
+    "models_settings": {
+      "global_manager": {
+        "title": "LLM 全局管理器",
+        "description": "流程管理和健康检查配置。",
+        "terminate_timeout": "终止超时",
+        "health_check_timeout": "健康检查超时",
+        "health_check_interval": "健康检查间隔",
+        "tokenizer_model": "分词器模型"
+      },
+      "download_manager": {
+        "title": "下载管理器",
+        "description": "管理本地模型文件。"
+      },
+      "configurations": {
+        "title": "模型配置",
+        "description": "每个模型实例的详细配置。",
+        "path": "路径",
+        "port": "端口",
+        "context": "上下文",
+        "gpu_layers": "GPU 层",
+        "temp": "Temp",
+        "top_p": "Top P",
+        "top_k": "Top K",
+        "repeat_penalty": "重复惩罚",
+        "max_tokens": "最大 token 数",
+        "max_tokens_desc": "每个响应生成的最大 token 数。",
+        "predict_len": "预测长度",
+        "predict_len_desc": "模型服务器的预测长度提示 (0 = 自动)。"
+      }
+    },
+    "sections": {
+      "general": {
+        "label": "常规",
+        "title": "应用程序",
+        "description": "核心应用程序设置和安全限制。",
+        "search_tool": {
+          "title": "搜索引擎",
+          "description": "设置搜索引擎与凭据。",
+          "provider_label": "搜索提供商",
+          "provider_desc": "选择用于本机搜索功能的搜索引擎。"
+        },
+        "google_search": {
+          "title": "谷歌搜索设置",
+          "api_key_label": "谷歌搜索 API 密钥",
+          "api_key_desc": "输入 Google Custom Search JSON API 的 API 密钥。",
+          "engine_id_label": "搜索引擎 ID",
+          "engine_id_desc": "输入 Programmable Search Engine ID。"
+        },
+        "app_settings": "应用程序设置",
+        "advanced_settings": "代理设置",
+        "advanced_settings_desc": "调整尝试次数与安全限制。",
+        "timeout_settings": "超时设置",
+        "inference_engine": {
+          "title": "推理引擎 (llama.cpp)",
+          "description": "管理 llama.cpp 二进制更新",
+          "current_version": "当前版本",
+          "new_available": "有新版本",
+          "check_updates": "检查更新",
+          "checking": "检查中...",
+          "starting": "正在开始更新...",
+          "completed": "更新完成！",
+          "failed": "更新失败",
+          "start_failed": "无法开始更新",
+          "error": "开始更新时出错"
+        },
+        "app_updater": "应用更新",
+        "brave_search": {
+          "title": "Brave 搜索设置",
+          "api_key_label": "Brave Search API 密钥",
+          "api_key_desc": "输入您的 Brave Search API 密钥 (Subscription Token)。"
+        },
+        "bing_search": {
+          "title": "Bing 搜索设置",
+          "api_key_label": "Bing Search API 密钥",
+          "api_key_desc": "输入您的 Bing Search v7 Subscription Key。"
+        }
+      },
+      "updater": {
+        "title": "软件更新",
+        "description": "管理 Tepora 更新。",
+        "current_version": "当前版本",
+        "new_version": "新版本",
+        "check_button": "检查更新",
+        "update_button": "立即更新",
+        "checking": "检查中...",
+        "downloading": "下载中...",
+        "installing": "安装中...",
+        "relaunching": "重启中...",
+        "uptodate": "已是最新！",
+        "error": "更新失败"
+      },
+      "privacy": {
+        "label": "隐私",
+        "title": "隐私设置",
+        "description": "管理外部通信和数据共享设置。",
+        "web_search": {
+          "label": "网络搜索",
+          "description": "允许模型在互联网上搜索信息。",
+          "warning_title": "网络搜索隐私警告",
+          "warning_query": "您的搜索查询将发送到配置的搜索引擎。",
+          "warning_api": "确保您信任在常规设置中指定的搜索API提供商。"
+        },
+        "isolation_mode": {
+          "label": "隔离模式",
+          "description": "限制访问外部工具和执行代码。",
+          "warning_title": "隔离模式警告",
+          "warning_mcp": "MCP服务器将被禁用。",
+          "warning_local": "本地命令执行将被拦截。",
+          "warning_web_search": "网络搜索将被禁用。"
+        },
+        "redact_pii": {
+          "label": "编辑个人身份信息",
+          "description": "在发送给提供商和工具之前自动屏蔽个人身份信息。"
+        },
+        "url_denylist": {
+          "label": "URL黑名单",
+          "description": "禁止访问的域名的逗号分隔列表。",
+          "placeholder": "例如：example.com，restricted.org"
+        }
+      },
+      "mcp": {
+        "label": "MCP 工具",
+        "title": "MCP 工具",
+        "description": "管理模型上下文协议服务器。",
+        "config_title": "配置路径",
+        "config_description": "设置 MCP 配置文件路径。",
+        "store_title": "MCP 商店",
+        "store_description": "从商店浏览并安装 MCP 服务器。",
+        "store_hint": "搜索注册表并安装服务器。",
+        "registered_title": "已注册服务器",
+        "registered_description": "启动/停止服务器并查看配置详情。"
+      },
+      "models": {
+        "label": "模型",
+        "title": "模型",
+        "description": "配置 LLM 路径和参数。",
+        "manager_title": "LLM 管理器设置",
+        "manager_description": "配置系统如何管理 LLM 进程和资源。",
+        "add_title": "添加模型",
+        "add_description": "添加并注册本地模型。",
+        "list_title": "模型列表（管理）",
+        "list_description": "管理已注册模型的删除与排序。",
+        "defaults_title": "模型默认值",
+        "defaults_description": "为不同用途设置默认模型。",
+        "cache_title": "模型缓存数",
+        "advanced_title": "高级管理器设置",
+        "advanced_description": "缓存和资源设置",
+        "add_new_model": "添加新模型",
+        "no_models": "没有配置模型。点击「添加新模型」添加一个。",
+        "no_models_for_role": "该角色没有模型。",
+        "confirm_delete": "确定要删除此模型配置吗？",
+        "manage_models": "管理模型（删除 / 重新排序）",
+        "text_model_title": "文本模型",
+        "text_model_desc": "选择用于文本生成的模型。",
+        "text_model_label": "文本模型",
+        "character_model_title": "角色默认模型",
+        "character_model_desc": "选择用于角色的默认模型。",
+        "character_model_label": "角色模型",
+        "embedding_model_title": "向量嵌入模型",
+        "embedding_model_desc": "选择用于记忆和检索的模型。",
+        "executor_label": "专业: {{taskType}}",
+        "executor_default_desc": "默认的专业模型。",
+        "executor_task_desc": "{{taskType}} 任务的专业模型。",
+        "executor_models_title": "专业默认模型",
+        "executor_models_desc": "为不同任务类型设置默认模型。",
+        "add_task_placeholder": "添加任务类型（例如：coding, browser）...",
+        "defaults": {
+          "global": "全局默认"
+        },
+        "check_updates": "检查更新",
+        "checking": "检查中...",
+        "update_available": "有可用更新",
+        "up_to_date": "已是最新",
+        "check_failed": "检查失败",
+        "update_btn": "更新模型",
+        "add_modal": {
+          "title": "添加模型",
+          "tab_local": "本地文件",
+          "tab_huggingface": "Hugging Face",
+          "drop_zone": "将 .gguf 文件拖放到此处",
+          "drop_zone_hint": "或选择文件",
+          "drop_zone_active": "将文件放在这里...",
+          "file_selected": "已选择的文件",
+          "model_name": "模型名称（ID）",
+          "role_text": "文本模型",
+          "role_embedding": "向量嵌入模型",
+          "repo_id": "仓库 ID",
+          "repo_id_placeholder": "用户/仓库",
+          "filename": "文件名",
+          "filename_placeholder": "model-Q4_K_M.gguf",
+          "download": "下载模型",
+          "downloading": "下载中...",
+          "starting": "开始下载...",
+          "add_local": "注册模型",
+          "invalid_file": "仅支持 .gguf 文件",
+          "path_required": "无法解析文件路径。此功能需要桌面环境。"
+        },
+        "consent_dialog": {
+          "title": "确认下载",
+          "description": "此下载需要你的确认才能继续：",
+          "confirm": "继续",
+          "default_warning": "此下载需要您的确认。"
+        },
+        "selection": {
+          "select_model": "选择模型...",
+          "no_models": "没有可用的模型",
+          "remove_mapping": "删除映射",
+          "configure": "模型配置",
+          "no_config": "没有可用配置"
+        },
+        "detail": {
+          "changes_note": "模型参数的更改将在下次加载时生效。",
+          "temp_desc": "控制随机性。",
+          "top_p_desc": "核心采样。",
+          "n_ctx": "上下文窗口（n_ctx）",
+          "n_ctx_desc": "模型一次可以处理的最大令牌数。",
+          "dials_hint": "拖动拨号盘以调整值",
+          "show_advanced": "显示高级设置",
+          "hide_advanced": "隐藏高级设置"
+        },
+        "configurations": {
+          "path_placeholder": "例如 /path/to/model.gguf"
+        },
+        "refresh_ollama": "刷新 Ollama",
+        "refresh_lmstudio": "刷新 LM Studio",
+        "search_title": "搜索设置",
+        "download_policy_title": "下载策略",
+        "loaders_title": "模型加载器",
+        "search_description": "配置使用嵌入模型进行搜索结果重新排名。",
+        "download_policy_description": "用于从远程库下载模型的安全控制。",
+        "loaders_description": "配置外部模型提供者的基础 URL。"
+      },
+      "agents": {
+        "label": "角色",
+        "title": "角色列表",
+        "description": "管理角色提示词与默认模型。",
+        "add_new_profile": "添加新档案",
+        "new_profile_key_placeholder": "档案 ID (字母数字和下划线)",
+        "add": "添加",
+        "cancel": "取消",
+        "cannot_delete_active": "无法删除当前激活的档案",
+        "confirm_delete": "删除此档案？",
+        "default_name": "新角色",
+        "default_prompt": "你是一个有帮助的助手。",
+        "delete": "删除",
+        "delete_confirm_title": "删除档案",
+        "edit": "编辑",
+        "error_duplicate_key": "该 ID 已被使用。",
+        "error_empty_key": "请输入 ID。",
+        "modal": {
+          "title_add": "添加角色",
+          "title_edit": "编辑角色",
+          "key_label": "ID (键)",
+          "key_desc": "系统内部使用的唯一标识符。",
+          "name_label": "显示名称",
+          "desc_label": "说明",
+          "prompt_label": "系统提示",
+          "model_label": "模型",
+          "model_desc": "选择此代理使用的模型配置。",
+          "key_placeholder": "请输入键"
+        },
+        "no_description": "无描述",
+        "nsfw_label": "允许受限内容(nsf)",
+        "nsfw_desc": "允许生成受限内容，请谨慎使用。",
+        "tab": {
+          "characters": "角色",
+          "professionals": "专业"
+        },
+        "professionals_coming_soon_title": "专业代理即将推出...",
+        "professionals_coming_soon_desc": "用于专门任务执行的代理目前正在开发中。",
+        "card": {
+          "label": "标签",
+          "label_placeholder": "代理名称",
+          "description": "描述",
+          "description_placeholder": "简短描述",
+          "persona": "角色",
+          "persona_description": "定义代理的个性和角色。",
+          "preset_key": "预设键",
+          "preset_key_placeholder": "例如：default（可选）",
+          "select_preset": "选择预设...",
+          "custom_prompt": "自定义提示（覆盖）",
+          "custom_prompt_placeholder": "你是一个有用的 AI 助手...",
+          "allowed_tools": "允许的工具",
+          "allowed_tools_description": "使用“*”表示全部。",
+          "denied_tools": "拒绝的工具",
+          "tool_placeholder": "工具名称...",
+          "currently_active": "当前活动",
+          "set_active": "设为活动",
+          "active": "活动",
+          "set_active_short": "设置",
+          "delete": "删除",
+          "icon": "图标",
+          "icon_placeholder": "图标",
+          "avatar_path": "头像路径",
+          "avatar_placeholder": "头像"
+        }
+      },
+      "custom_agents": {
+        "label": "专业",
+        "title": "专业列表",
+        "description": "管理专业提示词、允许工具与默认模型。",
+        "add_new": "新增专业",
+        "no_description": "无说明",
+        "default_name": "新专业",
+        "default_prompt": "你是一个有用的助手。",
+        "confirm_delete": "确定要删除此专业吗？",
+        "delete_confirm_title": "删除专业",
+        "error_empty_id": "请输入 ID。",
+        "error_empty_name": "请输入名称。",
+        "error_empty_prompt": "请输入系统提示。",
+        "error_duplicate_id": "此 ID 已在使用中。",
+        "modal": {
+          "title_add": "添加专业",
+          "title_edit": "编辑专业",
+          "id_label": "专业 ID",
+          "id_desc": "唯一标识符（小写，无空格）",
+          "icon_label": "图标",
+          "name_label": "名称",
+          "description_label": "说明",
+          "prompt_label": "系统提示",
+          "prompt_desc": "定义代理的行为和个性。",
+          "model_label": "模型",
+          "enabled_label": "启用",
+          "tools_label": "允许工具",
+          "no_tools": "无可用工具",
+          "tags_label": "标签",
+          "priority_label": "优先级",
+          "allow_all_tools": "允许所有工具（黑名单模式）"
+        }
+      },
+      "other": {
+        "label": "其他",
+        "updates": {
+          "title": "更新",
+          "description": "管理应用和推理引擎更新。"
+        },
+        "timeouts": {
+          "description": "设置执行限制与超时。",
+          "model_manager": "模型管理器",
+          "tools": "工具"
+        }
+      },
+      "memory": {
+        "label": "记忆",
+        "title": "EM-LLM (情景记忆)",
+        "description": "配置情景记忆和历史限制。"
+      },
+      "chat_history": {
+        "title": "本地上下文窗口"
+      },
+      "extended": {
+        "ui_title": "用户界面与通知",
+        "ui_description": "配置外观细节和后台通知。",
+        "font_family": "字体",
+        "font_family_desc": "主要文本渲染的界面字体。",
+        "font_family_placeholder": "例: Noto Sans",
+        "font_size": "字体大小",
+        "font_size_desc": "基础界面字体大小 (像素)。",
+        "code_theme": "代码高亮主题",
+        "code_theme_desc": "代码块的语法高亮主题。",
+        "code_theme_placeholder": "例: github-dark",
+        "thinking_max_tokens": "最大思考代币",
+        "thinking_max_tokens_desc": "思考代币消耗的上限。",
+        "code_wrap": "代码换行",
+        "code_wrap_desc": "为代码块启用自动换行。",
+        "code_line_numbers": "代码块行号",
+        "code_line_numbers_desc": "在代码块中显示行号。",
+        "notification_os": "后台任务系统通知",
+        "notification_os_desc": "完成后台任务时显示系统通知。",
+        "notification_sound": "后台任务声音",
+        "notification_sound_desc": "后台任务完成时播放提示音。",
+        "shortcuts_title": "快捷键",
+        "shortcuts_description": "配置快速操作的键盘快捷键。",
+        "shortcut_new_chat": "新建对话",
+        "shortcut_new_chat_desc": "启动新对话的键盘快捷键。",
+        "shortcut_custom": "附加快捷键",
+        "shortcut_custom_desc": "通过配置 action=keybinding 添加快捷键 (例如: open_settings=Ctrl+,)。",
+        "chunk_chars": "分块大小 (字符)",
+        "chunk_chars_desc": "按字符计数索引文本时的分块大小。",
+        "chunk_tokens": "分块大小 (Token)",
+        "chunk_tokens_desc": "按令牌数索引文本时的分块大小。",
+        "chunk_overlap": "分块重叠",
+        "chunk_overlap_desc": "连续分块之间的重叠大小。",
+        "export_format": "备份导出格式",
+        "export_format_desc": "备份导出的首选格式。",
+        "watch_folders": "监视文件夹",
+        "watch_folders_desc": "监视索引目标的文件夹。",
+        "watch_folders_placeholder": "例: D:\\docs",
+        "vector_store_dir": "向量存储目录",
+        "vector_store_dir_desc": "向量数据库文件的存储路径。",
+        "vector_store_dir_placeholder": "例: C:\\Tepora\\db",
+        "model_files_dir": "模型文件加载路径",
+        "model_files_dir_desc": "模型文件的存储路径。",
+        "model_files_dir_placeholder": "例: C:\\Tepora\\models",
+        "backup_chat_history": "文件备份: 聊天记录",
+        "backup_settings": "文件备份: 用户偏好",
+        "backup_characters": "文件备份: 自定义角色",
+        "backup_executors": "文件备份: 自定义任务",
+        "restore_enabled": "安全备份与覆盖",
+        "character_import_export": "角色批量系统加载",
+        "executor_import_export": "任务批量管理操作",
+        "cache_clear_on_start": "默认重置环境配置",
+        "cache_cleanup_embeddings": "废旧逻辑删除",
+        "cache_cleanup_temp": "空无文档清洗",
+        "cache_limit_mb": "限制使用空间 (MB)",
+        "storage_title": "文件目录与存储扩展",
+        "storage_description": "调整碎片大小与内容索引方案与模型基础参数",
+        "performance_title": "网络响应与资源保护",
+        "performance_description": "控制系统加载等操作",
+        "auto_start": "开启应用程序随系统启动的功能。",
+        "tray_resident": "启动时关闭托盘控制台，作为后台服务执行。",
+        "hardware_acceleration": "硬件辅助",
+        "gpu_vram_limit": "限制显卡",
+        "memory_limit": "限制内存资源使用率",
+        "security_title": "应用和服务器接口控制",
+        "security_description": "管理环境下的黑白名单和基础使用参数访问资源设置",
+        "allowed_tools": "允许功能池 (列表白名单)",
+        "allowed_tools_desc": "工具管理参数的使用方案白名单认证。",
+        "denied_tools": "风险屏蔽池 (管理黑名单)",
+        "denied_tools_desc": "黑名单保护体系。",
+        "tool_confirmation": "请求外部认证",
+        "first_use_confirmation": "工具确认规则设置",
+        "dangerous_patterns": "命令规则限制",
+        "dangerous_patterns_desc": "保护服务器命令。",
+        "proxy_http": "系统代理配置",
+        "proxy_http_desc": "设置本地使用的反向应用控制.",
+        "proxy_https": "访问安全通道",
+        "proxy_https_desc": "提供SSL资源共享下载等使用的安全设置网络.",
+        "custom_certificate": "受保护资源证明地址",
+        "custom_certificate_desc": "安全配置。",
+        "server_host": "网络分配端口",
+        "server_host_desc": "限制后端访问来源。",
+        "allowed_origins": "连接外部允许服务",
+        "allowed_origins_desc": "控制跨站点权限。",
+        "cors_origins": "网络配置协议限制跨源共享使用",
+        "cors_origins_desc": "允许其他网络来源使用当前接口。",
+        "ws_origins": "交互端口代理白名单协议。",
+        "ws_origins_desc": "安全保障策略。",
+        "models_title": "深度大模型核心数据",
+        "models_description": "管理控制大模型的特定工作系统，需要有一定的技术能力",
+        "character_default_model": "角色应用系统",
+        "supervisor_default_model": "规划与管理",
+        "executor_default_model": "特定工作负载使用",
+        "logprobs": "允许系统进行模型对数分布概率生成方案。",
+        "logprobs_desc": "需要有大模型后端本身支持开启这种环境。",
+        "system_prompt_prefix": "覆盖前端统一角色身份限定前置预设配置。",
+        "system_prompt_prefix_desc": "控制角色逻辑与设定使用环境前置保护",
+        "system_prompt_suffix": "角色约束强制重定位与规范性收尾限定控制处理。",
+        "system_prompt_suffix_desc": "防止格式混乱使用后置修正方案",
+        "loader_specific_text": "大语言模型生成负载使用特定属性参数JSON表",
+        "loader_specific_text_desc": "用于解决如rope编码错误或模型特定的技术负载处理",
+        "loader_specific_embedding": "理解向量映射重构使用技术分配参数模型表",
+        "loader_specific_embedding_desc": "控制嵌入长度重叠和环境使用方案"
+      },
+      "execution_agents": {
+        "title": "Agent 技能",
+        "description": "Supervisor 读取每个技能的元数据，而 Execution 完全遵循所选的 SKILL.md 资源包。",
+        "layout_title": "Agent 技能布局",
+        "layout_desc": "必须包含带有 YAML frontmatter 的 `SKILL.md`。可选资源包内容包括 `agents/openai.yaml`、`references/`、`scripts/` 和 `assets/`。",
+        "roots_title": "技能根目录",
+        "roots_desc": "根目录更改保存在设置中。请先保存设置以应用添加或删除的根目录，然后再在其中创建包。",
+        "add_file": "添加文件",
+        "no_files": "没有文件。",
+        "packages_title": "资源包",
+        "no_skills": "未找到 Agent 技能。",
+        "loading_package": "正在加载资源包...",
+        "select_skill": "选择要编辑的技能包。",
+        "save_skill": "保存技能",
+        "saving_skill": "保存中...",
+        "delete_skill": "删除",
+        "validation_warnings": "验证警告",
+        "target_root": "目标根目录",
+        "skill_id": "技能ID",
+        "add_root": "添加根目录",
+        "refresh": "刷新",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "writable": "可写",
+        "readonly": "只读",
+        "valid": "有效",
+        "needs_fix": "需要修复",
+        "select_root": "选择根目录"
+      }
+    },
+    "groups": {
+      "custom": "自定义"
+    },
+    "nav": {
+      "general": "通用",
+      "privacy": "隐私",
+      "data_storage": "数据存储",
+      "system_performance": "系统性能",
+      "agents": "角色",
+      "execution_agents": "Agent 技能",
+      "models": "模型",
+      "mcp": "MCP工具",
+      "memory": "记忆",
+      "other": "其他"
+    },
+    "backup": {
+      "stage": {
+        "apply": "应用"
+      }
+    },
+    "character_edit": {
+      "choose_emoji": "选择表情",
+      "upload_image": "上传图片",
+      "clear_avatar": "清除"
+    },
+    "fields": {
+      "language": {
+        "label": "界面语言",
+        "description": "选择首选语言。"
+      },
+      "max_input_length": {
+        "label": "最大输入长度",
+        "description": "用户输入允许的最大字符数。"
+      },
+      "graph_recursion_limit": {
+        "label": "最大尝试次数",
+        "description": "代理可尝试的最大次数（安全限制）。"
+      },
+      "tool_execution_timeout": {
+        "label": "工具执行超时",
+        "description": "工具执行超时前的秒数。"
+      },
+      "tool_approval_timeout": {
+        "label": "工具审批超时",
+        "description": "工具审批请求过期前的秒数。"
+      },
+      "web_fetch_max_chars": {
+        "label": "网页抓取最大字符数",
+        "description": "从网页获取的最大字符数。"
+      },
+      "dangerous_patterns": {
+        "label": "危险模式",
+        "description": "为安全起见，阻止用户输入的正则表达式模式。",
+        "placeholder": "添加正则表达式模式 (例如 system\\s*:)"
+      },
+      "cache_size": "模型缓存数量",
+      "web_fetch_max_bytes": {
+        "label": "最大获取大小",
+        "description": "网页获取的最大字节数。"
+      },
+      "web_fetch_timeout_secs": {
+        "label": "网页获取超时",
+        "description": "网页获取的超时秒数。"
+      },
+      "graph_execution_timeout": {
+        "label": "图执行超时",
+        "description": "代理运行的最大执行时间。"
+      },
+      "embedding_rerank": {
+        "label": "重排搜索结果",
+        "description": "使用嵌入模型对搜索结果进行重排。"
+      },
+      "require_allowlist": {
+        "label": "必须在允许列表",
+        "description": "仅允许下载允许列表中的模型。"
+      },
+      "warn_on_unlisted": {
+        "label": "未列出时警告",
+        "description": "下载未列出的模型时显示警告。"
+      },
+      "require_revision": {
+        "label": "要求修订哈希",
+        "description": "下载模型时要求修订哈希。"
+      },
+      "require_sha256": {
+        "label": "要求 SHA256",
+        "description": "使用 SHA256 校验和验证文件完整性。"
+      },
+      "allow_repo_owners": {
+        "label": "允许的仓库所有者",
+        "description": "无条件允许的仓库所有者。",
+        "placeholder": "例如 TheBloke"
+      },
+      "ollama_base_url": {
+        "label": "Ollama 基础 URL",
+        "description": "Ollama 的 API 端点。",
+        "placeholder": "http://localhost:11434"
+      },
+      "lmstudio_base_url": {
+        "label": "LM Studio 基础 URL",
+        "description": "LM Studio 的 API 端点。",
+        "placeholder": "http://localhost:1234"
+      }
+    },
+    "descriptions": {
+      "cache_size": "内存中保留的模型数量。"
+    },
+    "privacy": {
+      "isolation_mode": {
+        "label": "隔离模式（飞行模式）",
+        "description": "启用后将阻止所有外部网络通信。仅可使用本地LLM。",
+        "warning_title": "隔离模式已启用",
+        "warning_web_search": "网络搜索和页面获取已禁用",
+        "warning_mcp": "MCP服务器工具调用已被阻止",
+        "warning_local": "本地LLM（llama.cpp / Ollama / LM Studio）仍可使用"
+      },
+      "web_search": {
+        "label": "允许联网",
+        "description": "允许AI使用互联网搜索来检索信息。",
+        "warning_title": "数据共享通知",
+        "warning_query": "搜索查询将发送到Google API",
+        "warning_api": "您配置的API密钥将用于搜索请求"
+      },
+      "redact_pii": {
+        "label": "个人信息保护",
+        "description": "自动从日志中删除个人信息（电子邮件地址、电话号码等），并在发送到外部服务之前从网页搜索查询中删除个人信息。"
+      },
+      "url_denylist": {
+        "label": "URL 拒绝列表",
+        "description": "阻止 Web 获取的域或模式。内部/私有范围始终被阻止。",
+        "placeholder": "例如 *.example.com"
+      }
+    },
+    "mcp_content": {
+      "info": {
+        "title": "配置信息",
+        "description": "MCP (模型上下文协议) 工具允许 AI 与外部数据和服务交互。目前，MCP 配置通过本地 JSON 配置文件进行管理。"
+      },
+      "servers": {
+        "title": "检测到的服务器",
+        "active": "活跃"
+      },
+      "config_path": {
+        "title": "配置路径",
+        "readonly": "只读",
+        "helper": "要添加新的 MCP 服务器，请直接编辑此文件并重启后端。"
+      }
+    },
+    "mcp": {
+      "refresh": "刷新状态",
+      "details": {
+        "open": "打开详情",
+        "title": "服务器详情：{{name}}",
+        "autorun": {
+          "label": "自动运行许可",
+          "description": "应用启动时自动启用此服务器。"
+        },
+        "command": {
+          "label": "命令",
+          "description": "用于启动 MCP 服务器的可执行命令。"
+        },
+        "args": {
+          "label": "参数",
+          "description": "每行一个参数。"
+        },
+        "env": {
+          "label": "环境变量",
+          "description": "使用 KEY=VALUE 格式，每行一个。"
+        },
+        "env_invalid": "环境变量需使用 KEY=VALUE 格式。",
+        "command_required": "命令为必填项。",
+        "save_failed": "保存配置失败。",
+        "saving": "保存中..."
+      },
+      "policy": {
+        "title": "安全策略",
+        "mode": {
+          "label": "连接模式",
+          "description": "控制允许连接的服务器范围。",
+          "local_only": "仅本地 (推荐)",
+          "stdio_only": "仅标准输入输出 (最安全)",
+          "allowlist": "仅允许列表"
+        },
+        "confirmation": {
+          "label": "工具确认",
+          "description": "在执行工具前请求许可。"
+        },
+        "first_use": {
+          "label": "首次使用确认",
+          "description": "每个会话首次调用工具时显示确认。"
+        },
+        "blocked_commands": {
+          "label": "封锁的命令",
+          "description": "MCP 服务器永远不允许执行的命令。",
+          "placeholder": "例如 rm -rf"
+        }
+      },
+      "addServer": "添加服务器",
+      "config_path": {
+        "label": "MCP 配置文件",
+        "description": "定义 MCP 服务器的 JSON 文件路径。"
+      },
+      "disabled": "已禁用",
+      "disable": "禁用",
+      "enable": "启用",
+      "delete": "删除",
+      "confirmDelete": "确认删除",
+      "cancelDelete": "取消删除",
+      "noServers": {
+        "title": "没有 MCP 服务器",
+        "description": "点击“添加服务器”从官方注册表安装服务器。"
+      },
+      "status": {
+        "connected": "已连接 ({{count}} 工具)",
+        "disconnected": "已断开",
+        "error": "错误",
+        "connecting": "连接中",
+        "unknown": "未知"
+      },
+      "store": {
+        "title": "MCP 服务器商店",
+        "searchPlaceholder": "搜索服务器...",
+        "noResults": "未找到服务器",
+        "selectRuntime": "选择运行时",
+        "runtimeDescription": "选择运行此服务器的运行时。",
+        "runtime": "运行环境",
+        "configure": "配置",
+        "configDescription": "输入所需的环境变量。",
+        "confirm": "确认",
+        "install": "安装",
+        "preview": "预览命令",
+        "installing": "安装中...",
+        "commandPreview": "命令预览",
+        "securityWarnings": "安全警告",
+        "envVars": "环境变量",
+        "confirmInstall": "确认安装",
+        "pagination": "显示 {{from}}-{{to}} / {{total}}（第 {{page}}/{{totalPages}} 页）",
+        "prevPage": "上一页",
+        "nextPage": "下一页"
+      }
+    },
+    "memory": {
+      "max_tokens": {
+        "label": "本地上下文窗口",
+        "description": "活动对话上下文的最大令牌数。"
+      },
+      "surprise_gamma": {
+        "label": "惊奇 Gamma",
+        "description": "事件边界检测的灵敏度 (0.0 - 1.0)。"
+      },
+      "min_event_size": {
+        "label": "最小事件大小",
+        "description": "形成记忆事件的最小 token 数。"
+      },
+      "max_event_size": {
+        "label": "最大事件大小",
+        "description": "每个记忆事件的最大 token 数。"
+      },
+      "retrieved_events": {
+        "label": "检索事件",
+        "description": "要召回的过去事件数量。"
+      },
+      "repr_topk": {
+        "label": "Repr Top K",
+        "description": "事件表示的 Top K token。"
+      },
+      "boundary_refinement": {
+        "label": "边界细化",
+        "description": "提高事件分割精度。"
+      },
+      "default_limit": {
+        "label": "消息数量",
+        "description": "从历史记录中检索的默认消息数。"
+      },
+      "explorer": {
+        "title": "已保存事件",
+        "description": "查看并管理已保存的事件。",
+        "button": "打开列表"
+      },
+      "episodic_params_title": "情景记忆参数",
+      "episodic_params_desc": "EM-LLM 的高级配置",
+      "title": "记忆",
+      "connecting": "连接中",
+      "character_memory": "角色记忆",
+      "stats": {
+        "total_events": "总事件数",
+        "total_tokens": "总 token 数",
+        "mean_event_size": "平均事件大小",
+        "surprise_statistics": "惊奇统计",
+        "mean_surprise": "平均惊奇值",
+        "max_surprise": "最大惊奇值"
+      },
+      "compaction": {
+        "scanned": "已扫描:",
+        "merged_groups": "已合并组:",
+        "replaced": "已替换:",
+        "created": "已创建:",
+        "elapsed": "耗时:",
+        "compressing": "压缩中...",
+        "failed": "压缩失败。",
+        "history": "内存压缩历史记录",
+        "no_jobs": "暂无压缩历史记录。点击“压缩内存”开始。",
+        "refresh": "↺ 刷新",
+        "loading": "加载中..."
+      },
+      "professional_memory": "专业记忆"
+    },
+    "placeholders": {
+      "mcp_config": "config/mcp_tools_config.json",
+      "google_api_key": "AIza...",
+      "google_engine_id": "0123456789...",
+      "regex": "正则表达式 (例如 system\\\\s*:)"
+    },
+    "search": {
+      "providers": {
+        "google": "Google 自定义搜索",
+        "duckduckgo": "DuckDuckGo",
+        "brave": "Brave 搜索",
+        "bing": "Bing 网页搜索 (v7)"
+      }
+    }
+  },
+  "tool_errors": {
+    "search_disabled_privacy": "隐私设置已禁用网络搜索。",
+    "search_disabled_api_keys": "Google自定义搜索已禁用（API密钥未配置）。",
+    "search_timeout": "搜索请求超时。请稍后重试。",
+    "search_connection_error": "连接失败。请检查您的互联网连接并重试。",
+    "search_rate_limit": "超出速率限制。请稍等片刻再试。",
+    "search_access_denied": "API访问被拒绝。请检查您的API密钥和权限。",
+    "search_http_error": "发生HTTP错误（状态码：{{status_code}}）。",
+    "search_failed": "搜索失败：{{details}}",
+    "search_invalid_response": "Google API返回无效响应。请重试。",
+    "search_unexpected_error": "发生意外错误：{{details}}",
+    "search_api_error": "Google API错误：{{message}}",
+    "url_invalid_scheme": "URL必须包含有效的http/https协议和主机。",
+    "url_no_hostname": "无法从URL确定主机名。",
+    "url_blocked_private": "出于安全原因，对 {{host}} 的访问已被阻止（私有/本地网络）。",
+    "url_blocked_private_ip": "出于安全原因，对私有/本地IP地址的访问已被阻止。",
+    "fetch_failed": "无法从 {{url}} 获取内容：{{details}}",
+    "fetch_not_html": "URL不是HTML页面（Content-Type：{{content_type}}）。",
+    "tool_timeout": "工具 '{{tool_name}}' 执行超时。",
+    "tool_not_found": "未找到工具 '{{tool_name}}'。",
+    "tool_no_method": "工具 '{{tool_name}}' 没有可调用的方法。",
+    "tool_execution_error": "执行工具 '{{tool_name}}' 时出错：{{details}}"
+  },
+  "errorBoundary": {
+    "title": "发生错误",
+    "message": "用户界面遇到意外错误。请重新加载应用以继续。",
+    "details": "错误详情",
+    "reload": "重新加载"
+  },
+  "Close": "关闭",
+  "error": "错误",
+  "info": "信息",
+  "empty": {
+    "capability": {
+      "search": {
+        "title": "高级搜索",
+        "desc": "搜索并汇总网络信息"
+      },
+      "code": {
+        "title": "编码助手",
+        "desc": "编写、审查和重构代码"
+      },
+      "chat": {
+        "title": "聊天与咨询",
+        "desc": "就各种话题进行对话"
+      }
+    },
+    "hero": {
+      "subtitle": "今天有什么我可以帮您的？"
+    }
+  },
+  "shortcuts": {
+    "newSession": "新建会话",
+    "stopGeneration": "停止生成",
+    "showHelp": "显示帮助",
+    "title": "键盘快捷键",
+    "footer": "使用快捷键提高操作效率"
+  },
+  "model": {
+    "role": {
+      "text": "文本",
+      "embedding": "嵌入"
+    }
+  },
+  "modelHub": {
+    "title": "模型中心",
+    "subtitle": "管理可用的 AI 模型",
+    "search_placeholder": "搜索模型...",
+    "no_models_found": "未找到模型"
+  },
+  "store": {
+    "by_vendor": "{{vendor}} 提供"
+  },
+  "v2": {
+    "common": {
+      "loading": "加载中...",
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "取消",
+      "enabled": "已启用",
+      "disabled": "已禁用"
+    },
+    "mode": {
+      "chat": "聊天",
+      "search": "搜索",
+      "agent": "代理",
+      "openMenu": "打开模式与设置菜单"
+    },
+    "chat": {
+      "assistantFallback": "助手",
+      "emptyState": "今天我可以帮你做什么？",
+      "copy": "复制",
+      "copied": "已复制",
+      "regenerate": "重新生成",
+      "generating": "生成中",
+      "thinking": "推理记录",
+      "inputPlaceholder": "在这里输入...",
+      "removeAttachment": "移除附件",
+      "stop": "停止生成",
+      "send": "发送",
+      "thinkingOn": "深思模式已开启",
+      "thinkingOff": "深思模式已关闭",
+      "attach": "附加",
+      "enterToSend": "Enter 发送",
+      "enterToSendHint": "Enter 发送，Shift+Enter 换行",
+      "moreActions": "更多操作",
+      "reconnecting": "重新连接中..."
+    },
+    "session": {
+      "historyTitle": "历史记录",
+      "historySubtitle": "会话",
+      "newSession": "新会话",
+      "empty": "还没有历史记录。",
+      "previewFallback": "还没有预览",
+      "rename": "重命名",
+      "delete": "删除",
+      "deleteTitle": "删除会话",
+      "deleteMessage": "删除此会话并清除所有历史消息？",
+      "openHistory": "打开历史记录",
+      "moreActions": "会话操作"
+    },
+    "character": {
+      "switch": "切换角色",
+      "active": "当前角色",
+      "available": "可用角色",
+      "noDescription": "没有描述"
+    },
+    "agent": {
+      "openPanel": "打开模式面板",
+      "activeContext": "当前上下文",
+      "approvalRequired": "需要批准",
+      "deny": "拒绝",
+      "approveOnce": "仅批准一次",
+      "allowTemporary": "临时允许",
+      "risk": "风险"
+    },
+    "settings": {
+      "open": "打开设置",
+      "loadError": "加载设置失败。",
+      "saving": "正在保存更改...",
+      "pendingSave": "即将保存...",
+      "allSaved": "所有更改已自动保存",
+      "return": "返回会话",
+      "autoSave": "已启用自动保存",
+      "categories": {
+        "general": {
+          "label": "常规",
+          "tabs": {
+            "basics": "基本",
+            "thinking": "思考"
+          }
+        },
+        "appearance": {
+          "label": "外观",
+          "tabs": {
+            "theme": "主题",
+            "typography": "排版",
+            "code_blocks": "代码块",
+            "notifications": "通知",
+            "shortcuts": "快捷键"
+          }
+        },
+        "characters": {
+          "label": "角色",
+          "tabs": {
+            "personas": "角色",
+            "custom_agents": "自定义代理"
+          }
+        },
+        "models": {
+          "label": "模型",
+          "tabs": {
+            "hub": "中心",
+            "defaults": "默认",
+            "embedding": "嵌入",
+            "loader": "加载器",
+            "advanced": "高级"
+          }
+        },
+        "privacy": {
+          "label": "隐私",
+          "tabs": {
+            "privacy": "隐私",
+            "quarantine": "隔离",
+            "permissions": "权限"
+          }
+        },
+        "tools": {
+          "label": "工具",
+          "tabs": {
+            "web_search": "网络搜索",
+            "agent_skills": "代理技能",
+            "mcp": "MCP",
+            "credentials": "凭证"
+          }
+        },
+        "memory": {
+          "label": "内存",
+          "tabs": {
+            "basics": "基本",
+            "decay_engine": "衰减引擎",
+            "retrieval": "检索"
+          }
+        },
+        "context": {
+          "label": "上下文",
+          "tabs": {
+            "rag": "RAG",
+            "window_allocation": "窗口分配"
+          }
+        },
+        "data": {
+          "label": "数据",
+          "tabs": {
+            "indexing": "索引",
+            "paths": "路径",
+            "cache": "缓存",
+            "backup": "备份"
+          }
+        },
+        "system": {
+          "label": "系统",
+          "tabs": {
+            "integration": "集成",
+            "performance": "性能",
+            "updates": "更新"
+          }
+        },
+        "advanced": {
+          "label": "高级",
+          "tabs": {
+            "execution": "执行",
+            "agent": "代理",
+            "model_dl": "模型下载",
+            "features": "功能",
+            "server": "服务器"
+          }
+        },
+        "characteragents": {
+          "label": "Character Agents"
+        },
+        "executiveagents": {
+          "label": "Executive Agents"
+        },
+        "supervisoragent": {
+          "label": "Supervisor Agent"
+        },
+        "planneragent": {
+          "label": "Planner Agent"
+        },
+        "searchagent": {
+          "label": "Search Agent"
+        },
+        "capabilities": {
+          "label": "Capabilities"
+        }
+      },
+      "languages": {
+        "en": "英语",
+        "ja": "日语",
+        "es": "西班牙语",
+        "zh": "中文"
+      },
+      "themes": {
+        "system": "系统",
+        "tepora": "Tepora",
+        "light": "浅色",
+        "dark": "深色"
+      },
+      "agentSkills": "代理技能",
+      "skillRoots": "技能根路径",
+      "skillRootsDescription": "存储在后端配置中的逗号分隔的技能根路径",
+      "mcp": "MCP",
+      "mcpConfigPath": "MCP配置路径",
+      "mcpConfigPathDescription": "后端使用的MCP配置文件的路径",
+      "credentials": "凭证",
+      "credentialsDescription": "凭证在每个提供商选项卡上内联编辑，并通过后端安全存储保存。",
+      "webSearch": "Web Search",
+      "provider": "Provider",
+      "googleApiKey": "Google API Key",
+      "googleApiKeyDescription": "Stored via backend secrets handling when saved",
+      "googleApiKeyPlaceholder": "Google Custom Search API key",
+      "googleEngineId": "Google Engine ID",
+      "googleEngineIdPlaceholder": "Custom Search Engine ID",
+      "braveApiKey": "Brave API Key",
+      "braveApiKeyPlaceholder": "Brave Search API key",
+      "bingApiKey": "Bing API Key",
+      "bingApiKeyPlaceholder": "Bing Search API key",
+      "performance": "性能",
+      "processTimeout": "进程超时",
+      "processTimeoutDescription": "强制关闭外部加载器前等待的毫秒数",
+      "updates": "更新",
+      "autoUpdate": "自动更新",
+      "autoUpdateDescription": "允许Tepora检查应用程序和运行时的更新。",
+      "integration": "集成",
+      "startOnLogin": "登录时启动",
+      "startOnLoginDescription": "在桌面会话开始时自动启动Tepora。",
+      "ollamaBaseUrl": "Ollama 基本URL",
+      "lmStudioBaseUrl": "LM Studio 基本URL",
+      "supervisorAgent": "Supervisor Agent",
+      "supervisorDesc": "The Supervisor Agent orchestrates the execution flow. It receives user requests and decides whether to route them to a Planner, execute them immediately via Executive Agents, or handle them via Search or Chat.",
+      "agentModelLink": "Supervisor Model",
+      "agentModelLinkDesc": "Model to use for routing logic.",
+      "plannerAgent": "Planner Agent",
+      "plannerDesc": "The Planner Agent breaks down complex tasks into sub-tasks (plans) for the Executive Agents to follow.",
+      "plannerThinking": "Planner Thinking Configuration",
+      "plannerThinkingDesc": "Configure reasoning efforts when generating plans.",
+      "searchAgent": "Search Agent",
+      "searchAgentDesc": "The Search / RAG Agent is responsible for executing search queries, synthesizing evidence, and formulating final answers in Search Mode.",
+      "searchSynthesis": "Synthesis Configuration",
+      "searchSynthesisDesc": "Behavior settings during RAG evidence summarization.",
+      "customAgentsTitle": "Executive Agents Definitions",
+      "customAgentsDescription": "These are the underlying agent definitions that execute tasks when called by the supervisor.",
+      "agentSkillsTitle": "Executive Agent Skills (Capabilities)",
+      "agentSkillsDescription": "Skills define the instructions, tool policies, and behaviors that an Executive Agent is equipped with.",
+      "noCustomAgents": "No executive agents are configured yet. (Add them in config.json)",
+      "noTags": "No tags",
+      "characterName": "Character Name",
+      "characterNameDescription": "Display name shown above replies.",
+      "characterIcon": "Character Icon",
+      "characterIconDescription": "Small icon used in quick switching.",
+      "characterDescription": "Character Description",
+      "characterDescriptionDescription": "Short summary for the selected character.",
+      "characters": "Characters",
+      "activeCharacter": "Active Character",
+      "noCharacters": "No active character is available yet.",
+      "common": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "character": {
+        "switch": "Switch Character",
+        "active": "Active Character",
+        "available": "Available Characters",
+        "noDescription": "No description"
+      }
+    }
+  }
 }

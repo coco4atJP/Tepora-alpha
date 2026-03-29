@@ -3,10 +3,10 @@ use crate::core::errors::ApiError;
 use crate::history::{HistoryMessage, SessionInfo};
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
+use argon2::Argon2;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupExportRequest {
@@ -27,6 +27,8 @@ pub struct BackupEnvelope {
     pub algorithm: String,
     pub nonce_hex: String,
     pub ciphertext_hex: String,
+    #[serde(default)]
+    pub salt_hex: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,7 +100,12 @@ pub fn build_backup_config(config: &Value, request: &BackupExportRequest) -> Opt
 }
 
 pub fn encrypt_backup(passphrase: &str, plaintext: &[u8]) -> Result<BackupEnvelope, ApiError> {
-    let key = Sha256::digest(passphrase.as_bytes());
+    let mut salt = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut salt);
+    let mut key = [0u8; 32];
+    Argon2::default()
+        .hash_password_into(passphrase.as_bytes(), &salt, &mut key)
+        .map_err(|e| ApiError::Internal(format!("KDF failed: {}", e)))?;
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(ApiError::internal)?;
     let mut nonce_bytes = [0u8; 12];
     rand::thread_rng().fill_bytes(&mut nonce_bytes);
@@ -106,20 +113,28 @@ pub fn encrypt_backup(passphrase: &str, plaintext: &[u8]) -> Result<BackupEnvelo
         .encrypt(Nonce::from_slice(&nonce_bytes), plaintext)
         .map_err(|_| ApiError::Internal("Failed to encrypt backup".to_string()))?;
     Ok(BackupEnvelope {
-        version: 1,
+        version: 2,
         algorithm: "aes-256-gcm".to_string(),
         nonce_hex: hex::encode(nonce_bytes),
         ciphertext_hex: hex::encode(ciphertext),
+        salt_hex: Some(hex::encode(salt)),
     })
 }
 
 pub fn decrypt_backup(passphrase: &str, archive: &BackupEnvelope) -> Result<Vec<u8>, ApiError> {
-    if archive.version != 1 {
+    if archive.version != 2 {
         return Err(ApiError::BadRequest(
             "Unsupported backup archive version".to_string(),
         ));
     }
-    let key = Sha256::digest(passphrase.as_bytes());
+    let salt_hex = archive.salt_hex.as_deref().ok_or_else(|| {
+        ApiError::BadRequest("Missing salt in backup archive".to_string())
+    })?;
+    let salt = hex::decode(salt_hex).map_err(ApiError::internal)?;
+    let mut key = [0u8; 32];
+    Argon2::default()
+        .hash_password_into(passphrase.as_bytes(), &salt, &mut key)
+        .map_err(|e| ApiError::Internal(format!("KDF failed: {}", e)))?;
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(ApiError::internal)?;
     let nonce_bytes = hex::decode(&archive.nonce_hex).map_err(ApiError::internal)?;
     if nonce_bytes.len() != 12 {

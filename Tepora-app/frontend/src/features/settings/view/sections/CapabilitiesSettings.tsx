@@ -5,7 +5,6 @@ import { SettingsRow } from "../../../../shared/ui/SettingsRow";
 import { SettingsSectionGroup } from "../../../../shared/ui/SettingsSectionGroup";
 import { TextField } from "../../../../shared/ui/TextField";
 import { useSettingsEditor } from "../../model/editor";
-import { AgentSkillsManagementPanel } from "../components/AgentSkillsManagementPanel";
 import { CredentialsManagementPanel } from "../components/CredentialsManagementPanel";
 import { McpManagementPanel } from "../components/McpManagementPanel";
 
@@ -16,22 +15,18 @@ const PROVIDER_OPTIONS = [
 	{ label: "Bing", value: "bing" },
 ];
 
-interface ToolsSettingsProps {
+interface CapabilitiesSettingsProps {
 	activeTab?: string;
 }
 
-export const ToolsSettings: React.FC<ToolsSettingsProps> = ({
+export const CapabilitiesSettings: React.FC<CapabilitiesSettingsProps> = ({
 	activeTab = "Web Search",
 }) => {
 	const { t } = useTranslation();
 	const editor = useSettingsEditor();
 	const provider = editor.readString("tools.search_provider", "duckduckgo");
 
-	if (activeTab === "Agent Skills") {
-		return <AgentSkillsManagementPanel />;
-	}
-
-	if (activeTab === "MCP") {
+	if (activeTab === "MCP Servers") {
 		return <McpManagementPanel />;
 	}
 

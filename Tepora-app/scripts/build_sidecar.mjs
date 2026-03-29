@@ -132,8 +132,28 @@ function setupFallbackBinaries() {
   console.log(`Extracted fallback binaries to ${FALLBACK_DIR}`);
 }
 
+function copyInstallerAssets() {
+  console.log("Copying installer assets to src-tauri...");
+  const WORKFLOWS_SRC = path.join(BACKEND_DIR, "workflows");
+  const CONFIG_SRC = path.join(BACKEND_DIR, "config");
+
+  const WORKFLOWS_DST = path.join(FRONTEND_TAURI_DIR, "workflows");
+  const CONFIG_DST = path.join(FRONTEND_TAURI_DIR, "config");
+
+  const copyDirIfExists = (src, dst) => {
+    if (fs.existsSync(src)) {
+      fs.cpSync(src, dst, { recursive: true });
+      console.log(`Copied ${src} to ${dst}`);
+    }
+  };
+
+  copyDirIfExists(WORKFLOWS_SRC, WORKFLOWS_DST);
+  copyDirIfExists(CONFIG_SRC, CONFIG_DST);
+}
+
 function buildSidecar() {
   setupFallbackBinaries();
+  copyInstallerAssets();
 
   console.log(`Building Rust sidecar for ${TARGET_TRIPLE}...`);
   ensureDir(BINARIES_DIR);
