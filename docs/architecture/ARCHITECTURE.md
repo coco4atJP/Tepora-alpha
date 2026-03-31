@@ -979,10 +979,11 @@ const socketCommands = {
 
 | ディレクトリ             | 責務                                                   |
 | ------------------------ | ------------------------------------------------------ |
+| `features/agent/`      | エージェント管理                                       |
 | `features/chat/`       | メッセージリスト、入力エリア、マークダウンレンダリング |
-| `features/settings/`   | 設定パネル、モデル管理、MCP管理UI                      |
 | `features/session/`    | セッション履歴管理                                     |
-| `features/navigation/` | サイドバー、レイアウト                                 |
+| `features/settings/`   | 設定パネル、モデル管理、MCP管理UI                      |
+| `features/setup/`      | セットアップ画面                                       |
 
 ### 6.6 主要コンポーネント
 
