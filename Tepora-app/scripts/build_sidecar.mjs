@@ -110,6 +110,8 @@ function setupFallbackBinaries() {
     console.warn(
       `Warning: Storage directory not found at ${STORAGE_DIR}. Skipping fallback setup.`
     );
+    ensureDir(FALLBACK_DIR);
+    fs.writeFileSync(path.join(FALLBACK_DIR, ".dummy"), "");
     return;
   }
 
@@ -121,6 +123,8 @@ function setupFallbackBinaries() {
     console.warn(
       `Warning: No matching fallback binary found in ${STORAGE_DIR} for pattern ${regex}`
     );
+    ensureDir(FALLBACK_DIR);
+    fs.writeFileSync(path.join(FALLBACK_DIR, ".dummy"), "");
     return;
   }
 

@@ -15,12 +15,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const sizeStyles = 'px-4 py-2 text-sm rounded-md';
     
     const variantStyles = {
-      primary: 'bg-primary text-[#FAFAFA] hover:opacity-90 border border-transparent', // Assuming #FAFAFA for inverse text
-      secondary: 'bg-transparent border border-secondary text-secondary hover:bg-secondary/10',
-      ghost: 'bg-transparent border border-transparent text-text-main hover:bg-surface/50',
+      primary: 'bg-gradient-to-r from-gold-500 to-gold-400 text-black hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(217,119,6,0.2)] hover:shadow-[0_0_20px_rgba(217,119,6,0.3)]',
+      secondary: 'bg-white/5 border border-white/10 text-gold-200 hover:bg-white/10 active:scale-[0.98]',
+      ghost: 'bg-transparent border border-transparent text-gray-400 hover:text-white hover:bg-white/5 active:scale-[0.98]',
     };
 
-    const widthStyles = fullWidth ? 'w-full' : '';
+    const widthStyles = fullWidth ? 'w-full shadow-lg' : '';
 
     return (
       <button

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { TitleBar } from "./TitleBar";
 
 export interface AppShellLayoutProps {
 	leftSidebar?: React.ReactNode;
@@ -42,7 +43,9 @@ export const AppShellLayout: React.FC<AppShellLayoutProps> = ({
 	const showRightSidebar = isRightSidebarOpen || rightHoverOpen;
 
 	return (
-		<div className="relative flex h-screen w-screen overflow-hidden bg-[image:var(--bg-gradient)] font-sans text-text-main">
+		<div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[image:var(--bg-gradient)] font-sans text-text-main">
+			<TitleBar />
+			<div className="relative flex min-h-0 flex-1 w-full">
 			{leftSidebar ? (
 				<button
 					type="button"
@@ -131,6 +134,7 @@ export const AppShellLayout: React.FC<AppShellLayoutProps> = ({
 					</div>
 				</div>
 			) : null}
+			</div>
 		</div>
 	);
 };

@@ -58,6 +58,12 @@
 	--input-bg-focus: rgba(30, 15, 10, 0.7);
 	--input-border: rgba(255, 230, 200, 0.1);
 
+	/* TEPORA BRAND COLORS (Extracted from SetupLayout) */
+	--brand-gold-400: #fbbf24;
+	--brand-gold-300: #fcd34d;
+	--brand-tea-100: #fef3c7;
+	--brand-gold-500: #d97706;
+
 	--button-glass-bg: rgba(255, 240, 220, 0.05);
 	--button-glass-border: rgba(255, 240, 220, 0.1);
 
@@ -206,29 +212,33 @@
 }
 
 /* Global Scrollbar */
-::-webkit-scrollbar {
+* {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.05) transparent;
+}
+
+*::-webkit-scrollbar {
 	width: 6px;
 	height: 6px;
 }
-::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
 	background: transparent;
 }
-::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
 	background: rgba(255, 255, 255, 0.05); /* Very subtle when idle */
 	border-radius: 4px;
-	transition: background-color 0.3s ease;
 }
-:hover::-webkit-scrollbar-thumb {
+*:hover::-webkit-scrollbar-thumb {
 	background: var(--border-highlight);
 }
-::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-thumb:hover {
 	background: var(--text-secondary);
 }
 
 .custom-scrollbar {
+	/* Kept for backwards compatibility but handled globally now */
 	scrollbar-width: thin;
 	scrollbar-color: rgba(255, 255, 255, 0.05) transparent;
-	transition: scrollbar-color 0.3s ease;
 }
 :hover.custom-scrollbar {
 	scrollbar-color: var(--border-highlight) transparent;

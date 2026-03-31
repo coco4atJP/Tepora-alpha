@@ -28,6 +28,8 @@ tasks:
       - npm run tauri build
       - cmd: powershell -NoProfile -ExecutionPolicy Bypass -Command "if (!(Test-Path '..\..\Installer')) { New-Item -ItemType Directory -Path '..\..\Installer' }; Get-ChildItem 'src-tauri\target\release\bundle\nsis\*.exe' | Copy-Item -Destination '..\..\Installer\Tepora-Setup-Windows-x64-v{{.VERSION}}.exe' -Force"
         platforms: [windows]
+      - cmd: mkdir -p ../../Installer && cp src-tauri/target/release/bundle/dmg/*.dmg ../../Installer/Tepora-Setup-macOS-v{{.VERSION}}.dmg
+        platforms: [darwin]
 
   # === Development ===
   dev:

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSetupStore } from "../model/setupStore";
+import { TitleBar } from "../../../shared/ui/TitleBar";
 
 interface SetupLayoutProps {
 	children: ReactNode;
@@ -19,8 +20,10 @@ export default function SetupLayout({ children }: SetupLayoutProps) {
 	}[step] ?? 0;
 
 	return (
-		<div className="min-h-screen w-full flex items-center justify-center bg-[#050201] relative overflow-hidden font-sans text-gray-200 selection:bg-gold-500/30">
-			{/* Background ambient effect */}
+		<div className="min-h-screen w-full flex flex-col bg-[#050201] relative overflow-hidden font-sans text-gray-200 selection:bg-gold-500/30">
+			<TitleBar />
+			<div className="flex-1 w-full flex items-center justify-center relative">
+				{/* Background ambient effect */}
 			<div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
 				<div className="w-[80vw] h-[80vw] md:w-[60vw] md:h-[60vw] bg-[radial-gradient(circle,rgba(219,140,37,0.08)_0%,transparent_60%)] animate-slow-breathe pointer-events-none rounded-full" />
 				<div 
@@ -65,7 +68,10 @@ export default function SetupLayout({ children }: SetupLayoutProps) {
 					
 					{children}
 				</div>
+				</div>
 			</div>
 		</div>
 	);
 }
+
+
