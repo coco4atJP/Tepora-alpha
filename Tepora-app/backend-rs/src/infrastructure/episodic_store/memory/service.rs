@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use rand::Rng;
+use rand::RngCore;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -1031,7 +1031,7 @@ fn get_or_create_encryption_key() -> anyhow::Result<[u8; 32]> {
             }
             tracing::info!("No encryption key found, generating new one...");
             let mut key = [0u8; 32];
-            rand::thread_rng().fill(&mut key);
+            rand::rng().fill_bytes(&mut key);
             let hex_key = hex::encode(key);
             entry.set_password(&hex_key)?;
             Ok(key)

@@ -101,14 +101,14 @@ pub fn build_backup_config(config: &Value, request: &BackupExportRequest) -> Opt
 
 pub fn encrypt_backup(passphrase: &str, plaintext: &[u8]) -> Result<BackupEnvelope, ApiError> {
     let mut salt = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     let mut key = [0u8; 32];
     Argon2::default()
         .hash_password_into(passphrase.as_bytes(), &salt, &mut key)
         .map_err(|e| ApiError::Internal(format!("KDF failed: {}", e)))?;
     let cipher = Aes256Gcm::new_from_slice(&key).map_err(ApiError::internal)?;
     let mut nonce_bytes = [0u8; 12];
-    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    rand::rng().fill_bytes(&mut nonce_bytes);
     let ciphertext = cipher
         .encrypt(Nonce::from_slice(&nonce_bytes), plaintext)
         .map_err(|_| ApiError::Internal("Failed to encrypt backup".to_string()))?;

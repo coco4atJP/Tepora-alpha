@@ -6,7 +6,7 @@ use std::process::Command;
 
 use axum::http::HeaderMap;
 use chrono::{DateTime, Utc};
-use rand::Rng;
+use rand::RngCore;
 use subtle::ConstantTimeEq;
 
 use crate::core::errors::ApiError;
@@ -57,7 +57,8 @@ impl SessionToken {
     }
 
     pub fn reissue(&mut self) -> Result<String, ApiError> {
-        let token_bytes: [u8; 32] = rand::thread_rng().gen();
+        let mut token_bytes = [0u8; 32];
+        rand::rng().fill_bytes(&mut token_bytes);
         let new_token = hex::encode(token_bytes);
         self.value = new_token.clone();
 
@@ -112,7 +113,8 @@ pub fn init_session_token() -> SessionToken {
         }
     }
 
-    let token_bytes: [u8; 32] = rand::thread_rng().gen();
+    let mut token_bytes = [0u8; 32];
+    rand::rng().fill_bytes(&mut token_bytes);
     let token = hex::encode(token_bytes);
     let token_path = session_token_path();
     if let Some(parent) = token_path.parent() {
