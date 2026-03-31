@@ -52,20 +52,24 @@ export default function FirstChatStep({ onComplete }: FirstChatStepProps) {
 	return (
 		<div className="flex flex-col items-center justify-center py-10 animate-fade-in text-center">
 			
-			<div className="relative mb-6">
-				<div className="absolute inset-0 bg-gold-400 blur-2xl opacity-20 animate-pulse rounded-full" />
+			<div className="relative mb-8">
+				<div className="absolute inset-0 bg-gold-500/30 blur-3xl opacity-30 animate-slow-breathe rounded-full" />
 				{isCharacter ? (
-					<Sparkles className="w-16 h-16 text-purple-400 relative z-10" />
+					<div className="relative p-6 rounded-3xl bg-purple-500/10 border border-purple-500/20 shadow-[0_0_40px_rgba(168,85,247,0.1)]">
+						<Sparkles className="w-16 h-16 text-purple-300 relative z-10 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+					</div>
 				) : (
-					<MessageSquare className="w-16 h-16 text-blue-400 relative z-10" />
+					<div className="relative p-6 rounded-3xl bg-blue-500/10 border border-blue-500/20 shadow-[0_0_40px_rgba(59,130,246,0.1)]">
+						<MessageSquare className="w-16 h-16 text-blue-300 relative z-10 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+					</div>
 				)}
 			</div>
 
-			<h2 className="text-3xl font-semibold text-white mb-4 tracking-wide font-[Playfair_Display]">
+			<h2 className="text-4xl font-bold mb-4 tracking-widest font-[Playfair_Display] text-transparent bg-clip-text bg-gradient-to-r from-gold-400 via-tea-100 to-gold-300 drop-shadow-sm">
 				{t("setup.complete.title", "You're All Set")}
 			</h2>
 			
-			<p className="text-gray-400 mb-12 max-w-sm">
+			<p className="text-tea-100/60 mb-12 max-w-sm leading-relaxed tracking-wide font-medium">
 				{isCharacter 
 					? t("setup.complete.desc.character", "Your AI partner is ready. Say hello and start your conversation.")
 					: t("setup.complete.desc.assistant", "Your practical AI assistant is configured and ready to help.")}

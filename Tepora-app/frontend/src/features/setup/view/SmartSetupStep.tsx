@@ -104,12 +104,15 @@ export default function SmartSetupStep() {
 
 	if (isChecking || !pattern) {
 		return (
-			<div className="flex flex-col items-center justify-center py-12 animate-fade-in">
-				<Loader2 className="w-12 h-12 text-gold-500 animate-spin mb-6" />
-				<h2 className="text-xl font-medium text-gold-100">
+			<div className="flex flex-col items-center justify-center py-16 animate-fade-in">
+				<div className="relative mb-8">
+					<div className="absolute inset-0 bg-gold-500/20 blur-2xl rounded-full animate-slow-breathe" />
+					<Loader2 className="w-12 h-12 text-gold-400 animate-spin relative z-10" />
+				</div>
+				<h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-gold-100 via-tea-100 to-gold-200">
 					{t("setup.smart.checking", "Analyzing optimal configuration...")}
 				</h2>
-				<p className="text-gray-400 mt-2 text-sm">
+				<p className="text-gray-400 mt-3 text-sm tracking-wide">
 					{t("setup.smart.checking_desc", "Checking system capabilities and runtimes.")}
 				</p>
 			</div>
@@ -197,31 +200,38 @@ export default function SmartSetupStep() {
 								onClick={() => !isDownloading && store.toggleModelKey(m.id, !store.selectedModelKeys[m.id])}
 								disabled={isDownloading}
 								className={`
-									w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-200 text-left
+									w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden
 									${store.selectedModelKeys[m.id]
-										? "bg-white/10 border-gold-500/30 shadow-[0_4px_15px_rgba(0,0,0,0.2)]"
-										: "bg-white/5 border-white/5 opacity-60 grayscale"
+										? "bg-gold-500/5 border-gold-500/40 shadow-[0_4px_20px_rgba(217,119,6,0.1)] ring-1 ring-gold-500/20"
+										: "bg-white/5 border-white/5 opacity-50 grayscale hover:opacity-80 hover:grayscale-0"
 									}
-									${isDownloading ? "cursor-default" : "hover:bg-white/15 cursor-pointer"}
+									${isDownloading ? "cursor-default" : "hover:bg-white/10 cursor-pointer"}
 								`}
 							>
-								<div className="flex flex-col">
-									<span className={`font-medium ${store.selectedModelKeys[m.id] ? "text-gold-100" : "text-gray-400"}`}>
+								{/* Subtle selection glow */}
+								{store.selectedModelKeys[m.id] && (
+									<div className="absolute inset-0 bg-gradient-to-r from-gold-500/5 to-transparent pointer-events-none" />
+								)}
+
+								<div className="flex flex-col relative z-10">
+									<span className={`font-semibold tracking-tight ${store.selectedModelKeys[m.id] ? "text-gold-50" : "text-gray-400"}`}>
 										{m.display_name}
 									</span>
-									<span className="text-xs text-gray-500 mt-0.5">
-										{m.role === "embedding" ? t("setup.smart.role.embed", "Search / Memory") : t("setup.smart.role.text", "Text Generation")}
+									<span className={`text-xs mt-1 font-medium ${store.selectedModelKeys[m.id] ? "text-gold-200/60" : "text-gray-500"}`}>
+										<span className="uppercase tracking-widest opacity-80">
+											{m.role === "embedding" ? t("setup.smart.role.embed", "Search / Memory") : t("setup.smart.role.text", "Text Generation")}
+										</span>
 										{" • "}
 										{formatBytes(m.file_size)}
 									</span>
 								</div>
 								
-								<div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+								<div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 relative z-10 ${
 									store.selectedModelKeys[m.id] 
-										? "bg-gold-500 border-gold-500" 
-										: "border-gray-600"
+										? "bg-gold-500 border-gold-400 shadow-[0_0_10px_rgba(251,191,36,0.4)]" 
+										: "border-gray-700 bg-black/20"
 								}`}>
-									{store.selectedModelKeys[m.id] && <CheckCircle2 className="w-3.5 h-3.5 text-black" />}
+									{store.selectedModelKeys[m.id] && <CheckCircle2 className="w-4 h-4 text-black stroke-[3px]" />}
 								</div>
 							</button>
 						))}
@@ -240,20 +250,32 @@ export default function SmartSetupStep() {
 					
 					{/* Progress Display */}
 					{isDownloading && progressData && (
-						<div className="mb-8 p-5 bg-black/40 border border-gold-500/20 rounded-xl">
-							<div className="flex justify-between items-center mb-3">
-								<span className="text-sm font-medium text-gold-200">
-									{progressData.message}
-								</span>
-								<span className="text-sm font-bold text-gold-400">
+						<div className="mb-10 p-6 bg-black/60 border border-gold-500/20 rounded-2xl shadow-inner relative overflow-hidden group">
+							{/* Shimmer background */}
+							<div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold-500/5 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
+							
+							<div className="flex justify-between items-end mb-4 relative z-10">
+								<div className="flex flex-col">
+									<span className="text-xs uppercase tracking-[0.2em] text-gold-500/80 font-bold mb-1">
+										{t("setup.smart.dl.status", "Downloading Assets")}
+									</span>
+									<span className="text-sm font-medium text-gold-100">
+										{progressData.message}
+									</span>
+								</div>
+								<span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gold-400 to-gold-200 tabular-nums">
 									{Math.round(progressData.progress * 100)}%
 								</span>
 							</div>
-							<div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+							
+							<div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden relative z-10 border border-white/5">
 								<div 
-									className="bg-gradient-to-r from-gold-600 to-gold-400 h-full rounded-full transition-all duration-300 ease-out"
-									style={{ width: `${Math.max(0, Math.min(100, progressData.progress * 100))}%` }}
-								/>
+									className="bg-gradient-to-r from-gold-600 via-gold-400 to-tea-100 h-full rounded-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative"
+									style={{ width: `${Math.max(2, Math.min(100, progressData.progress * 100))}%` }}
+								>
+									{/* Progress bar light effect */}
+									<div className="absolute top-0 right-0 bottom-0 w-8 bg-white/30 blur-sm" />
+								</div>
 							</div>
 						</div>
 					)}
