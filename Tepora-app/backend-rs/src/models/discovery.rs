@@ -113,72 +113,78 @@ impl InferenceDiscoveryLayer for OllamaDiscoveryLayer {
         }
 
         let tags: OllamaTagsResponse = response.json().await.map_err(ApiError::internal)?;
-        let mut discovered = Vec::new();
+        
+        let mut fetch_tasks = Vec::new();
 
         for model in tags.models {
-            let show = {
-                let res = self
-                    .client
-                    .post(format!("{}/api/show", self.base_url))
-                    .json(&serde_json::json!({ "name": model.name }))
-                    .send()
-                    .await;
-                match res {
-                    Ok(r) if r.status().is_success() => r.json::<OllamaShowResponse>().await.ok(),
-                    _ => None,
+            let client = self.client.clone();
+            let base_url = self.base_url.clone();
+            
+            fetch_tasks.push(async move {
+                let show = {
+                    let res = client
+                        .post(format!("{}/api/show", base_url))
+                        .json(&serde_json::json!({ "name": model.name }))
+                        .send()
+                        .await;
+                    match res {
+                        Ok(r) if r.status().is_success() => r.json::<OllamaShowResponse>().await.ok(),
+                        _ => None,
+                    }
+                };
+
+                let details = show.as_ref().map(|s| &s.details).unwrap_or(&model.details);
+                let model_info = show.as_ref().and_then(|s| s.model_info.as_ref());
+                let architecture = extract_architecture_from_model_info(model_info);
+                let context_length = extract_context_length(model_info, architecture.as_deref());
+                let role = determine_ollama_role(
+                    &model.name,
+                    details,
+                    show.as_ref().and_then(|s| s.capabilities.as_deref()),
+                    model_info,
+                );
+                let (stop_tokens, default_temperature) = show
+                    .as_ref()
+                    .and_then(|s| s.parameters.as_deref())
+                    .map(parse_ollama_parameters)
+                    .unwrap_or_default();
+                let capabilities = show.as_ref().and_then(|s| {
+                    s.capabilities.as_ref().map(|caps| ModelCapabilities {
+                        completion: caps.iter().any(|c| c == "completion"),
+                        tool_use: caps.iter().any(|c| c == "tools"),
+                        vision: caps.iter().any(|c| c == "vision"),
+                    })
+                });
+
+                DiscoveredModel {
+                    id: format!("ollama-{}", model.name),
+                    display_name: format!("{} (Ollama)", model.name),
+                    role,
+                    file_size: model.size,
+                    filename: model.name.clone(),
+                    source: "ollama".to_string(),
+                    file_path: format!("ollama://{}", model.name),
+                    loader: "ollama".to_string(),
+                    loader_model_name: Some(model.name.clone()),
+                    sha256: Some(model.digest),
+                    parameter_size: details.parameter_size.clone(),
+                    quantization: details.quantization_level.clone(),
+                    context_length,
+                    architecture,
+                    chat_template: show.as_ref().and_then(|s| s.template.clone()),
+                    stop_tokens,
+                    default_temperature,
+                    capabilities,
+                    publisher: None,
+                    description: None,
+                    format: details.format.clone(),
+                    tokenizer_path: None,
+                    tokenizer_format: None,
                 }
-            };
-
-            let details = show.as_ref().map(|s| &s.details).unwrap_or(&model.details);
-            let model_info = show.as_ref().and_then(|s| s.model_info.as_ref());
-            let architecture = extract_architecture_from_model_info(model_info);
-            let context_length = extract_context_length(model_info, architecture.as_deref());
-            let role = determine_ollama_role(
-                &model.name,
-                details,
-                show.as_ref().and_then(|s| s.capabilities.as_deref()),
-                model_info,
-            );
-            let (stop_tokens, default_temperature) = show
-                .as_ref()
-                .and_then(|s| s.parameters.as_deref())
-                .map(parse_ollama_parameters)
-                .unwrap_or_default();
-            let capabilities = show.as_ref().and_then(|s| {
-                s.capabilities.as_ref().map(|caps| ModelCapabilities {
-                    completion: caps.iter().any(|c| c == "completion"),
-                    tool_use: caps.iter().any(|c| c == "tools"),
-                    vision: caps.iter().any(|c| c == "vision"),
-                })
-            });
-
-            discovered.push(DiscoveredModel {
-                id: format!("ollama-{}", model.name),
-                display_name: format!("{} (Ollama)", model.name),
-                role,
-                file_size: model.size,
-                filename: model.name.clone(),
-                source: "ollama".to_string(),
-                file_path: format!("ollama://{}", model.name),
-                loader: "ollama".to_string(),
-                loader_model_name: Some(model.name.clone()),
-                sha256: Some(model.digest),
-                parameter_size: details.parameter_size.clone(),
-                quantization: details.quantization_level.clone(),
-                context_length,
-                architecture,
-                chat_template: show.as_ref().and_then(|s| s.template.clone()),
-                stop_tokens,
-                default_temperature,
-                capabilities,
-                publisher: None,
-                description: None,
-                format: details.format.clone(),
-                tokenizer_path: None,
-                tokenizer_format: None,
             });
         }
 
+        let discovered = futures_util::future::join_all(fetch_tasks).await;
         Ok(discovered)
     }
 }

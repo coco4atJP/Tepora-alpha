@@ -39,6 +39,7 @@ export interface ChatComposerAttachmentViewModel {
 	name: string;
 	type: string;
 	status: "attached" | "uploading" | "error";
+	content?: string;
 }
 
 export interface ChatToolConfirmationViewModel {
@@ -70,6 +71,7 @@ export interface ChatScreenViewProps {
 		canStop: boolean;
 		canRegenerate: boolean;
 		isSending: boolean;
+		canAttachImages: boolean;
 	};
 	errorMessage: string | null;
 	onDraftChange: (draft: string) => void;

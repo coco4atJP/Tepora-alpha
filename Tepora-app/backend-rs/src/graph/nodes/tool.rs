@@ -80,6 +80,7 @@ impl Node for ToolNode {
                         &[("kind", "result"), ("tool", self.tool_name.as_str())],
                         &execution.output,
                     ),
+                    multimodal_parts: None,
                 });
 
                 let _ = ctx
@@ -107,6 +108,7 @@ impl Node for ToolNode {
                         &[("kind", "failure"), ("tool", self.tool_name.as_str())],
                         &failure,
                     ),
+                    multimodal_parts: None,
                 });
 
                 let _ = ctx

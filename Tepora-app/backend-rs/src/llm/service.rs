@@ -356,19 +356,19 @@ impl LlmService {
         }
 
         let repair_request = ChatRequest::new(vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: "Repair the assistant response so it strictly matches the provided JSON schema. Return only valid JSON.".to_string(),
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: format!(
+            ChatMessage::new_text(
+                "system",
+                "Repair the assistant response so it strictly matches the provided JSON schema. Return only valid JSON.",
+            ),
+            ChatMessage::new_text(
+                "user",
+                format!(
                     "Schema name: {}\nSchema:\n{}\n\nOriginal response:\n{}\n\nReturn corrected JSON only.",
                     spec.name,
                     serde_json::to_string_pretty(&spec.schema).unwrap_or_else(|_| spec.schema.to_string()),
                     first
                 ),
-            },
+            ),
         ])
         .with_structured_response(spec);
 
@@ -398,14 +398,7 @@ impl LlmService {
 }
 
 fn clone_messages(request: &ChatRequest) -> Vec<ChatMessage> {
-    request
-        .messages
-        .iter()
-        .map(|m| ChatMessage {
-            role: m.role.clone(),
-            content: m.content.clone(),
-        })
-        .collect()
+    request.messages.clone()
 }
 
 fn normalize_request(mut request: ChatRequest) -> ChatRequest {
@@ -419,20 +412,18 @@ fn normalize_messages(messages: Vec<ChatMessage>) -> Vec<ChatMessage> {
 
     for message in messages {
         if message.role == "system" {
-            if !message.content.trim().is_empty() {
-                system_parts.push(message.content);
+            let text = message.text_content();
+            if !text.trim().is_empty() {
+                system_parts.push(text.to_string());
             }
-        } else if !message.content.trim().is_empty() {
+        } else if !message.text_content().trim().is_empty() {
             others.push(message);
         }
     }
 
     let mut normalized = Vec::new();
     if !system_parts.is_empty() {
-        normalized.push(ChatMessage {
-            role: "system".to_string(),
-            content: system_parts.join("\n\n"),
-        });
+        normalized.push(ChatMessage::new_text("system", system_parts.join("\n\n")));
     }
     normalized.extend(others);
     normalized
@@ -493,27 +484,31 @@ mod tests {
             ChatMessage {
                 role: "system".to_string(),
                 content: "first".to_string(),
+                multimodal_parts: None,
             },
             ChatMessage {
                 role: "user".to_string(),
                 content: "bundle".to_string(),
+                multimodal_parts: None,
             },
             ChatMessage {
                 role: "system".to_string(),
                 content: "second".to_string(),
+                multimodal_parts: None,
             },
             ChatMessage {
                 role: "user".to_string(),
                 content: "final".to_string(),
+                multimodal_parts: None,
             },
         ];
 
         let normalized = normalize_messages(messages);
         assert_eq!(normalized.len(), 3);
         assert_eq!(normalized[0].role, "system");
-        assert_eq!(normalized[0].content, "first\n\nsecond");
-        assert_eq!(normalized[1].content, "bundle");
-        assert_eq!(normalized[2].content, "final");
+        assert_eq!(normalized[0].text_content(), "first\n\nsecond");
+        assert_eq!(normalized[1].text_content(), "bundle");
+        assert_eq!(normalized[2].text_content(), "final");
     }
 
     #[test]

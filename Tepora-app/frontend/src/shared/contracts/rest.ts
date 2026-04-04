@@ -314,6 +314,11 @@ export const setupModelSchema = z
 		repo_id: z.string().nullable().optional(),
 		revision: z.string().nullable().optional(),
 		sha256: z.string().nullable().optional(),
+		capabilities: z.object({
+			completion: z.boolean().optional(),
+			tool_use: z.boolean().optional(),
+			vision: z.boolean().optional(),
+		}).passthrough().nullable().optional(),
 	})
 	.passthrough();
 

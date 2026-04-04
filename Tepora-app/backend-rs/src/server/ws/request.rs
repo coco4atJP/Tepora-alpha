@@ -57,6 +57,32 @@ pub fn build_generation_request(
         )));
     }
 
+    // 画像添付のサイズバリデーション（バックエンド上限: 10MB per image）
+    // フロントエンドの5MB圧縮を通過してきた後の二重チェック
+    const IMAGE_MAX_BYTES: usize = 10 * 1024 * 1024; // 10MB
+    for att in &attachments {
+        let mime = att.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        if mime.starts_with("image/") {
+            let b64 = att
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            // Base64 → バイトサイズの近似値 (実際のバイト数 ≈ b64_len * 3/4)
+            let approx_bytes = b64.len() * 3 / 4;
+            if approx_bytes > IMAGE_MAX_BYTES {
+                let name = att
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("image");
+                return Err(ApiError::BadRequest(format!(
+                    "Image attachment '{}' exceeds 10MB limit (approx {} MB). Please compress the image before uploading.",
+                    name,
+                    approx_bytes / (1024 * 1024)
+                )));
+            }
+        }
+    }
+
     let session_id = data
         .session_id
         .unwrap_or_else(|| current_session_id.to_string());

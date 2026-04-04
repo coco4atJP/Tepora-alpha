@@ -18,15 +18,24 @@ export function useSetupOrchestrator() {
 
 	const [pattern, setPattern] = useState<SetupPattern | null>(null);
 	const [isChecking, setIsChecking] = useState(false);
+	const [checkError, setCheckError] = useState<string | null>(null);
 
 	const runSystemCheck = useCallback(async (internet: InternetPreference) => {
 		setIsChecking(true);
+		setCheckError(null);
 		
+		const timeoutPromise = new Promise((_, reject) => 
+			setTimeout(() => reject(new Error("Analysis timed out after 30 seconds")), 30000)
+		);
+
 		try {
-			// 1. Refresh external runtimes
-			await Promise.allSettled([
-				refreshOllama(),
-				refreshLmStudio()
+			// 1. Refresh external runtimes (with internal timeout)
+			await Promise.race([
+				Promise.allSettled([
+					refreshOllama(),
+					refreshLmStudio()
+				]),
+				timeoutPromise
 			]);
 			
 			// 2. Get latest requirements state
@@ -34,10 +43,6 @@ export function useSetupOrchestrator() {
 			if (!reqs) return;
 
 			// 3. Analyze state
-			// Backend `requirements` implicitly checks if any active/ready models exist.
-			// But for our specialized flow, we need to know specifically if we have 
-			// an external runtime (ollama/lmstudio) and an embedding model.
-			// The default setup models list will tell us what's active.
 			const activeTextModels = defaultModels?.models.filter(m => 
 				m.is_active && m.role !== "embedding"
 			) ?? [];
@@ -72,21 +77,29 @@ export function useSetupOrchestrator() {
 				}
 			}
 			setPattern(detectedPattern);
+		} catch (err) {
+			console.error("System check failed or timed out", err);
+			setCheckError(err instanceof Error ? err.message : "System check failed");
+			// Fallback pattern to allow user to proceed or retry
+			if (!pattern) {
+				setPattern("D_OFFLINE_NO_RUN"); 
+			}
 		} finally {
 			setIsChecking(false);
 		}
-	}, [refreshOllama, refreshLmStudio, refetchRequirements, defaultModels]);
+	}, [refreshOllama, refreshLmStudio, refetchRequirements, defaultModels, pattern]);
 
 	// Auto-run system check if preference is present but pattern is not resolved
 	useEffect(() => {
-		if (internetPreference && !pattern && !isChecking && defaultModels) {
+		if (internetPreference && !pattern && !isChecking && defaultModels && !checkError) {
 			void runSystemCheck(internetPreference);
 		}
-	}, [internetPreference, pattern, isChecking, defaultModels, runSystemCheck]);
+	}, [internetPreference, pattern, isChecking, defaultModels, runSystemCheck, checkError]);
 
 	return {
 		pattern,
 		isChecking,
+		checkError,
 		runSystemCheck,
 		requirements,
 		defaultModels,

@@ -287,6 +287,7 @@ impl AgenticSearchNode {
             vec![crate::llm::ChatMessage {
                 role: "user".to_string(),
                 content: state.input.clone(),
+                multimodal_parts: None,
             }]
         };
 

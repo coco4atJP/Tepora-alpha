@@ -244,10 +244,13 @@ fn build_lmstudio_chat_body(model_name: &str, request: ChatRequest, stream: bool
                 system_parts.push(msg.content.clone());
             }
         } else {
+            // LM Studio Native は OpenAI 互換の content 形式をサポートする
+            // 画像がある場合は content arrays を、なければ文字列を渡す
+            let content = msg.to_content_value();
             input_items.push(json!({
                 "type": "message",
                 "role": msg.role,
-                "content": msg.content
+                "content": content
             }));
         }
     }
@@ -304,18 +307,9 @@ mod tests {
         let body = build_lmstudio_chat_body(
             "model",
             ChatRequest::new(vec![
-                ChatMessage {
-                    role: "system".to_string(),
-                    content: "alpha".to_string(),
-                },
-                ChatMessage {
-                    role: "user".to_string(),
-                    content: "bundle".to_string(),
-                },
-                ChatMessage {
-                    role: "system".to_string(),
-                    content: "beta".to_string(),
-                },
+                ChatMessage::new_text("system", "alpha"),
+                ChatMessage::new_text("user", "bundle"),
+                ChatMessage::new_text("system", "beta"),
             ]),
             false,
         );

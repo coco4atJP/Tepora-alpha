@@ -195,9 +195,31 @@ pub(crate) async fn stream_chat(
 }
 
 fn build_ollama_chat_body(model_name: &str, request: ChatRequest, stream: bool) -> Value {
+    // Ollamaは `messages[].content` にテキスト、`messages[].images` に Base64 配列を使う形式
+    let messages: Vec<Value> = request
+        .messages
+        .iter()
+        .map(|msg| {
+            let images = msg.image_data_list();
+            if images.is_empty() {
+                json!({
+                    "role": msg.role,
+                    "content": msg.content,
+                })
+            } else {
+                let base64_list: Vec<&str> = images.iter().map(|img| img.base64.as_str()).collect();
+                json!({
+                    "role": msg.role,
+                    "content": msg.content,
+                    "images": base64_list,
+                })
+            }
+        })
+        .collect();
+
     let mut body = json!({
         "model": model_name,
-        "messages": request.messages,
+        "messages": messages,
         "stream": stream,
         "think": true,
     });

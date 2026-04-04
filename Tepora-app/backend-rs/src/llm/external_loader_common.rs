@@ -120,9 +120,21 @@ pub(crate) fn build_openai_compatible_chat_body(
     request: ChatRequest,
     stream: bool,
 ) -> Value {
+    // マルチモーダルコンテンツがある場合は content を配列形式に変換する
+    let messages: Vec<Value> = request
+        .messages
+        .iter()
+        .map(|msg| {
+            json!({
+                "role": msg.role,
+                "content": msg.to_content_value(),
+            })
+        })
+        .collect();
+
     let mut body = json!({
         "model": model_name,
-        "messages": request.messages,
+        "messages": messages,
         "stream": stream,
     });
 

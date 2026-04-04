@@ -38,10 +38,17 @@ export function buildComposerViewModel(params: {
 	connection: V2TransportConnectionSnapshot;
 	isBusy: boolean;
 	isStreaming: boolean;
+	canAttachImages: boolean;
 	selectedSessionId: string | null;
 }): ChatScreenViewProps["composer"] {
 	return {
-		attachments: params.attachments,
+		attachments: params.attachments.map(att => ({
+			id: att.id,
+			name: att.name,
+			type: att.type,
+			status: att.status,
+			content: att.content,
+		})),
 		thinkingBudget: params.thinkingBudget,
 		searchMode: params.searchMode,
 		canSend:
@@ -50,6 +57,7 @@ export function buildComposerViewModel(params: {
 		canRegenerate:
 			params.selectedSessionId !== null && !params.isStreaming,
 		isSending: params.isBusy,
+		canAttachImages: params.canAttachImages,
 	};
 }
 

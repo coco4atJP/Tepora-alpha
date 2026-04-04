@@ -176,3 +176,9 @@ gha-creds-*.json
 # Perf reports
 Tepora-app/tests/perf/perf-results.json
 
+# Local benchmark workspace
+benchmark/
+
+
+# TypeScript build info
+*.tsbuildinfo

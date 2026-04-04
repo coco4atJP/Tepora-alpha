@@ -31,7 +31,7 @@ export function useSetupDefaultModelsQuery() {
 	return useQuery(
 		v2StaticQueryOptions({
 			queryKey: setupQueryKeys.defaultModels(),
-			queryFn: () => v2ApiClient.get("/api/setup/default-models", setupModelsResponseSchema),
+			queryFn: () => v2ApiClient.get("/api/setup/models", setupModelsResponseSchema),
 		}),
 	);
 }
@@ -64,16 +64,16 @@ export function useSetupInitMutation() {
 
 // System Check background refresh actions
 export function useRefreshOllamaMutation() {
-	const countSchema = z.number();
+	const refreshResponseSchema = z.object({ success: z.boolean(), count: z.number() }).passthrough();
 	return useMutation({
-		mutationFn: () => v2ApiClient.post("/api/setup/models/ollama/refresh", countSchema),
+		mutationFn: () => v2ApiClient.post("/api/setup/models/ollama/refresh", refreshResponseSchema),
 	});
 }
 
 export function useRefreshLmStudioMutation() {
-	const countSchema = z.number();
+	const refreshResponseSchema = z.object({ success: z.boolean(), count: z.number() }).passthrough();
 	return useMutation({
-		mutationFn: () => v2ApiClient.post("/api/setup/models/lmstudio/refresh", countSchema),
+		mutationFn: () => v2ApiClient.post("/api/setup/models/lmstudio/refresh", refreshResponseSchema),
 	});
 }
 

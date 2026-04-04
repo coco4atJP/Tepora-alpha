@@ -174,6 +174,7 @@ fn normalize_history_message(message: &HistoryMessage) -> Option<ChatMessage> {
     Some(ChatMessage {
         role: role.to_string(),
         content: content.to_string(),
+        multimodal_parts: None,
     })
 }
 

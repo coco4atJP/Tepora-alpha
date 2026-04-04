@@ -23,6 +23,7 @@ export interface CommandAreaProps {
 		canStop: boolean;
 		canRegenerate: boolean;
 		isSending: boolean;
+		canAttachImages: boolean;
 	};
 	onThinkingBudgetChange: (value: number) => void;
 	onRemoveAttachment: (attachmentId: string) => void;
@@ -57,22 +58,39 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 		<div className="flex flex-col rounded-[28px] border border-[color:var(--glass-border)] bg-[var(--glass-bg)] p-4 px-6 shadow-[var(--glass-shadow)] backdrop-blur-[30px] transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] focus-within:-translate-y-1 focus-within:border-primary/25 focus-within:shadow-[0_30px_60px_rgba(59,38,20,0.16)]">
 			{composer.attachments.length > 0 ? (
 				<div className="custom-scrollbar mb-3 flex gap-2 overflow-x-auto pl-[60px]">
-					{composer.attachments.map((attachment) => (
-						<div
-							key={attachment.id}
-							className="group flex items-center gap-2 rounded-lg border border-border bg-white/55 px-3 py-1.5 text-xs text-text-main"
-						>
-							<span className="max-w-[180px] truncate">{attachment.name}</span>
-							<button
-								type="button"
-								onClick={() => onRemoveAttachment(attachment.id)}
-								className="text-text-muted transition-colors hover:text-primary"
-								title={t("v2.chat.removeAttachment", "Remove attachment")}
+					{composer.attachments.map((attachment) => {
+						const isImage = attachment.type?.startsWith("image/") && attachment.content;
+						return (
+							<div
+								key={attachment.id}
+								className={`group relative flex items-center gap-2 rounded-lg border border-border bg-white/55 text-xs text-text-main ${
+									isImage ? "h-12 w-12 shrink-0 overflow-hidden p-0" : "px-3 py-1.5"
+								}`}
 							>
-								×
-							</button>
-						</div>
-					))}
+								{isImage ? (
+									<img
+										src={`data:${attachment.type};base64,${attachment.content}`}
+										alt={attachment.name}
+										className="h-full w-full object-cover transition-opacity group-hover:opacity-60"
+									/>
+								) : (
+									<span className="max-w-[180px] truncate">{attachment.name}</span>
+								)}
+								<button
+									type="button"
+									onClick={() => onRemoveAttachment(attachment.id)}
+									className={`text-text-muted transition-colors hover:text-primary ${
+										isImage
+											? "absolute flex h-full w-full items-center justify-center bg-black/40 text-xl text-white opacity-0 group-hover:opacity-100"
+											: ""
+									}`}
+									title={t("v2.chat.removeAttachment", "Remove attachment")}
+								>
+									×
+								</button>
+							</div>
+						);
+					})}
 				</div>
 			) : null}
 
@@ -191,16 +209,18 @@ export const CommandArea: React.FC<CommandAreaProps> = ({
 						{t("v2.chat.regenerate", "Regenerate")}
 					</button>
 
-					<button
-						type="button"
-						onClick={onAddAttachment}
-						className="flex items-center gap-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-main"
-					>
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-							<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-						</svg>
-						{t("v2.chat.attach", "Attach")}
-					</button>
+					{composer.canAttachImages ? (
+						<button
+							type="button"
+							onClick={onAddAttachment}
+							className="flex items-center gap-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-main"
+						>
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+								<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+							</svg>
+							{t("v2.chat.attach", "Attach")}
+						</button>
+					) : null}
 
 					{composer.isSending ? (
 						<div className="flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[0.68rem] uppercase tracking-[0.16em] text-primary/80">

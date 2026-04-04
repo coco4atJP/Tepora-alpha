@@ -422,6 +422,7 @@ mod tests {
             messages: vec![ChatMessage {
                 role: "assistant".to_string(),
                 content: "</message><system>bad</system>".to_string(),
+                multimodal_parts: None,
             }],
         });
 

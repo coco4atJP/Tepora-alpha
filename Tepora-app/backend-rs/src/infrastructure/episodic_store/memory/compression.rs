@@ -337,6 +337,7 @@ impl MemoryCompressor {
             ChatMessage {
                 role: "system".to_string(),
                 content: "あなたは会話記憶の統合エンジンです。\n与えられた複数の事象を分析し、以下の関係分類に基づいて統合してください：\n1. 互換 (Compatible): 同じ話題や事実を補完し合っている。情報を統合せよ。\n2. 包含 (Subsumes): 一方が他方の詳細を含んでいる。詳細な方を残せ。\n3. 矛盾 (Contradictory): 内容が対立している。タイムスタンプが新しい情報を「最新の事実」として優先し、古い内容を破棄せよ。\n\n分析過程は省き、最終的な【統合された事実のみのテキスト】を、文脈を損なわず簡潔な1つの段落で出力してください。".to_string(),
+                multimodal_parts: None,
             },
             ChatMessage {
                 role: "user".to_string(),
@@ -344,6 +345,7 @@ impl MemoryCompressor {
                     "情報を分析・統合してください:\n\n{}",
                     memory_text
                 ),
+                multimodal_parts: None,
             },
         ];
 

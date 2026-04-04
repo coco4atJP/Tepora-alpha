@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { ChatScreenViewProps } from "../view/props";
 import {
 	buildComposerViewModel,
@@ -9,6 +10,7 @@ import { useChatComposerActions } from "./useChatComposerActions";
 import { useChatScreenState } from "./useChatScreenState";
 import { useChatSessionLifecycle } from "./useChatSessionLifecycle";
 import { useChatTransportLifecycle } from "./useChatTransportLifecycle";
+import { useV2SetupModelsQuery } from "../../settings/model/queries";
 
 export function useChatScreenModel(): ChatScreenViewProps & {
 	onAddFiles: (files: readonly File[] | null) => Promise<void>;
@@ -108,6 +110,19 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 		messagesQuery.error,
 	);
 
+	// アクティブモデルのVision対応フラグを取得
+	const modelsQuery = useV2SetupModelsQuery();
+	const canAttachImages = useMemo(() => {
+		const models = modelsQuery.data?.models ?? [];
+		// characterアサインがアクティブなモデルを探す
+		const activeCharacterModel = models.find(
+			(m) =>
+				m.active_assignment_keys?.some((key) => key === "character") &&
+				m.capabilities?.vision === true,
+		);
+		return Boolean(activeCharacterModel);
+	}, [modelsQuery.data]);
+
 	return {
 		shellState,
 		connectionState: connection.status,
@@ -128,6 +143,7 @@ export function useChatScreenModel(): ChatScreenViewProps & {
 				isBusy,
 				isStreaming,
 				selectedSessionId,
+				canAttachImages,
 			}),
 		errorMessage: resolveChatErrorMessage({
 			actionError,

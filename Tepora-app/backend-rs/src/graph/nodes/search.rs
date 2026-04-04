@@ -11,7 +11,7 @@ use crate::context::pipeline::ContextPipeline;
 use crate::context::pipeline_context::{PipelineMode, RagChunk};
 use crate::graph::node::{GraphError, Node, NodeContext, NodeOutput};
 use crate::graph::state::AgentState;
-use crate::llm::ChatRequest;
+use crate::llm::{ChatMessage, ChatRequest};
 use crate::rag::ChunkSearchResult;
 use crate::search::{EvidenceClaim, EvidenceGap, SearchEvidenceState, SearchMode};
 use crate::tools::execute_tool;
@@ -269,11 +269,26 @@ impl Node for SearchNode {
             pipeline_ctx.user_input = state.input.clone();
         }
 
-        let messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
+        let mut messages = if let Some(pipeline_ctx) = state.pipeline_context.as_ref() {
             ContextPipeline::pipeline_to_context_result(pipeline_ctx).messages
         } else {
             state.chat_history.clone()
         };
+
+        // 画像添付がある場合、最後のuserメッセージをマルチモーダルに差し替える
+        if !state.image_attachments.is_empty() {
+            let images: Vec<_> = state
+                .image_attachments
+                .iter()
+                .map(|a| a.to_image_data())
+                .collect();
+            if let Some(last_user) = messages.iter_mut().rev().find(|m| m.role == "user") {
+                let text = last_user.content.clone();
+                *last_user = ChatMessage::new_multimodal("user", &text, &images);
+            }
+        }
+
+        let request = ChatRequest::new(messages).with_config(ctx.config);
 
         let active_character = ctx
             .config
@@ -287,8 +302,6 @@ impl Node for SearchNode {
             .resolve_character_model_id(active_character)
             .map_err(|err| GraphError::new(self.id(), err.to_string()))?
             .unwrap_or_else(|| "default".to_string());
-
-        let request = ChatRequest::new(messages).with_config(ctx.config);
 
         let mut stream = ctx
             .app_state

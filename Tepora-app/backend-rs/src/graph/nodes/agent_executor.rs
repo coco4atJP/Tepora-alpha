@@ -180,10 +180,18 @@ impl Node for AgentExecutorNode {
             .and_then(|v| v.as_u64())
             .unwrap_or(self.max_steps as u64) as usize;
 
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: state.input.clone(),
-        });
+        // 画像添付がある場合はマルチモーダルメッセージ、なければテキストのみ
+        let user_message = if !state.image_attachments.is_empty() {
+            let images: Vec<_> = state
+                .image_attachments
+                .iter()
+                .map(|a| a.to_image_data())
+                .collect();
+            ChatMessage::new_multimodal("user", &state.input, &images)
+        } else {
+            ChatMessage::new_text("user", state.input.clone())
+        };
+        messages.push(user_message);
 
         for step in 0..max_steps {
             let step_message = format!("Reasoning step {}/{}", step + 1, max_steps);
@@ -301,6 +309,7 @@ impl Node for AgentExecutorNode {
                         messages.push(ChatMessage {
                             role: "user".to_string(),
                             content: render_tool_observation("policy", &name, &rejection),
+                            multimodal_parts: None,
                         });
                         continue;
                     }
@@ -391,6 +400,7 @@ impl Node for AgentExecutorNode {
                                 messages.push(ChatMessage {
                                     role: "user".to_string(),
                                     content: render_tool_observation("denied", &name, &denial),
+                                    multimodal_parts: None,
                                 });
                                 continue;
                             }
@@ -453,6 +463,7 @@ impl Node for AgentExecutorNode {
                             messages.push(ChatMessage {
                                 role: "user".to_string(),
                                 content: render_tool_observation("denied", &name, &denial),
+                                multimodal_parts: None,
                             });
                             let _ = ctx
                                 .sender
@@ -507,6 +518,7 @@ impl Node for AgentExecutorNode {
                             messages.push(ChatMessage {
                                 role: "user".to_string(),
                                 content: render_tool_observation("failure", &name, &failure),
+                                multimodal_parts: None,
                             });
                             continue;
                         }
@@ -545,6 +557,7 @@ impl Node for AgentExecutorNode {
                     messages.push(ChatMessage {
                         role: "user".to_string(),
                         content: render_tool_observation("result", &name, &tool_summary),
+                        multimodal_parts: None,
                     });
 
                     ctx.sender

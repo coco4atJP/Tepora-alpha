@@ -1,10 +1,124 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
+/// 画像データ（Base64エンコード済み）
+#[derive(Debug, Clone)]
+pub struct ImageData {
+    pub mime_type: String,
+    pub base64: String,
+}
+
+impl ImageData {
+    /// `data:<mime_type>;base64,<data>` 形式のData URIを生成する
+    pub fn to_data_uri(&self) -> String {
+        format!("data:{};base64,{}", self.mime_type, self.base64)
+    }
+}
+
+/// LLMへ送信するチャットメッセージ。
+///
+/// テキストのみの場合は `content` にテキストを設定し `multimodal_parts` を None のままにする。
+/// 画像を含む場合は `multimodal_parts` に OpenAI 互換の parts 配列を設定する:
+/// ```json
+/// [
+///   {"type": "text", "text": "..."},
+///   {"type": "image_url", "image_url": {"url": "data:image/...;base64,..."}}
+/// ]
+/// ```
+/// `content` には既存コードの互換性のためテキスト部分が格納される。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
+    /// 画像等のマルチモーダルコンテンツが存在する場合に設定する（OpenAI互換形式）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multimodal_parts: Option<Vec<Value>>,
 }
+
+impl ChatMessage {
+    /// テキストのみのメッセージを作成する（既存コードとの互換性維持）
+    pub fn new_text(role: impl Into<String>, text: impl Into<String>) -> Self {
+        Self {
+            role: role.into(),
+            content: text.into(),
+            multimodal_parts: None,
+        }
+    }
+
+    /// テキスト + 画像のマルチモーダルメッセージを作成する（OpenAI互換形式）
+    pub fn new_multimodal(
+        role: impl Into<String>,
+        text: &str,
+        images: &[ImageData],
+    ) -> Self {
+        let mut parts: Vec<Value> = vec![json!({"type": "text", "text": text})];
+        for img in images {
+            parts.push(json!({
+                "type": "image_url",
+                "image_url": {"url": img.to_data_uri()}
+            }));
+        }
+        Self {
+            role: role.into(),
+            content: text.to_string(),
+            multimodal_parts: Some(parts),
+        }
+    }
+
+    /// テキスト部分を取得する（`content` と同じ）
+    pub fn text_content(&self) -> &str {
+        &self.content
+    }
+
+    /// 画像データの一覧を取得する（例: Ollama の `images` フィールド構築用）
+    pub fn image_data_list(&self) -> Vec<ImageData> {
+        let Some(parts) = &self.multimodal_parts else {
+            return Vec::new();
+        };
+        parts
+            .iter()
+            .filter_map(|part| {
+                if part.get("type").and_then(|t| t.as_str()) != Some("image_url") {
+                    return None;
+                }
+                let url = part
+                    .get("image_url")
+                    .and_then(|obj| obj.get("url"))
+                    .and_then(|u| u.as_str())?;
+                // "data:<mime_type>;base64,<data>" をパース
+                let rest = url.strip_prefix("data:")?;
+                let (mime_part, b64_part) = rest.split_once(";base64,")?;
+                Some(ImageData {
+                    mime_type: mime_part.to_string(),
+                    base64: b64_part.to_string(),
+                })
+            })
+            .collect()
+    }
+
+    /// 画像を含むかどうかを判定する
+    pub fn has_images(&self) -> bool {
+        self.multimodal_parts
+            .as_ref()
+            .map(|parts| {
+                parts
+                    .iter()
+                    .any(|p| p.get("type").and_then(|t| t.as_str()) == Some("image_url"))
+            })
+            .unwrap_or(false)
+    }
+
+    /// LLMへ送信するための `content` JSON値を取得する。
+    /// 画像があれば parts 配列を、なければ文字列を返す。
+    pub fn to_content_value(&self) -> Value {
+        if let Some(parts) = &self.multimodal_parts {
+            Value::Array(parts.clone())
+        } else {
+            Value::String(self.content.clone())
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructuredResponseSpec {

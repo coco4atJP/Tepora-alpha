@@ -360,17 +360,20 @@ impl PipelineContext {
             out.push(ChatMessage {
                 role: "assistant".to_string(),
                 content: format!("Thought: {}", entry.thought),
+                multimodal_parts: None,
             });
             if let Some(action) = &entry.action {
                 out.push(ChatMessage {
                     role: "assistant".to_string(),
                     content: format!("Action: {action}"),
+                    multimodal_parts: None,
                 });
             }
             if let Some(obs) = &entry.observation {
                 out.push(ChatMessage {
                     role: "user".to_string(),
                     content: format!("Observation: {obs}"),
+                    multimodal_parts: None,
                 });
             }
         }

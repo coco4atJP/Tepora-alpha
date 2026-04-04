@@ -26,6 +26,7 @@ pub(super) fn render_blocks_static(mut blocks: Vec<ContextBlock>) -> Vec<ChatMes
         rendered.push(ChatMessage {
             role: "system".to_string(),
             content: system_sections.join("\n\n"),
+            multimodal_parts: None,
         });
     }
 
@@ -34,6 +35,7 @@ pub(super) fn render_blocks_static(mut blocks: Vec<ContextBlock>) -> Vec<ChatMes
         rendered.push(ChatMessage {
             role: "user".to_string(),
             content: context_bundle,
+            multimodal_parts: None,
         });
     }
 
@@ -41,6 +43,7 @@ pub(super) fn render_blocks_static(mut blocks: Vec<ContextBlock>) -> Vec<ChatMes
         rendered.push(ChatMessage {
             role: "user".to_string(),
             content: user_input,
+            multimodal_parts: None,
         });
     }
 

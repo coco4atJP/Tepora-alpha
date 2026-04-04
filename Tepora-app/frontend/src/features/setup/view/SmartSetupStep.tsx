@@ -17,7 +17,7 @@ function formatBytes(bytes: number) {
 export default function SmartSetupStep() {
 	const { t } = useTranslation();
 	const store = useSetupStore();
-	const { pattern, isChecking, defaultModels } = useSetupOrchestrator();
+	const { pattern, isChecking, defaultModels, checkError, runSystemCheck } = useSetupOrchestrator();
 	
 	const { mutateAsync: runPreflight } = useSetupPreflightMutation();
 	const { mutateAsync: runSetup } = useSetupRunMutation();
@@ -105,16 +105,48 @@ export default function SmartSetupStep() {
 	if (isChecking || !pattern) {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 animate-fade-in">
-				<div className="relative mb-8">
-					<div className="absolute inset-0 bg-gold-500/20 blur-2xl rounded-full animate-slow-breathe" />
-					<Loader2 className="w-12 h-12 text-gold-400 animate-spin relative z-10" />
-				</div>
-				<h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-gold-100 via-tea-100 to-gold-200">
-					{t("setup.smart.checking", "Analyzing optimal configuration...")}
-				</h2>
-				<p className="text-gray-400 mt-3 text-sm tracking-wide">
-					{t("setup.smart.checking_desc", "Checking system capabilities and runtimes.")}
-				</p>
+				{checkError ? (
+					<div className="flex flex-col items-center text-center">
+						<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/20 mb-6 border border-red-500/30">
+							<AlertTriangle className="w-8 h-8 text-red-400" />
+						</div>
+						<h2 className="text-xl font-semibold text-white mb-3">
+							{t("setup.smart.error.title", "Analysis Failed")}
+						</h2>
+						<p className="text-gray-400 text-sm mb-8 max-w-md">
+							{checkError.includes("Analysis timed out") 
+								? t("setup.smart.error.timeout", "The system analysis timed out. Your local AI runtime might be unresponsive.")
+								: checkError}
+						</p>
+						<div className="flex gap-4">
+							<Button 
+								variant="secondary" 
+								onClick={() => store.internetPreference && runSystemCheck(store.internetPreference)}
+							>
+								{t("common.retry", "Retry")}
+							</Button>
+							<Button 
+								variant="primary" 
+								onClick={() => store.setStep("ready")}
+							>
+								{t("setup.smart.error.skip", "Skip Analysis")}
+							</Button>
+						</div>
+					</div>
+				) : (
+					<>
+						<div className="relative mb-8">
+							<div className="absolute inset-0 bg-gold-500/20 blur-2xl rounded-full animate-slow-breathe" />
+							<Loader2 className="w-12 h-12 text-gold-400 animate-spin relative z-10" />
+						</div>
+						<h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-gold-100 via-tea-100 to-gold-200">
+							{t("setup.smart.checking", "Analyzing optimal configuration...")}
+						</h2>
+						<p className="text-gray-400 mt-3 text-sm tracking-wide">
+							{t("setup.smart.checking_desc", "Checking system capabilities and runtimes.")}
+						</p>
+					</>
+				)}
 			</div>
 		);
 	}

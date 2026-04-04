@@ -67,6 +67,7 @@ pub fn models_payload(state: &AppStateRead) -> Result<Value, ApiError> {
                 "sha256": model.sha256,
                 "is_active": !active_assignment_keys.is_empty(),
                 "active_assignment_keys": active_assignment_keys,
+                "capabilities": model.capabilities,
             })
         })
         .collect();

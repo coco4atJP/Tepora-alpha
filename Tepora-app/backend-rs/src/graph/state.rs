@@ -6,9 +6,30 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::context::pipeline_context::PipelineContext;
-use crate::llm::ChatMessage;
+use crate::llm::{ChatMessage, ImageData};
 use crate::search::{SearchEvidenceState, SearchMode};
 use crate::tools::search::SearchResult;
+
+/// 画像添付ファイル（フロントエンドのBase64添付から抽出したもの）
+#[derive(Debug, Clone)]
+pub struct ImageAttachment {
+    /// ファイル名
+    pub name: String,
+    /// MIMEタイプ ("image/png", "image/jpeg" 等)
+    pub mime_type: String,
+    /// Base64エンコードされた画像データ（データURIプレフィックスなし）
+    pub base64_data: String,
+}
+
+impl ImageAttachment {
+    /// `llm::ImageData` へ変換する
+    pub fn to_image_data(&self) -> ImageData {
+        ImageData {
+            mime_type: self.mime_type.clone(),
+            base64: self.base64_data.clone(),
+        }
+    }
+}
 
 /// Execution modes for the graph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -143,6 +164,8 @@ pub struct AgentState {
     pub search_results: Option<Vec<SearchResult>>,
     pub search_evidence: SearchEvidenceState,
     pub search_attachments: Vec<Value>,
+    /// 画像添付ファイル（マルチモーダルLLM送信用）
+    pub image_attachments: Vec<ImageAttachment>,
     pub skip_web_search: bool,
 
     // Final output
@@ -172,6 +195,7 @@ impl AgentState {
             search_results: None,
             search_evidence: SearchEvidenceState::default(),
             search_attachments: Vec::new(),
+            image_attachments: Vec::new(),
             skip_web_search: false,
             output: None,
             error: None,
@@ -192,6 +216,37 @@ impl AgentState {
         attachments: Vec<Value>,
         chat_history: Vec<ChatMessage>,
     ) -> Self {
+        // 添付ファイルを画像とテキストに分離する
+        let mut image_attachments: Vec<ImageAttachment> = Vec::new();
+        let mut text_attachments: Vec<Value> = Vec::new();
+        for att in attachments {
+            let mime = att
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if mime.starts_with("image/") {
+                let name = att
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("image")
+                    .to_string();
+                let base64_data = att
+                    .get("content")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if !base64_data.is_empty() {
+                    image_attachments.push(ImageAttachment {
+                        name,
+                        mime_type: mime.to_string(),
+                        base64_data,
+                    });
+                }
+            } else {
+                text_attachments.push(att);
+            }
+        }
+
         Self {
             session_id,
             input: message.to_string(),
@@ -211,7 +266,8 @@ impl AgentState {
             search_queries: Vec::new(),
             search_results: None,
             search_evidence: SearchEvidenceState::default(),
-            search_attachments: attachments,
+            search_attachments: text_attachments,
+            image_attachments,
             skip_web_search,
             output: None,
             error: None,

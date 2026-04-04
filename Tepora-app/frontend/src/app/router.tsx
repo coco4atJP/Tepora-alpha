@@ -46,11 +46,4 @@ export const appRoutes: RouteObject[] = [
 	},
 ];
 
-const futureOptions = {
-	future: {
-		v7_startTransition: true,
-		v7_relativeSplatPath: true,
-	},
-} as const;
-
-export const appRouter = createBrowserRouter(appRoutes, futureOptions);
+export const appRouter = createBrowserRouter(appRoutes);

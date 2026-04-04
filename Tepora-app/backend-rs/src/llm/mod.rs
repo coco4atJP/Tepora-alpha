@@ -10,4 +10,4 @@ pub mod types;
 
 pub use llama_service::LlamaService;
 pub use service::LlmService;
-pub use types::{ChatMessage, ChatRequest};
+pub use types::{ChatMessage, ChatRequest, ImageData};

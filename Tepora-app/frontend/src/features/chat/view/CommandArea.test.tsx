@@ -24,6 +24,7 @@ describe("CommandArea", () => {
 					canStop: false,
 					canRegenerate: false,
 					isSending: false,
+					canAttachImages: true,
 				}}
 			/>,
 		);
