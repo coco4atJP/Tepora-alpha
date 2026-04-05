@@ -396,6 +396,7 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
