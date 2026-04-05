@@ -268,13 +268,15 @@ backend-rs/
 │   │   ├── stream.rs           # ストリーム処理機能
 │   │   ├── node.rs             # Node トレイト定義
 │   │   └── nodes/              # ノード実装 (search_agentic_support 等の helper 分割を含む)
+│   │       ├── planner.rs      # 実行計画生成
+│   │       ├── agent_executor.rs # エージェント実行ランタイム
+│   │       └── ...
 │   │
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── skill_registry.rs   # SkillRegistry / Agent Skills package管理 [v7.0]
 │   │   ├── execution.rs        # エージェント実行ランタイム
 │   │   ├── instructions.rs     # エージェントインストラクション
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   ├── planner.rs          # 実行計画生成
 │   │   ├── policy.rs           # エージェントポリシー
 │   │   └── mod.rs              # モジュール公開
 │   │
@@ -496,6 +498,7 @@ pub struct AgentState {
     pub search_results: Option<Vec<SearchResult>>,
     pub search_evidence: SearchEvidenceState, // evidence-first state
     pub search_attachments: Vec<Value>,
+    pub image_attachments: Vec<ImageAttachment>, // 画像添付ファイル（マルチモーダルLLM送信用）
     pub skip_web_search: bool,
   
     // Final Output
