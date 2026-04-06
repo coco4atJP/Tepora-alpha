@@ -209,7 +209,14 @@ backend-rs/
 │   │   └── mod.rs
 │   │
 │   ├── server/                 # ========== サーバー層 ==========
-│   │   ├── handlers/           # REST API ハンドラ (setup_flow/catalog/roles/models/binary を含む)
+│   │   ├── handlers/           # REST API ハンドラ
+│   │   │   ├── setup_binary.rs # バイナリ更新セットアップ
+│   │   │   ├── setup_catalog.rs # カタログ管理
+│   │   │   ├── setup_flow.rs   # セットアップフロー
+│   │   │   ├── setup_models.rs # モデルダウンロード等のセットアップ
+│   │   │   ├── setup_roles.rs  # ロール割り当てセットアップ
+│   │   │   ├── skills.rs       # エージェントスキルAPIハンドラ
+│   │   │   └── mod.rs          # その他の各種ハンドラ
 │   │   ├── ws/                 # WebSocket ハンドラ (auth/request/control/session/actor_bridge に分割)
 │   │   ├── router.rs           # ルーティング定義
 │   │   └── mod.rs
@@ -268,13 +275,13 @@ backend-rs/
 │   │   ├── stream.rs           # ストリーム処理機能
 │   │   ├── node.rs             # Node トレイト定義
 │   │   └── nodes/              # ノード実装 (search_agentic_support 等の helper 分割を含む)
+│   │       └── planner.rs      # 実行計画生成
 │   │
 │   ├── agent/                  # ========== エージェント管理 ==========
 │   │   ├── skill_registry.rs   # SkillRegistry / Agent Skills package管理 [v7.0]
 │   │   ├── execution.rs        # エージェント実行ランタイム
 │   │   ├── instructions.rs     # エージェントインストラクション
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   ├── planner.rs          # 実行計画生成
 │   │   ├── policy.rs           # エージェントポリシー
 │   │   └── mod.rs              # モジュール公開
 │   │
@@ -496,6 +503,7 @@ pub struct AgentState {
     pub search_results: Option<Vec<SearchResult>>,
     pub search_evidence: SearchEvidenceState, // evidence-first state
     pub search_attachments: Vec<Value>,
+    pub image_attachments: Vec<ImageAttachment>, // マルチモーダルLLM用画像添付ファイル
     pub skip_web_search: bool,
   
     // Final Output
