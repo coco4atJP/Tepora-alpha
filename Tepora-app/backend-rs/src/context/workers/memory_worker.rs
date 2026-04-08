@@ -818,8 +818,7 @@ mod tests {
         );
 
         {
-            let state_clone = (*base_state).clone();
-            let mut config_val = state_clone
+            let mut config_val = base_state
                 .core()
                 .config
                 .load_config()
@@ -850,13 +849,21 @@ mod tests {
                 serde_json::Value::Bool(true),
             );
 
-            state_clone
+            base_state
                 .core()
                 .config
                 .update_config(config_val.clone(), false)
                 .unwrap();
 
-            let state_arc = Arc::new(state_clone);
+            // Create a new state from groups to reload redesign_flags
+            let state_arc = Arc::new(AppState::from_groups(
+                base_state.core.clone(),
+                base_state.ai.clone(),
+                base_state.integration.clone(),
+                base_state.runtime.clone(),
+                base_state.memory.clone(),
+            ));
+
             let worker = MemoryWorker::new(10);
 
             worker.execute(&mut ctx, &state_arc).await.unwrap();
@@ -867,9 +874,8 @@ mod tests {
 
         {
             adapter.called.store(false, Ordering::SeqCst);
-            let state_clone = (*base_state).clone();
 
-            let mut config_val = state_clone
+            let mut config_val = base_state
                 .core()
                 .config
                 .load_config()
@@ -900,13 +906,21 @@ mod tests {
                 serde_json::Value::Bool(true),
             );
 
-            state_clone
+            base_state
                 .core()
                 .config
                 .update_config(config_val.clone(), false)
                 .unwrap();
 
-            let state_arc = Arc::new(state_clone);
+            // Create a new state from groups to reload redesign_flags
+            let state_arc = Arc::new(AppState::from_groups(
+                base_state.core.clone(),
+                base_state.ai.clone(),
+                base_state.integration.clone(),
+                base_state.runtime.clone(),
+                base_state.memory.clone(),
+            ));
+
             let worker = MemoryWorker::new(10);
 
             worker.execute(&mut ctx, &state_arc).await.unwrap();

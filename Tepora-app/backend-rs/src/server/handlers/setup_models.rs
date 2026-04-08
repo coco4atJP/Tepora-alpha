@@ -45,13 +45,13 @@ pub async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
         let result = state
             .ai()
             .models
-                .download_from_huggingface(
-                    &task.repo_id,
-                    &task.filename,
-                    &task.modality,
-                    &task.display_name,
-                    task.revision.as_deref(),
-                    task.sha256.as_deref(),
+            .download_from_huggingface(
+                &task.repo_id,
+                &task.filename,
+                &task.modality,
+                &task.display_name,
+                task.revision.as_deref(),
+                task.sha256.as_deref(),
                 task.consent,
                 Some(&progress_cb),
             )
@@ -59,9 +59,10 @@ pub async fn run_download_job(state: AppStateWrite, tasks: Vec<DownloadTask>) {
 
         match result {
             Ok(dl_result) if dl_result.success => {
-                if let (Some(model_id), Some(assignment_key)) =
-                    (dl_result.model_id.as_deref(), task.assignment_key.as_deref())
-                {
+                if let (Some(model_id), Some(assignment_key)) = (
+                    dl_result.model_id.as_deref(),
+                    task.assignment_key.as_deref(),
+                ) {
                     let assignment = state
                         .ai()
                         .models
@@ -154,7 +155,10 @@ pub fn ensure_assignment_model_exists(
     assignment_key: &str,
     model_id: &str,
 ) -> Result<(), ApiError> {
-    let ok = state.ai().models.set_assignment_model(assignment_key, model_id)?;
+    let ok = state
+        .ai()
+        .models
+        .set_assignment_model(assignment_key, model_id)?;
     if ok {
         Ok(())
     } else {

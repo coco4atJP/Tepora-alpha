@@ -46,11 +46,7 @@ impl ChatMessage {
     }
 
     /// テキスト + 画像のマルチモーダルメッセージを作成する（OpenAI互換形式）
-    pub fn new_multimodal(
-        role: impl Into<String>,
-        text: &str,
-        images: &[ImageData],
-    ) -> Self {
+    pub fn new_multimodal(role: impl Into<String>, text: &str, images: &[ImageData]) -> Self {
         let mut parts: Vec<Value> = vec![json!({"type": "text", "text": text})];
         for img in images {
             parts.push(json!({
@@ -118,7 +114,6 @@ impl ChatMessage {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructuredResponseSpec {

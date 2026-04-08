@@ -274,7 +274,6 @@ backend-rs/
 │   │   ├── execution.rs        # エージェント実行ランタイム
 │   │   ├── instructions.rs     # エージェントインストラクション
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   ├── planner.rs          # 実行計画生成
 │   │   ├── policy.rs           # エージェントポリシー
 │   │   └── mod.rs              # モジュール公開
 │   │
@@ -396,7 +395,7 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
@@ -496,6 +495,7 @@ pub struct AgentState {
     pub search_results: Option<Vec<SearchResult>>,
     pub search_evidence: SearchEvidenceState, // evidence-first state
     pub search_attachments: Vec<Value>,
+    pub image_attachments: Vec<ImageAttachment>,
     pub skip_web_search: bool,
   
     // Final Output

@@ -63,17 +63,11 @@ pub fn build_generation_request(
     for att in &attachments {
         let mime = att.get("type").and_then(|v| v.as_str()).unwrap_or("");
         if mime.starts_with("image/") {
-            let b64 = att
-                .get("content")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let b64 = att.get("content").and_then(|v| v.as_str()).unwrap_or("");
             // Base64 → バイトサイズの近似値 (実際のバイト数 ≈ b64_len * 3/4)
             let approx_bytes = b64.len() * 3 / 4;
             if approx_bytes > IMAGE_MAX_BYTES {
-                let name = att
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("image");
+                let name = att.get("name").and_then(|v| v.as_str()).unwrap_or("image");
                 return Err(ApiError::BadRequest(format!(
                     "Image attachment '{}' exceeds 10MB limit (approx {} MB). Please compress the image before uploading.",
                     name,
