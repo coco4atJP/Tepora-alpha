@@ -10,6 +10,7 @@ use crate::core::errors::ApiError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionInfo {
     pub id: String,
+    pub project_id: String,
     pub title: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -53,6 +54,7 @@ impl HistoryStore {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL DEFAULT 'default',
                 title TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -83,6 +85,17 @@ impl HistoryStore {
             .await
             .map_err(|e| ApiError::internal(format!("Failed to create index: {}", e)))?;
 
+        let _ = sqlx::query(
+            "ALTER TABLE sessions ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default'",
+        )
+        .execute(&pool)
+        .await;
+        let _ = sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_project_id ON sessions(project_id)",
+        )
+        .execute(&pool)
+        .await;
+
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS agent_events (
                 id TEXT PRIMARY KEY,
@@ -108,14 +121,19 @@ impl HistoryStore {
         Ok(Self { pool })
     }
 
-    pub async fn create_session(&self, title: Option<String>) -> Result<String, ApiError> {
+    pub async fn create_session(
+        &self,
+        title: Option<String>,
+        project_id: &str,
+    ) -> Result<String, ApiError> {
         let session_id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
         sqlx::query(
-            "INSERT INTO sessions (id, title, created_at, updated_at, metadata) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO sessions (id, project_id, title, created_at, updated_at, metadata) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(&session_id)
+        .bind(project_id)
         .bind(title)
         .bind(&now)
         .bind(&now)
@@ -162,6 +180,9 @@ impl HistoryStore {
 
             Ok(Some(SessionInfo {
                 id: row.try_get::<String, _>("id").unwrap_or_default(),
+                project_id: row
+                    .try_get::<String, _>("project_id")
+                    .unwrap_or_else(|_| "default".to_string()),
                 title: resolve_session_title(
                     explicit_title,
                     first_message.as_deref(),
@@ -182,9 +203,30 @@ impl HistoryStore {
         }
     }
 
-    pub async fn list_sessions(&self) -> Result<Vec<SessionInfo>, ApiError> {
-        let rows = sqlx::query(
-            "SELECT s.id, s.title, s.created_at, s.updated_at, s.metadata, \
+    pub async fn list_sessions(
+        &self,
+        project_id: Option<&str>,
+    ) -> Result<Vec<SessionInfo>, ApiError> {
+        let rows = if let Some(project_id) = project_id {
+            sqlx::query(
+                "SELECT s.id, s.project_id, s.title, s.created_at, s.updated_at, s.metadata, \
+                 COUNT(m.id) as msg_count, \
+                 (SELECT content FROM messages WHERE session_id = s.id ORDER BY id ASC LIMIT 1) as first_message, \
+                 (SELECT content FROM messages WHERE session_id = s.id ORDER BY id DESC LIMIT 1) as latest_message \
+                 FROM sessions s \
+                 LEFT JOIN messages m ON s.id = m.session_id \
+                 WHERE s.project_id = ? \
+                 GROUP BY s.id \
+                 ORDER BY s.updated_at DESC \
+                 LIMIT 100",
+            )
+            .bind(project_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?
+        } else {
+            sqlx::query(
+            "SELECT s.id, s.project_id, s.title, s.created_at, s.updated_at, s.metadata, \
              COUNT(m.id) as msg_count, \
              (SELECT content FROM messages WHERE session_id = s.id ORDER BY id ASC LIMIT 1) as first_message, \
              (SELECT content FROM messages WHERE session_id = s.id ORDER BY id DESC LIMIT 1) as latest_message \
@@ -194,9 +236,10 @@ impl HistoryStore {
              ORDER BY s.updated_at DESC \
              LIMIT 100",
         )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(ApiError::internal)?;
+            .fetch_all(&self.pool)
+            .await
+            .map_err(ApiError::internal)?
+        };
 
         let mut sessions = Vec::new();
         for row in rows {
@@ -210,6 +253,9 @@ impl HistoryStore {
                 .unwrap_or(None);
             sessions.push(SessionInfo {
                 id: row.try_get::<String, _>("id").unwrap_or_default(),
+                project_id: row
+                    .try_get::<String, _>("project_id")
+                    .unwrap_or_else(|_| "default".to_string()),
                 title: resolve_session_title(
                     explicit_title,
                     first_message.as_deref(),
@@ -265,7 +311,9 @@ impl HistoryStore {
 
         let mut tx = self.pool.begin().await.map_err(ApiError::internal)?;
 
-        sqlx::query("INSERT OR IGNORE INTO sessions (id, created_at, updated_at) VALUES (?, ?, ?)")
+        sqlx::query(
+            "INSERT OR IGNORE INTO sessions (id, project_id, created_at, updated_at) VALUES (?, 'default', ?, ?)",
+        )
             .bind(session_id)
             .bind(&now)
             .bind(&now)
@@ -471,6 +519,17 @@ impl HistoryStore {
             .await
             .map_err(ApiError::internal)?;
         Ok(())
+    }
+
+    pub async fn get_session_project_id(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<String>, ApiError> {
+        sqlx::query_scalar("SELECT project_id FROM sessions WHERE id = ?")
+            .bind(session_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(ApiError::internal)
     }
 }
 

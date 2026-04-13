@@ -16,3 +16,4 @@ mod setup_roles;
 pub mod skills;
 pub mod tools;
 pub mod utils;
+pub mod workspace;

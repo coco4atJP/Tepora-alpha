@@ -121,6 +121,7 @@ export const searchModeSchema = z.enum(["quick", "deep"]);
 export const sessionSchema = z
 	.object({
 		id: z.string().min(1),
+		project_id: z.string().optional(),
 		title: z.string().nullable(),
 		created_at: isoDatetimeSchema,
 		updated_at: isoDatetimeSchema,
@@ -492,6 +493,54 @@ export const successResponseSchema = z.object({
 	success: z.boolean(),
 });
 
+export const workspaceProjectSchema = z
+	.object({
+		id: z.string().min(1),
+		name: z.string().min(1),
+		path: z.string().min(1),
+		is_default: z.boolean(),
+	})
+	.passthrough();
+
+export const workspaceProjectsResponseSchema = z.object({
+	projects: z.array(workspaceProjectSchema),
+	current_project_id: z.string().min(1),
+	revision: z.number().int().nonnegative(),
+});
+
+export interface WorkspaceEntry {
+	path: string;
+	name: string;
+	kind: string;
+	section: string;
+	children: WorkspaceEntry[];
+}
+
+export const workspaceEntrySchema: z.ZodType<WorkspaceEntry> = z.lazy(() =>
+	z
+		.object({
+			path: z.string().min(1),
+			name: z.string().min(1),
+			kind: z.string().min(1),
+			section: z.string().min(1),
+			children: z.array(workspaceEntrySchema),
+		})
+		.passthrough(),
+);
+
+export const workspaceTreeResponseSchema = z.object({
+	project_id: z.string().min(1),
+	revision: z.number().int().nonnegative(),
+	tree: z.array(workspaceEntrySchema),
+});
+
+export const workspaceDocumentSchema = z.object({
+	path: z.string().min(1),
+	section: z.string().min(1),
+	content: z.string(),
+	editable: z.boolean(),
+});
+
 export type ChatMode = z.infer<typeof chatModeSchema>;
 export type AgentMode = z.infer<typeof agentModeSchema>;
 export type SearchMode = z.infer<typeof searchModeSchema>;
@@ -532,3 +581,7 @@ export type McpStoreResponse = z.infer<typeof mcpStoreResponseSchema>;
 export type McpInstallPreviewRequest = z.infer<typeof mcpInstallPreviewRequestSchema>;
 export type McpInstallPreviewResponse = z.infer<typeof mcpInstallPreviewResponseSchema>;
 export type McpInstallConfirmResponse = z.infer<typeof mcpInstallConfirmResponseSchema>;
+export type WorkspaceProject = z.infer<typeof workspaceProjectSchema>;
+export type WorkspaceProjectsResponse = z.infer<typeof workspaceProjectsResponseSchema>;
+export type WorkspaceTreeResponse = z.infer<typeof workspaceTreeResponseSchema>;
+export type WorkspaceDocument = z.infer<typeof workspaceDocumentSchema>;

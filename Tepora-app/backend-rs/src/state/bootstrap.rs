@@ -12,19 +12,18 @@ use crate::domain::knowledge::KnowledgePort;
 use crate::graph::build_tepora_graph;
 use crate::history::HistoryStore;
 use crate::infrastructure::episodic_store::{MemoryAdapter, UnifiedMemoryAdapter};
-use crate::infrastructure::knowledge_store::RagKnowledgeAdapter;
 use crate::llm::{LlamaService, LlmService};
 use crate::mcp::registry::McpRegistry;
 use crate::mcp::McpManager;
 use crate::memory::MemoryService;
 use crate::models::ModelManager;
-use crate::rag::{RagStore, SqliteRagStore};
 use crate::server::middleware::rate_limit::RateLimiters;
+use crate::workspace::{ProjectHistoryStore, ProjectKnowledgePort, WorkspaceManager};
 
 use super::error::InitializationError;
 use super::{
     AppAiState, AppCoreState, AppIntegrationState, AppMemoryState, AppRuntimeState, AppState,
-    SetupState,
+    AppWorkspaceState, SetupState,
 };
 
 const DEFAULT_STARTUP_AUTO_BACKUP_LIMIT: usize = 10;
@@ -44,11 +43,19 @@ impl AppState {
         let startup_config = config.load_config().unwrap_or_default();
         let security = Arc::new(SecurityControls::new(paths.clone(), config.clone()));
         let session_token = Arc::new(tokio::sync::RwLock::new(init_session_token()));
+        let workspace_manager = Arc::new(
+            WorkspaceManager::new(paths.clone())
+                .map_err(|e| InitializationError::Workspace(anyhow::anyhow!(e.to_string())))?,
+        );
         backup_sqlite_databases(paths.as_ref(), &startup_config);
 
-        let history = HistoryStore::new(paths.db_path.clone())
+        let base_history = HistoryStore::new(paths.db_path.clone())
             .await
             .map_err(|e| InitializationError::History(e.into()))?;
+        let history = ProjectHistoryStore::new(
+            base_history,
+            workspace_manager.current_project_id.clone(),
+        );
 
         let llama = LlamaService::new_with_config(paths.clone(), config.clone())
             .map_err(|e| InitializationError::Llm(e.into()))?;
@@ -57,7 +64,8 @@ impl AppState {
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
-        let skill_registry = SkillRegistry::new(paths.as_ref(), config.clone());
+        let skill_registry =
+            SkillRegistry::new(paths.as_ref(), config.clone(), workspace_manager.current_project_id.clone());
 
         let is_declarative = startup_config
             .get("features")
@@ -118,16 +126,11 @@ impl AppState {
                 .map_err(|e| InitializationError::EmMemory(e.into()))?,
         );
 
-        let rag_store = Arc::new(
-            SqliteRagStore::new(paths.as_ref())
-                .await
-                .map_err(|e| InitializationError::Rag(e.into()))?,
-        );
-        let rag_store: Arc<dyn RagStore> = rag_store;
-
         let llm = LlmService::new(models.clone(), llama.clone(), config.clone());
-        let knowledge = Arc::new(RagKnowledgeAdapter::new(
-            rag_store.clone(),
+        let knowledge = Arc::new(ProjectKnowledgePort::new(
+            paths.clone(),
+            workspace_manager.current_project_id.clone(),
+            history.clone(),
             llama.clone(),
             config.clone(),
         )) as Arc<dyn KnowledgePort>;
@@ -178,6 +181,9 @@ impl AppState {
             episodic_memory_use_case: episodic_memory_use_case.clone(),
             knowledge_use_case: knowledge_use_case.clone(),
         });
+        let workspace = Arc::new(AppWorkspaceState {
+            manager: workspace_manager.clone(),
+        });
 
         let app_state = Arc::new(AppState::from_groups(
             core,
@@ -185,6 +191,7 @@ impl AppState {
             integration,
             runtime,
             memory,
+            workspace,
         ));
         app_state.runtime().actor_manager.clone().start_gc();
 

@@ -43,9 +43,12 @@ export const AppShellLayout: React.FC<AppShellLayoutProps> = ({
 	const showRightSidebar = isRightSidebarOpen || rightHoverOpen;
 
 	return (
-		<div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[image:var(--bg-gradient)] font-sans text-text-main">
+		<div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[image:var(--bg-gradient)] font-sans text-text-main selection:bg-gold-500/30">
 			<TitleBar />
 			<div className="relative flex min-h-0 flex-1 w-full">
+				<div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden pointer-events-none">
+					<div className="w-[80vw] h-[80vw] md:w-[60vw] md:h-[60vw] bg-[radial-gradient(circle,rgba(219,140,37,0.08)_0%,transparent_60%)] animate-slow-breathe rounded-full" />
+				</div>
 			{leftSidebar ? (
 				<button
 					type="button"

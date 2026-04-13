@@ -29,6 +29,7 @@ mod state;
 #[cfg(test)]
 mod test_support;
 mod tools;
+mod workspace;
 
 // PoC modules (test-only, Day 7)
 #[cfg(test)]

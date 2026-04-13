@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X, Copy } from "lucide-react";
+import { isDesktop } from "../../utils/sidecar";
 
 export const TitleBar: React.FC = () => {
 	const [isMaximized, setIsMaximized] = useState(false);
-	const appWindow = getCurrentWindow();
+	const isDesktopMode = isDesktop();
 
 	useEffect(() => {
+		if (!isDesktopMode) return;
+		const appWindow = getCurrentWindow();
 		const checkMaximized = async () => {
 			setIsMaximized(await appWindow.isMaximized());
 		};
@@ -24,13 +27,15 @@ export const TitleBar: React.FC = () => {
 		return () => {
 			if (unlisten) unlisten();
 		};
-	}, [appWindow]);
+	}, [isDesktopMode]);
 
 	const handleMinimize = () => {
-		void appWindow.minimize();
+		if (isDesktopMode) void getCurrentWindow().minimize();
 	};
 
 	const handleToggleMaximize = async () => {
+		if (!isDesktopMode) return;
+		const appWindow = getCurrentWindow();
 		if (isMaximized) {
 			void appWindow.unmaximize();
 		} else {
@@ -39,8 +44,12 @@ export const TitleBar: React.FC = () => {
 	};
 
 	const handleClose = () => {
-		void appWindow.close();
+		if (isDesktopMode) void getCurrentWindow().close();
 	};
+
+	if (!isDesktopMode) {
+		return null; // Webブラウザアクセス時はタイトルバーを非表示にする
+	}
 
 	return (
 		<div

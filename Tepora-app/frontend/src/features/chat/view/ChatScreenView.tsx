@@ -71,15 +71,11 @@ export const ChatScreenView: React.FC<
 						type="button"
 						onClick={onOpenRightSidebar}
 						className="flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--glass-border)] bg-[var(--glass-bg)] text-text-muted shadow-[var(--glass-shadow)] backdrop-blur-md transition-all hover:bg-surface/80 hover:text-primary"
-						title={t("v2.agent.openPanel", "Open mode panel")}
+						title={t("v2.settings.openPanel", "Open settings")}
 					>
 						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-							<circle cx="12" cy="5" r="2.5" />
-							<circle cx="6" cy="18" r="2.5" />
-							<circle cx="18" cy="18" r="2.5" />
-							<path d="M12 7.5v4" />
-							<path d="M10.5 13.5 7.5 16" />
-							<path d="M13.5 13.5 16.5 16" />
+							<circle cx="12" cy="12" r="3" />
+							<path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.7-1 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.4.1Z" />
 						</svg>
 					</button>
 				</div>

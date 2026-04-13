@@ -13,7 +13,6 @@ use crate::core::security_controls::SecurityControls;
 use crate::domain::episodic_memory::EpisodicMemoryPort;
 use crate::domain::knowledge::KnowledgePort;
 use crate::graph::GraphRuntime;
-use crate::history::HistoryStore;
 use crate::infrastructure::episodic_store::MemoryAdapter;
 use crate::llm::{LlamaService, LlmService};
 use crate::mcp::registry::McpRegistry;
@@ -21,6 +20,7 @@ use crate::mcp::McpManager;
 use crate::memory::MemoryService;
 use crate::models::ModelManager;
 use crate::server::middleware::rate_limit::RateLimiters;
+use crate::workspace::{ProjectHistoryStore, WorkspaceManager};
 
 mod bootstrap;
 pub mod error;
@@ -77,6 +77,10 @@ impl AppStateRead {
         self.0.memory()
     }
 
+    pub fn workspace(&self) -> &AppWorkspaceState {
+        self.0.workspace()
+    }
+
     pub fn is_redesign_enabled(&self, feature: &str) -> bool {
         self.0.is_redesign_enabled(feature)
     }
@@ -114,6 +118,10 @@ impl AppStateWrite {
     #[allow(dead_code)]
     pub fn memory(&self) -> &AppMemoryState {
         self.0.memory()
+    }
+
+    pub fn workspace(&self) -> &AppWorkspaceState {
+        self.0.workspace()
     }
 }
 
@@ -192,7 +200,7 @@ pub struct AppIntegrationState {
 
 #[derive(Clone)]
 pub struct AppRuntimeState {
-    pub history: HistoryStore,
+    pub history: ProjectHistoryStore,
     pub graph_runtime: Arc<GraphRuntime>,
     pub rate_limiters: Arc<RateLimiters>,
     pub actor_manager: Arc<ActorManager>,
@@ -208,6 +216,11 @@ pub struct AppMemoryState {
     pub knowledge_use_case: Arc<KnowledgeUseCase>,
 }
 
+#[derive(Clone)]
+pub struct AppWorkspaceState {
+    pub manager: Arc<WorkspaceManager>,
+}
+
 /// Global application state shared across all routes and background tasks.
 /// Top-level fields are grouped by responsibility to avoid a God Object.
 #[derive(Clone)]
@@ -217,6 +230,7 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     /// 起動時に読み込んだ redesign フィーチャーフラグのキャッシュ。
     redesign_flags: Arc<HashMap<String, bool>>,
 }
@@ -242,12 +256,17 @@ impl AppState {
         self.memory.as_ref()
     }
 
+    pub fn workspace(&self) -> &AppWorkspaceState {
+        self.workspace.as_ref()
+    }
+
     pub(crate) fn from_groups(
         core: Arc<AppCoreState>,
         ai: Arc<AppAiState>,
         integration: Arc<AppIntegrationState>,
         runtime: Arc<AppRuntimeState>,
         memory: Arc<AppMemoryState>,
+        workspace: Arc<AppWorkspaceState>,
     ) -> Self {
         let redesign_flags = Arc::new(load_redesign_flags(&core.config));
         Self {
@@ -256,6 +275,7 @@ impl AppState {
             integration,
             runtime,
             memory,
+            workspace,
             redesign_flags,
         }
     }

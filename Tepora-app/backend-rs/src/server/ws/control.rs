@@ -108,6 +108,11 @@ pub(super) async fn handle_control_message<S: JsonPayloadSink + ?Sized>(
         "set_session" => {
             if let Some(session_id) = data.session_id {
                 *current_session_id = session_id;
+                let _ = state
+                    .runtime()
+                    .history
+                    .sync_current_project_with_session(current_session_id)
+                    .await;
                 send_json(
                     sender,
                     json!({"type": "session_changed", "sessionId": current_session_id}),

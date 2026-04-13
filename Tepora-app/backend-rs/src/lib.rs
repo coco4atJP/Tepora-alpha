@@ -25,6 +25,7 @@ pub mod state;
 #[cfg(test)]
 pub mod test_support;
 pub mod tools;
+pub mod workspace;
 
 #[cfg(test)]
 pub mod crdt;

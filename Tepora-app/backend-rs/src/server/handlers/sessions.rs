@@ -28,6 +28,7 @@ pub async fn list_sessions(
         .map(|session| {
             json!({
                 "id": session.id,
+                "project_id": session.project_id,
                 "title": session.title,
                 "created_at": session.created_at,
                 "updated_at": session.updated_at,
@@ -48,6 +49,11 @@ pub async fn create_session(
         .history
         .create_session(payload.title)
         .await?;
+    let _ = state
+        .runtime()
+        .history
+        .sync_current_project_with_session(&session_id)
+        .await?;
     let session = state.runtime().history.get_session(&session_id).await?;
     Ok(Json(json!({"session": session})))
 }
@@ -56,6 +62,11 @@ pub async fn get_session(
     State(state): State<AppStateRead>,
     Path(session_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
+    let _ = state
+        .runtime()
+        .history
+        .sync_current_project_with_session(&session_id)
+        .await?;
     let session = state
         .runtime()
         .history
@@ -88,6 +99,11 @@ pub async fn get_session_messages(
     Path(session_id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, ApiError> {
+    let _ = state
+        .runtime()
+        .history
+        .sync_current_project_with_session(&session_id)
+        .await?;
     let limit = params
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())

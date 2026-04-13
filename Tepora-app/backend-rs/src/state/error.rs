@@ -16,4 +16,7 @@ pub enum InitializationError {
 
     #[error("Failed to initialize LLM service: {0}")]
     Llm(#[source] anyhow::Error),
+
+    #[error("Failed to initialize workspace manager: {0}")]
+    Workspace(#[source] anyhow::Error),
 }

@@ -7,7 +7,7 @@ use serde_json::{json, Map, Value};
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
-use crate::history::HistoryStore;
+use crate::workspace::ProjectHistoryStore;
 
 #[allow(unused_imports)]
 pub use super::pii_detection::{detect_pii, detect_pii_in_attachments, PiiFinding};
@@ -248,7 +248,7 @@ impl SecurityControls {
     pub async fn export_backup(
         &self,
         request: &BackupExportRequest,
-        history: &HistoryStore,
+        history: &ProjectHistoryStore,
         skill_registry: &SkillRegistry,
     ) -> Result<BackupExportPayload, ApiError> {
         if request.passphrase.trim().is_empty() {
@@ -308,7 +308,7 @@ impl SecurityControls {
     pub async fn import_backup(
         &self,
         request: &BackupImportRequest,
-        history: &HistoryStore,
+        history: &ProjectHistoryStore,
         skill_registry: &SkillRegistry,
     ) -> Result<BackupImportResult, ApiError> {
         let stage = request.stage.trim().to_lowercase();

@@ -14,16 +14,25 @@ const LANGUAGES = [
 
 export default function LanguageStep() {
 	const { t, i18n } = useTranslation();
+	const storeLanguage = useSetupStore((state) => state.language);
 	const setLanguage = useSetupStore((state) => state.setLanguage);
 	const setStep = useSetupStore((state) => state.setStep);
 	const { mutateAsync: initSetup } = useSetupInitMutation();
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	// Determine currently selected language from i18n
-	const selectedLang = LANGUAGES.find((lang) => i18n.language.startsWith(lang.code))?.code || "en";
+	// Determine currently selected language from store OR fallback to i18n
+	const selectedLang =
+		storeLanguage ||
+		LANGUAGES.find((lang) => {
+			const current = i18n.language.toLowerCase();
+			const target = lang.code.toLowerCase();
+			return current.startsWith(target) || target.startsWith(current);
+		})?.code ||
+		"en";
 
 	const handleSelect = async (code: string) => {
 		try {
+			setLanguage(code);
 			await i18n.changeLanguage(code);
 		} catch (err) {
 			console.error("Failed to change language locally", err);

@@ -21,6 +21,9 @@ export interface WorkspaceToolConfirmation {
 
 interface WorkspaceState {
 	selectedSessionId: string | null;
+	currentProjectId: string | null;
+	selectedDocumentPath: string | null;
+	mobilePane: "files" | "preview" | "chat";
 	activeMode: ChatMode;
 	searchMode: SearchMode;
 	draft: string;
@@ -38,6 +41,9 @@ interface WorkspaceState {
 
 interface WorkspaceActions {
 	setSelectedSessionId: (sessionId: string | null) => void;
+	setCurrentProjectId: (projectId: string | null) => void;
+	setSelectedDocumentPath: (path: string | null) => void;
+	setMobilePane: (pane: "files" | "preview" | "chat") => void;
 	setActiveMode: (mode: ChatMode) => void;
 	setSearchMode: (mode: SearchMode) => void;
 	setDraft: (draft: string) => void;
@@ -75,6 +81,9 @@ function clampThinkingBudget(value: number): number {
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>(
 	(set) => ({
 		selectedSessionId: null,
+		currentProjectId: null,
+		selectedDocumentPath: null,
+		mobilePane: "chat",
 		activeMode: "chat",
 		searchMode: "quick",
 		draft: "",
@@ -86,6 +95,15 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>(
 		pendingToolConfirmation: null,
 		setSelectedSessionId: (selectedSessionId) => {
 			set({ selectedSessionId });
+		},
+		setCurrentProjectId: (currentProjectId) => {
+			set({ currentProjectId });
+		},
+		setSelectedDocumentPath: (selectedDocumentPath) => {
+			set({ selectedDocumentPath });
+		},
+		setMobilePane: (mobilePane) => {
+			set({ mobilePane });
 		},
 		setActiveMode: (activeMode) => {
 			set({ activeMode });

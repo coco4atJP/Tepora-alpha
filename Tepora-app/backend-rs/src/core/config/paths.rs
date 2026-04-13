@@ -14,7 +14,7 @@ pub struct AppPaths {
 impl AppPaths {
     pub fn new() -> Self {
         let project_root = discover_project_root();
-        let user_data_dir = discover_user_data_dir(&project_root);
+        let user_data_dir = discover_user_data_dir();
         let log_dir = user_data_dir.join("logs");
         let db_path = user_data_dir.join("tepora_core.db");
         let secrets_path = user_data_dir.join("secrets.yaml");
@@ -39,6 +39,33 @@ impl AppPaths {
             db_path,
             secrets_path,
         }
+    }
+
+    pub fn tepora_home(&self) -> PathBuf {
+        self.user_data_dir
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| self.user_data_dir.clone())
+    }
+
+    pub fn project_dir(&self, project_id: &str) -> PathBuf {
+        self.tepora_home().join(project_id)
+    }
+
+    pub fn project_contexts_dir(&self, project_id: &str) -> PathBuf {
+        self.project_dir(project_id).join("contexts")
+    }
+
+    pub fn project_skills_dir(&self, project_id: &str) -> PathBuf {
+        self.project_dir(project_id).join("skills")
+    }
+
+    pub fn project_workspace_dir(&self, project_id: &str) -> PathBuf {
+        self.project_dir(project_id).join("workspace")
+    }
+
+    pub fn project_rag_db_path(&self, project_id: &str) -> PathBuf {
+        self.project_dir(project_id).join("rag.db")
     }
 }
 
@@ -75,35 +102,20 @@ fn discover_project_root() -> PathBuf {
     env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-fn discover_user_data_dir(project_root: &Path) -> PathBuf {
+fn discover_user_data_dir() -> PathBuf {
     if let Ok(dir) = env::var("TEPORA_DATA_DIR") {
         return PathBuf::from(dir);
     }
 
-    if cfg!(debug_assertions) {
-        return project_root.to_path_buf();
+    discover_tepora_home().join("default")
+}
+
+fn discover_tepora_home() -> PathBuf {
+    if let Ok(dir) = env::var("TEPORA_HOME") {
+        return PathBuf::from(dir);
     }
 
-    if cfg!(target_os = "windows") {
-        let base = env::var("LOCALAPPDATA")
-            .unwrap_or_else(|_| env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string()));
-        return PathBuf::from(base).join("Tepora");
-    }
-
-    if cfg!(target_os = "macos") {
-        return home_dir()
-            .join("Library")
-            .join("Application Support")
-            .join("Tepora");
-    }
-
-    let xdg = env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
-        home_dir()
-            .join(".local/share")
-            .to_string_lossy()
-            .to_string()
-    });
-    PathBuf::from(xdg).join("tepora")
+    home_dir().join(".tepora")
 }
 
 fn home_dir() -> PathBuf {

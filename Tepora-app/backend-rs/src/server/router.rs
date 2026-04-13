@@ -9,6 +9,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::server::handlers::{
     auth, config, health, logs, mcp, memory, metrics, security, sessions, setup, skills, tools,
+    workspace,
 };
 use crate::server::middleware::auth::require_api_key_middleware;
 use crate::server::middleware::rate_limit::rate_limit_middleware;
@@ -69,6 +70,13 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route(
             "/api/sessions",
             get(sessions::list_sessions).post(sessions::create_session),
+        )
+        .route("/api/workspace/projects", get(workspace::list_projects).post(workspace::create_project))
+        .route("/api/workspace/projects/:project_id/select", post(workspace::set_current_project))
+        .route("/api/workspace/tree", get(workspace::get_current_tree))
+        .route(
+            "/api/workspace/document/*path",
+            get(workspace::read_document).put(workspace::write_document),
         )
         .route(
             "/api/sessions/:session_id",

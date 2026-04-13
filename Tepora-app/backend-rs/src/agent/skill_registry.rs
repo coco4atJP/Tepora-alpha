@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use tokio::sync::RwLock;
 
 use crate::core::config::{AppPaths, ConfigService};
 use crate::core::errors::ApiError;
@@ -113,13 +114,19 @@ pub struct SkillExportBundle {
 pub struct SkillRegistry {
     paths: Arc<AppPaths>,
     config: ConfigService,
+    current_project_id: Arc<RwLock<String>>,
 }
 
 impl SkillRegistry {
-    pub fn new(paths: &AppPaths, config: ConfigService) -> Self {
+    pub fn new(
+        paths: &AppPaths,
+        config: ConfigService,
+        current_project_id: Arc<RwLock<String>>,
+    ) -> Self {
         Self {
             paths: Arc::new(paths.clone()),
             config,
+            current_project_id,
         }
     }
 
@@ -368,27 +375,19 @@ impl SkillRegistry {
     }
 
     fn default_roots(&self) -> Vec<SkillRootConfig> {
+        let project_id = self
+            .current_project_id
+            .blocking_read()
+            .clone();
         vec![
             SkillRootConfig {
                 path: self
                     .paths
-                    .project_root
-                    .join(".agents")
-                    .join("skills")
+                    .project_skills_dir(&project_id)
                     .to_string_lossy()
                     .to_string(),
                 enabled: true,
-                label: Some("Project Skills".to_string()),
-            },
-            SkillRootConfig {
-                path: self
-                    .paths
-                    .user_data_dir
-                    .join("skills")
-                    .to_string_lossy()
-                    .to_string(),
-                enabled: true,
-                label: Some("User Skills".to_string()),
+                label: Some("Workspace Skills".to_string()),
             },
         ]
     }
@@ -881,7 +880,7 @@ mod tests {
         };
         fs::create_dir_all(paths.user_data_dir.join("skills")).unwrap();
         let config = ConfigService::new(Arc::new(paths.clone()));
-        SkillRegistry::new(&paths, config)
+        SkillRegistry::new(&paths, config, Arc::new(RwLock::new("default".to_string())))
     }
 
     #[test]

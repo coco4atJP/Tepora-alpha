@@ -22,7 +22,16 @@ export function useSessionSidebarModel(): SessionSidebarViewProps {
 	const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
 
 	useEffect(() => {
-		if (selectedSessionId || sessions.length === 0) {
+		if (sessions.length === 0) {
+			if (selectedSessionId) {
+				startTransition(() => {
+					setSelectedSessionId(null);
+				});
+			}
+			return;
+		}
+
+		if (selectedSessionId && sessions.some((session) => session.id === selectedSessionId)) {
 			return;
 		}
 
