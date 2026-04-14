@@ -24,7 +24,7 @@ toml = "0.8"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
-governor = { version = "0.6", features = ["std"] }
+governor = { version = "0.10", features = ["std"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
