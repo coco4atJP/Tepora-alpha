@@ -274,7 +274,6 @@ backend-rs/
 │   │   ├── execution.rs        # エージェント実行ランタイム
 │   │   ├── instructions.rs     # エージェントインストラクション
 │   │   ├── modes.rs            # RequestedAgentMode
-│   │   ├── planner.rs          # 実行計画生成
 │   │   ├── policy.rs           # エージェントポリシー
 │   │   └── mod.rs              # モジュール公開
 │   │
@@ -411,7 +410,7 @@ let history = state.runtime().history.clone();
 
 ### 5.1.1 近年の分割ポイント
 
-- `server/handlers/setup.rs` は setup flow / model catalog / role assignment / binary update に分割
+- `server/handlers/setup.rs` は setup flow / model catalog / role assignment / binary update に分割。さらに `skills.rs` によるスキルルーティングも提供。
 - `server/ws/handler.rs` は auth / request / control / session / actor bridge に分割
 - `core/security_controls.rs` は audit / backup / credentials / permissions / pii detection を個別モジュールへ分離
 - `context/controller.rs` は recipe / tokens / render / blocks の helper 群へ分離
@@ -1420,6 +1419,9 @@ task dev-backend
 
 # 品質チェック (Format, Lint, Test)
 task quality
+
+# 品質チェックと自動修正
+task quality:fix
 ```
 
 ---
