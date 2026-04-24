@@ -187,6 +187,42 @@ impl WorkspaceManager {
         })
     }
 
+    pub fn create_directory(&self, project_id: &str, relative_path: &str) -> Result<(), ApiError> {
+        let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
+        fs::create_dir_all(&resolved.path).map_err(ApiError::internal)?;
+        self.revision.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn rename_path(&self, project_id: &str, old_relative_path: &str, new_relative_path: &str) -> Result<(), ApiError> {
+        let old_resolved = resolve_project_file_path(&self.paths, project_id, old_relative_path)?;
+        let new_resolved = resolve_project_file_path(&self.paths, project_id, new_relative_path)?;
+        if !old_resolved.path.exists() {
+            return Err(ApiError::NotFound("Path not found".to_string()));
+        }
+        if let Some(parent) = new_resolved.path.parent() {
+            fs::create_dir_all(parent).map_err(ApiError::internal)?;
+        }
+        fs::rename(&old_resolved.path, &new_resolved.path).map_err(ApiError::internal)?;
+        self.revision.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn delete_path(&self, project_id: &str, relative_path: &str) -> Result<(), ApiError> {
+        let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
+        if !resolved.path.exists() {
+            return Err(ApiError::NotFound("Path not found".to_string()));
+        }
+        if resolved.path.is_dir() {
+            fs::remove_dir_all(&resolved.path).map_err(ApiError::internal)?;
+        } else {
+            fs::remove_file(&resolved.path).map_err(ApiError::internal)?;
+        }
+        self.revision.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+
+
     pub fn tree(&self, project_id: &str) -> Result<Vec<WorkspaceEntry>, ApiError> {
         ensure_project_layout(&self.paths, project_id)?;
         let sections = [

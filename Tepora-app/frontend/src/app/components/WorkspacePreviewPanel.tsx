@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Save } from "lucide-react";
+import { Check, Save, X } from "lucide-react";
 import type { WorkspaceDocument } from "../../shared/contracts";
 
 interface WorkspacePreviewPanelProps {
@@ -7,6 +7,7 @@ interface WorkspacePreviewPanelProps {
 	selectedPath: string | null;
 	isLoading: boolean;
 	onSave: (content: string) => Promise<void>;
+	onClose?: () => void;
 }
 
 export function WorkspacePreviewPanel({
@@ -14,6 +15,8 @@ export function WorkspacePreviewPanel({
 	selectedPath,
 	isLoading,
 	onSave,
+	onClose,
+
 }: WorkspacePreviewPanelProps) {
 	const [draft, setDraft] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
@@ -46,13 +49,25 @@ export function WorkspacePreviewPanel({
 			{/* Inner subtle glow */}
 			<div className="absolute top-0 left-1/4 w-1/2 h-px bg-gradient-to-r from-transparent via-gold-500/50 to-transparent z-10" />
 			
-			<div className="border-b border-border px-5 py-4 relative z-10">
-				<div className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-primary/70">
-					Preview
+			<div className="flex items-start justify-between border-b border-border px-5 py-4 relative z-10">
+				<div className="min-w-0 pr-4">
+					<div className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-primary/70">
+						Preview
+					</div>
+					<div className="mt-2 truncate text-sm text-text-muted">
+						{selectedPath ?? "Select a file"}
+					</div>
 				</div>
-				<div className="mt-2 truncate text-sm text-text-muted">
-					{selectedPath ?? "Select a file"}
-				</div>
+				{onClose && (
+					<button
+						type="button"
+						onClick={onClose}
+						className="mt-1 flex-shrink-0 rounded-full p-1.5 text-text-muted hover:bg-white/10 hover:text-text-main transition-colors"
+						aria-label="Close preview"
+					>
+						<X className="h-4 w-4" />
+					</button>
+				)}
 			</div>
 			{isLoading ? (
 				<div className="flex flex-1 items-center justify-center text-sm text-text-muted">

@@ -13,6 +13,12 @@ pub struct WorkspaceDocumentPayload {
     pub content: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceRenamePayload {
+    pub new_path: String,
+}
+
+
 pub async fn list_projects(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -74,4 +80,41 @@ pub async fn write_document(
         .manager
         .write_document(&project_id, &path, &payload.content)?;
     Ok(Json(document))
+}
+
+pub async fn create_directory(
+    State(state): State<AppStateWrite>,
+    Path(path): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let project_id = state.workspace().manager.current_project_id().await;
+    state
+        .workspace()
+        .manager
+        .create_directory(&project_id, &path)?;
+    Ok(Json(json!({ "success": true, "path": path })))
+}
+
+pub async fn rename_path(
+    State(state): State<AppStateWrite>,
+    Path(old_path): Path<String>,
+    Json(payload): Json<WorkspaceRenamePayload>,
+) -> Result<impl IntoResponse, ApiError> {
+    let project_id = state.workspace().manager.current_project_id().await;
+    state
+        .workspace()
+        .manager
+        .rename_path(&project_id, &old_path, &payload.new_path)?;
+    Ok(Json(json!({ "success": true, "old_path": old_path, "new_path": payload.new_path })))
+}
+
+pub async fn delete_path(
+    State(state): State<AppStateWrite>,
+    Path(path): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let project_id = state.workspace().manager.current_project_id().await;
+    state
+        .workspace()
+        .manager
+        .delete_path(&project_id, &path)?;
+    Ok(Json(json!({ "success": true, "path": path })))
 }
