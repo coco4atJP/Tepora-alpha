@@ -35,6 +35,8 @@ export const ModelManagementSection: React.FC = () => {
 		confirmConsentDownload,
 		handleDelete,
 		clearFilters,
+		handleRefreshLocalModels,
+		isRefreshing,
 	} = useModelManagementSection();
 
 	return (
@@ -48,6 +50,8 @@ export const ModelManagementSection: React.FC = () => {
 				isChecking={isChecking}
 				remoteModelCount={remoteModels.length}
 				isBusy={isBusy}
+				onRefresh={handleRefreshLocalModels}
+				isRefreshing={isRefreshing}
 			/>
 
 			{progressSnapshot ? (

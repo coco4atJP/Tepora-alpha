@@ -223,15 +223,31 @@ impl ModelRegistryStore {
 
     pub(crate) fn apply_discovered_models(
         &self,
+        loader: &str,
         discovered: Vec<DiscoveredModel>,
     ) -> Result<usize, ApiError> {
-        if discovered.is_empty() {
-            return Ok(0);
-        }
-
         let mut registry = self.load()?;
         let now = Utc::now().to_rfc3339();
         let mut count = 0;
+
+        let mut removed_ids = Vec::new();
+        registry.models.retain(|m| {
+            if m.loader == loader && !discovered.iter().any(|d| d.id == m.id) {
+                removed_ids.push(m.id.clone());
+                false
+            } else {
+                true
+            }
+        });
+
+        for id in &removed_ids {
+            registry.role_assignments.retain(|_, value| value != id);
+            for order in registry.role_order.values_mut() {
+                order.retain(|v| v != id);
+            }
+        }
+        
+        count += removed_ids.len();
 
         for discovered_model in discovered {
             if let Some(existing) = registry
@@ -449,7 +465,7 @@ mod tests {
             .expect("seed registry");
 
         let count = store
-            .apply_discovered_models(vec![DiscoveredModel {
+            .apply_discovered_models("ollama", vec![DiscoveredModel {
                 id: "ollama-m1".to_string(),
                 display_name: "M1 (Ollama)".to_string(),
                 role: "embedding".to_string(),

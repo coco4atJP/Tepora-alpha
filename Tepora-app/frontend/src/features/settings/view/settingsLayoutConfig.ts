@@ -7,11 +7,7 @@ export type NavCategory =
 	| "Models"
 	| "Memory"
 	| "Context"
-	| "CharacterAgents"
-	| "ExecutiveAgents"
-	| "SupervisorAgent"
-	| "PlannerAgent"
-	| "SearchAgent"
+	| "Agents"
 	| "Capabilities"
 	| "Advanced";
 
@@ -46,11 +42,7 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDefinition[] = [
 	},
 	{ id: "Memory", label: "Memory", tabs: ["Basics", "Decay Engine", "Retrieval"] },
 	{ id: "Context", label: "Context", tabs: ["RAG", "Window Allocation"] },
-	{ id: "CharacterAgents", label: "Character Agents", tabs: ["Personas"] },
-	{ id: "ExecutiveAgents", label: "Executive Agents", tabs: ["Agents & Skills"] },
-	{ id: "SupervisorAgent", label: "Supervisor Agent", tabs: ["Routing", "Execution"] },
-	{ id: "PlannerAgent", label: "Planner Agent", tabs: ["Planning"] },
-	{ id: "SearchAgent", label: "Search Agent", tabs: ["Retrieval", "Synthesis"] },
+	{ id: "Agents", label: "Agents", tabs: ["Characters", "Executive", "Supervisor", "Planner", "Search"] },
 	{
 		id: "Capabilities",
 		label: "Capabilities",

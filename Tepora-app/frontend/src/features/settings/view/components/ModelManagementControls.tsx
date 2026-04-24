@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import React from "react";
 import { Button } from "../../../../shared/ui";
 
@@ -11,6 +11,8 @@ interface ModelManagementControlsProps {
 	isChecking: boolean;
 	remoteModelCount: number;
 	isBusy: boolean;
+	onRefresh: () => void;
+	isRefreshing: boolean;
 }
 
 export const ModelManagementControls: React.FC<ModelManagementControlsProps> = ({
@@ -22,6 +24,8 @@ export const ModelManagementControls: React.FC<ModelManagementControlsProps> = (
 	isChecking,
 	remoteModelCount,
 	isBusy,
+	onRefresh,
+	isRefreshing,
 }) => {
 	return (
 		<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between bg-surface/30 p-2 rounded-2xl border border-border/40 pb-2">
@@ -58,6 +62,17 @@ export const ModelManagementControls: React.FC<ModelManagementControlsProps> = (
 						</button>
 					))}
 				</div>
+
+				<Button
+					type="button"
+					variant="secondary"
+					onClick={onRefresh}
+					disabled={isRefreshing || isBusy}
+					className="shrink-0 h-[34px] px-3 rounded-xl border border-secondary/30"
+					title="Refresh Models"
+				>
+					<RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+				</Button>
 
 				<Button
 					type="button"

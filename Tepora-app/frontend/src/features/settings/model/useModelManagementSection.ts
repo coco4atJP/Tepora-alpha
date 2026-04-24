@@ -8,6 +8,10 @@ import {
 	useDeleteSetupModelMutation,
 	useV2SetupModelsQuery,
 } from "./queries";
+import {
+	useRefreshLmStudioMutation,
+	useRefreshOllamaMutation,
+} from "../../setup/model/setupQueries";
 import { useModelManagementFilters } from "./useModelManagementFilters";
 import { useModelManagementJobs } from "./useModelManagementJobs";
 
@@ -17,6 +21,23 @@ export function useModelManagementSection() {
 	const deleteModel = useDeleteSetupModelMutation();
 	const startDownload = useStartModelDownload();
 	const { updateStatus, isChecking, checkAllModels } = useModelUpdateCheck();
+	const refreshOllama = useRefreshOllamaMutation();
+	const refreshLmStudio = useRefreshLmStudioMutation();
+
+	const handleRefreshLocalModels = async () => {
+		try {
+			await Promise.allSettled([
+				refreshOllama.mutateAsync(),
+				refreshLmStudio.mutateAsync()
+			]);
+			await modelsQuery.refetch();
+		} catch (error) {
+			console.error("Failed to refresh models:", error);
+		}
+	};
+	
+	const isRefreshing = refreshOllama.isPending || refreshLmStudio.isPending;
+
 	const models = useMemo(() => modelsQuery.data?.models ?? [], [modelsQuery.data?.models]);
 	const {
 		activeRole,
@@ -68,5 +89,7 @@ export function useModelManagementSection() {
 		confirmConsentDownload,
 		handleDelete,
 		clearFilters,
+		handleRefreshLocalModels,
+		isRefreshing,
 	};
 }

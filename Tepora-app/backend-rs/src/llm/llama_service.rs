@@ -170,8 +170,8 @@ impl LlamaService {
             .spawn()
             .map_err(|e| ApiError::internal(format!("Failed to spawn llama-server: {}", e)))?;
 
-        let stdout = child.stdout.take().unwrap();
-        let stderr = child.stderr.take().unwrap();
+        let stdout = child.stdout.take().expect("stdout must be piped");
+        let stderr = child.stderr.take().expect("stderr must be piped");
 
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();

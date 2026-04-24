@@ -361,18 +361,18 @@ impl ModelManager {
 
     pub async fn refresh_ollama_models(&self) -> Result<usize, ApiError> {
         let discovered = discovery::refresh_ollama_models(&self.config).await?;
-        self.store.apply_discovered_models(discovered)
+        self.store.apply_discovered_models("ollama", discovered)
     }
 
     pub async fn refresh_lmstudio_models(&self) -> Result<usize, ApiError> {
         let discovered = discovery::refresh_lmstudio_models(&self.config).await?;
-        self.store.apply_discovered_models(discovered)
+        self.store.apply_discovered_models("lmstudio", discovered)
     }
 
     pub async fn refresh_llama_cpp_models(&self) -> Result<usize, ApiError> {
         let registry = self.store.load()?;
         let discovered = discovery::refresh_llama_cpp_models(registry.models).await?;
-        self.store.apply_discovered_models(discovered)
+        self.store.apply_discovered_models("llama_cpp", discovered)
     }
 
     fn model_storage_path(&self, role: &str, filename: &str) -> Result<PathBuf, ApiError> {
