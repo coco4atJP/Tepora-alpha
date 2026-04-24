@@ -24,7 +24,7 @@ toml = "0.8"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
-governor = { version = "0.6", features = ["std"] }
+governor = { version = "0.10", features = ["std"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -52,7 +52,7 @@ keyring = "3.6.3"
 rand = "0.9"
 subtle = "2"
 argon2 = "0.5"
-jsonschema = "0.42.2"
+jsonschema = "0.46.0"
 tokenizers = "0.22"
 
 [dev-dependencies]
@@ -62,11 +62,11 @@ automerge = "0.8"
 tokio = { version = "1", features = ["macros"] }
 
 [dependencies.wasmtime]
-version = "20"
+version = "43"
 optional = true
 
 [dependencies.wasmtime-wasi]
-version = "20"
+version = "43"
 optional = true
 
 [features]
