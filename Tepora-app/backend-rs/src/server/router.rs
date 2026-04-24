@@ -78,6 +78,9 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             "/api/workspace/document/*path",
             get(workspace::read_document).put(workspace::write_document),
         )
+        .route("/api/workspace/directory/*path", post(workspace::create_directory))
+        .route("/api/workspace/rename/*path", post(workspace::rename_path))
+        .route("/api/workspace/path/*path", delete(workspace::delete_path))
         .route(
             "/api/sessions/:session_id",
             get(sessions::get_session)

@@ -54,28 +54,44 @@ pub async fn route_via_actor_model(
                 session_id: ev_session,
                 text,
             } if ev_session == request.session_id => {
-                let _ = send_json(sender, json!({ "type": "chunk", "message": text })).await;
+                let _ = send_json_with_raw_payload(
+                    sender,
+                    json!({ "type": "chunk", "message": text }),
+                    request.request_id.as_ref(),
+                )
+                .await;
             }
             SessionEvent::Thought {
                 session_id: ev_session,
                 content,
             } if ev_session == request.session_id => {
-                let _ = send_json(sender, json!({ "type": "thought", "content": content })).await;
+                let _ = send_json_with_raw_payload(
+                    sender,
+                    json!({ "type": "thought", "content": content }),
+                    request.request_id.as_ref(),
+                )
+                .await;
             }
             SessionEvent::Status {
                 session_id: ev_session,
                 message,
             } if ev_session == request.session_id => {
-                let _ = send_json(sender, json!({ "type": "status", "message": message })).await;
+                let _ = send_json_with_raw_payload(
+                    sender,
+                    json!({ "type": "status", "message": message }),
+                    request.request_id.as_ref(),
+                )
+                .await;
             }
             SessionEvent::NodeCompleted {
                 session_id: ev_session,
                 node_id,
                 output,
             } if ev_session == request.session_id => {
-                let _ = send_json(
+                let _ = send_json_with_raw_payload(
                     sender,
                     json!({ "type": "node_completed", "nodeId": node_id, "output": output }),
+                    request.request_id.as_ref(),
                 )
                 .await;
             }
@@ -83,9 +99,10 @@ pub async fn route_via_actor_model(
                 session_id: ev_session,
                 status,
             } if ev_session == request.session_id => {
-                let _ = send_json(
+                let _ = send_json_with_raw_payload(
                     sender,
                     json!({ "type": "memory_generation", "status": status }),
+                    request.request_id.as_ref(),
                 )
                 .await;
             }
@@ -93,15 +110,26 @@ pub async fn route_via_actor_model(
                 session_id: ev_session,
                 message,
             } if ev_session == request.session_id => {
-                let _ = send_json(sender, json!({ "type": "error", "message": message })).await;
+                let _ = send_json_with_raw_payload(
+                    sender,
+                    json!({ "type": "error", "message": message }),
+                    request.request_id.as_ref(),
+                )
+                .await;
             }
             SessionEvent::GenerationComplete {
                 session_id: ev_session,
             } if ev_session == request.session_id => {
-                let _ = send_json(sender, json!({"type": "done"})).await;
-                let _ = send_json(
+                let _ = send_json_with_raw_payload(
+                    sender,
+                    json!({"type": "done"}),
+                    request.request_id.as_ref(),
+                )
+                .await;
+                let _ = send_json_with_raw_payload(
                     sender,
                     json!({"type": "interaction_complete", "sessionId": request.session_id}),
+                    request.request_id.as_ref(),
                 )
                 .await;
                 break;
@@ -113,10 +141,19 @@ pub async fn route_via_actor_model(
     Ok(())
 }
 
-async fn send_json(
+async fn send_json_with_raw_payload(
     sender: &mut SplitSink<WebSocket, Message>,
-    payload: Value,
+    mut payload: Value,
+    request_id: Option<&String>,
 ) -> Result<(), ApiError> {
+    if let (Some(rid), Some(obj)) = (request_id, payload.as_object_mut()) {
+        if !obj.contains_key("streamId") {
+            obj.insert("streamId".to_string(), json!(rid));
+        }
+        if !obj.contains_key("requestId") {
+            obj.insert("requestId".to_string(), json!(rid));
+        }
+    }
     let text = serde_json::to_string(&payload).map_err(ApiError::internal)?;
     sender
         .send(Message::Text(text))

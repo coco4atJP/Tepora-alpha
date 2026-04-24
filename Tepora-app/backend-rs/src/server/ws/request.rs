@@ -10,6 +10,7 @@ use super::protocol::WsIncomingMessage;
 
 pub struct GenerationRequest {
     pub session_id: String,
+    pub request_id: Option<String>,
     pub message_text: String,
     pub attachments: Vec<Value>,
     pub mode: String,
@@ -28,6 +29,7 @@ pub fn build_generation_request(
     current_session_id: &str,
     data: WsIncomingMessage,
 ) -> Result<GenerationRequest, ApiError> {
+    let request_id = data.request_id.clone();
     let message_text = data.message.unwrap_or_default();
     let attachments = data.attachments;
 
@@ -110,6 +112,7 @@ pub fn build_generation_request(
 
     Ok(GenerationRequest {
         session_id,
+        request_id,
         message_text,
         attachments,
         mode,

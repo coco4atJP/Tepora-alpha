@@ -23,7 +23,7 @@ pub struct RateLimiters {
 
 impl RateLimiters {
     pub fn new() -> Self {
-        let api_quota = Quota::per_minute(NonZeroU32::new(60).unwrap());
+        let api_quota = Quota::per_minute(NonZeroU32::new(60).expect("60 is non-zero"));
         Self {
             api: Arc::new(RateLimiter::direct(api_quota)),
         }

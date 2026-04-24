@@ -5,7 +5,8 @@ use crate::graph::stream::GraphStreamer;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::core::errors::ApiError;
 use crate::core::security_controls::ToolApprovalResponsePayload;

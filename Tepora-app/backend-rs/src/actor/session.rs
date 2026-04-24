@@ -18,11 +18,11 @@ pub struct SessionActor {
     pub events_tx: broadcast::Sender<SessionEvent>,
     pub current_task: Option<tokio::task::JoinHandle<()>>,
     pub pending_approvals: Arc<
-        std::sync::Mutex<
+        tokio::sync::Mutex<
             HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>,
         >,
     >,
-    pub approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
+    pub approved_mcp_tools: Arc<tokio::sync::Mutex<HashSet<String>>>,
 }
 
 impl SessionActor {
@@ -38,8 +38,8 @@ impl SessionActor {
             app_state,
             events_tx,
             current_task: None,
-            pending_approvals: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            approved_mcp_tools: Arc::new(std::sync::Mutex::new(HashSet::new())),
+            pending_approvals: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            approved_mcp_tools: Arc::new(tokio::sync::Mutex::new(HashSet::new())),
         }
     }
 
@@ -113,19 +113,15 @@ impl SessionActor {
                         continue;
                     }
 
-                    match self.pending_approvals.lock() {
-                        Ok(mut pending) => {
-                            if let Some(reply_to) = pending.remove(&request_id) {
-                                let _ = reply_to.send(approval);
-                            } else {
-                                tracing::warn!(
-                                    "Tool approval response received for unknown request_id: {}",
-                                    request_id
-                                );
-                            }
-                        }
-                        Err(err) => {
-                            tracing::warn!("Failed to lock pending_approvals: {}", err);
+                    {
+                        let mut pending = self.pending_approvals.lock().await;
+                        if let Some(reply_to) = pending.remove(&request_id) {
+                            let _ = reply_to.send(approval);
+                        } else {
+                            tracing::warn!(
+                                "Tool approval response received for unknown request_id: {}",
+                                request_id
+                            );
                         }
                     }
                 }
@@ -143,11 +139,11 @@ impl SessionActor {
         app_state: Arc<AppState>,
         events_tx: broadcast::Sender<SessionEvent>,
         pending_approvals: Arc<
-            std::sync::Mutex<
+            tokio::sync::Mutex<
                 HashMap<String, tokio::sync::oneshot::Sender<ToolApprovalResponsePayload>>,
             >,
         >,
-        approved_mcp_tools: Arc<std::sync::Mutex<HashSet<String>>>,
+        approved_mcp_tools: Arc<tokio::sync::Mutex<HashSet<String>>>,
         message: String,
         mode_str: String,
         attachments: Vec<Value>,

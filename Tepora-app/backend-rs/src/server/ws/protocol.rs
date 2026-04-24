@@ -26,7 +26,7 @@ pub struct WsIncomingMessage {
     pub agent_mode: Option<String>,
     #[serde(rename = "sessionId")]
     pub session_id: Option<String>,
-    #[serde(rename = "requestId")]
+    #[serde(rename = "requestId", alias = "clientMessageId")]
     pub request_id: Option<String>,
     pub approved: Option<bool>,
     #[serde(flatten)]

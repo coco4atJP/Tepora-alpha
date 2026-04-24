@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{State, WebSocketUpgrade};
@@ -247,7 +248,10 @@ async fn handle_message_internal(
         Vec::new(),
     );
 
-    let mut graph_streamer = crate::graph::stream::GraphStreamer::WebSocket(sender);
+    let mut graph_streamer = crate::graph::stream::GraphStreamer::WebSocket {
+        ws: sender,
+        request_id: request.request_id.clone(),
+    };
 
     let mut node_ctx = NodeContext {
         app_state: state,

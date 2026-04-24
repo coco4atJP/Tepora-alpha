@@ -59,7 +59,11 @@ pub fn validate_origin(headers: &HeaderMap, state: &AppState) -> bool {
         }
     }
 
-    if origin.starts_with("http://localhost:") || origin.starts_with("http://127.0.0.1:") {
+    // 開発環境のみローカルホスト全ポートを許可（production環境では明示的ホワイトリストのみ）
+    let env = std::env::var("TEPORA_ENV").unwrap_or_else(|_| "production".to_string());
+    if env != "production"
+        && (origin.starts_with("http://localhost:") || origin.starts_with("http://127.0.0.1:"))
+    {
         return true;
     }
 
@@ -92,3 +96,57 @@ fn extract_token_from_protocol_header(headers: &HeaderMap) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    /// テスト用に最小限の AppState を構築するのはコストが高いため、
+    /// Origin 判定ロジックの核心であるヘルパー関数を直接テストする。
+
+    #[test]
+    fn extract_token_valid_hex() {
+        let mut headers = HeaderMap::new();
+        // "hello" = 68656c6c6f
+        let value = format!("tepora-app, {}68656c6c6f", WS_TOKEN_PREFIX);
+        headers.insert("sec-websocket-protocol", HeaderValue::from_str(&value).unwrap());
+        assert_eq!(
+            extract_token_from_protocol_header(&headers),
+            Some("hello".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_token_missing_header_returns_none() {
+        let headers = HeaderMap::new();
+        assert_eq!(extract_token_from_protocol_header(&headers), None);
+    }
+
+    #[test]
+    fn extract_token_empty_encoded_returns_none() {
+        let mut headers = HeaderMap::new();
+        let value = format!("tepora-app, {}", WS_TOKEN_PREFIX);
+        headers.insert("sec-websocket-protocol", HeaderValue::from_str(&value).unwrap());
+        assert_eq!(extract_token_from_protocol_header(&headers), None);
+    }
+
+    #[test]
+    fn extract_token_invalid_hex_returns_none() {
+        let mut headers = HeaderMap::new();
+        let value = format!("tepora-app, {}zzzz", WS_TOKEN_PREFIX);
+        headers.insert("sec-websocket-protocol", HeaderValue::from_str(&value).unwrap());
+        assert_eq!(extract_token_from_protocol_header(&headers), None);
+    }
+
+    #[test]
+    fn extract_token_no_matching_prefix_returns_none() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_static("tepora-app, some-other-protocol"),
+        );
+        assert_eq!(extract_token_from_protocol_header(&headers), None);
+    }
+}
+

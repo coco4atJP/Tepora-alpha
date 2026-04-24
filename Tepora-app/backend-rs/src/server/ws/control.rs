@@ -150,7 +150,8 @@ pub(super) async fn handle_control_message<S: JsonPayloadSink + ?Sized>(
                             );
                         }
                     }
-                } else if let Ok(mut map) = pending.lock() {
+                } else {
+                    let mut map = pending.lock().await;
                     if let Some(reply_to) = map.remove(&request_id) {
                         let _ = reply_to.send(approval);
                     }

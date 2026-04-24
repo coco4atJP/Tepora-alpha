@@ -706,9 +706,11 @@ mod tests {
         let mcp_registry = crate::mcp::registry::McpRegistry::new(&new_paths_arc);
         let models = crate::models::ModelManager::new(&new_paths_arc, config.clone());
         let setup = crate::state::setup::SetupState::new(&new_paths_arc);
+        let current_project_id = Arc::new(tokio::sync::RwLock::new("default".to_string()));
         let skill_registry = crate::agent::skill_registry::SkillRegistry::new(
             new_paths_arc.as_ref(),
             config.clone(),
+            current_project_id.clone(),
         );
         let graph_runtime = Arc::new(crate::graph::GraphBuilder::new().build().unwrap());
         let memory_service = Arc::new(
@@ -746,7 +748,10 @@ mod tests {
             mcp_registry: mcp_registry.clone(),
         });
         let runtime = Arc::new(crate::state::AppRuntimeState {
-            history: history.clone(),
+            history: crate::workspace::ProjectHistoryStore::new(
+                history.clone(),
+                current_project_id.clone(),
+            ),
             graph_runtime: graph_runtime.clone(),
             rate_limiters: rate_limiters.clone(),
             actor_manager: actor_manager.clone(),
@@ -764,12 +769,19 @@ mod tests {
             )),
         });
 
+        let workspace = Arc::new(crate::state::AppWorkspaceState {
+            manager: Arc::new(
+                crate::workspace::WorkspaceManager::new(new_paths_arc.clone()).unwrap(),
+            ),
+        });
+
         let base_state = Arc::new(AppState::from_groups(
             core,
             ai,
             integration,
             runtime,
             memory,
+            workspace,
         ));
 
         base_state

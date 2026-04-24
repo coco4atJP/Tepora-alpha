@@ -353,7 +353,7 @@ impl Node for AgentExecutorNode {
                             let set = ctx
                                 .approved_mcp_tools
                                 .lock()
-                                .map_err(|err| GraphError::new(self.id(), err.to_string()))?;
+                                .await;
                             !set.contains(&name)
                         };
                         requires_confirmation = if is_first_use && policy.first_use_confirmation {
@@ -490,9 +490,8 @@ impl Node for AgentExecutorNode {
                         }
 
                         if mcp_tool_set.contains(&name) {
-                            if let Ok(mut set) = ctx.approved_mcp_tools.lock() {
-                                set.insert(name.clone());
-                            }
+                            let mut set = ctx.approved_mcp_tools.lock().await;
+                            set.insert(name.clone());
                         }
                     }
 

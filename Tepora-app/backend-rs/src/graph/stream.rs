@@ -3,7 +3,8 @@ use futures_util::stream::SplitSink;
 use futures_util::SinkExt;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::actor::SessionEvent;
@@ -11,7 +12,10 @@ use crate::core::errors::ApiError;
 use crate::core::security_controls::{ToolApprovalRequestPayload, ToolApprovalResponsePayload};
 
 pub enum GraphStreamer<'a> {
-    WebSocket(&'a mut SplitSink<WebSocket, Message>),
+    WebSocket {
+        ws: &'a mut SplitSink<WebSocket, Message>,
+        request_id: Option<String>,
+    },
     Actor {
         session_id: String,
         tx: tokio::sync::broadcast::Sender<SessionEvent>,
@@ -19,9 +23,17 @@ pub enum GraphStreamer<'a> {
 }
 
 impl<'a> GraphStreamer<'a> {
-    pub async fn send_json(&mut self, payload: Value) -> Result<(), ApiError> {
+    pub async fn send_json(&mut self, mut payload: Value) -> Result<(), ApiError> {
         match self {
-            Self::WebSocket(ws) => {
+            Self::WebSocket { ws, request_id } => {
+                if let (Some(rid), Some(obj)) = (request_id, payload.as_object_mut()) {
+                    if !obj.contains_key("streamId") {
+                        obj.insert("streamId".to_string(), json!(rid));
+                    }
+                    if !obj.contains_key("requestId") {
+                        obj.insert("requestId".to_string(), json!(rid));
+                    }
+                }
                 let text = serde_json::to_string(&payload).map_err(ApiError::internal)?;
                 ws.send(Message::Text(text))
                     .await
@@ -128,7 +140,7 @@ impl<'a> GraphStreamer<'a> {
         request.request_id = request_id.clone();
 
         {
-            let mut map = pending.lock().map_err(ApiError::internal)?;
+            let mut map = pending.lock().await;
             map.insert(request_id, tx);
         }
 
