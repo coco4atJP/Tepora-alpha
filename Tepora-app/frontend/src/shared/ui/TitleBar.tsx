@@ -56,7 +56,7 @@ export const TitleBar: React.FC = () => {
 			data-tauri-drag-region
 			onPointerDown={(e) => {
 				if (e.buttons === 1 && !(e.target as HTMLElement).closest("button")) {
-					void appWindow.startDragging();
+					void getCurrentWindow().startDragging();
 				}
 			}}
 			className="h-8 w-full flex items-center justify-between bg-black/40 backdrop-blur-md select-none sticky top-0 z-[100] border-b border-white/5"

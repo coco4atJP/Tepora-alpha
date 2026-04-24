@@ -116,16 +116,16 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 	}, [treeQuery.data]);
 
 	useEffect(() => {
-		if (!selectedDocumentPath && flatFilePaths.length > 0) {
+		if (activeMode === "agent" && !selectedDocumentPath && flatFilePaths.length > 0) {
 			setSelectedDocumentPath(flatFilePaths[0]);
 		}
-	}, [flatFilePaths, selectedDocumentPath, setSelectedDocumentPath]);
+	}, [flatFilePaths, selectedDocumentPath, setSelectedDocumentPath, activeMode]);
 
 	useEffect(() => {
 		if (selectedDocumentPath && flatFilePaths.length > 0 && !flatFilePaths.includes(selectedDocumentPath)) {
-			setSelectedDocumentPath(flatFilePaths[0] ?? null);
+			setSelectedDocumentPath(activeMode === "agent" ? (flatFilePaths[0] ?? null) : null);
 		}
-	}, [flatFilePaths, selectedDocumentPath, setSelectedDocumentPath]);
+	}, [flatFilePaths, selectedDocumentPath, setSelectedDocumentPath, activeMode]);
 
 	if (shouldShowSetup) {
 		return (
@@ -138,11 +138,22 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 		);
 	}
 
+	const displayProjects = activeMode === "search" ? [] : (projectsQuery.data?.projects ?? []);
+
+	const displayTree = useMemo(() => {
+		const rawTree = treeQuery.data?.tree ?? [];
+		if (activeMode === "search") {
+			const contextNode = rawTree.find((node) => node.name === "Context");
+			return contextNode ? [contextNode] : [];
+		}
+		return rawTree;
+	}, [treeQuery.data?.tree, activeMode]);
+
 	const explorer = (
 		<WorkspaceExplorerPanel
-			projects={projectsQuery.data?.projects ?? []}
+			projects={displayProjects}
 			currentProjectId={currentProjectId}
-			tree={treeQuery.data?.tree ?? []}
+			tree={displayTree}
 			selectedPath={selectedDocumentPath}
 			onSelectProject={(projectId) => {
 				setCurrentProjectId(projectId);
@@ -166,6 +177,7 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 			onSave={async (content) => {
 				await saveDocumentMutation.mutateAsync(content);
 			}}
+			onClose={() => setSelectedDocumentPath(null)}
 		/>
 	);
 
@@ -190,11 +202,15 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 			</div>
 		) : activeMode === "search" ? (
 			<div className="flex h-full min-h-0 w-full p-4">
-				<div style={{ width: `${leftWidth}%` }} className="min-w-0">
-					<div className="grid h-full min-h-0 gap-3" style={{ gridTemplateRows: "0.95fr 1.05fr" }}>
+				<div style={{ width: `${leftWidth}%` }} className="relative min-w-0">
+					<div className="absolute inset-0">
 						{explorer}
-						{preview}
 					</div>
+					{selectedDocumentPath && (
+						<div className="absolute inset-0 z-20 animate-in fade-in zoom-in-95 duration-200">
+							{preview}
+						</div>
+					)}
 				</div>
 				<Resizer
 					onDrag={(deltaX) => setLeftWidth((current) => Math.max(24, Math.min(56, current + deltaX / 24)))}
