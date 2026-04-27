@@ -62,7 +62,7 @@ automerge = "0.8"
 tokio = { version = "1", features = ["macros"] }
 
 [dependencies.wasmtime]
-version = "43"
+version = "44"
 optional = true
 
 [dependencies.wasmtime-wasi]
