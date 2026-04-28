@@ -111,6 +111,7 @@ graph TD
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
     State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -317,7 +318,8 @@ backend-rs/
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
 │   ├── a2a/                    # Agent-to-Agent (将来)
 │   ├── crdt/                   # PoCモジュール (テスト用)
-│   └── sandbox/                # PoCモジュール (分離環境)
+│   ├── sandbox/                # PoCモジュール (分離環境)
+│   └── workspace/              # ========== ワークスペース管理 ==========
 │
 ├── workflows/                  # 宣言的ワークフロー定義
 │   └── default.json            # デフォルトグラフ構成
@@ -395,11 +397,12 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1138,6 +1141,20 @@ ws://127.0.0.1:{port}/ws
 | `DELETE` | `/api/sessions/{id}` | セッション削除 |
 | `GET` | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 | `GET` | `/api/sessions/{id}/metrics` | セッション単位メトリクス |
+
+#### ワークスペースAPI
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | プロジェクト選択 |
+| `GET` | `/api/workspace/tree` | 現在のツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント読み込み |
+| `PUT` | `/api/workspace/document/*path` | ドキュメント書き込み |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | パスのリネーム |
+| `DELETE` | `/api/workspace/path/*path` | パスの削除 |
 
 #### Agent Skills API
 

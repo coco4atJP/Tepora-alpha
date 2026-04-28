@@ -350,10 +350,7 @@ impl Node for AgentExecutorNode {
                             .load_policy()
                             .unwrap_or_default();
                         let is_first_use = {
-                            let set = ctx
-                                .approved_mcp_tools
-                                .lock()
-                                .await;
+                            let set = ctx.approved_mcp_tools.lock().await;
                             !set.contains(&name)
                         };
                         requires_confirmation = if is_first_use && policy.first_use_confirmation {

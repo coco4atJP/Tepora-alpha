@@ -375,21 +375,16 @@ impl SkillRegistry {
     }
 
     fn default_roots(&self) -> Vec<SkillRootConfig> {
-        let project_id = self
-            .current_project_id
-            .blocking_read()
-            .clone();
-        vec![
-            SkillRootConfig {
-                path: self
-                    .paths
-                    .project_skills_dir(&project_id)
-                    .to_string_lossy()
-                    .to_string(),
-                enabled: true,
-                label: Some("Workspace Skills".to_string()),
-            },
-        ]
+        let project_id = self.current_project_id.blocking_read().clone();
+        vec![SkillRootConfig {
+            path: self
+                .paths
+                .project_skills_dir(&project_id)
+                .to_string_lossy()
+                .to_string(),
+            enabled: true,
+            label: Some("Workspace Skills".to_string()),
+        }]
     }
 
     fn first_writable_root(&self) -> Result<PathBuf, ApiError> {

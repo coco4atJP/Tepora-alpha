@@ -220,10 +220,7 @@ impl AgentState {
         let mut image_attachments: Vec<ImageAttachment> = Vec::new();
         let mut text_attachments: Vec<Value> = Vec::new();
         for att in attachments {
-            let mime = att
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let mime = att.get("type").and_then(|v| v.as_str()).unwrap_or("");
             if mime.starts_with("image/") {
                 let name = att
                     .get("name")

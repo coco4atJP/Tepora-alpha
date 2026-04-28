@@ -190,7 +190,12 @@ pub fn resolve_execution_model_id(
             let assignment_key = active_character
                 .map(|value| format!("character:{value}"))
                 .unwrap_or_else(|| "character".to_string());
-            state.ai().models.resolve_assignment_model_id(&assignment_key).ok().flatten()
+            state
+                .ai()
+                .models
+                .resolve_assignment_model_id(&assignment_key)
+                .ok()
+                .flatten()
         })
         .unwrap_or_else(|| "default".to_string())
 }

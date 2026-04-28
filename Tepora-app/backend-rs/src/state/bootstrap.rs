@@ -52,10 +52,8 @@ impl AppState {
         let base_history = HistoryStore::new(paths.db_path.clone())
             .await
             .map_err(|e| InitializationError::History(e.into()))?;
-        let history = ProjectHistoryStore::new(
-            base_history,
-            workspace_manager.current_project_id.clone(),
-        );
+        let history =
+            ProjectHistoryStore::new(base_history, workspace_manager.current_project_id.clone());
 
         let llama = LlamaService::new_with_config(paths.clone(), config.clone())
             .map_err(|e| InitializationError::Llm(e.into()))?;
@@ -64,8 +62,11 @@ impl AppState {
         let mcp_registry = McpRegistry::new(&paths);
         let models = ModelManager::new(&paths, config.clone());
         let setup = SetupState::new(&paths);
-        let skill_registry =
-            SkillRegistry::new(paths.as_ref(), config.clone(), workspace_manager.current_project_id.clone());
+        let skill_registry = SkillRegistry::new(
+            paths.as_ref(),
+            config.clone(),
+            workspace_manager.current_project_id.clone(),
+        );
 
         let is_declarative = startup_config
             .get("features")
