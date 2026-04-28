@@ -71,14 +71,23 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             "/api/sessions",
             get(sessions::list_sessions).post(sessions::create_session),
         )
-        .route("/api/workspace/projects", get(workspace::list_projects).post(workspace::create_project))
-        .route("/api/workspace/projects/:project_id/select", post(workspace::set_current_project))
+        .route(
+            "/api/workspace/projects",
+            get(workspace::list_projects).post(workspace::create_project),
+        )
+        .route(
+            "/api/workspace/projects/:project_id/select",
+            post(workspace::set_current_project),
+        )
         .route("/api/workspace/tree", get(workspace::get_current_tree))
         .route(
             "/api/workspace/document/*path",
             get(workspace::read_document).put(workspace::write_document),
         )
-        .route("/api/workspace/directory/*path", post(workspace::create_directory))
+        .route(
+            "/api/workspace/directory/*path",
+            post(workspace::create_directory),
+        )
         .route("/api/workspace/rename/*path", post(workspace::rename_path))
         .route("/api/workspace/path/*path", delete(workspace::delete_path))
         .route(

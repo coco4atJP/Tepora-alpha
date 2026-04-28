@@ -132,11 +132,18 @@ impl WorkspaceManager {
             }
             projects.push(self.project_info(id)?);
         }
-        projects.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.id.cmp(&right.id)));
+        projects.sort_by(|left, right| {
+            left.name
+                .cmp(&right.name)
+                .then_with(|| left.id.cmp(&right.id))
+        });
         Ok(projects)
     }
 
-    pub fn create_project(&self, request: CreateProjectRequest) -> Result<WorkspaceProjectInfo, ApiError> {
+    pub fn create_project(
+        &self,
+        request: CreateProjectRequest,
+    ) -> Result<WorkspaceProjectInfo, ApiError> {
         let project_id = format!("project-{}", uuid::Uuid::new_v4().simple());
         ensure_project_layout(&self.paths, &project_id)?;
         let project_dir = self.paths.project_dir(&project_id);
@@ -156,7 +163,11 @@ impl WorkspaceManager {
         self.paths.project_dir(project_id)
     }
 
-    pub fn read_document(&self, project_id: &str, relative_path: &str) -> Result<WorkspaceFileDocument, ApiError> {
+    pub fn read_document(
+        &self,
+        project_id: &str,
+        relative_path: &str,
+    ) -> Result<WorkspaceFileDocument, ApiError> {
         let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
         let content = fs::read_to_string(&resolved.path).map_err(ApiError::internal)?;
         Ok(WorkspaceFileDocument {
@@ -194,7 +205,12 @@ impl WorkspaceManager {
         Ok(())
     }
 
-    pub fn rename_path(&self, project_id: &str, old_relative_path: &str, new_relative_path: &str) -> Result<(), ApiError> {
+    pub fn rename_path(
+        &self,
+        project_id: &str,
+        old_relative_path: &str,
+        new_relative_path: &str,
+    ) -> Result<(), ApiError> {
         let old_resolved = resolve_project_file_path(&self.paths, project_id, old_relative_path)?;
         let new_resolved = resolve_project_file_path(&self.paths, project_id, new_relative_path)?;
         if !old_resolved.path.exists() {
@@ -221,7 +237,6 @@ impl WorkspaceManager {
         self.revision.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
-
 
     pub fn tree(&self, project_id: &str) -> Result<Vec<WorkspaceEntry>, ApiError> {
         ensure_project_layout(&self.paths, project_id)?;
@@ -287,11 +302,17 @@ impl ProjectHistoryStore {
         self.inner.get_session(session_id).await
     }
 
-    pub async fn get_session_project_id(&self, session_id: &str) -> Result<Option<String>, ApiError> {
+    pub async fn get_session_project_id(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<String>, ApiError> {
         self.inner.get_session_project_id(session_id).await
     }
 
-    pub async fn sync_current_project_with_session(&self, session_id: &str) -> Result<Option<String>, ApiError> {
+    pub async fn sync_current_project_with_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<String>, ApiError> {
         let project_id = self.get_session_project_id(session_id).await?;
         if let Some(project_id) = &project_id {
             *self.current_project_id.write().await = project_id.clone();
@@ -299,7 +320,11 @@ impl ProjectHistoryStore {
         Ok(project_id)
     }
 
-    pub async fn update_session_title(&self, session_id: &str, title: &str) -> Result<(), ApiError> {
+    pub async fn update_session_title(
+        &self,
+        session_id: &str,
+        title: &str,
+    ) -> Result<(), ApiError> {
         self.inner.update_session_title(session_id, title).await
     }
 
@@ -319,7 +344,11 @@ impl ProjectHistoryStore {
             .await
     }
 
-    pub async fn get_history(&self, session_id: &str, limit: i64) -> Result<Vec<crate::history::HistoryMessage>, ApiError> {
+    pub async fn get_history(
+        &self,
+        session_id: &str,
+        limit: i64,
+    ) -> Result<Vec<crate::history::HistoryMessage>, ApiError> {
         self.inner.get_history(session_id, limit).await
     }
 
@@ -334,15 +363,26 @@ impl ProjectHistoryStore {
         self.inner.get_last_user_message(session_id).await
     }
 
-    pub async fn delete_trailing_assistant_messages(&self, session_id: &str) -> Result<(), ApiError> {
-        self.inner.delete_trailing_assistant_messages(session_id).await
+    pub async fn delete_trailing_assistant_messages(
+        &self,
+        session_id: &str,
+    ) -> Result<(), ApiError> {
+        self.inner
+            .delete_trailing_assistant_messages(session_id)
+            .await
     }
 
-    pub async fn save_agent_event(&self, event: &crate::models::event::AgentEvent) -> Result<(), ApiError> {
+    pub async fn save_agent_event(
+        &self,
+        event: &crate::models::event::AgentEvent,
+    ) -> Result<(), ApiError> {
         self.inner.save_agent_event(event).await
     }
 
-    pub async fn get_agent_events(&self, session_id: &str) -> Result<Vec<crate::models::event::AgentEvent>, ApiError> {
+    pub async fn get_agent_events(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<crate::models::event::AgentEvent>, ApiError> {
         self.inner.get_agent_events(session_id).await
     }
 
@@ -379,7 +419,10 @@ impl ProjectKnowledgePort {
         }
     }
 
-    async fn project_id_for_session(&self, session_id: Option<&str>) -> Result<String, DomainError> {
+    async fn project_id_for_session(
+        &self,
+        session_id: Option<&str>,
+    ) -> Result<String, DomainError> {
         if let Some(session_id) = session_id {
             if let Some(project_id) = self
                 .history
@@ -393,20 +436,29 @@ impl ProjectKnowledgePort {
         Ok(self.current_project_id.read().await.clone())
     }
 
-    async fn rag_store_for_project(&self, project_id: &str) -> Result<Arc<dyn RagStore>, DomainError> {
+    async fn rag_store_for_project(
+        &self,
+        project_id: &str,
+    ) -> Result<Arc<dyn RagStore>, DomainError> {
         let mut stores = self.stores.lock().await;
         if let Some(store) = stores.get(project_id) {
             return Ok(store.clone());
         }
         ensure_project_layout(&self.paths, project_id).map_err(api_error_to_domain_error)?;
         let db_path = self.paths.project_rag_db_path(project_id);
-        let store = Arc::new(SqliteRagStore::with_path(db_path).await.map_err(api_error_to_domain_error)?)
-            as Arc<dyn RagStore>;
+        let store = Arc::new(
+            SqliteRagStore::with_path(db_path)
+                .await
+                .map_err(api_error_to_domain_error)?,
+        ) as Arc<dyn RagStore>;
         stores.insert(project_id.to_string(), store.clone());
         Ok(store)
     }
 
-    async fn adapter_for_project(&self, project_id: &str) -> Result<RagKnowledgeAdapter, DomainError> {
+    async fn adapter_for_project(
+        &self,
+        project_id: &str,
+    ) -> Result<RagKnowledgeAdapter, DomainError> {
         let store = self.rag_store_for_project(project_id).await?;
         Ok(RagKnowledgeAdapter::new(
             store,
@@ -414,14 +466,20 @@ impl ProjectKnowledgePort {
             self.config.clone(),
         ))
     }
-
 }
 
 #[async_trait::async_trait]
 impl KnowledgePort for ProjectKnowledgePort {
-    async fn ingest(&self, source: KnowledgeSource, session_id: &str) -> Result<Vec<String>, DomainError> {
+    async fn ingest(
+        &self,
+        source: KnowledgeSource,
+        session_id: &str,
+    ) -> Result<Vec<String>, DomainError> {
         let project_id = self.project_id_for_session(Some(session_id)).await?;
-        self.adapter_for_project(&project_id).await?.ingest(source, session_id).await
+        self.adapter_for_project(&project_id)
+            .await?
+            .ingest(source, session_id)
+            .await
     }
 
     async fn search(
@@ -452,7 +510,10 @@ impl KnowledgePort for ProjectKnowledgePort {
 
     async fn get_chunk(&self, chunk_id: &str) -> Result<Option<KnowledgeChunk>, DomainError> {
         let project_id = self.project_id_for_session(None).await?;
-        self.adapter_for_project(&project_id).await?.get_chunk(chunk_id).await
+        self.adapter_for_project(&project_id)
+            .await?
+            .get_chunk(chunk_id)
+            .await
     }
 
     async fn get_chunk_window(
@@ -474,7 +535,9 @@ impl KnowledgePort for ProjectKnowledgePort {
         query_embedding: &[f32],
         config: &ContextConfig,
     ) -> Result<String, DomainError> {
-        let project_id = self.project_id_for_session(config.session_id.as_deref()).await?;
+        let project_id = self
+            .project_id_for_session(config.session_id.as_deref())
+            .await?;
         self.adapter_for_project(&project_id)
             .await?
             .build_context(query, query_embedding, config)
@@ -483,12 +546,18 @@ impl KnowledgePort for ProjectKnowledgePort {
 
     async fn clear_session(&self, session_id: &str) -> Result<usize, DomainError> {
         let project_id = self.project_id_for_session(Some(session_id)).await?;
-        self.adapter_for_project(&project_id).await?.clear_session(session_id).await
+        self.adapter_for_project(&project_id)
+            .await?
+            .clear_session(session_id)
+            .await
     }
 
     async fn reindex(&self, embedding_model: &str) -> Result<(), DomainError> {
         let project_id = self.project_id_for_session(None).await?;
-        self.adapter_for_project(&project_id).await?.reindex(embedding_model).await
+        self.adapter_for_project(&project_id)
+            .await?
+            .reindex(embedding_model)
+            .await
     }
 }
 
@@ -505,7 +574,9 @@ fn resolve_project_file_path(
     let normalized = relative_path.replace('\\', "/");
     let mut segments = normalized.split('/').filter(|value| !value.is_empty());
     let Some(section) = segments.next() else {
-        return Err(ApiError::BadRequest("A workspace path is required".to_string()));
+        return Err(ApiError::BadRequest(
+            "A workspace path is required".to_string(),
+        ));
     };
     let root = match section {
         "contexts" => paths.project_contexts_dir(project_id),
@@ -523,7 +594,12 @@ fn resolve_project_file_path(
         .parent()
         .unwrap_or(candidate.as_path())
         .canonicalize()
-        .unwrap_or_else(|_| candidate.parent().unwrap_or(candidate.as_path()).to_path_buf());
+        .unwrap_or_else(|_| {
+            candidate
+                .parent()
+                .unwrap_or(candidate.as_path())
+                .to_path_buf()
+        });
     if !candidate_parent.starts_with(&canonical_parent) {
         return Err(ApiError::Forbidden);
     }

@@ -227,8 +227,7 @@ pub fn api_key_optional(headers: &HeaderMap, expected: &SessionToken) -> Option<
         .filter(|value| {
             let input = value.as_bytes();
             let expected_bytes = expected.value().as_bytes();
-            input.len() == expected_bytes.len()
-                && bool::from(input.ct_eq(expected_bytes))
+            input.len() == expected_bytes.len() && bool::from(input.ct_eq(expected_bytes))
         })
         .map(|value| value.to_string())
 }

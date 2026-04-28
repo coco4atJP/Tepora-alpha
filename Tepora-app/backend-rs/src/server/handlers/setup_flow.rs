@@ -51,15 +51,19 @@ pub fn requirements_payload(state: &AppStateRead) -> Result<Value, ApiError> {
     let embedding_model = state.ai().models.resolve_assignment_model("embedding")?;
     let text_ok = text_model
         .as_ref()
-        .map(|model| model.file_path.starts_with("ollama://")
-            || model.file_path.starts_with("lmstudio://")
-            || std::path::Path::new(&model.file_path).exists())
+        .map(|model| {
+            model.file_path.starts_with("ollama://")
+                || model.file_path.starts_with("lmstudio://")
+                || std::path::Path::new(&model.file_path).exists()
+        })
         .unwrap_or(false);
     let embedding_ok = embedding_model
         .as_ref()
-        .map(|model| model.file_path.starts_with("ollama://")
-            || model.file_path.starts_with("lmstudio://")
-            || std::path::Path::new(&model.file_path).exists())
+        .map(|model| {
+            model.file_path.starts_with("ollama://")
+                || model.file_path.starts_with("lmstudio://")
+                || std::path::Path::new(&model.file_path).exists()
+        })
         .unwrap_or(false);
     let has_missing = !(text_ok && embedding_ok);
 

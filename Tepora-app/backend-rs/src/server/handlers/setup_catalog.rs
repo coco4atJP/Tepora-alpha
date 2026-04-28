@@ -83,10 +83,7 @@ pub fn reorder_models(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or("text");
-    state
-        .ai()
-        .models
-        .reorder_models(modality, model_ids)?;
+    state.ai().models.reorder_models(modality, model_ids)?;
     Ok(())
 }
 
