@@ -395,11 +395,13 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
+    /// 起動時に読み込んだ redesign フィーチャーフラグのキャッシュ。
+    redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
