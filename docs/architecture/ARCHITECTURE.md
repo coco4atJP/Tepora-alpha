@@ -395,11 +395,12 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1138,6 +1139,20 @@ ws://127.0.0.1:{port}/ws
 | `DELETE` | `/api/sessions/{id}` | セッション削除 |
 | `GET` | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 | `GET` | `/api/sessions/{id}/metrics` | セッション単位メトリクス |
+
+#### ワークスペースAPI
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | 現在のプロジェクトとして設定 |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント読み取り |
+| `PUT` | `/api/workspace/document/*path` | ドキュメント書き込み |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | パス名変更 |
+| `DELETE` | `/api/workspace/path/*path` | パス削除 |
 
 #### Agent Skills API
 
