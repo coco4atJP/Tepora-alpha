@@ -8,9 +8,9 @@ export function WorkspaceSettingsPanel() {
 	return (
 		<div className="flex h-full flex-col gap-6 overflow-hidden text-text-main">
 			<div>
-				<div className="font-serif text-[1.6rem] italic text-primary">Settings</div>
+				<div className="font-serif text-[1.6rem] italic text-primary">Workspace</div>
 				<div className="mt-2 text-[0.72rem] uppercase tracking-[0.18em] text-text-muted">
-					Current workspace state
+					Current session context
 				</div>
 			</div>
 			<div className="grid gap-3">

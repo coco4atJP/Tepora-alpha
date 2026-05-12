@@ -102,6 +102,16 @@ export default function SmartSetupStep() {
 		}
 	}, [isDownloading, progressData, store]);
 
+	const handleRecheck = async () => {
+		if (!store.internetPreference) {
+			store.setStep("preference");
+			return;
+		}
+
+		setDownloadError(null);
+		await runSystemCheck(store.internetPreference);
+	};
+
 	if (isChecking || !pattern) {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 animate-fade-in">
@@ -121,7 +131,9 @@ export default function SmartSetupStep() {
 						<div className="flex gap-4">
 							<Button 
 								variant="secondary" 
-								onClick={() => store.internetPreference && runSystemCheck(store.internetPreference)}
+								onClick={() => {
+									void handleRecheck();
+								}}
 							>
 								{t("common.retry", "Retry")}
 							</Button>
@@ -192,18 +204,21 @@ export default function SmartSetupStep() {
 						</ol>
 					</div>
 					
-					<div className="flex justify-between items-center">
-						<button onClick={() => store.setStep("ready")} className="text-gray-500 hover:text-white text-sm transition-colors">
-							{t("setup.smart.offline_err.skip", "Skip (Use local file later)")}
-						</button>
-						<Button
-							onClick={() => store.setStep("preference")} // Resets and re-checks
-							variant="secondary"
-						>
-							{t("common.recheck", "Re-check")}
-						</Button>
+						<div className="flex justify-between items-center">
+							<button onClick={() => store.setStep("ready")} className="text-gray-500 hover:text-white text-sm transition-colors">
+								{t("setup.smart.offline_err.skip", "Skip (Use local file later)")}
+							</button>
+							<Button
+								onClick={() => {
+									void handleRecheck();
+								}}
+								variant="secondary"
+								disabled={isChecking}
+							>
+								{isChecking ? t("v2.common.loading", "Loading...") : t("common.recheck", "Re-check")}
+							</Button>
+						</div>
 					</div>
-				</div>
 			)}
 
 			{/* --- Pattern B & C: Download Models --- */}

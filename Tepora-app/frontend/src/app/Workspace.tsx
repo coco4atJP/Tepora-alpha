@@ -149,6 +149,38 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 		return rawTree;
 	}, [treeQuery.data?.tree, activeMode]);
 
+	const compactTabs = useMemo(() => {
+		if (activeMode === "chat") {
+			return [{ id: "chat", label: "Chat" }] as const;
+		}
+
+		if (activeMode === "search") {
+			const tabs: Array<{ id: "files" | "preview" | "chat"; label: string }> = [
+				{ id: "chat", label: "Chat" },
+			];
+			if (displayTree.length > 0) {
+				tabs.unshift({ id: "files", label: "Files" });
+			}
+			if (selectedDocumentPath) {
+				tabs.splice(1, 0, { id: "preview", label: "Preview" });
+			}
+			return tabs;
+		}
+
+		return [
+			{ id: "files", label: "Files" },
+			{ id: "preview", label: "Preview" },
+			{ id: "chat", label: "Chat" },
+		] as const;
+	}, [activeMode, displayTree.length, selectedDocumentPath]);
+
+	useEffect(() => {
+		const validPaneIds = new Set(compactTabs.map((tab) => tab.id));
+		if (!validPaneIds.has(mobilePane)) {
+			setMobilePane(compactTabs[0]?.id ?? "chat");
+		}
+	}, [compactTabs, mobilePane, setMobilePane]);
+
 	const explorer = (
 		<WorkspaceExplorerPanel
 			projects={displayProjects}
@@ -190,7 +222,9 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 					navigate("/settings");
 				}}
 				onOpenLeftSidebar={() => setIsLeftSidebarOpen(true)}
-				onOpenRightSidebar={() => setIsRightSidebarOpen(true)}
+				onOpenRightSidebar={() => {
+					navigate("/settings");
+				}}
 			/>
 		</div>
 	);
@@ -240,15 +274,11 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 	const compactContent = (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
-				{[
-					["files", "Files"],
-					["preview", "Preview"],
-					["chat", "Chat"],
-				].map(([id, label]) => (
+				{compactTabs.map(({ id, label }) => (
 					<button
 						key={id}
 						type="button"
-						onClick={() => setMobilePane(id as "files" | "preview" | "chat")}
+						onClick={() => setMobilePane(id)}
 						className={`rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.14em] ${
 							mobilePane === id
 								? "border-primary/40 bg-primary/10 text-primary"

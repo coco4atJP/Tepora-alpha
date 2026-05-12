@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageSquare, Sparkles, Loader2 } from "lucide-react";
+import { MessageSquare, Sparkles, Loader2, AlertTriangle } from "lucide-react";
 import { useSetupStore } from "../model/setupStore";
 import { useSetupFinishMutation } from "../model/setupQueries";
 import { Button } from "../../../shared/ui/Button";
@@ -15,9 +15,11 @@ export default function FirstChatStep({ onComplete }: FirstChatStepProps) {
 	const { mutateAsync: finishSetup } = useSetupFinishMutation();
 	
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const handleFinish = async () => {
 		setIsSubmitting(true);
+		setSubmitError(null);
 		try {
 			// Map preferences to actual backend configurations
 			const isOnline = store.internetPreference === "on";
@@ -40,8 +42,11 @@ export default function FirstChatStep({ onComplete }: FirstChatStepProps) {
 			onComplete();
 		} catch (err) {
 			console.error("Failed to finish setup", err);
-			// Force completion if backend fails to ensure user isn't stuck
-			onComplete();
+			setSubmitError(
+				err instanceof Error
+					? err.message
+					: t("setup.complete.error", "Could not save setup. Please try again."),
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -74,6 +79,13 @@ export default function FirstChatStep({ onComplete }: FirstChatStepProps) {
 					? t("setup.complete.desc.character", "Your AI partner is ready. Say hello and start your conversation.")
 					: t("setup.complete.desc.assistant", "Your practical AI assistant is configured and ready to help.")}
 			</p>
+
+			{submitError ? (
+				<div className="mb-8 flex w-full max-w-md items-start gap-3 rounded-2xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-left text-sm text-red-100">
+					<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+					<span>{submitError}</span>
+				</div>
+			) : null}
 
 			<Button
 				onClick={handleFinish}
