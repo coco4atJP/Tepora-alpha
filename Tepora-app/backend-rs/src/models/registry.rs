@@ -246,7 +246,7 @@ impl ModelRegistryStore {
                 order.retain(|v| v != id);
             }
         }
-        
+
         count += removed_ids.len();
 
         for discovered_model in discovered {
@@ -465,31 +465,34 @@ mod tests {
             .expect("seed registry");
 
         let count = store
-            .apply_discovered_models("ollama", vec![DiscoveredModel {
-                id: "ollama-m1".to_string(),
-                display_name: "M1 (Ollama)".to_string(),
-                role: "embedding".to_string(),
-                file_size: 42,
-                filename: "m1".to_string(),
-                source: "ollama".to_string(),
-                file_path: "ollama://m1".to_string(),
-                loader: "ollama".to_string(),
-                loader_model_name: Some("m1".to_string()),
-                sha256: Some("abc".to_string()),
-                parameter_size: None,
-                quantization: None,
-                context_length: Some(1024),
-                architecture: Some("llama".to_string()),
-                chat_template: None,
-                stop_tokens: None,
-                default_temperature: None,
-                capabilities: None,
-                publisher: None,
-                description: None,
-                format: Some("gguf".to_string()),
-                tokenizer_path: None,
-                tokenizer_format: None,
-            }])
+            .apply_discovered_models(
+                "ollama",
+                vec![DiscoveredModel {
+                    id: "ollama-m1".to_string(),
+                    display_name: "M1 (Ollama)".to_string(),
+                    role: "embedding".to_string(),
+                    file_size: 42,
+                    filename: "m1".to_string(),
+                    source: "ollama".to_string(),
+                    file_path: "ollama://m1".to_string(),
+                    loader: "ollama".to_string(),
+                    loader_model_name: Some("m1".to_string()),
+                    sha256: Some("abc".to_string()),
+                    parameter_size: None,
+                    quantization: None,
+                    context_length: Some(1024),
+                    architecture: Some("llama".to_string()),
+                    chat_template: None,
+                    stop_tokens: None,
+                    default_temperature: None,
+                    capabilities: None,
+                    publisher: None,
+                    description: None,
+                    format: Some("gguf".to_string()),
+                    tokenizer_path: None,
+                    tokenizer_format: None,
+                }],
+            )
             .expect("apply discovered");
 
         assert_eq!(count, 1);

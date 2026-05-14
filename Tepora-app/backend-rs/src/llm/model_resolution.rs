@@ -112,7 +112,11 @@ fn resolve_llama_model_config(
         .unwrap_or(-1) as i32;
     let port = defaults
         .and_then(|v| v.get("port").and_then(|x| x.as_u64()))
-        .unwrap_or(if model_entry.role == "embedding" { 8090 } else { 8088 }) as u16;
+        .unwrap_or(if model_entry.role == "embedding" {
+            8090
+        } else {
+            8088
+        }) as u16;
 
     let predict_len = request.max_tokens.map(|v| v as usize);
     let temperature = request.temperature.map(|v| v as f32);
