@@ -217,8 +217,13 @@ backend-rs/
 │   ├── core/                   # ========== コア機能 ==========
 │   │   ├── config/             # 設定管理 (validation_primitives / validation_sections を含む)
 │   │   ├── native_tools.rs     # ネイティブツールの定義
+│   │   ├── pii_detection.rs    # PII 検出
 │   │   ├── security.rs         # 認証・セキュリティ
+│   │   ├── security_audit.rs   # 監査ログ
+│   │   ├── security_backup.rs  # バックアップ管理
 │   │   ├── security_controls.rs # セキュリティ制御 facade
+│   │   ├── security_credentials.rs # 認証情報管理
+│   │   ├── security_permissions.rs # 権限管理
 │   │   ├── errors.rs           # エラー定義
 │   │   ├── logging.rs          # ログ設定
 │   │   └── mod.rs
@@ -228,6 +233,9 @@ backend-rs/
 │   │   ├── bootstrap.rs        # AppState 初期化 / startup backup
 │   │   ├── mod.rs              # AppState (grouped state access)
 │   │   └── setup.rs            # セットアップ状態
+│   │
+│   ├── workspace/              # ========== ワークスペース管理 ==========
+│   │   ├── mod.rs              # WorkspaceManager facade
 │   │
 │   ├── llm/                    # ========== LLM 統合 ==========
 │   │   ├── external_loader_common.rs # 外部LLM loader共通処理
@@ -315,7 +323,9 @@ backend-rs/
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
-│   ├── a2a/                    # Agent-to-Agent (将来)
+│   ├── a2a/                    # Agent-to-Agent 通信
+│   │   ├── mod.rs
+│   │   └── protocol.rs
 │   ├── crdt/                   # PoCモジュール (テスト用)
 │   └── sandbox/                # PoCモジュール (分離環境)
 │
@@ -395,6 +405,7 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
@@ -1186,6 +1197,20 @@ ws://127.0.0.1:{port}/ws
 | `POST` | `/api/mcp/servers/{name}/enable` | サーバー有効化 |
 | `POST` | `/api/mcp/servers/{name}/disable` | サーバー無効化 |
 | `DELETE` | `/api/mcp/servers/{name}` | サーバー削除 |
+
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | 現在のプロジェクトを設定 |
+| `GET` | `/api/workspace/tree` | 現在のプロジェクトツリー取得 |
+| `GET` | `/api/workspace/document/{*path}` | ドキュメント読み込み |
+| `PUT` | `/api/workspace/document/{*path}` | ドキュメント保存 |
+| `POST` | `/api/workspace/directory/{*path}` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/{*path}` | パス名の変更 |
+| `DELETE` | `/api/workspace/path/{*path}` | パス削除 |
 
 #### セットアップAPI
 
