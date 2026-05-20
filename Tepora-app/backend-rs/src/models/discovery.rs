@@ -113,13 +113,13 @@ impl InferenceDiscoveryLayer for OllamaDiscoveryLayer {
         }
 
         let tags: OllamaTagsResponse = response.json().await.map_err(ApiError::internal)?;
-        
+
         let mut fetch_tasks = Vec::new();
 
         for model in tags.models {
             let client = self.client.clone();
             let base_url = self.base_url.clone();
-            
+
             fetch_tasks.push(async move {
                 let show = {
                     let res = client
@@ -128,7 +128,9 @@ impl InferenceDiscoveryLayer for OllamaDiscoveryLayer {
                         .send()
                         .await;
                     match res {
-                        Ok(r) if r.status().is_success() => r.json::<OllamaShowResponse>().await.ok(),
+                        Ok(r) if r.status().is_success() => {
+                            r.json::<OllamaShowResponse>().await.ok()
+                        }
                         _ => None,
                     }
                 };
