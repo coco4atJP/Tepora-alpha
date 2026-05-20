@@ -127,9 +127,10 @@ pub fn decrypt_backup(passphrase: &str, archive: &BackupEnvelope) -> Result<Vec<
             "Unsupported backup archive version".to_string(),
         ));
     }
-    let salt_hex = archive.salt_hex.as_deref().ok_or_else(|| {
-        ApiError::BadRequest("Missing salt in backup archive".to_string())
-    })?;
+    let salt_hex = archive
+        .salt_hex
+        .as_deref()
+        .ok_or_else(|| ApiError::BadRequest("Missing salt in backup archive".to_string()))?;
     let salt = hex::decode(salt_hex).map_err(ApiError::internal)?;
     let mut key = [0u8; 32];
     Argon2::default()
