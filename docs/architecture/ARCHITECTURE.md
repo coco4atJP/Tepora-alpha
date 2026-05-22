@@ -80,6 +80,7 @@ graph TD
             Models[ModelManager]
             MCP[McpManager]
             Security[SecurityControls]
+            Workspace[WorkspaceManager]
         end
 
         Backend <-->|Persistence| Data[(config.yml / secrets.yaml / SQLite / logs / models.json)]
@@ -111,6 +112,7 @@ graph TD
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
     State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -314,8 +316,10 @@ backend-rs/
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
+│   ├── workspace/              # ========== ワークスペース管理 ==========
+│   │   └── mod.rs              # プロジェクトおよびドキュメント管理、REST APIエンドポイント提供
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
-│   ├── a2a/                    # Agent-to-Agent (将来)
+│   ├── a2a/                    # Agent-to-Agent 通信プロトコル (protocol.rs)
 │   ├── crdt/                   # PoCモジュール (テスト用)
 │   └── sandbox/                # PoCモジュール (分離環境)
 │
@@ -395,11 +399,12 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1168,6 +1173,16 @@ ws://127.0.0.1:{port}/ws
 | `POST` | `/api/credentials/rotate` | 資格情報ローテーション |
 | `POST` | `/api/backup/export` | バックアップ書き出し |
 | `POST` | `/api/backup/import` | バックアップ読み込み |
+
+#### ワークスペース API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | プロジェクト選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースのファイルツリー取得 |
+| `GET` | `/api/workspace/document/{path}` | ドキュメント内容取得 |
 
 #### MCP API
 
