@@ -317,7 +317,8 @@ backend-rs/
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
 │   ├── a2a/                    # Agent-to-Agent (将来)
 │   ├── crdt/                   # PoCモジュール (テスト用)
-│   └── sandbox/                # PoCモジュール (分離環境)
+│   ├── sandbox/                # PoCモジュール (分離環境)
+│   └── workspace/              # ワークスペース管理 (プロジェクト, ファイル, セッション)
 │
 ├── workflows/                  # 宣言的ワークフロー定義
 │   └── default.json            # デフォルトグラフ構成
@@ -395,11 +396,12 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1126,6 +1128,20 @@ ws://127.0.0.1:{port}/ws
 | `GET` | `/api/logs/{filename}` | ログ内容取得 |
 | `GET` | `/api/tools` | 利用可能ツール一覧 |
 | `GET` | `/api/metrics/runtime` | ランタイムメトリクス |
+
+#### ワークスペースAPI
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | プロジェクト切り替え |
+| `GET` | `/api/workspace/tree` | カレントプロジェクトのファイルツリー取得 |
+| `GET` | `/api/workspace/document/{path}` | ドキュメント内容取得 |
+| `PUT` | `/api/workspace/document/{path}` | ドキュメント保存・更新 |
+| `POST` | `/api/workspace/directory/{path}` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/{path}` | ファイル・ディレクトリの名称変更 |
+| `DELETE` | `/api/workspace/path/{path}` | ファイル・ディレクトリ削除 |
 
 #### セッションAPI
 
