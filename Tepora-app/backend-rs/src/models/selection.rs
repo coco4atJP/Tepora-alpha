@@ -31,7 +31,10 @@ impl AssignmentTarget {
             return Ok(Self::Embedding);
         }
         if let Some(subject) = normalized.strip_prefix("character:") {
-            return Ok(Self::CharacterProfile(normalized_subject(subject, "character")?));
+            return Ok(Self::CharacterProfile(normalized_subject(
+                subject,
+                "character",
+            )?));
         }
         if let Some(subject) = normalized.strip_prefix("agent:") {
             return Ok(Self::Agent(normalized_subject(subject, "agent")?));

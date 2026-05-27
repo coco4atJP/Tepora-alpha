@@ -110,7 +110,10 @@ mod tests {
         let mut headers = HeaderMap::new();
         // "hello" = 68656c6c6f
         let value = format!("tepora-app, {}68656c6c6f", WS_TOKEN_PREFIX);
-        headers.insert("sec-websocket-protocol", HeaderValue::from_str(&value).unwrap());
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_str(&value).unwrap(),
+        );
         assert_eq!(
             extract_token_from_protocol_header(&headers),
             Some("hello".to_string())
@@ -127,7 +130,10 @@ mod tests {
     fn extract_token_empty_encoded_returns_none() {
         let mut headers = HeaderMap::new();
         let value = format!("tepora-app, {}", WS_TOKEN_PREFIX);
-        headers.insert("sec-websocket-protocol", HeaderValue::from_str(&value).unwrap());
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_str(&value).unwrap(),
+        );
         assert_eq!(extract_token_from_protocol_header(&headers), None);
     }
 
@@ -135,7 +141,10 @@ mod tests {
     fn extract_token_invalid_hex_returns_none() {
         let mut headers = HeaderMap::new();
         let value = format!("tepora-app, {}zzzz", WS_TOKEN_PREFIX);
-        headers.insert("sec-websocket-protocol", HeaderValue::from_str(&value).unwrap());
+        headers.insert(
+            "sec-websocket-protocol",
+            HeaderValue::from_str(&value).unwrap(),
+        );
         assert_eq!(extract_token_from_protocol_header(&headers), None);
     }
 
@@ -149,4 +158,3 @@ mod tests {
         assert_eq!(extract_token_from_protocol_header(&headers), None);
     }
 }
-
