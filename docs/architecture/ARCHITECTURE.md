@@ -1139,6 +1139,18 @@ ws://127.0.0.1:{port}/ws
 | `GET` | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 | `GET` | `/api/sessions/{id}/metrics` | セッション単位メトリクス |
 
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` / `POST` | `/api/workspace/projects` | プロジェクト一覧取得 / 作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | 現在のプロジェクトとして選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` / `PUT` | `/api/workspace/document/{*path}` | ドキュメント読み込み / 書き込み |
+| `POST` | `/api/workspace/directory/{*path}` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/{*path}` | パス名の変更 |
+| `DELETE` | `/api/workspace/path/{*path}` | パス（ファイル/ディレクトリ）の削除 |
+
 #### Agent Skills API
 
 | メソッド | エンドポイント | 説明 |
