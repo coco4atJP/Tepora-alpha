@@ -310,6 +310,9 @@ backend-rs/
 │   │   ├── knowledge.rs        # 知識インフラ統合
 │   │   └── mod.rs              # モジュール公開
 │   │
+│   ├── workspace/              # ========== ワークスペース管理 ==========
+│   │   └── REST APIエンドポイント (project/document 管理等)
+│   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
 │   ├── history/                # HistoryStore (チャット履歴)
 │   ├── search/                 # Search vNext の strategy / evidence state
@@ -395,11 +398,12 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
+    pub workspace: Arc<AppWorkspaceState>,
     pub redesign_flags: Arc<HashMap<String, bool>>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1138,6 +1142,20 @@ ws://127.0.0.1:{port}/ws
 | `DELETE` | `/api/sessions/{id}` | セッション削除 |
 | `GET` | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 | `GET` | `/api/sessions/{id}/metrics` | セッション単位メトリクス |
+
+#### ワークスペース (Workspace) API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | プロジェクトの選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースのファイルツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント内容の取得 |
+| `PUT` | `/api/workspace/document/*path` | ドキュメントの保存・更新 |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | ファイル/ディレクトリの名前変更 |
+| `DELETE`| `/api/workspace/path/*path` | ファイル/ディレクトリの削除 |
 
 #### Agent Skills API
 
