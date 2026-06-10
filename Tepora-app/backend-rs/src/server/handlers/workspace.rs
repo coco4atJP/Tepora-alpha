@@ -18,7 +18,6 @@ pub struct WorkspaceRenamePayload {
     pub new_path: String,
 }
 
-
 pub async fn list_projects(
     State(state): State<AppStateRead>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -36,7 +35,11 @@ pub async fn create_project(
     Json(payload): Json<CreateProjectRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let project = state.workspace().manager.create_project(payload)?;
-    state.workspace().manager.set_current_project(&project.id).await?;
+    state
+        .workspace()
+        .manager
+        .set_current_project(&project.id)
+        .await?;
     Ok(Json(json!({ "project": project })))
 }
 
@@ -44,7 +47,11 @@ pub async fn set_current_project(
     State(state): State<AppStateWrite>,
     Path(project_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    state.workspace().manager.set_current_project(&project_id).await?;
+    state
+        .workspace()
+        .manager
+        .set_current_project(&project_id)
+        .await?;
     Ok(Json(json!({ "success": true, "project_id": project_id })))
 }
 
@@ -65,7 +72,10 @@ pub async fn read_document(
     Path(path): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let project_id = state.workspace().manager.current_project_id().await;
-    let document = state.workspace().manager.read_document(&project_id, &path)?;
+    let document = state
+        .workspace()
+        .manager
+        .read_document(&project_id, &path)?;
     Ok(Json(document))
 }
 
@@ -75,10 +85,11 @@ pub async fn write_document(
     Json(payload): Json<WorkspaceDocumentPayload>,
 ) -> Result<impl IntoResponse, ApiError> {
     let project_id = state.workspace().manager.current_project_id().await;
-    let document = state
-        .workspace()
-        .manager
-        .write_document(&project_id, &path, &payload.content)?;
+    let document =
+        state
+            .workspace()
+            .manager
+            .write_document(&project_id, &path, &payload.content)?;
     Ok(Json(document))
 }
 
@@ -104,7 +115,9 @@ pub async fn rename_path(
         .workspace()
         .manager
         .rename_path(&project_id, &old_path, &payload.new_path)?;
-    Ok(Json(json!({ "success": true, "old_path": old_path, "new_path": payload.new_path })))
+    Ok(Json(
+        json!({ "success": true, "old_path": old_path, "new_path": payload.new_path }),
+    ))
 }
 
 pub async fn delete_path(
@@ -112,9 +125,6 @@ pub async fn delete_path(
     Path(path): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let project_id = state.workspace().manager.current_project_id().await;
-    state
-        .workspace()
-        .manager
-        .delete_path(&project_id, &path)?;
+    state.workspace().manager.delete_path(&project_id, &path)?;
     Ok(Json(json!({ "success": true, "path": path })))
 }

@@ -332,11 +332,7 @@ impl ModelManager {
         self.store.remove_assignment(assignment_key)
     }
 
-    pub fn reorder_models(
-        &self,
-        modality: &str,
-        model_ids: Vec<String>,
-    ) -> Result<bool, ApiError> {
+    pub fn reorder_models(&self, modality: &str, model_ids: Vec<String>) -> Result<bool, ApiError> {
         self.store.reorder_models(modality, model_ids)
     }
 

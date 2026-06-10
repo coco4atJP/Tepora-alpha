@@ -29,12 +29,15 @@ pub async fn health(State(state): State<AppStateRead>) -> impl IntoResponse {
         .as_deref()
         .map(|value| format!("character:{value}"))
         .unwrap_or_else(|| "character".to_string());
-    let (llm_status, llm_model) =
-        match state.ai().models.resolve_assignment_model_id(&assignment_key) {
+    let (llm_status, llm_model) = match state
+        .ai()
+        .models
+        .resolve_assignment_model_id(&assignment_key)
+    {
         Ok(Some(model_id)) => ("ok", model_id),
         Ok(None) => ("no_model", String::new()),
         Err(_) => ("error", String::new()),
-        };
+    };
 
     // Check database availability via a lightweight query
     let db_start = std::time::Instant::now();
