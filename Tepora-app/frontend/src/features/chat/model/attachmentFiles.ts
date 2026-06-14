@@ -126,14 +126,14 @@ export async function prepareComposerFiles(
 ): Promise<PreparedComposerAttachment[]> {
 	const prepared: PreparedComposerAttachment[] = [];
 
-	for (const file of files) {
-		const isImage = file.type.startsWith("image/");
-		const textLike = !isImage && isTextLikeFile(file.name, file.type);
-		
-		let content = "";
-		let type = file.type || "application/octet-stream";
+ 	for (const file of files) {
+ 		const isImage = file.type.startsWith("image/");
+ 		const textLike = !isImage && isTextLikeFile(file.name, file.type);
+ 		
+ 		let content: string;
+ 		let type = file.type || "application/octet-stream";
 
-		if (isImage) {
+ 		if (isImage) {
 			// 画像の場合はCanvas経由で段階的圧縮し、5MB以下に収める
 			content = await compressImage(file);
 			// compressImage内でjpeg化するケースを考慮（PNG透過以外はJPEGへ強制）

@@ -440,10 +440,7 @@ impl MemoryService {
         let mut similarity_scores: std::collections::HashMap<String, f64> =
             std::collections::HashMap::new();
 
-        for scored in session_local_events
-            .into_iter()
-            .chain(global_events.into_iter())
-        {
+        for scored in session_local_events.into_iter().chain(global_events) {
             let event_id = scored.event.id.clone();
             let normalized = scored.event.content.trim().to_ascii_lowercase();
             let duplicate = candidates.values().any(|existing| {
@@ -670,7 +667,7 @@ impl MemoryService {
             .map(|item| item.source.clone())
             .collect::<std::collections::HashSet<_>>();
 
-        for scored in prof_local.into_iter().chain(prof_global.into_iter()) {
+        for scored in prof_local.into_iter().chain(prof_global) {
             if !seen.insert(format!(
                 "em://{}/evt/{}",
                 scored.event.session_id, scored.event.id

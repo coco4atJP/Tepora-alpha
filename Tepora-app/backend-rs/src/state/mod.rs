@@ -231,8 +231,6 @@ pub struct AppState {
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
     pub workspace: Arc<AppWorkspaceState>,
-    /// 起動時に読み込んだ redesign フィーチャーフラグのキャッシュ。
-    redesign_flags: Arc<HashMap<String, bool>>,
 }
 
 impl AppState {
@@ -268,7 +266,6 @@ impl AppState {
         memory: Arc<AppMemoryState>,
         workspace: Arc<AppWorkspaceState>,
     ) -> Self {
-        let redesign_flags = Arc::new(load_redesign_flags(&core.config));
         Self {
             core,
             ai,
@@ -276,13 +273,15 @@ impl AppState {
             runtime,
             memory,
             workspace,
-            redesign_flags,
         }
     }
 
-    /// Check if a specific redesign feature is enabled via cached feature flags.
+    /// Check if a specific redesign feature is enabled via live config read.
     pub fn is_redesign_enabled(&self, feature: &str) -> bool {
-        self.redesign_flags.get(feature).copied().unwrap_or(false)
+        load_redesign_flags(&self.core.config)
+            .get(feature)
+            .copied()
+            .unwrap_or(false)
     }
 }
 

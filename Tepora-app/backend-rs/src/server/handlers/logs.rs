@@ -34,7 +34,7 @@ pub async fn get_logs(State(state): State<AppStateRead>) -> Result<impl IntoResp
         }
     }
 
-    logs.sort_by(|a, b| b.1.cmp(&a.1));
+    logs.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let log_names: Vec<String> = logs.into_iter().map(|(name, _)| name).collect();
     Ok(Json(json!({ "logs": log_names })))

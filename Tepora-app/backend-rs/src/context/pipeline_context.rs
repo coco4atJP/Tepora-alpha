@@ -346,7 +346,7 @@ impl PipelineContext {
 
     pub(crate) fn build_system_prompt(&self) -> String {
         let mut parts = self.system_parts.clone();
-        parts.sort_by(|a, b| b.priority.cmp(&a.priority));
+        parts.sort_by_key(|b| std::cmp::Reverse(b.priority));
         parts
             .iter()
             .map(|p| p.content.clone())

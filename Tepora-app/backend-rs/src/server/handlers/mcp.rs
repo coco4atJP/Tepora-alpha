@@ -150,7 +150,7 @@ pub async fn mcp_store(
         });
     }
 
-    servers.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    servers.sort_by_key(|a| a.name.to_lowercase());
 
     let total = servers.len() as i64;
     let start = (page - 1) * page_size;

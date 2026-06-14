@@ -471,7 +471,7 @@ mod tests {
 
     #[tokio::test]
     async fn ws_session_deterministic_replay_produces_stable_transcript() {
-        let _lock = ENV_LOCK.lock().expect("failed to acquire env lock");
+        let _lock = ENV_LOCK.lock();
         let (_sandbox, _env_guard, state) = init_replay_state().await;
 
         let session_id = "replay-session";
@@ -522,7 +522,7 @@ mod tests {
 
     #[tokio::test]
     async fn ws_session_deterministic_replay_uses_persisted_history_ids() {
-        let _lock = ENV_LOCK.lock().expect("failed to acquire env lock");
+        let _lock = ENV_LOCK.lock();
         let (_sandbox, _env_guard, state) = init_replay_state().await;
 
         let session_id = "history-replay-session";

@@ -681,7 +681,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_worker_adapter_routing() {
-        let _env_lock = ENV_LOCK.lock().expect("failed to acquire env lock");
+        let _env_lock = ENV_LOCK.lock();
         let paths = Arc::new(crate::core::config::AppPaths::new());
         let temp_dir = tempfile::tempdir().unwrap();
         let mut new_paths = (*paths).clone();

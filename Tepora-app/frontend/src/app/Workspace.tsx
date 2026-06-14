@@ -127,17 +127,6 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 		}
 	}, [flatFilePaths, selectedDocumentPath, setSelectedDocumentPath, activeMode]);
 
-	if (shouldShowSetup) {
-		return (
-			<SetupScreen
-				onComplete={() => {
-					void refetchRequirements();
-					void refetchConfig();
-				}}
-			/>
-		);
-	}
-
 	const displayProjects = activeMode === "search" ? [] : (projectsQuery.data?.projects ?? []);
 
 	const displayTree = useMemo(() => {
@@ -180,6 +169,17 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 			setMobilePane(compactTabs[0]?.id ?? "chat");
 		}
 	}, [compactTabs, mobilePane, setMobilePane]);
+
+	if (shouldShowSetup) {
+		return (
+			<SetupScreen
+				onComplete={() => {
+					void refetchRequirements();
+					void refetchConfig();
+				}}
+			/>
+		);
+	}
 
 	const explorer = (
 		<WorkspaceExplorerPanel

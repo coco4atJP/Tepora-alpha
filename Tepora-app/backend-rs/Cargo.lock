@@ -4317,6 +4317,7 @@ dependencies = [
  "keyring",
  "ndarray",
  "notify",
+ "parking_lot",
  "petgraph",
  "rand 0.9.2",
  "regex",
