@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> History[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -311,7 +311,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/                # ProjectHistoryStore + workspace management (チャット履歴、プロジェクト管理)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -395,11 +395,11 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
