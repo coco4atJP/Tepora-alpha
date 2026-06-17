@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -311,11 +311,11 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # WorkspaceManager / ProjectHistoryStore (チャット履歴とドキュメント管理)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
-│   ├── a2a/                    # Agent-to-Agent (将来)
+│   ├── a2a/                    # Agent-to-Agent (通信プロトコル protocol.rs を含む)
 │   ├── crdt/                   # PoCモジュール (テスト用)
 │   └── sandbox/                # PoCモジュール (分離環境)
 │
@@ -395,17 +395,17 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
 let config = state.core().config.clone();
 let graph_runtime = state.ai().graph_runtime.clone();
-let history = state.runtime().history.clone();
+let workspace_manager = state.workspace().manager.clone();
 ```
 
 ### 5.1.1 近年の分割ポイント
@@ -1148,10 +1148,22 @@ ws://127.0.0.1:{port}/ws
 | `POST` | `/api/agent-skills` | Agent Skill package 保存 |
 | `DELETE` | `/api/agent-skills/{id}` | Agent Skill package 削除 |
 
-
-
 > [!NOTE]
 > 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
+
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | プロジェクト選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント内容取得 |
+| `PUT` | `/api/workspace/document/*path` | ドキュメント内容更新 |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | パス変更・リネーム |
+| `DELETE` | `/api/workspace/path/*path` | パス削除 |
 
 #### メモリ / セキュリティ API
 
@@ -1401,7 +1413,7 @@ USER_DATA_DIR/
 | **Backend**  | cargo clippy     | Rustコードの静的解析            |
 | **Backend**  | cargo fmt        | コードフォーマット              |
 | **Backend**  | cargo test       | ユニットテスト                  |
-| **Frontend** | ESLint           | TypeScript/React のLint         |
+| **Frontend** | ESLint           | TypeScript/React のLint (v10.x flat config) |
 | **Frontend** | Biome            | 追加コードチェック (`quality:frontend`) |
 | **Frontend** | TypeScript (tsc) | 型安全性チェック                |
 | **Frontend** | Vitest           | ユニット/統合テスト             |
