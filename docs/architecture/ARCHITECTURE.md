@@ -218,7 +218,12 @@ backend-rs/
 │   │   ├── config/             # 設定管理 (validation_primitives / validation_sections を含む)
 │   │   ├── native_tools.rs     # ネイティブツールの定義
 │   │   ├── security.rs         # 認証・セキュリティ
+│   │   ├── security_audit.rs   # 監査・検証
+│   │   ├── security_backup.rs  # バックアップ機能
 │   │   ├── security_controls.rs # セキュリティ制御 facade
+│   │   ├── security_credentials.rs # 資格情報管理
+│   │   ├── security_permissions.rs # 権限管理
+│   │   ├── pii_detection.rs    # PII検出機能
 │   │   ├── errors.rs           # エラー定義
 │   │   ├── logging.rs          # ログ設定
 │   │   └── mod.rs
@@ -311,7 +316,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # WorkspaceManager / ProjectHistoryStore
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -395,11 +400,11 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1152,6 +1157,20 @@ ws://127.0.0.1:{port}/ws
 
 > [!NOTE]
 > 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
+
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧の取得 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクトの作成 |
+| `POST` | `/api/workspace/projects/:project_id/select` | プロジェクトの選択/切り替え |
+| `GET` | `/api/workspace/tree` | ワークスペースのファイルツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント内容の取得 |
+| `PUT` | `/api/workspace/document/*path` | ドキュメントの保存 |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリの作成 |
+| `POST` | `/api/workspace/rename/*path` | ファイル/ディレクトリの名前変更 |
+| `DELETE` | `/api/workspace/path/*path` | ファイル/ディレクトリの削除 |
 
 #### メモリ / セキュリティ API
 
