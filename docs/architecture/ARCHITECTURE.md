@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -311,7 +311,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # ProjectHistoryStore / WorkspaceManager
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -384,7 +384,7 @@ frontend/
 
 ### 5.1 AppState (アプリケーション状態)
 
-`Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。現行実装は grouped state を明示 accessor で辿る形で、旧 `AppStateCompat` と暗黙 `Deref` は削除済みです。
+`Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。現行実装は grouped state を明示 accessor で辿る形で、旧 `AppStateCompat` と暗黙 `Deref` および `redesign_flags` は削除済みです。
 
 **ファイル**: `src/state/mod.rs`
 
@@ -395,17 +395,17 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
 let config = state.core().config.clone();
 let graph_runtime = state.ai().graph_runtime.clone();
-let history = state.runtime().history.clone();
+let history = state.workspace().manager.history_store().clone();
 ```
 
 ### 5.1.1 近年の分割ポイント
