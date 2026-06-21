@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -311,7 +311,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # WorkspaceManager / ProjectHistoryStore (プロジェクト・履歴管理)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -395,11 +395,11 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1168,6 +1168,21 @@ ws://127.0.0.1:{port}/ws
 | `POST` | `/api/credentials/rotate` | 資格情報ローテーション |
 | `POST` | `/api/backup/export` | バックアップ書き出し |
 | `POST` | `/api/backup/import` | バックアップ読み込み |
+
+
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | 現在のプロジェクト選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` | `/api/workspace/document/{*path}` | ドキュメント内容取得 |
+| `PUT` | `/api/workspace/document/{*path}` | ドキュメント保存 |
+| `POST` | `/api/workspace/directory/{*path}` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/{*path}` | ファイル/ディレクトリ名変更 |
+| `DELETE` | `/api/workspace/path/{*path}` | パス削除 |
 
 #### MCP API
 
