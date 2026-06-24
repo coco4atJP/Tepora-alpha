@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -151,7 +151,7 @@ graph TD
 | **グラフエンジン**    | petgraph            | エージェントステートマシン |
 | **データベース**      | sqlx (SQLite)       | リレーショナルデータ永続化 |
 | **RAGストア**         | SQLite              | ベクトル検索 (in-process)  |
-| **ベクトル演算**      | ndarray             | コサイン類似度計算         |
+| **ベクトル演算**      | ndarray             | reranker類似度計算 (RAG/EMストアはSQLite内手動計算) |
 | **シリアライズ**      | serde / serde_json  | JSON処理                   |
 | **HTTP Client**       | reqwest             | 外部API呼び出し            |
 
@@ -311,11 +311,11 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # ProjectHistoryStore + Workspace REST APIs (プロジェクト・ドキュメント管理)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
-│   ├── a2a/                    # Agent-to-Agent (将来)
+│   ├── a2a/                    # Agent-to-Agent 通信プロトコル (protocol.rs) [将来]
 │   ├── crdt/                   # PoCモジュール (テスト用)
 │   └── sandbox/                # PoCモジュール (分離環境)
 │
@@ -330,6 +330,7 @@ backend-rs/
 ```
 frontend/
 ├── package.json
+├── eslint.config.js            # ESLint flat config
 ├── vite.config.ts
 ├── tailwind.config.cjs
 ├── public/
@@ -395,17 +396,17 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
 let config = state.core().config.clone();
 let graph_runtime = state.ai().graph_runtime.clone();
-let history = state.runtime().history.clone();
+let project_history = state.workspace().history.clone();
 ```
 
 ### 5.1.1 近年の分割ポイント
@@ -1152,6 +1153,20 @@ ws://127.0.0.1:{port}/ws
 
 > [!NOTE]
 > 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
+
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/:project_id/select` | プロジェクト選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント内容取得 |
+| `PUT` | `/api/workspace/document/*path` | ドキュメント保存・更新 |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | ファイル・ディレクトリ名変更 |
+| `DELETE` | `/api/workspace/path/*path` | ファイル・ディレクトリ削除 |
 
 #### メモリ / セキュリティ API
 
