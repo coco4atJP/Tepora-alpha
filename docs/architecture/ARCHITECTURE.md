@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -311,7 +311,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # WorkspaceManager と ProjectHistoryStore (プロジェクト管理と履歴)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -395,11 +395,11 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1152,6 +1152,20 @@ ws://127.0.0.1:{port}/ws
 
 > [!NOTE]
 > 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
+
+#### ワークスペース API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | 新規プロジェクト作成 |
+| `POST` | `/api/workspace/projects/:project_id/select` | プロジェクト切り替え |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント内容取得 |
+| `PUT` | `/api/workspace/document/*path` | ドキュメント内容更新 |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | パス名変更 |
+| `DELETE` | `/api/workspace/path/*path` | パス削除 |
 
 #### メモリ / セキュリティ API
 
