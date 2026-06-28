@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -311,7 +311,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # WorkspaceManager / ProjectHistoryStore
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -384,7 +384,7 @@ frontend/
 
 ### 5.1 AppState (アプリケーション状態)
 
-`Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。現行実装は grouped state を明示 accessor で辿る形で、旧 `AppStateCompat` と暗黙 `Deref` は削除済みです。
+`Arc<AppState>` にカプセル化され、全APIハンドラとバックグラウンドタスクで共有されます。現行実装は grouped state を明示 accessor で辿る形で、旧 `AppStateCompat` と `redesign_flags` は削除され、暗黙 `Deref` は廃止されています。
 
 **ファイル**: `src/state/mod.rs`
 
@@ -395,11 +395,11 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -1138,6 +1138,20 @@ ws://127.0.0.1:{port}/ws
 | `DELETE` | `/api/sessions/{id}` | セッション削除 |
 | `GET` | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
 | `GET` | `/api/sessions/{id}/metrics` | セッション単位メトリクス |
+
+#### Workspace API
+
+| メソッド | エンドポイント | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/workspace/projects` | プロジェクト一覧取得 |
+| `POST` | `/api/workspace/projects` | プロジェクト作成 |
+| `POST` | `/api/workspace/projects/{project_id}/select` | プロジェクト選択 |
+| `GET` | `/api/workspace/tree` | ワークスペースツリー取得 |
+| `GET` | `/api/workspace/document/*path` | ドキュメント内容取得 |
+| `PUT` | `/api/workspace/document/*path` | ドキュメント保存 |
+| `POST` | `/api/workspace/directory/*path` | ディレクトリ作成 |
+| `POST` | `/api/workspace/rename/*path` | ファイル・ディレクトリ名変更 |
+| `DELETE` | `/api/workspace/path/*path` | ファイル・ディレクトリ削除 |
 
 #### Agent Skills API
 
