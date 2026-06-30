@@ -1,11 +1,11 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::core::errors::ApiError;
-use crate::state::{AppStateRead, AppStateWrite};
+use crate::state::{AppState, AppStateRead, AppStateWrite};
 use crate::workspace::CreateProjectRequest;
 
 #[derive(Debug, Deserialize)]
@@ -16,6 +16,11 @@ pub struct WorkspaceDocumentPayload {
 #[derive(Debug, Deserialize)]
 pub struct WorkspaceRenamePayload {
     pub new_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceProjectQuery {
+    pub project_id: Option<String>,
 }
 
 pub async fn list_projects(
@@ -57,8 +62,9 @@ pub async fn set_current_project(
 
 pub async fn get_current_tree(
     State(state): State<AppStateRead>,
+    Query(query): Query<WorkspaceProjectQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let project_id = state.workspace().manager.current_project_id().await;
+    let project_id = requested_project_id(&state, query).await;
     let tree = state.workspace().manager.tree(&project_id)?;
     Ok(Json(json!({
         "project_id": project_id,
@@ -70,8 +76,9 @@ pub async fn get_current_tree(
 pub async fn read_document(
     State(state): State<AppStateRead>,
     Path(path): Path<String>,
+    Query(query): Query<WorkspaceProjectQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let project_id = state.workspace().manager.current_project_id().await;
+    let project_id = requested_project_id(&state, query).await;
     let document = state
         .workspace()
         .manager
@@ -82,9 +89,10 @@ pub async fn read_document(
 pub async fn write_document(
     State(state): State<AppStateWrite>,
     Path(path): Path<String>,
+    Query(query): Query<WorkspaceProjectQuery>,
     Json(payload): Json<WorkspaceDocumentPayload>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let project_id = state.workspace().manager.current_project_id().await;
+    let project_id = requested_project_id(&state, query).await;
     let document =
         state
             .workspace()
@@ -96,8 +104,9 @@ pub async fn write_document(
 pub async fn create_directory(
     State(state): State<AppStateWrite>,
     Path(path): Path<String>,
+    Query(query): Query<WorkspaceProjectQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let project_id = state.workspace().manager.current_project_id().await;
+    let project_id = requested_project_id(&state, query).await;
     state
         .workspace()
         .manager
@@ -108,9 +117,10 @@ pub async fn create_directory(
 pub async fn rename_path(
     State(state): State<AppStateWrite>,
     Path(old_path): Path<String>,
+    Query(query): Query<WorkspaceProjectQuery>,
     Json(payload): Json<WorkspaceRenamePayload>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let project_id = state.workspace().manager.current_project_id().await;
+    let project_id = requested_project_id(&state, query).await;
     state
         .workspace()
         .manager
@@ -123,8 +133,26 @@ pub async fn rename_path(
 pub async fn delete_path(
     State(state): State<AppStateWrite>,
     Path(path): Path<String>,
+    Query(query): Query<WorkspaceProjectQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let project_id = state.workspace().manager.current_project_id().await;
+    let project_id = requested_project_id(&state, query).await;
     state.workspace().manager.delete_path(&project_id, &path)?;
     Ok(Json(json!({ "success": true, "path": path })))
+}
+
+async fn requested_project_id<S>(state: &S, query: WorkspaceProjectQuery) -> String
+where
+    S: AsRef<AppState>,
+{
+    match query.project_id {
+        Some(project_id) => project_id,
+        None => {
+            state
+                .as_ref()
+                .workspace()
+                .manager
+                .current_project_id()
+                .await
+        }
+    }
 }

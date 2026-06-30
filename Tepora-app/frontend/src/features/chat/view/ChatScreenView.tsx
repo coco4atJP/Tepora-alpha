@@ -32,6 +32,8 @@ export const ChatScreenView: React.FC<
 	shellState,
 	connectionState,
 	statusMessage,
+	toolConfirmation,
+	onToolDecision,
 }) => {
 	const { t } = useTranslation();
 	const showStatus =
@@ -90,6 +92,57 @@ export const ChatScreenView: React.FC<
 							<span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/50" style={{ animationDelay: "240ms" }} />
 						</span>
 						{statusLabel}
+					</div>
+				</div>
+			) : null}
+
+			{toolConfirmation ? (
+				<div className="absolute right-6 top-24 z-[55] w-[min(360px,calc(100%-3rem))] rounded-[24px] border border-primary/20 bg-surface/95 p-4 text-sm leading-7 text-text-muted shadow-[0_24px_60px_rgba(59,38,20,0.16)] backdrop-blur-xl">
+					<div className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-primary/65">
+						{t("v2.agent.approvalRequired", "Approval required")}
+					</div>
+					<div className="text-base font-medium text-text-main">
+						{toolConfirmation.toolName}
+					</div>
+					<div className="mt-2 text-xs uppercase tracking-[0.14em] text-primary/75">
+						{toolConfirmation.riskLevel} {t("v2.agent.risk", "risk")}
+					</div>
+					{toolConfirmation.description ? (
+						<p className="mt-3">{toolConfirmation.description}</p>
+					) : null}
+					<p className="mt-3">{toolConfirmation.scopeLabel}</p>
+					<pre className="mt-3 max-h-40 overflow-auto rounded-2xl bg-black/25 p-3 text-xs text-text-main/85">
+						{toolConfirmation.argsPreview}
+					</pre>
+					<div className="mt-4 flex flex-wrap gap-2">
+						<button
+							type="button"
+							onClick={() => void onToolDecision("deny")}
+							className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-text-main transition-colors hover:border-primary/30 hover:text-primary"
+						>
+							{t("v2.agent.deny", "Deny")}
+						</button>
+						<button
+							type="button"
+							onClick={() => void onToolDecision("once")}
+							className="rounded-full border border-primary/25 px-3 py-1.5 text-xs text-primary transition-colors hover:border-primary/40"
+						>
+							{t("v2.agent.approveOnce", "Approve once")}
+						</button>
+						{toolConfirmation.expiryOptions[0] ? (
+							<button
+								type="button"
+								onClick={() =>
+									void onToolDecision(
+										"always_until_expiry",
+										toolConfirmation.expiryOptions[0],
+									)
+								}
+								className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-text-main transition-colors hover:border-primary/30 hover:text-primary"
+							>
+								{t("v2.agent.allowTemporary", "Allow temporarily")}
+							</button>
+						) : null}
 					</div>
 				</div>
 			) : null}

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import type { SetupStep, InternetPreference, PersonaPreference } from "./setupTypes";
 
 interface SetupState {
@@ -23,6 +23,31 @@ interface SetupState {
 	toggleModelKey: (key: string, enabled: boolean) => void;
 	reset: () => void;
 }
+
+function createMemoryStorage(): StateStorage {
+	const storage = new Map<string, string>();
+	return {
+		getItem: (name) => storage.get(name) ?? null,
+		setItem: (name, value) => {
+			storage.set(name, value);
+		},
+		removeItem: (name) => {
+			storage.delete(name);
+		},
+	};
+}
+
+const setupStorage = createJSONStorage<SetupState>(() => {
+	try {
+		const storage = globalThis.localStorage;
+		const testKey = "__tepora_setup_storage_test__";
+		storage.setItem(testKey, testKey);
+		storage.removeItem(testKey);
+		return storage;
+	} catch {
+		return createMemoryStorage();
+	}
+});
 
 export const useSetupStore = create<SetupState>()(
 	persist(
@@ -58,6 +83,7 @@ export const useSetupStore = create<SetupState>()(
 		}),
 		{
 			name: "tepora-setup-storage",
+			storage: setupStorage,
 		}
 	)
 );

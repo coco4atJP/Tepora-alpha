@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import SetupLayout from "../view/SetupLayout";
 import LanguageStep from "../view/LanguageStep";
 import PreferenceStep from "../view/PreferenceStep";
@@ -12,12 +11,6 @@ interface SetupScreenProps {
 
 export default function SetupScreen({ onComplete }: SetupScreenProps) {
 	const step = useSetupStore((state) => state.step);
-	const resetStore = useSetupStore((state) => state.reset);
-
-	// Ensure clean slate on initial mount
-	useEffect(() => {
-		resetStore();
-	}, [resetStore]);
 
 	return (
 		<SetupLayout>

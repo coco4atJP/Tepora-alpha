@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	successResponseSchema,
 	type WorkspaceEntry,
 	workspaceDocumentSchema,
 	workspaceProjectsResponseSchema,
@@ -83,8 +84,9 @@ export function useSelectWorkspaceProjectMutation() {
 			);
 			return projectId;
 		},
-		onSuccess: () => {
+		onSuccess: (projectId) => {
 			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.projects() });
+			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.tree(projectId) });
 		},
 	});
 }
@@ -111,6 +113,7 @@ export function useSaveWorkspaceDocumentMutation(
 			void queryClient.invalidateQueries({
 				queryKey: v2WorkspaceQueryKeys.document(projectId, path),
 			});
+			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.tree(projectId) });
 		},
 	});
 }
@@ -125,12 +128,13 @@ export function useCreateWorkspaceDirectoryMutation(projectId: string | null) {
 			}
 			await v2ApiClient.post(
 				`/api/workspace/directory/${encodeURIComponent(path)}?project_id=${encodeURIComponent(projectId)}`,
-				workspaceDocumentSchema,
+				successResponseSchema.passthrough(),
 			);
 			return path;
 		},
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.projects() });
+			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.tree(projectId) });
 		},
 	});
 }
@@ -149,8 +153,12 @@ export function useDeleteWorkspacePathMutation(projectId: string | null) {
 			);
 			return path;
 		},
-		onSuccess: () => {
+		onSuccess: (path) => {
 			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.projects() });
+			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.tree(projectId) });
+			void queryClient.invalidateQueries({
+				queryKey: v2WorkspaceQueryKeys.document(projectId, path),
+			});
 		},
 	});
 }
@@ -170,8 +178,15 @@ export function useRenameWorkspacePathMutation(projectId: string | null) {
 			);
 			return payload;
 		},
-		onSuccess: () => {
+		onSuccess: ({ oldPath, newPath }) => {
 			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.projects() });
+			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.tree(projectId) });
+			void queryClient.invalidateQueries({
+				queryKey: v2WorkspaceQueryKeys.document(projectId, oldPath),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: v2WorkspaceQueryKeys.document(projectId, newPath),
+			});
 		},
 	});
 }
@@ -191,8 +206,12 @@ export function useCreateWorkspaceDocumentMutation(projectId: string | null) {
 			);
 			return path;
 		},
-		onSuccess: () => {
+		onSuccess: (path) => {
 			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.projects() });
+			void queryClient.invalidateQueries({ queryKey: v2WorkspaceQueryKeys.tree(projectId) });
+			void queryClient.invalidateQueries({
+				queryKey: v2WorkspaceQueryKeys.document(projectId, path),
+			});
 		},
 	});
 }

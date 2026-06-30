@@ -453,7 +453,8 @@ describe("Frontend Integration", () => {
 		renderWorkspace();
 
 		expect(await screen.findByText("Test Session")).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Open mode panel" }));
+		fireEvent.click(screen.getByRole("button", { name: "Open mode and settings menu" }));
+		fireEvent.click(screen.getByRole("button", { name: "Agent" }));
 
 		const transportMock = v2TransportAdapter as unknown as {
 			__simulateIncoming: (message: unknown) => void;

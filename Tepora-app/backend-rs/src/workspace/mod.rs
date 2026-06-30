@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
@@ -103,7 +103,7 @@ impl WorkspaceManager {
     }
 
     pub async fn set_current_project(&self, project_id: &str) -> Result<(), ApiError> {
-        ensure_project_layout(&self.paths, project_id)?;
+        ensure_existing_project(&self.paths, project_id)?;
         *self.current_project_id.write().await = project_id.to_string();
         self.revision.fetch_add(1, Ordering::Relaxed);
         Ok(())
@@ -118,7 +118,10 @@ impl WorkspaceManager {
         let entries = fs::read_dir(self.paths.tepora_home()).map_err(ApiError::internal)?;
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if !path.is_dir() {
+            let Ok(metadata) = fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
                 continue;
             }
             let Some(id) = path.file_name().and_then(|value| value.to_str()) else {
@@ -127,7 +130,11 @@ impl WorkspaceManager {
             if id == DEFAULT_PROJECT_ID {
                 continue;
             }
-            if !path.join("workspace").exists() {
+            let workspace_dir = path.join("workspace");
+            let Ok(workspace_metadata) = fs::symlink_metadata(&workspace_dir) else {
+                continue;
+            };
+            if workspace_metadata.file_type().is_symlink() || !workspace_metadata.is_dir() {
                 continue;
             }
             projects.push(self.project_info(id)?);
@@ -168,6 +175,7 @@ impl WorkspaceManager {
         project_id: &str,
         relative_path: &str,
     ) -> Result<WorkspaceFileDocument, ApiError> {
+        ensure_existing_project(&self.paths, project_id)?;
         let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
         let content = fs::read_to_string(&resolved.path).map_err(ApiError::internal)?;
         Ok(WorkspaceFileDocument {
@@ -184,6 +192,7 @@ impl WorkspaceManager {
         relative_path: &str,
         content: &str,
     ) -> Result<WorkspaceFileDocument, ApiError> {
+        ensure_existing_project(&self.paths, project_id)?;
         let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
         if let Some(parent) = resolved.path.parent() {
             fs::create_dir_all(parent).map_err(ApiError::internal)?;
@@ -199,6 +208,7 @@ impl WorkspaceManager {
     }
 
     pub fn create_directory(&self, project_id: &str, relative_path: &str) -> Result<(), ApiError> {
+        ensure_existing_project(&self.paths, project_id)?;
         let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
         fs::create_dir_all(&resolved.path).map_err(ApiError::internal)?;
         self.revision.fetch_add(1, Ordering::Relaxed);
@@ -211,6 +221,7 @@ impl WorkspaceManager {
         old_relative_path: &str,
         new_relative_path: &str,
     ) -> Result<(), ApiError> {
+        ensure_existing_project(&self.paths, project_id)?;
         let old_resolved = resolve_project_file_path(&self.paths, project_id, old_relative_path)?;
         let new_resolved = resolve_project_file_path(&self.paths, project_id, new_relative_path)?;
         if !old_resolved.path.exists() {
@@ -225,11 +236,13 @@ impl WorkspaceManager {
     }
 
     pub fn delete_path(&self, project_id: &str, relative_path: &str) -> Result<(), ApiError> {
+        ensure_existing_project(&self.paths, project_id)?;
         let resolved = resolve_project_file_path(&self.paths, project_id, relative_path)?;
-        if !resolved.path.exists() {
-            return Err(ApiError::NotFound("Path not found".to_string()));
-        }
-        if resolved.path.is_dir() {
+        let metadata = fs::symlink_metadata(&resolved.path)
+            .map_err(|_| ApiError::NotFound("Path not found".to_string()))?;
+        if metadata.file_type().is_symlink() {
+            fs::remove_file(&resolved.path).map_err(ApiError::internal)?;
+        } else if metadata.is_dir() {
             fs::remove_dir_all(&resolved.path).map_err(ApiError::internal)?;
         } else {
             fs::remove_file(&resolved.path).map_err(ApiError::internal)?;
@@ -239,7 +252,7 @@ impl WorkspaceManager {
     }
 
     pub fn tree(&self, project_id: &str) -> Result<Vec<WorkspaceEntry>, ApiError> {
-        ensure_project_layout(&self.paths, project_id)?;
+        ensure_existing_project(&self.paths, project_id)?;
         let sections = [
             ("contexts", self.paths.project_contexts_dir(project_id)),
             ("skills", self.paths.project_skills_dir(project_id)),
@@ -252,7 +265,7 @@ impl WorkspaceManager {
     }
 
     fn project_info(&self, project_id: &str) -> Result<WorkspaceProjectInfo, ApiError> {
-        ensure_project_layout(&self.paths, project_id)?;
+        ensure_existing_project(&self.paths, project_id)?;
         let project_dir = self.paths.project_dir(project_id);
         let name = fs::read_to_string(project_dir.join("project.json"))
             .ok()
@@ -566,19 +579,52 @@ struct ResolvedProjectFile {
     section: String,
 }
 
+fn validate_project_id(project_id: &str) -> Result<(), ApiError> {
+    let mut components = Path::new(project_id).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(value)), None)
+            if value.to_str().is_some_and(|value| {
+                !value.is_empty() && !value.contains('\\') && value != "." && value != ".."
+            }) =>
+        {
+            Ok(())
+        }
+        _ => Err(ApiError::BadRequest(
+            "Project ID must be a single path segment".to_string(),
+        )),
+    }
+}
+
 fn resolve_project_file_path(
     paths: &AppPaths,
     project_id: &str,
     relative_path: &str,
 ) -> Result<ResolvedProjectFile, ApiError> {
     let normalized = relative_path.replace('\\', "/");
-    let mut segments = normalized.split('/').filter(|value| !value.is_empty());
-    let Some(section) = segments.next() else {
+    let mut components = Vec::new();
+    for component in Path::new(&normalized).components() {
+        match component {
+            Component::Normal(value) => {
+                let Some(value) = value.to_str() else {
+                    return Err(ApiError::BadRequest(
+                        "Workspace paths must be valid UTF-8".to_string(),
+                    ));
+                };
+                components.push(value.to_string());
+            }
+            _ => {
+                return Err(ApiError::BadRequest(
+                    "Workspace paths may only contain normal relative path segments".to_string(),
+                ))
+            }
+        }
+    }
+    let Some(section) = components.first() else {
         return Err(ApiError::BadRequest(
             "A workspace path is required".to_string(),
         ));
     };
-    let root = match section {
+    let root = match section.as_str() {
         "contexts" => paths.project_contexts_dir(project_id),
         "skills" => paths.project_skills_dir(project_id),
         "workspace" => paths.project_workspace_dir(project_id),
@@ -588,24 +634,38 @@ fn resolve_project_file_path(
             ))
         }
     };
-    let candidate = segments.fold(root.clone(), |acc, part| acc.join(part));
-    let canonical_parent = root.canonicalize().unwrap_or(root.clone());
-    let candidate_parent = candidate
-        .parent()
-        .unwrap_or(candidate.as_path())
+    let mut candidate = root.clone();
+    for segment in components.iter().skip(1) {
+        candidate.push(segment);
+    }
+
+    let canonical_root = root.canonicalize().map_err(ApiError::internal)?;
+    if fs::symlink_metadata(&candidate).is_ok() {
+        let canonical_candidate = candidate.canonicalize().map_err(|_| ApiError::Forbidden)?;
+        if !canonical_candidate.starts_with(&canonical_root) {
+            return Err(ApiError::Forbidden);
+        }
+    }
+    let mut existing_ancestor = if candidate == root {
+        root.as_path()
+    } else {
+        candidate.parent().unwrap_or(candidate.as_path())
+    };
+    while !existing_ancestor.exists() {
+        let Some(parent) = existing_ancestor.parent() else {
+            return Err(ApiError::Forbidden);
+        };
+        existing_ancestor = parent;
+    }
+    let canonical_ancestor = existing_ancestor
         .canonicalize()
-        .unwrap_or_else(|_| {
-            candidate
-                .parent()
-                .unwrap_or(candidate.as_path())
-                .to_path_buf()
-        });
-    if !candidate_parent.starts_with(&canonical_parent) {
+        .map_err(ApiError::internal)?;
+    if !canonical_ancestor.starts_with(&canonical_root) {
         return Err(ApiError::Forbidden);
     }
     Ok(ResolvedProjectFile {
         path: candidate,
-        section: section.to_string(),
+        section: section.clone(),
     })
 }
 
@@ -616,15 +676,27 @@ fn build_tree(section: &str, root: &Path, current: &Path) -> Result<WorkspaceEnt
         .unwrap_or(section)
         .to_string();
     if !current.exists() {
-        fs::create_dir_all(current).map_err(ApiError::internal)?;
+        return Ok(WorkspaceEntry {
+            path: tree_entry_path(section, root, current),
+            name,
+            kind: "directory".to_string(),
+            section: section.to_string(),
+            children: Vec::new(),
+        });
     }
     let mut children = Vec::new();
     let entries = fs::read_dir(current).map_err(ApiError::internal)?;
     for entry in entries.filter_map(Result::ok) {
         let path = entry.path();
-        if path.is_dir() {
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+        if metadata.is_dir() {
             children.push(build_tree(section, root, &path)?);
-        } else {
+        } else if metadata.is_file() {
             let rel = path
                 .strip_prefix(root)
                 .unwrap_or(path.as_path())
@@ -644,7 +716,17 @@ fn build_tree(section: &str, root: &Path, current: &Path) -> Result<WorkspaceEnt
         }
     }
     children.sort_by(|left, right| left.name.cmp(&right.name));
-    let path = if current == root {
+    Ok(WorkspaceEntry {
+        path: tree_entry_path(section, root, current),
+        name,
+        kind: "directory".to_string(),
+        section: section.to_string(),
+        children,
+    })
+}
+
+fn tree_entry_path(section: &str, root: &Path, current: &Path) -> String {
+    if current == root {
         section.to_string()
     } else {
         let rel = current
@@ -653,14 +735,25 @@ fn build_tree(section: &str, root: &Path, current: &Path) -> Result<WorkspaceEnt
             .to_string_lossy()
             .replace('\\', "/");
         format!("{section}/{rel}")
-    };
-    Ok(WorkspaceEntry {
-        path,
-        name,
-        kind: "directory".to_string(),
-        section: section.to_string(),
-        children,
-    })
+    }
+}
+
+fn ensure_existing_project(paths: &AppPaths, project_id: &str) -> Result<(), ApiError> {
+    validate_project_id(project_id)?;
+    let project_dir = paths.project_dir(project_id);
+    let workspace_dir = paths.project_workspace_dir(project_id);
+    let project_metadata = fs::symlink_metadata(&project_dir)
+        .map_err(|_| ApiError::NotFound("Project not found".to_string()))?;
+    let workspace_metadata = fs::symlink_metadata(&workspace_dir)
+        .map_err(|_| ApiError::NotFound("Project not found".to_string()))?;
+    if project_metadata.file_type().is_symlink()
+        || workspace_metadata.file_type().is_symlink()
+        || !project_metadata.is_dir()
+        || !workspace_metadata.is_dir()
+    {
+        return Err(ApiError::NotFound("Project not found".to_string()));
+    }
+    Ok(())
 }
 
 fn ensure_project_layout(paths: &AppPaths, project_id: &str) -> Result<(), ApiError> {
@@ -674,6 +767,159 @@ fn ensure_project_layout(paths: &AppPaths, project_id: &str) -> Result<(), ApiEr
         fs::create_dir_all(dir).map_err(ApiError::internal)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_paths(temp_dir: &tempfile::TempDir) -> AppPaths {
+        AppPaths {
+            project_root: temp_dir.path().join("project-root"),
+            user_data_dir: temp_dir.path().join("default"),
+            log_dir: temp_dir.path().join("default").join("logs"),
+            db_path: temp_dir.path().join("default").join("tepora_core.db"),
+            secrets_path: temp_dir.path().join("default").join("secrets.yaml"),
+        }
+    }
+
+    #[test]
+    fn resolve_project_file_path_rejects_parent_components_through_missing_dirs() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let paths = test_paths(&temp_dir);
+        ensure_project_layout(&paths, DEFAULT_PROJECT_ID).expect("project layout");
+
+        let error = match resolve_project_file_path(
+            &paths,
+            DEFAULT_PROJECT_ID,
+            "workspace/new/../../outside.txt",
+        ) {
+            Ok(_) => panic!("path traversal should be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(error, ApiError::BadRequest(_)));
+        assert!(!paths.tepora_home().join("outside.txt").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_project_file_path_rejects_symlink_to_outside_file() {
+        use std::os::unix::fs::symlink;
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let paths = test_paths(&temp_dir);
+        ensure_project_layout(&paths, DEFAULT_PROJECT_ID).expect("project layout");
+        let outside_file = temp_dir.path().join("outside.txt");
+        fs::write(&outside_file, "outside").expect("outside file");
+        symlink(
+            &outside_file,
+            paths
+                .project_workspace_dir(DEFAULT_PROJECT_ID)
+                .join("link.txt"),
+        )
+        .expect("symlink");
+
+        let error =
+            match resolve_project_file_path(&paths, DEFAULT_PROJECT_ID, "workspace/link.txt") {
+                Ok(_) => panic!("outside symlink should be rejected"),
+                Err(error) => error,
+            };
+
+        assert!(matches!(error, ApiError::Forbidden));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_project_file_path_rejects_dangling_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let paths = test_paths(&temp_dir);
+        ensure_project_layout(&paths, DEFAULT_PROJECT_ID).expect("project layout");
+        symlink(
+            temp_dir.path().join("missing-outside.txt"),
+            paths
+                .project_workspace_dir(DEFAULT_PROJECT_ID)
+                .join("dangling.txt"),
+        )
+        .expect("symlink");
+
+        let error =
+            match resolve_project_file_path(&paths, DEFAULT_PROJECT_ID, "workspace/dangling.txt") {
+                Ok(_) => panic!("dangling symlink should be rejected"),
+                Err(error) => error,
+            };
+
+        assert!(matches!(error, ApiError::Forbidden));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn build_tree_skips_symlink_entries() {
+        use std::os::unix::fs::symlink;
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let paths = test_paths(&temp_dir);
+        ensure_project_layout(&paths, DEFAULT_PROJECT_ID).expect("project layout");
+        let outside_dir = temp_dir.path().join("outside-dir");
+        fs::create_dir_all(&outside_dir).expect("outside dir");
+        fs::write(outside_dir.join("secret.txt"), "secret").expect("outside file");
+        fs::write(
+            paths
+                .project_workspace_dir(DEFAULT_PROJECT_ID)
+                .join("visible.txt"),
+            "visible",
+        )
+        .expect("workspace file");
+        symlink(
+            &outside_dir,
+            paths
+                .project_workspace_dir(DEFAULT_PROJECT_ID)
+                .join("outside-link"),
+        )
+        .expect("symlink");
+
+        let tree = build_tree(
+            "workspace",
+            &paths.project_workspace_dir(DEFAULT_PROJECT_ID),
+            &paths.project_workspace_dir(DEFAULT_PROJECT_ID),
+        )
+        .expect("tree");
+
+        assert!(tree
+            .children
+            .iter()
+            .any(|entry| entry.name == "visible.txt"));
+        assert!(!tree
+            .children
+            .iter()
+            .any(|entry| entry.name == "outside-link"));
+    }
+
+    #[test]
+    fn tree_rejects_unknown_project_without_creating_layout() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let paths = Arc::new(test_paths(&temp_dir));
+        let manager = WorkspaceManager::new(paths.clone()).expect("workspace manager");
+
+        let error = match manager.tree("project-missing") {
+            Ok(_) => panic!("unknown project should be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(error, ApiError::NotFound(_)));
+        assert!(!paths.project_dir("project-missing").exists());
+    }
+
+    #[test]
+    fn validate_project_id_rejects_path_segments() {
+        assert!(validate_project_id(DEFAULT_PROJECT_ID).is_ok());
+        assert!(validate_project_id("project-abc123").is_ok());
+        assert!(validate_project_id("../outside").is_err());
+        assert!(validate_project_id("project/other").is_err());
+        assert!(validate_project_id("project\\other").is_err());
+    }
 }
 
 fn api_error_to_domain_error(value: ApiError) -> DomainError {

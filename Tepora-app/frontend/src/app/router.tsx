@@ -9,7 +9,7 @@ function AppRouteError() {
 	return (
 		<div className="min-h-screen bg-[var(--v2-color-canvas,#0b0f14)] text-[var(--v2-color-foreground,#f8fafc)]">
 			<div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-4 px-6 text-center">
-				<h1 className="text-2xl font-semibold">route not found / App Error</h1>
+				<h1 className="text-2xl font-semibold">route not found</h1>
 				<p className="text-sm text-[var(--v2-color-muted,#94a3b8)]">
 					{errorMessage}
 				</p>

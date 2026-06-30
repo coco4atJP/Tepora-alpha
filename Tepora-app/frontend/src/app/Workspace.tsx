@@ -95,10 +95,12 @@ export function Workspace({ isSettingsOpen = false }: WorkspaceProps) {
 	);
 
 	const isSetupCompleted = config?.app?.setup_completed === true;
+	const hasSetupRequirementFailure =
+		requirements?.is_ready === false || requirements?.has_missing === true;
 	const shouldShowSetup =
 		!reqLoading &&
 		!configLoading &&
-		(!requirements?.is_ready || requirements?.has_missing || !isSetupCompleted);
+		(hasSetupRequirementFailure || !isSetupCompleted);
 
 	useEffect(() => {
 		if (!projectsQuery.data) {

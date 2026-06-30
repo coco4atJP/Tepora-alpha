@@ -82,7 +82,10 @@ fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/api/workspace/tree", get(workspace::get_current_tree))
         .route(
             "/api/workspace/document/*path",
-            get(workspace::read_document).put(workspace::write_document),
+            get(workspace::read_document)
+                .put(workspace::write_document)
+                .patch(workspace::write_document)
+                .post(workspace::write_document),
         )
         .route(
             "/api/workspace/directory/*path",

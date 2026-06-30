@@ -4,7 +4,7 @@ mod enabled {
     use std::path::PathBuf;
 
     use wasmtime::{Engine, Linker, Module, Store};
-    use wasmtime_wasi::preview1::{self, WasiP1Ctx};
+    use wasmtime_wasi::p1::{self, WasiP1Ctx};
     use wasmtime_wasi::WasiCtxBuilder;
 
     pub fn run() -> Result<(), String> {
@@ -57,7 +57,7 @@ mod enabled {
         })?;
 
         let mut linker = Linker::<WasiP1Ctx>::new(&engine);
-        preview1::add_to_linker_sync(&mut linker, |ctx| ctx)
+        p1::add_to_linker_sync(&mut linker, |ctx| ctx)
             .map_err(|e| format!("failed to configure WASI linker: {e}"))?;
 
         let mut wasi_builder = WasiCtxBuilder::new();
