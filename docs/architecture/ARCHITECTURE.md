@@ -38,22 +38,22 @@ Tepora は、ユーザーのローカル環境を正本にしつつ、必要に�
 
 ### コアコンセプト
 
-| コンセプト | 説明 |
-| --- | --- |
-| **Local First** | 設定、履歴、記憶、モデル情報をローカル保存し、外部接続は明示設定時のみ利用 |
-| **Rust Backend** | Python 版から完全移行し、安全性、並行性、運用性を改善 |
-| **Pluggable Runtime** | `llama.cpp`、`Ollama`、`LM Studio`、OpenAI-compatible 経路を同居 |
-| **Modern Frontend** | React 19 + Tauri v2 ベース。canonical frontend は `/` と `/settings` を提供し、旧 `/v2` は互換リダイレクトのみ維持 |
+| コンセプト            | 説明                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Local First**       | 設定、履歴、記憶、モデル情報をローカル保存し、外部接続は明示設定時のみ利用                                         |
+| **Rust Backend**      | Python 版から完全移行し、安全性、並行性、運用性を改善                                                              |
+| **Pluggable Runtime** | `llama.cpp`、`Ollama`、`LM Studio`、OpenAI-compatible 経路を同居                                                   |
+| **Modern Frontend**   | React 19 + Tauri v2 ベース。canonical frontend は `/` と `/settings` を提供し、旧 `/v2` は互換リダイレクトのみ維持 |
 
 ### 主要機能
 
-| 機能 | 説明 |
-| --- | --- |
-| **3つの動作モード** | Chat / Search / Agent をルーターで切り替え |
-| **EM-LLM + Memory Ops** | 記憶生成、減衰、圧縮ジョブ、統計表示を提供 |
-| **セットアップ / モデル管理** | 初回セットアップウィザード、モデルダウンロード、外部ローダー再スキャン |
-| **Agent Skills / MCP** | Agent Skills package と MCP サーバーによる拡張 |
-| **キャラクター / 専門エージェント** | character profile と custom agent role assignment を両立 |
+| 機能                                | 説明                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| **4つの動作モード**                 | Chat / Search / SearchAgentic / Agent をルーターで切り替え             |
+| **EM-LLM + Memory Ops**             | 記憶生成、減衰、圧縮ジョブ、統計表示を提供                             |
+| **セットアップ / モデル管理**       | 初回セットアップウィザード、モデルダウンロード、外部ローダー再スキャン |
+| **Agent Skills / MCP**              | Agent Skills package と MCP サーバーによる拡張                         |
+| **キャラクター / 専門エージェント** | character profile と custom agent role assignment を両立               |
 
 ---
 
@@ -110,7 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
-    State --> History[history/mod.rs]
+    State --> Workspace[workspace/mod.rs]
 
     MCP --> McpConfig[mcp/config_store.rs]
     MCP --> McpPolicy[mcp/policy_manager.rs]
@@ -126,16 +126,16 @@ graph TD
 
 ### アーキテクチャ階層
 
-| 層                           | 技術                     | 役割                                       |
-| ---------------------------- | ------------------------ | ------------------------------------------ |
-| **プレゼンテーション** | Tauri + React / Browser Dev | UIレンダリング、ユーザー操作、sidecar 起動 |
-| **状態管理**           | Zustand + TanStack Query | クライアント状態 + サーバー状態/キャッシュ |
-| **通信**               | WebSocket + REST         | リアルタイム双方向通信 + API               |
-| **アプリケーション**   | Axum                     | エンドポイント、ルーティング               |
-| **ビジネスロジック**   | petgraph + GraphRuntime  | ステートマシン、エージェント制御           |
-| **コンテキスト構築**   | WorkerPipeline           | モジュラーなコンテキストエンリッチメント   |
-| **データアクセス**     | sqlx + SQLite            | リレーショナル + ベクトル検索 (in-process) |
-| **推論エンジン**       | llama.cpp / Ollama / LM Studio / OpenAI-compatible | モデル推論処理 |
+| 層                     | 技術                                               | 役割                                       |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------ |
+| **プレゼンテーション** | Tauri + React / Browser Dev                        | UIレンダリング、ユーザー操作、sidecar 起動 |
+| **状態管理**           | Zustand + TanStack Query                           | クライアント状態 + サーバー状態/キャッシュ |
+| **通信**               | WebSocket + REST                                   | リアルタイム双方向通信 + API               |
+| **アプリケーション**   | Axum                                               | エンドポイント、ルーティング               |
+| **ビジネスロジック**   | petgraph + GraphRuntime                            | ステートマシン、エージェント制御           |
+| **コンテキスト構築**   | WorkerPipeline                                     | モジュラーなコンテキストエンリッチメント   |
+| **データアクセス**     | sqlx + SQLite                                      | リレーショナル + ベクトル検索 (in-process) |
+| **推論エンジン**       | llama.cpp / Ollama / LM Studio / OpenAI-compatible | モデル推論処理                             |
 
 ---
 
@@ -143,8 +143,8 @@ graph TD
 
 ### バックエンド
 
-| カテゴリ                    | 技術                | 用途                       |
-| --------------------------- | ------------------- | -------------------------- |
+| カテゴリ              | 技術                | 用途                       |
+| --------------------- | ------------------- | -------------------------- |
 | **言語**              | Rust (2021 edition) | コアロジック               |
 | **Webフレームワーク** | Axum                | HTTP/WebSocket サーバー    |
 | **非同期ランタイム**  | Tokio               | 非同期処理                 |
@@ -157,8 +157,8 @@ graph TD
 
 ### フロントエンド
 
-| カテゴリ                 | 技術           | バージョン | 用途                    |
-| ------------------------ | -------------- | ---------- | ----------------------- |
+| カテゴリ           | 技術           | バージョン | 用途                    |
+| ------------------ | -------------- | ---------- | ----------------------- |
 | **フレームワーク** | React          | 19.x       | UIコンポーネント        |
 | **言語**           | TypeScript     | 5.x        | 型安全性                |
 | **アプリシェル**   | Tauri          | 2.x        | デスクトップアプリ化    |
@@ -170,8 +170,8 @@ graph TD
 
 ### AIモデル
 
-| カテゴリ             | モデル例                                  | 用途              | 推奨サイズ       |
-| -------------------- | ----------------------------------------- | ----------------- | ---------------- |
+| カテゴリ       | モデル例                                  | 用途              | 推奨サイズ       |
+| -------------- | ----------------------------------------- | ----------------- | ---------------- |
 | **Text Model** | Gemma 3n E2B/4B, Ministral 3B, Phi-4 Mini | 対話/エージェント | 2B - 4B (IQ4_XS) |
 | **Embedding**  | EmbeddingGemma                            | ベクトル埋め込み  | 300M (Q8_0)      |
 
@@ -311,7 +311,7 @@ backend-rs/
 │   │   └── mod.rs              # モジュール公開
 │   │
 │   ├── models/                 # ModelManager facade + registry/discovery/download/metadata/selection
-│   ├── history/                # HistoryStore (チャット履歴)
+│   ├── workspace/              # WorkspaceStore (プロジェクト・ドキュメント管理)
 │   ├── search/                 # Search vNext の strategy / evidence state
 │   ├── tools/                  # Native Tool実行 (web/search/RAG) + MCP委譲
 │   ├── rag/                    # RAG エンジン (infrastructure/knowledge_store/rag に移行・マウント中) [v4.0]
@@ -395,11 +395,11 @@ pub struct AppState {
     pub integration: Arc<AppIntegrationState>,
     pub runtime: Arc<AppRuntimeState>,
     pub memory: Arc<AppMemoryState>,
-    pub redesign_flags: Arc<HashMap<String, bool>>,
+    pub workspace: Arc<AppWorkspaceState>,
 }
 ```
 
-実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `shared()` を介してアクセスします。
+実コードでは `AppStateRead` / `AppStateWrite` から `core()`, `ai()`, `integration()`, `runtime()`, `memory()`, `workspace()`, `shared()` を介してアクセスします。
 
 ```rust
 let state: AppStateRead = /* extractor */;
@@ -439,15 +439,15 @@ pub struct GraphRuntime {
 
 **EdgeCondition (遷移条件)**:
 
-| 条件                                   | 説明                           |
-| -------------------------------------- | ------------------------------ |
+| 条件                                 | 説明                           |
+| ------------------------------------ | ------------------------------ |
 | `EdgeCondition::Always`              | 無条件遷移（デフォルトエッジ） |
 | `EdgeCondition::OnCondition(String)` | ノード出力に基づく条件分岐     |
 
 **主要メソッド**:
 
-| メソッド                                      | 説明                 |
-| --------------------------------------------- | -------------------- |
+| メソッド                                    | 説明                 |
+| ------------------------------------------- | -------------------- |
 | `add_node(node)`                            | ノードをグラフに追加 |
 | `add_edge(from, to)`                        | 無条件エッジを追加   |
 | `add_conditional_edge(from, to, condition)` | 条件付きエッジを追加 |
@@ -463,32 +463,32 @@ pub struct GraphRuntime {
 pub struct AgentState {
     // Session Identity
     pub session_id: String,
-  
+
     // Core Messaging
     pub input: String,
     pub mode: Mode,                        // Chat | Search | SearchAgentic | Agent
     pub chat_history: Vec<ChatMessage>,
-  
+
     // Hierarchical Agent Routing
     pub agent_id: Option<String>,          // UI選択のエージェント
     pub agent_mode: AgentMode,             // Low | High | Direct  [v4.0: Fast→Low]
     pub selected_agent_id: Option<String>, // Supervisorが選択
     pub supervisor_route: Option<SupervisorRoute>,
-  
+
     // v4.0 Pipeline Context
     pub pipeline_context: Option<PipelineContext>,  // [v4.0] WorkerPipeline出力
-  
+
     // Shared Context for Agents
     pub shared_context: SharedContext,     // Artifacts, Notes, Plans
-  
+
     // Agent ReAct Loop State
     pub agent_scratchpad: Vec<ChatMessage>,
     pub agent_outcome: Option<String>,
-  
+
     // Thinking Mode (CoT)
     pub thinking_budget: u8,
     pub thought_process: Option<String>,
-  
+
     // Search Mode State
     pub search_mode: SearchMode,           // Quick | Deep
     pub search_queries: Vec<String>,
@@ -497,7 +497,7 @@ pub struct AgentState {
     pub search_attachments: Vec<Value>,
     pub image_attachments: Vec<ImageAttachment>, // 画像添付ファイル（マルチモーダルLLM送信用）
     pub skip_web_search: bool,
-  
+
     // Final Output
     pub output: Option<String>,
     pub error: Option<String>,
@@ -520,19 +520,19 @@ pub struct SharedContext {
 ```mermaid
 graph TD
     START([START]) --> ROUTER{Mode Router}
-  
+
     ROUTER -->|chat| THINK[ThinkingNode]
     THINK --> CHAT[ChatNode]
-  
+
     ROUTER -->|"search + quick"| SEARCH[SearchNode - Quick Search]
     ROUTER -->|"search + deep"| AGENTIC["AgenticSearchNode - Deep Search [vNext]"]
-  
+
     ROUTER -->|agent| SUPERVISOR{Supervisor}
-  
+
     SUPERVISOR -->|planner| PLANNER[PlannerNode]
     SUPERVISOR -->|direct| AGENT_EXEC[AgentExecutorNode]
     PLANNER --> AGENT_EXEC
-  
+
     CHAT --> END([END])
     SEARCH --> END
     AGENTIC --> END
@@ -544,18 +544,18 @@ graph TD
 
 ### 5.3 ノード詳細
 
-| ノード                | ファイル                    | 責務                                            |
-| --------------------- | --------------------------- | ----------------------------------------------- |
-| `RouterNode`        | `nodes/router.rs`         | 入力モードに基づいてChat/Search/Agentに分岐     |
-| `ThinkingNode`      | `nodes/thinking.rs`       | CoT（Chain of Thought）思考プロセス生成         |
-| `ChatNode`          | `nodes/chat.rs`           | LLMに対して直接対話応答を生成                   |
-| `SearchNode`        | `nodes/search.rs`         | Quick Search: bounded retrieval + evidence-first 応答 |
-| `AgenticSearchNode` | `nodes/search_agentic.rs` | Deep Search: bounded agentic retrieval loop + evidence synthesis |
-| `SupervisorNode`    | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）          |
-| `PlannerNode`       | `nodes/planner.rs`        | タスク計画の立案                                |
+| ノード              | ファイル                  | 責務                                                                   |
+| ------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `RouterNode`        | `nodes/router.rs`         | 入力モードに基づいてChat/Search/Agentに分岐                            |
+| `ThinkingNode`      | `nodes/thinking.rs`       | CoT（Chain of Thought）思考プロセス生成                                |
+| `ChatNode`          | `nodes/chat.rs`           | LLMに対して直接対話応答を生成                                          |
+| `SearchNode`        | `nodes/search.rs`         | Quick Search: bounded retrieval + evidence-first 応答                  |
+| `AgenticSearchNode` | `nodes/search_agentic.rs` | Deep Search: bounded agentic retrieval loop + evidence synthesis       |
+| `SupervisorNode`    | `nodes/supervisor.rs`     | 階層的ルーティング（Planner or Agent）                                 |
+| `PlannerNode`       | `nodes/planner.rs`        | タスク計画の立案                                                       |
 | `AgentExecutorNode` | `nodes/agent_executor.rs` | task packet + summary-only tool replay で executor を回す ReAct ループ |
-| `ToolNode`          | `nodes/tool.rs`           | 補助ノード（現行デフォルトグラフ未接続）        |
-| `SynthesizerNode`   | `nodes/synthesizer.rs`    | 補助ノード（現行デフォルトグラフ未接続）        |
+| `ToolNode`          | `nodes/tool.rs`           | 補助ノード（現行デフォルトグラフ未接続）                               |
+| `SynthesizerNode`   | `nodes/synthesizer.rs`    | 補助ノード（現行デフォルトグラフ未接続）                               |
 
 ### 5.4 階層的マルチエージェントアーキテクチャ
 
@@ -566,16 +566,16 @@ graph TD
     subgraph "Supervisor Layer"
         SUP[SupervisorNode]
     end
-  
+
     subgraph "Planning Layer"
         PLAN[PlannerNode]
     end
-  
+
     subgraph "Execution Layer"
         EXEC[AgentExecutorNode]
         SR[SkillRegistry]
     end
-  
+
     SUP -->|high or complex low| PLAN
     SUP -->|direct / simple low| EXEC
     PLAN --> EXEC
@@ -584,11 +584,11 @@ graph TD
 
 **AgentMode (ルーティングモード)** [v4.0: `Fast` → `Low` にリネーム]:
 
-| モード     | 動作                                                    |
-| ---------- | ------------------------------------------------------- |
+| モード   | 動作                                                       |
+| -------- | ---------------------------------------------------------- |
 | `high`   | 必ずPlannerを経由して計画を立ててから AgentExecutor を実行 |
-| `low`    | SupervisorがLLMで判断。単純→直接実行、複雑→Plannerへ |
-| `direct` | 指定された Custom Agent を選択して直接実行              |
+| `low`    | SupervisorがLLMで判断。単純→直接実行、複雑→Plannerへ       |
+| `direct` | 指定された Custom Agent を選択して直接実行                 |
 
 > [!NOTE]
 > `"fast"` は serde / parse でレガシーエイリアスとして引き続き受け入れられます。
@@ -599,20 +599,23 @@ graph TD
 
 Agent Skills は標準 `SKILL.md` レイアウトの package として管理します。Supervisor は `SKILL.md` frontmatter の `name` / `description` と妥当性情報を見て実行先を選び、Execution は選択された package の `SKILL.md` 本文、`references/`, `scripts/`, `assets/`, `agents/openai.yaml` を使ってタスクを実行します。Planner は長期タスクや分解が必要な場合の補助に限定されます。
 
-| 機能                        | 説明                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| **スキル探索**              | 複数の skill root を走査し、標準 `SKILL.md` package を index 化                      |
-| **Supervisor 用インデックス** | `name`, `description`, `valid`, `enabled` などの軽量 summary を提供                  |
-| **Execution 用ロード**      | `SKILL.md` 本文、`references/`, `scripts/`, `assets/`, `agents/openai.yaml` を解決  |
-| **CRUD + 保存**             | Skill package の作成・更新・削除・export/import を提供                              |
-| **storage**                 | `project/.agents/skills` と `<user_data_dir>/skills` を既定 root として使用          |
-| **設定連携**                | `config.yml` の `agent_skills.roots` で root の追加、無効化、ラベル付けを制御        |
+| 機能                          | 説明                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| **スキル探索**                | 複数の skill root を走査し、標準 `SKILL.md` package を index 化                    |
+| **Supervisor 用インデックス** | `name`, `description`, `valid`, `enabled` などの軽量 summary を提供                |
+| **Execution 用ロード**        | `SKILL.md` 本文、`references/`, `scripts/`, `assets/`, `agents/openai.yaml` を解決 |
+| **CRUD + 保存**               | Skill package の作成・更新・削除・export/import を提供                             |
+| **storage**                   | `project/.agents/skills` と `<user_data_dir>/skills` を既定 root として使用        |
+| **設定連携**                  | `config.yml` の `agent_skills.roots` で root の追加、無効化、ラベル付けを制御      |
 
 ```md
 # .agents/skills/coder/SKILL.md
+
 ---
+
 name: coder
 description: Use for implementation, debugging, refactoring, and code review tasks.
+
 ---
 
 # Coder
@@ -656,11 +659,11 @@ graph LR
     R --> A[Stage 4: 最終合成+ストリーミング]
 ```
 
-| ステージ                        | 処理内容                                            |
-| ------------------------------- | --------------------------------------------------- |
-| **Query生成**             | LLMでサブクエリを生成（元クエリ含め最大5件まで）     |
-| **並列検索+チャンク選択** | RAG類似検索 + テキスト検索 + 必要時Web検索を統合     |
-| **リサーチレポート**      | selected chunk brief + evidence から report brief を生成 |
+| ステージ                  | 処理内容                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| **Query生成**             | LLMでサブクエリを生成（元クエリ含め最大5件まで）                                 |
+| **並列検索+チャンク選択** | RAG類似検索 + テキスト検索 + 必要時Web検索を統合                                 |
+| **リサーチレポート**      | selected chunk brief + evidence から report brief を生成                         |
 | **最終合成**              | `report_brief` + `selected_chunk_briefs` + memory だけでストリーミング回答を生成 |
 
 **ルーティング判定** (`RouterNode` 内):
@@ -696,14 +699,14 @@ graph LR
     CTRL --> MSG[Vec ChatMessage]
 ```
 
-| Worker              | 責務                                                                  |
-| ------------------- | --------------------------------------------------------------------- |
-| `SystemWorker`    | `active_agent_profile` と `characters.*` から system prompt を構築     |
-| `CharacterWorker` | アクティブキャラクターの persona を注入                               |
+| Worker            | 責務                                                                           |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `SystemWorker`    | `active_agent_profile` と `characters.*` から system prompt を構築             |
+| `CharacterWorker` | アクティブキャラクターの persona を注入                                        |
 | `MemoryWorker`    | `interaction_tail` の抽出、`local_context` の生成、cross-session memory の取得 |
-| `ToolWorker`    | 利用可能ツール定義の注入 (Native + MCP)                               |
-| `SearchWorker`  | Web検索実行 + リランキング                                            |
-| `RagWorker`     | RAGストアからのベクトル検索                                           |
+| `ToolWorker`      | 利用可能ツール定義の注入 (Native + MCP)                                        |
+| `SearchWorker`    | Web検索実行 + リランキング                                                     |
+| `RagWorker`       | RAGストアからのベクトル検索                                                    |
 
 **ContextController**: `PipelineContext` を memory-first に render するコンポーネントです。内部では stage-aware recipe に基づいて block を collect / dedupe / compress / drop しますが、最終出力は `single system + single context bundle + final user input` に正規化します。`system` には trusted instruction のみを残し、memory / local_context / evidence / interaction_tail / artifact summary / attachments / tool observations / thinking digests は `<context_bundle>` 以下のタグ付き `user` データとして束ねます。token 数は backend tokenizer を正本として数え、tokenizer asset が解決できない remote model のみ heuristic / provider usage fallback を許可します。debug/tracing 有効時は `input_tokens_estimated`, `estimation_source`, `dropped_blocks`, `compressed_blocks` を trace に残します。
 
@@ -763,16 +766,16 @@ TeporaはMCPクライアントとして動作し、外部のMCPサーバー（`g
 
 **ファイル**: `src/mcp/mod.rs`, `src/mcp/manager.rs`, `src/mcp/config_store.rs`, `src/mcp/policy_manager.rs`, `src/mcp/connection_manager.rs`, `src/mcp/tool_executor.rs`, `src/mcp/registry.rs`, `src/mcp/installer.rs`, `src/sandbox/mod.rs`
 
-| コンポーネント    | 責務                                       |
-| ----------------- | ------------------------------------------ |
-| `McpManager`    | facade。公開APIを保ったまま下位責務を調停 |
-| `McpConfigStore` | `mcp_tools_config.json` とパス解決の管理 |
-| `McpPolicyManager` | `mcp_policy.json` と接続許可判定の管理 |
-| `McpConnectionManager` | stdio / HTTP / Wasm 接続と quarantine 制御 |
-| `McpToolExecutor` | ツール列挙、解決、実行、結果整形 |
-| `McpRegistry`   | 利用可能なMCPサーバーのカタログ管理        |
-| `mcp_installer` | `npm` / `pip` を使った自動インストール |
-| `sandbox`       | WASMベースのセキュアなMCP実行をサポート（`.wasm` ファイルの `stdio` 起動連携） |
+| コンポーネント         | 責務                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `McpManager`           | facade。公開APIを保ったまま下位責務を調停                                      |
+| `McpConfigStore`       | `mcp_tools_config.json` とパス解決の管理                                       |
+| `McpPolicyManager`     | `mcp_policy.json` と接続許可判定の管理                                         |
+| `McpConnectionManager` | stdio / HTTP / Wasm 接続と quarantine 制御                                     |
+| `McpToolExecutor`      | ツール列挙、解決、実行、結果整形                                               |
+| `McpRegistry`          | 利用可能なMCPサーバーのカタログ管理                                            |
+| `mcp_installer`        | `npm` / `pip` を使った自動インストール                                         |
+| `sandbox`              | WASMベースのセキュアなMCP実行をサポート（`.wasm` ファイルの `stdio` 起動連携） |
 
 `McpManager` は公開入口を維持しつつ、設定I/O、ポリシー、接続、ツール実行を専用コンポーネントへ委譲します。これにより `mcp_tools_config.json` / `mcp_policy.json` の管理、`LOCAL_ONLY` などの接続ポリシー適用、quarantine 制御、ツール実行整形が責務別に分離されています。
 
@@ -782,7 +785,8 @@ ICLR 2025採択論文「EM-LLM」と arXiv 2601.18642「FadeMem」を統合し�
 詳細な設計原則、DB スキーマ、受け入れ基準は `docs/architecture/MEMORY_ARCHITECTURE.md` を参照してください。
 
 **特徴**:
-- **AES-256-GCM 暗号化**: 保存される記憶データは暗号化され、プライバシーが保護されます。
+
+- **AES-256-GCM 暗号化**: 保存される記憶データは `ENC:` プレフィックスを用いた AES-256-GCM で暗号化され、プライバシーが保護されます。
 - **FadeMem 統合**: 重要度(Importance)主導の層間遷移(SML/LML)や時間経過による減衰(Decay)、手動での記憶圧縮(Compression)が行われます。
 - **イベント駆動保存**: 従来の会話ターン単位の保存から、意味的な一貫性を持つ「イベント原子」としての保存単位へ再定義しています。
 - **Cross-Session Retrieval**: retrieval は session 固定 filter ではなく、same-session を bonus 付きで優遇する cross-session rerank に移行しています。
@@ -817,11 +821,11 @@ flowchart LR
 
 v4.0 で Qdrant から in-process SQLite ベースのベクトルストアに移行しました。
 
-| 機能                         | 説明                                                                        |
-| ---------------------------- | --------------------------------------------------------------------------- |
+| 機能                   | 説明                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
 | **RagStore trait**     | `insert_batch`, `search`, `text_search`, `get_chunk_window`, `reindex_with_model` 等を抽象化 |
-| **SqliteRagStore**     | SQLite + 手動実装によるコサイン類似度計算                                   |
-| **セッションフィルタ** | `session_id` で検索・削除を分離し、会話単位でRAGを運用                      |
+| **SqliteRagStore**     | SQLite + 手動実装によるコサイン類似度計算                                                    |
+| **セッションフィルタ** | `session_id` で検索・削除を分離し、会話単位でRAGを運用                                       |
 
 > [!IMPORTANT]
 > `RagStore` trait による抽象化で、将来の LanceDB や Qdrant への移行パスを確保しています。
@@ -843,20 +847,20 @@ graph TB
         Session[sessionStore - セッション一覧]
         WS[websocketStore - WebSocket接続]
     end
-  
+
     subgraph "TanStack Query (Server State)"
         Config[設定データ]
         Req[セットアップ要件]
         MCPStatus[MCPステータス]
         Sys[システムステータス]
     end
-  
+
     subgraph "Components"
         ChatInterface
         SessionHistory
         Settings
     end
-  
+
     WS <-->|WebSocket| Backend
     Chat --> ChatInterface
     Session --> SessionHistory
@@ -873,16 +877,16 @@ interface ChatState {
   messages: Message[];
   isProcessing: boolean;
   error: string | null;
-  
+
   // アクティビティログ（エージェント処理表示用）
   activityLog: AgentActivity[];
-  
+
   // 検索結果
   searchResults: SearchResult[];
-  
+
   // メモリ統計
   memoryStats: MemoryStats | null;
-  
+
   // ストリーミングバッファ（内部）
   _streamBuffer: string;
   _streamMetadata: StreamingMetadata | null;
@@ -890,19 +894,23 @@ interface ChatState {
 
 interface ChatActions {
   addMessage: (message: Message) => void;
-  addUserMessage: (content: string, mode: ChatMode, attachments?: Attachment[]) => void;
+  addUserMessage: (
+    content: string,
+    mode: ChatMode,
+    attachments?: Attachment[],
+  ) => void;
   setMessages: (messages: Message[]) => void;
   clearMessages: () => void;
-  
+
   // Streaming
   handleStreamChunk: (content: string, metadata: StreamingMetadata) => void;
   flushStreamBuffer: () => void;
   finalizeStream: () => void;
-  
+
   // Activity
   updateActivity: (activity: AgentActivity) => void;
   clearActivityLog: () => void;
-  
+
   reset: () => void;
 }
 ```
@@ -919,7 +927,7 @@ interface ChatActions {
 ```typescript
 interface SessionState {
   sessions: Session[];
-  currentSessionId: string;      // default: "default"
+  currentSessionId: string; // default: "default"
   isLoadingHistory: boolean;
 }
 
@@ -978,18 +986,18 @@ const socketCommands = {
 
 ### 6.5 機能ディレクトリ (`features/`)
 
-| ディレクトリ             | 責務                                                   |
-| ------------------------ | ------------------------------------------------------ |
-| `features/agent/`      | エージェント管理                                       |
-| `features/chat/`       | メッセージリスト、入力エリア、マークダウンレンダリング |
-| `features/session/`    | セッション履歴管理                                     |
-| `features/settings/`   | 設定パネル、モデル管理、MCP管理UI                      |
-| `features/setup/`      | セットアップ画面                                       |
+| ディレクトリ         | 責務                                                   |
+| -------------------- | ------------------------------------------------------ |
+| `features/agent/`    | エージェント管理                                       |
+| `features/chat/`     | メッセージリスト、入力エリア、マークダウンレンダリング |
+| `features/session/`  | セッション履歴管理                                     |
+| `features/settings/` | 設定パネル、モデル管理、MCP管理UI                      |
+| `features/setup/`    | セットアップ画面                                       |
 
 ### 6.6 主要コンポーネント
 
-| コンポーネント    | 責務                             |
-| ----------------- | -------------------------------- |
+| コンポーネント  | 責務                             |
+| --------------- | -------------------------------- |
 | `ChatInterface` | チャットビュー全体の制御         |
 | `MessageList`   | メッセージリストの表示           |
 | `MessageBubble` | 個別メッセージの表示             |
@@ -1022,12 +1030,12 @@ sequenceDiagram
     participant Axum
     participant Graph
     participant LLM
-  
+
     User->>Frontend: 入力送信
     Frontend->>WebSocket: message event
     WebSocket->>Axum: WebSocket message
     Axum->>Graph: run(state, ctx)
-  
+
     Graph->>Graph: モード判定
     alt chat mode
         Graph->>LLM: Chat Completion
@@ -1042,14 +1050,14 @@ sequenceDiagram
             Graph->>Graph: ツール実行
         end
     end
-  
+
     loop Streaming
         Graph-->>Axum: chunk
         Axum-->>WebSocket: chunk event
         WebSocket-->>Frontend: handleStreamChunk()
         Frontend-->>User: 表示更新
     end
-  
+
     Graph-->>Axum: done
     Axum-->>WebSocket: done event
     WebSocket-->>Frontend: finalizeStream()
@@ -1075,149 +1083,161 @@ ws://127.0.0.1:{port}/ws
 
 **クライアント → サーバー**:
 
-| type                           | 説明           | ペイロード                                                                    |
-| ------------------------------ | -------------- | ----------------------------------------------------------------------------- |
+| type                           | 説明           | ペイロード                                                                                                                 |
+| ------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `message` (または `type` 省略) | 通常メッセージ | `{ message, mode, sessionId, attachments?, skipWebSearch?, searchMode?, thinkingBudget?, agentId?, agentMode?, timeout? }` |
-| `regenerate`                   | 応答の再生成   | `{}`                                                                          |
-| `stop`                       | 実行キャンセル | `{}`                                                                        |
-| `get_stats`                  | メモリ統計要求 | `{}`                                                                        |
-| `set_session`                | セッション切替 | `{ sessionId }`                                                             |
-| `tool_confirmation_response` | ツール承認応答 | `{ requestId, approved }`                                                   |
+| `regenerate`                   | 応答の再生成   | `{}`                                                                                                                       |
+| `stop`                         | 実行キャンセル | `{}`                                                                                                                       |
+| `get_stats`                    | メモリ統計要求 | `{}`                                                                                                                       |
+| `set_session`                  | セッション切替 | `{ sessionId }`                                                                                                            |
+| `tool_confirmation_response`   | ツール承認応答 | `{ requestId, approved }`                                                                                                  |
 
 > [!NOTE]
 > `mode` は通常 `chat` / `search` / `agent`。Search vNext では `searchMode: "quick" | "deep"` を併用し、内部的に `search_agentic` も受理されます。
 
 **サーバー → クライアント**:
 
-| type                          | 説明               | ペイロード                                      |
-| ----------------------------- | ------------------ | ----------------------------------------------- |
-| `chunk`                     | ストリーミング応答 | `{ message, mode?, nodeId?, agentName? }`     |
-| `status`                    | 処理状態更新       | `{ message }`                                 |
+| type                        | 説明               | ペイロード                                      |
+| --------------------------- | ------------------ | ----------------------------------------------- | ----------- | ---------- |
+| `chunk`                     | ストリーミング応答 | `{ message, mode?, nodeId?, agentName? }`       |
+| `status`                    | 処理状態更新       | `{ message }`                                   |
 | `activity`                  | ノード進捗         | `{ data: { id, status, message, agentName? } }` |
-| `regenerate_started`        | 再生成開始         | `{}`                                          |
-| `memory_generation`         | 記憶生成ステータス | `{ status: "started" | "completed" | "error" }` |
-| `history`                   | チャット履歴       | `{ messages: [...] }`                         |
-| `search_results`            | 検索結果           | `{ data: [...] }`                             |
-| `tool_confirmation_request` | ツール承認要求     | `{ data: { requestId, toolName, toolArgs } }` |
-| `done`                      | 処理完了           | `{}`                                          |
-| `error`                     | エラー             | `{ message }`                                 |
-| `stats`                     | メモリ統計         | `{ data: {...} }`                             |
-| `stopped`                   | 停止完了           | `{}`                                          |
-| `session_changed`           | セッション変更通知 | `{ sessionId }`                               |
-| `thought`                   | 思考過程通知       | `{ content }`                                 |
-| `download_progress`         | ダウンロード進捗   | `{ data: {...} }`                             |
+| `regenerate_started`        | 再生成開始         | `{}`                                            |
+| `memory_generation`         | 記憶生成ステータス | `{ status: "started"                            | "completed" | "error" }` |
+| `history`                   | チャット履歴       | `{ messages: [...] }`                           |
+| `search_results`            | 検索結果           | `{ data: [...] }`                               |
+| `tool_confirmation_request` | ツール承認要求     | `{ data: { requestId, toolName, toolArgs } }`   |
+| `done`                      | 処理完了           | `{}`                                            |
+| `error`                     | エラー             | `{ message }`                                   |
+| `stats`                     | メモリ統計         | `{ data: {...} }`                               |
+| `stopped`                   | 停止完了           | `{}`                                            |
+| `session_changed`           | セッション変更通知 | `{ sessionId }`                                 |
+| `thought`                   | 思考過程通知       | `{ content }`                                   |
+| `download_progress`         | ダウンロード進捗   | `{ data: {...} }`                               |
 
 ### 8.2 REST API
 
 #### 基本API
 
-| メソッド | エンドポイント | 説明 |
-| --- | --- | --- |
-| `GET` | `/health` | ヘルスチェック |
-| `GET` | `/api/status` | システムステータス |
-| `POST` | `/api/shutdown` | サーバーシャットダウン |
-| `POST` | `/api/auth/refresh` | セッショントークン再発行 |
-| `GET` | `/api/config` | 設定取得 |
-| `POST` | `/api/config` | 設定更新（全体） |
-| `PATCH` | `/api/config` | 設定更新（部分） |
-| `POST` | `/api/config/secrets/rotate` | 秘密情報参照のローテーション |
-| `GET` | `/api/logs` | ログファイル一覧 |
-| `POST` | `/api/logs/frontend` | フロントエンドログ受信 |
-| `GET` | `/api/logs/{filename}` | ログ内容取得 |
-| `GET` | `/api/tools` | 利用可能ツール一覧 |
-| `GET` | `/api/metrics/runtime` | ランタイムメトリクス |
+| メソッド | エンドポイント               | 説明                         |
+| -------- | ---------------------------- | ---------------------------- |
+| `GET`    | `/health`                    | ヘルスチェック               |
+| `GET`    | `/api/status`                | システムステータス           |
+| `POST`   | `/api/shutdown`              | サーバーシャットダウン       |
+| `POST`   | `/api/auth/refresh`          | セッショントークン再発行     |
+| `GET`    | `/api/config`                | 設定取得                     |
+| `POST`   | `/api/config`                | 設定更新（全体）             |
+| `PATCH`  | `/api/config`                | 設定更新（部分）             |
+| `POST`   | `/api/config/secrets/rotate` | 秘密情報参照のローテーション |
+| `GET`    | `/api/logs`                  | ログファイル一覧             |
+| `POST`   | `/api/logs/frontend`         | フロントエンドログ受信       |
+| `GET`    | `/api/logs/{filename}`       | ログ内容取得                 |
+| `GET`    | `/api/tools`                 | 利用可能ツール一覧           |
+| `GET`    | `/api/metrics/runtime`       | ランタイムメトリクス         |
 
 #### セッションAPI
 
-| メソッド | エンドポイント | 説明 |
-| --- | --- | --- |
-| `GET` | `/api/sessions` | セッション一覧 |
-| `POST` | `/api/sessions` | 新規セッション作成 |
-| `GET` | `/api/sessions/{id}` | セッション詳細 |
-| `PATCH` | `/api/sessions/{id}` | セッション名更新 |
-| `DELETE` | `/api/sessions/{id}` | セッション削除 |
-| `GET` | `/api/sessions/{id}/messages` | メッセージ履歴取得 |
-| `GET` | `/api/sessions/{id}/metrics` | セッション単位メトリクス |
+| メソッド | エンドポイント                | 説明                     |
+| -------- | ----------------------------- | ------------------------ |
+| `GET`    | `/api/sessions`               | セッション一覧           |
+| `POST`   | `/api/sessions`               | 新規セッション作成       |
+| `GET`    | `/api/sessions/{id}`          | セッション詳細           |
+| `PATCH`  | `/api/sessions/{id}`          | セッション名更新         |
+| `DELETE` | `/api/sessions/{id}`          | セッション削除           |
+| `GET`    | `/api/sessions/{id}/messages` | メッセージ履歴取得       |
+| `GET`    | `/api/sessions/{id}/metrics`  | セッション単位メトリクス |
+
+#### Workspace (プロジェクト・ドキュメント) API
+
+| メソッド | エンドポイント                                | 説明                     |
+| -------- | --------------------------------------------- | ------------------------ |
+| `GET`    | `/api/workspace/projects`                     | プロジェクト一覧取得     |
+| `POST`   | `/api/workspace/projects`                     | プロジェクト作成         |
+| `POST`   | `/api/workspace/projects/{project_id}/select` | プロジェクト切り替え     |
+| `GET`    | `/api/workspace/tree`                         | ワークスペースツリー取得 |
+| `GET`    | `/api/workspace/document/*path`               | ドキュメント内容取得     |
+| `PUT`    | `/api/workspace/document/*path`               | ドキュメント内容更新     |
+| `POST`   | `/api/workspace/directory/*path`              | ディレクトリ作成         |
+| `POST`   | `/api/workspace/rename/*path`                 | パス変更                 |
+| `DELETE` | `/api/workspace/path/*path`                   | パス削除                 |
 
 #### Agent Skills API
 
-| メソッド | エンドポイント | 説明 |
-| --- | --- | --- |
-| `GET` | `/api/agent-skills` | Agent Skill 一覧と root 情報取得 |
-| `GET` | `/api/agent-skills/{id}` | Agent Skill package 詳細取得 |
-| `POST` | `/api/agent-skills` | Agent Skill package 保存 |
-| `DELETE` | `/api/agent-skills/{id}` | Agent Skill package 削除 |
-
-
+| メソッド | エンドポイント           | 説明                             |
+| -------- | ------------------------ | -------------------------------- |
+| `GET`    | `/api/agent-skills`      | Agent Skill 一覧と root 情報取得 |
+| `GET`    | `/api/agent-skills/{id}` | Agent Skill package 詳細取得     |
+| `POST`   | `/api/agent-skills`      | Agent Skill package 保存         |
+| `DELETE` | `/api/agent-skills/{id}` | Agent Skill package 削除         |
 
 > [!NOTE]
 > 公開APIは `agent-skills` に統一され、実体も Agent Skills package registry を唯一の正本として使用します。
 
 #### メモリ / セキュリティ API
 
-| メソッド | エンドポイント | 説明 |
-| --- | --- | --- |
-| `POST` | `/api/memory/compress` | 記憶圧縮ジョブを作成 |
-| `GET` | `/api/memory/compaction_jobs` | 圧縮ジョブ一覧取得 |
-| `POST` | `/api/memory/decay` | 記憶減衰サイクル実行 |
-| `POST` | `/api/security/lockdown` | Lockdown の有効化 / 無効化 |
-| `GET` | `/api/security/permissions` | 権限一覧 |
-| `DELETE` | `/api/security/permissions/{kind}/{name}` | 権限取り消し |
-| `GET` | `/api/security/audit/verify` | 監査チェーン検証 |
-| `GET` | `/api/credentials/status` | 資格情報状態確認 |
-| `POST` | `/api/credentials/rotate` | 資格情報ローテーション |
-| `POST` | `/api/backup/export` | バックアップ書き出し |
-| `POST` | `/api/backup/import` | バックアップ読み込み |
+| メソッド | エンドポイント                            | 説明                       |
+| -------- | ----------------------------------------- | -------------------------- |
+| `POST`   | `/api/memory/compress`                    | 記憶圧縮ジョブを作成       |
+| `GET`    | `/api/memory/compaction_jobs`             | 圧縮ジョブ一覧取得         |
+| `POST`   | `/api/memory/decay`                       | 記憶減衰サイクル実行       |
+| `POST`   | `/api/security/lockdown`                  | Lockdown の有効化 / 無効化 |
+| `GET`    | `/api/security/permissions`               | 権限一覧                   |
+| `DELETE` | `/api/security/permissions/{kind}/{name}` | 権限取り消し               |
+| `GET`    | `/api/security/audit/verify`              | 監査チェーン検証           |
+| `GET`    | `/api/credentials/status`                 | 資格情報状態確認           |
+| `POST`   | `/api/credentials/rotate`                 | 資格情報ローテーション     |
+| `POST`   | `/api/backup/export`                      | バックアップ書き出し       |
+| `POST`   | `/api/backup/import`                      | バックアップ読み込み       |
 
 #### MCP API
 
-| メソッド | エンドポイント | 説明 |
-| --- | --- | --- |
-| `GET` | `/api/mcp/status` | 接続ステータス |
-| `GET` | `/api/mcp/config` | MCP設定取得 |
-| `POST` | `/api/mcp/config` | MCP設定更新 |
-| `GET` | `/api/mcp/store` | レジストリ（利用可能サーバー一覧） |
-| `GET` | `/api/mcp/policy` | 接続ポリシー |
-| `PATCH` | `/api/mcp/policy` | ポリシー更新 |
-| `POST` | `/api/mcp/install/preview` | インストールプレビュー |
-| `POST` | `/api/mcp/install/confirm` | インストール確認 |
-| `POST` | `/api/mcp/servers/{name}/approve` | サーバー承認 |
-| `POST` | `/api/mcp/servers/{name}/revoke` | サーバー承認取り消し |
-| `POST` | `/api/mcp/servers/{name}/enable` | サーバー有効化 |
-| `POST` | `/api/mcp/servers/{name}/disable` | サーバー無効化 |
-| `DELETE` | `/api/mcp/servers/{name}` | サーバー削除 |
+| メソッド | エンドポイント                    | 説明                               |
+| -------- | --------------------------------- | ---------------------------------- |
+| `GET`    | `/api/mcp/status`                 | 接続ステータス                     |
+| `GET`    | `/api/mcp/config`                 | MCP設定取得                        |
+| `POST`   | `/api/mcp/config`                 | MCP設定更新                        |
+| `GET`    | `/api/mcp/store`                  | レジストリ（利用可能サーバー一覧） |
+| `GET`    | `/api/mcp/policy`                 | 接続ポリシー                       |
+| `PATCH`  | `/api/mcp/policy`                 | ポリシー更新                       |
+| `POST`   | `/api/mcp/install/preview`        | インストールプレビュー             |
+| `POST`   | `/api/mcp/install/confirm`        | インストール確認                   |
+| `POST`   | `/api/mcp/servers/{name}/approve` | サーバー承認                       |
+| `POST`   | `/api/mcp/servers/{name}/revoke`  | サーバー承認取り消し               |
+| `POST`   | `/api/mcp/servers/{name}/enable`  | サーバー有効化                     |
+| `POST`   | `/api/mcp/servers/{name}/disable` | サーバー無効化                     |
+| `DELETE` | `/api/mcp/servers/{name}`         | サーバー削除                       |
 
 #### セットアップAPI
 
-| メソッド | エンドポイント | 説明 |
-| --- | --- | --- |
-| `POST` | `/api/setup/init` | セットアップ初期化 |
-| `POST` | `/api/setup/preflight` | 事前チェック（容量・権限） |
-| `GET` | `/api/setup/requirements` | 要件チェック |
-| `GET` | `/api/setup/default-models` | 推奨モデルリスト |
-| `POST` | `/api/setup/run` | セットアップ開始 |
-| `GET` | `/api/setup/progress` | 進捗確認 |
-| `POST` | `/api/setup/finish` | セットアップ完了 |
-| `GET` | `/api/setup/models` | 利用可能モデル一覧 |
-| `GET` | `/api/setup/model/roles` | 役割ごとのモデル割当取得 |
-| `POST` | `/api/setup/model/roles/character` | Character モデル割当設定 |
-| `POST` | `/api/setup/model/roles/character/{character_id}` | キャラクター別割当設定 |
-| `DELETE` | `/api/setup/model/roles/character/{character_id}` | キャラクター別割当削除 |
-| `POST` | `/api/setup/model/roles/agent/{agent_id}` | Agent 別割当設定 |
-| `DELETE` | `/api/setup/model/roles/agent/{agent_id}` | Agent 別割当削除 |
-| `POST` | `/api/setup/model/roles/professional` | Professional モデル割当設定 |
-| `DELETE` | `/api/setup/model/roles/professional/{task_type}` | Professional 割当削除 |
-| `POST` | `/api/setup/model/active` | アクティブモデル設定 |
-| `POST` | `/api/setup/model/reorder` | モデル表示順更新 |
-| `POST` | `/api/setup/model/check` | モデル詳細取得 |
-| `POST` | `/api/setup/model/download` | モデルダウンロード |
-| `POST` | `/api/setup/model/local` | ローカルモデル登録 |
-| `DELETE` | `/api/setup/model/{id}` | モデル削除 |
-| `POST` | `/api/setup/models/ollama/refresh` | Ollama モデル同期 |
-| `POST` | `/api/setup/models/lmstudio/refresh` | LM Studio モデル同期 |
-| `GET` | `/api/setup/model/update-check` | モデル更新確認 |
-| `GET` | `/api/setup/binary/update-info` | llama.cpp バイナリ更新情報 |
-| `POST` | `/api/setup/binary/update` | llama.cpp バイナリ更新実行 |
+| メソッド | エンドポイント                                    | 説明                        |
+| -------- | ------------------------------------------------- | --------------------------- |
+| `POST`   | `/api/setup/init`                                 | セットアップ初期化          |
+| `POST`   | `/api/setup/preflight`                            | 事前チェック（容量・権限）  |
+| `GET`    | `/api/setup/requirements`                         | 要件チェック                |
+| `GET`    | `/api/setup/default-models`                       | 推奨モデルリスト            |
+| `POST`   | `/api/setup/run`                                  | セットアップ開始            |
+| `GET`    | `/api/setup/progress`                             | 進捗確認                    |
+| `POST`   | `/api/setup/finish`                               | セットアップ完了            |
+| `GET`    | `/api/setup/models`                               | 利用可能モデル一覧          |
+| `GET`    | `/api/setup/model/roles`                          | 役割ごとのモデル割当取得    |
+| `POST`   | `/api/setup/model/roles/character`                | Character モデル割当設定    |
+| `POST`   | `/api/setup/model/roles/character/{character_id}` | キャラクター別割当設定      |
+| `DELETE` | `/api/setup/model/roles/character/{character_id}` | キャラクター別割当削除      |
+| `POST`   | `/api/setup/model/roles/agent/{agent_id}`         | Agent 別割当設定            |
+| `DELETE` | `/api/setup/model/roles/agent/{agent_id}`         | Agent 別割当削除            |
+| `POST`   | `/api/setup/model/roles/professional`             | Professional モデル割当設定 |
+| `DELETE` | `/api/setup/model/roles/professional/{task_type}` | Professional 割当削除       |
+| `POST`   | `/api/setup/model/active`                         | アクティブモデル設定        |
+| `POST`   | `/api/setup/model/reorder`                        | モデル表示順更新            |
+| `POST`   | `/api/setup/model/check`                          | モデル詳細取得              |
+| `POST`   | `/api/setup/model/download`                       | モデルダウンロード          |
+| `POST`   | `/api/setup/model/local`                          | ローカルモデル登録          |
+| `DELETE` | `/api/setup/model/{id}`                           | モデル削除                  |
+| `POST`   | `/api/setup/models/ollama/refresh`                | Ollama モデル同期           |
+| `POST`   | `/api/setup/models/lmstudio/refresh`              | LM Studio モデル同期        |
+| `GET`    | `/api/setup/model/update-check`                   | モデル更新確認              |
+| `GET`    | `/api/setup/binary/update-info`                   | llama.cpp バイナリ更新情報  |
+| `POST`   | `/api/setup/binary/update`                        | llama.cpp バイナリ更新実行  |
 
 ---
 
@@ -1235,14 +1255,14 @@ graph TB
         UserSkills[user_data/skills/<id> - user skill package]
         ProjectSkills[project/.agents/skills/<id> - bundled skill package]
     end
-  
+
     subgraph Services["設定サービス / スキーマ"]
         ConfigSvc[src/core/config/service.rs]
         ConfigValidation[src/core/config/validation.rs]
         McpManager[src/mcp/manager.rs]
         SkillRegistry[src/agent/skill_registry.rs]
     end
-  
+
     ConfigYml --> ConfigSvc
     SecretsYml --> ConfigSvc
     ConfigValidation --> ConfigSvc
@@ -1335,11 +1355,11 @@ USER_DATA_DIR/
 
 ### 認証
 
-| 対象                 | 方式                       | 説明                    |
-| -------------------- | -------------------------- | ----------------------- |
+| 対象           | 方式                     | 説明                                  |
+| -------------- | ------------------------ | ------------------------------------- |
 | **REST API**   | `x-api-key` ヘッダー     | `/health` と `/api/status` 以外で必須 |
-| **WebSocket**  | `Sec-WebSocket-Protocol` | `tepora-token.{hex(token)}` で認証 |
-| **Origin検証** | Allowlist                  | WebSocketのOriginを検証 |
+| **WebSocket**  | `Sec-WebSocket-Protocol` | `tepora-token.{hex(token)}` で認証    |
+| **Origin検証** | Allowlist                | WebSocketのOriginを検証               |
 
 > [!NOTE]
 > `TEPORA_ENV!=production` の場合に限り、Origin ヘッダー未設定接続を許可します。トークン検証は常に有効です。
@@ -1349,33 +1369,33 @@ USER_DATA_DIR/
 
 ### MCPセキュリティ
 
-| 機能                           | 説明                                                      |
-| ------------------------------ | --------------------------------------------------------- |
-| **2段階インストール**    | preview → confirm の2段階フロー                          |
-| **デフォルト無効**       | 新規インストールサーバーはデフォルトで無効状態            |
+| 機能                     | 説明                                                    |
+| ------------------------ | ------------------------------------------------------- |
+| **2段階インストール**    | preview → confirm の2段階フロー                         |
+| **デフォルト無効**       | 新規インストールサーバーはデフォルトで無効状態          |
 | **接続ポリシー**         | デフォルトは `LOCAL_ONLY`（ローカルサーバー/stdioのみ） |
-| **ツール承認**           | MCPツールはセッション初回使用時にユーザー承認が必要       |
+| **ツール承認**           | MCPツールはセッション初回使用時にユーザー承認が必要     |
 | **危険コマンドブロック** | `sudo` 等の危険コマンドはブロック                       |
 
 ### プライバシー保護
 
-| 機能                       | 説明                                   |
-| -------------------------- | -------------------------------------- |
-| **Isolation Mode**   | `privacy.isolation_mode` が `true` の場合、外部ネットワーク処理（Web検索）およびMCPツールとのやり取りをすべてブロック |
-| **Web検索許可制御**  | `privacy.allow_web_search` が `false` の場合、外部検索/取得を拒否 |
-| **SSRF防御**         | `native_web_fetch` がローカルIP・private network・denylistドメインをブロック |
-| **入力ガード**       | `app.dangerous_patterns` による危険入力パターン拒否 |
-| **機密設定保護**     | APIキー等は `secrets.yaml` に分離保存 + APIレスポンス時マスク |
-| **記憶の暗号化**     | EM-LLM (エピソード記憶) は AES-256-GCM で暗号化して保存 |
+| 機能                | 説明                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Isolation Mode**  | `privacy.isolation_mode` が `true` の場合、外部ネットワーク処理（Web検索）およびMCPツールとのやり取りをすべてブロック |
+| **Web検索許可制御** | `privacy.allow_web_search` が `false` の場合、外部検索/取得を拒否                                                     |
+| **SSRF防御**        | `native_web_fetch` がローカルIP・private network・denylistドメインをブロック                                          |
+| **入力ガード**      | `app.dangerous_patterns` による危険入力パターン拒否                                                                   |
+| **機密設定保護**    | APIキー等は `secrets.yaml` に分離保存 + APIレスポンス時マスク                                                         |
+| **記憶の暗号化**    | EM-LLM (エピソード記憶) は AES-256-GCM で暗号化して保存 (`ENC:` プレフィックスを使用)                                 |
 
 ### モデルダウンロードセキュリティ
 
-| 機能                     | 説明                                              |
-| ------------------------ | ------------------------------------------------- |
-| **Allowlist**      | `model_download.allow_repo_owners` による制御     |
-| **リビジョン固定** | `require_revision=true` で必須化                  |
-| **SHA256検証**     | `require_sha256=true` で必須化                    |
-| **未登録警告**     | `warn_on_unlisted=true` で同意フローを要求        |
+| 機能               | 説明                                          |
+| ------------------ | --------------------------------------------- |
+| **Allowlist**      | `model_download.allow_repo_owners` による制御 |
+| **リビジョン固定** | `require_revision=true` で必須化              |
+| **SHA256検証**     | `require_sha256=true` で必須化                |
+| **未登録警告**     | `warn_on_unlisted=true` で同意フローを要求    |
 
 ---
 
@@ -1384,29 +1404,28 @@ USER_DATA_DIR/
 ### 品質ゲート構成
 
 1. **ローカル開発 (Pre-commit)**
-
    - コミット時にフォーマット、Lint、基本検証を自動実行
-2. **検証フェーズ (Task Runner)**
 
+2. **検証フェーズ (Task Runner)**
    - `task quality`: 全体の品質チェック
    - `task quality:fix`: 自動修正を含むチェック
-3. **CI/CD (GitHub Actions)**
 
+3. **CI/CD (GitHub Actions)**
    - プルリクエストおよびプッシュ時に厳格な検証
 
 ### 採用ツール
 
-| 領域               | ツール           | 目的                            |
-| ------------------ | ---------------- | ------------------------------- |
-| **Backend**  | cargo clippy     | Rustコードの静的解析            |
-| **Backend**  | cargo fmt        | コードフォーマット              |
-| **Backend**  | cargo test       | ユニットテスト                  |
-| **Frontend** | ESLint           | TypeScript/React のLint         |
+| 領域         | ツール           | 目的                                    |
+| ------------ | ---------------- | --------------------------------------- |
+| **Backend**  | cargo clippy     | Rustコードの静的解析                    |
+| **Backend**  | cargo fmt        | コードフォーマット                      |
+| **Backend**  | cargo test       | ユニットテスト                          |
+| **Frontend** | ESLint           | TypeScript/React のLint                 |
 | **Frontend** | Biome            | 追加コードチェック (`quality:frontend`) |
-| **Frontend** | TypeScript (tsc) | 型安全性チェック                |
-| **Frontend** | Vitest           | ユニット/統合テスト             |
-| **Security** | cargo audit      | Rust依存関係の脆弱性スキャン    |
-| **Security** | npm audit        | Node.js依存関係の脆弱性スキャン |
+| **Frontend** | TypeScript (tsc) | 型安全性チェック                        |
+| **Frontend** | Vitest           | ユニット/統合テスト                     |
+| **Security** | cargo audit      | Rust依存関係の脆弱性スキャン            |
+| **Security** | npm audit        | Node.js依存関係の脆弱性スキャン         |
 
 ### 開発コマンド
 
@@ -1430,16 +1449,16 @@ task quality:fix
 
 ### Python版からRust版への主な変更点
 
-| 項目                        | Python版     | Rust版 (v4.0)                 |
-| --------------------------- | ------------ | ----------------------------- |
-| **言語**              | Python 3.10+ | Rust 2021                     |
-| **Webフレームワーク** | FastAPI      | Axum                          |
-| **グラフエンジン**    | LangGraph    | petgraph (自前実装)           |
-| **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API)      |
-| **ベクトルDB**        | ChromaDB     | SQLite (in-process)           |
-| **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)         |
-| **パッケージ管理**    | uv / pip     | Cargo                         |
-| **バイナリ配布**      | PyInstaller  | ネイティブバイナリ            |
+| 項目                  | Python版     | Rust版 (v4.0)            |
+| --------------------- | ------------ | ------------------------ |
+| **言語**              | Python 3.10+ | Rust 2021                |
+| **Webフレームワーク** | FastAPI      | Axum                     |
+| **グラフエンジン**    | LangGraph    | petgraph (自前実装)      |
+| **LLM統合**           | LangChain    | 直接HTTP (llama.cpp API) |
+| **ベクトルDB**        | ChromaDB     | SQLite (in-process)      |
+| **コンテキスト構築**  | 手動構築     | WorkerPipeline (v4.0)    |
+| **パッケージ管理**    | uv / pip     | Cargo                    |
+| **バイナリ配布**      | PyInstaller  | ネイティブバイナリ       |
 
 ### 今後の拡張予定
 
@@ -1449,4 +1468,4 @@ task quality:fix
 
 ---
 
-*本ドキュメントは Tepora Project の技術仕様を定義しています。*
+_本ドキュメントは Tepora Project の技術仕様を定義しています。_
