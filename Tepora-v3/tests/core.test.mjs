@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,mkdir,symlink,readFile} from 'node:fs/promises';
+import {mkdtemp,rm,mkdir,symlink,readFile,realpath} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../core/store.mjs';
@@ -23,7 +23,7 @@ test('endpoint consent blocks remote, embedded credentials, cleartext and query 
 });
 test('workspace rejects traversal and symbolic links',async t=>{
  const {dir}=await fixture(t);for(const p of ['../escape','a/../../b','/tmp/outside','C:\\test','a\\b','x:stream',''])await assert.rejects(workspacePath(dir,p,true));
- const inside=await workspacePath(dir,'safe/note.txt',true);assert.ok(inside.startsWith(dir));
+ const inside=await workspacePath(dir,'safe/note.txt',true);assert.equal(inside,path.join(await realpath(dir),'safe','note.txt'));
  await mkdir(path.join(dir,'target'));try{await symlink(path.join(dir,'target'),path.join(dir,'link'),process.platform==='win32'?'junction':'dir');}catch(e){if(e.code==='EPERM'){t.diagnostic('Symlink privilege unavailable on this runner');return;}throw e;}
  await assert.rejects(workspacePath(dir,'link/escape.txt',true));
 });
