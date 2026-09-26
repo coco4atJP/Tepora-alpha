@@ -42,6 +42,19 @@ jobs:
       - run: node scripts/build-sidecar.mjs
       - run: ../node_modules/.bin/tauri build --bundles ${{ matrix.bundle }}
         working-directory: Tepora-v3/desktop
+      - name: Native installation and startup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./ci/native-smoke.ps1
+      - name: Native bundle startup (macOS)
+        if: runner.os == 'macOS'
+        run: bash ci/native-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tepora-v3-native-smoke-${{ matrix.os }}
+          path: Tepora-v3/.qa-native/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: tepora-v3-${{ matrix.os }}

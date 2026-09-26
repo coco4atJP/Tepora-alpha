@@ -7,6 +7,7 @@ import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { Store } from './store.mjs';
+import { browserBundle } from './frontend.mjs';
 import { Harness } from './harness.mjs';
 import { Connectors } from './connectors.mjs';
 import { Runtime, discover } from './runtime.mjs';
@@ -19,6 +20,7 @@ async function body(req,raw=false) {let size=0;const chunks=[];for await(const b
 function json(res,value,status=200){if(res.writableEnded)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
 function dataDir(){if(process.env.TEPORA_DATA_DIR)return process.env.TEPORA_DATA_DIR;if(process.platform==='win32')return path.join(process.env.LOCALAPPDATA||os.homedir(),'Tepora','v3');if(process.platform==='darwin')return path.join(os.homedir(),'Library','Application Support','Tepora','v3');return path.join(os.homedir(),'.local','share','tepora-v3');}
 export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory}={}) {
+ const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir), connectors=new Connectors(store), harness=new Harness(store,connectors,{runtimeFactory});
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
  if(!store.get('skill','artifact-studio'))store.put('skill',{id:'artifact-studio',name:'Artifact studio',description:'成果物を早く公開し、同じIDで段階的に更新する。',content:'# Artifact studio\nPublish a first useful HTML or Markdown artifact early. Keep the id and revise it as the task develops. Prefer self-contained accessible HTML, with no remote scripts or fonts. State evidence and unknowns. Never invent live data.',createdAt:new Date().toISOString()});
@@ -39,7 +41,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     res.removeHeader('X-Frame-Options');
     res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors ${origin}; sandbox allow-scripts`);
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
-    const esc=x=>x.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const esc=x=>x.replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
     return res.end(a.kind==='html'?a.content:`<!doctype html><meta charset="utf-8"><body style="font:16px/1.8 system-ui;padding:30px;background:#faf6ee;color:#42372b;white-space:pre-wrap;overflow-wrap:anywhere">${esc(a.content)}</body>`);
    }
    if(p.startsWith('/media-view/') && method==='GET') {
@@ -49,6 +51,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     return res.end(`<!doctype html><meta charset="utf-8"><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;overflow:hidden;background:#120c0a}</style><iframe title="YouTube player" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen src="https://www.youtube-nocookie.com/embed/${id}?autoplay=0&amp;playsinline=1&amp;rel=0"></iframe>`);
    }
    if(p==='/api/media/embed' && method==='POST'){const b=await body(req);invariant(typeof b.id==='string'&&/^[\w-]{11}$/.test(b.id),'Invalid video ID');const key=token();if(mediaFrames.size>=32)mediaFrames.delete(mediaFrames.keys().next().value);mediaFrames.set(key,b.id);return json(res,{path:`/media-view/${key}`});}
+   if(p==='/app.bundle.js' && method==='GET') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});return res.end(bundledFrontend);}
    if(p==='/api/bootstrap' && method==='GET')return json(res,{...store.snapshot(),csrf,skills:store.list('skill'),mcp:store.list('mcp'),platform:process.platform,workspace:path.join(dir,'workspace'),preview:false});
    if(p==='/api/events' && method==='GET') {
     const since=Number(req.headers['last-event-id']||u.searchParams.get('since')||0);invariant(Number.isSafeInteger(since)&&since>=0,'Invalid event cursor');
