@@ -1,0 +1,13 @@
+node_modules/
+.data/
+dist/
+desktop/target/
+desktop/binaries/
+desktop/resources/
+*.sqlite*
+.env
+
+desktop/icons/
+.pytest_cache/
+__pycache__/
+.qa/

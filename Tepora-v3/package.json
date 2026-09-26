@@ -1,0 +1,24 @@
+{
+  "name": "tepora-v3",
+  "version": "3.0.0-beta.1",
+  "private": true,
+  "description": "Local-first, asynchronous companion workspace \u2014 an isolated Tepora V3 beta",
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "start": "node core/server.mjs --open",
+    "serve": "node core/server.mjs",
+    "test": "node --test",
+    "check": "node scripts/check.mjs",
+    "desktop": "tauri icon web/favicon.svg --output desktop/icons && node scripts/build-sidecar.mjs && cd desktop && tauri dev",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "preview:build": "node scripts/build-preview.mjs",
+    "desktop:build": "tauri icon web/favicon.svg --output desktop/icons && node scripts/build-sidecar.mjs && cd desktop && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  },
+  "license": "Apache-2.0"
+}
