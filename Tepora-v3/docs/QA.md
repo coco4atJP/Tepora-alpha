@@ -4,11 +4,17 @@ Environment: Linux container, Node 22.16.0, Python 3.13, Chromium through Playwr
 
 ## Automated results
 
-- `node scripts/check.mjs`: 17 JavaScript modules passed syntax checking at this revision.
-- `node --test`: **19 passed, 0 failed**.
+- `node scripts/check.mjs`: 18 JavaScript modules passed syntax checking at this revision.
+- `node --test`: **21 passed, 0 failed**.
 - `python -m pytest -q speech/test_adapter.py`: **2 passed**. These tests inject a stub transcriber and do not measure ASR quality.
 
 Node coverage includes endpoint consent; path traversal/symlink rejection; memory confirmation and cloud sharing; SQLite persistence and interrupted restart status; fragmented UTF-8/tool-call SSE; truncated output errors; the Jev-like request contract; two concurrent work tasks with an independent conversation slot; three persisted artifact revisions; real CLI execution only after approval; denied/cancelled approvals; cancellation of a real child process; stdio MCP initialization/tool calls; authenticated HTTP/CSRF/Origin/Host checks; ephemeral keys and import rules; separate artifact/media CSP policies; SSE replay and Last-Event-ID reconnect precedence; and MCP registration without execution.
+
+## Native CI
+
+GitHub Actions run [36222819002](https://github.com/coco4atJP/Tepora-alpha/actions/runs/36222819002) built Windows NSIS and macOS DMG successfully from commit `9ca9b790a9a81a75ea78715f99e728ef01b5c50f`. Both targets passed the then-current 19 Node tests, generated the preview, prepared the Node sidecar, compiled Tauri and uploaded artifacts. This proves packaging, not application launch or installation behavior.
+
+The subsequent runtime-launch fix adds `--jinja` for llama.cpp, requires an explicit vLLM tool parser, adds two tests (21 total locally), and includes the macOS microphone usage description. Use PR #237 checks for the matching latest native package; do not confuse the earlier build with later source changes.
 
 ## Browser checks
 
@@ -28,8 +34,11 @@ This does not verify live browser cookie/SSE integration, browser persistence un
 - MCP output-limit failure now terminates its process tree rather than leaving a producer running.
 - One shared sample template now drives both preview and service, avoiding divergent screenshots and runtime artifacts.
 
+- Real target CI exposed canonical temporary-path differences on macOS/Windows. The path test now compares `realpath` values and passes on both targets.
+- Installed runtime launch now explicitly enables llama.cpp Jinja and requires a selected vLLM tool parser instead of silently launching a server unable to handle auto tools.
+
 ## Still unverified
 
-Windows/macOS native compilation and launch; installer/signing/notarization; graceful native shutdown; WebView iframe/navigation/cookie/CSP differences; microphone capture on target WebViews; Qwen or Whisper inference; actual vLLM/DiffusionGemma; external cloud providers; the user's actual Context Hub; Brave/login/YouTube playback; live weather/RSS retrieval; hardware throughput and cost; sustained unattended operation; filesystem race resistance; model-driven adversarial behavior.
+Windows/macOS actual application launch and installation; signing/notarization; graceful native shutdown; WebView iframe/navigation/cookie/CSP differences; microphone capture on target WebViews; Qwen or Whisper inference; actual vLLM/DiffusionGemma; external cloud providers; the user's actual Context Hub; Brave/login/YouTube playback; live weather/RSS retrieval; hardware throughput and cost; sustained unattended operation; filesystem race resistance; model-driven adversarial behavior.
 
 A passing controlled test suite is not a substitute for those gates.

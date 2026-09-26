@@ -23,6 +23,17 @@ export function runProcess(executable,args,{cwd,signal,timeout=120000,onOutput=(
     child.on('error',e=>finish(e));child.on('close',code=>finish(null,{exitCode:code,output}));
   });
 }
+
+/** Installed-runtime launcher. Never guess a model's tool parser or install a plugin implicitly. */
+export function runtimeLaunch(s,platform=process.platform,parser='') {
+  invariant(['llama.cpp','vllm'].includes(s.provider),'Only llama.cpp/vLLM process launch is supported');
+  text(s.modelPath,'GGUF path or model identifier',2000);
+  const target=endpoint(s.baseUrl,false),port=target.port||(s.provider==='vllm'?'8000':'8080');
+  if(s.provider==='llama.cpp')return {executable:s.runtimeBinary||'llama-server',args:['-m',s.modelPath,'--host','127.0.0.1','--port',port,'-c','8192','-ngl','99','--jinja']};
+  invariant(/^[A-Za-z0-9_]{1,80}$/.test(parser),'vLLMの起動にはモデルに合うtool parserが必要です。TEPORA_VLLM_TOOL_PARSERを設定してTeporaを再起動するか、vLLMを手動起動して接続してください（docs/RUNTIME-LAUNCH.md）。',409);
+  return {executable:s.runtimeBinary||(platform==='win32'?'wsl.exe':'vllm'),args:[...(platform==='win32'?['--exec','vllm']:[]),'serve',s.modelPath,'--host','127.0.0.1','--port',port,'--max-model-len','8192','--enable-auto-tool-choice','--tool-call-parser',parser]};
+}
+
 export class Connectors {
   constructor(store) {this.store=store;this.cache=new Map();this.processes=new Map();}
   async cached(key,ttl,fn) {const item=this.cache.get(key);if(item && Date.now()-item.at<ttl)return item.value;const value=await fn();this.cache.set(key,{value,at:Date.now()});return value;}
@@ -70,10 +81,7 @@ export class Connectors {
   startRuntime() {
     const s=this.store.settings;invariant(!this.processes.has('model'),'Runtime already started',409);
     invariant(s.provider==='llama.cpp' || s.provider==='vllm','Only llama.cpp/vLLM process launch is supported');
-    text(s.modelPath,'GGUF path or model identifier',2000);
-    const target=endpoint(s.baseUrl,false);const port=target.port||'8080';let executable,args;
-    if(s.provider==='llama.cpp'){executable=s.runtimeBinary||'llama-server';args=['-m',s.modelPath,'--host','127.0.0.1','--port',port,'-c','8192','-ngl','99'];}
-    else {executable=s.runtimeBinary||(process.platform==='win32'?'wsl.exe':'vllm');args=[...(process.platform==='win32'?['--exec','vllm']:[]),'serve',s.modelPath,'--host','127.0.0.1','--port',port,'--max-model-len','8192'];}
+    const {executable,args}=runtimeLaunch(s,process.platform,process.env.TEPORA_VLLM_TOOL_PARSER||'');
     const child=spawn(executable,args,{shell:false,windowsHide:true,detached:process.platform!=='win32',stdio:['ignore','pipe','pipe']});this.processes.set('model',child);
     child.on('error',e=>{this.processes.delete('model');this.store.emit('runtime.error',{message:e.message});});
     child.on('close',()=>{this.processes.delete('model');this.store.emit('runtime.stopped',{});});

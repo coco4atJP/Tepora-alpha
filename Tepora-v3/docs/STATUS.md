@@ -21,14 +21,14 @@
 | Ad blocker in Tauri | Not implemented | No guarantee to remove ads. Optional external Brave owns Shields |
 | Weather / news | Opt-in Open-Meteo + selected RSS/Atom feed | Code paths and explicit UI states; outbound live providers not exercised here |
 | Modular companion | Renderer boundary; two CSS styles | UI style toggle. Live2D/VRM/image plugin loading not implemented |
-| Windows first / macOS second | Source launchers, Tauri host, native build script and workflow example | Native builds, WebView microphone/media/fullscreen behavior unverified |
+| Windows first / macOS second | Source launchers, Tauri host, native build script and workflow example | Windows NSIS / macOS DMG builds and artifact upload passed in GitHub Actions; WebView startup/microphone/media/fullscreen behavior unverified |
 | Absolute plug-and-play | Not complete | Need signed/notarized native installers, model/runtime onboarding, device profiling and recovery tests |
 | No required vendor subscription | Baseline service/UI run offline with no npm runtime dependencies; endpoint independence | Cloud model/service fees and external API terms still apply |
 | Continuous autonomous agent OS | Task-based async service, not a permanent autonomous scheduler | Wake word, background triggers, calendar jobs, event subscriptions, continual planning not implemented |
 
 ## Release gates
 
-1. Run the native workflow on Windows and macOS, fix compilation/runtime issues, verify clean install/uninstall and no orphan processes. Do not publish a stable release merely because the JavaScript tests pass.
+1. Native compilation and packaging passed on Windows/macOS; now verify actual launch, clean install/uninstall, permissions and no orphan processes. Re-run the workflow after changes. Do not publish a stable release merely because compilation and JavaScript tests pass.
 2. Validate actual local models: tool calls, failure/refusal handling, memory limits, parallel request behavior and cost. For DiffusionGemma, validate the specific vLLM commit and selected quantization; 8GB GPU suitability is not assumed.
 3. Validate Japanese voice on the target PC, microphone permission/revoke flows, playback, WebView behavior, and caption latency. Benchmark rather than treating upstream model results as the application's own results.
 4. Add runtime/model installation with license consent, disk/VRAM checks, resumable downloads, verified checksums and rollback. This is the missing part of strict plug-and-play.
