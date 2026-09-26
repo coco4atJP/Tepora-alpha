@@ -3,9 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: Successful Tepora V3 beta artifact run to test
+        description: Successful beta artifact run to test
         required: true
-        default: '36223335017'
+        default: '36224337124'
+      source_ref:
+        description: Exact source commit matching those artifacts
+        required: true
+        default: '0b9f67741fb47834f08546d183758395374472ef'
   push:
     branches: ['v3.0-beta/**']
     paths: ['.github/workflows/tepora-v3-native-smoke.yml']
@@ -13,130 +17,41 @@ permissions:
   contents: read
   actions: read
 jobs:
-  windows:
-    runs-on: windows-latest
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || '0b9f67741fb47834f08546d183758395374472ef' }}
       - uses: actions/download-artifact@v4
         with:
-          name: tepora-v3-windows-latest
-          run-id: ${{ inputs.run_id || '36223335017' }}
+          name: tepora-v3-${{ matrix.os }}
+          run-id: ${{ inputs.run_id || '36224337124' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: package
-      - name: Install and launch the bundled application
+          path: Tepora-v3
+      - name: Install and launch Windows package
+        if: runner.os == 'Windows'
         shell: pwsh
+        working-directory: Tepora-v3
         run: |
-          $ErrorActionPreference = 'Stop'
-          $out = Join-Path $env:RUNNER_TEMP 'tepora-native-smoke'
-          New-Item -ItemType Directory -Force $out | Out-Null
-          $setup = Get-ChildItem package -Recurse -Filter '*setup.exe' | Select-Object -First 1
-          if (-not $setup) { throw 'NSIS installer was not found' }
-          $install = Join-Path $env:RUNNER_TEMP 'TeporaSmoke'
-          $installer = Start-Process -FilePath $setup.FullName -ArgumentList @('/S', "/D=$install") -PassThru
-          if (-not $installer.WaitForExit(120000)) { $installer.Kill(); throw 'Installer timed out' }
-          if ($installer.ExitCode -ne 0) { throw "Installer failed: $($installer.ExitCode)" }
-          $exe = Get-ChildItem $install -Recurse -Filter 'tepora-v3.exe' | Select-Object -First 1
-          if (-not $exe) { throw 'Installed app executable was not found' }
-          $app = Start-Process -FilePath $exe.FullName -PassThru
-          try {
-            $health = $null
-            $port = $null
-            for ($i=0; $i -lt 40; $i++) {
-              Start-Sleep -Seconds 1
-              $app.Refresh()
-              if ($app.HasExited) { throw "Native app exited before readiness: $($app.ExitCode)" }
-              $children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($app.Id)" | Where-Object { $_.Name -like 'node-runtime*' }
-              foreach ($child in $children) {
-                $listeners = Get-NetTCPConnection -OwningProcess $child.ProcessId -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq '127.0.0.1' }
-                foreach ($listener in $listeners) {
-                  try {
-                    $candidate = Invoke-RestMethod -Uri "http://127.0.0.1:$($listener.LocalPort)/health" -TimeoutSec 3
-                    if ($candidate.ok -and $candidate.version -eq '3.0.0-beta.1') { $health=$candidate; $port=$listener.LocalPort; break }
-                  } catch { }
-                }
-                if ($health) { break }
-              }
-              if ($health) { break }
-            }
-            if (-not $health) { throw 'Bundled Node service never became ready' }
-            Start-Sleep -Seconds 4
-            $app.Refresh()
-            if ($app.HasExited) { throw 'Native app exited after readiness' }
-            $report = @{ source_commit='d17e6de76121755ca2df0a9162d467ae96b7eb67'; platform='windows-x64'; installer_exit=$installer.ExitCode; service_health=$health; native_alive=$true; window_title=$app.MainWindowTitle; window_handle_nonzero=($app.MainWindowHandle -ne 0); actual_model_tested=$false; microphone_tested=$false }
-            $report | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $out 'result.json')
-            try {
-              Add-Type -AssemblyName System.Windows.Forms
-              Add-Type -AssemblyName System.Drawing
-              $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-              $image=New-Object System.Drawing.Bitmap $bounds.Width,$bounds.Height
-              $graphics=[System.Drawing.Graphics]::FromImage($image)
-              $graphics.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size)
-              $image.Save((Join-Path $out 'desktop.png'),[System.Drawing.Imaging.ImageFormat]::Png)
-              $graphics.Dispose(); $image.Dispose()
-            } catch { Write-Host 'Screen capture unavailable; health probe is not a UI render assertion.' }
-            Write-Host 'Native installation and bundled service readiness passed. No AI model or microphone was exercised.'
-          } finally {
-            & taskkill.exe /PID $app.Id /T /F 2>$null | Out-Null
-          }
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: tepora-v3-native-smoke-windows
-          path: ${{ runner.temp }}/tepora-native-smoke/
-          if-no-files-found: warn
-  macos:
-    runs-on: macos-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: tepora-v3-macos-latest
-          run-id: ${{ inputs.run_id || '36223335017' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: package
-      - name: Copy and launch the bundled application
+          $env:GITHUB_SHA = (git rev-parse HEAD).Trim()
+          ./ci/native-smoke.ps1
+      - name: Copy and launch macOS package
+        if: runner.os == 'macOS'
         shell: bash
+        working-directory: Tepora-v3
         run: |
-          set -euo pipefail
-          OUT="$RUNNER_TEMP/tepora-native-smoke"
-          MOUNT="$RUNNER_TEMP/tepora-dmg"
-          APP="$RUNNER_TEMP/TeporaSmoke.app"
-          mkdir -p "$OUT" "$MOUNT"
-          DMG=$(find package -name '*.dmg' -print -quit)
-          test -n "$DMG"
-          hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT" "$DMG"
-          SOURCE_APP=$(find "$MOUNT" -maxdepth 1 -name '*.app' -print -quit)
-          test -n "$SOURCE_APP"
-          ditto "$SOURCE_APP" "$APP"
-          hdiutil detach "$MOUNT"
-          EXE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
-          /usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$APP/Contents/Info.plist" > "$OUT/microphone-description.txt"
-          "$APP/Contents/MacOS/$EXE" >/dev/null 2>"$OUT/native-stderr.txt" &
-          PID=$!
-          trap 'pkill -P "$PID" 2>/dev/null || true; kill "$PID" 2>/dev/null || true' EXIT
-          READY=0
-          for i in $(seq 1 40); do
-            sleep 1
-            kill -0 "$PID" 2>/dev/null || { echo 'Native app exited before readiness'; exit 1; }
-            for CHILD in $(pgrep -P "$PID" || true); do
-              for PORT in $(lsof -nP -a -p "$CHILD" -iTCP -sTCP:LISTEN -Fn 2>/dev/null | sed -n 's/^n127\.0\.0\.1://p'); do
-                if curl --silent --fail "http://127.0.0.1:$PORT/health" > "$OUT/health.json"; then
-                  if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("ok") and d.get("version")=="3.0.0-beta.1"' "$OUT/health.json"; then READY=1; break; fi
-                fi
-              done
-              test "$READY" = 1 && break
-            done
-            test "$READY" = 1 && break
-          done
-          test "$READY" = 1 || { echo 'Bundled Node service never became ready'; exit 1; }
-          sleep 4
-          kill -0 "$PID"
-          printf '{"source_commit":"d17e6de76121755ca2df0a9162d467ae96b7eb67","platform":"macos-arm64","app_copy":true,"native_alive":true,"service_ready":true,"actual_model_tested":false,"microphone_tested":false}\n' > "$OUT/result.json"
-          screencapture -x "$OUT/desktop.png" || echo 'Screen capture unavailable; health probe is not a UI render assertion.'
-          echo 'Native bundle launch and service readiness passed. Signing, notarization and actual AI/audio remain separate gates.'
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          bash ci/native-smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tepora-v3-native-smoke-macos
-          path: ${{ runner.temp }}/tepora-native-smoke/
+          name: tepora-v3-native-smoke-${{ matrix.os }}
+          path: Tepora-v3/.qa-native/
+          include-hidden-files: true
           if-no-files-found: warn

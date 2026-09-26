@@ -54,6 +54,7 @@ jobs:
         with:
           name: tepora-v3-native-smoke-${{ matrix.os }}
           path: Tepora-v3/.qa-native/
+          include-hidden-files: true
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
