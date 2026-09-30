@@ -5,7 +5,7 @@ See [BETA9.md](BETA9.md) and [architecture](ARCHITECTURE.md).
 
 Fresh validation on 2026-09-30, after final code changes:
 - `npm test`: 347/347 passed (including 46 frontend/capture/routing tests)
-- `npm run check`: 85 JavaScript modules passed syntax checks
+- `npm run check`: 86 JavaScript modules passed syntax checks
 - `npm run test:workers`: 13 isolated Python tests passed
 - `npm run test:capabilities`: passed using deterministic local HTTP fixtures; zero external network calls
 - `npm run preview:build`: passed; building HTML is not proof of rendered UI correctness
@@ -24,3 +24,15 @@ manually launched; its provisioning behavior is unchanged.
 
 SOURCE-SHA256.json covers source files, excluding itself, generated preview HTML, validation output,
 Python caches, runtime databases, package caches and node_modules. start.command remains executable.
+
+## Windows CI diagnostic follow-up
+
+The first published beta.9 commit passed both macOS jobs. Both Windows jobs reached the
+40-minute job limit after the reporter printed 260 successful tests, without a test failure
+message or completed runner summary. The cause is not yet established.
+
+Windows CI now adds opt-in worker lifecycle/resource-type logs and an eight-minute test-step
+limit. The normal test discovery, assertions and concurrency are unchanged. The supported
+Node test timeout bounds test execution; the separate CI step limit covers leftover handles.
+There is no test skipping or force-exit success. This is diagnostic instrumentation, not a
+claim that the Windows cause has been fixed. All 347 tests pass locally with this instrumentation.

@@ -34,7 +34,19 @@ jobs:
         with:
           node-version: '22.16.0'
       - run: node scripts/check.mjs
-      - run: node --test
+      - name: Node tests
+        if: runner.os != 'Windows'
+        run: node --test
+      - name: Node tests (Windows diagnostics)
+        if: runner.os == 'Windows'
+        timeout-minutes: 8
+        run: node --import ./scripts/ci-diagnostics.mjs --test --test-timeout=120000
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows'
+        with:
+          name: tepora-v3-test-diagnostics-${{ matrix.os }}
+          path: Tepora-v3/validation/test-diagnostics/
+          if-no-files-found: warn
       - run: node scripts/build-preview.mjs
       - run: rustup default stable
       - run: npm install --ignore-scripts
@@ -63,3 +75,4 @@ jobs:
           path: |
             Tepora-v3/desktop/target/release/bundle/**
             Tepora-v3/tepora-v3-preview.html
+
