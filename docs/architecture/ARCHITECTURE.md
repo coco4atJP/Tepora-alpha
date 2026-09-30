@@ -110,6 +110,7 @@ graph TD
     State --> Security[core/security_controls.rs]
     State --> Models[models/*]
     State --> MCP[mcp/manager.rs]
+    State --> History[history/mod.rs]
     State --> Workspace[workspace/*]
 
     MCP --> McpConfig[mcp/config_store.rs]
