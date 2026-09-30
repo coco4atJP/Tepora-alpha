@@ -16,6 +16,7 @@ previewState.network||={schema:1,revision:0,mode:'online',internetTools:false};
 previewState.providers||={schema:1,revision:0,profiles:[],routes:{},offlineFloor:{configured:false,verified:false,providers:[]}};
 previewState.computer||={config:{schema:1,revision:0,enabled:false,controller:'both',backend:'browser',python:'python',browserExecutable:'',headless:false,allowedOrigins:[],windowHandle:null,maxActions:100},active:null};
 previewState.settings={...previewDefaults,...previewState.settings};
+previewState.dialogue||={session:{id:'preview-dialogue',revision:0,character:{name:'Tepora',instructions:''}},messages:[],personas:{revision:0,character:{name:'Tepora',instructions:'穏やかに会話し、作業を別の担当へ任せます。'},worker:{name:'作業担当',instructions:'結果と検証の範囲を区別して報告します。'}}};
 previewState.jobs=previewState.jobs.map(j=>['queued','running','waiting_approval'].includes(j.status)?{...j,status:'interrupted',note:'プレビューを再読み込みしました。'}:j);
 const uid=()=>globalThis.crypto?.randomUUID?.()||`preview-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const previewTimers=new Map(),toolImportPreviews=new Map();let previewCatalog=[];
@@ -24,6 +25,18 @@ function emitPreview(type,data){dispatch({seq:++previewState.seq,type,data,at:ne
 const upsertPreview=(list,doc)=>{const index=previewState[list].findIndex(x=>x.id===doc.id);if(index>=0)previewState[list][index]=doc;else previewState[list].unshift(doc);};
 
 async function previewRequest(p,method,b){
+ if(p==='/api/dialogue'&&method==='GET')return structuredClone(previewState.dialogue);
+ if(p==='/api/dialogue/context')return {id:'preview-dialogue-context',remote:false,label:'画面プレビュー',note:'会話・委任・PC操作の実行はしません。'};
+ if(p==='/api/dialogue/personas'){
+  if(method==='GET')return structuredClone(previewState.dialogue.personas);
+  const old=previewState.dialogue.personas;if(method!=='PUT'||b.expectedRevision!==old.revision)throw Error('人格の設定が更新されています。開き直してください。');
+  for(const role of ['character','worker'])if(!b[role]?.name?.trim()||b[role].name.length>80||typeof b[role].instructions!=='string'||b[role].instructions.length>8000)throw Error('名前と指示を確認してください。');
+  previewState.dialogue.personas={revision:old.revision+1,character:{...b.character},worker:{...b.worker}};
+  previewState.dialogue.session={...previewState.dialogue.session,revision:previewState.dialogue.session.revision+1,character:{...b.character}};
+  emitPreview('dialogue.updated',structuredClone(previewState.dialogue));return structuredClone(previewState.dialogue.personas);
+ }
+ if(p.startsWith('/api/dialogue'))throw Error('画面プレビューはAIとの会話・作業の委任・回答の送信を行いません。');
+
  if(p==='/api/companion')return structuredClone(previewState.companion);
  if(p==='/api/companion/focus'||p==='/api/companion/return'){
   const current=previewState.companion;

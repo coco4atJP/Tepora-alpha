@@ -5,6 +5,7 @@ import {ProviderRegistry} from './provider-registry.mjs';
 import {openInstallerPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
 import {Companion} from './companion.mjs';
+import {Dialogue} from './dialogue.mjs';
 import {IntentProposals} from './intent.mjs';
 import {Requests} from './requests.mjs';
 import {stageInputs,removeStagedInput} from './input-files.mjs';
@@ -45,7 +46,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  const connectors=new Connectors(store,network),harness=new Harness(store,connectors,{runtimeFactory,network,registry,computerOptions,mediaOptions,toolHubOptions});
  const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'}));
  const setup=new SetupManager(store,harness,{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions}),requests=new Requests(store,harness);
- const companion=new Companion(store),intents=new IntentProposals(store,harness,requests);
+ const companion=new Companion(store),intents=new IntentProposals(store,harness,requests),dialogue=new Dialogue(store,harness,requests);
  const routines=new Routines(store,harness),plans=new Plans(store,harness);harness.routines=routines;harness.plans=plans;routines.start();
  const probes=new Map(),catalog=new ModelCatalog(store,network),login=new CodexLogin(store,network,loginOptions);
  const loginPolicy=policy=>{if(policy.mode!=='online')login.close();};network.listeners.add(loginPolicy);
@@ -58,7 +59,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(req.headers.origin)invariant(req.headers.origin===origin,'Cross-origin requests are not allowed',403);
    invariant(req.headers['sec-fetch-site']!=='cross-site','Cross-site requests are not allowed',403);
    const u=new URL(req.url,origin), p=u.pathname, method=req.method;
-   if(p==='/health' && method==='GET')return json(res,{ok:true,version:'3.0.0-beta.8'});
+   if(p==='/health' && method==='GET')return json(res,{ok:true,version:'3.0.0-beta.10'});
    if(p==='/launch' && method==='GET') {invariant(same(u.searchParams.get('token'),secret),'Launch token is invalid',403);res.writeHead(303,{'Set-Cookie':`tepora_session=${secret}; HttpOnly; SameSite=Strict; Path=/`,'Location':'/','Cache-Control':'no-store'});return res.end();}
    const cookie=req.headers.cookie?.split(';').map(c=>c.trim()).find(c=>c.startsWith('tepora_session='))?.slice(15);
    invariant(same(cookie,secret),'このアプリを起動したときのURLから開いてください。',401);
@@ -82,13 +83,13 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    }
    if(p==='/api/media/embed' && method==='POST'){const b=await body(req);invariant(typeof b.id==='string'&&/^[\w-]{11}$/.test(b.id),'Invalid video ID');if(!network.permitted('cloud','web'))throw new NetworkBlocked('インターネットを使う道具を許可してください。');const key=token();if(mediaFrames.size>=32)mediaFrames.delete(mediaFrames.keys().next().value);mediaFrames.set(key,b.id);return json(res,{path:`/media-view/${key}`});}
    if(p==='/app.bundle.js' && method==='GET') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});return res.end(bundledFrontend);}
-   if(p==='/api/bootstrap' && method==='GET')return json(res,{...store.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get(),setup:setup.snapshot(),csrf,skills:store.list('skill'),mcp:store.list('mcp'),platform:process.platform,workspace:path.join(dir,'workspace'),preview:false});
+   if(p==='/api/bootstrap' && method==='GET')return json(res,{...store.snapshot(),dialogue:dialogue.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get(),setup:setup.snapshot(),csrf,skills:store.list('skill'),mcp:store.list('mcp'),platform:process.platform,workspace:path.join(dir,'workspace'),preview:false});
    if(p==='/api/events' && method==='GET') {
     const since=Number(req.headers['last-event-id']||u.searchParams.get('since')||0);invariant(Number.isSafeInteger(since)&&since>=0,'Invalid event cursor');
     res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive'});
     // Send a full snapshot as a recovery boundary if persisted events were trimmed.
     const events=store.events(since);const send=e=>{if(!res.write(`${e.seq===null?'':`id: ${e.seq}\n`}data: ${JSON.stringify(e)}\n\n`))res.destroy();};
-    if(events.length && events[0].seq>since+1)send({seq:store.seq,type:'snapshot',data:{...store.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get()}});else for(const e of events)send(e);
+    if(events.length && events[0].seq>since+1)send({seq:store.seq,type:'snapshot',data:{...store.snapshot(),dialogue:dialogue.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get()}});else for(const e of events)send(e);
     store.listeners.add(send);streams.add(res);const beat=setInterval(()=>{if(!res.write(': heartbeat\n\n'))res.destroy();},15000);
     res.on('close',()=>{clearInterval(beat);store.listeners.delete(send);streams.delete(res);});return;
    }
@@ -188,6 +189,14 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/inputs'&&method==='POST'){const b=await body(req);return json(res,{files:stageInputs(store,b.files)},201);}
    const inputDelete=p.match(/^\/api\/inputs\/([^/]+)$/);
    if(inputDelete&&method==='DELETE')return json(res,removeStagedInput(store,inputDelete[1]));
+   if(p==='/api/dialogue'&&method==='GET')return json(res,dialogue.snapshot());
+   if(p==='/api/dialogue/context'&&method==='GET')return json(res,dialogue.context());
+   if(p==='/api/dialogue/relay'&&method==='GET')return json(res,dialogue.relayPreview(u.searchParams.get('jobId')));
+   if(p==='/api/dialogue/relay'&&method==='POST')return json(res,dialogue.relay(await body(req)));
+   if(p==='/api/dialogue/personas'&&method==='GET')return json(res,dialogue.personas());
+   if(p==='/api/dialogue/personas'&&method==='PUT')return json(res,dialogue.configure(await body(req)));
+   if(p==='/api/dialogue'&&method==='POST')return json(res,dialogue.submit(await body(req)),202);
+   if(p==='/api/dialogue/reply'&&method==='POST')return json(res,dialogue.reply(await body(req)),202);
    if(p==='/api/companion'&&method==='GET')return json(res,companion.snapshot());
    if(p==='/api/companion/focus'&&method==='POST'){const b=await body(req);return json(res,companion.focus(b.jobId,{expectedRevision:b.expectedRevision,pushReturn:b.pushReturn}));}
    if(p==='/api/companion/return'&&method==='POST'){const b=await body(req);return json(res,companion.back(b.expectedRevision));}
@@ -337,11 +346,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  server.requestTimeout=150000;server.headersTimeout=15000;
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});origin=`http://127.0.0.1:${server.address().port}`;
  const launchUrl=`${origin}/launch?token=${secret}`;
- const close=async()=>{if(closing)return;closing=true;routines.close();plans.close();for(const probe of probes.values()){probe.abort?.(new Error('Service stopping'));probe.close?.();}login.close();network.listeners.delete(loginPolicy);harness.close();await harness.media.close();harness.capabilities.close();connectors.close();await setup.close();await speech.close();for(const res of streams)res.end();for(let i=0;i<30&&harness.active.size;i++)await new Promise(r=>setTimeout(r,20));network.close();registry.close();server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
- return {server,store,network,registry,catalog,login,harness,connectors,setup,requests,companion,intents,routines,plans,origin,launchUrl,close};
+ const close=async()=>{if(closing)return;closing=true;dialogue.close();routines.close();plans.close();for(const probe of probes.values()){probe.abort?.(new Error('Service stopping'));probe.close?.();}login.close();network.listeners.delete(loginPolicy);harness.close();await harness.media.close();harness.capabilities.close();connectors.close();await setup.close();await speech.close();for(const res of streams)res.end();for(let i=0;i<30&&harness.active.size;i++)await new Promise(r=>setTimeout(r,20));network.close();registry.close();server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
+ return {server,store,network,registry,catalog,login,harness,connectors,setup,requests,companion,intents,dialogue,routines,plans,origin,launchUrl,close};
 }
 const isMain=process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
-if(isMain){const app=await startServer({port:Number(process.env.TEPORA_PORT||0)});console.log(JSON.stringify({type:'ready',url:app.launchUrl,version:'3.0.0-beta.8'}));if(process.argv.includes('--open')){const [exe,args]=process.platform==='win32'?['rundll32',['url.dll,FileProtocolHandler',app.launchUrl]]:process.platform==='darwin'?['open',[app.launchUrl]]:['xdg-open',[app.launchUrl]];const p=spawn(exe,args,{stdio:'ignore',shell:false});p.on('error',()=>console.error('Open the URL printed above in a browser.'));}if(process.argv.includes('--sidecar')){process.stdin.setEncoding('utf8');let stdinBuffer='';process.stdin.on('data',chunk=>{
+if(isMain){const app=await startServer({port:Number(process.env.TEPORA_PORT||0)});console.log(JSON.stringify({type:'ready',url:app.launchUrl,version:'3.0.0-beta.10'}));if(process.argv.includes('--open')){const [exe,args]=process.platform==='win32'?['rundll32',['url.dll,FileProtocolHandler',app.launchUrl]]:process.platform==='darwin'?['open',[app.launchUrl]]:['xdg-open',[app.launchUrl]];const p=spawn(exe,args,{stdio:'ignore',shell:false});p.on('error',()=>console.error('Open the URL printed above in a browser.'));}if(process.argv.includes('--sidecar')){process.stdin.setEncoding('utf8');let stdinBuffer='';process.stdin.on('data',chunk=>{
  stdinBuffer=(stdinBuffer+chunk).slice(-4096);let end;
  while((end=stdinBuffer.indexOf('\n'))>=0){const command=stdinBuffer.slice(0,end).trim();stdinBuffer=stdinBuffer.slice(end+1);
   if(command==='shutdown')app.close().then(()=>process.exit(0));

@@ -1,8 +1,8 @@
-# beta.9 companion continuity
+# beta.10 character-first conversation
 
-See [the beta.9 milestone and its limits](docs/BETA9.md), [current verification](docs/STATUS.md), and [architecture](docs/ARCHITECTURE.md).
+See [the beta.10 milestone and its limits](docs/BETA10.md), [current verification](docs/STATUS.md), and [architecture](docs/ARCHITECTURE.md).
 
-# Tepora V3 · 3.0.0-beta.8
+# Tepora V3 · 3.0.0-beta.10
 
 A quiet, customizable smart monitor that can keep working while you talk.
 Local-first, provider-neutral, with explicit control over cloud/LAN access.
@@ -29,6 +29,22 @@ node scripts/build-preview.mjs
 Open `tepora-v3-preview.html`. The preview explicitly refuses AI inference, account login, real
 MCP startup and PC operations; it does not invent working AI output. Its sample revises an
 artifact three times. Real requests need configured runtimes or providers.
+
+## One conversation in beta.10
+
+Talk to the same character in the persistent left-hand conversation. Work details and artifacts
+open beside it; they do not redirect the composer. There are no continue/new/side conversation
+modes to manage. The character can delegate work and keep responding in its separate chat lane.
+
+**人格の設定** edits the character and worker names/instructions separately. Existing jobs keep
+their pinned versions. **この質問に回答** targets one worker's exact pending question; ordinary
+chat never silently answers an unrelated worker. Tool approvals remain separate from answers.
+
+Worker reports arrive in the character conversation with their source and verification state.
+Ask about a result naturally. If the character and worker use different recipients, **会話で
+参照する** lets you review and explicitly share only a bounded result excerpt. No raw tool logs
+are sent back into the character context. Legacy memories are preserved but not automatically
+injected into either new role; full V2 CHAR/PROF migration is not included.
 
 ## What to do in the UI
 

@@ -1,52 +1,34 @@
+/** beta10 replaces opt-in mode classification with one character entry point. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
-import {readFile} from 'node:fs/promises';
-const source=await readFile(new URL('../web/app.mjs',import.meta.url),'utf8');
-function fixture(handler){
- const input={value:'元の依頼'},calls=[],sheets=[];
- const destination={intent:'continue',targetJobId:'one',companionRevision:1,jobRevision:0,engine:'builtin'};
- const ctx=vm.createContext({console,structuredClone,JSON,Error,sending:false,voice:null,voiceBusy:false,sharedView:false,previewMode:false,pendingRequest:null,lastSubmitError:'',submitEpoch:0,voiceEpoch:0,naturalIntent:true,naturalConsent:{id:'classifier-dest'},naturalProposal:null,attachedFiles:[],composerIntent:'continue',inputEngine:'builtin',state:{companion:{revision:1,focusJobId:'one'},jobs:[{id:'one',revision:0,kind:'chat'}],providers:{profiles:[{model:'fixture'}]}},draft:{revision:0,manual(){this.revision++}},draftContext:{destination},$:()=>input,pinDraft:()=>destination,settings:()=>({model:'fixture'}),requestId:()=> 'independent-ui-request-0001',companionRole:()=> 'chat',cancelVoice(){},showRequestStatus(){},showTarget(){},showInputFiles(){},showReply(){},scheduleRender(){},notice(){},upsert(){},acceptCompanion(){},clearDraftDestination(){},closeSheet(){},openSheet(...args){sheets.push(args)},escape:String,btn:()=>'',bridge:{async request(...args){calls.push(args);return handler(...args);}}});
- vm.runInContext(source.slice(source.indexOf('function invalidatePendingSubmit()'),source.indexOf('\nfunction composerLocked()'))+source.slice(source.indexOf('async function submitIntent(')),ctx);
- return {ctx,input,calls,sheets};
-}
-const proposal={id:'proposal-1',action:'side',input:'元の依頼',focusRevision:1,executionDestination:'execution-dest',summary:'side'};
-function contexts(p){return p==='/api/companion/context'?{id:'classifier-dest'}:p.startsWith('/api/requests/context')?{id:'execution-dest',remote:false}:null;}
-async function until(fn){for(let n=0;n<50;n++){if(fn())return;await new Promise(r=>setImmediate(r));}throw Error('fixture did not advance');}
-test('independent UI Stop during delayed classifier cannot dispatch a new side job',async()=>{
- let release;const hold=new Promise(r=>release=r);const f=fixture(p=>p==='/api/companion/propose'?hold:contexts(p));
- const pending=vm.runInContext('submitIntent()',f.ctx);await until(()=>f.calls.some(c=>c[0]==='/api/companion/propose'));
- vm.runInContext('invalidatePendingSubmit()',f.ctx);release(proposal);
- await assert.rejects(pending,/中止/);assert.ok(!f.calls.some(c=>c[0]==='/api/companion/submit'));assert.equal(f.input.value,'元の依頼');
+import {fixture,deferred,until,appSource} from './helpers/dialogue-ui-fixture.mjs';
+test('Stop during delayed dialogue context cannot dispatch a worker or erase the draft',async()=>{
+ const hold=deferred(),f=fixture(p=>p==='/api/dialogue/context'?hold.promise:null);f.type('Keep this draft');
+ const pending=f.run('submitDialogue()');await until(()=>f.calls.length);f.run('invalidatePendingSubmit()');hold.resolve({id:'route'});
+ await assert.rejects(pending,/中止/);assert.equal(f.requests().length,0);assert.equal(f.draft.content,'Keep this draft');
 });
-test('independent UI ambiguity preserves draft without execution',async()=>{
- const f=fixture(p=>p==='/api/companion/propose'?{...proposal,action:'clarify',question:'どちら？'}:contexts(p));
- await vm.runInContext('submitIntent()',f.ctx);assert.ok(!f.calls.some(c=>c[0]==='/api/companion/submit'));assert.equal(f.input.value,'元の依頼');assert.equal(f.ctx.naturalProposal.action,'clarify');
+test('ordinary character request has no manual intent/target and dispatches once without extra dialog',async()=>{
+ const f=fixture();f.type('Can you prepare this?');await f.run('submitDialogue()');
+ assert.equal(f.requests().length,1);assert.equal(f.sheets.length,0);for(const name of ['intent','targetJobId','companionRevision','proposalId'])assert.equal(f.requests()[0].value[name],undefined);
+ assert.equal(f.requests()[0].value.contextConsent,'execution-route');assert.ok(!f.calls.some(c=>c.path.startsWith('/api/companion/')));
 });
-test('independent UI clear natural request dispatches once without an extra confirmation',async()=>{
- const f=fixture(p=>p==='/api/companion/propose'?proposal:p==='/api/companion/submit'?{job:{id:'side',kind:'chat'},companion:{revision:2,focusJobId:'side'}}:contexts(p));
- await vm.runInContext('submitIntent()',f.ctx);assert.equal(f.calls.filter(c=>c[0]==='/api/companion/submit').length,1);assert.equal(f.sheets.length,0);
+test('remote attachment consent names the combined character/worker destination and reuses receipt',async()=>{
+ const f=fixture(p=>p==='/api/dialogue/context'?{id:'remote-route',remote:true,label:'Character A and Worker B',note:'Both exact recipients'}:null);f.ctx.attachedFiles=[{id:'file',name:'notes.txt'}];f.type('Use the selected notes');
+ await f.run('submitDialogue()');assert.equal(f.requests().length,0);assert.match(f.sheets[0][1],/Character A and Worker B/);assert.match(f.sheets[0][1],/notes.txt/);const id=f.ctx.pendingRequest.body.requestId;
+ await f.run(`submitDialogue('${id}')`);assert.equal(f.requests().length,1);assert.equal(f.requests()[0].value.attachmentConsent,'remote-route');assert.equal(f.requests()[0].value.requestId,id);
 });
-test('independent UI remote file consent uses actual execution context',async()=>{
- const f=fixture(p=>p==='/api/companion/propose'?proposal:p.startsWith('/api/requests/context')?{id:'execution-dest',remote:true,label:'Fixture destination',note:'Fixture disclosure'}:contexts(p));f.ctx.attachedFiles=[{id:'file',name:'notes.txt'}];
- await vm.runInContext('submitIntent()',f.ctx);assert.ok(!f.calls.some(c=>c[0]==='/api/companion/submit'));assert.match(f.sheets[0][0],/ファイル/);assert.equal(f.ctx.pendingRequest.context.id,'execution-dest');
+test('route change while attachment consent is open requires fresh consent without sending',async()=>{
+ let route='one';const f=fixture(p=>p==='/api/dialogue/context'?{id:route,remote:true,label:route}:null);f.ctx.attachedFiles=[{id:'file',name:'notes.txt'}];f.type('Notes');await f.run('submitDialogue()');const id=f.ctx.pendingRequest.body.requestId;route='two';
+ await assert.rejects(f.run(`submitDialogue('${id}')`),/接続先/);assert.equal(f.requests().length,0);assert.equal(f.draft.content,'Notes');
 });
-test('independent UI hiding during delayed automatic voice send prevents dispatch',async()=>{
- let release;const hold=new Promise(r=>release=r);const f=fixture(p=>p==='/api/companion/propose'?hold:contexts(p));
- Object.assign(f.ctx,{voiceSendEnabled:true,voiceEpoch:5,attachmentEpoch:0});f.ctx.cancelVoice=()=>{f.ctx.voiceEpoch++};
- const pending=vm.runInContext("submitIntent(false,false,{epoch:5,destination:draftContext.destination,revision:draft.revision,attachmentEpoch:0,contextId:'execution-dest'})",f.ctx);
- await until(()=>f.calls.some(c=>c[0]==='/api/companion/propose'));let onHidden;f.ctx.document={hidden:true,addEventListener:(name,fn)=>{onHidden=fn}};vm.runInContext(source.split('\n').find(line=>line.startsWith("document.addEventListener('visibilitychange'")),f.ctx);onHidden();release(proposal);
- await assert.rejects(pending,/中止/);assert.ok(!f.calls.some(c=>c[0]==='/api/companion/submit'));assert.equal(f.input.value,'元の依頼');
+test('automatic voice send cancels when hidden during delayed context',async()=>{
+ const hold=deferred(),f=fixture(p=>p==='/api/dialogue/context'?hold.promise:null);f.type('Voice words');f.ctx.voiceSendEnabled=true;f.ctx.voiceEpoch=5;
+ const pending=f.run("submitDialogue(false,false,{epoch:5,destination:draftContext.destination,revision:draft.revision,attachmentEpoch:0,contextId:'route'})");await until(()=>f.calls.length);
+ let hidden;f.ctx.document={hidden:true,addEventListener:(name,fn)=>{hidden=fn;}};f.run(appSource.split('\n').find(line=>line.startsWith("document.addEventListener('visibilitychange'")));hidden();hold.resolve({id:'route'});
+ await assert.rejects(pending,/中止/);assert.equal(f.requests().length,0);assert.equal(f.draft.content,'Voice words');
 });
-test('independent UI opted-in automatic voice request survives its own capture teardown',async()=>{
- const f=fixture(p=>p==='/api/companion/propose'?proposal:p==='/api/companion/submit'?{job:{id:'side',kind:'chat'},companion:{revision:2,focusJobId:'side'}}:contexts(p));
- Object.assign(f.ctx,{voiceSendEnabled:true,voiceEpoch:5,attachmentEpoch:0});f.ctx.cancelVoice=()=>{f.ctx.voiceEpoch++};
- await vm.runInContext("submitIntent(false,false,{epoch:5,destination:draftContext.destination,revision:draft.revision,attachmentEpoch:0,contextId:'execution-dest'})",f.ctx);
- assert.equal(f.calls.filter(c=>c[0]==='/api/companion/submit').length,1);
-});
-for(const mutation of ['draft-edit','disable'])test('independent UI automatic request cancels on '+mutation,async()=>{
- let release;const hold=new Promise(r=>release=r);const f=fixture(p=>p==='/api/companion/propose'?hold:contexts(p));
- Object.assign(f.ctx,{voiceSendEnabled:true,voiceEpoch:5,attachmentEpoch:0});f.ctx.cancelVoice=()=>{f.ctx.voiceEpoch++};
- const pending=vm.runInContext("submitIntent(false,false,{epoch:5,destination:draftContext.destination,revision:draft.revision,attachmentEpoch:0,contextId:'execution-dest'})",f.ctx);await until(()=>f.calls.some(c=>c[0]==='/api/companion/propose'));
- if(mutation==='draft-edit')f.ctx.draft.revision++;else f.ctx.voiceSendEnabled=false;release(proposal);await assert.rejects(pending,/中止/);assert.ok(!f.calls.some(c=>c[0]==='/api/companion/submit'));
+for(const mutation of ['edit','disable'])test('automatic voice dispatch cancels on '+mutation,async()=>{
+ const hold=deferred(),f=fixture(p=>p==='/api/dialogue/context'?hold.promise:null);f.type('Voice words');f.ctx.voiceSendEnabled=true;f.ctx.voiceEpoch=5;
+ const pending=f.run("submitDialogue(false,false,{epoch:5,destination:draftContext.destination,revision:draft.revision,attachmentEpoch:0,contextId:'route'})");await until(()=>f.calls.length);
+ if(mutation==='edit')f.draft.manual('Newer words');else f.ctx.voiceSendEnabled=false;hold.resolve({id:'route'});await assert.rejects(pending,/中止/);assert.equal(f.requests().length,0);
 });

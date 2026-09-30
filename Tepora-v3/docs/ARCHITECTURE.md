@@ -95,3 +95,33 @@ flowchart LR
   Same --> Guards[Existing resume and approval guards]
   Side --> Guards
 ```
+
+## Character session and worker message bus (beta.10)
+
+The beta.9 job-focused addressing API remains available for compatibility, but is no longer the
+main conversation surface. The new `Dialogue` service owns a stable character session, separate
+persona configuration and durable messages. Job navigation is a read-only presentation concern.
+Each new character turn runs in the short foreground lane and can dispatch scoped work without
+waiting for it. Workers are separate Harness jobs with their own persona/context snapshots.
+
+```mermaid
+flowchart TD
+  Typed[Typed text / finalized PTT] --> Session[Persistent character session]
+  Session --> Chat[Short foreground turn]
+  Chat --> Handoff[Bounded task + provenance + pinned worker persona]
+  Handoff --> Work[Asynchronous worker lane]
+  Work --> Guards[Existing approvals / receipts / effect uncertainty guards]
+  Guards --> Bus[Revisioned idempotent notification or question]
+  Bus --> Session
+  Session --> Reply[Explicit question ID + job revision]
+  Reply --> Guards
+  Chat --> Results[Scoped linked-worker status / bounded result retrieval]
+  Results --> Consent[Recipient and consent checks]
+  Focus[Open job details / artifact] --> View[Presentation focus only]
+```
+
+Worker reports remain untrusted content with explicit source and status. They cannot create
+permissions. New character model context is limited to the current session and authorized
+recipient; bounded worker result retrieval is scoped separately from raw worker checkpoints.
+Cancellation and revised instructions invalidate old question targets. Startup reconciliation
+replays durable task state without dispatching stopped work or duplicating delivered messages.

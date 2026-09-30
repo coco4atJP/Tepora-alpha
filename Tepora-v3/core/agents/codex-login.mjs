@@ -19,7 +19,7 @@ export class CodexLogin{
   rpc.on('disconnect',()=>{if(this.rpc===rpc){this.rpc=null;if(!['complete','cancelled','failed'].includes(this.state.phase))this.state={phase:'failed',note:'サインイン接続が終了しました。'};}});
   const current=()=>invariant(this.rpc===rpc,'サインインは取り消されています。',409);
   try{
-   await rpc.request('initialize',{clientInfo:{name:'tepora',version:'3.0.0-beta.8'}});current();rpc.notify('initialized');
+   await rpc.request('initialize',{clientInfo:{name:'tepora',version:'3.0.0-beta.10'}});current();rpc.notify('initialized');
    const account=await rpc.request('account/read',{refreshToken:false});
    current();if(account.account?.type==='chatgpt'&&!switchAccount){this.state={phase:'complete',authenticated:true,accountType:'chatgpt'};this.dispose();return this.status();}
    if(account.account&&!switchAccount){this.state={phase:'existing-api-key',authenticated:true,accountType:account.account.type||'unknown',note:'既存のCodex認証はChatGPT契約ではありません。変更は別途確認してください。'};this.dispose();return this.status();}
