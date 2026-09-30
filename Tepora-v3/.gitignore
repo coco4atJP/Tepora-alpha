@@ -11,3 +11,9 @@ desktop/icons/
 .pytest_cache/
 __pycache__/
 .qa/
+
+validation/
+__pycache__/
+*.pyc
+
+/tepora-v3-preview.html

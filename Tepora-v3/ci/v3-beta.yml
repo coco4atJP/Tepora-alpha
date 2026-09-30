@@ -33,9 +33,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - run: node scripts/check.mjs
-      - run: node --test
-      - run: node scripts/build-preview.mjs
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Verify this source snapshot
+        run: node scripts/improve-loop.mjs --capabilities --out validation/ci-loop
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tepora-v3-regression-${{ matrix.os }}
+          path: Tepora-v3/validation/ci-loop/**
+          if-no-files-found: warn
       - run: rustup default stable
       - run: npm install --ignore-scripts
       - run: npx tauri icon web/favicon.svg --output desktop/icons

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { endpoint, invariant, safeError } from './policy.mjs';
 // Deliberately small client: stdio and Streamable HTTP tools. No sampling, OAuth or Tasks-extension claim.
 export class MCPClient {
-  constructor(config,allowNetwork=false) {this.config=config;this.allowNetwork=allowNetwork;this.pending=new Map();this.buffer='';this.session=null;this.ready=false;}
+  constructor(config,allowNetwork=false,fetchImpl=fetch) {this.fetch=fetchImpl;this.config=config;this.allowNetwork=allowNetwork;this.pending=new Map();this.buffer='';this.session=null;this.ready=false;}
   async connect(signal) {
     if(this.ready) return;
     if(this.config.transport==='stdio') {
@@ -30,7 +30,7 @@ export class MCPClient {
   }
   async http(message,signal) {
     const url=endpoint(this.config.url,this.allowNetwork);
-    const r=await fetch(url,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream',...(this.session?{'Mcp-Session-Id':this.session}:{}),...(this.protocolVersion?{'MCP-Protocol-Version':this.protocolVersion}:{}),...(this.config.apiKeyEnv && process.env[this.config.apiKeyEnv]?{Authorization:`Bearer ${process.env[this.config.apiKeyEnv]}`}:{})},body:JSON.stringify(message),signal});
+    const r=await this.fetch(url,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream',...(this.session?{'Mcp-Session-Id':this.session}:{}),...(this.protocolVersion?{'MCP-Protocol-Version':this.protocolVersion}:{}),...(this.config.apiKeyEnv && process.env[this.config.apiKeyEnv]?{Authorization:`Bearer ${process.env[this.config.apiKeyEnv]}`}:{})},body:JSON.stringify(message),signal});
     invariant(r.ok,`MCP HTTP ${r.status}`,502);
     this.session=r.headers.get('Mcp-Session-Id')||this.session;
     if(r.status===202 || message.id===undefined){await r.body?.cancel();return null;}

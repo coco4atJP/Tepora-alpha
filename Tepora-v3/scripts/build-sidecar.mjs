@@ -14,7 +14,7 @@ await mkdir(path.join(root,'desktop','resources','v3'),{recursive:true});
 await mkdir(path.join(root,'desktop','resources','licenses'),{recursive:true});
 const suffix=process.platform==='win32'?'.exe':'';
 await copyFile(process.execPath,path.join(root,'desktop','binaries',`node-runtime-${triple}${suffix}`));
-for(const dir of ['core','web'])await cp(path.join(root,dir),path.join(root,'desktop','resources','v3',dir),{recursive:true});
+for(const dir of ['core','web','workers'])await cp(path.join(root,dir),path.join(root,'desktop','resources','v3',dir),{recursive:true,filter:src=>!src.includes('__pycache__')&&!src.endsWith('.pyc')});
 const candidates=[path.join(path.dirname(process.execPath),'LICENSE'),path.resolve(path.dirname(process.execPath),'../LICENSE')];
 let license='';for(const candidate of candidates){try{license=await readFile(candidate,'utf8');break;}catch{}}
 if(!license){const response=await fetch(`https://raw.githubusercontent.com/nodejs/node/v${process.versions.node}/LICENSE`);if(!response.ok)throw new Error('Node license must be included in the distribution.');license=await response.text();}

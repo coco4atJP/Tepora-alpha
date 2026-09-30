@@ -1,135 +1,164 @@
-# Tepora V3.0 Beta — Companion Workspace
+# beta.9 companion continuity
 
-**話す。任せる。かたちになる。**
+See [the beta.9 milestone and its limits](docs/BETA9.md), [current verification](docs/STATUS.md), and [architecture](docs/ARCHITECTURE.md).
 
-Tepora-alpha の `main`（基点 `046643d27b1ec4de44815423031979e7ce7aa3b8`）を残したまま追加する、独立した V3 開発ベータです。紅茶・喫茶店の色、余白、local-first という方向は引き継ぎ、コンパニオン／仕事／成果物を同じ画面に置きます。
+# Tepora V3 · 3.0.0-beta.8
 
-**この成果物は、実行できるUIと非同期サービスのソースです。モデルまで同梱した、署名済みの完成インストーラーではありません。** Tauri 2ホストを含み、GitHub ActionsでWindows NSIS／macOS DMGのビルドと成果物アップロードを確認しました。利用者PCでのインストール・起動、実GPU、実音声モデルは未検証です。詳細は [受け入れ状況](docs/STATUS.md) と [検証記録](docs/QA.md) を参照してください。
+A quiet, customizable smart monitor that can keep working while you talk.
+Local-first, provider-neutral, with explicit control over cloud/LAN access.
+This is an executable **development beta**, not a finished replacement for the operating system.
 
-## まず触る
+## Start
 
-### 画面だけを、登録なしで
+Unzip and run in `Tepora-v3` with Node **22.16 or newer**:
 
-配布された `tepora-v3-preview.html` をブラウザで開きます。完全に単独で動くHTMLです。ホーム、記憶、接続設定、集中タイマー、静かな表示、3段階で更新されるサンプル成果物を試せます。
+```sh
+node core/server.mjs --open
+```
 
-画面プレビューは明示的に区別しています。**モデル推論、PC操作、外部メディア・天気・ニュース取得は実行しません。** プレビューの記憶・設定は、許可されるブラウザではlocalStorageに保存します。APIキーは保存しません。
+No runtime `npm install` is required for the core service. Use its printed launch URL (contains
+an ephemeral token); do not share that URL. The service binds to loopback with cookie/CSRF,
+Host/Origin and CSP controls. Windows/macOS Tauri build sources are included separately.
 
-再生成:
+For a model-free UI preview:
 
 ```sh
 node scripts/build-preview.mjs
 ```
 
-### 実際のローカルサービスを起動する
+Open `tepora-v3-preview.html`. The preview explicitly refuses AI inference, account login, real
+MCP startup and PC operations; it does not invent working AI output. Its sample revises an
+artifact three times. Real requests need configured runtimes or providers.
 
-Node.js **22.16以上** が必要です。通常のサービス起動に `npm install` は不要です。
+## What to do in the UI
 
-Windows: `start.cmd` をダブルクリック。macOS: `start.command` を開くか、下記を実行します。
+**接続 → 能力をつなぐ** adds independent decision, embedding, voice, image/edit and video endpoints.
+Select an endpoint for each role. There is no need to move the main LLM to the same provider.
+A local embedding/TTS service can run alongside a cloud text model; a local VLM can supply image
+observations to that text model. A lossy observation retains the source image's privacy scope.
 
-```sh
-cd Tepora-v3
-node core/server.mjs --open
-```
+**返事を聴く** requests speech. A configured local endpoint needs one explicit speaker click;
+an external endpoint first displays the text and recipient. Playback lives beside the input,
+not in a modal you must keep open. Starting the mic or sharing the display stops playback.
 
-起動時の認証付きURLからブラウザが開きます。初回セットアップで、起動済みのモデルを自動検出するか、自分のAPIエンドポイントを入力します。自動検出はlocalhostの既定4ポートだけを対象にします。
+**つくったもの** starts text-to-image, image editing, text/image-to-video or explicit readout.
+The exact text, input image and provider are confirmed before creation. Progress and stored
+results remain available while you keep talking. A received request ID is not a finished result.
 
-| ランタイム | 標準の接続先 | 注意点 |
-|---|---|---|
-| llama.cpp | `http://127.0.0.1:8080/v1` | `llama-server` とGGUFは別途必要 |
-| vLLM | `http://127.0.0.1:8000/v1` | WindowsはWSL／別ホスト。ネイティブ対応とは扱いません |
-| Ollama | `http://127.0.0.1:11434/v1` | OpenAI互換API経由 |
-| LM Studio | `http://127.0.0.1:1234/v1` | ローカルサーバーを有効化 |
-| 任意の互換API | ユーザーが指定 | リモートはHTTPS＋明示的なクラウド許可が必要 |
+**記憶 → 意味で探す** builds/queries a bounded semantic index. Prefer a local embedding endpoint.
+Remote indexing is opt-in and restricted to confirmed shared memories. Lexical search remains
+available offline or when the optional embedding endpoint fails. Similarity is not truth.
 
-作業モードには **tool calling対応モデル** が必要です。サーバー側にも対応する起動オプションが必要です。[ランタイム起動の注意点](docs/RUNTIME-LAUNCH.md) を確認してください。会話モードにはツールを渡しません。非対応のAPIを密かにテキストコマンドへ置き換える実装にはしていません。使えるモデルの品質・速度は、このアプリそのものとは別に評価してください。
+**接続 → 設定をまとめて取り込む / まとめて接続** accepts `mcpServers` JSON. Review imported
+configuration, then select which connections to start. They are not launched just because they
+were imported. Discovered tools are searched on demand instead of filling every prompt.
 
-APIキーは起動中のメモリにだけ保持するか、環境変数名を指定します。キーそのものをSQLiteやブラウザのlocalStorageへ保存しません。特定プロバイダーのアカウント契約、ゲートウェイ、サブスクリプションは必須ではありません。
+**モデル一覧を探す** imports/refreshes optional models.dev metadata and can use its cached JSON
+offline. It never installs packages from metadata or treats a capability listing as a passed test.
 
-## 今回動くこと
+**Codex設定 → ChatGPTの契約でサインイン** uses the installed official App Server's managed
+browser/device-code flow. Tokens stay with Codex; no token extraction. Existing API-key auth is
+reported separately and is not silently converted. Limits and billing follow the account.
 
-- 相棒のホーム、作業スペース、記憶、接続画面。全画面表示、非ロック型のアンビエント表示、軽量CSSコンパニオン2種、レスポンシブ表示。
-- **作業レーンと会話レーンの分離**。既定で作業2件＋会話1件。待ち行列、停止、途中の追加指示、明示的な操作承認、SSE更新。
-- OpenAI互換のモデル通信、分割ストリーム、tool calling。llama.cpp／vLLMプロセスの起動要求。意図しないクラウドへのフォールバックはしません。
-- ワークスペース内ファイルの読み書き、承認後の実CLI実行、出力表示、プロセス停止。**ホスト実行であり、OSサンドボックスではありません。**
-- HTML・テキスト・Markdownソースの成果物と改版履歴。HTMLは独立した制限付きiframeで表示します。Markdownは現在テキスト表示です。
-- SQLiteに保存する確認済み記憶、AIの記憶提案、個別のクラウド共有可否、編集・削除、JSON書き出し。インポートは記憶のみを「未確認・非共有」で受け入れます。
-- ローカルstdio／Streamable HTTPのMCP接続。Context Hubはコピーせず、そのまま接続可能。実接続と各ツール実行に承認を求めます。
-- スキルのMarkdown保存・選択読込・書き出し。実行バイナリの自動インストールは行いません。
-- 押して録音→ローカルASRサーバーへWAV→文字を確認して送信、という音声入力。ブラウザのクラウド依存SpeechRecognitionは使いません。
-- 明示的な天気／RSS接続、YouTubeの埋め込み用分離ページ、YouTube Musicを含む外部Brave起動。広告除去を保証する機能ではありません。
+## Supported API families
 
-## 音声認識
+| Role | API adapter in this build |
+| --- | --- |
+| Main/chat/work/vision/dictation | Chat Completions, Responses, Anthropic Messages, Gemini generateContent |
+| Typed decisions | System One `state + questions -> answers`, including Laya multilingual/Jev-compatible servers |
+| Embeddings | OpenAI-compatible `/embeddings`, Ollama `/embed` |
+| TTS | OpenAI-compatible `/audio/speech` |
+| Images | OpenAI-compatible `/images/generations` and multipart `/images/edits` |
+| Video | xAI asynchronous `/videos/generations` and `/videos/{request_id}` |
 
-モデル候補の根拠とトレードオフは [調査メモ](docs/RESEARCH.md) にあります。Qwen3-ASR-1.7Bを品質重視の候補、faster-whisperのturboを別の実行選択肢として接続します。自前の日本語WER測定は未実施です。
+Protocol support is not universal provider/model/auth compatibility. Keys are bound to their
+endpoint in RAM or referenced by environment variable. Editing an endpoint invalidates its key.
+Generated-file origins must be explicitly approved and never receive the model API credential.
+No Vercel account, hosted gateway, or Vercel AI SDK dependency is introduced.
 
-Python環境を分けて、使用するバックエンドだけをインストールします。
+Additional subscription plans have provider-specific scope/auth requirements. This build does
+not impersonate other clients or treat a coding-only plan as unlimited general-purpose inference.
+Official OpenCode Go's required coding/session-header integration and other subscription OAuth
+flows are not implemented; Codex managed login is the new concrete subscription connection.
 
-```sh
-python -m venv .venv-asr
-# Windows: .venv-asr\Scripts\activate
-# macOS: source .venv-asr/bin/activate
-python -m pip install -r speech/requirements-base.txt
-python -m pip install qwen-asr
-python speech/server.py --backend qwen --device cuda
-```
+## Local floor and optional workers
 
-CPUの代替:
+Use **接続と使い始め** to detect already running local servers. If Ollama is already installed,
+the UI supports confirmed model acquisition, interruption/resume and a safe tool-use probe.
+Automatic OS runtime installation, all model weights and platform drivers are still not bundled.
 
-```sh
-python -m pip install faster-whisper
-python speech/server.py --backend faster-whisper --model turbo --device cpu
-```
-
-設定のASR URLは `http://127.0.0.1:8012/v1/audio/transcriptions`。モデルIDは実際にロードしたモデルと一致させます（後者なら `turbo`）。このコマンドはライブラリが不足する重みを取得する可能性があります。認証を追加する場合は、TeporaとASRの両プロセスに同じ `TEPORA_ASR_KEY` 環境変数を渡してください。
-
-ASRは別プロセスです。モデルのインストール・起動をネイティブ画面だけで完結させる機能、常時待受け、ウェイクワード、話者分離、読み上げ、発話途中の割り込みは未実装です。
-
-## ローカルJev-like判断
-
-vLLM PR #57250のDiffusionGemma構造化判断サーバーを接続対象にしています。**Jevのサービスそのものをローカルで動かす実装ではありません。** `/v1/systemone` はvLLMの標準APIではなく、付属の実験的ラッパーです。
-
-上流の例に対応する起動形:
+Optional Laya multi-language worker:
 
 ```sh
-vllm serve google/diffusiongemma-26B-A4B-it \
-  --diffusion-config '{"canvas_length":64}' --max-logprobs 32 \
-  --enable-prefix-caching
-python examples/features/structured_diffusion/structured_server.py \
-  --upstream http://127.0.0.1:8000 \
-  --tokenizer google/diffusiongemma-26B-A4B-it --canvas 64 --port 8011
+python -m pip install -r workers/requirements-laya.txt
+python workers/laya_server.py --model-dir /path/to/installed/laya-multilingual --device cpu
 ```
 
-Teporaの判断URLは `http://127.0.0.1:8011/v1/systemone`。このベータは要求の分類ヒントとして使い、失敗しても本体の会話・作業は継続します。判断モデルにCLI・ネットワーク等の権限を付与させません。重みとGPUメモリの要件、現在のvLLMリビジョンとの互換性は実機で確認してください。**8GB GPUでの動作保証はありません。**
+Use a dedicated environment. Model acquisition must be explicit; pin an approved revision when
+using `--allow-download`. Connect base URL `http://127.0.0.1:8767/v1`, System One protocol, model
+`multilingual`. The worker remains independent of the main LLM. Published latency/accuracy claims
+are not this release's measurements. No GPU/model inference was run in its verification.
 
-## ネイティブ版のビルド（Windows／macOS）
-
-Node 22.16以上、Rust、各OSのTauri開発要件が必要です。WindowsはC++ Build ToolsとWebView2、macOSはXcode Command Line Toolsが対象です。Linuxのネイティブ製品化は対象にしません。
+Streaming Qwen3-ASR adapter needs an explicitly installed supported `qwen-asr[vllm]` environment:
 
 ```sh
-npm install
-npm run desktop:build
+python workers/speech_server.py --model /path/to/installed/Qwen3-ASR-checkpoint --port 8768
 ```
 
-Nodeの実行ファイルを変更せずsidecarとして同梱し、core/webをリソースとして収録します。配布版はユーザーにNodeの別途インストールを要求しない構成です。TauriのJavaScript層にはshell／filesystemの権限を渡しません。**GitHub ActionsでWindows/macOSのビルド成功を確認しました。ただし、実機起動・署名・公証・クリーンインストールは未検証です。** 署名・公証用の認証情報は含めません。
+Windows may require WSL/a supported inference host. Captured chunks are 200 ms, **not a 200 ms
+latency claim**. Existing speech capture, local semantic-draft editing and protected manual edits
+remain. No full-duplex voice, wake-word/diarization or Pixel-equivalent quality claim is made.
+New local TTS/image/video/embedding runtime managers are deliberately not added.
 
-`ci/v3-beta.yml` にWindows/macOS向けワークフロー例を置いています。実際のGitHub Actionsへの登録状態はPRを確認してください。ビルド依存は初回取得が必要で、lockfileの固定とネイティブ起動テストが配布前のゲートです。
+## Computer Use and work
 
-## データと終了
+Choose **LLM / typed decision / both** in the Computer Use settings. The LLM lane issues explicit
+observed-control actions; the decision lane batches operation and matching current target choices.
+Both pass through the same consent, observation revision, bounded driver and independent result
+checks. Neither a high probability nor a model's DONE is completion evidence.
 
-ブラウザ起動版の保存先はWindowsでは `%LOCALAPPDATA%/Tepora/v3`、macOSでは `~/Library/Application Support/Tepora/v3`。Tauri版はアプリ識別子に対応する標準アプリデータディレクトリです。`TEPORA_DATA_DIR` で変更できます。元のV2のDBは書き換えません。
+Owned browser automation and selected Windows UIA are included. Python, Playwright and a local
+browser are optional dependencies. Windows UIA is not verified on a real Windows machine; macOS
+full-desktop accessibility control is not implemented. Existing private browser profiles are not
+copied. Host CLI and MCP execution are **not** OS-sandboxed and remain explicitly permissioned.
 
-`workspace` にファイル、SQLiteにタスク・記憶・成果物・設定を保存します。再起動時に実行途中だったタスクは「中断」に変わります。**副作用の二重実行を避けるため、自動リプレイしません。** 中断前の成果物を確認して再依頼してください。
+The background harness retains conversation/work lanes, durable checkpoints and effect receipts,
+steering, scoped approvals, interrupted-work handling, accepted-vs-verified results, work plans,
+routines, provider routing, bounded recovery and per-task workspaces. See [BETA8](docs/BETA8.md).
 
-ローカルの同一ユーザーによる攻撃、承認済みCLIの悪意ある挙動、外部MCPツールの副作用を、アプリのHTTP認証だけで防げるとは扱いません。詳細: [アーキテクチャと脅威モデル](docs/ARCHITECTURE.md)。
+**Full offline** restricts Tepora-controlled calls to already available on-device capabilities.
+**Trusted LAN** permits the specifically pinned inference endpoints, not the whole LAN. Public
+network calls and uncontained host tools are blocked in restricted modes. This is not an OS
+firewall, and cannot prevent a user-run local server from forwarding data elsewhere on its own.
 
-## 検証
+## Verification and 100-scenario traceability
 
 ```sh
-node scripts/check.mjs
-node --test
-python -m pytest -q speech/test_adapter.py
+npm run improve:check        # syntax, all Node tests, Python contracts, scenarios, preview
+npm run test:capabilities    # actual harness/HTTP/files with deterministic capability fixtures
+npm run improve:full         # also UI and owned-browser Computer Use; existing browser required
+npm run improve:watch        # recheck only after source changes; Ctrl+C stops
 ```
 
-21件のNodeテストと2件のASRアダプターテストを実行済み。実モデルを使わない契約／制御系テストです。ブラウザのURLナビゲーションが管理ポリシーで制限された環境のため、画面は同一ソースの単独HTMLをChromiumのメモリ内に描画して操作し、実HTTP通信はNode側で別に検証しました。Windows WebView2／macOS WKWebViewでの結合検証の代替とはしていません。
+`spec/Tepora_V3_100_Scenarios_v2.json.gz` preserves the user's original specification and digest.
+`spec/answers.mjs` maps every original scenario to real source/test files and remaining work.
+`node scripts/verify-scenarios.mjs` writes the traceability report; **it does not certify 100 user
+journeys**. `docs/BETA8.md` records the implemented paths, observed defects/fixes and limits.
+The release is re-extracted, hashed, re-tested and its generated preview compared byte-for-byte.
 
-Apache-2.0。基になるTeporaのライセンスを維持します。依存するランタイム・モデル・外部サービスの条件はそれぞれ別です。
+No real provider account, paid API, learned generator, Laya/ASR accuracy benchmark or multi-week
+soak was used. Browser policy in the validation environment blocks loopback navigation, so the
+unchanged self-contained UI and real backend HTTP tests are separate evidence. Native CI sources
+are included, but no GitHub push, CI run or new signed installer is claimed for this artifact.
+
+## Data and exit
+
+Confirmed memory and task state are separate. Shared skills under `~/.agents/skills` are read-only
+references with explicit enabling and task-local hashes, never owned by Tepora. Appearance presets
+cannot change runtime/network permissions. Shared display is presentation privacy, not account isolation.
+
+Generated media are saved locally with integrity hashes and individual downloads/deletion. Existing
+context export does **not** package media bytes, workspace files, credentials or entire runtimes.
+Application data are currently unencrypted in SQLite and depend on OS/disk protections. Deletion
+cannot remove exported or provider-side copies. Do not treat this as a completed secure backup or
+full uninstall-ownership system. Already submitted generation may continue/cost money provider-side.

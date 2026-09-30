@@ -1,0 +1,7 @@
+{
+  "source": "Tepora_V3_100_Scenarios_v2.json",
+  "sha256": "abb765efc2075445c62ef8d790da1b114ea8e2a5997ed300943f4130849dd253",
+  "scenarios": 100,
+  "fictional": true,
+  "note": "Original user-supplied specification, losslessly compressed; no real-user claims."
+}

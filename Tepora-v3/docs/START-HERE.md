@@ -1,9 +1,10 @@
-# 最初の5分
+# Start here
 
-1. `tepora-v3-preview.html` を開き、「最初のワークスペースを体験」を押す。モデルなしで、成果物が3段階に変わる。
-2. 左の「記憶」で、自分が覚えておいてほしいことを追加。「つながり」でモデル・音声・MCP・スキルの入口を見る。
-3. 実機ではNode 22.16以上を用意し、Windowsの `start.cmd` またはmacOSの `start.command` を開く。モデルサーバーは別途起動する。
-4. 「このPCを探す」→候補を選ぶ→「保存して接続確認」。tool calling対応モデルで、「明日の作業計画をHTMLにして」と作業を依頼する。
-5. 作業中、入力欄左の切替で「話しかける」に変える。作業を止めずに会話できる。危険な操作は許可せず、必要なら常設の「すべて停止」を押す。
+1. To see the screen only, open the beta.5 standalone preview. Its demo is explicitly not AI.
+2. To run the service, use Node 22.16+ and `node core/server.mjs --open`.
+3. Connect a model in 接続, then run the safe tool round-trip probe.
+4. Ask for a small deliverable, inspect its artifact/files, revise it, stop and resume.
+5. Codex, scheduled routines, Laya and speech are separate explicit opt-ins.
 
-このベータでは、モデルとランタイムを自動でダウンロードして完全自動セットアップするところまでは完成していない。プレビューと実サービスを混同しないでください。詳しくはREADMEとSTATUSを参照してください。
+The model/runtime auto-installer is not finished. The release is a development build, not a
+preinstalled novice-ready AgentOS. See README for exact remaining requirements.
