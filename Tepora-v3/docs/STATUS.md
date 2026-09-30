@@ -4,7 +4,7 @@ Source baseline: the provided beta.8 distribution, with the remote-only browser_
 See [BETA9.md](BETA9.md) and [architecture](ARCHITECTURE.md).
 
 Fresh validation on 2026-09-30, after final code changes:
-- `npm test`: 347/347 passed (including 46 frontend/capture/routing tests)
+- `npm test`: 348/348 passed (including 46 frontend/capture/routing tests)
 - `npm run check`: 86 JavaScript modules passed syntax checks
 - `npm run test:workers`: 13 isolated Python tests passed
 - `npm run test:capabilities`: passed using deterministic local HTTP fixtures; zero external network calls
@@ -35,4 +35,18 @@ Windows CI now adds opt-in worker lifecycle/resource-type logs and an eight-minu
 limit. The normal test discovery, assertions and concurrency are unchanged. The supported
 Node test timeout bounds test execution; the separate CI step limit covers leftover handles.
 There is no test skipping or force-exit success. This is diagnostic instrumentation, not a
-claim that the Windows cause has been fixed. All 347 tests pass locally with this instrumentation.
+claim that the Windows cause has been fixed. All 348 tests, including the added teardown regression, pass locally with this instrumentation.
+
+## Restart fixture correction
+
+The diagnostic Windows run identified an EBUSY failure in the network-policy restart test:
+the original fixture tried to remove its directory before the reopened service had released
+SQLite. The failed cleanup left an HTTP listener alive. The test now scopes the reopened
+service in try/finally and closes it before the original fixture removes the directory.
+A new real HTTP/SQLite regression deliberately throws an assertion, verifies that exact error
+is preserved, and checks that the store/listener are closed before removal. No EBUSY errors
+are suppressed or retried, and no assertions are skipped. The analogous direct Store restart
+fixture already closes its reopened store before deletion.
+
+The corrected source passes 348 local Node tests and 86 syntax checks. Its fresh Windows CI
+result is pending; local success is not a Windows or native-installer success claim.

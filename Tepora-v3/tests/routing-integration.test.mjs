@@ -139,9 +139,24 @@ test('ChatCompletions streamed refusals cannot carry an executable tool',async()
  const runtime=new Runtime({baseUrl:'http://127.0.0.1:1/v1',model:'x'},'',async()=>new Response(data,{headers:{'content-type':'text/event-stream'}}));
  await assert.rejects(runtime.chat([]),/refused|filtered/);
 });
+// The original fixture owns directory deletion. A restarted service must release
+// SQLite and its HTTP listener before control returns to that fixture's after hook.
+async function withRestartedService(original,check){
+ await original.close();const reopened=await startServer({dir:original.dir});
+ try{return await check(reopened);}finally{await reopened.close();}
+}
 test('saved network policy survives service restart without widening the allowed route',async t=>{
- const a=await service(t);a.network.change({mode:'offline'},0);await a.close();
- const b=await startServer({dir:a.dir});t.after(()=>b.close());assert.equal(b.network.get().mode,'offline');assert.equal(b.network.permitted('cloud','model'),false);
+ const a=await service(t);a.network.change({mode:'offline'},0);let reopened;
+ await withRestartedService(a,b=>{reopened=b;assert.equal(b.network.get().mode,'offline');assert.equal(b.network.permitted('cloud','model'),false);});
+ assert.equal(reopened.store.closed,true);assert.equal(reopened.server.listening,false);
+});
+test('restart fixture closes SQLite and HTTP before directory removal even when its assertion fails',async t=>{
+ const a=await service(t);let reopened;const failure=new assert.AssertionError({message:'intentional fixture assertion failure'});
+ await assert.rejects(withRestartedService(a,b=>{reopened=b;throw failure;}),error=>error===failure);
+ // Enforce Windows' close-before-unlink requirement on every platform. Do not
+ // retry or suppress EBUSY: a live store/listener is a real teardown failure.
+ assert.equal(reopened.store.closed,true);assert.equal(reopened.server.listening,false);
+ await rm(a.dir,{recursive:true,force:true});
 });
 
 test('provider recovery resumes only pinned safe requests, within a persisted retry budget',async t=>{
