@@ -1,3 +1,7 @@
+# beta.11 update
+
+See [BETA11.md](BETA11.md) for the current protected/legacy execution boundary, immutable capsules, staged promotion, and verification limits. The material below records the preceding baseline; it is not proof of container isolation.
+
 # V3 beta.7 architecture
 
 ```

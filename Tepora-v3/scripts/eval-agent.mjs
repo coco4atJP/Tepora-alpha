@@ -34,7 +34,7 @@ try{
  }
 }finally{
  h.close();while(h.active.size)await new Promise(r=>setTimeout(r,20));
- const report={schema:1,version:'3.0.0-beta.10',model,url,platform:process.platform,architecture:process.arch,
+ const report={schema:1,version:'3.0.0-beta.11',model,url,platform:process.platform,architecture:process.arch,
   realModel:true,localOnly:true,hostCommandsAllowed:false,createdAt:new Date().toISOString(),
   passed:results.filter(r=>r.passed).length,total:cases.length,results,
   limitations:'A small, unblinded regression suite. Not a comparison with other agents or proof of general capability.'};

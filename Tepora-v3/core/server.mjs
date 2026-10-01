@@ -40,10 +40,10 @@ const token=()=>randomBytes(32).toString('hex');
 async function body(req,raw=false) {let size=0;const chunks=[];for await(const b of req){size+=b.length;invariant(size<=LIMITS.body,'Request body too large',413);chunks.push(b);}const buffer=Buffer.concat(chunks);if(raw)return buffer;try{return buffer.length?JSON.parse(buffer.toString('utf8')):{};}catch{throw Object.assign(new Error('Invalid JSON body'),{status:400});}}
 function json(res,value,status=200){if(res.writableEnded)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
 function dataDir(){if(process.env.TEPORA_DATA_DIR)return process.env.TEPORA_DATA_DIR;if(process.platform==='win32')return path.join(process.env.LOCALAPPDATA||os.homedir(),'Tepora','v3');if(process.platform==='darwin')return path.join(os.homedir(),'Library','Application Support','Tepora','v3');return path.join(os.homedir(),'.local','share','tepora-v3');}
-export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},computerOptions={},mediaOptions={},toolHubOptions={},loginOptions={}}={}) {
+export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},computerOptions={},mediaOptions={},toolHubOptions={},loginOptions={},executionOptions={}}={}) {
  const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),registry=new ProviderRegistry(store,network,registryOptions);
- const connectors=new Connectors(store,network),harness=new Harness(store,connectors,{runtimeFactory,network,registry,computerOptions,mediaOptions,toolHubOptions});
+ const connectors=new Connectors(store,network),harness=new Harness(store,connectors,{runtimeFactory,network,registry,computerOptions,mediaOptions,toolHubOptions,executionOptions});
  const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'}));
  const setup=new SetupManager(store,harness,{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions}),requests=new Requests(store,harness);
  const companion=new Companion(store),intents=new IntentProposals(store,harness,requests),dialogue=new Dialogue(store,harness,requests);
@@ -59,7 +59,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(req.headers.origin)invariant(req.headers.origin===origin,'Cross-origin requests are not allowed',403);
    invariant(req.headers['sec-fetch-site']!=='cross-site','Cross-site requests are not allowed',403);
    const u=new URL(req.url,origin), p=u.pathname, method=req.method;
-   if(p==='/health' && method==='GET')return json(res,{ok:true,version:'3.0.0-beta.10'});
+   if(p==='/health' && method==='GET')return json(res,{ok:true,version:'3.0.0-beta.11'});
    if(p==='/launch' && method==='GET') {invariant(same(u.searchParams.get('token'),secret),'Launch token is invalid',403);res.writeHead(303,{'Set-Cookie':`tepora_session=${secret}; HttpOnly; SameSite=Strict; Path=/`,'Location':'/','Cache-Control':'no-store'});return res.end();}
    const cookie=req.headers.cookie?.split(';').map(c=>c.trim()).find(c=>c.startsWith('tepora_session='))?.slice(15);
    invariant(same(cookie,secret),'このアプリを起動したときのURLから開いてください。',401);
@@ -69,10 +69,11 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     if(u.searchParams.has('v')){const version=Number(u.searchParams.get('v'));invariant(Number.isSafeInteger(version)&&version>0,'Invalid revision');
      if(a.version!==version)a=store.get('revision',`${p.slice(8)}:${version}`);invariant(a,'Artifact revision not found',404);}
     res.removeHeader('X-Frame-Options');
-    res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors ${origin}; sandbox allow-scripts`);
+    const interactive=harness.execution.config().mode==='legacy-host';
+    res.setHeader('Content-Security-Policy',`default-src 'none'; script-src ${interactive?"'unsafe-inline'":"'none'"}; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors ${origin}; sandbox${interactive?' allow-scripts':''}`);
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     const esc=x=>x.replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
-    return res.end(a.kind==='html'?a.content:`<!doctype html><meta charset="utf-8"><body style="font:16px/1.8 system-ui;padding:30px;background:#faf6ee;color:#42372b;white-space:pre-wrap;overflow-wrap:anywhere">${esc(a.content)}</body>`);
+    return res.end(a.kind==='html'&&interactive?a.content:`<!doctype html><meta charset="utf-8"><body style="font:16px/1.8 system-ui;padding:30px;background:#faf6ee;color:#42372b;white-space:pre-wrap;overflow-wrap:anywhere">${esc(a.content)}</body>`);
    }
    if(p.startsWith('/media-view/') && method==='GET') {
     if(!network.permitted('cloud','web'))throw new NetworkBlocked('現在の通信設定では外部メディアを表示しません。');
@@ -157,7 +158,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/model-catalog/import'&&method==='POST')return json(res,catalog.import(await body(req)));
    if(p==='/api/model-catalog/refresh'&&method==='POST')return json(res,await catalog.refresh(AbortSignal.timeout(30000)));
    if(p==='/api/codex/login'&&method==='GET')return json(res,login.status());
-   if(p==='/api/codex/login'&&method==='POST')return json(res,await login.start(await body(req)));
+   if(p==='/api/codex/login'&&method==='POST'){const b=await body(req);invariant(harness.execution.config().mode==='legacy-host','Codex requires explicit legacy-host mode',403);return json(res,await login.start(b));}
    if(p==='/api/codex/login/open'&&method==='POST'){const b=await body(req);return json(res,await login.open(b.loginId));}
    if(p==='/api/codex/login/cancel'&&method==='POST')return json(res,await login.cancel());
    if(p==='/api/computer'&&method==='GET')return json(res,harness.computer.snapshot());
@@ -189,6 +190,12 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/inputs'&&method==='POST'){const b=await body(req);return json(res,{files:stageInputs(store,b.files)},201);}
    const inputDelete=p.match(/^\/api\/inputs\/([^/]+)$/);
    if(inputDelete&&method==='DELETE')return json(res,removeStagedInput(store,inputDelete[1]));
+   if(p==='/api/execution'&&method==='GET')return json(res,harness.execution.snapshot());
+   if(p==='/api/execution'&&method==='PUT'){const b=await body(req);invariant(harness.active.size===0&&harness.queue.length===0&&harness.toolHub.active.size===0&&!harness.computer.session&&harness.computer.computing.size===0&&connectors.processes.size===0&&!login.rpc&&probes.size===0,'Stop running jobs, host workers and model launchers before changing execution mode',409);const result=harness.execution.configure(b);harness.toolHub.stopDiscovery();login.close();return json(res,result);}
+   if(p==='/api/execution/probe'&&method==='POST')return json(res,await harness.execution.probe());
+   if(p==='/api/execution/promote'&&method==='POST'){const b=await body(req),job=harness.live(b.jobId);invariant(job,'Task not found',404);return json(res,harness.execution.promote(job,b.candidateId,b));}
+   if(p==='/api/execution/reconcile'&&method==='POST'){const b=await body(req);return json(res,harness.execution.reconcile(b.runId,b.disposition));}
+   if(p.startsWith('/api/execution/candidates/')&&method==='GET'){const candidate=store.get('execution-candidate',decodeURIComponent(p.slice('/api/execution/candidates/'.length)));invariant(candidate,'Candidate not found',404);return json(res,candidate);}
    if(p==='/api/dialogue'&&method==='GET')return json(res,dialogue.snapshot());
    if(p==='/api/dialogue/context'&&method==='GET')return json(res,dialogue.context());
    if(p==='/api/dialogue/relay'&&method==='GET')return json(res,dialogue.relayPreview(u.searchParams.get('jobId')));
@@ -211,6 +218,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    const requestLookup=p.match(/^\/api\/requests\/([a-zA-Z0-9-]+)$/);
    if(requestLookup&&method==='GET')return json(res,requests.get(requestLookup[1]));
    if(p==='/api/codex/check'&&method==='POST'){
+    invariant(harness.execution.config().mode==='legacy-host','Codex requires explicit legacy-host mode',403);
     network.assertUncontained('Codex');
     invariant(store.settings.codexEnabled,'Codex requires explicit consent',403);
     invariant(!probes.has('codex'),'Codex connection check is already running',429);
@@ -278,6 +286,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
      if(action==='accept'){
       const b=await body(req),job=store.get('job',id);
       invariant(job?.status==='review'&&job.revision===b.expectedRevision,'Task changed or is not awaiting review',409);
+      invariant(!store.list('execution-candidate').some(c=>c.jobId===id&&c.jobRevision===job.revision&&c.status==='staged'),'Preview and promote staged candidates before accepting this task',409);
       const checkReport=await verifyJob(store,job);
       invariant(checkReport.status!=='checks-failed'||b.acceptUnmet===true,'指定した検査がまだ通っていません。成果物を修正・再検査してください。',409);
       return json(res,harness.update(job,{status:'completed',acceptedAt:new Date().toISOString(),
@@ -350,7 +359,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  return {server,store,network,registry,catalog,login,harness,connectors,setup,requests,companion,intents,dialogue,routines,plans,origin,launchUrl,close};
 }
 const isMain=process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
-if(isMain){const app=await startServer({port:Number(process.env.TEPORA_PORT||0)});console.log(JSON.stringify({type:'ready',url:app.launchUrl,version:'3.0.0-beta.10'}));if(process.argv.includes('--open')){const [exe,args]=process.platform==='win32'?['rundll32',['url.dll,FileProtocolHandler',app.launchUrl]]:process.platform==='darwin'?['open',[app.launchUrl]]:['xdg-open',[app.launchUrl]];const p=spawn(exe,args,{stdio:'ignore',shell:false});p.on('error',()=>console.error('Open the URL printed above in a browser.'));}if(process.argv.includes('--sidecar')){process.stdin.setEncoding('utf8');let stdinBuffer='';process.stdin.on('data',chunk=>{
+if(isMain){const app=await startServer({port:Number(process.env.TEPORA_PORT||0)});console.log(JSON.stringify({type:'ready',url:app.launchUrl,version:'3.0.0-beta.11'}));if(process.argv.includes('--open')){const [exe,args]=process.platform==='win32'?['rundll32',['url.dll,FileProtocolHandler',app.launchUrl]]:process.platform==='darwin'?['open',[app.launchUrl]]:['xdg-open',[app.launchUrl]];const p=spawn(exe,args,{stdio:'ignore',shell:false});p.on('error',()=>console.error('Open the URL printed above in a browser.'));}if(process.argv.includes('--sidecar')){process.stdin.setEncoding('utf8');let stdinBuffer='';process.stdin.on('data',chunk=>{
  stdinBuffer=(stdinBuffer+chunk).slice(-4096);let end;
  while((end=stdinBuffer.indexOf('\n'))>=0){const command=stdinBuffer.slice(0,end).trim();stdinBuffer=stdinBuffer.slice(end+1);
   if(command==='shutdown')app.close().then(()=>process.exit(0));

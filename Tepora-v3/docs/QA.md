@@ -1,3 +1,9 @@
+# beta.11 update
+
+Local validation, 2026-10-01: Node **454 passed / 0 failed**, JavaScript syntax **101 modules**, Python **13 passed**. Capability checks used deterministic local HTTP fixtures (zero external network calls). Scenario inventory remains mechanism-tested 1 / partial 93 / not implemented 6; this is not 100 real-user scenario passes. Preview generated; native installer CI is pending publication. Docker was not installed here, so actual container isolation and the optional conformance smoke were not run.
+
+See [BETA11.md](BETA11.md) for the current protected/legacy execution boundary, immutable capsules, staged promotion, and verification limits. The material below records the preceding baseline; it is not proof of container isolation.
+
 # Current beta.10 verification
 
 Baseline: published beta.9 commit `b6afa7d815d54f4772beca868b437eef5c9a44ac` on

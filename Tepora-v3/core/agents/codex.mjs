@@ -19,7 +19,7 @@ export class CodexAgent {
     this.rpc.on('request',m=>{this.serverRequest(m).catch(()=>this.rpc.respond(m.id,{decision:'decline'}));});
     this.rpc.on('disconnect',error=>{if(this.finished)return;this.settle?.(error);});
     this.rpc.start();
-    await this.rpc.request('initialize',{clientInfo:{name:'tepora',title:'Tepora',version:'3.0.0-beta.10'}},signal);
+    await this.rpc.request('initialize',{clientInfo:{name:'tepora',title:'Tepora',version:'3.0.0-beta.11'}},signal);
     this.rpc.notify('initialized');
   }
   async account(signal) {

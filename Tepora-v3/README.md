@@ -1,8 +1,13 @@
-# beta.10 character-first conversation
+# beta.11 protected execution and sourced handoffs
+
+See [beta.11 scope and limits](docs/BETA11.md). Protected built-in tools work without Docker.
+Optional restricted code execution needs a preinstalled, approved digest-pinned image; no host fallback.
+
+# Previous milestone: beta.10 character-first conversation
 
 See [the beta.10 milestone and its limits](docs/BETA10.md), [current verification](docs/STATUS.md), and [architecture](docs/ARCHITECTURE.md).
 
-# Tepora V3 · 3.0.0-beta.10
+# Tepora V3 · 3.0.0-beta.11
 
 A quiet, customizable smart monitor that can keep working while you talk.
 Local-first, provider-neutral, with explicit control over cloud/LAN access.

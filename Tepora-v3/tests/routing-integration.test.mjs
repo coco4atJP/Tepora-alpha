@@ -115,7 +115,8 @@ test('unknown Vision blocks a task rather than guessing image content or sending
 test('offline does not open host CLI, MCP or Codex, but independent work still completes',async t=>{
  let n=0;const a=await service(t,{runtimeFactory:()=>({chat:async messages=>{
   if(messages.some(m=>m.content==='external operation'))return tool('command','run_command',{executable:process.execPath,args:['-e','throw new Error("must not start")']});return done;
- }})});a.network.change({mode:'offline'},0);
+ }})});a.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
+a.network.change({mode:'offline'},0);
  const blocked=a.harness.submit('external operation'),local=a.harness.submit('plain explanation','chat');await until(()=>!a.harness.active.size);
  assert.equal(a.store.get('job',blocked.id).status,'blocked');assert.equal(a.store.get('job',local.id).status,'completed');assert.equal(a.harness.approvals.size,0);
  assert.equal(a.store.list('effect').length,0);

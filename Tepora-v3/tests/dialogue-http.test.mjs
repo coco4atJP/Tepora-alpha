@@ -42,7 +42,7 @@ test('character persona endpoint keeps worker settings separate and rejects stal
  const changed=await a.request('/api/dialogue/personas','PUT',patch);assert.equal(changed.status,200);
  const result=await changed.json();assert.equal(result.character.name,'Koharu');assert.equal(result.worker.name,'Research worker');
  assert.equal((await a.request('/api/dialogue/personas','PUT',patch)).status,409);
- assert.equal((await(await a.request('/health')).json()).version,'3.0.0-beta.10');
+ assert.equal((await(await a.request('/health')).json()).version,'3.0.0-beta.11');
 });
 
 test('result relay HTTP confirms one exact excerpt, revision and character recipient',async t=>{

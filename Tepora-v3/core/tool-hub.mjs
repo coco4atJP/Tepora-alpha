@@ -74,7 +74,7 @@ export class ToolHub{
   const values=this.secrets.get(c.id)||{};for(const name of c.secretNames||[])invariant(typeof values[name]==='string','この接続の秘密情報は再起動後に再入力が必要です。',409);
   return {...c,env:{...env,...values}};
  }
- open(c){if(c.transport==='stdio')this.network.assertUncontained('MCP tool discovery');return this.clientFactory(this.prepare(c),this.store.settings.allowNetwork,this.network.fetch({purpose:'web',allowCloud:this.store.settings.allowNetwork}));}
+ open(c){invariant(this.store.value('execution-config')?.mode==='legacy-host','MCP connections require explicitly acknowledged legacy-host mode',403);if(c.transport==='stdio')this.network.assertUncontained('MCP tool discovery');return this.clientFactory(this.prepare(c),this.store.settings.allowNetwork,this.network.fetch({purpose:'web',allowCloud:this.store.settings.allowNetwork}));}
  async discover(id,signal){
   invariant(!this.closed,'Tool hub closed',503);const config=this.config(id),identity=this.identity(config);invariant(!this.active.has(id),'接続を確認中です。',429);
   const client=this.open(config);this.active.set(id,client);let tools=[],cursor,seen=new Set();

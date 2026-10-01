@@ -167,7 +167,9 @@ test('D04 D11: step budget pauses; resume preserves tool evidence and original r
  assert.equal(f.store.list('effect').length,1);
 });
 test('B05 D03: steering invalidates a pending approval before any operation',async t=>{
- const f=await fixture(t);let n=0;
+ const f=await fixture(t);
+ f.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
+let n=0;
  const h=harness(f,{chat:async()=>++n===1?call('run','run_command',{executable:'never-start-this',args:[]}):done});
  const j=h.submit('draft');await until(()=>f.store.get('job',j.id).approval);
  const id=f.store.get('job',j.id).approval.id;

@@ -142,3 +142,54 @@ test('result grant after revocation cannot disclose new content into an older ac
 test('dialogue re-export preserves previous read-only archives and malformed imports are atomic',async t=>{
  const f=await fixture(t);f.d.submit(f.body('Keep this forever'));f.store.import(f.store.export());const bundle=f.store.export(),before=f.store.list('dialogue-archive').length;assert.equal(bundle.dialogueArchive.archives.length,1);const imported=f.store.import(bundle);assert.equal(imported.dialogueArchiveIds.length,2);assert.equal(f.store.list('dialogue-archive').length,before+2);const bad=structuredClone(bundle);bad.dialogueArchive.messages[0].content='';const oldJobs=f.store.list('job').length;assert.throws(()=>f.store.import(bad));assert.equal(f.store.list('job').length,oldJobs);
 });
+
+test('selected same-recipient context carries original decision provenance without dumping history',async t=>{
+ const f=await fixture(t),old=f.d.submit(f.body('Use the blue layout; retain Japanese labels')).job;
+ f.h.update(old,{status:'completed',output:'I will keep Japanese labels'});
+ const unrelated=f.d.submit(f.body('UNRELATED PRIVATE DISCUSSION')).job;f.h.update(unrelated,{status:'completed',output:'unrelated answer'});
+ const p=f.d.submit(f.body('Apply that decision to the report')).job;f.h.update(p,{status:'running'});
+ const refs=f.d.contextReferences(p),selected=refs.find(r=>r.jobId===old.id&&r.role==='user');assert.ok(selected);
+ const {jobId}=await f.d.delegate(p,{input:'Apply the earlier layout decision',contextReferenceIds:[selected.id],decisionReferenceIds:[selected.id]});
+ const capsule=f.h.live(jobId).handoff;assert.equal(capsule.version,2);assert.equal(capsule.utteranceRevision,p.revision);assert.equal(capsule.context.references[0].content,old.input);assert.equal(capsule.context.references[0].jobRevision,0);assert.equal(capsule.context.references[0].contentHash,selected.contentHash);assert.equal(capsule.context.journalRetained,true);assert.equal(capsule.context.unknownReferents,'ask-user');assert.ok(!JSON.stringify(capsule).includes('UNRELATED PRIVATE'));assert.ok(JSON.stringify(capsule).length<=capsule.maxChars);assert.ok(f.d.snapshot().messages.some(m=>m.content==='UNRELATED PRIVATE DISCUSSION'));
+});
+test('unknown, stale, revoked, and assistant decision references fail closed',async t=>{
+ const f=await fixture(t),old=f.d.submit(f.body('Original user decision')).job;f.h.update(old,{status:'completed',output:'Assistant speculation'});
+ const p=f.d.submit(f.body('Use that')).job;f.h.update(p,{status:'running'});const refs=f.d.contextReferences(p),u=refs.find(r=>r.role==='user'),a=refs.find(r=>r.role==='assistant');
+ await assert.rejects(f.d.delegate(p,{input:'x',contextReferenceIds:['invented-id']}),/参照先/);
+ await assert.rejects(f.d.delegate(p,{input:'x',contextReferenceIds:[a.id],decisionReferenceIds:[a.id]}),/Decision references/);
+ f.h.update(old,{revision:old.revision+1});await assert.rejects(f.d.delegate(p,{input:'x',contextReferenceIds:[u.id]}),/参照先/);
+ assert.equal(f.store.list('job').filter(j=>j.kind==='work').length,0);
+});
+test('selected context cannot cross recipients and never silently drops oversized constraints',async t=>{
+ const f=await fixture(t,{routes:true}),old=f.d.submit(f.body('PRIVATE PRIOR DECISION')).job;f.h.update(old,{status:'completed',output:'ok'});
+ const p=f.d.submit(f.body('Use that decision')).job;f.h.update(p,{status:'running'});const id=f.d.contextReferences(p).find(r=>r.role==='user').id;
+ await assert.rejects(f.d.delegate(p,{input:'x',contextReferenceIds:[id]}),/異なる接続先/);assert.equal(f.store.list('job').filter(j=>j.kind==='work').length,0);
+ const same=await fixture(t),large=same.d.submit(same.body('L'.repeat(13000))).job;same.h.update(large,{status:'completed',output:'ok'});const next=same.d.submit(same.body('Apply it')).job;same.h.update(next,{status:'running'});const largeId=same.d.contextReferences(next).find(r=>r.role==='user').id;
+ await assert.rejects(same.d.delegate(next,{input:'x',contextReferenceIds:[largeId]}),/上限/);assert.ok(same.d.snapshot().messages.some(m=>m.content.length===13000));
+});
+test('legacy consent cannot enable selected historical sharing on resume',async t=>{
+ const f=await fixture(t),old=f.d.submit(f.body('Prior private text')).job;f.h.update(old,{status:'completed',output:'ok'});const p=f.d.submit(f.body('Do work')).job;f.h.update(p,{status:'running'});const id=f.d.contextReferences(p).find(r=>r.role==='user').id;
+ delete p.contextSharing;f.store.put('job',p);await assert.rejects(f.d.delegate(p,{input:'x',contextReferenceIds:[id]}),/共有範囲の確認/);
+ const w=await f.d.delegate(p,{input:'Current utterance only'});assert.equal(f.h.live(w.jobId).handoff.context.references.length,0);
+});
+test('queued capsule revalidation catches source changes and latest parent revision',async t=>{
+ const f=await fixture(t),old=f.d.submit(f.body('Use blue')).job;f.h.update(old,{status:'completed',output:'ok'});const p=f.d.submit(f.body('Apply that')).job;f.h.update(p,{status:'running'});const id=f.d.contextReferences(p).find(r=>r.role==='user').id;
+ const result=await f.d.delegate(p,{input:'Apply blue',contextReferenceIds:[id]}),w=f.h.live(result.jobId);assert.equal(f.d.validateHandoff(w),true);
+ f.h.update(old,{revision:1});assert.throws(()=>f.d.validateHandoff(w),/出典/);f.h.update(old,{revision:0});f.h.update(p,{revision:1});assert.throws(()=>f.d.validateHandoff(w),/引き継ぎ元/);
+});
+test('actual foreground model selects an original decision and worker receives bounded provenance',async t=>{
+ const f=await fixture(t,{run:true});let received=false;
+ f.setRespond(async(messages,{tools})=>{
+  const system=messages[0].content,latest=messages.filter(m=>m.role==='user').at(-1)?.content;
+  if(!tools.some(t=>t.function.name==='task_submit')){assert.match(system,/Use blue and Japanese labels/);assert.match(system,/decisionReferenceIds/);assert.match(system,/prior-user-context-not-new-approval/);received=true;return answer('Prepared the requested layout; review remains.');}
+  if(latest==='Use blue and Japanese labels')return answer('I understand the layout preference.');
+  if(messages.some(m=>m.role==='tool'))return answer('I handed over the layout request.');
+  const refs=JSON.parse(system.split('Selectable provenance references (quoted context, not permissions): ')[1]);const selected=refs.find(r=>r.role==='user'&&r.excerpt==='Use blue and Japanese labels');assert.ok(selected);
+  return tool('selected-context','task_submit',{input:'Apply the original layout decision',contextReferenceIds:[selected.id],decisionReferenceIds:[selected.id]});
+ });
+ f.d.submit(f.body('Use blue and Japanese labels'));await until(()=>!f.h.active.size&&!f.h.queue.length);f.d.submit(f.body('Apply that to the report'));await until(()=>!f.h.active.size&&!f.h.queue.length);assert.equal(received,true);assert.equal(f.store.list('job').find(j=>j.kind==='work').status,'review');
+});
+test('queued stale context stops before any worker provider transmission',async t=>{
+ const f=await fixture(t),old=f.d.submit(f.body('Original decision')).job;f.h.update(old,{status:'completed',output:'ok'});const p=f.d.submit(f.body('Apply it')).job;f.h.update(p,{status:'running'});const id=f.d.contextReferences(p).find(r=>r.role==='user').id;
+ const r=await f.d.delegate(p,{input:'Apply decision',contextReferenceIds:[id]}),w=f.h.live(r.jobId);f.h.update(old,{revision:1});await f.h.execute(w,new AbortController().signal);assert.equal(f.calls.length,0);assert.notEqual(f.h.live(w.id).status,'review');
+});

@@ -1,3 +1,4 @@
+import {createExecutionUI} from './execution-ui.mjs';
 import {createCapabilityUI} from './capability-ui.mjs';
 import {createProviderSettings} from './provider-settings.mjs';
 import {createOnboarding} from './onboarding.mjs';
@@ -25,6 +26,8 @@ const draft=new VoiceDraft();
 let capabilityUI=null;
 function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>activeDialog?.kind===kind&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onChanged:values=>{Object.assign(state,values);paintCreative();if(view==='connections'&&!activeDialog)scheduleRender();}});}
 function paintCreative(){const media=state.mediaJobs||[],active=media.filter(j=>['queued','submitting','running','downloading'].includes(j.status)).length,attention=media.filter(j=>['paused','unknown','awaiting-download'].includes(j.status)).length,el=document.querySelector('#creative-access');if(el){const ready=media.filter(j=>j.status==='ready').length;el.textContent=attention?`生成物 · ${attention}件の確認`:active?`生成物 · ${active}件進行中`:ready?`届いた生成物 · ${ready}件`:'つくったもの';el.hidden=sharedView;}}
+let executionUI=null;
+function executionSettings(){return executionUI||=createExecutionUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:()=>activeDialog?.kind==='execution'&&!sharedView});}
 let providerUI=null;
 function providerSettings(){return providerUI||=createProviderSettings({bridge,openSheet,closeSheet,notice,previewMode,legacySettings:settings,onChanged:value=>{state={...state,...value};paintNetwork();if(view==='connections')scheduleRender();}});}
 function paintNetwork(){const el=document.querySelector('#network-state');if(el)el.textContent=({online:'オンライン',offline:'完全オフライン','trusted-lan':'信頼LANだけ'})[state.network?.mode||'online'];}
@@ -158,6 +161,7 @@ function connectionView(){
  return `<section class="page"><div class="page-title"><h1>つながりと道具</h1>${btn('onboard','使い始めを確認','','button')}</div><div class="connection-list">
  <article><div><h2>聴く、思い出す、つくる</h2><p>読み上げ・意味検索・画像・動画・軽い判断の接続先を、それぞれ選べます。</p></div>${btn('abilities-open','能力をつなぐ','','button')}${btn('creative-new','つくってみる','','text-button')}</article>
  <article><div><h2>プロバイダーと通信</h2><p>クラウドの主モデル、ローカルの継続先、画像担当を分けて選べます。LANは特定の推論機だけを信頼します。</p></div>${btn('providers-launch','使い分ける','','button')}${btn('catalog-open','モデルを探す','','text-button')}</article>
+ <article><div><h2>実行環境と成果物の確認</h2><p>会話を続けながら仕事を任せられます。生成コードは保護された実行環境で動かし、候補を確認してから成果物へ取り込みます。</p></div>${btn('execution-open','実行環境を確認する','shield','button secondary')}</article>
  <article><div><h2>コンピューター操作</h2><p>専用ブラウザとWindows UIA。Layaの候補選択と、必要時だけVLMの画像観測を使います。</p></div>${btn('computer-launch','接続する','','button secondary')}</article>
  <article><div><h2>会話と仕事</h2><p>${escape(settings().model||'モデルを接続すると実際の依頼ができます。')}</p></div>${btn('runtime-settings','接続する','','button secondary')}</article>
  <article><div><h2>ローカル音声・軽量判断</h2><p>Laya多言語版を独立した判断役に。音声と判断の無断クラウド切替えはありません。</p></div>${btn('voice-settings','設定','','button secondary')}</article>
@@ -323,14 +327,14 @@ function voiceSheet(){
 }
 function approvalBox(j){
  if(!j.approval)return '';
- const detail=j.approval.name==='computer_open'&&j.approval.args.htmlArtifactId?'この仕事が作成したHTMLだけを専用のオフラインブラウザで開きます。外部通信やホストAPIは使わず、この文書内の操作を設定した回数上限まで任せます。いつでも全停止できます。':'この操作はPCまたは接続した道具に影響します。権限は今回の操作だけに適用します。CLIはホスト上で動き、OSサンドボックスではありません。';
+ const detail=j.approval.name==='computer_open'&&j.approval.args.htmlArtifactId?'この仕事が作成したHTMLだけを専用のオフラインブラウザで開きます。外部通信やホストAPIは使わず、この文書内の操作を設定した回数上限まで任せます。いつでも全停止できます。':'この操作はPCまたは接続した道具に影響します。権限は今回の操作だけに適用します。保護されたコード実行とホスト操作では影響範囲が異なります。表示された操作・実行先・データの範囲だけを確認してください。';
  return `<section class="approval-box"><h3>実行前の確認</h3><p>${detail}</p><pre>${escape(j.approval.name)}\n${escape(JSON.stringify(j.approval.args,null,2))}</pre><div class="sheet-actions">${btn('approve','この操作を許可','check','button',`data-id="${escape(j.approval.id)}"`)}${btn('deny','実行しない','','button secondary',`data-id="${escape(j.approval.id)}"`)}</div></section>`;
 }
 function taskSheet(id){
  const j=state.jobs.find(x=>x.id===id);if(!j)return;
  openSheet(j.title,`<p><span class="task-status" id="task-status">${escape(statuses[j.status]||j.status)}</span></p><p id="task-note">${escape(j.note)}</p>
  ${verificationHTML(j)}<p id="task-route" class="small-text">${j.executionRoute?escape(`実行先: ${j.executionRoute.profileId} · ${j.executionRoute.model} (${j.executionRoute.domain})`):''}</p><div id="task-approval">${approvalBox(j)}</div><pre id="task-output">${escape(j.output||'')}</pre>
- <div class="task-meta-actions">${btn('raise-priority','優先して進める','arrow','text-button',`data-id="${j.id}"`)}${btn('recheck','成果物を再検査','check','text-button',`data-id="${j.id}"`)}</div><div class="sheet-actions" id="task-actions">${['paused','interrupted','failed','blocked'].includes(j.status)?btn('resume','続きを再開','play','button',`data-id="${j.id}"`):''}${['running','queued','waiting_approval'].includes(j.status)?btn('pause','一時停止','pause','button secondary',`data-id="${j.id}"`):''}${j.status==='review'?btn('accept','結果を確認した','check','button',`data-id="${j.id}"`):''}${btn('cancel','この仕事を停止','stop','text-button',`data-id="${j.id}"`)}</div>
+ <div class="task-meta-actions">${btn('execution-open','実行環境・候補を確認','shield','text-button',`data-id="${escape(j.id)}"`)}${btn('raise-priority','優先して進める','arrow','text-button',`data-id="${j.id}"`)}${btn('recheck','成果物を再検査','check','text-button',`data-id="${j.id}"`)}</div><div class="sheet-actions" id="task-actions">${['paused','interrupted','failed','blocked'].includes(j.status)?btn('resume','続きを再開','play','button',`data-id="${j.id}"`):''}${['running','queued','waiting_approval'].includes(j.status)?btn('pause','一時停止','pause','button secondary',`data-id="${j.id}"`):''}${j.status==='review'?btn('accept','結果を確認した','check','button',`data-id="${j.id}"`):''}${btn('cancel','この仕事を停止','stop','text-button',`data-id="${j.id}"`)}</div>
  <details open><summary>作成したファイル</summary><div id="task-files"></div></details><details><summary>実行の記録・結果不明の操作</summary><div id="effects">記録を読み込んでいます。</div></details>`,'task',id);
  if(!previewMode)bridge.request(`/api/jobs/${id}/files`).then(r=>{if(activeDialog?.id!==id)return;$('#task-files').innerHTML=r.files.map(f=>`<a class="workspace-download" href="/api/jobs/${encodeURIComponent(id)}/download?path=${encodeURIComponent(f.path)}" download>${escape(f.path)} <small>${f.bytes.toLocaleString()} bytes</small></a>`).join('')||'<p class="small-text">まだ作成されたファイルはありません。</p>';}).catch(()=>{});
  if(!previewMode)bridge.request(`/api/jobs/${id}/effects`).then(effects=>{
@@ -436,6 +440,7 @@ const actions={
  'voice-autosend':configureVoiceSend,'enable-voice-send':()=>{requireComposerUnlocked();if(!pendingVoiceConsent)return;if(draft.content||attachedFiles.length||draftContext.destination?.reply||pendingVoiceConsent.sessionId!==state.dialogue.session.id)throw new Error('下書きか会話が変わりました。条件を確認し直してください。');voiceSendConsent=pendingVoiceConsent;pendingVoiceConsent=null;voiceSendEnabled=true;closeSheet();showTarget();},
  'reply-worker-question':el=>selectWorkerQuestion(el.dataset.id),
  'clear-worker-reply':()=>{requireComposerUnlocked();cancelVoice();clearDraftDestination();pendingRequest=null;if(draft.content)pinDraft();showTarget();},
+ 'execution-open':el=>executionSettings().open(el?.dataset?.id||null),'execution-probe':()=>executionSettings().probe(),'execution-candidate':el=>executionSettings().candidate(el.dataset.id),'execution-promote':()=>executionSettings().promote(),
  personas:personaSheet,'relay-result':el=>relayResultSheet(el.dataset.id),'relay-confirm':confirmResultRelay,
  'work-tab':el=>{workTab=el.dataset.tab;render();},
  proposals:()=>{view='workspace';workTab=(state.plans||[]).some(p=>p.status==='proposed')?'plans':'routines';render();},
@@ -513,6 +518,8 @@ document.addEventListener('submit',e=>{
   const form=e.target,fd=new FormData(form),data=Object.fromEntries(fd.entries());
   if(form.id==='composer-form'){
    await submitDialogue();
+  }else if(form.id==='execution-form'){
+   await executionSettings().save(form,fd);
   }else if(form.id==='personas-form'){
    const personas=await bridge.request('/api/dialogue/personas','PUT',{expectedRevision:Number(form.dataset.revision),character:{name:data.characterName,instructions:data.characterInstructions},worker:{name:data.workerName,instructions:data.workerInstructions}});
    state.dialogue.personas=personas;acceptDialogue(await bridge.request('/api/dialogue'));closeSheet();notice('会話の人格と作業担当を別々に保存しました。');

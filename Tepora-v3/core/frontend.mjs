@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 export async function browserBundle(webDir,{preview=false}={}) {
   const parts=[];
-  for(const name of ['ui','demo','display-model','bridge','draft','companion-state','dialogue-state','voice','realtime-voice','onboarding','provider-settings','capability-ui','app']) {
+  for(const name of ['ui','demo','display-model','bridge','draft','companion-state','dialogue-state','voice','realtime-voice','onboarding','provider-settings','capability-ui','execution-ui','app']) {
     const source=await readFile(path.join(webDir,`${name}.mjs`),'utf8');
     const transformed=source.replace(/^import .+ from '.+?';\r?\n/gm,'').replace(/^export (?=(?:async )?function\s|class\s|const\s|let\s)/gm,'');
     if(/^\s*(?:import\s|export\s)/m.test(transformed))throw new Error(`Unsupported module declaration in ${name}; update the bundle contract explicitly.`);

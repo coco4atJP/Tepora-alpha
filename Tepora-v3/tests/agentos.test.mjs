@@ -203,6 +203,7 @@ test('local edit rejects offsets whose expected text does not match',async()=>{
 
 test('command check detects a file modified after a successful approved test',async t=>{
  let n=0;const f=await fixture(t,{chat:async()=>++n===1?msg('cmd','run_command',{executable:process.execPath,args:['-e',"require('fs').writeFileSync('tested.txt','ok')"]}):done});
+ f.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
  const j=f.h.submit('test files','work',{checks:[{type:'command',executable:process.execPath,args:['-e',"require('fs').writeFileSync('tested.txt','ok')"]}]});
  await until(()=>f.store.get('job',j.id).approval);f.h.approve(f.store.get('job',j.id).approval.id,true);await until(()=>!f.h.active.size);
  assert.equal((await verifyJob(f.store,f.store.get('job',j.id))).passed,true);
@@ -211,7 +212,8 @@ test('command check detects a file modified after a successful approved test',as
 });
 
 test('daily latest catch-up chooses today rather than replaying stale days',async t=>{
- const f=await fixture(t);let now=Date.parse('2026-09-24T23:00:00Z');f.routines.clock=()=>now;
+ const f=await fixture(t);
+let now=Date.parse('2026-09-24T23:00:00Z');f.routines.clock=()=>now;
  let r=f.routines.save({title:'daily',input:'x',schedule:{type:'daily',time:'09:00',timezone:'Asia/Tokyo'}});r=f.routines.enable(r.id,true,r.revision);
  now=Date.parse('2026-09-27T01:00:00Z');f.routines.tick();await until(()=>!f.h.active.size);
  assert.equal(f.store.list('job').length,1);assert.equal(f.store.get('routine',r.id).lastOccurrence,Date.parse('2026-09-27T00:00:00Z'));

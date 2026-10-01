@@ -14,6 +14,7 @@ async function fixture(t){
   async request(method,params){calls.push({method,params});return method==='act'?{observation}:structuredClone(observation);}
   close(){this.emit('disconnect');}
  }
+ store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
  const rpc=new FakeRPC(),computer=new Computer(store,network,{}, {rpcFactory:()=>rpc});
  computer.save({enabled:true,headless:true},0);store.artifact('owned','<button>local</button>',{id:'html',kind:'html',jobId:'job'});
  t.after(async()=>{computer.shutdown();network.close();store.close();await rm(dir,{recursive:true,force:true});});

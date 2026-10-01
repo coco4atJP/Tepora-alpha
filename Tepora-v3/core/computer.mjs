@@ -26,8 +26,8 @@ export class Computer {
  snapshot(){const s=this.session;return {config:this.config(),active:s?{jobId:s.jobId,backend:s.config.backend,actions:s.actions,expiresAt:s.expiresAt,revision:s.last?.revision}:null,
   note:'専用ブラウザ、または選んだWindows UIAウィンドウのみ。既存ブラウザのログインやPC全体は取得しません。'};}
  save(patch,expectedRevision){const old=this.config();invariant(old.revision===expectedRevision,'Computer settings changed',409);const next={...computerConfig(patch,old),revision:old.revision+1};this.close();this.store.value('computer-config',next);this.store.emit('computer.updated',this.snapshot());return this.snapshot();}
- rpc(config){return this.rpcFactory({command:config.python,args:['-I',fileURLToPath(new URL('../workers/computer.py',import.meta.url))],env:{PYTHONUNBUFFERED:'1'},inheritEnv:false,timeoutMs:30000,maxFrame:6_000_000}).start();}
- async windows(signal){const c=this.config();invariant(c.enabled,'Enable Computer Use explicitly',403);const rpc=this.rpc(c);try{return await rpc.request('windows',{},signal);}finally{rpc.close();}}
+ rpc(config){invariant(this.store.value('execution-config')?.mode==='legacy-host','Host computer workers require explicitly acknowledged legacy-host mode; protected code uses executor_run',403);return this.rpcFactory({command:config.python,args:['-I',fileURLToPath(new URL('../workers/computer.py',import.meta.url))],env:{PYTHONUNBUFFERED:'1'},inheritEnv:false,timeoutMs:30000,maxFrame:6_000_000}).start();}
+ async windows(signal){const c=this.config();invariant(c.enabled,'Enable Computer Use explicitly',403);const rpc=this.rpc(c);this.computing.add(rpc);try{return await rpc.request('windows',{},signal);}finally{rpc.close();this.computing.delete(rpc);}}
  async open(job,{url,htmlArtifactId},signal){
   const config=this.config();invariant(config.enabled,'Computer Useを接続設定で有効にしてください。',403);
   invariant(!this.session,'別の仕事がコンピューター操作を使用中です。',409);

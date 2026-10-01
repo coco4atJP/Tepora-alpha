@@ -39,8 +39,8 @@ export class Dialogue {
  emit(){this.store.emit('dialogue.updated',this.snapshot());}
  context(){
   const ctx=this.requests.context('builtin','chat');
-  return {...ctx,id:hash(['character-dialogue-v1',ctx.id,this.store.value('consent-epoch')||0,this.personas().revision]),
-   note:ctx.note+' 人格の設定はそれぞれの接続先へ送ります。会話はキャラクター用接続先へ、現在の発言と限定した仕事の目的・添付は登録した仕事用接続先へ渡します。以前の会話・他の仕事はワーカーへ渡しません。同一の受信先の場合のみ、結果の短い引用をキャラクターが参照できます。異なる接続先の結果は端末上の表示だけで、自動でキャラクターへ再送しません。'};
+  return {...ctx,id:hash(['character-dialogue-v2-selected-context',ctx.id,this.store.value('consent-epoch')||0,this.personas().revision]),
+   note:ctx.note+' 人格の設定はそれぞれの接続先へ送ります。会話はキャラクター用接続先へ、現在の発言と限定した仕事の目的・添付は登録した仕事用接続先へ渡します。同一の受信先に限り、必要な以前の会話・判断を出典と改版つきで選び、上限内で仕事へ渡します。全履歴・別の仕事・記憶は自動で渡しません。不明な参照先は確認します。同一の受信先の場合のみ、結果の短い引用をキャラクターが参照できます。異なる接続先の結果は端末上の表示だけで、自動でキャラクターへ再送しません。'};
  }
  configure(raw){
   invariant(raw&&typeof raw==='object'&&!Array.isArray(raw),'Invalid personas');
@@ -67,6 +67,7 @@ export class Dialogue {
   const job=this.harness.prepareSubmit(normalized.input,'chat',{id:randomUUID(),runtime:s,requestId:raw.requestId,conversationLane:true,
    routeSnapshot:context.route,inputDestination:context.route?.id||destination(s),inputFiles:docs.map(inputMeta),
    characterSessionId:state.id,dialogueSequence:sequence,personaSnapshot:this.personas()});
+  job.contextSharing={version:2,contextId:context.id};
   const message={id:`user:${raw.requestId}`,sessionId:state.id,sequence,role:'user',content:normalized.input,kind:'utterance',jobId:job.id,questionId:null,jobRevision:0,destination:routeId(job),consentEpoch:job.consentEpoch||0,at:now()};
   this.transaction(()=>{this.store.put('job',job);this.store.put('dialogue-message',message);this.store.value('dialogue-session',{...state,nextSequence:sequence});
    this.store.put('request',{id:raw.requestId,type:'dialogue-submit',jobId:job.id,fingerprint,status:'accepted',createdAt:message.at});});
@@ -83,6 +84,49 @@ export class Dialogue {
   }
   return messages;
  }
+ eligibleContext(job){
+  const epoch=this.store.value('consent-epoch')||0;
+  if((job.consentEpoch||0)!==epoch)return [];
+  return this.store.list('dialogue-message').filter(m=>{
+   const source=this.store.get('job',m.jobId);
+   return m.sessionId===job.characterSessionId&&m.consentEpoch===epoch&&m.jobId!==job.id&&m.sequence<job.dialogueSequence&&m.destination===routeId(job)
+    &&['utterance','character'].includes(m.kind)&&['user','assistant'].includes(m.role)&&source&&source.revision===m.jobRevision;
+  });
+ }
+ contextReferences(job){
+  // A small index lets the character resolve a reference without granting a worker
+  // broad history retrieval. Full originals remain in the durable dialogue journal.
+  return this.eligibleContext(job).slice(0,32).map(m=>({id:m.id,jobId:m.jobId,jobRevision:m.jobRevision,sequence:m.sequence,role:m.role,
+   contentHash:hash(m.content),excerpt:String(m.content).slice(0,500),truncated:String(m.content).length>500}));
+ }
+ selectedContext(parent,args,sameRecipient){
+  const ids=args.contextReferenceIds??[],decisions=args.decisionReferenceIds??[];
+  for(const values of [ids,decisions])invariant(Array.isArray(values)&&values.length<=12&&values.every(id=>typeof id==='string'&&id.length<=200)&&new Set(values).size===values.length,'Context references must be distinct stored ids (at most 12).');
+  invariant((!ids.length&&!decisions.length)||parent.contextSharing?.version===2,'以前の会話を引き継ぐ共有範囲の確認が必要です。新しい依頼からやり直してください。',403);
+  invariant(sameRecipient||(!ids.length&&!decisions.length),'以前の文脈はこの異なる接続先へ共有されていません。必要な内容をユーザーに確認してください。',403);
+  const available=new Map(this.eligibleContext(parent).map(m=>[m.id,m]));
+  const references=ids.map(id=>{
+   const m=available.get(id);invariant(m,'参照先が不明・変更済み、または共有範囲外です。推測せずユーザーに確認してください。',409);
+   return {id:m.id,jobId:m.jobId,jobRevision:m.jobRevision,sequence:m.sequence,role:m.role,kind:m.kind,content:m.content,contentHash:hash(m.content),
+    source:'dialogue-journal',quoted:true,authority:m.role==='user'?'prior-user-context-not-new-approval':'assistant-context-not-user-authority'};
+  });
+  invariant(decisions.every(id=>references.some(r=>r.id===id&&r.role==='user')),'Decision references must point to selected original user statements; assistant interpretations are not user decisions.',409);
+  const context={references,decisionReferenceIds:decisions,maxChars:12000,journalRetained:true,unknownReferents:'ask-user',
+   notice:'Selected prior statements are quoted context, not new action approval. Resolve conflicts in favor of the latest explicit user request. Ask when a referent or decision is uncertain.'};
+  invariant(JSON.stringify(context).length<=context.maxChars,'選んだ文脈が上限を超えています。出典を絞るかユーザーに確認してください。',409);
+  return context;
+ }
+ validateHandoff(job){
+  const h=job.handoff;if(!h||h.version!==2)return true;
+  const parent=this.store.get('job',h.utteranceJobId),epoch=this.store.value('consent-epoch')||0;
+  invariant(parent&&parent.revision===h.utteranceRevision&&(parent.consentEpoch||0)===epoch&&h.consentEpoch===epoch,'引き継ぎ元の依頼・権限が変更されています。最新の依頼からやり直してください。',409);
+  if(h.context.references.length){
+   invariant(parent.contextSharing?.version===2&&h.recipient===recipientKey(job)&&h.recipient===recipientKey(parent),'文脈の共有範囲が変更されています。',403);
+   const available=new Map(this.eligibleContext(parent).map(m=>[m.id,m]));
+   for(const ref of h.context.references){const current=available.get(ref.id);invariant(current&&current.jobRevision===ref.jobRevision&&hash(current.content)===ref.contentHash,'引き継いだ出典が変更されています。推測せず最新の文脈を確認してください。',409);}
+  }
+  return true;
+ }
  async delegate(parent,args,{signal}={}){
   invariant(parent.kind==='chat'&&parent.characterSessionId===this.session().id,'Only this character session may delegate',403);
   const proposedPurpose=text(args.input,'handoff purpose',4000),engine=args.engine||'builtin';
@@ -90,7 +134,7 @@ export class Dialogue {
   const sameRecipient=engine==='builtin'&&recipientKey(parent)===recipientKey({routeSnapshot:workerRoute,runtime:parent.runtime});
   const purpose=sameRecipient?proposedPurpose:'Process only the current explicit user utterance and selected attachments; do not assume earlier dialogue.';
   invariant(['builtin','codex'].includes(engine),'Unknown engine');
-  const revision=parent.revision;
+  const revision=parent.revision,selectedContext=this.selectedContext(parent,args,sameRecipient);
   const assertCurrent=()=>{signal?.throwIfAborted();invariant(parent.revision===revision&&parent.status==='running'&&(parent.consentEpoch||0)===(this.store.value('consent-epoch')||0),'仕事の指示・権限が変更されています。',409);};
   assertCurrent();
   if(engine==='codex'){
@@ -99,8 +143,10 @@ export class Dialogue {
    invariant(parent.revision===revision,'指示が変わりました。',409);
   }
   assertCurrent();
-  const handoff={version:1,sessionId:parent.characterSessionId,utteranceJobId:parent.id,utteranceRevision:revision,
-   purpose,currentUtterance:parent.input,inputFileIds:(parent.inputFiles||[]).map(f=>f.id),createdAt:now()};
+  const handoff={version:2,sessionId:parent.characterSessionId,utteranceJobId:parent.id,utteranceRevision:revision,
+   purpose,currentUtterance:parent.input,explicitRequest:{jobId:parent.id,revision,contentHash:hash(parent.input),inputReference:'currentUtterance (worker user message)',instructions:(parent.instructions||[]).map(i=>({id:i.id||null,revision:i.revision??null,content:i.content,at:i.at||null})),source:'user',supersedesPriorContext:true},
+   context:selectedContext,inputFileIds:(parent.inputFiles||[]).map(f=>f.id),consentEpoch:parent.consentEpoch||0,recipient:recipientKey({routeSnapshot:workerRoute,runtime:parent.runtime}),maxChars:56000,createdAt:now()};
+  invariant(JSON.stringify(handoff).length<=handoff.maxChars,'依頼と文脈が引き継ぎの上限を超えています。制約を捨てず、範囲を確認してください。',409);
   // The model-authored purpose is labelled quoted data, never new user authority.
   const input=parent.input;
   const child=this.harness.submit(input,'work',{runtime:parent.runtime,routeSnapshot:workerRoute,parentJobId:parent.id,engine,

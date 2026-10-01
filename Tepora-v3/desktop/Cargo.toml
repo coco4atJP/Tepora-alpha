@@ -1,6 +1,6 @@
 [package]
 name = "tepora-v3"
-version = "3.0.0-beta.10"
+version = "3.0.0-beta.11"
 edition = "2021"
 description = "Tepora companion workspace"
 license = "Apache-2.0"

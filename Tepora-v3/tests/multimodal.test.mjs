@@ -130,7 +130,9 @@ test('MCP bulk imports retain secret values in RAM only and never enable or laun
 });
 for(const env of ['NODE_OPTIONS','PATH','LD_PRELOAD','HOME','PYTHONPATH'])test('MCP imports refuse execution-controlling env '+env,()=>assert.throws(()=>normalizeServer('tool',{command:'anything',env:{[env]:'x'}})));
 test('many discovered tools are paged, searchable and excluded after disable',async t=>{
- const f=await fixture(t);let pages=0;const client={connect:async()=>{},close:()=>{},request:async()=>++pages===1?{tools:[{name:'calendar_read',description:'Read calendar',inputSchema:{type:'object'}}],nextCursor:'p2'}:{tools:[{name:'file_read',description:'Read files',inputSchema:{type:'object'}}]}};
+ const f=await fixture(t);
+ f.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
+let pages=0;const client={connect:async()=>{},close:()=>{},request:async()=>++pages===1?{tools:[{name:'calendar_read',description:'Read calendar',inputSchema:{type:'object'}}],nextCursor:'p2'}:{tools:[{name:'file_read',description:'Read files',inputSchema:{type:'object'}}]}};
  const hub=new ToolHub(f.store,f.network,{clientFactory:()=>client});t.after(()=>hub.close());f.store.put('mcp',{id:'s',name:'Suite',enabled:true,transport:'stdio',command:'fixture',args:[]});
  assert.equal((await hub.discover('s')).count,2);assert.equal(hub.search('calendar').tools[0].name,'calendar_read');assert.equal(hub.search('calendar').tools.length,1);f.store.put('mcp',{...f.store.get('mcp','s'),enabled:false});assert.equal(hub.search('calendar').tools.length,0);
 });
@@ -190,7 +192,9 @@ test('bulk connection consent is bound to the exact configurations shown',async 
  f.store.put('mcp',{id:'a',name:'a',enabled:false,transport:'stdio',command:'first',args:[]});const preview=hub.previewConnect(['a']);f.store.put('mcp',{...f.store.get('mcp','a'),command:'second'});await assert.rejects(hub.connectBatch(preview.id,true),/変わって/);assert.equal(opens,0);assert.equal(f.store.get('mcp','a').enabled,false);
 });
 test('bulk connector discovery uses bounded parallelism and reports partial failures',async t=>{
- const f=await fixture(t);let current=0,maximum=0;
+ const f=await fixture(t);
+ f.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
+let current=0,maximum=0;
  const hub=new ToolHub(f.store,f.network,{clientFactory:c=>({connect:async()=>{current++;maximum=Math.max(maximum,current);await sleep(8);if(c.id==='bad')throw Error('fixture failure');},request:async()=>({tools:[]}),close:()=>current--})});t.after(()=>hub.close());
  for(const id of ['a','b','bad','c','d'])f.store.put('mcp',{id,name:id,enabled:false,transport:'stdio',command:'fixture',args:[]});
  const p=hub.previewConnect(['a','b','bad','c','d']);const result=await hub.connectBatch(p.id,true);assert.equal(result.results.length,5);assert.equal(result.results.filter(r=>!r.ok).length,1);assert.ok(maximum<=3);
@@ -211,7 +215,9 @@ test('memory becoming private while a remote query is embedding is not disclosed
 });
 
 test('global tool discovery stop never starts queued servers after active clients close',async t=>{
- const f=await fixture(t);let opens=0;const releases=[];
+ const f=await fixture(t);
+ f.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
+let opens=0;const releases=[];
  const hub=new ToolHub(f.store,f.network,{clientFactory:()=>{
   let reject;return {connect:()=>{opens++;return new Promise((_,r)=>{reject=r;releases.push(r);});},request:async()=>({tools:[]}),close:()=>reject?.(Error('Stopped'))};
  }});t.after(()=>hub.close());
