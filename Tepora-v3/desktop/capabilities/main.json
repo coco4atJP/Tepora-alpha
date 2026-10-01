@@ -1,0 +1,1 @@
+{"identifier":"main","description":"The UI uses a protected loopback HTTP service. No frontend shell or filesystem permissions.","windows":["main"],"permissions":[]}
