@@ -94,9 +94,11 @@ test('dismissed/shared relay dialog cannot grant result sharing',async()=>{
  const f=fixture();f.ctx.activeDialog={kind:'relay-result'};f.ctx.pendingRelay={jobId:'main'};f.ctx.sharedView=true;f.load('async function relayResultSheet(','async function configureVoiceSend(');
  await f.run('confirmResultRelay()');assert.equal(f.calls.length,0);f.ctx.sharedView=false;f.ctx.activeDialog=null;await f.run('confirmResultRelay()');assert.equal(f.calls.length,0);
 });
-test('preview dialogue and separate personas persist with revision checks and never run AI',async()=>{
- const source=await readFile(new URL('../web/bridge.mjs',import.meta.url),'utf8');const store=new Map(),ctx=vm.createContext({location:{protocol:'file:'},window:{},localStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},structuredClone,JSON,Error,Date,Map,Set,URL,TextEncoder,DISPLAY_DEFAULT:{},validateDisplay:x=>x,demoArtifact:()=>'',setTimeout,clearTimeout,globalThis:{crypto:{randomUUID:()=> 'uuid'}}});
- vm.runInContext(source.replace(/^import .*\n/gm,'').replace(/^export /gm,''),ctx);const before=await vm.runInContext("previewRequest('/api/dialogue','GET')",ctx);assert.equal(before.session.character.name,'Tepora');
+for(const [lineEnding,eol] of [['LF','\n'],['CRLF','\r\n']])test(`preview dialogue and separate personas persist with revision checks and never run AI (${lineEnding})`,async()=>{
+ // Exercise both Git checkout styles on every OS; normalize before converting this
+ // fixed module into a VM script. JavaScript dot does not consume a CR terminator.
+ const source=(await readFile(new URL('../web/bridge.mjs',import.meta.url),'utf8')).replace(/\r\n/g,'\n').replace(/\n/g,eol);const store=new Map(),ctx=vm.createContext({location:{protocol:'file:'},window:{},localStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},structuredClone,JSON,Error,Date,Map,Set,URL,TextEncoder,DISPLAY_DEFAULT:{},validateDisplay:x=>x,demoArtifact:()=>'',setTimeout,clearTimeout,globalThis:{crypto:{randomUUID:()=> 'uuid'}}});
+ vm.runInContext(source.replace(/\r\n/g,'\n').replace(/^import .*\n/gm,'').replace(/^export /gm,''),ctx);const before=await vm.runInContext("previewRequest('/api/dialogue','GET')",ctx);assert.equal(before.session.character.name,'Tepora');
  ctx.patch={expectedRevision:0,character:{name:'Mika',instructions:'character'},worker:{name:'Builder',instructions:'worker'}};await vm.runInContext("previewRequest('/api/dialogue/personas','PUT',patch)",ctx);const after=await vm.runInContext("previewRequest('/api/dialogue','GET')",ctx);assert.equal(after.session.character.name,'Mika');assert.equal(after.personas.worker.name,'Builder');assert.equal(after.session.revision,1);
  await assert.rejects(vm.runInContext("previewRequest('/api/dialogue/personas','PUT',patch)",ctx),/更新/);await assert.rejects(vm.runInContext("previewRequest('/api/dialogue','POST',{input:'Do real work'})",ctx),/プレビュー/);
 });
