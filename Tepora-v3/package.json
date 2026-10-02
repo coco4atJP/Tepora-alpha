@@ -1,0 +1,35 @@
+{
+  "name": "tepora-v3",
+  "version": "3.0.0-beta.11",
+  "private": true,
+  "description": "A quiet, local-first smart monitor and durable agent workspace",
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "start": "node core/server.mjs --open",
+    "serve": "node core/server.mjs",
+    "test": "node --test",
+    "check": "node scripts/check.mjs",
+    "desktop": "tauri icon web/favicon.svg --output desktop/icons && node scripts/build-sidecar.mjs && cd desktop && tauri dev",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "preview:build": "node scripts/build-preview.mjs",
+    "desktop:build": "tauri icon web/favicon.svg --output desktop/icons && node scripts/build-sidecar.mjs && cd desktop && tauri build",
+    "test:scenarios": "node scripts/verify-scenarios.mjs",
+    "test:workers": "python -I -S -m unittest discover -s workers -p test_*.py -v",
+    "eval:list": "node scripts/eval-agent.mjs --list",
+    "improve:check": "node scripts/improve-loop.mjs",
+    "improve:watch": "node scripts/improve-loop.mjs --watch",
+    "improve:browser": "node scripts/improve-loop.mjs --browser",
+    "test:computer": "node scripts/check-computer.mjs",
+    "test:routing-ui": "python tests/browser-routing.py . validation/routing-ui",
+    "improve:full": "node scripts/improve-loop.mjs --browser --computer --capabilities",
+    "test:capabilities": "node scripts/check-capabilities.mjs",
+    "test:abilities-ui": "python tests/browser-capabilities.py . validation/abilities-ui"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  },
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,57 @@
+name: Tepora V3 native smoke
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful beta artifact run to test
+        required: true
+        default: '36224337124'
+      source_ref:
+        description: Exact source commit matching those artifacts
+        required: true
+        default: '0b9f67741fb47834f08546d183758395374472ef'
+  push:
+    branches: ['v3.0-beta/**']
+    paths: ['.github/workflows/tepora-v3-native-smoke.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || '0b9f67741fb47834f08546d183758395374472ef' }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: tepora-v3-${{ matrix.os }}
+          run-id: ${{ inputs.run_id || '36224337124' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: Tepora-v3
+      - name: Install and launch Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: Tepora-v3
+        run: |
+          $env:GITHUB_SHA = (git rev-parse HEAD).Trim()
+          ./ci/native-smoke.ps1
+      - name: Copy and launch macOS package
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: Tepora-v3
+        run: |
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          bash ci/native-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tepora-v3-native-smoke-${{ matrix.os }}
+          path: Tepora-v3/.qa-native/
+          include-hidden-files: true
+          if-no-files-found: warn

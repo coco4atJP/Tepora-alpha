@@ -1,0 +1,72 @@
+# Copy to .github/workflows/tepora-v3-beta.yml to enable. No secrets or release publishing.
+name: Tepora V3 beta
+on:
+  workflow_dispatch:
+  push:
+    branches: ['v3.0-beta/**']
+    paths: ['Tepora-v3/**', '.github/workflows/tepora-v3-beta.yml']
+  pull_request:
+    paths: ['Tepora-v3/**', '.github/workflows/tepora-v3-beta.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tepora-v3-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bundle: nsis
+          - os: macos-latest
+            bundle: dmg
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: Tepora-v3
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Verify this source snapshot
+        run: node scripts/improve-loop.mjs --capabilities --out validation/ci-loop
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tepora-v3-regression-${{ matrix.os }}
+          path: Tepora-v3/validation/ci-loop/**
+          if-no-files-found: warn
+      - run: rustup default stable
+      - run: npm install --ignore-scripts
+      - run: npx tauri icon web/favicon.svg --output desktop/icons
+      - run: node scripts/build-sidecar.mjs
+      - run: ../node_modules/.bin/tauri build --bundles ${{ matrix.bundle }}
+        working-directory: Tepora-v3/desktop
+      - name: Native installation and startup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./ci/native-smoke.ps1
+      - name: Native bundle startup (macOS)
+        if: runner.os == 'macOS'
+        run: bash ci/native-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tepora-v3-native-smoke-${{ matrix.os }}
+          path: Tepora-v3/.qa-native/
+          include-hidden-files: true
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tepora-v3-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            Tepora-v3/desktop/target/release/bundle/**
+            Tepora-v3/tepora-v3-preview.html
