@@ -45,7 +45,7 @@ export const groups={
     "files": [
       "scripts/improve-loop.mjs",
       "docs/IMPROVEMENT-LOOP.md",
-      "ci/v3-beta.yml"
+      "../.github/workflows/ci.yml"
     ],
     "tests": [
       "tests/setup-journey.test.mjs",
@@ -330,7 +330,7 @@ export const groups={
       "package.json",
       "scripts/build-preview.mjs",
       "scripts/build-sidecar.mjs",
-      "ci/v3-beta.yml"
+      "../.github/workflows/ci.yml"
     ],
     "tests": [
       "tests/frontend.test.mjs"

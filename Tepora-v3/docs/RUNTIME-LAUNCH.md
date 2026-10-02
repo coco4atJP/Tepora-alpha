@@ -1,4 +1,6 @@
-# Tool-capable runtime launch
+# Tool-capable runtime launch — beta.11
+
+beta.11の初期設定はprotectedです。アプリからホストの推論プロセスを起動する場合は、仕事と既知のホスト処理を停止し、明示的にlegacy-hostへ切り替える必要があります。既に稼働している推論APIへの接続はprotectedでも利用できます。
 
 Teporaの作業モードは `tool_choice: auto` を使います。APIサーバーが起動しただけで、道具を呼べるようになったとは限りません。
 

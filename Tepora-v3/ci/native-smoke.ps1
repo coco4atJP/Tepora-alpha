@@ -11,6 +11,7 @@ $exe = Get-ChildItem $install -Recurse -Filter 'tepora-v3.exe' | Select-Object -
 if (-not $exe) { throw 'Installed executable was not found' }
 $app = Start-Process -FilePath $exe.FullName -PassThru
 try {
+  $expectedVersion=(Get-Content package.json -Raw | ConvertFrom-Json).version
   $health=$null
   for ($i=0; $i -lt 40; $i++) {
     Start-Sleep -Seconds 1; $app.Refresh()
@@ -19,7 +20,7 @@ try {
     foreach ($child in $children) {
       $listeners=Get-NetTCPConnection -OwningProcess $child.ProcessId -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq '127.0.0.1' }
       foreach ($listener in $listeners) {
-        try { $candidate=Invoke-RestMethod -Uri "http://127.0.0.1:$($listener.LocalPort)/health" -TimeoutSec 3; if ($candidate.ok) { $health=$candidate; break } } catch { }
+        try { $candidate=Invoke-RestMethod -Uri "http://127.0.0.1:$($listener.LocalPort)/health" -TimeoutSec 3; if ($candidate.ok -and $candidate.version -eq $expectedVersion) { $health=$candidate; break } } catch { }
       }
       if ($health) { break }
     }

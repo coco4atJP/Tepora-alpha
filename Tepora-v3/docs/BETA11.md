@@ -12,8 +12,8 @@ It is **not** a finished unrestricted root VM/VPS implementation.
 - The character can select bounded prior conversation references for a worker on the same
   already-authorized recipient. Exact source IDs, hashes, task revisions, user decisions
   and latest utterance stay distinguishable. Model plans never become permissions.
-- Cross-recipient history is not automatically forwarded. Old beta.10 consent does not
-  authorize the new selected-history contract. Stale sources fail closed before model
+- Cross-recipient history is not automatically forwarded. Previously saved consent does not
+  authorize the selected-history contract. Stale sources fail closed before model
   transmission, after an approval wait, before execution and before promotion.
 - `executor_run` uses a preinstalled, explicitly approved, digest-pinned Node image.
   Docker receives only a JSON capsule over stdin. No core directory, original files,
@@ -59,9 +59,10 @@ is also interactive; do not open an untrusted exported HTML file as a security b
 
 Local tests use fake model providers, local HTTP, SQLite and a real child-process JSON protocol
 fixture. The fixture is explicitly labelled `isolation: none`: it tests serialization, staging,
-crash recovery and integration, not OS isolation. No Docker executable was available in this
-cloud environment, so real container isolation is **not verified**. No real model, paid API,
-user computer, GPU, VPS provisioning or runtime installation was used.
+crash recovery and integration, not OS isolation. The standard gate does not execute Docker, so real container isolation is **not verified**
+by these fixture results. No real model, paid API,
+Computer Use action, GPU inference, VPS provisioning or model-runtime installation was used
+in the branch cutover checks.
 
 Per-candidate user promotion is an interim friction point. Trusted built-in artifacts still
 publish automatically as versioned drafts; executor output does not. Task-scoped automatic
@@ -83,5 +84,5 @@ node scripts/check-executor.mjs --image repository@sha256:<digest> --approve-ima
 
 This explicitly executes that image, with no automatic pull. It checks non-root execution,
 read-only root, writable temporary storage, missing host sentinel/secret, loopback-only network
-interfaces and confirmed cleanup. It is not part of default tests and was not run in the
-implementation environment. A smoke pass is not proof against kernel/daemon compromise.
+interfaces and confirmed cleanup. It is not part of default tests and was not run during the
+branch cutover. A smoke pass is not proof against kernel/daemon compromise.

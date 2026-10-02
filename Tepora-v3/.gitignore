@@ -17,3 +17,6 @@ __pycache__/
 *.pyc
 
 /tepora-v3-preview.html
+
+.qa-native/
+/desktop/gen/

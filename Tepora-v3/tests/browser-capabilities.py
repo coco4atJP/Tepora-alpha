@@ -1,4 +1,4 @@
-"""UI-only regression of beta.8: no model/network operations are represented as successful."""
+"""UI-only regression of beta.11 capabilities: no model/network operations are represented as successful."""
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import json,sys

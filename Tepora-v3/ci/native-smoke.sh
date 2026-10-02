@@ -23,7 +23,7 @@ for i in $(seq 1 40); do
   for CHILD in $(pgrep -P "$PID" || true); do
     for PORT in $(lsof -nP -a -p "$CHILD" -iTCP -sTCP:LISTEN -Fn 2>/dev/null | sed -n 's/^n127\.0\.0\.1://p'); do
       if curl --silent --fail "http://127.0.0.1:$PORT/health" > "$OUT/health.json"; then
-        if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("ok")' "$OUT/health.json"; then READY=1; break; fi
+        if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("ok") and d.get("version")==json.load(open(sys.argv[2]))["version"]' "$OUT/health.json" package.json; then READY=1; break; fi
       fi
     done
     test "$READY" = 1 && break

@@ -1,86 +1,84 @@
 ![Tepora Header](image/Tepora_log.png)
 
-# Tepora (v0.4.5 Beta)
+# Tepora V3 · 3.0.0-beta.11
 
-Tepora は、Rust バックエンドと React + Tauri フロントエンドで構成された、local-first なデスクトップ AI パートナーです。会話履歴、エピソード記憶、モデル設定、MCP 連携をローカルに保持しつつ、必要に応じて Web 検索や外部モデルプロバイダーも扱えます。
+Teporaは、ひとつのキャラクターとの会話を続けながら、別のワーカーへ非同期に仕事を任せるローカル中心のAIワークスペースです。このブランチの起動・開発・検証・ネイティブビルドはすべて **V3 beta.11** を対象にしています。
 
-## 特徴
+## 起動
 
-- **Local-first desktop app**: 推奨実行環境は Tauri デスクトップアプリです。Rust 製の Axum バックエンドを sidecar として起動し、HTTP / WebSocket でフロントエンドと接続します。
-- **複数の LLM ローダー**: セットアップウィザードから `llama.cpp`、`Ollama`、`LM Studio` を選択できます。ランタイムには OpenAI-compatible クライアントも実装されています。
-- **記憶と継続性**: EM-LLM ベースのエピソード記憶、RAG、セッション履歴、記憶圧縮ジョブを備えています。
-- **エージェント実行**: Chat / Search / Agent の 3 モード、Agent Skills、MCP サーバー連携、ツール承認フローを提供します。
-- **運用と保守**: `task doctor`、`task test:arch`、`task test:ws-replay`、`task test:behavior`、`task test:changed` など、現行の開発フローに沿ったタスクを整備しています。
+Node.js **22.16.0以上**が必要です。コアサービスには依存パッケージのインストールは不要です。
 
-## ネットワーク利用について
+```sh
+git clone https://github.com/coco4atJP/Tepora-alpha.git
+cd Tepora-alpha
+npm start
+```
 
-Tepora は **local-first** ですが、**always-offline** ではありません。
+Windowsはルートの `start.cmd`、macOSは `start.command` からも起動できます。ブラウザーを自動で開かない場合は `npm run serve` を使い、表示された起動URLを開きます。URLには一時的な認証トークンが含まれます。
 
-- `llama.cpp` やローカルの Ollama / LM Studio を使う会話はオフライン構成で運用できます。
-- モデルダウンロード、Web 検索、ネットワーク越しの MCP サーバー、OpenAI-compatible エンドポイントを使う場合は、明示的な設定と権限付与が必要です。
-- `privacy.lockdown.enabled` や `privacy.allow_web_search` によって、外部アクセスを抑制できます。
+「接続と使い始め」で稼働中のローカルモデルを設定するか、送信先を確認して外部プロバイダーを接続します。モデルや推論環境は同梱されておらず、自動導入も完成していません。
 
-## リポジトリ構成
+AIを接続せずに画面を確認する場合:
+
+```sh
+npm run preview:build
+```
+
+生成された `Tepora-v3/tepora-v3-preview.html` を開きます。プレビューはAI推論・ログイン・PC操作を行いません。
+
+## beta.11の構成
+
+- **継続する会話**: キャラクターと作業担当の人格を別々に設定し、会話と仕事の状態をSQLiteに保存します。
+- **非同期ワーカー**: 会話を止めずに仕事を任せ、出典付きの進捗・質問・結果を受け取ります。送信先が異なる結果は、確認した範囲だけ共有します。
+- **成果物**: 作成、改版、書き出し、受け入れを扱います。隔離実行の出力は候補として保存し、正確な内容と版を確認して取り込みます。
+- **能力の接続**: 会話・作業・画像理解・音声・生成・埋め込み・構造化判断の接続先を役割ごとに設定できます。
+- **実行境界**: 初期設定は `protected`。任意コードには事前導入・承認済みのダイジェスト固定Dockerイメージが必要です。ホストCLI・Codex・MCP・PC操作には明示的な `legacy-host` 切り替えが必要です。
+- **通信制御**: オンライン、指定LAN接続先、完全オフラインのモードを提供します。実行境界と通信許可は別々に管理します。
+
+## 開発・検証・ビルド
+
+```sh
+npm run doctor             # 環境診断
+npm test                   # V3 Nodeテストとルート起動テスト
+npm run quality            # 構文・Node・Python・仕様参照・プレビュー・能力連携
+npm run preview:build      # モデル不要の画面プレビュー
+npm ci --prefix Tepora-v3 --ignore-scripts  # ネイティブ用CLI
+npm run desktop            # Tauri開発起動
+npm run build              # Windows/macOSネイティブパッケージ
+```
+
+標準検証にはPython 3が必要です。ネイティブビルドにはRust stableとOSごとのTauriビルド環境が必要です。Taskを利用する場合も、`task dev`、`task quality`、`task build` は同じV3のコマンドを実行します。
+
+CIは `main` と `v3.0-beta/**` のV3関連変更およびPRを対象にします。通常検証とWindows/macOSのネイティブビルド・起動確認を用意しています。ワークフローの設定は実行成功の証拠ではありません。
+
+## 現在の範囲
+
+beta.11は開発ベータです。回帰試験は主にローカルHTTPと決定的なモデル代替を使います。100シナリオの対応表は **仕組み検証済み1・部分対応93・未実装6** で、100件の実利用合格を意味しません。
+
+実モデルの品質、実音声、GPU負荷、Docker隔離、ネイティブ配布物の実機確認は別に必要です。PDF・Office入力、macOS全体のPC操作、V2の人格・プロフィールの完全移行は未実装です。詳しくは[検証状況](Tepora-v3/docs/STATUS.md)を参照してください。
+
+## リポジトリと資料
 
 ```text
-Tepora_Project/
-├── Tepora-app/
-│   ├── backend-rs/      # Rust backend (Axum, GraphRuntime, MCP, Models, Memory)
-│   ├── frontend/        # React frontend + Tauri shell
-│   ├── scripts/         # build/dev/test helper scripts
-│   └── Taskfile.yml     # canonical task definitions
-├── docs/                # architecture, guides, operations
-├── scripts/             # root-level helper scripts
-└── Taskfile.yml         # wrapper that delegates to Tepora-app/Taskfile.yml
+Tepora-v3/        現行アプリ: Nodeコア、Web UI、Pythonワーカー、Tauriホスト
+scripts/         V3の環境診断とリリース補助
+Taskfile.yml     V3の共通コマンド
+package.json     V3のルート起動・検証・ビルド
+Tepora-app/      V2ソースの保存用ディレクトリ
+Tepora-v3/docs/history/  過去V3ベータの記録
+docs/legacy/v2/  V2の資料と変更履歴
 ```
 
-## クイックスタート
-
-### 前提条件
-
-- Node.js 18+
-- Rust stable
-- [Task](https://taskfile.dev/)
-
-### セットアップ
-
-```bash
-git clone https://github.com/coco4atJP/Tepora.git
-cd Tepora
-task install
-task doctor
-```
-
-### 開発起動
-
-```bash
-# Browser-oriented dev (backend + frontend with dynamic port sync)
-task dev
-
-# Tauri desktop dev
-task dev-tauri
-```
-
-### 代表的な検証コマンド
-
-```bash
-task test
-task test:changed
-task test:arch
-task test:ws-replay
-task test:behavior
-task test:flaky
-task quality
-```
-
-## ドキュメント
-
-- [アーキテクチャ仕様書](docs/architecture/ARCHITECTURE.md)
-- [開発ガイド](docs/guides/development.md)
-- [Web 開発ガイド](docs/guides/web_development.md)
-- [設定運用ガイド](docs/operations/CONFIGURATION_GUIDE.md)
+- [使い始め](Tepora-v3/docs/START-HERE.md)
 - [ユーザーガイド](docs/user_guide.md)
+- [開発ガイド](docs/guides/development.md)
+- [設定ガイド](docs/operations/CONFIGURATION_GUIDE.md)
+- [beta.11アーキテクチャ](Tepora-v3/docs/ARCHITECTURE.md)
+- [実行境界と制限](Tepora-v3/docs/BETA11.md)
+- [変更履歴](docs/CHANGELOG.md)
+
+旧V2のソースとデータは保存しています。標準コマンドではV2を起動・ビルドせず、V2のデータを自動変換・削除しません。[旧版資料](docs/legacy/v2/README.md)は移行と比較用です。
 
 ## ライセンス
 
-[LICENSE](LICENSE) を参照してください。
+[LICENSE](LICENSE)を参照してください。

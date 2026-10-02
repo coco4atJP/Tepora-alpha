@@ -1,3 +1,5 @@
+> **V2 archive.** このディレクトリは旧版の保存用です。現行は **Tepora V3 3.0.0-beta.11**。通常の起動・開発・ビルドは[ルートの手順](../README.md)を使ってください。以下はV2の履歴です。
+
 # Tepora Application
 
 このディレクトリには、Tepora アプリケーションを動作させるためのすべてのコードが含まれています。
@@ -83,5 +85,5 @@ $env:PORT="8000"; cargo run
 - `scripts/build_sidecar.mjs` - Rust バックエンドのサイドカービルド
 - `scripts/prepare_fallback.py` - フォールバックバイナリの準備（任意）
 
-詳細なドキュメントは [`../docs/`](../docs/) を参照してください。
+詳細なドキュメントは [V2資料](../docs/legacy/v2/README.md) を参照してください。
 

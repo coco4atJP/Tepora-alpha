@@ -1,10 +1,5 @@
-# Legacy Scripts
+# Historical launch scripts
 
-These scripts are from the pre-Tauri era of Tepora (or "Web Mode").
-They are preserved for development reference or running the app in a purely web-based environment without the Desktop wrapper.
+These Windows scripts belong to the earlier V2/web implementation and are retained for reference. The default release is **Tepora V3 3.0.0-beta.11**.
 
-- `start_app.bat`: Legacy entry point.
-- `start_backend.bat`: Python backend launcher.
-- `start_frontend.bat`: Vite frontend launcher.
-
-**Note**: The primary way to run Tepora is now via `npm run tauri dev` or the built desktop executable.
+Use `npm start`, `start.cmd` or `start.command` at the repository root. Native development uses `npm run desktop`. See the [current README](../../README.md).

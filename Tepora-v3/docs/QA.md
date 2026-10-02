@@ -1,63 +1,30 @@
-# beta.11 update
+# Tepora 3.0.0-beta.11 — QA
 
-Local validation, 2026-10-01: Node **454 passed / 0 failed**, JavaScript syntax **101 modules**, Python **13 passed**. Capability checks used deterministic local HTTP fixtures (zero external network calls). Scenario inventory remains mechanism-tested 1 / partial 93 / not implemented 6; this is not 100 real-user scenario passes. Preview generated; native installer CI is pending publication. Docker was not installed here, so actual container isolation and the optional conformance smoke were not run.
+## Standard gate
 
-See [BETA11.md](BETA11.md) for the current protected/legacy execution boundary, immutable capsules, staged promotion, and verification limits. The material below records the preceding baseline; it is not proof of container isolation.
+From the repository root:
 
-# Current beta.10 verification
+```sh
+npm run quality
+```
 
-Baseline: published beta.9 commit `b6afa7d815d54f4772beca868b437eef5c9a44ac` on
-`v3.0-beta/companion-os`. Its remote-only browser_check.py, Windows diagnostic workflow, corrected
-restart fixture teardown, and executable start.command are retained. The beta.9 source manifest
-matched before beta.10 changes. Main is not merged or edited by this milestone.
+The gate checks JavaScript syntax, all V3 Node regressions, isolated Python worker contracts, the original 100-scenario digest and source/test references, preview generation, capability integration with local deterministic providers, and repository entry points/release helpers. `PYTHON` selects an existing Python executable; otherwise Windows uses `python` and other systems use `python3`.
 
-## Fresh validation on 2026-10-01
+The V3 improvement loop records source fingerprints, exit codes, elapsed time and stage logs in `Tepora-v3/validation/loop/`. A source change during the gate prevents a stable pass. Generated output is excluded from source fingerprints. Windows test runs retain bounded hang diagnostics without masking failures.
 
-- Isolated Python workers: 13 tests passed
-- Capability integration: passed, with deterministic local HTTP fixtures and zero external calls
-- Scenario catalogue: consistency passed; 1 mechanism-tested, 93 partial, 6 unimplemented
-- Full beta.10 Node suite: **409/409 passed**, including 28 dialogue service tests,
-  8 independent dialogue regressions and 3 real HTTP dialogue/relay tests
-- Syntax check: 93 JavaScript modules passed
-- Preview build: passed; generated HTML is not proof of rendered UI correctness
-- Independent final review: no remaining blocking finding; 408-test release suite passed separately before the line-ending regression below
+Local integration evidence on 2026-10-02: **454 V3 Node tests**, **13 Python tests**, **102 syntax modules**, capability fixtures and preview build passed. All **5 repository cutover checks** passed separately in the root suite. [STATUS](STATUS.md) states the limits of these results.
 
-The new checks cover persistent character identity across detail focus and service restart,
-foreground responsiveness during worker execution, immutable persona snapshots, bounded handoffs,
-no global worker memory/history, duplicate/revision-safe worker questions, cancellation and late
-results, uncertain effects preventing resume, context/recipient changes, explicit bounded result
-sharing, ordinary follow-up grounded in worker results, and read-only archive round trips.
-Frontend tests cover persistent transcript, old question rejection, exact relay consent, focus
-independence, uncertain-request retry, draft preservation and consented finalized PTT sends.
+## Additional checks
 
-The final review caught an over-broad relay title and a missing-title fixture error; the fix
-returns task titles only to the already-identical recipient, keeps cross-recipient grants limited
-to the approved excerpt, and adds a dedicated independent regression. No failing test was skipped.
+- `npm run quality:full`: adds UI and controlled-browser checks using already installed Python Playwright and Chromium; `CHROMIUM_PATH` can select a local browser. It does not install packages or models.
+- `npm run test:scenarios`: verifies the preserved specification and writes traceability output; it does not certify real user journeys.
+- `npm run test:capabilities`: runs actual harness/HTTP/SQLite/media bytes with deterministic local endpoints and zero external provider calls.
+- From `Tepora-v3/`, `node scripts/check-executor.mjs --image repository@sha256:<digest> --approve-image`: optionally executes an explicitly approved preinstalled image to check non-root behavior, storage boundaries, absent sentinel/secret, interfaces and cleanup. No image pull is automatic. This is outside the standard gate.
 
-These execute Node/HTTP/SQLite/persistence and injected model/ASR protocol fixtures. They do not
-establish trained-model quality, real ASR accuracy, voice latency, paid-provider behavior, real
-Codex execution, Windows UIA, macOS microphone permissions or native desktop packaging.
+## Native checks
 
-Rendered QA is not claimed. Previously the cloud browser rejected loopback navigation and local
-Chromium could not create its sockets; no security policy was bypassed. No real model downloads,
-paid API calls or user-PC work are used. Optional speech/server.py provisioning is unchanged.
+`.github/workflows/tepora-v3-beta.yml` builds the current revision for Windows/macOS and records installation/startup evidence and screenshots. The bundled service must report the package version **3.0.0-beta.11**. The separate manual native-smoke workflow requires an explicit artifact run and matching exact commit; it has no defaults pointing at older betas.
 
-SOURCE-SHA256.json records the baseline, checkpoint, every included source digest and executable
-mode. Generated preview HTML, validation output, caches, runtime databases, secrets, node_modules,
-compiled Tauri resources and downloaded binaries are excluded from source fingerprints.
+Local macOS arm64 `.app`/DMG creation and bundled Node service startup passed during this cutover; the native WebView was not exercised. Native startup, screenshots and regression tests are different evidence. Do not infer real-model quality, microphone/ASR success, signed/notarized distribution or unattended reliability from service readiness. A configured workflow is not a successful remote CI run.
 
-
-## Windows preview-test line-ending correction
-
-The first published beta.10 Windows CI run reported 407/408 passing tests. The failing preview
-fixture stripped ES-module imports with an LF-only expression before evaluating a VM script.
-With a CRLF checkout, both import lines remained, causing the exact CI error: `Cannot use import
-statement outside a module`. This was reproduced locally by changing only the fixture line
-endings; it is evidence of a test-fixture portability failure, not of an application startup bug.
-
-The fixture now normalizes CRLF before module-to-script conversion. The full original persona,
-persistence, revision rejection and no-AI-execution assertions run independently for **both LF
-and CRLF** on every platform. No test is skipped, no assertion removed, and no application code
-is changed by this correction. Local rerun: 409 Node tests, 93 syntax modules, 13 Python worker
-tests, capability fixtures and preview build pass. Native Windows CI for this exact correction
-is pending; local simulated line endings do not claim a native Windows pass.
+Earlier failure/reproduction records remain in [history](history/README.md). They are historical evidence rather than current test counts.

@@ -1,256 +1,70 @@
-# Tepora Project - Task Runner Wrapper
-# Canonical definitions live in Tepora-app/Taskfile.yml
-
+# Default commands for Tepora 3.0.0-beta.11.
 version: '3'
 
 tasks:
   default:
-    desc: "Show available tasks from Tepora-app"
-    cmds:
-      - task -d Tepora-app --list
-
-  package:
-    desc: "Delegate: package"
-    cmds:
-      - task -d Tepora-app package
-
+    desc: List Tepora V3 tasks
+    cmds: ['task --list']
   dev:
-    desc: "Delegate: dev"
-    cmds:
-      - task -d Tepora-app dev
-
-  dev-sync:
-    desc: "Delegate: dev-sync"
-    cmds:
-      - task -d Tepora-app dev-sync
-
-  dev-backend:
-    desc: "Delegate: dev-backend"
-    cmds:
-      - task -d Tepora-app dev-backend
-
-  dev-frontend:
-    desc: "Delegate: dev-frontend"
-    cmds:
-      - task -d Tepora-app dev-frontend
-
+    desc: Start the V3 service and open its authenticated browser UI
+    cmds: ['npm start']
+  serve:
+    desc: Start V3 without opening a browser
+    cmds: ['npm run serve']
   dev-tauri:
-    desc: "Delegate: dev-tauri"
-    cmds:
-      - task -d Tepora-app dev-tauri
-
-  test:
-    desc: "Delegate: test"
-    cmds:
-      - task -d Tepora-app test
-
-  test-backend:
-    desc: "Delegate: test-backend"
-    cmds:
-      - task -d Tepora-app test-backend
-
-  test:arch:
-    desc: "Delegate: test:arch"
-    cmds:
-      - task -d Tepora-app test:arch
-
-  test:ws-replay:
-    desc: "Delegate: test:ws-replay"
-    cmds:
-      - task -d Tepora-app test:ws-replay
-
-  test-frontend:
-    desc: "Delegate: test-frontend"
-    cmds:
-      - task -d Tepora-app test-frontend
-
-  test-dev-sync:
-    desc: "Delegate: test-dev-sync"
-    cmds:
-      - task -d Tepora-app test-dev-sync
-
-  test:changed:
-    desc: "Delegate: test:changed"
-    cmds:
-      - task -d Tepora-app test:changed
-
-  test:flaky:
-    desc: "Delegate: test:flaky"
-    cmds:
-      - task -d Tepora-app test:flaky
-
-  test:behavior:
-    desc: "Delegate: test:behavior"
-    cmds:
-      - task -d Tepora-app test:behavior
-
-  commitlint:
-    desc: "Delegate: commitlint"
-    cmds:
-      - task -d Tepora-app commitlint
-
-  release-notes:
-    desc: "Delegate: release-notes"
-    cmds:
-      - task -d Tepora-app release-notes
-
-  lint:
-    desc: "Delegate: lint"
-    cmds:
-      - task -d Tepora-app lint
-
-  lint-backend:
-    desc: "Delegate: lint-backend"
-    cmds:
-      - task -d Tepora-app lint-backend
-
-  lint-frontend:
-    desc: "Delegate: lint-frontend"
-    cmds:
-      - task -d Tepora-app lint-frontend
-
-  typecheck:
-    desc: "Delegate: typecheck"
-    cmds:
-      - task -d Tepora-app typecheck
-
-  typecheck-backend:
-    desc: "Delegate: typecheck-backend"
-    cmds:
-      - task -d Tepora-app typecheck-backend
-
-  typecheck-frontend:
-    desc: "Delegate: typecheck-frontend"
-    cmds:
-      - task -d Tepora-app typecheck-frontend
-
-  quality:
-    desc: "Delegate: quality"
-    cmds:
-      - task -d Tepora-app quality
-
-  quality:strict:
-    desc: "Delegate: quality:strict"
-    cmds:
-      - task -d Tepora-app quality:strict
-
-  quality:fix:
-    desc: "Delegate: quality:fix"
-    cmds:
-      - task -d Tepora-app quality:fix
-
-  quality:backend:
-    desc: "Delegate: quality:backend"
-    cmds:
-      - task -d Tepora-app quality:backend
-
-  quality:frontend:
-    desc: "Delegate: quality:frontend"
-    cmds:
-      - task -d Tepora-app quality:frontend
-
-  security:
-    desc: "Delegate: security"
-    cmds:
-      - task -d Tepora-app security
-
-  security-backend:
-    desc: "Delegate: security-backend"
-    cmds:
-      - task -d Tepora-app security-backend
-
-  security-frontend:
-    desc: "Delegate: security-frontend"
-    cmds:
-      - task -d Tepora-app security-frontend
-
-  build:
-    desc: "Delegate: build"
-    cmds:
-      - task -d Tepora-app build
-
-  build-sidecar:
-    desc: "Delegate: build-sidecar"
-    cmds:
-      - task -d Tepora-app build-sidecar
-
-  build-frontend:
-    desc: "Delegate: build-frontend"
-    cmds:
-      - task -d Tepora-app build-frontend
-
+    desc: Start the V3 Tauri desktop host
+    cmds: ['npm run desktop']
   install:
-    desc: "Delegate: install"
-    cmds:
-      - task -d Tepora-app install
-
+    desc: Install the optional V3 native build dependencies
+    cmds: ['npm ci --prefix Tepora-v3 --ignore-scripts']
   doctor:
-    desc: "Delegate: doctor"
-    cmds:
-      - task -d Tepora-app doctor
-
-  install-backend:
-    desc: "Delegate: install-backend"
-    cmds:
-      - task -d Tepora-app install-backend
-
-  install-frontend:
-    desc: "Delegate: install-frontend"
-    cmds:
-      - task -d Tepora-app install-frontend
-
-  coverage:
-    desc: "Delegate: coverage"
-    cmds:
-      - task -d Tepora-app coverage
-
-  coverage-backend:
-    desc: "Delegate: coverage-backend"
-    cmds:
-      - task -d Tepora-app coverage-backend
-
-  coverage-frontend:
-    desc: "Delegate: coverage-frontend"
-    cmds:
-      - task -d Tepora-app coverage-frontend
-
-  clean:
-    desc: "Delegate: clean"
-    cmds:
-      - task -d Tepora-app clean
-
-  clean-backend:
-    desc: "Delegate: clean-backend"
-    cmds:
-      - task -d Tepora-app clean-backend
-
-  clean-frontend:
-    desc: "Delegate: clean-frontend"
-    cmds:
-      - task -d Tepora-app clean-frontend
-
-  clean-wasm-fixtures:
-    desc: "Delegate: clean-wasm-fixtures"
-    cmds:
-      - task -d Tepora-app clean-wasm-fixtures
-
+    desc: Check the V3 development environment
+    cmds: ['npm run doctor']
+  test:
+    desc: Run V3 Node tests and repository entry-point tests
+    cmds: ['npm test']
+  test:workers:
+    desc: Run isolated Python worker contracts
+    cmds: ['npm run test:workers']
+  test:scenarios:
+    desc: Check references for the 100 scenarios
+    cmds: ['npm run test:scenarios']
+  test:capabilities:
+    desc: Run capability integration with local deterministic fixtures
+    cmds: ['npm run test:capabilities']
+  test:computer:
+    desc: Check the optional installed browser worker
+    cmds: ['npm run test:computer']
+  lint:
+    desc: Check JavaScript syntax
+    cmds: ['npm run check']
+  quality:
+    desc: Run the V3 regression gate and capability fixtures
+    cmds: ['npm run quality']
+  quality:full:
+    desc: Add optional browser UI and computer checks
+    cmds: ['npm run quality:full']
   pre-commit:
-    desc: "Delegate: pre-commit"
-    cmds:
-      - task -d Tepora-app pre-commit
-
-  pre-commit:fast:
-    desc: "Delegate: pre-commit:fast"
-    cmds:
-      - task -d Tepora-app pre-commit:fast
-
+    desc: Check source syntax before committing
+    cmds: ['npm run check']
   pre-commit:full:
-    desc: "Delegate: pre-commit:full"
-    cmds:
-      - task -d Tepora-app pre-commit:full
-
-  pre-commit:install:
-    desc: "Delegate: pre-commit:install"
-    cmds:
-      - task -d Tepora-app pre-commit:install
-
+    desc: Run all standard regression gates before pushing
+    cmds: ['npm run quality']
+  build:
+    desc: Build the V3 native desktop package
+    cmds: ['npm run build']
+  package:
+    desc: Build the V3 native desktop package
+    cmds: ['npm run build']
+  build-sidecar:
+    desc: Prepare the V3 Node sidecar and source resources
+    cmds: ['npm run build:sidecar']
+  preview:
+    desc: Generate the model-free beta.11 UI preview
+    cmds: ['npm run preview:build']
+  release-notes:
+    desc: Generate release notes from Git commits
+    cmds: ['npm run release-notes -- {{.CLI_ARGS}}']
+  commitlint:
+    desc: Check conventional commit messages in an explicit range
+    cmds: ['npm run commitlint -- {{.CLI_ARGS}}']

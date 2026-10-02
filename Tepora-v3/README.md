@@ -1,12 +1,3 @@
-# beta.11 protected execution and sourced handoffs
-
-See [beta.11 scope and limits](docs/BETA11.md). Protected built-in tools work without Docker.
-Optional restricted code execution needs a preinstalled, approved digest-pinned image; no host fallback.
-
-# Previous milestone: beta.10 character-first conversation
-
-See [the beta.10 milestone and its limits](docs/BETA10.md), [current verification](docs/STATUS.md), and [architecture](docs/ARCHITECTURE.md).
-
 # Tepora V3 · 3.0.0-beta.11
 
 A quiet, customizable smart monitor that can keep working while you talk.
@@ -14,6 +5,9 @@ Local-first, provider-neutral, with explicit control over cloud/LAN access.
 This is an executable **development beta**, not a finished replacement for the operating system.
 
 ## Start
+
+The repository root also provides `npm start`, `npm run quality`, `npm run desktop` and
+`npm run build`. V2 is retained only as a source/data reference; it is not started by these commands.
 
 Unzip and run in `Tepora-v3` with Node **22.16 or newer**:
 
@@ -35,7 +29,7 @@ Open `tepora-v3-preview.html`. The preview explicitly refuses AI inference, acco
 MCP startup and PC operations; it does not invent working AI output. Its sample revises an
 artifact three times. Real requests need configured runtimes or providers.
 
-## One conversation in beta.10
+## Persistent character conversation
 
 Talk to the same character in the persistent left-hand conversation. Work details and artifacts
 open beside it; they do not redirect the composer. There are no continue/new/side conversation
@@ -77,6 +71,7 @@ were imported. Discovered tools are searched on demand instead of filling every 
 **モデル一覧を探す** imports/refreshes optional models.dev metadata and can use its cached JSON
 offline. It never installs packages from metadata or treats a capability listing as a passed test.
 
+In explicitly acknowledged **legacy-host** mode,
 **Codex設定 → ChatGPTの契約でサインイン** uses the installed official App Server's managed
 browser/device-code flow. Tokens stay with Codex; no token extraction. Existing API-key auth is
 reported separately and is not silently converted. Limits and billing follow the account.
@@ -131,6 +126,23 @@ latency claim**. Existing speech capture, local semantic-draft editing and prote
 remain. No full-duplex voice, wake-word/diarization or Pixel-equivalent quality claim is made.
 New local TTS/image/video/embedding runtime managers are deliberately not added.
 
+## Execution boundary
+
+New installations default to **protected** mode. Ordinary model conversation and trusted built-in
+API/file/artifact tools work without Docker. Restricted code execution needs Docker and a
+preinstalled, explicitly approved `repository@sha256:...` Node image. It receives a bounded JSON
+capsule with source hashes and revisions; no host mounts, credentials or network are provided.
+No image pull, package install or host fallback is automatic.
+
+Executor artifacts are staged candidates. Preview the exact content and source version before
+promotion; promotion preserves old versions and is separate from task acceptance and content
+verification. Unknown outcomes and unconfirmed cleanup are not replayed automatically.
+
+Host CLI, Codex, MCP, Computer Use and model launchers are retained behind explicit **legacy-host**
+acknowledgement. Stop active work and known host workers before switching. This mode can access or
+modify core files and backups. Protected live HTML artifacts are escaped source; interactive HTML
+is a legacy-host feature. See [BETA11](docs/BETA11.md) for the full contract and remaining limits.
+
 ## Computer Use and work
 
 Choose **LLM / typed decision / both** in the Computer Use settings. The LLM lane issues explicit
@@ -141,11 +153,12 @@ checks. Neither a high probability nor a model's DONE is completion evidence.
 Owned browser automation and selected Windows UIA are included. Python, Playwright and a local
 browser are optional dependencies. Windows UIA is not verified on a real Windows machine; macOS
 full-desktop accessibility control is not implemented. Existing private browser profiles are not
-copied. Host CLI and MCP execution are **not** OS-sandboxed and remain explicitly permissioned.
+copied. Host CLI, Codex, MCP, Computer Use and model launchers require explicit **legacy-host** mode.
+They are **not** OS-sandboxed. Importing their settings does not enable host execution.
 
 The background harness retains conversation/work lanes, durable checkpoints and effect receipts,
 steering, scoped approvals, interrupted-work handling, accepted-vs-verified results, work plans,
-routines, provider routing, bounded recovery and per-task workspaces. See [BETA8](docs/BETA8.md).
+routines, provider routing, bounded recovery and per-task workspaces. See [the beta.11 architecture](docs/ARCHITECTURE.md).
 
 **Full offline** restricts Tepora-controlled calls to already available on-device capabilities.
 **Trusted LAN** permits the specifically pinned inference endpoints, not the whole LAN. Public
@@ -164,13 +177,13 @@ npm run improve:watch        # recheck only after source changes; Ctrl+C stops
 `spec/Tepora_V3_100_Scenarios_v2.json.gz` preserves the user's original specification and digest.
 `spec/answers.mjs` maps every original scenario to real source/test files and remaining work.
 `node scripts/verify-scenarios.mjs` writes the traceability report; **it does not certify 100 user
-journeys**. `docs/BETA8.md` records the implemented paths, observed defects/fixes and limits.
-The release is re-extracted, hashed, re-tested and its generated preview compared byte-for-byte.
+journeys**. [QA](docs/QA.md) records the current gates and their limits.
+The current source manifest records source hashes; validation of a source checkout does not certify a native installer.
 
 No real provider account, paid API, learned generator, Laya/ASR accuracy benchmark or multi-week
-soak was used. Browser policy in the validation environment blocks loopback navigation, so the
-unchanged self-contained UI and real backend HTTP tests are separate evidence. Native CI sources
-are included, but no GitHub push, CI run or new signed installer is claimed for this artifact.
+soak was used. Browser UI, native installations and real-container isolation need separate validation.
+The branch defaults, CI and native builds now target V3; see [STATUS](docs/STATUS.md) for what
+was actually checked. Local tests do not establish a successful remote CI run or signed installer.
 
 ## Data and exit
 
