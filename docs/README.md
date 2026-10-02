@@ -12,4 +12,4 @@
 - [検証と制限](../Tepora-v3/docs/STATUS.md)
 - [変更履歴](CHANGELOG.md)
 
-V2の設計・計画・運用資料は[旧版資料](legacy/v2/README.md)、過去V3ベータの記録は[履歴](../Tepora-v3/docs/history/README.md)に保存しています。
+旧版の資料と過去ベータの記録はGit履歴から参照できます。チェックアウトには現行beta.11の資料だけを置いています。

@@ -1,15 +1,7 @@
-# design.md - Technical Design & API Specs
+# Tepora V3 beta.11 technical design
 
-技術的な設計方針やAPI仕様を記述します。
+The current design is maintained in [Tepora-v3/docs/ARCHITECTURE.md](../../Tepora-v3/docs/ARCHITECTURE.md) and [BETA11.md](../../Tepora-v3/docs/BETA11.md).
 
-## API設計指針
-- REST APIは `Axum` を使用して実装する。
-- WebSocketはリアルタイム通信（チャット、ツール実行通知）に使用する。
-- エンドポイントは `/api/v1/` プレフィックスを持つ。
+The Node ESM loopback service owns SQLite persistence, authenticated HTTP APIs and event streams. The JavaScript UI and optional Tauri host use the same service. Persistent character dialogue delegates bounded, sourced work to independent asynchronous jobs. Protected execution is the default; host integrations require explicit legacy-host acknowledgement.
 
-## データモデル
-- **Agent**:
-    - `id`: UUID
-    - `name`: String
-    - `system_prompt`: String
-    - `tools`: List<String>
+Preserve recipient identity, source hashes, task revisions, exact approvals and uncertainty handling. Do not interpret model output, persona settings or navigation as permission.

@@ -64,9 +64,7 @@ Tepora-v3/        現行アプリ: Nodeコア、Web UI、Pythonワーカー、Ta
 scripts/         V3の環境診断とリリース補助
 Taskfile.yml     V3の共通コマンド
 package.json     V3のルート起動・検証・ビルド
-Tepora-app/      V2ソースの保存用ディレクトリ
-Tepora-v3/docs/history/  過去V3ベータの記録
-docs/legacy/v2/  V2の資料と変更履歴
+docs/            beta.11のユーザー・開発・設定ガイド
 ```
 
 - [使い始め](Tepora-v3/docs/START-HERE.md)
@@ -77,7 +75,7 @@ docs/legacy/v2/  V2の資料と変更履歴
 - [実行境界と制限](Tepora-v3/docs/BETA11.md)
 - [変更履歴](docs/CHANGELOG.md)
 
-旧V2のソースとデータは保存しています。標準コマンドではV2を起動・ビルドせず、V2のデータを自動変換・削除しません。[旧版資料](docs/legacy/v2/README.md)は移行と比較用です。
+このブランチにはV3のソースと現行資料だけを置いています。旧版のソース・専用ツール・資料・ワークフローは撤去しました。過去の内容はGit履歴から参照できます。既存ユーザーデータの自動移行・削除は行いません。
 
 ## ライセンス
 

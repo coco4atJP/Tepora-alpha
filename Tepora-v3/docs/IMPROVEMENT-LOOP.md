@@ -26,4 +26,4 @@ Each run records before/after source fingerprints, stage exit status, elapsed ti
 
 beta.11 regressions cover sourced context, destination/revision checks, execution boundaries, capsules, serialization, staged candidates, promotion, operation uncertainty and restart behavior. Deterministic executor fixtures test the protocol and state transitions, not OS isolation. The optional approved real-container smoke is separate from default checks.
 
-The original 100 scenarios remain **1 mechanism-tested / 93 partial / 6 not implemented**. Model quality, real speech/GPU performance, paid providers, Docker isolation and native installations require separate evidence. See [QA](QA.md) and [STATUS](STATUS.md). Earlier development ledgers remain in [history](history/README.md).
+The original 100 scenarios remain **1 mechanism-tested / 93 partial / 6 not implemented**. Model quality, real speech/GPU performance, paid providers, Docker isolation and native installations require separate evidence. See [QA](QA.md) and [STATUS](STATUS.md). Earlier development ledgers are available through Git history.

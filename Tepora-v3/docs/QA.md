@@ -27,4 +27,4 @@ Local integration evidence on 2026-10-02: **454 V3 Node tests**, **13 Python tes
 
 Local macOS arm64 `.app`/DMG creation and bundled Node service startup passed during this cutover; the native WebView was not exercised. Native startup, screenshots and regression tests are different evidence. Do not infer real-model quality, microphone/ASR success, signed/notarized distribution or unattended reliability from service readiness. A configured workflow is not a successful remote CI run.
 
-Earlier failure/reproduction records remain in [history](history/README.md). They are historical evidence rather than current test counts.
+Earlier failure/reproduction records are available through Git history. They are historical evidence rather than current test counts.

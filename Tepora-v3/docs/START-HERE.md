@@ -9,4 +9,4 @@
 
 Model/runtime auto-installation and automatic V2 persona/profile migration are unfinished. Optional speech, image/video/embedding endpoints need their own configuration. Native development uses `npm ci --prefix Tepora-v3 --ignore-scripts`, then `npm run desktop` or `npm run build`, with Rust and the platform build prerequisites.
 
-See [README](../README.md), [execution boundaries](BETA11.md), [QA](QA.md) and [status](STATUS.md). Earlier milestones are preserved in [history](history/README.md).
+See [README](../README.md), [execution boundaries](BETA11.md), [QA](QA.md) and [status](STATUS.md). Earlier milestones are available through Git history.

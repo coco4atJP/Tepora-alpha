@@ -1,6 +1,6 @@
 # Tepora V3 — 3.0.0-beta.11 architecture
 
-V3 is the default application on this branch. Its core is a Node ESM loopback service with SQLite persistence, a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. The former Rust/Axum and React application is preserved in `Tepora-app/` as V2 history.
+V3 is the default application on this branch. Its core is a Node ESM loopback service with SQLite persistence, a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
 
 ```mermaid
 flowchart TD

@@ -1,6 +1,6 @@
 # Tepora 3.0.0-beta.11 — current status
 
-This branch now uses V3 for root startup, development, regression checks and native packaging. V2 source and data remain preserved; default commands do not launch V2 and no automatic data migration is performed.
+This branch now uses V3 for root startup, development, regression checks and native packaging. Earlier application sources, tools and archived documents have been removed from this checkout. Git history retains earlier revisions; existing user data are not automatically migrated or deleted.
 
 ## Local evidence
 
@@ -31,4 +31,4 @@ Real-model quality, GPU contention, real ASR/TTS, paid-provider compatibility, r
 
 The restricted executor has no network, package installation or host mounts. Host integrations require explicit legacy-host mode and are not OS-sandboxed. SQLite data are not encrypted. The source manifest describes source bytes, not successful release acceptance.
 
-See [BETA11](BETA11.md), [QA](QA.md) and [architecture](ARCHITECTURE.md). Historical validation records are in [history](history/README.md).
+See [BETA11](BETA11.md), [QA](QA.md) and [architecture](ARCHITECTURE.md). Historical validation records are available through Git history.

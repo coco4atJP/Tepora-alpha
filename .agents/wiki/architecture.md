@@ -1,19 +1,11 @@
-# architecture.md - System Architecture
+# Tepora V3 beta.11 architecture
 
-システムの全体構成やコンポーネント間の関係を記述します。
+Use the [current architecture](../../Tepora-v3/docs/ARCHITECTURE.md) as the source of truth.
 
-## 全体構成図 (Mermaid)
+- `Tepora-v3/core/`: Node control plane, SQLite, dialogue, provider routing and job execution.
+- `Tepora-v3/web/`: JavaScript/CSS conversation and artifact UI.
+- `Tepora-v3/workers/`: optional Python capability and computer workers.
+- `Tepora-v3/desktop/`: thin Tauri host and bundled Node runtime.
+- Root npm/Task commands and `.github/workflows/`: V3 startup, validation and native packaging.
 
-```mermaid
-graph TD
-    User[User] --> Frontend[React Frontend (Tauri)]
-    Frontend -- HTTP/WS --> Backend[Rust Backend]
-    Backend --> LLM[LLM Service (Ollama/OpenAI)]
-    Backend --> Tools[Native Tools (Search, FS)]
-    Backend --> DB[(SQLite DB)]
-```
-
-## ディレクトリ構造
-- `backend-rs/`: Rustバックエンド
-- `frontend/`: Reactフロントエンド
-- `src-tauri/`: Tauri設定とデスクトップ統合層
+Protected container execution, trusted built-in operations and explicitly acknowledged legacy-host operations have different trust boundaries. See [BETA11](../../Tepora-v3/docs/BETA11.md).

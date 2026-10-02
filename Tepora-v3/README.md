@@ -7,7 +7,8 @@ This is an executable **development beta**, not a finished replacement for the o
 ## Start
 
 The repository root also provides `npm start`, `npm run quality`, `npm run desktop` and
-`npm run build`. V2 is retained only as a source/data reference; it is not started by these commands.
+`npm run build`. This checkout contains V3 only; earlier application sources and documentation
+are available through Git history.
 
 Unzip and run in `Tepora-v3` with Node **22.16 or newer**:
 

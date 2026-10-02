@@ -9,7 +9,7 @@
 - **Desktop**: Thin Tauri host under `Tepora-v3/desktop/`; optional Python workers under `Tepora-v3/workers/`.
 - **Language**: ユーザーとの対話は原則日本語。
 
-Root `npm start`, `task dev`, `npm run quality`, `task quality`, `npm run build` and `task build` target V3. `Tepora-app/` is retained V2 source, not the active app. V2 docs and workflow definitions live in `docs/legacy/v2/` and `.github/legacy/v2/`. Do not apply old React/Axum conventions or launch V2 for normal V3 work.
+Root `npm start`, `task dev`, `npm run quality`, `task quality`, `npm run build` and `task build` target V3. This checkout contains only V3. Earlier application sources, V2-specific skills, launchers and archived documents were removed at the user's request; use Git history for earlier revisions. Do not reintroduce old React/Axum conventions.
 
 ## Architecture and changes
 
@@ -17,7 +17,7 @@ Read `Tepora-v3/docs/ARCHITECTURE.md`, `BETA11.md` and `QA.md` for current contr
 
 New installations default to protected mode. Untrusted code runs only through the approved restricted executor; no automatic image pull, package installation or host fallback. Host CLI/Codex/MCP/Computer Use/model launchers need explicit legacy-host acknowledgement. Do not erase this distinction in documentation or tests.
 
-Keep current documentation at beta.11. Preserve historical dates/versions/test counts in archive records. For documentation and architecture changes, use `.agents/skills/doc-updater/SKILL.md` and `.agents/skills/update-architecture-docs/SKILL.md`, resolving their old platform paths to this repository. V2-specific tool/React/Tauri command recipes apply only when intentionally maintaining V2; inspect current V3 code for V3 features.
+Keep current documentation at beta.11. Earlier records are in Git history, not archived copies in this checkout. For documentation and architecture changes, use `.agents/skills/doc-updater/SKILL.md` and `.agents/skills/update-architecture-docs/SKILL.md`. Inspect current V3 code before making feature changes.
 
 Run checks appropriate to the change. `npm run quality` covers V3 syntax, Node/Python regressions, specification traceability, preview build, local capability fixtures and root entry-point tests. Optional real models, paid APIs, host actions, browser checks and container execution are separate explicit choices.
 

@@ -1,12 +1,7 @@
-# requirement.md - Requirements & Business Rules
+# Tepora V3 beta.11 requirements
 
-プロジェクトの機能要件やビジネスルールを記述します。
+The original V3 scenario specification and its digest are preserved in `Tepora-v3/spec/`. [Current status](../../Tepora-v3/docs/STATUS.md) distinguishes implemented mechanics from remaining acceptance work.
 
-## コア機能要件
-- [ ] ユーザー独自のカスタムエージェントを作成・管理できること。
-- [ ] エージェントはローカルLLMまたは外部APIを使用して対話できること。
-- [ ] エージェントはツール（Web検索、ファイル操作など）を使用できること。
+The main conversation stays with one character while independent workers execute tasks. Worker questions and reports retain provenance and revisions. Users control model destinations, selected sources, operation approvals and artifact acceptance. Unknown external effects are not replayed automatically.
 
-## 非機能要件
-- **プライバシー**: ユーザーデータはローカルに保存し、許可なく外部送信しない。
-- **パフォーマンス**: バックエンドはRustで実装し、軽量かつ高速であること。
+Core startup requires Node.js 22.16.0+; SQLite stores local state. Python capabilities and the Tauri/Rust desktop host are optional. Runtime provisioning, trained-model quality and full scenario acceptance are not established by deterministic regression tests.
