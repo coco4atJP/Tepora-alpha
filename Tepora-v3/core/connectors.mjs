@@ -44,8 +44,9 @@ export class Connectors {
       const opts={signal:AbortSignal.timeout(10000),redirect:'error'};
       const g=await this.network.request(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(s.weatherCity)}&count=1&language=ja`,opts,{purpose:'feed',allowCloud:true});invariant(g.ok,'Weather location service unavailable',502);
       const place=(await g.json()).results?.[0];invariant(place,'都市が見つかりません。英字表記も試してください。',404);
-      const r=await this.network.request(`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`,{signal:AbortSignal.timeout(10000),redirect:'error'},{purpose:'feed',allowCloud:true});invariant(r.ok,'Weather provider unavailable',502);
-      const data=await r.json();return {city:place.name,current:data.current,daily:data.daily,source:'Open-Meteo',sourceUrl:'https://open-meteo.com/',fetchedAt:new Date().toISOString()};
+      const r=await this.network.request(`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2`,{signal:AbortSignal.timeout(10000),redirect:'error'},{purpose:'feed',allowCloud:true});invariant(r.ok,'Weather provider unavailable',502);
+      const data=await r.json(),hourly=data.hourly||{},keep=Math.min(48,(hourly.time||[]).length),slice=k=>Array.isArray(hourly[k])?hourly[k].slice(0,keep):[];
+      return {city:place.name,current:data.current,hourly:{time:slice('time'),temperature_2m:slice('temperature_2m'),weather_code:slice('weather_code'),precipitation_probability:slice('precipitation_probability')},daily:data.daily,source:'Open-Meteo',sourceUrl:'https://open-meteo.com/',fetchedAt:new Date().toISOString()};
     });
   }
   async news() {
@@ -60,7 +61,8 @@ export class Connectors {
         const b=m[1],url=field(b,'link')||b.match(/<link[^>]*href=["']([^"']+)["']/i)?.[1]||'';
         try {return {title:field(b,'title').slice(0,240),url:webURL(url).href,publishedAt:field(b,'pubDate')||field(b,'published')||field(b,'updated')};}catch{return null;}
       }).filter(Boolean);
-      return {items,source:s.newsUrl,fetchedAt:new Date().toISOString()};
+      const head=xml.split(/<(?:item|entry)[\s>]/i)[0],title=field(head,'title').slice(0,120);
+      return {title,items,source:s.newsUrl,fetchedAt:new Date().toISOString()};
     });
   }
   braveExecutable() {

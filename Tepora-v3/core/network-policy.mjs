@@ -65,6 +65,8 @@ export class NetworkPolicy {
   this.store.emit('network.updated',next);return next;
  }
  permitted(domain,purpose,policy=this.get()) {
+  // Model-controlled public browsing never inherits the loopback integration exception.
+  if(purpose==='public-web')return domain==='cloud'&&policy.mode==='online'&&policy.internetTools;
   if(domain==='device')return purpose!=='download'||policy.mode==='online';
   if(policy.mode==='offline')return false;
   if(domain==='lan')return ['model','vision','worker'].includes(purpose);
@@ -75,7 +77,7 @@ export class NetworkPolicy {
  }
  async authorize(value,{profile=null,purpose='model',allowCloud=false,signal,asset=false}={}) {
   if(this.closed)throw new NetworkBlocked('Service is closing');
-  const u=normalURL(value,{query:purpose==='web'||purpose==='feed'||asset===true}),host=hostName(u);
+  const u=normalURL(value,{query:['web','public-web','feed'].includes(purpose)||asset===true}),host=hostName(u);
   const lexical=host==='localhost'?'device':ipDomain(host);
   let domain=profile?.domain||(lexical==='device'?'device':'cloud');
   if(profile&&!insideEndpoint(u,profile.baseUrl))throw new NetworkBlocked('登録した推論APIの範囲外へ接続しようとしました。');

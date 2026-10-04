@@ -22,7 +22,7 @@ export class Execution {
   candidates:this.store.list('execution-candidate').map(({content,...c})=>c),runs:this.store.list('executor-run').map(({code,input,...r})=>r)};}
  configure(raw){
   invariant(raw&&typeof raw==='object'&&!Array.isArray(raw),'Invalid execution settings');
-  const old=this.config();invariant(!this.store.list('job').some(j=>['running','queued','waiting_approval'].includes(j.status))&&!this.store.list('effect').some(e=>['running','unknown'].includes(e.status)), 'Stop active tasks and reconcile unknown effects before changing execution settings',409);invariant(raw.expectedRevision===old.revision,'Execution settings changed',409);
+  const old=this.config();invariant(!this.store.list('job').some(j=>['running','queued','waiting_approval'].includes(j.status))&&!this.store.list('effect').some(e=>['running','unknown'].includes(e.status)), '進行中・承認待ちの仕事を止めるか、結果不明の操作を確認してから実行環境を変更してください。',409);invariant(raw.expectedRevision===old.revision,'Execution settings changed',409);
   invariant(['protected','legacy-host'].includes(raw.mode),'Unknown execution mode');
   const image=raw.image??old.image;invariant(typeof image==='string'&&(!image||PINNED_IMAGE.test(image)),'Use an immutable sha256-pinned image');
   if(raw.mode==='legacy-host')invariant(raw.acknowledgeHostRisk===true,'Host execution can read or modify the core and backups; explicit risk acknowledgement required',403);

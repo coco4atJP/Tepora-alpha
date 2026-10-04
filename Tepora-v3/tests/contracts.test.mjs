@@ -4,7 +4,7 @@ import {mkdtemp,rm,mkdir,writeFile,readFile,symlink} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../core/store.mjs';
-import {Display,validateDisplay} from '../core/display.mjs';
+import {Display,validateDisplay,DISPLAY_DEFAULT} from '../core/display.mjs';
 import {DecisionClient} from '../core/decision.mjs';
 import {VoiceDraft} from '../web/draft.mjs';
 import {discoverSharedSkills,readSharedSkill} from '../core/shared-assets.mjs';
@@ -69,7 +69,7 @@ test('D06: artifact compare-and-swap refuses a stale edit',async t=>{
 test('A13 B16 C19: display changes persist, undo, and reset independently of runtime',async t=>{
  const {store}=await fixture(t),display=new Display(store),runtime=JSON.stringify(store.settings);
  const next=display.change({widgets:['clock','media'],theme:'dark'},0);
- assert.equal(next.revision,1);assert.equal(display.undo(1).widgets.length,2);
+ assert.equal(next.revision,1);assert.deepEqual(display.undo(1).widgets,DISPLAY_DEFAULT.widgets);
  assert.equal(display.reset(2).theme,'system');
  assert.equal(JSON.stringify(store.settings),runtime);
  assert.throws(()=>display.change({textScale:1.4},0),/changed/);

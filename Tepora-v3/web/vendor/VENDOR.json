@@ -1,0 +1,47 @@
+{
+  "purpose": "Optional VRM avatar rendering, loaded only when the user selects a local VRM model.",
+  "packages": {
+    "three": {
+      "version": "0.186.1",
+      "integrity": "sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==",
+      "license": "MIT"
+    },
+    "@pixiv/three-vrm": {
+      "version": "3.5.5",
+      "integrity": "sha512-RPXy7jYAXs704NIpZlosB0U2ENu21G9DrqGWdQgRe8dShaCo1ugpj+6BVPRCy91nt+MPMA96j5rbsSzEl0HlQA==",
+      "license": "MIT"
+    }
+  },
+  "files": {
+    "three.core.js": {
+      "package": "three",
+      "source": "build/three.core.js",
+      "sha256": "9edde002b066a9a05676a6127f67735b62baf399bdea529f2f7e31657da769e6"
+    },
+    "three.module.js": {
+      "package": "three",
+      "source": "build/three.module.js",
+      "sha256": "9052042d676cb0fdc1ddfefe193053f34b7ac0513a616fdac4535d49987812ea"
+    },
+    "GLTFLoader.js": {
+      "package": "three",
+      "source": "examples/jsm/loaders/GLTFLoader.js",
+      "sha256": "ea6945bc119f46237fab6a9228c3566fe66fff200512b3b96b1a6a32e89cb706"
+    },
+    "BufferGeometryUtils.js": {
+      "package": "three",
+      "source": "examples/jsm/utils/BufferGeometryUtils.js",
+      "sha256": "6d4f4f989a5f7e810522aaa36292205e3674878eed9810563417bd13ab9ba4f2"
+    },
+    "SkeletonUtils.js": {
+      "package": "three",
+      "source": "examples/jsm/utils/SkeletonUtils.js",
+      "sha256": "eedd768765d6553f8082953ab3882e2c86dacc2eb7d180a312d1d52e86bb35c5"
+    },
+    "three-vrm.module.min.js": {
+      "package": "@pixiv/three-vrm",
+      "source": "lib/three-vrm.module.min.js",
+      "sha256": "f7bcfbab5ab24dddf8c048c03de433dc6508ae082cc9c9ab65d01e41f46e49a5"
+    }
+  }
+}

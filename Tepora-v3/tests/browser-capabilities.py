@@ -1,17 +1,22 @@
 """UI-only regression of beta.11 capabilities: no model/network operations are represented as successful."""
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-import json,sys
+import json,sys,shutil,os
 root=Path(sys.argv[1]);out=Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
 checks=[];errors=[]
 with sync_playwright() as p:
- browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+ executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome')
+ browser=p.chromium.launch(**({'executable_path':executable} if executable else {}),headless=True,args=['--no-sandbox'])
  page=browser.new_page(viewport={'width':1440,'height':1000},color_scheme='light')
  page.set_default_timeout(4000)
  page.on('pageerror',lambda e:errors.append(str(e)))
+ def close():
+  # Typed text is never discarded silently: the sheet asks first, and the test confirms.
+  page.get_by_role('button',name='閉じる',exact=True).click()
+  if page.locator('.discard-bar').count():page.get_by_role('button',name='破棄して閉じる',exact=True).click()
  page.set_content((root/'tepora-v3-preview.html').read_text(),wait_until='load')
- page.get_by_role('button',name='接続',exact=True).click()
- page.get_by_role('button',name='能力をつなぐ',exact=True).click()
+ page.get_by_role('button',name='設定',exact=True).click()
+ page.locator('[data-action=abilities-open]').click()
  page.get_by_role('dialog').wait_for()
  print('abilities sheet open',flush=True)
  for role,preset,model in [('decision','laya','multilingual'),('embedding','embedding','local-embedding'),('tts','tts','local-speech'),('image','image','image-model')]:
@@ -24,7 +29,7 @@ with sync_playwright() as p:
  assert page.locator('#ability-routes select').count()==6
  page.screenshot(path=str(out/'11-abilities.png'))
  checks.append('Separate named decision, embedding, speech and image endpoints; role assignments persist in UI state')
- page.get_by_role('button',name='閉じる',exact=True).click()
+ close()
  page.get_by_role('button',name='つくってみる',exact=True).click()
  page.locator('#creative-form [name=prompt]').fill('窓辺の静かな読書風景を描いて')
  page.screenshot(path=str(out/'12-image-request.png'))
@@ -32,7 +37,7 @@ with sync_playwright() as p:
  assert page.locator('#toast').inner_text().find('プレビュー')>=0
  assert page.locator('#creative-form [name=prompt]').input_value()=='窓辺の静かな読書風景を描いて'
  checks.append('Generation confirms concrete recipient; unsupported preview inference is not faked and retains the prompt')
- page.get_by_role('button',name='閉じる',exact=True).click()
+ close()
  page.get_by_role('button',name='まとめて追加',exact=True).click()
  config={'mcpServers':{'My files':{'command':'node','args':['local-server.mjs'],'env':{'ACCESS_TOKEN':'DONT_SHOW_THIS'}},'Notes':{'url':'https://example.com/mcp'}}}
  page.locator('#tools-import-form textarea').fill(json.dumps(config))
@@ -46,7 +51,7 @@ with sync_playwright() as p:
  page.screenshot(path=str(out/'14-tools-confirm.png'))
  assert 'node local-server.mjs' in page.locator('[role=dialog]').inner_text()
  checks.append('Bulk tool import masks secret values, saves disabled connections, then previews exact programs before connecting')
- page.get_by_role('button',name='閉じる',exact=True).click()
+ close()
  page.get_by_role('button',name='記憶',exact=True).click()
  page.get_by_role('button',name='記憶を追加',exact=True).click()
  page.locator('#memory-form [name=content]').fill('珈琲が好きです')
@@ -58,8 +63,8 @@ with sync_playwright() as p:
  assert '埋め込み推論なし' in page.locator('#semantic-results').inner_text()
  page.screenshot(path=str(out/'15-semantic-search.png'))
  checks.append('Memory search exposes keyword-vs-semantic status rather than claiming fixture results are embeddings')
- page.get_by_role('button',name='閉じる',exact=True).click()
- page.get_by_role('button',name='接続',exact=True).click()
+ close()
+ page.get_by_role('button',name='設定',exact=True).click()
  page.get_by_role('button',name='モデルを探す',exact=True).click()
  catalogue={'provider':{'name':'Example provider','npm':'NEVER_EXECUTE_THIS','models':{'example-vision':{'name':'Example Vision','modalities':{'input':['text','image'],'output':['text']}}}}}
  with page.expect_file_chooser() as chooser:page.get_by_role('button',name='JSONを読み込む',exact=True).click()
@@ -70,7 +75,7 @@ with sync_playwright() as p:
  assert 'NEVER_EXECUTE_THIS' not in page.locator('#catalog-results').inner_text()
  page.screenshot(path=str(out/'16-model-catalog.png'))
  checks.append('Offline model metadata import/search does not execute provider package names')
- page.get_by_role('button',name='閉じる',exact=True).click()
+ close()
  page.locator('[data-action=codex-settings]').click()
  page.get_by_role('button',name='ChatGPTの契約でサインイン',exact=True).click()
  page.screenshot(path=str(out/'17-managed-login.png'))
@@ -78,15 +83,16 @@ with sync_playwright() as p:
  page.get_by_role('button',name='デバイスコードで接続').click()
  assert 'プレビュー' in page.locator('#toast').inner_text()
  checks.append('Managed Codex subscription sign-in is distinct from copying an API key; preview does not authenticate')
- page.get_by_role('button',name='閉じる',exact=True).click()
+ close()
  page.set_viewport_size({'width':390,'height':844})
- page.get_by_role('button',name='能力をつなぐ',exact=True).click()
+ page.locator('[data-action=abilities-open]').click()
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
  page.wait_for_function("!document.querySelector('#toast').classList.contains('show')",timeout=8000)
  page.screenshot(path=str(out/'18-mobile-abilities.png'))
- page.get_by_role('button',name='閉じる',exact=True).click()
+ close()
  page.get_by_role('button',name='ホーム',exact=True).click()
- page.get_by_role('button',name='共有表示に切り替える',exact=True).click()
+ page.get_by_role('button',name='画面の表示',exact=True).click()
+ page.get_by_role('button',name='共有表示（個人の内容を隠す）',exact=True).click()
  assert not page.locator('#creative-access').is_visible()
  checks.append('390px abilities have no horizontal overflow; shared display hides media access')
  assert not errors,errors

@@ -17,6 +17,7 @@ import {probeRuntime} from './probe.mjs';
 import {editDictation} from './dictation.mjs';
 import {verifyJob} from './verification.mjs';
 import { SpeechStream } from './speech-stream.mjs';
+import { CharacterModels, MAX_VRM_BYTES } from './character.mjs';
 /** Loopback-only service. UI and API share an origin; credentials never enter browser storage. */
 import http from 'node:http';
 import { randomBytes, timingSafeEqual, randomUUID } from 'node:crypto';
@@ -34,9 +35,11 @@ import { Connectors } from './connectors.mjs';
 import { Runtime, discover } from './runtime.mjs';
 import { invariant, text, endpoint, validateSettings, safeError, workspacePath, LIMITS } from './policy.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url));
+const VENDOR_FILES=['three.core.js','three.module.js','GLTFLoader.js','BufferGeometryUtils.js','SkeletonUtils.js','three-vrm.module.min.js'];
 const TYPES={'.html':'text/html; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.json':'application/json'};
 const same=(a,b)=>typeof a==='string' && Buffer.byteLength(a)===Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
 const token=()=>randomBytes(32).toString('hex');
+async function rawBody(req,limit){let size=0;const chunks=[];for await(const b of req){size+=b.length;invariant(size<=limit,'ファイルが大きすぎます。',413);chunks.push(b);}return Buffer.concat(chunks);}
 async function body(req,raw=false) {let size=0;const chunks=[];for await(const b of req){size+=b.length;invariant(size<=LIMITS.body,'Request body too large',413);chunks.push(b);}const buffer=Buffer.concat(chunks);if(raw)return buffer;try{return buffer.length?JSON.parse(buffer.toString('utf8')):{};}catch{throw Object.assign(new Error('Invalid JSON body'),{status:400});}}
 function json(res,value,status=200){if(res.writableEnded)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
 function dataDir(){if(process.env.TEPORA_DATA_DIR)return process.env.TEPORA_DATA_DIR;if(process.platform==='win32')return path.join(process.env.LOCALAPPDATA||os.homedir(),'Tepora','v3');if(process.platform==='darwin')return path.join(os.homedir(),'Library','Application Support','Tepora','v3');return path.join(os.homedir(),'.local','share','tepora-v3');}
@@ -44,13 +47,14 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  const bundledFrontend=await browserBundle(webDir);
  const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),registry=new ProviderRegistry(store,network,registryOptions);
  const connectors=new Connectors(store,network),harness=new Harness(store,connectors,{runtimeFactory,network,registry,computerOptions,mediaOptions,toolHubOptions,executionOptions});
- const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'}));
+ const display=new Display(store),speech=new SpeechStream(store,network.fetch({purpose:'worker'})),characters=new CharacterModels(store);
  const setup=new SetupManager(store,harness,{runtimeFactory,fetchImpl:(url,init)=>network.request(url,init,{purpose:String(url).includes('/api/pull')?'download':'model',allowCloud:false}),...setupOptions}),requests=new Requests(store,harness);
  const companion=new Companion(store),intents=new IntentProposals(store,harness,requests),dialogue=new Dialogue(store,harness,requests);
  const routines=new Routines(store,harness),plans=new Plans(store,harness);harness.routines=routines;harness.plans=plans;routines.start();
  const probes=new Map(),catalog=new ModelCatalog(store,network),login=new CodexLogin(store,network,loginOptions);
  const loginPolicy=policy=>{if(policy.mode!=='online')login.close();};network.listeners.add(loginPolicy);
  const secret=token(),csrf=token();let origin='',closing=false;const streams=new Set(),mediaFrames=new Map();
+  harness.presence=()=>!streams.size?'away':store.value('presence')?.state==='away'?'away':'present';
  if(!store.get('skill','artifact-studio'))store.put('skill',{id:'artifact-studio',name:'Artifact studio',description:'成果物を早く公開し、同じIDで段階的に更新する。',content:'# Artifact studio\nPublish a first useful HTML or Markdown artifact early. Keep the id and revise it as the task develops. Prefer self-contained accessible HTML, with no remote scripts or fonts. State evidence and unknowns. Never invent live data.',createdAt:new Date().toISOString()});
  const server=http.createServer(async(req,res)=>{
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Frame-Options','DENY');res.setHeader('Permissions-Policy','camera=(), microphone=(self), geolocation=()');
@@ -84,13 +88,13 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    }
    if(p==='/api/media/embed' && method==='POST'){const b=await body(req);invariant(typeof b.id==='string'&&/^[\w-]{11}$/.test(b.id),'Invalid video ID');if(!network.permitted('cloud','web'))throw new NetworkBlocked('インターネットを使う道具を許可してください。');const key=token();if(mediaFrames.size>=32)mediaFrames.delete(mediaFrames.keys().next().value);mediaFrames.set(key,b.id);return json(res,{path:`/media-view/${key}`});}
    if(p==='/app.bundle.js' && method==='GET') {res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});return res.end(bundledFrontend);}
-   if(p==='/api/bootstrap' && method==='GET')return json(res,{...store.snapshot(),dialogue:dialogue.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get(),setup:setup.snapshot(),csrf,skills:store.list('skill'),mcp:store.list('mcp'),platform:process.platform,workspace:path.join(dir,'workspace'),preview:false});
+   if(p==='/api/bootstrap' && method==='GET')return json(res,{...store.snapshot(),dialogue:dialogue.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get(),setup:setup.snapshot(),approvals:harness.approvalList({limit:30}),character:characters.get(),csrf,skills:store.list('skill'),mcp:store.list('mcp'),platform:process.platform,workspace:path.join(dir,'workspace'),preview:false});
    if(p==='/api/events' && method==='GET') {
     const since=Number(req.headers['last-event-id']||u.searchParams.get('since')||0);invariant(Number.isSafeInteger(since)&&since>=0,'Invalid event cursor');
     res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive'});
     // Send a full snapshot as a recovery boundary if persisted events were trimmed.
     const events=store.events(since);const send=e=>{if(!res.write(`${e.seq===null?'':`id: ${e.seq}\n`}data: ${JSON.stringify(e)}\n\n`))res.destroy();};
-    if(events.length && events[0].seq>since+1)send({seq:store.seq,type:'snapshot',data:{...store.snapshot(),dialogue:dialogue.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get()}});else for(const e of events)send(e);
+    if(events.length && events[0].seq>since+1)send({seq:store.seq,type:'snapshot',data:{...store.snapshot(),dialogue:dialogue.snapshot(),network:network.get(),providers:registry.publicSnapshot(),computer:harness.computer.snapshot(),capabilities:harness.capabilities.snapshot(),mediaJobs:harness.media.snapshot(),display:display.get(),approvals:harness.approvalList({limit:30}),character:characters.get()}});else for(const e of events)send(e);
     store.listeners.add(send);streams.add(res);const beat=setInterval(()=>{if(!res.write(': heartbeat\n\n'))res.destroy();},15000);
     res.on('close',()=>{clearInterval(beat);store.listeners.delete(send);streams.delete(res);});return;
    }
@@ -249,6 +253,13 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/voice/chunk'&&method==='POST')return json(res,await speech.chunk(await body(req)));
    if(p==='/api/voice/finish'&&method==='POST'){const b=await body(req);return json(res,await speech.finish(b.id));}
    if(p==='/api/voice/cancel'&&method==='POST'){const b=await body(req);return json(res,await speech.cancel(b.id));}
+   const artifactHistory=p.match(/^\/api\/artifacts\/([^/]+)\/revisions(?:\/(\d+))?$/);
+   if(artifactHistory&&method==='GET'){
+    const current=store.get('artifact',artifactHistory[1]);invariant(current,'Artifact not found',404);
+    if(artifactHistory[2]){const version=Number(artifactHistory[2]);const doc=version===current.version?current:store.get('revision',`${current.id}:${version}`);invariant(doc,'Artifact revision not found',404);return json(res,{id:current.id,title:doc.title,kind:doc.kind,version:doc.version,updatedAt:doc.updatedAt,content:doc.content});}
+    const versions=store.list('revision').filter(r=>r.artifactId===current.id).map(r=>({version:r.version,updatedAt:r.updatedAt,title:r.title}));
+    return json(res,{id:current.id,versions:[{version:current.version,updatedAt:current.updatedAt,title:current.title},...versions].sort((a,b)=>b.version-a.version)});
+   }
    const artifactEdit=p.match(/^\/api\/artifacts\/([^/]+)$/);
    if(artifactEdit&&method==='PATCH'){
     const b=await body(req),old=store.get('artifact',artifactEdit[1]);invariant(old,'Artifact not found',404);
@@ -321,6 +332,14 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/stop' && method==='POST'){setup.stop();login.close();harness.toolHub.stopDiscovery();harness.media.stopAll();routines.pauseAll();for(const plan of store.list('plan'))if(plan.status==='running')plans.pause(plan.id);harness.cancelAll();harness.computer.close();for(const rpc of harness.computer.computing)rpc.close();await speech.close();for(const probe of probes.values()){probe.abort?.(new Error('Stopped'));probe.close?.();}return json(res,{stopped:true});}
    let m=p.match(/^\/api\/jobs\/([^/]+)\/(cancel|steer)$/);
    if(m && method==='POST') {if(m[2]==='cancel')return json(res,harness.cancel(m[1]));const b=await body(req);harness.steer(m[1],b.input);return json(res,{accepted:true,applies:'next model step'});}
+   if(p==='/api/approvals'&&method==='GET')return json(res,{approvals:harness.approvalList(),presence:harness.approvalPresence()});
+   if(p==='/api/approvals'&&method==='POST'){const b=await body(req);invariant(Array.isArray(b.ids)&&b.ids.length>0&&b.ids.length<=50&&b.ids.every(id=>typeof id==='string'&&id.length<=80),'Approval ids are required');invariant(typeof b.allow==='boolean','allow must be boolean');
+    return json(res,{results:b.ids.map(id=>{try{harness.approve(id,b.allow);return {id,ok:true};}catch(e){return {id,ok:false,error:safeError(e)};}})});}
+   if(p==='/api/presence'&&method==='POST'){const b=await body(req);invariant(['present','away'].includes(b.state),'Invalid presence');store.value('presence',{state:b.state,at:new Date().toISOString()});return json(res,{presence:harness.approvalPresence()});}
+   if(p==='/api/character'&&method==='GET')return json(res,{model:characters.get()});
+   if(p==='/api/character/model'&&method==='GET'){const {bytes}=await characters.read();res.writeHead(200,{'Content-Type':'model/gltf-binary','Content-Length':bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(bytes);}
+   if(p==='/api/character/model'&&method==='PUT'){let filename='';try{filename=decodeURIComponent(String(req.headers['x-tepora-filename']||''));}catch{filename='';}return json(res,await characters.save(await rawBody(req,MAX_VRM_BYTES),{filename}));}
+   if(p==='/api/character/model'&&method==='DELETE')return json(res,await characters.remove());
    m=p.match(/^\/api\/approvals\/([^/]+)$/);if(m && method==='POST'){const b=await body(req);invariant(typeof b.allow==='boolean','allow must be boolean');harness.approve(m[1],b.allow);return json(res,{resolved:true});}
    if(p==='/api/runtime/discover' && method==='POST')return json(res,await Promise.all((await import('./runtime.mjs')).PROVIDERS.map(async p=>{try{return {...p,available:true,models:await new Runtime({baseUrl:p.url,allowCloud:false},'',network.fetch({purpose:'model'})).models()};}catch{return {...p,available:false,models:[]};}})));
    if(p==='/api/runtime/check' && method==='POST') {const s=store.settings;return json(res,{models:await new Runtime(s,harness.legacyKey(s),network.fetch({purpose:'model',allowCloud:s.allowCloud})).models()});}
@@ -346,9 +365,9 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/artifacts' && method==='GET')return json(res,store.list('artifact'));
    if(p.startsWith('/api/'))return json(res,{error:'Unknown endpoint or HTTP method'},404);
    invariant(['GET','HEAD'].includes(method),'Method not allowed',405);
-   const allowed=['/','/index.html','/styles.css','/app.mjs','/ui.mjs','/bridge.mjs','/voice.mjs','/draft.mjs','/realtime-voice.mjs','/onboarding.mjs','/provider-settings.mjs','/capability-ui.mjs','/pcm-worklet.js','/display-model.mjs','/demo.mjs','/favicon.svg'];invariant(allowed.includes(p),'Not found',404);
+   const allowed=['/','/index.html','/styles.css','/app.mjs','/ui.mjs','/bridge.mjs','/voice.mjs','/draft.mjs','/realtime-voice.mjs','/onboarding.mjs','/provider-settings.mjs','/capability-ui.mjs','/pcm-worklet.js','/display-model.mjs','/demo.mjs','/favicon.svg','/vrm-stage.mjs',...VENDOR_FILES.map(f=>'/vendor/'+f)];invariant(allowed.includes(p),'Not found',404);
    const file=path.join(webDir,p==='/'?'index.html':p.slice(1));const data=await readFile(file);
-   res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+   res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
    res.writeHead(200,{'Content-Type':TYPES[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache'});res.end(method==='HEAD'?undefined:data);
   }catch(e){if(res.headersSent){res.end();return;}json(res,{error:safeError(e),...(e.blocked?{blocked:true}:{})},e.status||500);}
  });

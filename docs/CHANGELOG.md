@@ -1,5 +1,23 @@
 # Tepora V3 changelog
 
+## [Unreleased]
+
+### Added
+
+- Companion monitor home: the character (drawn, or a local VRM 1.0/0.x model rendered with pinned three.js 0.186.1 and @pixiv/three-vrm 3.5.5), its latest reply, a clock and one rotating card at a time (work, Open-Meteo weather, RSS news, music files from this PC, generated images), plus an idle screen that dims at night and drifts against burn-in.
+- あなたの番: one stack for approvals, worker questions, results to review, stopped jobs and routine/plan proposals, with batch review of approvals.
+- Stacked approvals: while the person is away, stackable operations wait as exact pending requests, the worker continues independent work and the job parks without holding a slot; a later decision replays exactly the approved request. Parked jobs survive restarts.
+- `GET/POST /api/approvals`, `POST /api/presence`, `GET /api/character`, `GET/PUT/DELETE /api/character/model` and artifact revision reads.
+
+### Changed
+
+- Rebuild the screen around one fact per place: the message box sits under the character on ホーム and the conversation opens on demand; the top bar shows only what needs attention; idle screen, shared view and full screen share one menu; settings live in one page and apply immediately; plain status text replaces most badges.
+- Update the Playwright UI checks to the current screen and let them find Chrome or Chromium through `CHROMIUM_PATH` or PATH.
+
+### Fixed
+
+- Status words that differed between screens, raw `waiting_approval` in the conversation, duplicated worker labels, Markdown shown as raw text, approvals shown as raw JSON, lost focus and scroll on every update, repeated screen-reader announcements, IME Enter/Escape in WebKit, duplicated error messages, the artifact frame reloading when a version was pinned, and an expanded artifact staying expanded after navigation.
+
 ## [3.0.0-beta.11] — 2026-10-02
 
 ### Removed
@@ -15,6 +33,8 @@
 
 ### Fixed
 
+- Restrict model-controlled public Web fetching to consented online HTTPS destinations with public addresses, while preserving explicit local inference, HTTP MCP and configured RSS integrations.
+- Remap imported routine last-job references, escape stored references in the UI, and require registered live form elements for privileged submissions.
 - Retain build-time macro debug information to avoid the locally reproduced macOS LINKEDIT loader failure with affected Rust/LLVM toolchains. App release optimization remains unchanged.
 
 ### Added

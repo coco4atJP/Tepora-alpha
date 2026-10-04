@@ -1,4 +1,4 @@
-import {escape,icon,btn,field,toggle} from './ui.mjs';
+import {escape,icon,btn,field,toggle,isTrustedForm} from './ui.mjs';
 
 /** Optional abilities stay off the home dashboard. User content never enters remote players. */
 export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate,isOpen,attached=()=>[],latestReply=()=>'',onChanged=()=>{}}){
@@ -129,6 +129,7 @@ export function createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMo
  document.addEventListener('change',e=>{if(e.target.id==='ability-preset'&&presets[e.target.value]){const p=presets[e.target.value],form=$('#ability-form');for(const [key,value]of Object.entries(p)){if(form.elements[key])form.elements[key].value=Array.isArray(value)?value.join('\n'):value;}if(!selected)form.elements.id.value=e.target.value+'-'+(config.profiles.length+1);}
   if(e.target.id==='creative-kind'){const prompt=$('#creative-form [name=prompt]').value;generate(e.target.value,prompt).catch(reportError);}});
  document.addEventListener('submit',e=>{const form=e.target,id=form.getAttribute('id');if(!['ability-form','ability-key-form','ability-routes','creative-form','semantic-form','tools-import-form','tool-search-form','tools-connect-form','catalog-form'].includes(id))return;e.preventDefault();
+  if(!isTrustedForm(form))return;
   (async()=>{guard();const d=Object.fromEntries(new FormData(form));
    if(id==='ability-form'){
     const raw={id:d.id,name:d.name,protocol:d.protocol,baseUrl:d.baseUrl,model:d.model,domain:d.domain,pinnedAddress:d.pinnedAddress,allowPlainHttp:!!d.allowPlainHttp,enabled:!!d.enabled,apiKeyEnv:d.apiKeyEnv,voice:d.voice,timeoutMs:Number(d.timeoutMs),maxParallel:Number(d.maxParallel),assetOrigins:d.assetOrigins.split('\n').map(x=>x.trim()).filter(Boolean)};if(d.dimensions)raw.dimensions=Number(d.dimensions);

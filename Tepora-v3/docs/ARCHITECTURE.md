@@ -33,6 +33,8 @@ flowchart TD
 
 `core/store.mjs` owns SQLite documents, settings, events, FTS search and service ownership. Running work becomes interrupted after restart; startup does not automatically dispatch stopped work or replay uncertain effects. V3 data are separate from V2. The source service's data directory and the Tauri host's application directory may differ. SQLite is not encrypted.
 
+Context import assigns fresh IDs, remaps routine last-job references only to jobs in the same import, and clears missing references. Imported routines remain disabled. Explicitly re-enabling a routine clears its link to a resume-blocked imported job and schedules future occurrences; the imported job remains blocked. Routine references are escaped when rendered, including older stored values. Privileged form submissions require the actual live form element registered by the code-owned shell or sheet; a matching HTML ID does not grant access.
+
 ## Conversation and handoffs
 
 `Dialogue` owns a durable character session, messages and separate character/worker persona settings. Job navigation in `Companion` is presentation only. Each foreground turn can submit work through `Requests`/`Harness` without waiting for the worker to finish.
@@ -47,6 +49,8 @@ Worker notifications and questions are revisioned and idempotent. Explicit quest
 
 `NetworkPolicy` gates admission by online / trusted-lan / offline mode and the job's allowed destinations. It is not an OS firewall and does not control an independently forwarding inference server. Modes and route changes do not silently widen a saved task's destinations. Recovery retries only eligible model/provider-blocked work without uncertain effects.
 
+Model-controlled `web_fetch` uses the `public-web` purpose: online mode, internet-tool consent, HTTPS and exclusively public DNS addresses are required. Loopback, LAN and reserved destinations are rejected, checked addresses are pinned and redirects are not followed. Explicit local inference, legacy-host HTTP MCP and configured local RSS retain their separate integration scopes.
+
 `MediaJobs` separates accepted, pending, unknown and ready media states and preserves received bytes with hashes. `SemanticMemory` keeps source scope and consent checks with lexical fallback. `ToolHub` separates importing MCP configuration from starting selected connections; host execution is gated by legacy-host mode.
 
 ## beta.11 execution boundary
@@ -60,6 +64,16 @@ Operation starts/results and capsule provenance go into an append-only SQLite jo
 Crash, abort, lost response and unconfirmed cleanup are recorded as uncertain. Reconciliation is explicit and does not prove external effects were undone. Switching execution modes requires stopping active jobs/queues and known host workers.
 
 Explicit **legacy-host** enables existing host integrations and interactive HTML artifact previews. It can access core files and backups and is not an OS sandbox. Protected artifact previews escape generated HTML. Standalone exported previews are interactive files, not an isolation boundary.
+
+## Stacked approvals and presence
+
+`Harness` decides inline when someone answers within a presence window (about 90 s while the person is present; no window while away, which `server.mjs` assumes when no page is connected). Otherwise a stackable operation (`run_command`, `mcp_call`, `mcp_tools`, `computer_open`, media generation, capability disclosure) becomes a pending `approval` record bound to the job revision, consent epoch and an argument digest, and the worker receives `{deferred, notExecuted}`. When only dependent work remains the job is parked (`waiting_approval`, `parked: true`) and frees its slot; parked jobs survive restarts. A later decision replays exactly the approved call through the normal dispatch, effect receipt and broker grant, or reports the refusal. Steering, pausing, cancelling or a consent change withdraws or invalidates pending requests. Live screen operations and Codex sessions stay interactive and pause the job when unanswered.
+
+## Companion monitor UI
+
+The page is plain ES modules joined by `core/frontend.mjs` into one classic script; top-level names must be unique across modules and the bundler rejects duplicates. `web/app.mjs` owns state, rendering and actions; `ambient.mjs` (cards, deck, idle watcher), `inbox.mjs` (あなたの番), `character.mjs` (drawn character and moods), `markdown.mjs` (escaped Markdown subset, links as text), `status.mjs` (one status vocabulary) and `approval-format.mjs` (plain-language approvals) are pure helpers. `vrm-stage.mjs` and the vendored three.js/three-vrm files in `web/vendor/` load only when a VRM is selected; the model is validated by `core/character.mjs` and stored under the data directory.
+
+On ホーム the conversation column collapses to its message box, placed under the character with CSS grid overlap (a separate row on narrow screens); the column opens on demand elsewhere. The work page updates the job list, bench header and artifact toolbar in place around the artifact iframe, because a detached iframe reloads. Display settings, theme and idle behaviour are display preferences only; they never change permissions or work, and the emergency stop is shown whenever anything runs.
 
 ## Desktop, speech and verification
 

@@ -233,10 +233,11 @@ export class Dialogue {
     if(job.status==='completed'&&job.output){const mid=`character:${job.id}:${job.revision}`;
      if(!this.store.get('dialogue-message',mid)){this.store.put('dialogue-message',{id:mid,sessionId:job.characterSessionId,sequence:job.dialogueSequence,role:'assistant',kind:'character',content:job.output,jobId:job.id,questionId:null,jobRevision:job.revision,destination:routeId(job),consentEpoch:job.consentEpoch||0,at:job.endedAt||now()});changed=true;}}
    }else if(statuses.has(job.status)){
-    const mid=`worker:${job.id}:${job.revision}:${job.status}`;
+    // A parked job (all independent work done, stacked approvals left) gets its own report.
+    const parked=job.status==='waiting_approval'&&job.parked,mid=`worker:${job.id}:${job.revision}:${job.status}${parked?':parked':''}`;
     if(!this.store.get('dialogue-message',mid)){
-     const report=terminal.has(job.status),content=report?brief(job.output)||job.note:job.status==='waiting_approval'?'この仕事の操作に承認が必要です。':job.status==='paused'&&job.pendingQuestionId?'この仕事は質問への回答を待っています。':String(job.note||job.status).slice(0,1000);
-     this.store.put('dialogue-message',{id:mid,sessionId:job.characterSessionId,sequence:job.dialogueSequence,role:'tool',kind:'worker-report',source:'worker',untrusted:true,content,jobId:job.id,questionId:null,jobRevision:job.revision,status:job.status,verificationStatus:job.verification?.status||null,checksStatus:job.verification?.checks?.status||null,at:job.endedAt||now()});changed=true;
+     const report=terminal.has(job.status),content=report?brief(job.output)||job.note:parked?(brief(job.output)||`承認待ちの操作が${job.pendingApprovals||1}件あります。`):job.status==='waiting_approval'?'この仕事の操作に承認が必要です。':job.status==='paused'&&job.pendingQuestionId?'この仕事は質問への回答を待っています。':String(job.note||job.status).slice(0,1000);
+     this.store.put('dialogue-message',{id:mid,sessionId:job.characterSessionId,sequence:job.dialogueSequence,role:'tool',kind:'worker-report',source:'worker',untrusted:true,content,jobId:job.id,questionId:null,jobRevision:job.revision,status:job.status,parked,pendingApprovals:parked?job.pendingApprovals||1:0,verificationStatus:job.verification?.status||null,checksStatus:job.verification?.checks?.status||null,at:parked?now():job.endedAt||now()});changed=true;
     }
    }
   });

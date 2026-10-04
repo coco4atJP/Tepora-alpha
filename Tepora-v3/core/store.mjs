@@ -37,7 +37,8 @@ export class Store {
       for (const job of this.list('job')) {
         if(!Object.hasOwn(job,'revision')&&job.kind!=='demo'&&job.step>0&&!this.get('checkpoint',job.id))
           this.put('job',Object.assign(job,{resumeBlocked:true,note:'以前の版の実行記録を確認できないため、自動再開しません。'}));
-        if (['running','queued','waiting_approval'].includes(job.status)) {
+        // A parked job holds only stacked approvals (nothing in flight), so it survives a restart.
+        if (['running','queued','waiting_approval'].includes(job.status)&&!(job.status==='waiting_approval'&&job.parked)) {
           this.put('job', {...job, status:'interrupted', approval:null,
             note:'前回の仕事を保存しています。結果不明の操作を確認してから再開できます。'});
         }
@@ -209,7 +210,10 @@ export class Store {
         }
         if(kind==='memory') Object.assign(d,{confirmed:false,scope:'private',source:'import'});
         if(kind==='skill') Object.assign(d,{enabled:false,source:'import'});
-        if(kind==='routine')Object.assign(d,{enabled:false,status:'proposed',runtime:null,destination:null,nextAt:null});
+        if(kind==='routine'){
+          invariant(d.lastJobId==null||typeof d.lastJobId==='string','Invalid routine last job reference');
+          Object.assign(d,{enabled:false,status:'proposed',runtime:null,destination:null,nextAt:null});
+        }
         if(kind==='plan')Object.assign(d,{status:'proposed',jobs:{},runtime:null,destination:null});
         if(kind==='job') Object.assign(d,{status:'interrupted',approval:null,resumeBlocked:true,characterSessionId:null,dialogueSequence:0,pendingQuestionId:null,
           note:'移行した仕事です。外部操作の状態を確認するまで自動再開しません。'});
@@ -219,6 +223,7 @@ export class Store {
     for(const {kind,d,old} of prepared) {
       if(d.jobId) d.jobId=ids.get(`job:${d.jobId}`)||null;
       if(d.artifactId) d.artifactId=ids.get(`artifact:${d.artifactId}`)||null;
+      if(kind==='routine')d.lastJobId=typeof d.lastJobId==='string'?ids.get(`job:${d.lastJobId}`)||null:null;
       if(kind==='revision') d.id=`${d.artifactId}:${d.version}`;
       if(kind==='checkpoint') {d.id=ids.get(`job:${old}`)||d.id; d.imported=true;}
     }

@@ -9,6 +9,13 @@ It is **not** a finished unrestricted root VM/VPS implementation.
 
 - Ordinary conversation, trusted provider/API/file tools and built-in artifact publishing
   remain usable without Docker. New installations default to `protected` mode.
+- Public `web_fetch` requires online internet-tool consent and public HTTPS destinations;
+  it cannot read loopback, LAN or reserved addresses. Explicit local model, acknowledged
+  legacy-host MCP and configured RSS integrations keep their existing scopes.
+- Imported routine last-job links are remapped to freshly imported jobs or cleared.
+  Imports cannot enable routines or create settings forms. Older stored references are
+  escaped, and privileged submissions accept only registered live UI form elements.
+  Explicitly re-enabling a routine schedules future work without resuming its imported jobs.
 - The character can select bounded prior conversation references for a worker on the same
   already-authorized recipient. Exact source IDs, hashes, task revisions, user decisions
   and latest utterance stay distinguishable. Model plans never become permissions.
@@ -30,13 +37,16 @@ It is **not** a finished unrestricted root VM/VPS implementation.
 - Exact approved legacy operations use a broker grant bound to task revision, consent epoch,
   action, destination, data hash, expiry and finite use/byte budget. Grants are not created
   by model tool arguments. This is not a universal payment/email/browser broker.
+- Approvals no longer time out as refusals. Undecided stackable requests are kept for the
+  person and replayed only exactly as approved (same tool, arguments, revision and consent
+  epoch); live screen/agent approvals pause instead. See [COMPANION-MONITOR](COMPANION-MONITOR.md).
 - A crash, abort, lost connection, unconfirmed container cleanup or unknown operation never
   triggers automatic replay. Reconciliation is an explicit stopped-task operation; it is
   user-reported disposition rather than proof that an external effect was undone.
 
 ## First use
 
-Open **接続 → 実行境界**. Protected built-in tools work without an executor image.
+Open **設定 → 仕事の実行 → 実行環境を確認**. Protected built-in tools work without an executor image.
 To enable restricted code execution, install Docker and a trusted Node-capable image yourself,
 then enter the immutable `repository@sha256:...` reference and explicitly approve that image.
 The availability check only inspects the installed image; it is not a containment test.

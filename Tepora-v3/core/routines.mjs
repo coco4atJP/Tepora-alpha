@@ -56,6 +56,8 @@ export class Routines {
     r.schedule=validateSchedule(r.schedule);text(r.input);text(r.title,'title',120);
     r.enabled=enabled;r.revision++;r.status=enabled?'scheduled':'paused';
     if(enabled){
+      // Imported jobs cannot resume. Explicit activation starts a new future schedule.
+      if(this.store.get('job',r.lastJobId)?.resumeBlocked)r.lastJobId=null;
       r.nextAt=nextOccurrence(r.schedule,this.clock());invariant(r.nextAt!==null,'The one-shot time has passed');
       r.runtime=structuredClone(this.store.settings);r.routeSnapshot=this.harness.registry?.configured?this.harness.registry.pin('work'):null;r.destination=r.routeSnapshot?.id||destination(r.runtime);
       r.consentEpoch=this.store.value('consent-epoch')||0;

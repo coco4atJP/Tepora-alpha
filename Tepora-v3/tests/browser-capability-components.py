@@ -1,10 +1,10 @@
 """Actual UI module with an in-memory bridge fixture. No server/account/model or media decoding claim."""
 from pathlib import Path
-import json, os, re, sys
+import json, os, re, sys,shutil
 from playwright.sync_api import sync_playwright
 root=Path(sys.argv[1]).resolve(); out=Path(sys.argv[2]).resolve(); out.mkdir(parents=True,exist_ok=True)
-ui=(root/'web/ui.mjs').read_text(); module=(root/'web/capability-ui.mjs').read_text()
-source=re.sub(r'^import .*?;\n','',ui+'\n'+module,flags=re.M)
+# ui.mjs depends on status.mjs and markdown.mjs; concatenate in dependency order, as the bundle does.
+source=re.sub(r'^import .*?;\n','','\n'.join((root/'web'/name).read_text() for name in ('status.mjs','markdown.mjs','ui.mjs','capability-ui.mjs')),flags=re.M)
 source=re.sub(r'^export (?=(?:async )?function|const|class)','',source,flags=re.M)
 fixture=r'''
 window.fixture={private:true,open:null,posts:[],listeners:[],jobs:[],release:null,
@@ -23,7 +23,8 @@ f.emit=e=>f.listeners.forEach(fn=>fn(e));
 '''
 checks=[]; errors=[]
 with sync_playwright() as p:
- browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
+ executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome')
+ browser=p.chromium.launch(**({'executable_path':executable} if executable else {}),headless=True,args=['--no-sandbox'])
  page=browser.new_page(viewport={'width':1000,'height':800})
  page.on('pageerror',lambda e:errors.append(str(e)))
  # Suppress attempts to decode nonexistent fixture assets. This test verifies DOM lifecycle only.

@@ -1,4 +1,4 @@
-import {escape,btn,field,toggle} from './ui.mjs';
+import {escape,btn,field,toggle,isTrustedForm} from './ui.mjs';
 /** Progressive disclosure: all provider details live in this sheet, not on the ambient home. */
 export function createProviderSettings({bridge,openSheet,closeSheet,notice,previewMode,onChanged,legacySettings}){
  let config=null,network=null,selected=null,revision=0,computer=null;
@@ -12,7 +12,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   if(!config)return;
   openSheet('知能と通信の使い分け',`<div class="network-options" role="group" aria-label="通信モード">${[['online','オンライン'],['trusted-lan','信頼LANだけ'],['offline','完全オフライン']].map(([v,l])=>`<button data-action="network-mode" data-mode="${v}" aria-pressed="${network.mode===v}">${l}</button>`).join('')}</div>
   <p class="small-text">${network.mode==='offline'?'同一PCの推論・ファイル・隔離計算を継続します。LAN・クラウド・外部サイト・通信を封じ込められないCLI等は停止します。':network.mode==='trusted-lan'?'このPCと、登録したIP・ポート・API範囲のLAN推論機だけを使います。LAN全体は許可しません。':'主モデル・代替・画像担当を自由に選べます。登録した代替先以外へは切り替えません。'}</p>
-  <div class="network-web-option"><label><input type="checkbox" id="internet-tools" ${network.internetTools?'checked':''}>Web取得・専用ブラウザ・天気などのインターネット通信を許可</label><button data-action="network-web" class="text-button">反映する</button></div>
+  <div class="network-web-option"><label class="toggle-row"><span><strong>インターネットを使う道具</strong><small>Web取得・専用ブラウザ・天気などの通信です。切り替えるとすぐに反映します。</small></span><input class="switch" type="checkbox" role="switch" id="internet-tools" ${network.internetTools?'checked':''}></label></div>
   <div class="offline-floor"><strong>${config.offlineFloor?.configured?'ローカルの継続先があります':'ローカルの継続先を追加してください'}</strong><p>${config.offlineFloor?.verified?'道具の往復検査を確認済み。モデルの品質・速度保証ではありません。':'オフラインになる前にモデル・依存を導入し、接続試験を行ってください。'}</p></div>
   <div class="provider-toolbar">${btn('provider-new','接続先を追加','plus','button')}${btn('provider-import-legacy','現在の単一接続を取り込む','','text-button')}</div>
   <div class="provider-list">${config.profiles.map(p=>`<article><div><strong>${escape(p.name)}</strong><small>${escape(p.model)} · ${{device:'このPC',lan:'信頼LAN',cloud:'クラウド'}[p.domain]}</small><small>${escape(p.protocol)} · ${p.probe?.ok?'道具の往復確認済み':'能力未検証'}</small></div><div>${btn('provider-edit','編集','','text-button',`data-id="${p.id}"`)}${btn('provider-probe','接続試験','','text-button',`data-id="${p.id}"`)}${btn('provider-key','認証','','text-button',`data-id="${p.id}"`)}</div></article>`).join('')||'<p class="empty-copy">名前を付けた接続先を登録すると、APIキーと能力を別々に管理できます。</p>'}</div>
@@ -61,7 +61,8 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   'computer-windows':async()=>{const result=await bridge.request('/api/computer/windows','POST',{});$('#window-options').innerHTML=result.map(w=>`<button data-action="computer-pick-window" data-handle="${w.handle}" class="connection-option">${escape(w.title)}</button>`).join('');},
   'computer-pick-window':el=>{$('[name=windowHandle]').value=el.dataset.handle;}
  };
- document.addEventListener('change',e=>{if(e.target.id==='provider-preset'&&presets[e.target.value]){
+ document.addEventListener('change',e=>{if(e.target.id==='internet-tools'){actions['network-web']().catch(err=>{e.target.checked=!e.target.checked;notice(err.message);});return;}
+  if(e.target.id==='provider-preset'&&presets[e.target.value]){
   const [name,protocol,domain,url]=presets[e.target.value],form=$('#provider-form');
   form.elements.protocol.value=protocol;form.elements.domain.value=domain;form.elements.baseUrl.value=url;
   if(!selected)form.elements.id.value=e.target.value+'-'+(config.profiles.length+1);
@@ -69,6 +70,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
  }});
  document.addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el&&actions[el.dataset.action])Promise.resolve().then(()=>actions[el.dataset.action](el)).catch(err=>notice(err.message));});
  document.addEventListener('submit',e=>{const form=e.target,formId=form.getAttribute('id');if(!['provider-form','provider-key-form','route-form','computer-form'].includes(formId))return;e.preventDefault();
+  if(!isTrustedForm(form))return;
   (async()=>{
    const d=Object.fromEntries(new FormData(form));
    if(formId==='provider-form'){

@@ -30,34 +30,45 @@ Open `tepora-v3-preview.html`. The preview explicitly refuses AI inference, acco
 MCP startup and PC operations; it does not invent working AI output. Its sample revises an
 artifact three times. Real requests need configured runtimes or providers.
 
+## Companion monitor
+
+The home screen is a quiet monitor: the character (drawn, or your own **VRM** model) with its
+latest reply and the message box underneath, a large clock and one card at a time — work, weather,
+news, music from this PC or images you made, each shown only when it has something to show. After a few idle minutes it switches to a dimmed **待機画面**. Things that need you —
+approvals, worker questions, results to review, stopped jobs — collect in **あなたの番** at the top.
+While nobody is at the screen, operations that need approval are kept there and other work keeps
+moving; the exact request runs only after you allow it. See [COMPANION-MONITOR](docs/COMPANION-MONITOR.md).
+
 ## Persistent character conversation
 
-Talk to the same character in the persistent left-hand conversation. Work details and artifacts
-open beside it; they do not redirect the composer. There are no continue/new/side conversation
-modes to manage. The character can delegate work and keep responding in its separate chat lane.
+Talk to the same character from the message box under it on ホーム; **会話の履歴** (or the 会話
+button on other pages) opens the full conversation as a column beside your work. Work details and
+artifacts open beside it; they do not redirect the composer. There are no continue/new/side
+conversation modes to manage. The character can delegate work and keep responding in its separate
+chat lane.
 
-**人格の設定** edits the character and worker names/instructions separately. Existing jobs keep
-their pinned versions. **この質問に回答** targets one worker's exact pending question; ordinary
+**設定 → キャラクター → 人格** edits the character and worker names/instructions separately. Existing jobs keep
+their pinned versions. **回答する** targets one worker's exact pending question; ordinary
 chat never silently answers an unrelated worker. Tool approvals remain separate from answers.
 
 Worker reports arrive in the character conversation with their source and verification state.
-Ask about a result naturally. If the character and worker use different recipients, **会話で
-参照する** lets you review and explicitly share only a bounded result excerpt. No raw tool logs
+Ask about a result naturally. If the character and worker use different recipients, **引用を
+会話に共有** (in the job's details) lets you review and explicitly share only a bounded result excerpt. No raw tool logs
 are sent back into the character context. Legacy memories are preserved but not automatically
 injected into either new role; full V2 CHAR/PROF migration is not included.
 
 ## What to do in the UI
 
-**接続 → 能力をつなぐ** adds independent decision, embedding, voice, image/edit and video endpoints.
+**設定 → 声・画像・意味検索 → 能力の接続 → 管理** adds independent decision, embedding, voice, image/edit and video endpoints.
 Select an endpoint for each role. There is no need to move the main LLM to the same provider.
 A local embedding/TTS service can run alongside a cloud text model; a local VLM can supply image
 observations to that text model. A lossy observation retains the source image's privacy scope.
 
-**返事を聴く** requests speech. A configured local endpoint needs one explicit speaker click;
+**読み上げる** (under the latest character reply) requests speech. A configured local endpoint needs one explicit speaker click;
 an external endpoint first displays the text and recipient. Playback lives beside the input,
 not in a modal you must keep open. Starting the mic or sharing the display stops playback.
 
-**つくったもの** starts text-to-image, image editing, text/image-to-video or explicit readout.
+**仕事 → つくったもの** starts text-to-image, image editing, text/image-to-video or explicit readout.
 The exact text, input image and provider are confirmed before creation. Progress and stored
 results remain available while you keep talking. A received request ID is not a finished result.
 
@@ -65,15 +76,15 @@ results remain available while you keep talking. A received request ID is not a 
 Remote indexing is opt-in and restricted to confirmed shared memories. Lexical search remains
 available offline or when the optional embedding endpoint fails. Similarity is not truth.
 
-**接続 → 設定をまとめて取り込む / まとめて接続** accepts `mcpServers` JSON. Review imported
+**設定 → 仕事の実行 → 道具（MCP）→ まとめて追加 / まとめて接続** accepts `mcpServers` JSON. Review imported
 configuration, then select which connections to start. They are not launched just because they
 were imported. Discovered tools are searched on demand instead of filling every prompt.
 
-**モデル一覧を探す** imports/refreshes optional models.dev metadata and can use its cached JSON
+**設定 → AIとの接続 → モデルを探す** imports/refreshes optional models.dev metadata and can use its cached JSON
 offline. It never installs packages from metadata or treats a capability listing as a passed test.
 
 In explicitly acknowledged **legacy-host** mode,
-**Codex設定 → ChatGPTの契約でサインイン** uses the installed official App Server's managed
+**設定 → 仕事の実行 → Codex → ChatGPTの契約でサインイン** uses the installed official App Server's managed
 browser/device-code flow. Tokens stay with Codex; no token extraction. Existing API-key auth is
 reported separately and is not silently converted. Limits and billing follow the account.
 
@@ -100,7 +111,7 @@ flows are not implemented; Codex managed login is the new concrete subscription 
 
 ## Local floor and optional workers
 
-Use **接続と使い始め** to detect already running local servers. If Ollama is already installed,
+Use **AIを接続** (top bar) or **設定 → AIとの接続** to detect already running local servers. If Ollama is already installed,
 the UI supports confirmed model acquisition, interruption/resume and a safe tool-use probe.
 Automatic OS runtime installation, all model weights and platform drivers are still not bundled.
 

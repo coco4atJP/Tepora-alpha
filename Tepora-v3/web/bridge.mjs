@@ -10,7 +10,7 @@ let saved;try{saved=JSON.parse(localStorage.getItem('tepora-preview-v3')||'null'
 let previewState={seq:0,jobs:[],artifacts:[],memories:[],messages:[],skills:[],mcp:[],settings:previewDefaults,...saved,preview:true,platform:'preview',workspace:'プレビュー内のみ'};
 previewState.display=previewState.display||structuredClone(DISPLAY_DEFAULT);
 previewState.companion||={revision:0,focusJobId:null,returnStack:[]};
-previewState.displayHistory=[];previewState.routines=[];previewState.plans=[];
+previewState.displayHistory=[];previewState.routines=[];previewState.plans=[];previewState.approvals=[];previewState.character=null;
 previewState.capabilities||={schema:1,revision:0,profiles:[],routes:{}};previewState.mediaJobs=[];
 previewState.network||={schema:1,revision:0,mode:'online',internetTools:false};
 previewState.providers||={schema:1,revision:0,profiles:[],routes:{},offlineFloor:{configured:false,verified:false,providers:[]}};
@@ -24,7 +24,19 @@ function savePreview(){try{localStorage.setItem('tepora-preview-v3',JSON.stringi
 function emitPreview(type,data){dispatch({seq:++previewState.seq,type,data,at:new Date().toISOString()});savePreview();}
 const upsertPreview=(list,doc)=>{const index=previewState[list].findIndex(x=>x.id===doc.id);if(index>=0)previewState[list][index]=doc;else previewState[list].unshift(doc);};
 
+function decidePreviewApproval(id,allow){
+ const a=previewState.approvals.find(x=>x.id===id&&x.status==='pending');if(!a)throw Object.assign(new Error('Approval is no longer pending'),{status:409});
+ Object.assign(a,{status:allow?'executed':'denied',decidedAt:new Date().toISOString(),appliedAt:new Date().toISOString(),outcome:allow?'done':'declined'});emitPreview('approval.updated',structuredClone(a));
+ const j=previewState.jobs.find(x=>x.id===a.jobId);
+ if(j){Object.assign(j,{status:'completed',parked:false,pendingApprovals:0,approval:null,endedAt:new Date().toISOString(),note:allow?'体験用タスクが完了しました':'書き出しはせずに完了しました',output:allow?'画面サンプル: 本文を仕上げ、承認後に書き出しまで進めました。（サンプルです。実際のファイルは作っていません）':'画面サンプル: 本文は仕上げました。書き出しは許可されなかったので行っていません。'});emitPreview('job.updated',j);}
+}
 async function previewRequest(p,method,b){
+ if(p==='/api/approvals'&&method==='GET')return {approvals:structuredClone(previewState.approvals),presence:'present'};
+ if(p==='/api/approvals'&&method==='POST')return {results:b.ids.map(id=>{try{decidePreviewApproval(id,b.allow);return {id,ok:true};}catch(e){return {id,ok:false,error:e.message};}})};
+ {const m=p.match(/^\/api\/approvals\/([^/]+)$/);if(m&&method==='POST'){decidePreviewApproval(m[1],b.allow===true);return {resolved:true};}}
+ if(p==='/api/presence')return {presence:b?.state==='away'?'away':'present'};
+ if(p==='/api/character')return {model:null};
+ if(p.startsWith('/api/character/'))throw Error('画面プレビューでは3Dモデルを保存しません。選んだモデルは、この画面を開いている間だけ表示します。');
  if(p==='/api/dialogue'&&method==='GET')return structuredClone(previewState.dialogue);
  if(p==='/api/dialogue/context')return {id:'preview-dialogue-context',remote:false,label:'画面プレビュー',note:'会話・委任・PC操作の実行はしません。'};
  if(p==='/api/dialogue/personas'){
@@ -154,11 +166,23 @@ async function previewRequest(p,method,b){
  if(p==='/api/settings'){const {sessionKey,...settings}=b;Object.assign(previewState.settings,settings);emitPreview('settings.updated',previewState.settings);return previewState.settings;}
  if(p==='/api/jobs'){
   if(b.kind!=='demo')throw new Error('これは画面プレビューです。自由な依頼と音声認識は、ソース版を起動してモデルを接続すると使えます。');
-  const j={id:uid(),title:'はじめてのワークスペース',input:b.input,kind:'demo',status:'running',note:'依頼を受け取りました',step:0,output:'',createdAt:new Date().toISOString()};upsertPreview('jobs',j);emitPreview('job.updated',j);
-  const aid=uid();let phase=0;const tick=()=>{if(j.status==='cancelled')return;phase++;j.step=phase;j.note=['構成をつくっています','内容を整えています','仕上げています'][phase-1];const a={id:aid,jobId:j.id,title:'はじめてのワークスペース',kind:'html',content:demoArtifact(phase),version:phase,updatedAt:new Date().toISOString()};upsertPreview('artifacts',a);emitPreview('artifact.updated',a);if(phase===3){j.status='completed';j.note='体験用タスクが完了しました';j.output='3回の成果物更新が完了しました。外部モデルを呼ばない、画面操作と非同期更新の体験用サンプルです。';previewTimers.delete(j.id);}else previewTimers.set(j.id,setTimeout(tick,850));emitPreview('job.updated',j);};previewTimers.set(j.id,setTimeout(tick,700));return j;
+  const j={id:uid(),title:'はじめてのワークスペース',input:b.input,kind:'demo',status:'running',note:'依頼を受け取りました',step:0,output:'',pendingApprovals:0,createdAt:new Date().toISOString()};upsertPreview('jobs',j);emitPreview('job.updated',j);
+  const aid=uid();let phase=0;
+  const tick=()=>{if(j.status==='cancelled')return;phase++;j.step=phase;
+   const a={id:aid,jobId:j.id,title:'はじめてのワークスペース',kind:'html',content:demoArtifact(phase),version:phase,updatedAt:new Date().toISOString()};upsertPreview('artifacts',a);emitPreview('artifact.updated',a);
+   if(phase===1)j.note='構成をつくっています';
+   if(phase===2){
+    const approval={id:uid(),jobId:j.id,jobTitle:j.title,jobRevision:0,name:'run_command',args:{executable:'node',args:['export-pdf.js','workspace.html'],sample:'画面サンプルです。実行はしません'},mode:'stacked',status:'pending',stacked:true,createdAt:new Date().toISOString(),stackedAt:new Date().toISOString()};
+    previewState.approvals.unshift(approval);emitPreview('approval.updated',structuredClone(approval));
+    Object.assign(j,{pendingApprovals:1,approval:{id:approval.id,name:approval.name,args:approval.args,stacked:true},note:'書き出しの承認を待つ間に、ほかの部分を仕上げています'});
+   }
+   if(phase===3){Object.assign(j,{status:'waiting_approval',parked:true,note:'承認待ちの操作が1件あります。判断されると続きを進めます。',output:'画面サンプル: 本文の仕上げまで進めました。PDFへの書き出しは承認待ちです。'});previewTimers.delete(j.id);}
+   else previewTimers.set(j.id,setTimeout(tick,900));
+   emitPreview('job.updated',j);};
+  previewTimers.set(j.id,setTimeout(tick,700));return j;
  }
- if(p==='/api/stop'){for(const j of previewState.jobs)if(j.status==='running'){j.status='cancelled';j.note='停止しました';clearTimeout(previewTimers.get(j.id));emitPreview('job.updated',j);}return {stopped:true};}
- let m=p.match(/^\/api\/jobs\/([^/]+)\/cancel$/);if(m){const j=previewState.jobs.find(x=>x.id===m[1]);if(j){j.status='cancelled';j.note='停止しました';clearTimeout(previewTimers.get(j.id));emitPreview('job.updated',j);}return j;}
+ if(p==='/api/stop'){for(const a of previewState.approvals)if(a.status==='pending'){a.status='withdrawn';emitPreview('approval.updated',structuredClone(a));}for(const j of previewState.jobs)if(['running','waiting_approval'].includes(j.status)){j.status='cancelled';j.note='停止しました';clearTimeout(previewTimers.get(j.id));emitPreview('job.updated',j);}return {stopped:true};}
+ let m=p.match(/^\/api\/jobs\/([^/]+)\/cancel$/);if(m){const j=previewState.jobs.find(x=>x.id===m[1]);for(const a of previewState.approvals)if(a.jobId===m[1]&&a.status==='pending'){a.status='withdrawn';emitPreview('approval.updated',structuredClone(a));}if(j){j.status='cancelled';j.note='停止しました';j.parked=false;j.pendingApprovals=0;clearTimeout(previewTimers.get(j.id));emitPreview('job.updated',j);}return j;}
  if(p==='/api/memories'){const d={id:uid(),content:b.content,title:b.title||'',scope:b.scope||'private',confirmed:true,source:'user',createdAt:new Date().toISOString()};upsertPreview('memories',d);emitPreview('memory.updated',d);return d;}
  m=p.match(/^\/api\/memories\/([^/]+)$/);if(m){if(method==='DELETE'){previewState.memories=previewState.memories.filter(x=>x.id!==m[1]);emitPreview('memory.deleted',{id:m[1]});return {deleted:true};}const d=previewState.memories.find(x=>x.id===m[1]);Object.assign(d,b);emitPreview('memory.updated',d);return d;}
  if(p==='/api/context/export')return {format:'tepora-v3-context',version:1,memories:previewState.memories,artifacts:previewState.artifacts,skills:previewState.skills};
@@ -172,6 +196,6 @@ export const bridge={
  preview:previewMode,
  on(fn){listeners.add(fn);return()=>listeners.delete(fn);},
  async init(){const snapshot=await this.request('/api/bootstrap');csrfToken=snapshot.csrf||'';if(!previewMode){stream=new EventSource(`/api/events?since=${snapshot.seq}`);stream.onmessage=e=>{try{dispatch(JSON.parse(e.data));}catch{}};stream.onerror=()=>dispatch({type:'transport.status',data:{online:false}});stream.onopen=()=>dispatch({type:'transport.status',data:{online:true}});}return snapshot;},
- async request(p,method='GET',value){if(previewMode){try{return await previewRequest(p,method,value);}catch(e){e.status||=409;throw e;}}const opts={method,credentials:'same-origin',headers:{'X-Tepora-CSRF':csrfToken}};if(value!==undefined){if(value instanceof Blob){opts.body=value;opts.headers['Content-Type']='audio/wav';}else{opts.body=JSON.stringify(value);opts.headers['Content-Type']='application/json';}}const r=await fetch(p,opts);let result;try{result=await r.json();}catch{throw new Error(`HTTP ${r.status}: 応答が読み取れません。`);}if(!r.ok)throw Object.assign(new Error(result.error||`HTTP ${r.status}`),{status:r.status});return result;},
+ async request(p,method='GET',value,headers={}){if(previewMode){try{return await previewRequest(p,method,value);}catch(e){e.status||=409;throw e;}}const opts={method,credentials:'same-origin',headers:{'X-Tepora-CSRF':csrfToken}};if(value!==undefined){if(value instanceof Blob){opts.body=value;opts.headers['Content-Type']=value.type||'audio/wav';}else{opts.body=JSON.stringify(value);opts.headers['Content-Type']='application/json';}}Object.assign(opts.headers,headers);const r=await fetch(p,opts);let result;try{result=await r.json();}catch{throw new Error(`HTTP ${r.status}: 応答が読み取れません。`);}if(!r.ok)throw Object.assign(new Error(result.error||`HTTP ${r.status}`),{status:r.status});return result;},
  close(){stream?.close();}
 };

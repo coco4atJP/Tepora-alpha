@@ -1,3 +1,4 @@
+import {STATUS_LABELS} from './status.mjs';
 /** The conversation belongs to a session. A job selection is only a detail view. */
 export function characterName(dialogue){
  const character=dialogue?.session?.character;
@@ -27,15 +28,22 @@ export function currentReplyQuestion(destination,dialogue,jobs){
  return dialogue?.messages?.find(m=>m.questionId===reply.questionId&&m.jobId===reply.jobId&&m.jobRevision===reply.jobRevision&&questionIsCurrent(m,jobs))||null;
 }
 export function latestCharacterReply(dialogue){return [...(dialogue?.messages||[])].reverse().find(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind))?.content||'';}
-const statusNames={queued:'順番待ち',running:'作業中',paused:'回答待ち',review:'結果の確認待ち',completed:'処理終了',failed:'停止・エラー',blocked:'確認が必要',cancelled:'停止済み',interrupted:'中断'};
+const dialogueStatusNames={...STATUS_LABELS,paused:'回答待ち'};
+const dialogueTones={queued:'active',running:'active',waiting_approval:'attention',paused:'attention',interrupted:'attention',blocked:'attention',failed:'danger',cancelled:'idle',review:'attention',completed:'done'};
+const dialogueWorkerLabel=name=>!name||name==='作業担当'?'作業担当':`作業担当（${name}）`;
 export function dialogueMessagePresentation(message,dialogue,jobs){
  const worker=['worker-report','worker-question'].includes(message.kind),job=jobs.find(j=>j.id===message.jobId);
- const status=message.status||job?.status||'';
+ const status=message.status||job?.status||'',accepted=message.verificationStatus==='accepted-by-user';
+ const parked=message.kind==='worker-report'&&status==='waiting_approval';
  return {
   speaker:message.role==='user'?'あなた':characterName(dialogue),
-  source:worker?`作業担当 ${message.sourceName||job?.personaSnapshot?.worker?.name||dialogue?.personas?.worker?.name||''} からの${message.kind==='worker-question'?'確認':'報告'} · ${job?.title||message.jobId||'仕事'}`:'',
-  status:worker?(message.verificationStatus==='accepted-by-user'?'ユーザー確認済み':statusNames[status]||status):'',
-  caution:message.kind==='worker-report'?(status==='review'?'作業担当の報告です。成果の内容はまだ確認されていません。':'作業担当の報告です。実行記録・検査の範囲は仕事の詳細で確認できます。'):'',
+  source:worker?`${dialogueWorkerLabel(message.sourceName||job?.personaSnapshot?.worker?.name||dialogue?.personas?.worker?.name||'')}からの${message.kind==='worker-question'?'確認':'報告'} · ${job?.title||message.jobId||'仕事'}`:'',
+  status:worker?(accepted?'ユーザー確認済み':dialogueStatusNames[status]||status):'',
+  tone:worker?(accepted?'done':message.kind==='worker-question'?'attention':dialogueTones[status]||'idle'):'',
+  // Start/progress notices are shown as one quiet line; results and questions stay full.
+  compact:message.kind==='worker-report'&&['queued','running'].includes(status),
+  parked,
+  caution:message.kind==='worker-report'&&status==='review'&&!accepted?'作業担当の報告です。成果の内容はまだ確認されていません。':'',
   canReply:questionIsCurrent(message,jobs),
   questionState:message.kind==='worker-question'?(questionIsCurrent(message,jobs)?'回答を待っています':message.questionStatus==='answered'?'回答済み':'更新済みの質問です'):'',
   content:String(message.content||'')
