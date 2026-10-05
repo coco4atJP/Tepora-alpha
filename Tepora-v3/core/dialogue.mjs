@@ -2,6 +2,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {destination} from './context.mjs';
 import {resolveInputs,inputMeta} from './input-files.mjs';
 import {invariant,text} from './policy.mjs';
+import {defaultPersonas,nextVoice,normalizePersonas} from './persona.mjs';
 
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const now=()=>new Date().toISOString();
@@ -19,10 +20,8 @@ const brief=value=>String(value||'').slice(0,6000);
 export class Dialogue {
  constructor(store,harness,requests){
   Object.assign(this,{store,harness,requests,closed:false});
-  if(!store.value('dialogue-personas'))store.value('dialogue-personas',{revision:0,
-   character:{name:String(store.settings.companion||'Tepora').slice(0,80),instructions:'落ち着いた親しみやすい会話。仕事はワーカーへ渡し、会話を続けられるようにする。'},
-   worker:{name:'Tepora Worker',instructions:'依頼の範囲内で検証可能な成果を作る。確認が必要なときは質問し、結果を根拠とともに報告する。'}});
-  if(!store.value('dialogue-session'))store.value('dialogue-session',{id:randomUUID(),revision:0,nextSequence:0,createdAt:now()});
+  if(!store.value('dialogue-personas'))store.value('dialogue-personas',defaultPersonas(store.settings.companion));
+ if(!store.value('dialogue-session'))store.value('dialogue-session',{id:randomUUID(),revision:0,nextSequence:0,createdAt:now()});
   harness.dialogue=this;
   this.listener=event=>{
    if(this.closed)return;
@@ -34,7 +33,7 @@ export class Dialogue {
  }
  transaction(fn){this.store.db.exec('BEGIN IMMEDIATE');try{const result=fn();this.store.db.exec('COMMIT');return result;}catch(e){this.store.db.exec('ROLLBACK');throw e;}}
  session(){const s=this.store.value('dialogue-session');return {id:s.id,revision:s.revision,character:this.personas().character};}
- personas(){return this.store.value('dialogue-personas');}
+ personas(){return normalizePersonas(this.store.value('dialogue-personas'));}
  snapshot(){return {session:this.session(),messages:this.store.list('dialogue-message').filter(m=>m.sessionId===this.session().id).reverse(),personas:this.personas()};}
  emit(){this.store.emit('dialogue.updated',this.snapshot());}
  context(){
@@ -45,8 +44,8 @@ export class Dialogue {
  configure(raw){
   invariant(raw&&typeof raw==='object'&&!Array.isArray(raw),'Invalid personas');
   const current=this.personas();invariant(raw.expectedRevision===current.revision,'人格設定が変更されています。読み直してください。',409);
-  const persona=(value,previous)=>{if(value===undefined)return previous;invariant(value&&typeof value==='object'&&!Array.isArray(value),'Invalid persona');return {name:text(value.name,'persona name',80),instructions:typeof value.instructions==='string'&&value.instructions.length<=8000?value.instructions:(invariant(false,'Invalid persona instructions'),null)};};
-  const next={revision:current.revision+1,character:persona(raw.character,current.character),worker:persona(raw.worker,current.worker)};
+  const persona=(value,previous,voice)=>{if(value===undefined)return previous;invariant(value&&typeof value==='object'&&!Array.isArray(value),'Invalid persona');const out={name:text(value.name,'persona name',80),instructions:typeof value.instructions==='string'&&value.instructions.length<=8000?value.instructions:(invariant(false,'Invalid persona instructions'),null)};if(voice)out.voice=nextVoice(value.voice,previous.voice);return out;};
+  const next={revision:current.revision+1,character:persona(raw.character,current.character,true),worker:persona(raw.worker,current.worker,false)};
   this.transaction(()=>{this.store.value('dialogue-personas',next);const s=this.store.value('dialogue-session');this.store.value('dialogue-session',{...s,revision:s.revision+1});});
   this.emit();return next;
  }
