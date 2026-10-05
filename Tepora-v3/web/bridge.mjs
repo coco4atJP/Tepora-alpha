@@ -1,4 +1,6 @@
 import { DISPLAY_DEFAULT, validateDisplay } from './display-model.mjs';
+import { AVATAR_DEFAULT, avatarNeeds, defaultAvatar, exportAvatar, importAvatarPreset, validateAvatar } from './avatar/model.mjs';
+import { defaultVoice, validateVoice } from './voice-lines.mjs';
 import { demoArtifact } from './demo.mjs';
 /** One transport contract, two explicit implementations: live localhost and offline visual preview. */
 export const previewMode=location.protocol==='file:' || window.__TEPORA_PREVIEW__===true;
@@ -10,13 +12,18 @@ let saved;try{saved=JSON.parse(localStorage.getItem('tepora-preview-v3')||'null'
 let previewState={seq:0,jobs:[],artifacts:[],memories:[],messages:[],skills:[],mcp:[],settings:previewDefaults,...saved,preview:true,platform:'preview',workspace:'プレビュー内のみ'};
 previewState.display=previewState.display||structuredClone(DISPLAY_DEFAULT);
 previewState.companion||={revision:0,focusJobId:null,returnStack:[]};
-previewState.displayHistory=[];previewState.routines=[];previewState.plans=[];previewState.approvals=[];previewState.character=null;
+previewState.displayHistory=[];previewState.routines=[];previewState.plans=[];previewState.approvals=[];delete previewState.character;delete previewState.display.companion;
+// The avatar's look is kept; files a person brought live only in this window, so a look that wears one starts over.
+previewState.avatar=previewState.avatar?.schema===1?previewState.avatar:structuredClone(AVATAR_DEFAULT);
+previewState.avatarHistory=[];previewState.avatarAssets={assets:[],limits:{maxAssets:24,maxBytes:96*1024*1024,maxVrmBytes:80*1024*1024,maxLibraryBytes:1024*1024*1024}};
+if(avatarNeeds(previewState.avatar))previewState.avatar={...defaultAvatar('shiro'),revision:previewState.avatar.revision+1};
+const previewAssetFiles=new Map();
 previewState.capabilities||={schema:1,revision:0,profiles:[],routes:{}};previewState.mediaJobs=[];
 previewState.network||={schema:1,revision:0,mode:'online',internetTools:false};
 previewState.providers||={schema:1,revision:0,profiles:[],routes:{},offlineFloor:{configured:false,verified:false,providers:[]}};
 previewState.computer||={config:{schema:1,revision:0,enabled:false,controller:'both',backend:'browser',python:'python',browserExecutable:'',headless:false,allowedOrigins:[],windowHandle:null,maxActions:100},active:null};
 previewState.settings={...previewDefaults,...previewState.settings};
-previewState.dialogue||={session:{id:'preview-dialogue',revision:0,character:{name:'Tepora',instructions:''}},messages:[],personas:{revision:0,character:{name:'Tepora',instructions:'穏やかに会話し、作業を別の担当へ任せます。'},worker:{name:'作業担当',instructions:'結果と検証の範囲を区別して報告します。'}}};
+previewState.dialogue||={session:{id:'preview-dialogue',revision:0,character:{name:'Tepora',instructions:'',voice:defaultVoice()}},messages:[],personas:{revision:0,character:{name:'Tepora',instructions:'穏やかに会話し、作業を別の担当へ任せます。',voice:defaultVoice()},worker:{name:'作業担当',instructions:'結果と検証の範囲を区別して報告します。'}}};
 previewState.jobs=previewState.jobs.map(j=>['queued','running','waiting_approval'].includes(j.status)?{...j,status:'interrupted',note:'プレビューを再読み込みしました。'}:j);
 const uid=()=>globalThis.crypto?.randomUUID?.()||`preview-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const previewTimers=new Map(),toolImportPreviews=new Map();let previewCatalog=[];
@@ -35,16 +42,49 @@ async function previewRequest(p,method,b){
  if(p==='/api/approvals'&&method==='POST')return {results:b.ids.map(id=>{try{decidePreviewApproval(id,b.allow);return {id,ok:true};}catch(e){return {id,ok:false,error:e.message};}})};
  {const m=p.match(/^\/api\/approvals\/([^/]+)$/);if(m&&method==='POST'){decidePreviewApproval(m[1],b.allow===true);return {resolved:true};}}
  if(p==='/api/presence')return {presence:b?.state==='away'?'away':'present'};
- if(p==='/api/character')return {model:null};
- if(p.startsWith('/api/character/'))throw Error('画面プレビューでは3Dモデルを保存しません。選んだモデルは、この画面を開いている間だけ表示します。');
+ if(p==='/api/avatar'&&method==='GET')return structuredClone(previewState.avatar);
+ if(p==='/api/avatar/export')return exportAvatar(previewState.avatar);
+ if(p==='/api/avatar/assets'&&method==='GET')return structuredClone(previewState.avatarAssets);
+ if(p==='/api/avatar/assets')throw Error('画面プレビューでは素材を保存しません。選んだ素材は、この画面を開いている間だけ使えます。');
+ {const m=p.match(/^\/api\/avatar\/assets\/([^/]+)$/);if(m&&method==='DELETE'){
+  const gone=previewState.avatarAssets.assets.find(a=>a.id===m[1]);if(!gone)throw Error('素材が見つかりません。');
+  for(const f of previewAssetFiles.get(m[1])?.values()||[])URL.revokeObjectURL(f.url);previewAssetFiles.delete(m[1]);
+  previewState.avatarAssets={...previewState.avatarAssets,assets:previewState.avatarAssets.assets.filter(a=>a.id!==m[1])};emitPreview('avatar.assets',previewState.avatarAssets);
+  if(previewState.avatar.asset===m[1]){const old=previewState.avatar;previewState.avatar={...defaultAvatar('shiro'),revision:old.revision+1};emitPreview('avatar.updated',previewState.avatar);}
+  return {removed:m[1],...previewState.avatarAssets};}}
+ if(['/api/avatar','/api/avatar/undo','/api/avatar/reset','/api/avatar/import'].includes(p)){
+  const old=previewState.avatar;
+  if(old.revision!==b.expectedRevision)throw new Error('キャラクターの設定が更新されています。開き直してください。');
+  let next;
+  if(p.endsWith('/undo')){
+   if(!previewState.avatarHistory.length)throw new Error('戻せる変更がありません。');
+   next=previewState.avatarHistory.pop();if(avatarNeeds(next)&&!previewState.avatarAssets.assets.some(a=>a.id===next.asset))next=defaultAvatar('shiro');
+  }else{
+   if(p.endsWith('/reset'))next=defaultAvatar('shiro');
+   else{
+    let patch=b.patch;
+    if(p.endsWith('/import')){
+     patch=importAvatarPreset(b.preset);const probe=validateAvatar(patch,old),need=avatarNeeds(probe);
+     if(need&&!probe.asset){const latest=[...previewState.avatarAssets.assets].reverse().find(a=>a.kind===need);if(!latest)throw new Error('この設定には、先に素材（3Dモデル・画像など）の追加が必要です。');patch={...patch,asset:latest.id};}
+    }
+    next=validateAvatar(patch,old);
+    const need=avatarNeeds(next);if(need){const asset=previewState.avatarAssets.assets.find(a=>a.id===next.asset);if(!asset||asset.kind!==need)throw new Error('選んだ素材が見つかりません。');}
+    previewState.avatarHistory.push(old);previewState.avatarHistory=previewState.avatarHistory.slice(-20);
+   }
+  }
+  previewState.avatar={...next,revision:old.revision+1};
+  emitPreview('avatar.updated',previewState.avatar);return previewState.avatar;
+ }
+ if(p==='/api/frame'||p.startsWith('/api/frame/'))throw Error('画面プレビューでは写真を保存しません。選んだ写真は、この画面を開いている間だけ表示します。');
  if(p==='/api/dialogue'&&method==='GET')return structuredClone(previewState.dialogue);
  if(p==='/api/dialogue/context')return {id:'preview-dialogue-context',remote:false,label:'画面プレビュー',note:'会話・委任・PC操作の実行はしません。'};
  if(p==='/api/dialogue/personas'){
   if(method==='GET')return structuredClone(previewState.dialogue.personas);
   const old=previewState.dialogue.personas;if(method!=='PUT'||b.expectedRevision!==old.revision)throw Error('人格の設定が更新されています。開き直してください。');
   for(const role of ['character','worker'])if(!b[role]?.name?.trim()||b[role].name.length>80||typeof b[role].instructions!=='string'||b[role].instructions.length>8000)throw Error('名前と指示を確認してください。');
-  previewState.dialogue.personas={revision:old.revision+1,character:{...b.character},worker:{...b.worker}};
-  previewState.dialogue.session={...previewState.dialogue.session,revision:previewState.dialogue.session.revision+1,character:{...b.character}};
+  const character={name:b.character.name,instructions:b.character.instructions,voice:validateVoice(b.character.voice||{},old.character.voice||defaultVoice())};
+  previewState.dialogue.personas={revision:old.revision+1,character,worker:{name:b.worker.name,instructions:b.worker.instructions}};
+  previewState.dialogue.session={...previewState.dialogue.session,revision:previewState.dialogue.session.revision+1,character:{...character}};
   emitPreview('dialogue.updated',structuredClone(previewState.dialogue));return structuredClone(previewState.dialogue.personas);
  }
  if(p.startsWith('/api/dialogue'))throw Error('画面プレビューはAIとの会話・作業の委任・回答の送信を行いません。');
@@ -192,6 +232,18 @@ async function previewRequest(p,method,b){
  m=p.match(/^\/api\/(mcp|skills)\/([^/]+)$/);if(m){const list=m[1]==='skills'?'skills':'mcp';if(method==='DELETE'){previewState[list]=previewState[list].filter(x=>x.id!==m[2]);emitPreview(`${m[1]==='skills'?'skill':'mcp'}.deleted`,{id:m[2]});}else{const d=previewState[list].find(x=>x.id===m[2]);Object.assign(d,b);emitPreview('mcp.updated',d);}return {ok:true};}
  throw new Error('画面プレビューでは外部接続やPC操作を行いません。実機用ソース版で利用してください。');
 }
+/** Files brought for the avatar in the offline preview: kept as blobs in this window only. files: [{path, blob, mime}]. */
+export const previewAvatar={
+ add({kind,name,meta,files}){
+  const id=uid(),map=new Map();let bytes=0;
+  for(const f of files){map.set(f.path,{blob:f.blob,url:URL.createObjectURL(f.blob),mime:f.mime});bytes+=f.blob.size;}
+  previewAssetFiles.set(id,map);
+  const asset={id,kind,name,bytes,createdAt:new Date().toISOString(),meta,files:files.map(f=>({path:f.path,mime:f.mime,bytes:f.blob.size}))};
+  previewState.avatarAssets={...previewState.avatarAssets,assets:[...previewState.avatarAssets.assets,asset]};emitPreview('avatar.assets',previewState.avatarAssets);return asset;
+ },
+ url(id,path='file'){const f=previewAssetFiles.get(id)?.get(path);if(!f)throw new Error('素材が見つかりません。');return f.url;},
+ async readJSON(id,path){const f=previewAssetFiles.get(id)?.get(path);if(!f)throw new Error('素材が見つかりません。');return JSON.parse(await f.blob.text());}
+};
 export const bridge={
  preview:previewMode,
  on(fn){listeners.add(fn);return()=>listeners.delete(fn);},

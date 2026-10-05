@@ -24,6 +24,7 @@
     "improve:browser": "node scripts/improve-loop.mjs --browser",
     "test:computer": "node scripts/check-computer.mjs",
     "test:routing-ui": "python tests/browser-routing.py . validation/routing-ui",
+    "test:avatar-ui": "python tests/browser-avatar.py . validation/avatar-ui",
     "improve:full": "node scripts/improve-loop.mjs --browser --computer --capabilities",
     "test:capabilities": "node scripts/check-capabilities.mjs",
     "test:abilities-ui": "python tests/browser-capabilities.py . validation/abilities-ui"

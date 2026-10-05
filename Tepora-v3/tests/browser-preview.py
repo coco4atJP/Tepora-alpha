@@ -24,8 +24,10 @@ with sync_playwright() as pw:
  page.wait_for_function("!document.querySelector('[data-action=widget-toggle][value=news]').checked")
  page.screenshot(path=str(out/"02-customize.png"))
  nav("home")
- assert page.locator(".deck-card").count()==1
- assert page.locator('.deck-pager [aria-label*="ニュース"]').count()==0
+ # Weather is one line under the date and work is shown as lights, so with the news card hidden the deck is empty.
+ assert page.locator(".deck-card").count()==0
+ assert page.get_by_role("button",name="ホームのカードを設定",exact=True).is_visible()
+ assert "晴れ" in page.locator("#clock-sub").inner_text()
  nav("settings")
  page.get_by_role("button",name="前の表示に戻す",exact=True).click()
  page.wait_for_function("document.querySelector('[data-action=widget-toggle][value=news]')?.checked===true")

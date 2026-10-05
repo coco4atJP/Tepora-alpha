@@ -4,6 +4,11 @@ export function characterName(dialogue){
  const character=dialogue?.session?.character;
  return (typeof character==='string'?character:character?.name)||dialogue?.personas?.character?.name||'Tepora';
 }
+/** The voice of the character persona (tone, call name, speaking frequency, own lines), or undefined for the plain default. */
+export function characterVoice(dialogue){
+ const character=dialogue?.personas?.character||dialogue?.session?.character;
+ return character&&typeof character==='object'&&character.voice?character.voice:undefined;
+}
 export function dialogueDestination(session,reply=null){
  if(!session?.id)throw new Error('会話を読み込んでいます。少し待ってから送信してください。');
  return Object.freeze({sessionId:session.id,reply:reply?Object.freeze({...reply}):null});

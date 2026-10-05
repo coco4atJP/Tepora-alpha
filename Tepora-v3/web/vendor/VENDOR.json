@@ -1,5 +1,5 @@
 {
-  "purpose": "Optional VRM avatar rendering, loaded only when the user selects a local VRM model.",
+  "purpose": "Optional avatar rendering (3D models and mesh avatars), loaded only when the person chooses one.",
   "packages": {
     "three": {
       "version": "0.186.1",
@@ -10,6 +10,13 @@
       "version": "3.5.5",
       "integrity": "sha512-RPXy7jYAXs704NIpZlosB0U2ENu21G9DrqGWdQgRe8dShaCo1ugpj+6BVPRCy91nt+MPMA96j5rbsSzEl0HlQA==",
       "license": "MIT"
+    },
+    "mesh-avatar-studio": {
+      "version": "git 8713e85a00e50f5cdf8fe33294b961d1d6506fc9",
+      "source": "https://github.com/shinshin86/mesh-avatar-studio",
+      "license": "MIT",
+      "licenseFile": "mesh-avatar/LICENSE",
+      "copyright": "Copyright (c) 2026 Yuki Shindo"
     }
   },
   "files": {
@@ -42,6 +49,46 @@
       "package": "@pixiv/three-vrm",
       "source": "lib/three-vrm.module.min.js",
       "sha256": "f7bcfbab5ab24dddf8c048c03de433dc6508ae082cc9c9ab65d01e41f46e49a5"
+    },
+    "mesh-avatar/createMeshAvatar.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/createMeshAvatar.js",
+      "sha256": "d1cf0c8fd1b200d27b55eea853a85a5d498f82650703cfbf9473dc637c78525c"
+    },
+    "mesh-avatar/renderer.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/renderer.js",
+      "sha256": "9946c5dac74d73dab30d85218341a0af30b7426092a4fec9653613143fa1a1f7"
+    },
+    "mesh-avatar/rig.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/rig.js",
+      "sha256": "dee9f60a3222ba6b812aeef29269d8fc9643629157d5276e9b282af0f1379370"
+    },
+    "mesh-avatar/motion.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/motion.js",
+      "sha256": "01f7603489c9e7119c40597c387e0fc4be9a38f10ff131d8be45d12bd5e6d717"
+    },
+    "mesh-avatar/motions.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/motions.js",
+      "sha256": "8f978c4e04b5e44cd4ab39689467f410633cdfa0aa2b841f64c12107f3f02cb5"
+    },
+    "mesh-avatar/physics.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/physics.js",
+      "sha256": "cab0a8e9115a14c1eb28be91afd2aa059c82f72a18c7e7585cf04110c3f2cb28"
+    },
+    "mesh-avatar/sprites.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/sprites.js",
+      "sha256": "f300b3f5caae1da28b95e4a932885894055f2792ff29bed4d2ccd2cbac1ca407"
+    },
+    "mesh-avatar/kana.js": {
+      "package": "mesh-avatar-studio",
+      "source": "src/engine/kana.js",
+      "sha256": "127013f29c92ec2547a3e3a3b985d05663f57b91edea6c0b5c4d49c05ef5b5e0"
     }
   }
 }

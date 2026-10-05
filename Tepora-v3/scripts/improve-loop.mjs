@@ -45,7 +45,7 @@ async function verify(before){
  const steps=[['syntax',process.execPath,['scripts/check.mjs']],['node-tests',process.execPath,process.platform==='win32'?['--import','./scripts/ci-diagnostics.mjs','--test','--test-timeout=120000']:['--test']],
   ['worker-contracts',python,['-I','-S','-m','unittest','discover','-s','workers','-p','test_*.py','-v']],
   ['scenario-traceability',process.execPath,['scripts/verify-scenarios.mjs',folder]],['preview-build',process.execPath,['scripts/build-preview.mjs']]];
- if(browser){steps.push(['browser-first-use',python,['tests/browser-first-use.py',root,path.join(folder,'browser')]]);steps.push(['browser-routing',python,['tests/browser-routing.py',root,path.join(folder,'routing-ui')]]);}
+ if(browser){steps.push(['browser-first-use',python,['tests/browser-first-use.py',root,path.join(folder,'browser')]]);steps.push(['browser-routing',python,['tests/browser-routing.py',root,path.join(folder,'routing-ui')]]);steps.push(['browser-lamp',python,['tests/browser-lamp.py',root,path.join(folder,'lamp')]]);steps.push(['browser-avatar',python,['tests/browser-avatar.py',root,path.join(folder,'avatar')]]);}
  if(browser)steps.push(['browser-abilities',python,['tests/browser-capabilities.py',root,path.join(folder,'abilities-ui')]]);
  if(browser)steps.push(['browser-ability-components',python,['tests/browser-capability-components.py',root,path.join(folder,'ability-components')]]);
  if(capabilities)steps.push(['capability-live',process.execPath,['scripts/check-capabilities.mjs',path.join(folder,'capability-live')]]);

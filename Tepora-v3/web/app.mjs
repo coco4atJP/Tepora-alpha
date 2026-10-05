@@ -2,21 +2,33 @@ import {createExecutionUI} from './execution-ui.mjs';
 import {createCapabilityUI} from './capability-ui.mjs';
 import {createProviderSettings} from './provider-settings.mjs';
 import {createOnboarding} from './onboarding.mjs';
-import {bridge,previewMode} from './bridge.mjs';
+import {bridge,previewMode,previewAvatar} from './bridge.mjs';
 import {escape,icon,btn,toolbtn,statuses,setArtifactFrame,field,toggle,modal,registerForms,isTrustedForm} from './ui.mjs';
-import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES} from './display-model.mjs';
+import {DISPLAY_DEFAULT,WIDGETS,AMBIENT_DEFAULT,IDLE_CHOICES,WALLPAPERS} from './display-model.mjs';
 import {VoiceDraft} from './draft.mjs';
 import {companionArtifacts} from './companion-state.mjs';
-import {DialogueDraftContext,characterName,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
+import {DialogueDraftContext,characterName,characterVoice,currentReplyQuestion,latestCharacterReply,dialogueMessagePresentation,mergeDialogueMessages} from './dialogue-state.mjs';
 import {VoiceCapture} from './voice.mjs';
 import {RealtimeVoiceCapture} from './realtime-voice.mjs';
 import {jobStatus,needsPerson} from './status.mjs';
 import {describeApproval} from './approval-format.mjs';
 import {renderMarkdown} from './markdown.mjs';
-import {createCharacter,companionMood} from './character.mjs';
-import {ambientCards,createDeck,createIdleWatcher,greeting,isNight,weatherLabel} from './ambient.mjs';
-import {inboxItems,inboxHTML,ago} from './inbox.mjs';
+import {companionMood} from './avatar/pose.mjs';
+import {AVATAR_BODIES,AVATAR_PALETTES} from './avatar/model.mjs';
+import {createAvatar,avatarAssetUrl} from './avatar/stage.mjs';
+import {avatarGeometry} from './avatar/geometry.mjs';
+import {createAvatarStudio} from './avatar/settings.mjs';
+import {VOICE_PROACTIVE,VOICE_SCENES,VOICE_TONES,voiceAddress,voiceLine,voiceSpeaks} from './voice-lines.mjs';
+import {ambientCards,createDeck,createIdleWatcher,greeting,isNight,weatherLabel,weatherLine,deckWidgets,awayRecap,countWord} from './ambient.mjs';
+import {inboxItems,inboxHTML,ago,approvalSlip} from './inbox.mjs';
 import {createMusic} from './music.mjs';
+import {seasonLine} from './seasons.mjs';
+import {daylightState,daylightVars} from './daylight.mjs';
+import {backdropFor,lampPalette,paintStars,wallpaperHTML,WALLPAPER_LABELS,WALLPAPER_NOTES} from './wallpaper.mjs';
+import {createPhotoFrame,framePhotos,framePreview} from './frame.mjs';
+import {createLights,lightJobs} from './lights.mjs';
+import {sealHTML,stampHTML,sealDefs,bindSeals,SEAL_HOLD_MS} from './seal.mjs';
+import {createFrameSettings} from './frame-settings.mjs';
 
 const app=document.querySelector('#app'),overlay=document.querySelector('#overlay'),toastEl=document.querySelector('#toast');
 const $=(selector,scope=document)=>scope.querySelector(selector);
@@ -30,14 +42,18 @@ let weatherData=null,newsData=null,lastVisibleKey='',pendingArtifactJobId=null;
 let voiceEpoch=0,attachmentEpoch=0,submitEpoch=0,dialogueRenderKey='';
 let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendingRelay=null;
 // Home monitor and companion presentation. None of this changes permissions or work.
-let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',previewModelUrl='';
+let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
+// Idle screen as a screensaver: where to return to, what to say on return, the photo frame and the screen lock.
+let lights=null,photoFrame=null,photoRunning=false,frameSession=false,enteredFullscreen=false,ambientReturn=null,recapUntil=0,recapText='',recapTimer=0,awaySince=0,wakeLock=null,daylightKey='',lightMinute=-1,backdropShown='',wallpaperDirty=true,moveFrom=null,frameUI=null;
 // The conversation column is opened on demand; on the home stage the message box sits under the character.
 let talkOpen=false;try{talkOpen=localStorage.getItem('tepora-talk-open')==='1';}catch{talkOpen=false;}
-const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
+let reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
 const wideScreen=globalThis.matchMedia?.('(min-width: 900px)');
 const stageHost=document.createElement('div');stageHost.className='character-host';
 const deckHost=document.createElement('div');deckHost.className='deck';
+const glowHost=document.createElement('div');glowHost.className='stage-glow';
+const lightsHost=document.createElement('div');lightsHost.className='stage-lights';
 const draftContext=new DialogueDraftContext();
 const draft=new VoiceDraft();
 let capabilityUI=null;
@@ -55,13 +71,15 @@ function onboarding(){
 let musicUI=null;
 function musicPlayer(){return musicUI||=createMusic({onChange:value=>{musicState=value;if(view==='home')paintDeck();paintChrome();}});}
 
-const widgetNames={clock:'時計',companion:'キャラクター',weather:'天気',news:'ニュース',media:'音楽',work:'仕事のようす',artifact:'つくった画像'};
+const widgetNames={clock:'時計',companion:'キャラクター',weather:'天気（日付の下に一行。雨などの日はカードも）',news:'ニュース',media:'音楽',work:'仕事のようす（キャラクターのまわりの灯り）',artifact:'つくった画像'};
 const workJobs=()=>state.jobs.filter(j=>!(j.kind==='chat'&&j.characterSessionId));
 const activeJobs=()=>workJobs().filter(j=>['queued','running','waiting_approval'].includes(j.status));
 const settings=()=>state.settings;
 const display=()=>{const d=state?.display||DISPLAY_DEFAULT;return {...DISPLAY_DEFAULT,...d,ambient:{...AMBIENT_DEFAULT,...(d.ambient||{})}};};
 const inboxList=()=>state?inboxItems({approvals:state.approvals||[],jobs:state.jobs,dialogue:state.dialogue,routines:state.routines||[],plans:state.plans||[]}):[];
 const narrow=()=>wideScreen?wideScreen.matches===false:false;
+// The lamp (character, antenna, amber light) is on screen only on a home stage that shows the character.
+const lampAvailable=()=>view==='home'&&!sharedView&&widgetsVisible().includes('companion')&&!(ambientMode&&backdropNow()==='photos');
 const safe=fn=>async(...args)=>{try{return await fn(...args);}catch(e){if(e.name!=='AbortError')notice(e.message||String(e),'error');}};
 // Composer errors already appear beside the message box; do not repeat them as a toast.
 const quiet=fn=>async(...args)=>{try{return await fn(...args);}catch(e){if(e.name!=='AbortError'&&e.message!==lastSubmitError)notice(e.message||String(e),'error');}};
@@ -86,7 +104,7 @@ async function chooseJSON(){
 
 /* ---------- Shell ---------- */
 function shell(){
- app.innerHTML=`<div class="shell">
+ app.innerHTML=`${wallpaperHTML()}${sealDefs()}<div class="shell">
  <a class="skip-link" href="#composer-input">メッセージ入力へ移動</a>
  <header class="topbar">
   <button type="button" class="wordmark" data-action="view" data-view="home" aria-label="Teporaホーム">tepora<span class="wordmark-dot" aria-hidden="true"></span></button>
@@ -99,13 +117,14 @@ function shell(){
   </nav>
   <div class="topbar-tools">
    <button type="button" class="readiness" id="readiness" data-action="readiness" hidden></button>
-   <button type="button" class="inbox-button" id="inbox-button" data-action="inbox" hidden>${icon('inbox')}<span class="inbox-label">あなたの番</span><span class="inbox-count" id="inbox-count"></span></button>
+   <button type="button" class="inbox-button" id="inbox-button" data-action="inbox" hidden><i class="lamp-dot" aria-hidden="true"></i><span class="inbox-label">あなたの番</span><span class="inbox-count" id="inbox-count"></span></button>
    <button type="button" class="stop-button" id="stop-all" data-action="stop" aria-label="すべて停止" hidden>${icon('stop','icon-fill')}<span>すべて停止</span></button>
    <button type="button" class="share-exit" id="share-exit" data-action="share" hidden>共有表示を終える</button>
    <div class="display-menu" id="display-menu">
     <button type="button" class="icon-button" id="display-menu-button" data-action="display-menu" aria-expanded="false" aria-controls="display-menu-list" aria-label="画面の表示" title="画面の表示">${icon('monitor')}</button>
     <div class="menu" id="display-menu-list" hidden>
      <button type="button" data-action="ambient-now" id="ambient-button">${icon('moon')}<span>待機画面にする</span></button>
+     <button type="button" data-action="frame-now">${icon('image')}<span>写真立てにする</span></button>
      <button type="button" data-action="share" id="share-button" aria-pressed="false">${icon('eyeOff')}<span>共有表示（個人の内容を隠す）</span></button>
      <button type="button" data-action="fullscreen">${icon('expand')}<span>全画面</span></button>
     </div>
@@ -144,13 +163,13 @@ function shell(){
  </div>`;
  registerForms(app);
  document.body.classList.toggle('preview',previewMode);
- const surface=$('#surface'),size=()=>{const w=surface.clientWidth,width=w<760?'narrow':w<1040?'medium':'wide';surface.dataset.width=width;document.body.dataset.surface=width;};
+ const surface=$('#surface'),size=()=>{const w=surface.clientWidth,width=w<760?'narrow':w<1040?'medium':'wide';surface.dataset.width=width;document.body.dataset.surface=width;fitComposer();};
  if(globalThis.ResizeObserver)new ResizeObserver(size).observe(surface);size();
  abilities();mountCharacters();render();tick();
 }
 function applyTheme(){
  const prefs=display();
- document.body.dataset.theme=prefs.theme;document.body.dataset.companion=prefs.companion==='vrm'&&!(state.character||previewModelUrl)?'orb':prefs.companion;
+ document.body.dataset.theme=prefs.theme;applyAvatarTheme();
  document.body.classList.toggle('shared-view',sharedView);
  document.documentElement.style.fontSize=`${16*prefs.textScale}px`;
  const share=$('#share-button');if(share)share.setAttribute('aria-pressed',String(sharedView));
@@ -176,11 +195,13 @@ function paintChrome(){
  const count=$('#work-count');if(count){count.textContent=active?String(active):'';count.setAttribute('aria-label',active?`${active}件進行中`:'');}
  const r=readiness(),chip=$('#readiness');
  if(chip){chip.hidden=!r||sharedView;if(r){chip.className=`readiness tone-${r.tone}`;chip.innerHTML=`<i class="dot"></i><span>${escape(r.label)}</span>`;chip.title=r.title;}}
- const inbox=$('#inbox-button');if(inbox){inbox.hidden=sharedView||!attention;inbox.setAttribute('aria-label',`あなたの番 ${attention}件`);$('#inbox-count').textContent=attention?String(attention):'';}
+ const lamp=lampAvailable(),inbox=$('#inbox-button');if(inbox){inbox.hidden=sharedView||!attention||lamp;inbox.setAttribute('aria-label',`あなたの番 ${attention}件`);$('#inbox-count').textContent=attention?String(attention):'';}
  const running=active||sending||!!voice||(state.mediaJobs||[]).some(m=>['queued','submitting','running','downloading'].includes(m.status));
  const stop=$('#stop-all');if(stop)stop.hidden=!running||sharedView;
  const exit=$('#share-exit');if(exit)exit.hidden=!sharedView;
  const rail=$('#talk-rail');if(rail)rail.hidden=!(wide&&!talkOpen&&shown!=='home'&&!ambientMode&&!sharedView);
+ body.dataset.lamp=attention&&!sharedView&&!lamp?'wait':'';
+ paintBackdrop();paintLights();
 }
 function setTalkOpen(open){
  talkOpen=open;try{localStorage.setItem('tepora-talk-open',open?'1':'0');}catch{/* view preference only */}
@@ -192,13 +213,63 @@ function closeDisplayMenu(returnFocus=false){
  list.hidden=true;$('#display-menu-button')?.setAttribute('aria-expanded','false');if(returnFocus)$('#display-menu-button')?.focus();
 }
 
+/* ---------- Room light, wallpaper and lights ---------- */
+const frameStored=()=>previewMode?framePreview:state?.frame?.photos||[];
+function framePhotoList(){return framePhotos({photos:frameStored(),created:sharedView?[]:imageAssets(),includeCreated:display().ambient.frameCreated});}
+function backdropNow(){return backdropFor({ambient:ambientMode,wallpaper:display().ambient.wallpaper,photoCount:framePhotoList().length,shared:sharedView,frameNow:frameSession});}
+/** Window light and lamp light, from the clock (and the weather when it is known). Once a minute is enough. */
+function paintDaylight(now=new Date()){
+ const vars=daylightVars(daylightState({now,weather:weatherData})),key=JSON.stringify(vars);
+ if(key===daylightKey)return;daylightKey=key;
+ for(const [name,value] of Object.entries(vars))document.body.style.setProperty(name,value);
+}
+/** What is behind the screen: room light, plain paper, drifting colour, a night sky or the photo frame. */
+function paintBackdrop(){
+ if(!state)return;
+ const ambient=display().ambient,body=document.body,shown=backdropNow();
+ const night=ambientMode&&ambient.nightDim&&isNight(new Date(),weatherData);
+ body.dataset.backdrop=shown;body.dataset.frameClock=ambient.frameClock;body.dataset.frameFit=ambient.frameFit;
+ body.classList.toggle('is-lamp',lampPalette({ambient:ambientMode,backdrop:shown,night,nightDim:ambient.nightDim}));
+ applyAvatarTheme();
+ if(wallpaperDirty||shown!==backdropShown){backdropShown=shown;wallpaperDirty=false;syncWallpaper(shown);}
+}
+function syncWallpaper(shown){
+ if(shown==='stars')paintStars($('#wp-stars'));
+ if(shown==='photos'&&ambientMode){
+  photoFrame||=createPhotoFrame($('#wp-photos'),{reducedMotion});
+  photoFrame.start(framePhotoList(),display().ambient);photoRunning=true;
+ }else if(photoFrame&&photoRunning){photoFrame.stop();photoRunning=false;}
+}
+/** Running work as lights around the character; what waits for the person as one amber light. */
+function paintLights(){
+ if(!lights)return;
+ const showWork=widgetsVisible().includes('companion')&&widgetsVisible().includes('work'),showLamp=widgetsVisible().includes('companion');
+ lights.set({jobs:showWork?lightJobs(workJobs()):[],waiting:showLamp&&!sharedView?inboxList().length:0,shared:sharedView});
+}
+/** The idle screen keeps the display on when asked (and for the photo frame). Not every environment allows it. */
+async function holdScreen(on){
+ try{
+  if(on&&!wakeLock&&navigator.wakeLock&&!document.hidden){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null;});}
+  else if(!on&&wakeLock){const lock=wakeLock;wakeLock=null;await lock.release();}
+ }catch{wakeLock=null;}
+}
+/** On return the character says what happened while the person was away, if anything did. */
+function startRecap(){
+ const text=awayRecap({jobs:state.jobs,waiting:inboxList().length,since:awaySince||ambientSince,voice:characterVoice(state.dialogue)});
+ awaySince=0;clearTimeout(recapTimer);recapUntil=0;
+ if(!text)return;
+ recapText=text;recapUntil=Date.now()+9000;
+ lights?.gather(true);
+ recapTimer=setTimeout(()=>{recapUntil=0;lights?.gather(false);if(view==='home')paintSpeech();},9100);
+}
+
 /* ---------- Home: the companion stage and monitor modules ---------- */
 function widgetsVisible(){const prefs=display(),now=Date.now();return prefs.widgets.filter(w=>!prefs.hiddenUntil[w]||Date.parse(prefs.hiddenUntil[w])<=now);}
 function homeHTML(){
  return `<section class="stage" id="stage" aria-label="ホーム">
-  <div class="stage-figure" id="stage-figure"><div class="speech" id="speech" hidden></div><div class="stage-character" id="stage-character-slot"></div></div>
+  <div class="stage-figure" id="stage-figure"><div class="stage-character" id="stage-character-slot"></div><div class="speech" id="speech" hidden></div></div>
   <div class="stage-side">
-   <div class="clock" id="clock"><time id="clock-display"></time><p class="clock-line"><span id="clock-date"></span><span id="clock-sub"></span></p></div>
+   <div class="clock" id="clock"><time id="clock-display"></time><p class="clock-line"><span id="clock-date"></span><span id="clock-season"></span></p><p class="clock-weather" id="clock-sub"></p></div>
    <div id="deck-slot" class="deck-slot"></div>
    <button type="button" class="link-button deck-setup" data-action="display">ホームのカードを設定</button>
   </div>
@@ -206,7 +277,8 @@ function homeHTML(){
  </section>`;
 }
 function attachStage(){
- const slot=$('#stage-character-slot');if(slot)slot.append(stageHost);
+ const slot=$('#stage-character-slot');if(slot)slot.append(glowHost,stageHost,lightsHost);
+ lights||=createLights(lightsHost);if(state?.avatar)lights.setAnchor(avatarGeometry(state.avatar).amber);
  const deckSlot=$('#deck-slot');if(deckSlot)deckSlot.append(deckHost);
  deck||=createDeck(deckHost,{interval:display().ambient.rotateSeconds*1000,reducedMotion,onChange:id=>{
   // A card shows its next headline/picture the next time it comes to the front.
@@ -218,15 +290,18 @@ function paintHome(){
  if(!$('#stage'))return;
  const visible=widgetsVisible(),prefs=display();
  $('#clock').hidden=!visible.includes('clock');
- $('#stage-figure').classList.toggle('is-empty',prefs.companion==='none'||!visible.includes('companion'));
- paintSpeech();paintStageNotes();paintDeck();tick();
+ $('#stage-figure').classList.toggle('is-empty',!visible.includes('companion'));
+ paintSpeech();paintStageNotes();paintDeck();paintLights();tick();
 }
 function paintSpeech(){
  const el=$('#speech');if(!el)return;
- if(sharedView||display().companion==='none'||(talkOpen&&!narrow())){el.hidden=true;return;}
+ if(sharedView||!widgetsVisible().includes('companion')||(talkOpen&&!narrow())||(ambientMode&&backdropNow()==='photos')){el.hidden=true;return;}
  const all=state.dialogue?.messages||[],messages=all.filter(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind));
- const last=messages.at(-1),fresh=last&&Date.now()-Date.parse(last.at||0)<(ambientMode?20*60e3:6*3600e3);
- const text=fresh?String(last.content||''):greeting(new Date(),weatherData,characterName(state.dialogue)).text;
+ const last=messages.at(-1),fresh=last&&Date.now()-Date.parse(last.at||0)<(ambientMode?20*60e3:6*3600e3),waiting=inboxList().length;
+ // On return the caption says what happened; otherwise a fresh reply, then a word about what waits, then the greeting.
+ const voice=characterVoice(state.dialogue),recapping=recapUntil>Date.now();
+ if(!recapping&&!fresh&&!waiting&&!voiceSpeaks(voice,'greeting')){el.hidden=true;return;}
+ const text=recapping?recapText:fresh?String(last.content||''):waiting?`${voiceAddress(voice)}${voiceLine(voice,'waiting',{n:countWord(waiting)})}`:greeting(new Date(),weatherData,characterName(state.dialogue),voice).text;
  el.hidden=false;el.classList.toggle('is-greeting',!fresh);
  el.innerHTML=`<div class="speech-text md">${renderMarkdown(text.length>900?text.slice(0,898)+'…':text,{headings:'text'})}</div>${all.length&&!ambientMode?`<button type="button" class="speech-more" data-action="${narrow()?'view':'talk-open'}" data-view="talk">会話の履歴</button>`:''}`;
  const body=el.querySelector('.speech-text');el.classList.toggle('is-clipped',!!body&&body.scrollHeight>body.clientHeight+2);
@@ -236,11 +311,11 @@ function paintStageNotes(){
  const host=$('#stage-notes');if(!host)return;
  const items=inboxList().length;
  host.innerHTML=sharedView?'<p class="shared-note">共有表示中 · 個人の内容は表示していません</p>':
-  ambientMode&&items?`<button type="button" class="pill tone-attention" data-action="inbox">${icon('inbox')}<span>あなたの番 ${items}件</span></button>`:'';
+  ambientMode&&items&&!lampAvailable()?`<button type="button" class="pill tone-attention" data-action="inbox"><i class="lamp-dot" aria-hidden="true"></i><span>あなたの番 ${items}件</span></button>`:'';
 }
 function paintDeck(){
  if(!deck)return;
- const visible=widgetsVisible().filter(w=>!['clock','companion'].includes(w));
+ const visible=deckWidgets(widgetsVisible().filter(w=>!['clock','companion'].includes(w)),{weather:weatherData});
  const sample={weather:!!weatherData?.sample,news:!!newsData?.sample};
  deck.set(ambientCards({widgets:visible,weather:weatherData,news:newsData,music:musicState,jobs:workJobs(),images:sharedView?[]:imageAssets(),shared:sharedView,newsIndex,photoIndex,sample}));
  const slot=$('#deck-slot');if(slot)slot.classList.toggle('is-empty',!deckHost.querySelector('.deck-card'));
@@ -254,6 +329,7 @@ async function loadFeeds(force=false){
    if(visible.includes('news')&&s.allowNetwork&&s.newsUrl&&(force||!newsData||Date.now()-Date.parse(newsData.fetchedAt||0)>12*60e3))newsData=await bridge.request('/api/connector/news','POST',{});
   }
  }catch(e){if(force)notice(e.message,'error');}
+ paintDaylight();
  if(view==='home')paintHome();
 }
 function sampleWeather(){const now=new Date(),hours=Array.from({length:12},(_,i)=>{const d=new Date(now);d.setMinutes(0,0,0);d.setHours(d.getHours()+i);return d.toISOString();});
@@ -261,36 +337,76 @@ function sampleWeather(){const now=new Date(),hours=Array.from({length:12},(_,i)
 function sampleNews(){return {sample:true,title:'ニュース（サンプル表示）',items:['自分で選んだRSSの見出しが、ここに順番に流れます','読みたい見出しを押すと、ブラウザで開きます','通信を許可したときだけ取得します'].map((title,i)=>({title,url:'https://example.com/'+i})),fetchedAt:new Date().toISOString()};}
 
 /* Idle screen: dims, drifts slightly against burn-in, and tells the service the person is away. */
-function setAmbient(on){
+/** The idle screen works like a screensaver: it starts by itself, covers the screen, drifts against
+ * burn-in and, on any deliberate input, gives the person back what they were doing. */
+function setAmbient(on,{restore=false}={}){
  if(ambientMode===on)return;ambientMode=on;ambientSince=Date.now();
- if(on){closePanel();if(view!=='home'){view='home';render();}clearInterval(driftTimer);if(!reducedMotion)driftTimer=setInterval(drift,90000);}
- else{clearInterval(driftTimer);$('#stage')?.style.removeProperty('--drift-x');$('#stage')?.style.removeProperty('--drift-y');}
+ if(on){
+  awaySince=ambientSince;ambientReturn={view,scroll:$('#surface')?.scrollTop||0};
+  closePanel();if(view!=='home'){view='home';render();}
+  const surface=$('#surface');if(surface)surface.scrollTop=0;   // a body that fills the stage makes home taller than the screen: start from the top, not where settings was scrolled to
+  clearInterval(driftTimer);if(!reducedMotion)driftTimer=setInterval(drift,90000);
+  holdScreen(display().ambient.keepAwake||frameSession);
+ }else{
+  clearInterval(driftTimer);$('#stage')?.style.removeProperty('--drift-x');$('#stage')?.style.removeProperty('--drift-y');
+  holdScreen(false);if(enteredFullscreen){enteredFullscreen=false;document.exitFullscreen?.().catch(()=>{});}
+  startRecap();frameSession=false;wallpaperDirty=true;
+  const back=ambientReturn;ambientReturn=null;
+  if(restore&&back&&back.view!=='home'&&!sharedView){view=back.view;render();const surface=$('#surface');if(surface)surface.scrollTop=back.scroll;}
+ }
  setPresence(on||document.hidden?'away':'present');paintChrome();paintHome();paintMood();
 }
 function drift(){const stage=$('#stage');if(!stage)return;stage.style.setProperty('--drift-x',`${Math.round(Math.random()*16-8)}px`);stage.style.setProperty('--drift-y',`${Math.round(Math.random()*12-6)}px`);}
-function canIdle(){return view==='home'&&!activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input';}
+function canIdle(){return !activeDialog&&!activePanel&&!draft.content&&!voice&&!attachedFiles.length&&document.activeElement?.id!=='composer-input'&&!(view==='workspace'&&$('#artifact-preview iframe'));}
 function setPresence(next){if(next===presence)return;presence=next;if(!previewMode)bridge.request('/api/presence','POST',{state:next}).catch(()=>{});}
 
 /* ---------- Characters ---------- */
+/** The avatar on the stage, and its small icon in the conversation column. What it looks like is the avatar spec;
+ * what it says is the persona. The two are saved and changed separately. */
+const avatarAssetList=()=>state.avatarAssets?.assets||[];
+function avatarContext(){
+ return previewMode?{assets:avatarAssetList(),assetUrl:(id,path)=>previewAvatar.url(id,path),readJSON:(id,path)=>previewAvatar.readJSON(id,path),previewMode:true}
+  :{assets:avatarAssetList(),assetUrl:avatarAssetUrl,previewMode:false};
+}
+function avatarThemeNow(){
+ if(document.body.classList.contains('is-lamp'))return 'lamp';
+ const theme=display().theme;
+ return theme==='dark'||(theme==='system'&&globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true)?'dark':'light';
+}
+function applyAvatarTheme(){
+ const theme=avatarThemeNow();if(theme===avatarTheme)return;avatarTheme=theme;
+ stageCharacter?.setTheme?.(theme);avatarCharacter?.setTheme?.(theme);
+}
+globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>applyAvatarTheme());
+globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.addEventListener?.('change',e=>{reducedMotion=e.matches;for(const c of [stageCharacter,avatarCharacter])c?.setReduced?.(e.matches);});
+/** Where the lamp and the amber light sit around this body, and how large it is on the stage. */
+function applyAvatarGeometry(spec){
+ const g=avatarGeometry(spec);
+ for(const host of [glowHost,lightsHost]){host.style.setProperty('--ant-x',`${g.lamp[0]}%`);host.style.setProperty('--ant-y',`${g.lamp[1]}%`);}
+ document.body.toggleAttribute('data-avatar-fill',g.fill);document.body.style.setProperty('--avatar-scale',String(spec.size||1));
+ lights?.setAnchor(g.amber);
+}
 async function mountCharacters(){
- if(!state)return;
- const prefs=display(),model=state.character,name=characterName(state.dialogue);
- const key=[prefs.companion,model?.sha256||'',previewModelUrl,name].join('|');
+ if(!state?.avatar)return;
+ const spec=state.avatar,name=characterName(state.dialogue),shown=widgetsVisible().includes('companion');
+ const key=JSON.stringify([spec,avatarAssetList().map(a=>a.id),name,shown]);
  if(key===characterKey)return;characterKey=key;
- stageCharacter?.destroy();stageCharacter=null;avatarCharacter?.destroy();avatarCharacter=null;
- const avatar=$('#talk-avatar');
- if(prefs.companion==='vrm'||prefs.companion==='none'){if(avatar)avatar.innerHTML=`<span class="initial">${escape(name.slice(0,1))}</span>`;}
- else if(avatar)avatarCharacter=createCharacter(avatar,{variant:prefs.companion,follow:false,reducedMotion});
- if(prefs.companion==='none'){stageHost.replaceChildren();paintMood();return;}
- if(prefs.companion==='vrm'&&(model||previewModelUrl)){
-  stageHost.innerHTML='<p class="vrm-loading">3Dモデルを読み込んでいます…</p>';
-  try{
-   const mod=await import(previewMode?'./web/vrm-stage.mjs':'/vrm-stage.mjs');if(key!==characterKey)return;
-   const host=document.createElement('div');host.className='vrm-host';stageHost.replaceChildren(host);
-   const created=await mod.createVRMStage(host,{url:previewModelUrl||'/api/character/model',reducedMotion});
-   if(key!==characterKey){created.destroy();return;}stageCharacter=created;
-  }catch(e){if(key!==characterKey)return;stageHost.replaceChildren();stageCharacter=createCharacter(stageHost,{variant:'orb',label:name,reducedMotion});notice(`3Dモデルを表示できなかったため、いつもの姿で表示しています。${e.message?`（${e.message}）`:''}`,'error');}
- }else stageCharacter=createCharacter(stageHost,{variant:prefs.companion==='brass'?'brass':'orb',label:name,reducedMotion});
+ avatarAbort?.abort();avatarAbort=new AbortController();const signal=avatarAbort.signal;
+ stageCharacter?.destroy();stageCharacter=null;avatarCharacter?.destroy();avatarCharacter=null;stageHost.replaceChildren();
+ applyAvatarGeometry(spec);
+ const context={...avatarContext(),theme:avatarTheme,reduced:reducedMotion,signal,onProblem:message=>notice(message,'error')};
+ const small=$('#talk-avatar');
+ if(small){
+  small.replaceChildren();
+  const icon=shown?await createAvatar(small,spec,{...context,compact:true,onProblem:()=>{}}):null;
+  if(signal.aborted){icon?.destroy();return;}
+  if(icon)avatarCharacter=icon;else small.innerHTML=`<span class="initial">${escape(name.slice(0,1))}</span>`;
+ }
+ if(shown){
+  const created=await createAvatar(stageHost,spec,{...context,follow:true,director:true,label:name});
+  if(signal.aborted){created?.destroy();return;}
+  stageCharacter=created;
+ }
  paintMood();
 }
 function paintMood(){
@@ -331,9 +447,7 @@ function artifactSurface(){
 }
 function approvalsFor(job){return (state.approvals||[]).filter(a=>a.jobId===job.id&&a.status==='pending');}
 function approvalCards(job){
- return approvalsFor(job).map(a=>{const d=describeApproval(a);return `<section class="approval-card tone-${d.tone}" aria-label="承認が必要な操作"><h3>${escape(d.title)}</h3>${d.detail?`<p class="approval-detail"><code>${escape(d.detail)}</code></p>`:''}${d.impact?`<p class="approval-impact">${escape(d.impact)}</p>`:''}
-  <div class="approval-actions">${btn('approve','許可する','check','button',`data-id="${escape(a.id)}"`)}${btn('deny','許可しない','','button secondary',`data-id="${escape(a.id)}"`)}</div>
-  <details class="approval-raw"><summary>依頼の中身をそのまま見る</summary><pre>${escape(a.name)}\n${escape(JSON.stringify(a.args,null,2))}</pre></details></section>`;}).join('');
+ return approvalsFor(job).map(a=>approvalSlip(a,{job,tag:'section',kind:'approval-card inbox-item',showJob:false})).join('');
 }
 // A job's note is shown only when it explains a stop; otherwise the status says enough.
 const jobReason=j=>['failed','blocked','interrupted'].includes(j.status)?j.note||'':'';
@@ -421,24 +535,39 @@ function memoryView(){
 
 /* ---------- Settings: one place, each row says what is connected ---------- */
 function settingRow(title,status,tone,body,actions){return `<div class="setting-row"><div class="setting-text"><h3>${title}</h3>${status?`<p class="setting-status">${tone?`<i class="dot dot-${tone}"></i>`:''}${status}</p>`:''}${body?`<p class="setting-note">${body}</p>`:''}</div><div class="setting-actions">${actions}</div></div>`;}
+function wallpaperPicker(current){
+ return `<div class="wp-tiles" role="group" aria-label="待機画面の壁紙">${WALLPAPERS.map(w=>`<button type="button" class="wp-tile" data-action="wallpaper-set" data-value="${w}" aria-pressed="${w===current}"><i class="wp-thumb wp-thumb-${w}" aria-hidden="true"></i><span>${WALLPAPER_LABELS[w]}</span></button>`).join('')}</div>`;
+}
+function frameSummary(){
+ const stored=frameStored().length,made=display().ambient.frameCreated?imageAssets().length:0;
+ return stored||made?[stored&&`写真 ${stored}枚`,made&&`つくった画像 ${made}枚`].filter(Boolean).join(' · '):'写真はまだありません';
+}
 function segmented(action,options,current,label){return `<div class="segmented" role="group" aria-label="${label}">${options.map(([value,text])=>`<button type="button" data-action="${action}" data-value="${escape(value)}" aria-pressed="${String(value)===String(current)}">${text}</button>`).join('')}</div>`;}
+function avatarSummary(){
+ const spec=state.avatar,def=AVATAR_BODIES.find(b=>b.id===spec.body)||AVATAR_BODIES[0],asset=spec.asset?avatarAssetList().find(a=>a.id===spec.asset):null;
+ return asset?`${def.name} · ${asset.name}`:`${def.name} · ${spec.palette==='custom'?'好きな色':AVATAR_PALETTES[spec.palette]?.name||''}`;
+}
+let avatarStudioUI=null;
+function avatarStudio(){return avatarStudioUI||=createAvatarStudio({bridge,openSheet,notice,previewMode,previewAvatar,saveFile,chooseJSON,themeNow:avatarThemeNow,state:()=>state,isOpen:()=>activeDialog?.kind==='avatar'&&!sharedView});}
 function settingsView(){
- const s=settings(),prefs=display(),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],model=state.character,net=state.network||{mode:'online'};
+ const s=settings(),prefs=display(),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],net=state.network||{mode:'online'};
  const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model)),roleNames={tts:'読み上げ',embedding:'意味検索',image:'画像',image_edit:'画像の編集',video:'動画',decision:'判断'};
  const connected=Object.entries(roleNames).filter(([role])=>caps.routes?.[role]).map(([,n])=>n);
- const exec=state.execution,vrmMeta=model?escape([model.version==='1.0'?'VRM 1.0':'VRM 0.x',model.authors?.join('、'),model.bytes?`${(model.bytes/1048576).toFixed(1)}MB`:'',model.license?`利用条件: ${model.license}`:''].filter(Boolean).join(' · ')):'';
+ const exec=state.execution;
  const order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];
  const sections=[
   ['ai','AIとの接続',`${settingRow('会話と仕事のAI',ready?escape(s.model||providers.find(p=>p.enabled!==false)?.model||'接続済み'):'未接続',ready?'ok':'attention','',ready?`${btn('providers-launch','接続先と役割','','button secondary')}${btn('catalog-open','モデルを探す','','text-button')}`:`${btn('onboard','AIを接続する','','button')}${btn('providers-launch','接続先と役割','','text-button')}${btn('catalog-open','モデルを探す','','text-button')}`)}
    ${settingRow('通信','',null,'Teporaの通信だけを制限します。OS全体のファイアウォールではありません。',segmented('net-mode',[['online','オンライン'],['trusted-lan','信頼LANだけ'],['offline','完全オフライン']],net.mode,'通信モード'))}
    ${settingRow('インターネットを使う道具','',null,'天気・ニュース・Web取得・専用ブラウザ',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="allow-network" ${s.allowNetwork?'checked':''} aria-label="インターネットを使う道具を許可"></label>`)}`],
-  ['character','キャラクター',`${settingRow('姿',prefs.companion==='vrm'&&!(model||previewModelUrl)?'3Dモデルが未設定のため、いつもの姿で表示しています':'',prefs.companion==='vrm'&&!(model||previewModelUrl)?'attention':null,'',segmented('companion-set',[['orb','しろ'],['brass','あたたか'],['vrm','3Dモデル'],['none','表示しない']],prefs.companion,'キャラクターの姿'))}
-   ${settingRow('3Dモデル（VRM）',model?escape(model.name):previewModelUrl?'このプレビューの間だけ表示中':'',model||previewModelUrl?'ok':null,model?vrmMeta:'VRoid Studio などで作った .vrm。このPCにだけ保存します。',`${btn('vrm-choose',model?'替える':'VRMファイルを選ぶ','upload','button secondary')}${model?btn('vrm-remove','削除','','text-button danger','aria-label="3Dモデルを削除"'):''}`)}
-   ${settingRow('人格',escape(characterName(state.dialogue)),null,'',btn('personas','編集','pencil','button secondary','aria-label="人格を編集"'))}`],
+  ['character','キャラクター',`${settingRow('姿',escape(avatarSummary()),null,'体・色・灯り・顔・小物・動きを選べます。今までのキャラクター（3Dモデル・画像・メッシュアバター）も持ち込めます。',btn('avatar-open','姿を作る','pencil','button'))}
+   ${settingRow('人格と口調',escape(characterName(state.dialogue)),null,'名前・振る舞い・口調・呼び名・話しかけ方。姿とは別に設定します。',btn('personas','編集','pencil','button secondary','aria-label="人格と口調を編集"'))}`],
   ['home','ホームと待機画面',`${settingRow('テーマ','',null,'',segmented('theme-set',[['system','端末に合わせる'],['light','明るい'],['dark','暗い']],prefs.theme,'テーマ'))}
    ${settingRow('文字の大きさ','',null,'',segmented('scale-set',[['0.9','小さめ'],['1','標準'],['1.15','大きめ'],['1.3','特大'],['1.6','最大']],[0.9,1,1.15,1.3,1.6].reduce((a,b)=>Math.abs(b-prefs.textScale)<Math.abs(a-prefs.textScale)?b:a),'文字の大きさ'))}
-   ${settingRow('待機画面','',null,'操作がないと、時計とカードだけの画面になります。',`<label class="select-label"><span class="visually-hidden">待機画面に切り替えるまで</span><select data-action="idle-set">${IDLE_CHOICES.map(m=>`<option value="${m}" ${prefs.ambient.idleMinutes===m?'selected':''}>${m?`${m}分後`:'切り替えない'}</option>`).join('')}</select></label><label class="switch-label"><span>夜は暗く</span><input class="switch" type="checkbox" role="switch" data-action="night-set" ${prefs.ambient.nightDim?'checked':''}></label>`)}
-   ${settingRow('ホームのカード','',null,'チェックしたものを、この順番でめくります。',`<label class="select-label"><span class="visually-hidden">めくる間隔</span><select data-action="rotate-set">${[8,12,20,30,60].map(n=>`<option value="${n}" ${prefs.ambient.rotateSeconds===n?'selected':''}>${n}秒ごと</option>`).join('')}</select></label>`)}
+   ${settingRow('待機画面','',null,'操作がないと、画面いっぱいの待機画面になります。スクリーンセーバーのように、触れる・キーを押す・マウスを大きく動かすと、元の画面に戻ります。',`<label class="select-label"><span class="visually-hidden">待機画面に切り替えるまで</span><select data-action="idle-set">${IDLE_CHOICES.map(m=>`<option value="${m}" ${prefs.ambient.idleMinutes===m?'selected':''}>${m?`${m}分後`:'切り替えない'}</option>`).join('')}</select></label><label class="switch-label"><span>夜は暗く</span><input class="switch" type="checkbox" role="switch" data-action="night-set" ${prefs.ambient.nightDim?'checked':''}></label>${btn('ambient-try','いま試す','moon','text-button')}`)}
+   ${settingRow('壁紙','',null,escape(WALLPAPER_NOTES[prefs.ambient.wallpaper]||''),wallpaperPicker(prefs.ambient.wallpaper))}
+   ${settingRow('写真立て',frameSummary(),frameStored().length?'ok':null,'選んだ写真を、待機画面でゆっくり切り替えます。写真はこのPCに保存し、外へは送りません。',`${btn('frame-open','写真を管理','image','button secondary')}${btn('frame-now','写真立てを始める','','text-button')}`)}
+   ${settingRow('画面をつけたままにする','',null,'待機画面のあいだ、画面が消えないようにします（対応している環境のみ）。',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="awake-set" aria-label="待機画面のあいだ画面をつけたままにする" ${prefs.ambient.keepAwake?'checked':''}></label>`)}
+   ${settingRow('ホームのカード','',null,'ニュース・音楽・つくった画像は、この順番でカードをめくります。仕事は灯り、天気は日付の下の一行で表します。',`<label class="select-label"><span class="visually-hidden">めくる間隔</span><select data-action="rotate-set">${[8,12,20,30,60].map(n=>`<option value="${n}" ${prefs.ambient.rotateSeconds===n?'selected':''}>${n}秒ごと</option>`).join('')}</select></label>`)}
    <ol class="widget-order">${order.map((w,i)=>`<li><label><input type="checkbox" data-action="widget-toggle" value="${w}" ${prefs.widgets.includes(w)?'checked':''}><span>${widgetNames[w]}</span></label><span class="widget-move">${toolbtn('widget-up',`${widgetNames[w]}を上へ`,'arrow',`data-widget="${w}" data-dir="up" ${i===0?'disabled':''}`)}${toolbtn('widget-down',`${widgetNames[w]}を下へ`,'arrow',`data-widget="${w}" data-dir="down" ${i===order.length-1?'disabled':''}`)}</span></li>`).join('')}</ol>
    ${settingRow('天気とニュース',[s.weatherCity&&`天気: ${escape(s.weatherCity)}`,s.newsUrl&&'ニュース: 設定済み'].filter(Boolean).join(' · '),s.weatherCity||s.newsUrl?'ok':null,'',btn('feeds-setup',s.weatherCity||s.newsUrl?'変更':'場所とRSSを設定','','button secondary'))}
    ${settingRow('音楽',musicState?.track?escape(`${musicState.count}曲を選択中`):'',musicState?.track?'ok':null,'このPCの音楽ファイルをホームで流します。送信はしません。',`${btn('music-choose','曲を選ぶ','music','button secondary')}${btn('media','YouTube','','text-button','aria-label="YouTubeを流す"')}`)}
@@ -499,9 +628,15 @@ function tick(){
  const now=new Date();
  if($('#clock-display'))$('#clock-display').textContent=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
  if($('#clock-date'))$('#clock-date').textContent=`${now.getMonth()+1}月${now.getDate()}日（${now.toLocaleDateString('ja-JP',{weekday:'short'})}）`;
+ const season=$('#clock-season');if(season)season.textContent=seasonLine(now);
  const sub=$('#clock-sub');
- if(sub){const w=weatherData?.current&&!widgetsVisible().includes('weather')?weatherLabel(weatherData.current.weather_code):null;sub.textContent=w?`${w.label} ${Math.round(weatherData.current.temperature_2m)}°`:'';}
+ if(sub){
+  const line=widgetsVisible().includes('weather')?weatherLine(weatherData):null,key=line?`${line.temp}|${line.label}|${line.hint}`:'';
+  if(sub.dataset.key!==key){sub.dataset.key=key;sub.innerHTML=line?`<span class="wt">${line.temp}°</span><span>${escape(line.label)}</span>${line.hint?`<span class="wh">${escape(line.hint)}</span>`:''}`:'';}
+ }
  document.body.classList.toggle('is-night',ambientMode&&display().ambient.nightDim&&isNight(now,weatherData));
+ if(now.getMinutes()!==lightMinute){lightMinute=now.getMinutes();paintDaylight(now);}
+ paintBackdrop();
  // Expiry affects presentation only, never the permanent layout or task execution.
  const key=JSON.stringify(Object.entries(display().hiddenUntil).filter(([,t])=>Date.parse(t)>Date.now()).map(([w])=>w));
  if(lastVisibleKey&&lastVisibleKey!==key&&view==='home')scheduleRender();
@@ -523,6 +658,8 @@ function showTarget(){
  if(input){input.placeholder=reply?'質問への回答を書く':`${name}に話しかける`;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,200)}px`;}
  const undo=$('#undo-draft');if(undo)undo.hidden=!draft.history.length||composerLocked();
 }
+/** The message box grows with its text. Measured again after the window changes width, because a width measured mid-resize can be nearly zero. */
+function fitComposer(){const input=$('#composer-input');if(!input)return;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,200)}px`;}
 function showDialogue(){
  const host=$('#dialogue-transcript');if(!host)return;
  const name=characterName(state.dialogue);$('#character-name').textContent=sharedView?'会話は非公開':name;$('#agent-selector').textContent=sharedView?'個人表示で会話できます':`${name}と会話中。Enterで送信、Shift+Enterで改行。`;
@@ -590,8 +727,14 @@ function selectWorkerQuestion(id){
  closeSheet();showTarget();$('#composer-input').focus();
 }
 async function personaSheet(){
- const p=await bridge.request('/api/dialogue/personas');
- openSheet('会話の人格と、作業担当',`<p>会話相手はひとつの継続した会話を持ちます。作業担当の指示は別に設定できます。変更はこれから始める処理に使い、進行中の仕事の指示は変えません。</p><form id="personas-form" data-revision="${p.revision}"><fieldset><legend>会話のキャラクター</legend>${field('名前','characterName',p.character.name)}<label>会話での振る舞い<textarea name="characterInstructions" rows="5" maxlength="8000">${escape(p.character.instructions)}</textarea></label></fieldset><fieldset><legend>作業担当</legend>${field('名前','workerName',p.worker.name)}<label>作業時の指示<textarea name="workerInstructions" rows="5" maxlength="8000">${escape(p.worker.instructions)}</textarea></label></fieldset><p class="small-text">以前の記憶は保持されていますが、会話・作業のどちらにも自動では渡しません。どちらの人格設定も、接続先・ファイル・ツール操作の許可を広げるものではありません。</p><button type="submit" class="button">人格を保存する</button></form>`,'personas');
+ const p=await bridge.request('/api/dialogue/personas'),voice=p.character.voice||{tone:'polite',callName:'',proactive:'normal',lines:{}},pack=VOICE_TONES[voice.tone]||VOICE_TONES.polite;
+ const groups=[...new Set(VOICE_SCENES.map(x=>x.group))],lineRows=group=>VOICE_SCENES.filter(x=>x.group===group).map(x=>`<label class="field line-field"><span>${escape(x.label)}${x.vars?.length?` <small>（${x.vars.map(v=>`{${v}}`).join(' ')}を使えます）</small>`:''}</span><input name="line:${x.key}" type="text" maxlength="100" value="${escape(Object.hasOwn(voice.lines||{},x.key)?voice.lines[x.key]:'')}" placeholder="${escape(pack.lines[x.key]||'（何も言わない）')}" autocomplete="off"></label>`).join('');
+ openSheet('人格と口調、作業担当',`<p>会話相手はひとつの継続した会話を持ちます。人格と口調は、姿（見た目）とは別に設定します。変更はこれから始める処理に使い、進行中の仕事の指示は変えません。</p><form id="personas-form" data-revision="${p.revision}"><fieldset><legend>会話のキャラクター</legend>${field('名前','characterName',p.character.name)}<label>会話での振る舞い<textarea name="characterInstructions" rows="4" maxlength="8000">${escape(p.character.instructions)}</textarea></label>
+ <label class="field"><span>口調</span><select name="voiceTone" data-action="voice-tone">${Object.entries(VOICE_TONES).map(([id,t])=>`<option value="${id}" ${voice.tone===id?'selected':''}>${escape(t.name)} — ${escape(t.note)}</option>`).join('')}</select></label>
+ ${field('呼び名（あなたをどう呼ぶか）','voiceCallName',voice.callName||'','例：ミカ')}
+ <label class="field"><span>話しかけ方</span><select name="voiceProactive">${Object.entries(VOICE_PROACTIVE).map(([id,t])=>`<option value="${id}" ${voice.proactive===id?'selected':''}>${escape(t.name)} — ${escape(t.text)}</option>`).join('')}</select></label>
+ <details class="voice-lines"><summary>画面の一言を、自分の言葉に書き換える</summary><p class="small-text">空のままなら、選んだ口調の文面を使います。ここに書いた言葉は画面にだけ出て、AIには送りません。</p>${groups.map(g=>`<h3 class="voice-group">${escape(g)}</h3>${lineRows(g)}`).join('')}</details></fieldset>
+ <fieldset><legend>作業担当</legend>${field('名前','workerName',p.worker.name)}<label>作業時の指示<textarea name="workerInstructions" rows="5" maxlength="8000">${escape(p.worker.instructions)}</textarea></label></fieldset><p class="small-text">以前の記憶は保持されていますが、会話・作業のどちらにも自動では渡しません。どちらの人格設定も、接続先・ファイル・ツール操作の許可を広げるものではありません。口調はAIには「話し方の指示」としてだけ渡します。</p><button type="submit" class="button">人格を保存する</button></form>`,'personas');
 }
 async function relayResultSheet(jobId){
  if(sharedView)throw new Error('個人表示で共有内容を確認してください。');
@@ -630,13 +773,15 @@ function openSheet(title,body,kind='generic',id=null){
  capabilityUI?.onClose();
  clearTimeout(toastTimer);toastEl.classList.remove('show');
  if(!activeDialog)dialogReturnFocus=document.activeElement;activeDialog={kind,id};
- overlay.innerHTML=modal(escape(title),body,['artifact-edit','approve-all'].includes(kind));
+ overlay.innerHTML=modal(escape(title),body,['artifact-edit','approve-all','avatar'].includes(kind));
  registerForms(overlay);sheetBaseline=formSnapshot(overlay);
  document.body.classList.add('dialog-open');
- setTimeout(()=>{const first=$('.modal-body input:not([type=hidden]):not([readonly]):not([type=checkbox]),.modal-body textarea,.modal-body select',overlay);(first||$('#modal-title',overlay))?.focus();},0);
+ setTimeout(()=>{const first=kind==='avatar'?null:$('.modal-body input:not([type=hidden]):not([readonly]):not([type=checkbox]),.modal-body textarea,.modal-body select',overlay);(first||$('#modal-title',overlay))?.focus();},0);
 }
-function closeSheet(){capabilityUI?.onClose();pendingRelay=null;
+function closeSheet(){capabilityUI?.onClose();avatarStudioUI?.close();pendingRelay=null;
+ const wasAvatar=activeDialog?.kind==='avatar';
  overlay.replaceChildren();document.body.classList.remove('dialog-open');activeDialog=null;sheetBaseline='';
+ if(wasAvatar&&view==='settings')scheduleRender();   // the summary line under 姿 changed while the studio was open
  if(dialogReturnFocus?.isConnected)dialogReturnFocus.focus();
 }
 /** Escape, the backdrop and the close button ask before discarding typed changes. */
@@ -749,7 +894,7 @@ function connectionDataSheet(){
 }
 function approveAllSheet(){
  const list=(state.approvals||[]).filter(a=>a.status==='pending');if(!list.length)return;
- openSheet(`${list.length}件の操作をまとめて許可しますか？`,`<p>次の操作を、表示どおりの内容で許可します。内容を変えたものは許可されません。</p><ol class="approve-list">${list.map(a=>{const d=describeApproval(a);return `<li><strong>${escape(d.title)}</strong><small>${escape(a.jobTitle||'')}</small>${d.detail?`<code>${escape(d.detail)}</code>`:''}</li>`;}).join('')}</ol><div class="sheet-actions">${btn('approve-all-confirm','これらをすべて許可する','check','button',`data-ids="${escape(list.map(a=>a.id).join(','))}"`)}${btn('close','やめる','','button secondary')}</div>`,'approve-all');
+ openSheet(`${list.length}件の操作をまとめて許可しますか？`,`<p>次の操作を、表示どおりの内容で許可します。内容を変えたものは許可されません。</p><ol class="approve-list">${list.map(a=>{const d=describeApproval(a);return `<li><strong>${escape(d.title)}</strong><small>${escape(a.jobTitle||'')}</small>${d.detail?`<code>${escape(d.detail)}</code>`:''}</li>`;}).join('')}</ol><div class="seal-box" data-sealable><div class="seal-actions">${sealHTML({action:'approve-all-confirm',ids:list.map(a=>a.id).join(','),hold:true,label:'これらをすべて許可する',hint:'長押しでまとめて許可'})}${btn('close','やめる','','button secondary')}</div><p class="seal-done">許可しました。許可した内容だけを、そのまま実行します。</p>${stampHTML()}</div>`,'approve-all');
 }
 function revealComposer(){
  if(narrow()){if(!['home','talk'].includes(view)){view='talk';render();}}
@@ -846,7 +991,15 @@ const actions={
  onboard:()=>state.providers?.profiles?.length?providerSettings().open():onboarding().open(),
  readiness:()=>{if(previewMode)return onboarding().open();const ready=!!(settings().model||state.providers?.profiles?.some(p=>p.enabled!==false&&p.model));ready?providerSettings().open():onboarding().open();},
  inbox:()=>{if(sharedView)return;activePanel?.kind==='inbox'?closePanel():openInbox();},
- 'ambient-now':()=>setAmbient(true),wake:()=>{setAmbient(false);revealComposer();},
+ 'ambient-now':()=>setAmbient(true),'ambient-try':()=>setAmbient(true),wake:()=>{setAmbient(false);revealComposer();},
+ 'wallpaper-set':el=>patchDisplay({ambient:{...display().ambient,wallpaper:el.dataset.value}}),
+ 'frame-open':()=>frameSettings().open(),
+ 'frame-now':async()=>{
+  if(!framePhotoList().length){if(activeDialog?.kind!=='frame')frameSettings().open();notice('写真を追加すると、写真立てを始められます。');return;}
+  if(activeDialog)closeSheet();
+  frameSession=true;wallpaperDirty=true;setAmbient(true);holdScreen(true);
+  try{if(!document.fullscreenElement){await document.documentElement.requestFullscreen();enteredFullscreen=true;}}catch{/* the window stays as it is */}
+ },
  'talk-open':()=>{if(narrow()){view='talk';render();setTimeout(()=>$('#composer-input')?.focus(),0);return;}setTalkOpen(true);},
  'talk-close':()=>setTalkOpen(false),
  'display-menu':el=>{const list=$('#display-menu-list');if(!list)return;if(!list.hidden){closeDisplayMenu();return;}list.hidden=false;el.setAttribute('aria-expanded','true');setTimeout(()=>list.querySelector('button')?.focus(),0);},
@@ -860,11 +1013,10 @@ const actions={
  'display-import':async()=>{const preset=await chooseJSON();if(!preset)return;await bridge.request('/api/display/import','POST',{preset,expectedRevision:display().revision});},
  'hide-news-today':async()=>{const until=new Date();until.setHours(24,0,0,0);await patchDisplay({hiddenUntil:{...display().hiddenUntil,news:until.toISOString()}});},
  'theme-set':el=>patchDisplay({theme:el.dataset.value}),'scale-set':el=>patchDisplay({textScale:Number(el.dataset.value)}),
- 'companion-set':el=>patchDisplay({companion:el.dataset.value}),
+ 'avatar-open':()=>avatarStudio().open(),
  'widget-up':el=>moveWidget(el.dataset.widget,-1),'widget-down':el=>moveWidget(el.dataset.widget,1),
  'feeds-setup':connectionDataSheet,'weather-setup':connectionDataSheet,'news-setup':connectionDataSheet,
  'net-mode':async el=>{const value=await bridge.request('/api/network','PATCH',{expectedRevision:state.network.revision,patch:{mode:el.dataset.value}});state.network=value;render();},
- 'vrm-choose':chooseVRM,'vrm-remove':async()=>{if(previewMode){URL.revokeObjectURL(previewModelUrl);previewModelUrl='';}else await bridge.request('/api/character/model','DELETE');state.character=null;characterKey='';await mountCharacters();render();notice('3Dモデルを削除しました。');},
  'music-choose':async()=>{await musicPlayer().choose();},'music-toggle':()=>musicPlayer().toggle(),'music-next':()=>musicPlayer().next(),'music-prev':()=>musicPlayer().prev(),
  'approve-all':approveAllSheet,
  'approve-all-confirm':async el=>{const ids=el.dataset.ids.split(',').filter(Boolean),r=await bridge.request('/api/approvals','POST',{ids,allow:true});closeSheet();const failed=r.results.filter(x=>!x.ok).length;notice(failed?`${ids.length-failed}件を許可しました。${failed}件は内容が変わったため許可していません。`:`${ids.length}件を許可しました。続きを進めます。`);},
@@ -906,17 +1058,15 @@ const actions={
  'hide-reply':()=>{replyHidden=true;showReply();},
  stop:async()=>{invalidatePendingSubmit();capabilityUI?.stop();cancelVoice();musicUI?.pause();await bridge.request('/api/stop','POST',{});notice('動いていた仕事をすべて止めました。成果物は残しています。');}
 };
-/** Display preferences save immediately; the service keeps history for undo. */
-async function patchDisplay(patch){const value=await bridge.request('/api/display','PATCH',{expectedRevision:display().revision,patch});state.display=value;await mountCharacters();render();return value;}
-function moveWidget(widget,step){const prefs=display(),order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))],i=order.indexOf(widget),j=i+step;if(i<0||j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];return patchDisplay({widgets:order.filter(w=>prefs.widgets.includes(w))});}
-function chooseVRM(){
- return new Promise((resolve,reject)=>{const input=document.createElement('input');input.type='file';input.accept='.vrm,model/gltf-binary';
-  input.onchange=async()=>{try{const file=input.files?.[0];if(!file)return resolve();
-   if(previewMode){if(previewModelUrl)URL.revokeObjectURL(previewModelUrl);previewModelUrl=URL.createObjectURL(file);state.character=null;notice('このプレビューの間だけ3Dモデルを表示します。保存はしません。');}
-   else{notice('3Dモデルを確認しています…');state.character=await bridge.request('/api/character/model','PUT',file,{'X-Tepora-Filename':encodeURIComponent(file.name)});}
-   if(display().companion!=='vrm')await patchDisplay({companion:'vrm'});else{characterKey='';await mountCharacters();render();}
-   resolve();}catch(e){reject(e);}};input.addEventListener('cancel',()=>resolve(),{once:true});input.click();});
+function frameSettings(){
+ return frameUI||=createFrameSettings({bridge,openSheet,notice,previewMode,isOpen:()=>activeDialog?.kind==='frame'&&!sharedView,
+  stored:frameStored,created:()=>imageAssets(),ambient:()=>display().ambient,
+  setAmbient:patch=>patchDisplay({ambient:{...display().ambient,...patch}}),
+  onPhotos:value=>{if(value)state.frame=value;wallpaperDirty=true;paintBackdrop();if(view==='settings'&&!activeDialog)scheduleRender();}});
 }
+/** Display preferences save immediately; the service keeps history for undo. */
+async function patchDisplay(patch){const value=await bridge.request('/api/display','PATCH',{expectedRevision:display().revision,patch});state.display=value;applyAvatarTheme();await mountCharacters();render();return value;}
+function moveWidget(widget,step){const prefs=display(),order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))],i=order.indexOf(widget),j=i+step;if(i<0||j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];return patchDisplay({widgets:order.filter(w=>prefs.widgets.includes(w))});}
 document.addEventListener('click',e=>{
  if(!e.target.closest?.('#display-menu'))closeDisplayMenu();
  const el=e.target.closest('[data-action]');if(!el)return;
@@ -933,7 +1083,9 @@ document.addEventListener('change',e=>{
  if(action==='allow-network')run(async()=>{await bridge.request('/api/settings','PATCH',{allowNetwork:el.checked});if(el.checked)loadFeeds(true);});
  if(action==='night-set')run(()=>patchDisplay({ambient:{...display().ambient,nightDim:el.checked}}));
  if(action==='idle-set')run(()=>patchDisplay({ambient:{...display().ambient,idleMinutes:Number(el.value)}}));
+ if(action==='awake-set')run(()=>patchDisplay({ambient:{...display().ambient,keepAwake:el.checked}}));
  if(action==='rotate-set')run(()=>patchDisplay({ambient:{...display().ambient,rotateSeconds:Number(el.value)}}));
+ if(action==='voice-tone'){const pack=VOICE_TONES[el.value];if(pack)for(const input of el.form?.querySelectorAll('input[name^="line:"]')||[])input.placeholder=pack.lines[input.name.slice(5)]||'（何も言わない）';}
  if(action==='widget-toggle'){const prefs=display(),order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];run(()=>patchDisplay({widgets:order.filter(w=>w===el.value?el.checked:prefs.widgets.includes(w))}));}
 });
 document.addEventListener('input',e=>{if(e.target.id==='composer-input'){if(e.target.value)pinDraft();draft.manual(e.target.value);if(!e.target.value&&!attachedFiles.length&&!pendingRequest&&!voice)clearDraftDestination();showTarget();paintMood();}});
@@ -945,8 +1097,9 @@ document.addEventListener('submit',e=>{
   }else if(form.id==='execution-form'){
    await executionSettings().save(form,fd);
   }else if(form.id==='personas-form'){
-   const personas=await bridge.request('/api/dialogue/personas','PUT',{expectedRevision:Number(form.dataset.revision),character:{name:data.characterName,instructions:data.characterInstructions},worker:{name:data.workerName,instructions:data.workerInstructions}});
-   state.dialogue.personas=personas;acceptDialogue(await bridge.request('/api/dialogue'));closeSheet();characterKey='';mountCharacters();notice('会話のキャラクターと作業担当を、それぞれ保存しました。');
+   const lines={};for(const scene of VOICE_SCENES){const value=String(data[`line:${scene.key}`]||'').trim();if(value)lines[scene.key]=value;}
+   const personas=await bridge.request('/api/dialogue/personas','PUT',{expectedRevision:Number(form.dataset.revision),character:{name:data.characterName,instructions:data.characterInstructions,voice:{tone:data.voiceTone,callName:data.voiceCallName||'',proactive:data.voiceProactive,lines}},worker:{name:data.workerName,instructions:data.workerInstructions}});
+   state.dialogue.personas=personas;acceptDialogue(await bridge.request('/api/dialogue'));closeSheet();characterKey='';mountCharacters();paintHome();notice('人格と口調、作業担当を、それぞれ保存しました。');
   }else if(form.id==='codex-form'){
    await bridge.request('/api/settings','PATCH',{codexEnabled:fd.has('codexEnabled'),codexNetwork:fd.has('codexNetwork'),codexBinary:data.codexBinary,codexModel:data.codexModel});
    $('#codex-status').textContent='保存しました。接続の確認はまだ行っていません。';sheetBaseline=formSnapshot(overlay);
@@ -1004,7 +1157,12 @@ document.addEventListener('keydown',e=>{
  }
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden){invalidatePendingSubmit();cancelVoice();}});
-document.addEventListener('visibilitychange',()=>{clearTimeout(hiddenTimer);if(document.hidden)hiddenTimer=setTimeout(()=>setPresence('away'),60000);else if(!ambientMode)setPresence('present');});
+document.addEventListener('visibilitychange',()=>{
+ clearTimeout(hiddenTimer);
+ if(document.hidden)hiddenTimer=setTimeout(()=>{awaySince=Date.now()-60000;setPresence('away');},60000);
+ else if(!ambientMode){if(presence==='away'){startRecap();if(view==='home')paintSpeech();}setPresence('present');}
+ else if(display().ambient.keepAwake||frameSession)holdScreen(true);
+});
 document.addEventListener('focusin',e=>{if(e.target.id==='composer-input')paintMood();});document.addEventListener('focusout',e=>{if(e.target.id==='composer-input')paintMood();});
 wideScreen?.addEventListener?.('change',()=>{if(state)render();});
 window.addEventListener('tepora-stop',()=>safe(actions.stop)());
@@ -1025,11 +1183,13 @@ bridge.on(e=>{
  if(e.type==='setup.updated'){state.setup=e.data;paintChrome();return;}
  if(e.type==='routine.updated'){upsert('routines',e.data);scheduleRender();return;}
  if(e.type==='plan.updated'){upsert('plans',e.data);scheduleRender();return;}
- if(e.type==='display.updated'){const interval=display().ambient.rotateSeconds;state.display=e.data;if(deck&&display().ambient.rotateSeconds!==interval){deck.stop();deck=null;deckHost.replaceChildren();renderedView='';}idleWatcher?.set(display().ambient.idleMinutes*60000);mountCharacters();scheduleRender();return;}
- if(e.type==='character.updated'){state.character=e.data;characterKey='';mountCharacters();if(view==='settings')scheduleRender();return;}
+ if(e.type==='display.updated'){const interval=display().ambient.rotateSeconds;state.display=e.data;wallpaperDirty=true;if(deck&&display().ambient.rotateSeconds!==interval){deck.stop();deck=null;deckHost.replaceChildren();renderedView='';}idleWatcher?.set(display().ambient.idleMinutes*60000);mountCharacters();scheduleRender();return;}
+ if(e.type==='frame.updated'){state.frame=e.data;wallpaperDirty=true;paintBackdrop();frameUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
+ if(e.type==='avatar.updated'){state.avatar=e.data;mountCharacters();avatarStudioUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
+ if(e.type==='avatar.assets'){state.avatarAssets=e.data;mountCharacters();avatarStudioUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
  if(e.type==='approval.updated'){state.approvals||=[];const i=state.approvals.findIndex(a=>a.id===e.data.id);if(i<0)state.approvals.unshift(e.data);else state.approvals[i]=e.data;paintChrome();refreshTask();if(activePanel?.kind==='inbox')paintInbox();if(view==='home')paintStageNotes();else if(view==='workspace')scheduleRender();paintMood();return;}
  if(e.type==='settings.updated'){if(!e.data.voiceEnabled||e.data.dictationEditing||e.data.asrUrl!==state.settings.asrUrl||e.data.asrStreamUrl!==state.settings.asrStreamUrl){voiceSendEnabled=false;voiceSendConsent=null;cancelVoice();}state.settings=e.data;state.setup={...state.setup,verified:false};scheduleRender();return;}
- if(e.type==='job.updated'){const before=state.jobs.find(j=>j.id===e.data.id)?.status;upsert('jobs',e.data);if(before&&before!==e.data.status&&['review','completed'].includes(e.data.status)&&e.data.kind!=='chat')celebrateUntil=Date.now()+2600;showDialogue();showTarget();showRequestStatus();refreshTask();if(activePanel?.kind==='inbox')paintInbox();scheduleRender();return;}
+ if(e.type==='job.updated'){const before=state.jobs.find(j=>j.id===e.data.id)?.status;upsert('jobs',e.data);if(before&&before!==e.data.status&&['review','completed'].includes(e.data.status)&&e.data.kind!=='chat')celebrateUntil=Date.now()+2600;paintLights();showDialogue();showTarget();showRequestStatus();refreshTask();if(activePanel?.kind==='inbox')paintInbox();scheduleRender();return;}
  if(e.type==='job.output'){const j=state.jobs.find(x=>x.id===e.data.id);if(j)j.output=e.data.output;refreshTask();showReply();return;}
  if(e.type==='artifact.updated'){
   upsert('artifacts',e.data);
@@ -1047,11 +1207,20 @@ bridge.on(e=>{
 });
 try{
  state=await bridge.init();state.companion||=await bridge.request('/api/companion');state.dialogue=await bridge.request('/api/dialogue');
- state.display||=structuredClone(DISPLAY_DEFAULT);state.routines||=[];state.plans||=[];state.approvals||=[];state.mediaJobs||=[];
+ state.display||=structuredClone(DISPLAY_DEFAULT);state.routines||=[];state.plans||=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
  globalThis.__TEPORA_LIVE__=!previewMode;lastSeenMessage=state.dialogue?.messages?.at(-1)?.id||'';
  shell();setInterval(()=>{tick();paintMood();},1000);
+ document.documentElement.style.setProperty('--seal-hold',`${SEAL_HOLD_MS}ms`);
+ bindSeals({onCommit:el=>safe(actions[el.dataset.seal])(el),onArm:()=>notice('もう一度押すと許可します（4秒以内）。')});
  idleWatcher=createIdleWatcher({ms:display().ambient.idleMinutes*60000,onIdle:()=>{if(canIdle())setAmbient(true);else idleWatcher.wake();}});
- for(const type of ['pointerdown','keydown','wheel','touchstart'])window.addEventListener(type,e=>{if(ambientMode&&Date.now()-ambientSince>1200&&!e.target.closest?.('.deck,[data-action=ambient-now]'))setAmbient(false);},{capture:true,passive:true});
+ for(const type of ['pointerdown','keydown','wheel','touchstart'])window.addEventListener(type,e=>{if(ambientMode&&Date.now()-ambientSince>1200&&!e.target.closest?.('.deck,[data-action=ambient-now]'))setAmbient(false,{restore:true});},{capture:true,passive:true});
+ // Like a screensaver, a deliberate sweep of the pointer also ends it; a nudge or a vibrating desk does not.
+ window.addEventListener('pointermove',e=>{
+  if(!ambientMode||Date.now()-ambientSince<1200)return;
+  const t=performance.now();
+  if(!moveFrom||t-moveFrom.t>800)moveFrom={x:e.clientX,y:e.clientY,t};
+  else if(Math.hypot(e.clientX-moveFrom.x,e.clientY-moveFrom.y)>=96){moveFrom=null;setAmbient(false,{restore:true});}
+ },{passive:true});
  loadFeeds();feedTimers=[setInterval(()=>loadFeeds(),5*60e3)];
  if(!previewMode)bridge.request('/api/presence','POST',{state:document.hidden?'away':'present'}).catch(()=>{});
  if(!previewMode&&!state.setup?.dismissed&&!state.settings.model&&!state.providers?.profiles?.length)setTimeout(()=>onboarding().open(),100);
