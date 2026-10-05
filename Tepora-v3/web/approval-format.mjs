@@ -6,8 +6,17 @@ const approvalBase=value=>String(value||'').split(/[\\/]/).pop();
 const APPROVAL_MEDIA={image:'画像',image_edit:'画像の編集',video:'動画',tts:'読み上げ音声'};
 const APPROVAL_DOMAINS={device:'このPC',lan:'LAN内の機器',cloud:'クラウド'};
 
-/** {title, detail, impact, tone} where tone is host|cost|send|screen|tool. */
-export function describeApproval({name,args={}}={}){
+/** How much deliberate effort saying yes should take. Operations that act on this PC or can cost
+ * money are held for a moment; the rest take one tap. This only shapes the gesture: what is
+ * replayed is still exactly the request that was shown. */
+export const approvalFriction=tone=>tone==='host'||tone==='cost'?'hold':'tap';
+
+// Where an operation reaches, in words. The slip says it instead of relying on colour.
+const APPROVAL_SCOPE={host:'このPC',cost:'クラウド・費用',send:'外へ送る',screen:'画面操作',tool:'外部の道具'};
+
+/** {title, detail, impact, tone, scope} where tone is host|cost|send|screen|tool. */
+export function describeApproval(request){const d=approvalBody(request);return {...d,scope:APPROVAL_SCOPE[d.tone]||''};}
+function approvalBody({name,args={}}={}){
  const a=args&&typeof args==='object'?args:{};
  switch(name){
   case 'run_command':return {title:'このPCでコマンドを実行',detail:approvalShort([approvalBase(a.executable),...(Array.isArray(a.args)?a.args:[])].join(' '),200),impact:'保護されていない旧方式で、このPC上で直接動きます。',tone:'host'};

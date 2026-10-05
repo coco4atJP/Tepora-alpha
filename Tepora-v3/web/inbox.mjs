@@ -1,9 +1,10 @@
 /** "あなたの番": everything that waits for the person, in one stack. Approvals stay exact —
  * the plain summary sits on top of the unmodified request, which is one click away.
  */
-import {describeApproval} from './approval-format.mjs';
+import {describeApproval,approvalFriction} from './approval-format.mjs';
 import {questionIsCurrent} from './dialogue-state.mjs';
 import {escape} from './ui.mjs';
+import {sealHTML,stampHTML} from './seal.mjs';
 
 export function ago(iso,now=Date.now()){
  const t=Date.parse(iso);if(Number.isNaN(t))return '';const s=Math.max(0,(now-t)/1000);
@@ -26,16 +27,23 @@ export const attentionCount=state=>inboxItems(state).length;
 
 const inboxButton=(action,label,cls='button small',extra='')=>`<button type="button" class="${cls}" data-action="${action}" ${extra}>${label}</button>`;
 const inboxWhen=iso=>`<time datetime="${escape(iso||'')}">${escape(ago(iso))}</time>`;
-function inboxApproval({approval:a,job}){
- const d=describeApproval(a);
- return `<article class="inbox-item tone-${d.tone}" data-kind="approval">
-  <header><strong>${escape(d.title)}</strong>${inboxWhen(a.createdAt)}</header>
-  ${d.detail?`<p class="inbox-detail"><code>${escape(d.detail)}</code></p>`:''}
-  <p class="inbox-meta">${escape(job?.title||a.jobTitle||'仕事')}${d.impact?` — ${escape(d.impact)}`:''}</p>
-  <div class="inbox-actions">${inboxButton('approve','許可する','button small',`data-id="${escape(a.id)}"`)}${inboxButton('deny','許可しない','button small secondary',`data-id="${escape(a.id)}"`)}</div>
+/** An approval as a slip: what, where it reaches, then a seal to press. The exact request is one click away. */
+export function approvalSlip(a,{job=null,tag='article',kind='inbox-item',showJob=true}={}){
+ const d=describeApproval(a),hold=approvalFriction(d.tone)==='hold',who=showJob?(job?.title||a.jobTitle||'仕事'):'';
+ return `<${tag} class="${kind} slip tone-${d.tone}" data-kind="approval" data-sealable${tag==='section'?' aria-label="承認が必要な操作"':''}>
+  <div class="slip-body">
+   ${d.scope?`<span class="slip-scope">${escape(d.scope)}</span>`:''}
+   <header><strong>${escape(d.title)}</strong>${a.createdAt?inboxWhen(a.createdAt):''}</header>
+   ${d.detail?`<p class="inbox-detail"><code>${escape(d.detail)}</code></p>`:''}
+   <p class="inbox-meta">${escape([who,d.impact].filter(Boolean).join(' — '))}</p>
+  </div>
+  <div class="inbox-actions seal-actions">${sealHTML({action:'approve',id:a.id,hold,label:`許可する: ${d.title}`})}${inboxButton('deny','見送る','text-button',`data-id="${escape(a.id)}"`)}</div>
+  <p class="seal-done">許可しました。許可した内容だけを、そのまま実行します。</p>
   <details class="inbox-raw"><summary>依頼の中身をそのまま見る</summary><pre>${escape(a.name)}\n${escape(JSON.stringify(a.args,null,2))}</pre></details>
- </article>`;
+  ${stampHTML()}
+ </${tag}>`;
 }
+const inboxApproval=({approval:a,job})=>approvalSlip(a,{job});
 function inboxQuestion({message:m,job}){
  return `<article class="inbox-item" data-kind="question">
   <header><strong>${escape(job?.title||'仕事')}</strong>${inboxWhen(m.at)}</header>

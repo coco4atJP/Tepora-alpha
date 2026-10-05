@@ -1,4 +1,7 @@
 import {icon,escape} from './ui.mjs';
+import {needsPerson} from './status.mjs';
+import {voiceAddress,voiceLine} from './voice-lines.mjs';
+import {seasonOf} from './seasons.mjs';
 /** The home stage as a smart monitor: clock, a rotating deck of small modules (weather, news,
  * music, work, things you made) and an idle mode that dims, drifts and lets work continue.
  * Builders return HTML from already-loaded data; nothing here fetches or decides permissions.
@@ -21,26 +24,65 @@ export function weatherGlyph(kind){
  return `<svg class="wg wg-${escape(kind)}" viewBox="0 0 48 48" aria-hidden="true">${body}</svg>`;
 }
 
-/** A short, human greeting tied to the hour and (if known) the real weather. */
-export function greeting(now=new Date(),weather=null,name='Tepora'){
+/** A short, human greeting tied to the hour and (if known) the real weather, in the persona's voice. */
+export function greeting(now=new Date(),weather=null,name='Tepora',voice=undefined){
  const h=now.getHours(),w=weather?.current?weatherLabel(weather.current.weather_code):null,t=weather?.current?Math.round(weather.current.temperature_2m):null;
  const part=h<5?'night':h<10?'morning':h<17?'day':h<22?'evening':'night';
- const opening={morning:'おはようございます。',day:'こんにちは。',evening:'おつかれさまです。',night:'夜遅くまでおつかれさまです。'}[part];
+ const opening=voiceLine(voice,`opening.${part}`);
  let note='';
  if(w&&t!==null){
-  if(w.glyph==='rain'||w.glyph==='storm')note=`外は${w.label}です。出かけるなら傘を。`;
-  else if(w.glyph==='snow')note='雪が降っています。足もとに気をつけて。';
-  else if(t>=30)note=`${t}°まで上がっています。水分を少し多めに。`;
-  else if(t<=5)note=`${t}°と冷えています。あたたかくしてください。`;
+  if(w.glyph==='rain'||w.glyph==='storm')note=voiceLine(voice,'weather.rain',{label:w.label});
+  else if(w.glyph==='snow')note=voiceLine(voice,'weather.snow');
+  else if(t>=30)note=voiceLine(voice,'weather.hot',{t});
+  else if(t<=5)note=voiceLine(voice,'weather.cold',{t});
  }
- note||={morning:'よく眠れましたか。',day:'ひと息ついていきませんか。',evening:'今日はどんな一日でしたか。',night:'そろそろ休みませんか。'}[part];
- return {part,text:`${opening}${note}`,name};
+ note||=voiceLine(voice,`note.${part}`);
+ const chat=voice?.proactive==='chatty'?voiceLine(voice,'season',{kou:seasonOf(now).kou}):'';
+ return {part,text:`${voiceAddress(voice)}${opening}${note}${chat}`,name};
 }
 export const isNight=(now=new Date(),weather=null)=>{
  const sunset=weather?.daily?.sunset?.[0],sunrise=weather?.daily?.sunrise?.[0];
  if(sunset&&sunrise){const t=now.getTime(),set=Date.parse(sunset)+2*3600e3,rise=Date.parse(sunrise);if(!Number.isNaN(set)&&!Number.isNaN(rise))return t>=set||t<rise;}
  const h=now.getHours();return h>=22||h<6;
 };
+
+/** The first hour in the next six with a real chance of rain: {time, rain} or null. */
+function rainSoon(weather,now=Date.now()){
+ const times=weather?.hourly?.time||[],rain=weather?.hourly?.precipitation_probability||[];
+ const start=times.findIndex(t=>Date.parse(t)>=now-3600e3);if(start<0)return null;
+ for(let i=start;i<Math.min(times.length,start+7);i++)if((rain[i]??0)>=40)return {time:new Date(times[i]).getHours(),rain:rain[i]};
+ return null;
+}
+/** One quiet line under the date: {temp, label, hint}. Null without weather. */
+export function weatherLine(weather,now=Date.now()){
+ if(!weather?.current)return null;
+ const sky=weatherLabel(weather.current.weather_code),soon=rainSoon(weather,now);
+ return {temp:Math.round(weather.current.temperature_2m),label:sky.label,hint:soon?`${soon.time}時ごろ 雨 ${soon.rain}%`:''};
+}
+/** The weather changes what you would do: rain or snow now or soon, or a hot or cold day. */
+export function weatherNotable(weather,now=Date.now()){
+ if(!weather?.current)return false;
+ const code=Number(weather.current.weather_code),temp=weather.current.temperature_2m;
+ return code>=51||temp>=30||temp<=5||Boolean(rainSoon(weather,now));
+}
+/** Cards for the deck. Work is shown as lights around the character and weather as one line under
+ * the date, so the weather card comes back only when it changes what you would do. */
+export function deckWidgets(widgets,{weather=null,now=Date.now()}={}){
+ return widgets.filter(w=>w==='work'?false:w==='weather'?weatherNotable(weather,now):true);
+}
+export const countWord=n=>['','ひとつ','ふたつ','みっつ'][n]||`${n}件`;
+/** What to say when the person comes back, in the persona's voice. Empty unless something happened or they were away a while. */
+export function awayRecap({jobs=[],waiting=0,since=0,now=Date.now(),voice=undefined}={}){
+ const work=jobs.filter(j=>!(j.kind==='chat'&&j.characterSessionId)&&j.kind!=='demo');
+ const finished=work.filter(j=>['review','completed'].includes(j.status)&&Date.parse(j.endedAt||0)>=since).length;
+ const running=work.filter(j=>['queued','running'].includes(j.status)&&!needsPerson(j)).length;
+ const parts=[],address=voiceAddress(voice);
+ if(finished)parts.push(voiceLine(voice,'back.finished',{n:countWord(finished)}));
+ if(waiting)parts.push(voiceLine(voice,'back.waiting',{n:countWord(waiting)}));
+ else if(running)parts.push(voiceLine(voice,'back.running',{n:countWord(running)}));
+ if(!parts.length)return since>0&&now-since>=30*60e3&&voice?.proactive!=='quiet'?`${address}${voiceLine(voice,'back.quiet')}`:'';
+ return `${address}${voiceLine(voice,'back.hello')}${parts.join('')}`;
+}
 
 // Cards appear only when they have something to show; setup lives in 設定, not on the monitor.
 function ambientWeatherCard(weather,{sample=false}={}){
