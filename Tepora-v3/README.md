@@ -28,16 +28,27 @@ node scripts/build-preview.mjs
 
 Open `tepora-v3-preview.html`. The preview explicitly refuses AI inference, account login, real
 MCP startup and PC operations; it does not invent working AI output. Its sample revises an
-artifact three times. Real requests need configured runtimes or providers.
+artifact three times. Real requests need configured runtimes or providers. The avatar studio works in the
+preview with the drawn and picture bodies (files you bring stay in the window only); the solid 3D, VRM and
+mesh bodies load their renderers from the service and are not available there.
 
 ## Companion monitor
 
-The home screen is a quiet monitor: the character (drawn, or your own **VRM** model) with its
-latest reply and the message box underneath, a large clock and one card at a time — work, weather,
-news, music from this PC or images you made, each shown only when it has something to show. After a few idle minutes it switches to a dimmed **待機画面**. Things that need you —
-approvals, worker questions, results to review, stopped jobs — collect in **あなたの番** at the top.
-While nobody is at the screen, operations that need approval are kept there and other work keeps
-moving; the exact request runs only after you allow it. See [COMPANION-MONITOR](docs/COMPANION-MONITOR.md).
+The home screen is a quiet monitor: the character (an avatar you shape yourself, or one you bring: **VRM**, a picture, a mesh-avatar-studio project) with its
+latest reply as a caption and the message box underneath, a large clock with the day's 七十二候 and
+the weather in one line, and one card at a time — news, music from this PC or images you made, each
+shown only when it has something to show. Running work is a small light beside the character; one
+amber lamp says that something needs you, and colour is kept for that. The room behind follows the
+hour and the weather.
+
+After a few idle minutes the screen becomes a **待機画面** that works like a screensaver: it starts
+from any quiet view, returns to where you were on a touch, a key or a sweep of the pointer, and shows
+a wallpaper (room, plain, drifting colour, night sky) or your own photos as a digital photo frame.
+Photos stay on this PC. Things that need you — approvals, worker questions, results to review,
+stopped jobs — collect in **あなたの番**; an approval is a slip you allow by stamping its seal (held
+for a moment when it runs on this PC or may cost money). While nobody is at the screen, operations
+that need approval are kept there and other work keeps moving; the exact request runs only after you
+allow it. See [COMPANION-MONITOR](docs/COMPANION-MONITOR.md).
 
 ## Persistent character conversation
 
@@ -47,7 +58,7 @@ artifacts open beside it; they do not redirect the composer. There are no contin
 conversation modes to manage. The character can delegate work and keep responding in its separate
 chat lane.
 
-**設定 → キャラクター → 人格** edits the character and worker names/instructions separately. Existing jobs keep
+**設定 → キャラクター → 姿を作る** shapes how the character looks (and brings a character you already have; see [AVATAR](docs/AVATAR.md)); **人格と口調** edits how it answers, apart from its look: the character's and worker's names and instructions, and the character's tone, call name and how often it speaks up. Existing jobs keep
 their pinned versions. **回答する** targets one worker's exact pending question; ordinary
 chat never silently answers an unrelated worker. Tool approvals remain separate from answers.
 
