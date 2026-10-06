@@ -1,7 +1,8 @@
 /** Things a person might bring for the avatar, made from nothing, so a browser test can bring them without any real
  * character: a VRM 1.0 humanoid built from boxes, a mesh-avatar-studio project with a painted face, one picture
  * and a set of three. They are small, drawn here, and carry no one's artwork.
- *   node tests/fixtures/avatar-fixtures.mjs <folder>   →  test.vrm, mesh-project/, picture.png, imageset/
+ *   node tests/fixtures/avatar-fixtures.mjs <folder>   →  test.vrm, test-0x.vrm, mesh-project/ (with sprites), mesh-plain/,
+ *   picture.png, wide.png, tall.png, opaque.png, imageset/
  */
 import zlib from 'node:zlib';
 import path from 'node:path';
@@ -36,8 +37,9 @@ class Canvas{
  png(){return encodePNG(this.w,this.h,this.d);}
 }
 
-/* ---------------- a VRM 1.0 humanoid of boxes ---------------- */
-export function vrmFixture(){
+/* ---------------- a VRM humanoid of boxes: 1.0, or 0.x (which faces −Z and names its parts the old way) ---------------- */
+export function vrmFixture({version='1.0'}={}){
+ const old=version!=='1.0',turn=([x,y,z])=>old?[-x,y,-z]:[x,y,z];   // a VRM 0.x model is the same figure turned to face −Z
  const P=[],N=[],I=[];   // one unit cube shared by every part
  for(const [nx,ny,nz,ux,uy,uz,vx,vy,vz] of [[1,0,0,0,0,-1,0,1,0],[-1,0,0,0,0,1,0,1,0],[0,1,0,1,0,0,0,0,-1],[0,-1,0,1,0,0,0,0,1],[0,0,1,1,0,0,0,1,0],[0,0,-1,-1,0,0,0,1,0]]){
   const base=P.length/3;
@@ -51,12 +53,12 @@ export function vrmFixture(){
  const parent={spine:'hips',chest:'spine',neck:'chest',head:'neck',leftUpperArm:'chest',leftLowerArm:'leftUpperArm',leftHand:'leftLowerArm',rightUpperArm:'chest',rightLowerArm:'rightUpperArm',rightHand:'rightLowerArm',
   leftUpperLeg:'hips',leftLowerLeg:'leftUpperLeg',leftFoot:'leftLowerLeg',rightUpperLeg:'hips',rightLowerLeg:'rightUpperLeg',rightFoot:'rightLowerLeg'};
  const nodes=[],index={};
- for(const [name,t] of Object.entries(bones)){index[name]=nodes.length;nodes.push({name,translation:t,children:[]});}
+ for(const [name,t] of Object.entries(bones)){index[name]=nodes.length;nodes.push({name,translation:turn(t),children:[]});}
  for(const [name,p] of Object.entries(parent))nodes[index[p]].children.push(index[name]);
  for(const [bone,mat,c,s] of [['head',1,[0,.12,0],[.24,.26,.24]],['head',2,[0,.2,0],[.27,.12,.27]],['head',0,[.06,.1,.125],[.04,.05,.01]],['head',0,[-.06,.1,.125],[.04,.05,.01]],['chest',3,[0,-.08,0],[.34,.46,.2]],['spine',3,[0,-.02,0],[.28,.2,.18]],
   ['leftUpperArm',3,[.14,0,0],[.28,.08,.08]],['leftLowerArm',1,[.14,0,0],[.28,.07,.07]],['rightUpperArm',3,[-.14,0,0],[.28,.08,.08]],['rightLowerArm',1,[-.14,0,0],[.28,.07,.07]],
   ['leftUpperLeg',4,[0,-.2,0],[.12,.42,.12]],['leftLowerLeg',4,[0,-.2,0],[.1,.42,.1]],['rightUpperLeg',4,[0,-.2,0],[.12,.42,.12]],['rightLowerLeg',4,[0,-.2,0],[.1,.42,.1]]]){
-  nodes[index[bone]].children.push(nodes.length);nodes.push({name:`${bone}-part`,mesh:mat,translation:c,scale:s});
+  nodes[index[bone]].children.push(nodes.length);nodes.push({name:`${bone}-part`,mesh:mat,translation:turn(c),scale:s});
  }
  const material=(name,color)=>({name,pbrMetallicRoughness:{baseColorFactor:[...color,1],metallicFactor:0,roughnessFactor:.7}});
  const json={asset:{version:'2.0',generator:'tepora-test-fixture'},scene:0,scenes:[{nodes:[0]}],nodes,
@@ -64,8 +66,12 @@ export function vrmFixture(){
   materials:[material('ink',[.1,.08,.08]),material('skin',[.96,.82,.72]),material('hair',[.25,.16,.14]),material('cloth',[.29,.44,.65]),material('trousers',[.2,.22,.3])],
   accessors:[{bufferView:0,componentType:5126,count:24,type:'VEC3',min:[-.5,-.5,-.5],max:[.5,.5,.5]},{bufferView:1,componentType:5126,count:24,type:'VEC3'},{bufferView:2,componentType:5123,count:36,type:'SCALAR'}],
   bufferViews:[{buffer:0,byteOffset:0,byteLength:pos.length,target:34962},{buffer:0,byteOffset:pos.length,byteLength:nor.length,target:34962},{buffer:0,byteOffset:pos.length+nor.length,byteLength:idx.length,target:34963}],
-  buffers:[{byteLength:bin.length}],extensionsUsed:['VRMC_vrm'],
-  extensions:{VRMC_vrm:{specVersion:'1.0',meta:{name:'テスト用ヒューマノイド',version:'1',authors:['tester'],licenseUrl:'https://vrm.dev/licenses/1.0/',avatarPermission:'everyone',allowExcessivelyViolentUsage:false,allowExcessivelySexualUsage:false,commercialUsage:'personalNonProfit',allowPoliticalOrReligiousUsage:false,allowAntisocialOrHateUsage:false,creditNotation:'required',allowRedistribution:false,modification:'prohibited'},
+  buffers:[{byteLength:bin.length}],extensionsUsed:[old?'VRM':'VRMC_vrm'],
+  extensions:old?{VRM:{exporterVersion:'tepora-test-fixture',specVersion:'0.0',
+   meta:{title:'テスト用ヒューマノイド0.x',version:'1',author:'tester',allowedUserName:'Everyone',violentUssageName:'Disallow',sexualUssageName:'Disallow',commercialUssageName:'Disallow',licenseName:'CC0'},
+   humanoid:{humanBones:Object.keys(bones).map(n=>({bone:n,node:index[n],useDefaultValues:true}))},
+   blendShapeMaster:{blendShapeGroups:['Joy','Sorrow','Blink','A','O'].map(n=>({name:n,presetName:n.toLowerCase(),binds:[],materialValues:[]}))}}}
+  :{VRMC_vrm:{specVersion:'1.0',meta:{name:'テスト用ヒューマノイド',version:'1',authors:['tester'],licenseUrl:'https://vrm.dev/licenses/1.0/',avatarPermission:'everyone',allowExcessivelyViolentUsage:false,allowExcessivelySexualUsage:false,commercialUsage:'personalNonProfit',allowPoliticalOrReligiousUsage:false,allowAntisocialOrHateUsage:false,creditNotation:'required',allowRedistribution:false,modification:'prohibited'},
    humanoid:{humanBones:Object.fromEntries(Object.keys(bones).map(n=>[n,{node:index[n]}]))}}}};
  const pad=(buf,byte)=>Buffer.concat([buf,Buffer.alloc((4-buf.length%4)%4,byte)]),j=pad(Buffer.from(JSON.stringify(json)),0x20),b=pad(bin,0);
  const head=Buffer.alloc(12),jh=Buffer.alloc(8),bh=Buffer.alloc(8);
@@ -74,8 +80,8 @@ export function vrmFixture(){
  return Buffer.concat([head,jh,j,bh,b]);
 }
 
-/* ---------------- a mesh-avatar-studio project: rig.json and built/* of a painted face ---------------- */
-export function meshFixture(){
+/* ---------------- a mesh-avatar-studio project: rig.json and built/* of a painted face, with drawn eye and mouth variants ---------------- */
+export function meshFixture({sprites=true}={}){
  const W=512,H=640,EYE_N=24,SKIN='#f6d9c4',HAIR='#3b2a2a',CLOTH='#4a6fa5';
  const mask=new Canvas(W,H,'#000000'),base=new Canvas(W,H),files={};
  const hair=(cx,cy,rx,ry)=>{base.ellipse(cx,cy,rx,ry,HAIR);mask.ellipse(cx,cy,rx,ry,'#ffffff');};
@@ -99,11 +105,27 @@ export function meshFixture(){
   head:{cx:256,cy:262,rx:160,ry:180,pivotX:256,pivotY:440,maxRoll:.14,shiftX:18,shiftY:12,weightBand:[410,480],turnBand:[430,520]},
   body:{chest:area(256,540,160,100),pivotX:256,pivotY:640,maxRoll:.05,rollBand:[500,630],breathBand:[500,640],shoulders:[area(140,490,80,50),area(372,490,80,50)]},
   face:{brow:area(256,242,120,34,{band:[215,270]}),jaw:area(256,350,80,50,{band:[330,370]}),nose:area(256,318,22,22),mouth:area(256,352,44,22),eyeA:area(200,272,52,32),eyeB:area(312,272,52,32),earR:area(124,300,26,40),earL:area(388,300,26,40)},
-  mouth:{cx:256,cy:352,angle:0,halfLen:28,bow:4},cheeks:[[190,312],[322,312]],eyes,
+  mouth:{cx:256,cy:352,angle:0,halfLen:28,bow:4,area:{cx:256,cy:352,rx:22,ry:16,angle:0}},cheeks:[[190,312],[322,312]],eyes,
   mesh:{baseCell:32,eyeBallCell:12,eyeCell:12,tasselCell:12,handCell:16,spriteCell:12},view:{padTop:0,padSide:.04},
   strands:[{name:'side0',nodes:[[120,250],[116,320],[114,390],[118,450]],sigma:26,max:14,k:1},{name:'side1',nodes:[[392,250],[396,320],[398,390],[394,450]],sigma:26,max:14,k:1}]};
  files['rig.json']=Buffer.from(JSON.stringify(rig));files['built/layers.json']=Buffer.from(JSON.stringify({build:'1',layers}));
  files['built/base.png']=base.png();files['built/hairmask.png']=mask.png();
+ if(sprites){
+  // closed, half-open and smiling eyes for each eye, and the a / half a / i / o mouths, cut to the same rects as a real export
+  const sheet={},draw=(name,rect,paint)=>{const c=new Canvas(rect[2],rect[3]);paint(c);files[`built/sprites/${name}.png`]=c.png();sheet[name]=rect;};
+  for(const [i,cx] of [[0,200],[1,312]]){
+   const rect=[cx-38,242,76,60];
+   draw(`eyes_closed_${i}`,rect,c=>c.stroke([[4,30],[20,36],[38,38],[56,36],[72,30]],2.6,'#241816'));
+   draw(`eyes_half_${i}`,rect,c=>{c.ellipse(38,34,33,11,'#fdfdfb');c.ellipse(38,35,13,10,'#6b4a35');c.ellipse(38,35,6,6,'#1b1210');c.stroke([[4,28],[20,23],[38,22],[56,23],[72,28]],3,'#241816');});
+   draw(`eyes_smile_${i}`,rect,c=>c.stroke([[6,36],[20,26],[38,22],[56,26],[70,36]],3,'#241816'));
+  }
+  const mouth=[216,326,80,52],lips=(c,rx,ry)=>{c.ellipse(40,26,36,22,SKIN);c.ellipse(40,27,rx,ry,'#7a2630');};
+  draw('mouth_a',mouth,c=>{lips(c,18,14);c.ellipse(40,35,10,5,'#d87b80');});
+  draw('mouth_a_half',mouth,c=>lips(c,16,8));
+  draw('mouth_i',mouth,c=>{lips(c,20,5);c.ellipse(40,25,15,2,'#fbf4ef');});
+  draw('mouth_o',mouth,c=>lips(c,10,12));
+  files['built/sprites/sprites.json']=Buffer.from(JSON.stringify({build:'1',layers:sheet}));
+ }
  return files;
 }
 
@@ -115,13 +137,18 @@ function face({mouth,eyes,tint}){
  if(mouth==='open')c.ellipse(200,350,26,30,'#8a3b3b');else if(mouth==='smile')c.stroke([[165,340],[200,365],[235,340]],5,'#9b4a4a');else c.stroke([[175,350],[225,350]],5,'#9b4a4a');
  c.ellipse(120,330,20,12,'#f4a8a0',.6);c.ellipse(280,330,20,12,'#f4a8a0',.6);return c.png();
 }
+/** A figure on a wide or tall canvas, as people's own pictures often are: proportions must survive. */
+function figure(w,h,tint){const c=new Canvas(w,h),cx=w/2,r=Math.min(w,h)*.38;c.ellipse(cx,h-r*1.05,r*.9,r,tint);c.ellipse(cx,h-r*1.1,r*.72,r*.78,'#fbeee0');c.ellipse(cx-r*.28,h-r*1.2,r*.08,r*.11,'#2b2220');c.ellipse(cx+r*.28,h-r*1.2,r*.08,r*.11,'#2b2220');c.stroke([[cx-r*.2,h-r*.85],[cx,h-r*.75],[cx+r*.2,h-r*.85]],Math.max(2,r*.03),'#9b4a4a');return c.png();}
+export const shapeFixtures=()=>({'wide.png':figure(720,360,'#8fb08a'),'tall.png':figure(240,720,'#c89ab0'),'opaque.png':(()=>{const c=new Canvas(480,480,'#d9e4ee');c.ellipse(240,300,150,170,'#7aa6c8');c.ellipse(240,290,120,130,'#fbeee0');c.ellipse(195,270,14,20,'#2b2220');c.ellipse(285,270,14,20,'#2b2220');return c.png();})()});
 export const imageFixtures=()=>({'idle.png':face({mouth:'flat',eyes:'open',tint:'#7aa6c8'}),'happy.png':face({mouth:'smile',eyes:'happy',tint:'#c8a07a'}),'talk-open.png':face({mouth:'open',eyes:'open',tint:'#7aa6c8'})});
 
 export function writeAvatarFixtures(dir){
  const put=(rel,data)=>{const file=path.join(dir,rel);mkdirSync(path.dirname(file),{recursive:true});writeFileSync(file,data);};
- put('test.vrm',vrmFixture());
+ put('test.vrm',vrmFixture());put('test-0x.vrm',vrmFixture({version:'0.x'}));
  for(const [rel,data] of Object.entries(meshFixture()))put(path.join('mesh-project',rel),data);
+ for(const [rel,data] of Object.entries(meshFixture({sprites:false})))put(path.join('mesh-plain',rel),data);
  const pictures=imageFixtures();put('picture.png',pictures['idle.png']);
+ for(const [name,data] of Object.entries(shapeFixtures()))put(name,data);
  for(const [name,data] of Object.entries(pictures))put(path.join('imageset',name),data);
  return dir;
 }

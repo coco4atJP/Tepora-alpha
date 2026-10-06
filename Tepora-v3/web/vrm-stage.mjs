@@ -17,7 +17,8 @@ const ease=(from,to,rate,dt)=>from+(to-from)*(1-Math.exp(-rate*dt));
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const FALLBACK_POSE={energy:.35,valence:.1,alert:.2,focus:0,lamp:.25,near:.45,speech:0};
 
-export async function createVRMAvatar(host,{url,reducedMotion=false,theme='light',signal,framing='bust',moodPose=()=>FALLBACK_POSE,follow=true}={}){
+export async function createVRMAvatar(host,{url,spec,reducedMotion=false,theme='light',signal,framing='bust',moodPose=()=>FALLBACK_POSE,follow=true}={}){
+ const gain={calm:.6,normal:1,lively:1.3}[spec?.motion]||1;   // 動き: how much it sways, breathes and turns
  const canvas=document.createElement('canvas');canvas.className='vrm-canvas';canvas.setAttribute('aria-hidden','true');
  let renderer;
  try{renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});}
@@ -37,6 +38,8 @@ export async function createVRMAvatar(host,{url,reducedMotion=false,theme='light
  const bone=name=>vrm.humanoid?.getNormalizedBoneNode(name)||null;
  const bones={hips:bone('hips'),spine:bone('spine'),chest:bone('chest')||bone('upperChest'),neck:bone('neck'),head:bone('head'),
   leftUpperArm:bone('leftUpperArm'),rightUpperArm:bone('rightUpperArm'),leftLowerArm:bone('leftLowerArm'),rightLowerArm:bone('rightLowerArm')};
+ // A VRM 0.x model's normalized bones are turned half a circle about Y: turns about X and Z run the other way.
+ const f=vrm.meta?.metaVersion==='0'?-1:1;
  const has=new Set(EXPRESSIONS.filter(name=>vrm.expressionManager?.getExpression(name)));
  const set=(name,value)=>{if(has.has(name))vrm.expressionManager.setValue(name,clamp(value,0,1));};
  // Frame from the waist up so the face reads well from across the room, or the whole body.
@@ -65,17 +68,17 @@ export async function createVRMAvatar(host,{url,reducedMotion=false,theme='light
   if(!visible||document.hidden){last=now;return;}
   const busy=mood==='talking'||mood==='listening'||mood==='happy';
   if(!busy&&now-last<33)return;
-  const dt=clamp((now-last)/1000,.001,.1),motion=reduced?0:1,sleepy=mood==='sleepy',pose=moodPose(mood,level);elapsed+=dt;const t=elapsed;
+  const dt=clamp((now-last)/1000,.001,.1),motion=reduced?0:gain,sleepy=mood==='sleepy',pose=moodPose(mood,level);elapsed+=dt;const t=elapsed;
   // Arms rest along the body instead of the T-pose stored in the file.
-  if(bones.leftUpperArm)bones.leftUpperArm.rotation.z=-1.18+Math.sin(t*1.1)*.015*motion;
-  if(bones.rightUpperArm)bones.rightUpperArm.rotation.z=1.18-Math.sin(t*1.1)*.015*motion;
-  if(bones.leftLowerArm)bones.leftLowerArm.rotation.z=-.12;if(bones.rightLowerArm)bones.rightLowerArm.rotation.z=.12;
+  if(bones.leftUpperArm)bones.leftUpperArm.rotation.z=f*(-1.18+Math.sin(t*1.1)*.015*motion);
+  if(bones.rightUpperArm)bones.rightUpperArm.rotation.z=f*(1.18-Math.sin(t*1.1)*.015*motion);
+  if(bones.leftLowerArm)bones.leftLowerArm.rotation.z=-.12*f;if(bones.rightLowerArm)bones.rightLowerArm.rotation.z=.12*f;
   const breathe=Math.sin(t*(sleepy?.9:1.6))*(sleepy?.03:.02)*motion*(.6+pose.energy);
-  if(bones.chest)bones.chest.rotation.x=breathe+(mood==='listening'?.05:0);
-  if(bones.spine)bones.spine.rotation.z=Math.sin(t*.45)*.012*motion+(mood==='thinking'?.03:0);
+  if(bones.chest)bones.chest.rotation.x=f*(breathe+(mood==='listening'?.05:0));
+  if(bones.spine)bones.spine.rotation.z=f*(Math.sin(t*.45)*.012*motion+(mood==='thinking'?.03:0));
   eye.x=ease(eye.x,pointer.x,4,dt);eye.y=ease(eye.y,pointer.y,4,dt);
   if(bones.neck)bones.neck.rotation.y=eye.x*.18;
-  if(bones.head){bones.head.rotation.y=eye.x*.22+Math.sin(t*.37)*.04*motion;bones.head.rotation.x=-eye.y*.12+(sleepy?.18:0)+Math.sin(t*.6)*.015*motion;bones.head.rotation.z=(mood==='thinking'?.09:mood==='listening'?-.05:0)+Math.sin(t*.29)*.02*motion;}
+  if(bones.head){bones.head.rotation.y=eye.x*.22+Math.sin(t*.37)*.04*motion;bones.head.rotation.x=f*(-eye.y*.12+(sleepy?.18:0)+Math.sin(t*.6)*.015*motion);bones.head.rotation.z=f*((mood==='thinking'?.09:mood==='listening'?-.05:0)+Math.sin(t*.29)*.02*motion);}
   look.position.set(eye.x*.6,focusY+.05+eye.y*.35,distance);
   // Natural blinking; eyes stay closed while sleepy.
   nextBlink-=dt;if(nextBlink<=0){blink=1;nextBlink=2+Math.random()*4;}

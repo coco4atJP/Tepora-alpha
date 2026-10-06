@@ -47,7 +47,9 @@ async function avatarMount(host,spec,o){
  host.classList.add('avatar-fill');
  host.innerHTML='<p class="avatar-loading">読み込んでいます…</p>';
  const mod=await import(modulePath(AVATAR_MODULES[kind]));avatarAborted(signal);
- const box=document.createElement('div');box.className='avatar-canvas';host.replaceChildren(box);
+ const box=document.createElement('div');box.className=kind==='solid'?'avatar-canvas avatar-bleed':'avatar-canvas';host.replaceChildren(box);
+ // a canvas has no words of its own: the character's name is what a screen reader hears, as it is for a drawn body
+ if(label){box.setAttribute('role','img');box.setAttribute('aria-label',label);}
  // what a lazily loaded renderer cannot import from the page: the pose contract, the colours of the spec, this month's season
  let now={mood,theme,reduced},inner=null,overlay=null,fallen=false;
  // if the GPU drops what this body is drawn on, the default body takes over, keeping the same mood and theme

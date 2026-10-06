@@ -401,6 +401,9 @@
 /* The lamp that sits beside a body drawn on a canvas (a 3D model, a mesh avatar): the same lamp, as a small overlay. */
 .avatar-lamp{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none;z-index:2}
 .avatar-lamp .cx{width:100%;height:100%}
+/* The solid body's canvas reaches 10% beyond its box (FRAME_BLEED in three-body.mjs), so hands, ears and the halo are not cut. */
+.avatar-canvas.avatar-bleed{inset:-10%}
+.avatar-canvas,.avatar-canvas canvas{pointer-events:none}   /* the figure follows the pointer from the window; the canvas never takes a click from the caption under it */
 /* A mesh avatar is a picture: at night it is dimmed and warmed, as a picture of someone would be in a room lit by one lamp. */
 .mesh-canvas[data-theme=dark]{filter:brightness(.92)}
 .mesh-canvas[data-theme=lamp]{filter:brightness(.84) sepia(.16)}

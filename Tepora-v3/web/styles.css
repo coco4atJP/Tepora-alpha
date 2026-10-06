@@ -261,7 +261,8 @@ body.talk-docked .stage{padding-bottom:clamp(104px,15vh,132px)}
 .stage-character{position:relative;width:100%;display:flex;justify-content:center;align-items:flex-end;min-height:0;flex:none}
 .character-host{width:min(100%,calc(var(--char-w)*var(--avatar-scale,1)));aspect-ratio:200/224;position:relative}
 body[data-avatar-fill] .stage-character{position:relative;flex:1}
-body[data-avatar-fill] .character-host{width:100%;height:100%;aspect-ratio:auto;min-height:320px}
+/* A model or illustration someone brings fills the stage height; 大きさ (0.8–1.25) scales it, 1.25 reaching the full height. */
+body[data-avatar-fill] .character-host{width:100%;height:calc(80% * var(--avatar-scale,1));aspect-ratio:auto;min-height:260px}
 .avatar-canvas{position:absolute;inset:0}
 .avatar-canvas canvas{display:block;width:100%;height:100%}
 .avatar-loading{position:absolute;inset:auto 0 40% 0;text-align:center;color:var(--muted);font-size:.86rem}
@@ -411,14 +412,14 @@ body.is-night .wp-photos{filter:brightness(.34) saturate(.82)}
 
 /* ---------- Glow: the lamp lights the room around the character ---------- */
 .stage-glow{position:absolute;left:50%;bottom:0;width:min(100%,calc(var(--char-w)*var(--avatar-scale,1)));aspect-ratio:200/224;transform:translateX(-50%);z-index:-1;pointer-events:none;--ant-x:54%;--ant-y:7%}
-body[data-avatar-fill] .stage-glow{left:0;right:0;top:0;width:auto;transform:none;aspect-ratio:auto}
+body[data-avatar-fill] .stage-glow{left:0;right:0;top:auto;width:auto;height:calc(80% * var(--avatar-scale,1));transform:none;aspect-ratio:auto}
 .stage-glow::before{content:'';position:absolute;left:50%;top:62%;width:270%;height:210%;transform:translate(-50%,-50%);background:radial-gradient(ellipse at center,var(--pool-color,rgba(255,196,140,.55)),transparent 70%);opacity:calc(var(--pool-o,0) + var(--lamp-boost,0));transition:opacity 1.6s}
 .stage-glow::after{content:'';position:absolute;left:var(--ant-x);top:var(--ant-y);width:135%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--glow-1,rgba(255,172,104,.46)),var(--glow-2,rgba(255,172,104,.14)) 38%,transparent 68%);opacity:calc(var(--halo-o,0) + var(--lamp-boost,0));transition:opacity 1.6s}
 body.is-lamp .stage-glow{--lamp-boost:1}
 
 /* ---------- Lights: work that has been handed over, as small lights around the character ---------- */
 .stage-lights{--ant-x:54%;--ant-y:7%;position:absolute;left:50%;bottom:0;width:min(100%,calc(var(--char-w)*var(--avatar-scale,1)));aspect-ratio:200/224;transform:translateX(-50%);pointer-events:none;z-index:2}
-body[data-avatar-fill] .stage-lights{left:0;right:0;top:0;width:auto;transform:none;aspect-ratio:auto}
+body[data-avatar-fill] .stage-lights{left:0;right:0;top:auto;width:auto;height:calc(80% * var(--avatar-scale,1));transform:none;aspect-ratio:auto}
 .ff{position:absolute;left:var(--lx,var(--ant-x));top:var(--ly,var(--ant-y));width:28px;height:28px;margin:-14px 0 0 -14px;padding:0;border:0;border-radius:50%;background:none;pointer-events:none;opacity:0;translate:var(--gx,0) var(--gy,0);transition:left 1.5s cubic-bezier(.22,.8,.24,1),top 1.5s cubic-bezier(.22,.8,.24,1),translate 1.4s cubic-bezier(.22,.8,.24,1),opacity .5s 1.1s}
 .ff.on{opacity:1;pointer-events:auto;transition:left 1.5s cubic-bezier(.22,.8,.24,1),top 1.5s cubic-bezier(.22,.8,.24,1),translate 1.4s cubic-bezier(.22,.8,.24,1),opacity .9s}
 .ff b{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:currentColor;color:var(--muted);opacity:.92;animation:ff-drift var(--dur,11s) ease-in-out infinite;animation-delay:var(--del,0s)}
@@ -793,7 +794,8 @@ body.talk-docked .surface[data-width=narrow] .stage{padding-bottom:20px}
 .surface[data-width=narrow] .clock-line{margin-top:0}
 .surface[data-width=narrow] .stage-figure{order:2;min-height:0;padding-top:4px}
 .surface[data-width=narrow] .stage{--char-w:min(46vw,210px)}
-body[data-avatar-fill] .surface[data-width=narrow] .character-host{width:100%;height:min(52vh,400px)}
+body[data-avatar-fill] .surface[data-width=narrow] .character-host{width:100%;height:calc(min(52vh,400px) * var(--avatar-scale,1));min-height:0}
+body[data-avatar-fill] .surface[data-width=narrow] .stage-glow,body[data-avatar-fill] .surface[data-width=narrow] .stage-lights{height:100%}
 .surface[data-width=narrow] .speech{max-width:100%;font-size:.98rem;margin-top:12px}
 .surface[data-width=narrow] .deck-slot{order:3;width:100%;max-width:520px;align-self:center}
 .surface[data-width=narrow] .deck-setup{order:4;align-self:center}

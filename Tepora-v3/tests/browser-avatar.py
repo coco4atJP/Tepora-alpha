@@ -18,8 +18,8 @@ try:
   browser=pw.chromium.launch(**({'executable_path':executable} if executable else {}),headless=True,args=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'])
   context=browser.new_context(viewport={'width':1280,'height':860},color_scheme='light',timezone_id='Asia/Tokyo',accept_downloads=True)
   page=context.new_page();page.set_default_timeout(9000)
-  # engine notes that are expected: a mesh project without eye/mouth sprites says so once, and the GL driver chats
-  page.on('console',lambda m:errors.append(m.text[:200]) if m.type in ('error','warning') and 'GL Driver' not in m.text and 'sprites not loaded' not in m.text else None)
+  # the GL driver's performance notes are not errors; everything else is (the mesh project carries its sprites, so the engine has nothing to warn about)
+  page.on('console',lambda m:errors.append(m.text[:200]) if m.type in ('error','warning') and 'GL Driver' not in m.text else None)
   page.on('pageerror',lambda e:errors.append(str(e)))
   page.on('response',lambda r:bad.append(f'{r.status} {r.url}') if r.status>=400 else None)
   page.goto(ready['url'],wait_until='domcontentloaded');page.locator('#clock-display').wait_for()
@@ -36,6 +36,11 @@ try:
    if page.locator('.modal-backdrop').count():page.keyboard.press('Escape');page.locator('.modal-backdrop').wait_for(state='detached')
    page.locator('.nav [data-view=home]').click();settle(600)
   def chip(key,value):page.locator(f'#av-controls [data-action=av-set][data-key="{key}"][data-value="{value}"]').click();settle(500)
+  def box(sel='.character-host'):
+   r=page.locator(sel).bounding_box();return (round(r['width']),round(r['height']))
+  def patch(p,wait=1500):
+   r=api('/api/avatar','PATCH',{'patch':p,'expectedRevision':avatar()['revision']});assert r['status']==200,r;settle(wait)
+  name=lambda:page.evaluate("document.querySelector('.character-host [role=img]')?.getAttribute('aria-label')")
   def bring(kind,files):
    with page.expect_file_chooser() as chooser:page.locator(f'[data-action=av-add][data-kind={kind}]').click()
    chooser.value.set_files(files);settle(1800)
@@ -45,6 +50,7 @@ try:
   assert start['body']=='shiro' and start['render']=='flat' and start['asset'] is None and start['revision']==0,start
   assert page.locator('.character-host svg.cx.cx-shiro').count()==1
   assert page.locator('#av-preview').count()==0
+  flat=box();assert name()=='Tepora','the drawn body carries the character name for screen readers'
   checks.append('the avatar starts as しろ・改, drawn flat, with no file')
   # --- the studio: bodies, materials, the lamp, undo and reset
   studio();page.screenshot(path=str(out/'02-studio.png'))
@@ -103,9 +109,13 @@ try:
    page.screenshot(path=str(out/'04-solid-studio.png'))
    home();settle(1200)
    assert page.locator('.character-host canvas.solid-canvas').count()==1
+   assert box()==flat,f'the solid figure stands in the flat one\'s box ({box()} vs {flat})'
+   assert name()=='Tepora','a canvas body carries the character name for screen readers'
    page.screenshot(path=str(out/'05-solid-home.png'))
+   patch({'size':1.25});big=box();patch({'size':.8});small=box();patch({'size':1})
+   assert big[0]>flat[0]*1.15 and small[0]<flat[0]*.9,f'大きさ scales the solid body ({small} < {flat} < {big})'
    page.emulate_media(color_scheme='dark');settle(900);page.screenshot(path=str(out/'06-solid-dark.png'));page.emulate_media(color_scheme='light')
-   checks.append('solid: the same spec drawn in 3D, every mood, dark theme, with the lamp as a real light')
+   checks.append('solid: the same spec drawn in 3D in the flat figure\'s box, every mood, dark theme, 大きさ, the name for screen readers')
   else:skipped.append('solid body: this browser has no WebGL')
   # --- what a person already has: a VRM, a mesh avatar, a picture, a set of pictures
   studio()
@@ -115,7 +125,20 @@ try:
   if webgl:
    assert page.locator('#av-preview canvas.vrm-canvas').count()==1
    page.locator('[data-action=av-mood][data-value=talking]').click();settle(500);page.screenshot(path=str(out/'07-vrm.png'))
-   checks.append('VRM: loaded from this PC, drawn with the same mood pose, the lamp stays beside it')
+   # on the stage: it fills the stage, 大きさ scales it, the lamp follows the chosen colour and shape, and it has the name
+   home();settle(1500)
+   assert page.locator('.character-host canvas.vrm-canvas').count()==1 and name()=='Tepora'
+   base=box();patch({'size':.8},2000);small=box();patch({'size':1.25},2000);big=box()
+   assert small[1]<base[1]<big[1],f'大きさ scales a brought model ({small} {base} {big})'
+   patch({'size':1,'lamp':{'hue':'indigo','shape':'flame'}},2000)
+   assert page.locator('.avatar-lamp svg').evaluate("el=>getComputedStyle(el).getPropertyValue('--c-lamp').trim()")=='#3b5ba5','the lamp beside a model takes the chosen colour'
+   patch({'lamp':{'hue':'indigo','shape':'none'}},2000);assert page.locator('.avatar-lamp').count()==0,'a model can go without the lamp'
+   patch({'lamp':{'hue':'vermilion','shape':'bead'}},2000)
+   studio()
+   bring('vrm',str(fixtures/'test-0x.vrm'))
+   assert avatar()['body']=='vrm' and 'VRM 0.x' in page.locator('#av-library').inner_text() and page.locator('#av-preview canvas.vrm-canvas').count()==1
+   page.screenshot(path=str(out/'07-vrm0.png'))
+   checks.append('VRM 1.0 and 0.x: loaded from this PC, drawn with the same mood pose; 大きさ, the lamp\'s colour and shape (or none) and the name apply')
   else:skipped.append('VRM: this browser has no WebGL')
   bring('mesh',str(fixtures/'mesh-project'))
   assert avatar()['body']=='mesh',avatar()
@@ -129,6 +152,12 @@ try:
   else:skipped.append('mesh avatar: this browser has no WebGL')
   bring('image',str(fixtures/'picture.png'))
   assert avatar()['body']=='image' and page.locator('#av-preview svg.cx-image image.pic').count()==1
+  home();picture=box();assert picture[0]>flat[0]*1.3,f'a brought picture gets a larger box than a drawn body ({picture} vs {flat})';page.screenshot(path=str(out/'10-picture.png'))
+  for shape in ['wide.png','tall.png']:
+   studio();bring('image',str(fixtures/shape));home()
+   assert page.locator('.character-host image.pic').get_attribute('preserveAspectRatio')=='xMidYMax meet',shape
+   page.screenshot(path=str(out/f'10-{shape}'))
+  studio()
   with page.expect_file_chooser() as chooser:page.locator('[data-action=av-add][data-kind=imageset]').click()
   chooser.value.set_files([str(fixtures/'imageset'/n) for n in ['idle.png','happy.png','talk-open.png']]);settle(600)
   assert page.evaluate("[...document.querySelectorAll('[data-action=av-draft-mood]')].map(s=>s.value)")==['idle','happy','talkOpen'],'moods are guessed from the file names'
@@ -136,10 +165,10 @@ try:
   assert avatar()['body']=='imageset' and page.locator('#av-preview svg.cx-image image.pic').count()==3
   page.locator('[data-action=av-mood][data-value=happy]').click();settle(500)
   assert page.locator('#av-preview image.pic[data-pic=happy]').get_attribute('visibility')=='visible'
-  page.screenshot(path=str(out/'10-imageset.png'))
-  checks.append('a picture and a set of pictures: the mood picks the picture, talking opens the mouth picture')
+  page.screenshot(path=str(out/'11-imageset.png'))
+  checks.append('pictures: one picture (square, wide or tall, kept in proportion, in a larger box) and a set where the mood picks the picture')
   # --- the library: files are kept, wearing one is a choice, removing the one in use puts the default back
-  assert page.locator('#av-library .av-asset').count()>=3
+  assert page.locator('#av-library .av-asset').count()>=6
   gone=page.locator('.av-asset.is-on [data-action=av-remove]');gone.click();settle(900)
   assert avatar()['body']=='shiro' and avatar()['asset'] is None,'removing the file in use returns to しろ・改'
   checks.append('removing the file in use returns the avatar to しろ・改')
@@ -156,7 +185,7 @@ try:
   page.evaluate("document.querySelector('.modal-body').scrollTop=600");settle(300)
   top=page.locator('#av-preview').bounding_box()['y']
   assert top<200,f'the preview stays in view while the choices scroll ({top})'
-  page.screenshot(path=str(out/'11-phone-studio.png'))
+  page.screenshot(path=str(out/'12-phone-studio.png'))
   checks.append('a 390px phone: no horizontal overflow and the preview stays in view while scrolling the choices')
   browser.close()
 finally:

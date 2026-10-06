@@ -219,7 +219,7 @@ measured again whenever the width changes); a toast left floating over the idle 
 
 ## Verified here / not verified here
 
-- `node --test` (558 tests, including the stacked-approval, home-monitor, one-lamp, photo-frame,
+- `node --test` (560 tests, including the stacked-approval, home-monitor, one-lamp, photo-frame,
   avatar-model, avatar-assets and voice-lines tests), `node scripts/check.mjs` and `node scripts/improve-loop.mjs
   --capabilities` (worker contracts, scenario traceability, preview build, capability fixtures)
   pass, plus the repository entry tests. The 31 tests added for the lamp work cover the 七十二候
@@ -247,7 +247,9 @@ measured again whenever the width changes); a toast left floating over the idle 
   parking → approval from the inbox → exact replay → generated image in the home photo card.
 - `tests/browser-avatar.py` runs the real service and drives the studio and everything a person can
   bring: the chips, undo, dice, reset and presets, every mood of the drawn and solid bodies, solid 3D in
-  the day, dark and lamp themes, a VRM, a mesh-avatar-studio project, a picture and a set of pictures (made by
+  the day, dark and lamp themes and in the flat figure's box, 大きさ, the lamp beside a model, the name
+  for screen readers, a VRM 1.0 and a VRM 0.x model, a mesh-avatar-studio project with eye and mouth
+  sprites, square, wide and tall pictures and a set of pictures (all made by
   `tests/fixtures/avatar-fixtures.mjs`, so no one's artwork is in the repository), removing the file in
   use, a live reduced-motion change, and a 390 px phone with the preview kept in view. The pixiv VRM 1.0
   sample (`VRM1_Constraint_Twist_Sample`, kept outside the repository) was also loaded and its

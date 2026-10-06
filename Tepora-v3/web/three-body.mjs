@@ -15,6 +15,8 @@ const SHAPES={
  tall:{cy:.91,rx:.68,ry:.85,skew:.08,face:.11,gap:.21,cheek:.37,shoulder:[.56,.03],hand:[.65,-.21],headW:1.04,neck:-.31}
 };
 const MOTION={calm:.6,normal:1,lively:1.3};
+/** How far the canvas reaches beyond the body's box, as a share of the box on each side. Matches .avatar-bleed. */
+export const FRAME_BLEED=.1;
 const LIGHTS={
  light:{sky:0xfff6ea,ground:0xb8aa98,hemi:1.5,key:2.1,tint:0xffffff,rim:.35,lamp:.35},
  dark:{sky:0xd8cdbf,ground:0x3a3228,hemi:1.0,key:1.35,tint:0xffeedd,rim:.5,lamp:.7},
@@ -56,7 +58,7 @@ export async function createSolidAvatar(host,{spec,reducedMotion=false,theme='li
  try{renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});}
  catch{throw new Error('この端末ではWebGLを使えないため、立体で表示できません。');}
  renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,2));renderer.outputColorSpace=THREE.SRGBColorSpace;
- const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(22,1,.1,40);
+ const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(18,1,.1,60);
  const hemi=new THREE.HemisphereLight(0xffffff,0x888888,1),key=new THREE.DirectionalLight(0xffffff,1),rim=new THREE.DirectionalLight(0xbfd4ff,.3);
  key.position.set(1.1,2.2,2.6);rim.position.set(-1.6,1.4,-1.8);scene.add(hemi,key,rim);
 
@@ -171,13 +173,15 @@ export async function createSolidAvatar(host,{spec,reducedMotion=false,theme='li
   lighting=L;
  }
  let lighting=LIGHTS.light;paint(theme);
- scene.updateMatrixWorld(true);
- const box=new THREE.Box3().setFromObject(rig),centerY=(box.max.y+box.min.y)/2,halfH=(box.max.y-box.min.y)/2*1.07,halfW=Math.max(box.max.x,-box.min.x)*1.1+.2;
+ // The flat figure's 200×224 box, in world units: x −1…1, floor (y 212 in the drawing) at 0, so the solid figure stands where
+ // the flat one would and the stage's glow, work lights and amber lamp line up with it. The canvas reaches FRAME_BLEED
+ // beyond the box on every side (see .avatar-bleed) so raised hands, ears and the lamp's halo are not cut at its edge.
+ const centerY=(212-112)/100,halfW=1+2*FRAME_BLEED,halfH=1.12+2.24*FRAME_BLEED;
  let distance=6;
  const resize=()=>{
   const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;
   const half=Math.tan(camera.fov*Math.PI/360);distance=Math.max(halfH/half,halfW/(half*camera.aspect));
-  camera.position.set(0,centerY+.06,distance);camera.lookAt(0,centerY,0);camera.updateProjectionMatrix();
+  camera.position.set(0,centerY,distance);camera.lookAt(0,centerY,0);camera.updateProjectionMatrix();
   shadow.scale.set(S.rx*2.5,S.rx*1.7,1);
  };
  host.append(canvas);

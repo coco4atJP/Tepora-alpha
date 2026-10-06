@@ -70,7 +70,8 @@ export async function createMeshAvatar(host,{spec,asset,assetUrl,readJSON,reduce
   if(sleep>.02){params.eyeROpen=params.eyeLOpen=1-.92*sleep;}
   engine.setParameters(params);
   engine.setVoiceLevel(mood==='talking'?Math.max(level,.22+.5*Math.abs(Math.sin(t*7.3))*(.65+.35*Math.sin(t*2.1))):0);
-  engine.advance(1/30,30);
+  try{engine.advance(1/30,30);}
+  catch{if(!disposed){disposed=true;cancelAnimationFrame(frame);onLost?.();}}   // a project the engine cannot draw: the default body takes over once, instead of an error every frame
  }
  frame=requestAnimationFrame(tick);
  return {

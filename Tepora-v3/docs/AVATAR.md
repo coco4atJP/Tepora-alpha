@@ -47,6 +47,19 @@ renderers pause when the window is hidden or the figure is off screen, draw at 3
 (the mesh engine always; the solid body and VRM draw every frame only while talking, listening,
 celebrating or asking for attention) and release their GPU context when they are destroyed.
 
+Where a body stands, and how 大きさ (0.8–1.25) applies:
+
+* Drawn bodies and the solid しろ・改 share one 200×224 box on the stage. The solid figure is framed so
+  its outline, lamp and feet land where the flat figure's do (its canvas reaches 10% beyond the box so
+  raised hands and the halo are not cut), so the glow, the work lights and the amber lamp line up
+  whichever is chosen. 大きさ scales the box.
+* A picture someone brings is usually the whole character edge to edge, so it gets a box 1.45 times
+  larger, kept in proportion and standing on its bottom edge.
+* A VRM model or a mesh project has proportions of its own and fills the stage width; 大きさ sets its
+  height from 64% to 100% of the stage (80% by default).
+* A body drawn on a canvas carries the character's name for screen readers (`role="img"`), as a drawn
+  body does.
+
 ### How each body reads the pose
 
 * **Drawn bodies** use CSS custom properties and classes on one SVG per body: the same lamp,
@@ -63,7 +76,9 @@ celebrating or asking for attention) and release their GPU context when they are
 * **VRM** (`web/vrm-stage.mjs`): arms are lowered from the T-pose, chest and spine breathe, the head
   follows gaze and tilts with mood, and the model's own expressions (`happy`, `sad`, `surprised`,
   `relaxed`, `blink`, `aa`, `oh`) carry the face; whatever a model does not have is skipped. Framing is
-  bust or full body (a body slot). Spring bones and look-at are the model's own.
+  bust or full body (a body slot). Spring bones and look-at are the model's own. A VRM 0.x model's
+  normalized bones are turned half a circle about Y, so its turns about X and Z are mirrored; without
+  that its arms would rise instead of rest. 動き scales the sway and breathing.
 * **Mesh** (`web/mesh-avatar.mjs`): the engine owns the face, hair and sway. Mood becomes one of its
   emotion tags (`happy` and `sad` also play its nod and sigh once as the mood begins), speaking and a
   voice level drive the lips, the eyes follow the pointer, sleepy closes the lids and thinking looks
@@ -175,16 +190,21 @@ The persona's character now has structured style next to its free instructions:
 Checked in this change: the spec and registry (`avatar-model.test.mjs`), the library, inspection,
 API, restart and static serving of the lazily loaded parts (`avatar-assets.test.mjs`), voice and
 persona (`voice-lines.test.mjs`, `dialogue-ui.test.mjs`), and the whole thing in a real browser on
-the real service (`browser-avatar.py`, with a VRM, a mesh project, a picture and a picture set made
-by `tests/fixtures/avatar-fixtures.mjs`): all seven drawn bodies in every mood, the studio's controls,
-undo, dice, reset and presets, solid 3D in every mood and theme, the four kinds of thing a person
-brings, a live reduced-motion change, and a 390 px phone. How the drawn bodies look in the day, dark
+the real service (`browser-avatar.py`, with things made by `tests/fixtures/avatar-fixtures.mjs`: a VRM
+1.0 and a VRM 0.x humanoid, a mesh project with drawn eye and mouth sprites, square, wide and tall
+pictures, and a picture set): all seven drawn bodies in every mood, the studio's controls, undo,
+dice, reset and presets, solid 3D in every mood and theme and in the flat figure's box, 大きさ on the
+solid body and on a model, the lamp's colour and shape (or none) beside a model, the name for screen
+readers, the four kinds of thing a person brings, a live reduced-motion change, and a 390 px phone. How the drawn bodies look in the day, dark
 and lamp themes, and what happens when the GPU drops a mesh canvas, were checked by looking at
-headless-Chrome screenshots and a scripted context loss, not by assertions. The pixiv VRM 1.0 sample
-(`VRM1_Constraint_Twist_Sample`) was also loaded, outside the repository.
+headless-Chrome screenshots and a scripted context loss, not by assertions, as were the pose of the
+VRM 0.x humanoid (arms resting) and the mesh sprites changing with the mood (closed eyes when sleepy,
+an open mouth when talking). The pixiv VRM 1.0 sample (`VRM1_Constraint_Twist_Sample`) was also
+loaded, outside the repository, in bust and full framing.
 
-Not checked: models other than that one (VRM 0.x, heavy MToon materials, other rigs), a real
-mesh-avatar-studio export (the test project is synthetic and has no eye or mouth sprites), real GPUs
+Not checked: real VRM 0.x models and VRM models other than that sample (heavy MToon materials, other
+rigs; the 0.x model checked is a synthetic one), a real mesh-avatar-studio export (the test project is
+synthetic, though it carries sprites, hair strands and the same files and fields), real GPUs
 and drivers (the checks ran on a software GL), the macOS and Windows native webviews, and a person
 actually living with the solid body for a while.
 

@@ -383,7 +383,7 @@ globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.addEventListener?.(
 function applyAvatarGeometry(spec){
  const g=avatarGeometry(spec);
  for(const host of [glowHost,lightsHost]){host.style.setProperty('--ant-x',`${g.lamp[0]}%`);host.style.setProperty('--ant-y',`${g.lamp[1]}%`);}
- document.body.toggleAttribute('data-avatar-fill',g.fill);document.body.style.setProperty('--avatar-scale',String(spec.size||1));
+ document.body.toggleAttribute('data-avatar-fill',g.fill);document.body.style.setProperty('--avatar-scale',String((spec.size||1)*(g.scale||1)));
  lights?.setAnchor(g.amber);
 }
 async function mountCharacters(){

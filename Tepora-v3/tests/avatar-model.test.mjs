@@ -115,3 +115,13 @@ test('the mood follows what is really happening, in a fixed order of importance'
  assert.equal(companionMood({attention:1,sleepy:true}),'attention');
  assert.equal(companionMood({sleepy:true}),'sleepy');
 });
+
+test('where each body stands: the solid figure in the flat one\'s box, brought models across the stage, pictures in a larger box',async()=>{
+ const {avatarGeometry,AVATAR_FILL_KINDS}=await import('../web/avatar/geometry.mjs');
+ const flat=avatarGeometry(fresh('shiro')),solid=avatarGeometry({...fresh('shiro'),render:'solid'});
+ assert.equal(solid.fill,false);assert.deepEqual(solid.lamp,flat.lamp,'the 3D lamp sits where the flat lamp does');assert.deepEqual(solid.amber,flat.amber);
+ assert.deepEqual([...AVATAR_FILL_KINDS],['vrm','mesh']);
+ for(const body of ['vrm','mesh'])assert.equal(avatarGeometry(fresh(body)).fill,true,body);
+ for(const body of ['image','imageset']){const g=avatarGeometry(fresh(body));assert.equal(g.fill,false);assert.ok(g.scale>1.2,body);}
+ for(const body of ['shiro','andon','ensou','kobako','kitsune','hotaru','kokedama'])assert.equal(avatarGeometry(fresh(body)).scale??1,1,body);
+});
