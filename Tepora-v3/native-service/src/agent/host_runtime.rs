@@ -1096,7 +1096,14 @@ fn claim_patterns(windows: bool) -> &'static (regress::Regex, regress::Regex) {
         } else {
             r"(?:/|~/)"
         };
-        let file = format!(r"(?<![\w/\\:.~-])((?:{root}|\.{separator})?(?:[\w.-]+{separator})*[\w-][\w.-]*\.[A-Za-z][A-Za-z0-9]{{0,5}})(?![\w/\\-]|\.[A-Za-z0-9])");
+        // Windows may expose 8.3 aliases (RUNNER~1, REPORT~1.TXT).
+        // Keep POSIX's existing grammar and avoid matching truncated aliases.
+        let (component, first, continuation) = if windows {
+            (r"[\w.~-]", r"[\w~-]", r"[\w/\\~-]")
+        } else {
+            (r"[\w.-]", r"[\w-]", r"[\w/\\-]")
+        };
+        let file = format!(r"(?<![\w/\\:.~-])((?:{root}|\.{separator})?(?:{component}+{separator})*{first}{component}*\.[A-Za-z][A-Za-z0-9]{{0,5}})(?!{continuation}|\.[A-Za-z0-9])");
         let directory = format!(r#"["'\x60（(「『]({root}[^"'\x60）)」』\r\n]+)["'\x60）)」』]|(?:^|[\s：]|(?<![A-Za-z]):)({root}[^\s"'\x60）)」』、。,]+)"#);
         (
             regress::Regex::with_flags(&file, "u").expect("fixed claimed file grammar"),
@@ -1855,6 +1862,98 @@ mod tests {
                 vec!["notes/a.txt", "report.md"]
             );
         }
+    }
+    #[test]
+    fn claimed_files_windows_short_names_are_complete_and_bounded() {
+        for path in [
+            r"C:\Users\RUNNER~1\AppData\Local\Temp\absent.txt",
+            "C:/Users/RUNNER~1/AppData/Local/Temp/absent.txt",
+            r"\\server\share\PROJEC~1\ABSENT~1.TXT",
+            r"~\PROJEC~1\ABSENT~1.TXT",
+            r".\PROJEC~1\ABSENT~1.TXT",
+            r"\PROJEC~1\ABSENT~1.TXT",
+            "PROJEC~1/ABSENT~1.TXT",
+            "ABSENT~1.TXT",
+        ] {
+            assert_eq!(scan_claims(path, &claim_patterns(true).0), vec![path]);
+            assert!(scan_claims(path, &claim_patterns(false).0).is_empty());
+        }
+        for text in [
+            r"C:PROJEC~1\ABSENT~1.TXT",
+            r"C:\PROJEC~1\ABSENT.TXT~1",
+            r"C:\PROJEC~1\ABSENT~1.abcdefg",
+            "https://example.test/PROJEC~1/ABSENT~1.TXT",
+        ] {
+            assert!(
+                scan_claims(text, &claim_patterns(true).0).is_empty(),
+                "{text}"
+            );
+        }
+        // POSIX's existing tilde-home syntax is unchanged.
+        assert_eq!(
+            scan_claims("~/notes/absent.txt", &claim_patterns(false).0),
+            vec!["~/notes/absent.txt"]
+        );
+    }
+    #[test]
+    fn claimed_short_names_use_existing_files_and_touched_evidence() {
+        let f = Fake::new();
+        let project = f.root.join("PROJEC~1");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("FOUND~1.TXT"), "exists").unwrap();
+        fs::write(project.join("found.txt"), "exists").unwrap();
+        let s = json!({"cwd":encoded_path(&f.root)});
+        let missing = encoded_path(&project.join("ABSENT~1.TXT"));
+        let expected = if cfg!(windows) {
+            vec![missing.clone()]
+        } else {
+            vec![]
+        };
+        assert_eq!(missing_files(&s, &missing, &[], &[]).unwrap(), expected);
+        assert!(
+            missing_files(&s, &encoded_path(&project.join("FOUND~1.TXT")), &[], &[])
+                .unwrap()
+                .is_empty()
+        );
+        let relative = encoded_path(&Path::new("PROJEC~1").join("ABSENT~1.TXT"));
+        let inputs = [json!({"kind":"task","text":relative})];
+        let touched = project.join("child").join("..").join("ABSENT~1.TXT");
+        assert!(missing_files(
+            &s,
+            "",
+            &inputs,
+            &[json!({"args":{"path":encoded_path(&touched)}})]
+        )
+        .unwrap()
+        .is_empty());
+        assert_eq!(
+            missing_files(
+                &s,
+                "",
+                &inputs,
+                &[json!({"args":{"path":encoded_path(&touched)},"error":true})]
+            )
+            .unwrap(),
+            if cfg!(windows) {
+                vec![relative]
+            } else {
+                vec![]
+            }
+        );
+        assert!(
+            missing_files(&s, "ABSENT~1.TXT", &[], &[])
+                .unwrap()
+                .is_empty(),
+            "report-only bare short names remain ignored"
+        );
+        let task = format!(
+            "Use \"{}\" for found.txt and absent.txt",
+            encoded_path(&project)
+        );
+        assert_eq!(
+            missing_files(&s, "", &[json!({"kind":"task","text":task})], &[]).unwrap(),
+            vec!["absent.txt"]
+        );
     }
     #[test]
     fn wait_consumes_matching_reply_once() {

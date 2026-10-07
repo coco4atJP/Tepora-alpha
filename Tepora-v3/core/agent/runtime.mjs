@@ -39,7 +39,9 @@ export function stampHeader(date=new Date(),source=''){
 /** Path grammar follows the host filesystem; foreign drive syntax is not a native root. */
 export function claimPathPatterns(paths=path){
  const windows=paths.sep==='\\',separator=windows?String.raw`[\\/]`:'/',root=windows?String.raw`(?:[A-Za-z]:[\\/]|[\\/]{2}|[\\/]|~[\\/])`:String.raw`(?:/|~/)`;
- const filePattern=new RegExp(String.raw`(?<![\w/\\:.~-])((?:${root}|\.${separator})?(?:[\w.-]+${separator})*[\w-][\w.-]*\.[A-Za-z][A-Za-z0-9]{0,5})(?![\w/\\-]|\.[A-Za-z0-9])`,'gu');
+ // Windows may expose 8.3 aliases (RUNNER~1, REPORT~1.TXT); retain POSIX's existing grammar.
+ const component=windows?String.raw`[\w.~-]`:String.raw`[\w.-]`,first=windows?String.raw`[\w~-]`:String.raw`[\w-]`,continuation=windows?String.raw`[\w/\\~-]`:String.raw`[\w/\\-]`;
+ const filePattern=new RegExp(String.raw`(?<![\w/\\:.~-])((?:${root}|\.${separator})?(?:${component}+${separator})*${first}${component}*\.[A-Za-z][A-Za-z0-9]{0,5})(?!${continuation}|\.[A-Za-z0-9])`,'gu');
  const directoryPattern=new RegExp(String.raw`["'\x60（(「『](${root}[^"'\x60）)」』\r\n]+)["'\x60）)」』]|(?:^|[\s：]|(?<![A-Za-z]):)(${root}[^\s"'\x60）)」』、。,]+)`,'gu');
  return {windows,filePattern,directoryPattern};
 }

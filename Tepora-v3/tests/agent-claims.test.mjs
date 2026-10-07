@@ -118,3 +118,27 @@ test('claim path grammar distinguishes POSIX, drive-absolute, UNC and drive-rela
  assert.equal([...'/tmp/project'.matchAll(posix.directoryPattern)][0][2],'/tmp/project');
  assert.equal([..."'~/project space'".matchAll(posix.directoryPattern)][0][1],'~/project space');
 });
+
+test('Windows short-name claims preserve complete paths and match boundaries without probing UNC',()=>{
+ const windows=claimPathPatterns(path.win32),posix=claimPathPatterns(path.posix);
+ const scan=(text,patterns)=>[...text.replace(/https?:\/\/\S+/g,' ').matchAll(patterns.filePattern)].map(m=>m[1]);
+ for(const name of [String.raw`C:\Users\RUNNER~1\AppData\Local\Temp\absent.txt`,'C:/Users/RUNNER~1/AppData/Local/Temp/absent.txt',String.raw`\\server\share\PROJEC~1\ABSENT~1.TXT`,String.raw`~\PROJEC~1\ABSENT~1.TXT`,String.raw`.\PROJEC~1\ABSENT~1.TXT`,String.raw`\PROJEC~1\ABSENT~1.TXT`,'PROJEC~1/ABSENT~1.TXT','ABSENT~1.TXT']){
+  assert.deepEqual(scan(name,windows),[name],name);assert.deepEqual(scan(name,posix),[],name);
+ }
+ for(const text of [String.raw`C:PROJEC~1\ABSENT~1.TXT`,String.raw`C:\PROJEC~1\ABSENT.TXT~1`,String.raw`C:\PROJEC~1\ABSENT~1.abcdefg`,'https://example.test/PROJEC~1/ABSENT~1.TXT'])assert.deepEqual(scan(text,windows),[],text);
+ assert.deepEqual(scan('~/notes/absent.txt',posix),['~/notes/absent.txt']);
+});
+
+test('short-name claims use existing files and successful touched evidence on the host filesystem',async t=>{
+ const {mkdtemp,mkdir,writeFile:put,rm}=await import('node:fs/promises');const os=await import('node:os');
+ const d=await mkdtemp(path.join(os.tmpdir(),'tepora-short-claims-'));t.after(()=>rm(d,{recursive:true,force:true}));
+ const project=path.join(d,'PROJEC~1');await mkdir(project);await put(path.join(project,'FOUND~1.TXT'),'exists');await put(path.join(project,'found.txt'),'exists');
+ const s={cwd:d},missing=path.join(project,'ABSENT~1.TXT'),windows=process.platform==='win32';
+ assert.deepEqual(missingFiles(s,missing),windows?[missing]:[]);
+ assert.deepEqual(missingFiles(s,path.join(project,'FOUND~1.TXT')),[]);
+ const relative=path.join('PROJEC~1','ABSENT~1.TXT'),inputs=[{kind:'task',text:relative}],touched=project+path.sep+'child'+path.sep+'..'+path.sep+'ABSENT~1.TXT';
+ assert.deepEqual(missingFiles(s,'',inputs,[{args:{path:touched}}]),[]);
+ assert.deepEqual(missingFiles(s,'',inputs,[{args:{path:touched},error:true}]),windows?[relative]:[]);
+ assert.deepEqual(missingFiles(s,'ABSENT~1.TXT'),[],'report-only bare short names remain ignored');
+ assert.deepEqual(missingFiles(s,'',[{kind:'task',text:`Use "${project}" for found.txt and absent.txt`}]),['absent.txt']);
+});
