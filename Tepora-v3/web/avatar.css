@@ -1,0 +1,448 @@
+/* The avatar: drawn bodies, the picture body and the shared mood layer. The app only says which mood it is;
+ * each body decides how it looks. Colours arrive as custom properties on the root of each drawing (--c-*), and
+ * [data-avatar-theme] says whether the room is lit by day (light), dimmed (dark) or by the lamp alone (lamp). */
+
+/* ===== shared character layer: the mood table is the only thing the app has to say ===== */
+.cx-host{display:block}
+.cx{display:block;width:100%;height:auto;overflow:visible;
+ --look-x:0px;--look-y:0px;--mouth:.95;
+ --lift:0px;--lean:0deg;--sq:1;--glow:.24;--ant:0deg;--lid:0}
+.cx[data-mood=listening]{--lift:-3px;--sq:1.025;--glow:.55;--ant:7deg;--lean:-1.5deg}
+.cx[data-mood=thinking]{--glow:.65;--ant:-5deg}
+.cx[data-mood=talking]{--glow:.5;--ant:3deg}
+.cx[data-mood=happy]{--lift:-4px;--glow:.78;--ant:-8deg}
+.cx[data-mood=attention]{--glow:.5;--ant:18deg}
+.cx[data-mood=concerned]{--lift:2px;--glow:.1;--ant:-14deg}
+.cx[data-mood=sleepy]{--lift:3px;--glow:.04;--ant:40deg}
+
+.cx .floor{fill:var(--c-ink);opacity:.08}
+.cx .lamp-dot{fill:var(--c-lamp);transition:opacity .4s}
+.cx .lamp-glow{opacity:var(--glow);transition:opacity .5s}
+.cx[data-mood=sleepy] .lamp-dot{opacity:.38}
+.cx[data-avatar-theme=dark] .lamp-dot{filter:drop-shadow(0 0 4px rgba(var(--c-lamp-rgb),.8))}
+.cx[data-avatar-theme=lamp] .lamp-dot{filter:drop-shadow(0 0 5px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 12px rgba(var(--c-lamp-rgb),.65))}
+.cx[data-avatar-theme=lamp] .lamp-glow{opacity:calc(var(--glow) + .35)}
+
+/* Ink marks beside the face (never colour): the vocabulary of manga, used sparingly. */
+.cx .fx{opacity:0;transition:opacity .3s;pointer-events:none}
+.cx .fx-spark path{fill:var(--c-ink);opacity:.62}
+.cx .fx-sweat{fill:rgba(255,255,255,.78);stroke:var(--c-ink);stroke-opacity:.5;stroke-width:1.6}
+.cx .fx-z text{font:700 17px var(--font-ui);fill:var(--muted)}
+.cx .fx-z text:nth-child(2){font-size:13px}
+.cx .fx-dots circle{fill:var(--muted)}
+.cx[data-mood=happy] .fx-spark{opacity:1}
+.cx[data-mood=happy] .fx-spark .sp{animation:cx-twinkle 1.1s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.cx[data-mood=happy] .fx-spark .sp2{animation-delay:.3s}.cx[data-mood=happy] .fx-spark .sp3{animation-delay:.6s}
+.cx[data-mood=concerned] .fx-sweat{opacity:1}
+.cx[data-mood=sleepy] .fx-z{opacity:1}
+.cx[data-mood=sleepy] .fx-z text{animation:cx-z 3.4s ease-in-out infinite}
+.cx[data-mood=sleepy] .fx-z text:nth-child(2){animation-delay:1.7s}
+.cx[data-mood=thinking] .fx-dots{opacity:1}
+.cx[data-mood=thinking] .fx-dots circle{animation:cx-dot 1.2s ease-in-out infinite}
+.cx[data-mood=thinking] .fx-dots circle:nth-child(2){animation-delay:.2s}.cx[data-mood=thinking] .fx-dots circle:nth-child(3){animation-delay:.4s}
+@keyframes cx-twinkle{0%,100%{transform:scale(.55) rotate(0);opacity:.2}50%{transform:scale(1.15) rotate(20deg);opacity:1}}
+@keyframes cx-z{0%{opacity:0;transform:translate(0,6px)}35%{opacity:.85}100%{opacity:0;transform:translate(9px,-16px)}}
+@keyframes cx-dot{0%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+.cx .fx-dots circle{transform-box:fill-box;transform-origin:center}
+
+
+/* ---- the standard face rig (shiro, andon, kitsune, kokedama share it) ---- */
+.cx .cheek{fill:var(--c-cheek);opacity:.38}
+.cx .eo rect,.cx .eo circle:not(.catch),.cx .eo ellipse,.cx .eo path{fill:var(--c-ink)}
+.cx .catch{fill:#fff;opacity:.92}
+.cx .eh path,.cx .ec path,.cx .smile,.cx .mouth-w,.cx .mouth-s,.cx .brow{fill:none;stroke:var(--c-ink);stroke-width:4;stroke-linecap:round}
+.cx .brow{stroke-width:3;opacity:0;transition:opacity .2s,transform .35s cubic-bezier(.3,.7,.3,1)}
+.cx .mouth{fill:#8a4535;transform-origin:100px 150px;transform:scaleY(.3)}
+.cx .eh,.cx .ec,.cx .smile,.cx .mouth,.cx .mouth-w,.cx .mouth-s{opacity:0;transition:opacity .2s}
+.cx .face{transform:translate(var(--look-x),var(--look-y));transition:transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx .eyes{transform-origin:100px 126px;transition:transform .06s}
+.cx.is-blinking .eyes{transform:scaleY(.08)}
+.cx[data-mood=listening] .eyes{transform:scale(1.07)}
+.cx[data-mood=thinking] .face{transform:translate(4px,-4px)}
+.cx[data-mood=thinking] .mouth-s{opacity:1}
+.cx[data-mood=thinking] .brow-l{opacity:1;transform:translateY(-3px)}
+.cx[data-mood=talking] .mouth{opacity:1;animation:cx-talk .28s ease-in-out infinite alternate}
+@keyframes cx-talk{from{transform:scaleY(.25)}to{transform:scaleY(var(--mouth,.95))}}
+.cx[data-mood=happy] .eo{opacity:0}
+.cx[data-mood=happy] .eh,.cx[data-mood=happy] .smile{opacity:1}
+.cx[data-mood=attention] .face{transform:translate(6px,-3px)}
+.cx[data-mood=attention] .eyes{transform:scale(1.08)}
+.cx[data-mood=attention] .brow{opacity:1;transform:translateY(-4px)}
+.cx[data-mood=concerned] .eo{transform-origin:100px 126px;transform:scaleY(.8) translateY(3px)}
+.cx[data-mood=concerned] .mouth-w{opacity:1}
+.cx[data-mood=concerned] .brow{opacity:1}
+.cx[data-mood=concerned] .brow-l{transform-origin:76px 104px;transform:rotate(-15deg)}
+.cx[data-mood=concerned] .brow-r{transform-origin:124px 104px;transform:rotate(15deg)}
+.cx[data-mood=sleepy] .eo{opacity:0}
+.cx[data-mood=sleepy] .ec{opacity:1}
+
+/* Small shared motion. Calm halves it, lively doubles the rhythm; reduced motion removes it. */
+.cx.m-calm .breath,.cx.m-calm .sway{animation-duration:9s}
+.cx.m-lively .breath{animation-duration:2.8s}
+/* Reduced motion: still poses, no loops. The page's own setting is passed in as .cx-still. */
+.cx.cx-still,.cx.cx-still *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.cx,.cx *{animation:none!important}}
+
+/* Props sit on anchors; they never take colour from the mood. */
+.cx .prop{pointer-events:none}
+.cx .prop-cup .steam{animation:cx-steam 3.2s ease-in-out infinite}
+@keyframes cx-steam{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:.8;transform:translateY(-3px)}}
+
+/* small acts (the idle director triggers these now and then) */
+.cx.act-tilt .pose{animation:cx-tilt 2.4s ease-in-out 1}
+@keyframes cx-tilt{0%,100%{transform:rotate(0)}30%,70%{transform:rotate(6deg) translateX(3px)}}
+.cx.act-stretch .pose{animation:cx-stretch 2.2s ease-in-out 1}
+@keyframes cx-stretch{0%,100%{transform:scale(1,1)}40%,60%{transform:scale(.97,1.07)}}
+.cx.act-hum .pose{animation:cx-hum 2.6s ease-in-out 1}
+@keyframes cx-hum{0%,100%{transform:rotate(0)}20%{transform:rotate(-3deg) translateY(-2px)}50%{transform:rotate(3deg)}80%{transform:rotate(-2deg) translateY(-2px)}}
+
+/* ===== しろ・改 ===== */
+.cx-shiro .stem{fill:none;stroke:var(--c-shade);stroke-width:3.6;stroke-linecap:round}
+.cx-shiro .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-shiro .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 6.5s ease-in-out infinite}
+@keyframes cx-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.cx-shiro .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-shiro .breath{transform-origin:100px 206px;animation:cx-breathe 4.4s ease-in-out infinite}
+@keyframes cx-breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.012,.988)}}
+.cx-shiro .foot{fill:var(--c-foot)}
+.cx-shiro .mitt{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.45;stroke-width:1}
+.cx-shiro .rim{fill:none;stroke:#fff;stroke-opacity:.8;stroke-width:3.4;stroke-linecap:round}
+.cx-shiro .limb{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.35;stroke-width:1}
+.cx-shiro .ear{transform-origin:var(--ox) var(--oy);transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+
+/* moods */
+.cx-shiro[data-mood=listening] .ear{transform:scaleY(1.06)}
+.cx-shiro[data-mood=thinking] .pose{animation:cx-think 3.2s ease-in-out infinite}
+.cx-shiro[data-mood=thinking] .ear-l{transform:rotate(-8deg)}
+@keyframes cx-think{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+.cx-shiro[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-shiro[data-mood=happy] .arm-r{animation:cx-wave-r 1.9s ease-in-out 1}
+.cx-shiro .arm{transform-origin:var(--ox) var(--oy)}
+@keyframes cx-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px) scale(1.02,.98)}}
+@keyframes cx-wave-r{0%,100%{transform:rotate(0)}18%{transform:rotate(-100deg)}34%{transform:rotate(-76deg)}50%{transform:rotate(-104deg)}66%{transform:rotate(-76deg)}82%{transform:rotate(-100deg)}}
+.cx-shiro[data-mood=attention] .ear{transform:scaleY(1.08) rotate(4deg)}
+.cx-shiro[data-mood=concerned] .ear-l{transform:rotate(-16deg)}.cx-shiro[data-mood=concerned] .ear-r{transform:rotate(16deg)}
+.cx-shiro[data-mood=sleepy] .breath{animation-duration:7s}
+.cx-shiro[data-mood=sleepy] .sway{animation:none}
+.cx-shiro[data-mood=sleepy]{--ant:-44deg}
+.cx-shiro[data-mood=sleepy] .ear-l{transform:rotate(-22deg)}.cx-shiro[data-mood=sleepy] .ear-r{transform:rotate(22deg)}
+
+/* ===== 灯守 ===== */
+.cx-andon{--pg:.16;--pg-add:0;--cap:#3a332b;--cap-hl:#6d6256;--rib:#8a6a3c}
+.cx-andon[data-avatar-theme=dark]{--pg:.5;--cap:#2b2621;--cap-hl:#5d5448}
+.cx-andon[data-avatar-theme=lamp]{--pg:.95;--cap:#241f1a;--cap-hl:#5a5044}
+.cx-andon .stem{fill:none;stroke:var(--cap);stroke-width:3;stroke-linecap:round}
+.cx-andon .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-andon .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 7s ease-in-out infinite}
+.cx-andon .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-andon .breath{transform-origin:100px 206px;animation:cx-breathe 5s ease-in-out infinite}
+.cx-andon .cap,.cx-andon .lid,.cx-andon .foot{fill:var(--cap)}
+.cx-andon .cap-hl{fill:var(--cap-hl);opacity:.7}
+.cx-andon .nub{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.5;stroke-width:1}
+.cx-andon .edge{stroke:var(--c-shade);stroke-opacity:.55;stroke-width:1.2}
+.cx-andon .ribs path{fill:none;stroke:var(--rib);stroke-opacity:.2;stroke-width:1.4}
+.cx-andon .inner{opacity:clamp(0,calc(var(--pg) + var(--pg-add)),1);transition:opacity .6s}
+.cx-andon .soma .sil{opacity:0;transform-box:fill-box}
+.cx-andon[data-avatar-theme=lamp] .lantern{filter:drop-shadow(0 0 16px rgba(255,186,106,.38))}
+.cx-andon[data-avatar-theme=dark] .lantern{filter:drop-shadow(0 0 10px rgba(255,186,106,.2))}
+.cx-andon[data-avatar-theme=lamp] .lamp-dot{filter:drop-shadow(0 0 5px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 12px rgba(var(--c-lamp-rgb),.65))}
+.cx-andon .eo rect,.cx-andon .eo circle:not(.catch),.cx-andon .eo ellipse,.cx-andon .eo path{fill:var(--c-ink);fill-opacity:.9}
+.cx-andon .catch{opacity:.0}
+.cx-andon .cheek{opacity:.3}
+.cx-andon .eh path,.cx-andon .ec path,.cx-andon .smile,.cx-andon .mouth-w,.cx-andon .mouth-s,.cx-andon .brow{stroke-opacity:.9}
+
+/* moods */
+.cx-andon[data-mood=listening]{--pg-add:.22}
+.cx-andon[data-mood=thinking]{--pg-add:.3}
+.cx-andon[data-mood=thinking] .inner{animation:cx-flicker 2.2s ease-in-out infinite}
+@keyframes cx-flicker{0%,100%{opacity:clamp(0,calc(var(--pg) + var(--pg-add)),1)}35%{opacity:clamp(0,calc(var(--pg) + var(--pg-add) - .16),1)}60%{opacity:clamp(0,calc(var(--pg) + var(--pg-add) + .1),1)}}
+.cx-andon[data-mood=thinking] .pose{animation:cx-think 3.6s ease-in-out infinite}
+@keyframes cx-think{0%,100%{transform:rotate(-1.8deg)}50%{transform:rotate(1.8deg)}}
+.cx-andon[data-mood=talking]{--pg-add:.2}
+.cx-andon[data-mood=talking] .inner{animation:cx-voice .46s ease-in-out infinite alternate}
+@keyframes cx-voice{from{opacity:clamp(0,calc(var(--pg) + var(--pg-add) - .1),1)}to{opacity:clamp(0,calc(var(--pg) + var(--pg-add) + .14),1)}}
+.cx-andon[data-mood=happy]{--pg-add:.4}
+.cx-andon[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+@keyframes cx-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px) scale(1.02,.98)}}
+.cx-andon[data-mood=attention]{--pg-add:.18}
+.cx-andon[data-mood=concerned]{--pg-add:-.1}
+.cx-andon[data-mood=concerned] .inner{animation:cx-flicker 1.1s steps(6,end) infinite}
+.cx-andon[data-mood=sleepy]{--pg-add:-.1;--ant:-40deg}
+.cx-andon[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-andon[data-mood=sleepy] .sway{animation:none}
+.cx-andon .arm{transform-origin:var(--ox) var(--oy)}
+.cx-andon.act-tilt .pose{animation:cx-tilt 2.4s ease-in-out 1}
+
+/* ===== 円相 ===== */
+.cx-ensou{--ink-b:var(--c-ink);--wash:rgba(255,253,246,.62);--ink-a:1}
+.cx-ensou[data-avatar-theme=dark],.cx-ensou[data-avatar-theme=lamp]{--ink-b:#e9e0cf;--wash:rgba(255,246,226,.05)}
+.cx-ensou .floor{fill:var(--ink-b);opacity:.07;filter:blur(2.2px)}
+.cx-ensou .ink{fill:var(--ink-b);opacity:var(--ink-a)}
+.cx-ensou .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-ensou .breath{transform-origin:100px 150px;animation:cx-breathe 5.2s ease-in-out infinite}
+.cx-ensou .eo rect,.cx-ensou .eo circle,.cx-ensou .eo ellipse{fill:var(--ink-b)}
+.cx-ensou .eo-line path{fill:none;stroke:var(--ink-b);stroke-width:5;stroke-linecap:round}
+.cx-ensou .eh path,.cx-ensou .ec path,.cx-ensou .smile{stroke:var(--ink-b);stroke-width:4.6}
+.cx-ensou .mouth{fill:var(--ink-b)}
+.cx-ensou .think-ring{opacity:0;transition:opacity .4s;transform-origin:100px 118px}
+.cx-ensou .think-ring circle{stroke:var(--ink-b);stroke-opacity:.42}
+.cx-ensou[data-mood=thinking] .think-ring{opacity:1;animation:cx-spin 2.6s linear infinite}
+@keyframes cx-spin{to{transform:rotate(360deg)}}
+.cx-ensou .splat{opacity:0}.cx-ensou .splat circle{fill:var(--ink-b)}
+.cx-ensou[data-mood=happy] .splat{opacity:.85;animation:cx-pop .5s cubic-bezier(.3,.7,.3,1) both}
+@keyframes cx-pop{from{opacity:0;transform:scale(.4);transform-origin:100px 118px}to{opacity:.85;transform:scale(1);transform-origin:100px 118px}}
+.cx-ensou[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-ensou[data-mood=thinking] .face{transform:translate(4px,-5px)}
+.cx-ensou[data-mood=attention] .face{transform:translate(7px,-5px)}
+.cx-ensou[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-ensou .brow{stroke:var(--ink-b)}
+.cx-ensou .seal .lamp-glow{opacity:calc(var(--glow) + .1)}
+.cx-ensou[data-avatar-theme=lamp] .seal .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== 小箱 ===== */
+.cx-kobako{--led:#fff1d6}
+.cx-kobako .rod{fill:none;stroke:var(--c-shade);stroke-width:4.6;stroke-linecap:round}
+.cx-kobako .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-kobako .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 6s ease-in-out infinite}
+.cx-kobako .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kobako .breath{transform-origin:100px 206px;animation:cx-breathe 4.8s ease-in-out infinite}
+.cx-kobako .foot{fill:var(--c-foot)}
+.cx-kobako .pod{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.5;stroke-width:1}
+.cx-kobako .bezel{fill:none;stroke:var(--c-shade);stroke-opacity:.7;stroke-width:3}
+.cx-kobako .face.led{transform:translate(calc(var(--look-x)*.7),calc(var(--look-y)*.7));transition:transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx-kobako .eo rect,.cx-kobako .eo circle,.cx-kobako .eo ellipse,.cx-kobako .eo path{fill:var(--led);filter:drop-shadow(0 0 3.5px rgba(255,236,190,.85))}
+.cx-kobako .eh path,.cx-kobako .smile,.cx-kobako .wavy{fill:none;stroke:var(--led);stroke-width:4.6;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .ec rect{fill:var(--led);filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .eq rect,.cx-kobako .think circle{fill:var(--led);filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .bang{font:800 22px var(--font-ui);fill:var(--led);filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .ripples path{fill:none;stroke:var(--led);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(255,236,190,.7))}
+.cx-kobako .eh,.cx-kobako .ec,.cx-kobako .smile,.cx-kobako .eq,.cx-kobako .think,.cx-kobako .wavy,.cx-kobako .bang,.cx-kobako .ripples{opacity:0;transition:opacity .2s}
+.cx-kobako .eq rect,.cx-kobako .think circle{transform-box:fill-box;transform-origin:center bottom}
+.cx-kobako .screen-glow{opacity:.6;transition:opacity .4s}
+.cx-kobako .eyes{transform-origin:100px 118px}
+.cx-kobako .eo{transform-origin:100px 118px}
+
+.cx-kobako[data-mood=listening] .eo{transform:scale(1.12)}
+.cx-kobako[data-mood=listening] .ripples{opacity:1;animation:cx-ripple 1.6s ease-in-out infinite}
+@keyframes cx-ripple{0%,100%{opacity:.25}50%{opacity:1}}
+.cx-kobako[data-mood=thinking] .face.led{transform:translate(6px,-6px)}
+.cx-kobako[data-mood=thinking] .think{opacity:1}
+.cx-kobako[data-mood=thinking] .think circle{animation:cx-dot 1.1s ease-in-out infinite}
+.cx-kobako[data-mood=thinking] .think circle:nth-child(2){animation-delay:.18s}
+.cx-kobako[data-mood=thinking] .think circle:nth-child(3){animation-delay:.36s}
+.cx-kobako[data-mood=talking] .eq{opacity:1}
+.cx-kobako[data-mood=talking] .eq rect{animation:cx-eq .5s ease-in-out infinite alternate}
+.cx-kobako[data-mood=talking] .eq rect:nth-child(2){animation-duration:.34s}.cx-kobako[data-mood=talking] .eq rect:nth-child(3){animation-duration:.44s}
+.cx-kobako[data-mood=talking] .eq rect:nth-child(4){animation-duration:.3s}.cx-kobako[data-mood=talking] .eq rect:nth-child(5){animation-duration:.52s}
+@keyframes cx-eq{from{transform:scaleY(.25)}to{transform:scaleY(calc(.5 + var(--mouth,.95)*.55))}}
+.cx-kobako[data-mood=happy] .eo{opacity:0}
+.cx-kobako[data-mood=happy] .eh,.cx-kobako[data-mood=happy] .smile{opacity:1}
+.cx-kobako[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-kobako[data-mood=happy] .screen-glow{opacity:1}
+.cx-kobako[data-mood=attention] .eo{transform:scale(1.14)}
+.cx-kobako[data-mood=attention] .face.led{transform:translate(8px,-4px)}
+.cx-kobako[data-mood=attention] .bang{opacity:1;animation:cx-ripple 1.2s ease-in-out infinite}
+.cx-kobako[data-mood=concerned] .eo{transform:scaleY(.78)}
+.cx-kobako[data-mood=concerned] .wavy{opacity:1}
+.cx-kobako[data-mood=concerned] .screen-glow{opacity:.3}
+.cx-kobako[data-mood=sleepy] .eo{opacity:0}
+.cx-kobako[data-mood=sleepy] .ec{opacity:1}
+.cx-kobako[data-mood=sleepy] .screen-glow{opacity:.15}
+.cx-kobako[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-kobako[data-mood=sleepy] .sway{animation:none}
+.cx-kobako[data-mood=sleepy]{--ant:-34deg}
+
+/* ===== 狐火 ===== */
+.cx-kitsune{--tail:0deg}
+.cx-kitsune .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kitsune .breath{transform-origin:100px 206px;animation:cx-breathe 4.6s ease-in-out infinite}
+.cx-kitsune .tail{transform-origin:var(--ox) var(--oy);transform:rotate(var(--tail));transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+.cx-kitsune .tail-sway{transform-origin:var(--ox) var(--oy);animation:cx-tail 5.5s ease-in-out infinite}
+@keyframes cx-tail{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(3deg)}}
+.cx-kitsune .tail-tip,.cx-kitsune .ear-t,.cx-kitsune .paw{fill:var(--c-ink)}
+.cx-kitsune .ear-o{fill:var(--c-body);stroke:var(--c-shade);stroke-opacity:.4;stroke-width:1}
+.cx-kitsune .ear-i{fill:var(--c-cheek);opacity:.45}
+.cx-kitsune .tail-rim{fill:none;stroke:#fff;stroke-opacity:.6;stroke-width:3;stroke-linecap:round}
+.cx-kitsune .muzzle{fill:var(--c-light);opacity:.8}
+.cx-kitsune .nose{fill:var(--c-ink)}
+.cx-kitsune .brow{stroke-width:5}
+.cx-kitsune .ear{transform-origin:var(--ox) var(--oy);transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kitsune .foxfire{animation:cx-fire 2.6s ease-in-out infinite;transform-origin:205px 40px}
+@keyframes cx-fire{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2.5px) scale(1.04,1.06)}}
+.cx-kitsune .cheek{opacity:.34}
+
+/* moods: ears and tail */
+.cx-kitsune[data-mood=listening]{--tail:-4deg}
+.cx-kitsune[data-mood=listening] .ear{transform:scaleY(1.09)}
+.cx-kitsune[data-mood=thinking]{--tail:6deg}
+.cx-kitsune[data-mood=thinking] .ear-l{transform:rotate(-17deg)}
+.cx-kitsune[data-mood=thinking] .pose{animation:cx-think 3.4s ease-in-out infinite}
+.cx-kitsune[data-mood=talking]{--tail:-3deg}
+.cx-kitsune[data-mood=talking] .ear-r{animation:cx-twitch 1.3s ease-in-out infinite}
+@keyframes cx-twitch{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(-7deg)}80%{transform:rotate(4deg)}90%{transform:rotate(-4deg)}}
+.cx-kitsune[data-mood=happy] .ear-l{transform:rotate(-7deg) scaleY(1.06)}.cx-kitsune[data-mood=happy] .ear-r{transform:rotate(7deg) scaleY(1.06)}
+.cx-kitsune[data-mood=happy] .tail-sway{animation:cx-wag .38s ease-in-out infinite}
+.cx-kitsune[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+@keyframes cx-wag{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+.cx-kitsune[data-mood=attention]{--tail:-11deg}
+.cx-kitsune[data-mood=attention] .ear{transform:rotate(11deg) scaleY(1.1)}
+.cx-kitsune[data-mood=concerned]{--tail:9deg}
+.cx-kitsune[data-mood=concerned] .ear-l{transform:rotate(-26deg) translateY(3px)}.cx-kitsune[data-mood=concerned] .ear-r{transform:rotate(26deg) translateY(3px)}
+.cx-kitsune[data-mood=sleepy]{--tail:13deg}
+.cx-kitsune[data-mood=sleepy] .ear-l{transform:rotate(-34deg) translateY(5px)}.cx-kitsune[data-mood=sleepy] .ear-r{transform:rotate(34deg) translateY(5px)}
+.cx-kitsune[data-mood=sleepy] .tail-sway,.cx-kitsune[data-mood=sleepy] .foxfire{animation:none}
+.cx-kitsune[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-kitsune[data-mood=sleepy] .lamp-dot{opacity:.4}
+.cx-kitsune[data-avatar-theme=lamp] .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== 蛍 ===== */
+.cx-hotaru .pose{transform-origin:100px 112px;transform:translateY(var(--lift)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-hotaru .float{transform-origin:100px 112px;animation:cx-float 5.4s ease-in-out infinite}
+@keyframes cx-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.cx-hotaru .orb{transform-origin:100px 112px;transition:transform .5s cubic-bezier(.3,.7,.3,1)}
+.cx-hotaru .orb-body{animation:cx-orb 4.6s ease-in-out infinite;transform-origin:100px 112px}
+@keyframes cx-orb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+.cx-hotaru .halo-c{opacity:calc(.35 + var(--glow)*.85);transition:opacity .6s,transform .6s;transform-origin:100px 112px}
+.cx-hotaru.halo-wide .halo-c{transform:scale(1.18)}.cx-hotaru.halo-tight .halo-c{transform:scale(.7)}
+.cx-hotaru[data-avatar-theme=lamp] .halo-c{opacity:calc(.6 + var(--glow)*.9)}
+.cx-hotaru .pool{opacity:calc(.35 + var(--glow)*.6)}
+.cx-hotaru .rim{fill:none;stroke:#fff;stroke-opacity:.8;stroke-width:3.2;stroke-linecap:round}
+.cx-hotaru .bead{animation:cx-bob 3.8s ease-in-out infinite;transform-origin:var(--ox) var(--oy);transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+@keyframes cx-bob{0%,100%{translate:0 0}50%{translate:2px -5px}}
+.cx-hotaru .cheek{fill:rgb(var(--c-lamp-rgb));opacity:.2}
+.cx-hotaru .eo rect,.cx-hotaru .eo circle:not(.catch),.cx-hotaru .eo ellipse,.cx-hotaru .eo path{fill:var(--c-ink);fill-opacity:.82}
+.cx-hotaru .face{transition:opacity .5s,transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx-hotaru.face-never .face{opacity:0}
+.cx-hotaru.face-engage .face{opacity:0}
+.cx-hotaru.face-engage:not([data-mood=idle]) .face{opacity:1}
+.cx-hotaru.face-engage[data-mood=sleepy] .face{opacity:0}
+
+.cx-hotaru[data-mood=listening] .orb{transform:scale(.97,1.07) translateY(-2px)}
+.cx-hotaru[data-mood=thinking] .swirl{transform-origin:100px 112px;animation:cx-spin 3.2s linear infinite}
+.cx-hotaru[data-mood=thinking] .halo-c{animation:cx-halo 1.8s ease-in-out infinite}
+@keyframes cx-halo{0%,100%{opacity:.5}50%{opacity:1}}
+.cx-hotaru[data-mood=talking] .orb{animation:cx-voice2 .46s ease-in-out infinite alternate}
+@keyframes cx-voice2{from{transform:scale(1)}to{transform:scale(calc(1.02 + var(--mouth,.95)*.05))}}
+.cx-hotaru[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-hotaru[data-mood=happy] .halo-c{opacity:1;transform:scale(1.18)}
+.cx-hotaru[data-mood=attention] .orb{transform:translate(7px,-5px)}
+.cx-hotaru[data-mood=attention] .bead{transform:translate(6px,-4px)}
+.cx-hotaru[data-mood=concerned] .orb-body{animation:cx-flick 1.3s steps(5,end) infinite}
+@keyframes cx-flick{0%,100%{opacity:1}30%{opacity:.78}60%{opacity:.92}}
+.cx-hotaru[data-mood=sleepy] .orb{transform:scale(.72) translateY(26px)}
+.cx-hotaru[data-mood=sleepy] .bead{transform:translate(-8px,34px) scale(.8)}
+.cx-hotaru[data-mood=sleepy] .float{animation-duration:8s}
+.cx-hotaru[data-mood=sleepy] .orb-body{animation-duration:8s}
+.cx-hotaru[data-avatar-theme=lamp] .orb-body{filter:drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.55))}
+
+/* ===== 苔玉 ===== */
+.cx-kokedama{--sun-lean:0deg}
+.cx-kokedama .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .breath{transform-origin:100px 206px;animation:cx-breathe 5.2s ease-in-out infinite}
+.cx-kokedama .dish{fill:var(--c-foot)}.cx-kokedama .dish-in{fill:var(--c-shade);opacity:.7}
+.cx-kokedama .twine{fill:none;stroke:#f1e8d2;stroke-width:1.5;stroke-opacity:.85;stroke-linecap:round}
+.cx-kokedama .stem{fill:none;stroke:var(--leaf-d);stroke-width:4.4;stroke-linecap:round}
+.cx-kokedama .leaf-b{fill:var(--leaf);stroke:var(--leaf-d);stroke-opacity:.35;stroke-width:1}
+.cx-kokedama .leaf-v{fill:none;stroke:var(--leaf-d);stroke-opacity:.45;stroke-width:1.3;stroke-linecap:round}
+.cx-kokedama .sprout{transform-origin:var(--ox) var(--oy);transform:rotate(calc(var(--ant)*.42 + var(--sun-lean)));transition:transform .7s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 7.5s ease-in-out infinite}
+.cx-kokedama .leaf{transform-origin:var(--ox) var(--oy);transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .leaf-l{animation:cx-leaf 6s ease-in-out infinite}.cx-kokedama .leaf-r{animation:cx-leaf 6s ease-in-out -2.4s infinite reverse}
+@keyframes cx-leaf{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(3deg)}}
+.cx-kokedama .bud{transform-origin:102px 56px;transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .cheek{opacity:.34}
+.cx-kokedama.face-never .kface{opacity:0}
+.cx-kokedama .eo rect,.cx-kokedama .eo circle:not(.catch),.cx-kokedama .eo ellipse,.cx-kokedama .eo path{fill:var(--c-ink)}
+.cx-kokedama .face{transform:translate(calc(var(--look-x)*.6),calc(var(--look-y)*.6))}
+
+.cx-kokedama[data-mood=listening] .leaf-l{animation:none;transform:rotate(-14deg)}
+.cx-kokedama[data-mood=listening] .leaf-r{animation:none;transform:rotate(14deg)}
+.cx-kokedama[data-mood=thinking] .sway{animation-duration:3.6s}
+.cx-kokedama[data-mood=thinking] .bud{animation:cx-pulse2 1.5s ease-in-out infinite}
+@keyframes cx-pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.cx-kokedama[data-mood=talking] .leaf-l{animation:cx-flutter .34s ease-in-out infinite alternate}
+.cx-kokedama[data-mood=talking] .leaf-r{animation:cx-flutter .34s ease-in-out -.17s infinite alternate-reverse}
+@keyframes cx-flutter{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+.cx-kokedama[data-mood=happy] .bud{transform:scale(1.4)}
+.cx-kokedama[data-mood=happy] .leaf-l{animation:none;transform:rotate(-16deg)}.cx-kokedama[data-mood=happy] .leaf-r{animation:none;transform:rotate(16deg)}
+.cx-kokedama[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-kokedama[data-mood=attention] .leaf-l,.cx-kokedama[data-mood=attention] .leaf-r{animation:none;transform:rotate(14deg)}
+.cx-kokedama[data-mood=concerned] .leaf-l{animation:none;transform:rotate(-30deg)}.cx-kokedama[data-mood=concerned] .leaf-r{animation:none;transform:rotate(30deg)}
+.cx-kokedama[data-mood=concerned] .leaf-sl{transform:rotate(-24deg)}.cx-kokedama[data-mood=concerned] .leaf-sr{transform:rotate(24deg)}
+.cx-kokedama[data-mood=sleepy] .leaf-l{animation:none;transform:rotate(-58deg)}.cx-kokedama[data-mood=sleepy] .leaf-r{animation:none;transform:rotate(58deg)}
+.cx-kokedama[data-mood=sleepy] .leaf-sl{transform:rotate(-40deg)}.cx-kokedama[data-mood=sleepy] .leaf-sr{transform:rotate(40deg)}
+.cx-kokedama[data-mood=sleepy] .sway{animation:none}.cx-kokedama[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-kokedama[data-mood=sleepy] .bud{transform:scale(.8,.7)}
+.cx-kokedama[data-mood=sleepy]{--ant:-30deg}
+.cx-kokedama[data-avatar-theme=lamp] .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== 持ち込み（画像） ===== */
+.cx-image .pose{transform-origin:100px 208px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-image .breath{transform-origin:100px 208px;animation:cx-breathe 4.6s ease-in-out infinite}
+.cx-image .pic{filter:drop-shadow(0 5px 6px rgba(60,40,20,.18));transition:filter .5s}
+.cx-image .pic-halo{opacity:calc(.2 + var(--glow)*.9);transition:opacity .6s}
+.cx-image .bead{animation:cx-bob 3.8s ease-in-out infinite;transform-origin:var(--ox) var(--oy)}
+.cx-image[data-mood=listening] .pose{transform:translateY(-4px) rotate(-1.5deg) scale(1.04)}
+.cx-image[data-mood=thinking] .pose{animation:cx-think 3.4s ease-in-out infinite}
+.cx-image[data-mood=talking] .pose{animation:cx-voice3 .46s ease-in-out infinite alternate}
+.cx-image[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-image[data-mood=attention] .pose{transform:rotate(3.5deg) translateY(-2px)}
+.cx-image[data-mood=concerned] .pic{filter:saturate(.7) drop-shadow(0 3px 4px rgba(60,40,20,.18))}
+.cx-image[data-mood=concerned] .pose{transform:translateY(3px) scale(.98)}
+.cx-image[data-mood=sleepy] .pic{filter:brightness(.82) saturate(.55)}
+.cx-image[data-mood=sleepy] .pose{transform:translateY(6px) scale(.96)}
+.cx-image[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-image[data-avatar-theme=lamp] .pic{filter:brightness(.78) sepia(.25) drop-shadow(0 0 12px rgba(var(--c-lamp-rgb),.3))}
+.cx-image[data-avatar-theme=lamp] .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* The small conversation icon: no floor shadow, no marks. */
+.cx.cx-compact .floor,.cx.cx-compact .fx{display:none}
+
+/* The lamp that sits beside a body drawn on a canvas (a 3D model, a mesh avatar): the same lamp, as a small overlay. */
+.avatar-lamp{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none;z-index:2}
+.avatar-lamp .cx{width:100%;height:100%}
+/* The solid body's canvas reaches 10% beyond its box (FRAME_BLEED in three-body.mjs), so hands, ears and the halo are not cut. */
+.avatar-canvas.avatar-bleed{inset:-10%}
+.avatar-canvas,.avatar-canvas canvas{pointer-events:none}   /* the figure follows the pointer from the window; the canvas never takes a click from the caption under it */
+/* A mesh avatar is a picture: at night it is dimmed and warmed, as a picture of someone would be in a room lit by one lamp. */
+.mesh-canvas[data-theme=dark]{filter:brightness(.92)}
+.mesh-canvas[data-theme=lamp]{filter:brightness(.84) sepia(.16)}
+
+/* ---------- The avatar studio (a sheet in settings) ---------- */
+.avatar-sheet{display:flex;flex-direction:column;gap:14px}
+/* The preview stays in view while the choices scroll underneath it: every choice is seen as it is made. */
+.av-top{position:sticky;top:-18px;z-index:5;display:grid;grid-template-columns:minmax(170px,230px) minmax(0,1fr);gap:18px;align-items:start;margin:-18px -22px 0;padding:18px 22px 12px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.av-preview{position:relative;aspect-ratio:200/224;width:100%;background:radial-gradient(ellipse at 50% 85%,var(--surface),transparent 70%),var(--bg-2);border-radius:18px;border:1px solid var(--line);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+.av-preview .cx-host{width:88%;margin-bottom:6px}
+.av-preview svg.cx-kitsune{transform:scale(.76);transform-origin:50% 92%}   /* the fox is wider than its frame (the tail); the home stage has room, this box clips */
+.av-side{display:flex;flex-direction:column;gap:10px;min-width:0}
+.av-moods{align-self:flex-start}
+.av-actions{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}.av-actions-gap{flex:1 1 12px}
+.av-moods button{height:30px;padding:0 10px;font-size:.78rem}
+.av-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.av-group{border:1px solid var(--line);border-radius:14px;padding:10px 14px 12px;margin:0;min-width:0;background:var(--surface)}
+.av-group legend{font:700 .88rem var(--font-display);padding:0 6px}
+.av-group .small-text{margin:2px 0 8px}
+.av-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}.av-row>span{font-size:.76rem;font-weight:700;color:var(--muted);min-width:3.2em}
+.av-chips{margin-top:2px}.av-chips button{height:30px;padding:0 10px;font-size:.8rem}
+.av-swatches{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+.av-sw{display:inline-flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:.68rem;font-weight:700;padding:2px;min-width:44px}
+.av-sw i{width:32px;height:32px;border-radius:50%;background:var(--sw);border:2px solid var(--line-strong);display:block}
+.av-sw[aria-pressed=true] i{border-color:var(--text);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--text)}
+.av-sw[aria-pressed=true]{color:var(--text)}
+.av-sw.is-locked{opacity:.55;cursor:not-allowed}
+.av-range{display:flex;flex-direction:column;gap:6px;font-size:.8rem;color:var(--muted)}.av-range b{color:var(--text);font-variant-numeric:tabular-nums}
+.av-range input{width:100%;accent-color:var(--brand)}
+.av-toggles{display:flex;gap:18px;margin-top:10px;font-size:.84rem}.av-toggles label{display:inline-flex;gap:8px;align-items:center}
+.av-h{font:700 .95rem var(--font-display);margin:6px 0 0}
+.av-library{display:flex;flex-direction:column;gap:10px}
+.av-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.av-add>span{font-size:.78rem;font-weight:700;color:var(--muted)}
+.av-assets{display:grid;gap:8px}
+.av-asset{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.av-asset.is-on{border-color:var(--text)}.av-asset b{display:block;font-size:.92rem}.av-asset small{display:block;color:var(--muted);font-size:.74rem;line-height:1.5;word-break:break-word}
+.av-asset>span{display:flex;align-items:center;gap:6px;flex:none}.av-asset em{font-style:normal;font-size:.76rem;font-weight:700;color:var(--ok)}
+.av-draft{border:1px dashed var(--line-strong);border-radius:14px;padding:12px 14px;background:var(--surface)}
+.av-draft ul{display:grid;gap:8px;margin:8px 0}.av-draft li{display:flex;gap:10px;align-items:center}.av-draft img{object-fit:contain;border-radius:8px;background:var(--bg-2)}.av-draft li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.84rem}
+.voice-lines{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}.voice-lines summary{cursor:pointer;font-weight:700;font-size:.88rem}
+.voice-group{font:700 .8rem var(--font-ui);color:var(--muted);margin:12px 0 4px}.line-field small{font-weight:400;color:var(--muted)}
+@media (max-width:640px){.av-top{top:-16px;grid-template-columns:128px minmax(0,1fr);gap:12px;margin:-16px -16px 0;padding:16px 16px 10px}.av-preview{border-radius:14px}.av-moods button{padding:0 8px}}

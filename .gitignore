@@ -1,13 +1,6 @@
 # Dependencies
 node_modules/
-Tepora-app/frontend/npm-cache-*/
-Tepora-app/frontend/npm-cache/
 **/node_modules/
-
-# Build outputs
-Tepora-app/frontend/dist/
-Tepora-app/backend/logs/
-chroma_db_em_llm/
 
 # OS generated files
 .DS_Store
@@ -78,10 +71,6 @@ install_log*.txt
 temp_*.txt
 
 # Test output logs
-Tepora-app/frontend/test_report.txt
-Tepora-app/backend/pytest_full*.txt
-Tepora-app/**/*_errors.txt
-Tepora-app/**/*_test.txt
 *_test.out
 
 # Error and build logs
@@ -97,11 +86,6 @@ cargo_*.out
 *.db-wal
 *.db-shm
 
-# ChromaDB directories
-chroma_db/
-chroma_db_*/
-chroma_db_fallback/
-
 # Secrets and sensitive files
 secrets.yaml
 secrets.yml
@@ -114,7 +98,6 @@ env/
 # User configuration (may contain API keys or personal settings)
 config.yml
 config.yaml
-Tepora-app/backend-rs/execution_agents/
 
 # Cache directories
 .pytest_cache/
@@ -122,16 +105,6 @@ Tepora-app/backend-rs/execution_agents/
 .mypy_cache/
 __pycache__/
 .uv-cache/
-
-# Pytest temp dirs (local)
-Tepora-app/backend/tmp_cache/
-Tepora-app/backend/tmp_pytest/
-Tepora-app/backend/tmp_test_paths/
-Tepora-app/backend/tmp_test_dir/
-Tepora-app/backend/tmp_test_runs/
-Tepora-app/backend/pytest_tmp*/
-Tepora-app/backend/pytest_cache*/
-Tepora-app/backend/sqlite_*/
 
 # Backup directories
 *_bak/
@@ -152,15 +125,10 @@ Tepora-app/backend/sqlite_*/
 *.dylib
 *.gguf
 
-# Tauri sidecar binaries and resources
-**/src-tauri/binaries/
-**/src-tauri/resources/
-
 # Models directory (root only - for GGUF files)
 /models/
 /models_bak/
 /models.json
-Tepora-app/backend-rs/models.json
 
 # Binary backups
 bin/
@@ -173,12 +141,11 @@ docs/archives/
 
 .gemini/
 gha-creds-*.json
-# Perf reports
-Tepora-app/tests/perf/perf-results.json
-
 # Local benchmark workspace
 benchmark/
 
-
-# TypeScript build info
-*.tsbuildinfo
+# V3 local SQLite state
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

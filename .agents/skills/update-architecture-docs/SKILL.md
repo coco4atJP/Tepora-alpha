@@ -1,29 +1,14 @@
 ---
 name: update-architecture-docs
-description: コード変更に伴い、アーキテクチャドキュメントと図を更新するためのガイドラインです。
+description: Update Tepora V3 architecture descriptions and diagrams after structural changes.
 ---
 
-# `update-architecture-docs` Skill
+# Tepora V3 architecture updates
 
-コードの変更がアーキテクチャに影響を与える場合、ドキュメントの更新を忘れないようにするためのスキルです。
+The canonical architecture is `Tepora-v3/docs/ARCHITECTURE.md`; `docs/architecture/ARCHITECTURE.md` links to it. Agent context is maintained in `.agents/AGENTS.md`, `.agents/spec/` and `.agents/wiki/`.
 
-## 対象ディレクトリ
-- `e:\Tepora_Project\docs\architecture\`
-
-## 手順
-
-1.  **変更内容の確認**
-    - クラス構造、データフロー、主要なコンポーネント間の関係が変わったかどうかを確認します。
-
-2.  **ドキュメントの更新**
-    - 関連する Markdown ファイル（例: `SYSTEM_ARCHITECTURE.md`）を更新します。
-    - 説明文だけでなく、コードスニペットや参照先も修正します。
-
-3.  **Mermaid図の更新**
-    - Mermaid記法で記述された図（フローチャート、シーケンス図、クラス図）を更新します。
-    - 図が現状のコードと矛盾しないようにします。
-
-## チェックリスト
-- [ ] 新しいコンポーネントは図に追加されましたか？
-- [ ] 廃止されたコンポーネントは図から削除されましたか？
-- [ ] データフローの矢印は正しい方向を向いていますか？
+1. Inspect changed components and their actual data flow.
+2. Update descriptions, source paths and Mermaid diagrams to match the Node/SQLite control plane, web UI, asynchronous jobs and optional Tauri/Python integrations.
+3. Preserve trust boundaries: foreground conversation, sourced handoffs, protected execution, staged promotion and explicit legacy-host integrations.
+4. Keep current wording at beta.11 and link to `BETA11.md`, `QA.md` and `STATUS.md` for limits and validation.
+5. Verify local links and affected checks. Do not reintroduce earlier application source trees or archive copies.

@@ -1,32 +1,17 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /Tepora-v3
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "00:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "automated"
-  - package-ecosystem: "npm"
-    directory: "/Tepora-app/frontend"
+      interval: weekly
+    labels: [dependencies, automated]
+  - package-ecosystem: cargo
+    directory: /Tepora-v3/desktop
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "00:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "automated"
-  - package-ecosystem: "cargo"
-    directory: "/Tepora-app/backend-rs"
+      interval: weekly
+    labels: [dependencies, automated]
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "00:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "automated"
+      interval: weekly
+    labels: [dependencies, automated]

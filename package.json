@@ -1,0 +1,30 @@
+{
+  "name": "tepora",
+  "version": "3.0.0-beta.11",
+  "private": true,
+  "type": "module",
+  "description": "Tepora V3 companion and asynchronous worker workspace",
+  "engines": { "node": ">=22.16.0" },
+  "scripts": {
+    "start": "node Tepora-v3/core/server.mjs --open",
+    "dev": "npm start",
+    "serve": "node Tepora-v3/core/server.mjs",
+    "desktop": "npm --prefix Tepora-v3 run desktop",
+    "build": "npm --prefix Tepora-v3 run desktop:build",
+    "build:sidecar": "npm --prefix Tepora-v3 run build:sidecar",
+    "preview:build": "npm --prefix Tepora-v3 run preview:build",
+    "check": "npm --prefix Tepora-v3 run check && node --check scripts/doctor.mjs && node --check scripts/release_notes.mjs && node --check scripts/check_commit_convention.mjs && node --check scripts/conventional_commits.mjs",
+    "test": "npm --prefix Tepora-v3 test && npm run test:entry",
+    "test:entry": "node --test tests/*.test.mjs",
+    "test:workers": "npm --prefix Tepora-v3 run test:workers",
+    "test:scenarios": "npm --prefix Tepora-v3 run test:scenarios",
+    "test:capabilities": "npm --prefix Tepora-v3 run test:capabilities",
+    "test:computer": "npm --prefix Tepora-v3 run test:computer",
+    "quality": "npm run check && npm --prefix Tepora-v3 run improve:check -- --capabilities && npm run test:entry",
+    "quality:full": "npm run check && npm --prefix Tepora-v3 run improve:full && npm run test:entry",
+    "doctor": "node scripts/doctor.mjs",
+    "release-notes": "node scripts/release_notes.mjs",
+    "commitlint": "node scripts/check_commit_convention.mjs"
+  },
+  "license": "Apache-2.0"
+}

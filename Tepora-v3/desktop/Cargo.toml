@@ -1,0 +1,26 @@
+[package]
+name = "tepora-v3"
+version = "3.0.0-beta.11"
+edition = "2021"
+description = "Tepora companion workspace"
+license = "Apache-2.0"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+serde_json = "1"
+url = "2"
+
+# Keep build-time dylibs loadable on macOS with affected Rust/LLVM toolchains.
+# https://github.com/rust-lang/rust/issues/157750
+# This changes build scripts/proc macros, not the shipped app's release profile.
+[profile.dev.build-override]
+debug = true
+strip = "none"
+
+[profile.release.build-override]
+debug = true
+strip = "none"

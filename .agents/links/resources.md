@@ -1,13 +1,10 @@
-# resources.md - External Resources
+# Tepora V3 reference links
 
-エージェントが参照すべき外部リソースへのリンク集です。
+Start with the repository's [architecture](../../Tepora-v3/docs/ARCHITECTURE.md), [execution boundary](../../Tepora-v3/docs/BETA11.md) and [QA](../../Tepora-v3/docs/QA.md).
 
-## 公式ドキュメント
-- [Tauri v1 Documentation](https://tauri.app/v1/guides/) (or v2)
-- [Rust Programming Language](https://doc.rust-lang.org/book/)
-- [React Documentation](https://react.dev/)
+Official technical references:
 
-## ライブラリ
-- [Axum](https://docs.rs/axum/latest/axum/)
-- [Tokio](https://docs.rs/tokio/latest/tokio/)
-- [Serde](https://serde.rs/)
+- [Node.js documentation](https://nodejs.org/api/)
+- [SQLite documentation](https://www.sqlite.org/docs.html)
+- [Tauri 2 documentation](https://v2.tauri.app/)
+- [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html)

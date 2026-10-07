@@ -1,0 +1,5 @@
+# Optional, installed only in the user's explicitly selected worker environment.
+# Tested browser integration: Playwright 1.57.0 with existing system Chromium.
+playwright==1.57.0
+# Windows UIA implementation supplied; real Windows interaction has not been tested here.
+pywinauto>=0.6.9,<0.7; sys_platform == "win32"

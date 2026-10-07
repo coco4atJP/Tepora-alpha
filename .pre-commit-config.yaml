@@ -39,83 +39,21 @@ repos:
       - id: detect-private-key
         stages: [pre-commit, pre-push]
 
-  # Rust
+  # V3 checks; core validation needs no npm runtime dependencies.
   - repo: local
     hooks:
-      - id: cargo-fmt
-        name: cargo fmt (backend)
-        entry: cargo
-        args:
-          - fmt
-          - --manifest-path
-          - Tepora-app/backend-rs/Cargo.toml
-          - --all
-          - --
-          - --check
+      - id: tepora-v3-syntax
+        name: Tepora V3 JavaScript syntax
+        entry: npm run check
         language: system
-        files: ^Tepora-app/backend-rs/
+        files: ^(Tepora-v3/|scripts/|tests/|package\.json)
         pass_filenames: false
-        stages: [pre-commit, pre-push]
-      - id: cargo-clippy
-        name: cargo clippy (backend)
-        entry: cargo
-        args:
-          - clippy
-          - --manifest-path
-          - Tepora-app/backend-rs/Cargo.toml
-          - --all-targets
-          - --
-          - -D
-          - warnings
+        stages: [pre-commit]
+      - id: tepora-v3-quality
+        name: Tepora V3 regression gate
+        entry: npm run quality
         language: system
-        files: ^Tepora-app/backend-rs/
-        pass_filenames: false
-        stages: [pre-push]
-      - id: cargo-test
-        name: cargo test (backend)
-        entry: cargo
-        args:
-          - test
-          - --manifest-path
-          - Tepora-app/backend-rs/Cargo.toml
-          - --all-targets
-        language: system
-        files: ^Tepora-app/backend-rs/
-        pass_filenames: false
-        stages: [pre-push]
-
-  # Frontend formatting/linting
-  - repo: local
-    hooks:
-      - id: biome
-        name: biome (frontend)
-        entry: npx
-        args:
-          - --prefix
-          - Tepora-app/frontend
-          - biome
-          - check
-          - --write
-          - --no-errors-on-unmatched
-        language: system
-        types_or: [javascript, jsx, typescript, tsx, json]
-        files: ^Tepora-app/frontend/src/
-        stages: [pre-commit, pre-push]
-
-  # Full frontend validation
-  - repo: local
-    hooks:
-      - id: typescript
-        name: typescript (frontend)
-        entry: npm
-        args:
-          - --prefix
-          - Tepora-app/frontend
-          - run
-          - typecheck
-        language: system
-        types_or: [typescript, tsx]
-        files: ^Tepora-app/frontend/src/
+        files: ^(Tepora-v3/|scripts/|tests/|package\.json)
         pass_filenames: false
         stages: [pre-push]
 
@@ -124,7 +62,6 @@ repos:
     rev: v1.4.0
     hooks:
       - id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
         exclude: package-lock\.json|uv\.lock
         stages: [pre-commit, pre-push]
 
@@ -135,4 +72,4 @@ ci:
   autofix_prs: true
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: [typescript, cargo-clippy, cargo-test]  # These require full local environment
+  skip: [tepora-v3-syntax, tepora-v3-quality]  # Run in V3 CI with Node/Python

@@ -1,41 +1,26 @@
-# AGENTS.md - Project Context & Rules
+# AGENTS.md — Tepora V3 project context
 
-このファイルは、このプロジェクトに参加するAIエージェント（あなた）のためのガイドラインです。作業を開始する前に必ず確認してください。
+## Current application
 
-## 1. プロジェクト概要
-- **名前**: Tepora (Tepora-app)
-- **目的**: ローカルで動作する、高機能かつカスタマイズ可能なAIキャラクターチャットアプリケーション。
-- **スタック**:
-    - **Backend**: Rust (Axum, Tokio) - `Tepora-app/backend-rs/`
-    - **Frontend**: React (TypeScript, Vite) - `Tepora-app/frontend/`
-    - **Desktop**: Tauri v1/v2 - `Tepora-app/src-tauri/`
-- **言語**: ユーザーとの対話は原則 **日本語** で行ってください。
+- **Release**: Tepora V3 **3.0.0-beta.11**.
+- **Goal**: A local-first character conversation with independent asynchronous worker jobs and verifiable artifacts.
+- **Core**: Node.js 22.16.0+ ESM, HTTP loopback service and SQLite under `Tepora-v3/core/`.
+- **UI**: JavaScript modules and CSS under `Tepora-v3/web/`.
+- **Desktop**: Thin Tauri host under `Tepora-v3/desktop/`; optional Python workers under `Tepora-v3/workers/`.
+- **Language**: ユーザーとの対話は原則日本語。
 
-## 2. コーディング規約
+Root `npm start`, `task dev`, `npm run quality`, `task quality`, `npm run build` and `task build` target V3. This checkout contains only V3. Earlier application sources, V2-specific skills, launchers and archived documents were removed at the user's request; use Git history for earlier revisions. Do not reintroduce old React/Axum conventions.
 
-### Rust (Backend)
-- **エラー処理**: `unwrap()` / `expect()` は原則禁止。`Result` 型と `?` 演算子を使用し、エラーを適切に伝播させること。エラー型には `crate::errors::ApiError` を使用する。
-- **非同期**: `tokio` ランタイムを使用。ブロッキング操作は避ける。
-- **モジュール**: 機能ごとに `src/` 下のモジュールに分割する（例: `api.rs`, `ws.rs`, `models.rs`）。
+## Architecture and changes
 
-### TypeScript (Frontend)
-- **型安全性**: `any` 型の使用は避け、インターフェースを定義すること。
-- **コンポーネント**: React Functional Components (FC) を使用。Hooks (`use...`) を活用する。
-- **スタイリング**: CSS Modules または Tailwind CSS (プロジェクト設定に従う) を使用。
+Read `Tepora-v3/docs/ARCHITECTURE.md`, `BETA11.md` and `QA.md` for current contracts. Preserve cookie/CSRF/Host/Origin checks, pinned routes, source hashes, revisions, exact operation approvals and result uncertainty. Persona instructions and model output do not grant permissions.
 
-## 3. アーキテクチャルール
-- **API通信**: フロントエンドとバックエンドの通信には、Tauriの `invoke` コマンドまたは REST API (`Axum`) を使用する。
-- **状態管理**:
-    - バックエンド: `AppState` 構造体 (`Arc<AppState>`) で共有状態を管理。
-    - フロントエンド: React Context または Jotai/Zustand 等を使用。
+New installations default to protected mode. Untrusted code runs only through the approved restricted executor; no automatic image pull, package installation or host fallback. Host CLI/Codex/MCP/Computer Use/model launchers need explicit legacy-host acknowledgement. Do not erase this distinction in documentation or tests.
 
-## 4. エージェントスキル (`.agents/skills/`)
-特定のタスクを実行する際は、以下のスキル手順に従ってください：
+Keep current documentation at beta.11. Earlier records are in Git history, not archived copies in this checkout. For documentation and architecture changes, use `.agents/skills/doc-updater/SKILL.md` and `.agents/skills/update-architecture-docs/SKILL.md`. Inspect current V3 code before making feature changes.
 
-- **Tauriコマンド追加**: `.agents/skills/create-tauri-command/SKILL.md`
-- **バックエンドツール追加**: `.agents/skills/add-backend-tool/SKILL.md`
-- **ドキュメント更新**: `.agents/skills/update-architecture-docs/SKILL.md`
+Run checks appropriate to the change. `npm run quality` covers V3 syntax, Node/Python regressions, specification traceability, preview build, local capability fixtures and root entry-point tests. Optional real models, paid APIs, host actions, browser checks and container execution are separate explicit choices.
 
-## 5. 禁止事項
-- **破壊的変更**: ユーザーの既存データ（`config.yml`, 履歴DB）を破壊するような変更は、ユーザーの明示的な許可なく行わないこと。
-- **外部通信**: ユーザーの許可なく外部サーバーへデータを送信しないこと（プライバシー重視）。
+## User data and communication
+
+Do not delete or overwrite V2/V3 user configuration, databases or backups without explicit authorization. V2 persona/profile migration is unfinished; source cutover does not authorize data conversion. Do not transmit user data to external services without permission. Keep generated validation output, databases, secrets and native binaries out of source control.
