@@ -13,6 +13,7 @@ pub mod execution;
 mod js_value;
 mod json_codec;
 pub mod protocols;
+pub mod runtime;
 mod tokens;
 use json_codec::{encode_text, encode_value, sql_text};
 

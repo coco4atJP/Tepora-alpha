@@ -157,7 +157,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     }
     if(!action&&method==='DELETE'){invariant(s.kind!=='main','The main session cannot be deleted.',403);invariant(!agent.runs.has(s.id),'止めてから削除してください。',409);agent.processes.killSession(s.id);agent.sessions.remove(s.id);store.emit('session.removed',{id:s.id});return json(res,{deleted:true});}
     if(action==='message'&&method==='POST'){const b=await body(req);agent.send(s.id,{text:text(b.text,'message',32000),from:'user',mode:['steer','notify'].includes(b.mode)?b.mode:'followup',source:'user'});return json(res,ui.job(agent.sessions.get(s.id)),202);}
-    if(action==='stop'&&method==='POST'){const stopped=agent.stop(s.id,'あなたが止めました');if(s.kind==='main')agent.resume(s.id);return json(res,s.kind==='main'?{stopped:true}:ui.job(stopped));}
+    if(action==='stop'&&method==='POST'){const stopped=agent.stop(s.id,'あなたが止めました');if(s.kind==='main')agent.resume(s.id,{mode:'rearm'});return json(res,s.kind==='main'?{stopped:true}:ui.job(stopped));}
     if(action==='resume'&&method==='POST')return json(res,ui.job(agent.resume(s.id)));
     if(action==='accept'&&method==='POST')return json(res,ui.job(agent.sessions.update(s.id,{accepted:true,acceptedAt:new Date().toISOString()})));
     if(action==='files'&&method==='GET'){
@@ -190,7 +190,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/stop' && method==='POST'){
     setup.stop();toolHub.stopDiscovery();media.stopAll();computer.close();await speech.close();
     for(const probe of probes.values()){probe.abort?.(new Error('Stopped'));probe.close?.();}
-    for(const s of agent.sessions.list())if(agent.runs.has(s.id)||['running','waiting'].includes(s.status)){agent.stop(s.id,'すべて停止しました');if(s.kind==='main')agent.resume(s.id);}
+    for(const s of agent.sessions.list())if(agent.runs.has(s.id)||['running','waiting'].includes(s.status)){agent.stop(s.id,'すべて停止しました');if(s.kind==='main')agent.resume(s.id,{mode:'rearm'});}
     return json(res,{stopped:true});
    }
    if(p==='/api/dialogue/personas'&&method==='GET')return json(res,agent.personas());

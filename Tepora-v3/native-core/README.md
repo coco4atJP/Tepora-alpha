@@ -8,7 +8,8 @@ There is no data conversion and no JavaScript storage fallback.
 Context assembly, token accounting, five provider wire formats and stream state
 machines also live in this crate. `execution.rs` owns model/tool step transitions,
 retry/overflow decisions, conservative tool grouping and generation-correlated
-completion. It emits commands for a JavaScript effect/plugin compatibility host. The HTTP service, web GUI, network transport,
+completion. `runtime.rs` owns admission, retry timer tokens, draining leases,
+stop/resume/rearm, spending limits and ordered worker completion checks. Both emit commands for a JavaScript effect/plugin compatibility host. The HTTP service, web GUI, network transport,
 execution policy, event listeners,
 import validation, lexical tokenization, and portable process-ownership checks
 remain in JavaScript during this migration stage.
@@ -26,7 +27,7 @@ cargo build --locked
 From the repository root, `npm run build:core` builds and copies the native
 library into the service's ignored binary directory. The `node` feature is
 enabled by default and exports the N-API `StateCore`, pure `computeCore`, protocol encoder,
-`ProtocolDecoderCore` and `ThinkSplitterCore` interfaces. Disabling it leaves a
+`ProtocolDecoderCore`, `ThinkSplitterCore`, `ExecutionCore` and `RuntimeCore` interfaces. Disabling it leaves a
 Node-independent Rust library with the `NativeState` API.
 
 ## Boundary

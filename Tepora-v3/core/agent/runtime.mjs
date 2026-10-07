@@ -7,6 +7,7 @@ import {ContextAssembler} from './context.mjs';
 import {Compactor,transcriptText} from './compaction.mjs';
 import {TokenCalibration} from './tokens.mjs';
 import {AgentLoop} from './loop.mjs';
+import {RuntimeHost} from './runtime-host.mjs';
 import {NOTICE,isSilentReply,mayBeSilent} from './prompts.mjs';
 import {ToolRegistry} from '../tools/registry.mjs';
 import {ProcessManager,execTools} from '../tools/exec.mjs';
@@ -29,7 +30,6 @@ import {invariant} from '../policy.mjs';
 
 export const AGENT_DEFAULTS=Object.freeze({workRoot:'',maxDepth:3,maxSteps:0,progressEvery:50,concurrency:8,verifyCompletion:'auto',delegationGuard:true,metacognition:true,dream:true,cacheRetention:{main:'long',worker:'short'},budget:{sessionUsd:0,dailyUsd:0},
  heartbeat:{enabled:false,minutes:30,text:''},sandbox:SANDBOX_DEFAULT,webSearch:{provider:'auto',searxngUrl:'',braveKeyEnv:'BRAVE_API_KEY'},policy:{rules:[]},idleCompactSeconds:20});
-const sleep=ms=>new Promise(r=>{const t=setTimeout(r,ms);t.unref?.();});
 const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
 export function stampHeader(date=new Date(),source=''){
  const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'}).formatToParts(date).map(x=>[x.type,x.value]));
@@ -88,6 +88,7 @@ export class AgentRuntime{
    write:(content,{title='',source=''}={})=>{const m=this.store.memory(content,{title,source,confirmed:true});if(this.semantic&&this.capabilities?.get().routes?.embedding)this.semantic.index().catch(()=>{});return m;}
   };
   this.runs=new Map();this.timers=new Map();this.streams=new Map();this.closed=false;this.waiters=new Set();
+  this.nativeRuntime=new RuntimeHost(this);
   this.entryListener=e=>{if(e.type==='session.inbox'&&e.data.item)for(const w of this.waiters)w(e.data);};
   store.listeners.add(this.entryListener);
   if(autoStart)this.start();
@@ -107,7 +108,7 @@ export class AgentRuntime{
   if(patch.cacheRetention){for(const v of Object.values(patch.cacheRetention))invariant(['short','long'].includes(v),'Cache retention is short or long');next.cacheRetention={...old.cacheRetention,...patch.cacheRetention};}
   this.store.value('agent-settings',next);this.store.emit('agent.settings',this.settings());this.scheduleHeartbeat();
   // A raised budget lets paused work continue at once.
-  if(patch.budget)for(const s of this.sessions.list({status:'waiting'}))if(this.timers.has(s.id)&&/上限/.test(s.note||'')){clearTimeout(this.timers.get(s.id));this.timers.delete(s.id);this.wake(s.id);}
+  this.nativeRuntime.dispatch({type:'settingsChanged',budgetChanged:!!patch.budget});
   return this.settings();
  }
  personas(){return normalizePersonas(this.store.value('dialogue-personas')||defaultPersonas(this.store.settings.companion));}
@@ -152,11 +153,12 @@ export class AgentRuntime{
   return this.sessions.create({kind:'main',title:this.personas().character.name,cwd,role:'chat',toolset:'main'});
  }
  folder(id){const dir=path.join(this.workRoot,'sessions',id.slice(0,8));mkdirSync(dir,{recursive:true});return dir;}
- async spawn(parent,{task,title,context='isolated',persistent=false,cwd,toolset,role='work',from}={}){
+ async spawn(parent,{task,title,context='isolated',persistent=false,cwd,toolset,role='work',from,signal}={}){
   invariant(typeof task==='string'&&task.trim(),'task is required');
   // Small context windows cannot afford the full tool set: pick the lean one unless asked otherwise.
   // A guessed window (Ollama before the model is loaded) is not evidence: the step-time check downgrades if needed.
   if(!toolset){try{const p=this.registry.chain(role==='escalation'?'escalation':'work')[0],l=p&&await this.registry.limits(p);toolset=l&&l.source!=='guess'&&l.context<16000?'lean':'worker';}catch{toolset='worker';}}
+  signal?.throwIfAborted();
   const depth=(parent?.depth||0)+(parent&&parent.kind!=='main'?1:0);
   invariant(!parent||parent.kind==='main'||depth<=this.settings().maxDepth,`Work agents can be nested at most ${this.settings().maxDepth} deep.`,409);
   const id=randomUUID();
@@ -167,6 +169,7 @@ export class AgentRuntime{
    const cp=this.sessions.latest(parent.id,'checkpoint'),recent=this.sessions.tail(parent.id,30).filter(e=>['input','assistant'].includes(e.type));
    text+=`\n\n--- Context from your requester (quoted, for reference) ---\n${cp?.summary?fitTokens(cp.summary,2500,'#'+cp.seq).text+'\n':''}${fitTokens(transcriptText(recent),2500,'recent').text}`;
   }
+  signal?.throwIfAborted();
   this.send(s.id,{text,from:from||(parent?'parent':'user'),kind:'task',source:parent?`task from "${parent.title||parent.kind}"`:'task'});
   return this.sessions.get(s.id);
  }
@@ -179,7 +182,7 @@ export class AgentRuntime{
   else if(mode!=='notify'){
    if(s.status==='stopped'&&!['user','parent'].includes(from)&&from!=='system')return {queued:true,after};
    if(['done','stopped'].includes(s.status)){this.sessions.update(id,{status:'idle',result:s.status==='done'?s.result:null});this.loop.update(this.sessions.get(id));}
-   this.wake(id);
+   this.wake(id,{from});
   }
   return {queued:true,after};
  }
@@ -199,15 +202,15 @@ export class AgentRuntime{
  route(id,text,seq){
   const s=this.sessions.get(id);
   if(s?.kind!=='main'||this.settings().delegationGuard===false||!this.decisions.available()||!String(text||'').trim())return;
-  const mem=this.loop.state(id),q=this.dreamer.question('route'),state=JSON.stringify({message:fitTokens(text,1500,'message').text}),r={seq,text,p:null,raw:null,held:true,q,state};mem.route=r;
+  const owner=this.runs.get(id),mem=this.loop.state(id),q=this.dreamer.question('route'),state=JSON.stringify({message:fitTokens(text,1500,'message').text}),r={seq,text,p:null,raw:null,held:true,q,state,version:(mem.routeVersion||0)+1};mem.routeVersion=r.version;mem.route=r;
   r.promise=this.decisions.yes(state,q.text)
-   .catch(()=>null).then(raw=>{r.raw=raw;const p=Dreamer.oriented(q,raw);r.p=p;if(!(p>=q.threshold)){r.held=false;this.flush(id);}return p;});
+   .catch(()=>null).then(raw=>{if(this.closed||owner?.controller.signal.aborted||this.runs.get(id)!==owner||mem.routeVersion!==r.version)return null;r.raw=raw;const p=Dreamer.oriented(q,raw);r.p=p;if(!(p>=q.threshold)){r.held=false;this.flush(id);}return p;});
  }
  /** After a character turn: true when the harness delegated the request itself (the reply was withheld). */
- async delegated(id,text){
+ async delegated(id,text,signal){
   const mem=this.loop.state(id),r=mem.route;if(!r)return false;
   mem.route=null;const p=await r.promise;
-  if(p===null)return false;
+  signal?.throwIfAborted();if(this.closed||p===null)return false;
   // The turn is an episode for dreaming (core/agent/dream.mjs): the character delegating by itself says the message
   // needed work; answering (with or without a quick lookup) says it did not; a harness delegation is judged later by
   // what the worker actually did.
@@ -215,99 +218,57 @@ export class AgentRuntime{
   const ep=this.dreamer.record(id,'route',{question:r.q.id,p:r.raw,threshold:r.q.threshold,action:act?1:0,state:r.state});
   if(!act){this.dreamer.label(id,ep,tools.some(t=>t.name==='sessions_spawn'&&!t.error)?1:0,tools.some(t=>t.name==='sessions_spawn')?'character':'answered');return false;}
   const reply=this.sessions.latest(id,'assistant');if(reply&&reply.seq>r.seq)this.sessions.patch(id,reply.seq,{withdrawn:true});
-  const w=await this.spawn(this.sessions.get(id),{task:r.text,context:'fork'});
+  const w=await this.spawn(this.sessions.get(id),{task:r.text,context:'fork',signal});
+  signal?.throwIfAborted();
   this.sessions.update(w.id,{origin:{sessionId:id,episode:ep}});
   this.event(id,'auto-delegated',{probability:p,sessionId:w.id});
   this.sessions.append(id,'notice',{text:NOTICE.autoDelegated(w.title,w.id)});
   return true;
  }
  /** Whether the transcript ends in the middle of a turn (the model has not answered the latest input). */
- needsStep(id){
-  for(const e of this.sessions.tail(id,12).reverse()){
-   if(['event','clear','checkpoint'].includes(e.type))continue;
-   if(e.type==='input'&&e.passive)continue;
-   if(e.type==='assistant')return !!e.toolCalls?.length||!!e.truncated;
-   return true;
-  }
-  return false;
- }
- wake(id){
-  if(this.closed||this.runs.has(id))return;
-  const s=this.sessions.get(id);if(!s||s.status==='stopped')return;
-  clearTimeout(this.timers.get(id));this.timers.delete(id);
-  const active=[...this.runs.values()].filter(r=>r.kind!=='main').length;
-  if(s.kind!=='main'&&active>=this.settings().concurrency){if(s.status!=='waiting')this.sessions.update(id,{status:'waiting',note:'ほかの作業の空きを待っています'});return;}
-  const controller=new AbortController(),run={kind:s.kind,controller,promise:null};this.runs.set(id,run);
-  run.promise=this.run(id,controller.signal).catch(e=>{if(!controller.signal.aborted)this.event(id,'crash',{message:oneLine(e?.stack||e,600)});})
-   .finally(()=>{this.runs.delete(id);this.wakeDeferred();});
- }
- wakeDeferred(){if(this.closed)return;for(const s of this.sessions.list({status:'waiting'}))if(!this.timers.has(s.id)&&!this.runs.has(s.id)&&(this.needsStep(s.id)||this.sessions.pending(s.id).length))this.wake(s.id);}
- async run(id,signal){
-  let steps=0;
-  while(!this.closed&&!signal.aborted){
-   const delivered=this.deliver(id);
-   if(!delivered&&!this.needsStep(id)){const s=this.sessions.get(id);if(s.status==='running'||s.status==='waiting')this.sessions.update(id,{status:s.kind==='worker'&&s.result!==null&&s.result!==undefined?'done':'idle',note:''});return;}
-   const over=this.overBudget(this.sessions.get(id));
-   if(over){this.sessions.update(id,{status:'waiting',note:over,retryAt:null});this.later(id,600000);this.event(id,'budget',{note:over});return;}
-   this.sessions.update(id,{status:'running',note:'考えています',retryAt:null});
-   const outcome=await this.loop.step(id,signal);steps++;
-   const s=this.sessions.get(id);
-   if(outcome.wait){this.sessions.update(id,{status:'waiting',note:outcome.note||'',retryAt:new Date(this.clock()+outcome.wait).toISOString()});this.later(id,outcome.wait);this.event(id,'waiting',{note:outcome.note,ms:outcome.wait});return;}
-   if(outcome.turnEnded){
-    if(s.kind==='main'){if(await this.delegated(id,outcome.text))continue;this.reply(id,outcome.text);continue;}
-    const open=(s.todo||[]).filter(t=>!['done','blocked'].includes(t.status));const mem=this.loop.state(id);
-    if(open.length&&mem.nudges<2){mem.nudges++;this.sessions.append(id,'notice',{text:NOTICE.unfinished(open.map(t=>'- '+t.text).join('\n'))});continue;}
-    const missing=s.kind==='worker'&&(mem.claims||0)<2?missingFiles(s,outcome.text,this.sessions.entries(id,{types:['input']}),this.sessions.entries(id,{types:['tool']})):[];
-    if(missing.length){mem.claims=(mem.claims||0)+1;this.event(id,'missing-files',{paths:missing});this.sessions.append(id,'notice',{text:NOTICE.missingFiles(missing,!(s.stats?.toolCalls))});continue;}
-    if(!(s.stats?.toolCalls)&&s.kind==='worker'&&mem.nudges<1&&s.toolset!=='lean'){mem.nudges++;this.sessions.append(id,'notice',{text:NOTICE.noWork()});continue;}
-    if(this.tools.hooks.length){const h=await this.tools.hook('turnEnd',{session:s,text:outcome.text});if(typeof h.continue==='string'&&h.continue.trim()&&mem.nudges<3){mem.nudges++;this.sessions.append(id,'notice',{text:h.continue});continue;}}
-    if(await this.completionCheck(s,outcome.text,signal))continue;
-    mem.nudges=0;this.finish(id,outcome.text);continue;
-   }
-   const every=this.settings().progressEvery,total=s.stats?.steps||0;
-   if(s.parentId&&every&&total%every===0)this.progress(id);
-   const max=this.settings().maxSteps;if(max&&s.kind!=='main'&&total>=max){this.finish(id,`（ステップ上限 ${max} に達したため、ここで報告します）\n`+(s.todo?.length?'残り:\n'+s.todo.filter(t=>t.status!=='done').map(t=>'- '+t.text).join('\n'):''));return;}
-   await sleep(0);
-  }
- }
+ needsStep(id){return this.nativeRuntime.query('needsStep',{tail:this.sessions.tail(id,12)});}
+ wake(id,{from}={}){this.nativeRuntime.dispatch({type:'wake',sessionId:id,from});}
+ wakeDeferred(){this.nativeRuntime.dispatch({type:'wakeDeferred'});}
+ async run(id){this.wake(id);await this.runs.get(id)?.promise;}
+ probeClaimedFiles(session,report){return missingFiles(session,report,this.sessions.entries(session.id,{types:['input']}),this.sessions.entries(session.id,{types:['tool']}));}
  /** Once per task, before a substantial piece of work is reported as finished: is every part of it actually done?
   * The decision model judges the report against the task (one cheap call); without one, the work agent re-checks
   * its own result (one more turn, read from cache). Returns true when the agent was sent back to work. */
  async completionCheck(s,report,signal){
-  const mode=this.settings().verifyCompletion,mem=this.loop.state(s.id);
-  // The decision model costs one quick call, so it checks any task with tool work; the chat model's self-check costs
-  // a turn, so it is kept for substantial tasks.
-  // An agent that states low confidence in its reflect notes is checked even after a short stretch of work.
-  const decision=this.decisions.available(),calls=s.stats?.toolCalls||0,unsure=(s.reflection?.confidence??1)<0.5;
-  if(mode==='off'||s.kind==='main'||mem.verified||calls<(decision||unsure?1:3))return false;
-  mem.verified=true;
-  const task=this.sessions.entries(s.id,{types:['input']}).filter(e=>e.kind==='task'||e.from==='user'||e.from==='parent');
-  const brief=fitTokens(task.map(e=>e.text).join('\n\n'),2500,'task').text;
-  if(decision){
-   // What the tools actually did, so a report that only claims success is judged against the evidence.
-   const actions=this.sessions.entries(s.id,{types:['tool']}).slice(-30).map(e=>`${e.error?'FAILED':'ok'}: ${oneLine(e.stub||e.name,220)}`).join('\n');
-   const q=this.dreamer.question('completion'),r=s.reflection;
-   const state=JSON.stringify({task:brief,checklist:s.todo?.length?renderTodo(s.todo):'(none)',actions:fitTokens(actions||'(none)',2500,'actions').text,
-    ...(r?{agent_notes:{unverified_assumptions:r.assumptions||[],confidence:r.confidence??null}}:{}),report:fitTokens(report||'',2000,'report').text});
-   const raw=await this.decisions.yes(state,q.text,signal),p=Dreamer.oriented(q,raw);
+  const native=this.nativeRuntime,plan=native.query('completionPlan',{session:s,settings:this.settings(),decisionAvailable:this.decisions.available(),verified:!!native.state(s.id)?.verified});
+  if(!plan.eligible)return false;
+  native.dispatch({type:'markVerified',sessionId:s.id});
+  const {brief,q,state}=this.completionContext(s,report);
+  if(plan.decision){
+   const raw=await this.decisions.yes(state,q.text,signal);signal?.throwIfAborted();
+   const {probability:p,accepted}=native.query('completionVerdict',{raw,q});
    this.event(s.id,'completion-check',{method:'decision',probability:p,question:q.id});
    if(p===null)return false;
-   const accepted=p>=q.threshold;this.dreamer.record(s.id,'completion',{question:q.id,p:raw,threshold:q.threshold,action:accepted?1:0,state});
+   this.dreamer.record(s.id,'completion',{question:q.id,p:raw,threshold:q.threshold,action:accepted?1:0,state});
    if(accepted)return false;
    this.sessions.append(s.id,'notice',{text:NOTICE.verify(brief,'the report does not clearly show that every part is done')});return true;
   }
-  if(mode!=='auto'&&mode!=='self')return false;
+  if(plan.method!=='self')return false;
   this.event(s.id,'completion-check',{method:'self'});
   this.sessions.append(s.id,'notice',{text:NOTICE.verify(brief,null)});return true;
  }
- later(id,ms){clearTimeout(this.timers.get(id));const t=setTimeout(()=>{this.timers.delete(id);this.wake(id);},ms);t.unref?.();this.timers.set(id,t);}
+ completionContext(s,report){
+  const task=this.sessions.entries(s.id,{types:['input']}).filter(e=>e.kind==='task'||e.from==='user'||e.from==='parent');
+  const brief=fitTokens(task.map(e=>e.text).join('\n\n'),2500,'task').text;
+  const actions=this.sessions.entries(s.id,{types:['tool']}).slice(-30).map(e=>`${e.error?'FAILED':'ok'}: ${oneLine(e.stub||e.name,220)}`).join('\n');
+  const q=this.dreamer.question('completion'),r=s.reflection;
+  const state=JSON.stringify({task:brief,checklist:s.todo?.length?renderTodo(s.todo):'(none)',actions:fitTokens(actions||'(none)',2500,'actions').text,
+   ...(r?{agent_notes:{unverified_assumptions:r.assumptions||[],confidence:r.confidence??null}}:{}),report:fitTokens(report||'',2000,'report').text});
+  return {brief,q,state};
+ }
+ later(id,ms){this.nativeRuntime.dispatch({type:'later',sessionId:id,ms});}
  reply(id,text){
   const silent=isSilentReply(text);
   this.store.emit('agent.reply',{sessionId:id,text:silent?'':text,silent,at:new Date(this.clock()).toISOString()});
  }
- finish(id,text){
+ finish(id,text,{status,atMs}={}){
   const s=this.sessions.get(id);this.computer?.release(id);
-  this.sessions.update(id,{status:s.kind==='specialist'?'idle':'done',result:text||'',note:'',finishedAt:new Date(this.clock()).toISOString()});
+  this.sessions.update(id,{status:status||(s.kind==='specialist'?'idle':'done'),result:text||'',note:'',finishedAt:new Date(atMs??this.clock()).toISOString()});
   this.store.emit('agent.finished',{sessionId:id,title:s.title,result:text});
   if(s.kind!=='main'){
    this.dreamer.labelSession(id);
@@ -324,14 +285,13 @@ export class AgentRuntime{
   this.send(s.parentId,{text:`${s.stats?.steps||0} steps.${todo?'\n'+todo:''}${last?'\nLatest: '+oneLine(last.content,300):''}`,from:'child:'+id,kind:'report',mode:'notify',source:`progress of "${s.title}" (${id})`,meta:{sessionId:id,title:s.title,status:'running'}});
  }
  stop(id,reason='stopped'){
-  const s=this.sessions.get(id);invariant(s,'Session not found',404);
-  this.runs.get(id)?.controller.abort(Object.assign(new Error(reason),{stopped:true}));
-  clearTimeout(this.timers.get(id));this.timers.delete(id);this.processes.killSession(id);this.policy.cancel(id);this.computer?.release(id);
-  this.sessions.update(id,{status:'stopped',note:oneLine(reason,120)});
-  for(const child of this.sessions.list({parentId:id}))if(['running','waiting','idle'].includes(child.status)&&child.kind==='worker')this.stop(child.id,'parent stopped');
-  return this.sessions.get(id);
+  invariant(this.sessions.get(id),'Session not found',404);
+  this.nativeRuntime.dispatch({type:'stop',sessionId:id,reason});return this.sessions.get(id);
  }
- resume(id){const s=this.sessions.get(id);invariant(s,'Session not found',404);if(s.status==='stopped')this.sessions.update(id,{status:'idle'});this.wake(id);return this.sessions.get(id);}
+ resume(id,{mode='continue'}={}){
+  invariant(this.sessions.get(id),'Session not found',404);
+  this.nativeRuntime.dispatch({type:'resume',sessionId:id,mode});return this.sessions.get(id);
+ }
  /** After a stretch of healthy steps on the stronger model, go back to the usual one (it is cheaper and faster). */
  deescalate(id){
   const s=this.sessions.get(id);if(s?.role!=='escalation'||!s.baseRole)return;
@@ -379,12 +339,7 @@ export class AgentRuntime{
  }
  usage(days=7){const out={};for(let i=0;i<days;i++){const d=new Date(this.clock()-i*86400000).toISOString().slice(0,10);out[d]=this.store.value('agent-usage:'+d)||null;}return {today:out[new Date(this.clock()).toISOString().slice(0,10)],days:out};}
  /** A spending limit the user set (none by default). Reaching it pauses the session, which the user can lift. */
- overBudget(s){
-  const b=this.settings().budget;
-  if(b.sessionUsd>0&&(s.stats?.cost||0)>=b.sessionUsd)return `この仕事の費用が上限（$${b.sessionUsd}）に達しました。設定で上限を上げると続きます。`;
-  if(b.dailyUsd>0&&(this.store.value('agent-usage:'+new Date(this.clock()).toISOString().slice(0,10))?.cost||0)>=b.dailyUsd)return `今日の費用が上限（$${b.dailyUsd}）に達しました。設定で上限を上げると続きます。`;
-  return null;
- }
+ overBudget(session){const f=this.nativeRuntime.facts();return this.nativeRuntime.query('overBudget',{session,settings:f.settings,dailyCost:f.dailyCost});}
  /** Live text for the screen. The character's text is held back while it could still be NO_REPLY,
   * so a silent turn never flashes on screen or reaches the voice. */
  stream(id,kind,text){
@@ -403,8 +358,8 @@ export class AgentRuntime{
    const tail=this.sessions.tail(s.id,40),lastAssistant=tail.findLast(e=>e.type==='assistant');
    if(lastAssistant?.toolCalls?.length){const done=new Set(tail.filter(e=>e.type==='tool'&&e.seq>lastAssistant.seq).map(e=>e.callId));
     for(const c of lastAssistant.toolCalls)if(!done.has(c.id))this.sessions.append(s.id,'tool',{callId:c.id,name:c.name,content:NOTICE.restarted(),stub:`${c.name} interrupted by a restart`,error:true,errorText:'interrupted by restart',keep:true,chars:0});}
-   if(['running','waiting'].includes(s.status)||this.sessions.pending(s.id).length||(s.status==='idle'&&this.needsStep(s.id)))this.wake(s.id);
   }
+  this.nativeRuntime.dispatch({type:'initialize'});
   this.scheduleHeartbeat();this.scheduler.start();
   this.idleTimer=setInterval(()=>this.idleCompact(main.id).catch(()=>{}),15000);this.idleTimer.unref?.();
   this.dreamTimer=setInterval(()=>this.dreamer.maybe().catch(e=>this.store.emit('agent.event',{type:'dream-failed',message:String(e?.message||e).slice(0,200)})),3600000);this.dreamTimer.unref?.();
@@ -441,21 +396,13 @@ export class AgentRuntime{
  }
  /** The resident session compacts while nobody is talking, so the next spoken reply is fast. */
  async idleCompact(id){
-  const s=this.sessions.get(id);if(this.closed||this.runs.has(id)||s.status!=='idle'||this.sessions.pending(id).length)return;
-  const last=this.sessions.tail(id,1)[0];if(!last||this.clock()-Date.parse(last.at)<this.settings().idleCompactSeconds*1000)return;
-  const session=this.loop.prompt(s),toolDefs=this.tools.definitions(session.tools),b=await this.loop.budget(session,toolDefs);
-  if(!b.chain.length||b.B<1200)return;
-  const built=this.assembler.build(id,{system:session.system});
-  if(this.compactor.plan(built,b.B,b.ratio,{idle:true}).action!=='compact')return;
-  const controller=new AbortController(),run={kind:'main',controller,promise:null};this.runs.set(id,run);
-  try{run.promise=this.loop.compact(session,{built,B:b.B,ratio:b.ratio,toolDefs,chain:b.chain,signal:controller.signal,reason:'idle'});await run.promise;}
-  finally{this.runs.delete(id);if(this.sessions.pending(id).length)this.wake(id);}
+  this.nativeRuntime.dispatch({type:'auxiliary',sessionId:id,kind:'idleCompaction',lastAtMs:Date.parse(this.sessions.tail(id,1)[0]?.at)||0});
+  const run=this.runs.get(id);if(run?.leaseKind==='idleCompaction')await run.promise;
  }
  async close(){
-  this.closed=true;clearInterval(this.heartbeatTimer);clearInterval(this.idleTimer);clearInterval(this.dreamTimer);this.scheduler.close();
-  for(const t of this.timers.values())clearTimeout(t);this.timers.clear();
-  for(const r of this.runs.values())r.controller.abort(Object.assign(new Error('Service closing'),{stopped:true}));
+  this.nativeRuntime.dispatch({type:'close'});
+  await this.nativeRuntime.drain();
   await Promise.allSettled([...this.runs.values()].map(r=>r.promise));
-  this.processes.close();this.mcp.close();this.policy.cancelAll();this.store.listeners.delete(this.entryListener);
  }
+
 }

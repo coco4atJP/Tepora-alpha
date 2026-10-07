@@ -21,13 +21,24 @@ export class Policy{
  }
  async check(session,name,args,{signal}={}){
   const r=this.rule(name,args);if(!r||r.action==='allow')return 'allow';if(r.action==='deny')return 'deny';
+  if(signal?.aborted)return 'declined';
   const id=randomUUID(),doc={id,sessionId:session.id,sessionTitle:session.title,tool:name,args,note:r.note||'',status:'pending',createdAt:new Date().toISOString()};
-  this.rt.store.put('approval',doc);this.rt.store.emit('approval.updated',doc);
-  const before=this.rt.sessions.get(session.id)?.note||'';this.rt.sessions.update(session.id,{note:`承認待ち: ${name}`});
-  const allowed=await new Promise(resolve=>this.pending.set(id,{sessionId:session.id,resolve}));
-  if(!signal?.aborted)this.rt.sessions.update(session.id,{note:before});
-  return allowed?'allow':'declined';
+  const before=this.rt.sessions.get(session.id)?.note||'';
+  let settle;const answer=new Promise(resolve=>{settle=resolve;});
+  this.pending.set(id,{sessionId:session.id,resolve:settle});
+  const abort=()=>this.cancel(session.id);signal?.addEventListener('abort',abort,{once:true});
+  try{
+   this.rt.store.put('approval',doc);
+   if(signal?.aborted)abort();
+   if(this.pending.has(id))this.rt.store.emit('approval.updated',doc);
+   if(this.pending.has(id))this.rt.sessions.update(session.id,{note:`承認待ち: ${name}`});
+   const allowed=await answer;
+   if(!signal?.aborted)this.rt.sessions.update(session.id,{note:before});
+   return allowed?'allow':'declined';
+  }catch(error){this.pending.delete(id);throw error;}
+  finally{signal?.removeEventListener('abort',abort);}
  }
+
  decide(id,allow){
   invariant(typeof allow==='boolean','allow must be true or false');
   const p=this.pending.get(id),doc=this.rt.store.get('approval',id);invariant(p&&doc?.status==='pending','この承認はもう待っていません。',409);
@@ -36,5 +47,5 @@ export class Policy{
  }
  list(){return this.rt.store.list('approval').slice(0,200);}
  cancel(sessionId){for(const [id,p] of this.pending)if(p.sessionId===sessionId){this.pending.delete(id);const d=this.rt.store.get('approval',id);if(d){this.rt.store.put('approval',{...d,status:'withdrawn'});this.rt.store.emit('approval.updated',{...d,status:'withdrawn'});}p.resolve(false);}}
- cancelAll(){for(const p of this.pending.values())p.resolve(false);this.pending.clear();}
+ cancelAll(){for(const id of new Set([...this.pending.values()].map(p=>p.sessionId)))this.cancel(id);}
 }

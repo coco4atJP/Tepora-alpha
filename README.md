@@ -8,7 +8,7 @@ Teporaは、ひとつのキャラクターとの会話を続けながら、別�
 
 ソース版には Node.js **22.16.0以上**、[Rust stable](https://rustup.rs)、OSのC/C++ビルドツールが必要です。初回起動時にRustコアをビルドします。配布用デスクトップパッケージにはビルド済みコアを同梱します。
 
-この移植ブランチでは、SQLiteの永続状態・セッションログ・受信箱に加え、文脈組み立て・トークン計算・モデル要求/応答形式・モデルからツール実行までの状態機械をRustに移しました。HTTP・外側のセッション管理・通信の許可と送受信・GUIは引き続きJavaScriptです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
+この移植ブランチでは、SQLiteの永続状態・セッションログ・受信箱に加え、文脈組み立て・トークン計算・モデル要求/応答形式・モデルからツール実行までの状態機械、外側の実行枠・再試行・停止/再開・完了判定をRustに移しました。HTTP・効果処理/プラグイン互換層・通信の許可と送受信・予定・GUIは引き続きJavaScriptです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
 ```sh
 git clone https://github.com/coco4atJP/Tepora-alpha.git
