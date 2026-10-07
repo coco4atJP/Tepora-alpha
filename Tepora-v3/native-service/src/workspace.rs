@@ -238,6 +238,9 @@ fn process_alive(_pid: u64) -> bool {
 
 impl Workspace {
     pub fn open(dir: &Path) -> Result<Self, ApiError> {
+        // Preserve the caller-facing spelling, as the Node Store does. Windows
+        // canonicalize adds a verbatim prefix that must stay an internal detail.
+        let public_dir = dir.to_path_buf();
         fs::create_dir_all(dir).map_err(error)?;
         let dir = fs::canonicalize(dir).map_err(error)?;
         let defaults = json_codec::parse(include_str!("../defaults.json")).map_err(error)?;
@@ -245,8 +248,8 @@ impl Workspace {
             NativeState::open(&dir.join("tepora-v3.sqlite").to_string_lossy()).map_err(error)?;
         let mut s = State {
             db,
-            dir: dir.clone(),
-            work_root: dir.join("work"),
+            dir: public_dir.clone(),
+            work_root: public_dir.join("work"),
             owner: Uuid::new_v4().to_string(),
             defaults,
             subscribers: HashMap::new(),
@@ -316,7 +319,7 @@ impl Workspace {
         {
             home().join("Tepora")
         } else {
-            dir.join("work")
+            public_dir.join("work")
         };
         s.main()?;
         // Live approval waiters do not survive process restart. Retain the
