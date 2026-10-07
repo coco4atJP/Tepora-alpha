@@ -697,6 +697,20 @@ impl OwnedFixtureChild {
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
     }
+    async fn wait_for_death(&self) {
+        // Pipe EOF can be observed while the kernel is still completing exit.
+        // Keep asserting death of this exact child, with a finite settling bound.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        while fixture_child_identity(self.pid)
+            .is_some_and(|(start, state)| start == self.start && state != "Z")
+        {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "Owned fixture child remained alive after group cleanup"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
 }
 #[cfg(target_os = "linux")]
 impl Drop for OwnedFixtureChild {
@@ -722,8 +736,9 @@ async fn escaped_holder_has_bounded_uncertain_pipe_drain_and_no_unrelated_kill()
     };
     // The known holder has an independent ten-second maximum even if the test
     // fails before reading its identity. It retains stdout/stderr but does no IO.
+    // Publish from inside the new session, only after setsid has escaped.
     let command = format!(
-        "{} /bin/sleep 10 & printf '%s' \"$!\" > escaped.pid",
+        "{} /bin/sh -c 'printf \"%s\" \"$$\" > escaped.pid; exec /bin/sleep 10' &",
         setsid.display()
     );
     let handle = f
@@ -762,8 +777,9 @@ async fn escaped_holder_has_bounded_uncertain_pipe_drain_and_no_unrelated_kill()
 #[tokio::test]
 async fn retained_owned_pid_allows_group_kill_after_shell_exit_without_truncation() {
     let f = Fixture::new();
+    // Publish only after TERM is ignored, so cleanup must exercise escalation.
     let command =
-        "/bin/sh -c 'trap \"\" TERM; exec /bin/sleep 10' & printf '%s' \"$!\" > grouped.pid";
+        "/bin/sh -c 'trap \"\" TERM; printf \"%s\" \"$$\" > grouped.pid; exec /bin/sleep 10' &";
     let handle = f
         .manager
         .start(
@@ -773,6 +789,17 @@ async fn retained_owned_pid_allows_group_kill_after_shell_exit_without_truncatio
         .await
         .unwrap();
     let child = OwnedFixtureChild::read(&f.root.join("grouped.pid")).await;
+    let pid = handle.snapshot().pid.unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    while !peek_owned_exit(pid).unwrap() {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "Fixture leader did not exit"
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert!(!handle.item.child_reaped.load(Ordering::Acquire));
+    let started = tokio::time::Instant::now();
     tokio::time::timeout(Duration::from_secs(6), f.manager.begin_close().wait_async())
         .await
         .unwrap()
@@ -780,8 +807,8 @@ async fn retained_owned_pid_allows_group_kill_after_shell_exit_without_truncatio
     let snapshot = handle.snapshot();
     assert_eq!(snapshot.status, "killed");
     assert!(!snapshot.cleanup_uncertain && !snapshot.output_truncated);
-    assert!(!fixture_child_identity(child.pid)
-        .is_some_and(|(start, state)| start == child.start && state != "Z"));
+    assert!(started.elapsed() >= Duration::from_secs(3));
+    child.wait_for_death().await;
     drop(child);
 }
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -878,8 +905,9 @@ async fn cancelled_exec_with_escaped_pipes_returns_unknown_outcome_not_success()
     let context = f.context("s");
     let cancel = context.cancellation.clone();
     let manager = f.manager.clone();
+    // A parent-written $! can precede setsid and accidentally test a grouped child.
     let command = format!(
-        "{} /bin/sleep 10 & printf '%s' \"$!\" > cancelled-escaped.pid",
+        "{} /bin/sh -c 'printf \"%s\" \"$$\" > cancelled-escaped.pid; exec /bin/sleep 10' &",
         setsid.display()
     );
     let task = tokio::spawn(async move {

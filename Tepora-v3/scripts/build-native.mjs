@@ -27,5 +27,13 @@ for(const pkg of resolved.packages.filter(p=>p.source).sort((a,b)=>a.name.locale
  if(pkg.license_file&&!files.includes(pkg.license_file))files.push(pkg.license_file);
  for(const name of files){try{notices.push('\n--- '+name+' ---\n'+await readFile(path.join(folder,name),'utf8'));}catch(error){if(error.code!=='EISDIR')throw error;}}
 }
+// This adaptation is local source, so it does not appear in Cargo metadata.
+// A binary distribution must carry its retained notice as well as crate notices.
+const v8NoticePath='src/workspace/display_avatar/V8-LICENSE.txt';
+let v8Notice;
+try {v8Notice=await readFile(path.join(crate,v8NoticePath),'utf8');}
+catch(cause){throw new Error('Required V8 date-parser license notice is missing or unreadable: '+v8NoticePath,{cause});}
+if(!v8Notice.trim())throw new Error('Required V8 date-parser license notice is empty: '+v8NoticePath);
+notices.push('\n=== V8 DateParser adaptation (BSD-3-Clause; V8 tag 12.4.254) ===\nhttps://github.com/v8/v8/tree/12.4.254/src/date\n\n--- V8-LICENSE.txt ---\n'+v8Notice);
 await writeFile(path.join(out,'THIRD-PARTY-LICENSES.txt'),notices.join('\n'));
 console.log('Built developmental native service and static bundle. Normal launch remains unchanged.');

@@ -6,7 +6,10 @@ impl Workspace {
     pub(super) fn execute_native(&self, op: &Operation) -> Result<Option<Reply>, ApiError> {
         if !matches!(
             op,
-            Operation::AgentInput { .. }
+            Operation::DialoguePersonas
+                | Operation::DialoguePersonasSave { .. }
+                | Operation::SettingsPatch { .. }
+                | Operation::AgentInput { .. }
                 | Operation::SessionAccept { .. }
                 | Operation::AgentSpawn { .. }
                 | Operation::SessionMessage { .. }
@@ -40,6 +43,11 @@ impl Workspace {
         }
         let request = |r| native.agent.request(r);
         let value = match op {
+            Operation::DialoguePersonas => self.preference_personas()?,
+            Operation::DialoguePersonasSave { body } => self.change_personas(body, || {
+                native.agent.request(AgentRequest::RefreshPrompts).map(|_| ())
+            })?,
+            Operation::SettingsPatch { body } => self.change_preferences(body, &native.network)?,
             Operation::SessionAccept { id } => {
                 let session = self.access().agent_state("session.get", json!({"id":id}))?;
                 require(!session.is_null(), 404, "Session not found")?;

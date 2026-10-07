@@ -61,6 +61,12 @@ Separate capability endpoints handle typed decisions, embeddings, speech and gen
 
 `agent/metacognition.rs` applies repetition/error notices and real escalation/deescalation before rereading the session for a measured self-check. Stuck-parent reports use ordinary passive send semantics and per-reason deduplication. `reflect` records model-stated beliefs separately from measured facts. Memory updates are published only after their corresponding effects succeed.
 
+## Native preferences and visual configuration
+
+The explicit native host now implements persona/voice and application preference changes, plus the display/avatar recipe state APIs. `workspace/preferences.rs` validates the existing field subset, serializes persona changes, checks revisions and asks the actor to refresh prompts without replacing a cached prefix. Persona/voice text never grants execution authority. Network-related preference changes retain the existing policy revocation boundary.
+
+`workspace/display_avatar.rs` owns validated recipe changes, revision histories, undo/reset and portable preset import/export under the same Workspace/SQLite owner. The date parser preserves the frozen V8 input behavior and carries its source/license notice into native distributions. These state APIs do not implement custom avatar asset uploads, asset byte serving, photo-frame storage, audio or media effects. Normal Node/Tauri startup and all JavaScript/CSS remain unchanged.
+
 ## Tools, approvals and current execution boundary
 
 The native catalog implements `sessions_spawn`, `sessions_send`, `sessions_list`, `sessions_history`, `sessions_stop`, `read`, `write`, `edit`, `todo`, `reflect`, `artifact`, `recall`, `history_search`, `memory_search`, `memory_write`, `tools_search` and `tools_call`. Fixed main/worker/lean sets preserve order and include only implemented/enabled definitions. Native memory search uses the existing lexical fallback. Image reads/vision bridging and MCP indirection remain unavailable.

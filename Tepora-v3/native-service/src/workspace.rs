@@ -1,5 +1,8 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
+mod preferences;
+mod display_avatar;
+pub use display_avatar::VisualAction;
 mod capability_state;
 pub(crate) mod input_files;
 mod session_files;
@@ -21,6 +24,7 @@ use uuid::Uuid;
 pub struct Workspace {
     state: Arc<Mutex<State>>,
     native: OnceLock<NativeResources>,
+    preference_changes: Mutex<()>,
     probe_cancel: Mutex<crate::network::RequestCancellation>,
 }
 struct NativeResources {
@@ -363,6 +367,7 @@ impl Workspace {
         Ok(Self {
             state: Arc::new(Mutex::new(s)),
             native: OnceLock::new(),
+            preference_changes: Mutex::new(()),
             probe_cancel: Mutex::new(crate::network::RequestCancellation::new()),
         })
     }
@@ -796,6 +801,7 @@ fn ram_bytes() -> Option<u64> {
 }
 impl Backend for Workspace {
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError> {
+        if let Some(reply) = self.execute_visual(&operation)? { return Ok(reply); }
         match &operation {
             Operation::InputsStage { body } => return self.stage_inputs(&body["files"]).map(Reply::Json),
             Operation::InputDelete { id } => return self.remove_input(id).map(Reply::Json),

@@ -1,0 +1,5 @@
+e88e71f9b2e583c48666b41aacc51f24640b32ef43ff71cfaa3e91249a773f90  core/display.mjs
+a449687321ce150643280ea441efdfea6e6f2199e85036f76332ea83e56a7044  web/display-model.mjs
+4a25b0c09fe8e2c7506c3f8082b2ca0be731c2f8798114c841c64530a4a9fbde  web/avatar/model.mjs
+a52177165d541f5445c14ff7b9e7da2da5702da0f129d3f3624cf4377c6b2f2b  core/policy.mjs
+1492e9e108e9cfe698f8d21d9789b045a73d88347d772cb0c4e294f41d696f48  core/avatar.mjs (Avatar configuration class only)

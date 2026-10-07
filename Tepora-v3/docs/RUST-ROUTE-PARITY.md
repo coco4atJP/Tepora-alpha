@@ -1,12 +1,12 @@
-# Native backend route parity: process checkpoint
+# Native backend route parity: preferences and visual-state checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **33 are substantially matched, 13 are partial and 80 are absent**. Thus 46 have handlers, and the 13 partial routes are included in those 46. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **48 are substantially matched, 13 are partial and 65 are absent**. Thus 61 have handlers, and the 13 partial routes are included in those 61. A route count is not an end-to-end feature completion percentage.
 
-Verification: 302 Rust service library tests + 2 CLI tests; 23 offline HTTP process tests and 9 native-agent process tests pass locally. The child service starts without Node in PATH; the added process fixture runs an actual shell builtin through exec and checks its receipt. No real model or paid service is used. CI at the preceding commit 60cb4ae passes Ubuntu and native build/tests on Windows/macOS; its later platform Node failures are tracked separately. This new checkpoint still needs its own CI.
+Verification: 320 Rust service library tests + 2 CLI tests pass locally, including a full parallel run after fixture-readiness repairs. The focused build-notice/offline-HTTP/native-agent process suite passes 40 tests on both Node22 and Node24. The child service starts without Node in PATH; local controlled providers are used, not real models or paid services. Full Node22 regression reports 543/548: the same three browser-start, DNS and Linux sandbox-environment failures reproduce in the unchanged published3b4d243 checkout. Aggregate quality therefore remains red. Windows/macOS CI and packaged acceptance are still separate gates; no exact-head CI result was available for3b4d243.
 
-Scope: native exec/process is connected. Capabilities configuration and typed transport components are implemented; decision/web/semantic/media consumers remain pending. Attachments can be staged but not yet delivered to the model. A saved or newly configured decision route is rejected rather than ignored. Session download deliberately adds a resolved-root symlink guard. Missing effects are not fabricated and do not fall back to Node inside this host.
+Scope: native exec/process, preferences/personas and display/avatar configuration state are connected. Capabilities configuration and typed transport components are implemented; decision/web/semantic/media consumers remain pending. Attachments can be staged but not yet delivered to the model. A saved or newly configured decision route is rejected rather than ignored. Session download deliberately adds a resolved-root symlink guard. Missing effects are not fabricated and do not fall back to Node inside this host.
 
 ## Complete route inventory
 
@@ -16,7 +16,7 @@ YES means a real handler is present in the supported scope, not that every model
 |---|---|---|---|---|
 | R001 | `GET /health` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R002 | `GET /launch?token={token}` | YES | 303 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability overlays implemented. Setup/computer/media/display/avatar/photo behavior still incomplete. |
+| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability overlays implemented. Display/avatar configuration and persona state are supported; setup/computer/media/custom-avatar assets/photo behavior is still incomplete. |
 | R004 | `GET /api/events?since={seq}` | PARTIAL | 200 | Atomic replay/reconnect includes live provider health/limits/resources and capability key hints. Events from unported peripheral hosts remain absent. |
 | R005 | `GET /api/agent` | PARTIAL | 200 | Projected agent state works for admitted native sessions; web/media/scheduler/plugin effects remain incomplete. |
 | R006 | `GET /api/agent/dialogue` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
@@ -42,8 +42,8 @@ YES means a real handler is present in the supported scope, not that every model
 | R026 | `POST /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R027 | `POST /api/agent/approvals/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors and probes with sticky queue cancellation. Baseline setup/tool-discovery/media/computer/speech cancellation has no native host to target. |
-| R029 | `GET /api/dialogue/personas` | ABSENT | 200 | Text/attachments/vision and persona prompt/voice changes is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R030 | `PUT /api/dialogue/personas` | ABSENT | 200 | Text/attachments/vision and persona prompt/voice changes is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R029 | `GET /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
+| R030 | `PUT /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R031 | `GET /api/capabilities` | YES | 200 | Live shared capability registry with key-presence hints; this GET does not certify modality consumers. |
 | R032 | `PUT /api/capabilities` | PARTIAL | 200 | Atomic revisioned capability settings. Nonempty decision routes are explicitly rejected until the decision host is connected. |
 | R033 | `POST /api/capabilities/{id}/key` | YES | 200 | Identity-bound explicit key set/clear; keys remain memory-only and are never emitted. |
@@ -97,25 +97,25 @@ YES means a real handler is present in the supported scope, not that every model
 | R081 | `PATCH /api/artifacts/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R082 | `GET /api/artifacts` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R083 | `GET /render/{id}?v={version}` | YES | 200 | RG-012 corrected at ac6c52dd3ddcf31046bd906efad9305eb3d51e39: internal codec content remains encoded until exactly one HTTP UTF-8 decode; actual HTTP CAS/revision/render fixture covers literal marker collisions and isolated surrogates. |
-| R084 | `GET /api/display` | ABSENT | 200 | Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R085 | `PATCH /api/display` | ABSENT | 200 | Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R086 | `POST /api/display/undo` | ABSENT | 200 | Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R087 | `POST /api/display/reset` | ABSENT | 200 | Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R088 | `GET /api/display/export` | ABSENT | 200 | Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R089 | `POST /api/display/import` | ABSENT | 200 | Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R084 | `GET /api/display` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
+| R085 | `PATCH /api/display` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
+| R086 | `POST /api/display/undo` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
+| R087 | `POST /api/display/reset` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
+| R088 | `GET /api/display/export` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
+| R089 | `POST /api/display/import` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
 | R090 | `GET /api/doctor` | PARTIAL | 200 | OS diagnostics are partial across platforms: RAM implementation is Linux-only; native marker/note differs. Real model/GPU and packaged Windows/macOS behavior remain unverified. |
 | R091 | `POST /api/shared/scan` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R092 | `PATCH /api/skills/{id}` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R093 | `DELETE /api/skills/{id}` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R094 | `POST /api/skills` | ABSENT | 201 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R095 | `PATCH /api/settings` | ABSENT | 200 | Legacy application settings and network revocation coupling is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R095 | `PATCH /api/settings` | YES | 200 | Existing application preferences and atomic network revocation coupling are implemented; unknown fields do not grant permissions. |
 | R096 | `POST /api/presence` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R097 | `GET /api/avatar` | ABSENT | 200 | Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R098 | `PATCH /api/avatar` | ABSENT | 200 | Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R099 | `POST /api/avatar/undo` | ABSENT | 200 | Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R100 | `POST /api/avatar/reset` | ABSENT | 200 | Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R101 | `GET /api/avatar/export` | ABSENT | 200 | Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R102 | `POST /api/avatar/import` | ABSENT | 200 | Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R097 | `GET /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
+| R098 | `PATCH /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
+| R099 | `POST /api/avatar/undo` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
+| R100 | `POST /api/avatar/reset` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
+| R101 | `GET /api/avatar/export` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
+| R102 | `POST /api/avatar/import` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
 | R103 | `GET /api/avatar/assets` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R104 | `PUT /api/avatar/assets` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R105 | `DELETE /api/avatar/assets/{uuid}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |

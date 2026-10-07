@@ -433,8 +433,7 @@ test('Rust HTTP: unported effects fail explicitly instead of reporting fabricate
   ['PATCH','/api/agent/settings'],['POST','/api/agent/policy/revert'],['POST','/api/agent/dream'],['PUT','/api/agent/search-key'],['POST','/api/agent/plugins/reload'],
   ['POST','/api/agent/approvals'],['POST','/api/agent/approvals/fixture-approval'],['POST','/api/stop'],
   ['PUT','/api/dialogue/personas'],['PATCH','/api/settings'],
-  ['PATCH','/api/display'],['POST','/api/display/undo'],['POST','/api/display/reset'],['POST','/api/display/import'],
-  ['PATCH','/api/avatar'],['POST','/api/avatar/undo'],['POST','/api/avatar/reset'],['POST','/api/avatar/import'],['PUT','/api/avatar/assets'],
+  ['PUT','/api/avatar/assets'],
   ['PUT','/api/frame/photos'],['POST','/api/skills'],['PATCH','/api/skills/fixture-skill'],['DELETE','/api/skills/fixture-skill'],['POST','/api/shared/scan'],
   ['PUT','/api/providers'],['POST','/api/providers/fixture-provider/key'],['POST','/api/providers/fixture-provider/probe'],
   ['PATCH','/api/network'],['POST','/api/runtime/discover'],
@@ -511,3 +510,33 @@ test('Rust HTTP: live data directory ownership excludes another native host and 
  await app.close();const store=new Store(f.data);try{const docs=store.list('input-file');assert.equal(docs.length,1);assert.equal(docs[0].content,content);}finally{store.close();}
  const again=await f.start();assert.deepEqual(parsed(await again.request('/api/inputs/'+saved.id,'DELETE')),{deleted:true});await again.close();const reopened=new Store(f.data);try{assert.equal(reopened.list('input-file').length,0);}finally{reopened.close();}
  });
+
+test('Rust HTTP: display and avatar config keep CAS, undo, presets and restart without Node',async t=>{
+ for(const agent of [false,true]){
+  const f=await fixture(t),options=agent?{extraArgs:['--agent']}:{},app=await f.start(options),saved={};
+  for(const kind of ['display','avatar']){
+   const base=`/api/${kind}`,initial=parsed(await app.request(base));assert.equal(initial.revision,0);
+   const patches=kind==='display'?[{theme:'dark',hiddenUntil:{clock:'Jan 1 2030'}},{theme:'light'}]:[{body:'andon'},{body:'kokedama'}];
+   const responses=await Promise.all(patches.map(patch=>app.request(base,'PATCH',{patch,expectedRevision:0})));
+   assert.deepEqual(responses.map(r=>r.status).sort((a,b)=>a-b),[200,409]);
+   const changed=parsed(responses.find(r=>r.status===200));assert.equal(changed.revision,1);
+   const preset=parsed(await app.request(base+'/export'));assert.equal(preset.format,`tepora-${kind}`);assert.equal(preset.version,1);
+   for(const key of ['schema','revision'])assert.equal(Object.hasOwn(preset.settings,key),false);
+   if(kind==='avatar')assert.equal(Object.hasOwn(preset.settings,'asset'),false);
+   parsed(await app.request(base+'/undo','POST',{expectedRevision:0}),409);
+   const undone=parsed(await app.request(base+'/undo','POST',{expectedRevision:1}));assert.deepEqual(undone,{...initial,revision:2});
+   parsed(await app.request(base,'PATCH',{expectedRevision:2,patch:{allowNetwork:true}}),400);
+   parsed(await app.request(base+'/import','POST',{expectedRevision:2,preset:{...preset,capabilities:{network:true}}}),400);
+   const imported=parsed(await app.request(base+'/import','POST',{expectedRevision:2,preset}));assert.deepEqual(imported,{...changed,revision:3});
+   const reset=parsed(await app.request(base+'/reset','POST',{expectedRevision:3}));assert.deepEqual(reset,{...initial,revision:4});
+   saved[kind]=parsed(await app.request(base+'/import','POST',{expectedRevision:4,preset}));
+   assert.equal(saved[kind].revision,5);
+  }
+  for(const pathname of ['/api/avatar/assets','/api/frame'])parsed(await app.request(pathname),503);
+  parsed(await app.request('/api/avatar/assets','PUT',{}),503);parsed(await app.request('/api/frame/photos','PUT',{}),503);
+  assert.equal((await app.close()).code,0);
+  const restarted=await f.start(options);
+  for(const kind of ['display','avatar'])assert.deepEqual(parsed(await restarted.request('/api/'+kind)),saved[kind]);
+  assert.deepEqual(restarted.bootstrap.settings,app.bootstrap.settings,'visual settings never expand permissions');
+ }
+});

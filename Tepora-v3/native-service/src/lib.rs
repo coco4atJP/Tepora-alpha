@@ -44,6 +44,11 @@ impl std::error::Error for ApiError {}
 
 #[derive(Debug, Clone)]
 pub enum Operation {
+    Display { action: workspace::VisualAction, body: Value },
+    Avatar { action: workspace::VisualAction, body: Value },
+    DialoguePersonas,
+    DialoguePersonasSave { body: Value },
+    SettingsPatch { body: Value },
     InputsStage {
         body: Value,
     },

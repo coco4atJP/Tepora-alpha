@@ -572,6 +572,15 @@ impl HttpState {
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
         }
+        if let Some(route) = visual_route(&method, path) {
+            let operation = match route {
+                NativeAgentRoute::Ready(operation, _) => operation,
+                NativeAgentRoute::Body(route, _) => {
+                    route.operation(self.read_json(request.into_body()).await?)
+                }
+            };
+            return self.json_operation(operation, 200).await;
+        }
         if self.config.agent && method == Method::GET {
             if let Some((id, action)) = path
                 .strip_prefix("/api/agent/sessions/")
@@ -855,6 +864,10 @@ enum NativeAgentRoute {
     Body(NativeAgentBodyRoute, u16),
 }
 enum NativeAgentBodyRoute {
+    Display(crate::workspace::VisualAction),
+    Avatar(crate::workspace::VisualAction),
+    DialoguePersonas,
+    Preferences,
     Input,
     Spawn,
     Message(String),
@@ -871,6 +884,10 @@ enum NativeAgentBodyRoute {
 impl NativeAgentBodyRoute {
     fn operation(self, body: Value) -> Operation {
         match self {
+            Self::Display(action) => Operation::Display { action, body },
+            Self::Avatar(action) => Operation::Avatar { action, body },
+            Self::DialoguePersonas => Operation::DialoguePersonasSave { body },
+            Self::Preferences => Operation::SettingsPatch { body },
             Self::Input => Operation::AgentInput { body },
             Self::Spawn => Operation::AgentSpawn { body },
             Self::Message(id) => Operation::SessionMessage { id, body },
@@ -888,10 +905,44 @@ impl NativeAgentBodyRoute {
 }
 /// This is an explicit finite route table, not an arbitrary agent command proxy.
 /// Identity, capabilities, revisions and argument validation stay in Workspace.
+fn visual_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
+    use crate::workspace::VisualAction as Action;
+    let (avatar, action) = match (method.as_str(), path) {
+        ("GET", "/api/display") => (false, Action::Get),
+        ("PATCH", "/api/display") => (false, Action::Change),
+        ("POST", "/api/display/undo") => (false, Action::Undo),
+        ("POST", "/api/display/reset") => (false, Action::Reset),
+        ("GET", "/api/display/export") => (false, Action::Export),
+        ("POST", "/api/display/import") => (false, Action::Import),
+        ("GET", "/api/avatar") => (true, Action::Get),
+        ("PATCH", "/api/avatar") => (true, Action::Change),
+        ("POST", "/api/avatar/undo") => (true, Action::Undo),
+        ("POST", "/api/avatar/reset") => (true, Action::Reset),
+        ("GET", "/api/avatar/export") => (true, Action::Export),
+        ("POST", "/api/avatar/import") => (true, Action::Import),
+        _ => return None,
+    };
+    Some(if method == Method::GET {
+        NativeAgentRoute::Ready(if avatar {
+            Operation::Avatar { action, body: Value::Null }
+        } else {
+            Operation::Display { action, body: Value::Null }
+        }, 200)
+    } else {
+        NativeAgentRoute::Body(if avatar {
+            NativeAgentBodyRoute::Avatar(action)
+        } else {
+            NativeAgentBodyRoute::Display(action)
+        }, 200)
+    })
+}
 fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
     use NativeAgentBodyRoute as Body;
     use NativeAgentRoute::{Body as Json, Ready};
     match (method.as_str(), path) {
+        ("GET", "/api/dialogue/personas") => return Some(Ready(Operation::DialoguePersonas, 200)),
+        ("PUT", "/api/dialogue/personas") => return Some(Json(Body::DialoguePersonas, 200)),
+        ("PATCH", "/api/settings") => return Some(Json(Body::Preferences, 200)),
         ("POST", "/api/agent/input") => return Some(Json(Body::Input, 202)),
         ("POST", "/api/agent/spawn") => return Some(Json(Body::Spawn, 202)),
         ("GET", "/api/agent/settings") => return Some(Ready(Operation::AgentSettings, 200)),
@@ -1164,6 +1215,51 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
     use tokio::sync::mpsc;
+    include!("http/visual_tests.rs");
+    #[tokio::test]
+    async fn preference_routes_keep_explicit_native_mode_auth_methods_and_codec() {
+        let fake=Arc::new(Fake::default());let active=agent_state(fake.clone());
+        for (method,path,variant) in [("GET","/api/dialogue/personas","DialoguePersonas"),("PUT","/api/dialogue/personas","DialoguePersonasSave"),("PATCH","/api/settings","SettingsPatch")] {
+            let mut denied=request(method,path,"{bad");denied.headers_mut().remove("cookie");
+            assert_eq!(active.clone().handle(denied).await.status(),401);
+            assert_eq!(state(fake.clone()).handle(request(method,path,"{bad")).await.status(),503);
+            let response=active.clone().handle(request(method,path,r#"{"companion":"x\ud800\ue000","expectedRevision":0}"#)).await;
+            assert_eq!(response.status(),200);
+            assert!(format!("{:?}",fake.calls.lock().unwrap().last().unwrap()).starts_with(variant));
+            if method!="GET" {let value=bytes(response).await;let value=tepora_core::json_codec::parse(std::str::from_utf8(&value).unwrap()).unwrap();assert_eq!(value["companion"],tepora_core::json_codec::parse(r#""x\ud800\ue000""#).unwrap());}
+        }
+        let count=fake.calls.lock().unwrap().len();
+        for (method,path) in [("POST","/api/dialogue/personas"),("PATCH","/api/dialogue/personas"),("PUT","/api/settings"),("GET","/api/settings")] {assert_eq!(active.clone().handle(request(method,path,"{}")).await.status(),404);}
+        let mut denied=request("PUT","/api/dialogue/personas","{bad");denied.headers_mut().remove("x-tepora-csrf");assert_eq!(active.clone().handle(denied).await.status(),403);
+        assert_eq!(fake.calls.lock().unwrap().len(),count);
+    }
+
+
+    #[tokio::test(flavor="multi_thread",worker_threads=2)]
+    async fn preference_http_persona_change_refreshes_the_real_actor_without_replacing_cached_prefix() {
+        use crate::workspace::Workspace;
+        use tepora_core::json_codec;
+        let dir=std::env::temp_dir().join(format!("tepora-preference-http-{}",uuid::Uuid::new_v4()));
+        let workspace=Arc::new(Workspace::open(&dir).unwrap());
+        workspace.enable_agent(tokio::runtime::Handle::current()).unwrap();
+        let access=workspace.access();let main=access.agent_state("main",json!({})).unwrap();let id=main["id"].as_str().unwrap();
+        access.agent_state("session.update",json!({"id":id,"patch":{"system":"stable cached prefix","tools":[],"status":"idle"}})).unwrap();
+        let mut http=agent_state(Arc::new(Fake::default()));Arc::get_mut(&mut http).unwrap().backend=workspace.clone();
+        let response=http.clone().handle(request("PUT","/api/dialogue/personas",r#"{"expectedRevision":0,"character":{"name":"Fixture Persona","instructions":"Use a short response.","allowNetwork":true}}"#)).await;
+        assert_eq!(response.status(),200);let output=bytes(response).await;let output=json_codec::parse(std::str::from_utf8(&output).unwrap()).unwrap();
+        assert_eq!(output["revision"],1);assert!(output["character"].get("allowNetwork").is_none());
+        let updated=access.agent_state("session.get",json!({"id":id})).unwrap();
+        assert_eq!(updated["system"],"stable cached prefix");assert_eq!(updated["tools"],json!([]));assert_eq!(updated["promptStale"],true);
+        assert!(updated["announced"]["system"].as_str().unwrap().contains("Fixture Persona"));
+        let entries=access.agent_state("session.tail",json!({"id":id,"limit":20})).unwrap();
+        assert!(entries.as_array().unwrap().iter().any(|entry|entry["type"]=="notice"&&entry["promptUpdate"]==true&&entry["text"].as_str().is_some_and(|text|text.contains("Fixture Persona"))));
+        let settings=http.clone().handle(request("PATCH","/api/settings",r#"{"companion":"Updated companion","allowNetwork":false,"permissions":"allow"}"#)).await;
+        assert_eq!(settings.status(),200);let body=bytes(settings).await;let body=json_codec::parse(std::str::from_utf8(&body).unwrap()).unwrap();assert_eq!(body["allowNetwork"],false);assert!(body.get("permissions").is_none());
+        assert_eq!(http.clone().handle(request("PUT","/api/dialogue/personas",r#"{"expectedRevision":0}"#)).await.status(),409);
+        let closing=workspace.clone();tokio::task::spawn_blocking(move||closing.shutdown()).await.unwrap().unwrap();
+        drop(http);drop(access);drop(workspace);std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[derive(Default)]
     struct Fake {
         calls: Mutex<Vec<Operation>>,
@@ -1176,6 +1272,10 @@ mod tests {
             self.calls.lock().unwrap().push(op.clone());
             Ok(match op {
                 Operation::MemoryCreate { body }
+                | Operation::Display { body, .. }
+                | Operation::Avatar { body, .. }
+                | Operation::DialoguePersonasSave { body }
+                | Operation::SettingsPatch { body }
                 | Operation::Presence { body }
                 | Operation::Import { body }
                 | Operation::AgentInput { body }

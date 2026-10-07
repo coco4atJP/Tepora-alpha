@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-process-capabilities",
+  "checkpoint": "native-preferences-visual-state",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 33,
+    "implemented": 48,
     "partial": 13,
-    "unavailable": 80
+    "unavailable": 65
   },
   "routes": [
     {
@@ -38,7 +38,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Live provider/capability overlays implemented. Setup/computer/media/display/avatar/photo behavior still incomplete.",
+      "limit": "Live provider/capability overlays implemented. Display/avatar configuration and persona state are supported; setup/computer/media/custom-avatar assets/photo behavior is still incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -322,9 +322,9 @@
       "path": "/api/dialogue/personas",
       "family": "dialogue",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Text/attachments/vision and persona prompt/voice changes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -333,9 +333,9 @@
       "path": "/api/dialogue/personas",
       "family": "dialogue",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Text/attachments/vision and persona prompt/voice changes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -927,9 +927,9 @@
       "path": "/api/display",
       "family": "display",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -938,9 +938,9 @@
       "path": "/api/display",
       "family": "display",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -949,9 +949,9 @@
       "path": "/api/display/undo",
       "family": "display",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -960,9 +960,9 @@
       "path": "/api/display/reset",
       "family": "display",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -971,9 +971,9 @@
       "path": "/api/display/export",
       "family": "display",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -982,9 +982,9 @@
       "path": "/api/display/import",
       "family": "display",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned appearance, undo/reset and validated portable presets is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1048,9 +1048,9 @@
       "path": "/api/settings",
       "family": "settings",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Legacy application settings and network revocation coupling is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Existing application preferences and atomic network revocation coupling are implemented; unknown fields do not grant permissions.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1070,9 +1070,9 @@
       "path": "/api/avatar",
       "family": "avatar",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1081,9 +1081,9 @@
       "path": "/api/avatar",
       "family": "avatar",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1092,9 +1092,9 @@
       "path": "/api/avatar/undo",
       "family": "avatar",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1103,9 +1103,9 @@
       "path": "/api/avatar/reset",
       "family": "avatar",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1114,9 +1114,9 @@
       "path": "/api/avatar/export",
       "family": "avatar",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1125,9 +1125,9 @@
       "path": "/api/avatar/import",
       "family": "avatar",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated avatar selection/look, material/body rules and preset history is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

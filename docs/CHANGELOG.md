@@ -18,6 +18,13 @@
 - Add N-API integration, Rust unit tests and legacy-database regression tests; source builds now require Rust stable and a C linker.
 - The HTTP server, effect/plugin compatibility adapters, network admission/transport, scheduling and UI still remain JavaScript; migration continues. See [scope and verification](../Tepora-v3/docs/RUST-MIGRATION.md).
 
+## Rust native preferences checkpoint
+
+- Connect revisioned persona/voice, application preference and display/avatar recipe state routes to the native Workspace, with live actor prompt refresh and frozen-source parity fixtures
+- Retain the V8 date-parser provenance and full license in native distributions; reject missing/empty notices
+- Verify the migration branch through exact-SHA push CI without duplicate same-branch PR matrices; permissions and normal launch remain unchanged
+- Keep custom avatar assets, photo frames, media and other unported native effects explicitly unavailable
+
 ## [Unreleased]
 
 ### Added
