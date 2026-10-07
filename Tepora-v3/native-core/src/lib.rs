@@ -9,8 +9,9 @@ use serde_json::{json, Map, Value};
 use std::{error::Error, fmt};
 
 mod context;
+pub mod harness;
 pub mod execution;
-mod js_value;
+pub mod js_value;
 pub mod json_codec;
 pub mod projection;
 pub mod protocols;
@@ -668,6 +669,8 @@ pub fn compute_json(operation: &str, payload_json: &str) -> CoreResult<String> {
         context::call(operation, payload)?
     } else if operation.starts_with("tokens.") {
         tokens::call(operation, payload)?
+    } else if operation.starts_with("harness.") {
+        harness::call(operation, &payload)?
     } else if operation.starts_with("ui.") {
         projection::call(operation, payload)?
     } else {

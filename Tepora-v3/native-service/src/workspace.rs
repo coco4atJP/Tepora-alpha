@@ -1,4 +1,7 @@
 //! One state/event authority. This developmental workspace runs no external effects.
+mod agent_state;
+mod native_operations;
+mod tools_state;
 use crate::{ApiError, Backend, EventRequest, EventSubscription, Operation, Reply, ServiceEvent};
 use chrono::{Duration, SecondsFormat, Utc};
 use serde_json::{json, Map, Value};
@@ -6,14 +9,28 @@ use std::{
     collections::HashMap,
     env, fs,
     path::{Path, PathBuf},
-    sync::{Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
 };
 use tepora_core::{json_codec, projection, store_domain, NativeState};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
 pub struct Workspace {
-    state: Mutex<State>,
+    state: Arc<Mutex<State>>,
+    native: OnceLock<NativeResources>,
+    probe_cancel: Mutex<crate::network::RequestCancellation>,
+}
+struct NativeResources {
+    agent: crate::agent::AgentHandle,
+    provider: crate::provider::ProviderRuntime,
+    network: crate::network::NativeNetwork,
+    runtime: tokio::runtime::Handle,
+}
+/// Narrow shared access to the same database owner, without a reference back
+/// to Workspace or its runtime resources. No guard escapes a synchronous call.
+#[derive(Clone)]
+pub struct WorkspaceAccess {
+    state: Arc<Mutex<State>>,
 }
 struct State {
     db: NativeState,
@@ -24,6 +41,8 @@ struct State {
     subscribers: HashMap<u64, mpsc::Sender<ServiceEvent>>,
     next_subscriber: u64,
     closed: bool,
+    closing: bool,
+    native_agent: bool,
 }
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
@@ -255,6 +274,8 @@ impl Workspace {
             subscribers: HashMap::new(),
             next_subscriber: 0,
             closed: false,
+            closing: false,
+            native_agent: false,
         };
         s.call("exec", json!({"sql":"BEGIN IMMEDIATE"}))?;
         let result = (|| {
@@ -335,13 +356,118 @@ impl Workspace {
             s.put("skill",json!({"id":"artifact-studio","name":"Artifact studio","description":"成果物を早く公開し、同じIDで段階的に更新する。","content":"# Artifact studio\nPublish a first useful HTML or Markdown artifact early, then revise it with artifact edit.","enabled":true,"source":"builtin","createdAt":now()}))?;
         }
         Ok(Self {
-            state: Mutex::new(s),
+            state: Arc::new(Mutex::new(s)),
+            native: OnceLock::new(),
+            probe_cancel: Mutex::new(crate::network::RequestCancellation::new()),
         })
     }
     fn lock(&self) -> Result<MutexGuard<'_, State>, ApiError> {
         self.state
             .lock()
             .map_err(|_| ApiError::new(500, "State owner unavailable"))
+    }
+    pub fn access(&self) -> WorkspaceAccess {
+        WorkspaceAccess {
+            state: self.state.clone(),
+        }
+    }
+    pub fn enable_agent(&self, runtime: tokio::runtime::Handle) -> Result<(), ApiError> {
+        require(
+            self.native.get().is_none(),
+            409,
+            "Native agent is already enabled",
+        )?;
+        let (dir, policy) = {
+            let mut s = self.lock()?;
+            (s.dir.clone(), s.value("network-policy")?)
+        };
+        match fs::read_dir(dir.join("plugins")) {
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = entry.map_err(error)?;
+                    if entry.file_name().to_string_lossy().ends_with(".mjs") {
+                        return Err(ApiError::unavailable(
+                            "Configured JavaScript plugins require the compatibility host",
+                        ));
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(error(e)),
+        }
+        let network = crate::network::NativeNetwork::new(
+            crate::network::NetworkPolicy::from_value(&policy).map_err(ApiError::from)?,
+        );
+        let provider =
+            crate::provider::ProviderRuntime::new(Arc::new(self.access()), network.clone());
+        let host = Arc::new(crate::agent::host::NativeAgentHost::new(
+            self.access(),
+            provider.clone(),
+            network.clone(),
+        )?);
+        host.preflight()?;
+        host.recover()?;
+        let agent = crate::agent::AgentCoordinator::start(host, runtime.clone())?;
+        self.native
+            .set(NativeResources {
+                agent: agent.clone(),
+                provider,
+                network,
+                runtime,
+            })
+            .map_err(|_| ApiError::new(409, "Native agent was enabled concurrently"))?;
+        self.lock()?.native_agent = true;
+        agent.request(crate::agent::AgentRequest::Initialize)?;
+        Ok(())
+    }
+    fn cancel_probes(&self) -> Result<(), ApiError> {
+        let mut token = self
+            .probe_cancel
+            .lock()
+            .map_err(|_| ApiError::new(500, "Probe cancellation owner unavailable"))?;
+        let old = std::mem::replace(&mut *token, crate::network::RequestCancellation::new());
+        old.cancel();
+        Ok(())
+    }
+}
+impl WorkspaceAccess {
+    fn lock(&self) -> Result<MutexGuard<'_, State>, ApiError> {
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| ApiError::new(500, "State owner unavailable"))?;
+        require(!state.closed, 503, "Workspace is closed")?;
+        Ok(state)
+    }
+}
+impl crate::provider::ProviderState for WorkspaceAccess {
+    fn value(&self, key: &str) -> Result<Option<Value>, ApiError> {
+        let value = self.lock()?.value(key)?;
+        Ok((!value.is_null()).then_some(value))
+    }
+    fn set_value(&self, key: &str, value: Value) -> Result<(), ApiError> {
+        self.lock()?.set_value(key, value)
+    }
+    fn set_values(&self, values: &[(String, Value)]) -> Result<(), ApiError> {
+        self.agent_batch(
+            &values
+                .iter()
+                .map(|(key, value)| ("kv.set".into(), json!({"key":key,"value":value})))
+                .collect::<Vec<_>>(),
+        )
+        .map(|_| ())
+    }
+    fn get(&self, collection: &str, id: &str) -> Result<Option<Value>, ApiError> {
+        let value = self.lock()?.get(collection, id)?;
+        Ok((!value.is_null()).then_some(value))
+    }
+    fn put(&self, collection: &str, value: Value) -> Result<(), ApiError> {
+        self.lock()?.put(collection, value).map(|_| ())
+    }
+    fn emit(&self, event: &str, data: Value) -> Result<(), ApiError> {
+        let mut state = self.lock()?;
+        let value = state.call("event.append", json!({"type":event,"data":data,"at":now()}))?;
+        state.publish_value(value)
     }
 }
 impl State {
@@ -584,7 +710,7 @@ impl State {
             })
             .collect::<Vec<_>>());
         s["sandbox"] = sandbox();
-        s["nativeHost"] = json!({"development":true,"mode":"local-workspace","nodeRequired":false,"agentExecution":false,"externalEffects":false});
+        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["process execution","web tools","MCP","media","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
         Ok(s)
     }
     fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {
@@ -661,9 +787,13 @@ fn ram_bytes() -> Option<u64> {
 }
 impl Backend for Workspace {
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError> {
+        if let Some(reply) = self.execute_native(&operation)? {
+            return Ok(reply);
+        }
+        let bootstrap = matches!(&operation, Operation::Bootstrap);
         let mut s = self.lock()?;
-        require(!s.closed, 503, "Service closing")?;
-        let value=match operation{
+        require(!s.closed && !s.closing, 503, "Service closing")?;
+        let mut value=match operation{
    Operation::Bootstrap=>{
     let mut v=s.snapshot()?;let settings=s.settings()?;
     let first=s.list("session")?.into_iter().find(|s|s["kind"]!="main"&&matches!(s["status"].as_str(),Some("done"|"idle"))&&truth(&s["result"]));
@@ -701,18 +831,28 @@ impl Backend for Workspace {
    Operation::RenderArtifact{id,version}=>{
     let current=s.artifact(&id,None)?;if let Some(v)=version{require(v>0&&v<=crate::MAX_SAFE_INTEGER,400,"Invalid revision")?;}
     let doc=if version.is_none(){current}else{s.artifact(&id,version)?};let interactive=s.agent_settings()?["sandbox"]["mode"]=="off";
-    return Ok(Reply::Render{kind:doc["kind"].as_str().unwrap_or("text").into(),content:json_codec::sql_text(doc["content"].as_str().unwrap_or("")),interactive});
+    return Ok(Reply::Render{kind:doc["kind"].as_str().unwrap_or("text").into(),content:doc["content"].as_str().unwrap_or("").into(),interactive});
    },
    Operation::Export=>s.domain("store.export",json!({}))?,
    Operation::Import{body}=>s.domain("store.import",json!({"bundle":body}))?,
    Operation::Presence{body}=>{require(matches!(body["state"].as_str(),Some("present"|"away")),400,"Invalid presence")?;s.set_value("presence",json!({"state":body["state"],"at":now()}))?;json!({"presence":body["state"]})},
    Operation::Doctor=>{let providers=s.providers()?;json!({"platform":platform(),"arch":arch(),"ramBytes":ram_bytes(),"cpuThreads":std::thread::available_parallelism().map(|n|n.get()).unwrap_or(1),"sandbox":sandbox(),"providers":providers["profiles"].as_array().unwrap_or(&Vec::new()).iter().map(|p|pick(p,&["id","model","domain","limits"])).collect::<Vec<_>>(),"note":"Rust開発用ローカル作業領域。モデル・GPU・外部操作の動作確認ではありません。","dataLocation":s.dir.to_string_lossy(),"workRoot":s.work_root.to_string_lossy(),"nativeDevelopment":true})},
+   _=>return Err(ApiError::unavailable("Native operation was not dispatched")),
   };
+        drop(s);
+        if bootstrap {
+            if let Some(native) = self.native.get() {
+                value["providers"] = native.provider.public_snapshot()?;
+                value["setup"]["configured"] = json!(native.provider.configured()?);
+                value["setup"]["note"]=json!("Rust開発版: 会話・作業エージェントと対応ツールを実行します。未移行の外部機能は利用できません。");
+                value["nativeHost"]["networkDiagnostics"] = json!(native.network.diagnostics());
+            }
+        }
         Ok(Reply::Json(value))
     }
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError> {
         let mut s = self.lock()?;
-        require(!s.closed, 503, "Service closing")?;
+        require(!s.closed && !s.closing, 503, "Service closing")?;
         let events = s
             .call("event.replay", json!({"since":request.since}))?
             .as_array()
@@ -756,16 +896,103 @@ impl Backend for Workspace {
         }
     }
     fn stop(&self) -> Result<(), ApiError> {
+        self.cancel_probes()?;
+        if let Some(native) = self.native.get() {
+            // Tray Stop matches the compatibility sidecar: only currently
+            // active non-main runs stop. Resident conversation, idle workers
+            // and completed transcripts keep their state. Their individual
+            // run scopes cancel provider calls; a global cancellation here
+            // would also interrupt the resident main inference.
+            let sessions = self.lock()?.list("session")?;
+            for session in sessions {
+                if session["kind"] == "main" {
+                    continue;
+                }
+                let id = session["id"].as_str().unwrap_or("");
+                if native.agent.state(id)?["runtime"]["active"] == true {
+                    native.agent.request(crate::agent::AgentRequest::Stop {
+                        id: id.into(),
+                        reason: "stopped from the tray".into(),
+                        rearm_main: false,
+                    })?;
+                }
+            }
+        }
+        Ok(())
+    }
+    fn begin_shutdown(&self) -> Result<(), ApiError> {
+        self.lock()?.closing = true;
+        self.cancel_probes()?;
+        if let Some(native) = self.native.get() {
+            native.agent.begin_close();
+            native.provider.close();
+        }
         Ok(())
     }
     fn shutdown(&self) -> Result<(), ApiError> {
+        self.begin_shutdown()?;
+        if let Some(native) = self.native.get() {
+            native.agent.begin_close().wait()?;
+        }
         self.lock()?.close()
+    }
+    fn probe_cancellation(&self) -> crate::network::RequestCancellation {
+        match self.probe_cancel.lock() {
+            Ok(token) => token.clone(),
+            Err(_) => {
+                let token = crate::network::RequestCancellation::new();
+                token.cancel();
+                token
+            }
+        }
+    }
+    fn execute_probe(
+        &self,
+        id: String,
+        cancel: crate::network::RequestCancellation,
+    ) -> Result<Reply, ApiError> {
+        self.run_probe(&id, cancel).map(Reply::Json)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn provider_registry_and_key_pruning_commit_as_one_state_batch() {
+        let dir = env::temp_dir().join(format!("tepora-native-provider-atomic-{}", Uuid::new_v4()));
+        let workspace = Workspace::open(&dir).unwrap();
+        let access = workspace.access();
+        crate::provider::ProviderState::set_values(
+            &access,
+            &[
+                ("provider-keys".into(), json!({"fixture":"old-test-key"})),
+                ("provider-registry".into(), json!({"revision":1})),
+            ],
+        )
+        .unwrap();
+        workspace.lock().unwrap().call("exec",json!({"sql":"CREATE TRIGGER reject_registry BEFORE INSERT ON kv WHEN NEW.key='provider-registry' BEGIN SELECT RAISE(ABORT,'fixture rejected registry'); END"})).unwrap();
+        assert!(crate::provider::ProviderState::set_values(
+            &access,
+            &[
+                ("provider-keys".into(), json!({})),
+                ("provider-registry".into(), json!({"revision":2}))
+            ]
+        )
+        .is_err());
+        assert_eq!(
+            crate::provider::ProviderState::value(&access, "provider-keys").unwrap(),
+            Some(json!({"fixture":"old-test-key"}))
+        );
+        assert_eq!(
+            crate::provider::ProviderState::value(&access, "provider-registry").unwrap(),
+            Some(json!({"revision":1}))
+        );
+        workspace.shutdown().unwrap();
+        drop(workspace);
+        drop(access);
+        fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn malformed_saved_configuration_returns_errors_without_poisoning_state() {
         for key in ["provider-registry", "capabilities", "dialogue-personas"] {

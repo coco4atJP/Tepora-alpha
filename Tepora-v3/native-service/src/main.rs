@@ -31,6 +31,7 @@ fn data_dir() -> PathBuf {
         home.join(".local/share/tepora-v3")
     }
 }
+#[derive(Debug)]
 struct Options {
     data: PathBuf,
     web: PathBuf,
@@ -38,8 +39,12 @@ struct Options {
     port: u16,
     sidecar: bool,
     open: bool,
+    agent: bool,
 }
 fn options() -> Result<Options, ApiError> {
+    options_from(env::args().skip(1))
+}
+fn options_from(arguments: impl IntoIterator<Item = String>) -> Result<Options, ApiError> {
     let mut data = data_dir();
     let mut web = env::var_os("TEPORA_WEB_DIR")
         .map(PathBuf::from)
@@ -49,16 +54,16 @@ fn options() -> Result<Options, ApiError> {
         .unwrap_or_else(|_| "0".into())
         .parse::<u16>()
         .map_err(|_| ApiError::bad_request("Invalid TEPORA_PORT"))?;
-    let (mut dev, mut sidecar, mut open) = (false, false, false);
-    let mut args = env::args().skip(1);
+    let (mut dev, mut sidecar, mut open, mut agent) = (false, false, false, false);
+    let mut args = arguments.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str(){
-  "--dev-native"=>dev=true,"--sidecar"=>sidecar=true,"--open"=>open=true,
+  "--dev-native"=>dev=true,"--agent"=>agent=true,"--sidecar"=>sidecar=true,"--open"=>open=true,
   "--data-dir"=>data=PathBuf::from(args.next().ok_or_else(||ApiError::bad_request("--data-dir requires a path"))?),
   "--web-dir"=>web=PathBuf::from(args.next().ok_or_else(||ApiError::bad_request("--web-dir requires a path"))?),
   "--bundle"=>bundle=Some(PathBuf::from(args.next().ok_or_else(||ApiError::bad_request("--bundle requires a path"))?)),
   "--port"=>port=args.next().ok_or_else(||ApiError::bad_request("--port requires a number"))?.parse().map_err(|_|ApiError::bad_request("Invalid port"))?,
-  "--help"|"-h"=>return Err(ApiError::new(400,"Development service: --dev-native [--sidecar] [--open] [--port N] [--data-dir PATH] [--web-dir PATH] [--bundle PATH]")),
+  "--help"|"-h"=>return Err(ApiError::new(400,"Development service: --dev-native [--agent] [--sidecar] [--open] [--port N] [--data-dir PATH] [--web-dir PATH] [--bundle PATH]")),
   _=>return Err(ApiError::bad_request(format!("Unknown argument: {arg}"))),
  }
     }
@@ -73,6 +78,7 @@ fn options() -> Result<Options, ApiError> {
         port,
         sidecar,
         open,
+        agent,
     })
 }
 #[derive(Debug)]
@@ -184,9 +190,17 @@ async fn run() -> Result<(), ApiError> {
             ),
         )
     })?;
-    let backend: Arc<dyn Backend> = Arc::new(Workspace::open(&options.data)?);
+    let workspace = Workspace::open(&options.data)?;
+    if options.agent {
+        if let Err(error) = workspace.enable_agent(tokio::runtime::Handle::current()) {
+            let _ = workspace.shutdown();
+            return Err(error);
+        }
+    }
+    let backend: Arc<dyn Backend> = Arc::new(workspace);
     let mut config = HttpConfig::new(options.web, options.bundle);
     config.port = options.port;
+    config.agent = options.agent;
     let server = match Server::bind(config, backend.clone()).await {
         Ok(server) => server,
         Err(error) => {
@@ -206,7 +220,7 @@ async fn run() -> Result<(), ApiError> {
     };
     println!(
         "{}",
-        serde_json::json!({"type":"ready","url":url,"version":VERSION,"mode":"native-workspace-development"})
+        serde_json::json!({"type":"ready","url":url,"version":VERSION,"mode":if options.agent{"native-agent-development"}else{"native-workspace-development"}})
     );
     std::io::stdout()
         .flush()
@@ -261,5 +275,55 @@ fn main() {
     if let Err(error) = result {
         eprintln!("Tepora native service: {error}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn parse(args: &[&str]) -> Result<Options, ApiError> {
+        options_from(args.iter().map(|v| (*v).to_owned()))
+    }
+    #[test]
+    fn agent_mode_is_explicit_and_still_requires_development_opt_in() {
+        assert!(parse(&[]).is_err());
+        assert!(parse(&["--agent"]).is_err());
+        let offline = parse(&["--dev-native"]).unwrap();
+        assert!(!offline.agent);
+        let agent = parse(&["--dev-native", "--agent"]).unwrap();
+        assert!(agent.agent);
+        let reversed = parse(&["--agent", "--dev-native", "--sidecar", "--port", "0"]).unwrap();
+        assert!(reversed.agent);
+        assert!(reversed.sidecar);
+        assert_eq!(reversed.port, 0);
+        assert!(parse(&["--dev-native", "--unknown"]).is_err());
+    }
+    #[test]
+    fn ordinary_options_and_help_remain_compatible() {
+        let options = parse(&[
+            "--dev-native",
+            "--data-dir",
+            "example-data",
+            "--web-dir",
+            "example-web",
+            "--bundle",
+            "bundle.js",
+            "--port",
+            "1234",
+            "--open",
+        ])
+        .unwrap();
+        assert_eq!(options.data, PathBuf::from("example-data"));
+        assert_eq!(options.web, PathBuf::from("example-web"));
+        assert_eq!(options.bundle, PathBuf::from("bundle.js"));
+        assert_eq!(options.port, 1234);
+        assert!(options.open);
+        assert!(!options.agent);
+        assert!(parse(&["--help"])
+            .unwrap_err()
+            .message
+            .contains("[--agent]"));
+        assert!(parse(&["--dev-native", "--port"]).is_err());
+        assert!(parse(&["--dev-native", "--port", "65536"]).is_err());
     }
 }

@@ -1,75 +1,81 @@
 # Tepora V3 — 3.0.0-beta.11 architecture
 
-> **2026-10-07:** The agent parts of this document describe beta.11 (protected execution, Codex, routines, effect receipts). The agent runtime has since been rebuilt; see [AGENT-HARNESS.md](AGENT-HARNESS.md) for the current design.
+The current application has a shared Rust core and two service hosts. Normal `npm start` and Tauri use the Node ESM compatibility host with the existing feature set. The opt-in `native-service --dev-native --agent` path runs supported conversation and worker effects in Rust; `--dev-native` alone remains the local-workspace-only mode. This is not a default or desktop cutover, and the web UI remains JavaScript/CSS.
 
-V3 is the default application on this branch. SQLite persistence is now owned by the Rust `native-core` library, with synchronous N-API domain operations used by the Node ESM loopback service. Canonical context assembly, token accounting and provider request/response state machines also run in Rust. The inner model/tool execution state machine is Rust-owned; a correlated JavaScript effect driver runs network/tool/plugin callbacks. Outer admission, retry timers, stop/resume drainage and completion decisions are also Rust-owned. JavaScript retains handle adapters, scheduling, network admission, HTTP transport and remaining built-in effects. An explicit developmental native-service now owns standalone HTTP/auth/SSE and local workspace routes without Node; unported effects return 503 there, while normal launch keeps all existing features. UI projections and workspace import/export validation are shared Rust domains. The application retains a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
+This document describes the rebuilt session harness and stage-6 native host. [AGENT-HARNESS](AGENT-HARNESS.md) describes the current session model; [Rust migration](RUST-MIGRATION.md) records staged validation. Older protected/legacy-host capsule descriptions in [BETA11](BETA11.md) are historical and do not define the current `sandbox.mode` default or native capabilities.
 
 ```mermaid
 flowchart TD
-    UI[Persistent character conversation and artifact UI] --> API[Authenticated loopback service]
-    Native[Tauri host and Node sidecar] --> API
-    API --> Dialogue[Dialogue: character session and persona snapshots]
-    Dialogue --> Chat[Foreground conversation lane]
-    Chat --> Handoff[Bounded sourced worker handoff]
-    Handoff --> Harness[Independent asynchronous worker jobs]
-    Harness --> Bus[Revisioned progress, questions and results]
-    Bus --> Dialogue
-    API --> Store[SQLite state, versions and operation receipts]
-    Harness --> Providers[ProviderRegistry and capability adapters]
-    Providers --> Network[Destination and network policy]
-    Harness --> Builtin[Trusted built-in API, file and artifact tools]
-    Harness --> Execution[Execution control plane]
-    Execution --> Capsule[Immutable JSON capsule with source hashes]
-    Capsule --> Docker[Approved restricted Docker executor]
-    Docker --> Staged[Untrusted staged artifact candidate]
-    Staged --> Review[Exact content and version confirmation]
-    Review --> Promote[Transactional artifact promotion]
-    Promote --> Store
-    Execution --> Journal[Append-only SQLite execution journal]
-    Harness --> Legacy[Explicit legacy-host integrations]
+    UI[JavaScript and CSS web UI] --> Node[Node compatibility service]
+    UI --> Native[Opt-in native HTTP host]
+    Desktop[Tauri with packaged Node sidecar] --> Node
+    Node --> Core[Shared Rust state and reducers]
+    Native --> Workspace[Single Workspace SQLite owner and projections]
+    Workspace --> Core
+    Native --> Actor[FIFO agent coordinator]
+    Actor --> Runtime[RuntimeEngine: admission and lifecycle]
+    Actor --> Execution[ExecutionEngine: model and tool phases]
+    Actor --> Host[Scoped native effects and owned snapshots]
+    Host --> Provider[ProviderRuntime and native network transport]
+    Host --> Tools[17 native built-ins and immutable approvals]
+    Host --> Harness[Pure prompts, context, compaction and metacognition]
+    Host --> Workspace
+    Node --> Compatibility[Remaining tools, hooks, capabilities and schedulers]
 ```
 
-## Service and persistence
+## HTTP, state and event ownership
 
-`core/server.mjs` binds to `127.0.0.1`. A one-time launch token establishes an HttpOnly, SameSite cookie. Host/Origin checks, CSRF tokens and CSP control service access. UI and API share one origin. The browser receives no unrestricted native shell/filesystem capability.
+`core/server.mjs` is the ordinary loopback service. `native-service/src/http.rs` independently implements the authenticated listener, launch token/cookie flow, CSRF and Host/Origin checks, body bounds, static allowlist/CSP and SSE. It is not a reverse proxy to Node. Both hosts retain the service-owner lease and reject another live owner of the same data directory.
 
-`native-core` owns SQLite documents, settings, events, FTS persistence, session transcripts/evidence/inboxes and atomic artifact revisions. `core/store.mjs` and `core/agent/sessions.mjs` are compatibility facades for validation, JavaScript callbacks, search tokenization and import/export normalization. Service-owner PID liveness checking remains in the facade. All operations and compatibility transactions use one Rust-owned connection. See [Rust migration](RUST-MIGRATION.md). Running work becomes interrupted after restart; startup does not automatically dispatch stopped work or replay uncertain effects. V3 data are separate from V2. The source service's data directory and the Tauri host's application directory may differ. SQLite is not encrypted.
+`native-core` owns SQLite documents/settings, FTS persistence, events, session transcripts/evidence/inboxes, and atomic artifact revisions. `store_domain.rs` shares workspace validation, indexing and import/export normalization; `projection.rs` shares UI snapshots and derived events. The Node `Store` and `SessionStore` facades retain their public callback and JavaScript compatibility behavior. The native `WorkspaceAccess` facade exposes narrow state operations and commit batches using the same single connection; provider caches, approvals and tools do not create another database owner.
 
-Context import assigns fresh IDs, remaps routine last-job references only to jobs in the same import, and clears missing references. Imported routines remain disabled. Explicitly re-enabling a routine clears its link to a resume-blocked imported job and schedules future occurrences; the imported job remains blocked. Routine references are escaped when rendered, including older stored values. Privileged form submissions require the actual live form element registered by the code-owned shell or sheet; a matching HTML ID does not grant access.
+State batches commit before their events are published. UI-derived projections precede their source event. SSE replay/snapshot choice and live subscription registration share the state lock, with bounded subscriber queues and write deadlines. No SQLite lock is held across provider/file I/O or an approval wait.
 
-## Conversation and handoffs
+Context import assigns fresh IDs, remaps references and cannot restore execution authority: memories are private/unconfirmed, imported skills/routines remain disabled, jobs remain interrupted/resume-blocked and dialogue archives remain read-only. Existing databases and unknown document fields are preserved rather than converted or deleted. SQLite is not encrypted; the source-service and desktop data directories may differ.
 
-`Dialogue` owns a durable character session, messages and separate character/worker persona settings. Job navigation in `Companion` is presentation only. Each foreground turn can submit work through `Requests`/`Harness` without waiting for the worker to finish.
+## Sessions and native coordination
 
-A worker has its own job, pinned persona, input grants, provider route and revisions. Current utterance, goal, user decisions and selected prior sources remain distinguishable. Selected history is bounded and limited to the already authorized same recipient. Source IDs, hashes and task revisions are checked before sending and executing. Model plans and worker output never create permissions.
+The resident main session and independent worker sessions have append-only logs, ordered inboxes, personas, working folders, toolsets, state and usage. Worker progress is a passive parent notification; a final report is an ordinary follow-up message. Visibility follows the existing main/parent/descendant rules. Input headers identify provenance and use the process-local timezone. Model output, persona text and received reports are data, not new authority.
 
-Worker notifications and questions are revisioned and idempotent. Explicit question IDs prevent ordinary conversation from answering unrelated worker questions. Results are retrieved only within their recipient/consent scope; sharing across recipients requires an exact bounded excerpt grant. Cancellation and revised instructions invalidate stale approvals and question targets.
+`native-core/src/runtime.rs` owns admission, capacity, epochs, timers, retries, auxiliary leases, completion checks and stop/resume. `execution.rs` owns prompt/budget/context phases, model failure handling, tool grouping, approvals and ordered receipts. `native-service/src/agent/coordinator.rs` drives both reducers on one FIFO actor. A service ID, session ID, runtime epoch, execution generation and operation ID identify continuations; effect workers return owned values or scoped state requests instead of recursively entering the reducers.
 
-## Providers and capabilities
+Stop cancels inference and approval waits, rejects work not yet dispatched and drains actual dispatched tool outcomes in model order. Resume waits for the old lease to drain. HTTP Stop All stops active work and rearms the main session; tray/sidecar Stop cancels active workers and native HTTP probes while preserving the resident main inference. Close withdraws approvals, drains commands/receipts and closes network/provider resources before releasing Workspace/SQLite ownership. Restart writes an unknown-outcome receipt for interrupted tool calls rather than replaying their side effects.
 
-`ProviderRegistry` pins named endpoint identities and role routes. `native-core/src/protocols.rs` encodes canonical requests and decodes streamed responses; `core/provider-protocols.mjs` retains HTTP transport, cancellation, framing, headers and the public error API. Opaque provider-native replay stays bound to its exact provider identity. `native-core/src/context.rs` and `tokens.rs` render stable model context and estimate its budget. Text protocols include Chat Completions, Responses, Anthropic and Gemini adapters. Typed decisions, embeddings, TTS, image/edit and video generation use separate capability adapters. Protocol support does not certify every provider, account or model.
+The Node host still supplies callbacks, timers and effects through `core/agent/loop.mjs` and `runtime-host.mjs`. It uses the same Rust decision engines; its remaining JavaScript effects have not been removed by adding the native path.
 
-`NetworkPolicy` gates admission by online / trusted-lan / offline mode and the job's allowed destinations. It is not an OS firewall and does not control an independently forwarding inference server. Modes and route changes do not silently widen a saved task's destinations. Recovery retries only eligible model/provider-blocked work without uncertain effects.
+## Providers, network and budgets
 
-Model-controlled `web_fetch` uses the `public-web` purpose: online mode, internet-tool consent, HTTPS and exclusively public DNS addresses are required. Loopback, LAN and reserved destinations are rejected, checked addresses are pinned and redirects are not followed. Explicit local inference, legacy-host HTTP MCP and configured local RSS retain their separate integration scopes.
+`native-core/src/protocols.rs` handles canonical request/response state machines and provider-native replay tied to exact identities. Native `provider.rs` and `network.rs` implement registry profiles/routes, destination admission, DNS/TLS, UTF-8/SSE/NDJSON framing, cancellation, resource/slot leases, limit discovery, retries, compatibility learning and safe errors. Chat Completions, Responses, Anthropic and Gemini are supported, plus discovered native Ollama transport. The Node compatibility path retains its existing provider/network adapters.
 
-`MediaJobs` separates accepted, pending, unknown and ready media states and preserves received bytes with hashes. `SemanticMemory` keeps source scope and consent checks with lexical fallback. `ToolHub` separates importing MCP configuration from starting selected connections; host execution is gated by legacy-host mode.
+The network policy distinguishes online, trusted-LAN and offline destinations. It is not an OS firewall and cannot constrain a separately forwarding inference server. Provider configuration changes invalidate affected active operations. Protocol support and deterministic fixtures do not certify every remote account, model, hardware configuration or real-model quality.
 
-## beta.11 execution boundary
+`context.rs` and `tokens.rs` build stable model context, clear/supersede old results, repair call/result sequences and account for tool definitions, images and calibration. Unicode16/17 token estimates are explicit inputs; the native host uses Unicode17 consistently. Role selection, reserve calculation and overflow retries remain compatible with the original harness.
 
-`Execution` defaults to **protected**. Trusted built-in model/API/file/artifact tools remain usable without Docker. Host CLI, Codex, MCP, Computer Use, browser code execution and runtime launchers are unavailable through the protected execution lane.
+Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability effects are unported; a saved `capabilities.routes.decision` route rejects native-agent preflight rather than silently changing delegation or completion behavior to an unavailable decision model.
 
-`executor_run` serializes a bounded immutable capsule to a preinstalled, explicitly approved digest-pinned Node image. `DockerExecutor` uses no network or host mounts, non-root execution, a read-only root, bounded temporary storage/CPU/memory/processes, dropped capabilities and no-new-privileges. It never pulls an image or falls back to host execution.
+## Prompts, compaction and self-checks
 
-Operation starts/results and capsule provenance go into an append-only SQLite journal. Executor output is untrusted and staged. Exact hash, source version, task revision and consent epoch must match before transactional promotion; the original artifact version is retained. Promotion is separate from task acceptance and independent content verification.
+`native-core/src/harness/` ports result shaping, the actual lightweight schema subset and JSON repair, persona/voice prompts, all harness notices, ledger folding, summary validation, chapters, identifier recovery and metacognition. It has no store, filesystem, network or clock effects. JSON boundaries preserve property ordering, JavaScript number semantics and isolated UTF-16 surrogates. Frozen JavaScript lives only in differential test fixtures.
 
-Crash, abort, lost response and unconfirmed cleanup are recorded as uncertain. Reconciliation is explicit and does not prove external effects were undone. Switching execution modes requires stopping active jobs/queues and known host workers.
+`agent/context.rs` handles cached prompts, append-only instruction updates, budgets and real asynchronous compaction. It attempts an in-context summary, then rolling compaction-route summaries, then the existing deterministic fallback if model summarization fails. Previous facts, exact ledgers and permanent chapter provenance survive; a cancelled operation cannot return a checkpoint for commit. The actor commits the checkpoint/notice, increments statistics and refreshes the prompt only for the current operation.
 
-Explicit **legacy-host** enables existing host integrations and interactive HTML artifact previews. It can access core files and backups and is not an OS sandbox. Protected artifact previews escape generated HTML. Standalone exported previews are interactive files, not an isolation boundary.
+`agent/metacognition.rs` applies repetition/error notices and real escalation/deescalation before rereading the session for a measured self-check. Stuck-parent reports use ordinary passive send semantics and per-reason deduplication. `reflect` records model-stated beliefs separately from measured facts. Memory updates are published only after their corresponding effects succeed.
 
-## Stacked approvals and presence
+## Tools, approvals and current execution boundary
 
-`Harness` decides inline when someone answers within a presence window (about 90 s while the person is present; no window while away, which `server.mjs` assumes when no page is connected). Otherwise a stackable operation (`run_command`, `mcp_call`, `mcp_tools`, `computer_open`, media generation, capability disclosure) becomes a pending `approval` record bound to the job revision, consent epoch and an argument digest, and the worker receives `{deferred, notExecuted}`. When only dependent work remains the job is parked (`waiting_approval`, `parked: true`) and frees its slot; parked jobs survive restarts. A later decision replays exactly the approved call through the normal dispatch, effect receipt and broker grant, or reports the refusal. Steering, pausing, cancelling or a consent change withdraws or invalidates pending requests. Live screen operations and Codex sessions stay interactive and pause the job when unanswered.
+The native catalog implements `sessions_spawn`, `sessions_send`, `sessions_list`, `sessions_history`, `sessions_stop`, `read`, `write`, `edit`, `todo`, `reflect`, `artifact`, `recall`, `history_search`, `memory_search`, `memory_write`, `tools_search` and `tools_call`. Fixed main/worker/lean sets preserve order and include only implemented/enabled definitions. Native memory search uses the existing lexical fallback. Image reads/vision bridging and MCP indirection remain unavailable.
+
+Policy matching preserves first-rule ordering, wildcard/prefix/exact names and validated ECMAScript-compatible UTF-16 regex matching. `agent/approvals.rs` persists immutable approved arguments, coordinates actor-owned decisions and withdraws stale requests. Approval wait futures do not write state. Late decisions, altered approval documents and stopped runs cannot authorize dispatch. Actual results and evidence are recorded once, in model order, with truncation/recall references, error/not-executed/interrupted distinctions, read references and usage statistics.
+
+The current `core/sandbox.mjs` default is **`off`**, with optional `workspace`, `readonly` and `container` configurations. This migration preserves those settings and existing file guards; it does not revive the former protected/legacy-host capsule architecture. Native `exec`/process execution is unavailable, not an unrestricted fallback for an unimplemented sandbox.
+
+File tools preserve path resolution, freshness checks and read-before-overwrite behavior. Their serialization key is a lexically resolved path, not inode/canonical identity: symlink/hardlink aliases can race. Configured confinement rejects final symlinks and canonical parents outside writable roots, but does not establish complete safety against concurrent ancestor renames. Neither writable-root checks nor network policy should be described as a complete OS sandbox.
+
+## Native admission and remaining effects
+
+Native mode fails preflight for configured global `.mjs` plugins, a capability decision route, enabled heartbeat or saved schedule documents. Cached unsupported toolsets are diagnosed before model use, including resumed sessions. Absent hooks can use identity behavior; configured hooks cannot silently become no-ops. New native prompts explicitly describe unavailable capabilities, and known unimplemented APIs fail clearly.
+
+Process execution, web tools, `find`/`grep`, MCP, skills execution, image ingestion, media/speech, Computer Use, capability services, schedules/heartbeat/dream optimization, JavaScript plugins and remaining setup/avatar/photo/peripheral mutations still use the compatibility service. Their saved data are retained. [Native host setup and limits](../native-service/README.md) lists the supported mode and routes. Neither the default launcher nor Tauri has been switched to the native service.
 
 ## Companion monitor UI
 
@@ -81,6 +87,6 @@ On ホーム the conversation column collapses to its message box, placed under 
 
 ## Desktop, speech and verification
 
-The Tauri host bundles an unmodified Node runtime, the compiled Rust persistence addon and V3 sources. It opens only the sidecar's loopback origin, supports tray show/stop/quit and preserves background work when hiding the window. Optional speech and decision workers remain separate services; real latency and GPU contention need hardware tests.
+Tauri still bundles a Node runtime, the compiled Rust core addon and V3 sources. It opens only the sidecar loopback origin and retains tray/background behavior. The standalone native-service binary needs no Node executable after its frontend bundle is built, but it is not the packaged desktop sidecar. Optional Python speech/decision workers remain separate services.
 
-Root npm/Task commands, CI, native builds and Dependabot now target V3. [QA](QA.md) documents regression gates and [STATUS](STATUS.md) distinguishes verified mechanics from acceptance still required. Full root-capable VM/VPS adapters, automatic provisioning, complete V2 migration and broad automatic effect brokering remain future work. See [BETA11](BETA11.md) for the exact boundary.
+Root npm/Task commands and CI target V3. [QA](QA.md) and [STATUS](STATUS.md) contain historical and current evidence; the dated [migration record](RUST-MIGRATION.md) identifies exactly which native slice was exercised. Local deterministic provider fixtures verify mechanics, not real model quality or a paid account. Windows/macOS packaging, installation, native WebView behavior and real hardware/model acceptance remain separate gates. Complete V2 migration and the remaining native effects are unfinished.

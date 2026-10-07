@@ -272,11 +272,12 @@ test('Rust HTTP: memory CRUD preserves validation, UTF-16 JSON, and durable dele
 });
 
 test('Rust HTTP: artifact edits are atomic CAS with ordered history and pinned restrictive renders',async t=>{
- const f=await fixture(t,{seed(store){store.artifact('Native artifact','<h1>version one</h1><script>window.fixture=1</script>',{id:'versioned',kind:'html'});}}),app=await f.start();
+ const codec='\ue000\ue100 \ue000\ue000 \ue100 \ud800 \udfff 🦊';
+ const f=await fixture(t,{seed(store){store.artifact('Native artifact',`<h1>version one ${codec}</h1><script>window.fixture=1</script>`,{id:'versioned',kind:'html'});store.artifact('Codec text',codec,{id:'codec-text',kind:'text'});}}),app=await f.start();
  const first=parsed(await app.request('/api/artifacts')).find(a=>a.id==='versioned');assert.equal(first.version,1);
  parsed(await app.request('/api/artifacts/versioned','PATCH',{content:'missing base'}),400);
  parsed(await app.request('/api/artifacts/versioned','PATCH',{content:'fractional base',expectedVersion:1.5}),400);
- const edits=await Promise.all(['<h1>version two A</h1>','<h1>version two B</h1>'].map(content=>app.request('/api/artifacts/versioned','PATCH',{content,expectedVersion:1})));
+ const edits=await Promise.all([`<h1>version two A ${codec}</h1>`,`<h1>version two B ${codec}</h1>`].map(content=>app.request('/api/artifacts/versioned','PATCH',{content,expectedVersion:1})));
  assert.deepEqual(edits.map(r=>r.status).sort(),[200,409]);const second=parsed(edits.find(r=>r.status===200));assert.equal(second.version,2);
  parsed(await app.request('/api/artifacts/versioned','PATCH',{content:'stale',expectedVersion:1}),409);
  const history=parsed(await app.request('/api/artifacts/versioned/revisions'));assert.equal(history.id,'versioned');assert.deepEqual(history.versions.map(v=>v.version),[2,1]);
@@ -286,10 +287,12 @@ test('Rust HTTP: artifact edits are atomic CAS with ordered history and pinned r
  for(const v of ['0','-1','1.5','NaN','9007199254740992'])parsed(await app.request('/render/versioned?v='+v),400);
  parsed(await app.request('/render/versioned?v=999'),404);
  for(const [v,content] of [[1,first.content],[2,second.content]]){
-  const render=await app.request('/render/versioned?v='+v);assert.equal(render.status,200);assert.equal(render.text,content);assert.equal(render.headers['x-frame-options'],undefined);
+  const render=await app.request('/render/versioned?v='+v);assert.equal(render.status,200);assert.equal(render.text,Buffer.from(content).toString('utf8'));assert.equal(render.headers['x-frame-options'],undefined);
   assert.equal(render.headers['content-security-policy'],`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors ${app.origin}; sandbox allow-scripts`);
  }
  assert.equal((await app.request('/render/versioned','HEAD')).status,404);
+ assert.equal(parsed(await app.request('/api/artifacts')).find(a=>a.id==='codec-text').content,codec);
+ assert.ok((await app.request('/render/codec-text')).text.includes(Buffer.from(codec).toString('utf8')),'text render decodes codec markers exactly once');
 });
 
 test('Rust HTTP: safe integral floating-point artifact bases retain Number.isSafeInteger semantics',async t=>{

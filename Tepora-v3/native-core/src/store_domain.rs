@@ -78,6 +78,21 @@ fn unicode_version(payload: &Value) -> u64 {
 /// overlapping Han/Hiragana/Katakana bigrams, first 30,000 terms then uniqueness.
 /// The caller selects the JS runtime Unicode version; standalone Rust uses 17.
 pub fn indexed_text(doc: &Value, unicode: u64) -> String {
+    let text = ["title", "name", "content", "input", "output"]
+        .into_iter()
+        .filter_map(|key| {
+            doc.get(key)
+                .filter(|v| js_value::truthy(v))
+                .map(|v| js_value::js_string(Some(v)))
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    search_tokens(&Value::String(text), 30_000, unicode).join(" ")
+}
+
+/// The search.mjs token stream, bounded before de-duplication. Values and returned
+/// terms use json_codec encoding; call sql_text only at an OS/SQL text boundary.
+pub fn search_tokens(value: &Value, max: usize, unicode: u64) -> Vec<String> {
     // regex-syntax 0.8.11 ships Unicode 16. These additive ranges are the
     // Unicode 17 L/N and CJK Script deltas, checked against Node 24's Unicode
     // 17 property escapes; Unicode 16 requests keep the unchanged base tables.
@@ -105,15 +120,11 @@ pub fn indexed_text(doc: &Value, unicode: u64) -> String {
             .unwrap()
         })
     };
-    let text = ["title", "name", "content", "input", "output"]
-        .into_iter()
-        .filter_map(|key| {
-            doc.get(key)
-                .filter(|v| js_value::truthy(v))
-                .map(|v| js_value::js_string(Some(v)))
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+    let text = if js_value::truthy(value) {
+        js_value::js_string(Some(value))
+    } else {
+        String::new()
+    };
     let text = json_codec::sql_text(&text);
     // Characters unassigned in Unicode 16 cannot create words or normalize into
     // old letters in a Node 22 index. Keep them as separating replacement chars.
@@ -138,19 +149,17 @@ pub fn indexed_text(doc: &Value, unicode: u64) -> String {
         } else {
             terms.push(token.to_owned());
         }
-        if terms.len() >= 30_000 {
+        if terms.len() >= max {
             break;
         }
     }
     let mut seen = HashSet::new();
-    json_codec::encode_text(
-        &terms
-            .into_iter()
-            .take(30_000)
-            .filter(|term| seen.insert(term.clone()))
-            .collect::<Vec<_>>()
-            .join(" "),
-    )
+    terms
+        .into_iter()
+        .take(max)
+        .filter(|term| seen.insert(term.clone()))
+        .map(|term| json_codec::encode_text(&term))
+        .collect()
 }
 
 fn now(state: &NativeState, payload: &Value) -> CoreResult<String> {
@@ -823,5 +832,26 @@ mod tests {
             .unwrap_err()
             .to_string()
             .starts_with("[404]"));
+    }
+}
+
+#[cfg(test)]
+mod search_token_bound_tests {
+    use super::*;
+    #[test]
+    fn bound_precedes_deduplication_like_javascript() {
+        assert_eq!(
+            search_tokens(&json!("repeat repeat later"), 2, 17),
+            vec!["repeat"]
+        );
+        assert_eq!(
+            search_tokens(&json!("日本日本文字"), 3, 17),
+            vec!["日本", "本日"]
+        );
+        assert!(search_tokens(&json!("anything"), 0, 17).is_empty());
+        assert_eq!(
+            indexed_text(&json!({"title":"ＡＡ","content":"aa 日本日本"}), 17),
+            "aa 日本 本日"
+        );
     }
 }

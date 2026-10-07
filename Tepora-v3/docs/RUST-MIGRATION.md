@@ -4,7 +4,9 @@
 
 移植元は `835c585da7d4fbe2b463492edefce70ad20d19b8`。V3はTypeScriptではなくNode.js ESMのJavaScriptと素のJavaScript/CSSのGUIです。既存のRustはTauriの薄いホストだけでした。
 
-この段階では、`native-core` をRustライブラリとして追加し、実際のSQLite処理を移します。
+以下は第1段階からの移行記録です。現在の到達点は末尾の**第6段階（明示的なnative-agent起動）**であり、通常起動・Tauriの全面切替は行っていません。
+
+第1段階では、`native-core` をRustライブラリとして追加し、実際のSQLite処理を移しました。
 
 - 設定・文書の保存と検索インデックス、メモリー削除時のイベント／ベクトル消去
 - イベントの採番・保存・再生・保存件数制限
@@ -12,7 +14,7 @@
 - 成果物の期待版チェック、改版履歴と本体の原子的な更新
 - トランザクションとSQLite接続の単一所有
 
-第2〜3段階では文脈・トークン予算・モデル通信形式、モデル/ツール実行の順序、外側の実行枠・再試行・停止/再開・完了判定もRustへ移しています（下記）。HTTPサーバー、コンパクションの進行管理、予定、接続先の許可・HTTP送受信、ツール/プラグインの効果処理、UI、任意のPythonワーカーは現段階ではJavaScript／Pythonのままです。Rustへの完全移植やNode不要化を完了したものではありません。
+第2〜3段階で文脈・トークン予算・通信形式、モデル/ツールの順序、外側の実行枠・再試行・停止/再開・完了判定をRustへ移しました。第4〜5段階で独立HTTP/状態ホストを追加し、第6段階では実際のプロバイダー送受信、対応する17ツール、承認、コンパクション、自己点検まで明示的なRust起動モードへ接続しています。ビルド済みnative-agentバイナリーはNodeなしで動きますが、予定・プロセス・Web/MCP/音声/メディア/PC操作・JSプラグイン等の効果処理は未移植です。通常起動はNode互換サービスのままであり、全バックエンドの移行完了を意味しません。GUIはJavaScript/CSS、任意のワーカーは引き続きPythonです。
 
 ## 接続と互換性
 
@@ -24,7 +26,7 @@ RustライブラリはNodeを使わない構成でもコンパイル・テスト
 
 セッションの次の番号はプロセス内キャッシュに頼らず、追記と同じトランザクション中に算出します。複数の `SessionStore` ファサードで番号が衝突しません。成果物の期待版チェックも更新と同じトランザクション内です。
 
-Rustコアをロードできない場合は明確なエラーで停止します。JavaScriptのDBへの暗黙のフォールバックや別接続は行いません。サービス所有権のPID確認はOS互換性のため既存のJavaScript処理を維持します。
+Rustコアをロードできない場合は明確なエラーで停止します。JavaScriptのDBへの暗黙のフォールバックや別接続は行いません。通常のNodeホストは既存のサービス所有権確認を維持し、独立Rustホストは同じ所有権リースとOSのPID生存確認を使います。両者で同じデータ領域を同時に開きません。
 
 ## ビルド・検証
 
@@ -43,12 +45,12 @@ Rust単体テストは `--no-default-features` でNodeから独立したコア�
 
 ## 続く移行
 
-1. 起動・停止・再開を所有するRustランタイムへ、残る予定・自己点検・コンパクション等の処理を移す
-2. プロバイダーのストリーミングとツール境界をRustへ移し、キャンセル・再試行・通信許可の契約を維持する
-3. RustのHTTPサービスへ切り替え、Cookie/CSRF/Host/Origin/CSPとSSEの回帰を通す
-4. 通常の組み込み処理からNode sidecar依存を除き、既存JSプラグインだけの任意互換ホストにする。Windows/macOSのインストール・常駐・終了まで検証する
+1. 未移植のプロセス/Web/MCP/PC操作、能力サービス、予定・heartbeat・dream最適化、周辺APIを段階的に移す
+2. 任意のJSプラグインを残す場合は、既存の生きたコールバックとコンテキストを維持する明示的な互換ホストを実装する
+3. 全ルート・停止/再起動・権限・実モデルの受け入れ試験を揃え、Windows/macOSで配布物の組み立て・インストール・常駐・終了を確認する
+4. その証拠が揃ってから通常起動とTauri sidecarの切替を判断する
 
-段階を飛ばしてGUIや既存機能を削ることで「Rust化完了」とはしません。新旧の保護モードについて一部旧文書が残っていますが、この移行は現行エージェント実装の既定値や利用者の権限設定を変更しません。
+段階を飛ばしてGUIや既存機能を削ることで「Rust化完了」とはしません。現行の `core/sandbox.mjs` は `mode:'off'` が既定です。古いprotected/legacy-host文書を根拠に削除済みの実行境界を復活させず、現在の利用者設定とファイル/承認/通信のガードを引き継ぎます。
 
 ## 第1段階の検証記録（2026-10-07、Linux）
 
@@ -165,4 +167,52 @@ HTTPホストの移行ではRustが唯一の待受け・Cookie/CSRF/Host/Origin�
 - 両品質ゲートの検証時指紋 a1fa6cdd1d1c は前後一致。Node失敗で止まるので全ゲート合格とはしない
 - 前の公開da6a483はUbuntu CI全ゲート合格。Windows/macOSはRustビルド/88単体合格後、既存に観測されたNode失敗で停止。配布物組立/実機起動は未検証
 
-次は通常の会話と実際の作業を実行するRustのプロバイダー通信/効果処理を接続する。既存GUIと全機能を保つ通常版がNodeを不要にするまで、移行完了とはしない。[起動方法と対応ルート](../native-service/README.md)。
+この時点では会話と実作業のプロバイダー通信/効果処理が次の段階だった。以下の第6段階でその限定したネイティブ経路を接続したが、通常版の全機能がNode不要になるまで全面移行完了とはしない。[起動方法と対応範囲](../native-service/README.md)。
+
+
+## 第6段階 — ネイティブ会話・作業ホスト（明示的なopt-in）
+
+`--dev-native --agent` を追加し、Rust HTTP → 既存Rustランタイム/実行状態機械 → 実際のプロバイダー通信 → 対応ツール → 永続履歴/親への報告までを接続した。Nodeサーバーへの転送や固定応答で代用したものではない。`--dev-native` 単独は従来のローカル作業領域モードを維持し、通常の `npm start` とTauriはNode互換サービスを使い続ける。
+
+### 実装した境界
+
+- `native-service/src/agent/coordinator.rs`: 1本のFIFO actorで両状態機械のコマンドを実行。service/session/run epoch/step generation/operation IDを照合し、古い完了やタイマーから新しい実行を変更しない
+- `agent/host.rs` と `host_runtime.rs`: 受付、メイン/ワーカー、入力配送、進捗/完了報告、停止/再開、プロンプト、使用量、ストリームと効果処理の実接続。判断を別の手書きループへ複製しない
+- `provider.rs` と `network.rs`: 保存済み接続先、許可/DNS/TLS、SSE/NDJSON/UTF-8、同時使用枠、制限検出、再試行、キャンセル。Chat Completions・Responses・Anthropic・Geminiと、検出されたOllamaネイティブAPIに対応
+- `native-core/src/harness/`: 結果整形、軽量スキーマ確認/引数JSON修復、システム/NOTICE/人格、ledger/章/識別子、コンパクション計画、reflect/自己点検を純粋関数として移植。UTF-16、キー順、丸めとUnicode16/17を維持
+- `agent/context.rs`: 実モデルへの文脈内要約、rolling要約、既存の決定的フォールバック。中断時はチェックポイントを提案/保存せず、成功時だけactorが保存とプロンプト更新を行う
+- `agent/metacognition.rs`: 実際のエスカレーション/解除、繰り返し/失敗の通知、重複を抑えた親への停滞報告の後に、最新セッションを測定して自己点検を保存
+- `agent/approvals.rs`・`policy.rs`: 承認済み引数の不変スナップショット、先勝ちポリシー、ECMAScript互換UTF-16正規表現、actorによる決定/撤回。遅い決定・改変された記録・停止済み操作は実行できない
+- `agent/files.rs`・`tools.rs`・`receipts.rs`: 本物のファイル/状態ツールと順序付き結果。未実行と実行済み中断を区別し、完全な証拠、切り詰め参照、読み取り参照、統計を保存
+- `WorkspaceAccess` と `workspace/agent_state.rs`: SQLite接続を増やさず、型付きのホスト境界と限定されたドメイン操作を使う。保存バッチの後に派生/元イベントを発行し、I/Oや承認待ち中にDBロックを持たない
+
+ネイティブの17ツールは `sessions_spawn`、`sessions_send`、`sessions_list`、`sessions_history`、`sessions_stop`、`read`、`write`、`edit`、`todo`、`reflect`、`artifact`、`recall`、`history_search`、`memory_search`、`memory_write`、`tools_search`、`tools_call`。既存main/worker/leanの順序を維持し、実装済みのものだけを提示する。検索は既存の字句フォールバックを使い、`tools_call` がMCPを暗黙に有効化することはない。
+
+Stopは実行中のツールの結果を回収し、モデル順のreceiptを残す。再開は旧実行枠の解放後に行い、サービス終了はreceipt保存と接続先終了の後にSQLite所有権を解放する。再起動時の未完了ツールは結果不明として記録し、書き込みを自動再実行しない。
+
+### 残る制約と権限
+
+プロセス/任意コード、Web、find/grep、MCP、画像入力/視覚ブリッジ、音声/メディア、PC操作、能力サービス、スキル実行、予定/heartbeat/dream最適化、JSプラグインと一部のセットアップ/アバター/写真等は未移植。既存の保存データを削除して見かけ上対応済みにはしない。`capabilities` のdecisionルート、グローバル `.mjs` プラグイン、enabled heartbeatまたは保存済みschedule文書がある作業領域はnative-agentの開始前に診断する。停止済み/再開セッションも、キャッシュに未対応ツールがあればモデル利用前に明示的に拒否する。
+
+sandboxは現行アプリと同じ既定のoffを保つ。非off時は既存の書き込み範囲と鮮度確認を適用するが、ファイルロックは字句的な解決パス単位であり、シンボリックリンク/ハードリンクの別名による競合を防ぎきらない。最終シンボリックリンクと範囲外の正規化親は拒否するが、同時の祖先ディレクトリー改名まで完全に防ぐ隔離とは主張しない。
+
+### 第6段階の検証記録（2026-10-07、Linux）
+
+- 純粋Rustコア107/107、固定JSとのharness/metacognition比較17/17合格
+- サービス153/153、CLI2/2合格のチェックポイント。サービス内の実ホスト試験9件は、ストリーム/費用/再起動、NO_REPLY、親→子→ファイル/成果物→報告、Stop/rearm、承認/撤回、終了時receipt回収/SQLite所有権、native起動前の権限/対応範囲診断を確認
+- 実ホスト試験は既存のreducers、HTTPプロバイダー経路、SQLiteとファイルを使い、制御されたローカル応答のみで実行。実モデル・有料API・外部サービスへの通信は行っていない
+- 上記ゲートはnative hostとreceiptのUnicode17統一を含む。新しい `--agent` 実TCPプロセス試験8/8と既存workspaceプロセス試験22/22も別々に合格。Rust子プロセスのPATHを空にし、隔離データで認証/接続設定、SSE/入力重複排除、ワーカーの実ファイル/成果物/親報告、承認/撤回/遅い決定409、Stop/rearm/再起動を確認。4本の専用スレッドで制限したprobeの実行中/待機中キャンセル、HTTP/sidecar Stop、終了時の所有権解放、キャンセル済みprobeの遅延実行/再起動後再送の抑止、新規probe/推論の継続、tray Stopで常駐mainの通信と完了済みワーカーを維持することも確認
+- Windows/macOSの配布/実機、通常Tauri切替、実モデル品質、未移植効果、品質ゲート全体の合格をこの結果からは主張しない
+
+ルートからの主な検証コマンド:
+
+```sh
+npm run build:core
+npm run build:native
+npm run test:rust
+npm run test:native
+node --test --test-concurrency=1 Tepora-v3/tests/rust-harness.test.mjs Tepora-v3/tests/rust-harness-metacog.test.mjs Tepora-v3/tests/rust-http.test.mjs
+node --test --test-concurrency=1 Tepora-v3/tests/rust-native-agent.test.mjs
+```
+
+NodeはGUI bundleとテストのビルド時に使う。ビルド済みRustバイナリーの実行時Node依存がないことと、アプリ全体の移行が完了したことは別である。

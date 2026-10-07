@@ -4,7 +4,10 @@ use serde_json::Value;
 use std::fmt;
 use tokio::sync::mpsc;
 
+pub mod agent;
 pub mod http;
+pub mod network;
+pub mod provider;
 pub mod workspace;
 pub const VERSION: &str = "3.0.0-beta.11";
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -39,6 +42,50 @@ impl std::error::Error for ApiError {}
 
 #[derive(Debug, Clone)]
 pub enum Operation {
+    AgentInput {
+        body: Value,
+    },
+    AgentSpawn {
+        body: Value,
+    },
+    SessionMessage {
+        id: String,
+        body: Value,
+    },
+    SessionStop {
+        id: String,
+    },
+    SessionResume {
+        id: String,
+    },
+    AgentSettings,
+    AgentSettingsPatch {
+        body: Value,
+    },
+    Approvals,
+    ApprovalsDecide {
+        body: Value,
+    },
+    ApprovalDecide {
+        id: String,
+        body: Value,
+    },
+    Providers,
+    ProvidersSave {
+        body: Value,
+    },
+    ProviderKey {
+        id: String,
+        body: Value,
+    },
+    ProviderProbe {
+        id: String,
+    },
+    Network,
+    NetworkPatch {
+        body: Value,
+    },
+    StopAll,
     Bootstrap,
     Agent,
     Dialogue,
@@ -85,6 +132,7 @@ pub enum Reply {
     Json(Value),
     Render {
         kind: String,
+        /// Core-internal JSON codec text; decode exactly once at the HTTP UTF-8 boundary.
         content: String,
         interactive: bool,
     },
@@ -123,5 +171,25 @@ pub trait Backend: Send + Sync + 'static {
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError>;
     fn unsubscribe(&self, id: u64);
     fn stop(&self) -> Result<(), ApiError>;
+    /// Snapshot the current probe batch before waiting for bounded admission.
+    /// Native Stop rotates and cancels the old batch, including queued requests.
+    fn probe_cancellation(&self) -> network::RequestCancellation {
+        network::RequestCancellation::new()
+    }
+    fn execute_probe(
+        &self,
+        id: String,
+        cancellation: network::RequestCancellation,
+    ) -> Result<Reply, ApiError> {
+        if let Some(error) = cancellation.error() {
+            return Err(error.into());
+        }
+        self.execute(Operation::ProviderProbe { id })
+    }
+    /// Stop accepting effects and cancel interruptible work before HTTP drains.
+    /// Keep the durable owner open until shutdown() has drained real receipts.
+    fn begin_shutdown(&self) -> Result<(), ApiError> {
+        Ok(())
+    }
     fn shutdown(&self) -> Result<(), ApiError>;
 }

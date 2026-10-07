@@ -8,9 +8,9 @@ Teporaは、ひとつのキャラクターとの会話を続けながら、別�
 
 ソース版には Node.js **22.16.0以上**、[Rust stable](https://rustup.rs)、OSのC/C++ビルドツールが必要です。初回起動時にRustコアをビルドします。配布用デスクトップパッケージにはビルド済みコアを同梱します。
 
-この移植ブランチでは、SQLiteの永続状態・セッションログ・受信箱に加え、文脈組み立て・トークン計算・モデル要求/応答形式・モデルからツール実行までの状態機械、外側の実行枠・再試行・停止/再開・完了判定をRustに移しました。HTTP・効果処理/プラグイン互換層・通信の許可と送受信・予定・GUIは引き続きJavaScriptです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
+この移植ブランチでは、永続状態・文脈・トークン・モデル通信形式・実行状態機械を共有Rustコアに移し、独立Rust HTTPホストに実際のプロバイダー通信、対応ツール、承認、コンパクション、自己点検を接続しています。通常起動は既存機能を保つNode互換サービスのままです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
-開発用の[独立Rust HTTPホスト](Tepora-v3/native-service/README.md)も追加しています。Nodeなしでローカル履歴・記憶・成果物・SSEを扱えますが、会話実行や周辺機能はまだ移植中です。通常の起動先は完成範囲が揃うまで変更しません。
+開発用の[独立Rustホスト](Tepora-v3/native-service/README.md)は、`--dev-native` で履歴・記憶・成果物・SSE、追加の `--agent` で会話と17の組み込みツールを実行します。ビルド済みバイナリーはNodeなしで動きますが、プロセス/Web/MCP/音声/メディア/PC操作・予定・JSプラグイン等は未移植です。GUIはJavaScript/CSSのままで、通常起動・Tauriの切替や全面Rust化の完了を意味しません。
 
 ```sh
 git clone https://github.com/coco4atJP/Tepora-alpha.git
@@ -38,16 +38,18 @@ npm run preview:build
 - **キャラクターの姿**: 初めの姿は「しろ・改」。体・色・灯り・顔・小物を自分好みに変えられ、しろ・改は3Dでも表示できます。VRM・画像・メッシュアバター（mesh-avatar-studio）で、今までのキャラクターを持ち込むこともできます。姿は、口調などの応答の設定とは別です。
 - **継続する会話**: キャラクターと作業担当の人格（名前・振る舞い・口調）を別々に設定し、会話と仕事の状態をSQLiteに保存します。
 - **非同期ワーカー**: 会話を止めずに仕事を任せ、出典付きの進捗・質問・結果を受け取ります。送信先が異なる結果は、確認した範囲だけ共有します。
-- **成果物**: 作成、改版、書き出し、受け入れを扱います。隔離実行の出力は候補として保存し、正確な内容と版を確認して取り込みます。
+- **成果物**: 作成、改版、書き出しを扱い、期待する版の確認と履歴を維持します。作業担当はファイルや成果物の場所と検証結果を報告します。
 - **能力の接続**: 会話・作業・画像理解・音声・生成・埋め込み・構造化判断の接続先を役割ごとに設定できます。
-- **実行境界**: 初期設定は `protected`。任意コードには事前導入・承認済みのダイジェスト固定Dockerイメージが必要です。ホストCLI・Codex・MCP・PC操作には明示的な `legacy-host` 切り替えが必要です。
+- **実行境界**: 現行ハーネスのsandbox既定値は `off` で、必要に応じて `workspace`・`readonly`・`container` を設定します。ファイルの書き込み範囲と鮮度確認、ツールごとの承認ポリシー、通信許可は別々のガードです。開発用Rustホストでは未移植のプロセスやPC操作へ暗黙にフォールバックしません。
 - **通信制御**: オンライン、指定LAN接続先、完全オフラインのモードを提供します。実行境界と通信許可は別々に管理します。
 
 ## 開発・検証・ビルド
 
 ```sh
 npm run build:core         # Rust永続状態コアのビルド
-npm run test:rust          # Node不要のRust単体テスト
+npm run test:rust          # Node不要のRustコア単体テスト
+npm run build:native       # 開発用RustサービスとGUI bundle
+npm run test:native        # ネイティブサービスの単体/統合試験
 npm run doctor             # 環境診断
 npm test                   # V3 Nodeテストとルート起動テスト
 npm run quality            # 構文・Node・Python・仕様参照・プレビュー・能力連携
@@ -70,7 +72,7 @@ beta.11は開発ベータです。回帰試験は主にローカルHTTPと決定
 ## リポジトリと資料
 
 ```text
-Tepora-v3/        現行アプリ: Rust永続状態コア、Nodeサービス、Web UI、Pythonワーカー、Tauriホスト
+Tepora-v3/        現行アプリ: 共有Rustコア、開発用Rustサービス、Node互換サービス、Web UI、Pythonワーカー、Tauriホスト
 scripts/         V3の環境診断とリリース補助
 Taskfile.yml     V3の共通コマンド
 package.json     V3のルート起動・検証・ビルド
@@ -82,7 +84,8 @@ docs/            beta.11のユーザー・開発・設定ガイド
 - [開発ガイド](docs/guides/development.md)
 - [設定ガイド](docs/operations/CONFIGURATION_GUIDE.md)
 - [beta.11アーキテクチャ](Tepora-v3/docs/ARCHITECTURE.md)
-- [実行境界と制限](Tepora-v3/docs/BETA11.md)
+- [現在のエージェント設計](Tepora-v3/docs/AGENT-HARNESS.md)
+- [旧beta.11実行境界の記録](Tepora-v3/docs/BETA11.md)
 - [変更履歴](docs/CHANGELOG.md)
 
 このブランチにはV3のソースと現行資料だけを置いています。旧版のソース・専用ツール・資料・ワークフローは撤去しました。過去の内容はGit履歴から参照できます。既存ユーザーデータの自動移行・削除は行いません。

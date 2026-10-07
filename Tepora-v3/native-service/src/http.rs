@@ -28,10 +28,12 @@ use std::{
     time::Duration,
 };
 use subtle::ConstantTimeEq;
+#[cfg(test)]
+use tokio::net::TcpStream;
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadBuf},
-    net::{TcpListener, TcpStream},
-    sync::{watch, Notify},
+    net::TcpListener,
+    sync::{watch, Notify, Semaphore},
     task::JoinSet,
     time::{Instant, Sleep},
 };
@@ -43,6 +45,9 @@ pub type ResponseBody = UnsyncBoxBody<Bytes, io::Error>;
 #[derive(Clone, Debug)]
 pub struct HttpConfig {
     pub port: u16,
+    /// Explicit native-agent development admission. Ordinary --dev-native keeps
+    /// its original unavailable-before-body-consumption route behavior.
+    pub agent: bool,
     pub web_dir: PathBuf,
     pub bundle_path: PathBuf,
     pub header_timeout: Duration,
@@ -54,6 +59,7 @@ impl HttpConfig {
     pub fn new(web_dir: PathBuf, bundle_path: PathBuf) -> Self {
         Self {
             port: 0,
+            agent: false,
             web_dir,
             bundle_path,
             header_timeout: Duration::from_secs(15),
@@ -86,6 +92,9 @@ struct HttpState {
     bundle: Bytes,
     shutdown: watch::Sender<bool>,
     work: Arc<WorkTracker>,
+    /// Probes may wait on a model for 90 seconds. They get four dedicated
+    /// threads, never the blocking workers used by control admission and DNS.
+    probes: Arc<Semaphore>,
 }
 pub struct Server {
     listener: TcpListener,
@@ -123,6 +132,7 @@ impl Server {
                 bundle: Bytes::from(bundle),
                 shutdown,
                 work: Arc::new(WorkTracker::default()),
+                probes: Arc::new(Semaphore::new(4)),
             }),
         })
     }
@@ -158,6 +168,13 @@ impl Server {
             }
         }
         self.state.shutdown.send_replace(true);
+        // A pending HTTP provider probe owns a WorkTracker guard. Cancel it
+        // before waiting for that guard; final shutdown alone would deadlock
+        // this ordering until the probe's 90-second external deadline expired.
+        let backend = self.state.backend.clone();
+        let begin_error = run_dedicated("tepora-shutdown", move || backend.begin_shutdown())
+            .await
+            .err();
         while connections.join_next().await.is_some() {}
         // Dropping a HTTP future must not close SQLite while an authorized domain
         // mutation is still running on the blocking pool.
@@ -167,8 +184,31 @@ impl Server {
         if let Some(error) = accept_error {
             return Err(ApiError::new(500, error.to_string()));
         }
+        if let Some(error) = begin_error {
+            return Err(error);
+        }
         Ok(())
     }
+}
+/// Short lifecycle control and bounded long probes must not queue behind the
+/// shared blocking pool that they may need to cancel or use for DNS. A dropped
+/// receiver never cancels the thread or drops its captured effect/permit guards.
+async fn run_dedicated<T: Send + 'static>(
+    name: &'static str,
+    work: impl FnOnce() -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    std::thread::Builder::new()
+        .name(name.into())
+        .spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work))
+                .unwrap_or_else(|_| Err(ApiError::new(500, format!("{name} task panicked"))));
+            let _ = sender.send(result);
+        })
+        .map_err(|error| ApiError::new(500, format!("Cannot start {name} task: {error}")))?;
+    receiver
+        .await
+        .map_err(|_| ApiError::new(500, format!("{name} task stopped without a result")))?
 }
 async fn shutdown_requested(stop: &mut watch::Receiver<bool>) {
     if *stop.borrow() {
@@ -348,6 +388,32 @@ impl HttpState {
         .map_err(|e| ApiError::new(500, format!("Domain task failed: {e}")))?
     }
     async fn domain(self: &Arc<Self>, op: Operation) -> Result<Reply, ApiError> {
+        if let Operation::ProviderProbe { id } = &op {
+            let id = id.clone();
+            let cancellation = self.backend.probe_cancellation();
+            let mut shutdown = self.shutdown.subscribe();
+            let permit = tokio::select! {
+                biased;
+                _ = shutdown_requested(&mut shutdown) => return Err(ApiError::unavailable("Service is closing")),
+                error = cancellation.cancelled() => return Err(error.into()),
+                permit = self.probes.clone().acquire_owned() => permit.map_err(|_| ApiError::unavailable("Provider probe admission is closed"))?,
+            };
+            if let Some(error) = cancellation.error() {
+                return Err(error.into());
+            }
+            if *self.shutdown.borrow() {
+                return Err(ApiError::unavailable("Service is closing"));
+            }
+            self.work.count.fetch_add(1, Ordering::AcqRel);
+            let guard = WorkGuard(self.work.clone());
+            let backend = self.backend.clone();
+            return run_dedicated("tepora-provider-probe", move || {
+                let _guard = guard;
+                let _permit = permit;
+                backend.execute_probe(id, cancellation)
+            })
+            .await;
+        }
         self.backend_call(move |backend| backend.execute(op)).await
     }
     async fn handle<B>(self: Arc<Self>, request: Request<B>) -> Response<ResponseBody>
@@ -505,6 +571,18 @@ impl HttpState {
                 } => Ok(render_artifact(&self.origin, &kind, &content, interactive)),
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
+        }
+        if self.config.agent {
+            if let Some(route) = native_agent_route(&method, path) {
+                let (operation, status) = match route {
+                    NativeAgentRoute::Ready(operation, status) => (operation, status),
+                    NativeAgentRoute::Body(route, status) => {
+                        let body = self.read_json(request.into_body()).await?;
+                        (route.operation(body), status)
+                    }
+                };
+                return self.json_operation(operation, status).await;
+            }
         }
         let mut status = 200;
         let mut export = false;
@@ -724,6 +802,91 @@ impl HttpState {
         };
         StreamBody::new(stream).boxed_unsync()
     }
+}
+enum NativeAgentRoute {
+    Ready(Operation, u16),
+    Body(NativeAgentBodyRoute, u16),
+}
+enum NativeAgentBodyRoute {
+    Input,
+    Spawn,
+    Message(String),
+    Settings,
+    Approvals,
+    Approval(String),
+    Providers,
+    ProviderKey(String),
+    ProviderProbe(String),
+    Network,
+}
+impl NativeAgentBodyRoute {
+    fn operation(self, body: Value) -> Operation {
+        match self {
+            Self::Input => Operation::AgentInput { body },
+            Self::Spawn => Operation::AgentSpawn { body },
+            Self::Message(id) => Operation::SessionMessage { id, body },
+            Self::Settings => Operation::AgentSettingsPatch { body },
+            Self::Approvals => Operation::ApprovalsDecide { body },
+            Self::Approval(id) => Operation::ApprovalDecide { id, body },
+            Self::Providers => Operation::ProvidersSave { body },
+            Self::ProviderKey(id) => Operation::ProviderKey { id, body },
+            Self::ProviderProbe(id) => Operation::ProviderProbe { id },
+            Self::Network => Operation::NetworkPatch { body },
+        }
+    }
+}
+/// This is an explicit finite route table, not an arbitrary agent command proxy.
+/// Identity, capabilities, revisions and argument validation stay in Workspace.
+fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
+    use NativeAgentBodyRoute as Body;
+    use NativeAgentRoute::{Body as Json, Ready};
+    match (method.as_str(), path) {
+        ("POST", "/api/agent/input") => return Some(Json(Body::Input, 202)),
+        ("POST", "/api/agent/spawn") => return Some(Json(Body::Spawn, 202)),
+        ("GET", "/api/agent/settings") => return Some(Ready(Operation::AgentSettings, 200)),
+        ("PATCH", "/api/agent/settings") => return Some(Json(Body::Settings, 200)),
+        ("GET", "/api/agent/approvals") => return Some(Ready(Operation::Approvals, 200)),
+        ("POST", "/api/agent/approvals") => return Some(Json(Body::Approvals, 200)),
+        ("GET", "/api/providers") => return Some(Ready(Operation::Providers, 200)),
+        ("PUT", "/api/providers") => return Some(Json(Body::Providers, 200)),
+        ("GET", "/api/network") => return Some(Ready(Operation::Network, 200)),
+        ("PATCH", "/api/network") => return Some(Json(Body::Network, 200)),
+        ("POST", "/api/stop") => return Some(Ready(Operation::StopAll, 200)),
+        _ => {}
+    }
+    if method != Method::POST {
+        return None;
+    }
+    if let Some((id, action)) = path
+        .strip_prefix("/api/agent/sessions/")
+        .and_then(|rest| rest.split_once('/'))
+        .filter(|(id, _)| session_id(id))
+    {
+        return match action {
+            "message" => Some(Json(Body::Message(id.into()), 202)),
+            "stop" => Some(Ready(Operation::SessionStop { id: id.into() }, 200)),
+            "resume" => Some(Ready(Operation::SessionResume { id: id.into() }, 200)),
+            _ => None,
+        };
+    }
+    if let Some(id) = path
+        .strip_prefix("/api/agent/approvals/")
+        .filter(|id| session_id(id))
+    {
+        return Some(Json(Body::Approval(id.into()), 200));
+    }
+    if let Some((id, action)) = path
+        .strip_prefix("/api/providers/")
+        .and_then(|rest| rest.split_once('/'))
+        .filter(|(id, _)| session_id(id))
+    {
+        return match action {
+            "key" => Some(Json(Body::ProviderKey(id.into()), 200)),
+            "probe" => Some(Json(Body::ProviderProbe(id.into()), 200)),
+            _ => None,
+        };
+    }
+    None
 }
 enum SseNext {
     Close,
@@ -950,7 +1113,16 @@ mod tests {
             Ok(match op {
                 Operation::MemoryCreate { body }
                 | Operation::Presence { body }
-                | Operation::Import { body } => Reply::Json(body),
+                | Operation::Import { body }
+                | Operation::AgentInput { body }
+                | Operation::AgentSpawn { body }
+                | Operation::SessionMessage { body, .. }
+                | Operation::AgentSettingsPatch { body }
+                | Operation::ApprovalsDecide { body }
+                | Operation::ApprovalDecide { body, .. }
+                | Operation::ProvidersSave { body }
+                | Operation::ProviderKey { body, .. }
+                | Operation::NetworkPatch { body } => Reply::Json(body),
                 Operation::Session { id, .. } => Reply::Json(json!({"id":id})),
                 Operation::RenderArtifact { .. } => Reply::Render {
                     kind: "html".into(),
@@ -995,6 +1167,7 @@ mod tests {
             bundle: Bytes::from_static(b"window.test=1;"),
             shutdown,
             work: Arc::new(WorkTracker::default()),
+            probes: Arc::new(Semaphore::new(4)),
         })
     }
     fn request(method: &str, path: &str, body: impl Into<Bytes>) -> Request<Full<Bytes>> {
@@ -1009,6 +1182,11 @@ mod tests {
             .header("x-tepora-csrf", "b".repeat(64))
             .body(Full::new(body.into()))
             .unwrap()
+    }
+    fn agent_state(fake: Arc<Fake>) -> Arc<HttpState> {
+        let mut state = state(fake);
+        Arc::get_mut(&mut state).unwrap().config.agent = true;
+        state
     }
     async fn bytes(r: Response<ResponseBody>) -> Bytes {
         r.into_body().collect().await.unwrap().to_bytes()
@@ -1055,6 +1233,169 @@ mod tests {
                 "{method} {path}"
             );
         }
+    }
+    #[tokio::test]
+    async fn native_agent_routes_use_typed_operations_and_existing_statuses() {
+        let fake = Arc::new(Fake::default());
+        let state = agent_state(fake.clone());
+        for (method, path, status, variant) in [
+            ("POST", "/api/agent/input", 202, "AgentInput"),
+            ("POST", "/api/agent/spawn", 202, "AgentSpawn"),
+            (
+                "POST",
+                "/api/agent/sessions/worker-a/message",
+                202,
+                "SessionMessage",
+            ),
+            (
+                "POST",
+                "/api/agent/sessions/worker-a/stop",
+                200,
+                "SessionStop",
+            ),
+            (
+                "POST",
+                "/api/agent/sessions/worker-a/resume",
+                200,
+                "SessionResume",
+            ),
+            ("GET", "/api/agent/settings", 200, "AgentSettings"),
+            ("PATCH", "/api/agent/settings", 200, "AgentSettingsPatch"),
+            ("GET", "/api/agent/approvals", 200, "Approvals"),
+            ("POST", "/api/agent/approvals", 200, "ApprovalsDecide"),
+            (
+                "POST",
+                "/api/agent/approvals/approval-1",
+                200,
+                "ApprovalDecide",
+            ),
+            ("GET", "/api/providers", 200, "Providers"),
+            ("PUT", "/api/providers", 200, "ProvidersSave"),
+            ("POST", "/api/providers/local/key", 200, "ProviderKey"),
+            ("POST", "/api/providers/local/probe", 200, "ProviderProbe"),
+            ("GET", "/api/network", 200, "Network"),
+            ("PATCH", "/api/network", 200, "NetworkPatch"),
+            ("POST", "/api/stop", 200, "StopAll"),
+        ] {
+            let response = state.clone().handle(request(method, path, "{}")).await;
+            assert_eq!(response.status(), status, "{method} {path}");
+            assert!(
+                format!("{:?}", fake.calls.lock().unwrap().last().unwrap()).starts_with(variant),
+                "{method} {path}"
+            );
+            assert_eq!(response.headers()["cache-control"], "no-store");
+            assert_eq!(response.headers()["x-frame-options"], "DENY");
+        }
+        assert_eq!(fake.calls.lock().unwrap().len(), 17);
+    }
+    #[tokio::test]
+    async fn native_agent_routes_keep_auth_csrf_method_and_path_boundaries() {
+        let fake = Arc::new(Fake::default());
+        let state = agent_state(fake.clone());
+        let mut no_cookie = request("POST", "/api/agent/input", "{bad");
+        no_cookie.headers_mut().remove("cookie");
+        assert_eq!(state.clone().handle(no_cookie).await.status(), 401);
+        let mut no_csrf = request("PUT", "/api/providers", "{}");
+        no_csrf.headers_mut().remove("x-tepora-csrf");
+        assert_eq!(state.clone().handle(no_csrf).await.status(), 403);
+        for (method, path, status) in [
+            ("GET", "/api/agent/input", 404),
+            ("POST", "/api/providers", 404),
+            ("POST", "/api/providers/a/key/extra", 404),
+            ("POST", "/api/providers/a%2fb/key", 404),
+            ("POST", "/api/agent/sessions/a%2fb/message", 404),
+            ("POST", "/api/agent/approvals/a/extra", 404),
+            ("POST", "/api/agent/sessions/a/accept", 503),
+            ("GET", "/api/agent/sessions/a/files", 503),
+        ] {
+            assert_eq!(
+                state
+                    .clone()
+                    .handle(request(method, path, "{}"))
+                    .await
+                    .status(),
+                status,
+                "{method} {path}"
+            );
+        }
+        assert!(fake.calls.lock().unwrap().is_empty());
+    }
+    #[tokio::test]
+    async fn native_agent_bodies_preserve_codec_and_validate_before_dispatch() {
+        let fake = Arc::new(Fake::default());
+        let state = agent_state(fake.clone());
+        let source = r#"{"text":"x\ud800\ue000\ue100😀","requestId":"request-1"}"#;
+        let response = state
+            .clone()
+            .handle(request("POST", "/api/agent/input", source))
+            .await;
+        assert_eq!(response.status(), 202);
+        let output = String::from_utf8(bytes(response).await.to_vec()).unwrap();
+        assert_eq!(
+            tepora_core::json_codec::parse(&output).unwrap(),
+            tepora_core::json_codec::parse(source).unwrap()
+        );
+        for path in [
+            "/api/agent/input",
+            "/api/agent/spawn",
+            "/api/providers/local/key",
+            "/api/providers/local/probe",
+            "/api/agent/approvals/a",
+        ] {
+            assert_eq!(
+                state
+                    .clone()
+                    .handle(request("POST", path, "{bad"))
+                    .await
+                    .status(),
+                400
+            );
+        }
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        // Existing stop/resume handlers do not parse a body at all.
+        assert_eq!(
+            state
+                .clone()
+                .handle(request("POST", "/api/agent/sessions/a/stop", "{bad"))
+                .await
+                .status(),
+            200
+        );
+        assert_eq!(
+            state
+                .clone()
+                .handle(request("POST", "/api/agent/sessions/a/resume", "{bad"))
+                .await
+                .status(),
+            200
+        );
+    }
+    #[tokio::test]
+    async fn offline_native_routes_remain_unavailable_before_body_consumption() {
+        let fake = Arc::new(Fake::default());
+        let state = state(fake.clone());
+        for (method, path) in [
+            ("POST", "/api/agent/input"),
+            ("POST", "/api/agent/spawn"),
+            ("POST", "/api/agent/sessions/a/message"),
+            ("PATCH", "/api/agent/settings"),
+            ("POST", "/api/agent/approvals/a"),
+            ("PUT", "/api/providers"),
+            ("POST", "/api/providers/a/probe"),
+            ("PATCH", "/api/network"),
+            ("POST", "/api/stop"),
+        ] {
+            assert_eq!(
+                state
+                    .clone()
+                    .handle(request(method, path, "{bad"))
+                    .await
+                    .status(),
+                503,
+                "{method} {path}"
+            );
+        }
+        assert!(fake.calls.lock().unwrap().is_empty());
     }
     #[tokio::test]
     async fn singleton_header_duplicates_fail_closed_but_cookie_lines_concatenate() {
