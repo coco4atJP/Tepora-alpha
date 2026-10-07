@@ -9,10 +9,13 @@ Context assembly, token accounting, five provider wire formats and stream state
 machines also live in this crate. `execution.rs` owns model/tool step transitions,
 retry/overflow decisions, conservative tool grouping and generation-correlated
 completion. `runtime.rs` owns admission, retry timer tokens, draining leases,
-stop/resume/rearm, spending limits and ordered worker completion checks. Both emit commands for a JavaScript effect/plugin compatibility host. The HTTP service, web GUI, network transport,
-execution policy, event listeners,
-import validation, lexical tokenization, and portable process-ownership checks
-remain in JavaScript during this migration stage.
+stop/resume/rearm, spending limits and ordered worker completion checks. Both
+emit commands for a JavaScript effect/plugin compatibility host. Normal launch
+still uses JavaScript for HTTP, network transport, execution policy, event
+listeners and remaining built-in effect adapters. UI projections, import/export
+validation and lexical indexing now live in projection.rs and store_domain.rs.
+The separate developmental native-service owns local HTTP/state/SSE without
+Node; full feature cutover remains in progress.
 
 ## Build and test
 
@@ -28,7 +31,7 @@ From the repository root, `npm run build:core` builds and copies the native
 library into the service's ignored binary directory. The `node` feature is
 enabled by default and exports the N-API `StateCore`, pure `computeCore`, protocol encoder,
 `ProtocolDecoderCore`, `ThinkSplitterCore`, `ExecutionCore` and `RuntimeCore` interfaces. Disabling it leaves a
-Node-independent Rust library with the `NativeState` API.
+Node-independent Rust library with NativeState, compute_json, projection::project_json, RuntimeEngine and ExecutionEngine APIs.
 
 ## Boundary
 

@@ -11,9 +11,11 @@ use std::{error::Error, fmt};
 mod context;
 pub mod execution;
 mod js_value;
-mod json_codec;
+pub mod json_codec;
+pub mod projection;
 pub mod protocols;
 pub mod runtime;
+pub mod store_domain;
 mod tokens;
 use json_codec::{encode_text, encode_value, sql_text};
 
@@ -283,6 +285,9 @@ impl NativeState {
         }
         // Fail predictably after close, including operations with no SQL work.
         self.db()?;
+        if op.starts_with("store.") {
+            return store_domain::dispatch(self, op, p);
+        }
         match op {
             "kv.get" => {
                 let raw: Option<String> = self.db()?.query_row(
@@ -655,6 +660,22 @@ impl NativeState {
     }
 }
 
+/// Node-independent, lossless entry point for context, token and UI computations.
+/// Inputs/outputs are external JSON; isolated UTF-16 surrogate escapes are retained.
+pub fn compute_json(operation: &str, payload_json: &str) -> CoreResult<String> {
+    let payload = json_codec::parse(payload_json)?;
+    let result = if operation.starts_with("context.") {
+        context::call(operation, payload)?
+    } else if operation.starts_with("tokens.") {
+        tokens::call(operation, payload)?
+    } else if operation.starts_with("ui.") {
+        projection::call(operation, payload)?
+    } else {
+        return Err(invalid("Unknown compute operation"));
+    };
+    json_codec::stringify(&result)
+}
+
 #[cfg(feature = "node")]
 mod binding {
     use super::*;
@@ -662,18 +683,8 @@ mod binding {
 
     #[napi(js_name = "computeCore")]
     pub fn compute_core(operation: String, payload_json: String) -> napi::Result<String> {
-        let run = || -> CoreResult<String> {
-            let payload = json_codec::parse(&payload_json)?;
-            let result = if operation.starts_with("context.") {
-                context::call(&operation, payload)?
-            } else if operation.starts_with("tokens.") {
-                tokens::call(&operation, payload)?
-            } else {
-                return Err(invalid("Unknown compute operation"));
-            };
-            json_codec::stringify(&result)
-        };
-        run().map_err(|error| napi::Error::from_reason(error.to_string()))
+        compute_json(&operation, &payload_json)
+            .map_err(|error| napi::Error::from_reason(error.to_string()))
     }
 
     #[napi]

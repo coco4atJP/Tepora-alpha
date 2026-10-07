@@ -31,9 +31,11 @@
     "test:rust": "cargo test --locked --no-default-features --manifest-path Tepora-v3/native-core/Cargo.toml",
     "prestart": "npm run build:core",
     "preserve": "npm run build:core",
-    "pretest": "npm run build:core",
+    "pretest": "npm run build:core && npm run build:native",
     "prequality": "npm run build:core && npm run test:rust",
-    "prequality:full": "npm run build:core && npm run test:rust"
+    "prequality:full": "npm run build:core && npm run test:rust",
+    "build:native": "node Tepora-v3/scripts/build-native.mjs",
+    "test:native": "cargo test --locked --manifest-path Tepora-v3/native-service/Cargo.toml"
   },
   "license": "Apache-2.0"
 }

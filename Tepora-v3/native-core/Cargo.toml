@@ -19,6 +19,8 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 
 ryu-js = "1.0.3"
+regex = "=1.13.1"
+unicode-normalization = "=0.1.25"
 
 [build-dependencies]
 napi-build = { version = "2", optional = true }

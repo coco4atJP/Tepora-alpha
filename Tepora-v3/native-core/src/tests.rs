@@ -725,3 +725,24 @@ fn memory_recall_preserves_legacy_javascript_confirmation_truthiness() {
         ]
     );
 }
+
+#[test]
+fn standalone_compute_api_retains_wire_contracts_without_node() {
+    assert_eq!(compute_json("tokens.raw", r#"{"text":""}"#).unwrap(), "0");
+    assert_eq!(
+        compute_json("context.repairSequence", r#"{"messages":[]}"#).unwrap(),
+        "[]"
+    );
+    assert_eq!(
+        compute_json(
+            "ui.jobStatus",
+            r#"{"session":{"status":"done","accepted":true}}"#
+        )
+        .unwrap(),
+        "\"completed\""
+    );
+    assert!(compute_json("missing.operation", "{}")
+        .unwrap_err()
+        .to_string()
+        .contains("Unknown compute"));
+}

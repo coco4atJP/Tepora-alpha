@@ -1,0 +1,783 @@
+//! One state/event authority. This developmental workspace runs no external effects.
+use crate::{ApiError, Backend, EventRequest, EventSubscription, Operation, Reply, ServiceEvent};
+use chrono::{Duration, SecondsFormat, Utc};
+use serde_json::{json, Map, Value};
+use std::{
+    collections::HashMap,
+    env, fs,
+    path::{Path, PathBuf},
+    sync::{Mutex, MutexGuard},
+};
+use tepora_core::{json_codec, projection, store_domain, NativeState};
+use tokio::sync::mpsc;
+use uuid::Uuid;
+
+pub struct Workspace {
+    state: Mutex<State>,
+}
+struct State {
+    db: NativeState,
+    dir: PathBuf,
+    work_root: PathBuf,
+    owner: String,
+    defaults: Value,
+    subscribers: HashMap<u64, mpsc::Sender<ServiceEvent>>,
+    next_subscriber: u64,
+    closed: bool,
+}
+fn now() -> String {
+    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+fn error(e: impl ToString) -> ApiError {
+    let s = e.to_string();
+    if s.starts_with('[') && s.as_bytes().get(4) == Some(&b']') {
+        if let Ok(code) = s[1..4].parse() {
+            return ApiError::new(code, s[5..].trim_start());
+        }
+    }
+    ApiError::new(500, s)
+}
+fn require(ok: bool, status: u16, message: &str) -> Result<(), ApiError> {
+    if ok {
+        Ok(())
+    } else {
+        Err(ApiError::new(status, message))
+    }
+}
+fn safe_integer(v: &Value) -> Option<i64> {
+    v.as_f64()
+        .filter(|n| n.is_finite() && n.fract() == 0.0 && n.abs() <= crate::MAX_SAFE_INTEGER as f64)
+        .map(|n| n as i64)
+}
+fn truth(v: &Value) -> bool {
+    match v {
+        Value::Null => false,
+        Value::Bool(v) => *v,
+        Value::Number(v) => v.as_f64().is_some_and(|n| n != 0.0),
+        Value::String(v) => !v.is_empty(),
+        _ => true,
+    }
+}
+fn str_of(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Null => "null".into(),
+        Value::Bool(v) => v.to_string(),
+        Value::Number(v) => v.to_string(),
+        Value::Array(a) => a
+            .iter()
+            .map(|v| {
+                if v.is_null() {
+                    String::new()
+                } else {
+                    str_of(v)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        _ => "[object Object]".into(),
+    }
+}
+fn slice(s: &str, n: usize) -> String {
+    let u = json_codec::utf16_units(s);
+    json_codec::from_utf16_units(&u[..u.len().min(n)])
+}
+fn pick(v: &Value, keys: &[&str]) -> Value {
+    let mut out = Map::new();
+    for k in keys {
+        if let Some(v) = v.get(*k) {
+            out.insert((*k).into(), v.clone());
+        }
+    }
+    Value::Object(out)
+}
+fn merge(a: &Value, b: &Value) -> Value {
+    let mut out = a.as_object().cloned().unwrap_or_default();
+    if let Some(b) = b.as_object() {
+        for (k, v) in b {
+            out.insert(k.clone(), v.clone());
+        }
+    }
+    Value::Object(out)
+}
+fn sandbox_settings(defaults: &Value, raw: &Value) -> Result<Value, ApiError> {
+    let raw = if truth(raw) { raw.clone() } else { json!({}) };
+    let fields = ["mode", "network", "writable", "image", "engine"];
+    require(
+        raw.as_object()
+            .is_some_and(|o| o.keys().all(|k| fields.contains(&k.as_str())))
+            || raw.as_array().is_some_and(|a| a.is_empty()),
+        400,
+        "Invalid sandbox settings",
+    )?;
+    let mut c = merge(defaults, &raw);
+    require(
+        matches!(
+            c["mode"].as_str(),
+            Some("off" | "workspace" | "readonly" | "container")
+        ),
+        400,
+        "Unknown sandbox mode",
+    )?;
+    require(c["network"].is_boolean(), 400, "Invalid sandbox network")?;
+    require(
+        c["writable"].as_array().is_some_and(|a| {
+            a.len() <= 16
+                && a.iter().all(|p| {
+                    p.as_str()
+                        .is_some_and(|p| Path::new(&json_codec::sql_text(p)).is_absolute())
+                })
+        }),
+        400,
+        "Writable paths must be absolute",
+    )?;
+    require(
+        c["image"].as_str().is_some_and(|s| {
+            !s.is_empty()
+                && s.len() <= 300
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"_./:@-".contains(&b))
+        }),
+        400,
+        "Invalid container image",
+    )?;
+    require(
+        matches!(c["engine"].as_str(), Some("auto" | "docker" | "podman")),
+        400,
+        "Invalid container engine",
+    )?;
+    let mut unique = Vec::new();
+    for path in c["writable"].as_array().unwrap() {
+        if !unique.contains(path) {
+            unique.push(path.clone());
+        }
+    }
+    c["writable"] = json!(unique);
+    Ok(c)
+}
+fn platform() -> &'static str {
+    if cfg!(windows) {
+        "win32"
+    } else if cfg!(target_os = "macos") {
+        "darwin"
+    } else {
+        env::consts::OS
+    }
+}
+fn arch() -> &'static str {
+    match env::consts::ARCH {
+        "x86_64" => "x64",
+        "aarch64" => "arm64",
+        other => other,
+    }
+}
+fn home() -> PathBuf {
+    env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+fn default_dir() -> PathBuf {
+    if cfg!(windows) {
+        env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(home)
+            .join("Tepora/v3")
+    } else if cfg!(target_os = "macos") {
+        home().join("Library/Application Support/Tepora/v3")
+    } else {
+        home().join(".local/share/tepora-v3")
+    }
+}
+fn which(name: &str) -> Option<String> {
+    env::split_paths(&env::var_os("PATH").unwrap_or_default())
+        .map(|p| {
+            p.join(if cfg!(windows) {
+                format!("{name}.exe")
+            } else {
+                name.into()
+            })
+        })
+        .find(|p| p.is_file())
+        .map(|p| p.to_string_lossy().into_owned())
+}
+fn sandbox() -> Value {
+    json!({"platform":platform(),"seatbelt":cfg!(target_os="macos")&&Path::new("/usr/bin/sandbox-exec").exists(),"bwrap":if cfg!(target_os="linux"){which("bwrap")}else{None},"docker":which("docker"),"podman":which("podman")})
+}
+#[cfg(unix)]
+fn process_alive(pid: u64) -> bool {
+    if pid == 0 || pid > i32::MAX as u64 {
+        return true;
+    }
+    let result = unsafe { libc::kill(pid as libc::pid_t, 0) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+}
+#[cfg(windows)]
+fn process_alive(pid: u64) -> bool {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, GetLastError, ERROR_INVALID_PARAMETER},
+        System::Threading::{GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
+    };
+    if pid == 0 || pid > u32::MAX as u64 {
+        return true;
+    }
+    unsafe {
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid as u32);
+        if h.is_null() {
+            return GetLastError() != ERROR_INVALID_PARAMETER;
+        }
+        let mut code = 0;
+        let ok = GetExitCodeProcess(h, &mut code);
+        CloseHandle(h);
+        ok == 0 || code == 259
+    }
+}
+#[cfg(not(any(unix, windows)))]
+fn process_alive(_pid: u64) -> bool {
+    true
+}
+
+impl Workspace {
+    pub fn open(dir: &Path) -> Result<Self, ApiError> {
+        fs::create_dir_all(dir).map_err(error)?;
+        let dir = fs::canonicalize(dir).map_err(error)?;
+        let defaults = json_codec::parse(include_str!("../defaults.json")).map_err(error)?;
+        let db =
+            NativeState::open(&dir.join("tepora-v3.sqlite").to_string_lossy()).map_err(error)?;
+        let mut s = State {
+            db,
+            dir: dir.clone(),
+            work_root: dir.join("work"),
+            owner: Uuid::new_v4().to_string(),
+            defaults,
+            subscribers: HashMap::new(),
+            next_subscriber: 0,
+            closed: false,
+        };
+        s.call("exec", json!({"sql":"BEGIN IMMEDIATE"}))?;
+        let result = (|| {
+            let lease = s.value("service-owner")?;
+            if !lease.is_null() {
+                require(
+                    lease["pid"].as_u64().is_some_and(|pid| !process_alive(pid)),
+                    409,
+                    "Tepora is already using this data directory.",
+                )?;
+            }
+            s.set_value(
+                "service-owner",
+                json!({"id":s.owner,"pid":std::process::id()}),
+            )?;
+            if !truth(&s.value("search-schema-v1")?) {
+                for kind in ["memory", "job"] {
+                    for doc in s.list(kind)? {
+                        s.index(kind, &doc)?;
+                    }
+                }
+                s.set_value("search-schema-v1", json!(true))?;
+            }
+            for mut job in s.list("job")? {
+                if job.get("revision").is_none()
+                    && job["kind"] != "demo"
+                    && job["step"].as_f64().unwrap_or(0.0) > 0.0
+                    && s.get("checkpoint", job["id"].as_str().unwrap_or(""))?
+                        .is_null()
+                {
+                    job["resumeBlocked"] = json!(true);
+                    job["note"] = json!("以前の版の実行記録を確認できないため、自動再開しません。");
+                    s.put("job", job.clone())?;
+                }
+                if matches!(
+                    job["status"].as_str(),
+                    Some("running" | "queued" | "waiting_approval")
+                ) && !(job["status"] == "waiting_approval" && truth(&job["parked"]))
+                {
+                    job["status"] = json!("interrupted");
+                    job["approval"] = Value::Null;
+                    job["note"] = json!(
+                        "前回の仕事を保存しています。結果不明の操作を確認してから再開できます。"
+                    );
+                    s.put("job", job)?;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(e) = result {
+            let _ = s.call("exec", json!({"sql":"ROLLBACK"}));
+            s.closed = true;
+            let _ = s.call("close", json!({}));
+            return Err(e);
+        }
+        s.call("exec", json!({"sql":"COMMIT"}))?;
+        let settings = s.agent_settings()?;
+        s.work_root = if settings["workRoot"].as_str().is_some_and(|s| !s.is_empty()) {
+            PathBuf::from(json_codec::sql_text(settings["workRoot"].as_str().unwrap()))
+        } else if env::var_os("TEPORA_DATA_DIR").is_none()
+            && fs::canonicalize(default_dir()).ok().as_ref() == Some(&dir)
+        {
+            home().join("Tepora")
+        } else {
+            dir.join("work")
+        };
+        s.main()?;
+        // Live approval waiters do not survive process restart. Retain the
+        // original request for history, but never restore its permission.
+        for mut approval in s.list("approval")? {
+            if approval["status"] == "pending" {
+                approval["status"] = json!("withdrawn");
+                approval["decidedAt"] = json!(now());
+                s.put("approval", approval)?;
+            }
+        }
+        if s.get("skill", "artifact-studio")?.is_null() {
+            s.put("skill",json!({"id":"artifact-studio","name":"Artifact studio","description":"成果物を早く公開し、同じIDで段階的に更新する。","content":"# Artifact studio\nPublish a first useful HTML or Markdown artifact early, then revise it with artifact edit.","enabled":true,"source":"builtin","createdAt":now()}))?;
+        }
+        Ok(Self {
+            state: Mutex::new(s),
+        })
+    }
+    fn lock(&self) -> Result<MutexGuard<'_, State>, ApiError> {
+        self.state
+            .lock()
+            .map_err(|_| ApiError::new(500, "State owner unavailable"))
+    }
+}
+impl State {
+    fn call(&mut self, op: &str, p: Value) -> Result<Value, ApiError> {
+        let request = json_codec::stringify_js(&p).map_err(error)?;
+        json_codec::parse(&self.db.call_json(op, &request).map_err(error)?).map_err(error)
+    }
+    fn value(&mut self, key: &str) -> Result<Value, ApiError> {
+        self.call("kv.get", json!({"key":key}))
+    }
+    fn set_value(&mut self, key: &str, value: Value) -> Result<(), ApiError> {
+        self.call("kv.set", json!({"key":key,"value":value}))
+            .map(|_| ())
+    }
+    fn list(&mut self, kind: &str) -> Result<Vec<Value>, ApiError> {
+        Ok(self
+            .call("document.list", json!({"kind":kind}))?
+            .as_array()
+            .cloned()
+            .unwrap_or_default())
+    }
+    fn get(&mut self, kind: &str, id: &str) -> Result<Value, ApiError> {
+        self.call("document.get", json!({"kind":kind,"id":id}))
+    }
+    fn index(&mut self, kind: &str, doc: &Value) -> Result<(), ApiError> {
+        self.call(
+            "document.index",
+            json!({"kind":kind,"id":doc["id"],"terms":store_domain::indexed_text(doc,17)}),
+        )
+        .map(|_| ())
+    }
+    fn put(&mut self, kind: &str, doc: Value) -> Result<Value, ApiError> {
+        let mut args = json!({"kind":kind,"doc":doc});
+        if matches!(kind, "memory" | "job") {
+            args["terms"] = json!(store_domain::indexed_text(&args["doc"], 17));
+        }
+        self.call("document.put", args)?;
+        Ok(doc)
+    }
+    fn domain(&mut self, op: &str, args: Value) -> Result<Value, ApiError> {
+        let reply = self.call(op, args)?;
+        if let Some(events) = reply["events"].as_array() {
+            for event in events {
+                self.publish_value(event.clone())?;
+            }
+        }
+        Ok(reply["value"].clone())
+    }
+    fn settings(&mut self) -> Result<Value, ApiError> {
+        self.domain("store.settings", json!({}))
+    }
+    fn agent_settings(&mut self) -> Result<Value, ApiError> {
+        let raw = self.value("agent-settings")?;
+        let mut settings = merge(&self.defaults["agent"], &raw);
+        for name in [
+            "heartbeat",
+            "cacheRetention",
+            "budget",
+            "webSearch",
+            "policy",
+        ] {
+            settings[name] = merge(&self.defaults["agent"][name], &raw[name]);
+        }
+        settings["sandbox"] =
+            sandbox_settings(&self.defaults["agent"]["sandbox"], &raw["sandbox"])?;
+        Ok(settings)
+    }
+    fn personas(&mut self) -> Result<Value, ApiError> {
+        let stored = self.value("dialogue-personas")?;
+        let mut p = if truth(&stored) {
+            require(stored.is_object(), 500, "Invalid saved personas")?;
+            require(
+                stored["character"].is_null() || stored["character"].is_object(),
+                500,
+                "Invalid saved character persona",
+            )?;
+            stored
+        } else {
+            let mut p = self.defaults["personas"].clone();
+            let settings = self.settings()?;
+            let name = if truth(&settings["companion"]) {
+                str_of(&settings["companion"])
+            } else {
+                "Tepora".into()
+            };
+            p["character"]["name"] = json!(slice(&name, 80));
+            p
+        };
+        if !truth(&p["character"]["voice"]) {
+            p["character"]["voice"] = self.defaults["personas"]["character"]["voice"].clone();
+        }
+        Ok(p)
+    }
+    fn main(&mut self) -> Result<Value, ApiError> {
+        if let Some(s) = self
+            .list("session")?
+            .into_iter()
+            .find(|s| s["kind"] == "main")
+        {
+            return Ok(s);
+        }
+        fs::create_dir_all(&self.work_root).map_err(error)?;
+        let personas = self.personas()?;
+        let at = now();
+        let s = json!({"id":Uuid::new_v4().to_string(),"kind":"main","title":personas["character"]["name"],"parentId":null,"rootId":null,"depth":0,"status":"idle","role":"chat","toolset":"main","persona":null,"cwd":self.work_root.to_string_lossy(),"task":null,"label":null,"result":null,"note":"","stats":{"steps":0,"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"compactions":0,"clears":0},"createdAt":at,"updatedAt":at});
+        self.put("session", s)
+    }
+    fn usage(&mut self) -> Result<Value, ApiError> {
+        let current = Utc::now();
+        let mut days = Map::new();
+        for i in 0..7 {
+            let day = (current - Duration::days(i)).format("%Y-%m-%d").to_string();
+            days.insert(day.clone(), self.value(&format!("agent-usage:{day}"))?);
+        }
+        let today = days.values().next().cloned().unwrap_or(Value::Null);
+        Ok(json!({"today":today,"days":days}))
+    }
+    fn ui(&mut self, operation: &str) -> Result<Value, ApiError> {
+        let main = self.main()?;
+        let entries = self.call("session.tail", json!({"id":main["id"],"limit":1200}))?;
+        let payload = json!({"main":main,"entries":entries,"sessions":self.list("session")?,"approvals":self.list("approval")?,"personas":self.personas()?,"settings":self.agent_settings()?,"usage":self.usage()?});
+        json_codec::parse(
+            &projection::project_json(
+                operation,
+                &json_codec::stringify_js(&payload).map_err(error)?,
+            )
+            .map_err(error)?,
+        )
+        .map_err(error)
+    }
+    fn providers(&mut self) -> Result<Value, ApiError> {
+        let raw = self.value("provider-registry")?;
+        let mut c = if raw.is_null() {
+            json!({"schema":2,"revision":0,"profiles":[],"routes":{}})
+        } else {
+            raw
+        };
+        require(
+            c.is_object() && c["profiles"].is_array(),
+            500,
+            "Invalid saved provider registry",
+        )?;
+        let keys = self.value("provider-keys")?;
+        let mut profiles = Vec::new();
+        for mut p in c["profiles"].as_array().cloned().unwrap_or_default() {
+            let id = p["id"].as_str().unwrap_or("");
+            let key_present = truth(&keys[id])
+                || p["apiKeyEnv"]
+                    .as_str()
+                    .and_then(|name| env::var(name).ok())
+                    .is_some_and(|s| !s.is_empty());
+            p["keyPresent"] = json!(key_present);
+            p["health"] = Value::Null;
+            p["limits"] = self.value(&format!(
+                "provider-limits:{}",
+                p["identity"].as_str().unwrap_or("")
+            ))?;
+            p["probe"] = self.get("provider-probe", p["identity"].as_str().unwrap_or(""))?;
+            profiles.push(p);
+        }
+        c["profiles"] = json!(profiles);
+        c["resources"] = json!([]);
+        Ok(c)
+    }
+    fn snapshot(&mut self) -> Result<Value, ApiError> {
+        let base = self.domain("store.snapshot", json!({}))?;
+        let ui = self.ui("ui.snapshot")?;
+        let mut s = merge(&base, &ui);
+        let network = self.value("network-policy")?;
+        s["network"] = if network.is_null() {
+            json!({"schema":1,"revision":0,"mode":"online","internetTools":true})
+        } else {
+            network
+        };
+        s["providers"] = self.providers()?;
+        let capabilities = self.value("capabilities")?;
+        let mut capabilities = if capabilities.is_null() {
+            json!({"schema":1,"revision":0,"profiles":[],"routes":{}})
+        } else {
+            capabilities
+        };
+        require(
+            capabilities.is_object() && capabilities["profiles"].is_array(),
+            500,
+            "Invalid saved capabilities",
+        )?;
+        if let Some(profiles) = capabilities["profiles"].as_array_mut() {
+            for p in profiles {
+                p["keyPresent"] = json!(p["apiKeyEnv"]
+                    .as_str()
+                    .and_then(|key| env::var(key).ok())
+                    .is_some_and(|s| !s.is_empty()));
+            }
+        }
+        s["capabilities"] = capabilities;
+        let computer = self.value("computer-config")?;
+        s["computer"] = json!({"config":if computer["schema"]==2{computer}else{json!({"schema":2,"revision":0,"enabled":true,"control":"both","headless":true,"browserExecutable":"","desktop":true,"maxSteps":12})},"browser":{"executable":null,"running":false,"tabs":0},"desktop":{"supported":cfg!(target_os="macos"),"running":false},"decision":false,"nativeUnavailable":true});
+        let display = self.value("display")?;
+        s["display"] = if display.is_null() {
+            self.defaults["display"].clone()
+        } else {
+            display
+        };
+        let avatar = self.value("avatar")?;
+        s["avatar"] = if avatar.is_null() {
+            self.defaults["avatar"].clone()
+        } else {
+            avatar
+        };
+        let assets = self.value("avatar-assets")?;
+        s["avatarAssets"] = json!({"assets":assets.as_array().unwrap_or(&Vec::new()).iter().map(|a|{let mut a=pick(a,&["id","kind","name","bytes","createdAt","meta","files"]);a["files"]=json!(a["files"].as_array().unwrap_or(&Vec::new()).iter().map(|f|pick(f,&["path","mime","bytes"])).collect::<Vec<_>>());a}).collect::<Vec<_>>(),"limits":{"maxAssets":24,"maxBytes":96*1024*1024,"maxVrmBytes":80*1024*1024,"maxLibraryBytes":1024*1024*1024}});
+        let photos = self.value("frame-photos")?;
+        s["frame"] = json!({"photos":photos.as_array().unwrap_or(&Vec::new()).iter().map(|p|pick(p,&["id","name","mime","bytes","width","height","addedAt"])).collect::<Vec<_>>(),"limits":{"maxPhotos":300,"maxBytes":24*1024*1024,"maxTotalBytes":2147483648u64}});
+        s["mediaJobs"] = json!(self
+            .list("media-job")?
+            .iter()
+            .map(|j| {
+                let mut out = pick(
+                    j,
+                    &[
+                        "id",
+                        "title",
+                        "kind",
+                        "status",
+                        "note",
+                        "createdAt",
+                        "updatedAt",
+                        "model",
+                        "jobId",
+                        "asset",
+                    ],
+                );
+                if let Some(name) = j.get("providerName") {
+                    out["provider"] = name.clone();
+                }
+                out["providerMayContinue"] = json!(truth(&j["providerMayContinue"]));
+                out["canResume"] = json!(false);
+                out["nativeUnavailable"] = json!(true);
+                out
+            })
+            .collect::<Vec<_>>());
+        s["sandbox"] = sandbox();
+        s["nativeHost"] = json!({"development":true,"mode":"local-workspace","nodeRequired":false,"agentExecution":false,"externalEffects":false});
+        Ok(s)
+    }
+    fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {
+        let payload = json!({"event":value,"sessions":self.list("session")?,"approvals":self.list("approval")?});
+        let derived = json_codec::parse(
+            &projection::project_json(
+                "ui.event",
+                &json_codec::stringify_js(&payload).map_err(error)?,
+            )
+            .map_err(error)?,
+        )
+        .map_err(error)?;
+        if let Some(events) = derived.as_array() {
+            for event in events {
+                self.send_event(ServiceEvent {
+                    seq: None,
+                    event_type: event["type"].as_str().unwrap_or("").into(),
+                    data: event["data"].clone(),
+                    at: Some(now()),
+                });
+            }
+        }
+        self.send_event(ServiceEvent {
+            seq: value["seq"].as_u64(),
+            event_type: value["type"].as_str().unwrap_or("").into(),
+            data: value["data"].clone(),
+            at: value["at"].as_str().map(str::to_owned),
+        });
+        Ok(())
+    }
+    fn send_event(&mut self, event: ServiceEvent) {
+        self.subscribers
+            .retain(|_, sender| sender.try_send(event.clone()).is_ok());
+    }
+    fn artifact(&mut self, id: &str, version: Option<u64>) -> Result<Value, ApiError> {
+        let current = self.get("artifact", id)?;
+        require(!current.is_null(), 404, "Artifact not found")?;
+        if let Some(version) = version {
+            if safe_integer(&current["version"]) != Some(version as i64) {
+                let old = self.get("revision", &format!("{id}:{version}"))?;
+                require(!old.is_null(), 404, "Artifact revision not found")?;
+                return Ok(old);
+            }
+        }
+        Ok(current)
+    }
+    fn close(&mut self) -> Result<(), ApiError> {
+        if self.closed {
+            return Ok(());
+        }
+        self.closed = true;
+        self.subscribers.clear();
+        if self.value("service-owner")?["id"] == self.owner {
+            self.call("kv.delete", json!({"key":"service-owner"}))?;
+        }
+        self.call("close", json!({})).map(|_| ())
+    }
+}
+impl Drop for State {
+    fn drop(&mut self) {
+        let _ = self.close();
+    }
+}
+fn ram_bytes() -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        let pages = unsafe { libc::sysconf(libc::_SC_PHYS_PAGES) };
+        let size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+        if pages > 0 && size > 0 {
+            return (pages as u64).checked_mul(size as u64);
+        }
+    }
+    None
+}
+impl Backend for Workspace {
+    fn execute(&self, operation: Operation) -> Result<Reply, ApiError> {
+        let mut s = self.lock()?;
+        require(!s.closed, 503, "Service closing")?;
+        let value=match operation{
+   Operation::Bootstrap=>{
+    let mut v=s.snapshot()?;let settings=s.settings()?;
+    let first=s.list("session")?.into_iter().find(|s|s["kind"]!="main"&&matches!(s["status"].as_str(),Some("done"|"idle"))&&truth(&s["result"]));
+    v["setup"]=json!({"dismissed":truth(&s.value("setup-dismissed")?),"configured":truth(&settings["model"]),"verified":false,"checkedAt":null,"model":settings["model"],"provider":settings["provider"],"local":settings["baseUrl"].as_str().is_some_and(|v|v.starts_with("http://127.0.0.1:")||v.starts_with("http://localhost:")),"stage":if first.is_some(){"first-result"}else{"connect"},"firstResult":first.as_ref().map(|s|pick(s,&["id","title"])),"candidates":[],"engines":[],"transfer":s.value("setup-transfer")?,"checking":false,"catalog":[],"ramGiB":ram_bytes().map(|n|n/(1<<30)),"note":"Rust開発用のローカル作業領域です。モデル接続と外部操作はこの起動方法ではまだ利用できません。"});
+    v["platform"]=json!(platform());v["workspace"]=json!(s.work_root.to_string_lossy());v["preview"]=json!(false);v["version"]=json!(crate::VERSION);v
+   },
+   Operation::Agent=>s.ui("ui.snapshot")?,
+   Operation::Dialogue=>s.ui("ui.dialogue")?,
+   Operation::Sessions=>json!(s.list("session")?.into_iter().map(|mut v|{if let Some(o)=v.as_object_mut(){o.shift_remove("system");}v}).collect::<Vec<_>>()),
+   Operation::Session{id,before,limit}=>{
+    let session=s.get("session",&id)?;require(!session.is_null(),404,"Session not found")?;
+    require(limit.is_finite()&&limit.fract()==0.0&&limit.abs()<=crate::MAX_SAFE_INTEGER as f64,400,"Invalid limit")?;let limit=limit.min(500.0)as i64;
+    let mut entries=if let Some(before)=before.filter(|n|*n!=0.0){
+     require(before.is_finite()&&before.fract()==0.0&&before.abs()<=crate::MAX_SAFE_INTEGER as f64,400,"Invalid before")?;
+     let all=s.call("session.entries",json!({"id":id,"to":before as i64-1}))?;let mut a=all.as_array().cloned().unwrap_or_default();
+     let start=if limit==0{0}else if limit>0{a.len().saturating_sub(limit as usize)}else{(-limit)as usize};a.drain(..start.min(a.len()));json!(a)
+    }else{s.call("session.tail",json!({"id":id,"limit":limit}))?};
+    if let Some(entries)=entries.as_array_mut(){for e in entries{if e["type"]=="tool"{let content=if truth(&e["content"]){str_of(&e["content"])}else{String::new()};e["content"]=json!(slice(&content,4000));}else if e["type"]=="checkpoint"{*e=pick(e,&["seq","type","at","upTo","method","reason","summary"]);}}}
+    let job=if session["kind"]=="main"{Value::Null}else{let n=s.list("approval")?.iter().filter(|a|a["sessionId"]==id&&a["status"]=="pending").count();json_codec::parse(&projection::project_json("ui.job",&json_codec::stringify_js(&json!({"session":session,"approvals":n})).map_err(error)?).map_err(error)?).map_err(error)?};
+    let mut public=session;if let Some(o)=public.as_object_mut(){o.shift_remove("system");}json!({"session":public,"job":job,"entries":entries,"processes":[]})
+   },
+   Operation::MemoryCreate{body}=>s.domain("store.memory",json!({"content":body["content"],"options":{"title":body["title"].as_str().unwrap_or(""),"confirmed":true,"scope":body["scope"]}}))?,
+   Operation::MemoryPatch{id,body}=>s.domain("store.memoryPatch",json!({"id":id,"patch":body}))?,
+   Operation::MemoryDelete{id}=>s.domain("store.memoryDelete",json!({"id":id}))?,
+   Operation::Artifacts=>json!(s.list("artifact")?),
+   Operation::ArtifactEdit{id,body}=>{
+    let old=s.artifact(&id,None)?;require(body["expectedVersion"].as_f64().is_some_and(|n|n.is_finite()&&n.fract()==0.0&&n.abs()<=crate::MAX_SAFE_INTEGER as f64),400,"A base revision is required")?;
+    s.domain("store.artifact",json!({"title":old["title"],"content":body["content"],"options":{"id":id,"kind":old["kind"],"jobId":old["jobId"],"expectedVersion":body["expectedVersion"]}}))?
+   },
+   Operation::ArtifactRevisions{id,version}=>{
+    let current=s.artifact(&id,None)?;
+    if let Some(version)=version{let doc=s.artifact(&id,Some(version))?;let mut v=pick(&doc,&["title","kind","version","updatedAt","content"]);v["id"]=current["id"].clone();v}
+    else{let mut versions=vec![pick(&current,&["version","updatedAt","title"])];versions.extend(s.list("revision")?.iter().filter(|r|r["artifactId"]==id).map(|r|pick(r,&["version","updatedAt","title"])));versions.sort_by(|a,b|safe_integer(&b["version"]).unwrap_or(0).cmp(&safe_integer(&a["version"]).unwrap_or(0)));json!({"id":id,"versions":versions})}
+   },
+   Operation::RenderArtifact{id,version}=>{
+    let current=s.artifact(&id,None)?;if let Some(v)=version{require(v>0&&v<=crate::MAX_SAFE_INTEGER,400,"Invalid revision")?;}
+    let doc=if version.is_none(){current}else{s.artifact(&id,version)?};let interactive=s.agent_settings()?["sandbox"]["mode"]=="off";
+    return Ok(Reply::Render{kind:doc["kind"].as_str().unwrap_or("text").into(),content:json_codec::sql_text(doc["content"].as_str().unwrap_or("")),interactive});
+   },
+   Operation::Export=>s.domain("store.export",json!({}))?,
+   Operation::Import{body}=>s.domain("store.import",json!({"bundle":body}))?,
+   Operation::Presence{body}=>{require(matches!(body["state"].as_str(),Some("present"|"away")),400,"Invalid presence")?;s.set_value("presence",json!({"state":body["state"],"at":now()}))?;json!({"presence":body["state"]})},
+   Operation::Doctor=>{let providers=s.providers()?;json!({"platform":platform(),"arch":arch(),"ramBytes":ram_bytes(),"cpuThreads":std::thread::available_parallelism().map(|n|n.get()).unwrap_or(1),"sandbox":sandbox(),"providers":providers["profiles"].as_array().unwrap_or(&Vec::new()).iter().map(|p|pick(p,&["id","model","domain","limits"])).collect::<Vec<_>>(),"note":"Rust開発用ローカル作業領域。モデル・GPU・外部操作の動作確認ではありません。","dataLocation":s.dir.to_string_lossy(),"workRoot":s.work_root.to_string_lossy(),"nativeDevelopment":true})},
+  };
+        Ok(Reply::Json(value))
+    }
+    fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError> {
+        let mut s = self.lock()?;
+        require(!s.closed, 503, "Service closing")?;
+        let events = s
+            .call("event.replay", json!({"since":request.since}))?
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let gap = events
+            .first()
+            .and_then(|e| e["seq"].as_u64())
+            .is_some_and(|n| n > request.since.saturating_add(1));
+        let initial = if request.reconnect || gap {
+            vec![ServiceEvent {
+                seq: s.call("event.seq", json!({}))?.as_u64(),
+                event_type: "snapshot".into(),
+                data: s.snapshot()?,
+                at: None,
+            }]
+        } else {
+            events
+                .into_iter()
+                .map(|e| ServiceEvent {
+                    seq: e["seq"].as_u64(),
+                    event_type: e["type"].as_str().unwrap_or("").into(),
+                    data: e["data"].clone(),
+                    at: e["at"].as_str().map(str::to_owned),
+                })
+                .collect()
+        };
+        let (tx, receiver) = mpsc::channel(64);
+        s.next_subscriber += 1;
+        let id = s.next_subscriber;
+        s.subscribers.insert(id, tx);
+        Ok(EventSubscription {
+            id,
+            initial,
+            receiver,
+        })
+    }
+    fn unsubscribe(&self, id: u64) {
+        if let Ok(mut s) = self.state.lock() {
+            s.subscribers.remove(&id);
+        }
+    }
+    fn stop(&self) -> Result<(), ApiError> {
+        Ok(())
+    }
+    fn shutdown(&self) -> Result<(), ApiError> {
+        self.lock()?.close()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn malformed_saved_configuration_returns_errors_without_poisoning_state() {
+        for key in ["provider-registry", "capabilities", "dialogue-personas"] {
+            let dir = env::temp_dir().join(format!("tepora-native-invalid-{}", Uuid::new_v4()));
+            let workspace = Workspace::open(&dir).unwrap();
+            workspace
+                .lock()
+                .unwrap()
+                .set_value(key, json!("invalid legacy value"))
+                .unwrap();
+            assert!(workspace.execute(Operation::Bootstrap).is_err());
+            assert!(workspace.execute(Operation::Artifacts).is_ok());
+            workspace.shutdown().unwrap();
+            drop(workspace);
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+}

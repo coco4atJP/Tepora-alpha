@@ -10,6 +10,8 @@ Teporaは、ひとつのキャラクターとの会話を続けながら、別�
 
 この移植ブランチでは、SQLiteの永続状態・セッションログ・受信箱に加え、文脈組み立て・トークン計算・モデル要求/応答形式・モデルからツール実行までの状態機械、外側の実行枠・再試行・停止/再開・完了判定をRustに移しました。HTTP・効果処理/プラグイン互換層・通信の許可と送受信・予定・GUIは引き続きJavaScriptです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
+開発用の[独立Rust HTTPホスト](Tepora-v3/native-service/README.md)も追加しています。Nodeなしでローカル履歴・記憶・成果物・SSEを扱えますが、会話実行や周辺機能はまだ移植中です。通常の起動先は完成範囲が揃うまで変更しません。
+
 ```sh
 git clone https://github.com/coco4atJP/Tepora-alpha.git
 cd Tepora-alpha

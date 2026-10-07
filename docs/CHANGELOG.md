@@ -6,6 +6,7 @@
 - Move canonical model context/token accounting and request/response state machines for four wire protocols plus Ollama into Rust, with pinned old-implementation differential tests.
 - Move inner model/tool execution control into a generation-correlated Rust state machine; preserve plugin callbacks, bind approved arguments to dispatch, and drain interrupted parallel receipts.
 - Move outer admission, retries, spending-limit pauses and completion decisions into Rust; distinguish explicit resume from main rearm, reject stale callbacks, and cancel approvals before shutdown drainage.
+- Move UI projections and full workspace validation/import/export/indexing into shared Rust domains; add an explicit Node-free developmental HTTP workspace host with auth, bounded SSE and cross-host data ownership.
 - Add N-API integration, Rust unit tests and legacy-database regression tests; source builds now require Rust stable and a C linker.
 - The HTTP server, effect/plugin compatibility adapters, network admission/transport, scheduling and UI still remain JavaScript; migration continues. See [scope and verification](../Tepora-v3/docs/RUST-MIGRATION.md).
 

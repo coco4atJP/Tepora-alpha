@@ -1,0 +1,29 @@
+[package]
+name = "tepora-native-service"
+version = "3.0.0-beta.11"
+edition = "2021"
+license = "Apache-2.0"
+description = "Developmental Node-free Tepora local-workspace HTTP service"
+
+[dependencies]
+tepora-core = { path = "../native-core", default-features = false }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "io-util", "io-std", "signal", "fs"] }
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+async-stream = "0.3"
+futures-util = "0.3"
+url = "2.5"
+subtle = "2.6"
+getrandom = "0.4"
+regex = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
