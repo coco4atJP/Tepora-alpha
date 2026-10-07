@@ -2,7 +2,7 @@
 
 The current application has a shared Rust core and two service hosts. Normal `npm start` and Tauri use the Node ESM compatibility host with the existing feature set. The opt-in `native-service --dev-native --agent` path runs supported conversation and worker effects in Rust; `--dev-native` alone remains the local-workspace-only mode. This is not a default or desktop cutover, and the web UI remains JavaScript/CSS.
 
-This document describes the rebuilt session harness and stage-6 native host. [AGENT-HARNESS](AGENT-HARNESS.md) describes the current session model; [Rust migration](RUST-MIGRATION.md) records staged validation. Older protected/legacy-host capsule descriptions in [BETA11](BETA11.md) are historical and do not define the current `sandbox.mode` default or native capabilities.
+This document describes the rebuilt session harness and incremental native host. [AGENT-HARNESS](AGENT-HARNESS.md) describes the current session model; [Rust migration](RUST-MIGRATION.md) records staged validation. Older protected/legacy-host capsule descriptions in [BETA11](BETA11.md) are historical and do not define the current `sandbox.mode` default or native capabilities.
 
 ```mermaid
 flowchart TD
@@ -51,7 +51,7 @@ The network policy distinguishes online, trusted-LAN and offline destinations. I
 
 `context.rs` and `tokens.rs` build stable model context, clear/supersede old results, repair call/result sequences and account for tool definitions, images and calibration. Unicode16/17 token estimates are explicit inputs; the native host uses Unicode17 consistently. Role selection, reserve calculation and overflow retries remain compatible with the original harness.
 
-Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability effects are unported; a saved `capabilities.routes.decision` route rejects native-agent preflight rather than silently changing delegation or completion behavior to an unavailable decision model.
+Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability configuration, identity-bound memory-only keys and typed transport components are implemented. Agent decision/semantic/media consumers remain pending in this checkpoint; a saved `capabilities.routes.decision` route rejects native-agent preflight rather than silently changing delegation or completion behavior to an unavailable decision model.
 
 ## Prompts, compaction and self-checks
 
@@ -67,7 +67,7 @@ The native catalog implements `sessions_spawn`, `sessions_send`, `sessions_list`
 
 Policy matching preserves first-rule ordering, wildcard/prefix/exact names and validated ECMAScript-compatible UTF-16 regex matching. `agent/approvals.rs` persists immutable approved arguments, coordinates actor-owned decisions and withdraws stale requests. Approval wait futures do not write state. Late decisions, altered approval documents and stopped runs cannot authorize dispatch. Actual results and evidence are recorded once, in model order, with truncation/recall references, error/not-executed/interrupted distinctions, read references and usage statistics.
 
-The current `core/sandbox.mjs` default is **`off`**, with optional `workspace`, `readonly` and `container` configurations. This migration preserves those settings and existing file guards; it does not revive the former protected/legacy-host capsule architecture. Native `exec`/process execution is unavailable, not an unrestricted fallback for an unimplemented sandbox.
+The current `core/sandbox.mjs` default is **`off`**, with optional `workspace`, `readonly` and `container` configurations. This migration preserves those settings and existing file guards; it does not revive the former protected/legacy-host capsule architecture. Native `exec`/`process` uses the same sandbox selection and never silently falls back to an unconfined command. Process ownership, bounded output and cleanup uncertainty are separate from model/tool scheduling. Resume awaits the previous stopped-process barrier before making a new model request.
 
 File tools preserve path resolution, freshness checks and read-before-overwrite behavior. Their serialization key is a lexically resolved path, not inode/canonical identity: symlink/hardlink aliases can race. Configured confinement rejects final symlinks and canonical parents outside writable roots, but does not establish complete safety against concurrent ancestor renames. Neither writable-root checks nor network policy should be described as a complete OS sandbox.
 
@@ -90,3 +90,13 @@ On ホーム the conversation column collapses to its message box, placed under 
 Tauri still bundles a Node runtime, the compiled Rust core addon and V3 sources. It opens only the sidecar loopback origin and retains tray/background behavior. The standalone native-service binary needs no Node executable after its frontend bundle is built, but it is not the packaged desktop sidecar. Optional Python speech/decision workers remain separate services.
 
 Root npm/Task commands and CI target V3. [QA](QA.md) and [STATUS](STATUS.md) contain historical and current evidence; the dated [migration record](RUST-MIGRATION.md) identifies exactly which native slice was exercised. Local deterministic provider fixtures verify mechanics, not real model quality or a paid account. Windows/macOS packaging, installation, native WebView behavior and real hardware/model acceptance remain separate gates. Complete V2 migration and the remaining native effects are unfinished.
+
+## Process and capability checkpoint
+
+`agent/process_host.rs` adapts real processes to the existing FIFO actor and ordered receipts. `agent/processes.rs` owns the bounded process manager; `sandbox.rs` creates the configured host/workspace/readonly/container invocation. Frozen per-step descriptors preserve dynamic alias receipt keys. Approved arguments are consumed once at dispatch.
+
+`capabilities/` uses the same `WorkspaceAccess` and `NativeNetwork`; registry/event CAS is atomic, and explicit keys are memory-only. Workspace retains the agent host for live process projections. Provider/capability snapshot decorators only read runtime-owned caches, so reconnect sequence capture and subscriber registration remain atomic under the one State lock.
+
+`workspace/input_files.rs` stages inert bounded text/image documents transactionally. `workspace/session_files.rs` provides bounded file listing/download with a resolved-root guard. Model attachment delivery, decision routing and web host wiring remain later steps. No default application cutover is implied.
+
+See [complete route inventory and release gates](RUST-ROUTE-PARITY.md).

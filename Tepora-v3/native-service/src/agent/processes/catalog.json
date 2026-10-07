@@ -1,0 +1,97 @@
+[
+  {
+    "group": "core",
+    "readOnly": false,
+    "ephemeral": false,
+    "name": "exec",
+    "description": "Run a shell command on this computer and return its output. Use for files, git, builds, tests, scripts, package managers, system tools. Commands still running after `yield` seconds (default 20) continue in the background and return a process id: check them with process(action:\"poll\"). Use background:true for servers/watchers. Runs in the working directory unless cwd is given.",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Shell command line (sh)."
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory (absolute, or relative to the session folder)."
+        },
+        "yield": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600,
+          "description": "Seconds to wait before backgrounding (default 20)."
+        },
+        "background": {
+          "type": "boolean",
+          "description": "Start in the background and return immediately."
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400,
+          "description": "Kill after this many seconds (default 3600)."
+        },
+        "stdin": {
+          "type": "string",
+          "description": "Text written to standard input, then closed."
+        },
+        "tty": {
+          "type": "boolean",
+          "description": "Run in a pseudo-terminal, for programs that need one (interactive prompts, REPLs). Answer their prompts with process write."
+        }
+      }
+    }
+  },
+  {
+    "group": "core",
+    "readOnly": false,
+    "ephemeral": true,
+    "name": "process",
+    "description": "Manage background processes started by exec: list, poll (new output since the last poll and status), log (output from an offset), write (send stdin text), kill.",
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "poll",
+            "log",
+            "write",
+            "kill"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "wait": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 300,
+          "description": "poll: seconds to wait for more output or exit (default 5)."
+        },
+        "input": {
+          "type": "string",
+          "description": "write: text to send (a newline is not added)."
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "close": {
+          "type": "boolean",
+          "description": "write: close stdin afterwards."
+        }
+      }
+    }
+  }
+]

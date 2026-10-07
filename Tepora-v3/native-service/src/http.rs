@@ -572,6 +572,42 @@ impl HttpState {
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
         }
+        if self.config.agent && method == Method::GET {
+            if let Some((id, action)) = path
+                .strip_prefix("/api/agent/sessions/")
+                .and_then(|rest| rest.split_once('/'))
+                .filter(|(id, _)| session_id(id))
+            {
+                if action == "files" {
+                    return self
+                        .json_operation(Operation::SessionFiles { id: id.into() }, 200)
+                        .await;
+                }
+                if action == "download" {
+                    let selected = url
+                        .query_pairs()
+                        .find(|(key, _)| key == "path")
+                        .map(|(_, value)| value.into_owned())
+                        .unwrap_or_default();
+                    return match self
+                        .domain(Operation::SessionDownload {
+                            id: id.into(),
+                            path: tepora_core::json_codec::encode_text(&selected),
+                        })
+                        .await?
+                    {
+                        Reply::Download { bytes, disposition } => {
+                            let mut reply =
+                                response(200, "application/octet-stream", Bytes::from(bytes));
+                            set_header(&mut reply, "content-disposition", &disposition);
+                            set_header(&mut reply, "cache-control", "no-store");
+                            Ok(reply)
+                        }
+                        _ => Err(ApiError::new(500, "Invalid download response")),
+                    };
+                }
+            }
+        }
         if self.config.agent {
             if let Some(route) = native_agent_route(&method, path) {
                 let (operation, status) = match route {
@@ -673,6 +709,7 @@ impl HttpState {
             }
         }
         enum BodyRoute {
+            Inputs,
             MemoryCreate,
             MemoryPatch(String),
             ArtifactEdit(String),
@@ -685,6 +722,10 @@ impl HttpState {
                 Some(BodyRoute::MemoryCreate)
             }
             ("POST", "/api/context/import") => Some(BodyRoute::Import),
+            ("POST", "/api/inputs") => {
+                status = 201;
+                Some(BodyRoute::Inputs)
+            }
             ("POST", "/api/presence") => Some(BodyRoute::Presence),
             _ => {
                 if method == Method::PATCH {
@@ -703,6 +744,7 @@ impl HttpState {
         if let Some(route) = body_route {
             let body = self.read_json(request.into_body()).await?;
             let op = match route {
+                BodyRoute::Inputs => Operation::InputsStage { body },
                 BodyRoute::MemoryCreate => Operation::MemoryCreate { body },
                 BodyRoute::MemoryPatch(id) => Operation::MemoryPatch { id, body },
                 BodyRoute::ArtifactEdit(id) => Operation::ArtifactEdit { id, body },
@@ -712,6 +754,11 @@ impl HttpState {
             return self.json_operation(op, status).await;
         }
         if method == Method::DELETE {
+            if let Some(id) = path.strip_prefix("/api/inputs/").filter(|id| raw_id(id)) {
+                return self
+                    .json_operation(Operation::InputDelete { id: id.into() }, 200)
+                    .await;
+            }
             if let Some(id) = path.strip_prefix("/api/memories/").filter(|id| raw_id(id)) {
                 return self
                     .json_operation(Operation::MemoryDelete { id: id.into() }, 200)
@@ -814,6 +861,8 @@ enum NativeAgentBodyRoute {
     Settings,
     Approvals,
     Approval(String),
+    Capabilities,
+    CapabilityKey(String),
     Providers,
     ProviderKey(String),
     ProviderProbe(String),
@@ -828,6 +877,8 @@ impl NativeAgentBodyRoute {
             Self::Settings => Operation::AgentSettingsPatch { body },
             Self::Approvals => Operation::ApprovalsDecide { body },
             Self::Approval(id) => Operation::ApprovalDecide { id, body },
+            Self::Capabilities => Operation::CapabilitiesSave { body },
+            Self::CapabilityKey(id) => Operation::CapabilityKey { id, body },
             Self::Providers => Operation::ProvidersSave { body },
             Self::ProviderKey(id) => Operation::ProviderKey { id, body },
             Self::ProviderProbe(id) => Operation::ProviderProbe { id },
@@ -847,6 +898,8 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("PATCH", "/api/agent/settings") => return Some(Json(Body::Settings, 200)),
         ("GET", "/api/agent/approvals") => return Some(Ready(Operation::Approvals, 200)),
         ("POST", "/api/agent/approvals") => return Some(Json(Body::Approvals, 200)),
+        ("GET", "/api/capabilities") => return Some(Ready(Operation::Capabilities, 200)),
+        ("PUT", "/api/capabilities") => return Some(Json(Body::Capabilities, 200)),
         ("GET", "/api/providers") => return Some(Ready(Operation::Providers, 200)),
         ("PUT", "/api/providers") => return Some(Json(Body::Providers, 200)),
         ("GET", "/api/network") => return Some(Ready(Operation::Network, 200)),
@@ -866,6 +919,7 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
             "message" => Some(Json(Body::Message(id.into()), 202)),
             "stop" => Some(Ready(Operation::SessionStop { id: id.into() }, 200)),
             "resume" => Some(Ready(Operation::SessionResume { id: id.into() }, 200)),
+            "accept" => Some(Ready(Operation::SessionAccept { id: id.into() }, 200)),
             _ => None,
         };
     }
@@ -874,6 +928,16 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         .filter(|id| session_id(id))
     {
         return Some(Json(Body::Approval(id.into()), 200));
+    }
+    // Capability IDs are captured exactly as the source's [^/]+ path group.
+    // Saved-profile/identity validation belongs to the shared owner; never URL
+    // decode an encoded slash into a different profile authority.
+    if let Some(id) = path
+        .strip_prefix("/api/capabilities/")
+        .and_then(|rest| rest.strip_suffix("/key"))
+        .filter(|id| !id.is_empty() && !id.contains('/'))
+    {
+        return Some(Json(Body::CapabilityKey(id.into()), 200));
     }
     if let Some((id, action)) = path
         .strip_prefix("/api/providers/")
@@ -1120,6 +1184,8 @@ mod tests {
                 | Operation::AgentSettingsPatch { body }
                 | Operation::ApprovalsDecide { body }
                 | Operation::ApprovalDecide { body, .. }
+                | Operation::CapabilitiesSave { body }
+                | Operation::CapabilityKey { body, .. }
                 | Operation::ProvidersSave { body }
                 | Operation::ProviderKey { body, .. }
                 | Operation::NetworkPatch { body } => Reply::Json(body),
@@ -1241,6 +1307,8 @@ mod tests {
         for (method, path, status, variant) in [
             ("POST", "/api/agent/input", 202, "AgentInput"),
             ("POST", "/api/agent/spawn", 202, "AgentSpawn"),
+            ("POST", "/api/agent/sessions/a/accept", 200, "SessionAccept"),
+            ("GET", "/api/agent/sessions/a/files", 200, "SessionFiles"),
             (
                 "POST",
                 "/api/agent/sessions/worker-a/message",
@@ -1269,6 +1337,9 @@ mod tests {
                 200,
                 "ApprovalDecide",
             ),
+            ("GET", "/api/capabilities", 200, "Capabilities"),
+            ("PUT", "/api/capabilities", 200, "CapabilitiesSave"),
+            ("POST", "/api/capabilities/local/key", 200, "CapabilityKey"),
             ("GET", "/api/providers", 200, "Providers"),
             ("PUT", "/api/providers", 200, "ProvidersSave"),
             ("POST", "/api/providers/local/key", 200, "ProviderKey"),
@@ -1286,7 +1357,7 @@ mod tests {
             assert_eq!(response.headers()["cache-control"], "no-store");
             assert_eq!(response.headers()["x-frame-options"], "DENY");
         }
-        assert_eq!(fake.calls.lock().unwrap().len(), 17);
+        assert_eq!(fake.calls.lock().unwrap().len(), 22);
     }
     #[tokio::test]
     async fn native_agent_routes_keep_auth_csrf_method_and_path_boundaries() {
@@ -1302,11 +1373,13 @@ mod tests {
             ("GET", "/api/agent/input", 404),
             ("POST", "/api/providers", 404),
             ("POST", "/api/providers/a/key/extra", 404),
+            ("POST", "/api/capabilities", 404),
+            ("GET", "/api/capabilities/local/key", 404),
+            ("POST", "/api/capabilities//key", 404),
+            ("POST", "/api/capabilities/local/key/extra", 404),
             ("POST", "/api/providers/a%2fb/key", 404),
             ("POST", "/api/agent/sessions/a%2fb/message", 404),
             ("POST", "/api/agent/approvals/a/extra", 404),
-            ("POST", "/api/agent/sessions/a/accept", 503),
-            ("GET", "/api/agent/sessions/a/files", 503),
         ] {
             assert_eq!(
                 state
@@ -1339,6 +1412,7 @@ mod tests {
             "/api/agent/input",
             "/api/agent/spawn",
             "/api/providers/local/key",
+            "/api/capabilities/local/key",
             "/api/providers/local/probe",
             "/api/agent/approvals/a",
         ] {
@@ -1381,6 +1455,9 @@ mod tests {
             ("PATCH", "/api/agent/settings"),
             ("POST", "/api/agent/approvals/a"),
             ("PUT", "/api/providers"),
+            ("GET", "/api/capabilities"),
+            ("PUT", "/api/capabilities"),
+            ("POST", "/api/capabilities/local/key"),
             ("POST", "/api/providers/a/probe"),
             ("PATCH", "/api/network"),
             ("POST", "/api/stop"),
@@ -1397,6 +1474,388 @@ mod tests {
         }
         assert!(fake.calls.lock().unwrap().is_empty());
     }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn attachment_and_session_file_routes_use_real_workspace() {
+        use crate::workspace::Workspace;
+        use tepora_core::json_codec;
+        let dir = std::env::temp_dir().join(format!("tepora-input-http-{}", uuid::Uuid::new_v4()));
+        let workspace = Arc::new(Workspace::open(&dir).unwrap());
+        workspace
+            .enable_agent(tokio::runtime::Handle::current())
+            .unwrap();
+        let mut state = agent_state(Arc::new(Fake::default()));
+        Arc::get_mut(&mut state).unwrap().backend = workspace.clone();
+        let response = state
+            .clone()
+            .handle(request(
+                "POST",
+                "/api/inputs",
+                r#"{"files":[{"name":"a.txt","content":"hello"}]}"#,
+            ))
+            .await;
+        assert_eq!(response.status(), 201);
+        let staged =
+            json_codec::parse(std::str::from_utf8(&bytes(response).await).unwrap()).unwrap();
+        let id = staged["files"][0]["id"].as_str().unwrap();
+        assert_eq!(
+            workspace.access().resolve_inputs(&json!([id])).unwrap()[0]["content"],
+            "hello"
+        );
+        let root = dir.join("files");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("hello.txt"), b"exact bytes").unwrap();
+        workspace.access().agent_state("session.create",json!({"kind":"worker","id":"files-session","cwd":json_codec::encode_text(&root.to_string_lossy())})).unwrap();
+        let response = state
+            .clone()
+            .handle(request(
+                "GET",
+                "/api/agent/sessions/files-session/files",
+                Bytes::new(),
+            ))
+            .await;
+        assert_eq!(response.status(), 200);
+        let listed =
+            json_codec::parse(std::str::from_utf8(&bytes(response).await).unwrap()).unwrap();
+        assert_eq!(listed["files"][0]["path"], "hello.txt");
+        let response = state
+            .clone()
+            .handle(request(
+                "GET",
+                "/api/agent/sessions/files-session/download?path=hello.txt",
+                Bytes::new(),
+            ))
+            .await;
+        assert_eq!(response.status(), 200);
+        assert_eq!(
+            response.headers()["content-type"],
+            "application/octet-stream"
+        );
+        assert_eq!(bytes(response).await, b"exact bytes"[..]);
+        let response = state
+            .clone()
+            .handle(request(
+                "GET",
+                "/api/agent/sessions/files-session/download?path=../missing",
+                Bytes::new(),
+            ))
+            .await;
+        assert_eq!(response.status(), 403);
+        let response = state
+            .clone()
+            .handle(request(
+                "POST",
+                "/api/agent/sessions/files-session/accept",
+                Bytes::new(),
+            ))
+            .await;
+        assert_eq!(response.status(), 200);
+        assert_eq!(
+            workspace
+                .access()
+                .agent_state("session.get", json!({"id":"files-session"}))
+                .unwrap()["accepted"],
+            true
+        );
+        let response = state
+            .clone()
+            .handle(request(
+                "DELETE",
+                &format!("/api/inputs/{id}"),
+                Bytes::new(),
+            ))
+            .await;
+        assert_eq!(response.status(), 200);
+        assert_eq!(
+            workspace
+                .access()
+                .resolve_inputs(&json!([id]))
+                .unwrap_err()
+                .status,
+            404
+        );
+        let response = state
+            .clone()
+            .handle(request(
+                "GET",
+                "/api/agent/sessions/missing/files",
+                Bytes::new(),
+            ))
+            .await;
+        assert_eq!(response.status(), 404);
+        workspace.begin_shutdown().unwrap();
+        workspace.shutdown().unwrap();
+        drop(state);
+        drop(workspace);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[tokio::test]
+    async fn capability_routes_preserve_literal_ids_codec_and_auth_boundaries() {
+        let fake = Arc::new(Fake::default());
+        let state = agent_state(fake.clone());
+        let mut no_cookie = request("GET", "/api/capabilities", "");
+        no_cookie.headers_mut().remove("cookie");
+        assert_eq!(state.clone().handle(no_cookie).await.status(), 401);
+        let mut no_csrf = request("PUT", "/api/capabilities", "{bad");
+        no_csrf.headers_mut().remove("x-tepora-csrf");
+        assert_eq!(state.clone().handle(no_csrf).await.status(), 403);
+        assert!(fake.calls.lock().unwrap().is_empty());
+        let source = r#"{"key":"x\ud800\ue000😀","identity":"pinned"}"#;
+        let response = state
+            .clone()
+            .handle(request("POST", "/api/capabilities/a%2Fb/key", source))
+            .await;
+        assert_eq!(response.status(), 200);
+        let output = bytes(response).await;
+        assert_eq!(
+            tepora_core::json_codec::parse(std::str::from_utf8(&output).unwrap()).unwrap(),
+            tepora_core::json_codec::parse(source).unwrap()
+        );
+        match fake.calls.lock().unwrap().last().unwrap() {
+            Operation::CapabilityKey { id, .. } => assert_eq!(id, "a%2Fb"),
+            other => panic!("Wrong capability operation: {other:?}"),
+        }
+        assert_eq!(
+            state
+                .clone()
+                .handle(request("PUT", "/api/capabilities", "{bad"))
+                .await
+                .status(),
+            400
+        );
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn capability_http_uses_shared_workspace_cas_memory_keys_and_live_bootstrap() {
+        use crate::{capabilities::CapabilityState, workspace::Workspace};
+        use tepora_core::json_codec;
+        async fn call(
+            state: &Arc<HttpState>,
+            method: &str,
+            path: &str,
+            body: Value,
+        ) -> (u16, Value) {
+            let response = state
+                .clone()
+                .handle(request(
+                    method,
+                    path,
+                    json_codec::stringify_js(&body).unwrap(),
+                ))
+                .await;
+            let status = response.status().as_u16();
+            let body = bytes(response).await;
+            (
+                status,
+                json_codec::parse(std::str::from_utf8(&body).unwrap()).unwrap(),
+            )
+        }
+        let dir =
+            std::env::temp_dir().join(format!("tepora-capability-http-{}", uuid::Uuid::new_v4()));
+        let workspace = Arc::new(Workspace::open(&dir).unwrap());
+        workspace
+            .enable_agent(tokio::runtime::Handle::current())
+            .unwrap();
+        let mut state = agent_state(Arc::new(Fake::default()));
+        Arc::get_mut(&mut state).unwrap().backend = workspace.clone();
+        assert_eq!(
+            call(&state, "GET", "/api/capabilities", json!({})).await,
+            (
+                200,
+                json!({"schema":1,"revision":0,"profiles":[],"routes":{}})
+            )
+        );
+        for revision in [Value::Null, json!("0"), json!(false), json!(-1), json!(0.5)] {
+            assert_eq!(
+                call(
+                    &state,
+                    "PUT",
+                    "/api/capabilities",
+                    json!({"expectedRevision":revision,"config":{}})
+                )
+                .await
+                .0,
+                409
+            );
+        }
+        assert_eq!(
+            call(
+                &state,
+                "PUT",
+                "/api/capabilities",
+                json!({"expectedRevision":0,"config":{"profiles":[],"extra":true}})
+            )
+            .await
+            .0,
+            400
+        );
+        assert_eq!(call(&state,"PUT","/api/capabilities",json!({"expectedRevision":0,"config":{"profiles":[],"routes":{"decision":"pending"}}})).await.0,503);
+        assert_eq!(
+            call(&state, "GET", "/api/capabilities", json!({})).await.1["revision"],
+            0
+        );
+        let mut config = json!({"profiles":[{"id":"local","protocol":"openai-embeddings","baseUrl":"http://127.0.0.1:8123/v1","model":"fixture","domain":"device"}],"routes":{"embedding":"local"}});
+        let (status, first) = call(
+            &state,
+            "PUT",
+            "/api/capabilities",
+            json!({"expectedRevision":0.0,"config":config}),
+        )
+        .await;
+        assert_eq!(status, 200);
+        assert_eq!(first["revision"], 1);
+        assert_eq!(first["profiles"][0]["keyPresent"], false);
+        let identity = first["profiles"][0]["identity"].clone();
+        for body in [
+            json!({"key":"must-not-store"}),
+            json!({"key":"must-not-store","identity":"stale"}),
+        ] {
+            assert_eq!(
+                call(&state, "POST", "/api/capabilities/local/key", body)
+                    .await
+                    .0,
+                409
+            );
+        }
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/local/key",
+                json!({"identity":identity,"key":42})
+            )
+            .await
+            .0,
+            400
+        );
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/local/key",
+                json!({"identity":identity,"key":"😀".repeat(2001)})
+            )
+            .await
+            .0,
+            400
+        );
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/%6cocal/key",
+                json!({"identity":identity,"key":"must-not-store"})
+            )
+            .await
+            .0,
+            409
+        );
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/local/key",
+                json!({"identity":identity,"key":"synthetic-http-memory-key"})
+            )
+            .await,
+            (200, json!({"id":"local","keyPresent":true}))
+        );
+        assert_eq!(
+            call(&state, "GET", "/api/capabilities", json!({})).await.1["profiles"][0]
+                ["keyPresent"],
+            true
+        );
+        assert_eq!(
+            call(&state, "GET", "/api/bootstrap", json!({})).await.1["capabilities"]["profiles"][0]
+                ["keyPresent"],
+            true
+        );
+        assert_eq!(
+            call(
+                &state,
+                "PUT",
+                "/api/capabilities",
+                json!({"expectedRevision":0,"config":config})
+            )
+            .await
+            .0,
+            409
+        );
+        config["profiles"][0]["model"] = json!("renamed-model");
+        let (status, second) = call(
+            &state,
+            "PUT",
+            "/api/capabilities",
+            json!({"expectedRevision":1,"config":config}),
+        )
+        .await;
+        assert_eq!(status, 200);
+        assert_eq!(second["profiles"][0]["keyPresent"], true);
+        assert_ne!(second["profiles"][0]["identity"], identity);
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/local/key",
+                json!({"identity":identity,"key":""})
+            )
+            .await
+            .0,
+            409
+        );
+        let identity = second["profiles"][0]["identity"].clone();
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/local/key",
+                json!({"identity":identity,"key":""})
+            )
+            .await,
+            (200, json!({"id":"local","keyPresent":false}))
+        );
+        assert_eq!(
+            call(
+                &state,
+                "POST",
+                "/api/capabilities/local/key",
+                json!({"identity":identity,"key":"synthetic-http-memory-key"})
+            )
+            .await
+            .0,
+            200
+        );
+        config["profiles"][0]["baseUrl"] = json!("http://127.0.0.1:8124/v1");
+        let (status, third) = call(
+            &state,
+            "PUT",
+            "/api/capabilities",
+            json!({"expectedRevision":2,"config":config}),
+        )
+        .await;
+        assert_eq!(status, 200);
+        assert_eq!(third["profiles"][0]["keyPresent"], false);
+        let persisted = CapabilityState::value(&workspace.access(), "capabilities")
+            .unwrap()
+            .unwrap();
+        assert!(!json_codec::stringify_js(&persisted)
+            .unwrap()
+            .contains("synthetic-http-memory-key"));
+        let closing = workspace.clone();
+        tokio::task::spawn_blocking(move || closing.shutdown())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            call(&state, "GET", "/api/capabilities", json!({})).await.0,
+            503
+        );
+        drop(state);
+        drop(workspace);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[tokio::test]
     async fn singleton_header_duplicates_fail_closed_but_cookie_lines_concatenate() {
         let s = state(Arc::new(Fake::default()));

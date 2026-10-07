@@ -5,9 +5,11 @@ use std::fmt;
 use tokio::sync::mpsc;
 
 pub mod agent;
+pub mod capabilities;
 pub mod http;
 pub mod network;
 pub mod provider;
+pub mod sandbox;
 pub mod workspace;
 pub const VERSION: &str = "3.0.0-beta.11";
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -42,6 +44,22 @@ impl std::error::Error for ApiError {}
 
 #[derive(Debug, Clone)]
 pub enum Operation {
+    InputsStage {
+        body: Value,
+    },
+    InputDelete {
+        id: String,
+    },
+    SessionAccept {
+        id: String,
+    },
+    SessionFiles {
+        id: String,
+    },
+    SessionDownload {
+        id: String,
+        path: String,
+    },
     AgentInput {
         body: Value,
     },
@@ -67,6 +85,14 @@ pub enum Operation {
         body: Value,
     },
     ApprovalDecide {
+        id: String,
+        body: Value,
+    },
+    Capabilities,
+    CapabilitiesSave {
+        body: Value,
+    },
+    CapabilityKey {
         id: String,
         body: Value,
     },
@@ -129,6 +155,10 @@ pub enum Operation {
 }
 #[derive(Debug, Clone)]
 pub enum Reply {
+    Download {
+        bytes: Vec<u8>,
+        disposition: String,
+    },
     Json(Value),
     Render {
         kind: String,

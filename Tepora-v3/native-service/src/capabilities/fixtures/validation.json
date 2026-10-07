@@ -1,0 +1,3285 @@
+{
+  "source": "core/capabilities.mjs SHA256 bc271414cb1157f266e1c0ee0415986f6a8a54b526141b88e57067c6a8518a40",
+  "profiles": [
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9"
+      }
+    },
+    {
+      "input": {
+        "id": "system_one",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "system_one",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "2e4f673b9bc593df145323aad4665aa38a6be0b4c9f031b52d2f792934e2155f"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "system-one",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "af8803a49fd14fcf8dcbf6aef5c58460a80840d9cdc42eca60077f78ff76a728"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "system-one",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "dde282204abb0266b02034212c6f0d282c034a960892a026d9930267e69fd529"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "openai-embeddings",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "e1861283963bf8476ecbed1c397c2a1d56a963a2cd98a78f7c4204a48a838f35"
+      }
+    },
+    {
+      "input": {
+        "id": "openai_embeddings",
+        "protocol": "openai-embeddings",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "openai_embeddings",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "a7c680029f089ae879188b999def21c400d40408c4edb52e04d5a7079fbc08e3"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "openai-embeddings",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "2bb3b97faad461f5f836ec4095bad815aa3f4f55299f53ce23bbd424791ff8e3"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "openai-embeddings",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "6d1acf6d2af86ee9f930f36a680d4ace130002a455ef10a64a52c7c41d2a35ee"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "ollama-embed",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      }
+    },
+    {
+      "input": {
+        "id": "ollama_embed",
+        "protocol": "ollama-embed",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "ollama_embed",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "e14e6a505eeb7561d25e3e4ae217cdae7e74753052f0e18503c687608e42d5e7"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "ollama-embed",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "47c4a4e20c5f09f328b4e1d72d164624d9958a9147f394be9b95c6e600f4b42a"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "ollama-embed",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "cda7f80a4d04def49518cce2bcd1a3d11d79217d15af305cacae1ac1b7305ffe"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "openai-speech",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-speech",
+        "role": "tts",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bf51214dc3bebb59ae3095ad6ee158810025d84f82994521bb96f9a83fc85587"
+      }
+    },
+    {
+      "input": {
+        "id": "openai_speech",
+        "protocol": "openai-speech",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "openai_speech",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "openai-speech",
+        "role": "tts",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "3896e7cfd58606e10b28e534f6a18fca9b9e5e13380bf7d16a699e6f36007692"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "openai-speech",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "openai-speech",
+        "role": "tts",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "fba8ebfd0a5b9602ed4601d26f875444590ede2895e55c78e76a7501b5645362"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "openai-speech",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "openai-speech",
+        "role": "tts",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "c22797e3a5143fde2ec825e448b825cb78ef3131587845c7e5e7d659b7fd8d2e"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "openai-images",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-images",
+        "role": "image",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "9079e4629ac0a2a45f562e47bd8ce57668599f6111ac78661239d63554ca6b96"
+      }
+    },
+    {
+      "input": {
+        "id": "openai_images",
+        "protocol": "openai-images",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "openai_images",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "openai-images",
+        "role": "image",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "b8927181c4a2550aeb0f3b3b0ab83fa5bd0d085ff803757c34395eae53210eeb"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "openai-images",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "openai-images",
+        "role": "image",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "816c66b5988c464841b2b4bd1355714fee9abad2f02a77b8d014faa513f16e23"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "openai-images",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "openai-images",
+        "role": "image",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "edbfa4b980ee25c010ff881a1b4085399654d402a8961d04d8c18c6bdbc193d9"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "openai-image-edit",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-image-edit",
+        "role": "image_edit",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "fa29a3269ce3535a952d8e59f2cf57c8aaa74a9554f82f91b08ad2d9688d2dbf"
+      }
+    },
+    {
+      "input": {
+        "id": "openai_image_edit",
+        "protocol": "openai-image-edit",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "openai_image_edit",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "openai-image-edit",
+        "role": "image_edit",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "1d4436aae8ac9896da8adfc809c84ba7fa2a5adb64d5e8e574ec27a19444524a"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "openai-image-edit",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "openai-image-edit",
+        "role": "image_edit",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "7dc07599f447b80665b45ece9eabfb530c450cc81fe3608fee28b0aa180a6ae2"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "openai-image-edit",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "openai-image-edit",
+        "role": "image_edit",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "0be4380e3addc586918642413255a93adb474ee7a691ef96e41e5730e3ef46da"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "xai-video",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "xai-video",
+        "role": "video",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "aa28e9e13e0a95e9b02ddb158846e94534d3ba6ca40448b6fb774857705ca4d6"
+      }
+    },
+    {
+      "input": {
+        "id": "xai_video",
+        "protocol": "xai-video",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "name": " 日本語 🦊\ud800 ",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "maxParallel": 4,
+        "timeoutMs": 1000,
+        "resource": "shared",
+        "assetOrigins": [
+          "https://EXAMPLE.org:443/",
+          "https://画像.example/"
+        ]
+      },
+      "value": {
+        "id": "xai_video",
+        "name": "日本語 🦊\ud800",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "TEPORA_TEST_CAP_KEY",
+        "timeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "protocol": "xai-video",
+        "role": "video",
+        "voice": "\udfff",
+        "dimensions": 3,
+        "assetOrigins": [
+          "https://example.org",
+          "https://xn--o1qu10g.example"
+        ],
+        "identity": "35db7af286f2798bb5eaa55a220829b98fdaa8a5360d97ea8648465c753aff4e"
+      }
+    },
+    {
+      "input": {
+        "id": "lan",
+        "protocol": "xai-video",
+        "baseUrl": "http://llm.test:8080/v1/",
+        "model": " model ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "enabled": false,
+        "voice": ""
+      },
+      "value": {
+        "id": "lan",
+        "name": "lan",
+        "baseUrl": "http://llm.test:8080/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "pinnedAddress": "192.168.0.2",
+        "allowPlainHttp": true,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "lan",
+        "protocol": "xai-video",
+        "role": "video",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "c2ffbbc520421ea5e2c37f3c936d39cb8f15bcdc3cee3ba18b0ec56a3e19384f"
+      }
+    },
+    {
+      "input": {
+        "id": "remote",
+        "protocol": "xai-video",
+        "baseUrl": "https://api.example.org/v1/",
+        "model": " model ",
+        "domain": "cloud",
+        "assetOrigins": [
+          "https://files.example.org/"
+        ]
+      },
+      "value": {
+        "id": "remote",
+        "name": "remote",
+        "baseUrl": "https://api.example.org/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 4,
+        "resource": "remote",
+        "protocol": "xai-video",
+        "role": "video",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [
+          "https://files.example.org"
+        ],
+        "identity": "ea1d912597ff1eb8673d413302850e4e40d01225c5ce973ce7e241f01ef185a2"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": false
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": null
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": 0
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": ""
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "maxParallel": null,
+        "timeoutMs": null
+      },
+      "value": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9"
+      }
+    },
+    {
+      "input": {
+        "protocol": "system-one",
+        "model": "m",
+        "domain": "device",
+        "baseUrl": "http://localhost:80/v1/",
+        "id": "reordered"
+      },
+      "value": {
+        "id": "reordered",
+        "name": "reordered",
+        "baseUrl": "http://localhost/v1",
+        "model": "m",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "reordered",
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4bc0139218b5ee2bf2dcf360cb9b5fe13eb441ca9411e7322d14c3aa49a90137"
+      }
+    },
+    {
+      "input": null,
+      "error": {
+        "status": 400,
+        "message": "Unknown capability setting"
+      }
+    },
+    {
+      "input": [],
+      "error": {
+        "status": 400,
+        "message": "Unknown capability setting"
+      }
+    },
+    {
+      "input": false,
+      "error": {
+        "status": 400,
+        "message": "Unknown capability setting"
+      }
+    },
+    {
+      "input": {},
+      "error": {
+        "status": 400,
+        "message": "Choose a supported modality protocol"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "extra": 1
+      },
+      "error": {
+        "status": 400,
+        "message": "Unknown capability setting"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device"
+      },
+      "error": {
+        "status": 400,
+        "message": "Choose a supported modality protocol"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "voice": null
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid voice"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "voice": 3
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid voice"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "voice": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid voice"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "dimensions": null
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid embedding dimensions"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "dimensions": 0
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid embedding dimensions"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "dimensions": 1.1
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid embedding dimensions"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "dimensions": 8193
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid embedding dimensions"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": {}
+      },
+      "error": {
+        "status": 400,
+        "message": "At most eight media download origins"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": 123
+      },
+      "error": {
+        "status": 400,
+        "message": "At most eight media download origins"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": [
+          "https://example.org",
+          "https://example.org",
+          "https://example.org",
+          "https://example.org",
+          "https://example.org",
+          "https://example.org",
+          "https://example.org",
+          "https://example.org",
+          "https://example.org"
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "At most eight media download origins"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": [
+          "http://example.org"
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "Media origins must be exact HTTPS origins"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": [
+          "https://example.org:444"
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "Media origins must be exact HTTPS origins"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": [
+          "https://example.org/path"
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "Media origins must be exact HTTPS origins"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": [
+          "https://example.org/?token=x"
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "資格情報・フラグメントを含まないHTTP(S) URLを指定してください。"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "assetOrigins": [
+          123
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "接続先URLが不正です。"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "apiKeyEnv": "BAD-KEY"
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid API key environment variable"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "enabled": null
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid enabled"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "https://user:secret@example.org",
+        "model": " model ",
+        "domain": "cloud"
+      },
+      "error": {
+        "status": 400,
+        "message": "資格情報・フラグメントを含まないHTTP(S) URLを指定してください。"
+      }
+    },
+    {
+      "input": {
+        "id": "local",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": " model ",
+        "domain": "device",
+        "maxParallel": 0
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid maxParallel"
+      }
+    }
+  ],
+  "registries": [
+    {
+      "input": {
+        "profiles": [],
+        "routes": {}
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [],
+        "routes": {}
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {
+          "decision": "local"
+        }
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [
+          {
+            "id": "local",
+            "name": "local",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "local",
+            "protocol": "system-one",
+            "role": "decision",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9",
+            "keyPresent": false
+          }
+        ],
+        "routes": {
+          "decision": "local"
+        }
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "embedding",
+            "protocol": "openai-embeddings",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "voice",
+            "protocol": "openai-speech",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {
+          "embedding": "embedding",
+          "tts": "voice"
+        }
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [
+          {
+            "id": "embedding",
+            "name": "embedding",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "embedding",
+            "protocol": "openai-embeddings",
+            "role": "embedding",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "409573ffe0bec95e898b083c48902e31d1db726a8aef0f1444803b838c89f606",
+            "keyPresent": false
+          },
+          {
+            "id": "voice",
+            "name": "voice",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "voice",
+            "protocol": "openai-speech",
+            "role": "tts",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "6087752484425c0ea3c6d91acac129511277c570bb9c5d839efbd4f78e9b50fe",
+            "keyPresent": false
+          }
+        ],
+        "routes": {
+          "embedding": "embedding",
+          "tts": "voice"
+        }
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": false
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [
+          {
+            "id": "local",
+            "name": "local",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "local",
+            "protocol": "system-one",
+            "role": "decision",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9",
+            "keyPresent": false
+          }
+        ],
+        "routes": {}
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": ""
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [
+          {
+            "id": "local",
+            "name": "local",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "local",
+            "protocol": "system-one",
+            "role": "decision",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9",
+            "keyPresent": false
+          }
+        ],
+        "routes": {}
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": 0
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [
+          {
+            "id": "local",
+            "name": "local",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "local",
+            "protocol": "system-one",
+            "role": "decision",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9",
+            "keyPresent": false
+          }
+        ],
+        "routes": {}
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": []
+      },
+      "value": {
+        "schema": 1,
+        "revision": 1,
+        "profiles": [
+          {
+            "id": "local",
+            "name": "local",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": "model",
+            "domain": "device",
+            "enabled": true,
+            "pinnedAddress": "",
+            "allowPlainHttp": false,
+            "apiKeyEnv": "",
+            "timeoutMs": 60000,
+            "maxParallel": 1,
+            "resource": "local",
+            "protocol": "system-one",
+            "role": "decision",
+            "voice": "alloy",
+            "dimensions": null,
+            "assetOrigins": [],
+            "identity": "bb5a2787cd7c1a75c4ec14245027fc31d0720deb91fc4b29659dd726f4ed59c9",
+            "keyPresent": false
+          }
+        ],
+        "routes": {}
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": [
+          1
+        ]
+      },
+      "error": {
+        "status": 400,
+        "message": "Unknown capability role"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": "x"
+      },
+      "error": {
+        "status": 400,
+        "message": "Unknown capability role"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {
+          "madeup": "local"
+        }
+      },
+      "error": {
+        "status": 400,
+        "message": "Unknown capability role"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {
+          "embedding": "local"
+        }
+      },
+      "error": {
+        "status": 400,
+        "message": "Route and endpoint capability do not match"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device",
+            "enabled": false
+          }
+        ],
+        "routes": {
+          "decision": "local"
+        }
+      },
+      "error": {
+        "status": 400,
+        "message": "Route and endpoint capability do not match"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {}
+      },
+      "error": {
+        "status": 400,
+        "message": "Duplicate capability ID"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "local",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {
+          "decision": 3
+        }
+      },
+      "error": {
+        "status": 400,
+        "message": "Route and endpoint capability do not match"
+      }
+    },
+    {
+      "input": {
+        "profiles": [
+          {
+            "id": "p0",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p1",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p2",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p3",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p4",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p5",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p6",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p7",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p8",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p9",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p10",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p11",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p12",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p13",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p14",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p15",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p16",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p17",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p18",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p19",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p20",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p21",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p22",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p23",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p24",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p25",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p26",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p27",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p28",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p29",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p30",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p31",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p32",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p33",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p34",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p35",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p36",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p37",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p38",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p39",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p40",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p41",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p42",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p43",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p44",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p45",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p46",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p47",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p48",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p49",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p50",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p51",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p52",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p53",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p54",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p55",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p56",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p57",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p58",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p59",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p60",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p61",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p62",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p63",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          },
+          {
+            "id": "p64",
+            "protocol": "system-one",
+            "baseUrl": "http://127.0.0.1:8123/v1",
+            "model": " model ",
+            "domain": "device"
+          }
+        ],
+        "routes": {}
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid capability registry"
+      }
+    },
+    {
+      "input": {
+        "profiles": [],
+        "extra": true
+      },
+      "error": {
+        "status": 400,
+        "message": "Invalid capability registry"
+      }
+    },
+    {
+      "input": null,
+      "error": {
+        "status": 400,
+        "message": "Invalid capability registry"
+      }
+    }
+  ],
+  "embeddingCases": [
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 1,
+            "embedding": [
+              3,
+              4
+            ]
+          },
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "value": {
+        "vectors": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "dimensions": 2,
+        "model": "model",
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          },
+          {
+            "index": 0,
+            "embedding": [
+              3,
+              4
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding indices"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Missing embeddings"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          },
+          {
+            "index": 1,
+            "embedding": [
+              3
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            2
+          ],
+          [
+            3
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": "xx"
+          },
+          {
+            "index": 1,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          "xx",
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": {
+              "length": 2
+            }
+          },
+          {
+            "index": 1,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          {
+            "length": 2
+          },
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              null
+            ]
+          },
+          {
+            "index": 1,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            null
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "openai-embeddings",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": 2,
+        "assetOrigins": [],
+        "identity": "b747113b4c017f149def57fa1dbd1587bdf60febded623c6f082f07798d1893c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {},
+      "error": {
+        "status": 502,
+        "message": "Missing embeddings"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 1,
+            "embedding": [
+              3,
+              4
+            ]
+          },
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "value": {
+        "vectors": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "dimensions": 2,
+        "model": "model",
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          },
+          {
+            "index": 0,
+            "embedding": [
+              3,
+              4
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Embedding count mismatch"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              2
+            ]
+          },
+          {
+            "index": 1,
+            "embedding": [
+              3
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            2
+          ],
+          [
+            3
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": "xx"
+          },
+          {
+            "index": 1,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          "xx",
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": {
+              "length": 2
+            }
+          },
+          {
+            "index": 1,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          {
+            "length": 2
+          },
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {
+        "data": [
+          {
+            "index": 0,
+            "embedding": [
+              1,
+              null
+            ]
+          },
+          {
+            "index": 1,
+            "embedding": [
+              1,
+              2
+            ]
+          }
+        ],
+        "embeddings": [
+          [
+            1,
+            null
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "error": {
+        "status": 502,
+        "message": "Invalid embedding vector"
+      }
+    },
+    {
+      "profile": {
+        "id": "local",
+        "name": "local",
+        "baseUrl": "http://127.0.0.1:8123/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": "local",
+        "protocol": "ollama-embed",
+        "role": "embedding",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "4691e31c6994d40ed2116c03c7e23315bb723621a6dcc14aacfc6762da49d56c"
+      },
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "data": {},
+      "error": {
+        "status": 502,
+        "message": "Embedding count mismatch"
+      }
+    }
+  ]
+}

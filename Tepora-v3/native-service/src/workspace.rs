@@ -1,5 +1,8 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
+mod capability_state;
+pub(crate) mod input_files;
+mod session_files;
 mod native_operations;
 mod tools_state;
 use crate::{ApiError, Backend, EventRequest, EventSubscription, Operation, Reply, ServiceEvent};
@@ -21,6 +24,8 @@ pub struct Workspace {
     probe_cancel: Mutex<crate::network::RequestCancellation>,
 }
 struct NativeResources {
+    host: Arc<crate::agent::host::NativeAgentHost>,
+    capabilities: crate::capabilities::Capabilities,
     agent: crate::agent::AgentHandle,
     provider: crate::provider::ProviderRuntime,
     network: crate::network::NativeNetwork,
@@ -400,6 +405,8 @@ impl Workspace {
         );
         let provider =
             crate::provider::ProviderRuntime::new(Arc::new(self.access()), network.clone());
+        let capabilities =
+            crate::capabilities::Capabilities::new(Arc::new(self.access()), network.clone());
         let host = Arc::new(crate::agent::host::NativeAgentHost::new(
             self.access(),
             provider.clone(),
@@ -407,9 +414,11 @@ impl Workspace {
         )?);
         host.preflight()?;
         host.recover()?;
-        let agent = crate::agent::AgentCoordinator::start(host, runtime.clone())?;
+        let agent = crate::agent::AgentCoordinator::start(host.clone(), runtime.clone())?;
         self.native
             .set(NativeResources {
+                host,
+                capabilities,
                 agent: agent.clone(),
                 provider,
                 network,
@@ -710,7 +719,7 @@ impl State {
             })
             .collect::<Vec<_>>());
         s["sandbox"] = sandbox();
-        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["process execution","web tools","MCP","media","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
+        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["web tools","MCP","media","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
         Ok(s)
     }
     fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {
@@ -787,10 +796,35 @@ fn ram_bytes() -> Option<u64> {
 }
 impl Backend for Workspace {
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError> {
+        match &operation {
+            Operation::InputsStage { body } => return self.stage_inputs(&body["files"]).map(Reply::Json),
+            Operation::InputDelete { id } => return self.remove_input(id).map(Reply::Json),
+            Operation::SessionFiles { id } | Operation::SessionDownload { id, .. } => {
+                let root = {
+                    let mut state = self.lock()?;
+                    require(!state.closed && !state.closing,503,"Service closing")?;
+                    let session=state.get("session",id)?;
+                    require(!session.is_null(),404,"Session not found")?;
+                    session["cwd"].as_str().filter(|p|!p.is_empty())
+                        .map(|p|PathBuf::from(json_codec::sql_text(p))).unwrap_or_else(||state.work_root.clone())
+                };
+                return match &operation {
+                    Operation::SessionFiles { .. } => session_files::list_files(&root).map(Reply::Json),
+                    Operation::SessionDownload { path, .. } => session_files::download(&root,path).map(|(bytes,disposition)|Reply::Download { bytes,disposition }),
+                    _ => unreachable!(),
+                };
+            }
+            _ => {}
+        }
+
         if let Some(reply) = self.execute_native(&operation)? {
             return Ok(reply);
         }
         let bootstrap = matches!(&operation, Operation::Bootstrap);
+        let process_session = match &operation {
+            Operation::Session { id, .. } => Some(id.clone()),
+            _ => None,
+        };
         let mut s = self.lock()?;
         require(!s.closed && !s.closing, 503, "Service closing")?;
         let mut value=match operation{
@@ -840,9 +874,15 @@ impl Backend for Workspace {
    _=>return Err(ApiError::unavailable("Native operation was not dispatched")),
   };
         drop(s);
+        // Process ownership is independent of the database. Never hold State
+        // while consulting a live effect owner.
+        if let (Some(id), Some(native)) = (process_session, self.native.get()) {
+            value["processes"] = native.host.processes(&id);
+        }
         if bootstrap {
             if let Some(native) = self.native.get() {
                 value["providers"] = native.provider.public_snapshot()?;
+                value["capabilities"] = native.capabilities.snapshot().map_err(ApiError::from)?;
                 value["setup"]["configured"] = json!(native.provider.configured()?);
                 value["setup"]["note"]=json!("Rust開発版: 会話・作業エージェントと対応ツールを実行します。未移行の外部機能は利用できません。");
                 value["nativeHost"]["networkDiagnostics"] = json!(native.network.diagnostics());
@@ -863,10 +903,17 @@ impl Backend for Workspace {
             .and_then(|e| e["seq"].as_u64())
             .is_some_and(|n| n > request.since.saturating_add(1));
         let initial = if request.reconnect || gap {
+            let mut snapshot = s.snapshot()?;
+            if let Some(native) = self.native.get() {
+                // Runtime-only decoration must not reenter State. Keep this
+                // guard through sequence capture and subscriber registration.
+                native.provider.decorate_snapshot(&mut snapshot["providers"]);
+                native.capabilities.decorate_snapshot(&mut snapshot["capabilities"]);
+            }
             vec![ServiceEvent {
                 seq: s.call("event.seq", json!({}))?.as_u64(),
                 event_type: "snapshot".into(),
-                data: s.snapshot()?,
+                data: snapshot,
                 at: None,
             }]
         } else {
@@ -926,6 +973,7 @@ impl Backend for Workspace {
         if let Some(native) = self.native.get() {
             native.agent.begin_close();
             native.provider.close();
+            native.capabilities.close();
         }
         Ok(())
     }
@@ -958,6 +1006,127 @@ impl Backend for Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::network::{Admitted, ByteStream, NetworkFuture, NetworkRequest, RequestCancellation, Resolver, Transport, TransportResponse};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Default)]
+    struct SnapshotTransport(AtomicUsize);
+    impl Resolver for SnapshotTransport {
+        fn lookup<'a>(&'a self, _: &'a str) -> NetworkFuture<'a, Vec<String>> {
+            Box::pin(async { panic!("snapshot fixture must not resolve DNS") })
+        }
+    }
+    impl Transport for SnapshotTransport {
+        fn request<'a>(&'a self, _: Admitted, _: NetworkRequest, cancel: RequestCancellation) -> NetworkFuture<'a, TransportResponse> {
+            Box::pin(async move {
+                if self.0.fetch_add(1, Ordering::SeqCst) > 0 {
+                    return Err(cancel.cancelled().await);
+                }
+                let body: ByteStream = Box::pin(futures_util::stream::iter(vec![Ok(bytes::Bytes::from_static(br#"{"choices":[{"message":{"content":"snapshot fixture"},"finish_reason":"stop"}]}"#))]));
+                let mut headers = hyper::HeaderMap::new();
+                headers.insert("content-type", hyper::header::HeaderValue::from_static("application/json"));
+                Ok(TransportResponse {status:200,headers,body:Some(body)})
+            })
+        }
+    }
+    fn snapshot_workspace() -> (Arc<Workspace>, tokio::runtime::Runtime, Arc<SnapshotTransport>, PathBuf) {
+        let dir = env::temp_dir().join(format!("tepora-native-snapshot-{}", Uuid::new_v4()));
+        let workspace = Arc::new(Workspace::open(&dir).unwrap());
+        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+        let transport = Arc::new(SnapshotTransport::default());
+        let network = crate::network::NativeNetwork::with_components(crate::network::NetworkPolicy::default(),transport.clone(),transport.clone());
+        let provider = crate::provider::ProviderRuntime::with_options(Arc::new(workspace.access()),network.clone(),false,Arc::new(||0));
+        let capabilities = crate::capabilities::Capabilities::new(Arc::new(workspace.access()),network.clone());
+        let host = Arc::new(crate::agent::host::NativeAgentHost::new(workspace.access(),provider.clone(),network.clone()).unwrap());
+        let agent = crate::agent::AgentCoordinator::start(host.clone(),runtime.handle().clone()).unwrap();
+        assert!(workspace.native.set(NativeResources {host,capabilities,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        workspace.lock().unwrap().native_agent = true;
+        agent.request(crate::agent::AgentRequest::Initialize).unwrap();
+        (workspace,runtime,transport,dir)
+    }
+    #[test]
+    fn reconnect_and_retention_gap_snapshots_keep_live_provider_health_limits_and_queue() {
+        let (workspace, runtime, transport, dir) = snapshot_workspace();
+        let provider = workspace.native.get().unwrap().provider.clone();
+        provider.save(&json!({"profiles":[{"id":"fixture","protocol":"chat-completions","baseUrl":"http://127.0.0.1:12345/v1","model":"fixture","domain":"device","maxParallel":1}],"routes":{"main":{"primary":"fixture"}}}),0).unwrap();
+        let request = crate::provider::InvokeRequest {chain:provider.chain("main").unwrap(),messages:vec![json!({"role":"user","content":"fixture"})],options:json!({})};
+        runtime.block_on(provider.invoke(request.clone(),&RequestCancellation::new(),Arc::new(|_|{}))).unwrap();
+        let cancel = RequestCancellation::new();
+        let mut tasks = vec![];
+        for _ in 0..2 {
+            let p = provider.clone();let r = request.clone();let c = cancel.clone();
+            tasks.push(runtime.spawn(async move {p.invoke(r,&c,Arc::new(|_|{})).await}));
+        }
+        runtime.block_on(async {
+            tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                loop {
+                    let snapshot=provider.public_snapshot().unwrap();
+                    if transport.0.load(Ordering::SeqCst)==2 && snapshot["resources"][0]["queued"]==1 {break;}
+                    tokio::task::yield_now().await;
+                }
+            }).await.unwrap();
+        });
+        let expected = provider.public_snapshot().unwrap();
+        assert_eq!(expected["profiles"][0]["health"]["failures"],0);
+        assert!(expected["profiles"][0]["limits"]["context"].as_u64().unwrap()>0);
+        assert_eq!(expected["resources"][0]["active"],1);
+        assert_eq!(expected["resources"][0]["queued"],1);
+        for reconnect in [true,false] {
+            if !reconnect {
+                let mut state=workspace.lock().unwrap();
+                for _ in 0..3 {state.call("event.append",json!({"type":"fixture","data":{},"at":now()})).unwrap();}
+                state.call("exec",json!({"sql":"DELETE FROM events WHERE seq < (SELECT MAX(seq) FROM events)"})).unwrap();
+            }
+            let mut subscription=workspace.subscribe(EventRequest {since:0,reconnect}).unwrap();
+            assert_eq!(subscription.initial.len(),1);
+            let snapshot=&subscription.initial[0];
+            assert_eq!(snapshot.event_type,"snapshot");
+            assert_eq!(snapshot.data["providers"],expected);
+            let seq=snapshot.seq.unwrap();
+            workspace.execute(Operation::MemoryCreate {body:json!({"content":"after snapshot"})}).unwrap();
+            let next=subscription.receiver.blocking_recv().unwrap();
+            assert_eq!(next.event_type,"memory.updated");
+            assert!(next.seq.unwrap()>seq);
+            workspace.unsubscribe(subscription.id);
+        }
+        cancel.cancel();
+        runtime.block_on(async {for task in tasks {assert!(task.await.unwrap().unwrap_err().cancelled);}});
+        workspace.shutdown().unwrap();
+        drop(provider);drop(workspace);drop(runtime);
+        fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn decorated_reconnect_snapshot_and_live_registration_do_not_lose_or_duplicate_concurrent_events() {
+        let (workspace,runtime,_,dir)=snapshot_workspace();
+        for round in 0..8 {
+            let barrier=Arc::new(std::sync::Barrier::new(2));
+            let start=barrier.clone();let writer=workspace.clone();
+            let task=std::thread::spawn(move || {
+                start.wait();
+                (0..16).map(|n| match writer.execute(Operation::MemoryCreate {body:json!({"content":format!("snapshot round {round} memory {n}")})}).unwrap() {
+                    Reply::Json(value)=>value["id"].as_str().unwrap().to_owned(),
+                    _=>panic!("memory create must return JSON"),
+                }).collect::<std::collections::HashSet<_>>()
+            });
+            barrier.wait();
+            let mut subscription=workspace.subscribe(EventRequest {since:0,reconnect:true}).unwrap();
+            let expected=task.join().unwrap();
+            let snapshot=&subscription.initial[0];let seq=snapshot.seq.unwrap();
+            let mut seen:std::collections::HashSet<_>=snapshot.data["memories"].as_array().unwrap().iter().filter_map(|m|m["id"].as_str()).filter(|id|expected.contains(*id)).map(str::to_owned).collect();
+            let mut last=seq;
+            while let Ok(event)=subscription.receiver.try_recv() {
+                assert!(event.seq.unwrap()>last);last=event.seq.unwrap();
+                if event.event_type=="memory.updated" {
+                    let id=event.data["id"].as_str().unwrap().to_owned();
+                    if expected.contains(&id) {assert!(seen.insert(id),"event duplicated across snapshot/live boundary");}
+                }
+            }
+            assert_eq!(seen,expected,"event lost across snapshot/live boundary");
+            workspace.unsubscribe(subscription.id);
+        }
+        workspace.shutdown().unwrap();drop(workspace);drop(runtime);
+        fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn provider_registry_and_key_pruning_commit_as_one_state_batch() {
         let dir = env::temp_dir().join(format!("tepora-native-provider-atomic-{}", Uuid::new_v4()));

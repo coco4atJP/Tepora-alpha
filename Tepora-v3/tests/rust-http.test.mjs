@@ -436,7 +436,7 @@ test('Rust HTTP: unported effects fail explicitly instead of reporting fabricate
   ['PATCH','/api/display'],['POST','/api/display/undo'],['POST','/api/display/reset'],['POST','/api/display/import'],
   ['PATCH','/api/avatar'],['POST','/api/avatar/undo'],['POST','/api/avatar/reset'],['POST','/api/avatar/import'],['PUT','/api/avatar/assets'],
   ['PUT','/api/frame/photos'],['POST','/api/skills'],['PATCH','/api/skills/fixture-skill'],['DELETE','/api/skills/fixture-skill'],['POST','/api/shared/scan'],
-  ['POST','/api/inputs'],['DELETE','/api/inputs/fixture-input'],['PUT','/api/providers'],['POST','/api/providers/fixture-provider/key'],['POST','/api/providers/fixture-provider/probe'],
+  ['PUT','/api/providers'],['POST','/api/providers/fixture-provider/key'],['POST','/api/providers/fixture-provider/probe'],
   ['PATCH','/api/network'],['POST','/api/runtime/discover'],
   ...['install-help','scan','dismiss','select','install','stop'].map(action=>['POST','/api/setup/'+action]),
   ['POST','/api/model-catalog/import'],['POST','/api/model-catalog/refresh'],['PUT','/api/capabilities'],['POST','/api/capabilities/fixture-capability/key'],
@@ -500,3 +500,14 @@ test('Rust HTTP: live data directory ownership excludes another native host and 
  }finally{store.close();}
  const reopened=await f.start();assert.ok(reopened.bootstrap.memories.some(m=>m.content==='legacy Store still owns its data'));
 });
+
+ test('Rust HTTP: inert attachment staging preserves metadata and validates before writes',async t=>{
+ const f=await fixture(t),app=await f.start();const content='attachment 日本\ud800\ue000\ue100';
+ const saved=parsed(await app.request('/api/inputs','POST',{files:[{name:'notes.md',content}]}),201).files[0];
+ assert.equal(saved.name,'notes.md');assert.equal(saved.kind,'text');assert.equal(saved.bytes,Buffer.byteLength(content));assert.match(saved.sha256,/^[a-f0-9]{64}$/);assert.equal(saved.content,undefined);
+ parsed(await app.request('/api/inputs','POST',{files:[{name:'valid.txt',content:'before'},{name:'bad.pdf',content:'not supported'}]}),415);
+ parsed(await app.request('/api/inputs','POST',{files:[{name:'../bad.txt',content:'bad'}]}),400);
+ parsed(await app.request('/api/inputs','POST',{files:[{name:'empty.txt',content:''}]}),413);
+ await app.close();const store=new Store(f.data);try{const docs=store.list('input-file');assert.equal(docs.length,1);assert.equal(docs[0].content,content);}finally{store.close();}
+ const again=await f.start();assert.deepEqual(parsed(await again.request('/api/inputs/'+saved.id,'DELETE')),{deleted:true});await again.close();const reopened=new Store(f.data);try{assert.equal(reopened.list('input-file').length,0);}finally{reopened.close();}
+ });

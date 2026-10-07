@@ -216,3 +216,13 @@ node --test --test-concurrency=1 Tepora-v3/tests/rust-native-agent.test.mjs
 ```
 
 NodeはGUI bundleとテストのビルド時に使う。ビルド済みRustバイナリーの実行時Node依存がないことと、アプリ全体の移行が完了したことは別である。
+
+## 第7段階: プロセス・能力設定・SSEの実接続
+
+`exec`/`process`を実際のRustプロセスマネージャーに接続し、対応ツールは19個になった。既存のsandbox選択、正確な承認、出力制限、poll/log/input/kill、親への報告、Stopと結果回収を維持する。Resumeは以前のプロセス停止が完了してからモデル要求を始める。逃げた子孫がパイプを保持した場合は不確実な終了として明示し、成功したと扱わない。
+
+能力設定のGET/PUT/keyは単一所有者とrevision確認を使い、明示キーはメモリー内だけに保持する。SSE再接続と保持範囲外のsnapshotは実行中の接続状態・資源待ち・キー有無を失わず、イベント順を保つ。decisionルートの新規設定と起動は、その実行ホストを接続するまで拒否する。
+
+添付ファイルの保存/削除、セッション受け入れ、ファイル一覧/ダウンロードも実装。ダウンロードはsymlink解決後の範囲を確認する。添付のモデルへの配送は未接続であり、保存だけで対応済みとはしない。Web・判断・埋め込みの型付き部品は試験済みだが、このチェックポイントのエージェントからはまだ使わない。Node互換起動とGUIは継続し、全面移行の完了ではない。
+
+See [complete route inventory and release gates](RUST-ROUTE-PARITY.md).

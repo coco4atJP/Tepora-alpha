@@ -3,13 +3,17 @@
 pub mod approvals;
 pub mod context;
 pub mod coordinator;
+pub mod decisions;
 pub mod files;
 pub mod host;
 pub mod host_runtime;
 pub mod metacognition;
 pub mod policy;
+pub mod process_host;
+pub mod processes;
 pub mod receipts;
 pub mod tools;
+pub mod web;
 pub use coordinator::{AgentCoordinator, AgentHandle, CloseTicket, EventSink};
 
 use crate::{network::RequestCancellation, ApiError};

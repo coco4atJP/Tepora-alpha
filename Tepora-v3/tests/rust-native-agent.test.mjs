@@ -240,3 +240,18 @@ async function openEvents(f,app){
  releaseMain(answer('MAIN_SURVIVED_TRAY_STOP'));await waitAnswer(app,main,'MAIN_SURVIVED_TRAY_STOP');
  parsed(await app.request('/api/agent/input','POST',{text:'NEXT_MAIN_INPUT'}),202);await waitAnswer(app,main,'NEXT_MAIN_TURN');
  });
+
+ test('Rust native agent: real shell exec works without Node and yields custom receipts',async t=>{
+ const model=await modelServer(t,(name,index,body)=>{
+  if(name==='main')return answer('PROCESS_PARENT');
+  if(index===0)return calls([call('exec-real','exec',{command:'echo NATIVE_EXEC_OK',yield:2,timeout:10})]);
+  assert.match(JSON.stringify(body.messages),/NATIVE_EXEC_OK/);
+  return answer('PROCESS_VERIFIED');
+ }),f=await fixture(t),app=await f.start();await configure(app,model);
+ parsed(await app.request('/api/agent/settings','PATCH',{verifyCompletion:'off'}));
+ const job=parsed(await app.request('/api/agent/spawn','POST',{task:'Run the shell echo command and report its actual output.',title:'Native process'}),202);
+ await waitAnswer(app,job.id,'PROCESS_VERIFIED');const state=await transcript(app,job.id);
+ const receipt=state.entries.find(e=>e.type==='tool'&&e.callId==='exec-real');assert.ok(receipt);assert.ok(!receipt.error);assert.match(receipt.content,/NATIVE_EXEC_OK/);assert.match(receipt.stub,/exec/);
+ const childRequest=model.requests.find(r=>r.model==='worker');assert.ok(childRequest.body.tools.some(t=>t.function.name==='exec'));assert.ok(childRequest.body.tools.some(t=>t.function.name==='process'));
+ assert.equal(app.env.PATH,f.emptyPath);assert.ok(Array.isArray(state.processes));
+ });

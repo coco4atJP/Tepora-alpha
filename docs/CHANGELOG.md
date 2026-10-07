@@ -1,5 +1,13 @@
 # Tepora V3 changelog
 
+## Rust process/capability checkpoint (development branch, beta.11)
+
+- Connect native exec/process lifecycle, exact approvals, ordered receipts, bounded output and Stop/Resume cleanup barriers
+- Add shared capability configuration with memory-only identity-bound keys and atomic revision/event persistence
+- Preserve live provider/capability state in atomic SSE reconnect snapshots
+- Add inert attachment staging/removal and session acceptance/file listing/download; attachment model delivery remains pending
+- Keep native decision/web consumers and remaining peripheral routes explicitly incomplete; normal launch is unchanged
+
 ## Rust core migration (development branch, beta.11)
 
 - Move SQLite documents, events, session logs/evidence/inboxes and atomic artifact revisions into a Rust library, retaining the existing database schema and web/service contracts.

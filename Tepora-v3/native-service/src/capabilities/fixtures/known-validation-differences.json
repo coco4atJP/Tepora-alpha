@@ -1,0 +1,139 @@
+{
+  "reason": "The reused native provider validator is already stricter than the frozen JS regex coercion for malformed id types",
+  "cases": [
+    {
+      "input": {
+        "id": 3,
+        "name": "name",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123",
+        "domain": "device",
+        "model": "model"
+      },
+      "source": {
+        "id": 3,
+        "name": "name",
+        "baseUrl": "http://127.0.0.1:8123",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": 3,
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "2e0a901a321ccccaaaaaa6fb2d06ebb4b6113c199dd7413b6ed2647a9dcb9c30"
+      },
+      "currentNativeValidator": "Rejects non-string id before constructing capability identity",
+      "status": "Needs explicit compatibility decision before claiming all-JSON-input parity"
+    },
+    {
+      "input": {
+        "id": true,
+        "name": "name",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123",
+        "domain": "device",
+        "model": "model"
+      },
+      "source": {
+        "id": true,
+        "name": "name",
+        "baseUrl": "http://127.0.0.1:8123",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": true,
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "183966656235114874f2b293fc67b3fc6e2a4b9e40f5e2b483e390c6f14a32fd"
+      },
+      "currentNativeValidator": "Rejects non-string id before constructing capability identity",
+      "status": "Needs explicit compatibility decision before claiming all-JSON-input parity"
+    },
+    {
+      "input": {
+        "id": null,
+        "name": "name",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123",
+        "domain": "device",
+        "model": "model"
+      },
+      "source": {
+        "id": null,
+        "name": "name",
+        "baseUrl": "http://127.0.0.1:8123",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": null,
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "2c8dbce53037d732734b79eff1562cde9b5cb8b83d33ad2d89f9ee2bf599a798"
+      },
+      "currentNativeValidator": "Rejects non-string id before constructing capability identity",
+      "status": "Needs explicit compatibility decision before claiming all-JSON-input parity"
+    },
+    {
+      "input": {
+        "id": [
+          "foo"
+        ],
+        "name": "name",
+        "protocol": "system-one",
+        "baseUrl": "http://127.0.0.1:8123",
+        "domain": "device",
+        "model": "model"
+      },
+      "source": {
+        "id": [
+          "foo"
+        ],
+        "name": "name",
+        "baseUrl": "http://127.0.0.1:8123",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "apiKeyEnv": "",
+        "timeoutMs": 60000,
+        "maxParallel": 1,
+        "resource": [
+          "foo"
+        ],
+        "protocol": "system-one",
+        "role": "decision",
+        "voice": "alloy",
+        "dimensions": null,
+        "assetOrigins": [],
+        "identity": "35085426b22d57d6ed4b19a5ae53cf84d6a045585c5121aa8bf4fe0d095890c6"
+      },
+      "currentNativeValidator": "Rejects non-string id before constructing capability identity",
+      "status": "Needs explicit compatibility decision before claiming all-JSON-input parity"
+    }
+  ]
+}

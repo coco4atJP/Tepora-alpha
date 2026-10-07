@@ -10,7 +10,7 @@ Teporaは、ひとつのキャラクターとの会話を続けながら、別�
 
 この移植ブランチでは、永続状態・文脈・トークン・モデル通信形式・実行状態機械を共有Rustコアに移し、独立Rust HTTPホストに実際のプロバイダー通信、対応ツール、承認、コンパクション、自己点検を接続しています。通常起動は既存機能を保つNode互換サービスのままです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
-開発用の[独立Rustホスト](Tepora-v3/native-service/README.md)は、`--dev-native` で履歴・記憶・成果物・SSE、追加の `--agent` で会話と17の組み込みツールを実行します。ビルド済みバイナリーはNodeなしで動きますが、プロセス/Web/MCP/音声/メディア/PC操作・予定・JSプラグイン等は未移植です。GUIはJavaScript/CSSのままで、通常起動・Tauriの切替や全面Rust化の完了を意味しません。
+開発用の[独立Rustホスト](Tepora-v3/native-service/README.md)は、`--dev-native` で履歴・記憶・成果物・SSE、追加の `--agent` で会話と19の組み込みツールを実行します。ビルド済みバイナリーはNodeなしで動きますが、プロセス実行と停止/回収に対応しますが、Web/MCP/音声/メディア/PC操作・予定・JSプラグイン等は未移植です。GUIはJavaScript/CSSのままで、通常起動・Tauriの切替や全面Rust化の完了を意味しません。
 
 ```sh
 git clone https://github.com/coco4atJP/Tepora-alpha.git

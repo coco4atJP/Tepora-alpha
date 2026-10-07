@@ -10,26 +10,168 @@ struct MemoryState {
     values: Mutex<HashMap<String, Value>>,
     docs: Mutex<HashMap<(String, String), Value>>,
     events: Mutex<Vec<(String, Value)>>,
+    check_runtime_locks: Mutex<Option<std::sync::Weak<Inner>>>,
+}
+impl MemoryState {
+    fn check_locks(&self) {
+        if let Some(inner) = lock(&self.check_runtime_locks)
+            .as_ref()
+            .and_then(|v| v.upgrade())
+        {
+            assert!(
+                inner.health.try_lock().is_ok(),
+                "ProviderState called under health lock"
+            );
+            assert!(
+                inner.limits.try_lock().is_ok(),
+                "ProviderState called under limits lock"
+            );
+        }
+    }
 }
 impl ProviderState for MemoryState {
     fn value(&self, k: &str) -> Result<Option<Value>, ApiError> {
+        self.check_locks();
         Ok(lock(&self.values).get(k).cloned())
     }
     fn set_value(&self, k: &str, v: Value) -> Result<(), ApiError> {
+        self.check_locks();
         lock(&self.values).insert(k.into(), v);
         Ok(())
     }
     fn get(&self, c: &str, id: &str) -> Result<Option<Value>, ApiError> {
+        self.check_locks();
         Ok(lock(&self.docs).get(&(c.into(), id.into())).cloned())
     }
     fn put(&self, c: &str, v: Value) -> Result<(), ApiError> {
+        self.check_locks();
         lock(&self.docs).insert((c.into(), s(&v, "id").into()), v);
         Ok(())
     }
     fn emit(&self, e: &str, v: Value) -> Result<(), ApiError> {
+        self.check_locks();
         lock(&self.events).push((e.into(), v));
         Ok(())
     }
+}
+
+#[test]
+fn public_snapshot_filters_replaced_profile_health_without_reverse_state_locking() {
+    let (runtime, state, _, profiles) = setup(vec![raw("a", "chat-completions")], vec![], false);
+    *lock(&state.check_runtime_locks) = Some(Arc::downgrade(&runtime.inner));
+    let p = &profiles[0];
+    runtime.learn_limit(p, 4096).unwrap();
+    runtime
+        .mark_down(p, 1000, &ProviderFailure::new("rate", "fixture"), Some(2))
+        .unwrap();
+    let snapshot = runtime.public_snapshot().unwrap();
+    assert_eq!(snapshot["profiles"][0]["health"]["failures"], 2);
+    assert_eq!(snapshot["profiles"][0]["limits"]["context"], 4096);
+    let mut replacement = raw("a", "chat-completions");
+    replacement["model"] = json!("replacement");
+    let snapshot = runtime
+        .save(
+            &json!({"profiles":[replacement],"routes":{"main":{"primary":"a"}}}),
+            1,
+        )
+        .unwrap();
+    assert_ne!(snapshot["profiles"][0]["identity"], p["identity"]);
+    assert!(snapshot["profiles"][0]["health"].is_null());
+    assert!(snapshot["profiles"][0]["limits"].is_null());
+    runtime.set_key("a", "").unwrap();
+}
+
+struct NoSnapshotState;
+impl ProviderState for NoSnapshotState {
+    fn value(&self, _: &str) -> Result<Option<Value>, ApiError> {
+        panic!("decorator must not read State")
+    }
+    fn set_value(&self, _: &str, _: Value) -> Result<(), ApiError> {
+        panic!("decorator must not write State")
+    }
+    fn get(&self, _: &str, _: &str) -> Result<Option<Value>, ApiError> {
+        panic!("decorator must not read documents")
+    }
+    fn put(&self, _: &str, _: Value) -> Result<(), ApiError> {
+        panic!("decorator must not write documents")
+    }
+    fn emit(&self, _: &str, _: Value) -> Result<(), ApiError> {
+        panic!("decorator must not emit")
+    }
+}
+
+#[tokio::test]
+async fn runtime_snapshot_decoration_never_enters_state_or_config_and_keeps_identity_scopes() {
+    let network = NativeNetwork::with_components(
+        NetworkPolicy::default(),
+        Arc::new(NoDns),
+        Arc::new(FakeTransport::default()),
+    );
+    let runtime =
+        ProviderRuntime::with_options(Arc::new(NoSnapshotState), network, false, Arc::new(now_ms));
+    lock(&runtime.inner.health).insert(
+        "current".into(),
+        json!({"identity":"current-identity","failures":3}),
+    );
+    lock(&runtime.inner.health).insert(
+        "replaced".into(),
+        json!({"identity":"old-identity","failures":9}),
+    );
+    lock(&runtime.inner.limits).insert(
+        "current-identity".into(),
+        json!({"context":4096,"learned":true}),
+    );
+    lock(&runtime.inner.limits).insert("old-identity".into(), json!({"context":64}));
+    let cancel = RequestCancellation::new();
+    let lease = runtime
+        .inner
+        .gate
+        .acquire("fixture", 1, 10., 0, &cancel)
+        .await
+        .unwrap();
+    let gate = runtime.inner.gate.clone();
+    let queued_cancel = cancel.clone();
+    let queued =
+        tokio::spawn(async move { gate.acquire("fixture", 1, 1., 0, &queued_cancel).await });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while runtime.inner.gate.snapshot()[0]["queued"] != 1 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let captured = json!({"revision":7,"profiles":[
+        {"id":"current","identity":"current-identity","keyPresent":true,"health":null,"limits":{"context":8192},"probe":{"ok":true}},
+        {"id":"replaced","identity":"new-identity","keyPresent":false,"health":null,"limits":{"context":16384},"probe":null}
+    ],"routes":{"main":{"primary":"current"}},"resources":[]});
+    // Holding config simulates a config writer waiting for Workspace State.
+    // A decorator which acquires config would form the reverse edge/deadlock.
+    let config = lock(&runtime.inner.config);
+    let worker = runtime.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let thread = std::thread::spawn(move || {
+        let mut snapshot = captured;
+        worker.decorate_snapshot(&mut snapshot);
+        tx.send(snapshot).unwrap();
+    });
+    let result = rx.recv_timeout(Duration::from_secs(2));
+    drop(config);
+    thread.join().unwrap();
+    let snapshot = result.expect("runtime decoration must complete while config is locked");
+    assert_eq!(snapshot["revision"], 7);
+    assert_eq!(snapshot["profiles"][0]["health"]["failures"], 3);
+    assert_eq!(snapshot["profiles"][0]["limits"]["context"], 4096);
+    assert_eq!(snapshot["profiles"][0]["keyPresent"], true);
+    assert_eq!(snapshot["profiles"][0]["probe"], json!({"ok":true}));
+    assert!(snapshot["profiles"][1]["health"].is_null());
+    assert_eq!(snapshot["profiles"][1]["limits"]["context"], 16384);
+    assert_eq!(
+        snapshot["resources"],
+        json!([{"resource":"fixture","active":1,"queued":1,"limit":1}])
+    );
+    cancel.cancel();
+    assert!(queued.await.unwrap().is_err());
+    drop(lease);
 }
 struct NoDns;
 impl Resolver for NoDns {

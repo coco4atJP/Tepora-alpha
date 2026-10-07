@@ -1,5 +1,7 @@
 //! Real Workspace + native engines + provider protocol + host integration.
 //! Only the socket transport is scripted; no external model or Node is used.
+#[cfg(unix)]
+mod process_tests;
 use super::*;
 use crate::{
     agent::{AgentCoordinator, AgentHandle},
@@ -870,6 +872,10 @@ fn unsupported_saved_authority_is_not_silently_ignored_or_resumed() {
     );
     let main = f.main();
     let session=f.state("session.update",json!({"id":main["id"],"patch":{"status":"stopped","system":"Cached legacy prefix","tools":["exec","read"]}}));
+    let preserved = f.host.prompt(session.clone(), false).unwrap();
+    assert_eq!(preserved["system"], session["system"]);
+    assert_eq!(preserved["tools"], json!(["exec", "read"]));
+    let session = f.state("session.update", json!({"id":main["id"],"patch":{"tools":["computer","read"]}}));
     assert!(f.host.prompt(session.clone(), false).is_err());
     assert_eq!(
         f.state("session.get", json!({"id":main["id"]}))["system"],

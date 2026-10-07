@@ -7,6 +7,7 @@ impl Workspace {
         if !matches!(
             op,
             Operation::AgentInput { .. }
+                | Operation::SessionAccept { .. }
                 | Operation::AgentSpawn { .. }
                 | Operation::SessionMessage { .. }
                 | Operation::SessionStop { .. }
@@ -16,6 +17,9 @@ impl Workspace {
                 | Operation::Approvals
                 | Operation::ApprovalsDecide { .. }
                 | Operation::ApprovalDecide { .. }
+                | Operation::Capabilities
+                | Operation::CapabilitiesSave { .. }
+                | Operation::CapabilityKey { .. }
                 | Operation::Providers
                 | Operation::ProvidersSave { .. }
                 | Operation::ProviderKey { .. }
@@ -36,6 +40,14 @@ impl Workspace {
         }
         let request = |r| native.agent.request(r);
         let value = match op {
+            Operation::SessionAccept { id } => {
+                let session = self.access().agent_state("session.get", json!({"id":id}))?;
+                require(!session.is_null(), 404, "Session not found")?;
+                self.project_job(self.access().agent_state(
+                    "session.update",
+                    json!({"id":id,"patch":{"accepted":true,"acceptedAt":now()}}),
+                )?)?
+            }
             Operation::AgentInput { body } => request(AgentRequest::Input { body: body.clone() })?,
             Operation::AgentSpawn { body } => {
                 self.project_job(request(AgentRequest::Spawn { body: body.clone() })?)?
@@ -137,6 +149,35 @@ impl Workspace {
                     .collect::<Vec<_>>();
                 json!({"results":results})
             }
+            Operation::Capabilities => native.capabilities.snapshot().map_err(ApiError::from)?,
+            Operation::CapabilitiesSave { body } => {
+                // Source CAS is strict: malformed/missing revision is a stale
+                // revision error, checked before registry validation.
+                let expected = safe_integer(&body["expectedRevision"])
+                    .filter(|n| *n >= 0)
+                    .ok_or_else(|| {
+                        ApiError::new(409, "Capability settings changed. Reload before saving.")
+                    })?;
+                require(
+                    native.capabilities.get().map_err(ApiError::from)?["revision"].as_u64()
+                        == Some(expected as u64),
+                    409,
+                    "Capability settings changed. Reload before saving.",
+                )?;
+                require(
+                    !truth(&body["config"]["routes"]["decision"]),
+                    503,
+                    "Native decision routing is not integrated in this checkpoint",
+                )?;
+                native
+                    .capabilities
+                    .save(&body["config"], expected as u64)
+                    .map_err(ApiError::from)?
+            }
+            Operation::CapabilityKey { id, body } => native
+                .capabilities
+                .set_key(id, &body["key"], &body["identity"])
+                .map_err(ApiError::from)?,
             Operation::Providers => native.provider.public_snapshot()?,
             Operation::ProvidersSave { body } => {
                 let expected = safe_integer(&body["expectedRevision"])

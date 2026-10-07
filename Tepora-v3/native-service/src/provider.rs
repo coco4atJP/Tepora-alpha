@@ -201,6 +201,8 @@ struct Inner {
     state: Arc<dyn ProviderState>,
     network: NativeNetwork,
     config: Mutex<()>,
+    // Leaf locks: never call ProviderState or acquire config while holding
+    // health/limits/gate. Workspace may read these while its State is locked.
     health: Mutex<HashMap<String, Value>>,
     limits: Mutex<HashMap<String, Value>>,
     gate: ResourceGate,
@@ -323,10 +325,6 @@ impl ProviderRuntime {
         let mut profiles = vec![];
         for mut p in array(&c["profiles"]).to_vec() {
             p["keyPresent"] = json!(!self.key_for(&p)?.is_empty());
-            p["health"] = lock(&self.inner.health)
-                .get(s(&p, "id"))
-                .cloned()
-                .unwrap_or(Value::Null);
             p["limits"] = self.known_limits(&p)?.unwrap_or(Value::Null);
             p["probe"] = self
                 .inner
@@ -336,8 +334,29 @@ impl ProviderRuntime {
             profiles.push(p);
         }
         c["profiles"] = json!(profiles);
-        c["resources"] = self.inner.gate.snapshot();
+        self.decorate_snapshot(&mut c);
         Ok(c)
+    }
+    /// Add live runtime information to an already captured public registry.
+    /// Safe under Workspace's State lock: this never calls ProviderState,
+    /// acquires config, invokes callbacks, or retains a lock between fields.
+    /// Persisted key/probe/limit fields keep the caller's atomic state snapshot.
+    pub fn decorate_snapshot(&self, registry: &mut Value) {
+        let health = lock(&self.inner.health).clone();
+        let limits = lock(&self.inner.limits).clone();
+        if let Some(profiles) = registry.get_mut("profiles").and_then(Value::as_array_mut) {
+            for p in profiles {
+                p["health"] = health
+                    .get(s(p, "id"))
+                    .filter(|h| !s(p, "identity").is_empty() && h["identity"] == p["identity"])
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                if let Some(value) = limits.get(s(p, "identity")) {
+                    p["limits"] = value.clone();
+                }
+            }
+        }
+        registry["resources"] = self.inner.gate.snapshot();
     }
     pub fn save(&self, raw: &Value, expected_revision: u64) -> Result<Value, ApiError> {
         let _config = lock(&self.inner.config);
@@ -450,7 +469,8 @@ impl ProviderRuntime {
         })
     }
     pub fn known_limits(&self, p: &Value) -> Result<Option<Value>, ApiError> {
-        if let Some(value) = lock(&self.inner.limits).get(s(p, "identity")).cloned() {
+        let cached = lock(&self.inner.limits).get(s(p, "identity")).cloned();
+        if let Some(value) = cached {
             return Ok(Some(value));
         }
         self.inner
@@ -779,10 +799,11 @@ impl ProviderRuntime {
         error: &ProviderFailure,
         failures: Option<u64>,
     ) -> Result<(), ApiError> {
+        let until = (self.inner.clock)() + ms as i64;
         let mut health = lock(&self.inner.health);
         let failures =
             failures.unwrap_or_else(|| health.get(s(p, "id")).map_or(0, |v| n(v, "failures", 0)));
-        health.insert(s(p,"id").into(),json!({"identity":p["identity"],"failures":failures,"until":(self.inner.clock)()+ms as i64,"lastError":error.kind}));
+        health.insert(s(p,"id").into(),json!({"identity":p["identity"],"failures":failures,"until":until,"lastError":error.kind}));
         drop(health);
         self.inner.state.emit(
             "route.failed",

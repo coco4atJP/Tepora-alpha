@@ -72,6 +72,7 @@ pub struct NativeAgentHost {
     approvals: super::approvals::Approvals,
     approved: Mutex<HashMap<String, String>>,
     reads: Mutex<HashMap<String, Arc<Mutex<super::files::FileMemory>>>>,
+    process_host: super::process_host::ProcessHost,
 }
 impl NativeAgentHost {
     pub fn new(
@@ -90,10 +91,76 @@ impl NativeAgentHost {
             approvals,
             approved: Mutex::new(HashMap::new()),
             reads: Mutex::new(HashMap::new()),
+            process_host: super::process_host::ProcessHost::new(),
         })
     }
     pub fn state(&self, op: &str, args: Value) -> Result<Value, ApiError> {
         self.state.agent_state(op, args)
+    }
+    /// An owned process view; callers must not hold Workspace's Store lock.
+    pub fn processes(&self, session: &str) -> Value {
+        self.process_host.list(session)
+    }
+    fn tool_catalog(&self) -> Vec<Value> {
+        self.process_host
+            .catalog()
+            .into_iter()
+            .chain(super::tools::catalog())
+            .collect()
+    }
+    fn tool_definition(&self, name: &str) -> Option<Value> {
+        self.process_host
+            .definition(name)
+            .or_else(|| super::tools::definition(name))
+    }
+    fn toolset(&self, kind: &str) -> Vec<String> {
+        let mut names = match kind {
+            "main" => vec![],
+            "lean" => vec!["exec".into()],
+            _ => vec!["exec".into(), "process".into()],
+        };
+        names.extend(super::tools::toolset(kind));
+        names
+    }
+    fn search_tools(&self, session: &Value, query: &str) -> Result<Value, ApiError> {
+        let terms = tepora_core::store_domain::search_tokens(&json!(query), 40, 17);
+        let exclude = strings(&session["tools"]);
+        let mut hits = Vec::new();
+        for def in self.tool_catalog() {
+            let name = def["name"].as_str().unwrap_or("");
+            if exclude.iter().any(|excluded| excluded == name) {
+                continue;
+            }
+            let text = format!(
+                "{} {} {}",
+                name.replace('_', " "),
+                def["description"].as_str().unwrap_or(""),
+                def["keywords"].as_str().unwrap_or("")
+            );
+            let tokens = tepora_core::store_domain::search_tokens(&json!(text), 30000, 17);
+            let score = terms.iter().filter(|term| tokens.contains(term)).count();
+            if score > 0 {
+                hits.push((score, def));
+            }
+        }
+        hits.sort_by(|a, b| b.0.cmp(&a.0));
+        let lines = hits
+            .into_iter()
+            .take(8)
+            .map(|(_, def)| {
+                let schema = json_codec::stringify_js(&def["parameters"])
+                    .map_err(|e| ApiError::bad_request(e.to_string()))?;
+                Ok(format!(
+                    "## {} (builtin)\n{}\nparameters: {}",
+                    def["name"].as_str().unwrap_or(""),
+                    def["description"].as_str().unwrap_or(""),
+                    json_codec::encode_text(&schema)
+                ))
+            })
+            .collect::<Result<Vec<_>, ApiError>>()?;
+        Ok(
+            json!({"text":if lines.is_empty(){"No matching tools.".to_owned()}else{lines.join("\n\n")}}),
+        )
     }
     fn session(&self, id: &str) -> Result<Value, ApiError> {
         self.state("session.get", json!({"id":id}))
@@ -140,8 +207,7 @@ impl NativeAgentHost {
     }
     fn prompt_snapshot(&self, session: Value) -> Result<context::PromptSnapshot, EffectError> {
         let settings = self.settings()?;
-        let mut available_tools =
-            super::tools::toolset(session["toolset"].as_str().unwrap_or("worker"));
+        let mut available_tools = self.toolset(session["toolset"].as_str().unwrap_or("worker"));
         if num(&session["depth"]) >= num(&settings["maxDepth"]) {
             available_tools.retain(|n| n != "sessions_spawn");
         }
@@ -149,13 +215,13 @@ impl NativeAgentHost {
             .into_iter()
             .filter(|s| s["enabled"] != false)
             .collect();
-        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image ingestion and vision bridging are not yet available. Scheduling, process execution, web tools, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
+        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image ingestion and vision bridging are not yet available. Scheduling, web tools, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
     }
     fn prompt(&self, session: Value, refresh: bool) -> Result<Value, EffectError> {
         if !refresh {
             let unavailable = strings(&session["tools"])
                 .into_iter()
-                .filter(|name| super::tools::definition(name).is_none())
+                .filter(|name| self.tool_definition(name).is_none())
                 .collect::<Vec<_>>();
             if !unavailable.is_empty() {
                 return Err(EffectError::new(format!("Cached session tools unavailable in native mode: {}. Continue with the compatibility host.",unavailable.join(", "))));
@@ -191,7 +257,7 @@ impl NativeAgentHost {
         }
     }
     fn definitions(&self, session: &Value) -> Vec<Value> {
-        array(&super::tools::definitions(&strings(&session["tools"])))
+        strings(&session["tools"]).iter().filter_map(|name|self.tool_definition(name)).map(|def|json!({"type":"function","function":{"name":def["name"],"description":def["description"],"parameters":def["parameters"]}})).collect()
     }
     fn budget_snapshot(
         &self,
@@ -332,7 +398,7 @@ impl NativeAgentHost {
                     c["session"].clone()
                 };
                 let children = array(&self.state("session.list", json!({"parentId":id}))?);
-                let live = json!({"sessions":children.iter().filter_map(|s|s["id"].as_str().map(|id|(id.to_owned(),s["status"].clone()))).collect::<serde_json::Map<_,_>>(),"processes":{}});
+                let live = json!({"sessions":children.iter().filter_map(|s|s["id"].as_str().map(|id|(id.to_owned(),s["status"].clone()))).collect::<serde_json::Map<_,_>>(),"processes":self.process_host.live(id)});
                 let snap = context::CompactionSnapshot {
                     session: session.clone(),
                     entries: self.entries(id)?,
@@ -358,7 +424,16 @@ impl NativeAgentHost {
                     Ok(EffectResult::new(proposal.map(|p|json!({"checkpoint":p.checkpoint,"notice":p.notice,"event":p.event})).unwrap_or(Value::Null)))
                 })))
             }
-            "beforeRequest" => Ok(EffectTask::ready(json!({"messages":c["messages"]}))),
+            "beforeRequest" => {
+                let processes = self.process_host.clone();
+                let session = id.clone();
+                let cancel = ctx.cancellation.clone();
+                let messages = c["messages"].clone();
+                Ok(EffectTask::Async(Box::pin(async move {
+                    processes.ready_session(&session, &cancel).await?;
+                    Ok(EffectResult::new(json!({"messages":messages})))
+                })))
+            }
             "invoke" => {
                 let provider = self.provider.clone();
                 let cancel = ctx.cancellation.clone();
@@ -487,9 +562,21 @@ impl NativeAgentHost {
                     json!({"session":changed})
                 }))
             }
-            "toolCatalog" => Ok(EffectTask::ready(
-                json!({"session":self.session(id)?,"tools":super::tools::classification()}),
-            )),
+            "toolCatalog" => {
+                let tools = self
+                    .tool_catalog()
+                    .into_iter()
+                    .map(|def| {
+                        (
+                            def["name"].as_str().unwrap_or("").to_owned(),
+                            json!({"readOnly":def["readOnly"]}),
+                        )
+                    })
+                    .collect::<serde_json::Map<_, _>>();
+                Ok(EffectTask::ready(
+                    json!({"session":self.session(id)?,"tools":tools}),
+                ))
+            }
             "prepareTool" => {
                 let parsed = compute(
                     "harness.format.parseArgs",
@@ -506,13 +593,15 @@ impl NativeAgentHost {
                     name = args["name"].as_str().unwrap_or("").into();
                     args = args.get("arguments").cloned().unwrap_or_else(|| json!({}));
                 }
-                let Some(def) = super::tools::definition(&name) else {
+                let Some(def) = self.tool_definition(&name) else {
                     return Ok(EffectTask::ready(
                         json!({"error":format!("Unknown tool \"{name}\". Use tools_search to find available tools."),"ms":0}),
                     ));
                 };
                 let definition_key =
                     format!("{}:tool:{}", ctx.scope.generation.unwrap_or(0), c["index"]);
+                self.process_host
+                    .freeze_definition(&ctx.scope, &definition_key, &name)?;
                 let invalid = compute(
                     "harness.format.checkArgs",
                     json!({"schema":def["parameters"],"args":args}),
@@ -537,13 +626,12 @@ impl NativeAgentHost {
                 let key = Self::approval_key(ctx, prepared);
                 let encoded = json_codec::stringify_js(&prepared["args"])
                     .map_err(|e| EffectError::new(e.to_string()))?;
-                if self
+                let approved = self
                     .approved
                     .lock()
                     .map_err(|_| EffectError::new("Approval handles unavailable"))?
-                    .get(&key)
-                    != Some(&encoded)
-                {
+                    .remove(&key);
+                if approved.as_ref() != Some(&encoded) {
                     let mut e =
                         EffectError::new("Approved tool arguments changed before execution");
                     e.error["notExecuted"] = json!(true);
@@ -552,8 +640,27 @@ impl NativeAgentHost {
                 let name = prepared["name"].as_str().unwrap_or("").to_owned();
                 let args = prepared["args"].clone();
                 let session = c["session"].clone();
-                let note = super::tools::summarize(&name, &args)?;
+                let note = match self.process_host.summarize(&name, &args)? {
+                    Some(note) => {
+                        compute("harness.format.oneLine", json!({"value":note,"max":100}))?
+                    }
+                    None => json!(super::tools::summarize(&name, &args)?),
+                };
                 self.state("session.update", json!({"id":id,"patch":{"note":note}}))?;
+                if matches!(name.as_str(), "exec" | "process") {
+                    let work_root = self.state("workRoot", json!({}))?;
+                    let invocation = super::process_host::ProcessInvocation::from_effect(
+                        ctx,
+                        prepared.clone(),
+                        approved.unwrap(),
+                        session,
+                        self.settings()?,
+                        work_root.as_str().unwrap_or("").to_owned(),
+                    );
+                    return self.process_host.start_effect(invocation)?.ok_or_else(|| {
+                        EffectError::new("Prepared process definition disappeared")
+                    });
+                }
                 let context = ctx.clone();
                 if matches!(name.as_str(), "read" | "write" | "edit") {
                     let cwd = session["cwd"]
@@ -614,7 +721,8 @@ impl NativeAgentHost {
                     .get(id)
                     .cloned()
                     .unwrap_or_else(initial_memory);
-                let definitions = super::tools::catalog()
+                let definitions = self
+                    .tool_catalog()
                     .into_iter()
                     .filter_map(|d| d["name"].as_str().map(str::to_owned).map(|name| (name, d)))
                     .collect::<serde_json::Map<_, _>>();
@@ -624,7 +732,24 @@ impl NativeAgentHost {
                         out["interrupted"] = json!(true);
                     }
                 }
+                let definitions = self.process_host.definitions_for_receipts(
+                    &ctx.scope,
+                    &Value::Object(definitions),
+                    &array(&c["calls"]),
+                    &outputs,
+                )?;
                 let result=self.state("tools.receipts",json!({"id":id,"calls":c["calls"],"outputs":outputs,"B":c["B"],"memory":memory,"definitions":definitions}))?;
+                // Ordered durable receipts no longer need their immutable
+                // callbacks or any approved but undispatched tool handles.
+                if let Some(generation) = ctx.scope.generation {
+                    self.process_host
+                        .release_step(id, ctx.scope.run_epoch, generation);
+                    let prefix = format!("{}:{}:{}:", id, ctx.scope.run_epoch, generation);
+                    self.approved
+                        .lock()
+                        .map_err(|_| EffectError::new("Approval handles unavailable"))?
+                        .retain(|key, _| !key.starts_with(&prefix));
+                }
                 self.memory
                     .lock()
                     .map_err(|_| EffectError::new("Agent memory unavailable"))?
@@ -719,7 +844,7 @@ impl NativeAgentHost {
             }
             let unsupported = strings(&s["tools"])
                 .into_iter()
-                .filter(|n| super::tools::definition(n).is_none())
+                .filter(|n| self.tool_definition(n).is_none())
                 .collect::<Vec<_>>();
             if !unsupported.is_empty() {
                 return Err(ApiError::unavailable(format!("Session {} has cached unavailable tools: {}. Continue with the compatibility host.",s["id"].as_str().unwrap_or(""),unsupported.join(", "))));
@@ -767,8 +892,10 @@ impl super::host_runtime::HostServices for NativeAgentHost {
         NativeAgentHost::stream_end(self, id, discard)
     }
     fn stop_resources(&self, id: &str) -> Result<(), ApiError> {
-        self.approvals.cancel(id)?;
-        self.stream_end(id, true)
+        self.process_host.stop_session(id);
+        let approval = self.approvals.cancel(id);
+        let stream = self.stream_end(id, true);
+        approval.and(stream)
     }
     fn cancel_all_approvals(&self) -> Result<(), ApiError> {
         self.approvals.cancel_all()
@@ -811,6 +938,10 @@ impl AgentHost for NativeAgentHost {
             .apply_actions(self, actions)?;
         for a in actions {
             if a["kind"] == "releaseRun" {
+                self.process_host.release_run(
+                    a["sessionId"].as_str().unwrap_or(""),
+                    a["runEpoch"].as_u64().unwrap_or(0),
+                );
                 let prefix = format!(
                     "{}:{}:",
                     a["sessionId"].as_str().unwrap_or(""),
@@ -843,7 +974,7 @@ impl AgentHost for NativeAgentHost {
                 let cancel = ctx.cancellation.clone();
                 let children =
                     array(&self.state("session.list", json!({"parentId":ctx.scope.session_id}))?);
-                let live = json!({"sessions":children.iter().filter_map(|s|s["id"].as_str().map(|id|(id.to_owned(),s["status"].clone()))).collect::<serde_json::Map<_,_>>(),"processes":{}});
+                let live = json!({"sessions":children.iter().filter_map(|s|s["id"].as_str().map(|id|(id.to_owned(),s["status"].clone()))).collect::<serde_json::Map<_,_>>(),"processes":self.process_host.live(&ctx.scope.session_id)});
                 return Ok(EffectTask::Async(Box::pin(async move {
                     let budget = context::budget(&provider, &snapshot, &cancel).await?;
                     if array(&budget["chain"]).is_empty() || num(&budget["B"]) < 1200.0 {
@@ -978,6 +1109,9 @@ impl AgentHost for NativeAgentHost {
                     .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
                     .send(self, target, &body)
             }
+            "nativeTools.execute" if request["name"] == "tools_search" => Ok(Admission::new(
+                self.search_tools(&from, request["args"]["query"].as_str().unwrap_or(""))?,
+            )),
             _ => Ok(Admission::new(
                 self.state.tool_state(&scope.session_id, &request)?,
             )),
@@ -1044,10 +1178,12 @@ impl AgentHost for NativeAgentHost {
         Ok(())
     }
     fn close(&self) -> Result<(), ApiError> {
-        self.approvals.cancel_all()?;
+        self.process_host.begin_close();
+        let approval = self.approvals.cancel_all();
         self.provider.close();
         self.network.close();
-        Ok(())
+        let processes = self.process_host.close_and_drain();
+        approval.and(processes)
     }
 }
 impl super::metacognition::MetacogHost for NativeAgentHost {
