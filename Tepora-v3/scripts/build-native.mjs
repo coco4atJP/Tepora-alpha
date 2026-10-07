@@ -16,7 +16,9 @@ if(build.status!==0)process.exit(build.status||1);
 await mkdir(out,{recursive:true});
 await writeFile(path.join(out,'app.bundle.js'),await browserBundle(path.join(root,'web')));
 const info=spawnSync('rustc',['-vV'],{encoding:'utf8'}),host=process.env.CARGO_BUILD_TARGET||info.stdout?.match(/^host: (.+)$/m)?.[1];
-const metadata=spawnSync(cargo,['metadata','--locked','--offline','--format-version','1','--filter-platform',host,'--manifest-path',path.join(crate,'Cargo.toml')],{encoding:'utf8',maxBuffer:32*1024*1024});
+// Metadata also resolves dev dependencies, which a normal build need not cache.
+// Keep the full locked graph for notices; honor Cargo's inherited offline policy.
+const metadata=spawnSync(cargo,['metadata','--locked','--format-version','1','--filter-platform',host,'--manifest-path',path.join(crate,'Cargo.toml')],{encoding:'utf8',maxBuffer:32*1024*1024});
 if(metadata.status!==0)throw new Error('Cannot collect native dependency notices: '+metadata.stderr);
 const resolved=JSON.parse(metadata.stdout),notices=['Tepora native service — third-party dependency notices\n'];
 for(const pkg of resolved.packages.filter(p=>p.source).sort((a,b)=>a.name.localeCompare(b.name))){
