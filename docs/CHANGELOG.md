@@ -1,10 +1,11 @@
 # Tepora V3 changelog
 
-## Rust persistence migration (development branch, beta.11)
+## Rust core migration (development branch, beta.11)
 
 - Move SQLite documents, events, session logs/evidence/inboxes and atomic artifact revisions into a Rust library, retaining the existing database schema and web/service contracts.
+- Move canonical model context/token accounting and request/response state machines for four wire protocols plus Ollama into Rust, with pinned old-implementation differential tests.
 - Add N-API integration, Rust unit tests and legacy-database regression tests; source builds now require Rust stable and a C linker.
-- This is the first migration stage; the HTTP server, agent loop, providers and UI remain JavaScript. See [scope and verification](../Tepora-v3/docs/RUST-MIGRATION.md).
+- The HTTP server, agent loop, network admission/transport and UI still remain JavaScript; migration continues. See [scope and verification](../Tepora-v3/docs/RUST-MIGRATION.md).
 
 ## [Unreleased]
 

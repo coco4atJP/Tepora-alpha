@@ -4,13 +4,18 @@
  */
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-let StateCore;
-try { ({StateCore}=require('./native/tepora_core.node')); }
+let native;
+try { native=require('./native/tepora_core.node'); }
 catch(cause) {
  throw new Error('Tepora Rust core is unavailable. Run npm run build:core with the Rust toolchain installed, then restart Tepora.',{cause});
 }
+export const nativeCore=native;
+export function nativeCompute(operation,payload={}) {
+ try{return JSON.parse(native.computeCore(operation,JSON.stringify({...payload,unicodeVersion:process.versions.unicode})));}
+ catch(error){const match=/^\[(\d{3})\]\s*(.*)$/s.exec(error.message);if(match){error.status=Number(match[1]);error.message=match[2];}throw error;}
+}
 export class NativeState {
- constructor(filename){this.core=new StateCore(filename);}
+ constructor(filename){this.core=new native.StateCore(filename);}
  call(operation,payload={}) {
   try {return JSON.parse(this.core.call(operation,JSON.stringify(payload)));}
   catch(error){

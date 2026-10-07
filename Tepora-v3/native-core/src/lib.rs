@@ -8,7 +8,11 @@ use rusqlite::{params, params_from_iter, types::Value as SqlValue, Connection, O
 use serde_json::{json, Map, Value};
 use std::{error::Error, fmt};
 
+mod context;
+mod js_value;
 mod json_codec;
+pub mod protocols;
+mod tokens;
 use json_codec::{encode_text, encode_value, sql_text};
 
 const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
@@ -653,6 +657,22 @@ impl NativeState {
 mod binding {
     use super::*;
     use napi_derive::napi;
+
+    #[napi(js_name = "computeCore")]
+    pub fn compute_core(operation: String, payload_json: String) -> napi::Result<String> {
+        let run = || -> CoreResult<String> {
+            let payload = json_codec::parse(&payload_json)?;
+            let result = if operation.starts_with("context.") {
+                context::call(&operation, payload)?
+            } else if operation.starts_with("tokens.") {
+                tokens::call(&operation, payload)?
+            } else {
+                return Err(invalid("Unknown compute operation"));
+            };
+            json_codec::stringify(&result)
+        };
+        run().map_err(|error| napi::Error::from_reason(error.to_string()))
+    }
 
     #[napi]
     pub struct StateCore {

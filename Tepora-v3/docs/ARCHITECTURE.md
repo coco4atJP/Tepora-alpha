@@ -2,7 +2,7 @@
 
 > **2026-10-07:** The agent parts of this document describe beta.11 (protected execution, Codex, routines, effect receipts). The agent runtime has since been rebuilt; see [AGENT-HARNESS.md](AGENT-HARNESS.md) for the current design.
 
-V3 is the default application on this branch. SQLite persistence is now owned by the Rust `native-core` library, with synchronous N-API domain operations used by the Node ESM loopback service. The application retains a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
+V3 is the default application on this branch. SQLite persistence is now owned by the Rust `native-core` library, with synchronous N-API domain operations used by the Node ESM loopback service. Canonical context assembly, token accounting and provider request/response state machines also run in Rust. Network admission, HTTP transport and the execution loop remain in JavaScript. The application retains a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
 
 ```mermaid
 flowchart TD
@@ -47,7 +47,7 @@ Worker notifications and questions are revisioned and idempotent. Explicit quest
 
 ## Providers and capabilities
 
-`ProviderRegistry` pins named endpoint identities and role routes. Text protocols include Chat Completions, Responses, Anthropic and Gemini adapters. Typed decisions, embeddings, TTS, image/edit and video generation use separate capability adapters. Protocol support does not certify every provider, account or model.
+`ProviderRegistry` pins named endpoint identities and role routes. `native-core/src/protocols.rs` encodes canonical requests and decodes streamed responses; `core/provider-protocols.mjs` retains HTTP transport, cancellation, framing, headers and the public error API. Opaque provider-native replay stays bound to its exact provider identity. `native-core/src/context.rs` and `tokens.rs` render stable model context and estimate its budget. Text protocols include Chat Completions, Responses, Anthropic and Gemini adapters. Typed decisions, embeddings, TTS, image/edit and video generation use separate capability adapters. Protocol support does not certify every provider, account or model.
 
 `NetworkPolicy` gates admission by online / trusted-lan / offline mode and the job's allowed destinations. It is not an OS firewall and does not control an independently forwarding inference server. Modes and route changes do not silently widen a saved task's destinations. Recovery retries only eligible model/provider-blocked work without uncertain effects.
 

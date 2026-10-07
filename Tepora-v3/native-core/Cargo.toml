@@ -18,5 +18,7 @@ napi-derive = { version = "3", optional = true }
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 
+ryu-js = "1.0.3"
+
 [build-dependencies]
 napi-build = { version = "2", optional = true }
