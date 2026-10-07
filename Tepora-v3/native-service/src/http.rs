@@ -867,13 +867,13 @@ fn known_unavailable(method: &Method, path: &str) -> bool {
 }
 /// Bound a socket which stops accepting response bytes. The backend's bounded
 /// event queue and this write deadline prevent unbounded slow-SSE buffering.
-struct TimedIo {
-    stream: TcpStream,
+struct TimedIo<T> {
+    stream: T,
     write_timeout: Duration,
     blocked: Option<Pin<Box<Sleep>>>,
 }
-impl TimedIo {
-    fn new(stream: TcpStream, write_timeout: Duration) -> Self {
+impl<T> TimedIo<T> {
+    fn new(stream: T, write_timeout: Duration) -> Self {
         Self {
             stream,
             write_timeout,
@@ -895,7 +895,7 @@ impl TimedIo {
         }
     }
 }
-impl AsyncRead for TimedIo {
+impl<T: AsyncRead + Unpin> AsyncRead for TimedIo<T> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -904,7 +904,7 @@ impl AsyncRead for TimedIo {
         Pin::new(&mut self.stream).poll_read(cx, buf)
     }
 }
-impl AsyncWrite for TimedIo {
+impl<T: AsyncWrite + Unpin> AsyncWrite for TimedIo<T> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -1329,15 +1329,14 @@ mod tests {
             .contains("&lt;h1&gt;ok&lt;/h1&gt;"));
     }
     #[tokio::test]
-    async fn slow_socket_write_hits_a_finite_deadline() {
+    async fn stalled_write_hits_a_finite_deadline() {
         use tokio::io::AsyncWriteExt;
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let client = TcpStream::connect(listener.local_addr().unwrap())
-            .await
-            .unwrap();
-        let (server, _) = listener.accept().await.unwrap();
+        // A bounded in-memory transport guarantees backpressure on every OS.
+        // An unconsumed TCP peer may buffer many MiB on Windows, so payload
+        // size is not a portable way to force poll_write to return Pending.
+        let (server, client) = tokio::io::duplex(1);
         let mut stream = TimedIo::new(server, Duration::from_millis(20));
-        let payload = vec![0u8; 8 * 1024 * 1024];
+        let payload = [0u8; 64];
         let result = tokio::time::timeout(Duration::from_secs(2), stream.write_all(&payload))
             .await
             .unwrap();
