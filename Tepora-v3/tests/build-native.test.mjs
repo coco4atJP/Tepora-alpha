@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtemp,mkdir,copyFile,writeFile,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,copyFile,writeFile,readFile,realpath,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {pathToFileURL} from 'node:url';
 import path from 'node:path';
@@ -9,7 +9,8 @@ import path from 'node:path';
 // Execute the real build script in an isolated fixture. Only its external Cargo
 // and rustc subprocesses are replaced; no registry, compiler or shell is needed.
 async function fixture(t,host){
- const root=await mkdtemp(path.join(tmpdir(),'tepora-native-build-'));
+ // ESM resolves the script's real path (for example macOS /var -> /private/var).
+ const root=await realpath(await mkdtemp(path.join(tmpdir(),'tepora-native-build-')));
  t.after(()=>rm(root,{recursive:true,force:true}));
  for(const folder of ['scripts','core','native-service','registry/rcgen','registry/asn1-rs'])await mkdir(path.join(root,folder),{recursive:true});
  await copyFile(new URL('../scripts/build-native.mjs',import.meta.url),path.join(root,'scripts','build-native.mjs'));
