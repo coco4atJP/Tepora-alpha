@@ -12,6 +12,8 @@ export function parseCatalog(raw){
    entries.push({providerId:str(providerId,160),provider:str(provider.name||providerId,160),modelId:str(modelId,240),name:str(m.name||modelId,240),
     tools:typeof m.tool_call==='boolean'?m.tool_call:null,input:modalities(m.modalities?.input),output:modalities(m.modalities?.output),
     context:Number.isFinite(m.limit?.context)&&m.limit.context>0?m.limit.context:null,
+    // USD per million tokens, when published. Used only to show spending and to honour the user's budget.
+    cost:m.cost&&typeof m.cost==='object'?Object.fromEntries(['input','output','cache_read','cache_write'].filter(k=>Number.isFinite(m.cost[k])&&m.cost[k]>=0&&m.cost[k]<10000).map(k=>[k,m.cost[k]])):null,
     updated:str(m.last_updated,30),source:'models.dev',verified:false});
   }
  }

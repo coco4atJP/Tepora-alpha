@@ -1,43 +1,81 @@
-/** Opt-in real local-model evaluation. This script never uses a cloud endpoint or host commands. */
-import {readFile,mkdtemp,writeFile} from 'node:fs/promises';
+/** Real-model evaluation of the agent harness. Each case runs as a work agent in a fresh folder; the result is
+ * checked against files and artifacts, and the run's cost profile is recorded: steps, tool errors, tokens, cache
+ * hit rate, clears and compactions, recoveries, money and time. Local and LAN models by default; a cloud API needs
+ * --allow-cloud. Nothing here is a benchmark against other agents: it is a regression suite for this harness.
+ *
+ *   node scripts/eval-agent.mjs --list
+ *   node scripts/eval-agent.mjs --run --url http://127.0.0.1:8080/v1 --model qwen3 [--protocol chat-completions]
+ *        [--key-env OPENAI_API_KEY] [--allow-cloud] [--cases a,b] [--repeat 3] [--timeout 300] [--context 32768] [--out report.json]
+ */
+import {readFile,mkdtemp,writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {Store} from '../core/store.mjs';
-import {Harness} from '../core/harness.mjs';
-import {Connectors} from '../core/connectors.mjs';
-import {endpoint,invariant} from '../core/policy.mjs';
+import {NetworkPolicy} from '../core/network-policy.mjs';
+import {ProviderRegistry} from '../core/provider-registry.mjs';
+import {AgentRuntime} from '../core/agent/runtime.mjs';
+import {invariant} from '../core/policy.mjs';
+
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),get=key=>{const i=args.indexOf(key);return i<0?undefined:args[i+1];};
-const cases=JSON.parse(await readFile(path.join(root,'evals/workflows.json'),'utf8'));
-if(args.includes('--list')){console.log(JSON.stringify(cases,null,2));process.exit(0);}
-invariant(args.includes('--run'),'Pass --list to inspect the tasks or --run to use your local model.');
-const url=get('--url'),model=get('--model');endpoint(url,false);invariant(model,'Select an explicit model');
-const directory=await mkdtemp(path.join(os.tmpdir(),'tepora-real-eval-'));
-const store=new Store(directory);store.settings={...store.settings,baseUrl:url,model,maxSteps:20,maxTokens:2048,concurrency:1};
-const h=new Harness(store,new Connectors(store));
-const original=h.toolsFor.bind(h);const permitted=new Set(['artifact_publish','artifact_read','workspace_write','workspace_read','workspace_list','task_note','evidence_read']);
-h.toolsFor=job=>original(job).filter(t=>permitted.has(t.function.name));
+const all=JSON.parse(await readFile(path.join(root,'evals/workflows.json'),'utf8'));
+if(args.includes('--list')){for(const c of all)console.log(`${c.id}\t${c.input}`);process.exit(0);}
+invariant(args.includes('--run'),'Pass --list to see the cases, or --run with --url and --model to evaluate a model.');
+const url=get('--url'),model=get('--model'),protocol=get('--protocol')||'chat-completions';invariant(url&&model,'--url and --model are required');
+const host=new URL(url).hostname,domain=/^(localhost|127\.|\[?::1)/.test(host)?'device':/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)?'lan':'cloud';
+invariant(domain!=='cloud'||args.includes('--allow-cloud'),'This URL is a cloud API: add --allow-cloud to send the cases there.');
+const wanted=get('--cases')?.split(',')||null,cases=all.filter(c=>!wanted||wanted.includes(c.id)),repeat=Number(get('--repeat')||1),timeoutMs=Number(get('--timeout')||300)*1000;
+
+/** Deterministic fixture files some cases start from. */
+function generate(kind){
+ if(kind!=='log')return '';
+ const lines=[],errors={400:['03:14:15','connection reset by peer'],950:['05:02:11','timeout talking to db'],1300:['06:40:00','retry budget exhausted'],1720:['08:12:09','connection reset by peer'],2100:['09:30:30','index rebuild failed'],2450:['10:05:44','timeout talking to db'],2900:['11:58:02','disk quota exceeded']};
+ for(let i=1;i<=3000;i++){const t=new Date(Date.UTC(2026,0,1,0,0,i*14)).toISOString().slice(11,19);lines.push(errors[i]?`${errors[i][0]} ERROR ${errors[i][1]}`:`${t} INFO request ${i} served in ${(i*37)%250} ms`);}
+ return lines.join('\n')+'\n';
+}
+async function check(c,cwd,store){
+ const results=[];
+ for(const k of c.checks){
+  let ok=false,detail='';
+  try{
+   if(k.type==='file'){const t=await readFile(path.join(cwd,k.path),'utf8');ok=t.includes(k.contains);detail=ok?'':`missing "${k.contains}"`;}
+   else if(k.type==='json'){const t=await readFile(path.join(cwd,k.path),'utf8'),j=JSON.parse(t);ok=k.keys.every(x=>Object.hasOwn(j,x))&&(!k.contains||t.includes(k.contains));detail=ok?'':'keys or text missing';}
+   else if(k.type==='artifact'){const a=store.list('artifact').find(x=>x.title===k.title);ok=!!a&&a.content.includes(k.contains);detail=a?(ok?'':`missing "${k.contains}"`):'no artifact';}
+  }catch(e){detail=e.code==='ENOENT'?'file not created':e.message;}
+  results.push({...k,ok,detail});
+ }
+ return results;
+}
+const directory=await mkdtemp(path.join(os.tmpdir(),'tepora-eval-'));
+const store=new Store(directory),network=new NetworkPolicy(store),registry=new ProviderRegistry(store,network);
+const context=get('--context')?Number(get('--context')):null;
+registry.save({profiles:[{id:'eval',protocol,baseUrl:url,model,domain,capabilities:{tools:true},...(get('--key-env')?{apiKeyEnv:get('--key-env')}:{}),...(context?{contextTokens:context}:{})}],routes:{main:{primary:'eval'}}},0);
+const rt=new AgentRuntime(store,{registry,network,workRoot:path.join(directory,'work'),autoStart:false});
 const results=[];
 try{
- for(const c of cases){
-  const started=performance.now();const j=h.submit(c.input,'work',{checks:c.checks,isolated:true});
-  while(h.active.has(j.id)||h.queue.some(x=>x.id===j.id)){
-   if(performance.now()-started>180000){h.cancel(j.id);break;}
-   await new Promise(r=>setTimeout(r,50));
-  }
-  while(h.active.has(j.id))await new Promise(r=>setTimeout(r,20));
-  const end=store.get('job',j.id);
-  const result={id:c.id,jobId:j.id,status:end.status,passed:end.verification?.checks?.passed===true,checks:end.verification?.checks,
-    latencyMs:Math.round(performance.now()-started),modelSteps:end.step,error:end.status==='failed'?end.note:undefined};
+ for(let r=0;r<repeat;r++)for(const c of cases){
+  const started=Date.now();
+  const s=await rt.spawn(null,{task:c.input,title:c.id});
+  for(const f of c.setup||[]){const file=path.join(s.cwd,f.path);await mkdir(path.dirname(file),{recursive:true});await writeFile(file,f.content??generate(f.generate));}
+  rt.wake(s.id);
+  let end;for(;;){end=rt.sessions.get(s.id);if(['done','stopped'].includes(end.status))break;if(Date.now()-started>timeoutMs){rt.stop(s.id,'eval timeout');end=rt.sessions.get(s.id);break;}await new Promise(x=>setTimeout(x,100));}
+  const checks=await check(c,s.cwd,store),st=end.stats||{},events=rt.sessions.entries(s.id,{types:['event']}).map(e=>e.event);
+  const result={id:c.id,run:r+1,passed:checks.every(x=>x.ok),status:end.status,latencyMs:Date.now()-started,steps:st.steps||0,toolCalls:st.toolCalls||0,toolErrors:st.toolErrors||0,
+   inputTokens:st.input||0,outputTokens:st.output||0,cacheHitRate:st.input?Math.round(100*(st.cacheRead||0)/st.input):null,clears:st.clears||0,compactions:st.compactions||0,
+   recoveries:events.filter(e=>['overflow','waiting','escalated','input-truncated','no-vision','bad-request','crash'].includes(e)),costUsd:st.cost||0,
+   failed:checks.filter(x=>!x.ok).map(x=>`${x.path||x.title}: ${x.detail}`),report:String(end.result||end.note||'').slice(0,300)};
   results.push(result);console.log(JSON.stringify(result));
  }
 }finally{
- h.close();while(h.active.size)await new Promise(r=>setTimeout(r,20));
- const report={schema:1,version:'3.0.0-beta.11',model,url,platform:process.platform,architecture:process.arch,
-  realModel:true,localOnly:true,hostCommandsAllowed:false,createdAt:new Date().toISOString(),
-  passed:results.filter(r=>r.passed).length,total:cases.length,results,
-  limitations:'A small, unblinded regression suite. Not a comparison with other agents or proof of general capability.'};
- const output=get('--out')||path.join(directory,'report.json');await writeFile(output,JSON.stringify(report,null,2));store.close();
- console.log(JSON.stringify({report:output,workspace:directory,passed:report.passed,total:report.total}));
+ await rt.close();
+ const sum=(k)=>results.reduce((n,x)=>n+(x[k]||0),0),passed=results.filter(x=>x.passed).length;
+ const report={schema:2,model,url,protocol,domain,platform:process.platform,createdAt:new Date().toISOString(),passed,total:results.length,
+  totals:{steps:sum('steps'),toolErrors:sum('toolErrors'),inputTokens:sum('inputTokens'),outputTokens:sum('outputTokens'),costUsd:sum('costUsd'),latencyMs:sum('latencyMs')},results,
+  limitations:'A small, unblinded regression suite run on one machine. Not a comparison with other agents or proof of general capability.'};
+ const output=get('--out')||path.join(directory,'report.json');await writeFile(output,JSON.stringify(report,null,2));
+ const md=`# Agent eval: ${model}\n\n${passed}/${results.length} passed · ${report.totals.steps} steps · ${report.totals.inputTokens.toLocaleString()} input tokens · $${report.totals.costUsd.toFixed(4)}\n\n| case | pass | steps | tool errors | cache | clears/compactions | s |\n|---|---|---|---|---|---|---|\n`+
+  results.map(x=>`| ${x.id}${repeat>1?' #'+x.run:''} | ${x.passed?'✓':'✗ '+x.failed.join('; ')} | ${x.steps} | ${x.toolErrors} | ${x.cacheHitRate??'-'}% | ${x.clears}/${x.compactions} | ${(x.latencyMs/1000).toFixed(1)} |`).join('\n')+'\n';
+ await writeFile(output.replace(/\.json$/,'')+'.md',md);store.close();
+ console.log(JSON.stringify({report:output,passed,total:results.length,workspace:directory}));
 }

@@ -1,5 +1,7 @@
 # Start here — Tepora 3.0.0-beta.11
 
+> **2026-10-07:** The agent parts of this document describe beta.11 (protected execution, Codex, routines, effect receipts). The agent runtime has since been rebuilt; see [AGENT-HARNESS.md](AGENT-HARNESS.md) for the current design.
+
 1. Install Node.js 22.16.0 or later. From the repository root, run `npm start`; no core dependency install is required. Windows/macOS launchers are `start.cmd` / `start.command`.
 2. For a model-free screen preview, run `npm run preview:build` and open `Tepora-v3/tepora-v3-preview.html`. It does not perform AI inference, login, MCP startup or PC operations.
 3. With **AIを接続** in the top bar (or **設定 → AIとの接続**), connect an already running local model or explicitly configure a provider and its permitted destination. Verify the tool round trip before relying on work execution.

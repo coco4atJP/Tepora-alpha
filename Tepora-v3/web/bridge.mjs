@@ -11,7 +11,6 @@ const previewDefaults={companion:'Tepora',provider:'llama.cpp',baseUrl:'http://1
 let saved;try{saved=JSON.parse(localStorage.getItem('tepora-preview-v3')||'null');}catch{}
 let previewState={seq:0,jobs:[],artifacts:[],memories:[],messages:[],skills:[],mcp:[],settings:previewDefaults,...saved,preview:true,platform:'preview',workspace:'プレビュー内のみ'};
 previewState.display=previewState.display||structuredClone(DISPLAY_DEFAULT);
-previewState.companion||={revision:0,focusJobId:null,returnStack:[]};
 previewState.displayHistory=[];previewState.routines=[];previewState.plans=[];previewState.approvals=[];delete previewState.character;delete previewState.display.companion;
 // The avatar's look is kept; files a person brought live only in this window, so a look that wears one starts over.
 previewState.avatar=previewState.avatar?.schema===1?previewState.avatar:structuredClone(AVATAR_DEFAULT);
@@ -21,7 +20,8 @@ const previewAssetFiles=new Map();
 previewState.capabilities||={schema:1,revision:0,profiles:[],routes:{}};previewState.mediaJobs=[];
 previewState.network||={schema:1,revision:0,mode:'online',internetTools:false};
 previewState.providers||={schema:1,revision:0,profiles:[],routes:{},offlineFloor:{configured:false,verified:false,providers:[]}};
-previewState.computer||={config:{schema:1,revision:0,enabled:false,controller:'both',backend:'browser',python:'python',browserExecutable:'',headless:false,allowedOrigins:[],windowHandle:null,maxActions:100},active:null};
+previewState.agent={settings:{sandbox:{mode:'off',network:true,writable:[]},webSearch:{provider:'auto',searxngUrl:''},heartbeat:{enabled:false,minutes:30,text:''},policy:{rules:[]},...previewState.agent?.settings}};
+if(previewState.computer?.config?.schema!==2)previewState.computer={config:{schema:2,revision:0,enabled:true,control:'both',headless:true,browserExecutable:'',desktop:true,maxSteps:12},browser:{executable:'(preview)',running:false,tabs:0},desktop:{supported:false,running:false},decision:false};
 previewState.settings={...previewDefaults,...previewState.settings};
 previewState.dialogue||={session:{id:'preview-dialogue',revision:0,character:{name:'Tepora',instructions:'',voice:defaultVoice()}},messages:[],personas:{revision:0,character:{name:'Tepora',instructions:'穏やかに会話し、作業を別の担当へ任せます。',voice:defaultVoice()},worker:{name:'作業担当',instructions:'結果と検証の範囲を区別して報告します。'}}};
 previewState.jobs=previewState.jobs.map(j=>['queued','running','waiting_approval'].includes(j.status)?{...j,status:'interrupted',note:'プレビューを再読み込みしました。'}:j);
@@ -38,9 +38,24 @@ function decidePreviewApproval(id,allow){
  if(j){Object.assign(j,{status:'completed',parked:false,pendingApprovals:0,approval:null,endedAt:new Date().toISOString(),note:allow?'体験用タスクが完了しました':'書き出しはせずに完了しました',output:allow?'画面サンプル: 本文を仕上げ、承認後に書き出しまで進めました。（サンプルです。実際のファイルは作っていません）':'画面サンプル: 本文は仕上げました。書き出しは許可されなかったので行っていません。'});emitPreview('job.updated',j);}
 }
 async function previewRequest(p,method,b){
- if(p==='/api/approvals'&&method==='GET')return {approvals:structuredClone(previewState.approvals),presence:'present'};
- if(p==='/api/approvals'&&method==='POST')return {results:b.ids.map(id=>{try{decidePreviewApproval(id,b.allow);return {id,ok:true};}catch(e){return {id,ok:false,error:e.message};}})};
- {const m=p.match(/^\/api\/approvals\/([^/]+)$/);if(m&&method==='POST'){decidePreviewApproval(m[1],b.allow===true);return {resolved:true};}}
+ if(p==='/api/agent/approvals'&&method==='GET')return {approvals:structuredClone(previewState.approvals)};
+ if(p==='/api/agent/approvals'&&method==='POST')return {results:b.ids.map(id=>{try{decidePreviewApproval(id,b.allow);return {id,ok:true};}catch(e){return {id,ok:false,error:e.message};}})};
+ {const m=p.match(/^\/api\/agent\/approvals\/([^/]+)$/);if(m&&method==='POST'){decidePreviewApproval(m[1],b.allow===true);return {resolved:true};}}
+ if(p==='/api/agent/dialogue')return structuredClone(previewState.dialogue);
+ if(p==='/api/agent/input')throw Error('画面プレビューはAIとの会話を行いません。実サービスでモデルを接続すると話せます。');
+ if(p==='/api/agent/settings'){if(method==='GET')return structuredClone(previewState.agent.settings);previewState.agent.settings={...previewState.agent.settings,...b};emitPreview('agent.settings',structuredClone(previewState.agent.settings));return structuredClone(previewState.agent.settings);}
+ if(p==='/api/agent/search-key')throw Error('画面プレビューにはAPIキーを入力しないでください。');
+ if(p==='/api/agent/plugins/reload')return {loaded:0,errors:[]};
+ {const m=p.match(/^\/api\/agent\/sessions\/([^/?]+)(?:\/(stop|resume|accept|message|files))?(?:\?.*)?$/);if(m){
+  const j=previewState.jobs.find(x=>x.id===m[1]);if(!j)throw Object.assign(new Error('仕事が見つかりません。'),{status:404});
+  if(m[2]==='stop'){j.status='paused';j.note='止めました';clearTimeout(previewTimers.get(j.id));emitPreview('job.updated',j);return j;}
+  if(m[2]==='resume')throw Error('画面サンプルは再開しません。');
+  if(m[2]==='accept'){j.status='completed';j.verification={status:'accepted-by-user'};emitPreview('job.updated',j);return j;}
+  if(m[2]==='message')throw Error('画面プレビューでは仕事に指示を送りません。');
+  if(m[2]==='files')return {root:'プレビュー内のみ',files:[]};
+  if(method==='DELETE'){previewState.jobs=previewState.jobs.filter(x=>x.id!==j.id);return {deleted:true};}
+  return {session:{id:j.id,title:j.title},job:j,entries:[],processes:[]};
+ }}
  if(p==='/api/presence')return {presence:b?.state==='away'?'away':'present'};
  if(p==='/api/avatar'&&method==='GET')return structuredClone(previewState.avatar);
  if(p==='/api/avatar/export')return exportAvatar(previewState.avatar);
@@ -89,16 +104,6 @@ async function previewRequest(p,method,b){
  }
  if(p.startsWith('/api/dialogue'))throw Error('画面プレビューはAIとの会話・作業の委任・回答の送信を行いません。');
 
- if(p==='/api/companion')return structuredClone(previewState.companion);
- if(p==='/api/companion/focus'||p==='/api/companion/return'){
-  const current=previewState.companion;
-  if(current.revision!==b.expectedRevision)throw new Error('対象が変わりました。送り先を確認してください。');
-  let focusJobId=b.jobId,returnStack=[...current.returnStack];
-  if(p.endsWith('/return'))focusJobId=returnStack.pop()||null;
-  else {if(focusJobId&&!previewState.jobs.some(j=>j.id===focusJobId))throw new Error('仕事が見つかりません。');returnStack=returnStack.filter(id=>id!==focusJobId);if(b.pushReturn&&current.focusJobId&&current.focusJobId!==focusJobId)returnStack.push(current.focusJobId);}
-  previewState.companion={revision:current.revision+1,focusJobId,returnStack};emitPreview('companion.updated',previewState.companion);return structuredClone(previewState.companion);
- }
- if(p.startsWith('/api/companion/'))throw new Error('画面プレビューでは意図の判断やAIの実行は行いません。');
  if(p==='/api/capabilities'){
   if(method==='GET')return structuredClone(previewState.capabilities);
   if(b.expectedRevision!==previewState.capabilities.revision)throw Error('接続設定が更新されています。');
@@ -133,8 +138,6 @@ async function previewRequest(p,method,b){
  }
  if(p.startsWith('/api/model-catalog')&&method==='GET'){const q=new URL(p,'https://preview.invalid').searchParams.get('q')||'';return {models:previewCatalog.filter(m=>(m.name+' '+m.modelId).toLowerCase().includes(q.toLowerCase())).slice(0,80),count:previewCatalog.length,at:null};}
  if(p==='/api/model-catalog/refresh')throw Error('画面プレビューは外部の一覧を取得しません。JSONの読込みは使えます。');
- if(p==='/api/codex/login'&&method==='GET')return {phase:'idle'};
- if(p.startsWith('/api/codex/login'))throw Error('画面プレビューではCodexの認証を開始しません。');
 
  if(p==='/api/network'){
   if(method==='GET')return structuredClone(previewState.network);
@@ -157,7 +160,7 @@ async function previewRequest(p,method,b){
  if(p==='/api/computer'){
   if(method==='GET')return structuredClone(previewState.computer);
   if(b.expectedRevision!==previewState.computer.config.revision)throw Error('Computer Use設定が更新されています。');
-  previewState.computer={config:{...previewState.computer.config,...b.patch,revision:b.expectedRevision+1},active:null};
+  previewState.computer={...previewState.computer,config:{...previewState.computer.config,...b.patch,revision:b.expectedRevision+1}};
   emitPreview('computer.updated',previewState.computer);return structuredClone(previewState.computer);
  }
  if(p==='/api/computer/release')return {released:true};
@@ -183,19 +186,10 @@ async function previewRequest(p,method,b){
   previewState.display={...next,revision:old.revision+1};
   emitPreview('display.updated',previewState.display);return previewState.display;
  }
- if(p==='/api/routines'&&method==='POST'){
-  const r={...b,id:uid(),enabled:false,status:'proposed',revision:1};previewState.routines.unshift(r);emitPreview('routine.updated',r);return r;
- }
- if(p==='/api/plans'&&method==='POST'){
-  const plan={...b,id:uid(),status:'proposed',revision:1,jobs:{},nodes:b.nodes.map(n=>({...n,dependsOn:n.dependsOn||[]}))};previewState.plans.unshift(plan);emitPreview('plan.updated',plan);return plan;
- }
- if(/^\/api\/(routines|plans)\//.test(p))throw new Error('このプレビューでは実行予約や実際の仕事を開始しません。');
  if(p==='/api/setup')return {dismissed:true,configured:false,verified:false,model:'',provider:'',stage:'connect',candidates:[],engines:[],catalog:[],ramGiB:0,preview:true,transfer:null};
  if(p==='/api/setup/scan')throw new Error('操作プレビューではPC内の接続先を検索しません。実サービスでこの流れを使えます。');
  if(p==='/api/setup/dismiss')return {dismissed:true};
  if(p.startsWith('/api/setup/'))throw new Error('操作プレビューではモデルの取得・接続・インストーラー起動は行いません。');
- if(p.startsWith('/api/requests/context'))return {id:'preview',engine:'builtin',remote:false,label:'画面プレビュー',note:'モデルを呼びません。'};
- if(p==='/api/requests')throw new Error('添付は画面内にありますが、プレビューではAIに送信しません。実サービスで依頼してください。');
  if(p==='/api/inputs'&&method==='POST'){
   if(!Array.isArray(b.files)||b.files.length>6)throw new Error('添付は6件までです。');
   previewState.inputs||=[];const added=b.files.map(f=>({id:uid(),name:f.name,kind:f.base64?'image':'text',bytes:f.base64?atob(f.base64).length:new TextEncoder().encode(f.content).length,createdAt:new Date().toISOString()}));previewState.inputs.push(...added);

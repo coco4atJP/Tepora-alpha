@@ -1,0 +1,2243 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tepora キャラクター探索ラボ</title>
+<style>
+/* Tokens copied from Tepora-v3/web/styles.css so the sketches sit on the same paper, ink and lamp. */
+:root{
+ --font-ui:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,-apple-system,"Segoe UI",sans-serif;
+ --font-display:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+ --font-num:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Display","Segoe UI","Helvetica Neue",system-ui,sans-serif;
+ --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+ --radius:12px;--radius-lg:18px;
+}
+[data-theme=light]{
+ color-scheme:light;
+ --bg:#f3f0e9;--bg-2:#e9e4da;--surface:#faf8f3;--surface-2:#fffefb;
+ --text:#23211d;--muted:#6a645b;--line:#e1dbd0;--line-strong:#cfc7ba;
+ --accent:#23211d;--accent-soft:#e9e4da;--on-accent:#fffefb;
+ --brand:#d4583a;--lamp-wait:#e2a12a;--attention:#84560c;--attention-soft:#f4e7cd;--ok:#36684d;
+ --shadow-sm:0 1px 2px rgba(43,36,26,.07);--shadow:0 8px 26px rgba(43,36,26,.09);--shadow-lg:0 24px 64px rgba(43,36,26,.16);
+ --pool-color:rgba(255,196,140,.45);--glow-1:rgba(255,172,104,.46);--glow-2:rgba(255,172,104,.14);
+}
+[data-theme=dark]{
+ color-scheme:dark;
+ --bg:#151412;--bg-2:#1d1b18;--surface:#1f1d1a;--surface-2:#272420;--text:#ece7de;--muted:#a69e91;--line:#34302a;--line-strong:#48423a;
+ --accent:#ece7de;--accent-soft:#2b2823;--on-accent:#151412;--brand:#ef7a58;--lamp-wait:#e2a12a;
+ --attention:#e8b860;--attention-soft:#372c18;--ok:#8ccaa4;
+ --shadow-sm:0 1px 2px rgba(0,0,0,.4);--shadow:0 10px 30px rgba(0,0,0,.35);--shadow-lg:0 24px 64px rgba(0,0,0,.5);
+ --pool-color:rgba(214,98,64,.22);--glow-1:rgba(236,110,76,.34);--glow-2:rgba(214,98,64,.12);
+}
+[data-theme=lamp]{
+ color-scheme:dark;
+ --bg:#0e0c0a;--bg-2:#1b1814;--surface:#1a1714;--surface-2:#221e19;--text:#dccfb6;--muted:#8d8271;--line:#2b2621;--line-strong:#3d362d;
+ --accent:#dccfb6;--accent-soft:#2a251f;--on-accent:#0e0c0a;--brand:#ef7a58;--lamp-wait:#e2a12a;
+ --attention:#e8b860;--attention-soft:#372c18;--ok:#8ccaa4;
+ --shadow-sm:0 1px 2px rgba(0,0,0,.4);--shadow:0 10px 30px rgba(0,0,0,.35);--shadow-lg:0 24px 64px rgba(0,0,0,.5);
+ --pool-color:rgba(214,98,64,.30);--glow-1:rgba(236,110,76,.46);--glow-2:rgba(214,98,64,.16);
+}
+/* The same names the shipped character CSS reads, so the baseline is the real drawing. */
+html{}
+
+/* ===== shared character layer: the mood table is the only thing the app has to say ===== */
+.cx-host{display:block}
+.cx{display:block;width:100%;height:auto;overflow:visible;
+ --look-x:0px;--look-y:0px;--mouth:.95;
+ --lift:0px;--lean:0deg;--sq:1;--glow:.24;--ant:0deg;--lid:0}
+.cx[data-mood=listening]{--lift:-3px;--sq:1.025;--glow:.55;--ant:7deg;--lean:-1.5deg}
+.cx[data-mood=thinking]{--glow:.65;--ant:-5deg}
+.cx[data-mood=talking]{--glow:.5;--ant:3deg}
+.cx[data-mood=happy]{--lift:-4px;--glow:.78;--ant:-8deg}
+.cx[data-mood=attention]{--glow:.5;--ant:18deg}
+.cx[data-mood=concerned]{--lift:2px;--glow:.1;--ant:-14deg}
+.cx[data-mood=sleepy]{--lift:3px;--glow:.04;--ant:40deg}
+
+.cx .floor{fill:var(--c-ink);opacity:.08}
+.cx .lamp-dot{fill:var(--c-lamp);transition:opacity .4s}
+.cx .lamp-glow{opacity:var(--glow);transition:opacity .5s}
+.cx[data-mood=sleepy] .lamp-dot{opacity:.38}
+[data-theme=dark] .cx .lamp-dot{filter:drop-shadow(0 0 4px rgba(var(--c-lamp-rgb),.8))}
+[data-theme=lamp] .cx .lamp-dot{filter:drop-shadow(0 0 5px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 12px rgba(var(--c-lamp-rgb),.65))}
+[data-theme=lamp] .cx .lamp-glow{opacity:calc(var(--glow) + .35)}
+
+/* Ink marks beside the face (never colour): the vocabulary of manga, used sparingly. */
+.cx .fx{opacity:0;transition:opacity .3s;pointer-events:none}
+.cx .fx-spark path{fill:var(--c-ink);opacity:.62}
+.cx .fx-sweat{fill:rgba(255,255,255,.78);stroke:var(--c-ink);stroke-opacity:.5;stroke-width:1.6}
+.cx .fx-z text{font:700 17px var(--font-ui);fill:var(--muted)}
+.cx .fx-z text:nth-child(2){font-size:13px}
+.cx .fx-dots circle{fill:var(--muted)}
+.cx[data-mood=happy] .fx-spark{opacity:1}
+.cx[data-mood=happy] .fx-spark .sp{animation:cx-twinkle 1.1s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.cx[data-mood=happy] .fx-spark .sp2{animation-delay:.3s}.cx[data-mood=happy] .fx-spark .sp3{animation-delay:.6s}
+.cx[data-mood=concerned] .fx-sweat{opacity:1}
+.cx[data-mood=sleepy] .fx-z{opacity:1}
+.cx[data-mood=sleepy] .fx-z text{animation:cx-z 3.4s ease-in-out infinite}
+.cx[data-mood=sleepy] .fx-z text:nth-child(2){animation-delay:1.7s}
+.cx[data-mood=thinking] .fx-dots{opacity:1}
+.cx[data-mood=thinking] .fx-dots circle{animation:cx-dot 1.2s ease-in-out infinite}
+.cx[data-mood=thinking] .fx-dots circle:nth-child(2){animation-delay:.2s}.cx[data-mood=thinking] .fx-dots circle:nth-child(3){animation-delay:.4s}
+@keyframes cx-twinkle{0%,100%{transform:scale(.55) rotate(0);opacity:.2}50%{transform:scale(1.15) rotate(20deg);opacity:1}}
+@keyframes cx-z{0%{opacity:0;transform:translate(0,6px)}35%{opacity:.85}100%{opacity:0;transform:translate(9px,-16px)}}
+@keyframes cx-dot{0%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+.cx .fx-dots circle{transform-box:fill-box;transform-origin:center}
+
+
+/* ---- the standard face rig (shiro, andon, kitsune, kokedama share it) ---- */
+.cx .cheek{fill:var(--c-cheek);opacity:.38}
+.cx .eo rect,.cx .eo circle:not(.catch),.cx .eo ellipse,.cx .eo path{fill:var(--c-ink)}
+.cx .catch{fill:#fff;opacity:.92}
+.cx .eh path,.cx .ec path,.cx .smile,.cx .mouth-w,.cx .mouth-s,.cx .brow{fill:none;stroke:var(--c-ink);stroke-width:4;stroke-linecap:round}
+.cx .brow{stroke-width:3;opacity:0;transition:opacity .2s,transform .35s cubic-bezier(.3,.7,.3,1)}
+.cx .mouth{fill:#8a4535;transform-origin:100px 150px;transform:scaleY(.3)}
+.cx .eh,.cx .ec,.cx .smile,.cx .mouth,.cx .mouth-w,.cx .mouth-s{opacity:0;transition:opacity .2s}
+.cx .face{transform:translate(var(--look-x),var(--look-y));transition:transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx .eyes{transform-origin:100px 126px;transition:transform .06s}
+.cx.is-blinking .eyes{transform:scaleY(.08)}
+.cx[data-mood=listening] .eyes{transform:scale(1.07)}
+.cx[data-mood=thinking] .face{transform:translate(4px,-4px)}
+.cx[data-mood=thinking] .mouth-s{opacity:1}
+.cx[data-mood=thinking] .brow-l{opacity:1;transform:translateY(-3px)}
+.cx[data-mood=talking] .mouth{opacity:1;animation:cx-talk .28s ease-in-out infinite alternate}
+@keyframes cx-talk{from{transform:scaleY(.25)}to{transform:scaleY(var(--mouth,.95))}}
+.cx[data-mood=happy] .eo{opacity:0}
+.cx[data-mood=happy] .eh,.cx[data-mood=happy] .smile{opacity:1}
+.cx[data-mood=attention] .face{transform:translate(6px,-3px)}
+.cx[data-mood=attention] .eyes{transform:scale(1.08)}
+.cx[data-mood=attention] .brow{opacity:1;transform:translateY(-4px)}
+.cx[data-mood=concerned] .eo{transform-origin:100px 126px;transform:scaleY(.8) translateY(3px)}
+.cx[data-mood=concerned] .mouth-w{opacity:1}
+.cx[data-mood=concerned] .brow{opacity:1}
+.cx[data-mood=concerned] .brow-l{transform-origin:76px 104px;transform:rotate(-15deg)}
+.cx[data-mood=concerned] .brow-r{transform-origin:124px 104px;transform:rotate(15deg)}
+.cx[data-mood=sleepy] .eo{opacity:0}
+.cx[data-mood=sleepy] .ec{opacity:1}
+
+/* Small shared motion. Calm halves it, lively doubles the rhythm; reduced motion removes it. */
+.cx.m-calm .breath,.cx.m-calm .sway{animation-duration:9s}
+.cx.m-lively .breath{animation-duration:2.8s}
+html.rm .cx,html.rm .cx *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){html:not(.rm-off) .cx,html:not(.rm-off) .cx *{animation:none!important}}
+
+/* Props sit on anchors; they never take colour from the mood. */
+.cx .prop{pointer-events:none}
+.cx .prop-cup .steam{animation:cx-steam 3.2s ease-in-out infinite}
+@keyframes cx-steam{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:.8;transform:translateY(-3px)}}
+
+/* small acts (the idle director triggers these now and then) */
+.cx.act-tilt .pose{animation:cx-tilt 2.4s ease-in-out 1}
+@keyframes cx-tilt{0%,100%{transform:rotate(0)}30%,70%{transform:rotate(6deg) translateX(3px)}}
+.cx.act-stretch .pose{animation:cx-stretch 2.2s ease-in-out 1}
+@keyframes cx-stretch{0%,100%{transform:scale(1,1)}40%,60%{transform:scale(.97,1.07)}}
+.cx.act-hum .pose{animation:cx-hum 2.6s ease-in-out 1}
+@keyframes cx-hum{0%,100%{transform:rotate(0)}20%{transform:rotate(-3deg) translateY(-2px)}50%{transform:rotate(3deg)}80%{transform:rotate(-2deg) translateY(-2px)}}
+
+.tc-host{display:block}
+.tc{display:block;width:100%;height:auto;overflow:visible}
+.tc-brass{--tc-body:#f0dcb8;--tc-light:#f7e9d0;--tc-shade:#d9bd91;--tc-ink:#4a3820;--tc-foot:#d6b98c;--tc-arm:#e6cda4}
+.tc .tc-floor{fill:var(--text);opacity:.08}
+.tc .tc-foot{fill:var(--tc-foot)}
+.tc .tc-arm ellipse{fill:var(--tc-arm)}
+.tc .tc-rim{fill:none;stroke:#fff;stroke-opacity:.75;stroke-width:3.5;stroke-linecap:round}
+.tc .tc-stem{fill:none;stroke:var(--tc-shade);stroke-width:3.5;stroke-linecap:round}
+.tc .tc-dot{fill:var(--tc-dot);transition:fill .4s,opacity .4s}
+.tc .tc-glow{opacity:0;transition:opacity .5s}
+.tc .tc-eye-open rect{fill:var(--tc-ink)}
+.tc .tc-spark{fill:#fff;opacity:.9}
+.tc .tc-eye-happy path,.tc .tc-eye-closed path,.tc .tc-smile{fill:none;stroke:var(--tc-ink);stroke-width:4;stroke-linecap:round}
+.tc .tc-eye-happy,.tc .tc-eye-closed,.tc .tc-smile,.tc .tc-mouth,.tc .tc-zzz{opacity:0;transition:opacity .2s}
+.tc .tc-mouth{fill:#8a4535;transform-origin:100px 146px;transform:scaleY(.3)}
+.tc .tc-cheek{fill:var(--tc-cheek);opacity:.36}
+.tc .tc-face{transform:translate(var(--look-x,0),var(--look-y,0));transition:transform .4s cubic-bezier(.3,.7,.3,1)}
+.tc .tc-eyes{transform-origin:100px 116px;transition:transform .06s}
+.tc.is-blinking .tc-eyes{transform:scaleY(.08)}
+.tc .tc-pose{transform-origin:100px 206px;transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.tc .tc-breath{transform-origin:100px 206px;animation:tc-breathe 4.4s ease-in-out infinite}
+.tc .tc-antenna{transform-origin:100px 46px;animation:tc-sway 6.5s ease-in-out infinite}
+@keyframes tc-breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.012,.988)}}
+@keyframes tc-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.tc[data-mood=listening] .tc-pose{transform:translateY(-3px) scale(1.025)}
+.tc[data-mood=listening] .tc-glow{opacity:.55}
+.tc[data-mood=listening] .tc-eyes{transform:scale(1.06)}
+.tc[data-mood=thinking] .tc-pose{animation:tc-think 3.2s ease-in-out infinite}
+.tc[data-mood=thinking] .tc-face{transform:translate(3px,-3px)}
+.tc[data-mood=thinking] .tc-glow{animation:tc-pulse 1.4s ease-in-out infinite}
+@keyframes tc-think{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes tc-pulse{0%,100%{opacity:.12}50%{opacity:.8}}
+.tc[data-mood=talking] .tc-mouth{opacity:1;animation:tc-talk .28s ease-in-out infinite alternate}
+.tc[data-mood=talking] .tc-glow{opacity:.5}
+@keyframes tc-talk{from{transform:scaleY(.25)}to{transform:scaleY(var(--mouth,.95))}}
+.tc[data-mood=happy] .tc-eye-open{opacity:0}
+.tc[data-mood=happy] .tc-eye-happy,.tc[data-mood=happy] .tc-smile{opacity:1}
+.tc[data-mood=happy] .tc-pose{animation:tc-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.tc[data-mood=happy] .tc-arm-right{transform-origin:164px 132px;animation:tc-wave .45s ease-in-out 4}
+@keyframes tc-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px) scale(1.02,.98)}}
+@keyframes tc-wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-28deg)}}
+/* Attention is a glance toward the amber light; the antenna stays the character's own colour. */
+.tc[data-mood=attention] .tc-face{transform:translate(5px,-2px)}
+.tc[data-mood=concerned] .tc-eyes{transform:scaleY(.82) translateY(2px)}
+.tc[data-mood=concerned] .tc-pose{transform:translateY(2px)}
+.tc[data-mood=sleepy] .tc-eye-open{opacity:0}
+.tc[data-mood=sleepy] .tc-eye-closed,.tc[data-mood=sleepy] .tc-zzz{opacity:1}
+.tc[data-mood=sleepy] .tc-breath{animation-duration:7s}
+.tc[data-mood=sleepy] .tc-dot{opacity:.35}
+.tc[data-mood=sleepy] .tc-antenna{animation:none;transform:rotate(14deg)}
+.tc .tc-zzz text{font:700 17px var(--font-ui);fill:var(--muted);animation:tc-z 3.4s ease-in-out infinite}
+.tc .tc-zzz text:nth-child(2){animation-delay:1.7s;font-size:13px}
+@keyframes tc-z{0%{opacity:0;transform:translate(0,6px)}35%{opacity:.85}100%{opacity:0;transform:translate(9px,-16px)}}
+.talk-avatar .tc{width:46px}
+.talk-avatar .tc-floor,.talk-avatar .tc-zzz{display:none}
+.cx-legacy{--tc-body:var(--c-body);--tc-light:var(--c-light);--tc-shade:var(--c-shade);--tc-ink:var(--c-ink);--tc-cheek:var(--c-cheek);--tc-dot:var(--c-lamp);--tc-foot:var(--c-foot);--tc-arm:var(--c-limb)}
+[data-theme=lamp] .cx-legacy .tc-dot{opacity:1;filter:drop-shadow(0 0 5px rgba(255,150,110,.95)) drop-shadow(0 0 12px rgba(239,122,88,.7))}
+
+/* ===== しろ・改 ===== */
+.cx-shiro .stem{fill:none;stroke:var(--c-shade);stroke-width:3.6;stroke-linecap:round}
+.cx-shiro .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-shiro .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 6.5s ease-in-out infinite}
+@keyframes cx-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.cx-shiro .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-shiro .breath{transform-origin:100px 206px;animation:cx-breathe 4.4s ease-in-out infinite}
+@keyframes cx-breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.012,.988)}}
+.cx-shiro .foot{fill:var(--c-foot)}
+.cx-shiro .mitt{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.45;stroke-width:1}
+.cx-shiro .rim{fill:none;stroke:#fff;stroke-opacity:.8;stroke-width:3.4;stroke-linecap:round}
+.cx-shiro .limb{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.35;stroke-width:1}
+.cx-shiro .ear{transform-origin:var(--ox) var(--oy);transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+
+/* moods */
+.cx-shiro[data-mood=listening] .ear{transform:scaleY(1.06)}
+.cx-shiro[data-mood=thinking] .pose{animation:cx-think 3.2s ease-in-out infinite}
+.cx-shiro[data-mood=thinking] .ear-l{transform:rotate(-8deg)}
+@keyframes cx-think{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+.cx-shiro[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-shiro[data-mood=happy] .arm-r{animation:cx-wave-r 1.9s ease-in-out 1}
+.cx-shiro .arm{transform-origin:var(--ox) var(--oy)}
+@keyframes cx-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px) scale(1.02,.98)}}
+@keyframes cx-wave-r{0%,100%{transform:rotate(0)}18%{transform:rotate(-100deg)}34%{transform:rotate(-76deg)}50%{transform:rotate(-104deg)}66%{transform:rotate(-76deg)}82%{transform:rotate(-100deg)}}
+.cx-shiro[data-mood=attention] .ear{transform:scaleY(1.08) rotate(4deg)}
+.cx-shiro[data-mood=concerned] .ear-l{transform:rotate(-16deg)}.cx-shiro[data-mood=concerned] .ear-r{transform:rotate(16deg)}
+.cx-shiro[data-mood=sleepy] .breath{animation-duration:7s}
+.cx-shiro[data-mood=sleepy] .sway{animation:none}
+.cx-shiro[data-mood=sleepy]{--ant:-44deg}
+.cx-shiro[data-mood=sleepy] .ear-l{transform:rotate(-22deg)}.cx-shiro[data-mood=sleepy] .ear-r{transform:rotate(22deg)}
+
+
+/* ===== 灯守 ===== */
+.cx-andon{--pg:.16;--pg-add:0;--cap:#3a332b;--cap-hl:#6d6256;--rib:#8a6a3c}
+[data-theme=dark] .cx-andon{--pg:.5;--cap:#2b2621;--cap-hl:#5d5448}
+[data-theme=lamp] .cx-andon{--pg:.95;--cap:#241f1a;--cap-hl:#5a5044}
+.cx-andon .stem{fill:none;stroke:var(--cap);stroke-width:3;stroke-linecap:round}
+.cx-andon .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-andon .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 7s ease-in-out infinite}
+.cx-andon .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-andon .breath{transform-origin:100px 206px;animation:cx-breathe 5s ease-in-out infinite}
+.cx-andon .cap,.cx-andon .lid,.cx-andon .foot{fill:var(--cap)}
+.cx-andon .cap-hl{fill:var(--cap-hl);opacity:.7}
+.cx-andon .nub{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.5;stroke-width:1}
+.cx-andon .edge{stroke:var(--c-shade);stroke-opacity:.55;stroke-width:1.2}
+.cx-andon .ribs path{fill:none;stroke:var(--rib);stroke-opacity:.2;stroke-width:1.4}
+.cx-andon .inner{opacity:clamp(0,calc(var(--pg) + var(--pg-add)),1);transition:opacity .6s}
+.cx-andon .soma .sil{opacity:0;transform-box:fill-box}
+[data-theme=lamp] .cx-andon .lantern{filter:drop-shadow(0 0 16px rgba(255,186,106,.38))}
+[data-theme=dark] .cx-andon .lantern{filter:drop-shadow(0 0 10px rgba(255,186,106,.2))}
+[data-theme=lamp] .cx-andon .lamp-dot{filter:drop-shadow(0 0 5px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 12px rgba(var(--c-lamp-rgb),.65))}
+.cx-andon .eo rect,.cx-andon .eo circle:not(.catch),.cx-andon .eo ellipse,.cx-andon .eo path{fill:var(--c-ink);fill-opacity:.9}
+.cx-andon .catch{opacity:.0}
+.cx-andon .cheek{opacity:.3}
+.cx-andon .eh path,.cx-andon .ec path,.cx-andon .smile,.cx-andon .mouth-w,.cx-andon .mouth-s,.cx-andon .brow{stroke-opacity:.9}
+
+/* moods */
+.cx-andon[data-mood=listening]{--pg-add:.22}
+.cx-andon[data-mood=thinking]{--pg-add:.3}
+.cx-andon[data-mood=thinking] .inner{animation:cx-flicker 2.2s ease-in-out infinite}
+@keyframes cx-flicker{0%,100%{opacity:clamp(0,calc(var(--pg) + var(--pg-add)),1)}35%{opacity:clamp(0,calc(var(--pg) + var(--pg-add) - .16),1)}60%{opacity:clamp(0,calc(var(--pg) + var(--pg-add) + .1),1)}}
+.cx-andon[data-mood=thinking] .pose{animation:cx-think 3.6s ease-in-out infinite}
+@keyframes cx-think{0%,100%{transform:rotate(-1.8deg)}50%{transform:rotate(1.8deg)}}
+.cx-andon[data-mood=talking]{--pg-add:.2}
+.cx-andon[data-mood=talking] .inner{animation:cx-voice .46s ease-in-out infinite alternate}
+@keyframes cx-voice{from{opacity:clamp(0,calc(var(--pg) + var(--pg-add) - .1),1)}to{opacity:clamp(0,calc(var(--pg) + var(--pg-add) + .14),1)}}
+.cx-andon[data-mood=happy]{--pg-add:.4}
+.cx-andon[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+@keyframes cx-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px) scale(1.02,.98)}}
+.cx-andon[data-mood=attention]{--pg-add:.18}
+.cx-andon[data-mood=concerned]{--pg-add:-.1}
+.cx-andon[data-mood=concerned] .inner{animation:cx-flicker 1.1s steps(6,end) infinite}
+.cx-andon[data-mood=sleepy]{--pg-add:-.1;--ant:-40deg}
+.cx-andon[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-andon[data-mood=sleepy] .sway{animation:none}
+.cx-andon .arm{transform-origin:var(--ox) var(--oy)}
+.cx-andon.act-tilt .pose{animation:cx-tilt 2.4s ease-in-out 1}
+
+/* ===== 円相 ===== */
+.cx-ensou{--ink-b:var(--c-ink);--wash:rgba(255,253,246,.62);--ink-a:1}
+[data-theme=dark] .cx-ensou,[data-theme=lamp] .cx-ensou{--ink-b:#e9e0cf;--wash:rgba(255,246,226,.05)}
+.cx-ensou .floor{fill:var(--ink-b);opacity:.07;filter:blur(2.2px)}
+.cx-ensou .ink{fill:var(--ink-b);opacity:var(--ink-a)}
+.cx-ensou .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-ensou .breath{transform-origin:100px 150px;animation:cx-breathe 5.2s ease-in-out infinite}
+.cx-ensou .eo rect,.cx-ensou .eo circle,.cx-ensou .eo ellipse{fill:var(--ink-b)}
+.cx-ensou .eo-line path{fill:none;stroke:var(--ink-b);stroke-width:5;stroke-linecap:round}
+.cx-ensou .eh path,.cx-ensou .ec path,.cx-ensou .smile{stroke:var(--ink-b);stroke-width:4.6}
+.cx-ensou .mouth{fill:var(--ink-b)}
+.cx-ensou .think-ring{opacity:0;transition:opacity .4s;transform-origin:100px 118px}
+.cx-ensou .think-ring circle{stroke:var(--ink-b);stroke-opacity:.42}
+.cx-ensou[data-mood=thinking] .think-ring{opacity:1;animation:cx-spin 2.6s linear infinite}
+@keyframes cx-spin{to{transform:rotate(360deg)}}
+.cx-ensou .splat{opacity:0}.cx-ensou .splat circle{fill:var(--ink-b)}
+.cx-ensou[data-mood=happy] .splat{opacity:.85;animation:cx-pop .5s cubic-bezier(.3,.7,.3,1) both}
+@keyframes cx-pop{from{opacity:0;transform:scale(.4);transform-origin:100px 118px}to{opacity:.85;transform:scale(1);transform-origin:100px 118px}}
+.cx-ensou[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-ensou[data-mood=thinking] .face{transform:translate(4px,-5px)}
+.cx-ensou[data-mood=attention] .face{transform:translate(7px,-5px)}
+.cx-ensou[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-ensou .brow{stroke:var(--ink-b)}
+.cx-ensou .seal .lamp-glow{opacity:calc(var(--glow) + .1)}
+[data-theme=lamp] .cx-ensou .seal .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== 小箱 ===== */
+.cx-kobako{--led:#fff1d6}
+.cx-kobako .rod{fill:none;stroke:var(--c-shade);stroke-width:4.6;stroke-linecap:round}
+.cx-kobako .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-kobako .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 6s ease-in-out infinite}
+.cx-kobako .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kobako .breath{transform-origin:100px 206px;animation:cx-breathe 4.8s ease-in-out infinite}
+.cx-kobako .foot{fill:var(--c-foot)}
+.cx-kobako .pod{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.5;stroke-width:1}
+.cx-kobako .bezel{fill:none;stroke:var(--c-shade);stroke-opacity:.7;stroke-width:3}
+.cx-kobako .face.led{transform:translate(calc(var(--look-x)*.7),calc(var(--look-y)*.7));transition:transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx-kobako .eo rect,.cx-kobako .eo circle,.cx-kobako .eo ellipse,.cx-kobako .eo path{fill:var(--led);filter:drop-shadow(0 0 3.5px rgba(255,236,190,.85))}
+.cx-kobako .eh path,.cx-kobako .smile,.cx-kobako .wavy{fill:none;stroke:var(--led);stroke-width:4.6;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .ec rect{fill:var(--led);filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .eq rect,.cx-kobako .think circle{fill:var(--led);filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .bang{font:800 22px var(--font-ui);fill:var(--led);filter:drop-shadow(0 0 3px rgba(255,236,190,.8))}
+.cx-kobako .ripples path{fill:none;stroke:var(--led);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(255,236,190,.7))}
+.cx-kobako .eh,.cx-kobako .ec,.cx-kobako .smile,.cx-kobako .eq,.cx-kobako .think,.cx-kobako .wavy,.cx-kobako .bang,.cx-kobako .ripples{opacity:0;transition:opacity .2s}
+.cx-kobako .eq rect,.cx-kobako .think circle{transform-box:fill-box;transform-origin:center bottom}
+.cx-kobako .screen-glow{opacity:.6;transition:opacity .4s}
+.cx-kobako .eyes{transform-origin:100px 118px}
+.cx-kobako .eo{transform-origin:100px 118px}
+
+.cx-kobako[data-mood=listening] .eo{transform:scale(1.12)}
+.cx-kobako[data-mood=listening] .ripples{opacity:1;animation:cx-ripple 1.6s ease-in-out infinite}
+@keyframes cx-ripple{0%,100%{opacity:.25}50%{opacity:1}}
+.cx-kobako[data-mood=thinking] .face.led{transform:translate(6px,-6px)}
+.cx-kobako[data-mood=thinking] .think{opacity:1}
+.cx-kobako[data-mood=thinking] .think circle{animation:cx-dot 1.1s ease-in-out infinite}
+.cx-kobako[data-mood=thinking] .think circle:nth-child(2){animation-delay:.18s}
+.cx-kobako[data-mood=thinking] .think circle:nth-child(3){animation-delay:.36s}
+.cx-kobako[data-mood=talking] .eq{opacity:1}
+.cx-kobako[data-mood=talking] .eq rect{animation:cx-eq .5s ease-in-out infinite alternate}
+.cx-kobako[data-mood=talking] .eq rect:nth-child(2){animation-duration:.34s}.cx-kobako[data-mood=talking] .eq rect:nth-child(3){animation-duration:.44s}
+.cx-kobako[data-mood=talking] .eq rect:nth-child(4){animation-duration:.3s}.cx-kobako[data-mood=talking] .eq rect:nth-child(5){animation-duration:.52s}
+@keyframes cx-eq{from{transform:scaleY(.25)}to{transform:scaleY(calc(.5 + var(--mouth,.95)*.55))}}
+.cx-kobako[data-mood=happy] .eo{opacity:0}
+.cx-kobako[data-mood=happy] .eh,.cx-kobako[data-mood=happy] .smile{opacity:1}
+.cx-kobako[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-kobako[data-mood=happy] .screen-glow{opacity:1}
+.cx-kobako[data-mood=attention] .eo{transform:scale(1.14)}
+.cx-kobako[data-mood=attention] .face.led{transform:translate(8px,-4px)}
+.cx-kobako[data-mood=attention] .bang{opacity:1;animation:cx-ripple 1.2s ease-in-out infinite}
+.cx-kobako[data-mood=concerned] .eo{transform:scaleY(.78)}
+.cx-kobako[data-mood=concerned] .wavy{opacity:1}
+.cx-kobako[data-mood=concerned] .screen-glow{opacity:.3}
+.cx-kobako[data-mood=sleepy] .eo{opacity:0}
+.cx-kobako[data-mood=sleepy] .ec{opacity:1}
+.cx-kobako[data-mood=sleepy] .screen-glow{opacity:.15}
+.cx-kobako[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-kobako[data-mood=sleepy] .sway{animation:none}
+.cx-kobako[data-mood=sleepy]{--ant:-34deg}
+
+/* ===== 狐火 ===== */
+.cx-kitsune{--tail:0deg}
+.cx-kitsune .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kitsune .breath{transform-origin:100px 206px;animation:cx-breathe 4.6s ease-in-out infinite}
+.cx-kitsune .tail{transform-origin:var(--ox) var(--oy);transform:rotate(var(--tail));transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+.cx-kitsune .tail-sway{transform-origin:var(--ox) var(--oy);animation:cx-tail 5.5s ease-in-out infinite}
+@keyframes cx-tail{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(3deg)}}
+.cx-kitsune .tail-tip,.cx-kitsune .ear-t,.cx-kitsune .paw{fill:var(--c-ink)}
+.cx-kitsune .ear-o{fill:var(--c-body);stroke:var(--c-shade);stroke-opacity:.4;stroke-width:1}
+.cx-kitsune .ear-i{fill:var(--c-cheek);opacity:.45}
+.cx-kitsune .tail-rim{fill:none;stroke:#fff;stroke-opacity:.6;stroke-width:3;stroke-linecap:round}
+.cx-kitsune .muzzle{fill:var(--c-light);opacity:.8}
+.cx-kitsune .nose{fill:var(--c-ink)}
+.cx-kitsune .brow{stroke-width:5}
+.cx-kitsune .ear{transform-origin:var(--ox) var(--oy);transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kitsune .foxfire{animation:cx-fire 2.6s ease-in-out infinite;transform-origin:205px 40px}
+@keyframes cx-fire{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2.5px) scale(1.04,1.06)}}
+.cx-kitsune .cheek{opacity:.34}
+
+/* moods: ears and tail */
+.cx-kitsune[data-mood=listening]{--tail:-4deg}
+.cx-kitsune[data-mood=listening] .ear{transform:scaleY(1.09)}
+.cx-kitsune[data-mood=thinking]{--tail:6deg}
+.cx-kitsune[data-mood=thinking] .ear-l{transform:rotate(-17deg)}
+.cx-kitsune[data-mood=thinking] .pose{animation:cx-think 3.4s ease-in-out infinite}
+.cx-kitsune[data-mood=talking]{--tail:-3deg}
+.cx-kitsune[data-mood=talking] .ear-r{animation:cx-twitch 1.3s ease-in-out infinite}
+@keyframes cx-twitch{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(-7deg)}80%{transform:rotate(4deg)}90%{transform:rotate(-4deg)}}
+.cx-kitsune[data-mood=happy] .ear-l{transform:rotate(-7deg) scaleY(1.06)}.cx-kitsune[data-mood=happy] .ear-r{transform:rotate(7deg) scaleY(1.06)}
+.cx-kitsune[data-mood=happy] .tail-sway{animation:cx-wag .38s ease-in-out infinite}
+.cx-kitsune[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+@keyframes cx-wag{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+.cx-kitsune[data-mood=attention]{--tail:-11deg}
+.cx-kitsune[data-mood=attention] .ear{transform:rotate(11deg) scaleY(1.1)}
+.cx-kitsune[data-mood=concerned]{--tail:9deg}
+.cx-kitsune[data-mood=concerned] .ear-l{transform:rotate(-26deg) translateY(3px)}.cx-kitsune[data-mood=concerned] .ear-r{transform:rotate(26deg) translateY(3px)}
+.cx-kitsune[data-mood=sleepy]{--tail:13deg}
+.cx-kitsune[data-mood=sleepy] .ear-l{transform:rotate(-34deg) translateY(5px)}.cx-kitsune[data-mood=sleepy] .ear-r{transform:rotate(34deg) translateY(5px)}
+.cx-kitsune[data-mood=sleepy] .tail-sway,.cx-kitsune[data-mood=sleepy] .foxfire{animation:none}
+.cx-kitsune[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-kitsune[data-mood=sleepy] .lamp-dot{opacity:.4}
+[data-theme=lamp] .cx-kitsune .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== 蛍 ===== */
+.cx-hotaru .pose{transform-origin:100px 112px;transform:translateY(var(--lift)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-hotaru .float{transform-origin:100px 112px;animation:cx-float 5.4s ease-in-out infinite}
+@keyframes cx-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.cx-hotaru .orb{transform-origin:100px 112px;transition:transform .5s cubic-bezier(.3,.7,.3,1)}
+.cx-hotaru .orb-body{animation:cx-orb 4.6s ease-in-out infinite;transform-origin:100px 112px}
+@keyframes cx-orb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+.cx-hotaru .halo-c{opacity:calc(.35 + var(--glow)*.85);transition:opacity .6s,transform .6s;transform-origin:100px 112px}
+.cx-hotaru.halo-wide .halo-c{transform:scale(1.18)}.cx-hotaru.halo-tight .halo-c{transform:scale(.7)}
+[data-theme=lamp] .cx-hotaru .halo-c{opacity:calc(.6 + var(--glow)*.9)}
+.cx-hotaru .pool{opacity:calc(.35 + var(--glow)*.6)}
+.cx-hotaru .rim{fill:none;stroke:#fff;stroke-opacity:.8;stroke-width:3.2;stroke-linecap:round}
+.cx-hotaru .bead{animation:cx-bob 3.8s ease-in-out infinite;transform-origin:var(--ox) var(--oy);transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+@keyframes cx-bob{0%,100%{translate:0 0}50%{translate:2px -5px}}
+.cx-hotaru .cheek{fill:rgb(var(--c-lamp-rgb));opacity:.2}
+.cx-hotaru .eo rect,.cx-hotaru .eo circle:not(.catch),.cx-hotaru .eo ellipse,.cx-hotaru .eo path{fill:var(--c-ink);fill-opacity:.82}
+.cx-hotaru .face{transition:opacity .5s,transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx-hotaru.face-never .face{opacity:0}
+.cx-hotaru.face-engage .face{opacity:0}
+.cx-hotaru.face-engage:not([data-mood=idle]) .face{opacity:1}
+.cx-hotaru.face-engage[data-mood=sleepy] .face{opacity:0}
+
+.cx-hotaru[data-mood=listening] .orb{transform:scale(.97,1.07) translateY(-2px)}
+.cx-hotaru[data-mood=thinking] .swirl{transform-origin:100px 112px;animation:cx-spin 3.2s linear infinite}
+.cx-hotaru[data-mood=thinking] .halo-c{animation:cx-halo 1.8s ease-in-out infinite}
+@keyframes cx-halo{0%,100%{opacity:.5}50%{opacity:1}}
+.cx-hotaru[data-mood=talking] .orb{animation:cx-voice2 .46s ease-in-out infinite alternate}
+@keyframes cx-voice2{from{transform:scale(1)}to{transform:scale(calc(1.02 + var(--mouth,.95)*.05))}}
+.cx-hotaru[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-hotaru[data-mood=happy] .halo-c{opacity:1;transform:scale(1.18)}
+.cx-hotaru[data-mood=attention] .orb{transform:translate(7px,-5px)}
+.cx-hotaru[data-mood=attention] .bead{transform:translate(6px,-4px)}
+.cx-hotaru[data-mood=concerned] .orb-body{animation:cx-flick 1.3s steps(5,end) infinite}
+@keyframes cx-flick{0%,100%{opacity:1}30%{opacity:.78}60%{opacity:.92}}
+.cx-hotaru[data-mood=sleepy] .orb{transform:scale(.72) translateY(26px)}
+.cx-hotaru[data-mood=sleepy] .bead{transform:translate(-8px,34px) scale(.8)}
+.cx-hotaru[data-mood=sleepy] .float{animation-duration:8s}
+.cx-hotaru[data-mood=sleepy] .orb-body{animation-duration:8s}
+[data-theme=lamp] .cx-hotaru .orb-body{filter:drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.55))}
+
+/* ===== 苔玉 ===== */
+.cx-kokedama{--sun-lean:0deg}
+.cx-kokedama .pose{transform-origin:100px 206px;transform:translateY(var(--lift)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .breath{transform-origin:100px 206px;animation:cx-breathe 5.2s ease-in-out infinite}
+.cx-kokedama .dish{fill:var(--c-foot)}.cx-kokedama .dish-in{fill:var(--c-shade);opacity:.7}
+.cx-kokedama .twine{fill:none;stroke:#f1e8d2;stroke-width:1.5;stroke-opacity:.85;stroke-linecap:round}
+.cx-kokedama .stem{fill:none;stroke:var(--leaf-d);stroke-width:4.4;stroke-linecap:round}
+.cx-kokedama .leaf-b{fill:var(--leaf);stroke:var(--leaf-d);stroke-opacity:.35;stroke-width:1}
+.cx-kokedama .leaf-v{fill:none;stroke:var(--leaf-d);stroke-opacity:.45;stroke-width:1.3;stroke-linecap:round}
+.cx-kokedama .sprout{transform-origin:var(--ox) var(--oy);transform:rotate(calc(var(--ant)*.42 + var(--sun-lean)));transition:transform .7s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 7.5s ease-in-out infinite}
+.cx-kokedama .leaf{transform-origin:var(--ox) var(--oy);transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .leaf-l{animation:cx-leaf 6s ease-in-out infinite}.cx-kokedama .leaf-r{animation:cx-leaf 6s ease-in-out -2.4s infinite reverse}
+@keyframes cx-leaf{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(3deg)}}
+.cx-kokedama .bud{transform-origin:102px 56px;transition:transform .6s cubic-bezier(.3,.7,.3,1)}
+.cx-kokedama .cheek{opacity:.34}
+.cx-kokedama.face-never .kface{opacity:0}
+.cx-kokedama .eo rect,.cx-kokedama .eo circle:not(.catch),.cx-kokedama .eo ellipse,.cx-kokedama .eo path{fill:var(--c-ink)}
+.cx-kokedama .face{transform:translate(calc(var(--look-x)*.6),calc(var(--look-y)*.6))}
+
+.cx-kokedama[data-mood=listening] .leaf-l{animation:none;transform:rotate(-14deg)}
+.cx-kokedama[data-mood=listening] .leaf-r{animation:none;transform:rotate(14deg)}
+.cx-kokedama[data-mood=thinking] .sway{animation-duration:3.6s}
+.cx-kokedama[data-mood=thinking] .bud{animation:cx-pulse2 1.5s ease-in-out infinite}
+@keyframes cx-pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.cx-kokedama[data-mood=talking] .leaf-l{animation:cx-flutter .34s ease-in-out infinite alternate}
+.cx-kokedama[data-mood=talking] .leaf-r{animation:cx-flutter .34s ease-in-out -.17s infinite alternate-reverse}
+@keyframes cx-flutter{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+.cx-kokedama[data-mood=happy] .bud{transform:scale(1.4)}
+.cx-kokedama[data-mood=happy] .leaf-l{animation:none;transform:rotate(-16deg)}.cx-kokedama[data-mood=happy] .leaf-r{animation:none;transform:rotate(16deg)}
+.cx-kokedama[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-kokedama[data-mood=attention] .leaf-l,.cx-kokedama[data-mood=attention] .leaf-r{animation:none;transform:rotate(14deg)}
+.cx-kokedama[data-mood=concerned] .leaf-l{animation:none;transform:rotate(-30deg)}.cx-kokedama[data-mood=concerned] .leaf-r{animation:none;transform:rotate(30deg)}
+.cx-kokedama[data-mood=concerned] .leaf-sl{transform:rotate(-24deg)}.cx-kokedama[data-mood=concerned] .leaf-sr{transform:rotate(24deg)}
+.cx-kokedama[data-mood=sleepy] .leaf-l{animation:none;transform:rotate(-58deg)}.cx-kokedama[data-mood=sleepy] .leaf-r{animation:none;transform:rotate(58deg)}
+.cx-kokedama[data-mood=sleepy] .leaf-sl{transform:rotate(-40deg)}.cx-kokedama[data-mood=sleepy] .leaf-sr{transform:rotate(40deg)}
+.cx-kokedama[data-mood=sleepy] .sway{animation:none}.cx-kokedama[data-mood=sleepy] .breath{animation-duration:8s}
+.cx-kokedama[data-mood=sleepy] .bud{transform:scale(.8,.7)}
+.cx-kokedama[data-mood=sleepy]{--ant:-30deg}
+[data-theme=lamp] .cx-kokedama .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== 影絵 ===== */
+.cx-kage{--k-p0:#fff5d8;--k-p1:var(--c-light);--k-p2:var(--c-body);--k-p3:var(--c-shade);--dist:.45;--puppet:#3a2d23;--wood:#5a4632;--glowc:#fff2d4}
+[data-theme=dark] .cx-kage{--puppet:#1d1712;--wood:#3a2e22}
+[data-theme=lamp] .cx-kage{--puppet:#120d09;--wood:#2b2118}
+.cx-kage .frame{fill:var(--wood)}
+.cx-kage .kumiko path{fill:none;stroke:var(--wood);stroke-opacity:.32;stroke-width:1.6}
+.cx-kage .paper-glow{opacity:calc(.5 + var(--glow)*.7)}
+[data-theme=lamp] .cx-kage .paper-glow{opacity:1}
+.cx-kage .puppet-pos{transform-origin:100px 206px;transform:translateY(var(--lift))}
+.cx-kage .lamp-pos{transform-origin:100px 206px;transform:scale(calc(.9 - var(--dist)*.2));transition:transform .8s cubic-bezier(.3,.7,.3,1)}
+.cx-kage .puppet{transform-origin:100px 206px;transform:scale(calc(.9 - var(--dist)*.2));filter:blur(calc(var(--dist)*5.4px));opacity:calc(.94 - var(--dist)*.3);transition:transform .8s cubic-bezier(.3,.7,.3,1),filter .8s,opacity .8s}
+.cx-kage .breath-t{}
+.cx-kage .sil path,.cx-kage .sil ellipse,.cx-kage .sil circle{fill:var(--puppet)}
+.cx-kage .stem{fill:none;stroke:var(--puppet);stroke-width:3.6;stroke-linecap:round}
+.cx-kage .antenna{transform-origin:var(--ox) var(--oy);transform:rotate(var(--ant));transition:transform .55s cubic-bezier(.3,.7,.3,1)}
+.cx-kage .sway{transform-origin:var(--ox) var(--oy);animation:cx-sway 6.5s ease-in-out infinite}
+.cx-kage .k-face{transform:translate(var(--look-x),var(--look-y));transition:transform .4s cubic-bezier(.3,.7,.3,1)}
+.cx-kage .k-cheek{fill:rgb(var(--c-lamp-rgb));opacity:.5}
+.cx-kage .eo rect,.cx-kage .eo circle,.cx-kage .eo ellipse{fill:var(--glowc);filter:drop-shadow(0 0 3px rgba(255,236,190,.9))}
+.cx-kage .eh path,.cx-kage .ec path,.cx-kage .smile{fill:none;stroke:var(--glowc);stroke-width:4.4;stroke-linecap:round}
+.cx-kage .mouth{fill:var(--glowc)}
+.cx-kage .eyes{transform-origin:100px 126px}
+.cx-kage .cheek{display:none}
+.cx-kage .fx-z text,.cx-kage .fx-dots circle{fill:var(--puppet);opacity:.7}
+.cx-kage .fx-spark path{fill:var(--puppet)}
+.cx-kage .fx-sweat{stroke:var(--puppet);fill:rgba(255,255,255,.7)}
+
+/* distance is attention */
+.cx-kage[data-mood=listening]{--dist:0}
+.cx-kage[data-mood=thinking]{--dist:.42}
+.cx-kage[data-mood=thinking] .puppet-pos{animation:cx-waver 3.6s ease-in-out infinite}
+@keyframes cx-waver{0%,100%{transform:translateX(-3px) rotate(-1.4deg)}50%{transform:translateX(3px) rotate(1.4deg)}}
+.cx-kage[data-mood=talking]{--dist:.16}
+.cx-kage[data-mood=talking] .puppet{animation:cx-voice3 .46s ease-in-out infinite alternate}
+@keyframes cx-voice3{from{transform:scale(1.0)}to{transform:scale(1.035)}}
+.cx-kage[data-mood=happy]{--dist:.08}
+.cx-kage[data-mood=happy] .puppet-pos{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-kage[data-mood=attention]{--dist:.22}
+.cx-kage[data-mood=concerned]{--dist:.7}
+.cx-kage[data-mood=sleepy]{--dist:1}
+.cx-kage[data-mood=sleepy] .sway{animation:none}
+.cx-kage[data-mood=sleepy]{--ant:-34deg}
+[data-theme=lamp] .cx-kage .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+.cx-kage{--paper-o:1}
+[data-theme=dark] .cx-kage{--paper-o:.8}[data-theme=lamp] .cx-kage{--paper-o:.62}
+.cx-kage .paper-base{fill:#17110c}
+.cx-kage .paper{opacity:var(--paper-o)}
+[data-theme=lamp] .cx-kage .paper-glow{opacity:.9}
+[data-theme=dark] .cx-kage{--k-p0:#f3d9a8;--k-p1:#cdb48a;--k-p2:#8c7655;--k-p3:#4a3c2c}
+[data-theme=lamp] .cx-kage{--k-p0:#ffcf8a;--k-p1:#c98f52;--k-p2:#6b4727;--k-p3:#2a1c10;--paper-o:1}
+[data-theme=lamp] .cx-kage .paper-glow{opacity:1}
+
+/* ===== ちいさな部屋 ===== */
+.cx-room{--wall-a:var(--c-shade);--wall-b:var(--c-light);--floor-a:#cdb58f;--floor-b:#b99d72;--skirt:#a8895a;--wood:#6b5337;--sky:#fdf3d8;--sunp:.5;--poolo:.25;--amber-o:0;--wallglow:0}
+[data-theme=dark] .cx-room{--wall-a:#6a5d4b;--wall-b:#8a7a62;--floor-a:#4a3d2d;--floor-b:#3a2f22;--skirt:#2e2519;--wood:#2e2417;--sky:#46506a;--sunp:.12;--poolo:.5}
+[data-theme=lamp] .cx-room{--wall-a:#2c231b;--wall-b:#4a3a2b;--floor-a:#2c241b;--floor-b:#1f1913;--skirt:#17120d;--wood:#17110b;--sky:#1a2136;--sunp:0;--poolo:1}
+[data-theme=dark] .cx-room .shade,[data-theme=lamp] .cx-room .shade{fill:#d9b98a}
+.cx-room .skirt{fill:var(--skirt)}
+.cx-room .planks path{fill:none;stroke:#000;stroke-opacity:.12;stroke-width:1.2}
+.cx-room .win-sky{fill:var(--sky)}
+.cx-room .win-frame{fill:none;stroke:var(--wood);stroke-width:4}
+.cx-room .win-lat{fill:none;stroke:var(--wood);stroke-width:1.8;stroke-opacity:.8}
+.cx-room .stars{opacity:0;fill:#fdf1c8}
+[data-theme=lamp] .cx-room .stars{opacity:.95}
+.cx-room .sunpatch{fill:#fff7de;opacity:var(--sunp)}
+.cx-room .pool-f,.cx-room .pool-w{opacity:calc(var(--poolo) + var(--glow)*.5);transition:opacity .6s}
+.cx-room .shelf rect{fill:var(--wood)}
+.cx-room .shelf .tray{fill:var(--c-shade)}
+.cx-room .shelf .book{fill:#8a7a5c}.cx-room .shelf .b2{fill:#a98f6a}
+.cx-room .amber{fill:var(--lamp-wait,#e2a12a);opacity:var(--amber-o);transition:opacity .4s;filter:drop-shadow(0 0 5px rgba(226,161,42,.8))}
+.cx-room .table ellipse:not(.tb){fill:var(--wood)}.cx-room .table rect{fill:var(--wood)}.cx-room .table .tb{fill:#000;opacity:.12}
+.cx-room .cup path:not(.steam){fill:#f4f0e6;stroke:#cbbf9f;stroke-width:1}
+.cx-room .steam{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;animation:cx-steam 3.2s ease-in-out infinite}
+.cx-room .pole,.cx-room .base{fill:#4a3d2d}
+.cx-room .shade{fill:var(--c-body);stroke:var(--c-shade);stroke-width:1.2}
+.cx-room .shade-hl{fill:#fff;opacity:.35}
+.cx-room .cushion{fill:var(--c-limb);stroke:var(--c-shade);stroke-opacity:.6;stroke-width:1.2}
+.cx-room .room-edge{fill:none;stroke:var(--line-strong);stroke-width:2}
+.cx-room .foot{fill:var(--c-foot)}
+.cx-room .resident-pos{transform-origin:100px 176px;transform:translateY(var(--lift)) rotate(var(--lean));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-room .breath2{transform-origin:100px 206px;animation:cx-breathe 4.4s ease-in-out infinite}
+.cx-room .face{transform:translate(calc(var(--look-x)*2.2),calc(var(--look-y)*2.2))}
+.cx-room[data-mood=thinking] .face{transform:translate(10px,-9px)}
+.cx-room[data-mood=attention] .face{transform:translate(14px,-12px)}
+.cx-room[data-mood=listening]{--poolo:.4}
+.cx-room[data-mood=attention]{--amber-o:1}
+.cx-room[data-mood=attention] .amber{animation:cx-ripple 1.3s ease-in-out infinite}
+.cx-room[data-mood=happy] .resident-pos{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-room[data-mood=concerned] .pool-f,.cx-room[data-mood=concerned] .pool-w{animation:cx-flick 1.3s steps(5,end) infinite}
+.cx-room[data-mood=sleepy] .steam{animation:none;opacity:0}
+.cx-room[data-mood=sleepy]{--poolo:.2}
+.cx-room[data-mood=sleepy] .win-sky{fill:#1a2136}
+.cx-room[data-mood=sleepy] .stars{opacity:.95}
+.cx-room[data-mood=sleepy] .sunpatch{opacity:0}
+.cx-room.has-wait{--amber-o:1}
+
+/* ===== 持ち込み（画像） ===== */
+.cx-image .pose{transform-origin:100px 208px;transform:translateY(var(--lift)) rotate(var(--lean)) scale(var(--sq));transition:transform .45s cubic-bezier(.3,.7,.3,1)}
+.cx-image .breath{transform-origin:100px 208px;animation:cx-breathe 4.6s ease-in-out infinite}
+.cx-image .pic{filter:drop-shadow(0 5px 6px rgba(60,40,20,.18));transition:filter .5s}
+.cx-image .pic-halo{opacity:calc(.2 + var(--glow)*.9);transition:opacity .6s}
+.cx-image .bead{animation:cx-bob 3.8s ease-in-out infinite;transform-origin:var(--ox) var(--oy)}
+.cx-image[data-mood=listening] .pose{transform:translateY(-4px) rotate(-1.5deg) scale(1.04)}
+.cx-image[data-mood=thinking] .pose{animation:cx-think 3.4s ease-in-out infinite}
+.cx-image[data-mood=talking] .pose{animation:cx-voice3 .46s ease-in-out infinite alternate}
+.cx-image[data-mood=happy] .pose{animation:cx-hop .75s cubic-bezier(.3,.7,.3,1) 2}
+.cx-image[data-mood=attention] .pose{transform:rotate(3.5deg) translateY(-2px)}
+.cx-image[data-mood=concerned] .pic{filter:saturate(.7) drop-shadow(0 3px 4px rgba(60,40,20,.18))}
+.cx-image[data-mood=concerned] .pose{transform:translateY(3px) scale(.98)}
+.cx-image[data-mood=sleepy] .pic{filter:brightness(.82) saturate(.55)}
+.cx-image[data-mood=sleepy] .pose{transform:translateY(6px) scale(.96)}
+.cx-image[data-mood=sleepy] .breath{animation-duration:8s}
+[data-theme=lamp] .cx-image .pic{filter:brightness(.78) sepia(.25) drop-shadow(0 0 12px rgba(var(--c-lamp-rgb),.3))}
+[data-theme=lamp] .cx-image .lamp-dot{filter:drop-shadow(0 0 6px rgba(var(--c-lamp-rgb),.95)) drop-shadow(0 0 14px rgba(var(--c-lamp-rgb),.7))}
+
+/* ===== stage mock (mirrors Tepora-v3/web/styles.css: stage, caption, clock, window light, glow, lights) ===== */
+.sm{position:relative;overflow:hidden;border-radius:20px;border:1px solid var(--line);background:var(--bg);color:var(--text);box-shadow:var(--shadow);--char-w:clamp(190px,24vw,300px);min-height:560px;display:flex;flex-direction:column;isolation:isolate}
+.sm-wall{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.sm-tint{position:absolute;inset:0;background:var(--sky-tint,transparent);transition:background 1.4s}
+.sm-sun{position:absolute;top:7%;bottom:3%;left:calc(var(--sun-x,10)*1%);width:44%;transform:skewX(calc(var(--sun-skew,0)*1deg));opacity:var(--sun-o,0);filter:blur(calc(var(--sun-blur,6)*1px));-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 78%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 78%,transparent 100%);background:linear-gradient(90deg,transparent 0,var(--sun-color,#fffaf0) 12%,var(--sun-color,#fffaf0) 88%,transparent 100%);transition:left .6s ease,opacity .6s ease}
+.sm-sun::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(33.333% - 2.4px),rgba(120,88,44,var(--sun-lines,.1)) calc(33.333% - 2.4px),rgba(120,88,44,var(--sun-lines,.1)) 33.333%),repeating-linear-gradient(0deg,transparent 0,transparent calc(25% - 2.4px),rgba(120,88,44,var(--sun-lines,.1)) calc(25% - 2.4px),rgba(120,88,44,var(--sun-lines,.1)) 25%)}
+.sm[data-theme=lamp] .sm-sun{display:none}
+.sm[data-theme=dark] .sm-sun{opacity:calc(var(--sun-o,0)*.1);mix-blend-mode:screen}
+.sm>*:not(.sm-wall){position:relative;z-index:1}
+.sm-bar{display:flex;align-items:center;gap:18px;padding:14px 22px;font-size:.84rem}
+.wm{font:600 1.35rem/1 var(--font-num);letter-spacing:-.02em;display:inline-flex;align-items:flex-start;gap:2px;color:var(--text)}
+.wm i{width:7px;height:7px;border-radius:50%;background:var(--brand);margin-top:1px;display:inline-block}
+.sm.has-wait .wm i{background:var(--lamp-wait)}
+.sm-bar nav{display:flex;gap:6px}.sm-bar nav span,.sm-bar nav b{padding:6px 12px;border-radius:10px;color:var(--muted);font-weight:500}.sm-bar nav b{background:var(--accent-soft);color:var(--text)}
+.sm-pill{margin-left:auto;color:var(--muted);display:inline-flex;align-items:center;gap:7px}.sm-pill i{width:7px;height:7px;border-radius:50%;background:var(--line-strong)}
+.sm-grid{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.82fr);gap:28px;padding:0 clamp(18px,4vw,56px);align-items:center;min-height:0}
+.sm-figure{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(14px,2.4vh,26px)}
+.sm-char{position:relative;width:min(100%,calc(var(--char-w)*var(--scale,1)));aspect-ratio:200/224;transition:width .4s}
+.sm.is-scene .sm-char{width:min(100%,calc(var(--char-w)*1.5));}
+.sm-host{position:absolute;inset:0}
+.sm-glow{position:absolute;inset:0;pointer-events:none;z-index:-1}
+.sm-glow::before{content:'';position:absolute;left:50%;top:62%;width:270%;height:210%;transform:translate(-50%,-50%);background:radial-gradient(ellipse at center,var(--pool-color),transparent 70%);opacity:var(--pool-o,0);transition:opacity 1.2s}
+.sm-glow::after{content:'';position:absolute;left:var(--ant-x);top:var(--ant-y);width:135%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--glow-1),var(--glow-2) 38%,transparent 68%);opacity:var(--halo-o,0);transition:opacity 1.2s}
+.sm[data-theme=lamp] .sm-glow::before{opacity:calc(var(--pool-o,0) + 1)}.sm[data-theme=lamp] .sm-glow::after{opacity:calc(var(--halo-o,0) + 1)}
+.sm.is-scene .sm-glow{display:none}
+.sm-caption{margin:0;max-width:min(30rem,92%);text-align:center;font:400 1.05rem/1.85 var(--font-display);letter-spacing:.01em;min-height:3.7em}
+.sm-caption.is-empty{opacity:0}
+.sm-side{display:flex;flex-direction:column;gap:clamp(18px,3.5vh,34px);min-width:0}
+.sm-clock time{display:block;font:200 clamp(3.4rem,6.4vw,6.6rem)/.95 var(--font-num);letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.sm-line{display:flex;flex-wrap:wrap;gap:0 .9em;margin-top:.7rem;align-items:baseline}
+.sm-line b{font:600 1.02rem/1.5 var(--font-display);letter-spacing:.02em}.sm-line span{font:400 .84rem/1.5 var(--font-display);color:var(--muted)}
+.sm-weather{display:flex;gap:.7em;align-items:baseline;margin-top:.7rem;color:var(--muted);font-size:.9rem}.sm-weather .wt{font:200 1.7rem/1 var(--font-num);color:var(--text);letter-spacing:-.03em}
+.sm-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 20px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;min-height:130px}
+.sm-card small{font-weight:700;font-size:.72rem;color:var(--muted)}.sm-card p{margin:0;font:600 1.02rem/1.6 var(--font-display)}.sm-card em{margin-top:auto;font-style:normal;color:var(--muted);font-size:.74rem}
+.sm-composer{margin:18px auto 20px;width:min(440px,calc(100% - 40px));display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);color:var(--muted);font-size:.88rem}
+.sm-composer .ph{flex:1}.sm-composer .go{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-grid;place-items:center}
+/* lights: the work as small fireflies, the amber lamp as the one call for you */
+.sm-lights{position:absolute;inset:0;pointer-events:none;z-index:2}
+.ff{position:absolute;left:var(--lx);top:var(--ly);width:28px;height:28px;margin:-14px 0 0 -14px;opacity:0}
+.ff.on{opacity:1;transition:opacity .9s}
+.ff b{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:currentColor;color:var(--muted);opacity:.92;animation:ff-drift var(--dur,11s) ease-in-out infinite;animation-delay:var(--del,0s)}
+.ff b::after{content:'';position:absolute;left:-1px;top:-1px;width:100%;height:100%;border-radius:50%;border:1px solid currentColor;opacity:0;animation:ff-ripple 4.6s ease-out infinite;animation-delay:var(--rd,0s)}
+.ff-wait{z-index:3}.ff-wait b{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;color:var(--lamp-wait);opacity:1;box-shadow:0 0 18px 5px rgba(226,161,42,.38);animation:none}
+.ff-wait b::after{animation-duration:2.8s;border-width:1.5px}
+.ff-label{position:absolute;left:calc(50% + 18px);top:50%;margin-top:-10px;display:flex;align-items:center;gap:.4em;height:20px;white-space:nowrap;font-size:.76rem;font-weight:700;color:var(--text)}
+.ff-count{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600}
+[data-theme=lamp] .ff b{color:#ecdcb6;box-shadow:0 0 14px 3px rgba(236,220,182,.24)}[data-theme=lamp] .ff-wait b{color:var(--lamp-wait);box-shadow:0 0 18px 5px rgba(226,161,42,.4)}
+@keyframes ff-drift{0%,100%{translate:0 0}33%{translate:var(--ax,6px) var(--ay,-8px)}66%{translate:calc(var(--ax,6px)*-.6) calc(var(--ay,-8px)*.4)}}
+@keyframes ff-ripple{0%{transform:scale(1);opacity:.55}100%{transform:scale(4);opacity:0}}
+html.rm .ff b,html.rm .ff b::after{animation:none!important}
+@media (max-width:820px){.sm{min-height:0}.sm-grid{grid-template-columns:1fr;gap:18px;padding-top:8px}.sm-bar nav{display:none}.sm-char{width:min(70%,calc(240px*var(--scale,1)))}.sm-clock time{font-size:3.2rem}}
+
+.sm.is-scene .ff-label{background:var(--surface);border:1px solid var(--line-strong);border-radius:99px;padding:0 10px;box-shadow:var(--shadow-sm);left:calc(50% + 14px)}
+.sm.is-scene .sm-char{width:min(100%,calc(var(--char-w)*1.45))}
+
+/* ===== the lab page itself: paper, ink and one lamp ===== */
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:74px}
+html.rm{scroll-behavior:auto}
+body{margin:0;background:var(--bg);color:var(--text);font:400 1rem/1.75 var(--font-ui);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,p,ul,ol,dl,dd,pre,fieldset{margin:0}
+ul,ol{padding:0;list-style:none}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+a{color:inherit}
+code{font:500 .74rem var(--font-mono);color:var(--muted);background:var(--bg-2);padding:2px 7px;border-radius:6px}
+.small{font-size:.82rem;color:var(--muted)}
+.honest{margin-top:22px;padding:14px 16px;border:1px dashed var(--line-strong);border-radius:12px}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:10px clamp(16px,3vw,36px);background:var(--bg);border-bottom:1px solid var(--line)}
+.wm{font:600 1.35rem/1 var(--font-num);letter-spacing:-.02em;display:inline-flex;align-items:flex-start;gap:2px;text-decoration:none}
+.wm i{width:7px;height:7px;border-radius:50%;background:var(--brand);margin-top:1px;display:inline-block}
+.top-t{font:600 .98rem var(--font-display);display:flex;align-items:baseline;gap:10px}.top-t small{font:500 .72rem var(--font-ui);color:var(--muted);border:1px solid var(--line-strong);border-radius:999px;padding:1px 9px}
+.top-nav{display:flex;gap:2px;margin-left:8px}.top-nav a{text-decoration:none;color:var(--muted);font-size:.84rem;font-weight:600;padding:6px 10px;border-radius:9px}.top-nav a:hover{background:var(--accent-soft);color:var(--text)}
+.top-ctl{margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.chk{display:inline-flex;align-items:center;gap:8px;font-size:.84rem;color:var(--muted);cursor:pointer}.chk input{accent-color:var(--brand);width:16px;height:16px}
+
+/* controls */
+.seg{display:inline-flex;gap:3px;padding:3px;background:var(--bg-2);border-radius:12px;flex-wrap:wrap;vertical-align:middle}
+.seg button{border:0;background:transparent;color:var(--muted);font:600 .8rem/1.2 var(--font-ui);padding:8px 12px;border-radius:9px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:1px}
+.seg button small{font-weight:500;font-size:.64rem;opacity:.8}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed=true]{background:var(--surface-2);color:var(--text);box-shadow:var(--shadow-sm)}
+.btn{background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:10px 18px;font:700 .84rem/1 var(--font-ui);cursor:pointer;transition:transform .15s}
+.btn:hover{transform:translateY(-1px)}.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line-strong)}
+.chip{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);border-radius:999px;padding:6px 12px;font:600 .78rem/1 var(--font-ui);cursor:pointer}.chip:hover{background:var(--accent-soft)}
+.lab{font-size:.74rem;font-weight:700;color:var(--muted);margin:12px 0 6px;letter-spacing:.04em}
+.ctl{display:flex;flex-direction:column;gap:6px;font-size:.82rem;color:var(--muted);min-width:0}.ctl b{color:var(--text);font-variant-numeric:tabular-nums}
+.ctl input[type=range]{width:100%;accent-color:var(--brand)}
+.ctl.txt input{border:1px solid var(--line-strong);background:var(--surface-2);border-radius:10px;padding:9px 12px;font-size:.92rem;width:100%}
+.ctl-rows{display:grid;gap:12px;margin-bottom:16px}.ctl-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end}.ctl-row .ctl{min-width:150px}
+
+main{max-width:1240px;margin:0 auto;padding:0 clamp(16px,3vw,36px) 80px}
+.hero{padding:clamp(34px,7vw,76px) 0 22px}
+.hero h1{font:600 clamp(1.9rem,4.6vw,3.2rem)/1.35 var(--font-display);letter-spacing:.01em}
+.lead{max-width:44rem;margin-top:18px;font-size:1.02rem;color:var(--text)}.lead b{border-bottom:2px solid var(--brand)}
+.finds{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:30px}
+.find{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow-sm)}
+.find b{font:700 .95rem var(--font-display)}.find p{font-size:.84rem;color:var(--muted);line-height:1.65}.find code{align-self:flex-start;margin-top:auto}
+.keep{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 20px}
+.keep>b{font:700 .95rem var(--font-display)}.keep ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 22px;margin-top:8px;font-size:.84rem;color:var(--muted)}.keep em{font-style:normal;font-weight:700;color:var(--text)}
+
+.moodbar{position:sticky;top:57px;z-index:30;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 0 8px;margin:6px 0 0}
+.mb-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.mb-t{font:700 .8rem var(--font-ui);color:var(--muted)}
+.mb-why{font-size:.78rem;color:var(--muted);margin-top:4px;min-height:1.4em}
+
+.sec{padding:clamp(34px,6vw,64px) 0 8px}
+.sec-h{margin-bottom:22px}.sec-h h2{font:600 clamp(1.4rem,3vw,1.9rem)/1.4 var(--font-display)}.sec-h p{max-width:46rem;margin-top:8px;font-size:.94rem;color:var(--muted)}.sec-h p b{color:var(--text)}
+.wall-opt{margin-bottom:16px}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-sm);transition:box-shadow .2s,border-color .2s}
+.card.is-selected{border-color:var(--text);box-shadow:0 0 0 1px var(--text),var(--shadow)}
+.card.is-base{background:var(--bg-2);border-style:dashed}
+.card-fig{padding:20px 22px 6px;display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 70%,var(--surface-2),transparent 70%)}
+.card-fig .cx-host{width:min(100%,208px)}
+.card-body{padding:6px 20px 20px;display:flex;flex-direction:column;gap:10px;flex:1}
+.card header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.card h3{font:700 1.15rem var(--font-display)}.kana{font-size:.74rem;color:var(--muted)}
+.tag{margin-left:auto;font:700 .68rem var(--font-ui);padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--text)}
+.pitch{font-size:.86rem;color:var(--text);line-height:1.75}
+.traits{display:flex;gap:6px;flex-wrap:wrap}.traits li{font-size:.7rem;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:999px;padding:2px 9px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.78rem;margin-top:2px}.facts dt{font-weight:700;color:var(--muted);white-space:nowrap}.facts dd{color:var(--text)}
+.eff{color:var(--brand);letter-spacing:.06em}
+.card .btn{margin-top:auto;align-self:flex-start}.base-note{margin-top:auto;font-size:.8rem;color:var(--muted)}
+.mx{margin-top:34px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:6px 18px 18px}.mx summary{cursor:pointer;font:700 .95rem var(--font-display);padding:12px 0}
+.matrix{display:grid;grid-template-columns:96px repeat(8,minmax(0,1fr));gap:4px;align-items:center;overflow-x:auto;min-width:0}
+.mx-head{font-size:.7rem;color:var(--muted);text-align:center;font-weight:700}.mx-lab{font-size:.78rem;font-weight:700}
+.mx-cell .cx-host{width:100%;max-width:92px;margin:0 auto}
+@media (max-width:900px){.matrix{grid-template-columns:70px repeat(8,64px)}}
+
+/* studio */
+.studio{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:start}
+.st-preview{display:flex;flex-direction:column;gap:12px;position:sticky;top:130px}
+.st-stage{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px 20px 18px;display:flex;justify-content:center;align-items:flex-end;min-height:360px;background-image:radial-gradient(ellipse at 50% 90%,var(--surface-2),transparent 62%)}
+.st-host{width:min(100%,300px);transform-origin:50% 100%;transition:transform .3s}
+.st-sheet{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sheet-cell{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 4px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}.sheet-cell:hover{border-color:var(--line-strong)}
+.sheet-cell .cx-host{width:100%;max-width:84px}.sheet-cell span{font-size:.66rem;color:var(--muted);font-weight:700}
+.st-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.st-msg{font-size:.78rem;color:var(--ok);min-height:1.2em}
+.st-presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.st-presets>span{font-size:.74rem;font-weight:700;color:var(--muted);margin-right:4px}
+.st-controls{display:flex;flex-direction:column;gap:12px}
+.grp{border:1px solid var(--line);border-radius:16px;padding:12px 16px 14px;background:var(--surface);min-width:0}
+.grp legend{font:700 .86rem var(--font-display);padding:0 8px}.grp-note{font-size:.74rem;color:var(--muted);margin:2px 0 8px;line-height:1.6}
+.sws{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+.sw{display:inline-flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:.68rem;font-weight:700;padding:2px}
+.sw i{width:34px;height:34px;border-radius:50%;background:var(--sw);border:2px solid var(--line-strong);display:block}
+.sw[aria-pressed=true] i{border-color:var(--text);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--text)}
+.sw[aria-pressed=true]{color:var(--text)}
+.sw.lock{opacity:.5;cursor:not-allowed}.sw.lock i{background:repeating-linear-gradient(135deg,#e2a12a 0 5px,#f4e7cd 5px 10px)}
+.toggles{display:flex;gap:18px;margin-top:10px;font-size:.84rem}.toggles label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}.toggles input{accent-color:var(--brand)}
+.st-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px;margin-top:24px;align-items:start}
+.st-guard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 18px;font-size:.82rem}.st-guard>b{font:700 .9rem var(--font-display)}
+.st-guard ul{display:grid;gap:7px;margin-top:10px}.st-guard li{display:flex;gap:9px;line-height:1.55}.st-guard li span{flex:none;width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;font-size:.7rem;font-weight:800;background:var(--ok);color:var(--on-accent)}
+.st-guard li.warn span{background:var(--lamp-wait);color:#2b2013}
+.st-json{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 18px;min-width:0}
+.st-json-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.st-json-h b{font:700 .9rem var(--font-display)}.st-json-h small{color:var(--muted);font-size:.72rem}
+.st-json pre{margin-top:10px;font:500 .74rem/1.6 var(--font-mono);background:var(--bg-2);border-radius:12px;padding:12px 14px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.st-import{margin-top:12px}.st-import summary{cursor:pointer;font-size:.82rem;font-weight:700;color:var(--muted)}
+.st-import textarea{width:100%;margin-top:8px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-2);padding:10px 12px;font:500 .76rem/1.6 var(--font-mono);resize:vertical}
+.st-import-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.st-errors{margin-top:8px;display:grid;gap:4px;font-size:.78rem;color:var(--attention)}.st-errors li{padding-left:14px;position:relative}.st-errors li::before{content:'×';position:absolute;left:0}.st-errors .note{color:var(--muted)}.st-errors .note::before{content:'—'}
+
+/* voice */
+.voice{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr);gap:24px;align-items:start}
+.vo-controls{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.vo-out{display:flex;flex-direction:column;gap:10px}
+.vo-lines{display:grid;gap:8px}
+.vo-line{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;align-items:baseline;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 16px}
+.vo-scene{font-size:.72rem;font-weight:700;color:var(--muted)}.vo-line p{font:400 1rem/1.7 var(--font-display)}
+.vo-line.is-off{opacity:.45}.vo-line em{grid-column:2;font-style:normal;font-size:.7rem;color:var(--muted)}
+.vo-persona{grid-column:1/-1;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 18px}.vo-persona b{font:700 .9rem var(--font-display)}
+.vo-persona pre{margin:8px 0;font:500 .82rem/1.8 var(--font-ui);white-space:pre-wrap;background:var(--bg-2);border-radius:12px;padding:12px 14px}
+.vo-persona small{display:block;color:var(--muted);font-size:.74rem;line-height:1.7}
+@media (max-width:760px){.vo-line{grid-template-columns:1fr}.vo-line em{grid-column:1}}
+
+/* system */
+.flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+.flow-box{flex:1;min-width:170px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:3px}.flow-box b{font:700 .88rem var(--font-display)}.flow-box small{color:var(--muted);font-size:.72rem;line-height:1.55}
+.flow-arrow{align-self:center;color:var(--muted)}
+.sys-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px}
+.sys-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px}.sys-card h3{font:700 .92rem var(--font-display);margin-bottom:10px}
+.pose-bars{display:grid;gap:7px}.pb{display:grid;grid-template-columns:96px 1fr 38px;gap:8px;align-items:center;font-size:.74rem;color:var(--muted)}
+.pb i{position:relative;height:8px;border-radius:99px;background:var(--bg-2);overflow:hidden;display:block}.pb u{position:absolute;top:0;bottom:0;background:var(--text);border-radius:99px;transition:width .4s,left .4s}.pb b{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.interp{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:.74rem}.interp dt{font-weight:700;color:var(--muted)}.interp dd{color:var(--muted);line-height:1.55}.interp .is-on{color:var(--text)}
+.ladder{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap}.rung{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:.68rem;color:var(--muted);text-align:center}
+.rung>div:first-child .cx-host{width:130px}
+.av{width:46px;height:46px;border-radius:50%;overflow:hidden;background:var(--surface-2);border:1px solid var(--line-strong);display:grid;place-items:center}.av .cx-host{width:100%}.av .cx{height:100%;width:100%}
+.av-s{width:28px;height:28px}
+.mk{width:8px;height:8px;margin:19px 0}.mk i{display:block;width:8px;height:8px;border-radius:50%;background:var(--mk,var(--brand))}
+.mk[data-mood=thinking] i{animation:ff-ripple2 1.4s ease-in-out infinite}.mk[data-mood=sleepy] i{opacity:.35}.mk[data-mood=attention] i{background:var(--lamp-wait);box-shadow:0 0 8px 2px rgba(226,161,42,.5)}
+.mk[data-mood=happy] i{box-shadow:0 0 8px 2px rgba(var(--mk-rgb,239,122,88),.5)}
+@keyframes ff-ripple2{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* plan */
+.plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.ph{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;position:relative}
+.ph-n{position:absolute;top:14px;right:16px;font:200 2.4rem/1 var(--font-num);color:var(--line-strong)}
+.ph h3{font:700 1rem var(--font-display);display:flex;flex-direction:column;gap:2px}.ph h3 small{font:500 .74rem var(--font-ui);color:var(--muted)}
+.ph ul{margin-top:10px;display:grid;gap:8px;font-size:.8rem;color:var(--muted);line-height:1.65}.ph li{padding-left:14px;position:relative}.ph li::before{content:'';position:absolute;left:0;top:.7em;width:5px;height:5px;border-radius:50%;background:var(--brand)}
+.asks{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 20px}.asks h3{font:700 1rem var(--font-display)}
+.asks ol{margin-top:10px;counter-reset:a;display:grid;gap:8px}.asks li{counter-increment:a;padding-left:30px;position:relative;font-size:.88rem}.asks li::before{content:counter(a);position:absolute;left:0;top:.1em;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.7rem;font-weight:800;display:grid;place-items:center}
+.foot{margin-top:50px;color:var(--muted);font-size:.78rem;text-align:center}
+
+@media (max-width:980px){.studio{grid-template-columns:1fr}.st-preview{position:static}.st-bottom,.voice{grid-template-columns:1fr}.top-nav{display:none}.moodbar{top:52px}}
+@media (max-width:760px){
+ .top{position:static;gap:8px 14px;padding:10px 16px}
+ .top-t small{display:none}
+ .top-ctl{margin-left:0;width:100%;justify-content:space-between}
+ .moodbar{top:0;padding:8px 0 6px}
+ .mb-t,.mb-why{display:none}
+ .mb-row{flex-wrap:nowrap;gap:10px}
+ .mb-row .seg{flex-wrap:nowrap;overflow-x:auto;min-width:0;scrollbar-width:none}
+ .mb-row .seg::-webkit-scrollbar{display:none}
+ .mb-row .seg button{white-space:nowrap}
+ .mb-row .chk{white-space:nowrap}
+ .hero{padding-top:28px}
+ .st-sheet{grid-template-columns:repeat(4,1fr)}
+}
+
+.filebtn{display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--line-strong);border-radius:12px;padding:10px 14px;cursor:pointer;font-size:.84rem;font-weight:700;margin:4px 8px 8px 0;background:var(--surface-2)}
+.filebtn:hover{background:var(--accent-soft)}.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
+.filebtn:focus-within{outline:2px solid var(--brand);outline-offset:2px}
+
+/* lineup, people, far check */
+.lineup{display:flex;gap:6px;margin-top:26px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:thin}
+.lu{flex:1 0 96px;min-width:96px;max-width:132px;border:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:14px;color:var(--muted);font:700 .72rem var(--font-ui)}
+.lu:hover{background:var(--surface);color:var(--text)}
+.lu-fig{width:100%}.lu-fig .cx-host{width:100%}
+.card.flash{animation:flash-card 1.4s ease-out}
+@keyframes flash-card{0%,40%{box-shadow:0 0 0 3px var(--brand),var(--shadow)}100%{box-shadow:var(--shadow-sm)}}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.person{display:grid;grid-template-columns:128px 1fr;gap:6px 16px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px 18px 18px;box-shadow:var(--shadow-sm);align-items:start}
+.person-fig{padding-top:6px}.person-fig .cx-host{width:100%}
+.person h3{font:700 1.02rem var(--font-display)}.who{font-size:.78rem;color:var(--muted);margin-top:2px}
+.person blockquote{margin:10px 0 0;padding:8px 12px;background:var(--bg-2);border-radius:12px;font:400 .88rem/1.7 var(--font-display)}
+.ptags{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 12px}.ptags li{font-size:.68rem;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:99px;padding:2px 9px}
+@media (max-width:520px){.person{grid-template-columns:96px 1fr}}
+html.far .card-fig .cx-host,html.far .mx-cell .cx-host,html.far .sheet-cell .cx-host,html.far .lu-fig .cx-host,html.far .person-fig .cx-host,html.far .sm-host,html.far .st-host{filter:blur(1.5px);transform:scale(.46)!important;transform-origin:50% 88%}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ===== core: registry, palettes, recipe, mount ===== */
+const BODIES={},LIVE=new Set(),ALL=new Set(),ORDER=[];
+const defineBody=d=>{BODIES[d.id]=d;ORDER.push(d.id);return d;};
+let _uid=0;const uid=()=>`u${++_uid}`;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---- colour helpers ---- */
+const hex2rgb=h=>{h=h.replace('#','');if(h.length===3)h=[...h].map(c=>c+c).join('');const n=parseInt(h,16);return [n>>16&255,n>>8&255,n&255];};
+const rgb2hex=a=>'#'+a.map(v=>Math.round(clamp(v,0,255)).toString(16).padStart(2,'0')).join('');
+const mix=(a,b,t)=>{const A=hex2rgb(a),B=hex2rgb(b);return rgb2hex(A.map((v,i)=>v+(B[i]-v)*t));};
+const lum=h=>{const [r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;});return .2126*r+.7152*g+.0722*b;};
+const contrast=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+const hsl=(h,s,l)=>{h=((h%360)+360)%360;s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return rgb2hex([f(0)*255,f(8)*255,f(4)*255]);};
+const rgba=(hex,a)=>{const [r,g,b]=hex2rgb(hex);return `rgba(${r},${g},${b},${a})`;};
+
+/* ---- materials (素材): one knob that always yields a coherent, readable set ---- */
+const PALETTES={
+ washi:{name:'和紙',body:'#fbf6ec',light:'#fffdf9',shade:'#e8dcc7',ink:'#2b2722',cheek:'#ef9f86',limb:'#efe4d2',foot:'#e6d8c1'},
+ porcelain:{name:'陶器',body:'#f1f5f6',light:'#ffffff',shade:'#cdd8dc',ink:'#24303a',cheek:'#eaa8a2',limb:'#e3ecee',foot:'#cfdadd'},
+ felt:{name:'フェルト',body:'#e8dcc3',light:'#f4ead6',shade:'#cbb88f',ink:'#3a2e22',cheek:'#e39a7e',limb:'#dccdae',foot:'#c9b68c'},
+ moss:{name:'苔',body:'#a9ba8c',light:'#c6d4aa',shade:'#7c9066',ink:'#26331f',cheek:'#e6a58c',limb:'#9aae7c',foot:'#7c9066'},
+ sora:{name:'空',body:'#dde8f2',light:'#f0f6fb',shade:'#b4c6d8',ink:'#26364a',cheek:'#eaa7a0',limb:'#cfdeeb',foot:'#aebfd1'},
+ sakura:{name:'桜',body:'#f7e4e2',light:'#fff4f2',shade:'#e2bdb9',ink:'#3b2a2c',cheek:'#ee9a92',limb:'#f0d6d3',foot:'#dfb8b4'},
+ kitsune:{name:'狐色',body:'#e9cba2',light:'#f6e0c2',shade:'#cfa571',ink:'#3a2a1c',cheek:'#e08f6f',limb:'#dfba8c',foot:'#c79a62'},
+ sumi:{name:'墨',body:'#413c36',light:'#5d574f',shade:'#27231f',ink:'#f3ece0',cheek:'#b9735e',limb:'#38342f',foot:'#27231f',dark:true}
+};
+const customPalette=h=>({name:'好きな色',body:hsl(h,34,91),light:hsl(h,46,96),shade:hsl(h,26,79),ink:hsl(h,24,14),cheek:hsl(h+8,68,76),limb:hsl(h,30,88),foot:hsl(h,24,83)});
+/* The lamp is the character's identity colour. Amber is the colour of "waiting for you" and is never offered. */
+const LAMPS={
+ vermilion:{name:'朱',day:'#d4583a',night:'#ef7a58',glow:'239,122,88'},
+ indigo:{name:'藍',day:'#3b5ba5',night:'#8fa8ea',glow:'110,140,230'},
+ matcha:{name:'抹茶',day:'#5f8f4e',night:'#a5d18c',glow:'140,200,120'},
+ plum:{name:'梅紫',day:'#8a4a7d',night:'#d093c4',glow:'200,130,190'},
+ snow:{name:'雪',day:'#d9d0bd',night:'#fff6df',glow:'255,240,210'}
+};
+const themeOf=el=>el?.closest?.('[data-theme]')?.dataset.theme||document.documentElement.dataset.theme||'light';
+const themeNow=()=>themeOf(document.body);
+function resolvePalette(r,theme=themeNow()){
+ let p=r.palette==='custom'?customPalette(r.hue??30):PALETTES[r.palette]||PALETTES.washi;
+ if(theme!=='light'&&!p.dark){const k=c=>mix(c,'#cfc3ad',.22);p={...p,body:k(p.body),light:k(p.light),shade:k(p.shade),limb:k(p.limb),foot:k(p.foot)};}
+ return p;
+}
+function paletteVars(r,theme=themeNow()){
+ const p=resolvePalette(r,theme),L=LAMPS[r.lamp?.hue]||LAMPS.vermilion,lc=theme==='light'?L.day:L.night;
+ return {'--c-body':p.body,'--c-light':p.light,'--c-shade':p.shade,'--c-ink':p.ink,'--c-cheek':p.cheek,'--c-limb':p.limb,'--c-foot':p.foot,'--c-lamp':lc,'--c-lamp-rgb':L.glow};
+}
+
+/* ---- the recipe: everything a person can change, as plain enumerated values ---- */
+const defaultRecipe=(body='shiro')=>({
+ body,palette:BODIES[body]?.palette||'washi',hue:30,
+ lamp:{hue:'vermilion',shape:BODIES[body]?.lampShape||'bead'},
+ face:{eyes:BODIES[body]?.eyes||'capsule',cheeks:true,brows:true},
+ parts:{ears:'none',tail:'none'},
+ props:{season:'off',hobby:'none'},
+ slots:{},size:1,motion:'normal'
+});
+
+/* ---- the mood vocabulary (existing eight; each says what makes the app choose it) ---- */
+const MOODS=[
+ ['idle','いつも','何も起きていない'],
+ ['listening','聞いている','入力中・録音中'],
+ ['thinking','考え中','返事を待っている'],
+ ['talking','話している','返事の表示・読み上げ中'],
+ ['happy','うれしい','仕事が見直し待ちになった'],
+ ['attention','気づいて','あなたの番がある'],
+ ['concerned','心配','最近の失敗がある'],
+ ['sleepy','ねむい','夜の待機画面']
+];
+
+/* ---- shared drawing helpers ---- */
+const lampDefs=u=>`<radialGradient id="${u}-lg"><stop offset="0" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".6"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity="0"/></radialGradient>`;
+/** A small lamp at (x,y). k scales it. shape: bead, flame, bud or bulb. */
+function lampSVG(u,shape,x,y,k=1){
+ const glow=`<circle class="lamp-glow" cx="${x}" cy="${y}" r="${16*k}" fill="url(#${u}-lg)"/>`;
+ let body;
+ if(shape==='flame')body=`<path class="lamp-dot" d="M${x} ${y-12*k}C${x+7*k} ${y-4*k} ${x+7*k} ${y+7*k} ${x} ${y+8*k}C${x-7*k} ${y+7*k} ${x-7*k} ${y-4*k} ${x} ${y-12*k}Z"/><path d="M${x} ${y-4*k}C${x+3.2*k} ${y} ${x+3*k} ${y+4.5*k} ${x} ${y+5*k}C${x-3*k} ${y+4.5*k} ${x-3.2*k} ${y} ${x} ${y-4*k}Z" fill="#fff" opacity=".55"/>`;
+ else if(shape==='bud')body=`<ellipse class="lamp-dot" cx="${x}" cy="${y-1*k}" rx="${6*k}" ry="${8.4*k}"/><path d="M${x-5.5*k} ${y+4*k}Q${x} ${y+10*k} ${x+5.5*k} ${y+4*k}" fill="none" stroke="var(--c-ink)" stroke-opacity=".45" stroke-width="${2.2*k}" stroke-linecap="round"/><ellipse cx="${x-2*k}" cy="${y-4*k}" rx="${1.6*k}" ry="${2.6*k}" fill="#fff" opacity=".5"/>`;
+ else if(shape==='bulb')body=`<rect x="${x-3.4*k}" y="${y+5*k}" width="${6.8*k}" height="${4*k}" rx="1.2" fill="var(--c-ink)" opacity=".7"/><circle class="lamp-dot" cx="${x}" cy="${y}" r="${7.2*k}"/><circle cx="${x-2.2*k}" cy="${y-2.4*k}" r="${1.9*k}" fill="#fff" opacity=".55"/>`;
+ else body=`<circle class="lamp-dot" cx="${x}" cy="${y}" r="${7*k}"/><circle cx="${x-2.2*k}" cy="${y-2.4*k}" r="${1.9*k}" fill="#fff" opacity=".55"/>`;
+ return `<g class="lamp">${glow}${body}</g>`;
+}
+/** Effect marks near the face; shown only by the moods that use them. pos: {spark,sweat,z,dots} each [x,y]. */
+function fxSVG(pos={}){
+ const o=[];
+ if(pos.spark){const [x,y]=pos.spark;o.push(`<g class="fx fx-spark" transform="translate(${x} ${y})"><path class="sp sp1" d="M0 -9C1 -3 3 -1 9 0C3 1 1 3 0 9C-1 3 -3 1 -9 0C-3 -1 -1 -3 0 -9Z"/><path class="sp sp2" transform="translate(-20 14) scale(.55)" d="M0 -9C1 -3 3 -1 9 0C3 1 1 3 0 9C-1 3 -3 1 -9 0C-3 -1 -1 -3 0 -9Z"/><path class="sp sp3" transform="translate(16 20) scale(.4)" d="M0 -9C1 -3 3 -1 9 0C3 1 1 3 0 9C-1 3 -3 1 -9 0C-3 -1 -1 -3 0 -9Z"/></g>`);}
+ if(pos.sweat){const [x,y]=pos.sweat;o.push(`<path class="fx fx-sweat" transform="translate(${x} ${y})" d="M0 -9C4 -2 6 2 6 5A6 6 0 0 1 -6 5C-6 2 -4 -2 0 -9Z"/>`);}
+ if(pos.z){const [x,y]=pos.z;o.push(`<g class="fx fx-z"><text x="${x}" y="${y}">z</text><text x="${x+12}" y="${y-18}">z</text></g>`);}
+ if(pos.dots){const [x,y]=pos.dots;o.push(`<g class="fx fx-dots" transform="translate(${x} ${y})"><circle cx="0" cy="0" r="2.4"/><circle cx="9" cy="0" r="2.4"/><circle cx="18" cy="0" r="2.4"/></g>`);}
+ return o.join('');
+}
+
+
+/* ---- the standard face rig: eyes (open / happy / closed), cheeks, brows and the mouths, in local coords centred on (100,126) ---- */
+function eyesOpenSVG(style,g){
+ const xl=100-g,xr=100+g;
+ if(style==='dot')return `<circle cx="${xl}" cy="127" r="7.4"/><circle cx="${xr}" cy="127" r="7.4"/><circle class="catch" cx="${xl+2.4}" cy="124.4" r="2.3"/><circle class="catch" cx="${xr+2.4}" cy="124.4" r="2.3"/>`;
+ if(style==='big')return `<ellipse cx="${xl}" cy="126" rx="11" ry="13.5"/><ellipse cx="${xr}" cy="126" rx="11" ry="13.5"/><circle class="catch" cx="${xl+3.6}" cy="120.4" r="4.4"/><circle class="catch" cx="${xr+3.6}" cy="120.4" r="4.4"/><circle class="catch" cx="${xl-3.4}" cy="132.4" r="2"/><circle class="catch" cx="${xr-3.4}" cy="132.4" r="2"/>`;
+ if(style==='sleepy')return `<path d="M${xl-11} 124H${xl+11}A11 11 0 0 1 ${xl-11} 124Z"/><path d="M${xr-11} 124H${xr+11}A11 11 0 0 1 ${xr-11} 124Z"/>`;
+ return `<rect x="${xl-6}" y="113" width="12" height="26" rx="6"/><rect x="${xr-6}" y="113" width="12" height="26" rx="6"/><circle class="catch" cx="${xl+1.6}" cy="119.4" r="2.5"/><circle class="catch" cx="${xr+1.6}" cy="119.4" r="2.5"/><circle class="catch" cx="${xl-1.8}" cy="133" r="1.2"/><circle class="catch" cx="${xr-1.8}" cy="133" r="1.2"/>`;
+}
+function faceSVG(r,{g=24,c=44,mouth=true,my=0,browShort=false}={}){
+ const bh=browShort?4:10,brows=r.face?.brows?`<g class="brows"><path class="brow brow-l" d="M${100-g-bh} 105Q${100-g} 101 ${100-g+bh} 105"/><path class="brow brow-r" d="M${100+g-bh} 105Q${100+g} 101 ${100+g+bh} 105"/></g>`:'';
+ return `<g class="face">
+  ${r.face?.cheeks===false?'':`<ellipse class="cheek" cx="${100-c}" cy="144" rx="12" ry="6.5"/><ellipse class="cheek" cx="${100+c}" cy="144" rx="12" ry="6.5"/>`}
+  ${brows}
+  <g class="eyes"><g class="eo">${eyesOpenSVG(r.face?.eyes||'capsule',g)}</g>
+   <g class="eh"><path d="M${100-g-8} 130Q${100-g} 117 ${100-g+8} 130"/><path d="M${100+g-8} 130Q${100+g} 117 ${100+g+8} 130"/></g>
+   <g class="ec"><path d="M${100-g-8} 125Q${100-g} 132 ${100-g+8} 125"/><path d="M${100+g-8} 125Q${100+g} 132 ${100+g+8} 125"/></g></g>
+  ${mouth?`<g transform="translate(0 ${my})"><path class="smile" d="M92 146Q100 155 108 146"/><ellipse class="mouth" cx="100" cy="150" rx="7" ry="6"/><path class="mouth-w" d="M93 152q3.5-3 7 0t7 0"/><path class="mouth-s" d="M102 151q5.5-3.6 11-1"/></g>`:''}
+ </g>`;
+}
+
+const mirrorPath=d=>d.replace(/([MLCQSTZ])([^MLCQSTZ]*)/g,(m,c,a)=>{const n=a.trim().split(/[\s,]+/).filter(Boolean).map(Number);return c+n.map((v,i)=>i%2===0?(200-v):v).join(' ');});
+
+/* ---- accessories drawn on anchors (the same part fits every body that exposes the anchor) ---- */
+const SEASON_PROP=m=>m>=3&&m<=5?'petal':m>=6&&m<=8?'uchiwa':m>=9&&m<=11?'leaf':'scarf';
+function propsSVG(r,a,u){
+ if(!a)return '';
+ const out=[],sp=r.props?.season==='auto'?SEASON_PROP(new Date().getMonth()+1):r.props?.season;
+ const prop=name=>({
+  leaf:a.top&&`<g class="prop prop-leaf" transform="translate(${a.top[0]-a.headW*.2} ${a.top[1]+5}) rotate(-12)"><path d="M0 0C-10 -5 -14 -17 -8 -27C2 -21 8 -9 0 0Z" fill="#c8a15f"/><path d="M0 0L-6 -20" stroke="#9b7a3e" stroke-width="1.4" stroke-linecap="round" fill="none"/></g>`,
+  petal:a.top&&`<g class="prop prop-petal" transform="translate(${a.top[0]-a.headW*.18} ${a.top[1]+5}) rotate(-22)"><path d="M0 0C-8 -4 -10 -14 -3 -20C3 -14 7 -6 0 0Z" fill="#f2c4c4"/><path d="M0 0C4 -4 8 -10 3 -18" stroke="#e3a3a6" stroke-width="1" fill="none"/></g>`,
+  uchiwa:a.handR&&`<g class="prop prop-uchiwa" transform="translate(${a.handR[0]} ${a.handR[1]}) rotate(-18)"><rect x="-1.6" y="-4" width="3.2" height="20" rx="1.4" fill="#b78f5a"/><ellipse cx="0" cy="-17" rx="14" ry="15" fill="#f1ead8" stroke="#cdbf9d" stroke-width="1.2"/><path d="M-9 -22Q0 -14 9 -22M-10 -15Q0 -8 10 -15" fill="none" stroke="#b9ab88" stroke-width="1"/></g>`,
+  scarf:a.neck&&`<g class="prop prop-scarf"><path d="M${a.neck[0]-a.neck[2]} ${a.neck[1]}Q${a.neck[0]} ${a.neck[1]+13} ${a.neck[0]+a.neck[2]} ${a.neck[1]}L${a.neck[0]+a.neck[2]-2} ${a.neck[1]+11}Q${a.neck[0]} ${a.neck[1]+24} ${a.neck[0]-a.neck[2]+2} ${a.neck[1]+11}Z" fill="#a9b3bd"/><path d="M${a.neck[0]+a.neck[2]-14} ${a.neck[1]+10}l6 24 12 -3 -5 -22z" fill="#9aa5b0"/><path d="M${a.neck[0]-a.neck[2]+6} ${a.neck[1]+9}Q${a.neck[0]} ${a.neck[1]+19} ${a.neck[0]+a.neck[2]-6} ${a.neck[1]+9}" fill="none" stroke="#c9d1d8" stroke-width="2" stroke-dasharray="5 5"/></g>`,
+  headphones:a.top&&`<g class="prop prop-hp"><path d="M${a.top[0]-a.headW*.5} ${a.top[1]+a.headH*.42}C${a.top[0]-a.headW*.5} ${a.top[1]-6} ${a.top[0]+a.headW*.5} ${a.top[1]-6} ${a.top[0]+a.headW*.5} ${a.top[1]+a.headH*.42}" fill="none" stroke="#3a342d" stroke-width="5" stroke-linecap="round"/><rect x="${a.top[0]-a.headW*.5-6}" y="${a.top[1]+a.headH*.34}" width="12" height="22" rx="6" fill="#4a443c"/><rect x="${a.top[0]+a.headW*.5-6}" y="${a.top[1]+a.headH*.34}" width="12" height="22" rx="6" fill="#4a443c"/></g>`,
+  glasses:a.face&&`<g class="prop prop-glasses" transform="translate(${a.face[0]} ${a.face[1]})" fill="none" stroke="#3a342d" stroke-width="2.6"><rect x="${-a.eyeGap-13}" y="-14" width="26" height="28" rx="11" fill="rgba(255,255,255,.18)"/><rect x="${a.eyeGap-13}" y="-14" width="26" height="28" rx="11" fill="rgba(255,255,255,.18)"/><path d="M${-a.eyeGap+13} -3Q0 -9 ${a.eyeGap-13} -3"/></g>`,
+  cup:a.handR&&`<g class="prop prop-cup" transform="translate(${a.handR[0]-4} ${a.handR[1]-2})"><path class="steam" d="M-3 -16Q-7 -22 -3 -28M4 -16Q0 -22 4 -28" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/><path d="M-10 -10h20l-2.6 17a4 4 0 0 1-4 3.4h-6.8a4 4 0 0 1-4-3.4z" fill="#f4f0e6" stroke="#cbbf9f" stroke-width="1.2"/><path d="M10 -6c6 0 6 9 -1 9" fill="none" stroke="#cbbf9f" stroke-width="1.6"/></g>`
+ }[name]||'');
+ if(sp&&sp!=='off')out.push(prop(sp));
+ if(r.props?.hobby&&r.props.hobby!=='none')out.push(prop(r.props.hobby));
+ return out.join('');
+}
+
+/* ---- mounting and the small amount of life every body shares ---- */
+const state={reduced:false,pointer:null};
+function applyVars(svg,r){const v=paletteVars(r,themeOf(svg));for(const k in v)svg.style.setProperty(k,v[k]);svg.style.setProperty('--size',String(r.size||1));}
+function mount(host,recipe,{mood='idle',follow=false,life=true}={}){
+ const def=BODIES[recipe.body];if(!def)throw new Error('unknown body '+recipe.body);
+ host.classList.add('cx-host');host.innerHTML=def.svg(recipe,uid());
+ const svg=host.firstElementChild;svg.classList.add('cx',`cx-${def.id}`);svg.dataset.mood=mood;applyVars(svg,recipe);
+ if(recipe.motion==='calm')svg.classList.add('m-calm');if(recipe.motion==='lively')svg.classList.add('m-lively');
+ const h={host,svg,def,recipe,mood,follow,timers:[],ext:null,dead:false};ALL.add(h);
+ const later=(fn,ms)=>{const t=setTimeout(()=>{if(!h.dead)fn();},ms);h.timers.push(t);};
+ const look=(x,y)=>{svg.style.setProperty('--look-x',`${(x*5).toFixed(2)}px`);svg.style.setProperty('--look-y',`${(y*3.5).toFixed(2)}px`);svg.style.setProperty('--lk-x',(x).toFixed(3));svg.style.setProperty('--lk-y',(y).toFixed(3));h.ext?.look?.(x,y);};
+ h.look=look;
+ if(life){
+  const blink=()=>{if(h.dead)return;if(h.mood!=='sleepy'&&h.mood!=='happy'&&!state.reduced){svg.classList.add('is-blinking');later(()=>svg.classList.remove('is-blinking'),130);if(Math.random()<.18)later(()=>{svg.classList.add('is-blinking');later(()=>svg.classList.remove('is-blinking'),120);},260);}later(blink,2200+Math.random()*4200);};
+  later(blink,900+Math.random()*1200);
+  const glance=()=>{if(h.dead)return;if(h.mood==='idle'&&!h.pointerHeld&&!state.reduced)look((Math.random()*2-1)*.7,(Math.random()*2-1)*.4);later(glance,5000+Math.random()*7000);};
+  later(glance,3000+Math.random()*3000);
+ }
+ h.setMood=m=>{h.mood=m;svg.dataset.mood=m;if(m==='sleepy')look(0,.6);else if(m!=='idle')look(0,0);h.ext?.setMood?.(m);};
+ h.setLevel=v=>{svg.style.setProperty('--mouth',String(.35+clamp(v,0,1)*.75));h.ext?.setLevel?.(v);};
+ h.act=(name,ms=2600)=>{if(h.dead||state.reduced)return;svg.classList.add('act-'+name);later(()=>svg.classList.remove('act-'+name),ms);};
+ h.destroy=()=>{h.dead=true;h.timers.forEach(clearTimeout);h.ext?.destroy?.();LIVE.delete(h);ALL.delete(h);};
+ h.ext=def.init?.(svg,h)||null;
+ if(follow)LIVE.add(h);
+ h.setMood(mood);
+ return h;
+}
+addEventListener('pointermove',e=>{
+ state.pointer=[e.clientX,e.clientY];
+ for(const h of LIVE){if(h.dead||state.reduced)continue;const r=h.host.getBoundingClientRect();if(!r.width)continue;
+  const x=(e.clientX-(r.left+r.width/2))/Math.max(260,innerWidth/2),y=(e.clientY-(r.top+r.height*.45))/Math.max(220,innerHeight/2);
+  h.pointerHeld=true;clearTimeout(h.pTimer);h.pTimer=setTimeout(()=>{h.pointerHeld=false;},4000);
+  h.look(clamp(x,-1,1),clamp(y,-1,1));}
+},{passive:true});
+/** Re-apply colours when the page theme changes. */
+function refreshThemes(){for(const h of ALL)if(!h.dead)applyVars(h.svg,h.recipe);}
+
+/* ===== data: 七十二候, window light (copied from the real pure modules), tone packs, the pose vector ===== */
+
+/* ---- 七十二候 (web/seasons.mjs) ---- */
+const SEASON_ROWS=[
+ [1,1,'冬至','雪下りて麦のびる'],[1,5,'小寒','芹乃ち栄う'],[1,10,'小寒','水泉動く'],[1,15,'小寒','雉始めて雊く'],[1,20,'大寒','款冬華さく'],[1,25,'大寒','水沢腹く堅し'],[1,30,'大寒','鶏始めて乳す'],
+ [2,4,'立春','東風凍を解く'],[2,9,'立春','鶯鳴く'],[2,14,'立春','魚氷を上る'],[2,19,'雨水','土脉潤い起こる'],[2,24,'雨水','霞始めて靆く'],[3,1,'雨水','草木萌え動る'],
+ [3,6,'啓蟄','蟄虫戸を啓く'],[3,11,'啓蟄','桃始めて笑う'],[3,16,'啓蟄','菜虫蝶と化る'],[3,21,'春分','雀始めて巣くう'],[3,26,'春分','桜始めて開く'],[3,31,'春分','雷乃ち声を発す'],
+ [4,5,'清明','玄鳥至る'],[4,10,'清明','鴻雁北る'],[4,15,'清明','虹始めて見る'],[4,20,'穀雨','葭始めて生ず'],[4,25,'穀雨','霜止んで苗出ず'],[4,30,'穀雨','牡丹華さく'],
+ [5,5,'立夏','蛙始めて鳴く'],[5,10,'立夏','蚯蚓出ずる'],[5,15,'立夏','竹笋生ず'],[5,21,'小満','蚕起きて桑を食む'],[5,26,'小満','紅花栄う'],[5,31,'小満','麦秋至る'],
+ [6,6,'芒種','螳螂生ず'],[6,11,'芒種','腐草蛍と為る'],[6,16,'芒種','梅子黄なり'],[6,21,'夏至','乃東枯る'],[6,26,'夏至','菖蒲華さく'],[7,1,'夏至','半夏生ず'],
+ [7,7,'小暑','温風至る'],[7,12,'小暑','蓮始めて開く'],[7,17,'小暑','鷹乃ち学を習う'],[7,23,'大暑','桐始めて花を結ぶ'],[7,28,'大暑','土潤いて溽し暑し'],[8,2,'大暑','大雨時々行る'],
+ [8,7,'立秋','涼風至る'],[8,12,'立秋','寒蝉鳴く'],[8,17,'立秋','蒙霧升降す'],[8,23,'処暑','綿柎開く'],[8,28,'処暑','天地始めて粛し'],[9,2,'処暑','禾乃ち登る'],
+ [9,8,'白露','草露白し'],[9,13,'白露','鶺鴒鳴く'],[9,18,'白露','玄鳥去る'],[9,23,'秋分','雷乃ち声を収む'],[9,28,'秋分','蟄虫戸を坯す'],[10,3,'秋分','水始めて涸る'],
+ [10,8,'寒露','鴻雁来る'],[10,13,'寒露','菊花開く'],[10,18,'寒露','蟋蟀戸に在り'],[10,23,'霜降','霜始めて降る'],[10,28,'霜降','霎時施す'],[11,2,'霜降','楓蔦黄ばむ'],
+ [11,7,'立冬','山茶始めて開く'],[11,12,'立冬','地始めて凍る'],[11,17,'立冬','金盞香し'],[11,22,'小雪','虹蔵れて見えず'],[11,27,'小雪','朔風葉を払う'],[12,2,'小雪','橘始めて黄なり'],
+ [12,7,'大雪','閉塞く冬と成る'],[12,12,'大雪','熊穴に蟄る'],[12,17,'大雪','鱖魚群がる'],[12,22,'冬至','乃東生ず'],[12,27,'冬至','麋角解つる']
+];
+function seasonLine(date=new Date()){const key=(date.getMonth()+1)*100+date.getDate();let i=0;for(let k=0;k<SEASON_ROWS.length;k++){if(SEASON_ROWS[k][0]*100+SEASON_ROWS[k][1]<=key)i=k;else break;}return `${SEASON_ROWS[i][2]} ・ ${SEASON_ROWS[i][3]}`;}
+
+/* ---- window light (web/daylight.mjs, pure) ---- */
+const dayClamp=clamp,dayLerp=(a,b,t)=>a+(b-a)*t,dayMix=(a,b,t)=>a.map((v,i)=>Math.round(dayLerp(v,b[i],t)));
+const SKY={clear:{sun:1,blur:[5,9],lines:[.1,.16],lamp:0},partly:{sun:.8,blur:[8,12],lines:[.09,.13],lamp:.04},cloud:{sun:.4,blur:[24,24],lines:[.03,.03],lamp:.08},fog:{sun:.3,blur:[30,30],lines:[.02,.02],lamp:.12},snow:{sun:.45,blur:[26,26],lines:[.02,.02],lamp:.1},rain:{sun:0,blur:[24,24],lines:[0,0],lamp:.22}};
+const SKY_TINT={rain:'rgba(118,140,165,.09)',cloud:'rgba(140,140,140,.05)',fog:'rgba(170,170,170,.07)',snow:'rgba(200,220,245,.07)'};
+const WEATHER_CODE={clear:0,partly:2,cloud:3,rain:61,snow:71};
+const WEATHER_LABEL={clear:'晴れ',partly:'晴れ時々くもり',cloud:'くもり',rain:'雨',snow:'雪'};
+function daylight(hour,sky){
+ const rise=6,set=18,k=SKY[sky],t=dayClamp((hour-rise)/(set-rise),0,1),edge=Math.abs(t-.5)*2;
+ const day=dayClamp(Math.min((hour-(rise-.3))/1.3,(set+.6-hour)/1.3),0,1);
+ const color=t<.5?dayMix([255,248,234],[255,253,247],t*2):dayMix([255,253,247],[255,236,206],(t-.5)*2);
+ const dusk=hour<rise-.5?1:dayClamp((hour-(set-.8))/2.4,0,1);
+ let tint=SKY_TINT[sky]||'transparent';
+ if(sky==='clear'||sky==='partly')tint=hour<rise+2?'rgba(190,214,255,.05)':hour>set-2&&hour<set+1.5?'rgba(255,170,100,.06)':'transparent';
+ const sun={x:dayLerp(-16,62,t),skew:dayLerp(-26,22,t),opacity:day*k.sun,blur:dayLerp(k.blur[0],k.blur[1],edge),lines:dayLerp(k.lines[0],k.lines[1],edge),color},lamp={pool:dayClamp(dusk*.5+k.lamp,0,.7),halo:dayClamp(dusk*.55+k.lamp*1.2,0,.6)};
+ return {sun,lamp,tint,night:hour>=set+2||hour<rise,dusk};
+}
+function daylightVars(d){const c=d.sun.color;return {'--sun-x':d.sun.x.toFixed(1),'--sun-skew':d.sun.skew.toFixed(1),'--sun-o':d.sun.opacity.toFixed(2),'--sun-blur':d.sun.blur.toFixed(1),'--sun-lines':d.sun.lines.toFixed(3),'--sun-color':`rgba(${c[0]},${c[1]},${c[2]},.96)`,'--pool-o':d.lamp.pool.toFixed(2),'--halo-o':d.lamp.halo.toFixed(2),'--sky-tint':d.tint};}
+const SUN_LEAN=h=>{const t=clamp((h-6)/12,0,1);return (-1+t*2)*-7;}; // plants lean toward where the sun is: left in the morning, right in the afternoon
+
+/* ---- the pose vector: what the app asks of any body (0..1 unless noted) ---- */
+const POSE={
+ idle:     {energy:.35,valence:.1,alert:.2,focus:0,lamp:.25,near:.45,speech:0},
+ listening:{energy:.55,valence:.2,alert:.7,focus:.8,lamp:.55,near:1,speech:0},
+ thinking: {energy:.4,valence:0,alert:.5,focus:.9,lamp:.65,near:.5,speech:0},
+ talking:  {energy:.6,valence:.3,alert:.5,focus:.6,lamp:.5,near:.85,speech:.6},
+ happy:    {energy:.9,valence:1,alert:.6,focus:.2,lamp:.78,near:.9,speech:0},
+ attention:{energy:.6,valence:0,alert:.9,focus:.5,lamp:.5,near:.8,speech:0},
+ concerned:{energy:.3,valence:-.8,alert:.6,focus:.4,lamp:.1,near:.35,speech:0},
+ sleepy:   {energy:.05,valence:.1,alert:0,focus:0,lamp:.04,near:0,speech:0}
+};
+const POSE_LABEL={energy:'元気さ',valence:'気分(−嬉しい)',alert:'気づき',focus:'集中',lamp:'灯りの強さ',near:'近さ',speech:'話す量'};
+
+/* ---- tone packs (口調): the fixed lines the screen speaks, in a voice the person chose ---- */
+const TONES={
+ polite:{name:'ていねい',note:'いまの標準',suffix:'さん',
+  line:{morning:'おはようございます。よく眠れましたか。',day:'こんにちは。ひと息ついていきませんか。',evening:'おつかれさまです。今日はどんな一日でしたか。',night:'夜遅くまでおつかれさまです。そろそろ休みませんか。',rain:'外は雨です。出かけるなら傘を。',back:'おかえりなさい。確認がひとつ、お待ちです。',waiting:'確認していただきたいことが、ひとつあります。',done:'お待たせしました。まとめが終わりました。',failed:'うまくいかなかった仕事があります。見ていただけますか。',bed:'おやすみなさい。'},
+  persona:'です・ます調で、落ち着いて親しみやすく話す。返事は1〜3文で短く。仕事はワーカーへ渡し、会話を続けられるようにする。'},
+ soft:{name:'やわらか',note:'やさしく寄りそう',suffix:'さん',
+  line:{morning:'おはようございます。今日もゆっくり始めましょうね。',day:'こんにちは。お茶でもいかがですか。',evening:'おつかれさま。今日もよくがんばりましたね。',night:'遅くまでおつかれさま。そろそろ休みましょうか。',rain:'雨が降っていますよ。傘をお忘れなく。',back:'おかえりなさい。ひとつだけ、見てほしいことがあります。',waiting:'ひとつ、見てほしいことがあります。急ぎではありませんよ。',done:'できましたよ。ゆっくり見てくださいね。',failed:'うまくいかなかったところがあります。一緒に見ましょう。',bed:'おやすみなさい。いい夢を。'},
+  persona:'やさしい言葉で、急かさずに話す。相手の気持ちに寄りそってから要点を伝える。返事は短めに。仕事はワーカーへ渡し、会話を続けられるようにする。'},
+ casual:{name:'くだけた',note:'友だちのように',suffix:'',
+  line:{morning:'おはよ。よく寝れた？',day:'やあ。ちょっと休憩しない？',evening:'おつかれ！今日はどうだった？',night:'まだ起きてたんだ。そろそろ寝ようよ。',rain:'外、雨だよ。傘持っていってね。',back:'おかえり！ひとつ、見てほしいのがあるよ。',waiting:'ねえ、ひとつ確認してほしいことがあるんだ。',done:'できたよ！見てみて。',failed:'ごめん、うまくいかなかったのがあるみたい。',bed:'おやすみ！'},
+  persona:'友だちのように、くだけた話し方をする。短く、あたたかく。大事な確認は、ふざけずにはっきり伝える。仕事はワーカーへ渡し、会話を続けられるようにする。'},
+ terse:{name:'ひとこと',note:'必要なことだけ',suffix:'さん',
+  line:{morning:'おはようございます。',day:'こんにちは。',evening:'おつかれさまです。',night:'遅い時間です。',rain:'雨です。',back:'確認がひとつあります。',waiting:'確認待ちが、ひとつ。',done:'完了しました。',failed:'失敗した仕事があります。',bed:'おやすみなさい。'},
+  persona:'必要なことだけを、一文で伝える。挨拶や感想は添えない。確認が必要なときははっきり言う。仕事はワーカーへ渡し、会話を続けられるようにする。'},
+ night:{name:'しっとり',note:'静かな夜の声',suffix:'さん',
+  line:{morning:'朝ですね。窓の光がやわらかいです。',day:'ひとやすみの時間かもしれません。',evening:'灯りをともしましょうか。',night:'静かな夜ですね。そろそろ灯りを落としましょう。',rain:'雨の音がしますね。しずかな一日になりそうです。',back:'おかえりなさい。ひとつ、待っていたことがあります。',waiting:'お手すきのときに、見ていただきたいことがひとつ。',done:'ひとつ、仕上がりました。',failed:'うまく進まなかったものがあります。あとでご覧ください。',bed:'おやすみなさい。灯りはそのままに。'},
+  persona:'静かで落ち着いた、少し詩的な話し方をする。急がせず、言葉を選ぶ。確認が必要なときははっきり伝える。仕事はワーカーへ渡し、会話を続けられるようにする。'}
+};
+const PROACTIVE={
+ quiet:{name:'静か',text:'確認が必要なことと、仕事の結果だけ話します。天気や休憩の声かけはしません。'},
+ normal:{name:'ふつう',text:'雨・暑さ・寒さなど、行動が変わる日だけ一言添えます。（いまの動き）'},
+ chatty:{name:'おしゃべり',text:'時間帯の挨拶・休憩の提案・季節の話題も添えます。'}
+};
+const callPrefix=(tone,name)=>name?`${name}${TONES[tone].suffix}、`:'';
+const MOOD_LINE={idle:'day',talking:null,thinking:null,listening:null,happy:'done',attention:'waiting',concerned:'failed',sleepy:'bed'};
+function captionFor(mood,tone,name,hour,proactive='normal'){
+ const T=TONES[tone].line,part=hour<5?'night':hour<10?'morning':hour<17?'day':hour<22?'evening':'night';
+ const key=mood==='idle'?part:MOOD_LINE[mood];
+ if(mood==='talking')return {text:'今日は午後から雨になりそうです。出かけるなら、傘があると安心ですよ。',reply:true};
+ if(!key)return {text:''};
+ if(proactive==='quiet'&&!['back','waiting','done','failed'].includes(key))return {text:''};
+ let text=callPrefix(tone,name)+T[key];
+ if(proactive==='chatty'&&mood==='idle'&&typeof SEASON_CHAT!=='undefined'){const kou=seasonLine(new Date()).split(' ・ ')[1];text+=SEASON_CHAT[tone](kou);}
+ return {text};
+}
+
+/* ===== 現行: the shipped drawing, unchanged (web/character.mjs), as the baseline ===== */
+defineBody({
+ id:'legacy',name:'いま（現行）',kana:'baseline',tag:'比較用の基準',
+ pitch:'いま出荷されている「しろ」をそのまま再現した基準です。ほかの案はこれと見比べてください。',
+ svg(r,u){return `<svg class="tc tc-orb" viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs><linearGradient id="${u}-shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--tc-light)"/><stop offset=".62" stop-color="var(--tc-body)"/><stop offset="1" stop-color="var(--tc-shade)"/></linearGradient>
+ <radialGradient id="${u}-glow"><stop offset="0" stop-color="var(--tc-dot)" stop-opacity=".55"/><stop offset="1" stop-color="var(--tc-dot)" stop-opacity="0"/></radialGradient></defs>
+ <ellipse class="tc-floor" cx="100" cy="212" rx="54" ry="7"/>
+ <g class="tc-pose"><g class="tc-breath">
+  <g class="tc-antenna"><path class="tc-stem" d="M100 46 C99 34 102 25 108 18"/><circle class="tc-glow" cx="108" cy="15" r="15" fill="url(#${u}-glow)"/><circle class="tc-dot" cx="108" cy="15" r="7"/></g>
+  <ellipse class="tc-foot" cx="80" cy="203" rx="15" ry="7.5"/><ellipse class="tc-foot" cx="120" cy="203" rx="15" ry="7.5"/>
+  <g class="tc-arm tc-arm-left"><ellipse cx="29" cy="142" rx="10" ry="15" transform="rotate(18 29 142)"/></g>
+  <g class="tc-arm tc-arm-right"><ellipse cx="171" cy="142" rx="10" ry="15" transform="rotate(-18 171 142)"/></g>
+  <path class="tc-shell" fill="url(#${u}-shade)" d="M100 44C150 44 177 84 177 132C177 177 147 204 100 204C53 204 23 177 23 132C23 84 50 44 100 44Z"/>
+  <path class="tc-rim" d="M60 70C70 58 84 52 100 51"/>
+  <g class="tc-face">
+   <ellipse class="tc-cheek" cx="61" cy="140" rx="12" ry="6.5"/><ellipse class="tc-cheek" cx="139" cy="140" rx="12" ry="6.5"/>
+   <g class="tc-eyes">
+    <g class="tc-eye-open"><rect x="72" y="104" width="12" height="25" rx="6"/><rect x="116" y="104" width="12" height="25" rx="6"/><circle class="tc-spark" cx="80.5" cy="110" r="2.2"/><circle class="tc-spark" cx="124.5" cy="110" r="2.2"/></g>
+    <g class="tc-eye-happy"><path d="M70 120 Q78 108 86 120"/><path d="M114 120 Q122 108 130 120"/></g>
+    <g class="tc-eye-closed"><path d="M70 117 Q78 124 86 117"/><path d="M114 117 Q122 124 130 117"/></g>
+   </g>
+   <path class="tc-smile" d="M92 143 Q100 150 108 143"/>
+   <ellipse class="tc-mouth" cx="100" cy="146" rx="7" ry="6"/>
+  </g>
+ </g></g>
+ <g class="tc-zzz"><text x="150" y="58">z</text><text x="162" y="40">z</text></g>
+</svg>`;},
+ init(svg,h){return {look(){}};}
+});
+
+/* ===== A. しろ・改: the cream figure, refined (lit by the room, rounder hands, lids and brows, a real lamp) ===== */
+(()=>{
+const SHAPES={
+ egg:{d:'M100 48C142 48 170 80 175 122C180 170 150 206 100 206C50 206 20 170 25 122C30 80 58 48 100 48Z',top:48,faceY:126,gap:24,cheek:44,arm:[27,152],neckY:168,neckW:62,headW:126,rim:'M46 98C50 72 68 56 94 52'},
+ mochi:{d:'M100 68C150 68 184 98 186 142C188 184 150 206 100 206C50 206 12 184 14 142C16 98 50 68 100 68Z',top:68,faceY:142,gap:28,cheek:55,arm:[19,160],neckY:174,neckW:72,headW:146,rim:'M32 116C36 94 60 76 92 72'},
+ tall:{d:'M100 36C136 36 160 68 164 110C168 162 142 206 100 206C58 206 32 162 36 110C40 68 64 36 100 36Z',top:36,faceY:110,gap:21,cheek:37,arm:[35,142],neckY:152,neckW:50,headW:104,rim:'M50 86C54 60 74 42 96 39'}
+};
+const shoulder=(side,S)=>{const [ax,ay]=S.arm;const x=side<0?ax+9:200-ax-9,y=ay-24;return [x,y];};
+const limb=(side,S)=>{const [ax,ay]=S.arm,[sx,sy]=shoulder(side,S),hx=side<0?ax:200-ax,mx=(sx+hx)/2,my=(sy+ay)/2,ang=Math.atan2(hx-sx,ay-sy)*180/Math.PI;
+ return `<g class="arm arm-${side<0?'l':'r'}" style="--ox:${sx}px;--oy:${sy}px"><ellipse class="limb" cx="${mx}" cy="${my}" rx="8.6" ry="${Math.hypot(hx-sx,ay-sy)/2+9}" transform="rotate(${-ang} ${mx} ${my})"/></g>`;};
+const arm=(side,S)=>{const [ax,ay]=S.arm,[sx,sy]=shoulder(side,S),hx=side<0?ax:200-ax;
+ return `<g class="arm arm-${side<0?'l':'r'}" style="--ox:${sx}px;--oy:${sy}px"><ellipse class="mitt" cx="${hx}" cy="${ay}" rx="10.5" ry="12.5"/><ellipse cx="${hx-3}" cy="${ay-5}" rx="3.6" ry="2.6" fill="#fff" opacity=".5"/></g>`;};
+const ears=(kind,S,u)=>{
+ const T=S.top,L=100-S.headW*.36,R=100+S.headW*.36;
+ if(kind==='cat')return `<g class="ear ear-l" style="--ox:${L+8}px;--oy:${T+30}px"><path d="M${L-14} ${T+34}L${L-8} ${T-10}Q${L-6} ${T-15} ${L-1} ${T-11}L${L+30} ${T+10}Z" fill="var(--c-body)"/><path d="M${L-6} ${T+22}L${L-3} ${T+2}L${L+14} ${T+13}Z" fill="var(--c-cheek)" opacity=".5"/></g><g class="ear ear-r" style="--ox:${R-8}px;--oy:${T+30}px"><path d="M${R+14} ${T+34}L${R+8} ${T-10}Q${R+6} ${T-15} ${R+1} ${T-11}L${R-30} ${T+10}Z" fill="var(--c-body)"/><path d="M${R+6} ${T+22}L${R+3} ${T+2}L${R-14} ${T+13}Z" fill="var(--c-cheek)" opacity=".5"/></g>`;
+ if(kind==='bear')return `<g class="ear ear-l" style="--ox:${L}px;--oy:${T+26}px"><circle cx="${L-4}" cy="${T+16}" r="16" fill="var(--c-body)"/><circle cx="${L-4}" cy="${T+17}" r="8.5" fill="var(--c-shade)" opacity=".7"/></g><g class="ear ear-r" style="--ox:${R}px;--oy:${T+26}px"><circle cx="${R+4}" cy="${T+16}" r="16" fill="var(--c-body)"/><circle cx="${R+4}" cy="${T+17}" r="8.5" fill="var(--c-shade)" opacity=".7"/></g>`;
+ if(kind==='rabbit')return `<g class="ear ear-l" style="--ox:${L+12}px;--oy:${T+16}px"><ellipse cx="${L+10}" cy="${T-14}" rx="11.5" ry="31" transform="rotate(-9 ${L+10} ${T-14})" fill="var(--c-body)"/><ellipse cx="${L+10}" cy="${T-12}" rx="5.4" ry="23" transform="rotate(-9 ${L+10} ${T-12})" fill="var(--c-cheek)" opacity=".42"/></g><g class="ear ear-r" style="--ox:${R-12}px;--oy:${T+16}px"><ellipse cx="${R-10}" cy="${T-14}" rx="11.5" ry="31" transform="rotate(9 ${R-10} ${T-14})" fill="var(--c-body)"/><ellipse cx="${R-10}" cy="${T-12}" rx="5.4" ry="23" transform="rotate(9 ${R-10} ${T-12})" fill="var(--c-cheek)" opacity=".42"/></g>`;
+ return '';
+};
+window.SHIRO_SHAPES=SHAPES;
+defineBody({
+ id:'shiro',name:'しろ・改',kana:'Shiro, refined',tag:'磨く',
+ pitch:'いまの姿を捨てずに、重心・光・表情・灯りを作り直す案。部屋の窓の光を受けて陰影が動き、夜は行灯の光に染まります。',
+ traits:['やさしい','安心','変化は小さく'],
+ slots:[
+  {key:'shape',label:'からだ',opts:[['egg','たまご'],['mochi','もち'],['tall','のっぽ']]},
+  {key:'eyes',label:'目',face:true,opts:[['capsule','たて長'],['dot','点'],['big','大きい'],['sleepy','ねむたげ']]}
+ ],
+ svg(r,u){
+  const S=SHAPES[r.slots?.shape]||SHAPES.egg,eyes=r.face?.eyes||'capsule',g=S.gap,ax=100,ay=S.top+2,[armX,armY]=S.arm,lampShape=r.lamp?.shape||'bead';
+  const A={top:[100,S.top+2],headW:S.headW,headH:92,face:[100,S.faceY],eyeGap:g,handR:[200-armX+2,armY+2],neck:[100,S.neckY,S.neckW]};
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>
+  <linearGradient id="${u}-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".6" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></linearGradient>
+  <linearGradient id="${u}-e" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".0"/><stop offset=".62" stop-color="var(--c-shade)" stop-opacity="0"/><stop offset="1" stop-color="var(--c-shade)" stop-opacity=".55"/></linearGradient>
+  <radialGradient id="${u}-ao" cx=".5" cy="1" r=".62"><stop offset="0" stop-color="var(--c-shade)" stop-opacity=".85"/><stop offset="1" stop-color="var(--c-shade)" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${u}-hl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <clipPath id="${u}-c"><path d="${S.d}"/></clipPath>${lampDefs(u)}
+ </defs>
+ <ellipse class="floor" cx="100" cy="212" rx="${S.headW*.46}" ry="7"/>
+ <g class="pose"><g class="breath">
+  <g class="antenna" style="--ox:${ax}px;--oy:${ay}px"><g class="sway" style="--ox:${ax}px;--oy:${ay}px">
+   <path class="stem" d="M${ax} ${ay}C${ax-1} ${ay-14} ${ax+4} ${ay-24} ${ax+13} ${ay-31}"/>${lampSVG(u,lampShape,ax+13,ay-33,1.05)}
+  </g></g>
+  ${ears(r.parts?.ears,S,u)}
+  <ellipse class="foot" cx="78" cy="205" rx="15.5" ry="7.5"/><ellipse class="foot" cx="122" cy="205" rx="15.5" ry="7.5"/>
+  ${limb(-1,S)}${limb(1,S)}
+  <path class="shell" fill="url(#${u}-b)" d="${S.d}"/>
+  <g clip-path="url(#${u}-c)"><rect x="0" y="0" width="200" height="224" fill="url(#${u}-e)"/><ellipse cx="100" cy="212" rx="96" ry="64" fill="url(#${u}-ao)" opacity=".7"/><ellipse class="hl" cx="${S.rim?70:70}" cy="${S.top+38}" rx="34" ry="22" transform="rotate(-26 70 ${S.top+38})" fill="url(#${u}-hl)"/></g>
+  <path class="rim" d="${S.rim}"/>
+  ${arm(-1,S)}${arm(1,S)}
+  <g transform="translate(0 ${S.faceY-126})">${faceSVG(r,{g,c:S.cheek})}</g>
+  ${propsSVG(r,A,u)}
+ </g></g>
+ ${fxSVG({spark:[S.headW>130?160:150,S.top+10],sweat:[146,S.faceY-24],z:[148,S.top+14],dots:[146,S.top+4]})}
+</svg>`;
+ },
+ init(svg,h){return {};}
+});
+})();
+
+/* ===== B. 灯守 (andon-mori): a paper lantern that lives in the room. The face is ink on paper; at night it lights from inside;
+ * while it thinks, silhouettes revolve inside it like a 走馬灯. ===== */
+(()=>{
+const SOMA={
+ leaf:{name:'紅葉',d:'M0 -12L3 -6L9.5 -8.5L6.5 -1L12.5 1L5.5 5.5L7.5 11.5L0 8L-7.5 11.5L-5.5 5.5L-12.5 1L-6.5 -1L-9.5 -8.5L-3 -6Z M0 8L0 15',stroke:true},
+ fish:{name:'金魚',d:'M-13 0C-7 -8 6 -8 10 0C6 8 -7 8 -13 0Z M9 0L19 -8L16 0L19 8Z M-8 -1.2a1.4 1.4 0 1 0 .01 0'},
+ bird:{name:'燕',d:'M-15 -4C-7 -2 -2.5 2 0 7C2.5 2 7 -2 15 -4C7 -9 2.5 -5 0 1C-2.5 -5 -7 -9 -15 -4Z'},
+ snow:{name:'雪',d:'M0 -11L0 11M-9.5 -5.5L9.5 5.5M-9.5 5.5L9.5 -5.5M-3 -9.5L0 -7L3 -9.5M-3 9.5L0 7L3 9.5',stroke:true,line:true},
+ moon:{name:'月と星',d:'M-4 -11A11 11 0 1 0 8 7A9 9 0 0 1 -4 -11Z M11 -9L12.4 -5.6L16 -5.2L13.3 -2.9L14.1 .7L11 -1.1L7.9 .7L8.7 -2.9L6 -5.2L9.6 -5.6Z'}
+};
+const seasonSoma=()=>{const m=new Date().getMonth()+1;return m>=3&&m<=5?'bird':m>=6&&m<=8?'fish':m>=9&&m<=11?'leaf':'snow';};
+const SHAPES={
+ round:{d:'M64 58C40 76 30 104 32 128C34 158 48 182 68 190L132 190C152 182 166 158 168 128C170 104 160 76 136 58Z',capW:80,top:58,bot:190,face:124,half:68},
+ drum:{d:'M60 58C46 70 42 90 42 124C42 160 46 178 60 190L140 190C154 178 158 160 158 124C158 90 154 70 140 58Z',capW:84,top:58,bot:190,face:124,half:58},
+ gourd:{d:'M72 58C56 62 56 84 68 96C46 108 34 130 38 156C42 178 60 190 78 190L122 190C140 190 158 178 162 156C166 130 154 108 132 96C144 84 144 62 128 58Z',capW:60,top:58,bot:190,face:136,half:62}
+};
+const ribs=(S,u)=>{
+ const o=[];
+ for(const t of [-.8,-.4,0,.4,.8]){const x0=100+t*(S.capW/2-4),x1=100+t*(S.half-2),x2=100+t*(S.capW/2-6);
+  o.push(`<path d="M${x0} ${S.top}C${100+t*(S.half-3)} ${S.top+28} ${100+t*(S.half+1)} ${S.bot-30} ${x2} ${S.bot}"/>`);}
+ return `<g class="ribs" clip-path="url(#${u}-c)">${o.join('')}<path d="M30 ${S.top+22}Q100 ${S.top+34} 170 ${S.top+22}M30 ${S.bot-20}Q100 ${S.bot-8} 170 ${S.bot-20}"/></g>`;
+};
+defineBody({
+ id:'andon',name:'灯守',kana:'Andon-mori',tag:'灯りそのもの',
+ pitch:'キャラクター自身が部屋の灯りになる案。和紙の行灯のからだに、顔は紙に写った墨。夜はからだの中から灯り、考え中は走馬灯のように影が回ります。',
+ traits:['灯り','和','夜が似合う'],
+ slots:[
+  {key:'shape',label:'行灯のかたち',opts:[['round','まる'],['drum','つつ'],['gourd','ひょうたん']]},
+  {key:'soma',label:'走馬灯の影',opts:[['auto','季節にまかせる'],['leaf','紅葉'],['fish','金魚'],['bird','燕'],['snow','雪'],['moon','月と星']]},
+  {key:'eyes',label:'目',face:true,opts:[['capsule','たて長'],['dot','点'],['big','大きい'],['sleepy','ねむたげ']]}
+ ],
+ svg(r,u){
+  const S=SHAPES[r.slots?.shape]||SHAPES.round,g=24,key=r.slots?.soma&&r.slots.soma!=='auto'?r.slots.soma:seasonSoma(),sm=SOMA[key]||SOMA.leaf,lampShape=r.lamp?.shape||'bead';
+  const A={top:[100,36],headW:S.half*2-10,headH:90,face:[100,S.face],eyeGap:g,handR:[176,150],neck:[100,S.bot-12,S.half-6]};
+  const sil=Array.from({length:5},(_,i)=>`<path class="sil" data-i="${i}" d="${sm.d}" ${sm.stroke?`fill="${sm.line?'none':'var(--c-ink)'}" stroke="var(--c-ink)" stroke-width="${sm.line?2.2:1.2}" stroke-linecap="round" stroke-linejoin="round"`:''}/>`).join('');
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>
+  <linearGradient id="${u}-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".55" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></linearGradient>
+  <linearGradient id="${u}-e" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--c-shade)" stop-opacity=".35"/><stop offset=".22" stop-color="var(--c-shade)" stop-opacity="0"/><stop offset=".72" stop-color="var(--c-shade)" stop-opacity="0"/><stop offset="1" stop-color="var(--c-shade)" stop-opacity=".5"/></linearGradient>
+  <radialGradient id="${u}-in" cx=".5" cy=".62" r=".62"><stop offset="0" stop-color="#fff3d2"/><stop offset=".45" stop-color="#ffd48f"/><stop offset="1" stop-color="#ffbb6a" stop-opacity="0"/></radialGradient>
+  <clipPath id="${u}-c"><path d="${S.d}"/></clipPath>${lampDefs(u)}
+ </defs>
+ <ellipse class="floor" cx="100" cy="213" rx="${S.half*.78}" ry="6.5"/>
+ <g class="pose"><g class="breath">
+  <g class="antenna" style="--ox:100px;--oy:38px"><g class="sway" style="--ox:100px;--oy:38px">
+   <path class="stem" d="M100 38C99 28 104 21 112 16"/>${lampSVG(u,lampShape,112,14,1)}
+  </g></g>
+  <g class="arm arm-l" style="--ox:${100-S.half+4}px;--oy:${S.face}px"><ellipse class="nub" cx="${100-S.half-1}" cy="${S.face+16}" rx="8" ry="11.5" transform="rotate(18 ${100-S.half-1} ${S.face+16})"/></g>
+  <g class="arm arm-r" style="--ox:${100+S.half-4}px;--oy:${S.face}px"><ellipse class="nub" cx="${100+S.half+1}" cy="${S.face+16}" rx="8" ry="11.5" transform="rotate(-18 ${100+S.half+1} ${S.face+16})"/></g>
+  <rect class="foot" x="66" y="198" width="22" height="9" rx="4.5"/><rect class="foot" x="112" y="198" width="22" height="9" rx="4.5"/>
+  <g class="lantern">
+   <path class="paper" fill="url(#${u}-p)" d="${S.d}"/>
+   <g clip-path="url(#${u}-c)"><rect x="0" y="40" width="200" height="170" fill="url(#${u}-e)"/>
+    <ellipse class="inner" cx="100" cy="${S.bot-34}" rx="74" ry="86" fill="url(#${u}-in)"/>
+    <g class="soma" transform="translate(0 ${S.face-8})">${sil}</g></g>
+   ${ribs(S,u)}
+   <path class="edge" d="${S.d}" fill="none"/>
+   <rect class="lid" x="${100-S.capW*.33}" y="${S.top-18}" width="${S.capW*.66}" height="9" rx="3.5"/>
+   <rect class="cap" x="${100-S.capW/2}" y="${S.top-10}" width="${S.capW}" height="14" rx="5"/>
+   <rect class="cap" x="${100-S.capW/2+2}" y="${S.bot-4}" width="${S.capW-4}" height="13" rx="5"/>
+   <rect class="cap-hl" x="${100-S.capW/2+6}" y="${S.top-8}" width="${S.capW-30}" height="2.4" rx="1.2"/>
+  </g>
+  <g transform="translate(0 ${S.face-126})">${faceSVG(r,{g,c:S.half-22})}</g>
+  ${propsSVG(r,A,u)}
+ </g></g>
+ ${fxSVG({spark:[158,54],sweat:[146,S.face-24],z:[150,40],dots:[146,34]})}
+</svg>`;
+ },
+ init(svg,h){
+  const sils=[...svg.querySelectorAll('.sil')],n=sils.length;let raf=0,t0=performance.now(),spin=0,on=false;
+  const frame=now=>{
+   if(h.dead||!on){raf=0;return;}
+   const dt=(now-t0)/1000;t0=now;spin+=dt*.9;
+   sils.forEach((el,i)=>{const th=spin+i*2*Math.PI/n,c=Math.cos(th),s=Math.sin(th),x=100+s*54,sx=Math.max(.12,Math.abs(c)),vis=c>0?1:.18;
+    el.setAttribute('transform',`translate(${x.toFixed(1)} ${(30+Math.sin(th*2+i)*5).toFixed(1)}) scale(${(sx*1.55).toFixed(2)} 1.55) rotate(${(Math.sin(th*1.3)*14).toFixed(0)})`);el.style.opacity=(vis*(.3*Math.max(.3,sx))).toFixed(2);});
+   raf=requestAnimationFrame(frame);
+  };
+  return {
+   setMood(m){const want=m==='thinking'&&!matchMedia('(prefers-reduced-motion:reduce)').matches&&!document.documentElement.classList.contains('rm');
+    if(want&&!on){on=true;t0=performance.now();raf=requestAnimationFrame(frame);}else if(!want&&on){on=false;}
+    if(m==='thinking'&&!want)frame(performance.now());},
+   destroy(){on=false;cancelAnimationFrame(raf);}
+  };
+ }
+});
+})();
+
+/* ===== C. 円相 (ensō): one brush stroke with a gap. The gap is the character: it turns to listen, opens to speak,
+ * closes when something is finished. Drawn per frame so the brush can breathe. ===== */
+(()=>{
+const rad=d=>d*Math.PI/180,ss=(a,b,x)=>{x=clamp((x-a)/(b-a),0,1);return x*x*(3-2*x);};
+const CX=100,CY=118,R0=62,W0=15;
+const MOODT={
+ idle:{phi:135,gap:34,wob:1,thick:1,alpha:1},
+ listening:{phi:92,gap:46,wob:1.2,thick:1,alpha:1},
+ thinking:{phi:135,gap:26,wob:1.4,thick:.95,alpha:1},
+ talking:{phi:92,gap:34,wob:1.2,thick:1.02,alpha:1},
+ happy:{phi:135,gap:3,wob:.7,thick:1.1,alpha:1},
+ attention:{phi:-38,gap:30,wob:1.1,thick:1.04,alpha:1},
+ concerned:{phi:100,gap:58,wob:3.2,thick:.8,alpha:.92},
+ sleepy:{phi:-90,gap:22,wob:.6,thick:.52,alpha:.58}
+};
+function geom(P,t){
+ const N=150,sweep=360-P.gap,start=P.phi+P.gap/2,ph=P.seed,out=[],inn=[],mid=[];
+ const nz=(x,k=0)=>Math.sin(x*1.7+ph+k)*.5+Math.sin(x*3.3+ph*1.7+k*2)*.3+Math.sin(x*7.1+ph*.6+k*3)*.2;
+ for(let i=0;i<=N;i++){
+  const u=i/N,th=rad(start+sweep*u);
+  const load=(.55+.45*ss(0,.1,u))*(1+.28*(1-ss(0,.05,u))),fade=1-.86*ss(.58,1,u);
+  const w=W0*P.thick*load*fade*(1+.07*nz(u*9,1)),r=R0*P.size+P.wob*1.5*nz(u*5+t*.15,2)-3.5*u+P.breath;
+  const ro=r+w/2+.6*nz(u*40+t*.6,3),ri=r-w/2+.6*nz(u*37+t*.6,4);
+  const c=Math.cos(th),s=Math.sin(th);
+  out.push([CX+ro*c,CY+ro*s]);inn.push([CX+ri*c,CY+ri*s]);mid.push([CX+r*c,CY+r*s,w,th]);
+ }
+ const f=a=>a.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1));
+ const d='M'+f(out).join('L')+'L'+f(inn.reverse()).join('L')+'Z';
+ // dry-brush streaks (飛白) near the tail
+ const sk=[[.62,-.28],[.56,.1],[.7,.3],[.48,-.05],[.76,-.12]],streaks=sk.map(([u0,off],k)=>{
+  const pts=[];for(let i=Math.floor(u0*N);i<=N;i+=2){const m=mid[i];const rr=Math.hypot(m[0]-CX,m[1]-CY)+off*m[2];pts.push((CX+rr*Math.cos(m[3])).toFixed(1)+' '+(CY+rr*Math.sin(m[3])).toFixed(1));}
+  return pts.length>2?`M${pts.join('L')}`:'';});
+ return {d,streaks};
+}
+const E=new Set();let tk=0,last=0;
+const quiet=()=>document.documentElement.classList.contains('rm')||matchMedia('(prefers-reduced-motion:reduce)').matches;
+function loop(now){
+ tk=requestAnimationFrame(loop);if(document.hidden||now-last<32)return;
+ const dt=Math.min(.12,(now-last)/1000);last=now;for(const e of E)e(now/1000,dt);
+}
+defineBody({
+ id:'ensou',name:'円相',kana:'Ensō',tag:'静けさ',
+ pitch:'墨の一筆だけで描く案。輪の「あき」が口と耳を兼ねます。聞くときは向きを変え、話すときは開き、仕事が終わると輪が閉じます。待機画面では一枚の水墨画に。',
+ traits:['静か','墨と紙','大人っぽい'],
+ slots:[
+  {key:'brush',label:'筆の太さ',opts:[['thin','細い'],['mid','ふつう'],['bold','太い']]},
+  {key:'eyes',label:'目',custom:true,opts:[['dot','墨の点'],['line','ひと筆'],['slit','たて筆']]}
+ ],
+ svg(r,u){
+  const eyes=r.slots?.eyes||'dot',g=17,lampShape=r.lamp?.shape||'bead';
+  const eo={dot:`<ellipse cx="${100-g}" cy="116" rx="6.4" ry="7.8" transform="rotate(-8 ${100-g} 116)"/><ellipse cx="${100+g}" cy="116" rx="6.4" ry="7.8" transform="rotate(8 ${100+g} 116)"/>`,
+   line:`<path d="M${100-g-7} 117Q${100-g} 114 ${100-g+7} 117" /><path d="M${100+g-7} 117Q${100+g} 114 ${100+g+7} 117"/>`,
+   slit:`<rect x="${100-g-3.2}" y="106" width="6.4" height="20" rx="3.2"/><rect x="${100+g-3.2}" y="106" width="6.4" height="20" rx="3.2"/>`}[eyes]||'';
+  const A={top:[100,CY-R0],headW:110,headH:70,face:[100,CY],eyeGap:g,handR:[158,150],neck:[100,CY+R0-4,48]};
+  const face=`<g transform="translate(0 -8)"><g class="face"><g class="eyes"><g class="eo ${eyes==='line'?'eo-line':''}">${eo}</g>
+   <g class="eh"><path d="M${100-g-8} 121Q${100-g} 107 ${100-g+8} 121"/><path d="M${100+g-8} 121Q${100+g} 107 ${100+g+8} 121"/></g>
+   <g class="ec"><path d="M${100-g-8} 116Q${100-g} 122 ${100-g+8} 116"/><path d="M${100+g-8} 116Q${100+g} 122 ${100+g+8} 116"/></g></g>
+   <path class="smile" d="M94 140Q100 146 106 140"/><ellipse class="mouth" cx="100" cy="142" rx="5" ry="4.5" style="transform-origin:100px 142px"/></g></g>`;
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs><radialGradient id="${u}-w" cx=".5" cy=".4" r=".6"><stop offset="0" stop-color="var(--wash)"/><stop offset="1" stop-color="var(--wash)" stop-opacity="0"/></radialGradient>
+  <mask id="${u}-m" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="224"><path class="ring-mask" fill="#fff" d=""/><g class="streaks" fill="none" stroke="#000" stroke-linecap="round" stroke-width="1.3" stroke-dasharray="16 7 24 9 12 11"></g></mask>${lampDefs(u)}</defs>
+ <ellipse class="floor" cx="100" cy="206" rx="54" ry="5.5"/>
+ <g class="pose"><g class="breath">
+  <circle class="wash" cx="${CX}" cy="${CY}" r="${R0-4}" fill="url(#${u}-w)"/>
+  <g class="think-ring"><circle cx="${CX}" cy="${CY}" r="${R0-22}" fill="none" stroke-width="2" stroke-linecap="round" stroke-dasharray="46 ${Math.round(2*Math.PI*(R0-22))-46}"/></g>
+  <rect x="0" y="0" width="200" height="224" class="ink" mask="url(#${u}-m)"/>
+  ${face}
+  <g class="splat"><circle cx="40" cy="52" r="2.6"/><circle cx="52" cy="40" r="1.6"/><circle cx="162" cy="188" r="2.2"/><circle cx="172" cy="176" r="1.3"/><circle cx="34" cy="176" r="1.8"/></g>
+  <g class="seal" style="--ox:146px;--oy:50px">${lampSVG(u,lampShape,146,50,1.2)}</g>
+  ${propsSVG(r,A,u)}
+ </g></g>
+ ${fxSVG({spark:[160,92],sweat:[140,98],z:[150,50],dots:[150,34]})}
+</svg>`;
+ },
+ init(svg,h){
+  const ring=svg.querySelector('.ring-mask'),streaks=svg.querySelector('.streaks'),size=h.recipe.size||1;
+  const brush={thin:.74,mid:1,bold:1.3}[h.recipe.slots?.brush||'mid']||1;
+  const cur={phi:135,gap:34,wob:1,thick:brush,alpha:1},seed=Math.random()*10;let spin=0,tgt={...MOODT.idle,thick:brush},mood='idle',level=0,off=false;
+  const draw=(t,boil)=>{const g=geom({phi:cur.phi+spin,gap:cur.gap,wob:cur.wob,thick:cur.thick,size:1,breath:boil,seed},t);ring.setAttribute('d',g.d);streaks.innerHTML=g.streaks.map(d=>d?`<path d="${d}"/>`:'').join('');svg.style.setProperty('--ink-a',cur.alpha.toFixed(2));};
+  const step=(t,dt)=>{
+   if(off)return;
+   const q=quiet();
+   if(mood==='thinking'&&!q)spin+=dt*46;else if(mood!=='thinking')spin*=Math.exp(-4*dt);
+   let T=tgt;if(mood==='talking')T={...tgt,gap:20+34*(.5+.5*Math.sin(t*9+Math.sin(t*3)))*(.4+level*.6)};
+   const k=q?1:1-Math.exp(-6*dt);
+   for(const key of ['phi','gap','wob','thick','alpha']){let d=T[key]-cur[key];if(key==='phi'){d=((d+540)%360)-180;}cur[key]+=d*k;}
+   draw(q?0:Math.floor(t*6)/6,q?0:Math.sin(t*1.3)*.9);
+  };
+  draw(0,0);E.add(step);if(!tk)tk=requestAnimationFrame(loop);
+  return {
+   setMood(m){mood=m;tgt={...(MOODT[m]||MOODT.idle)};tgt.thick*=brush;if(m==='thinking')spin=spin%360;},
+   setLevel(v){level=v;},
+   destroy(){off=true;E.delete(step);}
+  };
+ }
+});
+})();
+
+/* ===== D. 小箱 (kobako): a little device whose face is a screen. Expressions are light on dark, so they read from across the room. ===== */
+(()=>{
+const FACES={
+ led:{name:'棒の目',eo:g=>`<rect x="${100-g-6}" y="104" width="12" height="28" rx="6"/><rect x="${100+g-6}" y="104" width="12" height="28" rx="6"/>`},
+ dot:{name:'丸い目',eo:g=>`<circle cx="${100-g}" cy="118" r="9.5"/><circle cx="${100+g}" cy="118" r="9.5"/>`},
+ pixel:{name:'ドット',eo:g=>{const px=(x,y)=>`<rect x="${x}" y="${y}" width="6" height="6"/>`;const e=x=>[0,1,2,3].map(i=>px(x,106+i*7)).join('')+px(x+7,110)+px(x+7,117);return `<g class="pix">${e(100-g-9)}${e(100+g-9)}</g>`;}},
+ bar:{name:'一本線',eo:g=>`<rect x="${100-g-10}" y="115" width="20" height="7" rx="3.5"/><rect x="${100+g-10}" y="115" width="20" height="7" rx="3.5"/>`}
+};
+const BODYS={
+ box:{d:'M28 100C28 78 44 64 66 64H134C156 64 172 78 172 100V162C172 184 156 198 134 198H66C44 198 28 184 28 162Z',sx:46,sy:84,sw:108,sh:82,sr:24,top:64},
+ tall:{d:'M40 90C40 74 52 64 70 64H130C148 64 160 74 160 90V170C160 188 148 198 130 198H70C52 198 40 188 40 170Z',sx:54,sy:80,sw:92,sh:92,sr:22,top:64},
+ round:{d:'M100 62C146 62 176 92 176 130C176 172 146 198 100 198C54 198 24 172 24 130C24 92 54 62 100 62Z',sx:42,sy:82,sw:116,sh:84,sr:40,top:62}
+};
+defineBody({
+ id:'kobako',name:'小箱',kana:'Kobako',tag:'スマートモニターの住人',
+ pitch:'画面そのものが顔の、小さな機械の相棒。光る表情は部屋の向こうからでも読めます。考え中は「…」、話すときは声の波形が口になります。',
+ traits:['機械','くっきり','遠くから読める'],
+ slots:[
+  {key:'shape',label:'からだ',opts:[['box','はこ'],['tall','たて'],['round','まる']]},
+  {key:'screen',label:'画面の顔',custom:true,opts:[['led','棒の目'],['dot','丸い目'],['pixel','ドット'],['bar','一本線']]}
+ ],
+ svg(r,u){
+  const S=BODYS[r.slots?.shape]||BODYS.box,F=FACES[r.slots?.screen]||FACES.led,g=26,lampShape=r.lamp?.shape||'bead',sy=S.sy,cy=sy+S.sh/2;
+  const A={top:[100,S.top+2],headW:S.sw+40,headH:80,face:[100,cy],eyeGap:g,handR:[176,150],neck:[100,184,56]};
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>
+  <linearGradient id="${u}-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".6" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></linearGradient>
+  <linearGradient id="${u}-s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d2721"/><stop offset="1" stop-color="#1a1613"/></linearGradient>
+  <radialGradient id="${u}-sg" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#fff1d6" stop-opacity=".22"/><stop offset="1" stop-color="#fff1d6" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${u}-hl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <clipPath id="${u}-c"><path d="${S.d}"/></clipPath><clipPath id="${u}-sc"><rect x="${S.sx}" y="${sy}" width="${S.sw}" height="${S.sh}" rx="${S.sr}"/></clipPath>${lampDefs(u)}
+ </defs>
+ <ellipse class="floor" cx="100" cy="212" rx="60" ry="7"/>
+ <g class="pose"><g class="breath">
+  <g class="antenna" style="--ox:112px;--oy:${S.top+2}px"><g class="sway" style="--ox:112px;--oy:${S.top+2}px">
+   <path class="rod" d="M112 ${S.top+2}L118 ${S.top-24}"/>${lampSVG(u,lampShape,118,S.top-28,1.05)}
+  </g></g>
+  <circle class="pod" cx="${S.d.startsWith('M100')?24:26}" cy="${cy+6}" r="11"/><circle class="pod" cx="${S.d.startsWith('M100')?176:174}" cy="${cy+6}" r="11"/>
+  <rect class="foot" x="58" y="192" width="30" height="14" rx="7"/><rect class="foot" x="112" y="192" width="30" height="14" rx="7"/>
+  <path class="shell" fill="url(#${u}-b)" d="${S.d}"/>
+  <g clip-path="url(#${u}-c)"><ellipse cx="72" cy="${S.top+20}" rx="34" ry="14" transform="rotate(-18 72 ${S.top+20})" fill="url(#${u}-hl)"/><ellipse cx="100" cy="206" rx="90" ry="34" fill="var(--c-shade)" opacity=".45"/></g>
+  <rect class="bezel" x="${S.sx-3}" y="${sy-3}" width="${S.sw+6}" height="${S.sh+6}" rx="${S.sr+3}"/>
+  <rect class="screen" x="${S.sx}" y="${sy}" width="${S.sw}" height="${S.sh}" rx="${S.sr}" fill="url(#${u}-s)"/>
+  <g clip-path="url(#${u}-sc)"><rect x="${S.sx}" y="${sy}" width="${S.sw}" height="${S.sh}" fill="url(#${u}-sg)" class="screen-glow"/>
+   <g transform="translate(0 ${cy-118})"><g class="face led">
+    <g class="ripples"><path d="M154 104q8 14 0 28"/><path d="M162 98q12 20 0 40"/></g>
+    <g class="eyes"><g class="eo">${F.eo(g)}</g>
+     <g class="eh"><path d="M${100-g-9} 126Q${100-g} 108 ${100-g+9} 126"/><path d="M${100+g-9} 126Q${100+g} 108 ${100+g+9} 126"/></g>
+     <g class="ec"><rect x="${100-g-10}" y="118" width="20" height="6" rx="3"/><rect x="${100+g-10}" y="118" width="20" height="6" rx="3"/></g></g>
+    <path class="smile" d="M90 146Q100 154 110 146"/>
+    <g class="eq"><rect x="82" y="142" width="5" height="12" rx="2.5"/><rect x="90" y="142" width="5" height="12" rx="2.5"/><rect x="98" y="142" width="5" height="12" rx="2.5"/><rect x="106" y="142" width="5" height="12" rx="2.5"/><rect x="114" y="142" width="5" height="12" rx="2.5"/></g>
+    <g class="think"><circle cx="88" cy="148" r="3.4"/><circle cx="100" cy="148" r="3.4"/><circle cx="112" cy="148" r="3.4"/></g>
+    <path class="wavy" d="M91 150q4.5-4 9 0t9 0"/>
+    <text class="bang" x="140" y="106">!</text>
+   </g></g></g>
+  ${propsSVG(r,A,u)}
+ </g></g>
+ ${fxSVG({spark:[160,S.top+6],sweat:[158,S.top+34],z:[150,S.top-8],dots:[146,S.top-18]})}
+</svg>`;
+ }
+});
+})();
+
+/* ===== E. 狐火 (kitsunebi): a small white fox with a lamp at the tip of its tail. Ears and tail do the talking. ===== */
+(()=>{
+const BODY='M100 54C132 54 156 70 164 98L184 114L171 134C175 142 177 150 175 158C171 184 143 206 100 206C57 206 29 184 25 158C23 150 25 142 29 134L16 114L36 98C44 70 68 54 100 54Z';
+const EAR={outer:'M42 96C38 68 44 40 54 22C58 16 66 18 72 24C84 36 94 48 98 62Z',inner:'M54 80C52 62 55 46 60 34C68 40 78 50 84 62Z',tip:'M52 18L76 18L84 36L46 52Z'};
+const TAIL='M148 206C190 214 234 192 232 148C231 118 222 88 214 62C209 50 198 48 195 60C191 84 186 104 172 126C160 146 140 176 148 206Z';
+const TAIL_TIP='M180 114Q208 96 240 106L242 28L176 28Z';
+const earSVG=(side,u,kind)=>{
+ const L=side<0,o=EAR.outer,i=EAR.inner,t=EAR.tip,P=d=>L?d:mirrorPath(d),ox=L?72:128,id=`${u}-ear${L?'l':'r'}`;
+ const tall=kind==='long'?`transform="${L?'translate(8 -4) rotate(-7 60 60) scale(.96 1.22)':'translate(-8 -4) rotate(7 140 60) scale(.96 1.22)'}"`:'';
+ return `<g class="ear ear-${L?'l':'r'}" style="--ox:${ox}px;--oy:76px"><g ${tall}><clipPath id="${id}"><path d="${P(o)}"/></clipPath><path class="ear-o" d="${P(o)}"/><path class="ear-i" d="${P(i)}"/><path class="ear-t" d="${P(t)}" clip-path="url(#${id})"/></g></g>`;
+};
+defineBody({
+ id:'kitsune',name:'狐火',kana:'Kitsunebi',tag:'生きものの身ぶり',
+ pitch:'尾の先に狐火（ランプ）をともした白い小狐。気持ちは耳としっぽに出るので、遠くからでも状態が読めます。耳の先と尾の先は墨に浸したよう。',
+ traits:['生きもの','表情ゆたか','愛着が湧く'],
+ palette:'washi',lampShape:'flame',
+ slots:[
+  {key:'ears',label:'耳',opts:[['std','ふつう'],['long','長い']]},
+  {key:'eyes',label:'目',face:true,opts:[['capsule','たて長'],['dot','点'],['big','大きい'],['sleepy','ねむたげ']]}
+ ],
+ svg(r,u){
+  const lampShape=r.lamp?.shape||'flame',g=27,eyes=r.face?.eyes||'capsule';
+  const A={top:[100,56],headW:150,headH:96,face:[100,132],eyeGap:g,handR:[150,176],neck:[100,176,60]};
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>
+  <linearGradient id="${u}-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".6" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></linearGradient>
+  <linearGradient id="${u}-t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".6" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></linearGradient>
+  <radialGradient id="${u}-ao" cx=".5" cy="1" r=".62"><stop offset="0" stop-color="var(--c-shade)" stop-opacity=".85"/><stop offset="1" stop-color="var(--c-shade)" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${u}-hl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <clipPath id="${u}-c"><path d="${BODY}"/></clipPath><clipPath id="${u}-tc"><path d="${TAIL}"/></clipPath>${lampDefs(u)}
+ </defs>
+ <ellipse class="floor" cx="100" cy="212" rx="64" ry="7"/>
+ <g transform="translate(-12 14) scale(.9)"><g class="pose"><g class="breath">
+  <g class="tail" style="--ox:156px;--oy:200px"><g class="tail-sway" style="--ox:156px;--oy:200px">
+   <path class="tail-body" d="${TAIL}" fill="url(#${u}-t)"/>
+   <path class="tail-tip" d="${TAIL_TIP}" clip-path="url(#${u}-tc)"/>
+   <path class="tail-rim" d="M226 152C229 126 222 98 212 72" />
+   <g class="foxfire">${lampSVG(u,lampShape,205,40,1.15)}</g>
+  </g></g>
+  ${earSVG(-1,u,r.slots?.ears)}${earSVG(1,u,r.slots?.ears)}
+  <ellipse class="paw" cx="78" cy="205" rx="16" ry="8"/><ellipse class="paw" cx="122" cy="205" rx="16" ry="8"/>
+  <path class="shell" fill="url(#${u}-b)" d="${BODY}"/>
+  <g clip-path="url(#${u}-c)"><ellipse cx="100" cy="214" rx="100" ry="66" fill="url(#${u}-ao)" opacity=".7"/><ellipse cx="72" cy="82" rx="36" ry="20" transform="rotate(-24 72 82)" fill="url(#${u}-hl)"/>
+   <ellipse class="muzzle" cx="100" cy="153" rx="34" ry="23"/></g>
+  <g transform="translate(0 6)">${faceSVG(r,{g,c:56,my:11,browShort:true})}
+   <path class="nose" d="M94 143Q100 139 106 143Q103.5 150 100 151Q96.5 150 94 143Z" transform="translate(0 -6)"/></g>
+  ${propsSVG(r,A,u)}
+ </g></g></g>
+ ${fxSVG({spark:[16,70],sweat:[134,96],z:[58,30],dots:[52,22]})}
+</svg>`;
+ }
+});
+})();
+
+/* ===== F. 蛍 (hotaru): no body at all. A soft light that listens, thinks and speaks by how it glows and moves.
+ * The same species as the work lights, only larger; the brand dot floats beside it. ===== */
+(()=>{
+defineBody({
+ id:'hotaru',name:'蛍',kana:'Hotaru',tag:'いちばん控えめ',
+ pitch:'からだを持たない、やわらかな光だけの案。表情ではなく、明るさ・大きさ・動きで状態を伝えます。顔は「呼ばれたときだけ現れる」こともできます。',
+ traits:['ひかえめ','環境になじむ','抽象的'],
+ eyes:'dot',
+ slots:[
+  {key:'faceVis',label:'顔',opts:[['always','いつも'],['engage','呼ばれたとき'],['never','出さない']]},
+  {key:'halo',label:'光のひろがり',opts:[['soft','やわらか'],['wide','広い'],['tight','小さめ']]}
+ ],
+ svg(r,u){
+  const vis=r.slots?.faceVis||'always',halo=r.slots?.halo||'soft',lampShape=r.lamp?.shape||'bead',g=15;
+  const A={top:[100,70],headW:90,headH:60,face:[100,112],eyeGap:g,handR:[150,128],neck:[100,148,40]};
+  return `<svg viewBox="0 0 200 224" class="face-${vis} halo-${halo}" aria-hidden="true" focusable="false">
+ <defs>
+  <radialGradient id="${u}-o" cx=".4" cy=".34" r=".75"><stop offset="0" stop-color="#fffef9"/><stop offset=".42" stop-color="var(--c-light)"/><stop offset=".78" stop-color="var(--c-body)"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".42"/></radialGradient>
+  <radialGradient id="${u}-h"><stop offset="0" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".34"/><stop offset=".5" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".12"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${u}-p"><stop offset="0" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".34"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity="0"/></radialGradient>
+  <filter id="${u}-bl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+  <clipPath id="${u}-oc"><circle cx="100" cy="112" r="42"/></clipPath>${lampDefs(u)}
+ </defs>
+ <ellipse class="pool" cx="100" cy="210" rx="56" ry="8" fill="url(#${u}-p)"/>
+ <g class="pose"><g class="float">
+  <circle class="halo-c" cx="100" cy="112" r="98" fill="url(#${u}-h)"/>
+  <g class="orb">
+   <circle class="orb-body" cx="100" cy="112" r="42" fill="url(#${u}-o)"/>
+   <g clip-path="url(#${u}-oc)"><g class="swirl" filter="url(#${u}-bl)"><circle cx="86" cy="98" r="19" fill="#fff" opacity=".7"/><circle cx="118" cy="128" r="14" fill="rgb(var(--c-lamp-rgb))" opacity=".16"/></g></g>
+   <path class="rim" d="M68 94C73 79 87 70 101 70"/>
+   <g transform="translate(0 -14)">${faceSVG(r,{g,c:29,my:3})}</g>
+  </g>
+  <g class="bead" style="--ox:100px;--oy:112px">${lampSVG(u,lampShape,146,56,1.1)}</g>
+  ${propsSVG(r,A,u)}
+ </g></g>
+ ${fxSVG({spark:[150,100],sweat:[134,92],z:[142,58],dots:[40,60]})}
+</svg>`;
+ }
+});
+})();
+
+/* ===== G. 苔玉 (kokedama): a moss ball with a sprout whose bud is the lamp. It leans toward the window, folds its leaves at night,
+ * and changes leaf colour with the season. ===== */
+(()=>{
+const seasonLeaf=()=>{const m=new Date().getMonth()+1;return m>=3&&m<=5?['#a9c68c','#7fa066']:m>=6&&m<=8?['#6f9a55','#4f7a3e']:m>=9&&m<=11?['#c9954f','#a4692f']:['#8aa27c','#667f5a'];};
+function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const LEAF_L='M101 86C86 90 70 82 62 64C80 58 98 68 101 86Z',LEAF_R=mirrorPath('M101 86C86 90 70 82 62 64C80 58 98 68 101 86Z').replace(/^M99/,'M99');
+const LEAF_SM_L='M102 68C96 67 91 62 90 55C97 55 101 60 102 68Z';
+const fuzz=(seed)=>{const R=rng(seed),o=[];for(let i=0;i<110;i++){const a=R()*Math.PI*2,d=Math.sqrt(R())*44,x=100+Math.cos(a)*d,y=160+Math.sin(a)*d,rx=2.2+R()*2.6,ry=1.5+R()*1.6,rot=Math.floor(R()*180),dark=R()<.45;
+ o.push(`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" transform="rotate(${rot} ${x.toFixed(1)} ${y.toFixed(1)})" fill="${dark?'var(--c-shade)':'var(--c-light)'}" opacity="${dark?.55:.5}"/>`);}return o.join('');};
+defineBody({
+ id:'kokedama',name:'苔玉',kana:'Kokedama',tag:'いきものではない相棒',
+ pitch:'苔玉の芽の先が、そのままランプの蕾。窓の光のほうへ首を傾け、夜は葉を閉じ、季節で葉の色が変わります。仕事が見直し待ちになると蕾がひらきます。',
+ traits:['静か','季節','窓辺に置く'],
+ palette:'moss',lampShape:'bud',eyes:'dot',
+ slots:[
+  {key:'leaves',label:'葉の色',opts:[['auto','季節にまかせる'],['spring','春'],['summer','夏'],['autumn','秋'],['winter','冬']]},
+  {key:'faceVis',label:'顔',opts:[['always','いつも'],['never','出さない']]}
+ ],
+ svg(r,u){
+  const lampShape=r.lamp?.shape||'bud',g=14,fv=r.slots?.faceVis||'always',leaves=r.slots?.leaves&&r.slots.leaves!=='auto'?r.slots.leaves:null;
+  const LC=leaves?{spring:['#a9c68c','#7fa066'],summer:['#6f9a55','#4f7a3e'],autumn:['#c9954f','#a4692f'],winter:['#8aa27c','#667f5a']}[leaves]:seasonLeaf();
+  const A={top:[100,114],headW:84,headH:50,face:[100,160],eyeGap:g,handR:[144,176],neck:[100,184,40]};
+  return `<svg viewBox="0 0 200 224" class="face-${fv}" aria-hidden="true" focusable="false" style="--leaf:${LC[0]};--leaf-d:${LC[1]}">
+ <defs>
+  <radialGradient id="${u}-b" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="var(--c-light)"/><stop offset=".45" stop-color="var(--c-body)"/><stop offset="1" stop-color="var(--c-shade)"/></radialGradient>
+  <clipPath id="${u}-c"><circle cx="100" cy="160" r="46"/></clipPath>${lampDefs(u)}
+ </defs>
+ <ellipse class="floor" cx="100" cy="212" rx="62" ry="7"/>
+ <g class="pose"><g class="breath">
+  <ellipse class="dish" cx="100" cy="205" rx="60" ry="10"/><ellipse class="dish-in" cx="100" cy="203" rx="52" ry="6.5"/>
+  <g class="sprout" style="--ox:100px;--oy:120px"><g class="sway" style="--ox:100px;--oy:120px">
+   <path class="stem" d="M100 122C97 108 104 96 101 82C99.5 74 101 68 102 60"/>
+   <g class="leaf leaf-l" style="--ox:101px;--oy:86px"><path class="leaf-b" d="${LEAF_L}"/><path class="leaf-v" d="M101 86C90 80 76 72 66 64"/></g>
+   <g class="leaf leaf-r" style="--ox:99px;--oy:86px"><path class="leaf-b" d="${LEAF_R}"/><path class="leaf-v" d="${mirrorPath('M101 86C90 80 76 72 66 64')}"/></g>
+   <g class="leaf leaf-sl" style="--ox:102px;--oy:68px"><path class="leaf-b" d="${LEAF_SM_L}"/></g>
+   <g class="leaf leaf-sr" style="--ox:98px;--oy:68px"><path class="leaf-b" d="${mirrorPath(LEAF_SM_L)}"/></g>
+   <g class="bud">${lampSVG(u,lampShape,102,50,1.15)}</g>
+  </g></g>
+  <circle class="moss" cx="100" cy="160" r="46" fill="url(#${u}-b)"/>
+  <g clip-path="url(#${u}-c)">${fuzz(7)}
+   <path class="twine" d="M56 142Q100 176 144 142M54 170Q100 200 146 170M70 124Q82 168 118 196"/>
+   <ellipse cx="78" cy="132" rx="22" ry="12" transform="rotate(-28 78 132)" fill="#fff" opacity=".22"/></g>
+  <g class="kface" transform="translate(0 34)">${faceSVG(r,{g,c:25,my:2})}</g>
+  ${propsSVG(r,A,u)}
+ </g></g>
+ ${fxSVG({spark:[148,70],sweat:[138,134],z:[150,60],dots:[142,42]})}
+</svg>`;
+ }
+});
+})();
+
+/* ===== H. 影絵 (kage-e): the character is a shadow on a shoji screen lit by its own lantern.
+ * Distance is attention: it steps close and sharp when you speak, and drifts back, soft, when idle or asleep. ===== */
+(()=>{
+const silEars=(kind,S)=>{
+ const T=S.top,L=100-S.headW*.36,R=100+S.headW*.36;
+ if(kind==='cat')return `<path d="M${L-14} ${T+34}L${L-8} ${T-10}Q${L-6} ${T-15} ${L-1} ${T-11}L${L+30} ${T+10}Z"/><path d="M${R+14} ${T+34}L${R+8} ${T-10}Q${R+6} ${T-15} ${R+1} ${T-11}L${R-30} ${T+10}Z"/>`;
+ if(kind==='bear')return `<circle cx="${L-4}" cy="${T+16}" r="16"/><circle cx="${R+4}" cy="${T+16}" r="16"/>`;
+ if(kind==='rabbit')return `<ellipse cx="${L+10}" cy="${T-14}" rx="11.5" ry="31" transform="rotate(-9 ${L+10} ${T-14})"/><ellipse cx="${R-10}" cy="${T-14}" rx="11.5" ry="31" transform="rotate(9 ${R-10} ${T-14})"/>`;
+ return '';
+};
+defineBody({
+ id:'kage',name:'影絵',kana:'Kage-e',tag:'距離が気持ち',
+ pitch:'障子に映る影として描く案。呼ばれると紙に近づいてくっきりし、ふだんは少し離れてぼんやり、眠いときは遠ざかります。「いまどれくらい注意を向けているか」が距離で見えます。',
+ traits:['影と灯','奥行き','待機画面に映える'],
+ palette:'washi',
+ slots:[
+  {key:'shape',label:'影のかたち',opts:[['egg','たまご'],['mochi','もち'],['tall','のっぽ']]}
+ ],
+ svg(r,u){
+  const SH=window.SHIRO_SHAPES,S=SH[r.slots?.shape]||SH.egg,g=S.gap,lampShape=r.lamp?.shape||'bead',ax=100,ay=S.top+2;
+  const A={top:[100,S.top+2],headW:S.headW,headH:92,face:[100,S.faceY],eyeGap:g,handR:[176,152],neck:[100,S.neckY,S.neckW]};
+  const eyes=r.face?.eyes||'capsule';
+  const eo=eyes==='dot'?`<circle cx="${100-g}" cy="127" r="7.4"/><circle cx="${100+g}" cy="127" r="7.4"/>`:eyes==='big'?`<ellipse cx="${100-g}" cy="126" rx="10" ry="12.5"/><ellipse cx="${100+g}" cy="126" rx="10" ry="12.5"/>`:`<rect x="${100-g-6}" y="113" width="12" height="26" rx="6"/><rect x="${100+g-6}" y="113" width="12" height="26" rx="6"/>`;
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>
+  <radialGradient id="${u}-p" cx=".68" cy=".13" r=".95"><stop offset="0" stop-color="var(--k-p0)"/><stop offset=".3" stop-color="var(--k-p1)"/><stop offset=".72" stop-color="var(--k-p2)"/><stop offset="1" stop-color="var(--k-p3)"/></radialGradient>
+  <radialGradient id="${u}-w" cx=".68" cy=".13" r=".55"><stop offset="0" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".34"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity="0"/></radialGradient>
+  <clipPath id="${u}-pc"><rect x="10" y="10" width="180" height="204" rx="12"/></clipPath>${lampDefs(u)}
+ </defs>
+ <rect class="frame" x="5" y="5" width="190" height="214" rx="16"/>
+ <rect class="paper-base" x="10" y="10" width="180" height="204" rx="12"/>
+ <rect class="paper" x="10" y="10" width="180" height="204" rx="12" fill="url(#${u}-p)"/>
+ <rect class="paper-glow" x="10" y="10" width="180" height="204" rx="12" fill="url(#${u}-w)"/>
+ <g class="kumiko"><path d="M70 10V214M130 10V214M10 78H190M10 146H190"/></g>
+ <g clip-path="url(#${u}-pc)"><g class="puppet-pos"><g class="puppet">
+  <g class="antenna" style="--ox:${ax}px;--oy:${ay}px"><g class="sway" style="--ox:${ax}px;--oy:${ay}px"><path class="stem" d="M${ax} ${ay}C${ax-1} ${ay-14} ${ax+4} ${ay-24} ${ax+13} ${ay-31}"/></g></g>
+  <g class="sil">${silEars(r.parts?.ears,S)}<ellipse cx="78" cy="205" rx="15.5" ry="7.5"/><ellipse cx="122" cy="205" rx="15.5" ry="7.5"/><path d="${S.d}"/></g>
+  <g transform="translate(0 ${S.faceY-126})"><g class="face k-face">
+   <ellipse class="k-cheek" cx="${100-S.cheek}" cy="144" rx="12" ry="6.5"/><ellipse class="k-cheek" cx="${100+S.cheek}" cy="144" rx="12" ry="6.5"/>
+   <g class="eyes"><g class="eo">${eo}</g>
+    <g class="eh"><path d="M${100-g-8} 130Q${100-g} 117 ${100-g+8} 130"/><path d="M${100+g-8} 130Q${100+g} 117 ${100+g+8} 130"/></g>
+    <g class="ec"><path d="M${100-g-8} 125Q${100-g} 132 ${100-g+8} 125"/><path d="M${100+g-8} 125Q${100+g} 132 ${100+g+8} 125"/></g></g>
+    <ellipse class="mouth" cx="100" cy="150" rx="7" ry="6"/><path class="smile" d="M92 146Q100 155 108 146"/>
+  </g></g>
+ </g>
+  <g class="lamp-pos" style="--ox:${ax}px;--oy:${ay}px"><g class="antenna" style="--ox:${ax}px;--oy:${ay}px"><g class="sway" style="--ox:${ax}px;--oy:${ay}px">${lampSVG(u,lampShape,ax+13,ay-33,1.1)}</g></g></g>
+ </g></g>
+ ${fxSVG({spark:[160,S.top+6],sweat:[146,S.faceY-24],z:[150,S.top+16],dots:[146,S.top+2]})}
+
+</svg>`;
+ }
+});
+})();
+
+/* ===== I. ちいさな部屋: the stage becomes a room and the character is its resident. The one lamp is the floor lamp;
+ * the amber light is a small lamp on the shelf; the window follows the real hour. ===== */
+(()=>{
+defineBody({
+ id:'room',name:'ちいさな部屋',kana:'Tiny room',tag:'画面構成ごと変える',
+ pitch:'キャラクターを「部屋の住人」にする大胆な案。ランプは床置きの灯り、「あなたの番」は棚の小さな琥珀灯、窓の外は本物の時刻と天気に合わせて変わります。',
+ traits:['物語','環境と一体','大がかり'],
+ stageScene:true,
+ slots:[
+  {key:'shape',label:'部屋',opts:[['wa','和室'],['study','書斎']]}
+ ],
+ svg(r,u){
+  const SH=window.SHIRO_SHAPES,S=SH.egg,g=24,lampShape=r.lamp?.shape==='bead'?'bulb':(r.lamp?.shape||'bulb'),study=r.slots?.shape==='study';
+  const eyes=r.face?.eyes||'capsule';
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>
+  <linearGradient id="${u}-w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--wall-a)"/><stop offset="1" stop-color="var(--wall-b)"/></linearGradient>
+  <linearGradient id="${u}-f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--floor-a)"/><stop offset="1" stop-color="var(--floor-b)"/></linearGradient>
+  <radialGradient id="${u}-pool" cx=".5" cy=".4" r=".6"><stop offset="0" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".42"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${u}-hl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <clipPath id="${u}-rc"><rect x="8" y="14" width="184" height="200" rx="12"/></clipPath>${lampDefs(u)}
+ </defs>
+ <g clip-path="url(#${u}-rc)">
+  <rect x="8" y="14" width="184" height="148" fill="url(#${u}-w)"/>
+  <rect x="8" y="160" width="184" height="54" fill="url(#${u}-f)"/>
+  <rect class="skirt" x="8" y="156" width="184" height="6"/>
+  <g class="planks"><path d="M60 162L40 214M100 162L96 214M140 162L152 214M180 162L210 214"/></g>
+  <g class="window"><rect class="win-sky" x="22" y="40" width="58" height="70" rx="3"/><g class="stars"><circle cx="34" cy="54" r="1.3"/><circle cx="62" cy="48" r="1"/><circle cx="48" cy="72" r="1.1"/><circle cx="70" cy="86" r="1.2"/><path d="M60 62a6 6 0 1 0 5 8a5 5 0 0 1 -5 -8z"/></g>
+   <rect class="win-frame" x="22" y="40" width="58" height="70" rx="3"/><path class="win-lat" d="M51 40V110M22 63H80M22 87H80"/></g>
+  <path class="sunpatch" d="M30 164L84 164L112 212L44 212Z"/>
+  <ellipse class="pool-f" cx="164" cy="170" rx="58" ry="26" fill="url(#${u}-pool)"/>
+  <ellipse class="pool-w" cx="164" cy="96" rx="52" ry="60" fill="url(#${u}-pool)"/>
+  <g class="shelf"><rect x="94" y="72" width="48" height="4" rx="1.5"/><rect class="tray" x="106" y="66" width="26" height="6" rx="2"/><circle class="amber" cx="119" cy="62" r="4.6"/>${study?'<rect class="book" x="98" y="58" width="5" height="14"/><rect class="book b2" x="104" y="60" width="4" height="12"/>':''}</g>
+  <g class="table"><ellipse cx="44" cy="178" rx="20" ry="5"/><rect x="42" y="178" width="4" height="22"/><ellipse class="tb" cx="44" cy="200" rx="9" ry="2.6"/>
+   <g class="cup"><path class="steam" d="M40 160Q36 154 40 148M47 160Q43 154 47 148"/><path d="M36 166h16l-2 10a3 3 0 0 1-3 2.6h-6a3 3 0 0 1-3-2.6z"/></g></g>
+  <g class="lampfix"><rect class="pole" x="162.6" y="80" width="3.4" height="80"/><ellipse class="base" cx="164" cy="161" rx="14" ry="3.6"/>
+   <path class="shade" d="M150 50H178L188 78H140Z"/><path class="shade-hl" d="M153 54H166L160 76H146Z"/>${lampSVG(u,lampShape,164,82,1.15)}</g>
+  <ellipse class="cushion" cx="102" cy="176" rx="30" ry="8"/>
+  <g class="resident-pos"><g class="resident" transform="translate(70 116) scale(.4)"><g class="breath2">
+   <ellipse class="foot" cx="78" cy="205" rx="15.5" ry="7.5"/><ellipse class="foot" cx="122" cy="205" rx="15.5" ry="7.5"/>
+   <path class="shell" d="${S.d}" fill="var(--c-body)"/>
+   <ellipse cx="72" cy="86" rx="34" ry="22" transform="rotate(-26 72 86)" fill="url(#${u}-hl)"/>
+   <path d="M30 150C40 196 70 206 100 206C130 206 160 196 170 150C150 184 50 184 30 150Z" fill="var(--c-shade)" opacity=".35"/>
+   <g class="face-wrap">${faceSVG(r,{g,c:44})}</g>
+  </g></g></g>
+ </g>
+ <rect class="room-edge" x="8" y="14" width="184" height="200" rx="12"/>
+ ${fxSVG({spark:[134,112],sweat:[124,132],z:[118,122],dots:[112,112]})}
+</svg>`;
+ }
+});
+})();
+
+/* ===== 持ち込み (bring your own picture): any PNG / JPEG / WebP becomes the body. Breathing, sway, glow and the lamp come from
+ * the pose vector, so a single picture is enough. The file stays in this page; nothing is sent anywhere. ===== */
+(()=>{
+let sample=null;
+function sampleURL(){
+ if(sample)return sample;
+ const c=document.createElement('canvas');c.width=c.height=440;const g=c.getContext('2d');
+ g.lineWidth=8;g.lineJoin=g.lineCap='round';g.strokeStyle='#5b4636';
+ const blob=(x,y,rx,ry,fill)=>{g.beginPath();g.ellipse(x,y,rx,ry,0,0,Math.PI*2);g.fillStyle=fill;g.fill();g.stroke();};
+ // a plain doodle, as someone might draw one: cat-like creature with a scarf
+ g.beginPath();g.moveTo(96,178);g.lineTo(104,70);g.lineTo(190,128);g.closePath();g.fillStyle='#f3cf9f';g.fill();g.stroke();
+ g.beginPath();g.moveTo(344,178);g.lineTo(336,70);g.lineTo(250,128);g.closePath();g.fill();g.stroke();
+ blob(220,276,150,128,'#f3cf9f');
+ g.fillStyle='#f6dcc0';g.beginPath();g.ellipse(220,310,86,66,0,0,Math.PI*2);g.fill();
+ g.fillStyle='#5b4636';for(const x of [160,280]){g.beginPath();g.ellipse(x,246,13,19,0,0,Math.PI*2);g.fill();}
+ g.beginPath();g.moveTo(206,284);g.quadraticCurveTo(220,296,234,284);g.stroke();
+ g.lineWidth=5;for(const s of [-1,1]){g.beginPath();g.moveTo(220+s*70,290);g.lineTo(220+s*120,278);g.moveTo(220+s*70,302);g.lineTo(220+s*122,306);g.stroke();}
+ g.fillStyle='rgba(239,140,120,.55)';for(const x of [124,316]){g.beginPath();g.ellipse(x,290,20,12,0,0,Math.PI*2);g.fill();}
+ g.lineWidth=8;g.beginPath();g.moveTo(110,368);g.quadraticCurveTo(220,404,330,368);g.strokeStyle='#8a6a52';g.stroke();
+ return (sample=c.toDataURL('image/png'));
+}
+defineBody({
+ id:'image',name:'持ち込み（画像）',kana:'Your own picture',tag:'いちばん自分らしく',hidden:true,
+ pitch:'好きな絵や写真をそのまま相棒にする入口。呼吸・ゆれ・光は、姿勢ベクトルから自動でつけます。気分ごとに別の絵を足すこともできます（この試作では1枚だけ）。',
+ traits:['自分の絵','専門知識なし'],
+ slots:[],
+ svg(r,u){
+  const url=(window.LAB_IMAGE&&window.LAB_IMAGE.url)||sampleURL(),lampShape=r.lamp?.shape||'bead';
+  return `<svg viewBox="0 0 200 224" aria-hidden="true" focusable="false">
+ <defs>${lampDefs(u)}<radialGradient id="${u}-h"><stop offset="0" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity=".32"/><stop offset="1" stop-color="rgb(var(--c-lamp-rgb))" stop-opacity="0"/></radialGradient></defs>
+ <ellipse class="floor" cx="100" cy="212" rx="58" ry="7"/>
+ <g class="pose"><g class="breath">
+  <circle class="pic-halo" cx="100" cy="116" r="98" fill="url(#${u}-h)"/>
+  <image class="pic" href="${url}" x="16" y="18" width="168" height="190" preserveAspectRatio="xMidYMax meet"/>
+  <g class="bead" style="--ox:100px;--oy:112px">${lampSVG(u,lampShape,152,36,1.1)}</g>
+ </g></g>
+ ${fxSVG({spark:[28,52],sweat:[160,80],z:[150,52],dots:[40,36]})}
+</svg>`;
+ }
+});
+})();
+
+/* ===== what each direction costs and where it fits (shown on the cards) ===== */
+const META={
+ legacy:{effort:0,tech:'SVG + CSS（出荷中）',fit:'いまの姿。ほかの案を見る基準',risk:'—',amber:[88,-4],lamp:[54,6.7],compact:[24,40,152,152]},
+ shiro:{effort:2,tech:'SVG + CSS',fit:'世界観は変えず、完成度だけ上げたい',risk:'差が小さく、「変わった感」が出にくい',amber:[88,-4],lamp:[56.5,7.6],compact:[28,54,144,144]},
+ andon:{effort:3,tech:'SVG + CSS + 軽いJS（走馬灯）',fit:'「一灯」の世界観を、キャラクターそのものにしたい',risk:'夜の発光は暗い部屋で眩しくないよう調整が要る。走馬灯の影は季節ごとの絵が要る',amber:[88,-2],lamp:[56,6.3],compact:[28,50,144,150]},
+ ensou:{effort:3,tech:'SVG + JS（毎フレーム描画）',fit:'静かで大人っぽい相棒。待機画面で絵になる',risk:'顔が最小なので、状態が伝わるかを実機で確かめる必要がある',amber:[98,10],lamp:[73,22.3],compact:[30,48,140,140]},
+ kobako:{effort:2,tech:'SVG + CSS',fit:'スマートモニターらしさ、遠くからの読みやすさ',risk:'和の世界観から離れ、機械寄りに見える',amber:[90,2],lamp:[59,16],compact:[26,60,148,148]},
+ kitsune:{effort:4,tech:'SVG + CSS',fit:'愛着・生きもの感を最優先したい',risk:'造形が複雑。耳やしっぽのパーツとの組み合わせ検証が増える',amber:[100,6],lamp:[86,22],compact:[8,10,178,178]},
+ hotaru:{effort:2,tech:'SVG + CSS',fit:'存在感を最小にしたい。環境になじませたい',risk:'作業の「蛍」と同じ種類の光なので区別の設計が要る。顔なしだと「誰と話しているか」が弱い',amber:[96,10],lamp:[73,25],compact:[44,56,112,112]},
+ kokedama:{effort:3,tech:'SVG + CSS',fit:'窓辺に置く「もの」としての相棒。季節を感じたい',risk:'動かしすぎにならない調整。窓の光との連動が前提',amber:[80,16],lamp:[51,22],compact:[36,36,128,160]},
+ kage:{effort:3,tech:'SVG + CSS（blur）',fit:'待機画面での絵づくり。気持ちを「距離」で見せたい',risk:'blur は古い WebKit では別実装（feGaussianBlur）が要る。影は表情が読みにくい',amber:[92,2],lamp:[55,23.6],compact:[10,10,180,204]},
+ image:{effort:2,tech:'SVG + CSS（画像を載せるだけ）',fit:'自分の絵・写真・好きなキャラを使いたい',risk:'権利（他人の絵）と、透過のない画像の見え方。SVGは受け付けない',amber:[96,10],lamp:[76,16],compact:[16,18,168,190]},
+ room:{effort:5,tech:'SVG + CSS（大きめ）',fit:'世界観を一新したい。環境と一体の物語がほしい',risk:'画面構成ごと変わる。作業灯・ランプの意味づけを作り直す',amber:[59.5,27.7],lamp:[82,36.6],compact:[8,14,184,200]}
+};
+for(const id in META)if(BODIES[id])BODIES[id].meta=META[id];
+const VISIBLE=()=>ORDER.filter(i=>!BODIES[i].hidden);
+const EFFORT_LABEL=['基準','小','中','中〜大','大','とても大'];
+
+/* ---- the recipe is the whole contract between a person's choices and the screen: enumerated values only ---- */
+const ENUM={
+ palette:[...Object.keys(PALETTES),'custom'],lampHue:Object.keys(LAMPS),lampShape:['bead','flame','bud','bulb'],
+ eyes:['capsule','dot','big','sleepy'],ears:['none','cat','bear','rabbit'],season:['auto','off','petal','uchiwa','leaf','scarf'],
+ hobby:['none','headphones','glasses','cup'],motion:['calm','normal','lively']
+};
+/** Returns {ok, errors[], value}. Anything not on the list is refused, so a preset can never carry markup, files or permissions. */
+function validateRecipe(raw){
+ const errors=[];
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return {ok:false,errors:['レシピは { ... } の形で書いてください。'],value:null};
+ const top=['body','palette','hue','lamp','face','parts','props','slots','size','motion'];
+ for(const k of Object.keys(raw))if(!top.includes(k))errors.push(`「${k}」は受け付けられない項目です（許可・接続先・ファイルは、レシピに入れられません）。`);
+ const body=raw.body;if(!BODIES[body]||body==='legacy'){errors.push('body は用意された体の名前から選んでください。');return {ok:false,errors,value:null};}
+ const v=defaultRecipe(body),def=BODIES[body];
+ const pick=(label,val,list,fallback)=>{if(val===undefined)return fallback;if(list.includes(val))return val;errors.push(`${label} は ${list.join(' / ')} のどれかです。`);return fallback;};
+ v.palette=pick('palette',raw.palette,ENUM.palette,v.palette);
+ if(raw.hue!==undefined){if(typeof raw.hue==='number'&&raw.hue>=0&&raw.hue<=360)v.hue=raw.hue;else errors.push('hue は 0〜360 の数です。');}
+ if(raw.lamp!==undefined){if(raw.lamp&&typeof raw.lamp==='object'){
+   v.lamp.hue=pick('lamp.hue',raw.lamp.hue,ENUM.lampHue,v.lamp.hue);
+   if(raw.lamp.hue==='amber'||raw.lamp.hue==='gold')errors.push('琥珀（amber）は「あなたの番」の色なので、キャラクターの灯りには使えません。');
+   v.lamp.shape=pick('lamp.shape',raw.lamp.shape,ENUM.lampShape,v.lamp.shape);
+  }else errors.push('lamp はオブジェクトです。');}
+ if(raw.face!==undefined){if(raw.face&&typeof raw.face==='object'){
+   v.face.eyes=pick('face.eyes',raw.face.eyes,ENUM.eyes,v.face.eyes);
+   for(const k of ['cheeks','brows'])if(raw.face[k]!==undefined){if(typeof raw.face[k]==='boolean')v.face[k]=raw.face[k];else errors.push(`face.${k} は true / false です。`);}
+  }else errors.push('face はオブジェクトです。');}
+ if(raw.parts!==undefined){if(raw.parts&&typeof raw.parts==='object')v.parts.ears=pick('parts.ears',raw.parts.ears,ENUM.ears,v.parts.ears);else errors.push('parts はオブジェクトです。');}
+ if(raw.props!==undefined){if(raw.props&&typeof raw.props==='object'){v.props.season=pick('props.season',raw.props.season,ENUM.season,v.props.season);v.props.hobby=pick('props.hobby',raw.props.hobby,ENUM.hobby,v.props.hobby);}else errors.push('props はオブジェクトです。');}
+ if(raw.slots!==undefined){if(raw.slots&&typeof raw.slots==='object'){
+   for(const [k,val] of Object.entries(raw.slots)){const slot=(def.slots||[]).find(s=>s.key===k&&!s.face);if(!slot){errors.push(`この体に「${k}」の設定はありません。`);continue;}
+    if(slot.opts.some(o=>o[0]===val))v.slots[k]=val;else errors.push(`slots.${k} は ${slot.opts.map(o=>o[0]).join(' / ')} のどれかです。`);}
+  }else errors.push('slots はオブジェクトです。');}
+ if(raw.size!==undefined){if(typeof raw.size==='number'&&raw.size>=.8&&raw.size<=1.25)v.size=raw.size;else errors.push('size は 0.8〜1.25 の数です。');}
+ v.motion=pick('motion',raw.motion,ENUM.motion,v.motion);
+ return {ok:!errors.length,errors,value:v};
+}
+
+/* ===== stage: the home screen as it really is (character, caption, clock, window light, work lights, the amber lamp) ===== */
+const LIGHT_SLOTS=[[-28,44],[126,60],[114,14],[-22,12],[104,92]],LIGHT_DRIFT=[[11,0,0,12,-14],[13,-4,-1.6,-13,11],[12,-7,-3.1,9,12],[14,-2,-2.2,-10,-9],[10,-5,-.8,11,8]];
+const WD=['日','月','火','水','木','金','土'];
+function stageHTML(){
+ return `<div class="sm" id="sm" data-theme="light">
+ <div class="sm-wall"><div class="sm-tint"></div><div class="sm-sun"></div></div>
+ <div class="sm-bar"><span class="wm">tepora<i></i></span><nav><b>ホーム</b><span>仕事</span><span>記憶</span><span>設定</span></nav><span class="sm-pill"><i></i>プレビュー</span></div>
+ <div class="sm-grid">
+  <div class="sm-figure">
+   <div class="sm-char" id="sm-char"><div class="sm-glow" id="sm-glow"></div><div class="sm-host" id="sm-host"></div><div class="sm-lights" id="sm-lights"></div></div>
+   <p class="sm-caption" id="sm-caption"></p>
+  </div>
+  <div class="sm-side">
+   <div class="sm-clock"><time id="sm-time">14:42</time><div class="sm-line"><b id="sm-date"></b><span id="sm-season"></span></div><div class="sm-weather" id="sm-weather"></div></div>
+   <div class="sm-card"><small>ニュース（サンプル表示）</small><p>自分で選んだRSSの見出しが、ここに順番に流れます</p><em>1 / 3</em></div>
+  </div>
+ </div>
+ <div class="sm-composer"><span>＋</span><span class="ph" id="sm-ph">Teporaに話しかける</span><span class="mic">🎙</span><span class="go">→</span></div>
+</div>`;
+}
+const _now=new Date(),stageState={hour:Math.min(24,Math.max(4,Math.round((_now.getHours()+_now.getMinutes()/60)*4)/4)),weather:'partly',waiting:0,jobs:2,scheme:'auto'};
+let stageHandle=null;
+function fmtHour(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return `${String(hh).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;}
+function renderStage(){
+ const root=$('#sm');if(!root)return;
+ const body=S.body,def=BODIES[body],meta=def.meta||{},d=daylight(stageState.hour,stageState.weather);
+ const scheme=stageState.scheme==='auto'?(d.night?'lamp':'light'):stageState.scheme;root.dataset.theme=scheme;
+ root.classList.toggle('is-scene',!!def.stageScene);
+ const vars=daylightVars(d);for(const k in vars)root.style.setProperty(k,vars[k]);
+ root.style.setProperty('--ant-x',`${meta.lamp?.[0]??55}%`);root.style.setProperty('--ant-y',`${meta.lamp?.[1]??8}%`);
+ root.style.setProperty('--sun-lean',`${SUN_LEAN(stageState.hour).toFixed(1)}deg`);
+ const now=new Date();$('#sm-time').textContent=fmtHour(stageState.hour);
+ $('#sm-date').textContent=`${now.getMonth()+1}月${now.getDate()}日（${WD[now.getDay()]}）`;$('#sm-season').textContent=seasonLine(now);
+ const temp={clear:22,partly:19,cloud:17,rain:15,snow:1}[stageState.weather];
+ $('#sm-weather').innerHTML=`<span class="wt">${temp}°</span><span>${WEATHER_LABEL[stageState.weather]}</span>`;
+ // character
+ const host=$('#sm-host');stageHandle?.destroy();
+ const recipe=getRecipe(body);recipe.props={...recipe.props};
+ stageHandle=mount(host,recipe,{mood:S.mood,follow:true});
+ host.style.setProperty('--size',recipe.size);$('#sm-char').style.setProperty('--scale',recipe.size);
+ const svg=host.firstElementChild;if(svg){svg.style.setProperty('--sun-lean',`${SUN_LEAN(stageState.hour).toFixed(1)}deg`);if(def.stageScene)svg.style.setProperty('--amber-o','0');}
+ renderLights();updateCaption();
+}
+function renderLights(){
+ const box=$('#sm-lights');if(!box)return;box.innerHTML='';
+ const meta=BODIES[S.body].meta||{};
+ for(let i=0;i<Math.min(stageState.jobs,LIGHT_SLOTS.length);i++){
+  const [x,y]=LIGHT_SLOTS[i],[dur,del,rd,ax,ay]=LIGHT_DRIFT[i],el=document.createElement('div');el.className='ff on';
+  el.style.cssText=`--lx:${x}%;--ly:${y}%;--dur:${dur}s;--del:${del}s;--rd:${rd}s;--ax:${ax}px;--ay:${ay}px`;el.innerHTML='<b></b>';box.append(el);
+ }
+ if(stageState.waiting>0){
+  const [x,y]=meta.amber||[88,-4],el=document.createElement('div');el.className='ff ff-wait on';el.style.cssText=`--lx:${x}%;--ly:${y}%`;
+  el.innerHTML=`<b></b><span class="ff-label">あなたの番<span class="ff-count">${stageState.waiting}</span></span>`;box.append(el);
+ }
+ $('#sm')?.classList.toggle('has-wait',stageState.waiting>0);
+}
+function updateCaption(){
+ const c=captionFor(S.mood,S.voice.tone,S.voice.name,stageState.hour,S.voice.proactive),el=$('#sm-caption');if(!el)return;
+ el.textContent=c.text;el.classList.toggle('is-empty',!c.text);
+ $('#sm-ph').textContent=S.voice.name?`${S.voice.name}さんの言葉を待っています…`:'Teporaに話しかける';
+}
+function stageControls(){
+ return `<div class="ctl-row"><label class="ctl"><span>時刻 <b id="c-hour">${fmtHour(stageState.hour)}</b></span><input type="range" id="in-hour" min="4" max="24" step=".25" value="${stageState.hour}"></label>
+ <div class="ctl"><span>天気</span><div class="seg" id="seg-weather">${Object.entries(WEATHER_LABEL).map(([k,v])=>`<button type="button" data-v="${k}" aria-pressed="${stageState.weather===k}">${v}</button>`).join('')}</div></div></div>
+ <div class="ctl-row"><div class="ctl"><span>あなたの番（琥珀の灯り）</span><div class="seg" id="seg-wait">${[0,1,3].map(n=>`<button type="button" data-v="${n}" aria-pressed="${stageState.waiting===n}">${n?n+'件':'なし'}</button>`).join('')}</div></div>
+ <div class="ctl"><span>進めている仕事（蛍）</span><div class="seg" id="seg-jobs">${[0,2,5].map(n=>`<button type="button" data-v="${n}" aria-pressed="${stageState.jobs===n}">${n?n+'つ':'なし'}</button>`).join('')}</div></div>
+ <div class="ctl"><span>配色</span><div class="seg" id="seg-scheme">${[['auto','時刻にまかせる'],['light','昼'],['dark','夜'],['lamp','行灯']].map(([k,v])=>`<button type="button" data-v="${k}" aria-pressed="${stageState.scheme===k}">${v}</button>`).join('')}</div></div></div>`;
+}
+function wireStageControls(){
+ const seg=(id,fn)=>$$(`#${id} button`).forEach(b=>b.addEventListener('click',()=>{$$(`#${id} button`).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));fn(b.dataset.v);}));
+ $('#in-hour').addEventListener('input',e=>{stageState.hour=Number(e.target.value);$('#c-hour').textContent=fmtHour(stageState.hour);renderStage();});
+ seg('seg-weather',v=>{stageState.weather=v;renderStage();});
+ seg('seg-wait',v=>{stageState.waiting=Number(v);renderStage();});
+ seg('seg-jobs',v=>{stageState.jobs=Number(v);renderStage();});
+ seg('seg-scheme',v=>{stageState.scheme=v;renderStage();});
+}
+
+function syncStageControls(){
+ const h=$('#in-hour');if(h){h.value=stageState.hour;$('#c-hour').textContent=fmtHour(stageState.hour);}
+ for(const [id,val] of [['seg-scheme',stageState.scheme],['seg-weather',stageState.weather],['seg-wait',String(stageState.waiting)],['seg-jobs',String(stageState.jobs)]])$$(`#${id} button`).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===val)));
+}
+
+/* ===== studio: a person makes their own; every choice is an enumerated value that lands in one recipe ===== */
+const SEASON_OPTS=[['auto','季節にまかせる'],['off','なし'],['petal','春：花びら'],['uchiwa','夏：うちわ'],['leaf','秋：落ち葉'],['scarf','冬：マフラー']];
+const HOBBY_OPTS=[['none','なし'],['headphones','ヘッドホン'],['glasses','めがね'],['cup','お茶']];
+const EARS_OPTS=[['none','なし'],['cat','ねこ'],['bear','くま'],['rabbit','うさぎ']];
+const LAMP_SHAPES=[['bead','ぽち'],['flame','ほのお'],['bud','つぼみ'],['bulb','電球']];
+const MOTION_OPTS=[['calm','静か'],['normal','ふつう'],['lively','にぎやか']];
+const FACE_BODIES=['shiro','andon','kitsune','hotaru','kokedama','room'];   // bodies that use the standard face rig
+const PROP_BODIES=['shiro','andon','ensou','kobako','kitsune','hotaru','kokedama'];
+const EARS_BODIES=['shiro','kage'];
+
+const PRESETS=[
+ {name:'標準のしろ',r:{body:'shiro'}},
+ {name:'夜の灯守',r:{body:'andon',slots:{soma:'moon'},lamp:{hue:'vermilion',shape:'bead'}}},
+ {name:'墨の円相',r:{body:'ensou',slots:{brush:'bold',eyes:'dot'}}},
+ {name:'白狐・藍の灯',r:{body:'kitsune',lamp:{hue:'indigo',shape:'flame'},props:{season:'off',hobby:'cup'}}},
+ {name:'窓辺の苔玉',r:{body:'kokedama',palette:'moss',props:{season:'auto',hobby:'none'}}},
+ {name:'桜色のねこ耳',r:{body:'shiro',palette:'sakura',parts:{ears:'cat'},lamp:{hue:'plum',shape:'bud'},face:{eyes:'big',cheeks:true,brows:true}}},
+ {name:'ドット顔の小箱',r:{body:'kobako',palette:'sora',slots:{screen:'pixel',shape:'tall'}}},
+ {name:'もちの影絵',r:{body:'kage',slots:{shape:'mochi'}}}
+];
+
+const defaultStyle=()=>({palette:'washi',hue:30,lamp:{hue:'vermilion',shape:'bead'},props:{season:'off',hobby:'none'},size:1,motion:'normal'});
+/** One person's recipe for body (their personal style carries across bodies; body-specific parts are remembered per body). */
+function getRecipe(body=S.body){
+ const d=defaultRecipe(body),per=S.per[body]||(S.per[body]={slots:{},face:{...d.face},parts:{...d.parts}});
+ return {...d,body,palette:S.touched.palette?S.style.palette:d.palette,hue:S.style.hue,
+  lamp:{hue:S.style.lamp.hue,shape:S.touched.shape?S.style.lamp.shape:d.lamp.shape},
+  face:{...per.face},parts:{...per.parts},props:{...S.style.props},slots:{...per.slots},size:S.style.size,motion:S.style.motion};
+}
+function applyRecipe(v){
+ S.body=v.body;S.style.palette=v.palette;S.touched.palette=true;S.style.hue=v.hue;S.style.lamp={hue:v.lamp.hue,shape:v.lamp.shape};S.touched.shape=true;
+ S.style.props={...v.props};S.style.size=v.size;S.style.motion=v.motion;S.per[v.body]={slots:{...v.slots},face:{...v.face},parts:{...v.parts}};
+ syncAll();
+}
+function randomRecipe(){
+ const bodies=ORDER.filter(i=>i!=='legacy'&&i!=='image'),body=bodies[Math.floor(Math.random()*bodies.length)],d=defaultRecipe(body),def=BODIES[body],R=a=>a[Math.floor(Math.random()*a.length)];
+ const v={...d,body,palette:R(ENUM.palette.filter(p=>p!=='custom')),hue:Math.floor(Math.random()*360),lamp:{hue:R(ENUM.lampHue.filter(h=>h!=='snow')),shape:R(ENUM.lampShape)},
+  face:{eyes:R(ENUM.eyes),cheeks:Math.random()>.2,brows:Math.random()>.25},parts:{ears:EARS_BODIES.includes(body)?R(ENUM.ears):'none'},
+  props:{season:R(ENUM.season),hobby:R(ENUM.hobby)},slots:{},size:S.style.size,motion:S.style.motion};
+ if(Math.random()>.7){v.palette='custom';}
+ for(const s of def.slots||[]){if(s.face){v.face.eyes=R(s.opts)[0];}else v.slots[s.key]=R(s.opts)[0];}
+ if(v.palette==='sumi'&&['andon','kokedama'].includes(body))v.palette='washi';
+ return v;
+}
+const hueOf=hex=>{const [r,g,b]=hex2rgb(hex).map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(!d)return 0;let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return (h*60+360)%360;};
+
+function studioHTML(){
+ return `<div class="studio">
+  <div class="st-preview">
+   <div class="st-stage" id="st-stage"><div class="st-host" id="st-host"></div></div>
+   <div class="seg seg-wrap" id="st-moods">${MOODS.map(([k,n])=>`<button type="button" data-v="${k}" aria-pressed="${k==='idle'}">${n}</button>`).join('')}</div>
+   <div class="st-sheet" id="st-sheet"></div>
+   <div class="st-actions"><button type="button" class="btn" id="b-dice">🎲 さいころ</button><button type="button" class="btn ghost" id="b-reset">初期化</button><button type="button" class="btn ghost" id="b-copy">レシピをコピー</button><span class="st-msg" id="st-msg" role="status"></span></div>
+   <div class="st-presets"><span>すぐ試す</span>${PRESETS.map((p,i)=>`<button type="button" class="chip" data-preset="${i}">${p.name}</button>`).join('')}</div>
+  </div>
+  <div class="st-controls" id="st-controls"></div>
+ </div>
+ <div class="st-bottom">
+  <div class="st-guard" id="st-guard"></div>
+  <div class="st-json"><div class="st-json-h"><b>レシピ（保存される中身）</b><small>列挙した値だけ。許可・接続先・ファイルは含みません</small></div><pre id="st-json"></pre>
+   <details class="st-import"><summary>レシピを読み込む（共有された設定・バックアップ）</summary><textarea id="st-import" rows="6" spellcheck="false" placeholder='{"body":"kitsune","palette":"washi","lamp":{"hue":"indigo","shape":"flame"}}'></textarea><div class="st-import-row"><button type="button" class="btn" id="b-import">検証して読み込む</button><button type="button" class="btn ghost" id="b-bad">わざと危ない例を入れる</button></div><ul class="st-errors" id="st-errors"></ul></details></div>
+ </div>`;
+}
+const swatch=(val,color,label,pressed,extra='')=>`<button type="button" class="sw ${extra}" data-v="${val}" aria-pressed="${pressed}" title="${label}" style="--sw:${color}"><i></i><span>${label}</span></button>`;
+const chips=(key,opts,cur)=>`<div class="seg seg-wrap" data-key="${key}">${opts.map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`;
+function renderControls(){
+ const r=getRecipe(),def=BODIES[S.body],box=$('#st-controls');
+ const grp=(t,h,note='')=>`<fieldset class="grp"><legend>${t}</legend>${note?`<p class="grp-note">${note}</p>`:''}${h}</fieldset>`;
+ let h='';
+ h+=grp('体（かたち）',`<div class="seg seg-wrap" data-key="body">${ORDER.filter(i=>i!=='legacy').map(i=>`<button type="button" data-v="${i}" aria-pressed="${S.body===i}">${BODIES[i].name}</button>`).join('')}</div>`,'体を替えても、色・灯り・小物の好みは引き継がれます。');
+ h+=grp('素材（色）',`<div class="sws" data-key="palette">${Object.entries(PALETTES).map(([k,p])=>swatch(k,`linear-gradient(135deg,${p.light},${p.body} 55%,${p.shade})`,p.name,r.palette===k)).join('')}${swatch('custom','conic-gradient(from 90deg,hsl(0 60% 80%),hsl(60 60% 80%),hsl(120 60% 80%),hsl(180 60% 80%),hsl(240 60% 80%),hsl(300 60% 80%),hsl(360 60% 80%))','好きな色',r.palette==='custom')}</div>${r.palette==='custom'?`<label class="ctl"><span>色相 <b>${Math.round(r.hue)}°</b></span><input type="range" id="in-hue" min="0" max="360" step="1" value="${r.hue}"></label><p class="grp-note">明るさと濃さは固定。どの色相でも目が読める濃さに保たれます。</p>`:''}`);
+ h+=grp('灯り（このキャラの目印）',`<div class="sws" data-key="lamp.hue">${Object.entries(LAMPS).map(([k,l])=>swatch(k,l.day,l.name,r.lamp.hue===k)).join('')}<button type="button" class="sw lock" disabled aria-disabled="true" title="琥珀は「あなたの番」の色なので選べません" style="--sw:#e2a12a"><i></i><span>琥珀 🔒</span></button></div>${chips('lamp.shape',LAMP_SHAPES,r.lamp.shape)}`,'灯りは気分で色が変わりません。「あなたの番」の琥珀とは別の色だけを選べます。');
+ const faceSlot=(def.slots||[]).find(s=>s.face);
+ if(faceSlot||FACE_BODIES.includes(S.body)){
+  h+=grp('顔',`${faceSlot?`<div class="lab">目</div>${chips('face.eyes',faceSlot.opts,r.face.eyes)}`:''}${FACE_BODIES.includes(S.body)?`<div class="toggles"><label><input type="checkbox" data-key="face.cheeks" ${r.face.cheeks?'checked':''}> ほお</label><label><input type="checkbox" data-key="face.brows" ${r.face.brows?'checked':''}> まゆ</label></div>`:''}`);
+ }
+ if(EARS_BODIES.includes(S.body))h+=grp('耳',chips('parts.ears',EARS_OPTS,r.parts.ears));
+ if(PROP_BODIES.includes(S.body))h+=grp('小物',`<div class="lab">季節</div>${chips('props.season',SEASON_OPTS,r.props.season)}<div class="lab">好み</div>${chips('props.hobby',HOBBY_OPTS,r.props.hobby)}`,'季節の小物は七十二候の暦で自動に入れ替わります。');
+ if(S.body==='image')h+=grp('画像',`<label class="filebtn"><input type="file" id="in-image" accept="image/png,image/jpeg,image/webp"><span>画像を選ぶ（PNG・JPEG・WebP）</span></label><button type="button" class="chip" id="b-sample">サンプルの絵を使う</button><p class="grp-note">この試作では、選んだ画像はこのページの中だけで使い、どこにも送りません。実装では、画像の種類を中身で確かめてからこの PC にだけ保存し、SVG（スクリプトを含められる形式）は受け付けません。</p>${window.LAB_IMAGE?`<p class="grp-note">いまの画像：${esc(window.LAB_IMAGE.name)}</p>`:''}`);
+ const own=(def.slots||[]).filter(s=>!s.face);
+ if(own.length)h+=grp(`${def.name}だけの設定`,own.map(s=>`<div class="lab">${s.label}</div>${chips('slot.'+s.key,s.opts,r.slots[s.key]??s.opts[0][0])}`).join(''));
+ h+=grp('大きさと動き',`<label class="ctl"><span>大きさ <b>${Math.round(r.size*100)}%</b></span><input type="range" id="in-size" min=".8" max="1.25" step=".05" value="${r.size}"></label><div class="lab">動き</div>${chips('motion',MOTION_OPTS,r.motion)}`,'OS の「視差効果を減らす」設定がオンなら、動きは自動で止まります。');
+ box.innerHTML=h;
+ wireControls(box);
+}
+function setByKey(key,val){
+ const per=S.per[S.body]||(S.per[S.body]={slots:{},face:{...defaultRecipe(S.body).face},parts:{...defaultRecipe(S.body).parts}});
+ if(key==='body'){selectBody(val);return;}
+ if(key==='palette'){S.style.palette=val;S.touched.palette=true;}
+ else if(key==='lamp.hue')S.style.lamp.hue=val;
+ else if(key==='lamp.shape'){S.style.lamp.shape=val;S.touched.shape=true;}
+ else if(key==='face.eyes')per.face.eyes=val;
+ else if(key==='face.cheeks')per.face.cheeks=val;
+ else if(key==='face.brows')per.face.brows=val;
+ else if(key==='parts.ears')per.parts.ears=val;
+ else if(key==='props.season')S.style.props.season=val;
+ else if(key==='props.hobby')S.style.props.hobby=val;
+ else if(key==='motion')S.style.motion=val;
+ else if(key.startsWith('slot.'))per.slots[key.slice(5)]=val;
+ syncAll();
+}
+function wireControls(box){
+ $$('[data-key]',box).forEach(g=>{
+  if(g.matches('input[type=checkbox]'))g.addEventListener('change',()=>setByKey(g.dataset.key,g.checked));
+  else $$('button[data-v]',g).forEach(b=>b.addEventListener('click',()=>setByKey(g.dataset.key,b.dataset.v)));
+ });
+ $('#in-image',box)?.addEventListener('change',e=>{const f=e.target.files?.[0];if(!f)return;if(!/^image\/(png|jpeg|webp)$/.test(f.type)){flash('PNG・JPEG・WebP を選んでください。');return;}if(window.LAB_IMAGE?.url)URL.revokeObjectURL(window.LAB_IMAGE.url);window.LAB_IMAGE={url:URL.createObjectURL(f),name:f.name};syncAll();});
+ $('#b-sample',box)?.addEventListener('click',()=>{if(window.LAB_IMAGE?.url)URL.revokeObjectURL(window.LAB_IMAGE.url);window.LAB_IMAGE=null;syncAll();});
+ $('#in-hue',box)?.addEventListener('input',e=>{S.style.hue=Number(e.target.value);syncAll(true);});
+ $('#in-size',box)?.addEventListener('input',e=>{S.style.size=Number(e.target.value);syncAll(true);});
+}
+let stHandle=null,sheetHandles=[];
+function renderStudio(keepControls=false){
+ const r=getRecipe();
+ stHandle?.destroy();stHandle=mount($('#st-host'),r,{mood:S.mood,follow:true});
+ $('#st-host').style.setProperty('--scale',r.size);$('#st-host').style.transform=`scale(${r.size})`;
+ $$('#st-moods button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S.mood)));
+ sheetHandles.forEach(h=>h.destroy());sheetHandles=[];const sheet=$('#st-sheet');sheet.innerHTML='';
+ for(const [k,n] of MOODS){const cell=document.createElement('button');cell.type='button';cell.className='sheet-cell';cell.title=n;const host=document.createElement('div');cell.append(host,Object.assign(document.createElement('span'),{textContent:n}));sheet.append(cell);
+  sheetHandles.push(mount(host,{...r,props:{...r.props}},{mood:k,life:false}));cell.addEventListener('click',()=>setMood(k));}
+ if(!keepControls)renderControls();
+ renderGuard(r);renderJSON(r);
+}
+function renderJSON(r){
+ const o={body:r.body,palette:r.palette,...(r.palette==='custom'?{hue:Math.round(r.hue)}:{}),lamp:r.lamp,face:r.face,parts:r.parts,props:r.props,slots:r.slots,size:r.size,motion:r.motion};
+ $('#st-json').textContent=JSON.stringify(o,null,1).replace(/\n\s+/g,' ').replace(/\{ /g,'{ ').replace(/,\s*"(palette|lamp|face|parts|props|slots|size|motion)"/g,',\n  "$1"').replace('{ "body"','{\n  "body"').replace(/ \}$/,'\n}');
+}
+function renderGuard(r){
+ const p=resolvePalette(r,'light'),L=LAMPS[r.lamp.hue]||LAMPS.vermilion,eye=contrast(p.ink,p.body),lampC=contrast(L.day,'#f3f0e9'),dh=Math.abs(hueOf(L.day)-hueOf('#e2a12a')),dh2=Math.min(dh,360-dh);
+ const ok=(c,t)=>`<li class="${c?'ok':'warn'}"><span>${c?'✓':'！'}</span>${t}</li>`;
+ $('#st-guard').innerHTML=`<b>自動で守られること</b><ul>
+  ${ok(eye>=4.5,`目の見やすさ ${eye.toFixed(1)} : 1（基準 4.5 : 1）${eye>=4.5?'':' — 濃さを自動で補正します'}`)}
+  ${ok(lampC>=3,`灯りの見やすさ（昼の紙の上）${lampC.toFixed(1)} : 1（基準 3 : 1）${lampC>=3?'':' — 昼には溶けやすい色です。夜（行灯）で映えます'}`)}
+  ${ok(dh2>=25,`琥珀（あなたの番）との色の差 ${Math.round(dh2)}°（基準 25°以上）`)}
+  ${ok(true,'灯りの色は気分で変わらない。動きは OS の設定を優先')}
+  ${ok(true,'保存は設定の値だけ。接続先・許可・ファイルは入らない')}</ul>`;
+}
+function wireStudio(){
+ $$('#st-moods button').forEach(b=>b.addEventListener('click',()=>setMood(b.dataset.v)));
+ $('#b-dice').addEventListener('click',()=>{applyRecipe(randomRecipe());flash('さいころを振りました。気に入ったらレシピをコピーできます。');});
+ $('#b-reset').addEventListener('click',()=>{S.per={};S.touched={};S.style=defaultStyle();syncAll();flash('初期化しました。');});
+ $('#b-copy').addEventListener('click',async()=>{const t=$('#st-json').textContent;try{await navigator.clipboard.writeText(t);flash('レシピをコピーしました。');}catch{const ta=$('#st-import');ta.value=t;ta.select();flash('コピーできなかったので、下の欄に出しました。');}});
+ $$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const p=PRESETS[Number(b.dataset.preset)],res=validateRecipe({...p.r});if(res.ok)applyRecipe(res.value);flash(`「${p.name}」を試しています。`);}));
+ const importNow=()=>{let raw;const ul=$('#st-errors');ul.innerHTML='';try{raw=JSON.parse($('#st-import').value);}catch(e){ul.innerHTML='<li>JSON として読めません：'+esc(e.message)+'</li>';return;}
+  const res=validateRecipe(raw);if(res.ok){applyRecipe(res.value);flash('読み込みました。');}else{ul.innerHTML=res.errors.map(e=>`<li>${esc(e)}</li>`).join('')+'<li class="note">読み込みは行いません（現在のレシピのまま）。</li>';}};
+ $('#b-import').addEventListener('click',importNow);
+ $('#b-bad').addEventListener('click',()=>{$('#st-import').value='{"body":"kitsune","palette":"washi","lamp":{"hue":"amber"},"onload":"fetch(\'https://example.com\')","slots":{"payload":"<script>"},"size":9}';importNow();});
+}
+let flashTimer=0;function flash(t){const el=$('#st-msg');if(!el)return;el.textContent=t;clearTimeout(flashTimer);flashTimer=setTimeout(()=>{el.textContent='';},3200);}
+
+/* ===== voice (口調), system (仕組み), plan (進め方) ===== */
+const SCENES=[['morning','朝のあいさつ'],['day','昼のあいさつ'],['night','夜のあいさつ'],['rain','雨の日のひとこと'],['bed','夜の待機画面'],['back','待機画面から戻ったとき'],['waiting','確認してほしいとき'],['done','仕事が終わったとき'],['failed','うまくいかなかったとき']];
+const QUIET_SPOKEN=['back','waiting','done','failed'];
+const SEASON_CHAT={polite:k=>`いまは「${k}」の頃です。`,soft:k=>`いまは「${k}」の頃ですよ。`,casual:k=>`いまは「${k}」の頃なんだって。`,terse:k=>`「${k}」。`,night:k=>`「${k}」——そんな頃です。`};
+const PRO_LLM={quiet:'こちらから雑談や声かけはしない。',normal:'',chatty:'ときどき、季節や休憩の話題を一言添える。'};
+function voiceHTML(){
+ return `<div class="voice">
+  <div class="vo-controls">
+   <div class="lab">口調</div><div class="seg seg-wrap" id="vo-tone">${Object.entries(TONES).map(([k,t])=>`<button type="button" data-v="${k}" aria-pressed="${S.voice.tone===k}">${t.name}<small>${t.note}</small></button>`).join('')}</div>
+   <label class="ctl txt"><span>呼び名（あなたをどう呼ぶか）</span><input id="in-name" maxlength="12" placeholder="例：ミカ" value="${esc(S.voice.name)}"></label>
+   <div class="lab">話しかけ方</div><div class="seg seg-wrap" id="vo-pro">${Object.entries(PROACTIVE).map(([k,t])=>`<button type="button" data-v="${k}" aria-pressed="${S.voice.proactive===k}">${t.name}</button>`).join('')}</div>
+   <p class="grp-note" id="vo-pro-note"></p>
+  </div>
+  <div class="vo-out"><div class="vo-lines" id="vo-lines"></div></div>
+  <div class="vo-persona"><b>「設定 → キャラクター → 人格」に下書きとして入る文面</b><pre id="vo-persona"></pre><small>返事そのものは AI が、この文面に沿って書きます。上の固定の一言（挨拶・おかえり・確認のお願い）は AI を通さず、ここで選んだ口調の文面から出ます。人格を変えても、接続先・ファイル・ツール操作の許可は広がりません（いまの仕様のまま）。</small></div>
+ </div>`;
+}
+function renderVoice(){
+ const {tone,name,proactive}=S.voice,T=TONES[tone],now=new Date(),kou=seasonLine(now).split(' ・ ')[1];
+ $('#vo-pro-note').textContent=PROACTIVE[proactive].text;
+ const spoken=k=>proactive!=='quiet'||QUIET_SPOKEN.includes(k);
+ $('#vo-lines').innerHTML=SCENES.map(([k,label])=>{const s=spoken(k);return `<div class="vo-line ${s?'':'is-off'}"><span class="vo-scene">${label}</span><p>${esc(callPrefix(tone,name)+T.line[k])}</p>${s?'':'<em>この設定では話しません</em>'}</div>`;}).join('')
+  +(proactive==='chatty'?`<div class="vo-line"><span class="vo-scene">季節の話題（おしゃべりのときだけ）</span><p>${esc(SEASON_CHAT[tone](kou))}</p></div>`:'');
+ const persona=[T.persona,name?`相手の呼び名は「${name}${T.suffix}」。`:'',PRO_LLM[proactive]].filter(Boolean).join('');
+ $('#vo-persona').textContent=persona;
+}
+function wireVoice(){
+ $$('#vo-tone button').forEach(b=>b.addEventListener('click',()=>{S.voice.tone=b.dataset.v;$$('#vo-tone button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderVoice();updateCaption();}));
+ $$('#vo-pro button').forEach(b=>b.addEventListener('click',()=>{S.voice.proactive=b.dataset.v;$$('#vo-pro button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderVoice();}));
+ $('#in-name').addEventListener('input',e=>{S.voice.name=e.target.value.trim();renderVoice();updateCaption();});
+}
+
+/* ---- system ---- */
+const INTERPRET={
+ shiro:'近さ→からだの前のめり／灯り→アンテナのかがやき／気分→まゆ・口・手',
+ andon:'灯り→紙の内側の明るさ（夜に灯る）／集中→走馬灯の影が回る',
+ ensou:'近さ→輪の向き／話す量→輪のあきの開き／元気→筆の太さ・墨の濃さ',
+ kobako:'気分→画面の目と口／話す量→波形の口／気づき→「！」',
+ kitsune:'気づき→耳の向き／気分→しっぽ／灯り→しっぽの先の狐火',
+ hotaru:'灯り→光のひろがり／近さ→光の大きさ／気づき→光の寄る位置',
+ kokedama:'気づき→葉の向き／気分→蕾の開き／元気→葉のゆれ／時刻→窓へ傾く',
+ kage:'近さ→影のぼけ方と大きさ（遠いほどぼやける）／灯り→紙のあかり',
+ room:'灯り→床の灯り／気づき→棚の琥珀灯／時刻→窓の外',
+ image:'元気→呼吸とゆれ／近さ→大きさ／灯り→光の輪／気分→傾きと明るさ'
+};
+function systemHTML(){
+ const flow=[['アプリの状態','入力中・録音中・返事待ち・あなたの番・失敗・夜…'],['気分','いまの8つ（＋おかえり・集中・照れ）'],['姿勢ベクトル','元気・気分・気づき・集中・灯り・近さ・話す量'],['体（描き手）','SVG の体／画像セット(PNG)／VRM／立体']];
+ return `<div class="sys">
+  <div class="flow">${flow.map(([t,s],i)=>`<div class="flow-box"><b>${t}</b><small>${s}</small></div>${i<flow.length-1?'<span class="flow-arrow">→</span>':''}`).join('')}</div>
+  <div class="sys-cols">
+   <div class="sys-card"><h3>姿勢ベクトル（いまの気分）</h3><div id="pose-bars" class="pose-bars"></div><p class="small">アプリが体に頼むのは、この数字だけです。体が増えても、アプリ側は変わりません。</p></div>
+   <div class="sys-card"><h3>体ごとの読み替え</h3><dl class="interp" id="interp"></dl></div>
+   <div class="sys-card"><h3>大きさの段階</h3><div class="ladder" id="ladder"></div><p class="small">段階ごとに専用の切り出しを用意します。小さい所では、顔と灯りだけを残します。</p></div>
+  </div>
+ </div>`;
+}
+function renderSystem(){
+ const p=POSE[S.mood];
+ $('#pose-bars').innerHTML=Object.entries(POSE_LABEL).map(([k,l])=>{const v=p[k];const w=k==='valence'?Math.abs(v)*50:Math.abs(v)*100;const left=k==='valence'?(v<0?50-w:50):0;return `<div class="pb"><span>${l}</span><i><u style="left:${left}%;width:${w}%"></u></i><b>${v.toFixed(2)}</b></div>`;}).join('');
+ $('#interp').innerHTML=ORDER.filter(i=>i!=='legacy').map(i=>`<dt class="${i===S.body?'is-on':''}">${BODIES[i].name}</dt><dd class="${i===S.body?'is-on':''}">${INTERPRET[i]}</dd>`).join('');
+ // ladder: stage / avatar / mark
+ const lad=$('#ladder');ladHandles.forEach(h=>h.destroy());ladHandles=[];lad.innerHTML=`<div class="rung"><div id="lad-l"></div><span>ステージ</span></div><div class="rung"><div class="av" id="lad-m"></div><span>会話のアイコン 46px</span></div><div class="rung"><div class="av av-s" id="lad-s"></div><span>小さなアイコン 28px</span></div><div class="rung"><div class="mk" id="lad-k" data-mood="${S.mood}"><i></i></div><span>ロゴの点 8px</span></div>`;
+ const r=getRecipe(),meta=BODIES[S.body].meta||{},crop=meta.compact;
+ ladHandles.push(mount($('#lad-l'),r,{mood:S.mood,life:false}));
+ for(const id of ['lad-m','lad-s']){const h=mount($('#'+id),r,{mood:S.mood,life:false});if(crop)h.svg.setAttribute('viewBox',crop.join(' '));ladHandles.push(h);}
+ const L=LAMPS[r.lamp.hue]||LAMPS.vermilion;lad.querySelector('#lad-k').style.setProperty('--mk',themeNow()==='light'?L.day:L.night);
+}
+let ladHandles=[];
+function planHTML(){
+ const ph=[
+  ['0','土台','見た目は変えない',['姿勢ベクトルと「レシピ」を決める（web/character/pose.mjs, recipe.mjs。display-model.mjs と同じく web と core で共有）','いまの姿を「体のひとつ」としてアダプタ化し、既存テストは無修正で通す','設定の移行：companion の しろ／あたたか → 体＋素材、VRM はそのまま','テスト：レシピの敵対的入力、旧設定の移行、display プリセットの書き出し／読み込み往復']],
+  ['1','新しい既定の姿','しろ・改 ＋ 灯守',['体を2つ追加。窓の光（daylight.mjs）と夜の行灯配色をキャラに結ぶ','表情を足す：まゆ・まぶた・口、アンテナの反応、ひとりでする仕草（間隔と回数に上限）','ブラウザテスト：全体×全気分でエラー0／reduced-motion でアニメ0／4配色で目のコントラスト4.5以上','ここで一度、実機（WKWebView・WebView2）で見る']],
+  ['2','自分用に作る','カスタマイズと口調',['設定→キャラクターを「姿を作る」へ。ライブプレビュー、素材・灯り・顔・耳・小物、さいころ、プリセット','元に戻す・書き出し／読み込み（display の履歴と tepora-display 形式を流用）','口調パック：ambient.mjs と app.mjs の固定文を voice-lines.mjs へ。既定はいまの文面のまま','呼び名・話しかけ頻度。人格の下書きを人格シートへ（許可は広げない）']],
+  ['3','体を増やす','選んだ案だけ',['円相・小箱・狐火・蛍・苔玉・影絵から、好みの反応が多かったものを順に','画像セット（PNG）取り込み：core/photo-frame.mjs の署名判定を流用、SVG は不可','アバター・ロゴの点の専用の切り出し','（任意）ちいさな部屋、複数キャラの切り替え、場面ごとの切り替え']]
+ ];
+ const asks=['既定の姿を何にするか（しろ・改／灯守／ほかの案）。両方出して選べるようにするのも手です','画面構成まで変わる案（ちいさな部屋・影絵）を、どこまで本気で進めるか','VRM を「上級者向けの入口」として残すか。灯り・蛍との相性は未検証です','V2 にあった「キャラの切り替え・アイコン・説明」を人格プリセットとして戻すか','口調パックの共有は、ローカルのJSONファイルだけにするか'];
+ return `<div class="plan">${ph.map(([n,t,s,items])=>`<div class="ph"><div class="ph-n">${n}</div><h3>${t}<small>${s}</small></h3><ul>${items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}</div>
+ <div class="asks"><h3>決めてほしいこと</h3><ol>${asks.map(a=>`<li>${a}</li>`).join('')}</ol></div>
+ <p class="small honest">このページは動くスケッチです。確かめたのは Chrome（ヘッドレス）での描画だけで、実機の WebView・実キーボードの IME・スクリーンリーダー・長時間の待機画面は未確認です。blur を使う影絵は、古い WebKit では別の実装（feGaussianBlur）が要ります。</p>`;
+}
+
+function syncVoiceControls(){
+ $$('#vo-tone button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S.voice.tone)));
+ $$('#vo-pro button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S.voice.proactive)));
+}
+/* ---- bundles: look, voice, motion, size and the room's light, chosen together for one kind of person ---- */
+const BUNDLES=[
+ {t:'夜にひとりで作業する',who:'静かに、邪魔されたくない',r:{body:'ensou',slots:{brush:'bold',eyes:'dot'}},voice:{tone:'night',proactive:'quiet'},motion:'calm',size:1,scheme:'lamp',hour:23},
+ {t:'リビングの共有モニター',who:'家族みんなが目にする',r:{body:'kitsune',lamp:{hue:'indigo',shape:'flame'},props:{season:'auto',hobby:'cup'}},voice:{tone:'soft',proactive:'chatty'},motion:'lively',size:1.15,scheme:'auto',hour:17},
+ {t:'集中したい在宅ワーク',who:'灯りだけが、そっとある',r:{body:'andon',slots:{soma:'auto'}},voice:{tone:'polite',proactive:'quiet'},motion:'calm',size:1,scheme:'auto',hour:15},
+ {t:'遠くからでも読みたい',who:'画面から離れて使う。目が疲れやすい',r:{body:'kobako',palette:'sora',slots:{screen:'led',shape:'tall'}},voice:{tone:'terse',proactive:'quiet'},motion:'normal',size:1.25,scheme:'auto',hour:14},
+ {t:'窓辺に季節を感じたい',who:'暮らしの中の「もの」として',r:{body:'kokedama',palette:'moss',props:{season:'auto',hobby:'none'}},voice:{tone:'night',proactive:'normal'},motion:'calm',size:1,scheme:'auto',hour:9},
+ {t:'友だちみたいに話したい',who:'にぎやかで、くだけた相棒',r:{body:'shiro',palette:'sakura',parts:{ears:'cat'},lamp:{hue:'plum',shape:'bud'},face:{eyes:'big',cheeks:true,brows:true},props:{season:'auto',hobby:'headphones'}},voice:{tone:'casual',proactive:'chatty'},motion:'lively',size:1.1,scheme:'auto',hour:16}
+];
+const BUNDLE_VALUE=b=>{const res=validateRecipe({...b.r});return res.ok?{...res.value,motion:b.motion,size:b.size}:null;};
+function peopleHTML(){
+ return `<div class="people">${BUNDLES.map((b,i)=>{const v=BUNDLE_VALUE(b);if(!v)return '';const cap=(captionFor('idle',b.voice.tone,'',b.hour,b.voice.proactive).text||'（話しかけません。確認が必要なときだけ声が出ます）');
+  return `<article class="person"><div class="person-fig"><div id="pp-${i}"></div></div><div class="person-body"><h3>${b.t}</h3><p class="who">${b.who}</p><blockquote>${esc(cap)}</blockquote>
+   <ul class="ptags"><li>体：${BODIES[b.r.body].name}</li><li>口調：${TONES[b.voice.tone].name}</li><li>話しかけ：${PROACTIVE[b.voice.proactive].name}</li><li>動き：${MOTION_OPTS.find(m=>m[0]===b.motion)[1]}</li><li>大きさ：${Math.round(b.size*100)}%</li></ul>
+   <button type="button" class="btn" data-bundle="${i}">この組み合わせでホームを見る →</button></div></article>`;}).join('')}</div>`;
+}
+let ppHandles=[];
+function renderPeople(){
+ ppHandles.forEach(h=>h.destroy());ppHandles=[];
+ BUNDLES.forEach((b,i)=>{const v=BUNDLE_VALUE(b),host=$('#pp-'+i);if(v&&host)ppHandles.push(mount(host,{...v,size:1},{mood:S.mood,follow:false}));});
+}
+function applyBundle(i){
+ const b=BUNDLES[i],v=BUNDLE_VALUE(b);if(!v)return;
+ S.per={};S.touched={};S.style=defaultStyle();
+ S.voice.tone=b.voice.tone;S.voice.proactive=b.voice.proactive;stageState.hour=b.hour;stageState.scheme=b.scheme;
+ applyRecipe(v);syncStageControls();syncVoiceControls();renderVoice();updateCaption();
+}
+
+/* ===== the lab page ===== */
+const S={body:'shiro',mood:'idle',auto:false,per:{},touched:{},
+ style:{palette:'washi',hue:30,lamp:{hue:'vermilion',shape:'bead'},props:{season:'off',hobby:'none'},size:1,motion:'normal'},
+ voice:{tone:'polite',name:'',proactive:'normal'}};
+let wallHandles=[],matrixHandles=[],autoTimer=0,wallUseStyle=false,luHandles=[];
+
+function stars(n){return '★'.repeat(Math.min(n,5))+'☆'.repeat(Math.max(0,5-n));}
+function wallHTML(){
+ return VISIBLE().map(id=>{const d=BODIES[id],m=d.meta||{};return `<article class="card ${id==='legacy'?'is-base':''}" data-id="${id}" tabindex="-1">
+  <div class="card-fig"><div id="fig-${id}"></div></div>
+  <div class="card-body">
+   <header><h3>${d.name}</h3><span class="kana">${d.kana||''}</span>${d.tag?`<span class="tag">${d.tag}</span>`:''}</header>
+   <p class="pitch">${d.pitch}</p>
+   ${d.traits?`<ul class="traits">${d.traits.map(t=>`<li>${t}</li>`).join('')}</ul>`:''}
+   <dl class="facts"><dt>向いている</dt><dd>${m.fit||''}</dd><dt>気をつける</dt><dd>${m.risk||''}</dd><dt>つくる大きさ</dt><dd><span class="eff" title="${EFFORT_LABEL[m.effort]||''}">${stars(m.effort||0)}</span> ${EFFORT_LABEL[m.effort]||''} · ${m.tech||''}</dd></dl>
+   ${id==='legacy'?'<p class="base-note">いま出荷されている姿です。</p>':`<button type="button" class="btn" data-pick="${id}">この案でホームを見る →</button>`}
+  </div></article>`;}).join('');
+}
+function renderWall(){
+ wallHandles.forEach(h=>h.destroy());wallHandles=[];
+ for(const id of VISIBLE()){const host=$('#fig-'+id);if(!host)continue;const r=wallUseStyle&&id!=='legacy'?getRecipe(id):defaultRecipe(id);
+  wallHandles.push(mount(host,r,{mood:S.mood,follow:false}));}
+ highlightWall();
+}
+function highlightWall(){$$('.card').forEach(c=>c.classList.toggle('is-selected',c.dataset.id===S.body));}
+function lineupHTML(){return VISIBLE().filter(i=>i!=='legacy').map(id=>`<button type="button" class="lu" data-jump="${id}"><div class="lu-fig"><div id="lu-${id}"></div></div><span>${BODIES[id].name}</span></button>`).join('');}
+function renderLineup(){luHandles.forEach(h=>h.destroy());luHandles=[];for(const id of VISIBLE().filter(i=>i!=='legacy')){const host=$('#lu-'+id);if(host)luHandles.push(mount(host,defaultRecipe(id),{mood:S.mood,follow:false}));}}
+function matrixHTML(){return `<div class="matrix" id="matrix"></div>`;}
+function renderMatrix(){
+ matrixHandles.forEach(h=>h.destroy());matrixHandles=[];const box=$('#matrix');box.innerHTML='';
+ box.append(Object.assign(document.createElement('div'),{className:'mx-corner'}));
+ for(const [,n] of MOODS)box.append(Object.assign(document.createElement('div'),{className:'mx-head',textContent:n}));
+ for(const id of VISIBLE()){const lab=document.createElement('div');lab.className='mx-lab';lab.textContent=BODIES[id].name;box.append(lab);
+  for(const [m] of MOODS){const c=document.createElement('div');c.className='mx-cell';const h=document.createElement('div');c.append(h);box.append(c);matrixHandles.push(mount(h,defaultRecipe(id),{mood:m,life:false}));}}
+}
+
+function setMood(m,fromAuto=false){
+ if(!fromAuto&&S.auto){S.auto=false;clearInterval(autoTimer);$('#auto').checked=false;}
+ S.mood=m;
+ $$('#moodbar [data-mood]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mood===m)));
+ const info=MOODS.find(x=>x[0]===m);$('#mood-why').textContent=`アプリが「${info[1]}」を選ぶとき：${info[2]}`;
+ wallHandles.forEach(h=>h.setMood(m));luHandles.forEach(h=>h.setMood(m));ppHandles.forEach(h=>h.setMood(m));stageHandle?.setMood(m);stHandle?.setMood(m);
+ $$('#st-moods button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===m)));
+ updateCaption();renderSystem();
+}
+function selectBody(id){S.body=id;if(!S.per[id])S.per[id]={slots:{},face:{...defaultRecipe(id).face},parts:{...defaultRecipe(id).parts}};const el=$('#cur-name');if(el)el.textContent=BODIES[id].name;syncAll();}
+function syncAll(light=false){renderStage();renderStudio(light);renderSystem();highlightWall();if(wallUseStyle)renderWall();}
+
+function build(){
+ const app=$('#app');
+ app.innerHTML=`
+ <header class="top"><a class="wm" href="#top">tepora<i></i></a><span class="top-t">キャラクター探索ラボ<small>動くスケッチ</small></span>
+  <nav class="top-nav"><a href="#direction">方向性</a><a href="#people">組み合わせ</a><a href="#stage">ホーム</a><a href="#studio">つくる</a><a href="#voice">口調</a><a href="#system">仕組み</a><a href="#plan">進め方</a></nav>
+  <div class="top-ctl"><div class="seg" id="seg-theme" aria-label="配色"><button type="button" data-v="light" aria-pressed="true">昼</button><button type="button" data-v="dark" aria-pressed="false">夜</button><button type="button" data-v="lamp" aria-pressed="false">行灯</button></div>
+  <label class="chk"><input type="checkbox" id="rm"> 動きをおさえる</label></div></header>
+ <main id="top">
+  <section class="hero"><h1>キャラクターを、<br>もっと「自分の相棒」に。</h1>
+   <p class="lead">Tepora のキャラクターを良くするための、動く試作です。<b>9つの方向性</b>を同じ8つの気分で動かして見比べ、ホーム画面に置き、自分用に作り替えて試せます。大きな作り直しも前提に、「どれが正解か」ではなく「どんな可能性があるか」を広げました。</p>
+   <div class="lineup" id="lineup">${lineupHTML()}</div>
+   <div class="finds">
+    <div class="find"><b>選べる姿が少ない</b><p>「しろ／あたたか／3D／なし」の4択。「あたたか」は色違いで、3D は .vrm ファイルが要ります。</p><code>web/display-model.mjs</code></div>
+    <div class="find"><b>気持ちが顔に偏っている</b><p>8つの気分は目と口の切り替えが中心。耳・しっぽ・光のような「遠くから読める合図」が少ない。</p><code>web/character.mjs</code></div>
+    <div class="find"><b>口調が人格と切れている</b><p>人格は名前と指示文だけ。挨拶・おかえり・確認のお願いは、誰が設定しても同じ丁寧語です。</p><code>web/ambient.mjs</code></div>
+    <div class="find"><b>V2 の切り替えが消えた</b><p>V2 は名前・アイコン・説明つきの複数キャラ。V3 の人格はひとつだけです。</p><code>git: CharacterEditOverlay.tsx</code></div>
+   </div>
+   <div class="keep"><b>守りたいこと</b><ul><li><em>一灯</em>　色は「呼ぶもの」だけ。灯りは気分で色を変えない</li><li><em>遠くから読める</em>　状態は姿勢と光で、顔は細部で</li><li><em>静かに生きている</em>　まばたき・息・ときどきの仕草。動きは減らせる</li><li><em>声まで含めて一人</em>　見た目・口調・声が揃う</li><li><em>持ち主のもの</em>　この PC の中だけ、元に戻せる、許可は広げない</li></ul></div>
+  </section>
+
+  <div class="moodbar" id="moodbar"><div class="mb-row"><span class="mb-t">気分</span><div class="seg seg-wrap">${MOODS.map(([k,n])=>`<button type="button" data-mood="${k}" aria-pressed="${k==='idle'}">${n}</button>`).join('')}</div><label class="chk"><input type="checkbox" id="auto"> 順番に見る</label><label class="chk" title="部屋の向こうから見たときの読みやすさを、ぼかして小さくして確かめます"><input type="checkbox" id="far"> 遠目チェック</label></div><p class="mb-why" id="mood-why"></p></div>
+
+  <section class="sec" id="direction"><div class="sec-h"><h2>9つの方向性</h2><p>どれも同じ「気分」を受け取って動きます。上の気分を切り替えると、すべてが同時に反応します。</p></div>
+   <label class="chk wall-opt"><input type="checkbox" id="wall-style"> 下の「つくる」で作った自分の色・灯りを、全案に反映して見る</label>
+   <div class="wall" id="wall">${wallHTML()}</div>
+   <details class="mx" open><summary>全案 × 全表情の一覧表</summary>${matrixHTML()}</details>
+  </section>
+
+  <section class="sec" id="people"><div class="sec-h"><h2>こんな人に、こんな組み合わせ</h2><p>見た目だけでなく、口調・話しかけ方・動き・大きさ・部屋の明るさまで、ひとまとめで切り替わります。「自分に合わせる」は、部品を選ぶことと、組み合わせから始めることの両方でできます。</p></div>${peopleHTML()}</section>
+
+  <section class="sec" id="stage"><div class="sec-h"><h2>ホーム画面で見る</h2><p>実際のホームと同じ配置です。窓の光は時刻と天気で動き、作業は蛍、「あなたの番」は琥珀の灯りひとつ。選んだ案：<b id="cur-name"></b></p></div>
+   <div class="ctl-rows">${stageControls()}</div>${stageHTML()}</section>
+
+  <section class="sec" id="studio"><div class="sec-h"><h2>つくる</h2><p>素材・灯り・顔・耳・小物・動きを選ぶだけで、自分用の相棒になります。選べるのは用意された値だけで、結果は小さな「レシピ」にまとまります。</p></div>${studioHTML()}</section>
+
+  <section class="sec" id="voice"><div class="sec-h"><h2>声と口調</h2><p>見た目が変わっても、口調がいつもの丁寧語のままでは、別の人のままです。固定の一言を口調パックにして、呼び名と話しかけ方も選べるようにします。</p></div>${voiceHTML()}</section>
+
+  <section class="sec" id="system"><div class="sec-h"><h2>仕組み</h2><p>アプリは「姿勢ベクトル」だけを体に頼み、体がそれぞれの流儀で描きます。だから体を増やしても、アプリ側は変わりません。</p></div>${systemHTML()}</section>
+
+  <section class="sec" id="plan"><div class="sec-h"><h2>進め方</h2><p>見た目を変える前に、土台（姿勢ベクトルとレシピ）だけを先に入れます。</p></div>${planHTML()}</section>
+  <footer class="foot">Tepora キャラクター探索ラボ — 試作。コード・設定・データには触れていません。</footer>
+ </main>`;
+ // wiring
+ $$('#seg-theme button').forEach(b=>b.addEventListener('click',()=>{$$('#seg-theme button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));document.documentElement.dataset.theme=b.dataset.v;refreshThemes();renderSystem();}));
+ $('#rm').addEventListener('change',e=>{state.reduced=e.target.checked;document.documentElement.classList.toggle('rm',e.target.checked);if(e.target.checked){for(const h of ALL)h.svg.classList.remove('is-blinking');}});
+ $$('#moodbar [data-mood]').forEach(b=>b.addEventListener('click',()=>setMood(b.dataset.mood)));
+ $('#auto').addEventListener('change',e=>{S.auto=e.target.checked;clearInterval(autoTimer);if(S.auto){let i=MOODS.findIndex(x=>x[0]===S.mood);autoTimer=setInterval(()=>{i=(i+1)%MOODS.length;setMood(MOODS[i][0],true);},2800);}});
+ $('#wall-style').addEventListener('change',e=>{wallUseStyle=e.target.checked;renderWall();});
+ $$('[data-pick]').forEach(b=>b.addEventListener('click',()=>{selectBody(b.dataset.pick);$('#stage').scrollIntoView({behavior:state.reduced?'auto':'smooth',block:'start'});}));
+ $('#far').addEventListener('change',e=>document.documentElement.classList.toggle('far',e.target.checked));
+ $$('[data-jump]').forEach(b=>b.addEventListener('click',()=>{const c=$(`.card[data-id=${b.dataset.jump}]`);if(!c)return;c.scrollIntoView({behavior:state.reduced?'auto':'smooth',block:'center'});c.classList.remove('flash');void c.offsetWidth;c.classList.add('flash');}));
+ $$('[data-bundle]').forEach(b=>b.addEventListener('click',()=>{applyBundle(Number(b.dataset.bundle));$('#stage').scrollIntoView({behavior:state.reduced?'auto':'smooth',block:'start'});}));
+ wireStageControls();wireStudio();wireVoice();
+}
+let booted=false;
+function boot(){
+ if(booted)return;booted=true;
+ build();renderWall();renderMatrix();renderLineup();renderPeople();
+ selectBody(S.body);setMood('idle',true);renderVoice();
+ // idle director: now and then the selected character does something small (only while nothing else is happening)
+ setInterval(()=>{if(state.reduced||S.mood!=='idle')return;const a=['tilt','stretch','hum'][Math.floor(Math.random()*3)];stHandle?.act(a);stageHandle?.act(a);},9000);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+
+</script>
+</body>
+</html>

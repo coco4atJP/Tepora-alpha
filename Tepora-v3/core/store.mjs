@@ -156,9 +156,8 @@ export class Store {
     this.emit('artifact.updated',doc);return doc;
   }
   snapshot() {
-    return {dialogueArchives:this.list('dialogue-archive'),companion:this.value('companion')||{revision:0,focusJobId:null,returnStack:[]},seq:this.seq,jobs:this.list('job'),artifacts:this.list('artifact'),
-      display:this.value('display'),skills:this.list('skill'),mcp:this.list('mcp'),routines:this.list('routine'),plans:this.list('plan'),
-      memories:this.list('memory'),messages:this.list('message').reverse(),settings:this.settings};
+    return {seq:this.seq,artifacts:this.list('artifact'),display:this.value('display'),skills:this.list('skill'),mcp:this.list('mcp'),
+      memories:this.list('memory'),settings:this.settings};
   }
   export() {
     const collections=Object.fromEntries(EXPORT_KINDS.map(k=>[k,this.list(k).filter(d=>k!=='skill'||d.source!=='shared')]));

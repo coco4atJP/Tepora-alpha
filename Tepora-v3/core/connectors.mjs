@@ -71,7 +71,7 @@ export class Connectors {
     return [custom,...paths].find(p=>p && existsSync(p))||null;
   }
   async openMedia(url) {
-    invariant(this.store.value('execution-config')?.mode==='legacy-host','External host applications require explicit legacy-host mode',403);
+
     this.network.assertUncontained('External media player');if(!this.network.get().internetTools)throw new NetworkBlocked('インターネットを使う道具は無効です。');
     const target=webURL(url);invariant(['youtube.com','www.youtube.com','music.youtube.com','youtu.be'].includes(target.hostname),'Only YouTube and YouTube Music are allowed here');
     const executable=this.braveExecutable();invariant(executable,'Braveが見つかりません。設定で実行ファイルを指定するか、アプリ内プレーヤーを使ってください。',409);

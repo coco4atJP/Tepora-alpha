@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,mkdir,writeFile,readFile,symlink} from 'node:fs/promises';
+import {mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../core/store.mjs';
@@ -8,21 +8,11 @@ import {Display,validateDisplay,DISPLAY_DEFAULT} from '../core/display.mjs';
 import {DecisionClient} from '../core/decision.mjs';
 import {VoiceDraft} from '../web/draft.mjs';
 import {discoverSharedSkills,readSharedSkill} from '../core/shared-assets.mjs';
-import {Harness} from '../core/harness.mjs';
-import {Connectors} from '../core/connectors.mjs';
-const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function until(fn){for(let n=0;n<400;n++){if(fn())return;await wait(10);}throw new Error('Timed out');}
 async function fixture(t) {
  const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-contract-')),store=new Store(dir),closers=[];
  t.after(async()=>{for(const close of closers.reverse())await close();store.close();await rm(dir,{recursive:true,force:true});});
  return {dir,store,closers};
 }
-function harness(f,runtime){
- const h=new Harness(f.store,new Connectors(f.store),{runtimeFactory:()=>runtime});
- f.closers.push(async()=>{h.close();await until(()=>h.active.size===0);});return h;
-}
-const call=(id,name,args)=>({role:'assistant',content:null,tool_calls:[{id,type:'function',function:{name,arguments:JSON.stringify(args)}}]});
-const done={role:'assistant',content:'結果を確認してください'};
 test('E05: more than 1000 memories remain searchable and exportable',async t=>{
  const {store}=await fixture(t);
  store.memory('oldest needle');
@@ -147,81 +137,4 @@ test('C13 C14: shared skill discovery is namespaced and does not enable scripts'
  const content=await readSharedSkill(result.skills[0]);assert.match(content.content,/read-only/);
  await writeFile(result.skills[0].sourcePath,'# Changed');
  await assert.rejects(readSharedSkill(result.skills[0]),/changed/);
-});
-test('D07: model saying done without evidence is review, not completed',async t=>{
- const f=await fixture(t),h=harness(f,{decide:async()=>null,chat:async()=>done});
- const j=h.submit('資料を完成させて');await until(()=>!h.active.size);
- const job=f.store.get('job',j.id);assert.equal(job.status,'review');
- assert.equal(job.verification.evidence.length,0);
-});
-test('D04 D11: step budget pauses; resume preserves tool evidence and original request',async t=>{
- const f=await fixture(t);f.store.settings={...f.store.settings,maxSteps:1};
- let n=0,sawReceipt=false;
- const h=harness(f,{chat:async messages=>{
-  n++;if(n===1)return call('write','workspace_write',{path:'a.txt',content:'one'});
-  sawReceipt=messages.some(m=>m.role==='tool'&&m.content.includes('written'));return done;
- }});
- const j=h.submit('Keep this original purpose');await until(()=>!h.active.size);
- assert.equal(f.store.get('job',j.id).status,'paused');h.resume(j.id);await until(()=>!h.active.size);
- assert.equal(sawReceipt,true);assert.equal(f.store.get('job',j.id).status,'review');
- assert.equal(f.store.list('effect').length,1);
-});
-test('B05 D03: steering invalidates a pending approval before any operation',async t=>{
- const f=await fixture(t);
- f.store.value('execution-config',{revision:1,mode:'legacy-host',image:'',imageApproved:false}); // Explicit legacy-host opt-in for this host-path regression fixture.
-let n=0;
- const h=harness(f,{chat:async()=>++n===1?call('run','run_command',{executable:'never-start-this',args:[]}):done});
- const j=h.submit('draft');await until(()=>f.store.get('job',j.id).approval);
- const id=f.store.get('job',j.id).approval.id;
- h.steer(j.id,'実行せずに内容だけ見せて');
- assert.throws(()=>h.approve(id,true),/no longer/);await until(()=>!h.active.size);
- assert.equal(f.store.list('effect').length,0);
-});
-test('D03: a changed instruction discards an in-flight stale model response',async t=>{
- const f=await fixture(t);let n=0,latest=false;
- const h=harness(f,{chat:async(messages,{signal})=>{
-  n++;if(n===1)return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));
-  latest=messages.some(m=>String(m.content).includes('新しい指示'));return done;
- }});
- const j=h.submit('original');await until(()=>h.turns.has(j.id));h.steer(j.id,'新しい指示');
- await until(()=>!h.active.size);assert.equal(latest,true);assert.equal(n,2);
-});
-test('E02: a hung advisory classifier cannot block a model response',async t=>{
- const f=await fixture(t),h=harness(f,{decide:()=>new Promise(()=>{}),chat:async()=>done});
- const j=h.submit('hello','chat');await until(()=>!h.active.size);
- assert.equal(f.store.get('job',j.id).status,'completed');
-});
-test('D05: parallel tasks writing the same name do not overwrite each other',async t=>{
- const f=await fixture(t),counts=new Map();
- const h=harness(f,{chat:async messages=>{
-  const input=messages.findLast(m=>m.role==='user').content;
-  const n=counts.get(input)||0;counts.set(input,n+1);
-  return n===0?call('write','workspace_write',{path:'same.txt',content:input}):done;
- }});
- const a=h.submit('task-a'),b=h.submit('task-b');await until(()=>!h.active.size);
- assert.equal(await readFile(path.join(f.dir,'workspace','tasks',a.id,'same.txt'),'utf8'),'task-a');
- assert.equal(await readFile(path.join(f.dir,'workspace','tasks',b.id,'same.txt'),'utf8'),'task-b');
-});
-test('D08: unknown side effect blocks resume until explicit user reconciliation',async t=>{
- const f=await fixture(t),h=harness(f,{chat:async()=>done});
- f.store.put('job',{id:'j',status:'interrupted',kind:'work',input:'original',revision:0,step:0});
- f.store.put('effect',{id:'e',jobId:'j',callId:'c',status:'unknown',name:'mcp_call'});
- assert.throws(()=>h.resume('j'),/結果不明/);
- h.acknowledgeEffect('e','confirmed_done');h.resume('j');await until(()=>!h.active.size);
- assert.equal(f.store.get('effect','e').disposition,'confirmed_done');
-});
-
-test('A15 B16: the conversation lane can change and undo appearance without changing permissions',async t=>{
- const f=await fixture(t);const original=JSON.stringify(f.store.settings);let step=0;
- const h=harness(f,{chat:async()=>{step++;
-  if(step===1)return call('layout','display_update',{patch:{textScale:1.2,widgets:['clock','news']},expectedRevision:0});
-  if(step===2)return call('hide','display_hide_today',{widget:'news',expectedRevision:1});
-  if(step===3)return call('undo','display_undo',{expectedRevision:2});
-  return done;
- }});
- const j=h.submit('時計を大きくして、ニュースを今日は隠す。最後の変更は戻す。','chat');
- await until(()=>!h.active.size);
- const d=new Display(f.store).get();assert.equal(d.textScale,1.2);assert.deepEqual(d.hiddenUntil,{});
- assert.equal(JSON.stringify(f.store.settings),original);
- assert.equal(f.store.get('job',j.id).status,'completed');
 });

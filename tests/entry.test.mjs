@@ -9,7 +9,7 @@ import path from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
-test('root serve starts beta.11 with protected execution, a persistent character and separate V3 data',{timeout:20000},async()=>{
+test('root serve starts beta.11 with the sandbox off by default, a persistent character and separate V3 data',{timeout:20000},async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-v3-root-'));
  const child=spawn(process.platform==='win32'?'npm.cmd':'npm',['run','serve','--','--sidecar'],{
   cwd:root,env:{...process.env,TEPORA_DATA_DIR:dir,TEPORA_PORT:'0'},
@@ -43,10 +43,10 @@ test('root serve starts beta.11 with protected execution, a persistent character
    const response=await fetch(new URL(route,url),{headers:{cookie},signal:AbortSignal.timeout(3000)});
    assert.equal(response.status,200);return response.json();
   };
-  assert.equal((await get('/api/execution')).mode,'protected');
-  const session=(await get('/api/dialogue')).session;
+  assert.equal((await get('/api/agent/settings')).sandbox.mode,'off','commands run directly unless the user turns the sandbox on');
+  const session=(await get('/api/agent/dialogue')).session;
   assert.ok(session.id);assert.ok(session.character.name);
-  assert.equal((await get('/api/dialogue')).session.id,session.id);
+  assert.equal((await get('/api/agent/dialogue')).session.id,session.id);
   await access(path.join(dir,'tepora-v3.sqlite'));
   child.stdin.write('shutdown\n');
   assert.equal(await exited,0);

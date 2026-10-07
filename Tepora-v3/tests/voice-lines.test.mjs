@@ -10,11 +10,6 @@ import {VOICE_DEFAULT,VOICE_KEYS,VOICE_PROACTIVE_IDS,VOICE_SCENES,VOICE_TONES,VO
 import {awayRecap,countWord,greeting} from '../web/ambient.mjs';
 import {characterVoice} from '../web/dialogue-state.mjs';
 import {personaForPrompt,normalizePersonas,defaultPersonas} from '../core/persona.mjs';
-import {Store} from '../core/store.mjs';
-import {Harness} from '../core/harness.mjs';
-import {Connectors} from '../core/connectors.mjs';
-import {Requests} from '../core/requests.mjs';
-import {Dialogue} from '../core/dialogue.mjs';
 import {startServer} from '../core/server.mjs';
 
 const at=(h,m=0)=>new Date(2026,9,5,h,m);
@@ -93,24 +88,6 @@ test('the model is told the tone, the call name and how often to speak up; lines
  assert.deepEqual(defaultPersonas('Mika').character.voice,defaultVoice());assert.equal(defaultPersonas('Mika').character.name,'Mika');
 });
 
-const delay=ms=>new Promise(r=>setTimeout(r,ms));
-async function until(fn){for(let i=0;i<400;i++){if(fn())return;await delay(10);}assert.fail('state timeout');}
-test('the pinned persona the model receives carries the voice style, and a worker never receives the character\'s voice',async t=>{
- const seen=[],dir=await mkdtemp(path.join(os.tmpdir(),'tepora-voice-')),store=new Store(dir);store.settings={...store.settings,model:'fixture',concurrency:2};
- const h=new Harness(store,new Connectors(store),{runtimeFactory:()=>({chat:async messages=>{seen.push(structuredClone(messages));return {content:'ok'};}})}),d=new Dialogue(store,h,new Requests(store,h));
- t.after(async()=>{d.close();h.close();await until(()=>!h.active.size);store.close();await rm(dir,{recursive:true,force:true});});
- assert.deepEqual(d.personas().character.voice,defaultVoice());
- const next=d.configure({expectedRevision:0,character:{name:'Mika',instructions:'friendly',voice:{tone:'casual',callName:'ハル',proactive:'chatty',lines:{waiting:'SCREEN ONLY SECRET LINE'}}},worker:{name:'Builder',instructions:'build',voice:{tone:'night'}}});
- assert.equal(next.character.voice.tone,'casual');assert.equal(next.character.voice.lines.waiting,'SCREEN ONLY SECRET LINE');assert.ok(!('voice' in next.worker),'a worker persona has no voice even when one is sent');
- assert.throws(()=>d.configure({expectedRevision:1,character:{name:'Mika',instructions:'x',voice:{tone:'shout'}}}),/tone/);assert.throws(()=>d.configure({expectedRevision:1,character:{name:'Mika',instructions:'x',voice:{lines:{nope:'x'}}}}),/line/);
- assert.equal(d.personas().revision,1,'a refused voice changes nothing');
- const s=d.session(),sent=d.submit({requestId:randomUUID(),sessionId:s.id,sessionRevision:s.revision,input:'hello',contextConsent:d.context().id});
- await until(()=>store.get('job',sent.job.id).status==='completed');
- const system=seen.at(-1)[0].content,pinned=system.match(/Pinned user persona[^:]*: (\{.*?\})\.\n?/s);
- assert.ok(pinned,'the persona is pinned in the prompt');const persona=JSON.parse(pinned[1]);
- assert.equal(persona.name,'Mika');assert.equal(persona.style.tone,'casual');assert.equal(persona.style.callName,'ハル');assert.match(persona.style.toneStyle,/くだけた/);assert.ok(persona.style.speakingFrequency);
- assert.ok(!system.includes('SCREEN ONLY SECRET LINE'),'screen-only lines never reach the model');assert.ok(!JSON.stringify(sent.job.personaSnapshot.worker).includes('voice'));
-});
 
 test('the persona API keeps the voice apart from the avatar',async t=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-voice-http-')),app=await startServer({dir,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})});
@@ -119,7 +96,7 @@ test('the persona API keeps the voice apart from the avatar',async t=>{
  const call=(p,method='GET',data)=>fetch(app.origin+p,{method,headers:{Cookie:cookie,'X-Tepora-CSRF':boot.csrf,'Content-Type':'application/json'},...(data!==undefined?{body:JSON.stringify(data)}:{})});
  const personas=await (await call('/api/dialogue/personas')).json();assert.deepEqual(personas.character.voice,defaultVoice());assert.deepEqual(boot.dialogue.session.character.voice,defaultVoice());
  const saved=await call('/api/dialogue/personas','PUT',{expectedRevision:personas.revision,character:{name:'Mika',instructions:'hi',voice:{tone:'night',callName:'ミカ'}}});assert.equal(saved.status,200);
- assert.equal((await saved.json()).character.voice.tone,'night');assert.equal((await (await call('/api/dialogue')).json()).session.character.voice.callName,'ミカ');
+ assert.equal((await saved.json()).character.voice.tone,'night');assert.equal((await (await call('/api/agent/dialogue')).json()).session.character.voice.callName,'ミカ');
  assert.equal((await call('/api/dialogue/personas','PUT',{expectedRevision:1,character:{name:'Mika',instructions:'hi',voice:{tone:'xx'}}})).status,400);
  // the avatar is untouched by voice changes, and the voice by avatar changes
  const avatar=await (await call('/api/avatar')).json();assert.equal(avatar.revision,0);assert.equal(avatar.body,'shiro');

@@ -1,4 +1,3 @@
-import {createExecutionUI} from './execution-ui.mjs';
 import {createCapabilityUI} from './capability-ui.mjs';
 import {createProviderSettings} from './provider-settings.mjs';
 import {createOnboarding} from './onboarding.mjs';
@@ -40,7 +39,7 @@ const noticedRoutes=new Set();
 let voice=null,voiceBusy=false,voiceAnchor=null,pendingSpeech='',displayHistory=[],refreshTimer,toastTimer;
 let weatherData=null,newsData=null,lastVisibleKey='',pendingArtifactJobId=null;
 let voiceEpoch=0,attachmentEpoch=0,submitEpoch=0,dialogueRenderKey='';
-let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendingRelay=null;
+let voiceSendEnabled=false,voiceSendConsent=null,pendingVoiceConsent=null,pendingRelay=null,liveReply='';
 // Home monitor and companion presentation. None of this changes permissions or work.
 let ambientMode=false,ambientSince=0,idleWatcher=null,deck=null,stageCharacter=null,avatarCharacter=null,characterKey='',avatarAbort=null,avatarTheme='light';
 let musicState=null,newsIndex=0,photoIndex=0,lastDeckCard='',celebrateUntil=0,talkUntil=0,lastSeenMessage='',presence='present',driftTimer=0,feedTimers=[],hiddenTimer=0;
@@ -58,8 +57,6 @@ const draftContext=new DialogueDraftContext();
 const draft=new VoiceDraft();
 let capabilityUI=null;
 function abilities(){return capabilityUI||=createCapabilityUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:kind=>(activeDialog?.kind===kind||activePanel?.kind===kind)&&!sharedView,attached:()=>attachedFiles,latestReply:()=>latestCharacterReply(state.dialogue),onChanged:values=>{Object.assign(state,values);paintChrome();if(view==='home')paintHome();else if(view==='settings'&&!activeDialog)scheduleRender();}});}
-let executionUI=null;
-function executionSettings(){return executionUI||=createExecutionUI({bridge,openSheet,closeSheet,notice,previewMode,isPrivate:()=>!sharedView,isOpen:()=>activeDialog?.kind==='execution'&&!sharedView});}
 let providerUI=null;
 function providerSettings(){return providerUI||=createProviderSettings({bridge,openSheet,closeSheet,notice,previewMode,legacySettings:settings,onChanged:value=>{state={...state,...value};paintChrome();if(view==='settings'&&!activeDialog)scheduleRender();}});}
 let setupUI=null,attachedFiles=[],pendingRequest=null,sending=false,lastRequestJobId=null,lastSubmitError='';
@@ -411,7 +408,7 @@ async function mountCharacters(){
 }
 function paintMood(){
  if(!state)return;
- const now=Date.now(),chatBusy=state.jobs.some(j=>j.kind==='chat'&&j.characterSessionId&&['queued','running'].includes(j.status));
+ const now=Date.now(),chatBusy=state.dialogue?.status==='running';
  const failures=workJobs().some(j=>j.status==='failed'&&now-Date.parse(j.endedAt||j.createdAt||0)<30*60e3);
  const playing=[...document.querySelectorAll('#ability-now-playing audio')].some(a=>!a.paused);
  const mood=companionMood({recording:!!voice,typing:document.activeElement?.id==='composer-input'&&!!draft.content,sending,awaitingReply:chatBusy,talking:playing||now<talkUntil,celebrate:now<celebrateUntil,attention:inboxList().length,failures,sleepy:ambientMode&&display().ambient.nightDim&&isNight(new Date(),weatherData)});
@@ -450,14 +447,14 @@ function approvalCards(job){
  return approvalsFor(job).map(a=>approvalSlip(a,{job,tag:'section',kind:'approval-card inbox-item',showJob:false})).join('');
 }
 // A job's note is shown only when it explains a stop; otherwise the status says enough.
-const jobReason=j=>['failed','blocked','interrupted'].includes(j.status)?j.note||'':'';
+const jobReason=j=>['failed','blocked','interrupted'].includes(j.status)?[j.note,j.retryAt&&`${new Date(j.retryAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}に再試行`].filter(Boolean).join(' · '):'';
 function workbenchParts(job,artifacts){
- const s=jobStatus(job),question=(state.dialogue?.messages||[]).find(m=>m.kind==='worker-question'&&m.jobId===job.id&&m.questionStatus==='pending');
+ const s=jobStatus(job);
  const report=job.output?`<article class="report-doc md">${renderMarkdown(job.output)}</article>`:'';
  return {report,
   top:`<header class="bench-head"><div class="bench-title"><h2>${escape(job.title)}</h2><p class="bench-state tone-${s.tone}">${escape([s.note||s.label,jobReason(job)].filter(Boolean).join(' · '))}</p></div>
   <div class="bench-actions">${jobActions(job,{compact:true})}${toolbtn('task','詳細','list',`data-id="${escape(job.id)}"`)}</div></header>
-  ${approvalCards(job)}${question?`<section class="question-card" aria-label="作業担当からの質問"><p class="question-text">${escape(question.content)}</p>${btn('reply-worker-question','回答する','chat','button',`data-id="${escape(question.id)}"`)}</section>`:''}
+  ${approvalCards(job)}
   ${artifacts.length>1?`<div class="artifact-tabs" role="group" aria-label="成果物">${artifacts.map(a=>`<button type="button" data-action="artifact-select" data-id="${escape(a.id)}" aria-pressed="${a.id===selectedArtifact}">${escape(a.title)}</button>`).join('')}</div>`:''}`,
   bottom:artifacts.length&&report?`<details class="report-more"><summary>作業担当の報告</summary>${report}</details>`:''};
 }
@@ -479,24 +476,22 @@ function patchWork(frame){
 }
 function workHead(){return `<header class="page-head"><h1 class="visually-hidden">仕事</h1>${workTabs()}</header>`;}
 function workView(){
- if(workTab!=='tasks')return automationView();
+ if(workTab!=='tasks')return madeView();
  const focus=focusJob(),artifacts=focusedArtifacts(),jobs=workJobs();
  return `<section class="page work-page">${workHead()}
  <div class="work-grid"><aside class="job-list" aria-label="仕事の一覧">${taskRows()}</aside>
  <section class="workbench" aria-label="選んだ仕事" data-job="${escape(focus?.id||'')}">${focus?workbench(focus,artifacts):`<div class="bench-empty is-large">${jobs.length?'<p>仕事を選ぶと、ここに成果物が出ます。</p>':`<h2>まだ仕事はありません</h2><p>会話で頼むと、ここに届きます。</p>${previewMode?btn('demo','画面サンプルを試す','play','button secondary'):''}`}</div>`}</section></div></section>`;
 }
-function workTabs(){return `<div class="tabs" role="group" aria-label="仕事の種類">${[['tasks','仕事'],['plans','プラン'],['routines','くりかえし'],['made','つくったもの']].map(([key,label])=>`<button type="button" data-action="work-tab" data-tab="${key}" aria-pressed="${workTab===key}">${label}</button>`).join('')}</div>`;}
-function verificationHTML(job){
- const checks=job.verification?.checks;
- return `<div id="verification">${checks?.results?.length?`<section class="check-report"><strong>${checks.passed?'指定した検査が通りました':'検査で確認が必要です'}</strong><ul>${checks.results.map(r=>`<li>${r.passed?'✓':'!'} ${escape(r.label)}${r.error?` — ${escape(r.error)}`:''}</li>`).join('')}</ul><small>指定した条件だけの検査です。依頼全体の品質保証ではありません。</small></section>`:''}${job.agentPlan?.length?`<ol class="agent-plan">${job.agentPlan.map(s=>`<li>${escape(s.step)} <small>${escape(s.status)}</small></li>`).join('')}</ol>`:''}</div>`;
+function workTabs(){return `<div class="tabs" role="group" aria-label="仕事の種類">${[['tasks','仕事'],['made','つくったもの']].map(([key,label])=>`<button type="button" data-action="work-tab" data-tab="${key}" aria-pressed="${workTab===key}">${label}</button>`).join('')}</div>`;}
+function todoHTML(job){
+ const items=job.todo||[];if(!items.length)return '';
+ const mark={done:'✓',in_progress:'▸',blocked:'!',pending:'·'};
+ return `<section class="panel-section" id="task-todo"><h3>やること</h3><ul class="todo-list">${items.map(t=>`<li class="todo-${escape(t.status)}"><span aria-hidden="true">${mark[t.status]||'·'}</span>${escape(t.text)}</li>`).join('')}</ul></section>`;
 }
-function automationView(){
- if(workTab==='made')return madeView();
- const plan=workTab==='plans',entries=plan?state.plans:state.routines;
- return `<section class="page">${workHead()}
- <div class="page-tools">${btn(plan?'plan-add':'routine-add',plan?'プランを作る':'くりかえしを追加','plus','button secondary')}</div>
- <div class="automation-list">${entries.length?entries.map(item=>plan?planCard(item):routineCard(item)).join(''):`<div class="bench-empty is-large"><p>${plan?'段階のある仕事を、まとめて任せられます。':'決まった時刻の仕事を任せられます。'}会話で頼むこともできます。</p></div>`}</div>
- ${plan?'':'<p class="page-note">有効にしたものだけを実行します。Teporaが止まっている間やスリープ中は実行できません。</p>'}</section>`;
+function routeLine(j){
+ const r=j.route,st=j.stats||{},where=r?`${r.profileId} · ${r.model}（${({device:'このPC',lan:'LAN',cloud:'クラウド'})[r.domain]||r.domain}）`:'';
+ const cache=st.input?Math.round(100*(st.cacheRead||0)/st.input):0;
+ return escape([where,st.steps?`${st.steps}ステップ`:'',st.input?`入力 ${st.input.toLocaleString()}・出力 ${(st.output||0).toLocaleString()}トークン${cache?`（キャッシュ ${cache}%）`:''}`:'',st.cost?`費用 $${st.cost<0.01?st.cost.toFixed(4):st.cost.toFixed(2)}`:'',st.clears||st.compactions?`文脈の整理 ${st.clears||0}回・要約 ${st.compactions||0}回`:''].filter(Boolean).join(' · '));
 }
 function madeView(){
  const media=state.mediaJobs||[];
@@ -504,26 +499,6 @@ function madeView(){
  <div class="page-tools">${btn('creative-new','画像・動画をつくる','plus','button secondary')}${media.length?btn('creative-open','一覧','list','text-button'):''}</div>
  ${media.length?`<div class="made-grid">${media.slice(0,60).map(j=>`<article class="made-card">${j.asset?.mime?.startsWith('image/')?`<img src="/api/media/assets/${escape(j.asset.id)}" alt="${escape(j.title)}" loading="lazy">`:`<div class="made-icon">${icon(j.kind==='tts'?'volume':j.kind==='video'?'play':'image')}</div>`}<p>${escape(j.title)}</p>${j.status==='ready'?'':`<small>${escape(({failed:'失敗',cancelled:'停止'})[j.status]||'処理中')}</small>`}</article>`).join('')}</div>`:'<div class="bench-empty is-large"><p>つくった画像や音声が、ここに並びます。</p></div>'}</section>`;
 }
-function planCard(p){return `<article class="automation-card"><header><div><h2>${escape(p.title)}</h2><small>${escape({proposed:'まだ実行していません',running:'段階を進めています',paused:'一時停止',review:'結果の確認待ち','needs-consent':'接続の再確認が必要です'}[p.status]||p.status)}</small></div>${p.status==='running'?btn('plan-pause','一時停止','pause','button secondary',`data-id="${p.id}"`):['proposed','paused','needs-consent'].includes(p.status)?btn('plan-start',p.status==='proposed'?'このプランを開始':'未開始の段階を再開','play','button',`data-id="${p.id}"`):''}</header>
- <div class="stage-flow">${p.nodes.map(n=>{const j=state.jobs.find(j=>j.id===p.jobs[n.key]);return `<section class="stage-step"><small>${n.dependsOn.length?'前提: '+n.dependsOn.map(key=>escape(p.nodes.find(x=>x.key===key)?.title||key)).join('、'):'独立した段階'}</small><h3>${escape(n.title)}</h3><p>${escape(n.input)}</p><small>${escape({produced:'結果が用意できたら次へ',checked:'指定検査の合格後に次へ',accepted:'人の確認後に次へ'}[n.gate])}</small>${j?btn('task',jobStatus(j).label,'arrow','text-button',`data-id="${escape(j.id)}"`):'<small>未開始</small>'}</section>`;}).join('')}</div>${p.note?`<p>${escape(p.note)}</p>`:''}</article>`;}
-function routineCard(r){const label=r.schedule.type==='daily'?`${r.schedule.time} · ${r.schedule.timezone}`:r.schedule.type==='interval'?`${r.schedule.minutes}分ごと`:new Date(r.schedule.at).toLocaleString('ja-JP');
- return `<article class="automation-card"><header><div><h2>${escape(r.title)}</h2><small>${escape(label)} · ${r.enabled?'有効':'停止中'}</small></div>${btn('routine-toggle',r.enabled?'停止する':'内容を確認して有効にする',r.enabled?'pause':'play','button secondary',`data-id="${r.id}"`)}</header><p>${escape(r.input)}</p><div class="routine-meta">${r.nextAt?`次回: ${escape(new Date(r.nextAt).toLocaleString('ja-JP'))}`:'未開始'}${r.lastJobId?btn('task','前回の仕事','arrow','text-button',`data-id="${escape(r.lastJobId)}"`):''}</div>${r.note?`<p>${escape(r.note)}</p>`:''}<small>実行時は現在の接続先を固定します。接続先や権限を変えた場合は、再確認まで実行しません。</small></article>`;
-}
-function codexSheet(){const s=settings();openSheet('Codexをエージェントとして接続',`<p>インストール済みのCodex App Serverを使います。認証ファイルをTeporaへ取り込まず、Codexの認証とモデル設定を利用します。</p><form id="codex-form">
- ${toggle('Codexの起動と依頼の受け渡しを許可','codexEnabled',s.codexEnabled,'依頼内容はCodexで選択したプロバイダーへ送られます。TeporaのローカルLLM設定とは別です。')}
- ${field('Codex実行ファイル（空欄ならPATHのcodex）','codexBinary',s.codexBinary||'')}${field('モデル（空欄ならCodexの設定）','codexModel',s.codexModel||'')}
- ${toggle('Codex作業環境からのネットワーク利用','codexNetwork',s.codexNetwork,'作業フォルダー内の書き込みと制限付きの読み取りを指定します。権限拡大の要求は受け入れません。')}
- <button class="button" type="submit">この範囲で保存する</button>${btn('codex-check','起動・認証状態を確認','connect','button secondary')}<p id="codex-status" role="status"></p>
- </form><div class="sheet-actions">${btn('codex-managed-login','ChatGPTの契約でサインイン','','button secondary')}</div><p class="small-text">Windowsではネイティブの実行ファイルを指定してください。未対応のプロトコルや環境では停止し、強い権限へ勝手に切り替えません。</p>`,'codex');}
-function routineSheet(){openSheet('繰り返す仕事を追加',`<form id="routine-form">${field('名前','title','','例: 朝の調べもの')}<label>任せること<textarea name="input" rows="3" maxlength="32000" required></textarea></label>
- <label>繰り返し<select name="scheduleType"><option value="daily">毎日、指定した時刻</option><option value="interval">一定の間隔</option><option value="once">一度だけ</option></select></label>
- <div class="form-grid"><label>毎日の時刻<input type="time" name="time" value="09:00"></label>${field('タイムゾーン','timezone',Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Tokyo')}
- <label>間隔（分）<input type="number" name="minutes" min="5" max="525600" value="60"></label><label>一度だけの日時（この端末の時刻）<input type="datetime-local" name="onceAt"></label></div>
- <label>休止中に時刻を過ぎた場合<select name="catchUp"><option value="latest">直近の1回だけ（猶予時間内）</option><option value="skip">過ぎた分は実行しない</option></select></label>
- <p class="small-text">まず提案として保存します。有効にするまで実行しません。前回の仕事が停止・中断中なら新しい仕事を重ねません。</p><button class="button" type="submit">提案を保存する</button></form>`,'routine');}
-function planSheet(){openSheet('並行する2段階と、仕上げを作る',`<form id="plan-form">${field('全体の名前','title','','例: 二つの案を比較してまとめる')}
- ${[1,2,3].map(n=>`<fieldset><legend>${n===3?'前の2段階を受け取って仕上げる':`${n}つ目の独立した仕事`}</legend>${field('段階の名前','title'+n,'')}<label>依頼<textarea name="input${n}" rows="2" required maxlength="8000"></textarea></label></fieldset>`).join('')}
- <p class="small-text">提案として保存します。前提と内容を見てから開始できます。より複雑な依存関係・受け入れ条件は会話またはAPIで指定できます。</p><button class="button" type="submit">プランを保存する</button></form>`,'plan');}
 
 /* ---------- Memory ---------- */
 function memoryView(){
@@ -549,11 +524,35 @@ function avatarSummary(){
 }
 let avatarStudioUI=null;
 function avatarStudio(){return avatarStudioUI||=createAvatarStudio({bridge,openSheet,notice,previewMode,previewAvatar,saveFile,chooseJSON,themeNow:avatarThemeNow,state:()=>state,isOpen:()=>activeDialog?.kind==='avatar'&&!sharedView});}
+const agentSettings=()=>({sandbox:{mode:'off'},webSearch:{provider:'auto'},heartbeat:{enabled:false,minutes:30},budget:{sessionUsd:0,dailyUsd:0},verifyCompletion:'auto',cacheRetention:{main:'long',worker:'short'},...state.agent?.settings});
+const money=n=>`$${(n||0)<0.01&&n>0?(n||0).toFixed(4):(n||0).toFixed(2)}`;
+function usageSummary(){const u=state.agent?.usage?.today,b=agentSettings().budget;return [u?.calls?`今日 ${money(u.cost)}・${(u.input||0).toLocaleString()}トークン`:'今日はまだ使っていません',b.dailyUsd?`上限 1日${money(b.dailyUsd)}`:'',b.sessionUsd?`1仕事${money(b.sessionUsd)}`:''].filter(Boolean).join(' · ');}
+function budgetSheet(){
+ const a=agentSettings(),b=a.budget;
+ openSheet('費用と仕上げ',`<form id="budget-form"><p class="small-text">${escape(usageSummary())}。費用はmodels.devの公開価格から見積もります（このPCとLANのモデルは0）。</p>
+ <label class="field"><span>1日の上限（ドル、0は上限なし）</span><input type="number" name="dailyUsd" min="0" max="100000" step="0.01" value="${b.dailyUsd||0}"></label>
+ <label class="field"><span>1つの仕事の上限（ドル、0は上限なし）</span><input type="number" name="sessionUsd" min="0" max="100000" step="0.01" value="${b.sessionUsd||0}"></label>
+ <label class="field"><span>仕上げの確認</span><select name="verifyCompletion">${[['auto','自動（判断モデルか、作業担当の見直し）'],['off','しない']].map(([v,l])=>`<option value="${v}" ${a.verifyCompletion===v?'selected':''}>${l}</option>`).join('')}</select></label>
+ <label class="field"><span>キャラクターの文脈キャッシュ</span><select name="mainCache">${[['long','長く保つ（1時間・24時間。対応APIのみ）'],['short','標準（数分）']].map(([v,l])=>`<option value="${v}" ${a.cacheRetention.main===v?'selected':''}>${l}</option>`).join('')}</select></label>
+ <div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'budget');
+}
+function searchSheet(){
+ const w=agentSettings().webSearch;
+ openSheet('Web検索',`<form id="search-form"><label class="field"><span>検索の提供元</span><select name="provider">${[['auto','自動（キーがあればBrave、URLがあればSearXNG、なければDuckDuckGo）'],['duckduckgo','DuckDuckGo（キー不要）'],['brave','Brave Search API'],['searxng','SearXNG（自分のサーバー）']].map(([v,t])=>`<option value="${v}" ${w.provider===v?'selected':''}>${escape(t)}</option>`).join('')}</select></label>
+ ${field('SearXNGのURL','searxngUrl',w.searxngUrl||'','http://127.0.0.1:8888')}${field('Brave SearchのAPIキー（保存すると上書き）','braveKey','','','password')}
+ <p class="small-text">検索語は選んだ提供元へ送られます。キーはこのPCのデータベースに保存します。</p><div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'search');
+}
+function heartbeatSheet(){
+ const h=agentSettings().heartbeat;
+ openSheet('常駐と見回り',`<form id="heartbeat-form">${toggle('決まった間隔で見回る','enabled',h.enabled,'キャラクターが仕事の様子を確かめ、伝えることがあるときだけ話しかけます。モデルを呼ぶので費用や計算資源を使います。')}
+ <label class="field"><span>間隔（分）</span><input type="number" name="minutes" min="5" max="1440" value="${h.minutes||30}"></label>
+ <label class="field"><span>見回りで確かめること（任意）</span><textarea name="text" rows="3" maxlength="2000">${escape(h.text||'')}</textarea></label><div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'heartbeat');
+}
+function computerSummary(){const c=state.computer;if(!c?.config?.enabled)return '無効';return [c.browser?.executable?`ブラウザ${c.config.headless?'（見えない）':''}`:'ブラウザなし',c.desktop?.supported&&c.config.desktop?'Macのアプリ':'',({both:'判断モデル優先・直接も可',decision:'判断モデルのみ',direct:'直接操作のみ'})[c.config.control]].filter(Boolean).join(' · ');}
 function settingsView(){
  const s=settings(),prefs=display(),caps=state.capabilities||{profiles:[],routes:{}},providers=state.providers?.profiles||[],net=state.network||{mode:'online'};
  const ready=!!(s.model||providers.some(p=>p.enabled!==false&&p.model)),roleNames={tts:'読み上げ',embedding:'意味検索',image:'画像',image_edit:'画像の編集',video:'動画',decision:'判断'};
  const connected=Object.entries(roleNames).filter(([role])=>caps.routes?.[role]).map(([,n])=>n);
- const exec=state.execution;
  const order=[...prefs.widgets,...WIDGETS.filter(w=>!prefs.widgets.includes(w))];
  const sections=[
   ['ai','AIとの接続',`${settingRow('会話と仕事のAI',ready?escape(s.model||providers.find(p=>p.enabled!==false)?.model||'接続済み'):'未接続',ready?'ok':'attention','',ready?`${btn('providers-launch','接続先と役割','','button secondary')}${btn('catalog-open','モデルを探す','','text-button')}`:`${btn('onboard','AIを接続する','','button')}${btn('providers-launch','接続先と役割','','text-button')}${btn('catalog-open','モデルを探す','','text-button')}`)}
@@ -574,11 +573,15 @@ function settingsView(){
    <div class="setting-foot">${btn('display-undo','前の表示に戻す','undo','text-button')}${btn('display-reset','既定に戻す','','text-button')}</div>`],
   ['abilities','声・画像・意味検索',`${settingRow('能力の接続',connected.length?connected.join('・'):'',connected.length?'ok':null,connected.length?'':'読み上げ・画像・意味検索などを、役割ごとに接続できます。',`${btn('abilities-open','管理','','button secondary','aria-label="能力の接続を管理"')}${btn('creative-new','つくってみる','','text-button')}`)}
    ${settingRow('音声入力',s.asrStreamUrl||s.asrUrl?'設定済み':'',s.asrStreamUrl||s.asrUrl?'ok':null,'マイクはボタンを押したときだけ使います。',btn('voice-settings','設定','','button secondary','aria-label="音声入力の設定"'))}`],
-  ['work','仕事の実行',`${settingRow('実行環境',exec?(exec.mode==='legacy-host'?'旧方式: このPCで直接実行':'保護された実行'):'',exec?(exec.mode==='legacy-host'?'attention':'ok'):null,'',btn('execution-open','確認','shield','button secondary','aria-label="実行環境を確認"'))}
-   ${settingRow('コンピューター操作',state.computer?.config?.enabled?'有効':'無効',state.computer?.config?.enabled?'ok':null,'',btn('computer-launch','設定','','button secondary','aria-label="コンピューター操作の設定"'))}
-   ${settingRow('Codex',s.codexEnabled?'有効':'無効',s.codexEnabled?'ok':null,'',btn('codex-settings','設定','','button secondary','aria-label="Codexの設定"'))}
-   ${settingRow('道具（MCP）',state.mcp.length?`${state.mcp.length}件 · ${state.mcp.filter(m=>m.enabled).length}件有効`:'',state.mcp.some(m=>m.enabled)?'ok':null,'登録しただけでは起動しません。',`${btn('mcp-add','追加','plus','button secondary','aria-label="道具を1件追加"')}${btn('tools-import','まとめて追加','','text-button')}${btn('tools-connect','まとめて接続','','text-button')}${btn('tools-search','探す','','text-button','aria-label="道具を探す"')}`)}
+  ['work','仕事の実行',`${settingRow('サンドボックス',({off:'オフ（このPCで直接実行）',workspace:'作業フォルダだけ書き込める',readonly:'読み取りだけ',container:'コンテナ'})[agentSettings().sandbox.mode],agentSettings().sandbox.mode==='off'?null:'ok','保護は既定でオフです。必要なときだけ、作業エージェントのコマンドとファイル書き込みを閉じ込めます。',segmented('sandbox-set',[['off','オフ'],['workspace','作業フォルダ'],['readonly','読み取り'],['container','コンテナ']],agentSettings().sandbox.mode,'サンドボックス'))}
+   ${settingRow('Web検索',({auto:'自動',brave:'Brave Search',searxng:'SearXNG',duckduckgo:'DuckDuckGo'})[agentSettings().webSearch.provider]||'自動',null,'調べものに使う検索。キーなしで使えるDuckDuckGoが既定です。',btn('search-setup','設定','','button secondary','aria-label="Web検索の設定"'))}
+   ${settingRow('常駐と見回り',agentSettings().heartbeat.enabled?`${agentSettings().heartbeat.minutes}分ごと`:'オフ',agentSettings().heartbeat.enabled?'ok':null,'決まった間隔でキャラクターが仕事の様子を見回り、伝えることがあれば話しかけます。',btn('heartbeat-setup','設定','','button secondary','aria-label="見回りの設定"'))}
+   ${settingRow('判断モデル',state.capabilities?.routes?.decision?(state.capabilities.profiles.find(p=>p.id===state.capabilities.routes.decision)?.name||'接続済み'):'未接続',state.capabilities?.routes?.decision?'ok':null,'選ぶ・判定するだけの速いモデルです。画面操作、ページの要点抜き出し、仕上げの確認、見回りの判定に使います。Liquid d1（クラウド）か Laya（このPC）を接続します。',btn('abilities-open','接続','','button secondary','aria-label="判断モデルを接続"'))}
+   ${settingRow('コンピューター操作',computerSummary(),state.computer?.config?.enabled?'ok':null,'作業担当がブラウザ（見えないまま動かせます）とMacのアプリを操作します。判断モデルが画面上の操作を選び、作業担当が直接操作もできます。',btn('computer-launch','設定','','button secondary','aria-label="コンピューター操作の設定"'))}
+   ${settingRow('費用と仕上げ',usageSummary(),null,'費用の上限（既定はなし）と、仕事を終える前の確認です。',btn('budget-setup','設定','','button secondary','aria-label="費用と仕上げの設定"'))}
+   ${settingRow('道具（MCP）',state.mcp.length?`${state.mcp.length}件 · ${state.mcp.filter(m=>m.enabled).length}件有効`:'',state.mcp.some(m=>m.enabled)?'ok':null,'作業エージェントは必要なときに道具を探して使います。',`${btn('mcp-add','追加','plus','button secondary','aria-label="道具を1件追加"')}${btn('tools-import','まとめて追加','','text-button')}${btn('tools-connect','まとめて接続','','text-button')}${btn('tools-search','探す','','text-button','aria-label="道具を探す"')}`)}
    ${state.mcp.length?`<ul class="plain-list">${state.mcp.map(m=>`<li><span>${escape(m.name)}<small>${escape(m.transport)}</small></span><span>${m.enabled?btn('tools-discover','道具を調べる','','text-button',`data-id="${escape(m.id)}"`):''}${btn('mcp-toggle',m.enabled?'無効にする':'有効にする','','text-button',`data-id="${escape(m.id)}"`)}</span></li>`).join('')}</ul>`:''}
+   ${settingRow('プラグイン','',null,`データフォルダの plugins/ に置いた .mjs のツールを読み込みます。`,btn('plugins-reload','読み込み直す','refresh','button secondary'))}
    ${settingRow('共有スキル',state.skills.length?`${state.skills.length}件`:'',state.skills.length?'ok':null,'~/.agents/skills を読み取り専用で探します。',btn('shared-scan','探す','','button secondary','aria-label="共有スキルを探す"'))}
    ${state.skills.length?`<ul class="plain-list">${state.skills.map(k=>`<li><span>${escape(k.name||k.id)}<small>${escape(k.description||'')}${k.source==='shared'?' · 共通資産（読み取り専用）':''}</small></span><span>${btn('skill-details','内容','','text-button',`data-id="${escape(k.id)}"`)}${btn('skill-toggle',k.enabled===false?'有効にする':'無効にする','','text-button',`data-id="${escape(k.id)}"`)}</span></li>`).join('')}</ul>`:''}`],
   ['data','データ',`${settingRow('記憶・成果物・スキル','',null,'メディアファイルと認証情報は含みません。以前の版の記憶は、新しい会話と仕事に自動では渡しません。',`${btn('context-export','書き出す','download','button secondary','aria-label="記憶・成果物・スキルを書き出す"')}${btn('context-import','読み込む','upload','text-button','aria-label="記憶・成果物・スキルを読み込む"')}`)}
@@ -616,7 +619,6 @@ function render(){
    if(preview&&pinnedArtifact)setArtifactFrame(preview,pinnedArtifact);
   }
   restoreScroll(surface,scroll);restoreFocus(surface,focus);
-  if(target==='settings'&&!state.execution&&!previewMode)bridge.request('/api/execution').then(x=>{state.execution=x;if(view==='settings')scheduleRender();}).catch(()=>{});
  }
  renderedView=target;
  tick();showDialogue();showReply();showTarget();showRequestStatus();showInputFiles();paintMood();
@@ -649,13 +651,10 @@ function pinDraft(){return draftContext.pin(state.dialogue.session);}
 function clearDraftDestination(){draftContext.clear();}
 function showTarget(){
  const host=$('#target-hint');if(!host)return;if(sharedView){host.innerHTML='';return;}
- const destination=draftContext.destination,reply=destination?.reply,question=currentReplyQuestion(destination,state.dialogue,state.jobs);
- const title=state.jobs.find(j=>j.id===reply?.jobId)?.title||'仕事';
  const voiceReady=settings().voiceEnabled&&(settings().asrStreamUrl||settings().asrUrl);
- host.innerHTML=`${reply?`<div class="answer-chip" role="status"><p class="answer-kicker">${icon('chat')}<span>作業担当の質問に回答しています · ${escape(title)}</span></p><p class="answer-question">${escape(question?.content||'この質問は更新されました。回答を解除して、最新の質問を確認してください。')}</p>${btn('clear-worker-reply','回答をやめる','close','text-button',composerLocked()?'disabled':'')}</div>`:''}
- ${voiceReady?`<div class="voice-send">${btn('voice-autosend',voiceSendEnabled?'話し終えたら送信: オン':'話し終えたら送信: オフ','',`chip-button${voiceSendEnabled?' is-on':''}`,`aria-pressed="${voiceSendEnabled}" ${composerLocked()&&!voiceSendEnabled?'disabled':''}`)}</div>`:''}`;
+ host.innerHTML=voiceReady?`<div class="voice-send">${btn('voice-autosend',voiceSendEnabled?'話し終えたら送信: オン':'話し終えたら送信: オフ','',`chip-button${voiceSendEnabled?' is-on':''}`,`aria-pressed="${voiceSendEnabled}" ${composerLocked()&&!voiceSendEnabled?'disabled':''}`)}</div>`:'';
  const input=$('#composer-input'),name=characterName(state.dialogue);
- if(input){input.placeholder=reply?'質問への回答を書く':`${name}に話しかける`;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,200)}px`;}
+ if(input){input.placeholder=`${name}に話しかける`;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,200)}px`;}
  const undo=$('#undo-draft');if(undo)undo.hidden=!draft.history.length||composerLocked();
 }
 /** The message box grows with its text. Measured again after the window changes width, because a width measured mid-resize can be nearly zero. */
@@ -689,7 +688,8 @@ function showDialogue(){
    p.parked||m.status==='waiting_approval'?btn('inbox','あなたの番を見る','','text-button',''):m.jobId?btn('task','開く','','text-button',`data-id="${escape(m.jobId)}" aria-label="${escape(job?.title||'仕事')}を開く"`):'';
   return `${divider}<article class="msg msg-worker tone-${escape(p.tone)}${m.kind==='worker-question'?' is-question':''}" data-message-id="${escape(m.id)}" title="${escape(stamp)}"><header><span class="visually-hidden">${escape(p.speaker)} · ${escape(p.source)}: </span><span class="msg-job">${escape(job?.title||p.source)}</span>${p.status?`<span class="msg-state">${escape(p.status)}</span>`:''}</header>
    <div class="msg-quote worker-quotation md" aria-label="作業担当からの引用">${renderMarkdown(p.content,{headings:'text'})}</div>${p.questionState&&!p.canReply?`<p class="msg-note">${escape(p.questionState)}</p>`:''}${action?`<div class="msg-actions">${action}</div>`:''}</article>`;
- }).join('')||`<p class="dialogue-welcome">${escape(name)}に、なんでも話しかけてください。</p>`;
+ }).join('')+`<article class="msg msg-character is-live" id="dialogue-live" aria-hidden="true" ${liveReply?'':'hidden'}><div class="msg-bubble md"></div></article>`||`<p class="dialogue-welcome">${escape(name)}に、なんでも話しかけてください。</p>`;
+ paintLive();
  const last=messages.at(-1);
  if(last&&last.id!==lastSeenMessage){
   if(lastSeenMessage&&last.role!=='user'){const announcer=$('#dialogue-announcer');if(announcer)announcer.textContent=`${last.role==='assistant'?name:'作業担当'}: ${String(last.content||'').slice(0,240)}`;if(last.role==='assistant'&&!last.kind?.startsWith('worker'))talkUntil=Date.now()+Math.min(5200,Math.max(1400,String(last.content||'').length*55));}
@@ -698,6 +698,13 @@ function showDialogue(){
  if(keep?.action){const again=host.querySelector?.(`[data-action="${keep.action}"]${keep.id?`[data-id="${keep.id}"]`:''}`);again?.focus?.({preventScroll:true});}
  if(follow)host.scrollTop=host.scrollHeight;
  paintMood();
+}
+/** The reply as it streams in: in the conversation column and, on the home stage, as the caption. */
+function paintLive(){
+ const el=$('#dialogue-live');
+ if(el){el.hidden=!liveReply||sharedView;if(liveReply)el.querySelector('.msg-bubble').innerHTML=renderMarkdown(liveReply.length>4000?liveReply.slice(-4000):liveReply,{headings:'text'});
+  const host=$('#dialogue-transcript');if(host&&liveReply&&host.scrollHeight-host.scrollTop-host.clientHeight<160)host.scrollTop=host.scrollHeight;}
+ if(view==='home'&&liveReply&&!sharedView){const speech=$('#speech');if(speech&&!speech.hidden){const body=speech.querySelector('.speech-text');if(body)body.innerHTML=renderMarkdown(liveReply.length>900?'…'+liveReply.slice(-898):liveReply,{headings:'text'});}}
 }
 function showReply(){const el=$('#reply');if(el){el.hidden=true;el.replaceChildren();}}
 function acceptDialogue(value){
@@ -714,17 +721,12 @@ function acceptCompanion(value){
  if(prior.focusJobId!==value.focusJobId){selectedArtifact=null;pinnedArtifact=null;pendingArtifactJobId=null;followArtifact=true;}
  scheduleRender();
 }
+/** Which job the work page shows. Presentation only: it never changes where messages go. */
 async function navigateFocus(jobId,{returning=false}={}){
- if(!returning&&jobId===state.companion.focusJobId){closeSheet();view='workspace';workTab='tasks';render();return;}
- const value=await bridge.request(returning?'/api/companion/return':'/api/companion/focus','POST',returning?{expectedRevision:state.companion.revision}:{jobId,expectedRevision:state.companion.revision,pushReturn:true});
- acceptCompanion(value);closeSheet();view='workspace';workTab='tasks';render();
-}
-function selectWorkerQuestion(id){
- requireComposerUnlocked();
- if(draft.content||attachedFiles.length)throw new Error('いまの下書きはそのまま残しています。送信するか消去してから、質問への回答を選んでください。');
- const message=state.dialogue.messages.find(m=>m.id===id);
- cancelVoice();voiceSendEnabled=false;voiceSendConsent=null;draftContext.selectQuestion(state.dialogue.session,message,state.jobs);
- closeSheet();showTarget();$('#composer-input').focus();
+ const c=state.companion;let next;
+ if(returning){const stack=[...c.returnStack];next={revision:c.revision+1,focusJobId:stack.pop()||null,returnStack:stack};}
+ else next=jobId===c.focusJobId?c:{revision:c.revision+1,focusJobId:jobId,returnStack:[...c.returnStack.filter(x=>x!==jobId),...(c.focusJobId?[c.focusJobId]:[])].slice(-20)};
+ acceptCompanion(next);closeSheet();view='workspace';workTab='tasks';render();
 }
 async function personaSheet(){
  const p=await bridge.request('/api/dialogue/personas'),voice=p.character.voice||{tone:'polite',callName:'',proactive:'normal',lines:{}},pack=VOICE_TONES[voice.tone]||VOICE_TONES.polite;
@@ -736,32 +738,12 @@ async function personaSheet(){
  <details class="voice-lines"><summary>画面の一言を、自分の言葉に書き換える</summary><p class="small-text">空のままなら、選んだ口調の文面を使います。ここに書いた言葉は画面にだけ出て、AIには送りません。</p>${groups.map(g=>`<h3 class="voice-group">${escape(g)}</h3>${lineRows(g)}`).join('')}</details></fieldset>
  <fieldset><legend>作業担当</legend>${field('名前','workerName',p.worker.name)}<label>作業時の指示<textarea name="workerInstructions" rows="5" maxlength="8000">${escape(p.worker.instructions)}</textarea></label></fieldset><p class="small-text">以前の記憶は保持されていますが、会話・作業のどちらにも自動では渡しません。どちらの人格設定も、接続先・ファイル・ツール操作の許可を広げるものではありません。口調はAIには「話し方の指示」としてだけ渡します。</p><button type="submit" class="button">人格を保存する</button></form>`,'personas');
 }
-async function relayResultSheet(jobId){
- if(sharedView)throw new Error('個人表示で共有内容を確認してください。');
- const preview=await bridge.request(`/api/dialogue/relay?jobId=${encodeURIComponent(jobId)}`);
- if(sharedView)throw new Error('共有表示では結果を開きません。');
- pendingRelay=preview;
- const verification=preview.verificationStatus==='accepted-by-user'?'ユーザー確認済み':'成果の内容は未確認です';
- openSheet('この引用を、会話の接続先へ渡しますか？',`<p>仕事の結果を別の接続先で使う場合は、この引用に限って共有を許可します。</p><p><strong>受取先: ${escape(preview.recipient)}</strong></p><p>${escape(verification)} · 検査状態: ${escape(preview.checksStatus||'未確認')}</p><pre class="relay-excerpt">${escape(preview.excerpt)}</pre><p>${escape(preview.note)}</p><div class="sheet-actions">${btn('relay-confirm','この引用だけを共有する','','button')}${btn('close','共有しない','','button secondary')}</div>`,'relay-result',jobId);
-}
-async function confirmResultRelay(){
- const preview=pendingRelay;
- if(!preview||activeDialog?.kind!=='relay-result'||sharedView)return;
- const {jobId,jobRevision,sessionId,contextId,excerptHash}=preview;
- await bridge.request('/api/dialogue/relay','POST',{jobId,jobRevision,sessionId,contextId,excerptHash,consent:true});
- if(pendingRelay===preview)pendingRelay=null;
- closeSheet();notice('表示した引用を会話で参照できるようにしました。気になる点をそのまま聞けます。');
-}
+/** Hands-free sending of a finished utterance. Talk mode (always listening) is in the voice settings. */
 async function configureVoiceSend(){
- if(voiceSendEnabled){voiceSendEnabled=false;voiceSendConsent=null;invalidatePendingSubmit();cancelVoice();showTarget();return;}
- requireComposerUnlocked();
- if(previewMode)throw new Error('プレビューでは音声を認識・送信しません。');
+ if(voiceSendEnabled){voiceSendEnabled=false;invalidatePendingSubmit();cancelVoice();showTarget();return;}
+ requireComposerUnlocked();if(previewMode)throw new Error('プレビューでは音声を認識・送信しません。');
  if(settings().dictationEditing)throw new Error('言い直しの編集を使うときは、音声を下書きで確認してから送信してください。');
- if(draft.content||attachedFiles.length||draftContext.destination?.reply)throw new Error('空の会話の下書きから設定してください。作業担当の質問への回答は、下書きを確認して送信します。');
- const sessionId=state.dialogue.session.id,context=await bridge.request('/api/dialogue/context');requireComposerUnlocked();
- if(sessionId!==state.dialogue.session.id)throw new Error('会話が変わりました。もう一度設定してください。');
- pendingVoiceConsent={sessionId,context};
- openSheet('話し終えた内容を、そのまま送信しますか？',`<p>自分でマイクを押して録音し、止めると、確定した認識文を${escape(characterName(state.dialogue))}との会話に送信します。途中の認識文では実行しません。時間上限による録音終了時も対象です。</p><p>会話と作業の接続先: ${escape(context.label)}</p><p>${escape(context.note)}</p><p>音声は設定済みのローカル認識経路で処理します。確定文は上記の接続先へ送られ、会話から仕事を委任する場合もあります。接続先の利用料金がかかる場合があります。</p><p>空の下書きから始め、録音中に入力・添付・会話・接続先が変わらない場合だけ送信します。編集提案は下書きのままです。いつでもオフにできます。</p>${btn('enable-voice-send','この条件で話し終えたら送信する','','button')}`,'voice-send-consent');
+ voiceSendEnabled=true;showTarget();
 }
 /* Sheets are modal dialogs for focused edits and confirmations. Details that should sit beside
  * the conversation (a task, the stack of things waiting for you, generated media) open as a
@@ -807,19 +789,6 @@ function closePanel(){
 }
 function openInbox(){openPanel('あなたの番',inboxHTML(inboxList(),{presence}),'inbox');}
 function paintInbox(){const body=$('#panel .panel-body');if(!body||activePanel?.kind!=='inbox')return;const top=body.scrollTop;body.innerHTML=inboxHTML(inboxList(),{presence});body.scrollTop=top;}
-function runtimeSheet(){
- if(state.providers?.profiles?.length){providerSettings().open();return;}
- const s=settings();openSheet('会話と仕事をつなぐ',`<p>起動済みの接続先を指定できます。使い始めの画面では、稼働中のOllama経由でモデルを取得できます。OSへの実行基盤の自動インストールは行いません。</p>
- ${btn('discover','このPCの接続先を探す','refresh','button secondary')}<div id="discovery"></div>
- <form id="runtime-form"><details open><summary>接続設定</summary>
- <label>実行基盤<select name="provider">${['llama.cpp','vllm','ollama','lmstudio','compatible'].map(x=>`<option ${s.provider===x?'selected':''}>${x}</option>`).join('')}</select></label>
- ${field('接続先','baseUrl',s.baseUrl)}${field('モデル','model',s.model)}${field('APIキー（起動中のみ保持）','sessionKey','','','password')}
- ${toggle('外部モデルへの接続を許可','allowCloud',s.allowCloud,'ローカル音声・Layaには適用しません。')}
- ${toggle('共有指定した記憶だけ外部モデルに渡す','shareMemory',s.shareMemory)}
- <label>1回の実行予算（ステップ）<input type="number" name="maxSteps" min="1" max="512" value="${s.maxSteps}"></label>
- <label>並行する仕事<input type="number" name="concurrency" min="1" max="32" value="${s.concurrency}"></label></details>
- <button class="button" type="submit">保存して接続を確認</button>${btn('model-probe','ツールの実往復を試験','check','button secondary')}<div id="connection-result" role="status"></div></form>`,'runtime');
-}
 function voiceSheet(){
  const s=settings();openSheet('ローカル音声と軽量判断',`<form id="voice-form">
  ${field('リアルタイム音声ワーカーのURL','asrStreamUrl',s.asrStreamUrl||'','http://127.0.0.1:8768')}
@@ -834,43 +803,59 @@ function voiceSheet(){
 function approvalBox(j){return approvalCards(j);}
 function taskSheet(id){
  const j=state.jobs.find(x=>x.id===id);if(!j)return;const s=jobStatus(j);
- openSheet(j.title,`<p class="panel-status tone-${s.tone}" id="task-state"><span id="task-status">${escape(s.note||s.label)}</span><span id="task-note">${escape(['failed','blocked','interrupted'].includes(j.status)?j.note||'':'')}</span></p>
+ openSheet(j.title,`<p class="panel-status tone-${s.tone}" id="task-state"><span id="task-status">${escape(s.note||s.label)}</span><span id="task-note">${escape(jobReason(j))}</span></p>
  <div id="task-approval">${approvalBox(j)}</div>
  <div class="panel-actions" id="task-actions">${jobActions(j)}</div>
- ${verificationHTML(j)}
- <section class="panel-section"><h3>作業担当の報告</h3><div id="task-output" class="md">${j.output?renderMarkdown(j.output):'<p class="small-text">まだ報告はありません。</p>'}</div></section>
- <p id="task-route" class="small-text">${j.executionRoute?escape(`実行先: ${j.executionRoute.profileId} · ${j.executionRoute.model}（${({device:'このPC',lan:'LAN',cloud:'クラウド'})[j.executionRoute.domain]||j.executionRoute.domain}）`):''}</p>
- <details class="panel-section" open><summary>作成したファイル</summary><div id="task-files">${previewMode?'<p class="small-text">画面サンプルにはファイルがありません。</p>':'<p class="small-text">読み込んでいます…</p>'}</div></details>
- <details class="panel-section"><summary>実行の記録</summary><div id="effects">記録を読み込んでいます。</div></details>
- <div class="panel-more">${btn('open-work','仕事の画面で開く','arrow','text-button',`data-id="${escape(j.id)}"`)}${j.output&&['review','completed','failed','blocked','cancelled'].includes(j.status)?btn('relay-result','引用を会話に共有','','text-button',`data-id="${escape(j.id)}"`):''}${j.checks?.length&&['review','completed'].includes(j.status)?btn('recheck','再検査','check','text-button',`data-id="${escape(j.id)}"`):''}${btn('execution-open','実行環境','shield','text-button',`data-id="${escape(j.id)}"`)}</div>`,'task',id);
- if(!previewMode)bridge.request(`/api/jobs/${id}/files`).then(r=>{if(activePanel?.id!==id)return;$('#task-files').innerHTML=r.files.map(f=>`<a class="file-link" href="/api/jobs/${encodeURIComponent(id)}/download?path=${encodeURIComponent(f.path)}" download>${escape(f.path)} <small>${f.bytes.toLocaleString()} bytes</small></a>`).join('')||'<p class="small-text">まだ作成されたファイルはありません。</p>';}).catch(()=>{});
- if(!previewMode)bridge.request(`/api/jobs/${id}/effects`).then(effects=>{
-  if(activePanel?.id!==id)return;
-  $('#effects').innerHTML=effects.map(e=>`<article class="effect"><strong>${escape(e.name)} · ${escape(({succeeded:'完了',failed:'失敗',running:'実行中',unknown:'結果不明',not_executed:'実行していない',reconciled:'確認済み'})[e.status]||e.status)}</strong><pre>${escape(JSON.stringify({arguments:e.args,result:e.result},null,2))}</pre>${['unknown','running'].includes(e.status)?`<p>外部の実際の状態を確認してください。自動ではやり直しません。</p>${btn('reconcile-done','実行済みと確認','','button secondary',`data-id="${escape(e.id)}"`)}${btn('reconcile-none','未実行と確認','','button secondary',`data-id="${escape(e.id)}"`)}`:''}</article>`).join('')||'<p class="small-text">操作の記録はありません。モデルの返答だけで完了とは判断しません。</p>';
- }).catch(e=>{if($('#effects'))$('#effects').textContent=e.message;});
- else $('#effects').textContent='AIを使わない画面サンプルです。';
+ <form id="steer-form" class="steer-form" data-id="${escape(j.id)}"><label class="visually-hidden" for="steer-input">この仕事への追加の指示</label><input id="steer-input" name="text" maxlength="32000" autocomplete="off" placeholder="この仕事に直接伝える"><button class="button small secondary" type="submit">伝える</button></form>
+ <div id="task-todo-slot">${todoHTML(j)}</div>
+ <section class="panel-section"><h3>報告</h3><div id="task-output" class="md">${j.output?renderMarkdown(j.output):'<p class="small-text">まだ報告はありません。</p>'}</div></section>
+ <p id="task-route" class="small-text">${routeLine(j)}</p>
+ <details class="panel-section" open><summary>作業の経過</summary><div id="task-timeline" class="timeline">${previewMode?'<p class="small-text">画面サンプルには経過がありません。</p>':'<p class="small-text">読み込んでいます…</p>'}</div></details>
+ <details class="panel-section"><summary>作業フォルダ</summary><div id="task-files">${previewMode?'<p class="small-text">画面サンプルにはファイルがありません。</p>':'<p class="small-text">読み込んでいます…</p>'}</div></details>
+ <div class="panel-more">${btn('open-work','仕事の画面で開く','arrow','text-button',`data-id="${escape(j.id)}"`)}${['review','completed','paused'].includes(j.status)?btn('task-delete','一覧から消す','trash','text-button danger',`data-id="${escape(j.id)}"`):''}</div>`,'task',id);
+ if(!previewMode){loadTimeline(id);bridge.request(`/api/agent/sessions/${id}/files`).then(r=>{if(activePanel?.id!==id)return;$('#task-files').innerHTML=`<p class="small-text">${escape(r.root)}</p>`+(r.files.map(f=>`<a class="file-link" href="/api/agent/sessions/${encodeURIComponent(id)}/download?path=${encodeURIComponent(f.path)}" download>${escape(f.path)} <small>${f.bytes.toLocaleString()} bytes</small></a>`).join('')||'<p class="small-text">まだファイルはありません。</p>');}).catch(()=>{});}
+}
+const TOOL_WORDS={exec:'コマンド',process:'プロセス',read:'読む',write:'書く',edit:'編集',find:'探す',grep:'検索',web_search:'Web検索',web_fetch:'Webを読む',computer:'画面操作',todo:'やること',artifact:'成果物',recall:'思い出す',history_search:'経過を探す',memory_search:'記憶を探す',memory_write:'記憶する',sessions_spawn:'作業を頼む',sessions_send:'伝える',sessions_list:'一覧',sessions_history:'様子を見る',tools_search:'道具を探す',tools_call:'道具を使う'};
+/** The work so far, newest at the bottom: what the agent said, which tools it used and what came back. */
+function timelineHTML(entries){
+ const rows=[];
+ for(const e of entries){
+  if(e.type==='input')rows.push(`<div class="tl tl-input"><small>${escape(e.kind==='task'?'依頼':e.kind==='report'?'報告を受け取りました':'指示')}</small><div class="md">${renderMarkdown(String(e.text||'').slice(0,4000),{headings:'text'})}</div></div>`);
+  else if(e.type==='assistant'){
+   if(String(e.content||'').trim())rows.push(`<div class="tl tl-say md">${renderMarkdown(String(e.content).slice(0,6000),{headings:'text'})}</div>`);
+   for(const c of e.toolCalls||[])rows.push(`<div class="tl tl-call"><span class="tl-tool">${escape(TOOL_WORDS[c.name]||c.name)}</span><code>${escape(String(c.arguments||'').slice(0,240))}</code></div>`);
+  }
+  else if(e.type==='tool')rows.push(`<details class="tl tl-result${e.error?' is-error':''}"><summary>${escape(e.stub||e.name)}</summary><pre>${escape(String(e.content||'').slice(0,4000))}</pre></details>`);
+  else if(e.type==='checkpoint')rows.push(`<details class="tl tl-checkpoint"><summary>文脈を整理しました（#${e.upTo}まで・${escape(e.method||'')}）</summary><div class="md">${renderMarkdown(String(e.summary||'').slice(0,8000))}</div></details>`);
+  else if(e.type==='notice')rows.push(`<p class="tl tl-notice">${escape(String(e.text||'').replace(/^\[harness\]\s*/,'').slice(0,300))}</p>`);
+  else if(e.type==='event'&&['waiting','escalated','overflow','crash','lean-tools'].includes(e.event))rows.push(`<p class="tl tl-event">${escape(e.note||e.message||e.reason||e.event)}</p>`);
+ }
+ return rows.join('')||'<p class="small-text">まだ経過はありません。</p>';
+}
+let timelineTimer=0;
+async function loadTimeline(id){
+ try{const r=await bridge.request(`/api/agent/sessions/${id}?limit=150`);if(activePanel?.id!==id)return;const host=$('#task-timeline');if(!host)return;
+  const follow=host.scrollHeight-host.scrollTop-host.clientHeight<60;host.innerHTML=timelineHTML(r.entries);if(follow)host.scrollTop=host.scrollHeight;}
+ catch(e){const host=$('#task-timeline');if(host)host.textContent=e.message;}
 }
 function jobActions(j,{compact=false}={}){
- const id=escape(j.id),question=(state.dialogue?.messages||[]).find(m=>m.kind==='worker-question'&&m.jobId===j.id&&m.questionId===j.pendingQuestionId&&m.questionStatus==='pending');
- const out=[];
- if(j.status==='review')out.push(btn('accept','確認した','check','button',`data-id="${id}"`),btn('revise','修正を伝える','pencil','button secondary',`data-id="${id}"`));
- if(j.status==='paused'&&question)out.push(btn('reply-worker-question','質問に回答する','chat','button',`data-id="${escape(question.id)}"`));
- else if(['paused','interrupted','failed','blocked'].includes(j.status)&&!j.resumeBlocked)out.push(btn('resume','続きを再開','play','button',`data-id="${id}"`));
- if(['running','queued'].includes(j.status))out.push(btn('pause','一時停止','pause','button secondary',`data-id="${id}"`));
- if(j.status==='queued')out.push(btn('raise-priority','先に進める','arrow','text-button',`data-id="${id}"`));
- if(['queued','running','waiting_approval','paused','interrupted','blocked','failed'].includes(j.status)&&!compact)out.push(btn('cancel','取り消す','close','text-button danger',`data-id="${id}"`));
+ const id=escape(j.id),out=[];
+ if(j.status==='review')out.push(btn('accept','確認した','check','button',`data-id="${id}"`),btn('revise','直してほしいことを伝える','pencil','button secondary',`data-id="${id}"`));
+ if(['paused','blocked'].includes(j.status))out.push(btn('resume',j.status==='blocked'?'いま再試行':'続きを再開','play','button',`data-id="${id}"`));
+ if(['running','queued','waiting_approval','blocked'].includes(j.status))out.push(btn('pause','止める','pause','button secondary',`data-id="${id}"`));
  return out.join('');
 }
 function refreshTask(){
  if(activePanel?.kind!=='task')return;
  const j=state.jobs.find(x=>x.id===activePanel.id);if(!j)return;const s=jobStatus(j);
  const status=$('#task-status');if(!status)return;
- status.textContent=s.note||s.label;$('#task-state').className=`panel-status tone-${s.tone}`;$('#task-note').textContent=['failed','blocked','interrupted'].includes(j.status)?j.note||'':'';
- if($('#task-route')&&j.executionRoute)$('#task-route').textContent=`実行先: ${j.executionRoute.profileId} · ${j.executionRoute.model}`;
- $('#task-output').innerHTML=j.output?renderMarkdown(j.output):'<p class="small-text">まだ報告はありません。</p>';if($('#verification'))$('#verification').outerHTML=verificationHTML(j);
- $('#task-actions').innerHTML=jobActions(j);
- const box=$('#task-approval'),key=approvalsFor(j).map(a=>a.id).join(',')+(j.approval?.id||'');
+ status.textContent=s.note||s.label;$('#task-state').className=`panel-status tone-${s.tone}`;$('#task-note').textContent=jobReason(j);
+ $('#task-route').textContent=routeLine(j).replace(/&amp;/g,'&');
+ $('#task-output').innerHTML=j.output?renderMarkdown(j.output):'<p class="small-text">まだ報告はありません。</p>';
+ $('#task-todo-slot').innerHTML=todoHTML(j);$('#task-actions').innerHTML=jobActions(j);
+ const box=$('#task-approval'),key=approvalsFor(j).map(a=>a.id).join(',');
  if(box.dataset.approval!==key){box.dataset.approval=key;box.innerHTML=approvalBox(j);}
+ if(!previewMode){clearTimeout(timelineTimer);timelineTimer=setTimeout(()=>loadTimeline(j.id),700);}
 }
 function memorySheet(id){
  const m=state.memories.find(x=>x.id===id);
@@ -947,44 +932,28 @@ async function finishSpeech(text,anchor,epoch){
   }
   if(epoch!==voiceEpoch||anchor.destination!==draftContext.destination)return;
   if(!draftContext.accepts(anchor,draft))throw new Error('入力が変わったため、自動では反映しませんでした。');
-  const autoSubmit=voiceSendEnabled&&voiceSendConsent&&!settings().dictationEditing&&anchor.content===''&&!attachedFiles.length&&anchor.attachmentEpoch===attachmentEpoch&&anchor.sessionId===state.dialogue.session.id&&!composerLocked();
+  const autoSubmit=voiceSendEnabled&&!settings().dictationEditing&&anchor.content===''&&!attachedFiles.length&&anchor.attachmentEpoch===attachmentEpoch&&!composerLocked();
   draft.apply(patch);$('#composer-input').value=draft.content;showTarget();
   $('#voice-caption').textContent=(patch.summary||'下書きに反映しました。')+' まだ送信していません。';
-  if(autoSubmit)await safe(submitDialogue)(false,false,{contextId:voiceSendConsent.context.id,destination:anchor.destination,revision:draft.revision,attachmentEpoch,epoch});
+  if(autoSubmit)await safe(submitDialogue)(false,false,{revision:draft.revision,epoch});
  }catch(e){
   if(epoch!==voiceEpoch||anchor.destination!==draftContext.destination)return;
   pendingSpeech={text,anchor,epoch};$('#voice-caption').innerHTML=`下書きを保持しました。${escape(e.message)} ${btn('append-speech','認識結果を末尾に追加','','text-button')}`;
  }
 }
 const actions={
- 'task-rebind':async el=>{const p=await bridge.request(`/api/jobs/${el.dataset.id}/route`);openSheet('この仕事の接続先を切り替える',`<p>${escape(p.note)}</p><p>${p.recipients.map(r=>escape(`${r.name}: ${r.model} (${r.domain})`)).join('<br>')}</p><p>接続設定で選んだ現在の経路へ変更します。操作のやり直しや結果不明の操作の自動再実行はしません。</p><button class="button" data-action="task-rebind-confirm" data-id="${escape(p.jobId)}" data-revision="${p.expectedRevision}" data-route="${escape(p.routeId)}">この経路へ引き継ぐ</button>`,'rebind');},
- 'task-rebind-confirm':async el=>{await bridge.request(`/api/jobs/${el.dataset.id}/route`,'POST',{consent:true,expectedRevision:Number(el.dataset.revision),routeId:el.dataset.route});closeSheet();taskSheet(el.dataset.id);},
  'providers-launch':()=>providerSettings().open(),'computer-launch':()=>providerSettings().computer(),
- attach:attachFiles,'detach-file':detachFile,'send-files-confirm':el=>submitDialogue(el.dataset.request),
- 'show-request':async()=>{const j=state.jobs.find(x=>x.id===lastRequestJobId);if(j){await navigateFocus(j.id);taskSheet(j.id);}},
+ attach:attachFiles,'detach-file':detachFile,
  'retry-request':()=>submitDialogue(false,true),
  'focus-task':el=>navigateFocus(el.dataset.id),'return-focus':()=>navigateFocus(null,{returning:true}),
  'open-work':async el=>{closePanel();await navigateFocus(el.dataset.id);},
- 'voice-autosend':configureVoiceSend,'enable-voice-send':()=>{requireComposerUnlocked();if(!pendingVoiceConsent)return;if(draft.content||attachedFiles.length||draftContext.destination?.reply||pendingVoiceConsent.sessionId!==state.dialogue.session.id)throw new Error('下書きか会話が変わりました。条件を確認し直してください。');voiceSendConsent=pendingVoiceConsent;pendingVoiceConsent=null;voiceSendEnabled=true;closeSheet();showTarget();},
- 'reply-worker-question':el=>{selectWorkerQuestion(el.dataset.id);revealComposer();},
- 'clear-worker-reply':()=>{requireComposerUnlocked();cancelVoice();clearDraftDestination();pendingRequest=null;if(draft.content)pinDraft();showTarget();},
- 'execution-open':el=>executionSettings().open(el?.dataset?.id||null),'execution-probe':()=>executionSettings().probe(),'execution-candidate':el=>executionSettings().candidate(el.dataset.id),'execution-promote':()=>executionSettings().promote(),
- personas:personaSheet,'relay-result':el=>relayResultSheet(el.dataset.id),'relay-confirm':confirmResultRelay,
+ 'voice-autosend':configureVoiceSend,'enable-voice-send-legacy':()=>{requireComposerUnlocked();if(!pendingVoiceConsent)return;if(draft.content||attachedFiles.length||draftContext.destination?.reply||pendingVoiceConsent.sessionId!==state.dialogue.session.id)throw new Error('下書きか会話が変わりました。条件を確認し直してください。');voiceSendConsent=pendingVoiceConsent;pendingVoiceConsent=null;voiceSendEnabled=true;closeSheet();showTarget();},
+ personas:personaSheet,
  'work-tab':el=>{workTab=el.dataset.tab;render();},
- proposals:()=>{closePanel();view='workspace';workTab=(state.plans||[]).some(p=>p.status==='proposed')?'plans':'routines';render();},
- 'codex-settings':codexSheet,
- 'codex-check':async()=>{const r=await bridge.request('/api/codex/check','POST',{});$('#codex-status').textContent=r.authenticated?'接続と認証状態を確認しました。実際の仕事はまだ実行していません。':'起動しました。Codex側でログイン・モデル設定を確認してください。';},
- 'model-probe':async()=>{const out=$('#connection-result');out.textContent='安全なツール呼び出しを2往復検査しています。';const r=await bridge.request('/api/runtime/probe','POST',{});out.textContent=`ツールの呼び出し・結果の利用を確認しました（${r.latencyMs} ms）。すべての仕事の品質保証とは別です。`;},
- 'routine-add':routineSheet,
- 'routine-toggle':async el=>{const r=state.routines.find(x=>x.id===el.dataset.id);await bridge.request(`/api/routines/${r.id}/enable`,'POST',{enabled:!r.enabled,expectedRevision:r.revision});},
- 'plan-add':planSheet,
- 'plan-start':async el=>{const p=state.plans.find(x=>x.id===el.dataset.id);await bridge.request(`/api/plans/${p.id}/activate`,'POST',{expectedRevision:p.revision});},
- 'plan-pause':el=>bridge.request(`/api/plans/${el.dataset.id}/pause`,'POST',{}),
- 'raise-priority':async el=>{await bridge.request(`/api/jobs/${el.dataset.id}/priority`,'POST',{priority:5});notice('待機中の仕事より先に進めます。実行中の操作は中断しません。');},
- recheck:async el=>{await bridge.request(`/api/jobs/${el.dataset.id}/verify`,'POST',{});taskSheet(el.dataset.id);},
+ proposals:()=>{closePanel();view='workspace';workTab='tasks';render();},
  'skill-details':el=>{const skill=state.skills.find(s=>s.id===el.dataset.id);openSheet(skill.name,`<p>${escape(skill.source==='learned-proposal'?'仕事から提案された手順です。確認して有効化するまで使用しません。':skill.description)}</p><pre>${escape(skill.content||'共有スキルです。実行時に出所とハッシュを照合して読み込みます。')}</pre><p class="small-text">${escape(skill.sourceJobId?'元の仕事: '+skill.sourceJobId:'')}</p>`);},
  view:el=>{if(sharedView&&el.dataset.view!=='home'){notice('個人表示に戻してから開いてください。');return;}if(ambientMode)setAmbient(false);document.body.classList.remove('artifact-focus');view=el.dataset.view;closePanel();render();if(view==='talk')setTimeout(()=>$('#composer-input')?.focus(),0);else $('#surface')?.focus({preventScroll:true});},
- display:()=>{view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':runtimeSheet,'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
+ display:()=>{view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':()=>providerSettings().open(),'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
  'discard-close':closeSheet,'discard-cancel':()=>{$('.discard-bar',overlay)?.remove();$('.modal-body input,.modal-body textarea',overlay)?.focus();},
  share:async()=>{capabilityUI?.stop();sharedView=!sharedView;if(sharedView){invalidatePendingSubmit();view='home';closeSheet();closePanel();cancelVoice();}dialogueRenderKey='';render();paintHome();},
  fullscreen:async()=>{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();},
@@ -1005,8 +974,6 @@ const actions={
  'display-menu':el=>{const list=$('#display-menu-list');if(!list)return;if(!list.hidden){closeDisplayMenu();return;}list.hidden=false;el.setAttribute('aria-expanded','true');setTimeout(()=>list.querySelector('button')?.focus(),0);},
  'settings-jump':el=>{$(`#settings-${el.dataset.id}`)?.scrollIntoView({block:'start',behavior:reducedMotion?'auto':'smooth'});},
  demo:async()=>{requireComposerUnlocked();closeSheet();const job=await bridge.request('/api/jobs','POST',{input:'画面と途中更新を体験する',kind:'demo'});await navigateFocus(job.id);pendingArtifactJobId=job.id;view='workspace';followArtifact=true;pinnedArtifact=null;selectedArtifact=state.artifacts.find(a=>a.jobId===job.id)?.id||null;render();},
- discover:async()=>{const result=await bridge.request('/api/runtime/discover','POST',{});$('#discovery').innerHTML=result.filter(p=>p.available).map(p=>p.models.map(m=>`<button type="button" class="connection-option" data-action="choose-runtime" data-provider="${escape(p.id||p.provider||p.name)}" data-url="${escape(p.url)}" data-model="${escape(m)}">${escape(p.name)} · ${escape(m)}</button>`).join('')).join('')||'<p>起動済みの接続先が見つかりませんでした。導入手順を確認してください。</p>';},
- 'choose-runtime':el=>{const f=$('#runtime-form');$('[name=baseUrl]',f).value=el.dataset.url;$('[name=model]',f).value=el.dataset.model;if([...$('[name=provider]',f).options].some(o=>o.value===el.dataset.provider))$('[name=provider]',f).value=el.dataset.provider;},
  'display-undo':async()=>{await bridge.request('/api/display/undo','POST',{expectedRevision:display().revision});},
  'display-reset':async()=>{await bridge.request('/api/display/reset','POST',{expectedRevision:display().revision});},
  'display-export':async()=>saveFile('tepora-display.json',JSON.stringify(await bridge.request('/api/display/export'),null,2)),
@@ -1019,18 +986,18 @@ const actions={
  'net-mode':async el=>{const value=await bridge.request('/api/network','PATCH',{expectedRevision:state.network.revision,patch:{mode:el.dataset.value}});state.network=value;render();},
  'music-choose':async()=>{await musicPlayer().choose();},'music-toggle':()=>musicPlayer().toggle(),'music-next':()=>musicPlayer().next(),'music-prev':()=>musicPlayer().prev(),
  'approve-all':approveAllSheet,
- 'approve-all-confirm':async el=>{const ids=el.dataset.ids.split(',').filter(Boolean),r=await bridge.request('/api/approvals','POST',{ids,allow:true});closeSheet();const failed=r.results.filter(x=>!x.ok).length;notice(failed?`${ids.length-failed}件を許可しました。${failed}件は内容が変わったため許可していません。`:`${ids.length}件を許可しました。続きを進めます。`);},
- 'deny-all':async()=>{const ids=(state.approvals||[]).filter(a=>a.status==='pending').map(a=>a.id);if(!ids.length)return;await bridge.request('/api/approvals','POST',{ids,allow:false});notice(`${ids.length}件を許可しませんでした。作業担当に伝えます。`);},
- revise:el=>{const j=state.jobs.find(x=>x.id===el.dataset.id);if(!j)return;requireComposerUnlocked();if(!draft.content){draft.manual(`「${j.title}」について、直してほしいこと: `);$('#composer-input').value=draft.content;pinDraft();}closePanel();revealComposer();},
+ 'approve-all-confirm':async el=>{const ids=el.dataset.ids.split(',').filter(Boolean),r=await bridge.request('/api/agent/approvals','POST',{ids,allow:true});closeSheet();const failed=r.results.filter(x=>!x.ok).length;notice(failed?`${ids.length-failed}件を許可しました。${failed}件は内容が変わったため許可していません。`:`${ids.length}件を許可しました。続きを進めます。`);},
+ 'deny-all':async()=>{const ids=(state.approvals||[]).filter(a=>a.status==='pending').map(a=>a.id);if(!ids.length)return;await bridge.request('/api/agent/approvals','POST',{ids,allow:false});notice(`${ids.length}件を許可しませんでした。作業担当に伝えます。`);},
+ revise:el=>{taskSheet(el.dataset.id);setTimeout(()=>$('#steer-input')?.focus(),0);},
+ 'task-delete':el=>openSheet('この仕事を一覧から消しますか？',`<p>経過の記録を消します。作業フォルダのファイルと成果物は残ります。</p><div class="sheet-actions">${btn('task-delete-confirm','消す','trash','button danger',`data-id="${escape(el.dataset.id)}"`)}${btn('close','やめる','','button secondary')}</div>`,'task-delete'),
+ 'task-delete-confirm':async el=>{await bridge.request(`/api/agent/sessions/${el.dataset.id}`,'DELETE');state.jobs=state.jobs.filter(j=>j.id!==el.dataset.id);closeSheet();closePanel();if(state.companion.focusJobId===el.dataset.id)acceptCompanion({...state.companion,revision:state.companion.revision+1,focusJobId:null});scheduleRender();},
  task:el=>taskSheet(el.dataset.id),
- pause:async el=>{await bridge.request(`/api/jobs/${el.dataset.id}/pause`,'POST',{});},
- resume:async el=>{await bridge.request(`/api/jobs/${el.dataset.id}/resume`,'POST',{});notice('続きから再開します。');},
- cancel:async el=>{await bridge.request(`/api/jobs/${el.dataset.id}/cancel`,'POST',{});notice('この仕事を取り消しました。できていた成果物は残しています。');},
- accept:async el=>{const j=state.jobs.find(x=>x.id===el.dataset.id);await bridge.request(`/api/jobs/${j.id}/accept`,'POST',{expectedRevision:j.revision});notice('確認済みにしました。');},
- approve:async el=>{await bridge.request(`/api/approvals/${el.dataset.id}`,'POST',{allow:true});notice('許可しました。続きを進めます。');},
- deny:async el=>{await bridge.request(`/api/approvals/${el.dataset.id}`,'POST',{allow:false});notice('許可しませんでした。作業担当に伝えます。');},
- 'reconcile-done':async el=>{await bridge.request(`/api/effects/${encodeURIComponent(el.dataset.id)}/reconcile`,'POST',{disposition:'confirmed_done'});taskSheet(activePanel.id);},
- 'reconcile-none':async el=>{await bridge.request(`/api/effects/${encodeURIComponent(el.dataset.id)}/reconcile`,'POST',{disposition:'not_executed'});taskSheet(activePanel.id);},
+ pause:async el=>{await bridge.request(`/api/agent/sessions/${el.dataset.id}/stop`,'POST',{});notice('止めました。経過と成果物は残しています。');},
+ resume:async el=>{await bridge.request(`/api/agent/sessions/${el.dataset.id}/resume`,'POST',{});notice('続きから再開します。');},
+ cancel:async el=>{await bridge.request(`/api/agent/sessions/${el.dataset.id}/stop`,'POST',{});notice('止めました。できていた成果物は残しています。');},
+ accept:async el=>{await bridge.request(`/api/agent/sessions/${el.dataset.id}/accept`,'POST',{});notice('確認済みにしました。');},
+ approve:async el=>{await bridge.request(`/api/agent/approvals/${el.dataset.id}`,'POST',{allow:true});notice('許可しました。続きを進めます。');},
+ deny:async el=>{await bridge.request(`/api/agent/approvals/${el.dataset.id}`,'POST',{allow:false});notice('許可しませんでした。作業担当に伝えます。');},
  'artifact-select':el=>{if(!focusedArtifacts().some(a=>a.id===el.dataset.id))return;selectedArtifact=el.dataset.id;pinnedArtifact=null;followArtifact=false;render();},
  'artifact-follow':()=>{followArtifact=!followArtifact;if(followArtifact)pinnedArtifact=structuredClone(focusedArtifacts().find(a=>a.id===selectedArtifact));render();},
  'artifact-expand':()=>{document.body.classList.toggle('artifact-focus');const on=document.body.classList.contains('artifact-focus'),b=$('[data-action=artifact-expand]');if(b){b.setAttribute('aria-label',on?'元の大きさに戻す':'大きく表示');b.title=b.getAttribute('aria-label');}},
@@ -1056,7 +1023,10 @@ const actions={
  mic:recordToggle,'append-speech':()=>{requireComposerUnlocked();if(!pendingSpeech||pendingSpeech.epoch!==voiceEpoch||pendingSpeech.anchor.destination!==draftContext.destination)return;draft.manual(draft.content+pendingSpeech.text);$('#composer-input').value=draft.content;pendingSpeech='';$('#voice-caption').textContent='下書きに追加しました。まだ送信していません。';},
  'undo-draft':()=>{requireComposerUnlocked();cancelVoice();pinDraft();draft.undo();$('#composer-input').value=draft.content;showTarget();},
  'hide-reply':()=>{replyHidden=true;showReply();},
- stop:async()=>{invalidatePendingSubmit();capabilityUI?.stop();cancelVoice();musicUI?.pause();await bridge.request('/api/stop','POST',{});notice('動いていた仕事をすべて止めました。成果物は残しています。');}
+ stop:async()=>{invalidatePendingSubmit();capabilityUI?.stop();cancelVoice();musicUI?.pause();await bridge.request('/api/stop','POST',{});notice('動いていた仕事をすべて止めました。成果物は残しています。');},
+ 'sandbox-set':async el=>{const value=await bridge.request('/api/agent/settings','PATCH',{sandbox:{...state.agent.settings.sandbox,mode:el.dataset.value}});state.agent={...state.agent,settings:value};render();notice(el.dataset.value==='off'?'サンドボックスをオフにしました。コマンドはこのPCで直接動きます。':'次のコマンドからサンドボックスで実行します。');},
+ 'search-setup':searchSheet,'heartbeat-setup':heartbeatSheet,'budget-setup':budgetSheet,
+ 'plugins-reload':async()=>{const r=await bridge.request('/api/agent/plugins/reload','POST',{});notice(`プラグインを${r.loaded}件読み込みました。${r.errors?.length?r.errors.length+'件は読み込めませんでした。':''}`);},
 };
 function frameSettings(){
  return frameUI||=createFrameSettings({bridge,openSheet,notice,previewMode,isOpen:()=>activeDialog?.kind==='frame'&&!sharedView,
@@ -1075,7 +1045,7 @@ document.addEventListener('click',e=>{
  if(['allow-network','night-set','widget-toggle'].includes(el.dataset.action))return;
  const action=actions[el.dataset.action];if(!action)return;
  if(el.tagName==='A')e.preventDefault();
- (['retry-request','send-files-confirm'].includes(el.dataset.action)?quiet:safe)(action)(el);
+ (el.dataset.action==='retry-request'?quiet:safe)(action)(el);
 });
 document.addEventListener('change',e=>{
  const el=e.target,action=el.dataset?.action;if(!action||!state)return;
@@ -1094,33 +1064,28 @@ document.addEventListener('submit',e=>{
   const form=e.target,fd=new FormData(form),data=Object.fromEntries(fd.entries());
   if(form.id==='composer-form'){
    await quiet(submitDialogue)();
-  }else if(form.id==='execution-form'){
-   await executionSettings().save(form,fd);
+  }else if(form.id==='steer-form'){
+   const id=form.dataset.id,j=state.jobs.find(x=>x.id===id),input=$('#steer-input',form);if(!input.value.trim())return;
+   await bridge.request(`/api/agent/sessions/${id}/message`,'POST',{text:input.value.trim(),mode:j&&['running','queued'].includes(j.status)?'steer':'followup'});input.value='';notice('この仕事に伝えました。');
+  }else if(form.id==='search-form'){
+   const value=await bridge.request('/api/agent/settings','PATCH',{webSearch:{...agentSettings().webSearch,provider:data.provider,searxngUrl:data.searxngUrl.trim()}});
+   if(data.braveKey)await bridge.request('/api/agent/search-key','PUT',{provider:'brave',key:data.braveKey});
+   state.agent={...state.agent,settings:value};closeSheet();render();
+  }else if(form.id==='budget-form'){
+   const value=await bridge.request('/api/agent/settings','PATCH',{budget:{dailyUsd:Math.max(0,Number(data.dailyUsd)||0),sessionUsd:Math.max(0,Number(data.sessionUsd)||0)},verifyCompletion:data.verifyCompletion,cacheRetention:{...agentSettings().cacheRetention,main:data.mainCache}});
+   state.agent={...state.agent,settings:value};closeSheet();render();notice('費用と仕上げの設定を保存しました。');
+  }else if(form.id==='heartbeat-form'){
+   const value=await bridge.request('/api/agent/settings','PATCH',{heartbeat:{enabled:fd.has('enabled'),minutes:Math.max(5,Number(data.minutes)||30),text:data.text||''}});
+   state.agent={...state.agent,settings:value};closeSheet();render();
   }else if(form.id==='personas-form'){
    const lines={};for(const scene of VOICE_SCENES){const value=String(data[`line:${scene.key}`]||'').trim();if(value)lines[scene.key]=value;}
    const personas=await bridge.request('/api/dialogue/personas','PUT',{expectedRevision:Number(form.dataset.revision),character:{name:data.characterName,instructions:data.characterInstructions,voice:{tone:data.voiceTone,callName:data.voiceCallName||'',proactive:data.voiceProactive,lines}},worker:{name:data.workerName,instructions:data.workerInstructions}});
-   state.dialogue.personas=personas;acceptDialogue(await bridge.request('/api/dialogue'));closeSheet();characterKey='';mountCharacters();paintHome();notice('人格と口調、作業担当を、それぞれ保存しました。');
-  }else if(form.id==='codex-form'){
-   await bridge.request('/api/settings','PATCH',{codexEnabled:fd.has('codexEnabled'),codexNetwork:fd.has('codexNetwork'),codexBinary:data.codexBinary,codexModel:data.codexModel});
-   $('#codex-status').textContent='保存しました。接続の確認はまだ行っていません。';sheetBaseline=formSnapshot(overlay);
-  }else if(form.id==='routine-form'){
-   const schedule=data.scheduleType==='daily'?{type:'daily',time:data.time,timezone:data.timezone}:data.scheduleType==='interval'?{type:'interval',minutes:Number(data.minutes)}:{type:'once',at:new Date(data.onceAt).toISOString()};
-   await bridge.request('/api/routines','POST',{title:data.title,input:data.input,schedule,catchUp:data.catchUp});
-   closeSheet();workTab='routines';view='workspace';render();notice('提案として保存しました。内容と時刻を確認して有効にしてください。');
-  }else if(form.id==='plan-form'){
-   const nodes=[{key:'first',title:data.title1,input:data.input1,gate:'produced'},{key:'second',title:data.title2,input:data.input2,gate:'produced'},
-    {key:'combine',title:data.title3,input:data.input3,dependsOn:['first','second'],gate:'produced'}];
-   await bridge.request('/api/plans','POST',{title:data.title,nodes});closeSheet();workTab='plans';view='workspace';render();
-  }else if(['runtime-form','voice-form','data-form'].includes(form.id)){
+   state.dialogue={...state.dialogue,personas,session:{...state.dialogue.session,revision:personas.revision,character:personas.character}};acceptDialogue(await bridge.request('/api/agent/dialogue'));closeSheet();characterKey='';mountCharacters();paintHome();notice('人格と口調、作業担当を、それぞれ保存しました。');
+  }else if(['voice-form','data-form'].includes(form.id)){
    for(const el of form.querySelectorAll('input[type=checkbox]'))data[el.name]=el.checked;
    for(const el of form.querySelectorAll('input[type=number]'))data[el.name]=Number(el.value);
-   if(data.sessionKey==='')delete data.sessionKey;
    await bridge.request('/api/settings','PATCH',data);
-   if(form.id==='runtime-form'){
-    if($('[name=sessionKey]',form))$('[name=sessionKey]',form).value='';
-    const r=await bridge.request('/api/runtime/check','POST',{});sheetBaseline=formSnapshot(overlay);
-    $('#connection-result').textContent=`モデル一覧を確認しました: ${r.models.join(', ')}。実際の仕事の品質確認とは別です。`;
-   }else{closeSheet();if(form.id==='data-form')loadFeeds(true);}
+   closeSheet();if(form.id==='data-form')loadFeeds(true);
   }else if(form.id==='memory-form'){
    const value={content:data.content,title:data.title||'',scope:fd.has('shared')?'shared':'private'};
    await bridge.request(form.dataset.id?`/api/memories/${form.dataset.id}`:'/api/memories',form.dataset.id?'PATCH':'POST',value);closeSheet();
@@ -1176,9 +1141,15 @@ bridge.on(e=>{
  if(e.type==='computer.updated'){state.computer=e.data;return;}
  if(e.type==='network.updated'){state.network=e.data;paintChrome();if(e.data.mode!=='online'||!e.data.internetTools){if(activeDialog?.kind==='media')closeSheet();document.querySelectorAll('#media-player iframe').forEach(x=>x.remove());}if(view==='settings')scheduleRender();return;}
  if(e.type==='dialogue.updated'){acceptDialogue(e.data);paintChrome();if(view==='home')paintSpeech();if(activePanel?.kind==='inbox')paintInbox();return;}
- if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);showDialogue();showTarget();if(view==='home')paintSpeech();return;}
+ if(e.type==='dialogue.message'){state.dialogue.messages=mergeDialogueMessages(state.dialogue.messages,[e.data]);if(e.data.role==='assistant')liveReply='';showDialogue();showTarget();showRequestStatus();if(view==='home')paintSpeech();return;}
+ if(e.type==='dialogue.delta'){liveReply=e.data.done?'':e.data.text||'';paintLive();showRequestStatus();return;}
+ if(e.type==='session.updated'&&e.data.kind==='main'){state.dialogue={...state.dialogue,status:e.data.status,note:e.data.note||''};if(e.data.status!=='running')liveReply='';paintLive();showRequestStatus();paintMood();return;}
+ if(e.type==='session.removed'){state.jobs=state.jobs.filter(j=>j.id!==e.data.id);scheduleRender();return;}
+ if(e.type==='personas.updated'){state.dialogue={...state.dialogue,personas:e.data,session:{...state.dialogue.session,revision:e.data.revision,character:e.data.character}};characterKey='';mountCharacters();showDialogue();return;}
+ if(e.type==='agent.settings'){state.agent={...state.agent,settings:e.data};if(view==='settings'&&!activeDialog)scheduleRender();return;}
+ if(e.type==='approval.updated'&&!previewMode)return;
  if(e.type==='companion.updated'){acceptCompanion(e.data);return;}
- if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;state={...state,...e.data,companion:prior,dialogue};if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
+ if(e.type==='snapshot'){const prior=state.companion,dialogue=state.dialogue;state={...state,...e.data,companion:prior,dialogue};liveReply='';if(e.data.dialogue)acceptDialogue(e.data.dialogue);acceptCompanion(e.data.companion||prior);const latest=focusedArtifacts().find(a=>a.id===selectedArtifact);if(!latest){pinnedArtifact=null;selectedArtifact=null;}else if(followArtifact)pinnedArtifact=structuredClone(latest);scheduleRender();return;}
  if(e.type==='transport.status'){online=e.data.online;showRequestStatus();paintChrome();if(!online)notice('接続を復旧しています。仕事の状態はサービスに保存されています。');return;}
  if(e.type==='setup.updated'){state.setup=e.data;paintChrome();return;}
  if(e.type==='routine.updated'){upsert('routines',e.data);scheduleRender();return;}
@@ -1187,10 +1158,10 @@ bridge.on(e=>{
  if(e.type==='frame.updated'){state.frame=e.data;wallpaperDirty=true;paintBackdrop();frameUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
  if(e.type==='avatar.updated'){state.avatar=e.data;mountCharacters();avatarStudioUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
  if(e.type==='avatar.assets'){state.avatarAssets=e.data;mountCharacters();avatarStudioUI?.refresh();if(view==='settings'&&!activeDialog)scheduleRender();return;}
- if(e.type==='approval.updated'){state.approvals||=[];const i=state.approvals.findIndex(a=>a.id===e.data.id);if(i<0)state.approvals.unshift(e.data);else state.approvals[i]=e.data;paintChrome();refreshTask();if(activePanel?.kind==='inbox')paintInbox();if(view==='home')paintStageNotes();else if(view==='workspace')scheduleRender();paintMood();return;}
+ if(e.type==='approval.updated'||e.type==='approval.view'){state.approvals||=[];const i=state.approvals.findIndex(a=>a.id===e.data.id);if(i<0)state.approvals.unshift(e.data);else state.approvals[i]=e.data;paintChrome();refreshTask();if(activePanel?.kind==='inbox')paintInbox();if(view==='home')paintStageNotes();else if(view==='workspace')scheduleRender();paintMood();return;}
  if(e.type==='settings.updated'){if(!e.data.voiceEnabled||e.data.dictationEditing||e.data.asrUrl!==state.settings.asrUrl||e.data.asrStreamUrl!==state.settings.asrStreamUrl){voiceSendEnabled=false;voiceSendConsent=null;cancelVoice();}state.settings=e.data;state.setup={...state.setup,verified:false};scheduleRender();return;}
  if(e.type==='job.updated'){const before=state.jobs.find(j=>j.id===e.data.id)?.status;upsert('jobs',e.data);if(before&&before!==e.data.status&&['review','completed'].includes(e.data.status)&&e.data.kind!=='chat')celebrateUntil=Date.now()+2600;paintLights();showDialogue();showTarget();showRequestStatus();refreshTask();if(activePanel?.kind==='inbox')paintInbox();scheduleRender();return;}
- if(e.type==='job.output'){const j=state.jobs.find(x=>x.id===e.data.id);if(j)j.output=e.data.output;refreshTask();showReply();return;}
+ if(e.type==='job.output'){const j=state.jobs.find(x=>x.id===e.data.id);if(j&&previewMode)j.output=e.data.output;return;}
  if(e.type==='artifact.updated'){
   upsert('artifacts',e.data);
   if(e.data.jobId!==state.companion.focusJobId){scheduleRender();return;}
@@ -1206,8 +1177,8 @@ bridge.on(e=>{
  }
 });
 try{
- state=await bridge.init();state.companion||=await bridge.request('/api/companion');state.dialogue=await bridge.request('/api/dialogue');
- state.display||=structuredClone(DISPLAY_DEFAULT);state.routines||=[];state.plans||=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
+ state=await bridge.init();state.companion={revision:0,focusJobId:null,returnStack:[]};state.dialogue||=await bridge.request('/api/agent/dialogue');
+ state.display||=structuredClone(DISPLAY_DEFAULT);state.jobs||=[];state.artifacts||=[];state.routines=[];state.plans=[];state.approvals||=[];state.mediaJobs||=[];state.frame||={photos:[],limits:{}};
  globalThis.__TEPORA_LIVE__=!previewMode;lastSeenMessage=state.dialogue?.messages?.at(-1)?.id||'';
  shell();setInterval(()=>{tick();paintMood();},1000);
  document.documentElement.style.setProperty('--seal-hold',`${SEAL_HOLD_MS}ms`);
@@ -1223,7 +1194,7 @@ try{
  },{passive:true});
  loadFeeds();feedTimers=[setInterval(()=>loadFeeds(),5*60e3)];
  if(!previewMode)bridge.request('/api/presence','POST',{state:document.hidden?'away':'present'}).catch(()=>{});
- if(!previewMode&&!state.setup?.dismissed&&!state.settings.model&&!state.providers?.profiles?.length)setTimeout(()=>onboarding().open(),100);
+ if(!previewMode&&!state.setup?.dismissed&&!state.providers?.profiles?.length)setTimeout(()=>onboarding().open(),100);
 }
 catch(e){app.innerHTML=`<div class="fatal"><h1>Tepora</h1><p>${escape(e.message)}</p><p>起動したときのURLから開き直してください。未接続のまま成功とは表示しません。</p></div>`;}
 
@@ -1270,65 +1241,33 @@ function showRequestStatus(){
  if(sending){el.textContent='メッセージを受け付けています…';return;}
  if(pendingRequest?.uncertain){el.classList.add('is-error');el.innerHTML=`<span>応答を確認できませんでした。送った内容と添付はそのまま残しています。</span>${btn('retry-request','同じ内容で確認する','','text-button')}`;return;}
  if(lastSubmitError){el.classList.add('is-error');el.textContent=lastSubmitError;return;}
- const j=state.jobs.find(x=>x.id===lastRequestJobId);
- if(!j){el.textContent='';return;}
- if(j.kind==='chat'&&j.characterSessionId){el.textContent=['failed','blocked','interrupted'].includes(j.status)?'会話の処理が止まりました。接続と仕事の状態を確認してください。':['running','queued'].includes(j.status)?'返事を考えています…':'';if(['failed','blocked','interrupted'].includes(j.status))el.classList.add('is-error');return;}
- const text=j.status==='failed'?'仕事が止まりました。依頼と途中の成果は残っています。':j.status==='review'?'結果が届きました。':j.status==='completed'?'':j.note;
- if(!text){el.textContent='';return;}
- el.innerHTML=`<span>${escape(text)}</span>${btn('show-request',j.status==='failed'?'状態を確認':'仕事を見る','','text-button')}`;
+ const d=state.dialogue||{};
+ if(d.status==='running'){el.textContent=liveReply?'':'考えています…';return;}
+ if(d.status==='waiting'&&d.note){el.classList.add('is-error');el.textContent=d.note;return;}
+ el.textContent='';
 }
 function requestId(){return globalThis.crypto?.randomUUID?.()||`request-${Date.now()}-${Math.random().toString(16).slice(2)}`;}
-/** One character entry point. Detail selection is deliberately absent from the request. */
+/** One entry point to the resident character. Retrying an uncertain send reuses its request id, so it is never doubled. */
 async function submitDialogue(consent=false,retry=false,automatic=null){
  if(sending)return;
- if(automatic&&(!voiceSendEnabled||automatic.epoch!==voiceEpoch||automatic.destination!==draftContext.destination||automatic.revision!==draft.revision||automatic.attachmentEpoch!==attachmentEpoch||attachedFiles.length||settings().dictationEditing))return;
+ if(automatic&&(!voiceSendEnabled||automatic.epoch!==voiceEpoch||automatic.revision!==draft.revision||attachedFiles.length||settings().dictationEditing))return;
  cancelVoice();
  if(sharedView)throw new Error('個人表示に戻してから送信してください。');
  sending=true;lastSubmitError='';showRequestStatus();showTarget();showInputFiles();
- const generation=++submitEpoch,captureEpoch=voiceEpoch;
  let request=pendingRequest?.uncertain?pendingRequest:null,dispatching=false;
- const current=()=>{
-  if(generation!==submitEpoch||sharedView||automatic&&(captureEpoch!==voiceEpoch||!voiceSendEnabled||automatic.destination!==draftContext.destination||automatic.revision!==draft.revision||automatic.attachmentEpoch!==attachmentEpoch||attachedFiles.length||settings().dictationEditing)||request&&!request.uncertain&&(request.draftRevision!==draft.revision||request.destination!==draftContext.destination))throw Object.assign(new Error('送信を中止しました。下書きは残しています。'),{name:'AbortError'});
- };
  try{
   if(!request){
    const input=$('#composer-input').value.trim();if(!input)return;
    if(previewMode)throw new Error('これは画面プレビューです。AIとの会話と仕事には実サービスを使ってください。');
-   const destination=pinDraft(),registryReady=state.providers?.profiles?.some(p=>p.enabled!==false&&p.model);
-   if(!settings().model&&!registryReady){await onboarding().open();return;}
-   if(destination.sessionId!==state.dialogue.session.id)throw new Error('会話が変わりました。下書きは残っています。会話を開き直してください。');
-   const reply=destination.reply;
-   if(reply&&!currentReplyQuestion(destination,state.dialogue,state.jobs))throw new Error('この質問は更新済みです。回答を解除して、最新の質問を確認してください。');
-   if(reply&&attachedFiles.length)throw new Error('質問への回答には新しい添付を追加できません。');
-   const shape=JSON.stringify({input,destination,attachmentIds:attachedFiles.map(f=>f.id),sessionRevision:state.dialogue.session.revision});
-   if(pendingRequest?.shape===shape)request=pendingRequest;
-   else{
-    request={shape,draftRevision:draft.revision,destination,attachmentNames:attachedFiles.map(f=>f.name),endpoint:reply?'/api/dialogue/reply':'/api/dialogue',body:{requestId:requestId(),sessionId:destination.sessionId,input,...(reply?reply:{sessionRevision:state.dialogue.session.revision,attachmentIds:attachedFiles.map(f=>f.id),attachmentConsent:null,contextConsent:null})}};
-    pendingRequest=request;
-   }
-   if(!reply){
-    const context=await bridge.request('/api/dialogue/context');current();
-    if(request.context&&request.context.id!==context.id){pendingRequest=null;throw new Error('会話か作業の接続先が変わりました。下書きを確認して、もう一度送信してください。');}
-    request.context=context;request.body.contextConsent=context.id;
-    if(automatic&&context.id!==automatic.contextId)throw new Error('音声の送信先が変わりました。認識文は下書きに残しています。接続先を確認して送信してください。');
-    if(request.body.attachmentIds.length&&context.remote&&!request.body.attachmentConsent){
-     if(consent!==request.body.requestId){openSheet('選んだファイルを、この接続先へ送りますか？',`<p>会話と委任先: ${escape(context.label)}</p><p>${escape(context.note)}</p><p>対象: ${request.attachmentNames.map(escape).join('、')}</p><p>この会話から委任する仕事で、選択したファイルを使います。</p><div class="sheet-actions">${btn('send-files-confirm','この接続先へ送信する','','button',`data-request="${escape(request.body.requestId)}"`)}${btn('close','下書きのままにする','','button secondary')}</div>`,'file-consent');return;}
-     request.body.attachmentConsent=context.id;closeSheet();
-    }
-   }
-   current();
-   if(reply&&!currentReplyQuestion(destination,state.dialogue,state.jobs))throw new Error('送信前に質問が更新されました。最新の質問を確認してください。');
+   if(!state.providers?.profiles?.some(p=>p.enabled!==false&&p.model)){await onboarding().open();return;}
+   request={draftRevision:draft.revision,body:{requestId:requestId(),text:input,source:automatic?'voice':'text',attachmentIds:attachedFiles.map(f=>f.id)}};
+   pendingRequest=request;
   }
-  current();dispatching=true;request.dispatched=true;
-  const receipt=await bridge.request(request.endpoint,'POST',request.body);
-  if(!receipt?.job?.id)throw new Error('送信結果を確認できませんでした。');
-  upsert('jobs',receipt.job);lastRequestJobId=receipt.job.id;
-  // A receipt never erases edits that were typed while its response was in flight.
+  dispatching=true;request.dispatched=true;
+  await bridge.request('/api/agent/input','POST',request.body);
   if(draft.revision===request.draftRevision){draft.manual('');$('#composer-input').value='';clearDraftDestination();}
-  const sentAttachments=request.body.attachmentIds||[];attachedFiles=attachedFiles.filter(f=>!sentAttachments.includes(f.id));pendingRequest=null;
-  if(receipt.session)acceptDialogue({session:receipt.session});
-  try{acceptDialogue(await bridge.request('/api/dialogue'));}catch{notice('メッセージを受け付けました。会話は再接続時に更新します。');}
-  scheduleRender();
+  attachedFiles=attachedFiles.filter(f=>!request.body.attachmentIds.includes(f.id));pendingRequest=null;
+  state.dialogue={...state.dialogue,status:'running'};scheduleRender();
  }catch(e){lastSubmitError=e.message;if(request){request.uncertain=dispatching&&(!e.status||e.status>=500);if(!request.uncertain&&pendingRequest===request)pendingRequest=null;}throw e;}
  finally{sending=false;showRequestStatus();showInputFiles();showTarget();}
 }

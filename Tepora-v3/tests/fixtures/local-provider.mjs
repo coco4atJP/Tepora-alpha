@@ -28,10 +28,19 @@ export async function createFixtureProvider({models=[],mode='normal'}={}){
      if(!tool)return call('probe','tepora_probe',{challenge});
      return finish({role:'assistant',content:JSON.parse(tool.content).receipt});
     }
-    const source=messages.find(m=>m.role==='system')?.content.match(/attached input files.*?: (\[.*?\])\. When/)?.[1];
-    const files=source?JSON.parse(source):[],tools=messages.filter(m=>m.role==='tool');
-    if(files.length&&!tools.length)return call('read','input_read',{id:files[0].id});
-    if(files.length&&tools.length===1){const data=JSON.parse(tools[0].content);return call('publish','artifact_publish',{title:'確認メモ',kind:'text',content:'資料に記載された内容:\n'+data.content});}
+    // The character delegates an attached file to a work agent; the worker reads it and publishes an artifact.
+    const text=m=>typeof m?.content==='string'?m.content:(m?.content||[]).filter(p=>p.type==='text').map(p=>p.text).join('\n');
+    const system=text(messages.find(m=>m.role==='system')),tools=messages.filter(m=>m.role==='tool'),lastUser=text(messages.findLast(m=>m.role==='user'));
+    if(/chief of staff/.test(system)){
+     if(messages.at(-1)?.role==='tool')return finish({role:'assistant',content:'作業担当に頼みました。'});
+     if(/report from/.test(lastUser))return finish({role:'assistant',content:'確認メモができました。'});
+     const file=/\[添付ファイル（このPCに保存済み）: ([^\]]+)\]/.exec(lastUser)?.[1]?.split(', ')[0];
+     if(file)return call('spawn','sessions_spawn',{task:`Read the file ${file} and publish its content as a text artifact titled 確認メモ.`,title:'確認メモ'});
+     return finish({role:'assistant',content:'はい。'});
+    }
+    const file=/Read the file (\S+) and publish/.exec(text(messages.find(m=>m.role==='user')))?.[1];
+    if(file&&!tools.length)return call('read','read',{path:file});
+    if(file&&tools.length===1){const content=tools[0].content.split('\n').slice(1).map(l=>l.replace(/^\s*\d+\t/,'')).join('\n');return call('publish','artifact',{action:'publish',title:'確認メモ',kind:'text',content:'資料に記載された内容:\n'+content});}
     return finish({role:'assistant',content:'確認メモを用意しました。内容を確認してください。'});
    };
    if(mode==='slow-probe'){const timer=setTimeout(()=>{timers.delete(timer);respond();},150);timers.add(timer);return;}

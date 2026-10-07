@@ -2,6 +2,18 @@
 
 This branch now uses V3 for root startup, development, regression checks and native packaging. Earlier application sources, tools and archived documents have been removed from this checkout. Git history retains earlier revisions; existing user data are not automatically migrated or deleted.
 
+## Agent harness rebuild (2026-10-06 to 2026-10-07, branch `feat/agent-harness`, not yet merged)
+
+The agent runtime was rebuilt ([AGENT-HARNESS.md](AGENT-HARNESS.md)): a resident character that delegates to asynchronous work agents, a loop that recovers instead of failing, batch-only prompt rewrites for cache hits, careful compaction (exact ledger, chapters, identifier rescue, `recall`), decision-model features (Liquid d1 / Laya), schedule and change-driven check-ins, plugin hooks, skills, media generation, image input, and computer use (CDP browser, decision-model control loop, macOS Accessibility helper).
+
+Evidence on this Mac (2026-10-07):
+
+- `node --test`: **368 tests passed, 0 failed** (old tests for removed subsystems were deleted or moved to the new API). Syntax checks for 170 modules; `scripts/verify-scenarios.mjs` passes (every case that depended on the old implementation is now `partial` until re-verified).
+- `npm run test:computer`: 5/5 with real headless Chrome (open/observe, direct actions, decision loop to a locally verified completion, screenshot, macOS helper build and permission report). `npm run test:capabilities`: 5/5 with deterministic local endpoints.
+- A live UI run against a scripted model: delegation, work agent, completion self-check, report, and the new settings rows and computer-use sheet, with no console errors.
+
+Not verified: any real model (only scripted fakes and the `eval-agent.mjs` plumbing), real Liquid d1 or Laya calls (a fake System One server), macOS desktop control itself (Accessibility was not granted in the test environment), Anthropic/OpenAI cache behaviour against the real APIs (the 20-block lookback and TTL rules come from the providers' documentation), and Ollama's native API against a real Ollama.
+
 ## Local evidence
 
 On 2026-10-02, after integrating beta.11 into `main` and fixing the two security findings, the V3 suite passed **482 Node tests**, **13 isolated Python worker tests** and syntax checks for **103 JavaScript modules**. Capability integration used deterministic local HTTP providers with **zero external network calls**. Scenario consistency and preview generation passed.

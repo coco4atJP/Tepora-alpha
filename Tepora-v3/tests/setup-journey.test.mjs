@@ -1,18 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import http from 'node:http';
-import {mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
+import {mkdtemp,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {startServer} from '../core/server.mjs';
 import {Store} from '../core/store.mjs';
-import {SetupManager,pullPackets} from '../core/setup.mjs';
+import {pullPackets} from '../core/setup.mjs';
 import {Runtime} from '../core/runtime.mjs';
 import {DEFAULT_SETTINGS} from '../core/policy.mjs';
 import {stageInputs,readInput,resolveInputs,removeStagedInput} from '../core/input-files.mjs';
-import {workspaceRoot,publishWorkspaceDocuments} from '../core/workspace.mjs';
-import {Requests} from '../core/requests.mjs';
 import {destination} from '../core/context.mjs';
 import {installerURL} from '../core/platform-links.mjs';
 import {createFixtureProvider} from './fixtures/local-provider.mjs';
@@ -42,28 +39,27 @@ test('download -> probe -> select -> attach -> real HTTP tool loop -> artifact -
  await until(()=>app.setup.snapshot().transfer?.status==='downloaded');await until(()=>app.setup.active===null);
  const candidate=app.setup.snapshot().candidates[0];assert.ok(candidate);
  assert.equal((await app.request('/api/setup/select','POST',{candidateId:candidate.id,consentTest:true})).status,200);
- assert.equal(app.setup.snapshot().verified,true);assert.equal(app.harness.key,'');
+ assert.equal(app.setup.snapshot().verified,true);assert.equal(app.agent.registry.configured,true);
  const source='10月4日14時に打合せ。見積書はまだ承認前です。';
  const upload=await(await app.request('/api/inputs','POST',{files:[{name:'メモ.md',content:source}]})).json();
  assert.equal(app.provider.requests.some(r=>JSON.stringify(r).includes(source)),false,'merely staging a file must not contact the model');
- const body={requestId:randomUUID(),input:'このメモを使って確認事項をまとめて',attachmentIds:[upload.files[0].id]};
- const sent=await(await app.request('/api/requests','POST',body)).json();assert.ok(sent.job?.id);
- const again=await(await app.request('/api/requests','POST',body)).json();assert.equal(again.job.id,sent.job.id);assert.equal(again.duplicate,true);
- await until(()=>app.store.get('job',sent.job.id).status==='review');
+ assert.equal(app.setup.snapshot().stage,'connected');
+ const body={requestId:randomUUID(),text:'このメモを使って確認事項をまとめて',attachmentIds:[upload.files[0].id]};
+ const sent=await(await app.request('/api/agent/input','POST',body)).json();assert.equal(sent.accepted,true);
+ const again=await app.request('/api/agent/input','POST',body);assert.equal(again.status,202);assert.deepEqual(await again.json(),sent,'a resent request is not delivered twice');
+ await until(()=>app.store.list('session').some(s=>s.kind==='worker'&&s.status==='done'));
+ const worker=app.store.list('session').find(s=>s.kind==='worker');
+ assert.ok(worker.cwd.startsWith(app.dir),'a test service keeps its work folder inside its data folder');
  const artifacts=app.store.list('artifact');assert.equal(artifacts.length,1);assert.match(artifacts[0].content,/まだ承認前/);
- assert.equal(app.store.get('job',sent.job.id).verification.checks.passed,true);
- assert.equal(app.store.list('job').length,1);
- assert.equal(app.setup.snapshot().stage,'connected','sample/production must not mean user acceptance');
- assert.equal((await app.request(`/api/jobs/${sent.job.id}/accept`,'POST',{expectedRevision:0})).status,200);
  assert.equal(app.setup.snapshot().stage,'first-result');
- assert.equal((await app.request('/api/requests','POST',{...body,input:'different'})).status,409);
+ await until(()=>app.agent.sessions.entries(app.agent.main().id,{types:['assistant']}).some(e=>e.content==='確認メモができました。'));
+ assert.equal((await app.request(`/api/agent/sessions/${worker.id}/accept`,'POST',{})).status,200);
 });
 test('failed model protocol probe never replaces the working configuration',async t=>{
- const app=await setupFixture(t,{models:['fixture-local'],mode:'bad-probe'});app.harness.key='key-for-previous-runtime';
- const before=JSON.stringify(app.store.settings),scan=await app.setup.scan();
+ const app=await setupFixture(t,{models:['fixture-local'],mode:'bad-probe'});
+ const before=JSON.stringify(app.store.settings),providers=JSON.stringify(app.agent.registry.get()),scan=await app.setup.scan();
  await assert.rejects(app.setup.select(scan.candidates[0].id,{consentTest:true}));
- assert.equal(JSON.stringify(app.store.settings),before);assert.equal(app.harness.key,'key-for-previous-runtime');
- assert.ok(!JSON.stringify(app.provider.requests).includes('key-for-previous-runtime'));
+ assert.equal(JSON.stringify(app.store.settings),before);assert.equal(JSON.stringify(app.agent.registry.get()),providers);
 });
 test('cancelled download remains resumable, never pretends to be verified',async t=>{
  const app=await setupFixture(t,{mode:'slow-pull'}),found=await app.setup.scan();
@@ -110,12 +106,6 @@ test('input validation is atomic for unsupported files, traversal, binary data a
   assert.throws(()=>stageInputs(store,[{name:'good.md',content:'a'},invalid]));assert.equal(store.list('input-file').length,0);
  }
  assert.throws(()=>resolveInputs(store,['not-found']));
-});
-test('an attachment is not implicitly authorized for an external model',async t=>{
- const store=await storeFixture(t),[f]=stageInputs(store,[{name:'local.md',content:'private'}]);
- store.settings={...store.settings,model:'remote-model',baseUrl:'https://example.org/v1',allowCloud:true};
- const h={submit:()=>{throw new Error('Should not execute');}},requests=new Requests(store,h);
- assert.throws(()=>requests.submit({requestId:randomUUID(),input:'read',attachmentIds:[f.id]}),/許可/);assert.equal(store.list('request').length,0);
 });
 test('same-named sources receive unique ids; removing one does not remove the other',async t=>{
  const store=await storeFixture(t),files=stageInputs(store,[{name:'same.md',content:'one'},{name:'same.md',content:'two'}]);
@@ -171,14 +161,4 @@ test('feed permission can be revoked without first erasing its saved URL',async 
  assert.equal((await app.request('/api/settings','PATCH',{newsUrl:'https://example.org/rss',allowNetwork:true})).status,200);
  assert.equal((await app.request('/api/settings','PATCH',{allowNetwork:false})).status,200);
  assert.equal(app.store.settings.allowNetwork,false);
-});
-
-test('source files copied for external agents must not masquerade as produced artifacts',async t=>{
- const store=await storeFixture(t),job={id:randomUUID(),status:'running',inputFiles:[{id:'source'}]};store.put('job',job);
- const root=workspaceRoot(store,job.id);await mkdir(path.join(root,'inputs'),{recursive:true});
- await writeFile(path.join(root,'inputs','source.md'),'This is input, not a deliverable.');
- assert.deepEqual(await publishWorkspaceDocuments(store,job),[]);
- await writeFile(path.join(root,'summary.md'),'Actual newly produced result.');
- const published=await publishWorkspaceDocuments(store,job);
- assert.equal(published.length,1);assert.equal(published[0].title,'summary.md');
 });

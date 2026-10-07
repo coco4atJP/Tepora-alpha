@@ -19,9 +19,12 @@ export async function discoverSharedSkills({root=path.join(os.homedir(),'.agents
       invariant(allowed.some(r=>within(r,file)),'Shared symlink needs explicit approval of its target root');
       const info=await stat(file);invariant(info.isFile()&&info.size<=65536,'Shared skill exceeds size limit');
       const content=await readFile(file,'utf8');
-      const title=content.match(/^#\s+(.+)$/m)?.[1]||entry.name;
+      // Agent Skills frontmatter (name, description) when present; otherwise the first heading and the opening text.
+      const front=/^---\r?\n([\s\S]*?)\r?\n---/.exec(content)?.[1]||'';
+      const field=k=>new RegExp(`^${k}:\\s*(.+)$`,'m').exec(front)?.[1]?.trim().replace(/^(["'])(.*)\1$/,'$2')||'';
+      const title=field('name')||content.match(/^#\s+(.+)$/m)?.[1]||entry.name;
       skills.push({id:'shared-'+digest(file).slice(0,24),name:title.slice(0,120),
-        description:content.replace(/^---[\s\S]*?---/,'').replace(/^#+.+$/gm,'').trim().slice(0,240),
+        description:(field('description')||content.replace(/^---[\s\S]*?---/,'').replace(/^#+.+$/gm,'').trim()).slice(0,1024),
         source:'shared',sourcePath:file,sha256:digest(content),readOnly:true,enabled:false});
     } catch(e) {issues.push({name:entry.name,reason:String(e.message).slice(0,300)});}
   }

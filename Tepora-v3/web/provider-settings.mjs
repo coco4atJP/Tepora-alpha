@@ -37,15 +37,14 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
   openSheet('この接続先の認証',`<p><strong>${escape(p.name)}</strong><br>${escape(new URL(p.baseUrl).origin)}</p><form id="provider-key-form" data-identity="${p.identity}">${field('APIキー（起動中のメモリだけに保持）','key','','','password')}<button type="submit" class="button">この接続先だけに設定</button></form><p>空欄で送信するとセッションキーを削除します。環境変数を指定した場合は、その値を参照します。別の接続先へ再利用しません。</p>`,'provider-key');
  }
  async function computerSheet(){computer=await bridge.request('/api/computer');const c=computer.config;
-  openSheet('コンピューター操作とローカル計算',`<form id="computer-form">${toggle('選んだ実行環境を有効にする','enabled',c.enabled,'起動は仕事ごとの確認後。既存ブラウザのログイン・全画面を自動取得しません。')}
-  <label>操作を選ぶ担当<select name="controller">${options([['both','両方を使う'],['llm','主LLMが直接選ぶ'],['decision','Jev / Layaが閉集合から選ぶ']],c.controller||'both')}</select></label><p class="small-text">観測・対象の確認・承認・実行後の確認は共通です。意思決定モデルの確率で権限を与えません。</p><label>操作先<select name="backend">${options([['browser','専用ブラウザ（Windows / Mac）'],['windows-uia','選択したWindowsウィンドウ']],c.backend)}</select></label>
-  ${field('Python実行ファイル','python',c.python)}${field('Chrome / Edge / Chromium実行ファイル（任意）','browserExecutable',c.browserExecutable||'')}
-  <label>ブラウザで許可するHTTPSのオリジン（1行1件）<textarea name="origins" rows="3" placeholder="https://example.com">${escape(c.allowedOrigins.join('\n'))}</textarea></label>
-  ${field('Windowsウィンドウのハンドル','windowHandle',c.windowHandle||'','','number')}${btn('computer-windows','ウィンドウ候補を探す','','button secondary')}<div id="window-options"></div>
-  ${field('1セッションの操作上限','maxActions',c.maxActions,'','number')}${toggle('専用ブラウザを画面なしで動かす','headless',c.headless)}
-  <button class="button" type="submit">設定を保存</button></form><div class="sheet-actions">${btn('computer-release','操作権を取り戻す','stop','button secondary')}</div>
-  <p class="small-text">任意のPythonコードではなく付属ワーカーを起動します。Playwrightと対応ブラウザが必要です。Windows UIAは追加でpywinautoが必要です。初回環境導入はまだ手動です。</p>
-  <p class="small-text">制限モードでは、外部サイトとネイティブ操作は開始しません。ローカルHTML内の操作と、ネットワーク・ホストAPIを持たないJavaScript計算は継続できます。全OSを封じ込める機能ではありません。</p>`,'computer');
+  openSheet('コンピューター操作',`<form id="computer-form">${toggle('コンピューター操作を使う','enabled',c.enabled,'作業担当がブラウザ（とMacのアプリ）を、人と同じように操作します。')}
+  <label>操作のしかた<select name="control">${options([['both','判断モデルが優先・必要なら直接操作（おすすめ）'],['decision','判断モデルだけが操作する'],['direct','作業担当が直接操作する']],c.control)}</select></label>
+  <p class="small-text">判断モデル: ${computer.decision?'接続済み':'未接続 — つなぐまでは、作業担当のモデルが同じ候補から操作を選びます'}。判断モデルは画面にある操作から選ぶだけで、文章は書きません。</p>
+  ${toggle('ブラウザを見えないまま動かす','headless',c.headless,'見える状態にすると操作の様子を見られ、ログインを手で済ませられます。ログインは見えないときにも引き継がれます。')}
+  ${field('ブラウザの場所（空なら自動）','browserExecutable',c.browserExecutable||'',computer.browser.executable?`自動: ${computer.browser.executable}`:'Chrome / Edge / Brave / Chromium が見つかりません')}
+  ${computer.desktop.supported?toggle('Macのアプリも操作する','desktop',c.desktop,'アクセシビリティの許可が必要です（システム設定 → プライバシーとセキュリティ → アクセシビリティで、Teporaを動かしているアプリを許可）。初回は操作用の小さなプログラムを組み立てます（Xcodeコマンドラインツールが必要）。'):''}
+  ${field('ひとつの目標の最大手数','maxSteps',c.maxSteps,'','number')}
+  <button class="button" type="submit">設定を保存</button></form><div class="sheet-actions">${btn('computer-release','ブラウザを閉じる','stop','button secondary')}${computer.desktop.supported?btn('computer-permissions','Macの許可を確かめる','','button secondary'):''}</div><div id="computer-permissions"></div>`,'computer');
  }
  const actions={
   'providers-open':open,'provider-new':()=>editor(),'provider-edit':el=>editor(el.dataset.id),'provider-key':el=>keySheet(el.dataset.id),
@@ -58,8 +57,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
    const p={id,name:s.model,model:s.model,baseUrl:s.baseUrl,protocol:'chat-completions',domain,apiKeyEnv:s.apiKeyEnv||'',capabilities:{text:true,tools:null,vision:null,structured:null}};
    config=await bridge.request('/api/providers','PUT',{expectedRevision:config.revision,config:{profiles:[...config.profiles.map(editable),p],routes:config.profiles.length?config.routes:{main:{primary:id,fallbacks:[]}}}});onChanged?.({providers:config});draw();},
   'computer-settings':computerSheet,'computer-release':async()=>{await bridge.request('/api/computer/release','POST',{});notice('操作権を解放しました。');},
-  'computer-windows':async()=>{const result=await bridge.request('/api/computer/windows','POST',{});$('#window-options').innerHTML=result.map(w=>`<button data-action="computer-pick-window" data-handle="${w.handle}" class="connection-option">${escape(w.title)}</button>`).join('');},
-  'computer-pick-window':el=>{$('[name=windowHandle]').value=el.dataset.handle;}
+  'computer-permissions':async()=>{const r=await bridge.request('/api/computer/status','POST',{});const p=r.permissions||{};$('#computer-permissions').innerHTML=`<p class="small-text">${p.error?escape(p.error):`アクセシビリティ: ${p.trusted?'許可済み':'未許可'} · 画面収録: ${p.screen?'許可済み':'未許可（スクリーンショットに必要）'}`}</p>`;}
  };
  document.addEventListener('change',e=>{if(e.target.id==='internet-tools'){actions['network-web']().catch(err=>{e.target.checked=!e.target.checked;notice(err.message);});return;}
   if(e.target.id==='provider-preset'&&presets[e.target.value]){
@@ -82,7 +80,7 @@ export function createProviderSettings({bridge,openSheet,closeSheet,notice,previ
     const routes={};for(const role of Object.keys(roleNames))if(d[role])routes[role]={primary:d[role],fallbacks:d[`${role}-fallbacks`].split(',').map(x=>x.trim()).filter(Boolean)};
     config=await bridge.request('/api/providers','PUT',{expectedRevision:config.revision,config:{profiles:config.profiles.map(editable),routes}});
    }else if(formId==='computer-form'){
-    computer=await bridge.request('/api/computer','PATCH',{expectedRevision:computer.config.revision,patch:{enabled:!!d.enabled,controller:d.controller,backend:d.backend,python:d.python,browserExecutable:d.browserExecutable,allowedOrigins:d.origins.split('\n').map(x=>x.trim()).filter(Boolean),windowHandle:d.windowHandle?Number(d.windowHandle):null,maxActions:Number(d.maxActions),headless:!!d.headless}});onChanged?.({computer});closeSheet();return;
+    computer=await bridge.request('/api/computer','PATCH',{expectedRevision:computer.config.revision,patch:{enabled:!!d.enabled,control:d.control,headless:!!d.headless,browserExecutable:d.browserExecutable||'',desktop:!!d.desktop,maxSteps:Math.max(1,Math.min(60,Number(d.maxSteps)||12))}});onChanged?.({computer});closeSheet();return;
    }
    onChanged?.({providers:config});draw();
   })().catch(err=>notice(err.message));

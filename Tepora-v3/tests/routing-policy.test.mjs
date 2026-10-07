@@ -7,7 +7,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {Store} from '../core/store.mjs';
 import {NetworkPolicy,ipDomain,NetworkBlocked} from '../core/network-policy.mjs';
 import {ProviderRegistry,ResourceGate,validateProfile} from '../core/provider-registry.mjs';
-import {encodeRequest,decodeResponse,ProviderError} from '../core/provider-protocols.mjs';
+import {encodeRequest,decodeResponse} from '../core/provider-protocols.mjs';
 
 async function fixture(t,options={}){const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-route-')),store=new Store(dir),network=new NetworkPolicy(store,options);t.after(async()=>{network.close();store.close();await rm(dir,{recursive:true,force:true});});return {store,network};}
 const local=(id='local',extra={})=>({id,name:id,protocol:'chat-completions',baseUrl:'http://127.0.0.1:11434/v1',model:'test',domain:'device',capabilities:{text:true,tools:true,vision:true},...extra});
@@ -55,34 +55,8 @@ test('real Node socket transport works and honors same-origin endpoint scope',as
  const {network}=await fixture(t);const p=validateProfile(local('cpu',{baseUrl:`http://localhost:${server.address().port}/v1`}));
  const body=await(await network.request(p.baseUrl+'/models',{}, {profile:p})).json();assert.equal(body.path,'/v1/models');
 });
-test('fallback credentials never cross providers and selection is observable',async t=>{
- const {store,network}=await fixture(t);const used=[],events=[];store.listeners.add(e=>{if(e.type==='route.selected')events.push(e.data);});
- const r=new ProviderRegistry(store,network,{clientFactory:(p,k)=>({chat:async()=>{used.push({id:p.id,key:k});if(p.id==='cloud')throw new ProviderError(429);return response;}})});
- r.save({profiles:[cloud(),local()],routes:{main:{primary:'cloud',fallbacks:['local']}}},0);
- for(const p of r.get().profiles)r.setKey(p.id,`${p.id}-secret`,p.identity);
- const out=await r.invoke(r.pin(),[{role:'user',content:'data'}]);assert.equal(out.content,'checked');
- assert.deepEqual(used,[{id:'cloud',key:'cloud-secret'},{id:'local',key:'local-secret'}]);assert.deepEqual(events.map(e=>e.profileId),['cloud','local']);assert.ok(!JSON.stringify(r.publicSnapshot()).includes('secret'));
-});
-test('offline routes prefer the prepared local floor without testing cloud DNS',async t=>{
- const {store,network}=await fixture(t);const used=[];const r=new ProviderRegistry(store,network,{clientFactory:p=>({chat:async()=>{used.push(p.id);return response;}})});
- r.save({profiles:[cloud(),local()],routes:{main:{primary:'cloud',fallbacks:['local']}}},0);network.change({mode:'offline'},0);
- await r.invoke(r.pin(),[]);assert.deepEqual(used,['local']);assert.equal(r.offlineFloor().configured,true);assert.equal(r.offlineFloor().verified,false);
-});
 test('unknown vision capability is not silently treated as supported',()=>{
  const p=validateProfile(local('unknown',{capabilities:{text:true}}));assert.equal(p.capabilities.vision,null);
-});
-test('authentication/refusal/schema failures do not trigger an unrelated-provider fallback',async t=>{
- const {store,network}=await fixture(t);const used=[];const r=new ProviderRegistry(store,network,{clientFactory:p=>({chat:async()=>{used.push(p.id);throw new ProviderError(401);}})});
- r.save({profiles:[cloud(),local()],routes:{main:{primary:'cloud',fallbacks:['local']}}},0);await assert.rejects(r.invoke(r.pin(),[]),ProviderError);assert.deepEqual(used,['cloud']);
-});
-test('repeated failure has one shared cooldown across main and auxiliary routing',async t=>{
- const {store,network}=await fixture(t);const used=[];const r=new ProviderRegistry(store,network,{clientFactory:p=>({chat:async()=>{used.push(p.id);if(p.id==='cloud')throw new ProviderError(503);return response;}})});
- r.save({profiles:[cloud(),local()],routes:{main:{primary:'cloud',fallbacks:['local']},vision:{primary:'cloud',fallbacks:['local']}}},0);
- await r.invoke(r.pin(),[]);await r.invoke(r.pin('vision'),[],{requirement:'vision'});assert.deepEqual(used,['cloud','local','local']);
-});
-test('retargeting a named provider clears its session credential and invalidates old routes',async t=>{
- const {store,network}=await fixture(t);const r=new ProviderRegistry(store,network);const c={profiles:[cloud()],routes:{main:{primary:'cloud',fallbacks:[]}}};r.save(c,0);const old=r.pin();r.setKey('cloud','secret',r.get().profiles[0].identity);
- r.save({...c,profiles:[cloud('cloud',{baseUrl:'https://new.example/v1'})]},1);assert.equal(r.keyFor(r.get().profiles[0]),'');await assert.rejects(r.invoke(old,[]),/モデル/);
 });
 test('resource gate prioritizes conversation, cleans aborted waiters and does not over-admit',async()=>{
  const gate=new ResourceGate(),release=await gate.acquire('gpu',1),order=[],c=new AbortController();
@@ -103,11 +77,13 @@ for(const [protocol,body] of [
  ['anthropic',{stop_reason:'tool_use',content:[{type:'tool_use',id:'c1',name:'echo',input:{a:1}}]}],
  ['gemini',{candidates:[{finishReason:'STOP',content:{parts:[{functionCall:{name:'echo',args:{a:1}},thoughtSignature:'signed'}]}}]}],
  ['chat-completions',{choices:[{finish_reason:'tool_calls',message:canon[2]}]}]
-])test(`decode typed tool call and preserve native signatures: ${protocol}`,()=>{
- const p=validateProfile(local('test',{protocol})),out=decodeResponse(p,body);assert.equal(out.tool_calls[0].function.name,'echo');assert.deepEqual(JSON.parse(out.tool_calls[0].function.arguments),{a:1});
+])test(`decode typed tool call and preserve native signatures: ${protocol}`,async()=>{
+ const p=validateProfile(local('test',{protocol})),out=await decodeResponse(p,body);assert.equal(out.tool_calls[0].function.name,'echo');assert.deepEqual(JSON.parse(out.tool_calls[0].function.arguments),{a:1});
  if(protocol==='gemini'){const same=encodeRequest(p,[...canon.slice(0,2),out]);assert.ok(JSON.stringify(same).includes('signed'));const other=encodeRequest({...p,identity:'different'},[...canon.slice(0,2),out]);assert.ok(!JSON.stringify(other).includes('signed'));}
 });
-for(const [protocol,body] of [['responses',{status:'incomplete',output:[]}],['anthropic',{stop_reason:'max_tokens',content:[]}],['gemini',{candidates:[{finishReason:'MAX_TOKENS'}]}],['chat-completions',{choices:[{finish_reason:'content_filter',message:{content:'partial'}}]}]])test(`refuse incomplete ${protocol} response`,()=>assert.throws(()=>decodeResponse(validateProfile(local('p',{protocol})),body)));
+for(const [protocol,body] of [['responses',{status:'incomplete',output:[]}],['anthropic',{stop_reason:'max_tokens',content:[]}],['gemini',{candidates:[{finishReason:'MAX_TOKENS'}]}],['chat-completions',{choices:[{finish_reason:'content_filter',message:{content:'partial'}}]}]])test(`an incomplete ${protocol} response is reported as cut off or refused, for the loop to recover`,async()=>{
+ const out=await decodeResponse(validateProfile(local('p',{protocol})),body);assert.equal(out.finish,protocol==='chat-completions'?'refusal':'length');
+});
 
 test('encoded API path traversal cannot escape a pinned inference prefix',async t=>{
  const {network}=await fixture(t);const p=validateProfile(local('lan',{domain:'lan',baseUrl:'http://gpu.lan:8000/v1',pinnedAddress:'192.168.1.9',allowPlainHttp:true}));

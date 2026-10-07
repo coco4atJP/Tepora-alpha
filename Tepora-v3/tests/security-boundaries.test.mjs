@@ -1,16 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
 import os from 'node:os';
 import path from 'node:path';
-import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import {mkdtemp,rm} from 'node:fs/promises';
 import {Store} from '../core/store.mjs';
 import {NetworkPolicy,NetworkBlocked} from '../core/network-policy.mjs';
 import {fetchWeb} from '../core/web-tools.mjs';
 import {Connectors} from '../core/connectors.mjs';
 import {ToolHub} from '../core/tool-hub.mjs';
-import {Harness} from '../core/harness.mjs';
-import {Routines} from '../core/routines.mjs';
 import * as ui from '../web/ui.mjs';
 
 async function fixture(t,options={}){
@@ -61,11 +58,6 @@ test('explicit local inference, HTTP MCP and configured RSS still work offline',
  store.settings={...store.settings,allowNetwork:true,newsUrl:'http://localhost:1234/rss'};
  const news=await new Connectors(store,network).news();assert.equal(news.items[0].title,'Fixture news');assert.deepEqual(targets.map(x=>x.purpose),['model','vision','worker','web','feed']);
 });
-test('protected worker tool dispatch cannot fetch a local HTTP service',async t=>{
- let io=0;const {store,network,closers}=await fixture(t,{transport:async()=>{io++;return new Response('local fixture');}});
- const h=new Harness(store,new Connectors(store,network),{network,runtimeFactory:()=>({})});closers.push(()=>h.close());
- await assert.rejects(h.tool({id:'isolated-fixture',revision:1},'web_fetch',{url:'http://127.0.0.1/private'},{signal:new AbortController().signal,settings:store.settings,cloud:false,clients:new Map()}),NetworkBlocked);assert.equal(io,0);
-});
 
 const routine=(lastJobId,extra={})=>({id:'old-routine',title:'Imported routine',input:'A fixture',schedule:{type:'interval',minutes:60},lastJobId,...extra});
 const bundle=collections=>({format:'tepora-v3-context',version:2,collections});
@@ -73,18 +65,6 @@ const markup='x"><form id="runtime-form"><button type="submit">marker</button></
 test('import remaps the last job reference and preserves safe disabled routine state',async t=>{
  const {store}=await fixture(t);store.import(bundle({routine:[routine('old-job',{enabled:true,runtime:{model:'untrusted'},destination:'untrusted'})],job:[{id:'old-job',status:'completed'}]}));
  const r=store.list('routine')[0],j=store.list('job')[0];assert.notEqual(r.id,'old-routine');assert.equal(r.lastJobId,j.id);assert.notEqual(j.id,'old-job');assert.equal(r.enabled,false);assert.equal(r.runtime,null);assert.equal(r.destination,null);assert.equal(j.resumeBlocked,true);
-});
-test('explicitly re-enabling an imported routine starts future work without resuming archived jobs',async t=>{
- const {store}=await fixture(t);store.import(bundle({routine:[routine('old-job',{revision:1,enabled:true})],job:[{id:'old-job',status:'completed'}]}));
- const imported=store.list('routine')[0],archived=store.list('job')[0],submitted=[];let now=1_000_000;
- const routines=new Routines(store,{submit:(input,kind,meta)=>{submitted.push({input,kind,meta});store.put('job',{id:meta.id,status:'queued'});}},{clock:()=>now});
- const enabled=routines.enable(imported.id,true,imported.revision);assert.equal(submitted.length,0);
- now=enabled.nextAt;routines.tick();assert.equal(submitted.length,1);assert.equal(store.get('routine',imported.id).status,'submitted');assert.notEqual(submitted[0].meta.id,archived.id);assert.equal(store.get('job',archived.id).resumeBlocked,true);assert.equal(store.get('job',archived.id).status,'interrupted');
-});
-test('re-enabling a normal routine still waits for its unfinished previous job',async t=>{
- const {store}=await fixture(t);store.put('job',{id:'active-job',status:'interrupted'});store.put('routine',routine('active-job',{revision:1,enabled:false}));let now=1_000_000,submitted=0;
- const routines=new Routines(store,{submit:()=>submitted++},{clock:()=>now});const enabled=routines.enable('old-routine',true,1);
- assert.equal(enabled.lastJobId,'active-job');now=enabled.nextAt;routines.tick();assert.equal(submitted,0);assert.equal(store.get('routine','old-routine').status,'previous-job-pending');
 });
 test('import clears malicious, dangling, host-existing and absent last job references',async t=>{
  const {store}=await fixture(t);store.put('job',{id:'host-job',status:'completed'});
@@ -97,13 +77,6 @@ test('invalid last job types reject the entire import before any write',async t=
   assert.throws(()=>store.import(bundle({memory:[{id:'new-memory',content:'must not persist'}],routine:[routine(lastJobId)]})),/last job/i);
   assert.deepEqual(store.export().collections,before.collections);assert.equal(store.seq,seq);
  }
-});
-const appSource=await readFile(new URL('../web/app.mjs',import.meta.url),'utf8');
-const from=appSource.indexOf('function routineCard('),to=appSource.indexOf('\nfunction ',from+1);
-const renderRoutine=vm.runInNewContext(appSource.slice(from,to)+'\nroutineCard',{escape:ui.escape,btn:ui.btn});
-test('persisted routine last job values stay inside escaped attributes',()=>{
- const html=renderRoutine(routine(markup));assert.ok(!html.includes('<form'));assert.ok(html.includes(`data-id="${ui.escape(markup)}"`));
- const ordinary=renderRoutine(routine('valid-job-id'));assert.ok(ordinary.includes('data-action="task" data-id="valid-job-id"'));
 });
 test('form authority uses element identity, live ownership and no ID-based grants',()=>{
  const form={id:'runtime-form',isConnected:true},forged={id:'runtime-form',isConnected:true};let children=[form];

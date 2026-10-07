@@ -5,7 +5,7 @@
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 /** Dependency order. Every module shares one scope in the bundle, so top-level names must be unique. */
-export const BUNDLE_ORDER=['status','markdown','ui','demo','display-model','voice-lines','avatar/pose','avatar/model','avatar/kit','avatar/geometry','avatar/body-shiro','avatar/body-andon','avatar/body-ensou','avatar/body-kobako','avatar/body-kitsune','avatar/body-hotaru','avatar/body-kokedama','avatar/body-image','avatar/svg','avatar/stage','bridge','draft','companion-state','dialogue-state','approval-format','voice','realtime-voice','seasons','daylight','wallpaper','frame','lights','seal','ambient','inbox','music','onboarding','provider-settings','capability-ui','execution-ui','avatar/settings','frame-settings','app'];
+export const BUNDLE_ORDER=['status','markdown','ui','demo','display-model','voice-lines','avatar/pose','avatar/model','avatar/kit','avatar/geometry','avatar/body-shiro','avatar/body-andon','avatar/body-ensou','avatar/body-kobako','avatar/body-kitsune','avatar/body-hotaru','avatar/body-kokedama','avatar/body-image','avatar/svg','avatar/stage','bridge','draft','companion-state','dialogue-state','approval-format','voice','realtime-voice','seasons','daylight','wallpaper','frame','lights','seal','ambient','inbox','music','onboarding','provider-settings','capability-ui','avatar/settings','frame-settings','app'];
 export async function browserBundle(webDir,{preview=false}={}) {
   const parts=[],declared=new Map();
   for(const name of BUNDLE_ORDER) {

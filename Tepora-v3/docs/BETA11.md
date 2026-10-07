@@ -1,5 +1,7 @@
 # beta.11: protected execution boundary and sourced handoffs
 
+> **2026-10-07:** The agent parts of this document describe beta.11 (protected execution, Codex, routines, effect receipts). The agent runtime has since been rebuilt; see [AGENT-HARNESS.md](AGENT-HARNESS.md) for the current design.
+
 This milestone keeps one character in front and asynchronous work behind it. It adds a
 small trusted control plane, explicit work-copy capsules, restricted executor protocol,
 source/version checks, durable operation receipts, and staged artifact promotion.

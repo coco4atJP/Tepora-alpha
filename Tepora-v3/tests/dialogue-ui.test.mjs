@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
-import {DialogueDraftContext,characterName,questionIsCurrent,currentReplyQuestion,dialogueMessagePresentation,latestCharacterReply,mergeDialogueMessages} from '../web/dialogue-state.mjs';
-import {fixture,deferred,until,appSource,part} from './helpers/dialogue-ui-fixture.mjs';
+import {DialogueDraftContext,characterName,questionIsCurrent,currentReplyQuestion,dialogueMessagePresentation,latestCharacterReply} from '../web/dialogue-state.mjs';
+import {fixture,appSource,part} from './helpers/dialogue-ui-fixture.mjs';
 function pendingQuestion(f){
  const question={id:'q-one',kind:'worker-question',role:'tool',source:'worker',questionId:'q-one',jobId:'main',jobRevision:1,questionStatus:'pending',content:'Which region?',at:'2026-09-30T00:00:00.000Z'};
  Object.assign(f.state.jobs[0],{status:'paused',pendingQuestionId:'q-one'});f.state.dialogue.messages.push(question);return question;
@@ -22,36 +22,12 @@ test('detail navigation preserves conversation, unsent draft, voice capture, and
 });
 test('opening job details never rebinds the draft or stops microphone capture',async()=>{
  const f=fixture();f.type('Persistent');await f.run('recordToggle()');const anchor=f.ctx.voiceAnchor,destination=f.draftContext.destination;
- f.ctx.previewMode=true;f.ctx.statuses={running:'Running'};f.ctx.verificationHTML=()=>'';f.ctx.approvalBox=()=>'';f.load('function taskSheet(','function refreshTask(');
+ f.ctx.previewMode=true;f.ctx.statuses={running:'Running'};f.ctx.verificationHTML=()=>'';f.ctx.approvalBox=()=>'';f.ctx.todoHTML=()=>'';f.ctx.routeLine=()=>'';f.ctx.jobActions=()=>'';f.load('function taskSheet(','const TOOL_WORDS=');
  f.run("taskSheet('main')");assert.equal(f.sheets.length,1);assert.strictEqual(f.ctx.voiceAnchor,anchor);assert.strictEqual(f.draftContext.destination,destination);assert.equal(f.draft.content,'Persistent');
 });
 test('foreground accepts another utterance while worker jobs remain busy',async()=>{
  const f=fixture();f.type('First');await f.run('submitDialogue()');f.type('Also, another thought');await f.run('submitDialogue()');
- assert.equal(f.requests().length,2);assert.equal(f.state.jobs[0].status,'running');assert.notEqual(f.requests()[0].value.requestId,f.requests()[1].value.requestId);assert.equal(f.requests()[1].value.sessionId,'session-one');
-});
-test('pending request allows detail navigation without mutating or invalidating its destination',async()=>{
- const hold=deferred(),f=fixture(p=>p==='/api/dialogue/context'?hold.promise:null);f.type('Original thought');const destination=f.draftContext.destination;
- const send=f.run('submitDialogue()');await until(()=>f.calls.length);await f.run("navigateFocus('other')");assert.strictEqual(f.draftContext.destination,destination);
- hold.resolve({id:'execution-route',remote:false});await send;assert.equal(f.requests().length,1);assert.equal(f.requests()[0].value.sessionId,'session-one');assert.equal(f.requests()[0].value.jobId,undefined);
-});
-test('explicit worker question chip pins exact question and revision, separate from selected details',async()=>{
- const f=fixture();pendingQuestion(f);f.run("selectWorkerQuestion('q-one')");f.type('Europe');await f.run("navigateFocus('other')");await f.run('submitDialogue()');
- assert.equal(f.requests()[0].path,'/api/dialogue/reply');assert.deepEqual(f.requests()[0].value,{requestId:f.requests()[0].value.requestId,sessionId:'session-one',input:'Europe',questionId:'q-one',jobId:'main',jobRevision:1});assert.ok(!f.calls.some(c=>c.path==='/api/dialogue/context'));
-});
-test('selecting a worker question cannot silently redirect a pre-existing draft',()=>{
- const f=fixture();pendingQuestion(f);f.type('Unrelated private draft');const destination=f.draftContext.destination;
- assert.throws(()=>f.run("selectWorkerQuestion('q-one')"),/下書き/);assert.strictEqual(f.draftContext.destination,destination);assert.equal(f.draft.content,'Unrelated private draft');
-});
-for(const reason of ['revision','answered','cancelled','pending-id'])test('stale question is rejected before POST: '+reason,async()=>{
- const f=fixture(),q=pendingQuestion(f);f.run("selectWorkerQuestion('q-one')");f.type('Europe');
- if(reason==='revision')f.state.jobs[0].revision++;if(reason==='answered')q.questionStatus='answered';if(reason==='cancelled')f.state.jobs[0].status='cancelled';if(reason==='pending-id')f.state.jobs[0].pendingQuestionId='q-two';
- assert.equal(questionIsCurrent(q,f.state.jobs),false);assert.equal(currentReplyQuestion(f.draftContext.destination,f.state.dialogue,f.state.jobs),null);
- await assert.rejects(f.run('submitDialogue()'),/更新済み/);assert.equal(f.requests().length,0);assert.equal(f.draft.content,'Europe');
-});
-test('worker reply uncertainty retries identical receipt even after question is answered',async()=>{
- let first=true;const f=fixture((p,m)=>p==='/api/dialogue/reply'&&first?Promise.reject(Object.assign(Error('Lost reply receipt'),{status:500})):null),q=pendingQuestion(f);
- f.run("selectWorkerQuestion('q-one')");f.type('Europe');await assert.rejects(f.run('submitDialogue()'),/Lost/);const original=f.requests()[0].value;q.questionStatus='answered';f.state.jobs[0].revision++;first=false;
- await f.run('submitDialogue(false,true)');assert.deepEqual(f.requests()[1].value,original);
+ assert.equal(f.requests().length,2);assert.equal(f.state.jobs[0].status,'running');assert.notEqual(f.requests()[0].value.requestId,f.requests()[1].value.requestId);assert.equal(f.requests()[1].value.text,'Also, another thought');
 });
 test('worker reports retain sole character speaker and quoted pinned worker provenance',()=>{
  const f=fixture();f.state.jobs[0].personaSnapshot={worker:{name:'Original worker'}};f.state.dialogue.personas.worker.name='New worker';
@@ -85,16 +61,6 @@ test('character job internals are hidden from work list; historical jobs stay vi
 test('normal UI offers no manual continue/new/side routing or agent selector',()=>{
  assert.doesNotMatch(appSource,/data-action="(?:agent-select|composer-intent|natural-intent)"/);assert.doesNotMatch(appSource,/\/api\/companion\/(?:propose|submit|context)/);assert.doesNotMatch(appSource,/chooseComposerIntent|submitIntent\(/);
  assert.match(appSource,/id="dialogue-transcript"/);assert.match(appSource,/id="personas-form"/);assert.match(appSource,/name="characterInstructions"/);assert.match(appSource,/name="workerInstructions"/);assert.match(appSource,/以前の記憶は保持されていますが/);
-});
-test('relay preview discloses exact recipient, bounded excerpt and verification before explicit POST',async()=>{
- const preview={jobId:'main',jobRevision:1,sessionId:'session-one',contextId:'recipient-context',recipient:'Character provider A',excerpt:'ONLY THIS <quoted> RESULT',excerptHash:'hash-one',verificationStatus:'produced',checksStatus:'passed',note:'Only this quote, no logs'};
- const f=fixture(p=>p.startsWith('/api/dialogue/relay?')?preview:null);f.ctx.activeDialog=null;f.ctx.pendingRelay=null;f.ctx.openSheet=(...args)=>{f.sheets.push(args);f.ctx.activeDialog={kind:args[2]};};f.load('async function relayResultSheet(','async function configureVoiceSend(');
- await f.run("relayResultSheet('main')");assert.equal(f.calls.filter(c=>c.method==='POST').length,0);assert.match(f.sheets[0][1],/Character provider A/);assert.match(f.sheets[0][1],/ONLY THIS &lt;quoted&gt; RESULT/);assert.match(f.sheets[0][1],/成果の内容は未確認/);
- await f.run('confirmResultRelay()');assert.deepEqual(f.calls.at(-1).value,{jobId:'main',jobRevision:1,sessionId:'session-one',contextId:'recipient-context',excerptHash:'hash-one',consent:true});assert.equal(f.calls.at(-1).path,'/api/dialogue/relay');
-});
-test('dismissed/shared relay dialog cannot grant result sharing',async()=>{
- const f=fixture();f.ctx.activeDialog={kind:'relay-result'};f.ctx.pendingRelay={jobId:'main'};f.ctx.sharedView=true;f.load('async function relayResultSheet(','async function configureVoiceSend(');
- await f.run('confirmResultRelay()');assert.equal(f.calls.length,0);f.ctx.sharedView=false;f.ctx.activeDialog=null;await f.run('confirmResultRelay()');assert.equal(f.calls.length,0);
 });
 for(const [lineEnding,eol] of [['LF','\n'],['CRLF','\r\n']])test(`preview dialogue and separate personas persist with revision checks and never run AI (${lineEnding})`,async()=>{
  // Exercise both Git checkout styles on every OS; normalize before converting this

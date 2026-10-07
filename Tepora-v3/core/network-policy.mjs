@@ -46,12 +46,12 @@ export function insideEndpoint(url,base) {
   if(p.includes('\\')||p.includes('\0')||/%(?:2e|2f|5c|25)/i.test(p))throw new Error('Ambiguous API path');return path.posix.normalize(p).replace(/\/$/,'');};
  try{const target=canonical(u.pathname),prefix=canonical(b.pathname);return u.origin===b.origin&&(target===prefix||target.startsWith(prefix+'/'));}catch{return false;}
 }
-export function networkDefault(){return {schema:1,revision:0,mode:'online',internetTools:false};}
+export function networkDefault(){return {schema:1,revision:0,mode:'online',internetTools:true};}
 export class NetworkPolicy {
  constructor(store,{lookup=dns.lookup,transport=checkedRequest}={}) {
   this.store=store;this.lookup=lookup;this.transport=transport;this.active=new Map();this.listeners=new Set();this.closed=false;
  }
- get(){return this.store.value('network-policy')||{...networkDefault(),internetTools:this.store.settings.allowNetwork};}
+ get(){return this.store.value('network-policy')||networkDefault();}
  change(patch,expectedRevision) {
   const old=this.get();invariant(old.revision===expectedRevision,'通信設定が更新されています。開き直してください。',409);
   invariant(patch&&Object.keys(patch).every(k=>['mode','internetTools'].includes(k)),'通信設定以外は変更できません。');
@@ -67,6 +67,8 @@ export class NetworkPolicy {
  permitted(domain,purpose,policy=this.get()) {
   // Model-controlled public browsing never inherits the loopback integration exception.
   if(purpose==='public-web')return domain==='cloud'&&policy.mode==='online'&&policy.internetTools;
+  // Agent web tools may also reach this PC and the LAN (local dev servers, intranet pages).
+  if(purpose==='web-tool')return policy.internetTools&&(domain==='device'||domain==='lan'&&policy.mode!=='offline'||domain==='cloud'&&policy.mode==='online');
   if(domain==='device')return purpose!=='download'||policy.mode==='online';
   if(policy.mode==='offline')return false;
   if(domain==='lan')return ['model','vision','worker'].includes(purpose);
@@ -77,7 +79,8 @@ export class NetworkPolicy {
  }
  async authorize(value,{profile=null,purpose='model',allowCloud=false,signal,asset=false}={}) {
   if(this.closed)throw new NetworkBlocked('Service is closing');
-  const u=normalURL(value,{query:['web','public-web','feed'].includes(purpose)||asset===true}),host=hostName(u);
+  const u=normalURL(value,{query:['web','public-web','web-tool','feed'].includes(purpose)||asset===true}),host=hostName(u);
+  if(purpose==='web-tool'&&!profile)return this.authorizeWebTool(u,host,signal);
   const lexical=host==='localhost'?'device':ipDomain(host);
   let domain=profile?.domain||(lexical==='device'?'device':'cloud');
   if(profile&&!insideEndpoint(u,profile.baseUrl))throw new NetworkBlocked('登録した推論APIの範囲外へ接続しようとしました。');
@@ -105,6 +108,16 @@ export class NetworkPolicy {
   if(!this.permitted(domain,purpose))throw new NetworkBlocked();
   return {url:u,address:addresses[0].address,domain,purpose,profileId:profile?.id};
  }
+ async authorizeWebTool(u,host,signal){
+  const lexical=host==='localhost'?'device':ipDomain(host);
+  if(lexical==='reserved')throw new NetworkBlocked('予約済みのアドレスには接続しません。');
+  const addresses=lexical==='name'?await abortable(this.lookup(host,{all:true,verbatim:true}),signal):[{address:host==='localhost'?'127.0.0.1':host}];
+  const domains=addresses.map(x=>ipDomain(x.address));
+  if(!addresses.length||domains.some(d=>d==='reserved'||d==='name'))throw new NetworkBlocked('DNSが予約済みのアドレスを返しました。');
+  const domain=domains.includes('device')?'device':domains.includes('lan')?'lan':'cloud';
+  if(!this.permitted(domain,'web-tool'))throw new NetworkBlocked(domain==='cloud'?'インターネットを使う道具が許可されていないか、オフラインです。':'この通信モードではこの接続先を使えません。');
+  return {url:u,address:addresses[0].address,domain,purpose:'web-tool',profileId:null};
+ }
  async request(url,init={},scope={}) {
   init.signal?.throwIfAborted();
   if(init.body instanceof FormData||init.body instanceof Blob){
@@ -114,25 +127,37 @@ export class NetworkPolicy {
    init={...init,headers,body:bytes};
   }
   const controller=new AbortController();
-  const signal=AbortSignal.any([controller.signal,init.signal||new AbortController().signal,AbortSignal.timeout(scope.timeoutMs||180000)]);
-  const admitted=await this.authorize(url,{...scope,signal});signal.throwIfAborted();
-  if(!this.permitted(admitted.domain,admitted.purpose))throw new NetworkBlocked();
-  this.active.set(controller,admitted);
-  const done=()=>this.active.delete(controller);
+  // Either one total deadline (timeoutMs), or a wait for the first byte followed by an idle limit
+  // between chunks: a model that keeps streaming is never cut off for being slow overall.
+  const progressive=scope.firstByteTimeoutMs!==undefined||scope.idleTimeoutMs!==undefined;
+  const firstByte=scope.firstByteTimeoutMs??scope.idleTimeoutMs??scope.timeoutMs??180000,idle=scope.idleTimeoutMs??firstByte;
+  let timer=null;const arm=ms=>{clearTimeout(timer);timer=setTimeout(()=>controller.abort(Object.assign(new Error(`No data for ${Math.round(ms/1000)} s`),{name:'TimeoutError',idle:true})),ms);timer.unref?.();};
+  const signals=[controller.signal,init.signal||new AbortController().signal];
+  if(progressive){arm(firstByte);if(scope.deadlineMs)signals.push(AbortSignal.timeout(scope.deadlineMs));}else signals.push(AbortSignal.timeout(scope.timeoutMs||180000));
+  const signal=AbortSignal.any(signals);
+  const done=()=>{clearTimeout(timer);this.active.delete(controller);};
   try {
-   const result=await this.transport(admitted,{...init,signal,redirect:'error'},scope);
+   const admitted=await this.authorize(url,{...scope,signal});signal.throwIfAborted();
+   if(!this.permitted(admitted.domain,admitted.purpose))throw new NetworkBlocked();
+   this.active.set(controller,admitted);
+   const result=await this.transport(admitted,{...init,signal,redirect:'error'},{...scope,idleTimeoutMs:Math.max(firstByte,idle)+5000});
    // A redirect may NEVER change credential scope or bypass address validation.
-   if(result.status>=300&&result.status<400){await result.body?.cancel();throw new NetworkBlocked('接続先からのリダイレクトは自動追跡しません。');}
+   if(result.status>=300&&result.status<400){
+    if(scope.redirects){done();return result;}
+    await result.body?.cancel();throw new NetworkBlocked('接続先からのリダイレクトは自動追跡しません。');
+   }
    if(!result.body){done();return result;}
+   if(progressive)arm(idle);
    const reader=result.body.getReader();let bytes=0;
    const body=new ReadableStream({
     async pull(target){try{const x=await reader.read();if(x.done){done();reader.releaseLock();target.close();return;}
+      if(progressive)arm(idle);
       bytes+=x.value.byteLength;if(bytes>(scope.maxBytes||4_000_000))throw Object.assign(new Error('Response exceeds budget'),{status:502});target.enqueue(x.value);
-     }catch(e){done();await reader.cancel().catch(()=>{});target.error(e);}},
+     }catch(e){done();await reader.cancel().catch(()=>{});target.error(controller.signal.aborted?controller.signal.reason:e);}},
     async cancel(reason){done();await reader.cancel(reason).catch(()=>{});}
    });
    return new Response(body,{status:result.status,headers:result.headers});
-  }catch(e){done();throw e;}
+  }catch(e){done();throw controller.signal.aborted&&controller.signal.reason?.idle?controller.signal.reason:e;}
  }
  fetch(scope){return (url,init)=>this.request(url,init,scope);}
  close(){this.closed=true;for(const c of this.active.keys())c.abort(new NetworkBlocked('Service closed'));this.active.clear();}

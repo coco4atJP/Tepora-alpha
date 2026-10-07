@@ -17,20 +17,20 @@ export const groups={
   "sourceHandoff": {
     "files": [
       "core/input-files.mjs",
-      "core/requests.mjs",
-      "core/harness.mjs",
-      "core/workspace.mjs",
+      "core/agent/runtime.mjs",
+      "core/agent/loop.mjs",
+      "core/tools/fs.mjs",
       "web/app.mjs"
     ],
     "tests": [
       "tests/setup-journey.test.mjs",
       "tests/browser-first-use.py"
     ],
-    "answer": "利用者が選んだUTF-8ファイルだけをローカルに保存。仕事別のハッシュ付き参照と接続先別の送信同意で渡し、添付から成果物・確認へ進める。入力資料のコピーを成果物と数えない。PNG/JPEGは独立した画像経路で扱う。PDF・Office入力は未対応。"
+    "answer": "利用者が選んだUTF-8ファイルだけをローカルに保存。仕事別のハッシュ付き参照と接続先別の送信同意で渡し、添付から成果物・確認へ進める。入力資料のコピーを成果物と数えない。PNG/JPEGは独立した画像経路で扱う。PDF・Office入力は未対応。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "requestReceipt": {
     "files": [
-      "core/requests.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs",
       "web/app.mjs",
       "web/bridge.mjs"
@@ -39,7 +39,7 @@ export const groups={
       "tests/setup-journey.test.mjs",
       "tests/browser-first-use.py"
     ],
-    "answer": "送信内容を要求IDに結び付け、応答を失った際の再送で仕事を重複させない。失敗時は下書きと添付を保持し、後から入力した内容を遅い応答で消さない。"
+    "answer": "送信内容を要求IDに結び付け、応答を失った際の再送で仕事を重複させない。失敗時は下書きと添付を保持し、後から入力した内容を遅い応答で消さない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "loopGate": {
     "files": [
@@ -56,52 +56,52 @@ export const groups={
   "agents": {
     "files": [
       "core/agents/rpc.mjs",
-      "core/agents/codex.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "web/app.mjs"
     ],
     "tests": [
-      "tests/agentos.test.mjs",
+      "tests/agent-runtime.test.mjs",
       "tests/http.test.mjs"
     ],
-    "answer": "Codex App Serverの公式stdio接続を実装。スレッド保持、逐次出力、承認、expectedTurnId付き途中指示、中断、切断時の結果不明を扱う。実Codex／実機では未評価。 制限ネットワークモードでは、通信を封じ込められない外部Codex自体を起動しない。"
+    "answer": "Codex App Serverの公式stdio接続を実装。スレッド保持、逐次出力、承認、expectedTurnId付き途中指示、中断、切断時の結果不明を扱う。実Codex／実機では未評価。 制限ネットワークモードでは、通信を封じ込められない外部Codex自体を起動しない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "scheduling": {
     "files": [
-      "core/routines.mjs",
-      "core/plans.mjs",
+      "core/agent/schedule.mjs",
       "web/app.mjs"
     ],
     "tests": [
-      "tests/agentos.test.mjs",
+      "tests/agent-runtime.test.mjs",
       "tests/http.test.mjs",
       "tests/browser-agentos.py"
     ],
-    "answer": "タイムゾーン付き定期／一回実行とDAGプランを実装。提案と有効化、依存条件、決定的実行ID、繰越の集約、権限変更時停止を分離。"
+    "answer": "タイムゾーン付き定期／一回実行とDAGプランを実装。提案と有効化、依存条件、決定的実行ID、繰越の集約、権限変更時停止を分離。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "checking": {
     "files": [
-      "core/verification.mjs",
-      "core/workspace.mjs",
-      "core/harness.mjs"
+      "core/agent/runtime.mjs",
+      "core/tools/fs.mjs",
+      "core/agent/loop.mjs"
     ],
     "tests": [
-      "tests/agentos.test.mjs",
+      "tests/agent-runtime.test.mjs",
       "tests/http.test.mjs"
     ],
-    "answer": "ファイル／JSON／artifact／承認済みコマンド結果の宣言的検査と最大2回の自動修正を実装。テスト後のファイル変更を検出する。"
+    "answer": "ファイル／JSON／artifact／承認済みコマンド結果の宣言的検査と最大2回の自動修正を実装。テスト後のファイル変更を検出する。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "continuity": {
     "files": [
       "core/context.mjs",
       "core/search.mjs",
-      "core/learning.mjs",
-      "core/harness.mjs"
+      "core/agent/compaction.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs"
     ],
     "tests": [
-      "tests/agentos.test.mjs"
+      "tests/agent-runtime.test.mjs"
     ],
-    "answer": "原依頼・訂正・作業メモを保つ作業コンテキスト、証拠の範囲取得、日本語bigram付きFTS5、出所付きの手順提案を実装。"
+    "answer": "原依頼・訂正・作業メモを保つ作業コンテキスト、証拠の範囲取得、日本語bigram付きFTS5、出所付きの手順提案を実装。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "speechEditor": {
     "files": [
@@ -110,10 +110,10 @@ export const groups={
       "web/app.mjs"
     ],
     "tests": [
-      "tests/agentos.test.mjs",
+      "tests/agent-runtime.test.mjs",
       "tests/http.test.mjs"
     ],
-    "answer": "ローカルモデルによる自然言語の下書き編集を実装。UTF-16範囲、原文照合、版、Undoを検査し、外部送信やPC操作のツールを渡さない。意味精度は未評価。"
+    "answer": "ローカルモデルによる自然言語の下書き編集を実装。UTF-16範囲、原文照合、版、Undoを検査し、外部送信やPC操作のツールを渡さない。意味精度は未評価。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "readiness": {
     "files": [
@@ -122,9 +122,9 @@ export const groups={
       "web/app.mjs"
     ],
     "tests": [
-      "tests/agentos.test.mjs"
+      "tests/agent-runtime.test.mjs"
     ],
-    "answer": "安全なnonceのツール呼び出しと結果の読み取りを実モデルに要求する接続検査を実装。モデル一覧だけを準備完了と呼ばない。"
+    "answer": "安全なnonceのツール呼び出しと結果の読み取りを実モデルに要求する接続検査を実装。モデル一覧だけを準備完了と呼ばない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "monitor": {
     "files": [
@@ -141,14 +141,15 @@ export const groups={
       "core/display.mjs",
       "web/display-model.mjs",
       "web/app.mjs",
-      "core/harness.mjs"
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs"
     ],
     "tests": [
       "tests/contracts.test.mjs",
       "tests/http.test.mjs",
       "tests/browser-preview.py"
     ],
-    "answer": "表示専用の検証済みスキーマ、順序・選択・文字サイズ・テーマ、変更履歴とUndo、今日だけ非表示、モデルからの表示ツールを実装。"
+    "answer": "表示専用の検証済みスキーマ、順序・選択・文字サイズ・テーマ、変更履歴とUndo、今日だけ非表示、モデルからの表示ツールを実装。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "native": {
     "files": [
@@ -183,18 +184,20 @@ export const groups={
   },
   "tasks": {
     "files": [
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs"
     ],
     "tests": [
       "tests/contracts.test.mjs",
       "tests/core.test.mjs"
     ],
-    "answer": "会話と仕事の独立レーン、会話からの委任、永続チェックポイント、一時停止・再開・途中指示、実行予算とループ停止を実装。"
+    "answer": "会話と仕事の独立レーン、会話からの委任、永続チェックポイント、一時停止・再開・途中指示、実行予算とループ停止を実装。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "approval": {
     "files": [
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs",
       "web/app.mjs"
     ],
@@ -202,12 +205,13 @@ export const groups={
       "tests/contracts.test.mjs",
       "tests/http.test.mjs"
     ],
-    "answer": "操作の引数・版に結び付く承認、有効期限、途中指示・権限撤回時の無効化、結果不明の操作記録と手動照合を実装。"
+    "answer": "操作の引数・版に結び付く承認、有効期限、途中指示・権限撤回時の無効化、結果不明の操作記録と手動照合を実装。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "artifact": {
     "files": [
       "core/store.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs",
       "web/app.mjs"
     ],
@@ -216,7 +220,7 @@ export const groups={
       "tests/http.test.mjs",
       "tests/browser-preview.py"
     ],
-    "answer": "版履歴、CAS編集、表示版の固定、他仕事からの上書き防止を実装。モデルの完了宣言は仕事の完了にせずreviewへ移す。"
+    "answer": "版履歴、CAS編集、表示版の固定、他仕事からの上書き防止を実装。モデルの完了宣言は仕事の完了にせずreviewへ移す。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "memory": {
     "files": [
@@ -257,50 +261,54 @@ export const groups={
   "shared": {
     "files": [
       "core/shared-assets.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs"
     ],
     "tests": [
       "tests/contracts.test.mjs"
     ],
-    "answer": "~/.agents/skillsの明示的・読み取り専用探索、名前空間ID、未承認シンボリックリンク拒否、内容ハッシュ照合、仕事内でのスキル版固定を実装。"
+    "answer": "~/.agents/skillsの明示的・読み取り専用探索、名前空間ID、未承認シンボリックリンク拒否、内容ハッシュ照合、仕事内でのスキル版固定を実装。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "mcp": {
     "files": [
       "core/mcp.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs"
     ],
     "tests": [
       "tests/core.test.mjs",
       "tests/http.test.mjs"
     ],
-    "answer": "stdio/HTTPのMCP接続と明示的実行承認を維持。登録だけでは起動せず、新規道具は無効で保存する。"
+    "answer": "stdio/HTTPのMCP接続と明示的実行承認を維持。登録だけでは起動せず、新規道具は無効で保存する。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "decision": {
     "files": [
       "core/decision.mjs",
       "core/runtime.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "workers/laya_server.py"
     ],
     "tests": [
       "tests/contracts.test.mjs",
       "workers/test_workers.py"
     ],
-    "answer": "Laya多言語版のローカルワーカーとJev互換の型付き判断を実装。期限・短い候補集合・応答検証を設け、権限・完了の証拠から分離する。"
+    "answer": "Laya多言語版のローカルワーカーとJev互換の型付き判断を実装。期限・短い候補集合・応答検証を設け、権限・完了の証拠から分離する。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "privacy": {
     "files": [
       "core/policy.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "web/app.mjs"
     ],
     "tests": [
       "tests/http.test.mjs",
       "tests/browser-preview.py"
     ],
-    "answer": "共有表示は下書き・成果物・個人通知を隠す。権限撤回で実行を止め、古い許可の文脈を無断再送しない。共有表示はOS認証の代替ではない。"
+    "answer": "共有表示は下書き・成果物・個人通知を隠す。権限撤回で実行を止め、古い許可の文脈を無断再送しない。共有表示はOS認証の代替ではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "media": {
     "files": [
@@ -316,14 +324,15 @@ export const groups={
   },
   "workspace": {
     "files": [
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/policy.mjs"
     ],
     "tests": [
       "tests/contracts.test.mjs",
       "tests/core.test.mjs"
     ],
-    "answer": "仕事ごとに作業ディレクトリを分離し、同名ファイルの仕事間衝突を避ける。ホストCLIをOSサンドボックスとは扱わない。"
+    "answer": "仕事ごとに作業ディレクトリを分離し、同名ファイルの仕事間衝突を避ける。ホストCLIをOSサンドボックスとは扱わない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "distribution": {
     "files": [
@@ -342,91 +351,95 @@ export const groups={
       "core/provider-registry.mjs",
       "core/provider-protocols.mjs",
       "web/provider-settings.mjs",
-      "core/harness.mjs"
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs"
     ],
     "tests": [
       "tests/routing-policy.test.mjs",
       "tests/routing-integration.test.mjs",
       "tests/browser-routing.py"
     ],
-    "answer": "名前付き接続先と4種類のAPI形式、主系・役割別・明示的代替経路、接続先専用キー、ツール往復検査、既存仕事の同意付き切替えを実装。全ベンダー固有認証の互換ではない。"
+    "answer": "名前付き接続先と4種類のAPI形式、主系・役割別・明示的代替経路、接続先専用キー、ツール往復検査、既存仕事の同意付き切替えを実装。全ベンダー固有認証の互換ではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "connectivity": {
     "files": [
       "core/network-policy.mjs",
       "core/server.mjs",
-      "core/requests.mjs",
+      "core/agent/runtime.mjs",
       "core/connectors.mjs"
     ],
     "tests": [
       "tests/routing-policy.test.mjs",
       "tests/routing-integration.test.mjs"
     ],
-    "answer": "オンライン／同一PCのみ／指定LAN推論機の通信境界を共通化。IP・ポート・APIパス固定、DNS・redirect検査、実行中の送信取消、ネットワーク待ちからのローカル継続を実装。OS全体の遮断ではない。"
+    "answer": "オンライン／同一PCのみ／指定LAN推論機の通信境界を共通化。IP・ポート・APIパス固定、DNS・redirect検査、実行中の送信取消、ネットワーク待ちからのローカル継続を実装。OS全体の遮断ではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "localVision": {
     "files": [
       "core/vision.mjs",
       "core/provider-protocols.mjs",
       "core/input-files.mjs",
-      "core/requests.mjs"
+      "core/agent/runtime.mjs"
     ],
     "tests": [
       "tests/routing-integration.test.mjs",
       "tests/browser-routing.py"
     ],
-    "answer": "PNG/JPEGの明示的取込と実画像のVLM送信を実装。クラウド文字モデルへは明示的共有範囲内の出所付き説明だけを返せる。説明は非可逆・機密性を維持。実VLM精度は未評価。"
+    "answer": "PNG/JPEGの明示的取込と実画像のVLM送信を実装。クラウド文字モデルへは明示的共有範囲内の出所付き説明だけを返せる。説明は非可逆・機密性を維持。実VLM精度は未評価。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "computerUse": {
     "files": [
-      "core/computer.mjs",
-      "workers/computer.py",
-      "core/harness.mjs",
+      "core/computer/index.mjs",
+      "core/computer/browser.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "web/provider-settings.mjs"
     ],
     "tests": [
-      "tests/computer-contracts.test.mjs",
+      "tests/agent-computer.test.mjs",
       "scripts/check-computer.mjs",
       "tests/browser-routing.py"
     ],
-    "answer": "専用ブラウザ／選択したWindows UIAウィンドウ、観測した要素ID・版・操作範囲の照合、権限解放、Laya候補選択とVLM画像観測を実装。ローカルHTMLを実Chromiumで操作し観測確認。Windows UIA・公開サイト・ログインは未検証。"
+    "answer": "専用ブラウザ／選択したWindows UIAウィンドウ、観測した要素ID・版・操作範囲の照合、権限解放、Laya候補選択とVLM画像観測を実装。ローカルHTMLを実Chromiumで操作し観測確認。Windows UIA・公開サイト・ログインは未検証。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "offlineCompute": {
     "files": [
-      "core/computer.mjs",
-      "workers/computer.py",
-      "core/harness.mjs"
+      "core/computer/index.mjs",
+      "core/computer/browser.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs"
     ],
     "tests": [
-      "tests/computer-contracts.test.mjs",
+      "tests/agent-computer.test.mjs",
       "scripts/check-computer.mjs"
     ],
-    "answer": "ホストAPI・ファイルハンドル・通信を渡さない使い捨てブラウザWorkerでJavaScript計算を実装。実計算、外部fetch拒否、無限ループ停止を検証。任意CLIのOSサンドボックスではない。"
+    "answer": "ホストAPI・ファイルハンドル・通信を渡さない使い捨てブラウザWorkerでJavaScript計算を実装。実計算、外部fetch拒否、無限ループ停止を検証。任意CLIのOSサンドボックスではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "recovery": {
     "files": [
       "core/provider-registry.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/network-policy.mjs"
     ],
     "tests": [
       "tests/routing-policy.test.mjs",
       "tests/routing-integration.test.mjs"
     ],
-    "answer": "資源別の入場制御、優先・待ち行列上限、共有クールダウン、最大5回の限定復帰、途中切替時の古い出力破棄を実装。未知の操作結果を自動再実行しない。GPU予約・24/7保証ではない。"
+    "answer": "資源別の入場制御、優先・待ち行列上限、共有クールダウン、最大5回の限定復帰、途中切替時の古い出力破棄を実装。未知の操作結果を自動再実行しない。GPU予約・24/7保証ではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "internetWork": {
     "files": [
       "core/web-tools.mjs",
       "core/network-policy.mjs",
-      "core/computer.mjs",
-      "workers/computer.py"
+      "core/computer/index.mjs",
+      "core/computer/browser.mjs"
     ],
     "tests": [
       "tests/routing-integration.test.mjs",
       "tests/routing-policy.test.mjs"
     ],
-    "answer": "出所・取得時刻付きのHTTPS文書取得と、許可オリジンの専用ブラウザ通信ブローカーを実装。私有IP・redirect・裏での送信を拒否。検索エンジンや既存ログインの引継ぎではない。"
+    "answer": "出所・取得時刻付きのHTTPS文書取得と、許可オリジンの専用ブラウザ通信ブローカーを実装。私有IP・redirect・裏での送信を拒否。検索エンジンや既存ログインの引継ぎではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "abilities": {
     "files": [
@@ -442,7 +455,8 @@ export const groups={
   "generatedMedia": {
     "files": [
       "core/media-jobs.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "core/server.mjs",
       "web/capability-ui.mjs"
     ],
@@ -451,37 +465,38 @@ export const groups={
       "scripts/check-capabilities.mjs",
       "tests/browser-capabilities.py"
     ],
-    "answer": "明示した内容・送信先で画像／画像編集／動画／読み上げを非同期に受付。受付ID・バイト列・出所を保存し、会話を止めずギャラリー／プレイヤーへ届ける。結果不明の新規生成は自動再送しない。実生成品質は未測定。"
+    "answer": "明示した内容・送信先で画像／画像編集／動画／読み上げを非同期に受付。受付ID・バイト列・出所を保存し、会話を止めずギャラリー／プレイヤーへ届ける。結果不明の新規生成は自動再送しない。実生成品質は未測定。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "semanticRecall": {
     "files": [
       "core/semantic.mjs",
       "core/store.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "web/capability-ui.mjs"
     ],
     "tests": [
       "tests/multimodal.test.mjs",
       "scripts/check-capabilities.mjs"
     ],
-    "answer": "埋め込みと語彙のハイブリッド記憶検索、汎用候補ランキング、ローカル埋め込みによるツール候補整列を実装。モデル空間・内容ハッシュ・共有状態を再確認し、古い索引で訂正や削除を無視しない。類似度は事実判定・権限ではない。"
+    "answer": "埋め込みと語彙のハイブリッド記憶検索、汎用候補ランキング、ローカル埋め込みによるツール候補整列を実装。モデル空間・内容ハッシュ・共有状態を再確認し、古い索引で訂正や削除を無視しない。類似度は事実判定・権限ではない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "toolCatalog": {
     "files": [
       "core/tool-hub.mjs",
       "core/mcp.mjs",
-      "core/harness.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "web/capability-ui.mjs"
     ],
     "tests": [
       "tests/multimodal.test.mjs",
       "tests/browser-capabilities.py"
     ],
-    "answer": "最大100件のmcpServersをプレビューして無効で一括登録。選択した最大12接続の起動を確認し最大3並列で一覧取得。大量のツールは必要時に検索し、全スキーマを毎回主モデルへ送らない。停止後の未起動接続は起動しない。"
+    "answer": "最大100件のmcpServersをプレビューして無効で一括登録。選択した最大12接続の起動を確認し最大3並列で一覧取得。大量のツールは必要時に検索し、全スキーマを毎回主モデルへ送らない。停止後の未起動接続は起動しない。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "managedLogin": {
     "files": [
-      "core/agents/codex-login.mjs",
       "core/server.mjs",
       "web/capability-ui.mjs"
     ],
@@ -489,20 +504,21 @@ export const groups={
       "tests/multimodal.test.mjs",
       "tests/browser-capabilities.py"
     ],
-    "answer": "公式Codex App Serverのブラウザ／デバイスコード認証を接続。TeporaはOAuthトークンを抜き出さない。既存APIキー認証をサブスク認証と偽らず、共有CLI認証の変更には追加確認。実アカウント試験は未実施。"
+    "answer": "公式Codex App Serverのブラウザ／デバイスコード認証を接続。TeporaはOAuthトークンを抜き出さない。既存APIキー認証をサブスク認証と偽らず、共有CLI認証の変更には追加確認。実アカウント試験は未実施。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "dualComputer": {
     "files": [
-      "core/computer-controllers.mjs",
-      "core/computer.mjs",
-      "core/harness.mjs",
+      "core/computer/decide.mjs",
+      "core/computer/index.mjs",
+      "core/agent/loop.mjs",
+      "core/agent/runtime.mjs",
       "web/provider-settings.mjs"
     ],
     "tests": [
       "tests/multimodal.test.mjs",
       "scripts/check-computer.mjs"
     ],
-    "answer": "LLM直指定と型付き意思決定の制御を分離。後者は実在する候補と操作・対象の一括質問から選び、同じ承認・版照合・ドライバを利用。DONEは独立観測で確認するまで提案。主モデル／Layaの判断精度は未評価。"
+    "answer": "LLM直指定と型付き意思決定の制御を分離。後者は実在する候補と操作・対象の一括質問から選び、同じ承認・版照合・ドライバを利用。DONEは独立観測で確認するまで提案。主モデル／Layaの判断精度は未評価。 ※2026-10の再構築で実装はcore/agent・core/tools・core/computerへ移った。この説明の細部は新しい基盤で再確認が必要。"
   },
   "modelCatalog": {
     "files": [
@@ -800,8 +816,8 @@ export const cases=[
   [
     "C17",
     "display",
-    "",
-    "mechanism_tested"
+    "新しいエージェント基盤で再確認する。",
+    "partial"
   ],
   [
     "C18",

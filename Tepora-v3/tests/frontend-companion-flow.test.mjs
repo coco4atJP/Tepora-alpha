@@ -1,25 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture,deferred,until} from './helpers/dialogue-ui-fixture.mjs';
-test('registry-only character submission uses pinned dialogue routes and verbatim negation',async()=>{
- const f=fixture();f.type('Do not start something else. Correct this sentence.');await f.run('submitDialogue()');
- assert.equal(f.requests().length,1);assert.equal(f.requests()[0].value.sessionId,'session-one');assert.equal(f.requests()[0].value.contextConsent,'execution-route');assert.equal(f.requests()[0].value.targetJobId,undefined);assert.match(f.requests()[0].value.input,/^Do not/);assert.equal(f.calls[0].path,'/api/dialogue/context');assert.ok(!f.calls.some(c=>/\/(steer|resume)$/.test(c.path)));
-});
 test('uncertain send locks attachment add/remove and retries exact old receipt despite new typing and detail focus',async()=>{
- let fail=true;const f=fixture(path=>path==='/api/dialogue'&&fail?Promise.reject(Object.assign(new Error('Lost response'),{status:500})):null);
+ let fail=true;const f=fixture(path=>path==='/api/agent/input'&&fail?Promise.reject(Object.assign(new Error('Lost response'),{status:500})):null);
  f.ctx.attachedFiles=[{id:'file1',name:'original.txt',bytes:5}];f.type('Original');
  await assert.rejects(f.run('submitDialogue()'),/Lost/);const original=f.requests()[0].value;
  await assert.rejects(f.run("detachFile({dataset:{id:'file1'}})"),/前の送信/);await assert.rejects(f.run('attachFiles()'),/前の送信/);
  f.type('Fresh words');f.state.companion={revision:2,focusJobId:'other',returnStack:[]};fail=false;await f.run('submitDialogue(false,true)');
  assert.deepEqual(f.requests()[1].value,original);assert.equal(f.el('#composer-input').value,'Fresh words');assert.equal(f.ctx.attachedFiles.length,0);
 });
-test('sending lock covers awaited context and Stop cancels before POST',async()=>{
- const hold=deferred();const f=fixture(path=>path==='/api/dialogue/context'?hold.promise:null);f.type('Do this');
- const first=f.run('submitDialogue()');await until(()=>f.calls.length===1);await f.run('submitDialogue()');assert.equal(f.calls.length,1);
- f.run('invalidatePendingSubmit();cancelVoice()');hold.resolve({id:'execution-route',remote:false});await assert.rejects(first,/中止/);assert.equal(f.requests().length,0);assert.equal(f.el('#composer-input').value,'Do this');
-});
 test('a file picker opened before a pending send cannot erase its uncertain receipt',async()=>{
- const hold=deferred();const f=fixture(path=>path==='/api/dialogue'?hold.promise:null);f.type('Original');
+ const hold=deferred();const f=fixture(path=>path==='/api/agent/input'?hold.promise:null);f.type('Original');
  const attach=f.run('attachFiles()');await until(()=>f.ctx.picker);const send=f.run('submitDialogue()');await until(()=>f.requests().length===1);
  const observed=assert.rejects(send,/Lost/);hold.reject(Object.assign(new Error('Lost receipt'),{status:500}));await observed;
  const original=f.ctx.pendingRequest;f.ctx.picker.files=[{name:'late.txt',size:2,arrayBuffer:async()=>new TextEncoder().encode('hi').buffer}];f.ctx.picker.onchange();
@@ -38,20 +29,15 @@ test('default finalized speech edits draft and never executes',async()=>{
 test('explicit voice opt-in sends one finalized utterance through the same receipt route; partial sends zero',async()=>{
  const f=fixture();f.ctx.voiceSendEnabled=true;f.ctx.voiceSendConsent={context:{id:'execution-route'}};
  await f.run('recordToggle()');f.RealtimeStub.last.callbacks.onPartial('Do');f.RealtimeStub.last.callbacks.onPartial('Do something');assert.equal(f.requests().length,0);
- await f.run('recordToggle()');await until(()=>f.requests().length===1&&!f.ctx.sending);assert.equal(f.requests()[0].value.input,'Final utterance');assert.equal(f.requests()[0].value.sessionId,'session-one');assert.equal(f.draft.content,'');
+ await f.run('recordToggle()');await until(()=>f.requests().length===1&&!f.ctx.sending);assert.equal(f.requests()[0].value.text,'Final utterance');assert.equal(f.requests()[0].value.source,'voice');assert.equal(f.draft.content,'');
 });
 test('voice opt-in never dispatches after cancel/draft epoch change',async()=>{
  const f=fixture();f.ctx.voiceSendEnabled=true;f.ctx.voiceSendConsent={context:{id:'execution-route'}};await f.run('recordToggle()');const stale=f.RealtimeStub.last.callbacks;
  f.run('cancelVoice();draftContext.clear();pinDraft()');stale.onFinal('Late old voice');await new Promise(r=>setImmediate(r));assert.equal(f.requests().length,0);assert.equal(f.draft.content,'');
 });
-test('voice automatic send cancelled during context lookup stays a draft',async()=>{
- const hold=deferred();const f=fixture(path=>path==='/api/dialogue/context'?hold.promise:null);f.ctx.voiceSendEnabled=true;f.ctx.voiceSendConsent={context:{id:'execution-route'}};
- await f.run('recordToggle()');await f.run('recordToggle()');await until(()=>f.calls.some(c=>c.path==='/api/dialogue/context'));
- f.run('cancelVoice()');hold.resolve({id:'execution-route',remote:false});await until(()=>!f.ctx.sending);assert.equal(f.requests().length,0);assert.equal(f.draft.content,'Final utterance');assert.equal(f.ctx.pendingSpeech,'');
-});
-test('voice opt-in refuses attachment changes, edited dictation, and changed execution destination',async()=>{
- for(const change of ['attachment','editing','destination']){
-  const f=fixture(path=>change==='destination'&&path==='/api/dialogue/context'?{id:'new-remote',remote:true}:null);f.ctx.voiceSendEnabled=true;f.ctx.voiceSendConsent={context:{id:'execution-route'}};await f.run('recordToggle()');
+test('voice opt-in refuses attachment changes and edited dictation',async()=>{
+ for(const change of ['attachment','editing']){
+  const f=fixture();f.ctx.voiceSendEnabled=true;f.ctx.voiceSendConsent={context:{id:'execution-route'}};await f.run('recordToggle()');
   if(change==='attachment')f.ctx.attachmentEpoch++;
   if(change==='editing'){f.state.settings.dictationEditing=true;f.ctx.bridge.request=async()=>({baseRevision:0,utteranceId:f.ctx.voiceAnchor.id,edits:[{start:0,end:0,text:'Edited'}]});}
   await f.run('recordToggle()');await new Promise(r=>setImmediate(r));assert.equal(f.requests().length,0,change);assert.ok(f.draft.content,change);

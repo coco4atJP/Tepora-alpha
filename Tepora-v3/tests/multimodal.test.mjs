@@ -3,16 +3,13 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import os from 'node:os';import path from 'node:path';import {createHash,randomUUID} from 'node:crypto';
-import {EventEmitter} from 'node:events';
 import {Store} from '../core/store.mjs';
 import {NetworkPolicy} from '../core/network-policy.mjs';
 import {Capabilities,validateCapability} from '../core/capabilities.mjs';
-import {SemanticMemory,cosine} from '../core/semantic.mjs';
+import {SemanticMemory} from '../core/semantic.mjs';
 import {MediaJobs} from '../core/media-jobs.mjs';
 import {ToolHub,normalizeServer} from '../core/tool-hub.mjs';
 import {ModelCatalog,parseCatalog} from '../core/model-catalog.mjs';
-import {ComputerControllers,decisionQuestions} from '../core/computer-controllers.mjs';
-import {CodexLogin} from '../core/agents/codex-login.mjs';
 import {startServer} from '../core/server.mjs';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn){for(let i=0;i<500;i++){if(fn())return;await sleep(5);}throw Error('Condition timed out');}
@@ -140,49 +137,13 @@ test('catalog imports data rather than executing provider npm or trusting suppli
  const f=await fixture(t),cat=new ModelCatalog(f.store,f.network);const raw={provider:{name:'Fixture',npm:'malicious-script',api:'file:///etc/passwd',models:{m:{name:'Vision',tool_call:true,modalities:{input:['text','image'],output:['text']},limit:{context:1000}}}}};
  cat.import(raw);const r=cat.search('image');assert.equal(r.count,1);assert.equal(r.models[0].verified,false);assert.equal(r.models[0].api,undefined);assert.equal(r.models[0].npm,undefined);assert.equal(r.models[0].context,1000);
 });
-const obs={revision:'r1',title:'owned page',url:'https://example.com/',text:'form',nodes:[{id:'e1',name:'Submit',role:'button',actions:['click']},{id:'e2',name:'Name',role:'textbox',value:'',actions:['fill']}]};
-function decisions(questions,op='click',target='e1'){
- const answers={};for(const [id,q]of Object.entries(questions)){if(q.type==='noul'){answers[id]={type:'noul',noul:1};continue;}const choice=id==='operation'?op:Object.hasOwn(q.criteria,target)?target:'none';answers[id]={type:'choice',choice,confidence:.95,probabilities:Object.fromEntries(Object.keys(q.criteria).map(k=>[k,k===choice?1:0]))};}return {answers};
-}
-test('decision computer step batches operation and per-operation targets without generating text',()=>{
- const q=decisionQuestions(obs,'Fill name and submit',{values:{e2:'Tepora'}});assert.ok(q.questions.operation&&q.questions.click_target&&q.questions.fill_target&&q.questions.goal_satisfied);assert.equal(q.values.e2,'Tepora');assert.throws(()=>decisionQuestions(obs,'goal',{values:{invented:'x'}}),/observed/);
-});
-test('decision control selects once, approves concrete action, and shares the execution driver',async()=>{
- const events=[];const computer={config:()=>({controller:'decision'}),observe:async()=>obs,hasLocalActionGrant:()=>false,act:async(j,a)=>{events.push(['act',a]);return {observation:{...obs,text:'success'}};}};
- const caps={get:()=>({routes:{decision:'d'}}),decide:async(state,q)=>{events.push(['decide',q]);return decisions(q);}};
- const ctrl=new ComputerControllers(computer,caps);const r=await ctrl.step({id:'j'},{goal:'Submit',verify:{type:'textIncludes',value:'success'}},new AbortController().signal,{approve:async a=>events.push(['approve',a])});
- assert.deepEqual(events.map(e=>e[0]),['decide','approve','act']);assert.equal(r.verification.verified,true);assert.equal(events[1][1].target,'e1');await assert.rejects(ctrl.direct({id:'j'},{},undefined),/系統/);
-});
-test('decision DONE with high confidence is not proof without independent verification',async()=>{
- const computer={config:()=>({controller:'both'}),observe:async()=>obs,hasLocalActionGrant:()=>true,act:()=>{throw Error('must not');}};
- const ctrl=new ComputerControllers(computer,{get:()=>({routes:{decision:'d'}}),decide:async(_,q)=>decisions(q,'done')});
- const r=await ctrl.step({id:'j'},{goal:'some goal'},new AbortController().signal);assert.equal(r.status,'needs-verification');assert.equal(r.executed,false);
-});
-test('new user instructions invalidate a decision before approval and execution',async()=>{
- let executed=false;const computer={config:()=>({controller:'both'}),observe:async()=>obs,hasLocalActionGrant:()=>true,act:()=>{executed=true;}};
- const ctrl=new ComputerControllers(computer,{get:()=>({routes:{decision:'d'}}),decide:async(_,q)=>decisions(q)});
- await assert.rejects(ctrl.step({id:'j'},{goal:'Submit'},new AbortController().signal,{assertRevision:()=>{throw Error('changed');}}),/changed/);assert.equal(executed,false);
-});
-class FakeRPC extends EventEmitter{constructor(reply){super();this.reply=reply;this.methods=[];}start(){return this;}request(m,p){this.methods.push([m,p]);return this.reply(m,p,this);}notify(){}reject(){}close(){this.closed=true;}}
-test('Codex device login handles a completion notification arriving before its response',async()=>{
- const rpc=new FakeRPC(async(m,p,self)=>{if(m==='account/read')return {account:null};if(m==='account/login/start'){self.emit('notification',{method:'account/login/completed',params:{loginId:'id',success:true}});return {loginId:'id',verificationUrl:'https://auth.openai.com/device',userCode:'ABCD-EFGH'};}return {};});
- const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc});const r=await flow.start();assert.equal(r.phase,'complete');assert.equal(r.authenticated,true);assert.ok(rpc.methods.some(([m,p])=>m==='account/login/start'&&p.type==='chatgptDeviceCode'));assert.equal(rpc.closed,true);
-});
-test('Codex auth ignores unrelated completion IDs and never logs out a shared CLI account on cancel',async()=>{
- const rpc=new FakeRPC(async m=>m==='account/read'?{account:null}:m==='account/login/start'?{loginId:'right',verificationUrl:'https://auth.openai.com/device',userCode:'CODE'}:{});
- const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc});await flow.start();flow.completed({loginId:'wrong',success:true});assert.equal(flow.status().phase,'waiting');await flow.cancel();assert.ok(rpc.methods.some(([m])=>m==='account/login/cancel'));assert.ok(!rpc.methods.some(([m])=>m==='account/logout'));assert.equal(flow.status().phase,'cancelled');
-});
-test('Codex rejects foreign authentication URLs',async()=>{
- const rpc=new FakeRPC(async m=>m==='account/read'?{account:null}:m==='account/login/start'?{loginId:'right',verificationUrl:'https://evil.invalid/device',userCode:'CODE'}:{});
- const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc});await assert.rejects(flow.start(),/Unexpected/);assert.equal(rpc.closed,true);
-});
 test('HTTP generation endpoints require consent and support bounded media range playback',async t=>{
  const f=await fixture(t,()=>wav());const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-mm-http-'));const app=await startServer({dir,mediaOptions:{pollMs:5}});t.after(async()=>{await app.close();await rm(dir,{recursive:true,force:true});});
  const launch=await fetch(app.launchUrl,{redirect:'manual'}),cookie=launch.headers.get('set-cookie').split(';')[0];const bootstrap=await (await fetch(app.origin+'/api/bootstrap',{headers:{cookie}})).json();
  const req=(url,method='GET',body)=>fetch(app.origin+url,{method,headers:{cookie,'x-tepora-csrf':bootstrap.csrf,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
  let res=await req('/api/capabilities','PUT',{expectedRevision:0,config:{profiles:[rawProfile('s','openai-speech',f.base)],routes:{tts:'s'}}});assert.equal(res.status,200);const p=(await res.json()).profiles[0];
  const payload={kind:'tts',prompt:'hello',requestId:'http-request',profileIdentity:p.identity};assert.equal((await req('/api/media/jobs','POST',payload)).status,403);
- res=await req('/api/media/jobs','POST',{...payload,consent:true});assert.equal(res.status,202);await until(()=>app.harness.media.list()[0].status==='ready');const asset=app.harness.media.list()[0].asset;
+ res=await req('/api/media/jobs','POST',{...payload,consent:true});assert.equal(res.status,202);await until(()=>app.media.list()[0].status==='ready');const asset=app.media.list()[0].asset;
  res=await fetch(app.origin+'/api/media/assets/'+asset.id,{headers:{cookie,range:'bytes=0-43'}});assert.equal(res.status,206);assert.equal((await res.arrayBuffer()).byteLength,44);assert.match(res.headers.get('content-range'),/^bytes 0-43/);
  res=await fetch(app.origin+'/api/media/assets/'+asset.id,{headers:{cookie,range:'bytes=99999999-'}});assert.equal(res.status,416);
 });
@@ -198,10 +159,6 @@ let current=0,maximum=0;
  const hub=new ToolHub(f.store,f.network,{clientFactory:c=>({connect:async()=>{current++;maximum=Math.max(maximum,current);await sleep(8);if(c.id==='bad')throw Error('fixture failure');},request:async()=>({tools:[]}),close:()=>current--})});t.after(()=>hub.close());
  for(const id of ['a','b','bad','c','d'])f.store.put('mcp',{id,name:id,enabled:false,transport:'stdio',command:'fixture',args:[]});
  const p=hub.previewConnect(['a','b','bad','c','d']);const result=await hub.connectBatch(p.id,true);assert.equal(result.results.length,5);assert.equal(result.results.filter(r=>!r.ok).length,1);assert.ok(maximum<=3);
-});
-test('cancelling managed sign-in while initialize is pending cannot start login later',async()=>{
- let release;const rpc=new FakeRPC(m=>m==='initialize'?new Promise(r=>{release=r;}):Promise.resolve({account:null}));const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc});
- const start=flow.start();await until(()=>release);await flow.cancel();release({});await assert.rejects(start,/取り消/);assert.equal(flow.status().phase,'cancelled');assert.ok(!rpc.methods.some(([m])=>m==='account/login/start'));
 });
 test('graceful media shutdown retains a known video handle for explicit recovery',async t=>{
  const f=await fixture(t,()=>({request_id:'known'}));f.media.pollMs=60000;f.set([rawProfile('v','xai-video',f.base)]);f.create('video');await until(()=>f.media.list()[0].status==='running');await f.media.close();assert.equal(f.media.list()[0].status,'paused');assert.equal(f.media.list()[0].canResume,true);assert.equal(f.requests.length,1);
@@ -225,20 +182,4 @@ let opens=0;const releases=[];
  const preview=hub.previewConnect(Array.from({length:8},(_,n)=>'s'+n));const pending=hub.connectBatch(preview.id,true);
  await until(()=>opens===3);hub.stopDiscovery();const result=await pending;
  assert.equal(opens,3);assert.equal(result.results.filter(x=>x.cancelled).length,5);assert.equal(f.store.list('mcp').filter(c=>c.enabled).length,3);
-});
-test('native sign-in open is bound to the active managed login, not an arbitrary URL',async()=>{
- const urls=[];const rpc=new FakeRPC(async m=>m==='account/read'?{account:null}:m==='account/login/start'?{loginId:'current',verificationUrl:'https://auth.openai.com/codex/device',userCode:'ABCD-EFGH'}:{});
- const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc,openURL:async url=>urls.push(url)});
- await flow.start();await assert.rejects(flow.open('stale'),/更新/);await flow.open('current');assert.deepEqual(urls,['https://auth.openai.com/codex/device']);await flow.cancel();await assert.rejects(flow.open('current'),/更新/);
-});
-
-test('an existing Codex API key is not mislabeled as a ChatGPT subscription or replaced implicitly',async()=>{
- const rpc=new FakeRPC(async m=>m==='account/read'?{account:{type:'apiKey'}}:{});
- const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc});
- const status=await flow.start();assert.equal(status.phase,'existing-api-key');assert.equal(status.accountType,'apiKey');assert.ok(!rpc.methods.some(([m])=>m==='account/login/start'));assert.equal(rpc.closed,true);
-});
-test('switching shared Codex authentication to a subscription requires an explicit flag',async()=>{
- const rpc=new FakeRPC(async m=>m==='account/read'?{account:{type:'apiKey'}}:m==='account/login/start'?{loginId:'switch',verificationUrl:'https://auth.openai.com/codex/device',userCode:'CODE'}:{});
- const flow=new CodexLogin({dir:os.tmpdir(),settings:{codexEnabled:true}},{assertUncontained(){}},{rpcFactory:()=>rpc});
- assert.equal((await flow.start({switchAccount:true})).phase,'waiting');assert.ok(rpc.methods.some(([m])=>m==='account/login/start'));await flow.cancel();
 });

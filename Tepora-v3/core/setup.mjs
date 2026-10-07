@@ -39,8 +39,7 @@ export class SetupManager{
  snapshot(){
   const s=this.store.settings,p=this.store.value('model-probe');
   const verified=Boolean((local(s)||s.allowCloud)&&p?.passed&&p.destination===destination(s)&&Date.now()-Date.parse(p.checkedAt)<86400000);
-  const artifactJobs=new Set(this.store.list('artifact').map(a=>a.jobId));
-  const first=this.store.list('job').find(j=>j.kind!=='demo'&&j.status==='completed'&&j.acceptedAt&&artifactJobs.has(j.id));
+  const first=this.store.list('session').find(x=>x.kind!=='main'&&['done','idle'].includes(x.status)&&x.result);
   return {dismissed:!!this.store.value('setup-dismissed'),configured:!!s.model,verified,checkedAt:verified?p.checkedAt:null,
    model:s.model,provider:s.provider,local:local(s),stage:first?'first-result':verified?'connected':'connect',firstResult:first?{id:first.id,title:first.title}:null,
    candidates:[...this.candidates.values()].map(({expiresAt,...c})=>c),engines:[...this.engines.values()].map(({expiresAt,...e})=>e),
@@ -85,10 +84,10 @@ export class SetupManager{
   invariant(!this.harness.registry?.configured,'名前付きの接続が設定されています。接続先の変更は「知能と通信の使い分け」から行ってください。',409);
   invariant(consentTest===true,'接続確認には短いモデル呼び出しを行います。確認を許可してください。',403);
   invariant(!this.probing&&!this.active,'準備中の処理を終了してから接続を選んでください。',409);
-  invariant(this.harness.active.size===0&&this.harness.queue.length===0,'仕事が進行中です。接続を切り替える前に停止してください。',409);
+  invariant(!this.harness.busy(),'仕事が進行中です。接続を切り替える前に停止してください。',409);
   const c=this.candidates.get(id);invariant(c&&c.expiresAt>Date.now(),'候補を再検索してください。',409);
   const registryRevision=this.harness.registry?.get().revision;
-  const previous=configuration(this.store.settings),previousKey=this.harness.key,cancel=new AbortController();this.probing=cancel;this.emit();
+  const previous=configuration(this.store.settings),cancel=new AbortController();this.probing=cancel;this.emit();
   const settings=validateSettings({provider:c.provider,baseUrl:c.baseUrl,model:c.model,apiKeyEnv:''},this.store.settings);
   try{
    const runtime=this.runtimeFactory?this.runtimeFactory(settings,''):new Runtime(settings,'',this.fetch);
@@ -98,8 +97,8 @@ export class SetupManager{
     const listing=await this.getJSON(`${c.baseUrl.replace(/\/v1$/,'')}/api/tags`,{signal:AbortSignal.any([cancel.signal,AbortSignal.timeout(5000)])});
     invariant(listing.models?.some(m=>m.name===c.model&&m.digest===c.digest&&!m.remote_host&&!m.remote_model),'確認中にモデルが変更されました。再検索してください。',409);
    }
-   invariant(previous===configuration(this.store.settings)&&previousKey===this.harness.key,'設定が変更されました。現在の設定を上書きしていません。',409);
-   invariant(!this.harness.active.size&&!this.harness.queue.length,'確認中に仕事が始まったため切り替えていません。',409);
+   invariant(previous===configuration(this.store.settings),'設定が変更されました。現在の設定を上書きしていません。',409);
+   invariant(!this.harness.busy(),'確認中に仕事が始まったため切り替えていません。',409);
    let preset;
    if(this.harness.registry){
     invariant(this.harness.registry.get().revision===registryRevision,'接続設定が変更されました。現在の経路を上書きしません。',409);
@@ -110,7 +109,7 @@ export class SetupManager{
     if(preset){this.harness.registry.save(preset,registryRevision);const p=this.harness.registry.get().profiles[0];this.store.put('provider-probe',{...report,id:p.identity,profileId:p.id,ok:true,scope:'first-use safe tool roundtrip, not model quality'});}
     this.store.db.exec('COMMIT');
    }catch(e){this.store.db.exec('ROLLBACK');throw e;}
-   this.harness.key='';this.store.emit('settings.updated',settings);if(preset)this.store.emit('providers.updated',this.harness.registry.publicSnapshot());return {activated:true,report};
+   this.store.emit('settings.updated',settings);if(preset)this.store.emit('providers.updated',this.harness.registry.publicSnapshot());return {activated:true,report};
   }finally{this.probing=null;this.emit();}
  }
  setTransfer(t){if(this.closed||this.store.closed)return t;this.store.value('setup-transfer',t);this.store.emit('setup.transfer',t);return t;}

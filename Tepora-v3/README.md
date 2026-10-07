@@ -94,17 +94,12 @@ were imported. Discovered tools are searched on demand instead of filling every 
 **設定 → AIとの接続 → モデルを探す** imports/refreshes optional models.dev metadata and can use its cached JSON
 offline. It never installs packages from metadata or treats a capability listing as a passed test.
 
-In explicitly acknowledged **legacy-host** mode,
-**設定 → 仕事の実行 → Codex → ChatGPTの契約でサインイン** uses the installed official App Server's managed
-browser/device-code flow. Tokens stay with Codex; no token extraction. Existing API-key auth is
-reported separately and is not silently converted. Limits and billing follow the account.
-
 ## Supported API families
 
 | Role | API adapter in this build |
 | --- | --- |
 | Main/chat/work/vision/dictation | Chat Completions, Responses, Anthropic Messages, Gemini generateContent |
-| Typed decisions | System One `state + questions -> answers`, including Laya multilingual/Jev-compatible servers |
+| Typed decisions | System One `state + questions -> answers`: Liquid d1 (cloud) and the local Laya multilingual worker |
 | Embeddings | OpenAI-compatible `/embeddings`, Ollama `/embed` |
 | TTS | OpenAI-compatible `/audio/speech` |
 | Images | OpenAI-compatible `/images/generations` and multipart `/images/edits` |
@@ -118,7 +113,7 @@ No Vercel account, hosted gateway, or Vercel AI SDK dependency is introduced.
 Additional subscription plans have provider-specific scope/auth requirements. This build does
 not impersonate other clients or treat a coding-only plan as unlimited general-purpose inference.
 Official OpenCode Go's required coding/session-header integration and other subscription OAuth
-flows are not implemented; Codex managed login is the new concrete subscription connection.
+flows are not implemented.
 
 ## Local floor and optional workers
 
@@ -149,39 +144,36 @@ latency claim**. Existing speech capture, local semantic-draft editing and prote
 remain. No full-duplex voice, wake-word/diarization or Pixel-equivalent quality claim is made.
 New local TTS/image/video/embedding runtime managers are deliberately not added.
 
-## Execution boundary
+## Agents
 
-New installations default to **protected** mode. Ordinary model conversation and trusted built-in
-API/file/artifact tools work without Docker. Restricted code execution needs Docker and a
-preinstalled, explicitly approved `repository@sha256:...` Node image. It receives a bounded JSON
-capsule with source hashes and revisions; no host mounts, credentials or network are provided.
-No image pull, package install or host fallback is automatic.
+The character is the resident chief of staff: it talks with you, delegates anything substantial to
+asynchronous work agents (as many as you like), receives their reports and decides what to tell you.
+The loop does not stop on failures; it classifies and recovers (backoff and failover, learned waits for
+slow models, overflow and silent-truncation recovery, truncated replies continued, broken tool arguments
+repaired). Long work is compacted with an exact ledger kept by the harness, chapter summaries that are
+never re-summarised, and lossless `recall` / `history_search`. The prompt prefix only changes in batches,
+so provider caches keep hitting. Design: [docs/AGENT-HARNESS.md](docs/AGENT-HARNESS.md).
 
-Executor artifacts are staged candidates. Preview the exact content and source version before
-promotion; promotion preserves old versions and is separate from task acceptance and content
-verification. Unknown outcomes and unconfirmed cleanup are not replayed automatically.
+Work agents run shell commands, read/write/edit files (images too), search and read the Web
+(question-focused reading returns only the relevant sections), generate media, keep a checklist,
+use skills (`~/.agents/skills`, Agent Skills format), MCP tools and plugins (`<data>/plugins/*.mjs`,
+which may also hook tool calls, requests and turn ends), and operate a computer.
 
-Host CLI, Codex, MCP, Computer Use and model launchers are retained behind explicit **legacy-host**
-acknowledgement. Stop active work and known host workers before switching. This mode can access or
-modify core files and backups. Protected live HTML artifacts are escaped source; interactive HTML
-is a legacy-host feature. See [BETA11](docs/BETA11.md) for the full contract and remaining limits.
+**Protection is off by default**: commands run directly on this computer, in a work folder (`~/Tepora`).
+One setting confines them: work folder only (Seatbelt/bubblewrap), read-only, or a container. Approval
+rules (`allow` / `ask` / `deny`) can be added per tool and argument pattern. An optional spending limit
+pauses work instead of stopping it.
 
-## Computer Use and work
+## Computer use
 
-Choose **LLM / typed decision / both** in the Computer Use settings. The LLM lane issues explicit
-observed-control actions; the decision lane batches operation and matching current target choices.
-Both pass through the same consent, observation revision, bounded driver and independent result
-checks. Neither a high probability nor a model's DONE is completion evidence.
-
-Owned browser automation and selected Windows UIA are included. Python, Playwright and a local
-browser are optional dependencies. Windows UIA is not verified on a real Windows machine; macOS
-full-desktop accessibility control is not implemented. Existing private browser profiles are not
-copied. Host CLI, Codex, MCP, Computer Use and model launchers require explicit **legacy-host** mode.
-They are **not** OS-sandboxed. Importing their settings does not enable host execution.
-
-The background harness retains conversation/work lanes, durable checkpoints and effect receipts,
-steering, scoped approvals, interrupted-work handling, accepted-vs-verified results, work plans,
-routines, provider routing, bounded recovery and per-task workspaces. See [the beta.11 architecture](docs/ARCHITECTURE.md).
+Work agents operate a Chromium-family browser over the DevTools protocol (headless by default, one tab per
+agent, nothing to install) and, on macOS, desktop apps through the Accessibility API (a small Swift helper
+built on first use; needs the Accessibility and Screen Recording permissions). The preferred way is
+**decision-model control**: the agent gives a small goal, the text to enter and checks that prove
+completion; the decision model (Liquid d1 or Laya) picks each next action from controls that exist on
+screen, with probability gates, freshness checks and local verification. Without a decision model the
+agent's own model chooses from the same shortlist. Direct actions (click, type, key, scroll, screenshot,
+coordinates) are always available too.
 
 **Full offline** restricts Tepora-controlled calls to already available on-device capabilities.
 **Trusted LAN** permits the specifically pinned inference endpoints, not the whole LAN. Public
@@ -192,7 +184,9 @@ firewall, and cannot prevent a user-run local server from forwarding data elsewh
 
 ```sh
 npm run improve:check        # syntax, all Node tests, Python contracts, scenarios, preview
-npm run test:capabilities    # actual harness/HTTP/files with deterministic capability fixtures
+npm run test:capabilities    # agent -> embedding/image/speech endpoints -> files, deterministic fixtures
+npm run test:computer        # real headless browser: direct actions, decision loop, screenshot (+ macOS helper)
+node scripts/eval-agent.mjs --run --url http://127.0.0.1:8080/v1 --model <model>   # real-model eval with metrics
 npm run improve:full         # also UI and owned-browser Computer Use; existing browser required
 npm run improve:watch        # recheck only after source changes; Ctrl+C stops
 ```
