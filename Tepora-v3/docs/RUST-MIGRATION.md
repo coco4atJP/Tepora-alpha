@@ -285,3 +285,11 @@ setup側のPTY修正込みゲートはnative library364＋CLI2、Node HTTP24、c
 HTTP実装差分とinventoryを照合したルート実数は126のうち実装62・部分13・未実装51（handlerあり75）、別枠static22。完成率ではない。decisionルート拒否、添付モデル配送・session削除・find/grep・scheduler/heartbeat・MCP・media/speech・PC操作・JS plugins・独自avatar素材/写真の未移植範囲は維持し、通常Node/JavaScript/CSS/Tauri起動は変更しない。
 
 意味検索チェックポイントの最終追加確認: build-notice/HTTP/native-agent/ルートを合わせた48件がNode22/24それぞれ合格。前段eba5bd4は実macOS360＋CLI2・Windows328＋CLI2とLinux全回帰が合格し、その後は既知のプラットフォームNode失敗で配布工程が未実行となった。この結果を新しい意味検索headのCIへ読み替えない。
+
+## 既存プラットフォーム検証の修復
+
+Rust移行前からCIを止めていた検証障害を、移行回帰と分けて修正した。vendorはGitの改行変換を止めて固定14ハッシュを維持し、Windowsのfile URLはfileURLToPathで解決する。再起動を含む全テストサービスを終了してから共有データを削除し、SQLiteロックと残留HTTPサーバーを防ぐ。Seatbelt本来の検証は維持し、独立したcontainer計画はDocker未導入時の既存409を検証する。一般的なcmd.exe引用符処理は変更していない。日本語ストリーミングfixtureはstdinで確実にコードを渡し、出力と終了状態を確認する。
+
+名前付き作業ルートの検証はNodeとRustの双方を現在のOSのパス文法へ揃えた。実在するディレクトリーだけを使い、URL/版数/報告だけの裸ファイル名、失敗したtool証拠、最大8件の規則を保持する。Windows/UNCの文法テストはLinux上の純粋文字列試験であり、共有先を探査しない。実Windowsでの動作はこのチェックポイントのCIで確認する。
+
+ローカル検証: Node22/24で影響範囲85件と厳格container計画1件がそれぞれ合格、skipなし。新しいautocrlf=true checkoutでもvendor14ハッシュは元の値と一致。native391＋CLI2、Node claims/runtime/native-agent50件合格。Nativeコアは変更せず、completion待ち8秒と判定assertionを維持し、失敗時診断を追加した。包括agent-toolsのDNS/bubblewrap環境失敗、一般的cmd引用符、間欠的completion遅延、配布物の実行はこれだけで解消・確認済みとはしない。

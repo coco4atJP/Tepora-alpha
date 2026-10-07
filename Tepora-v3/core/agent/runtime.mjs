@@ -36,6 +36,14 @@ export function stampHeader(date=new Date(),source=''){
  return `[${p.year}-${p.month}-${p.day} ${p.weekday} ${p.hour}:${p.minute} ${p.timeZoneName}${source?' · '+source:''}]`;
 }
 
+/** Path grammar follows the host filesystem; foreign drive syntax is not a native root. */
+export function claimPathPatterns(paths=path){
+ const windows=paths.sep==='\\',separator=windows?String.raw`[\\/]`:'/',root=windows?String.raw`(?:[A-Za-z]:[\\/]|[\\/]{2}|[\\/]|~[\\/])`:String.raw`(?:/|~/)`;
+ const filePattern=new RegExp(String.raw`(?<![\w/\\:.~-])((?:${root}|\.${separator})?(?:[\w.-]+${separator})*[\w-][\w.-]*\.[A-Za-z][A-Za-z0-9]{0,5})(?![\w/\\-]|\.[A-Za-z0-9])`,'gu');
+ const directoryPattern=new RegExp(String.raw`["'\x60（(「『](${root}[^"'\x60）)」』\r\n]+)["'\x60）)」』]|(?:^|[\s：]|(?<![A-Za-z]):)(${root}[^\s"'\x60）)」』、。,]+)`,'gu');
+ return {windows,filePattern,directoryPattern};
+}
+
 /** File paths the task or the final report names that do not exist in the agent's folder. Small models often
  * say "I saved notes/a.txt" without having called a tool; this catches that without any model, before the report is
  * accepted. Only relative or home/absolute paths with an extension count; URLs and code like `a.b` are ignored. */
@@ -46,16 +54,22 @@ export function missingFiles(s,report,inputs=[],tools=[]){
  const bases=new Set([s.cwd]),touched=[];
  for(const t of tools){if(t.error)continue;const p=t.data?.path||t.args?.path;if(typeof p==='string'){touched.push(p);bases.add(path.dirname(path.resolve(s.cwd,p)));}if(typeof t.args?.cwd==='string')bases.add(path.resolve(s.cwd,t.args.cwd));}
  const task=inputs.filter(e=>e.kind==='task'||e.from==='user'||e.from==='parent').map(e=>e.text).join('\n');
- const names=new Set(),scan=text=>{for(const m of String(text||'').replace(/https?:\/\/\S+/g,' ').matchAll(/(?<![\w/.~-])((?:~\/|\/|\.\/)?(?:[\w.-]+\/)*[\w-][\w.-]*\.[A-Za-z][A-Za-z0-9]{0,5})(?![\w\/-]|\.[A-Za-z0-9])/gu))names.add(m[1]);};
+ const {windows,filePattern,directoryPattern}=claimPathPatterns();
+ const names=new Set(),scan=text=>{for(const m of String(text||'').replace(/https?:\/\/\S+/g,' ').matchAll(filePattern))names.add(m[1]);};
  scan(task);const fromTask=new Set(names);scan(report);
- for(const m of task.matchAll(/(?:^|[\s（(「『:：])((?:~|\/)[^\s）)」』、。,]+)/gu)){const d=m[1].startsWith('~')?path.join(os.homedir(),m[1].slice(1)):m[1];try{if(existsSync(d)&&statSync(d).isDirectory())bases.add(d);}catch{}}
+ // Quoted / parenthesized roots may contain spaces; unquoted roots stop at whitespace.
+ for(const m of task.replace(/https?:\/\/\S+/g,' ').matchAll(directoryPattern)){
+  const named=m[1]||m[2],d=/^~[\\/]/.test(named)?path.join(os.homedir(),named.slice(2)):named;
+  if(!path.isAbsolute(d))continue;
+  try{if(existsSync(d)&&statSync(d).isDirectory())bases.add(d);}catch{}
+ }
  const out=[];
  for(const n of names){
   if(/^\d|^v?\d+\.\d+/.test(n)||/^(e\.g|i\.e|etc)\.?$/i.test(n)||!/[\/.]/.test(n)||/\.\.\.|…/.test(n))continue;
   // A path only in the report must look like a file the agent claims to have made (with a folder, or a name the task used).
-  if(!fromTask.has(n)&&!n.includes('/'))continue;
-  const candidates=n.startsWith('~/')?[path.join(os.homedir(),n.slice(2))]:path.isAbsolute(n)?[n]:[...bases].map(b=>path.resolve(b,n));
-  if(!candidates.some(f=>existsSync(f))&&!touched.some(p=>p===n||p.endsWith('/'+n.replace(/^\.\//,''))))out.push(n);
+  if(!fromTask.has(n)&&!n.includes('/')&&!(windows&&n.includes('\\')))continue;
+  const candidates=(n.startsWith('~/')||(windows&&n.startsWith('~\\')))?[path.join(os.homedir(),n.slice(2))]:path.isAbsolute(n)?[n]:[...bases].map(b=>path.resolve(b,n));
+  if(!candidates.some(f=>existsSync(f))&&!touched.some(p=>path.normalize(p)===path.normalize(n)||path.normalize(p).endsWith(path.sep+path.normalize(n).replace(windows?/^\.[\\/]/:/^\.\//,''))))out.push(n);
   if(out.length>=8)break;
  }
  return out;

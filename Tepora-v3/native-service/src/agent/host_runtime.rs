@@ -1013,7 +1013,7 @@ pub fn missing_files(
             .as_str()
             .or_else(|| tool["args"]["path"].as_str());
         if let Some(path) = path {
-            touched.push(path.to_owned());
+            touched.push(normalized_claim_path(path));
             if let Some(parent) = absolute(&cwd, Path::new(&sql_text(path))).parent() {
                 push_unique(&mut bases, parent.to_path_buf());
             }
@@ -1033,12 +1033,9 @@ pub fn missing_files(
     for name in scan_filenames(report) {
         push_unique(&mut names, name);
     }
-    static DIRECTORIES: OnceLock<Regex> = OnceLock::new();
-    let dirs = DIRECTORIES
-        .get_or_init(|| Regex::new(r"(?:^|[\s（(「『:：])((?:~|/)[^\s）)」』、。,]+)").unwrap());
-    for capture in dirs.captures_iter(&task) {
-        let dir = home_path(&capture[1]);
-        if fs::metadata(&dir).is_ok_and(|m| m.is_dir()) {
+    for named in scan_claim_directories(&task, cfg!(windows)) {
+        let dir = home_path(&named);
+        if is_claim_absolute(&dir) && fs::metadata(&dir).is_ok_and(|m| m.is_dir()) {
             push_unique(&mut bases, dir);
         }
     }
@@ -1058,19 +1055,27 @@ pub fn missing_files(
         {
             continue;
         }
-        if !from_task.contains(&name) && !name.contains('/') {
+        if !from_task.contains(&name)
+            && !name.contains('/')
+            && !(cfg!(windows) && name.contains('\\'))
+        {
             continue;
         }
         let candidate = PathBuf::from(sql_text(&name));
-        let exists = if name.starts_with("~/") {
+        let exists = if name.starts_with("~/") || (cfg!(windows) && name.starts_with("~\\")) {
             home_path(&name).exists()
-        } else if candidate.is_absolute() {
+        } else if is_claim_absolute(&candidate) {
             candidate.exists()
         } else {
             bases.iter().any(|base| absolute(base, &candidate).exists())
         };
-        let suffix = format!("/{}", name.strip_prefix("./").unwrap_or(&name));
-        if !exists && !touched.iter().any(|p| p == &name || p.ends_with(&suffix)) {
+        let normalized = normalized_claim_path(&name);
+        let suffix = format!("{}{}", std::path::MAIN_SEPARATOR, normalized);
+        if !exists
+            && !touched
+                .iter()
+                .any(|p| p == &normalized || p.ends_with(&suffix))
+        {
             out.push(name);
         }
         if out.len() >= 8 {
@@ -1079,45 +1084,76 @@ pub fn missing_files(
     }
     Ok(out)
 }
-fn scan_filenames(value: &str) -> Vec<String> {
+// Keep the pure grammar aligned with core/agent/runtime.mjs claimPathPatterns.
+// Windows grammar tests never resolve paths or contact a UNC share on other hosts.
+fn claim_patterns(windows: bool) -> &'static (regress::Regex, regress::Regex) {
+    static WINDOWS: OnceLock<(regress::Regex, regress::Regex)> = OnceLock::new();
+    static POSIX: OnceLock<(regress::Regex, regress::Regex)> = OnceLock::new();
+    (if windows { &WINDOWS } else { &POSIX }).get_or_init(|| {
+        let separator = if windows { r"[\\/]" } else { "/" };
+        let root = if windows {
+            r"(?:[A-Za-z]:[\\/]|[\\/]{2}|[\\/]|~[\\/])"
+        } else {
+            r"(?:/|~/)"
+        };
+        let file = format!(r"(?<![\w/\\:.~-])((?:{root}|\.{separator})?(?:[\w.-]+{separator})*[\w-][\w.-]*\.[A-Za-z][A-Za-z0-9]{{0,5}})(?![\w/\\-]|\.[A-Za-z0-9])");
+        let directory = format!(r#"["'\x60（(「『]({root}[^"'\x60）)」』\r\n]+)["'\x60）)」』]|(?:^|[\s：]|(?<![A-Za-z]):)({root}[^\s"'\x60）)」』、。,]+)"#);
+        (
+            regress::Regex::with_flags(&file, "u").expect("fixed claimed file grammar"),
+            regress::Regex::with_flags(&directory, "u").expect("fixed claimed directory grammar"),
+        )
+    })
+}
+fn scan_claims(value: &str, pattern: &regress::Regex) -> Vec<String> {
     static URL: OnceLock<Regex> = OnceLock::new();
-    static FILE: OnceLock<Regex> = OnceLock::new();
     let url = URL.get_or_init(|| Regex::new(r"https?://\S+").unwrap());
-    let file=FILE.get_or_init(||Regex::new(r"(?:~/|/|\./)?(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.[A-Za-z][A-Za-z0-9]{0,5}").unwrap());
     let clean = url.replace_all(value, " ");
     let mut out = vec![];
-    for found in file.find_iter(&clean) {
-        let before = clean[..found.start()].chars().next_back();
-        if before.is_some_and(|c| c.is_ascii_alphanumeric() || "_/.~-".contains(c)) {
-            continue;
+    for found in pattern.find_iter(&clean) {
+        if let Some(range) = found.captures.iter().flatten().next() {
+            push_unique(&mut out, clean[range.clone()].to_owned());
         }
-        let after = &clean[found.end()..];
-        if after
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphanumeric() || "_/-".contains(c))
-        {
-            continue;
-        }
-        if after.starts_with('.')
-            && after[1..]
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphanumeric())
-        {
-            continue;
-        }
-        push_unique(&mut out, found.as_str().to_owned());
     }
     out
 }
+fn scan_filenames(value: &str) -> Vec<String> {
+    scan_claims(value, &claim_patterns(cfg!(windows)).0)
+}
+fn scan_claim_directories(value: &str, windows: bool) -> Vec<String> {
+    scan_claims(value, &claim_patterns(windows).1)
+}
+// Node win32.isAbsolute also accepts a root on the current drive (\\foo).
+// Rust is_absolute requires a drive prefix, so has_root is the matching test.
+fn is_claim_absolute(path: &Path) -> bool {
+    path.is_absolute() || (cfg!(windows) && path.has_root())
+}
+fn normalized_claim_path(value: &str) -> String {
+    let mut out = PathBuf::new();
+    for component in Path::new(&sql_text(value)).components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if matches!(out.components().next_back(), Some(Component::Normal(_))) {
+                    out.pop();
+                } else if !out.has_root() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out.to_string_lossy().into_owned()
+}
 fn home_path(value: &str) -> PathBuf {
     let value = sql_text(value);
-    if let Some(rest) = value.strip_prefix('~') {
+    if let Some(rest) = value
+        .strip_prefix("~/")
+        .or_else(|| cfg!(windows).then(|| value.strip_prefix("~\\")).flatten())
+    {
         let home = env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        home.join(rest.trim_start_matches('/'))
+        home.join(rest)
     } else {
         PathBuf::from(value)
     }
@@ -1586,6 +1622,239 @@ mod tests {
         );
         let tools = vec![json!({"name":"write","args":{"path":"notes/missing.md"}})];
         assert!(missing_files(&s, "", &inputs, &tools).unwrap().is_empty());
+    }
+    #[test]
+    fn claimed_files_named_roots_and_normalized_touched_paths() {
+        let f = Fake::new();
+        let project = f.root.join("project space");
+        let session = f.root.join("session");
+        fs::create_dir_all(&project).unwrap();
+        fs::create_dir_all(&session).unwrap();
+        fs::write(project.join("found.txt"), "exists").unwrap();
+        fs::write(f.root.join("existing.txt"), "file, not a directory").unwrap();
+        let s = json!({"cwd":encoded_path(&session)});
+        let check = |task: String, tools: Vec<Value>| {
+            missing_files(
+                &s,
+                "found.txt and absent.txt",
+                &[json!({"kind":"task","text":task})],
+                &tools,
+            )
+            .unwrap()
+        };
+        for (open, close) in [("\"", "\""), ("'", "'"), ("`", "`"), ("（", "）")] {
+            assert_eq!(
+                check(
+                    format!(
+                        "Use {open}{}{close} for found.txt and absent.txt",
+                        encoded_path(&project)
+                    ),
+                    vec![]
+                ),
+                vec!["absent.txt"]
+            );
+        }
+        assert_eq!(
+            check(
+                format!(
+                    "Use \"{}\" for found.txt",
+                    encoded_path(&f.root.join("not-created"))
+                ),
+                vec![]
+            ),
+            vec!["found.txt"]
+        );
+        assert_eq!(
+            check(
+                format!(
+                    "Use \"{}\" for absent.txt",
+                    encoded_path(&f.root.join("existing.txt"))
+                ),
+                vec![]
+            ),
+            vec!["absent.txt"],
+            "files cannot become search directories"
+        );
+        assert_eq!(
+            check(
+                "found.txt".into(),
+                vec![json!({"args":{"cwd":encoded_path(&project)},"error":"failed"})]
+            ),
+            vec!["found.txt"]
+        );
+        assert_eq!(
+            check(
+                "found.txt".into(),
+                vec![json!({"args":{"cwd":encoded_path(&project)}})]
+            ),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            check(
+                "found.txt".into(),
+                vec![json!({"args":{"path":encoded_path(&project.join("other.txt"))}})]
+            ),
+            Vec::<String>::new()
+        );
+        let relative = Path::new("notes").join("missing.txt");
+        let touched = project
+            .join("notes")
+            .join("child")
+            .join("..")
+            .join("missing.txt");
+        let task = [json!({"from":"user","text":encoded_path(&relative)})];
+        assert!(missing_files(
+            &s,
+            "",
+            &task,
+            &[json!({"args":{"path":encoded_path(&touched)}})]
+        )
+        .unwrap()
+        .is_empty());
+        assert_eq!(
+            missing_files(
+                &s,
+                "",
+                &task,
+                &[json!({"args":{"path":encoded_path(&touched)},"error":true})]
+            )
+            .unwrap(),
+            vec![encoded_path(&relative)]
+        );
+        let absolute = encoded_path(&f.root.join("absent.txt"));
+        assert_eq!(
+            missing_files(&s, &absolute, &[], &[]).unwrap(),
+            vec![absolute]
+        );
+        assert_eq!(
+            check(
+                if cfg!(windows) {
+                    "C:project found.txt"
+                } else {
+                    r"C:\project found.txt"
+                }
+                .into(),
+                vec![]
+            ),
+            vec!["found.txt"]
+        );
+    }
+    #[test]
+    fn claimed_files_home_roots_and_filters() {
+        let f = Fake::new();
+        let s = json!({"cwd":encoded_path(&f.root)});
+        assert_eq!(is_claim_absolute(Path::new("/root")), true);
+        if cfg!(windows) {
+            assert!(is_claim_absolute(Path::new(r"\root")));
+            assert!(!is_claim_absolute(Path::new("C:relative")));
+        }
+        let home = home_path("~/");
+        assert!(home.is_dir());
+        // A home-relative spelling of the local fixture avoids writing in HOME
+        // or changing process-wide environment variables during parallel tests.
+        let mut relative = PathBuf::new();
+        let common = home
+            .components()
+            .zip(f.root.components())
+            .take_while(|(a, b)| a == b)
+            .count();
+        if home.components().next() == f.root.components().next() {
+            for _ in home.components().skip(common) {
+                relative.push("..");
+            }
+            for component in f.root.components().skip(common) {
+                relative.push(component);
+            }
+            let project = f.root.join("home project");
+            fs::create_dir_all(&project).unwrap();
+            fs::write(project.join("found.txt"), "exists").unwrap();
+            relative.push("home project");
+            for prefix in if cfg!(windows) {
+                vec!["~/", "~\\"]
+            } else {
+                vec!["~/"]
+            } {
+                let named = format!("{}{}", prefix, relative.to_string_lossy());
+                let inputs = [
+                    json!({"kind":"task","text":format!("Use \"{named}\" for found.txt and absent.txt")}),
+                ];
+                assert_eq!(
+                    missing_files(&s, "", &inputs, &[]).unwrap(),
+                    vec!["absent.txt"]
+                );
+            }
+        }
+        let task = [
+            json!({"kind":"task","text":"https://x.test/a.pdf v1.2 e.g i.e etc. 1.txt /tmp/.../ignore.txt valid.txt"}),
+        ];
+        assert_eq!(
+            missing_files(&s, "report-only.txt", &task, &[]).unwrap(),
+            vec!["valid.txt"]
+        );
+        let text = (0..12)
+            .map(|i| format!("missing{i}.txt"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let expected = (0..8)
+            .map(|i| format!("missing{i}.txt"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            missing_files(&s, "", &[json!({"from":"parent","text":text})], &[]).unwrap(),
+            expected
+        );
+        assert!(missing_files(
+            &s,
+            "",
+            &[json!({"from":"assistant","text":"ignore.txt"})],
+            &[]
+        )
+        .unwrap()
+        .is_empty());
+    }
+    #[test]
+    fn claimed_files_windows_and_posix_grammar_is_pure() {
+        for root in [
+            r"C:\project space",
+            "C:/project space",
+            r"\\server\share\project space",
+        ] {
+            assert_eq!(
+                scan_claim_directories(&format!("作業フォルダ（{root}）"), true),
+                vec![root]
+            );
+        }
+        for path in [
+            r"C:\project\absent.txt",
+            r"\\server\share\absent.txt",
+            r"~\notes\absent.txt",
+            r".\notes\absent.txt",
+            "C:/project/absent.txt",
+        ] {
+            assert_eq!(scan_claims(path, &claim_patterns(true).0), vec![path]);
+        }
+        assert!(scan_claim_directories("C:project", true).is_empty());
+        for foreign in [r"C:\project", "C:/project"] {
+            assert!(scan_claim_directories(foreign, false).is_empty());
+        }
+        assert_eq!(
+            scan_claim_directories("/tmp/project", false),
+            vec!["/tmp/project"]
+        );
+        assert_eq!(
+            scan_claim_directories("'~/project space'", false),
+            vec!["~/project space"]
+        );
+        assert!(scan_claim_directories("https://example.test/project", false).is_empty());
+        // Frozen expectations from the Node helper, including match boundaries.
+        for windows in [false, true] {
+            assert_eq!(
+                scan_claims(
+                    "notes/a.txt report.md https://x.test/a.pdf bad.abcdefg abc:blocked.txt",
+                    &claim_patterns(windows).0
+                ),
+                vec!["notes/a.txt", "report.md"]
+            );
+        }
     }
     #[test]
     fn wait_consumes_matching_reply_once() {

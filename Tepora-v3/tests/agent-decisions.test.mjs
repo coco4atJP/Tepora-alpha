@@ -8,7 +8,7 @@ import {toolResults} from './helpers/scripted-model.mjs';
 import {splitSections,lexicalScores} from '../core/agent/decisions.mjs';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function until(fn,timeout=8000){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out');await wait(15);}}
+async function until(fn,timeout=8000,diagnostics=()=>({})){const start=Date.now();for(;;){const v=await fn();if(v)return v;if(Date.now()-start>timeout)throw new Error('Condition timed out: '+JSON.stringify({elapsedMs:Date.now()-start,...diagnostics()}));await wait(15);}}
 const PAGE=`<html><head><title>製品ページ</title></head><body><main><h1>製品ページ</h1>
 <h2>概要</h2><p>${'この製品は家庭向けの静かな空気清浄機です。'.repeat(20)}</p>
 <h2>価格</h2><p>標準モデルは税込29,800円、上位モデルは39,800円です。</p>
@@ -49,10 +49,14 @@ test('without a decision model the same question falls back to keyword matching'
 const worker=(final)=>body=>{const n=toolResults(body).length;if(n<3)return {calls:[{name:'exec',args:{command:`echo step${n}`}}]};return {content:final(body)};};
 
 test('completion check: the decision model sends an incomplete report back to work, once',async t=>{
- let verdict=0.1;const d=await decisionModel(()=>verdict);t.after(d.close);
- const f=await agentFixture(t,worker(body=>body.messages.at(-1).content?.includes?.('check the result against the task')?'全部終わりました（確認済み）':'途中まで'),{decision:d.url});
+ const start=Date.now(),stages={model:[],decision:[]};
+ let verdict=0.1;const d=await decisionModel(()=>{stages.decision.push(Date.now()-start);return verdict;});t.after(d.close);
+ const respond=worker(body=>body.messages.at(-1).content?.includes?.('check the result against the task')?'全部終わりました（確認済み）':'途中まで');
+ const f=await agentFixture(t,body=>{stages.model.push(Date.now()-start);return respond(body);},{decision:d.url});
+ const diagnostics=id=>()=>({session:f.rt.sessions.get(id),modelRequests:f.model.requests.length,decisionRequests:d.requests.length,stageElapsedMs:stages,
+  lastEntries:f.rt.sessions.tail(id,8).map(e=>({...e,text:String(e.text||'').slice(0,1200)})),lastEvents:f.events.slice(-8)});
  const s=await f.rt.spawn(null,{task:'三つの手順を実行して確認する'});
- const done=await until(()=>{const x=f.rt.sessions.get(s.id);return x.status==='done'&&x;});
+ const done=await until(()=>{const x=f.rt.sessions.get(s.id);return x.status==='done'&&x;},8000,diagnostics(s.id));
  assert.equal(done.result,'全部終わりました（確認済み）');
  const notices=f.rt.sessions.entries(s.id,{types:['notice']}).filter(n=>/check the result against the task/.test(n.text));
  assert.equal(notices.length,1);assert.match(notices[0].text,/三つの手順を実行して確認する/);
@@ -60,7 +64,7 @@ test('completion check: the decision model sends an incomplete report back to wo
  assert.ok(asked);const state=JSON.parse(asked.state);
  assert.match(state.actions,/^(ok|FAILED): /m,'the tool results go with the report, so a claim is judged against evidence');
  verdict=0.9;const s2=await f.rt.spawn(null,{task:'もう一つ'});
- const done2=await until(()=>{const x=f.rt.sessions.get(s2.id);return x.status==='done'&&x;});
+ const done2=await until(()=>{const x=f.rt.sessions.get(s2.id);return x.status==='done'&&x;},8000,diagnostics(s2.id));
  assert.equal(done2.result,'途中まで','a confident verdict lets the report through');
 });
 

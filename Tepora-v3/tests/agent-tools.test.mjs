@@ -93,8 +93,12 @@ test('the sandbox confines writes to the working folder (Seatbelt on macOS)',{sk
  await assert.rejects(stat(outside));
  await assert.rejects(f.call('write',{path:outside,content:'x'}),/サンドボックス/);
  const homeDir=path.join(os.homedir(),'tepora-ro-test');assert.throws(()=>assertWritable({mode:'readonly',writable:[]},homeDir,path.join(homeDir,'a')),/サンドボックス/);
- const plan=wrapCommand('true',{cwd:f.session.cwd,policy:{mode:'container',network:false,writable:[],image:'node:22',engine:'auto'},containerName:'tepora-x'});
- if(plan.sandbox!=='off')assert.ok(plan.args.includes('--network')&&plan.args.includes('none'));
+});
+test('container planning requires an available engine and never drops network isolation',()=>{
+ const plan=()=>wrapCommand('true',{cwd:os.tmpdir(),policy:{mode:'container',network:false,writable:[],image:'node:22',engine:'auto'},containerName:'tepora-x'});
+ const available=detectSandbox();
+ if(!available.docker&&!available.podman){assert.throws(plan,e=>e.status===409&&/Docker|Podman/.test(e.message));return;}
+ const wrapped=plan();assert.notEqual(wrapped.sandbox,'off');assert.ok(wrapped.args.includes('--network')&&wrapped.args.includes('none'));
 });
 
 test('files: a file someone else changed must be read again before editing; edits to one file never interleave',async t=>{

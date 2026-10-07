@@ -1,5 +1,6 @@
 /** Photos for the idle-screen frame: recognised by signature, kept on this PC, served back unchanged. */
 import test from 'node:test';
+import {serviceCleanup} from './helpers/service-cleanup.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,readdir} from 'node:fs/promises';
 import path from 'node:path';
@@ -63,15 +64,15 @@ test('removing a photo deletes its file and an unknown id is a 404',async t=>{
 });
 
 async function serviceAt(dir,t){
- const app=await startServer({dir,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})});
- t.after(()=>app.close());
+ const cleanup=serviceCleanup(t);
+ const app=cleanup.service(await startServer({dir,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})}));
  const launch=await fetch(app.launchUrl,{redirect:'manual'}),cookie=launch.headers.get('set-cookie').split(';')[0];
  const bootstrap=await (await fetch(app.origin+'/api/bootstrap',{headers:{Cookie:cookie}})).json();
  const request=(p,method='GET',data,headers={})=>fetch(app.origin+p,{method,headers:{Cookie:cookie,'X-Tepora-CSRF':bootstrap.csrf,...headers},...(data!==undefined?{body:data}:{})});
  return {...app,request,cookie,bootstrap};
 }
 test('photos are stored locally, listed, served byte-identical and removable; uploads need CSRF',async t=>{
- const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-frame-http-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const dir=serviceCleanup(t).directory(await mkdtemp(path.join(os.tmpdir(),'tepora-frame-http-')));
  const app=await serviceAt(dir,t),bytes=png(1600,1000);
  assert.deepEqual(app.bootstrap.frame.photos,[]);assert.equal(app.bootstrap.frame.limits.maxPhotos,MAX_PHOTOS);
  assert.equal((await fetch(app.origin+'/api/frame/photos',{method:'PUT',headers:{Cookie:app.cookie},body:bytes})).status,403);
@@ -92,7 +93,7 @@ test('photos are stored locally, listed, served byte-identical and removable; up
  assert.deepEqual(gone.photos,[]);assert.equal((await app.request(`/api/frame/photos/${photo.id}`)).status,404);
 });
 test('photos survive a restart and other windows hear about changes',async t=>{
- const dir=await mkdtemp(path.join(os.tmpdir(),'tepora-frame-restart-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const dir=serviceCleanup(t).directory(await mkdtemp(path.join(os.tmpdir(),'tepora-frame-restart-')));
  const first=await serviceAt(dir,t),heard=[];first.store.listeners.add(e=>heard.push(e));
  const {photos:[photo]}=await (await first.request('/api/frame/photos','PUT',jpeg(2400,1600),{'Content-Type':'image/jpeg'})).json();
  assert.equal(heard.find(e=>e.type==='frame.updated').data.photos[0].id,photo.id);
