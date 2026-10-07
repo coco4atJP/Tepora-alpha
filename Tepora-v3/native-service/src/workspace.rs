@@ -6,7 +6,10 @@ pub use display_avatar::VisualAction;
 mod capability_state;
 pub(crate) mod input_files;
 mod session_files;
+mod web_state;
 mod native_operations;
+mod setup_state;
+pub use preferences::validate_setup_settings;
 mod tools_state;
 use crate::{ApiError, Backend, EventRequest, EventSubscription, Operation, Reply, ServiceEvent};
 use chrono::{Duration, SecondsFormat, Utc};
@@ -28,6 +31,8 @@ pub struct Workspace {
     probe_cancel: Mutex<crate::network::RequestCancellation>,
 }
 struct NativeResources {
+    setup: crate::setup::SetupManager,
+    catalog: crate::model_catalog::ModelCatalog,
     host: Arc<crate::agent::host::NativeAgentHost>,
     capabilities: crate::capabilities::Capabilities,
     agent: crate::agent::AgentHandle,
@@ -382,6 +387,13 @@ impl Workspace {
         }
     }
     pub fn enable_agent(&self, runtime: tokio::runtime::Handle) -> Result<(), ApiError> {
+        self.enable_agent_setup(runtime,crate::setup::SetupOptions::default())
+    }
+    #[cfg(test)]
+    pub(crate) fn enable_agent_with_setup(&self,runtime:tokio::runtime::Handle,options:crate::setup::SetupOptions)->Result<(),ApiError> {
+        self.enable_agent_setup(runtime,options)
+    }
+    fn enable_agent_setup(&self, runtime:tokio::runtime::Handle, setup_options:crate::setup::SetupOptions)->Result<(),ApiError> {
         require(
             self.native.get().is_none(),
             409,
@@ -420,8 +432,12 @@ impl Workspace {
         host.preflight()?;
         host.recover()?;
         let agent = crate::agent::AgentCoordinator::start(host.clone(), runtime.clone())?;
+        let setup=crate::setup::SetupManager::with_options(self.access().setup_state(agent.clone()),network.clone(),runtime.clone(),setup_options)?;
+        let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(self.access()),network.clone());
         self.native
             .set(NativeResources {
+                setup,
+                catalog,
                 host,
                 capabilities,
                 agent: agent.clone(),
@@ -724,7 +740,7 @@ impl State {
             })
             .collect::<Vec<_>>());
         s["sandbox"] = sandbox();
-        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["web tools","MCP","media","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
+        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["browser rendering","MCP","media","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
         Ok(s)
     }
     fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {
@@ -800,6 +816,32 @@ fn ram_bytes() -> Option<u64> {
     None
 }
 impl Backend for Workspace {
+    fn setup_install_permitted(&self)->Result<(),ApiError> {
+        {let state=self.lock()?;require(!state.closed&&!state.closing,503,"Service closing")?;}
+        let native=self.native.get().ok_or_else(||ApiError::unavailable("This effect requires --dev-native --agent"))?;
+        if native.network.policy().mode!=crate::network::NetworkMode::Online {return Err(crate::network::NetworkError::blocked("制限モードではモデルを取得しません。").into());}
+        Ok(())
+    }
+    fn execute_setup(&self,operation:Operation,cancellation:crate::network::RequestCancellation)->std::pin::Pin<Box<dyn std::future::Future<Output=Result<Reply,ApiError>>+Send+'static>> {
+        let resources=(|| {
+            {let state=self.lock()?;require(!state.closed&&!state.closing,503,"Service closing")?;}
+            let native=self.native.get().ok_or_else(||ApiError::unavailable("This effect requires --dev-native --agent"))?;
+            Ok::<_,ApiError>((native.setup.clone(),native.catalog.clone(),native.network.clone()))
+        })();
+        Box::pin(async move {
+            let (setup,catalog,network)=resources?;
+            if let Some(error)=cancellation.error(){return Err(error.into());}
+            let value=match operation {
+                Operation::ModelCatalogRefresh=>catalog.refresh(&cancellation).await?,
+                Operation::SetupScan=>setup.scan_with_cancel(&cancellation).await?,
+                Operation::SetupSelect{body}=>setup.select_with_cancel(body["candidateId"].as_str().unwrap_or(""),body["consentTest"]==true,&cancellation).await?,
+                Operation::RuntimeDiscover=>crate::runtime_discovery::discover(&network,&cancellation).await,
+                _=>return Err(ApiError::bad_request("Not a setup network operation")),
+            };
+            if let Some(error)=cancellation.error(){return Err(error.into());}
+            Ok(Reply::Json(value))
+        })
+    }
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError> {
         if let Some(reply) = self.execute_visual(&operation)? { return Ok(reply); }
         match &operation {
@@ -879,6 +921,7 @@ impl Backend for Workspace {
    Operation::Doctor=>{let providers=s.providers()?;json!({"platform":platform(),"arch":arch(),"ramBytes":ram_bytes(),"cpuThreads":std::thread::available_parallelism().map(|n|n.get()).unwrap_or(1),"sandbox":sandbox(),"providers":providers["profiles"].as_array().unwrap_or(&Vec::new()).iter().map(|p|pick(p,&["id","model","domain","limits"])).collect::<Vec<_>>(),"note":"Rust開発用ローカル作業領域。モデル・GPU・外部操作の動作確認ではありません。","dataLocation":s.dir.to_string_lossy(),"workRoot":s.work_root.to_string_lossy(),"nativeDevelopment":true})},
    _=>return Err(ApiError::unavailable("Native operation was not dispatched")),
   };
+        if bootstrap {if let Some(native)=self.native.get(){value["setup"]=native.setup.snapshot_from(s.setup_stored()?)?;}}
         drop(s);
         // Process ownership is independent of the database. Never hold State
         // while consulting a live effect owner.
@@ -889,8 +932,6 @@ impl Backend for Workspace {
             if let Some(native) = self.native.get() {
                 value["providers"] = native.provider.public_snapshot()?;
                 value["capabilities"] = native.capabilities.snapshot().map_err(ApiError::from)?;
-                value["setup"]["configured"] = json!(native.provider.configured()?);
-                value["setup"]["note"]=json!("Rust開発版: 会話・作業エージェントと対応ツールを実行します。未移行の外部機能は利用できません。");
                 value["nativeHost"]["networkDiagnostics"] = json!(native.network.diagnostics());
             }
         }
@@ -915,6 +956,7 @@ impl Backend for Workspace {
                 // guard through sequence capture and subscriber registration.
                 native.provider.decorate_snapshot(&mut snapshot["providers"]);
                 native.capabilities.decorate_snapshot(&mut snapshot["capabilities"]);
+                snapshot["setup"] = native.setup.snapshot_from(s.setup_stored()?)?;
             }
             vec![ServiceEvent {
                 seq: s.call("event.seq", json!({}))?.as_u64(),
@@ -977,6 +1019,8 @@ impl Backend for Workspace {
         self.lock()?.closing = true;
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
+            native.setup.begin_close();
+            native.catalog.close();
             native.agent.begin_close();
             native.provider.close();
             native.capabilities.close();
@@ -986,6 +1030,7 @@ impl Backend for Workspace {
     fn shutdown(&self) -> Result<(), ApiError> {
         self.begin_shutdown()?;
         if let Some(native) = self.native.get() {
+            native.runtime.block_on(native.setup.close());
             native.agent.begin_close().wait()?;
         }
         self.lock()?.close()
@@ -1045,7 +1090,9 @@ mod tests {
         let capabilities = crate::capabilities::Capabilities::new(Arc::new(workspace.access()),network.clone());
         let host = Arc::new(crate::agent::host::NativeAgentHost::new(workspace.access(),provider.clone(),network.clone()).unwrap());
         let agent = crate::agent::AgentCoordinator::start(host.clone(),runtime.handle().clone()).unwrap();
-        assert!(workspace.native.set(NativeResources {host,capabilities,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        let setup=crate::setup::SetupManager::new(workspace.access().setup_state(agent.clone()),network.clone(),runtime.handle().clone()).unwrap();
+        let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(workspace.access()),network.clone());
+        assert!(workspace.native.set(NativeResources {host,capabilities,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
         workspace.lock().unwrap().native_agent = true;
         agent.request(crate::agent::AgentRequest::Initialize).unwrap();
         (workspace,runtime,transport,dir)

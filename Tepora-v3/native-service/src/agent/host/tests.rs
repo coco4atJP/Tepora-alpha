@@ -2,6 +2,7 @@
 //! Only the socket transport is scripted; no external model or Node is used.
 #[cfg(unix)]
 mod process_tests;
+mod web_tests;
 use super::*;
 use crate::{
     agent::{AgentCoordinator, AgentHandle},
@@ -38,6 +39,8 @@ struct ScriptedTransport {
     counts: Mutex<HashMap<String, usize>>,
     changed: Condvar,
     live: Arc<AtomicUsize>,
+    web_requests: Mutex<Vec<String>>,
+    web_block: std::sync::atomic::AtomicBool,
 }
 impl ScriptedTransport {
     fn new(model: impl Fn(&str, usize, &Value) -> Response + Send + Sync + 'static) -> Arc<Self> {
@@ -47,6 +50,8 @@ impl ScriptedTransport {
             counts: Mutex::new(HashMap::new()),
             changed: Condvar::new(),
             live: Arc::new(AtomicUsize::new(0)),
+            web_requests: Mutex::default(),
+            web_block: std::sync::atomic::AtomicBool::new(false),
         })
     }
     fn wait_requests(&self, count: usize) {
@@ -86,6 +91,29 @@ impl Transport for ScriptedTransport {
                 admitted.address.is_loopback(),
                 "Fixture admitted a non-loopback address"
             );
+            // This sole web endpoint is a synthetic transport response, never
+            // a real socket or a permissive fallback for unexpected requests.
+            if admitted.url.as_str() == web_tests::FIXTURE_URL {
+                assert_eq!(admitted.purpose, crate::network::Purpose::WebTool);
+                assert_eq!(request.method, hyper::Method::GET);
+                self.web_requests
+                    .lock()
+                    .unwrap()
+                    .push(admitted.url.to_string());
+                self.changed.notify_all();
+                if self.web_block.load(Ordering::SeqCst) {
+                    return std::future::pending().await;
+                }
+                let mut headers = HeaderMap::new();
+                headers.insert("content-type", HeaderValue::from_static("text/plain"));
+                return Ok(TransportResponse {
+                    status: 200,
+                    headers,
+                    body: Some(Box::pin(futures_util::stream::iter(vec![Ok(
+                        Bytes::from_static(web_tests::FIXTURE_TEXT.as_bytes()),
+                    )]))),
+                });
+            }
             assert!(
                 admitted.url.path().ends_with("/chat/completions"),
                 "No limits discovery is permitted in this fixture: {}",

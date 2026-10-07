@@ -174,9 +174,16 @@ pub struct NetworkProfile {
     pub pinned_address: Option<String>,
     pub allow_plain_http: bool,
 }
+/// Trusted native authority, never supplied by model or HTTP payload JSON.
+/// Implementations perform short synchronous checks and must not expose their
+/// captured documents or credentials through Debug/errors.
+pub trait EgressGuard: Send + Sync + std::fmt::Debug {
+    fn check(&self) -> Result<(), NetworkError>;
+}
 #[derive(Clone, Debug)]
 pub struct NetworkScope {
     pub profile: Option<NetworkProfile>,
+    pub egress_guard: Option<Arc<dyn EgressGuard>>,
     pub purpose: Purpose,
     pub allow_cloud: bool,
     pub asset: bool,
@@ -196,6 +203,7 @@ impl Default for NetworkScope {
     fn default() -> Self {
         Self {
             profile: None,
+            egress_guard: None,
             purpose: Purpose::Model,
             allow_cloud: false,
             asset: false,
@@ -235,6 +243,14 @@ pub struct Admitted {
     pub purpose: Purpose,
     pub profile_id: Option<String>,
     domains: Vec<Domain>,
+    egress_guard: Option<Arc<dyn EgressGuard>>,
+}
+impl Admitted {
+    pub fn check_egress(&self) -> Result<(), NetworkError> {
+        self.egress_guard
+            .as_ref()
+            .map_or(Ok(()), |guard| guard.check())
+    }
 }
 /// Injection seam for tests and platform DNS. Implementations must return every
 /// A/AAAA answer, rather than filtering disallowed addresses before admission.
@@ -252,8 +268,10 @@ impl Resolver for SystemResolver {
         })
     }
 }
-/// Raw transport never authorizes. The manager alone constructs its admitted
-/// destination; a transport must connect exactly there without resolving again.
+/// Raw transport never chooses permissions. The manager alone constructs its
+/// admitted destination; a transport must connect exactly there without resolving
+/// again, and call admitted.check_egress() immediately before writing request
+/// bytes after its own TCP/TLS waits. CheckedTransport enforces this boundary.
 pub trait Transport: Send + Sync {
     /// Sanitized startup diagnostics. Never include certificates, keys, or file contents.
     fn diagnostics(&self) -> Vec<String> {
@@ -563,6 +581,7 @@ impl NativeNetwork {
                 purpose: scope.purpose,
                 profile_id: None,
                 domains,
+                egress_guard: scope.egress_guard.clone(),
             });
         }
         let domain =
@@ -667,6 +686,7 @@ impl NativeNetwork {
             purpose: scope.purpose,
             profile_id: scope.profile.as_ref().map(|p| p.id.clone()),
             domains: vec![domain],
+            egress_guard: scope.egress_guard.clone(),
         })
     }
     pub async fn request(
@@ -781,6 +801,8 @@ impl NativeNetwork {
                 .ok_or_else(|| NetworkError::blocked("Service closed"))?
                 .domains = Some(admitted.domains.clone());
         }
+        // DNS/resource waits cannot carry stale document consent into dispatch.
+        admitted.check_egress()?;
         let result = tokio::select! {
             biased;
             error = cancel.cancelled() => return Err(error),

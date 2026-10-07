@@ -14,6 +14,7 @@ pub mod processes;
 pub mod receipts;
 pub mod tools;
 pub mod web;
+pub mod web_host;
 pub use coordinator::{AgentCoordinator, AgentHandle, CloseTicket, EventSink};
 
 use crate::{network::RequestCancellation, ApiError};
@@ -54,6 +55,10 @@ pub enum AgentRequest {
     },
     Configure {
         patch: Value,
+    },
+    SetupContext,
+    ActivateSetup {
+        commit: crate::setup::SelectionCommit,
     },
     RefreshPrompts,
 }
@@ -161,6 +166,12 @@ impl EffectTask {
 pub trait AgentHost: Send + Sync + 'static {
     fn facts(&self) -> Result<Value, ApiError>;
     fn request(&self, request: &AgentRequest) -> Result<Admission, ApiError>;
+    fn setup_context(&self, _busy: bool) -> Result<Value, ApiError> {
+        Err(ApiError::unavailable("Native setup is not integrated"))
+    }
+    fn activate_setup(&self, _commit: &crate::setup::SelectionCommit) -> Result<(), ApiError> {
+        Err(ApiError::unavailable("Native setup is not integrated"))
+    }
     fn session(&self, id: &str) -> Result<Value, ApiError>;
     /// The coordinator supplies the whole ordered batch, including lifecycle
     /// actions. The host handles only its state/resource side of those actions.

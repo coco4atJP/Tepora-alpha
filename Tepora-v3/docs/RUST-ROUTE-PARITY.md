@@ -1,12 +1,12 @@
-# Native backend route parity: preferences and visual-state checkpoint
+# Native backend route parity: web + setup effects checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **48 are substantially matched, 13 are partial and 65 are absent**. Thus 61 have handlers, and the 13 partial routes are included in those 61. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **60 are substantially matched, 13 are partial and 53 are absent**. Thus 73 have handlers, and the 13 partial routes are included in those 73. A route count is not an end-to-end feature completion percentage.
 
-Verification: 320 Rust service library tests + 2 CLI tests pass locally, including a full parallel run after fixture-readiness repairs. The focused build-notice/offline-HTTP/native-agent process suite passes 40 tests on both Node22 and Node24. The child service starts without Node in PATH; local controlled providers are used, not real models or paid services. Full Node22 regression reports 543/548: the same three browser-start, DNS and Linux sandbox-environment failures reproduce in the unchanged published3b4d243 checkout. Aggregate quality therefore remains red. Windows/macOS CI and packaged acceptance are still separate gates; no exact-head CI result was available for3b4d243.
+Verification: the consolidated web/setup checkpoint with the PTY repair passes 364 native library + 2 CLI tests. The combined build-notice/offline-HTTP/native-agent suite passes 41/41 on both Node22 and Node24. Catalog 18 fixtures and setup race 20/20 repetitions pass. The full Node22 gate is stable at 544/549, with the same five established browser/DNS/Linux-sandbox environment failures; aggregate quality remains red. Preceding head22941be passes actual macOS native Rust318+2 including all PTY regressions, Windows native Rust and complete Linux regression. Its later platform Node failures and skipped packaging remain separate gates. This checkpoint's own cross-platform CI, packages and real-model acceptance require their own evidence.
 
-Scope: native exec/process, preferences/personas and display/avatar configuration state are connected. Capabilities configuration and typed transport components are implemented; decision/web/semantic/media consumers remain pending. Attachments can be staged but not yet delivered to the model. A saved or newly configured decision route is rejected rather than ignored. Session download deliberately adds a resolved-root symlink guard. Missing effects are not fabricated and do not fall back to Node inside this host.
+Scope: native exec/process, web_search/web_fetch, preferences/personas, display/avatar configuration state, first-use setup, model catalog and runtime discovery are connected. Capabilities configuration and typed transport components are implemented; decision/semantic/media consumers remain pending. Attachments can be staged but not yet delivered to the model. A saved or newly configured decision route is rejected rather than ignored. Session download deliberately adds a resolved-root symlink guard. Missing effects are not fabricated and do not fall back to Node inside this host.
 
 ## Complete route inventory
 
@@ -16,13 +16,13 @@ YES means a real handler is present in the supported scope, not that every model
 |---|---|---|---|---|
 | R001 | `GET /health` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R002 | `GET /launch?token={token}` | YES | 303 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability overlays implemented. Display/avatar configuration and persona state are supported; setup/computer/media/custom-avatar assets/photo behavior is still incomplete. |
-| R004 | `GET /api/events?since={seq}` | PARTIAL | 200 | Atomic replay/reconnect includes live provider health/limits/resources and capability key hints. Events from unported peripheral hosts remain absent. |
-| R005 | `GET /api/agent` | PARTIAL | 200 | Projected agent state works for admitted native sessions; web/media/scheduler/plugin effects remain incomplete. |
+| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets/photo behavior is still incomplete. |
+| R004 | `GET /api/events?since={seq}` | PARTIAL | 200 | Atomic replay/reconnect includes live provider health/limits/resources, capability key hints and setup state. Events from unported peripheral hosts remain absent. |
+| R005 | `GET /api/agent` | PARTIAL | 200 | Projected agent state works for admitted native sessions; browser rendering/media/scheduler/plugin effects remain incomplete. |
 | R006 | `GET /api/agent/dialogue` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R007 | `POST /api/agent/input` | PARTIAL | 202 | Text input works; nonempty attachmentIds still fail explicitly. Staging exists, but copying/image delivery, vision bridging and decision routing remain pending. |
 | R008 | `GET /api/agent/sessions` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R009 | `POST /api/agent/spawn` | PARTIAL | 202 | Native 19-tool worker path includes exec/process. find/grep/web/skill/MCP/media/computer/schedule remain unavailable; unsupported cached tools block admission. |
+| R009 | `POST /api/agent/spawn` | PARTIAL | 202 | Native 21-tool worker path includes exec/process and web_search/web_fetch. find/grep/skill/MCP/media/computer/schedule remain unavailable; unsupported cached tools block admission. |
 | R010 | `GET /api/agent/sessions/{id}` | PARTIAL | 200 | Transcript paging and live process projection are implemented. Fractional/NaN paging coercion remains intentionally stricter than the JS endpoint. |
 | R011 | `DELETE /api/agent/sessions/{id}` | ABSENT | 200 | Session deletion is not yet connected to native actor/process cleanup. |
 | R012 | `POST /api/agent/sessions/{id}/message` | YES | 202 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
@@ -32,16 +32,16 @@ YES means a real handler is present in the supported scope, not that every model
 | R016 | `GET /api/agent/sessions/{id}/files` | YES | 200 | Bounded session-folder listing, hidden/build directories skipped; symlinks not traversed. |
 | R017 | `GET /api/agent/sessions/{id}/download?path={relativePath}` | PARTIAL | 200 | Binary download and 50MB bound implemented; deliberately rejects symlink escapes accepted by the old lexical-only check. Ancestor rename races are not claimed eliminated. |
 | R018 | `GET /api/agent/settings` | PARTIAL | 200 | Settings and real process sandbox availability are returned. Some preserved optimizer/scheduler/peripheral settings still have no native consumer. |
-| R019 | `PATCH /api/agent/settings` | PARTIAL | 200 | Policy/config mutations and prompt refresh work; enabling heartbeat is rejected. Optimizer, scheduler, web search setup and broader settings effects are unported. |
+| R019 | `PATCH /api/agent/settings` | PARTIAL | 200 | Policy/config mutations and prompt refresh work; enabling heartbeat is rejected. Web search configuration invalidates existing bindings; optimizer, scheduler and broader effects remain unported. |
 | R020 | `GET /api/agent/policy` | ABSENT | 200 | Settings, policy learning/revert, web search credentials, live plugins/hooks is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R021 | `POST /api/agent/policy/revert` | ABSENT | 200 | Settings, policy learning/revert, web search credentials, live plugins/hooks is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R022 | `POST /api/agent/dream` | ABSENT | 200 | Settings, policy learning/revert, web search credentials, live plugins/hooks is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R023 | `PUT /api/agent/search-key` | ABSENT | 200 | Settings, policy learning/revert, web search credentials, live plugins/hooks is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R023 | `PUT /api/agent/search-key` | YES | 200 | Selected Brave key validation/storage and atomic config binding; stale requests/cache are revoked before acknowledgement. No key appears in public events. |
 | R024 | `POST /api/agent/plugins/reload` | ABSENT | 200 | Settings, policy learning/revert, web search credentials, live plugins/hooks is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R025 | `GET /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R026 | `POST /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R027 | `POST /api/agent/approvals/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors and probes with sticky queue cancellation. Baseline setup/tool-discovery/media/computer/speech cancellation has no native host to target. |
+| R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors, provider probes and setup probe/download cancellation. Tool-discovery/media/computer/speech hosts remain unported. |
 | R029 | `GET /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R030 | `PUT /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R031 | `GET /api/capabilities` | YES | 200 | Live shared capability registry with key-presence hints; this GET does not certify modality consumers. |
@@ -62,30 +62,30 @@ YES means a real handler is present in the supported scope, not that every model
 | R046 | `POST /api/tools/connect/apply` | ABSENT | 200 | Staged imports/connections, consent manifests, live discoveries and search is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R047 | `POST /api/tools/search` | ABSENT | 200 | Staged imports/connections, consent manifests, live discoveries and search is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R048 | `POST /api/tools/{id}/discover` | ABSENT | 200 | Staged imports/connections, consent manifests, live discoveries and search is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R049 | `GET /api/model-catalog` | ABSENT | 200 | Local catalog import/search and guarded remote refresh for limits/prices is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R050 | `POST /api/model-catalog/import` | ABSENT | 200 | Local catalog import/search and guarded remote refresh for limits/prices is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R051 | `POST /api/model-catalog/refresh` | ABSENT | 200 | Local catalog import/search and guarded remote refresh for limits/prices is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R049 | `GET /api/model-catalog` | YES | 200 | Local bounded catalog search; metadata is unverified and does not enable a provider or guarantee price/model quality. |
+| R050 | `POST /api/model-catalog/import` | YES | 200 | Bounded validated catalog import persists provenance/hash; no executable content, model probe or installation. |
+| R051 | `POST /api/model-catalog/refresh` | YES | 200 | Explicit models.dev refresh through checked web network policy, 24 MiB bound and cancellation; no automatic refresh. |
 | R052 | `GET /api/computer` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R053 | `PATCH /api/computer` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R054 | `POST /api/computer/windows` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R055 | `POST /api/computer/status` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R056 | `POST /api/computer/release` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R057 | `GET /api/network` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R058 | `PATCH /api/network` | PARTIAL | 200 | Core checked network revocation works; baseline stops setup, dictation/other probes and clears embedded media tokens. Those hosts/tokens are absent. |
+| R058 | `PATCH /api/network` | PARTIAL | 200 | Checked network revocation cancels setup when leaving online mode. Dictation/other peripheral probes and embedded-media tokens remain unported. |
 | R059 | `GET /api/providers` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R060 | `PUT /api/providers` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R061 | `POST /api/providers/{id}/key` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R062 | `POST /api/providers/{id}/probe` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R063 | `GET /api/setup` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R064 | `POST /api/setup/install-help` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R065 | `POST /api/setup/scan` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R066 | `POST /api/setup/dismiss` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R067 | `POST /api/setup/select` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R068 | `POST /api/setup/install` | ABSENT | 202 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R069 | `POST /api/setup/stop` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R063 | `GET /api/setup` | YES | 200 | Live first-use snapshot and persisted transfer recovery; reads do not start discovery, downloads or model calls. |
+| R064 | `POST /api/setup/install-help` | YES | 200 | Explicit request opens the fixed official Ollama download page with the platform opener; does not install a package. |
+| R065 | `POST /api/setup/scan` | YES | 200 | Explicit checked loopback discovery with expiring candidates and local Ollama tag/digest checks; no model call. |
+| R066 | `POST /api/setup/dismiss` | YES | 200 | Persist dismissal and emit updated setup state; no network effect. |
+| R067 | `POST /api/setup/select` | YES | 200 | Exact consentTest=true and fresh candidate required; safe probe precedes actor-serialized atomic settings/registry/receipt activation. Busy, stale, cancelled or configured-registry changes fail closed. |
+| R068 | `POST /api/setup/install` | YES | 202 | Online mode checked before body parsing; exact consentDownload=true, fresh local engine and fixed catalog selection required. Bounded cancellable Ollama pull; never installs a runtime package or auto-selects a model. |
+| R069 | `POST /api/setup/stop` | YES | 200 | Cancel setup probe/download and report stopping; transfer progress settles asynchronously. Scan is cancelled on shutdown, not by this route. Partial data remains managed by Ollama. |
 | R070 | `POST /api/inputs` | YES | 201 | Atomic bounded text/PNG/JPEG staging and metadata. Model input attachment delivery remains missing in the agent input route. |
 | R071 | `DELETE /api/inputs/{id}` | YES | 200 | Staged deletion retains the baseline referenced-job guard. |
-| R072 | `POST /api/runtime/discover` | ABSENT | 200 | Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R072 | `POST /api/runtime/discover` | YES | 200 | Explicit discovery of fixed local runtime endpoints through checked model transport; availability is not model-quality certification. |
 | R073 | `POST /api/voice/edit` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R074 | `POST /api/voice/start` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R075 | `POST /api/voice/chunk` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
@@ -165,8 +165,8 @@ YES means a real handler is present in the supported scope, not that every model
 
 ## Remaining release gates
 
-- Complete input delivery, setup and existing persona/display/avatar/photo workflows
-- Connect native web/decision/semantic/media consumers; port MCP/computer, speech, schedules/heartbeat and optional plugin compatibility
+- Complete attachment model delivery, session deletion and custom avatar asset/photo workflows; retain separate real-runtime setup acceptance
+- Connect native decision/semantic/media consumers; port MCP/computer, speech, schedules/heartbeat and optional plugin compatibility
 - Preserve one database owner and actor-only state commits across pending effects, Stop, Resume and shutdown
 - Verify auth/CSRF/SSE disconnects, exact approval arguments, revocation, session visibility and filesystem boundaries on actual supported platforms
 - Keep original source differential tests and independent baseline evidence; do not relabel known failures as passing gates

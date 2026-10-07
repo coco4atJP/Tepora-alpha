@@ -246,6 +246,11 @@ fn endpoint(value: &Value, allow_cloud: bool) -> Result<(), ApiError> {
         "Use HTTPS, or HTTP on loopback only",
     )
 }
+/// Setup uses the same validation as PATCH /api/settings; it cannot expand the
+/// accepted fields or relax retained-endpoint revocation rules.
+pub fn validate_setup_settings(input: &Value, previous: &Value) -> Result<Value, ApiError> {
+    validate_settings(input, previous)
+}
 fn validate_settings(input: &Value, previous: &Value) -> Result<Value, ApiError> {
     require(input.is_object(), 400, "Settings must be an object")?;
     require(previous.is_object(), 500, "Invalid saved settings")?;

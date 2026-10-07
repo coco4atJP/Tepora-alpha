@@ -73,6 +73,7 @@ pub struct NativeAgentHost {
     approved: Mutex<HashMap<String, String>>,
     reads: Mutex<HashMap<String, Arc<Mutex<super::files::FileMemory>>>>,
     process_host: super::process_host::ProcessHost,
+    pub web: Arc<super::web_host::WebHost>,
 }
 impl NativeAgentHost {
     pub fn new(
@@ -81,6 +82,9 @@ impl NativeAgentHost {
         network: NativeNetwork,
     ) -> Result<Self, ApiError> {
         let approvals = super::approvals::Approvals::new(state.clone())?;
+        let web = Arc::new(super::web_host::WebHost::new(
+            state.clone(), network.clone(), None, None,
+        ));
         Ok(Self {
             state,
             provider,
@@ -92,7 +96,12 @@ impl NativeAgentHost {
             approved: Mutex::new(HashMap::new()),
             reads: Mutex::new(HashMap::new()),
             process_host: super::process_host::ProcessHost::new(),
+            web,
         })
+    }
+    pub fn invalidate_web(&self) -> Result<(), ApiError> {
+        self.web.invalidate();
+        Ok(())
     }
     pub fn state(&self, op: &str, args: Value) -> Result<Value, ApiError> {
         self.state.agent_state(op, args)
@@ -102,25 +111,98 @@ impl NativeAgentHost {
         self.process_host.list(session)
     }
     fn tool_catalog(&self) -> Vec<Value> {
+        // core/agent/runtime.mjs registers exec, filesystem, web, then agent
+        // tools. Preserve that order because registry search uses stable ties.
+        let (files, other): (Vec<_>, Vec<_>) = super::tools::catalog()
+            .into_iter()
+            .partition(|d| matches!(d["name"].as_str(), Some("read" | "write" | "edit")));
         self.process_host
             .catalog()
             .into_iter()
-            .chain(super::tools::catalog())
+            .chain(files)
+            .chain(super::web::definitions())
+            .chain(other)
             .collect()
     }
     fn tool_definition(&self, name: &str) -> Option<Value> {
         self.process_host
             .definition(name)
             .or_else(|| super::tools::definition(name))
+            .or_else(|| {
+                super::web::definitions()
+                    .into_iter()
+                    .find(|d| d["name"] == name)
+            })
     }
     fn toolset(&self, kind: &str) -> Vec<String> {
-        let mut names = match kind {
-            "main" => vec![],
-            "lean" => vec!["exec".into()],
-            _ => vec!["exec".into(), "process".into()],
+        // Exact source TOOLSETS order, filtered only by genuine native
+        // definitions. Persisted session.tools still follows the existing
+        // cached-prefix/refresh lifecycle in prompt(), not this registry view.
+        let names: &[&str] = match kind {
+            "main" => &[
+                "sessions_spawn",
+                "sessions_send",
+                "sessions_list",
+                "sessions_history",
+                "sessions_stop",
+                "schedule",
+                "memory_search",
+                "memory_write",
+                "web_search",
+                "web_fetch",
+                "recall",
+                "history_search",
+                "skill",
+                "reflect",
+                "tools_search",
+                "tools_call",
+            ],
+            "lean" => &[
+                "exec",
+                "read",
+                "write",
+                "edit",
+                "web_search",
+                "web_fetch",
+                "computer",
+                "todo",
+                "reflect",
+                "recall",
+                "skill",
+                "sessions_send",
+            ],
+            _ => &[
+                "exec",
+                "process",
+                "read",
+                "write",
+                "edit",
+                "find",
+                "grep",
+                "web_search",
+                "web_fetch",
+                "computer",
+                "media",
+                "todo",
+                "reflect",
+                "artifact",
+                "recall",
+                "history_search",
+                "memory_search",
+                "memory_write",
+                "skill",
+                "sessions_spawn",
+                "sessions_send",
+                "sessions_list",
+                "tools_search",
+                "tools_call",
+            ],
         };
-        names.extend(super::tools::toolset(kind));
         names
+            .iter()
+            .filter(|name| self.tool_definition(name).is_some())
+            .map(|name| (*name).to_owned())
+            .collect()
     }
     fn search_tools(&self, session: &Value, query: &str) -> Result<Value, ApiError> {
         let terms = tepora_core::store_domain::search_tokens(&json!(query), 40, 17);
@@ -215,7 +297,7 @@ impl NativeAgentHost {
             .into_iter()
             .filter(|s| s["enabled"] != false)
             .collect();
-        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image ingestion and vision bridging are not yet available. Scheduling, web tools, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
+        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image ingestion and vision bridging are not yet available. Scheduling, browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
     }
     fn prompt(&self, session: Value, refresh: bool) -> Result<Value, EffectError> {
         if !refresh {
@@ -644,9 +726,16 @@ impl NativeAgentHost {
                     Some(note) => {
                         compute("harness.format.oneLine", json!({"value":note,"max":100}))?
                     }
+                    None if matches!(name.as_str(), "web_search" | "web_fetch") => compute(
+                        "harness.format.oneLine",
+                        json!({"value":super::web::summarize(&name, &args)?,"max":100}),
+                    )?,
                     None => json!(super::tools::summarize(&name, &args)?),
                 };
                 self.state("session.update", json!({"id":id,"patch":{"note":note}}))?;
+                if matches!(name.as_str(), "web_search" | "web_fetch") {
+                    return self.web.start(ctx, &name, args);
+                }
                 if matches!(name.as_str(), "exec" | "process") {
                     let work_root = self.state("workRoot", json!({}))?;
                     let invocation = super::process_host::ProcessInvocation::from_effect(
@@ -893,6 +982,7 @@ impl super::host_runtime::HostServices for NativeAgentHost {
     }
     fn stop_resources(&self, id: &str) -> Result<(), ApiError> {
         self.process_host.stop_session(id);
+        self.web.cancel_session(id);
         let approval = self.approvals.cancel(id);
         let stream = self.stream_end(id, true);
         approval.and(stream)
@@ -902,6 +992,13 @@ impl super::host_runtime::HostServices for NativeAgentHost {
     }
 }
 impl AgentHost for NativeAgentHost {
+    fn setup_context(&self, busy: bool) -> Result<Value, ApiError> {
+        self.state.setup_selection_context(busy)
+    }
+    fn activate_setup(&self, commit: &crate::setup::SelectionCommit) -> Result<(), ApiError> {
+        self.state
+            .activate_selection_on_actor(&self.provider, commit)
+    }
     fn facts(&self) -> Result<Value, ApiError> {
         self.runtime
             .lock()
@@ -920,11 +1017,15 @@ impl AgentHost for NativeAgentHost {
                     Err(e) => json!({"id":id,"ok":false,"error":e.message}),
                 })
                 .collect::<Vec<_>>()))),
-            _ => self
-                .runtime
-                .lock()
-                .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
-                .request(self, request),
+            _ => {
+                let result = self.runtime.lock()
+                    .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
+                    .request(self, request)?;
+                if matches!(request, AgentRequest::Configure { patch } if patch.get("webSearch").is_some()) {
+                    self.web.invalidate();
+                }
+                Ok(result)
+            }
         }
     }
     fn session(&self, id: &str) -> Result<Value, ApiError> {
@@ -1179,6 +1280,7 @@ impl AgentHost for NativeAgentHost {
     }
     fn close(&self) -> Result<(), ApiError> {
         self.process_host.begin_close();
+        self.web.close();
         let approval = self.approvals.cancel_all();
         self.provider.close();
         self.network.close();

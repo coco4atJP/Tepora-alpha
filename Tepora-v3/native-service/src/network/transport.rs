@@ -197,6 +197,10 @@ impl Transport for CheckedTransport {
                 header::CONTENT_LENGTH,
                 body_len.to_string().parse().unwrap(),
             );
+            // Reauthorize after TCP/TLS/HTTP-handshake waits, at the actual
+            // request dispatch boundary. No authority lock survives this call.
+            cancel.check()?;
+            admitted.check_egress()?;
             let response = tokio::select! {
                 biased;
                 error = cancel.cancelled() => return Err(error),

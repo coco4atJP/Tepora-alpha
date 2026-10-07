@@ -43,7 +43,7 @@ Shared Rust projections preserve message/continuation and job/approval shapes. T
 
 Native process execution supports foreground/background commands, bounded UTF-16 output, process polling/logging/input/kill, exact approvals and custom receipts. Stop owns the original process resources; Resume waits for their cleanup before the next model request. Escaped descendant pipes are reported as uncertain cleanup, never a successful drain.
 
-Capability registry/key routes use one shared owner and atomic revision checks. Explicit capability keys are memory-only and identity-bound. Typed capability transports and web effects are implemented as tested components, but decision routing, embeddings in memory search and web tools are not yet connected to the agent in this checkpoint. A new live decision route is rejected as well as a saved route at startup.
+Capability registry/key routes use one shared owner and atomic revision checks. Explicit capability keys are memory-only and identity-bound. Typed capability transports are tested components; decision routing and embeddings in memory search remain unconnected. Web search/fetch is connected through the checked native transport and actor approval/receipt path. A new live decision route is rejected as well as a saved route at startup.
 
 Attachment staging/removal validates bounded text and PNG/JPEG payloads on the existing database. Agent mode also supports session acceptance, file lists and downloads. Download paths are confined after symlink resolution, tightening the prior lexical-only guard. Attachment delivery to a model is still unavailable; staging alone does not claim that feature is complete.
 
@@ -53,11 +53,12 @@ SSE reconnect/retention-gap snapshots now include live provider health, detected
 
 `--dev-native --agent` adds real text conversation, asynchronous worker sessions, tool receipts, stop/resume, parent reports, provider configuration/probes, settings and approvals. It uses the saved provider registry; it does not substitute canned model replies. Chat Completions, Responses, Anthropic and Gemini transports are implemented, including the native Ollama path discovered behind a Chat Completions profile. Protocol fixtures do not certify every model or hosted provider account.
 
-The native tool catalog contains these 19 built-ins, with the existing main/worker/lean ordering intersected with implemented tools:
+The native tool catalog contains these 21 built-ins, with the existing main/worker/lean ordering intersected with implemented tools:
 
 - Sessions: `sessions_spawn`, `sessions_send`, `sessions_list`, `sessions_history`, `sessions_stop`
 - Processes: `exec`, `process`
 - Files: `read`, `write`, `edit`
+- Web: `web_search`, `web_fetch`
 - Task state/results: `todo`, `reflect`, `artifact`
 - Retrieval/memory: `recall`, `history_search`, `memory_search`, `memory_write`
 - Discovery/indirection: `tools_search`, `tools_call`
@@ -80,15 +81,29 @@ The current application defaults to **sandbox mode `off`**, and this migration p
 
 Per-file locks use the existing **lexically resolved path**, not inode or canonical identity. Symlink/hardlink aliases can therefore race read-modify-write operations. With confinement enabled, the implementation rejects final symlinks and canonical parents outside the permitted roots, but does not claim full protection against concurrent ancestor renames. These limitations must not be described as a complete filesystem sandbox. Persona instructions, model text and tool output do not grant permission.
 
+## Native first-use setup and catalog
+
+In `--dev-native --agent`, `setup/manager.rs`, `runtime_discovery.rs` and `model_catalog.rs` own the setup, discovery and catalog routes. Workspace-only mode remains effect-free. Construction and GET snapshots never start scanning, model calls, downloads or a browser; interrupted persisted transfers are marked interrupted without auto-resume.
+
+- Explicit scan/discovery queries fixed loopback runtimes through `NativeNetwork`, with bounded responses and expiring candidates. Ollama remote/forwarded models are excluded from first-use candidates
+- Selection requires exact `consentTest: true`, a fresh candidate, an idle actor and no existing named provider registry. A safe tool-roundtrip probe and Ollama digest recheck precede activation. The actor rechecks cancellation, busy state, settings identity and registry revision; settings, registry, receipt and ordered events commit together through the single SQLite owner, with rollback on failure. The receipt does not certify model quality or vision/decision capabilities
+- Install requires online mode before HTTP body parsing and again at admission, exact `consentDownload: true`, a fresh local engine and one of the fixed catalog choices. It requests a bounded, cancellable Ollama pull with progress/idle/total limits. Stop and network restriction cancel the active probe/download; shutdown also cancels scans and drains setup work. Retry can reuse Ollama-managed partial data. It neither installs a runtime package nor automatically activates the downloaded model
+- Install-help only opens the fixed official Ollama download page with the platform opener after the explicit authenticated request. It is not arbitrary shell execution or unattended package installation
+- Catalog import/search handles bounded unverified metadata with provenance/hash; explicit refresh uses the fixed `https://models.dev/api.json` endpoint through checked web network policy with a 24 MiB limit and cancellation. Catalog entries grant no execution or network authority
+
+The outer cookie/authentication, CSRF, Host/Origin and body-size checks remain in force. Setup does not change the existing sandbox selection or grant tool permissions. Checked application networking is not an OS firewall and cannot constrain a separately forwarding local runtime. Existing decision-route, heartbeat/schedule, plugin and cached unsupported-tool admission failures remain.
+
 ## Admission and remaining limits
 
 A configured `capabilities.routes.decision` endpoint, enabled heartbeat, saved schedule documents, or global `.mjs` plugin files reject native-agent startup with a compatibility-host diagnostic. JavaScript hooks are not silently replaced with no-ops. Cached sessions containing unavailable tools are diagnosed at startup or before model use, including resumed sessions; their prompts/history are not silently rewritten.
 
-Still unported: `find`/`grep`, web tools, MCP, image ingestion and vision bridging, media/speech, Computer Use, capability decision/embedding services, skills execution, scheduling/heartbeat/dream optimization, JavaScript plugins and the remaining setup/avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
+Still unported: `find`/`grep`, browser rendering, MCP, image ingestion and vision bridging, media/speech, Computer Use, capability decision/embedding services, skills execution, scheduling/heartbeat/dream optimization, JavaScript plugins and the remaining avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
 
 Do not change default launch or remove the Node sidecar until the remaining effects, route inventory and desktop packaging/installation/startup have their own acceptance evidence. A future JavaScript plugin compatibility host must preserve live callback/context behavior, not just copy it into JSON.
 
 ## Verification
+
+The setup source gate (including the retained PTY EOF repair) passed 364 native library + 2 CLI tests, 24 Node HTTP tests, 18 catalog fixtures and 20/20 race-fixture repetitions. Tests use local scripted servers; no real model or runtime package was installed. Earlier full Node validation was 544/549 with five established browser/DNS/bubblewrap environment failures, not an aggregate green gate. The web + setup candidate is local and unpublished; published head22941be covers preferences + PTY repair only, with new actual macOS CI still running. Desktop packaging and installation remain unverified.
 
 From the repository root:
 

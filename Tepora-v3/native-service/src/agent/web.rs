@@ -68,6 +68,11 @@ pub fn summarize(name: &str, args: &Value) -> Result<String, EffectError> {
     }
 }
 pub const SEARCH_PROVIDERS: [&str; 4] = ["auto", "brave", "searxng", "duckduckgo"];
+/// A trusted owner-supplied snapshot/revision check, never page instructions.
+/// It runs without holding a database lock across an awaited request.
+pub trait WebAuthority: Send + Sync {
+    fn check(&self) -> Result<(), EffectError>;
+}
 pub trait WebClock: Send + Sync {
     fn now_ms(&self) -> i64;
 }
@@ -77,7 +82,7 @@ impl WebClock for SystemWebClock {
         chrono::Utc::now().timestamp_millis()
     }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WebConfig {
     pub provider: String,
     pub searxng_url: String,
@@ -187,6 +192,7 @@ pub struct WebTools {
     unicode_version: u32,
     clock: Arc<dyn WebClock>,
     cache: Mutex<Cache>,
+    authority: Option<Arc<dyn WebAuthority>>,
 }
 impl WebTools {
     pub fn new(
@@ -206,7 +212,18 @@ impl WebTools {
             unicode_version,
             clock: Arc::new(SystemWebClock),
             cache: Mutex::default(),
+            authority: None,
         }
+    }
+    pub fn with_authority(mut self, authority: Arc<dyn WebAuthority>) -> Self {
+        self.authority = Some(authority);
+        self
+    }
+    pub fn check_authority(&self) -> Result<(), EffectError> {
+        if let Some(authority) = &self.authority {
+            authority.check()?;
+        }
+        Ok(())
     }
     pub fn with_clock(mut self, clock: Arc<dyn WebClock>) -> Self {
         self.clock = clock;
@@ -234,7 +251,7 @@ impl WebTools {
         if !self.network.policy().internet_tools {
             return Err(error(403, "インターネットを使う道具が許可されていません。"));
         }
-        Ok(())
+        self.check_authority()
     }
     async fn render(
         &self,
@@ -397,7 +414,14 @@ impl WebTools {
                 ("https://html.duckduckgo.com/html/".into(), "duckduckgo")
             }
         };
-        let (response, _) = fetch_following(&self.network, &url, options, cancel).await?;
+        let (response, _) = fetch_following_guarded(
+            &self.network,
+            &url,
+            options,
+            cancel,
+            self.authority.clone(),
+        )
+        .await?;
         if !(200..300).contains(&response.status) {
             return Err(error(
                 502,
@@ -527,8 +551,14 @@ impl WebTools {
                     "text/html,application/xhtml+xml,text/plain,application/json;q=0.9,*/*;q=0.5",
                 ),
             );
-            let (response, final_url) =
-                fetch_following(&self.network, url, options, cancel).await?;
+            let (response, final_url) = fetch_following_guarded(
+                &self.network,
+                url,
+                options,
+                cancel,
+                self.authority.clone(),
+            )
+            .await?;
             let typ = response
                 .headers
                 .get(header::CONTENT_TYPE)
@@ -721,8 +751,31 @@ impl Default for FetchOptions {
 pub async fn fetch_following(
     network: &NativeNetwork,
     url: &str,
+    options: FetchOptions,
+    cancel: &RequestCancellation,
+) -> Result<(NetworkResponse, String), EffectError> {
+    fetch_following_guarded(network, url, options, cancel, None).await
+}
+// Carry the same captured web binding through DNS and TCP/TLS waits.
+struct WebEgressGuard(Arc<dyn WebAuthority>);
+impl std::fmt::Debug for WebEgressGuard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("WebEgressGuard")
+    }
+}
+impl crate::network::EgressGuard for WebEgressGuard {
+    fn check(&self) -> Result<(), crate::network::NetworkError> {
+        self.0.check().map_err(|_| {
+            crate::network::NetworkError::blocked("Web settings or credentials changed")
+        })
+    }
+}
+async fn fetch_following_guarded(
+    network: &NativeNetwork,
+    url: &str,
     mut options: FetchOptions,
     cancel: &RequestCancellation,
+    authority: Option<Arc<dyn WebAuthority>>,
 ) -> Result<(NetworkResponse, String), EffectError> {
     let mut current = url.to_owned();
     if !options.headers.contains_key(header::USER_AGENT) {
@@ -738,6 +791,10 @@ pub async fn fetch_following(
     }
     for _ in 0..6 {
         check_cancel(cancel)?;
+        if let Some(authority) = &authority {
+            authority.check()?;
+        }
+        check_cancel(cancel)?;
         let response = network
             .request(
                 &sql_text(&current),
@@ -748,6 +805,9 @@ pub async fn fetch_following(
                     cancellation: Some(cancel.clone()),
                 },
                 NetworkScope {
+                    egress_guard: authority.as_ref().map(|a| {
+                        Arc::new(WebEgressGuard(a.clone())) as Arc<dyn crate::network::EgressGuard>
+                    }),
                     purpose: Purpose::WebTool,
                     redirects: true,
                     max_bytes: options.max_bytes,

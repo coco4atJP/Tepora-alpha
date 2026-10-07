@@ -17,7 +17,7 @@ flowchart TD
     Actor --> Execution[ExecutionEngine: model and tool phases]
     Actor --> Host[Scoped native effects and owned snapshots]
     Host --> Provider[ProviderRuntime and native network transport]
-    Host --> Tools[17 native built-ins and immutable approvals]
+    Host --> Tools[21 native built-ins and immutable approvals]
     Host --> Harness[Pure prompts, context, compaction and metacognition]
     Host --> Workspace
     Node --> Compatibility[Remaining tools, hooks, capabilities and schedulers]
@@ -67,9 +67,21 @@ The explicit native host now implements persona/voice and application preference
 
 `workspace/display_avatar.rs` owns validated recipe changes, revision histories, undo/reset and portable preset import/export under the same Workspace/SQLite owner. The date parser preserves the frozen V8 input behavior and carries its source/license notice into native distributions. These state APIs do not implement custom avatar asset uploads, asset byte serving, photo-frame storage, audio or media effects. Normal Node/Tauri startup and all JavaScript/CSS remain unchanged.
 
+## Native first-use setup and catalog
+
+In `--dev-native --agent`, `setup/manager.rs`, `runtime_discovery.rs` and `model_catalog.rs` own the setup, discovery and catalog routes. Workspace-only mode remains effect-free. Construction and GET snapshots never start scanning, model calls, downloads or a browser; interrupted persisted transfers are marked interrupted without auto-resume.
+
+- Explicit scan/discovery queries fixed loopback runtimes through `NativeNetwork`, with bounded responses and expiring candidates. Ollama remote/forwarded models are excluded from first-use candidates
+- Selection requires exact `consentTest: true`, a fresh candidate, an idle actor and no existing named provider registry. A safe tool-roundtrip probe and Ollama digest recheck precede activation. The actor rechecks cancellation, busy state, settings identity and registry revision; settings, registry, receipt and ordered events commit together through the single SQLite owner, with rollback on failure. The receipt does not certify model quality or vision/decision capabilities
+- Install requires online mode before HTTP body parsing and again at admission, exact `consentDownload: true`, a fresh local engine and one of the fixed catalog choices. It requests a bounded, cancellable Ollama pull with progress/idle/total limits. Stop and network restriction cancel the active probe/download; shutdown also cancels scans and drains setup work. Retry can reuse Ollama-managed partial data. It neither installs a runtime package nor automatically activates the downloaded model
+- Install-help only opens the fixed official Ollama download page with the platform opener after the explicit authenticated request. It is not arbitrary shell execution or unattended package installation
+- Catalog import/search handles bounded unverified metadata with provenance/hash; explicit refresh uses the fixed `https://models.dev/api.json` endpoint through checked web network policy with a 24 MiB limit and cancellation. Catalog entries grant no execution or network authority
+
+The outer cookie/authentication, CSRF, Host/Origin and body-size checks remain in force. Setup does not change the existing sandbox selection or grant tool permissions. Checked application networking is not an OS firewall and cannot constrain a separately forwarding local runtime. Existing decision-route, heartbeat/schedule, plugin and cached unsupported-tool admission failures remain.
+
 ## Tools, approvals and current execution boundary
 
-The native catalog implements `sessions_spawn`, `sessions_send`, `sessions_list`, `sessions_history`, `sessions_stop`, `read`, `write`, `edit`, `todo`, `reflect`, `artifact`, `recall`, `history_search`, `memory_search`, `memory_write`, `tools_search` and `tools_call`. Fixed main/worker/lean sets preserve order and include only implemented/enabled definitions. Native memory search uses the existing lexical fallback. Image reads/vision bridging and MCP indirection remain unavailable.
+The native catalog implements `sessions_spawn`, `sessions_send`, `sessions_list`, `sessions_history`, `sessions_stop`, `read`, `write`, `edit`, `todo`, `reflect`, `artifact`, `recall`, `history_search`, `memory_search`, `memory_write`, `tools_search`, `tools_call`, `exec`, `process`, `web_search` and `web_fetch`. Fixed main/worker/lean sets preserve order and include only implemented/enabled definitions. Native memory search uses the existing lexical fallback. Image reads/vision bridging and MCP indirection remain unavailable.
 
 Policy matching preserves first-rule ordering, wildcard/prefix/exact names and validated ECMAScript-compatible UTF-16 regex matching. `agent/approvals.rs` persists immutable approved arguments, coordinates actor-owned decisions and withdraws stale requests. Approval wait futures do not write state. Late decisions, altered approval documents and stopped runs cannot authorize dispatch. Actual results and evidence are recorded once, in model order, with truncation/recall references, error/not-executed/interrupted distinctions, read references and usage statistics.
 
@@ -81,7 +93,7 @@ File tools preserve path resolution, freshness checks and read-before-overwrite 
 
 Native mode fails preflight for configured global `.mjs` plugins, a capability decision route, enabled heartbeat or saved schedule documents. Cached unsupported toolsets are diagnosed before model use, including resumed sessions. Absent hooks can use identity behavior; configured hooks cannot silently become no-ops. New native prompts explicitly describe unavailable capabilities, and known unimplemented APIs fail clearly.
 
-Process execution, web tools, `find`/`grep`, MCP, skills execution, image ingestion, media/speech, Computer Use, capability services, schedules/heartbeat/dream optimization, JavaScript plugins and remaining setup/avatar/photo/peripheral mutations still use the compatibility service. Their saved data are retained. [Native host setup and limits](../native-service/README.md) lists the supported mode and routes. Neither the default launcher nor Tauri has been switched to the native service.
+Browser rendering, `find`/`grep`, MCP, skills execution, image ingestion, media/speech, Computer Use, capability services, schedules/heartbeat/dream optimization, JavaScript plugins and remaining avatar/photo/peripheral mutations still use the compatibility service. Their saved data are retained. [Native host setup and limits](../native-service/README.md) lists the supported mode and routes. Neither the default launcher nor Tauri has been switched to the native service.
 
 ## Companion monitor UI
 
@@ -103,6 +115,10 @@ Root npm/Task commands and CI target V3. [QA](QA.md) and [STATUS](STATUS.md) con
 
 `capabilities/` uses the same `WorkspaceAccess` and `NativeNetwork`; registry/event CAS is atomic, and explicit keys are memory-only. Workspace retains the agent host for live process projections. Provider/capability snapshot decorators only read runtime-owned caches, so reconnect sequence capture and subscriber registration remain atomic under the one State lock.
 
-`workspace/input_files.rs` stages inert bounded text/image documents transactionally. `workspace/session_files.rs` provides bounded file listing/download with a resolved-root guard. Model attachment delivery, decision routing and web host wiring remain later steps. No default application cutover is implied.
+`workspace/input_files.rs` stages inert bounded text/image documents transactionally. `workspace/session_files.rs` provides bounded file listing/download with a resolved-root guard. Model attachment delivery and decision routing remain later steps. No default application cutover is implied.
 
 See [complete route inventory and release gates](RUST-ROUTE-PARITY.md).
+
+## Native web effects
+
+`agent/web_host.rs` binds existing web tools to the actor with immutable approvals, alias receipts, cancellation and shared cache lifetime. `workspace/web_state.rs` reads selected credentials/configuration atomically without another database owner. `PUT /api/agent/search-key` retains the source credential-storage behavior, emits no secret events and invalidates old bindings before acknowledging the change. NativeNetwork checks trusted binding guards after admission/DNS, and CheckedTransport checks again after TCP/TLS before request dispatch. Revoked/stale responses never repopulate the cache. Browser rendering and unsupported decision-model effects remain explicitly unavailable.

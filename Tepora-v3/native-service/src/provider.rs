@@ -228,6 +228,15 @@ impl Drop for OperationLease {
     }
 }
 impl ProviderRuntime {
+    /// First-use activation runs synchronously on the actor. Acquire this before
+    /// Workspace State so its registry CAS cannot race ordinary save/set_key.
+    pub(crate) fn with_configuration_lock<T>(
+        &self,
+        work: impl FnOnce() -> Result<T, ApiError>,
+    ) -> Result<T, ApiError> {
+        let _config = lock(&self.inner.config);
+        work()
+    }
     pub fn new(state: Arc<dyn ProviderState>, network: NativeNetwork) -> Self {
         Self::with_options(state, network, true, Arc::new(now_ms))
     }

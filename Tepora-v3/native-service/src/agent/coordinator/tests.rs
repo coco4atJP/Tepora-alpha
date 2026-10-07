@@ -18,6 +18,7 @@ struct Data {
     panic_at: Option<String>,
     async_panic_at: Option<String>,
     close_count: usize,
+    setup_commits: usize,
 }
 struct FakeHost {
     data: Mutex<Data>,
@@ -78,6 +79,13 @@ fn session(id: &str, kind: &str) -> Value {
     json!({"id":id,"kind":kind,"status":"idle","toolset":"lean","tools":[],"stats":{"steps":0,"toolCalls":0,"cost":0},"result":null})
 }
 impl AgentHost for FakeHost {
+    fn setup_context(&self, busy: bool) -> Result<Value, ApiError> {
+        Ok(json!({"busy":busy}))
+    }
+    fn activate_setup(&self, _: &crate::setup::SelectionCommit) -> Result<(), ApiError> {
+        self.data.lock().unwrap().setup_commits += 1;
+        Ok(())
+    }
     fn facts(&self) -> Result<Value, ApiError> {
         let d = self.data.lock().unwrap();
         Ok(
@@ -551,5 +559,68 @@ fn cancellation_before_execute_dispatch_is_explicitly_not_executed() {
     assert_eq!(d.receipts[0]["notExecuted"], true);
     assert!(!d.effects.iter().any(|(_, kind, _)| kind == "executeTool"));
     drop(d);
+    h.begin_close().wait().unwrap();
+}
+
+#[test]
+fn setup_selection_final_busy_check_is_serialized_with_new_runs_and_cancellation() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    host.hold("invoke");
+    let (_rt, h) = start(host.clone());
+    assert_eq!(
+        h.request(AgentRequest::SetupContext).unwrap()["busy"],
+        false
+    );
+    let selection = crate::setup::SelectionCommit {
+        cancellation: RequestCancellation::new(),
+        expected_configuration: "fixture".into(),
+        expected_registry_revision: 0,
+        settings: json!({}),
+        report: json!({}),
+        registry: json!({}),
+    };
+    h.request(AgentRequest::Initialize).unwrap();
+    let (_, tx) = host.pop("invoke");
+    assert_eq!(h.request(AgentRequest::SetupContext).unwrap()["busy"], true);
+    assert_eq!(
+        h.request(AgentRequest::ActivateSetup {
+            commit: selection.clone()
+        })
+        .unwrap_err()
+        .status,
+        409
+    );
+    h.request(AgentRequest::Stop {
+        id: "main".into(),
+        reason: "stop for selection".into(),
+        rearm_main: false,
+    })
+    .unwrap();
+    assert_eq!(
+        h.request(AgentRequest::ActivateSetup {
+            commit: selection.clone()
+        })
+        .unwrap_err()
+        .status,
+        409,
+        "Draining active run must remain busy"
+    );
+    tx.send(Err(EffectError::cancelled(false))).unwrap();
+    wait_idle(&h, "main");
+    let cancelled = crate::setup::SelectionCommit {
+        cancellation: RequestCancellation::new(),
+        ..selection.clone()
+    };
+    cancelled.cancellation.cancel();
+    assert_eq!(
+        h.request(AgentRequest::ActivateSetup { commit: cancelled })
+            .unwrap_err()
+            .status,
+        409
+    );
+    assert_eq!(host.data.lock().unwrap().setup_commits, 0);
+    h.request(AgentRequest::ActivateSetup { commit: selection })
+        .unwrap();
+    assert_eq!(host.data.lock().unwrap().setup_commits, 1);
     h.begin_close().wait().unwrap();
 }

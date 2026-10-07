@@ -6,10 +6,22 @@ impl Workspace {
     pub(super) fn execute_native(&self, op: &Operation) -> Result<Option<Reply>, ApiError> {
         if !matches!(
             op,
-            Operation::DialoguePersonas
+            Operation::ModelCatalogSearch{..}
+                | Operation::ModelCatalogImport{..}
+                | Operation::ModelCatalogRefresh
+                | Operation::Setup
+                | Operation::SetupScan
+                | Operation::SetupDismiss
+                | Operation::SetupSelect{..}
+                | Operation::SetupInstall{..}
+                | Operation::SetupStop
+                | Operation::SetupInstallHelp
+                | Operation::RuntimeDiscover
+                | Operation::DialoguePersonas
                 | Operation::DialoguePersonasSave { .. }
                 | Operation::SettingsPatch { .. }
                 | Operation::AgentInput { .. }
+                | Operation::SearchKey { .. }
                 | Operation::SessionAccept { .. }
                 | Operation::AgentSpawn { .. }
                 | Operation::SessionMessage { .. }
@@ -43,11 +55,40 @@ impl Workspace {
         }
         let request = |r| native.agent.request(r);
         let value = match op {
+            Operation::ModelCatalogRefresh | Operation::SetupScan | Operation::SetupSelect { .. } | Operation::RuntimeDiscover => return Err(ApiError::unavailable("Setup network operations require the asynchronous backend")),
+            Operation::ModelCatalogSearch{query}=>native.catalog.search(query)?,
+            Operation::ModelCatalogImport{body}=>native.catalog.import(body)?,
+            Operation::Setup=>native.setup.snapshot()?,
+            Operation::SetupDismiss=>native.setup.dismiss()?,
+            Operation::SetupInstall{body}=>native.setup.install(body)?,
+            Operation::SetupStop=>native.setup.stop(),
+            Operation::SetupInstallHelp=>crate::setup::open_installer_page()?,
             Operation::DialoguePersonas => self.preference_personas()?,
             Operation::DialoguePersonasSave { body } => self.change_personas(body, || {
                 native.agent.request(AgentRequest::RefreshPrompts).map(|_| ())
             })?,
             Operation::SettingsPatch { body } => self.change_preferences(body, &native.network)?,
+            Operation::SearchKey { body } => {
+                let key = body["key"].as_str()
+                    .ok_or_else(|| ApiError::bad_request("Invalid key"))?;
+                require(body["provider"] == "brave" && json_codec::utf16_units(key).len() <= 500,
+                    400, "Invalid key")?;
+                {
+                    let mut state = self.lock()?;
+                    let old = state.value("search-keys")?;
+                    let mut keys = old.as_object().cloned().unwrap_or_default();
+                    if key.is_empty() {
+                        keys.shift_remove("brave");
+                    } else {
+                        keys.insert("brave".into(), json!(key));
+                    }
+                    state.set_value("search-keys", Value::Object(keys))?;
+                }
+                // Credentials never appear in a durable/public event. Revoke
+                // the previous web binding before acknowledging this change.
+                native.host.invalidate_web()?;
+                json!({"provider":"brave","keyPresent":!key.is_empty()})
+            }
             Operation::SessionAccept { id } => {
                 let session = self.access().agent_state("session.get", json!({"id":id}))?;
                 require(!session.is_null(), 404, "Session not found")?;
@@ -254,9 +295,13 @@ impl Workspace {
                 }
                 next["note"] =
                     json!("Tepora管理の通信に適用します。OS全体のファイアウォールではありません。");
+                // Cancel selection while State still excludes its final commit.
+                if next["mode"]!="online" {native.setup.stop();}
+                drop(s);
                 next
             }
             Operation::StopAll => {
+                native.setup.stop();
                 self.cancel_probes()?;
                 native.provider.cancel_all();
                 let sessions = self.lock()?.list("session")?;

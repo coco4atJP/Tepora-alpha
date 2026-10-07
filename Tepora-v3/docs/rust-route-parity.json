@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-preferences-visual-state",
+  "checkpoint": "native-web-setup-effects",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 48,
+    "implemented": 60,
     "partial": 13,
-    "unavailable": 65
+    "unavailable": 53
   },
   "routes": [
     {
@@ -38,7 +38,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Live provider/capability overlays implemented. Display/avatar configuration and persona state are supported; setup/computer/media/custom-avatar assets/photo behavior is still incomplete.",
+      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets/photo behavior is still incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -49,7 +49,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Atomic replay/reconnect includes live provider health/limits/resources and capability key hints. Events from unported peripheral hosts remain absent.",
+      "limit": "Atomic replay/reconnect includes live provider health/limits/resources, capability key hints and setup state. Events from unported peripheral hosts remain absent.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -60,7 +60,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Projected agent state works for admitted native sessions; web/media/scheduler/plugin effects remain incomplete.",
+      "limit": "Projected agent state works for admitted native sessions; browser rendering/media/scheduler/plugin effects remain incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -104,7 +104,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 202,
-      "limit": "Native 19-tool worker path includes exec/process. find/grep/web/skill/MCP/media/computer/schedule remain unavailable; unsupported cached tools block admission.",
+      "limit": "Native 21-tool worker path includes exec/process and web_search/web_fetch. find/grep/skill/MCP/media/computer/schedule remain unavailable; unsupported cached tools block admission.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -214,7 +214,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Policy/config mutations and prompt refresh work; enabling heartbeat is rejected. Optimizer, scheduler, web search setup and broader settings effects are unported.",
+      "limit": "Policy/config mutations and prompt refresh work; enabling heartbeat is rejected. Web search configuration invalidates existing bindings; optimizer, scheduler and broader effects remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -256,9 +256,9 @@
       "path": "/api/agent/search-key",
       "family": "agent-settings",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Settings, policy learning/revert, web search credentials, live plugins/hooks is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Selected Brave key validation/storage and atomic config binding; stale requests/cache are revoked before acknowledgement. No key appears in public events.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -313,7 +313,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Correct for integrated actors and probes with sticky queue cancellation. Baseline setup/tool-discovery/media/computer/speech cancellation has no native host to target.",
+      "limit": "Correct for integrated actors, provider probes and setup probe/download cancellation. Tool-discovery/media/computer/speech hosts remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -542,9 +542,9 @@
       "path": "/api/model-catalog",
       "family": "catalog",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local catalog import/search and guarded remote refresh for limits/prices is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Local bounded catalog search; metadata is unverified and does not enable a provider or guarantee price/model quality.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -553,9 +553,9 @@
       "path": "/api/model-catalog/import",
       "family": "catalog",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local catalog import/search and guarded remote refresh for limits/prices is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Bounded validated catalog import persists provenance/hash; no executable content, model probe or installation.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -564,9 +564,9 @@
       "path": "/api/model-catalog/refresh",
       "family": "catalog",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local catalog import/search and guarded remote refresh for limits/prices is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Explicit models.dev refresh through checked web network policy, 24 MiB bound and cancellation; no automatic refresh.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -643,7 +643,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Core checked network revocation works; baseline stops setup, dictation/other probes and clears embedded media tokens. Those hosts/tokens are absent.",
+      "limit": "Checked network revocation cancels setup when leaving online mode. Dictation/other peripheral probes and embedded-media tokens remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -696,9 +696,9 @@
       "path": "/api/setup",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Live first-use snapshot and persisted transfer recovery; reads do not start discovery, downloads or model calls.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -707,9 +707,9 @@
       "path": "/api/setup/install-help",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Explicit request opens the fixed official Ollama download page with the platform opener; does not install a package.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -718,9 +718,9 @@
       "path": "/api/setup/scan",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Explicit checked loopback discovery with expiring candidates and local Ollama tag/digest checks; no model call.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -729,9 +729,9 @@
       "path": "/api/setup/dismiss",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Persist dismissal and emit updated setup state; no network effect.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -740,9 +740,9 @@
       "path": "/api/setup/select",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Exact consentTest=true and fresh candidate required; safe probe precedes actor-serialized atomic settings/registry/receipt activation. Busy, stale, cancelled or configured-registry changes fail closed.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -751,9 +751,9 @@
       "path": "/api/setup/install",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 202,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Online mode checked before body parsing; exact consentDownload=true, fresh local engine and fixed catalog selection required. Bounded cancellable Ollama pull; never installs a runtime package or auto-selects a model.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -762,9 +762,9 @@
       "path": "/api/setup/stop",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Cancel setup probe/download and report stopping; transfer progress settles asynchronously. Scan is cancelled on shutdown, not by this route. Partial data remains managed by Ollama.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -795,9 +795,9 @@
       "path": "/api/runtime/discover",
       "family": "setup",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Discovery/install/probe/select workflow, verified model application and resumable download is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Explicit discovery of fixed local runtime endpoints through checked model transport; availability is not model-quality certification.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

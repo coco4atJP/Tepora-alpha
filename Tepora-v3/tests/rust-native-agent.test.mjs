@@ -255,3 +255,21 @@ async function openEvents(f,app){
  const childRequest=model.requests.find(r=>r.model==='worker');assert.ok(childRequest.body.tools.some(t=>t.function.name==='exec'));assert.ok(childRequest.body.tools.some(t=>t.function.name==='process'));
  assert.equal(app.env.PATH,f.emptyPath);assert.ok(Array.isArray(state.processes));
  });
+
+ test('Rust native agent: search credentials require authentication and stay out of public snapshots',async t=>{
+ const f=await fixture(t),app=await f.start();
+ const route='/api/agent/search-key';
+ assert.equal((await request(app.origin,route,{method:'PUT',body:{provider:'brave',key:'fixture-web-secret'}})).status,401);
+ assert.equal((await request(app.origin,route,{method:'PUT',headers:{Cookie:app.cookie,'Content-Type':'application/json'},body:{provider:'brave',key:'fixture-web-secret'}})).status,403);
+ for(const body of [{provider:'other',key:'x'},{provider:'brave',key:4},{provider:'brave',key:'x'.repeat(501)}])assert.equal((await app.request(route,'PUT',body)).status,400);
+ const stream=await openEvents(f,app);
+ assert.deepEqual(parsed(await app.request(route,'PUT',{provider:'brave',key:'fixture-web-secret'})),{provider:'brave',keyPresent:true});
+ const settings=parsed(await app.request('/api/agent/settings','PATCH',{webSearch:{provider:'searxng',searxngUrl:'http://127.0.0.1:17777/search',braveKeyEnv:'TEPORA_ABSENT_WEB_FIXTURE'}}));
+ assert.equal(settings.webSearch.provider,'searxng');
+ const bootstrap=parsed(await app.request('/api/bootstrap'));
+ assert.ok(!bootstrap.nativeHost.unavailable.includes('web tools'));
+ assert.ok(bootstrap.nativeHost.unavailable.includes('browser rendering'));
+ assert.ok(!JSON.stringify([bootstrap,settings,parsed(await app.request('/api/agent/settings'))]).includes('fixture-web-secret'));
+ await delay(50);assert.ok(!JSON.stringify(stream.packets).includes('fixture-web-secret'));
+ assert.deepEqual(parsed(await app.request(route,'PUT',{provider:'brave',key:''})),{provider:'brave',keyPresent:false});
+ });

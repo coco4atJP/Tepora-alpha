@@ -388,6 +388,20 @@ impl HttpState {
         .map_err(|e| ApiError::new(500, format!("Domain task failed: {e}")))?
     }
     async fn domain(self: &Arc<Self>, op: Operation) -> Result<Reply, ApiError> {
+        if matches!(&op,Operation::ModelCatalogRefresh|Operation::SetupScan|Operation::SetupSelect{..}|Operation::RuntimeDiscover) {
+            if *self.shutdown.borrow(){return Err(ApiError::unavailable("Service is closing"));}
+            let cancellation=crate::network::RequestCancellation::new();
+            struct CancelSetupOnDrop(crate::network::RequestCancellation);
+            impl Drop for CancelSetupOnDrop {fn drop(&mut self){self.0.cancel();}}
+            let _cancel=CancelSetupOnDrop(cancellation.clone());
+            let mut shutdown=self.shutdown.subscribe();
+            self.work.count.fetch_add(1,Ordering::AcqRel);
+            let _work=WorkGuard(self.work.clone());
+            return tokio::select!{biased;
+                _=shutdown_requested(&mut shutdown)=>Err(ApiError::unavailable("Service is closing")),
+                result=self.backend.execute_setup(op,cancellation)=>result,
+            };
+        }
         if let Operation::ProviderProbe { id } = &op {
             let id = id.clone();
             let cancellation = self.backend.probe_cancellation();
@@ -582,6 +596,10 @@ impl HttpState {
             return self.json_operation(operation, 200).await;
         }
         if self.config.agent && method == Method::GET {
+            if path=="/api/model-catalog" {
+                let query=tepora_core::json_codec::encode_text(&query(&url,"q").unwrap_or_default());
+                return self.json_operation(Operation::ModelCatalogSearch{query},200).await;
+            }
             if let Some((id, action)) = path
                 .strip_prefix("/api/agent/sessions/")
                 .and_then(|rest| rest.split_once('/'))
@@ -622,6 +640,10 @@ impl HttpState {
                 let (operation, status) = match route {
                     NativeAgentRoute::Ready(operation, status) => (operation, status),
                     NativeAgentRoute::Body(route, status) => {
+                        if matches!(route, NativeAgentBodyRoute::SetupInstall) {
+                            self.backend_call(|backend| backend.setup_install_permitted())
+                                .await?;
+                        }
                         let body = self.read_json(request.into_body()).await?;
                         (route.operation(body), status)
                     }
@@ -866,8 +888,12 @@ enum NativeAgentRoute {
 enum NativeAgentBodyRoute {
     Display(crate::workspace::VisualAction),
     Avatar(crate::workspace::VisualAction),
+    ModelCatalogImport,
+    SetupSelect,
+    SetupInstall,
     DialoguePersonas,
     Preferences,
+    SearchKey,
     Input,
     Spawn,
     Message(String),
@@ -886,8 +912,12 @@ impl NativeAgentBodyRoute {
         match self {
             Self::Display(action) => Operation::Display { action, body },
             Self::Avatar(action) => Operation::Avatar { action, body },
+            Self::ModelCatalogImport=>Operation::ModelCatalogImport{body},
+            Self::SetupSelect=>Operation::SetupSelect{body},
+            Self::SetupInstall=>Operation::SetupInstall{body},
             Self::DialoguePersonas => Operation::DialoguePersonasSave { body },
             Self::Preferences => Operation::SettingsPatch { body },
+            Self::SearchKey => Operation::SearchKey { body },
             Self::Input => Operation::AgentInput { body },
             Self::Spawn => Operation::AgentSpawn { body },
             Self::Message(id) => Operation::SessionMessage { id, body },
@@ -940,10 +970,21 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
     use NativeAgentBodyRoute as Body;
     use NativeAgentRoute::{Body as Json, Ready};
     match (method.as_str(), path) {
+        ("POST","/api/model-catalog/import")=>return Some(Json(Body::ModelCatalogImport,200)),
+        ("POST","/api/model-catalog/refresh")=>return Some(Ready(Operation::ModelCatalogRefresh,200)),
+        ("GET","/api/setup")=>return Some(Ready(Operation::Setup,200)),
+        ("POST","/api/setup/scan")=>return Some(Ready(Operation::SetupScan,200)),
+        ("POST","/api/setup/dismiss")=>return Some(Ready(Operation::SetupDismiss,200)),
+        ("POST","/api/setup/select")=>return Some(Json(Body::SetupSelect,200)),
+        ("POST","/api/setup/install")=>return Some(Json(Body::SetupInstall,202)),
+        ("POST","/api/setup/stop")=>return Some(Ready(Operation::SetupStop,200)),
+        ("POST","/api/setup/install-help")=>return Some(Ready(Operation::SetupInstallHelp,200)),
+        ("POST","/api/runtime/discover")=>return Some(Ready(Operation::RuntimeDiscover,200)),
         ("GET", "/api/dialogue/personas") => return Some(Ready(Operation::DialoguePersonas, 200)),
         ("PUT", "/api/dialogue/personas") => return Some(Json(Body::DialoguePersonas, 200)),
         ("PATCH", "/api/settings") => return Some(Json(Body::Preferences, 200)),
         ("POST", "/api/agent/input") => return Some(Json(Body::Input, 202)),
+        ("PUT", "/api/agent/search-key") => return Some(Json(Body::SearchKey, 200)),
         ("POST", "/api/agent/spawn") => return Some(Json(Body::Spawn, 202)),
         ("GET", "/api/agent/settings") => return Some(Ready(Operation::AgentSettings, 200)),
         ("PATCH", "/api/agent/settings") => return Some(Json(Body::Settings, 200)),
@@ -1683,8 +1724,8 @@ mod tests {
             ))
             .await;
         assert_eq!(response.status(), 404);
-        workspace.begin_shutdown().unwrap();
-        workspace.shutdown().unwrap();
+        let closing = workspace.clone();
+        tokio::task::spawn_blocking(move || closing.shutdown()).await.unwrap().unwrap();
         drop(state);
         drop(workspace);
         std::fs::remove_dir_all(dir).unwrap();

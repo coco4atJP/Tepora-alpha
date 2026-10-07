@@ -4,7 +4,7 @@
 
 移植元は `835c585da7d4fbe2b463492edefce70ad20d19b8`。V3はTypeScriptではなくNode.js ESMのJavaScriptと素のJavaScript/CSSのGUIです。既存のRustはTauriの薄いホストだけでした。
 
-以下は第1段階からの移行記録です。現在の到達点は末尾の**第8段階（人格・設定・表示状態）**であり、通常起動・Tauriの全面切替は行っていません。
+以下は第1段階からの移行記録です。現在の到達点は末尾の**第9段階（Web検索・取得）**であり、通常起動・Tauriの全面切替は行っていません。
 
 第1段階では、`native-core` をRustライブラリとして追加し、実際のSQLite処理を移しました。
 
@@ -14,7 +14,7 @@
 - 成果物の期待版チェック、改版履歴と本体の原子的な更新
 - トランザクションとSQLite接続の単一所有
 
-第2〜3段階で文脈・トークン予算・通信形式、モデル/ツールの順序、外側の実行枠・再試行・停止/再開・完了判定をRustへ移しました。第4〜5段階で独立HTTP/状態ホストを追加し、第6段階では実際のプロバイダー送受信、対応する17ツール、承認、コンパクション、自己点検まで明示的なRust起動モードへ接続しています。第7段階でプロセスと能力設定、第8段階で人格・設定・表示状態を接続しました。ビルド済みnative-agentバイナリーはNodeなしで動きますが、予定・Web/MCP/音声/メディア/PC操作・JSプラグイン等の効果処理は未移植です。通常起動はNode互換サービスのままであり、全バックエンドの移行完了を意味しません。GUIはJavaScript/CSS、任意のワーカーは引き続きPythonです。
+第2〜3段階で文脈・トークン予算・通信形式、モデル/ツールの順序、外側の実行枠・再試行・停止/再開・完了判定をRustへ移しました。第4〜5段階で独立HTTP/状態ホストを追加し、第6段階では実際のプロバイダー送受信、対応する17ツール、承認、コンパクション、自己点検まで明示的なRust起動モードへ接続しています。第7段階でプロセスと能力設定、第8段階で人格・設定・表示状態、第9段階でWeb検索・取得を接続しました。ビルド済みnative-agentバイナリーはNodeなしで動きますが、予定・ブラウザー描画/MCP/音声/メディア/PC操作・JSプラグイン等の効果処理は未移植です。通常起動はNode互換サービスのままであり、全バックエンドの移行完了を意味しません。GUIはJavaScript/CSS、任意のワーカーは引き続きPythonです。
 
 ## 接続と互換性
 
@@ -45,7 +45,7 @@ Rust単体テストは `--no-default-features` でNodeから独立したコア�
 
 ## 続く移行
 
-1. 未移植のWeb/MCP/PC操作、能力サービスの効果、予定・heartbeat・dream最適化、周辺APIを段階的に移す
+1. 未移植のブラウザー描画/MCP/PC操作、能力サービスの効果、予定・heartbeat・dream最適化、周辺APIを段階的に移す
 2. 任意のJSプラグインを残す場合は、既存の生きたコールバックとコンテキストを維持する明示的な互換ホストを実装する
 3. 全ルート・停止/再起動・権限・実モデルの受け入れ試験を揃え、Windows/macOSで配布物の組み立て・インストール・常駐・終了を確認する
 4. その証拠が揃ってから通常起動とTauri sidecarの切替を判断する
@@ -245,8 +245,28 @@ See [complete route inventory and release gates](RUST-ROUTE-PARITY.md).
 - 共有Rustコア、構文228モジュール、ルート7件、Python13件、ローカル能力fixture5件、100シナリオ参照、previewビルドは合格。シナリオ参照は実モデルの成功を意味しない
 - Windows/macOS実行、native配布物、実モデル品質、ユーザー環境の移行は未確認。通常起動やmainへのmergeは行っていない
 
+## 第9段階: Web検索・取得
+
+`web_search`/`web_fetch`を実行ホストへ接続し、対応ツールを21個にした。既存の検索設定と選択したBraveキーを単一Workspaceのスナップショットとして読み、正確な承認・tools_callの別名・receipt・Stop・キャッシュを維持する。キー／設定変更は古い通信と結果を失効させる。DNS待ちやTCP/TLS待ちの後、実際の要求送信前にも信頼された設定状態を確認する。ブラウザー描画と未接続のdecisionルートは引き続き利用不可であり、暗黙のNode fallbackをしない。
+
+Linux検証:共有コア107、native337＋CLI2、Node22/24の実native-agent HTTP10件、Python13、能力fixture5、ルート7、シナリオ参照100、preview合格。HTML40・entity3・DuckDuckGo8・decode38・pagination6・focus8とcharset27テーブルは固定JSから再生成して一致。全Node回帰544/549で、残る5件は既知のブラウザー/DNS/sandbox環境失敗。品質ゲート全体の合格、実検索プロバイダー品質、配布物成功は主張しない。
+
 ### macOS PTY EOF修正
 
 3964160の実CIではLinux回帰は合格、WindowsのRustゲートは合格した一方、macOSはTTY出力後の終了待ちで315/316となった。Python3.9のptyループがBSD/macOSのゼロbyte EOFでmasterを外した後、対話用に開いたstdinを待ち続けることが原因。master_readでEOFを既存のEIO終了経路へ正規化し、stdinの早期closeや出力からの終了推測は行わない。プロセス所有権・waitid・子孫回収は変更しない。
 
 独立した旧Python/BSD挙動の再現fixtureによりLinuxでも修正前の同じ停止待ち失敗と修正後の終了を確認した。非0終了コード、対話入力、末尾32KiB出力の完全回収も検証。最終Linux再実行はnative322＋CLI2、build-notice/offline HTTP/native-agent計40件合格。新しいmacOS CIが成功するまでは実macOSで修正済みとはしない。Windows/macOSの既存Node失敗と、未到達の配布物／インストール検証は引き続き別のゲートである。
+
+## 第10段階: 初回接続・モデルカタログ
+
+第9段階のWeb実装に、setup移植97fcc4e相当と検証済みPTY EOF修正を統合したチェックポイント。直前のhead22941beは実macOSのnative318＋CLI2、Windows native Rust、Linux全回帰を通過した。後続の既存Node失敗と未到達の配布ゲートは別に記録する。本チェックポイントの新head CI、配布物到達、通常起動切替はまだ主張しない。
+
+`--dev-native --agent`でsetup 7ルート、model-catalog 3ルート、runtime/discover 1ルートを接続した。GETや起動は通信・ダウンロードを開始しない。scanは固定loopbackの候補を期限付きで取得し、selectは`consentTest: true`、稼働中の仕事なし、既存の名前付き接続なしを要求する。安全なtool roundtripとOllama digest確認後、actor上で設定識別子・registry revision・キャンセルを再検証し、単一SQLite所有者で設定・接続・probe receipt・イベントを原子的に保存する。失敗時には全体をrollbackする。モデル品質や画像・判断能力の受け入れ証明ではない。
+
+installはbody読込前にもonlineを検証し、`consentDownload: true`、新鮮なローカルengineと固定catalog選択だけを許可する。Ollama pullの進捗・容量・idle/全体timeout・Stop・通信制限・shutdownを管理する。中断後は自動再開せず、明示的な再試行でOllamaの部分データを利用する。ランタイムpackageの自動導入や取得モデルの自動選択はしない。install-helpは明示要求で公式Ollamaページを開くだけ。catalog import/searchは未検証メタデータ、refreshは固定models.dev URLへの24 MiB制限付きのchecked web通信であり、権限は生まれない。既存のsandbox・auth/CSRF/Host/Originとdecisionルート拒否を維持する。
+
+setup側のPTY修正込みゲートはnative library364＋CLI2、Node HTTP24、catalog fixture18、race fixture20/20合格。ローカルのscripted serverを使用し、実モデルやpackageは導入していない。前段の全Node544/549と同じブラウザー3・DNS1・bubblewrap1の環境失敗は未解消であり、統合候補の全品質ゲート合格へ読み替えない。ルート実数は126のうち実装60・部分13・未実装53、別枠static22。完成率ではない。
+
+semantic、添付モデル配送、セッション削除、find/grep、scheduler/heartbeat、MCP、media/speech、PC操作、JS plugins、独自avatar素材・写真は未移植。通常のNodeサービス、JavaScript/CSS GUI、Tauri起動は維持する。詳細なガードは[native host](../native-service/README.md)、全ルートは[route parity](RUST-ROUTE-PARITY.md)を参照。
+
+統合した最終Linuxゲートはnative364＋CLI2、build-notice/offline HTTP/native-agent計41件がNode22/24それぞれ合格。全Node22は544/549、ソース指紋は前後一致。残る5件は同じ既知のブラウザー3・DNS1・bubblewrap1であり、品質ゲート全体は不合格。実macOSでのPTY修正は22941beの318＋CLI2で確認済みだが、新しいWeb/setupのOS間受け入れ証明へ読み替えない。

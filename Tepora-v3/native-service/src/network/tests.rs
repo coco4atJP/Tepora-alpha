@@ -878,6 +878,7 @@ async fn direct_tls_validates_original_url_hostname_and_certificate() {
             purpose: Purpose::Model,
             profile_id: None,
             domains: vec![Domain::Cloud],
+            egress_guard: None,
         };
         let result = transport
             .request(
@@ -1105,5 +1106,104 @@ fn known_loopback_is_attributed_before_any_async_admission_step() {
             }
         ),
         None
+    );
+}
+
+#[derive(Debug)]
+struct ConsentGuard(std::sync::atomic::AtomicBool);
+impl EgressGuard for ConsentGuard {
+    fn check(&self) -> Result<(), NetworkError> {
+        if self.0.load(Ordering::SeqCst) {
+            Ok(())
+        } else {
+            Err(NetworkError::blocked("Fixture consent revoked"))
+        }
+    }
+}
+#[tokio::test]
+async fn trusted_egress_guard_rechecks_after_dns_before_transport_dispatch() {
+    let dns = Arc::new(SlowDns {
+        started: Notify::new(),
+        release: Notify::new(),
+    });
+    let transport = FakeTransport::plain(vec![]);
+    let network =
+        NativeNetwork::with_components(NetworkPolicy::default(), dns.clone(), transport.clone());
+    let guard = Arc::new(ConsentGuard(std::sync::atomic::AtomicBool::new(true)));
+    let mut scope = cloud_scope();
+    scope.egress_guard = Some(guard.clone());
+    let request = tokio::spawn(async move {
+        network
+            .request(
+                "https://models.example/v1",
+                NetworkRequest::default(),
+                scope,
+            )
+            .await
+    });
+    dns.started.notified().await;
+    guard.0.store(false, Ordering::SeqCst);
+    dns.release.notify_one();
+    assert!(request.await.unwrap().err().unwrap().blocked);
+    assert!(transport.seen.lock().unwrap().is_empty());
+}
+#[tokio::test]
+async fn trusted_egress_guard_rechecks_after_real_tls_wait_before_http_bytes() {
+    use tokio_rustls::{rustls, TlsAcceptor};
+    let (cert, key, pem) = ephemeral_tls_identity();
+    let ca = TemporaryCaFile::new(&pem);
+    let config = rustls::ServerConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .unwrap()
+    .with_no_client_auth()
+    .with_single_cert(vec![cert], key.into())
+    .unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (accepted_tx, accepted_rx) = oneshot::channel();
+    let (release_tx, release_rx) = oneshot::channel();
+    let server = tokio::spawn(async move {
+        let (socket, _) = listener.accept().await.unwrap();
+        accepted_tx.send(()).unwrap();
+        release_rx.await.unwrap();
+        let mut socket = TlsAcceptor::from(Arc::new(config))
+            .accept(socket)
+            .await
+            .unwrap();
+        let mut bytes = [0; 1024];
+        socket.read(&mut bytes).await.unwrap_or(0)
+    });
+    let guard = Arc::new(ConsentGuard(std::sync::atomic::AtomicBool::new(true)));
+    let g = guard.clone();
+    let network = NativeNetwork::with_components(
+        NetworkPolicy::default(),
+        Dns::new(&[]),
+        Arc::new(CheckedTransport::from_extra_ca_file(Some(&ca.0))),
+    );
+    let request = tokio::spawn(async move {
+        network
+            .request(
+                &format!("https://localhost:{}/v1", address.port()),
+                NetworkRequest {
+                    body: Bytes::from_static(b"private fixture payload"),
+                    ..Default::default()
+                },
+                NetworkScope {
+                    egress_guard: Some(g),
+                    ..Default::default()
+                },
+            )
+            .await
+    });
+    accepted_rx.await.unwrap();
+    guard.0.store(false, Ordering::SeqCst);
+    release_tx.send(()).unwrap();
+    assert!(request.await.unwrap().err().unwrap().blocked);
+    assert_eq!(
+        server.await.unwrap(),
+        0,
+        "Consent revoked during TLS must prevent all HTTP headers/body"
     );
 }

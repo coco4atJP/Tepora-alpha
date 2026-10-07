@@ -9,6 +9,9 @@ pub mod capabilities;
 pub mod http;
 pub mod network;
 pub mod provider;
+pub mod model_catalog;
+pub mod runtime_discovery;
+pub mod setup;
 pub mod sandbox;
 pub mod workspace;
 pub const VERSION: &str = "3.0.0-beta.11";
@@ -46,9 +49,21 @@ impl std::error::Error for ApiError {}
 pub enum Operation {
     Display { action: workspace::VisualAction, body: Value },
     Avatar { action: workspace::VisualAction, body: Value },
+    ModelCatalogSearch { query:String },
+    ModelCatalogImport { body:Value },
+    ModelCatalogRefresh,
+    Setup,
+    SetupScan,
+    SetupDismiss,
+    SetupSelect { body:Value },
+    SetupInstall { body:Value },
+    SetupStop,
+    SetupInstallHelp,
+    RuntimeDiscover,
     DialoguePersonas,
     DialoguePersonasSave { body: Value },
     SettingsPatch { body: Value },
+    SearchKey { body: Value },
     InputsStage {
         body: Value,
     },
@@ -203,6 +218,14 @@ pub struct EventSubscription {
 /// Full live queues must be disconnected/unregistered instead of growing.
 pub trait Backend: Send + Sync + 'static {
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError>;
+    /// Source setup/install rejects restricted mode before consuming its body.
+    fn setup_install_permitted(&self)->Result<(),ApiError> {Ok(())}
+    /// Setup/catalog network waits run directly on the async request path.
+    /// Implementations must return owned state and never retain State guards.
+    fn execute_setup(&self,operation:Operation,cancellation:network::RequestCancellation)->std::pin::Pin<Box<dyn std::future::Future<Output=Result<Reply,ApiError>>+Send+'static>> {
+        let result=if let Some(error)=cancellation.error(){Err(error.into())}else{self.execute(operation)};
+        Box::pin(async move {result})
+    }
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError>;
     fn unsubscribe(&self, id: u64);
     fn stop(&self) -> Result<(), ApiError>;

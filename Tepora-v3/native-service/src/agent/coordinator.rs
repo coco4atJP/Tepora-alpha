@@ -453,6 +453,22 @@ impl Coordinator {
                     self.dispatch(json!({"type":"resume","sessionId":id}))?;
                     guarded_api(|| self.host.session(&id))
                 }
+                AgentRequest::SetupContext => {
+                    guarded_api(|| self.host.setup_context(!self.leases.is_empty()))
+                }
+                AgentRequest::ActivateSetup { commit } => {
+                    if !self.leases.is_empty() {
+                        return Err(ApiError::new(
+                            409,
+                            "Wait for the agent to finish or stop it before selecting a model",
+                        ));
+                    }
+                    if commit.cancellation.is_cancelled() {
+                        return Err(ApiError::new(409, "Setup selection was cancelled"));
+                    }
+                    guarded_api(|| self.host.activate_setup(&commit))?;
+                    Ok(Value::Null)
+                }
                 other => {
                     let admission = guarded_api(|| self.host.request(&other))?;
                     self.events.extend(admission.events);

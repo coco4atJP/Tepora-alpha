@@ -25,6 +25,19 @@
 - Verify the migration branch through exact-SHA push CI without duplicate same-branch PR matrices; permissions and normal launch remain unchanged
 - Keep custom avatar assets, photo frames, media and other unported native effects explicitly unavailable
 
+## Rust native web checkpoint
+
+- Connect native web search/fetch, exact approvals and alias receipts, atomic credential snapshots, lifecycle cancellation and stale-cache rejection
+- Recheck trusted web configuration after DNS and TCP/TLS before dispatch; browser rendering remains unavailable
+
+## Rust native setup candidate (local, beta.11)
+
+- Connect first-use setup, fixed local runtime discovery and bounded model-catalog import/search/refresh to the native agent host
+- Preserve exact probe/download consent, checked network admission, expiring candidates, actor-serialized atomic selection and cancellation/recovery; install-help only opens the official runtime page
+- Retain the independently reproduced legacy Python/macOS PTY EOF repair; new actual macOS CI for published preferences + repair head22941be is still running
+- Record setup source/fixture gates: native364 + CLI2, Node HTTP24, catalog18 and race20/20; no real installed model/package, candidate publication or packaging acceptance
+- Keep decision/semantic/attachment delivery, session deletion, find/grep, scheduler/MCP/media/PC/plugins and other peripheral effects unported; default Node/JavaScript/CSS remains unchanged
+
 ## [Unreleased]
 
 ### Added
