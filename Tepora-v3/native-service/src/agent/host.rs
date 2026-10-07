@@ -73,6 +73,7 @@ pub struct NativeAgentHost {
     approved: Mutex<HashMap<String, String>>,
     reads: Mutex<HashMap<String, Arc<Mutex<super::files::FileMemory>>>>,
     process_host: super::process_host::ProcessHost,
+    semantic: Option<Arc<crate::semantic::SemanticMemory>>,
     pub web: Arc<super::web_host::WebHost>,
 }
 impl NativeAgentHost {
@@ -83,7 +84,10 @@ impl NativeAgentHost {
     ) -> Result<Self, ApiError> {
         let approvals = super::approvals::Approvals::new(state.clone())?;
         let web = Arc::new(super::web_host::WebHost::new(
-            state.clone(), network.clone(), None, None,
+            state.clone(),
+            network.clone(),
+            None,
+            None,
         ));
         Ok(Self {
             state,
@@ -96,8 +100,19 @@ impl NativeAgentHost {
             approved: Mutex::new(HashMap::new()),
             reads: Mutex::new(HashMap::new()),
             process_host: super::process_host::ProcessHost::new(),
+            semantic: None,
             web,
         })
+    }
+    pub fn new_with_semantic(
+        state: WorkspaceAccess,
+        provider: ProviderRuntime,
+        network: NativeNetwork,
+        semantic: Arc<crate::semantic::SemanticMemory>,
+    ) -> Result<Self, ApiError> {
+        let mut host = Self::new(state, provider, network)?;
+        host.semantic = Some(semantic);
+        Ok(host)
     }
     pub fn invalidate_web(&self) -> Result<(), ApiError> {
         self.web.invalidate();
@@ -733,6 +748,53 @@ impl NativeAgentHost {
                     None => json!(super::tools::summarize(&name, &args)?),
                 };
                 self.state("session.update", json!({"id":id,"patch":{"note":note}}))?;
+                if name == "memory_search" {
+                    if let Some(semantic) = self
+                        .semantic
+                        .as_ref()
+                        .filter(|semantic| semantic.configured())
+                        .cloned()
+                    {
+                        let context = ctx.clone();
+                        return Ok(EffectTask::Async(Box::pin(async move {
+                            // Source validates the raw truthy limit before inference;
+                            // malformed/fractional limits reach ordinary SQL fallback.
+                            let limit = if !tepora_core::js_value::truthy(&args["limit"]) {
+                                Some(8)
+                            } else {
+                                args["limit"]
+                                    .as_f64()
+                                    .filter(|n| {
+                                        n.is_finite() && n.fract() == 0. && *n >= 1. && *n <= 30.
+                                    })
+                                    .map(|n| n as usize)
+                            };
+                            if let Some(limit) = limit {
+                                if let Ok(value) = semantic
+                                    .search(
+                                        &args["query"],
+                                        crate::semantic::SearchOptions {
+                                            limit,
+                                            ..Default::default()
+                                        },
+                                        &context.cancellation,
+                                    )
+                                    .await
+                                {
+                                    return Ok(EffectResult::new(
+                                        json!({"result":crate::semantic::tool_result(value["hits"].as_array().map(Vec::as_slice).unwrap_or(&[]))}),
+                                    ));
+                                }
+                            }
+                            if context.cancellation.is_cancelled() {
+                                return Err(EffectError::cancelled(false));
+                            }
+                            super::tools::execute("memory_search", args, session, context)
+                                .await
+                                .map(|result| EffectResult::new(json!({"result":result})))
+                        })));
+                    }
+                }
                 if matches!(name.as_str(), "web_search" | "web_fetch") {
                     return self.web.start(ctx, &name, args);
                 }
@@ -982,6 +1044,9 @@ impl super::host_runtime::HostServices for NativeAgentHost {
     }
     fn stop_resources(&self, id: &str) -> Result<(), ApiError> {
         self.process_host.stop_session(id);
+        if let Some(semantic) = &self.semantic {
+            semantic.cancel_session(id);
+        }
         self.web.cancel_session(id);
         let approval = self.approvals.cancel(id);
         let stream = self.stream_end(id, true);
@@ -1213,9 +1278,15 @@ impl AgentHost for NativeAgentHost {
             "nativeTools.execute" if request["name"] == "tools_search" => Ok(Admission::new(
                 self.search_tools(&from, request["args"]["query"].as_str().unwrap_or(""))?,
             )),
-            _ => Ok(Admission::new(
-                self.state.tool_state(&scope.session_id, &request)?,
-            )),
+            _ => {
+                let result = self.state.tool_state(&scope.session_id, &request)?;
+                if request["op"] == "nativeTools.execute" && request["name"] == "memory_write" {
+                    if let Some(semantic) = self.semantic.as_ref().filter(|s| s.configured()) {
+                        semantic.schedule_index_for(&tokio::runtime::Handle::current(), Some(&scope.session_id));
+                    }
+                }
+                Ok(Admission::new(result))
+            }
         }
     }
     fn stream(&self, scope: &EffectScope, event: Value) -> Result<(), ApiError> {
@@ -1280,6 +1351,9 @@ impl AgentHost for NativeAgentHost {
     }
     fn close(&self) -> Result<(), ApiError> {
         self.process_host.begin_close();
+        if let Some(semantic) = &self.semantic {
+            semantic.close();
+        }
         self.web.close();
         let approval = self.approvals.cancel_all();
         self.provider.close();

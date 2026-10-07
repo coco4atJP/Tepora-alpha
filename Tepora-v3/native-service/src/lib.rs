@@ -13,6 +13,7 @@ pub mod model_catalog;
 pub mod runtime_discovery;
 pub mod setup;
 pub mod sandbox;
+pub mod semantic;
 pub mod workspace;
 pub const VERSION: &str = "3.0.0-beta.11";
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -127,6 +128,8 @@ pub enum Operation {
     ProviderProbe {
         id: String,
     },
+    SemanticIndex { body: Value },
+    SemanticSearch { body: Value },
     Network,
     NetworkPatch {
         body: Value,
@@ -216,6 +219,7 @@ pub struct EventSubscription {
 /// Each implementation owns exactly one state authority. subscribe must choose
 /// replay/snapshot AND register its bounded live channel atomically with writes.
 /// Full live queues must be disconnected/unregistered instead of growing.
+pub type BackendFuture<'a> = std::pin::Pin<Box<dyn std::future::Future<Output=Result<Reply,ApiError>>+Send+'a>>;
 pub trait Backend: Send + Sync + 'static {
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError>;
     /// Source setup/install rejects restricted mode before consuming its body.
@@ -225,6 +229,10 @@ pub trait Backend: Send + Sync + 'static {
     fn execute_setup(&self,operation:Operation,cancellation:network::RequestCancellation)->std::pin::Pin<Box<dyn std::future::Future<Output=Result<Reply,ApiError>>+Send+'static>> {
         let result=if let Some(error)=cancellation.error(){Err(error.into())}else{self.execute(operation)};
         Box::pin(async move {result})
+    }
+    /// Semantic transport waits use the async reactor, never its blocking pool.
+    fn execute_semantic(&self,operation:Operation,cancellation:network::RequestCancellation)->BackendFuture<'_>{
+        Box::pin(async move {if let Some(error)=cancellation.error(){return Err(error.into());}self.execute(operation)})
     }
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError>;
     fn unsubscribe(&self, id: u64);

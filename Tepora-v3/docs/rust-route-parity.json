@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-web-setup-effects",
+  "checkpoint": "native-semantic-memory-local",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 60,
+    "implemented": 62,
     "partial": 13,
-    "unavailable": 53
+    "unavailable": 51
   },
   "routes": [
     {
@@ -377,9 +377,9 @@
       "path": "/api/semantic/index",
       "family": "semantic",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Embedding/vector indexing and consent-aware memory retrieval is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Bounded confirmed-memory indexing through the shared capability and SQLite owners; exact consent=true and shared scope required for external egress, with current document/identity rechecks and cancellation before cache publication.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -388,9 +388,9 @@
       "path": "/api/semantic/search",
       "family": "semantic",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Embedding/vector indexing and consent-aware memory retrieval is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Lexical/vector search with lexical fallback and fresh document checks; external query embedding requires exact consent=true. Request-scoped cancellation and a 30-second deadline apply.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

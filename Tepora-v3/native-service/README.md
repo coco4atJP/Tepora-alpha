@@ -43,7 +43,7 @@ Shared Rust projections preserve message/continuation and job/approval shapes. T
 
 Native process execution supports foreground/background commands, bounded UTF-16 output, process polling/logging/input/kill, exact approvals and custom receipts. Stop owns the original process resources; Resume waits for their cleanup before the next model request. Escaped descendant pipes are reported as uncertain cleanup, never a successful drain.
 
-Capability registry/key routes use one shared owner and atomic revision checks. Explicit capability keys are memory-only and identity-bound. Typed capability transports are tested components; decision routing and embeddings in memory search remain unconnected. Web search/fetch is connected through the checked native transport and actor approval/receipt path. A new live decision route is rejected as well as a saved route at startup.
+Capability registry/key routes use one shared owner and atomic revision checks. Explicit capability keys are memory-only and identity-bound. Typed capability transports are tested components; semantic memory search/indexing is connected in this local candidate; decision routing remains unconnected. Web search/fetch is connected through the checked native transport and actor approval/receipt path. A new live decision route is rejected as well as a saved route at startup.
 
 Attachment staging/removal validates bounded text and PNG/JPEG payloads on the existing database. Agent mode also supports session acceptance, file lists and downloads. Download paths are confined after symlink resolution, tightening the prior lexical-only guard. Attachment delivery to a model is still unavailable; staging alone does not claim that feature is complete.
 
@@ -63,7 +63,7 @@ The native tool catalog contains these 21 built-ins, with the existing main/work
 - Retrieval/memory: `recall`, `history_search`, `memory_search`, `memory_write`
 - Discovery/indirection: `tools_search`, `tools_call`
 
-`memory_search` uses the existing lexical fallback. `tools_call` resolves implemented built-ins; it does not enable MCP. File reads support text and directory handling, but image ingestion/vision bridging remains unavailable. Unported tools are omitted from new toolsets, and native availability instructions state the limitations explicitly.
+`memory_search` uses configured semantic retrieval with the existing lexical fallback. `tools_call` resolves implemented built-ins; it does not enable MCP. File reads support text and directory handling, but image ingestion/vision bridging remains unavailable. Unported tools are omitted from new toolsets, and native availability instructions state the limitations explicitly.
 
 ### Ownership and execution
 
@@ -93,17 +93,25 @@ In `--dev-native --agent`, `setup/manager.rs`, `runtime_discovery.rs` and `model
 
 The outer cookie/authentication, CSRF, Host/Origin and body-size checks remain in force. Setup does not change the existing sandbox selection or grant tool permissions. Checked application networking is not an OS firewall and cannot constrain a separately forwarding local runtime. Existing decision-route, heartbeat/schedule, plugin and cached unsupported-tool admission failures remain.
 
+## Semantic memory (local candidate)
+
+`POST /api/semantic/index` and `POST /api/semantic/search` are connected under `--dev-native --agent`, retaining authentication, CSRF, Host/Origin and network-policy checks. Their asynchronous waits do not occupy the blocking pool; request drop/shutdown cancels the request scope, with 90-second index and 30-second search deadlines. Index batches contain at most 24 documents, each truncated to 12,000 UTF-16 units. Vectors are disposable caches stored through the existing sole Workspace/SQLite owner.
+
+Only confirmed memories are eligible. External indexing requires exact HTTP `consent: true` and only sends shared documents. Current document content/scope/confirmation and capability identity are rechecked before egress and cache publication; mutation revokes affected active work before acknowledgement. Already transmitted bytes cannot be recalled. Search combines lexical and vector ranking, falls back to lexical retrieval when embeddings are unavailable, and rechecks returned documents. Similarity is not truth or automatic learning.
+
+Agent `memory_search` uses the configured semantic space with ordinary tool receipts and lexical fallback. Model arguments cannot grant external embedding consent; agent search and background indexing use non-external defaults. Successful `memory_write` schedules one bounded best-effort coalesced index job without delaying or changing its independent write receipt. Normal run release does not cancel indexing. Session Stop removes only that session's ownership; another session or unscoped owner keeps shared background work alive, and other sessions' foreground searches retain their own cancellation scopes. When the last scoped owner stops, the background job is cancelled. Close cancels and drains all semantic work before SQLite closes.
+
 ## Admission and remaining limits
 
 A configured `capabilities.routes.decision` endpoint, enabled heartbeat, saved schedule documents, or global `.mjs` plugin files reject native-agent startup with a compatibility-host diagnostic. JavaScript hooks are not silently replaced with no-ops. Cached sessions containing unavailable tools are diagnosed at startup or before model use, including resumed sessions; their prompts/history are not silently rewritten.
 
-Still unported: `find`/`grep`, browser rendering, MCP, image ingestion and vision bridging, media/speech, Computer Use, capability decision/embedding services, skills execution, scheduling/heartbeat/dream optimization, JavaScript plugins and the remaining avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
+Still unported: `find`/`grep`, browser rendering, MCP, image ingestion and vision bridging, media/speech, Computer Use, capability decision services, skills execution, scheduling/heartbeat/dream optimization, JavaScript plugins and the remaining avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
 
 Do not change default launch or remove the Node sidecar until the remaining effects, route inventory and desktop packaging/installation/startup have their own acceptance evidence. A future JavaScript plugin compatibility host must preserve live callback/context behavior, not just copy it into JSON.
 
 ## Verification
 
-The setup source gate (including the retained PTY EOF repair) passed 364 native library + 2 CLI tests, 24 Node HTTP tests, 18 catalog fixtures and 20/20 race-fixture repetitions. Tests use local scripted servers; no real model or runtime package was installed. Earlier full Node validation was 544/549 with five established browser/DNS/bubblewrap environment failures, not an aggregate green gate. The web + setup candidate is local and unpublished; published head22941be covers preferences + PTY repair only, with new actual macOS CI still running. Desktop packaging and installation remain unverified.
+The local semantic candidate passes 388 native library + 2 CLI tests and 41 focused HTTP/native-agent/root tests. Frozen-source fixtures remain byte-identical: 84 search, 10 cosine and 7 hash cases. The full local Node gate is 544/549 with the same five browser (3), DNS (1) and bubblewrap (1) environment failures; aggregate local quality remains red. Published web/setup head `eba5bd4` has actual macOS and Windows native passes and a complete green Linux regression; its later platform Node jobs are still running at this checkpoint. Those results do not certify this unpublished semantic candidate, which has no exact-head CI yet. Desktop packaging, installation and real-model acceptance remain unverified.
 
 From the repository root:
 

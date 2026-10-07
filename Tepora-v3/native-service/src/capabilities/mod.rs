@@ -6,8 +6,8 @@ use crate::{
         decision_payload, validate_answers, DecisionBackend, DecisionError, DecisionFuture,
     },
     network::{
-        normal_url, Domain, NativeNetwork, NetworkError, NetworkProfile, NetworkRequest,
-        NetworkScope, Purpose, RequestCancellation,
+        normal_url, Domain, EgressGuard, NativeNetwork, NetworkError, NetworkProfile,
+        NetworkRequest, NetworkScope, Purpose, RequestCancellation,
     },
     provider::{validate_profile, ProviderFailure, ResourceGate},
     ApiError,
@@ -433,6 +433,7 @@ pub struct CapabilityRequest {
     pub json: Option<Value>,
     pub body: CapabilityBody,
     pub max_bytes: usize,
+    pub egress_guard: Option<Arc<dyn EgressGuard>>,
 }
 impl Default for CapabilityRequest {
     fn default() -> Self {
@@ -441,6 +442,7 @@ impl Default for CapabilityRequest {
             json: None,
             body: CapabilityBody::Empty,
             max_bytes: 8_000_000,
+            egress_guard: None,
         }
     }
 }
@@ -839,6 +841,9 @@ impl Capabilities {
             )
             .await
             .map_err(|e| operation.error(e))?;
+        if let Some(guard) = &request.egress_guard {
+            guard.check()?;
+        }
         let key = {
             // One dispatch snapshot with save/set_key. No config lock is held
             // across serialization, network admission, I/O, or response parsing.
@@ -903,6 +908,7 @@ impl Capabilities {
         let url = format!("{}{}", base.strip_suffix('/').unwrap_or(&base), route);
         let scope = NetworkScope {
             profile: Some(profile),
+            egress_guard: request.egress_guard,
             purpose: Purpose::Model,
             timeout: Duration::from_millis(
                 p["timeoutMs"].as_u64().filter(|n| *n > 0).unwrap_or(180000),
@@ -1018,6 +1024,15 @@ impl Capabilities {
         profile: Option<&Value>,
         cancel: &RequestCancellation,
     ) -> Result<Value, CapabilityError> {
+        self.embed_guarded(inputs, profile, cancel, None).await
+    }
+    pub async fn embed_guarded(
+        &self,
+        inputs: &Value,
+        profile: Option<&Value>,
+        cancel: &RequestCancellation,
+        egress_guard: Option<Arc<dyn EgressGuard>>,
+    ) -> Result<Value, CapabilityError> {
         let owned;
         let p = if let Some(p) = profile {
             p
@@ -1056,12 +1071,16 @@ impl Capabilities {
                 },
                 CapabilityRequest {
                     json: Some(payload),
+                    egress_guard,
                     ..Default::default()
                 },
                 cancel,
             )
             .await?;
-        validate_embeddings(p, inputs, &response.json()?)
+        let result=validate_embeddings(p, inputs, &response.json()?)?;
+        if let Some(error)=cancel.error(){return Err(error.into());}
+        if !self.current(p)? {return Err(CapabilityError::invalidated(409,"Embedding endpoint changed during validation"));}
+        Ok(result)
     }
     pub async fn download(
         &self,

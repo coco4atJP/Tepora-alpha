@@ -679,6 +679,7 @@ async fn native_request_exact_js_json_headers_methods_and_scoped_destination() {
                 json: Some(payload.clone()),
                 body: CapabilityBody::Text("ignored".into()),
                 max_bytes: 1000,
+                egress_guard: None,
             },
             &RequestCancellation::new(),
         )

@@ -30,13 +30,22 @@
 - Connect native web search/fetch, exact approvals and alias receipts, atomic credential snapshots, lifecycle cancellation and stale-cache rejection
 - Recheck trusted web configuration after DNS and TCP/TLS before dispatch; browser rendering remains unavailable
 
-## Rust native setup candidate (local, beta.11)
+## Rust native setup checkpoint (beta.11)
 
 - Connect first-use setup, fixed local runtime discovery and bounded model-catalog import/search/refresh to the native agent host
 - Preserve exact probe/download consent, checked network admission, expiring candidates, actor-serialized atomic selection and cancellation/recovery; install-help only opens the official runtime page
-- Retain the independently reproduced legacy Python/macOS PTY EOF repair; new actual macOS CI for published preferences + repair head22941be is still running
-- Record setup source/fixture gates: native364 + CLI2, Node HTTP24, catalog18 and race20/20; no real installed model/package, candidate publication or packaging acceptance
-- Keep decision/semantic/attachment delivery, session deletion, find/grep, scheduler/MCP/media/PC/plugins and other peripheral effects unported; default Node/JavaScript/CSS remains unchanged
+- Retain the independently reproduced legacy Python/macOS PTY EOF repair; published web/setup head `eba5bd4` now passes actual macOS/Windows native and the full Linux regression; later platform Node jobs are still running at this checkpoint
+- Record setup source/fixture gates: native364 + CLI2, Node HTTP24, catalog18 and race20/20; no real installed model/package or packaging acceptance
+- At the setup checkpoint, keep decision/semantic/attachment delivery, session deletion, find/grep, scheduler/MCP/media/PC/plugins and other peripheral effects unported; default Node/JavaScript/CSS remains unchanged
+
+## Rust native semantic candidate (local, beta.11)
+
+- Connect authenticated semantic index/search and agent memory search to the shared capability/SQLite owners, with lexical fallback and independent memory-write receipts
+- Require exact HTTP external consent and confirmed/shared indexing documents; model arguments cannot grant consent, and current document/identity guards fence egress and cache publication
+- Coalesce bounded background indexing by session ownership: normal release preserves it; Stop removes only its owner, other owners/foreground searches survive; Close cancels and drains all
+- Record native388 + CLI2, focused HTTP/native-agent/root41, byte-identical frozen search84/cosine10/hash7 and full local Node544/549 with the same five environment failures
+- Inventory: 62 implemented, 13 partial, 51 absent application variants; 22 static rows separately. No semantic publication/exact-head CI, packaging or real-model acceptance yet
+- Preserve decision-route rejection and attachment delivery/session deletion/find/grep/scheduler/MCP/media/PC/plugins gaps; default Node/JavaScript/CSS remains unchanged
 
 ## [Unreleased]
 

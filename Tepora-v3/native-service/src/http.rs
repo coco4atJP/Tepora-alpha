@@ -402,6 +402,21 @@ impl HttpState {
                 result=self.backend.execute_setup(op,cancellation)=>result,
             };
         }
+        if matches!(&op,Operation::SemanticIndex{..}|Operation::SemanticSearch{..}) {
+            if *self.shutdown.borrow(){return Err(ApiError::unavailable("Service is closing"));}
+            let cancellation=crate::network::RequestCancellation::new();
+            struct CancelOnDrop(crate::network::RequestCancellation);
+            impl Drop for CancelOnDrop {fn drop(&mut self){self.0.cancel();}}
+            let _cancel=CancelOnDrop(cancellation.clone());
+            let mut shutdown=self.shutdown.subscribe();
+            self.work.count.fetch_add(1,Ordering::AcqRel);
+            let _work=WorkGuard(self.work.clone());
+            // No blocking thread is consumed while capability admission/I/O waits.
+            return tokio::select!{biased;
+                _=shutdown_requested(&mut shutdown)=>Err(ApiError::unavailable("Service is closing")),
+                result=self.backend.execute_semantic(op,cancellation)=>result,
+            };
+        }
         if let Operation::ProviderProbe { id } = &op {
             let id = id.clone();
             let cancellation = self.backend.probe_cancellation();
@@ -905,6 +920,8 @@ enum NativeAgentBodyRoute {
     Providers,
     ProviderKey(String),
     ProviderProbe(String),
+    SemanticIndex,
+    SemanticSearch,
     Network,
 }
 impl NativeAgentBodyRoute {
@@ -929,6 +946,8 @@ impl NativeAgentBodyRoute {
             Self::Providers => Operation::ProvidersSave { body },
             Self::ProviderKey(id) => Operation::ProviderKey { id, body },
             Self::ProviderProbe(id) => Operation::ProviderProbe { id },
+            Self::SemanticIndex=>Operation::SemanticIndex{body},
+            Self::SemanticSearch=>Operation::SemanticSearch{body},
             Self::Network => Operation::NetworkPatch { body },
         }
     }
@@ -983,6 +1002,8 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("GET", "/api/dialogue/personas") => return Some(Ready(Operation::DialoguePersonas, 200)),
         ("PUT", "/api/dialogue/personas") => return Some(Json(Body::DialoguePersonas, 200)),
         ("PATCH", "/api/settings") => return Some(Json(Body::Preferences, 200)),
+        ("POST", "/api/semantic/index")=>return Some(Json(Body::SemanticIndex,200)),
+        ("POST", "/api/semantic/search")=>return Some(Json(Body::SemanticSearch,200)),
         ("POST", "/api/agent/input") => return Some(Json(Body::Input, 202)),
         ("PUT", "/api/agent/search-key") => return Some(Json(Body::SearchKey, 200)),
         ("POST", "/api/agent/spawn") => return Some(Json(Body::Spawn, 202)),
@@ -1257,6 +1278,7 @@ mod tests {
     use std::sync::Mutex;
     use tokio::sync::mpsc;
     include!("http/visual_tests.rs");
+    include!("http/semantic_tests.rs");
     #[tokio::test]
     async fn preference_routes_keep_explicit_native_mode_auth_methods_and_codec() {
         let fake=Arc::new(Fake::default());let active=agent_state(fake.clone());

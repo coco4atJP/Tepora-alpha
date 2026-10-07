@@ -2,6 +2,7 @@
 //! Only the socket transport is scripted; no external model or Node is used.
 #[cfg(unix)]
 mod process_tests;
+mod semantic_tests;
 mod web_tests;
 use super::*;
 use crate::{
@@ -31,6 +32,7 @@ enum Response {
     Json(Value),
     Sse(Vec<String>),
     Block,
+    Wait(Arc<tokio::sync::Semaphore>, Box<Response>),
 }
 type Model = dyn Fn(&str, usize, &Value) -> Response + Send + Sync;
 struct ScriptedTransport {
@@ -115,7 +117,8 @@ impl Transport for ScriptedTransport {
                 });
             }
             assert!(
-                admitted.url.path().ends_with("/chat/completions"),
+                admitted.url.path().ends_with("/chat/completions")
+                    || admitted.url.path().ends_with("/embeddings"),
                 "No limits discovery is permitted in this fixture: {}",
                 admitted.url
             );
@@ -132,7 +135,16 @@ impl Transport for ScriptedTransport {
             self.changed.notify_all();
             self.live.fetch_add(1, Ordering::SeqCst);
             let _live = LiveRequest(self.live.clone());
-            let response = (self.model)(&model, index, &wire);
+            let mut response = (self.model)(&model, index, &wire);
+            let response = loop {
+                match response {
+                    Response::Wait(gate, next) => {
+                        gate.acquire().await.unwrap().forget();
+                        response = *next;
+                    }
+                    other => break other,
+                }
+            };
             let (kind, chunks) = match response {
                 Response::Json(value) => (
                     "application/json",
@@ -143,6 +155,7 @@ impl Transport for ScriptedTransport {
                     chunks.into_iter().map(String::into_bytes).collect(),
                 ),
                 Response::Block => return std::future::pending().await,
+                Response::Wait(_, _) => unreachable!(),
             };
             let mut headers = HeaderMap::new();
             headers.insert("content-type", HeaderValue::from_static(kind));
@@ -195,6 +208,8 @@ struct Fixture {
     closed: bool,
     keep: bool,
     fifo: Option<PathBuf>,
+    capabilities: Option<crate::capabilities::Capabilities>,
+    semantic: Option<Arc<crate::semantic::SemanticMemory>>,
 }
 impl Fixture {
     fn new(model: impl Fn(&str, usize, &Value) -> Response + Send + Sync + 'static) -> Self {
@@ -202,6 +217,16 @@ impl Fixture {
         Self::open(dir, ScriptedTransport::new(model))
     }
     fn open(dir: PathBuf, transport: Arc<ScriptedTransport>) -> Self {
+        Self::open_services(dir, transport, false)
+    }
+    fn new_semantic(
+        model: impl Fn(&str, usize, &Value) -> Response + Send + Sync + 'static,
+    ) -> Self {
+        let dir =
+            std::env::temp_dir().join(format!("tepora-semantic-agent-{}", uuid::Uuid::new_v4()));
+        Self::open_services(dir, ScriptedTransport::new(model), true)
+    }
+    fn open_services(dir: PathBuf, transport: Arc<ScriptedTransport>, embedding: bool) -> Self {
         let workspace = Workspace::open(&dir).unwrap();
         let state = workspace.access();
         let network = NativeNetwork::with_components(
@@ -218,7 +243,23 @@ impl Fixture {
         if !provider.configured().unwrap() {
             provider.save(&json!({"profiles":[{"id":"main-fixture","protocol":"chat-completions","baseUrl":"http://127.0.0.1:17777/v1","model":"main","domain":"device","contextTokens":65536,"maxTokens":2048,"maxParallel":4},{"id":"work-fixture","protocol":"chat-completions","baseUrl":"http://127.0.0.1:17777/v1","model":"worker","domain":"device","contextTokens":65536,"maxTokens":2048,"maxParallel":4}],"routes":{"main":{"primary":"main-fixture"},"work":{"primary":"work-fixture"}}}),0).unwrap();
         }
-        let host = Arc::new(NativeAgentHost::new(state, provider, network).unwrap());
+        let capabilities = embedding.then(|| {
+            crate::capabilities::Capabilities::new(Arc::new(state.clone()), network.clone())
+        });
+        let semantic = capabilities.as_ref().map(|cap| {
+            Arc::new(crate::semantic::SemanticMemory::new(
+                Arc::new(state.clone()),
+                cap.clone(),
+            ))
+        });
+        let host = Arc::new(if let Some(semantic) = &semantic {
+            NativeAgentHost::new_with_semantic(state, provider, network, semantic.clone()).unwrap()
+        } else {
+            NativeAgentHost::new(state, provider, network).unwrap()
+        });
+        if let Some(cap) = &capabilities {
+            cap.save(&json!({"profiles":[{"id":"embedding-fixture","protocol":"openai-embeddings","baseUrl":"http://127.0.0.1:17777/v1","model":"embedding","domain":"device","resource":"embedding-fixture"}],"routes":{"embedding":"embedding-fixture"}}),0).unwrap();
+        }
         host.preflight().unwrap();
         host.recover().unwrap();
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -238,6 +279,8 @@ impl Fixture {
             closed: false,
             keep: false,
             fifo: None,
+            capabilities,
+            semantic,
         }
     }
     fn state(&self, op: &str, args: Value) -> Value {
@@ -282,6 +325,12 @@ impl Fixture {
         let close = self.handle.begin_close();
         self.wait("coordinator close", || close.is_complete());
         close.wait().unwrap();
+        if let Some(semantic) = &self.semantic {
+            self.runtime
+                .as_ref()
+                .unwrap()
+                .block_on(semantic.close_and_drain());
+        }
         assert_eq!(self.host.provider.active_count(), 0);
         assert_eq!(self.host.network.active_count(), 0);
         self.workspace.shutdown().unwrap();

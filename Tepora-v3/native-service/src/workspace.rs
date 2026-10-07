@@ -1,5 +1,6 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
+mod semantic_state;
 mod preferences;
 mod display_avatar;
 pub use display_avatar::VisualAction;
@@ -35,6 +36,7 @@ struct NativeResources {
     catalog: crate::model_catalog::ModelCatalog,
     host: Arc<crate::agent::host::NativeAgentHost>,
     capabilities: crate::capabilities::Capabilities,
+    semantic: Arc<crate::semantic::SemanticMemory>,
     agent: crate::agent::AgentHandle,
     provider: crate::provider::ProviderRuntime,
     network: crate::network::NativeNetwork,
@@ -424,10 +426,12 @@ impl Workspace {
             crate::provider::ProviderRuntime::new(Arc::new(self.access()), network.clone());
         let capabilities =
             crate::capabilities::Capabilities::new(Arc::new(self.access()), network.clone());
-        let host = Arc::new(crate::agent::host::NativeAgentHost::new(
+        let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(self.access()),capabilities.clone()));
+        let host = Arc::new(crate::agent::host::NativeAgentHost::new_with_semantic(
             self.access(),
             provider.clone(),
             network.clone(),
+            semantic.clone(),
         )?);
         host.preflight()?;
         host.recover()?;
@@ -440,6 +444,7 @@ impl Workspace {
                 catalog,
                 host,
                 capabilities,
+                semantic,
                 agent: agent.clone(),
                 provider,
                 network,
@@ -868,6 +873,11 @@ impl Backend for Workspace {
         if let Some(reply) = self.execute_native(&operation)? {
             return Ok(reply);
         }
+        let invalidate_memory=match &operation {
+            Operation::MemoryPatch{id,body} if ["content","scope","confirmed"].iter().any(|k|body.get(k).is_some())=>Some(id.clone()),
+            Operation::MemoryDelete{id}=>Some(id.clone()),
+            _=>None,
+        };
         let bootstrap = matches!(&operation, Operation::Bootstrap);
         let process_session = match &operation {
             Operation::Session { id, .. } => Some(id.clone()),
@@ -923,6 +933,7 @@ impl Backend for Workspace {
   };
         if bootstrap {if let Some(native)=self.native.get(){value["setup"]=native.setup.snapshot_from(s.setup_stored()?)?;}}
         drop(s);
+        if let (Some(id),Some(native))=(invalidate_memory,self.native.get()){native.semantic.invalidate_memory(&id);}
         // Process ownership is independent of the database. Never hold State
         // while consulting a live effect owner.
         if let (Some(id), Some(native)) = (process_session, self.native.get()) {
@@ -936,6 +947,23 @@ impl Backend for Workspace {
             }
         }
         Ok(Reply::Json(value))
+    }
+    fn execute_semantic(&self,operation:Operation,cancel:crate::network::RequestCancellation)->crate::BackendFuture<'_>{
+        Box::pin(async move {
+            let native=self.native.get().ok_or_else(||ApiError::unavailable("This effect requires --dev-native --agent"))?;
+            {let state=self.lock()?;require(!state.closed&&!state.closing,503,"Service closing")?;}
+            let (body,index)=match operation {Operation::SemanticIndex{body}=>(body,true),Operation::SemanticSearch{body}=>(body,false),_=>return Err(ApiError::bad_request("Invalid semantic operation"))};
+            let access=crate::semantic::Access{allow_external:body["consent"]==true,..Default::default()};
+            let work=async {
+                if index {native.semantic.index(access,&cancel).await}
+                else {native.semantic.search(&body["query"],crate::semantic::SearchOptions{access,..Default::default()},&cancel).await}
+            };
+            let value=match tokio::time::timeout(std::time::Duration::from_secs(if index{90}else{30}),work).await {
+                Ok(result)=>result.map_err(ApiError::from)?,
+                Err(_)=>{cancel.cancel();return Err(ApiError::new(504,"Semantic request timed out"));}
+            };
+            Ok(Reply::Json(value))
+        })
     }
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError> {
         let mut s = self.lock()?;
@@ -1019,6 +1047,7 @@ impl Backend for Workspace {
         self.lock()?.closing = true;
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
+            native.semantic.close();
             native.setup.begin_close();
             native.catalog.close();
             native.agent.begin_close();
@@ -1030,6 +1059,7 @@ impl Backend for Workspace {
     fn shutdown(&self) -> Result<(), ApiError> {
         self.begin_shutdown()?;
         if let Some(native) = self.native.get() {
+            native.runtime.block_on(native.semantic.close_and_drain());
             native.runtime.block_on(native.setup.close());
             native.agent.begin_close().wait()?;
         }
@@ -1092,7 +1122,8 @@ mod tests {
         let agent = crate::agent::AgentCoordinator::start(host.clone(),runtime.handle().clone()).unwrap();
         let setup=crate::setup::SetupManager::new(workspace.access().setup_state(agent.clone()),network.clone(),runtime.handle().clone()).unwrap();
         let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(workspace.access()),network.clone());
-        assert!(workspace.native.set(NativeResources {host,capabilities,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(workspace.access()),capabilities.clone()));
+        assert!(workspace.native.set(NativeResources {host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
         workspace.lock().unwrap().native_agent = true;
         agent.request(crate::agent::AgentRequest::Initialize).unwrap();
         (workspace,runtime,transport,dir)

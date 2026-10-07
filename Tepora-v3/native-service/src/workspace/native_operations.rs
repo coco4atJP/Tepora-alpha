@@ -301,6 +301,7 @@ impl Workspace {
                 next
             }
             Operation::StopAll => {
+                native.semantic.cancel_all();
                 native.setup.stop();
                 self.cancel_probes()?;
                 native.provider.cancel_all();

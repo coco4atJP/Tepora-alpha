@@ -267,6 +267,21 @@ installはbody読込前にもonlineを検証し、`consentDownload: true`、新�
 
 setup側のPTY修正込みゲートはnative library364＋CLI2、Node HTTP24、catalog fixture18、race fixture20/20合格。ローカルのscripted serverを使用し、実モデルやpackageは導入していない。前段の全Node544/549と同じブラウザー3・DNS1・bubblewrap1の環境失敗は未解消であり、統合候補の全品質ゲート合格へ読み替えない。ルート実数は126のうち実装60・部分13・未実装53、別枠static22。完成率ではない。
 
-semantic、添付モデル配送、セッション削除、find/grep、scheduler/heartbeat、MCP、media/speech、PC操作、JS plugins、独自avatar素材・写真は未移植。通常のNodeサービス、JavaScript/CSS GUI、Tauri起動は維持する。詳細なガードは[native host](../native-service/README.md)、全ルートは[route parity](RUST-ROUTE-PARITY.md)を参照。
+このsetup段階ではsemantic、添付モデル配送、セッション削除、find/grep、scheduler/heartbeat、MCP、media/speech、PC操作、JS plugins、独自avatar素材・写真は未移植。通常のNodeサービス、JavaScript/CSS GUI、Tauri起動は維持する。詳細なガードは[native host](../native-service/README.md)、全ルートは[route parity](RUST-ROUTE-PARITY.md)を参照。
 
 統合した最終Linuxゲートはnative364＋CLI2、build-notice/offline HTTP/native-agent計41件がNode22/24それぞれ合格。全Node22は544/549、ソース指紋は前後一致。残る5件は同じ既知のブラウザー3・DNS1・bubblewrap1であり、品質ゲート全体は不合格。実macOSでのPTY修正は22941beの318＋CLI2で確認済みだが、新しいWeb/setupのOS間受け入れ証明へ読み替えない。
+
+
+## 意味検索・索引のローカル候補
+
+`POST /api/semantic/index` と `POST /api/semantic/search` を `--dev-native --agent` に接続した。単一Workspace/SQLite所有者のvector cacheを使い、確認済み記憶の字句・意味順位を組み合わせる。索引は最大24文書、各12,000 UTF-16単位。HTTPは既存auth/CSRF/Host/Originとnetwork policyを維持し、非同期待機・要求破棄時の取消・index 90秒/search 30秒の期限を持つ。
+
+外部索引はHTTPの厳密な `consent: true` とshared/confirmed文書だけに限定する。送信直前とcache保存時に文書の本文・共有範囲・確認状態と能力identityを再検証する。記憶変更は応答前に対象処理を失効させるが、送信済みのバイトは回収できない。検索結果も最新文書で再確認し、埋め込みが使えない場合は字句検索へ戻る。
+
+`memory_search` のモデル引数は外部送信への同意にならない。`memory_write` の成功後にboundedなbest-effort索引をまとめて予約し、write receiptは索引の成功・完了と独立する。通常のrun解放では索引を取消さない。Stopは当該sessionの所有権だけを外し、ほかのsession/unscoped所有者が残る共有jobと他sessionのforeground検索は継続する。最後の所有者が停止したjobは取消し、Closeは全semantic処理を取消・drainしてからSQLiteを閉じる。
+
+ローカル検証はnative388＋CLI2、focused HTTP/native-agent/root計41件合格。固定JS由来search84・cosine10・hash7ケースはbyte-identical。全Nodeは544/549で、同じブラウザー3・DNS1・bubblewrap1の環境失敗を維持し、ローカル品質ゲート全体は不合格。公開済みWeb/setup `eba5bd4` は実macOS/Windows nativeとLinux全回帰が合格、後続platform Nodeはこの記録時点で実行中。このsemantic候補は未公開・exact-head CI未実施であり、前段CIを流用した合格主張はしない。実モデル・配布・導入の受け入れは未確認。
+
+HTTP実装差分とinventoryを照合したルート実数は126のうち実装62・部分13・未実装51（handlerあり75）、別枠static22。完成率ではない。decisionルート拒否、添付モデル配送・session削除・find/grep・scheduler/heartbeat・MCP・media/speech・PC操作・JS plugins・独自avatar素材/写真の未移植範囲は維持し、通常Node/JavaScript/CSS/Tauri起動は変更しない。
+
+意味検索チェックポイントの最終追加確認: build-notice/HTTP/native-agent/ルートを合わせた48件がNode22/24それぞれ合格。前段eba5bd4は実macOS360＋CLI2・Windows328＋CLI2とLinux全回帰が合格し、その後は既知のプラットフォームNode失敗で配布工程が未実行となった。この結果を新しい意味検索headのCIへ読み替えない。

@@ -85,7 +85,7 @@ results remain available while you keep talking. A received request ID is not a 
 
 **記憶 → 意味で探す** builds/queries a bounded semantic index. Prefer a local embedding endpoint.
 Remote indexing is opt-in and restricted to confirmed shared memories. Lexical search remains
-available offline or when the optional embedding endpoint fails. Similarity is not truth.
+available offline or when the optional embedding endpoint fails. Similarity is not truth. The local native-agent candidate also connects semantic index/search and agent memory tools with explicit external consent, lexical fallback and scoped cancellation. It remains an opt-in development host; normal Node launch and JavaScript/CSS are unchanged. See [native scope and verification](native-service/README.md).
 
 **設定 → 仕事の実行 → 道具（MCP）→ まとめて追加 / まとめて接続** accepts `mcpServers` JSON. Review imported
 configuration, then select which connections to start. They are not launched just because they
