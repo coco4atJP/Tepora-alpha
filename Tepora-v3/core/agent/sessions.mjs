@@ -58,6 +58,8 @@ export class SessionStore{
   const out=[];for(const r of rows){if(types&&!types.includes(r.type))continue;out.push({seq:r.seq,type:r.type,at:r.at,...JSON.parse(r.body)});}
   return out;
  }
+ /** Annotate a logged entry (UI flags such as `withdrawn`); the fields the model sees are not changed. */
+ patch(id,seq,fields){const e=this.entry(id,seq);if(!e)return null;const {seq:_,type,at,...body}=e;this.db.prepare('UPDATE session_log SET body=? WHERE session_id=? AND seq=?').run(JSON.stringify({...body,...fields}),id,seq);return {...e,...fields};}
  entry(id,seq){const r=this.db.prepare('SELECT seq,type,body,at FROM session_log WHERE session_id=? AND seq=?').get(id,seq);return r?{seq:r.seq,type:r.type,at:r.at,...JSON.parse(r.body)}:null;}
  /** The newest entry of one type, e.g. the latest checkpoint. */
  latest(id,type){const r=this.db.prepare('SELECT seq,type,body,at FROM session_log WHERE session_id=? AND type=? ORDER BY seq DESC LIMIT 1').get(id,type);return r?{seq:r.seq,type:r.type,at:r.at,...JSON.parse(r.body)}:null;}

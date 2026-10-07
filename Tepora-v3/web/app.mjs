@@ -524,15 +524,27 @@ function avatarSummary(){
 }
 let avatarStudioUI=null;
 function avatarStudio(){return avatarStudioUI||=createAvatarStudio({bridge,openSheet,notice,previewMode,previewAvatar,saveFile,chooseJSON,themeNow:avatarThemeNow,state:()=>state,isOpen:()=>activeDialog?.kind==='avatar'&&!sharedView});}
-const agentSettings=()=>({sandbox:{mode:'off'},webSearch:{provider:'auto'},heartbeat:{enabled:false,minutes:30},budget:{sessionUsd:0,dailyUsd:0},verifyCompletion:'auto',cacheRetention:{main:'long',worker:'short'},...state.agent?.settings});
+const agentSettings=()=>({sandbox:{mode:'off'},webSearch:{provider:'auto'},heartbeat:{enabled:false,minutes:30},budget:{sessionUsd:0,dailyUsd:0},verifyCompletion:'auto',metacognition:true,dream:true,cacheRetention:{main:'long',worker:'short'},...state.agent?.settings});
 const money=n=>`$${(n||0)<0.01&&n>0?(n||0).toFixed(4):(n||0).toFixed(2)}`;
 function usageSummary(){const u=state.agent?.usage?.today,b=agentSettings().budget;return [u?.calls?`今日 ${money(u.cost)}・${(u.input||0).toLocaleString()}トークン`:'今日はまだ使っていません',b.dailyUsd?`上限 1日${money(b.dailyUsd)}`:'',b.sessionUsd?`1仕事${money(b.sessionUsd)}`:''].filter(Boolean).join(' · ');}
-function budgetSheet(){
- const a=agentSettings(),b=a.budget;
+/** What the harness has learnt from its own record (core/agent/dream.mjs), in one line. */
+function learningSummary(p){
+ if(!p)return '記録を読み込めませんでした。';
+ const e=p.episodes||{},n=(e.route?.n||0)+(e.completion?.n||0),l=(e.route?.labelled||0)+(e.completion?.labelled||0);
+ const when=p.last?.at?new Date(p.last.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+ const what=p.last?(p.last.adopted?'基準を更新':'変更なし'):'';
+ return [`判断の記録 ${n}件（結果がわかったもの ${l}件）`,when?`前回 ${when}・${what}`:'まだ調整していません',p.policy?.revision?`基準 第${p.policy.revision}版`:''].filter(Boolean).join(' · ');
+}
+async function budgetSheet(){
+ const a=agentSettings(),b=a.budget;let policy=null;try{policy=await bridge.request('/api/agent/policy');}catch{}
  openSheet('費用と仕上げ',`<form id="budget-form"><p class="small-text">${escape(usageSummary())}。費用はmodels.devの公開価格から見積もります（このPCとLANのモデルは0）。</p>
  <label class="field"><span>1日の上限（ドル、0は上限なし）</span><input type="number" name="dailyUsd" min="0" max="100000" step="0.01" value="${b.dailyUsd||0}"></label>
  <label class="field"><span>1つの仕事の上限（ドル、0は上限なし）</span><input type="number" name="sessionUsd" min="0" max="100000" step="0.01" value="${b.sessionUsd||0}"></label>
  <label class="field"><span>仕上げの確認</span><select name="verifyCompletion">${[['auto','自動（判断モデルか、作業担当の見直し）'],['off','しない']].map(([v,l])=>`<option value="${v}" ${a.verifyCompletion===v?'selected':''}>${l}</option>`).join('')}</select></label>
+ ${toggle('自己点検','metacognition',a.metacognition!==false,'作業中に、手数・文脈の残り・失敗・チェックリストの進み具合を本人に知らせ、やり方を見直させます。本人は「分かっていること」と「推測」を分けて書き留めます。')}
+ ${toggle('経験から判断の基準を調整する','dream',a.dream!==false,'判断モデルの判定（作業に回すか・仕上がったか）とその結果を記録し、手が空いたときに過去の記録で別の基準を試して、確かに良くなるときだけ切り替えます。判断モデルがクラウドなら、記録した内容をもう一度そこへ送ります。')}
+ <p class="small-text" id="learning-status">${escape(learningSummary(policy))}</p>
+ <div class="sheet-actions"><button class="button secondary" type="button" data-action="dream-now">今すぐ調整</button>${policy?.policy?.history?.length?'<button class="button secondary" type="button" data-action="policy-revert">1つ前の基準に戻す</button>':''}</div>
  <label class="field"><span>キャラクターの文脈キャッシュ</span><select name="mainCache">${[['long','長く保つ（1時間・24時間。対応APIのみ）'],['short','標準（数分）']].map(([v,l])=>`<option value="${v}" ${a.cacheRetention.main===v?'selected':''}>${l}</option>`).join('')}</select></label>
  <div class="sheet-actions"><button class="button" type="submit">保存する</button></div></form>`,'budget');
 }
@@ -578,7 +590,7 @@ function settingsView(){
    ${settingRow('常駐と見回り',agentSettings().heartbeat.enabled?`${agentSettings().heartbeat.minutes}分ごと`:'オフ',agentSettings().heartbeat.enabled?'ok':null,'決まった間隔でキャラクターが仕事の様子を見回り、伝えることがあれば話しかけます。',btn('heartbeat-setup','設定','','button secondary','aria-label="見回りの設定"'))}
    ${settingRow('判断モデル',state.capabilities?.routes?.decision?(state.capabilities.profiles.find(p=>p.id===state.capabilities.routes.decision)?.name||'接続済み'):'未接続',state.capabilities?.routes?.decision?'ok':null,'選ぶ・判定するだけの速いモデルです。画面操作、ページの要点抜き出し、仕上げの確認、見回りの判定に使います。Liquid d1（クラウド）か Laya（このPC）を接続します。',btn('abilities-open','接続','','button secondary','aria-label="判断モデルを接続"'))}
    ${settingRow('コンピューター操作',computerSummary(),state.computer?.config?.enabled?'ok':null,'作業担当がブラウザ（見えないまま動かせます）とMacのアプリを操作します。判断モデルが画面上の操作を選び、作業担当が直接操作もできます。',btn('computer-launch','設定','','button secondary','aria-label="コンピューター操作の設定"'))}
-   ${settingRow('費用と仕上げ',usageSummary(),null,'費用の上限（既定はなし）と、仕事を終える前の確認です。',btn('budget-setup','設定','','button secondary','aria-label="費用と仕上げの設定"'))}
+   ${settingRow('費用と仕上げ',usageSummary(),null,'費用の上限（既定はなし）、仕事を終える前の確認、自己点検と経験からの調整です。',btn('budget-setup','設定','','button secondary','aria-label="費用と仕上げの設定"'))}
    ${settingRow('道具（MCP）',state.mcp.length?`${state.mcp.length}件 · ${state.mcp.filter(m=>m.enabled).length}件有効`:'',state.mcp.some(m=>m.enabled)?'ok':null,'作業エージェントは必要なときに道具を探して使います。',`${btn('mcp-add','追加','plus','button secondary','aria-label="道具を1件追加"')}${btn('tools-import','まとめて追加','','text-button')}${btn('tools-connect','まとめて接続','','text-button')}${btn('tools-search','探す','','text-button','aria-label="道具を探す"')}`)}
    ${state.mcp.length?`<ul class="plain-list">${state.mcp.map(m=>`<li><span>${escape(m.name)}<small>${escape(m.transport)}</small></span><span>${m.enabled?btn('tools-discover','道具を調べる','','text-button',`data-id="${escape(m.id)}"`):''}${btn('mcp-toggle',m.enabled?'無効にする':'有効にする','','text-button',`data-id="${escape(m.id)}"`)}</span></li>`).join('')}</ul>`:''}
    ${settingRow('プラグイン','',null,`データフォルダの plugins/ に置いた .mjs のツールを読み込みます。`,btn('plugins-reload','読み込み直す','refresh','button secondary'))}
@@ -1026,6 +1038,8 @@ const actions={
  stop:async()=>{invalidatePendingSubmit();capabilityUI?.stop();cancelVoice();musicUI?.pause();await bridge.request('/api/stop','POST',{});notice('動いていた仕事をすべて止めました。成果物は残しています。');},
  'sandbox-set':async el=>{const value=await bridge.request('/api/agent/settings','PATCH',{sandbox:{...state.agent.settings.sandbox,mode:el.dataset.value}});state.agent={...state.agent,settings:value};render();notice(el.dataset.value==='off'?'サンドボックスをオフにしました。コマンドはこのPCで直接動きます。':'次のコマンドからサンドボックスで実行します。');},
  'search-setup':searchSheet,'heartbeat-setup':heartbeatSheet,'budget-setup':budgetSheet,
+ 'dream-now':async()=>{const status=$('#learning-status');if(status)status.textContent='過去の記録で基準を試しています…';const r=await bridge.request('/api/agent/dream','POST',{});notice(r.adopted?'経験から判断の基準を更新しました。':'今回は変えませんでした（記録がまだ足りないか、今の基準がいちばん良い結果でした）。');await budgetSheet();},
+ 'policy-revert':async()=>{await bridge.request('/api/agent/policy/revert','POST',{});notice('判断の基準を1つ前に戻しました。');await budgetSheet();},
  'plugins-reload':async()=>{const r=await bridge.request('/api/agent/plugins/reload','POST',{});notice(`プラグインを${r.loaded}件読み込みました。${r.errors?.length?r.errors.length+'件は読み込めませんでした。':''}`);},
 };
 function frameSettings(){
@@ -1072,7 +1086,7 @@ document.addEventListener('submit',e=>{
    if(data.braveKey)await bridge.request('/api/agent/search-key','PUT',{provider:'brave',key:data.braveKey});
    state.agent={...state.agent,settings:value};closeSheet();render();
   }else if(form.id==='budget-form'){
-   const value=await bridge.request('/api/agent/settings','PATCH',{budget:{dailyUsd:Math.max(0,Number(data.dailyUsd)||0),sessionUsd:Math.max(0,Number(data.sessionUsd)||0)},verifyCompletion:data.verifyCompletion,cacheRetention:{...agentSettings().cacheRetention,main:data.mainCache}});
+   const value=await bridge.request('/api/agent/settings','PATCH',{budget:{dailyUsd:Math.max(0,Number(data.dailyUsd)||0),sessionUsd:Math.max(0,Number(data.sessionUsd)||0)},verifyCompletion:data.verifyCompletion,metacognition:fd.has('metacognition'),dream:fd.has('dream'),cacheRetention:{...agentSettings().cacheRetention,main:data.mainCache}});
    state.agent={...state.agent,settings:value};closeSheet();render();notice('費用と仕上げの設定を保存しました。');
   }else if(form.id==='heartbeat-form'){
    const value=await bridge.request('/api/agent/settings','PATCH',{heartbeat:{enabled:fd.has('enabled'),minutes:Math.max(5,Number(data.minutes)||30),text:data.text||''}});

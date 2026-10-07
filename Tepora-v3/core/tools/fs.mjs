@@ -21,6 +21,17 @@ async function assertFresh(ctx,file,op){
  let info;try{info=await stat(file);}catch{return;}
  invariant(info.mtimeMs===seen.mtimeMs&&info.size===seen.size,`${file} changed since you last read or wrote it (the user, another agent or a program touched it). Read it again before you ${op} it.`,409);
 }
+/** Overwriting a file that existed before this session and that it has never read or written would throw away
+ * content the agent has not seen (small models "update" config files by writing only the new lines). It must look
+ * first; edit or append is fine. Files that appeared during the session (made by its own commands) are its own. */
+async function assertSeen(ctx,file){
+ let info;try{info=await stat(file);}catch{return;}
+ invariant(!info.isDirectory(),`${file} is a folder, not a file. Give a file path inside it, for example ${path.join(file,'notes.md')}.`,400);
+ if(!ctx.files||ctx.files.has(file)||!info.size)return;
+ const born=info.birthtimeMs>0?info.birthtimeMs:info.mtimeMs,since=Date.parse(ctx.session?.createdAt||'');
+ if(Number.isFinite(since)&&born>=since-1000)return;
+ invariant(false,`${file} already existed before this task (${info.size} bytes) and you have not read it. Read it first; then change it with edit, or write the complete new content.`,409);
+}
 const sha=s=>createHash('sha256').update(s).digest('hex').slice(0,12);
 export function resolvePath(ctx,p){
  invariant(typeof p==='string'&&p.length>0&&p.length<=4096&&!p.includes('\0'),'path is required');
@@ -81,13 +92,14 @@ export function fsTools(){
   }
  },{
   name:'write',group:'core',
-  description:'Create or overwrite a text file (parent folders are created). Set append:true to add to the end instead; write long files in several appends rather than one huge call.',
+  description:'Create or overwrite a text file (parent folders are created). To change an existing file, read it and use edit. Set append:true to add to the end instead; write long files in several appends rather than one huge call.',
   parameters:{type:'object',additionalProperties:false,required:['path','content'],properties:{path:{type:'string'},content:{type:'string'},append:{type:'boolean'}}},
   summarize:a=>`${a.append?'append':'write'} ${a.path}`,
   async run(a,ctx){
    const file=resolvePath(ctx,a.path);assertWritable(ctx.sandbox,ctx.cwd,file);
    return withLock(file,async()=>{
-    if(!a.append)await assertFresh(ctx,file,'overwrite');
+    if(a.append){try{invariant(!(await stat(file)).isDirectory(),`${file} is a folder, not a file. Give a file path inside it.`,400);}catch(e){if(e.code!=='ENOENT')throw e;}}
+    else{await assertSeen(ctx,file);await assertFresh(ctx,file,'overwrite');}
     await mkdir(path.dirname(file),{recursive:true});
     if(a.append)await appendFile(file,a.content,'utf8');else await writeFile(file,a.content,'utf8');
     const now=await readFile(file,'utf8');await remember(ctx,file);

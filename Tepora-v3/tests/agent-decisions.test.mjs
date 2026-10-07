@@ -56,10 +56,24 @@ test('completion check: the decision model sends an incomplete report back to wo
  assert.equal(done.result,'全部終わりました（確認済み）');
  const notices=f.rt.sessions.entries(s.id,{types:['notice']}).filter(n=>/check the result against the task/.test(n.text));
  assert.equal(notices.length,1);assert.match(notices[0].text,/三つの手順を実行して確認する/);
- assert.ok(d.requests.some(r=>/every part of the task/.test(r.questions.q.instructions)));
+ const asked=d.requests.find(r=>/every part of the task/.test(r.questions.q.instructions));
+ assert.ok(asked);const state=JSON.parse(asked.state);
+ assert.match(state.actions,/^(ok|FAILED): /m,'the tool results go with the report, so a claim is judged against evidence');
  verdict=0.9;const s2=await f.rt.spawn(null,{task:'もう一つ'});
  const done2=await until(()=>{const x=f.rt.sessions.get(s2.id);return x.status==='done'&&x;});
  assert.equal(done2.result,'途中まで','a confident verdict lets the report through');
+});
+
+test('with a decision model, even a one-call task is checked; a report claiming what failed is sent back',async t=>{
+ const d=await decisionModel((q,state)=>/FAILED/.test(JSON.parse(state).actions)?0.05:0.95);t.after(d.close);
+ const f=await agentFixture(t,body=>{
+  const r=toolResults(body),sent=body.messages.some(m=>String(m.content).includes('check the result against the task'));
+  if(!r.length)return {calls:[{name:'read',args:{path:'missing.txt'}}]};
+  return {content:sent?'読めませんでした（ファイルがありません）':'読みました'};
+ },{decision:d.url});
+ const s=await f.rt.spawn(null,{task:'missing.txt を読む'});
+ const done=await until(()=>{const x=f.rt.sessions.get(s.id);return x.status==='done'&&x;});
+ assert.equal(done.result,'読めませんでした（ファイルがありません）');
 });
 
 test('completion check without a decision model: one self-check turn for substantial work, none for quick tasks',async t=>{

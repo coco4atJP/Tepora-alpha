@@ -2,17 +2,31 @@
 
 This branch now uses V3 for root startup, development, regression checks and native packaging. Earlier application sources, tools and archived documents have been removed from this checkout. Git history retains earlier revisions; existing user data are not automatically migrated or deleted.
 
-## Agent harness rebuild (2026-10-06 to 2026-10-07, branch `feat/agent-harness`, not yet merged)
+## Agent harness rebuild (2026-10-06 to 2026-10-07, branch `feat/agent-harness`)
 
 The agent runtime was rebuilt ([AGENT-HARNESS.md](AGENT-HARNESS.md)): a resident character that delegates to asynchronous work agents, a loop that recovers instead of failing, batch-only prompt rewrites for cache hits, careful compaction (exact ledger, chapters, identifier rescue, `recall`), decision-model features (Liquid d1 / Laya), schedule and change-driven check-ins, plugin hooks, skills, media generation, image input, and computer use (CDP browser, decision-model control loop, macOS Accessibility helper).
 
 Evidence on this Mac (2026-10-07):
 
-- `node --test`: **368 tests passed, 0 failed** (old tests for removed subsystems were deleted or moved to the new API). Syntax checks for 170 modules; `scripts/verify-scenarios.mjs` passes (every case that depended on the old implementation is now `partial` until re-verified).
+- `node --test` (before the real-model runs): **368 tests passed, 0 failed** (old tests for removed subsystems were deleted or moved to the new API). Syntax checks for 170 modules; `scripts/verify-scenarios.mjs` passes (every case that depended on the old implementation is now `partial` until re-verified).
 - `npm run test:computer`: 5/5 with real headless Chrome (open/observe, direct actions, decision loop to a locally verified completion, screenshot, macOS helper build and permission report). `npm run test:capabilities`: 5/5 with deterministic local endpoints.
 - A live UI run against a scripted model: delegation, work agent, completion self-check, report, and the new settings rows and computer-use sheet, with no console errors.
 
-Not verified: any real model (only scripted fakes and the `eval-agent.mjs` plumbing), real Liquid d1 or Laya calls (a fake System One server), macOS desktop control itself (Accessibility was not granted in the test environment), Anthropic/OpenAI cache behaviour against the real APIs (the 20-block lookback and TTL rules come from the providers' documentation), and Ollama's native API against a real Ollama.
+Real-model runs (2026-10-07, `scripts/eval-agent.mjs`, 11 cases, Liquid d1 `d1:free` as the decision model):
+
+- **DeepSeek V4.1 Flash via OpenCode Go**: **11/11 passed**, 0 tool errors, 53 steps, 288,604 input tokens, cache hit rate 47–86% per case (86% on the 14-step long-log case; the first request of each case is necessarily uncached).
+- **LFM2.5-Thinking 1.2B on the local Ollama** (native API): 3/11. The model often claims work it never did or overwrites files it has not read; the harness now catches both (missing-file check, read-before-overwrite, evidence-based completion check), which turns silent failures into partial progress, but a 1.2B model remains too small for most cases.
+- Real Liquid d1: drove the headless-Chrome form fixture to a verified completion (`check-computer.mjs --liquid`, 2.7 s for three actions); picked the right sections for a Japanese question over a mixed Japanese/English page (including an English section lexical scoring missed); judged a partial report incomplete (p≈0.0003). `d1:free` rate-limits parallel requests (HTTP 429), so requests are serialized and retried.
+- A live app run in an isolated data folder: the character on DeepSeek V4.1 Flash delegated a file task, the work agent wrote and verified it, and the report came back to the conversation. With the 1.2B model as the character, it answered "I can't create files" instead of delegating, which led to the decision-model delegation safety net.
+- `node --test`: 388 passed; 175 modules syntax-checked; `verify-scenarios` passes.
+
+Metacognition and learning from experience (2026-10-07, later the same day):
+
+- Metacognition: harness-measured self-checks (context use, failures, stalled checklist, missing or low-confidence `reflect` notes, interval) appended to the transcript, and the agent's own `reflect` notes kept verbatim in the checkpoint ledger. In a live run DeepSeek V4.1 Flash received an "unreflected" self-check after 10 tool calls and wrote its notes; the scripted test confirms the previous request stays a byte-identical prefix.
+- Dream-RSI-style tuning of the decision-model checks, on real runs sharing one record (`eval-agent.mjs --state … --dream`): LFM2.5 1.2B (4/11) and DeepSeek V4.1 Flash (11/11) gave 20 labelled completion episodes (15 complete, 5 incomplete). Replaying them through the real Liquid d1 with the three candidate questions gave leave-one-out costs c0 4, c1 7, c2 3, so the policy switched to c2 ("is anything missing?") at threshold 0.7 (revision 1). The next LFM run under it (5/11) produced 10 new episodes judged 9/10 correctly (the earlier run under c0: 7/9); on the latest 30 episodes c0 and c2 tie (10 each), so nothing further changed. The samples are small; this shows the loop working end to end, not a measured improvement.
+- A live run surfaced and fixed: claimed files checked only in the session folder (now also folders the task names and tools used), the read-before-overwrite guard blocking files the agent's own commands had just made, the character not passing `cwd` for "the work folder", and a 429 retry timer that let a script exit mid-wait.
+
+Not verified: macOS desktop control itself (Accessibility was not granted in the test environment), Anthropic/OpenAI cache behaviour against the real APIs (the 20-block lookback and TTL rules come from the providers' documentation), the local Laya worker, and the delegation safety net against a real small character model end to end (it is covered by a scripted test; the d1 routing question was calibrated on 15 sample messages).
 
 ## Local evidence
 

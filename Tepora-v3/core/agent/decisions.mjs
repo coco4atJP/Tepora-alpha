@@ -14,8 +14,16 @@ export class Decisions{
  /** One request; null when no decision model is connected or it failed (callers then fall back). */
  async ask(state,questions,signal){
   if(!this.available())return null;
-  try{const r=await this.capabilities.decide(typeof state==='string'?state:JSON.stringify(state),questions,signal);this.failures=0;return r;}
-  catch(e){if(signal?.aborted)throw e;this.failures++;if(this.failures>=3)this.pausedUntil=Date.now()+Math.min(600000,30000*2**(this.failures-3));return null;}
+  const body=typeof state==='string'?state:JSON.stringify(state);
+  // A free tier (d1:free) answers 429 when busy: wait briefly and ask again; that is not a failure of the service.
+  for(let attempt=0;;attempt++){
+   try{const r=await this.capabilities.decide(body,questions,signal);this.failures=0;return r;}
+   catch(e){
+    if(signal?.aborted)throw e;
+    if(attempt<3&&(e.upstreamStatus===429||/HTTP 429/.test(e.message||''))){await new Promise(r=>setTimeout(r,1000*2**attempt));continue;}
+    this.failures++;if(this.failures>=3)this.pausedUntil=Date.now()+Math.min(600000,30000*2**(this.failures-3));return null;
+   }
+  }
  }
  /** Probability that the answer to a yes/no question about `state` is yes, or null. */
  async yes(state,question,signal){const r=await this.ask(state,{q:{type:'noul',instructions:question}},signal);const v=r?.answers?.q?.noul;return Number.isFinite(v)?v:null;}

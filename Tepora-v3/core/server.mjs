@@ -177,6 +177,9 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     const b=await body(req);if(b.policy)b.policy={rules:validateRules(b.policy.rules||[])};
     const next=agent.configure(b);if(b.sandbox||b.toolsChanged)agent.refreshPrompts();return json(res,next);
    }
+   if(p==='/api/agent/policy'&&method==='GET')return json(res,agent.dreamer.status());
+   if(p==='/api/agent/policy/revert'&&method==='POST')return json(res,{policy:agent.dreamer.revert()});
+   if(p==='/api/agent/dream'&&method==='POST')return json(res,await agent.dreamer.dream({reason:'manual'}));
    if(p==='/api/agent/search-key'&&method==='PUT'){const b=await body(req);invariant(['brave'].includes(b.provider)&&typeof b.key==='string'&&b.key.length<=500,'Invalid key');const keys={...(store.value('search-keys')||{})};if(b.key)keys[b.provider]=b.key;else delete keys[b.provider];store.value('search-keys',keys);return json(res,{provider:b.provider,keyPresent:!!b.key});}
    if(p==='/api/agent/plugins/reload'&&method==='POST'){const r=await agent.tools.loadPlugins();agent.refreshPrompts();return json(res,r);}
    if(p==='/api/agent/approvals'&&method==='GET')return json(res,{approvals:ui.approvals()});

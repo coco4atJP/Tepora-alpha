@@ -2,7 +2,7 @@
  * Nothing here throws on a truncated answer or a malformed tool call: the agent loop repairs those.
  * Vendor-native state (reasoning signatures, opaque items) is replayed only to the same provider.
  */
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {invariant} from './policy.mjs';
 
 export const PROTOCOLS=['chat-completions','responses','anthropic','gemini'];
@@ -350,8 +350,12 @@ export function requestPath(profile){
  if(profile.protocol==='gemini')return `models/${encodeURIComponent(profile.model.replace(/^models\//,''))}:streamGenerateContent?alt=sse`;
  return 'chat/completions';
 }
-export function requestHeaders(profile,key){
- const common={'Content-Type':'application/json',Accept:'text/event-stream, application/json'};
+/** Tepora names itself (gateways such as OpenCode Go reject generic HTTP-library agents), and with a profile's
+ * session header sends a stable, opaque id per conversation so the gateway routes it to a warm prompt cache. */
+export const USER_AGENT='Tepora/3.0 (local agent harness)';
+export function requestHeaders(profile,key,{sessionKey=null}={}){
+ const common={'Content-Type':'application/json',Accept:'text/event-stream, application/json','User-Agent':USER_AGENT,
+  ...(profile.sessionHeader&&sessionKey?{[profile.sessionHeader]:'tepora-'+createHash('sha256').update(String(sessionKey)).digest('hex').slice(0,32)}:{})};
  if(profile.protocol==='anthropic')return {...common,'anthropic-version':'2023-06-01',...(key?{'x-api-key':key}:{})};
  if(profile.protocol==='gemini')return {...common,...(key?{'x-goog-api-key':key}:{})};
  return {...common,...(key?{Authorization:`Bearer ${key}`}:{})};
@@ -371,7 +375,7 @@ export class ProtocolClient{
   const sent=OPTIONAL_PARAMS.filter(k=>k in body||k in (body.generationConfig||{}));
   const url=ollama?new URL(p.baseUrl).origin+'/api/chat':`${p.baseUrl.replace(/\/$/,'')}/${requestPath(p)}`;
   let response;
-  try{response=await this.fetch(url,{method:'POST',redirect:'error',headers:requestHeaders(p,this.key),signal:options.signal,body:JSON.stringify(body)});}
+  try{response=await this.fetch(url,{method:'POST',redirect:'error',headers:requestHeaders(p,this.key,{sessionKey:options.cacheKey}),signal:options.signal,body:JSON.stringify(body)});}
   catch(e){throw networkError(e,options.signal);}
   if(!response.ok)throw await classifyResponse(response,sent);
   const decode=ollama?decodeOllama:p.protocol==='responses'?decodeResponses:p.protocol==='anthropic'?decodeAnthropic:p.protocol==='gemini'?decodeGemini:decodeChat;

@@ -8,9 +8,9 @@ const NAME=/^[a-zA-Z][\w-]{0,63}$/;
 /** Fixed tool sets. A session keeps its set for life so the cached prompt prefix never changes;
  * everything else is reached through tools_search / tools_call. */
 export const TOOLSETS={
- main:['sessions_spawn','sessions_send','sessions_list','sessions_history','sessions_stop','schedule','memory_search','memory_write','web_search','web_fetch','recall','history_search','skill','tools_search','tools_call'],
- worker:['exec','process','read','write','edit','find','grep','web_search','web_fetch','computer','media','todo','artifact','recall','history_search','memory_search','memory_write','skill','sessions_spawn','sessions_send','sessions_list','tools_search','tools_call'],
- lean:['exec','read','write','edit','web_search','web_fetch','computer','todo','recall','skill','sessions_send']
+ main:['sessions_spawn','sessions_send','sessions_list','sessions_history','sessions_stop','schedule','memory_search','memory_write','web_search','web_fetch','recall','history_search','skill','reflect','tools_search','tools_call'],
+ worker:['exec','process','read','write','edit','find','grep','web_search','web_fetch','computer','media','todo','reflect','artifact','recall','history_search','memory_search','memory_write','skill','sessions_spawn','sessions_send','sessions_list','tools_search','tools_call'],
+ lean:['exec','read','write','edit','web_search','web_fetch','computer','todo','reflect','recall','skill','sessions_send']
 };
 export function validateTool(def){
  invariant(def&&typeof def==='object','Tool definition must be an object');

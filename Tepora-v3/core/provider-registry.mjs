@@ -20,7 +20,10 @@ function validateSampling(raw){
  for(const [k,v] of Object.entries(raw)){const r=SAMPLING[k];invariant(r&&typeof v==='number'&&v>=r[0]&&v<=r[1]&&(!r[2]||Number.isInteger(v)),`Invalid sampling ${k}`);out[k]=v;}
  return out;
 }
-const profileFields=['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache'];
+const profileFields=['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader'];
+/** Gateways that route by conversation (and keep its prompt cache warm on one backend) when told which one a request
+ * belongs to. OpenCode Go requires it; anyone else can set `sessionHeader` on the profile. */
+function sessionHeaderFor(u){return /(^|\.)opencode\.ai$/.test(u.hostname)?'x-opencode-session':'';}
 export function validateProfile(raw){
  invariant(raw&&Object.keys(raw).every(k=>profileFields.includes(k)),'Unknown provider field');
  invariant(idPattern.test(raw.id),'Use a short alphanumeric provider ID');
@@ -42,6 +45,7 @@ export function validateProfile(raw){
  invariant(!raw.resource||idPattern.test(raw.resource),'Invalid resource group');
  invariant(!raw.reasoningEffort||['minimal','low','medium','high'].includes(raw.reasoningEffort),'Invalid reasoning effort');
  invariant(raw.server===undefined||SERVERS.includes(raw.server),'Invalid server kind');
+ invariant(!raw.sessionHeader||/^x-[a-z0-9-]{1,60}$/.test(raw.sessionHeader),'Invalid session header name');
  const slow=raw.domain==='device'?600000:raw.domain==='lan'?300000:180000;
  const p={id:raw.id,name:text(raw.name||raw.id,'name',100),protocol:raw.protocol,baseUrl:u.href.replace(/\/$/,''),model:text(raw.model,'model',160),domain:raw.domain,
   enabled:raw.enabled!==false,apiKeyEnv:raw.apiKeyEnv||'',capabilities:caps,
@@ -49,7 +53,7 @@ export function validateProfile(raw){
   maxTokens:number('maxTokens',8192,128,131072),contextTokens:number('contextTokens',null,2048,4_000_000),
   timeoutMs:number('timeoutMs',60000,1000,600000),firstByteTimeoutMs:number('firstByteTimeoutMs',slow,1000,3600000),idleTimeoutMs:number('idleTimeoutMs',120000,1000,3600000),
   maxParallel:number('maxParallel',raw.domain==='cloud'?4:1,1,64),resource:raw.resource||raw.id,
-  thinkingBudget:number('thinkingBudget',null,1024,128000),sampling:validateSampling(raw.sampling),server:raw.server||'auto',cache:raw.cache!==false,
+  thinkingBudget:number('thinkingBudget',null,1024,128000),sampling:validateSampling(raw.sampling),server:raw.server||'auto',cache:raw.cache!==false,sessionHeader:raw.sessionHeader||sessionHeaderFor(u),
   ...(raw.reasoningEffort?{reasoningEffort:raw.reasoningEffort}:{})};
  p.identity=digest(p);return p;
 }

@@ -31,7 +31,7 @@ export function messageOf(e,main,{titles=new Map()}={}){
   return {id:'m'+e.seq,sessionId:main.id,role:'user',kind:'utterance',content:e.text,source:e.source||'text',at:e.at,seq:e.seq};
  }
  if(e.type==='assistant'){
-  const text=String(e.content||'').trim();if(!text||silent(text))return null;
+  const text=String(e.content||'').trim();if(!text||silent(text)||e.withdrawn)return null;
   return {id:'m'+e.seq,sessionId:main.id,role:'assistant',kind:'character',content:text,truncated:!!e.truncated,delegated:(e.toolCalls||[]).filter(c=>c.name==='sessions_spawn').length,at:e.at,seq:e.seq};
  }
  return null;

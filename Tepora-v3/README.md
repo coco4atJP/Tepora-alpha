@@ -152,7 +152,11 @@ The loop does not stop on failures; it classifies and recovers (backoff and fail
 slow models, overflow and silent-truncation recovery, truncated replies continued, broken tool arguments
 repaired). Long work is compacted with an exact ledger kept by the harness, chapter summaries that are
 never re-summarised, and lossless `recall` / `history_search`. The prompt prefix only changes in batches,
-so provider caches keep hitting. Design: [docs/AGENT-HARNESS.md](docs/AGENT-HARNESS.md).
+so provider caches keep hitting. Agents are self-aware in a measured way: the harness appends the facts of a
+run (context use, failures, a stalled checklist, stated confidence) when they matter, and each agent keeps its
+own account of what is verified and what is only assumed (`reflect`), which survives compaction verbatim. The
+decision-model checks learn from their own record, after Dream-RSI: every check is kept as an episode, outcomes
+label it, and alternative thresholds and questions are replayed offline and adopted only when they do better. Design: [docs/AGENT-HARNESS.md](docs/AGENT-HARNESS.md).
 
 Work agents run shell commands, read/write/edit files (images too), search and read the Web
 (question-focused reading returns only the relevant sections), generate media, keep a checklist,

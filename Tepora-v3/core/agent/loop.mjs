@@ -6,6 +6,7 @@ import {NOTICE,systemPrompt} from './prompts.mjs';
 import {toText,fitTokens,defaultStub,checkArgs,parseArgs,argsLabel,oneLine} from '../tools/format.mjs';
 import {RouteUnavailable} from '../provider-registry.mjs';
 import {personaForPrompt} from '../persona.mjs';
+import {selfFacts,selfCheckDue,noteSelfCheck,renderSelfCheck} from './metacog.mjs';
 
 const hash=v=>createHash('sha256').update(typeof v==='string'?v:JSON.stringify(v)).digest('hex').slice(0,16);
 /** A system prompt in its "# Heading" sections (the text before the first heading is one section too). */
@@ -88,12 +89,15 @@ export class AgentLoop{
    return {wait:e.retryAfterMs||30000,note:e.message||'モデルに接続できません。'};
   }
   mem.overflows=0;mem.badRequests=0;
+  // Ollama counts only the uncached part of the prompt; estimate the whole so input and cache-hit figures mean the
+  // same thing as for other servers.
+  if(answer.usage?.uncachedOnly){const whole=Math.round((built.tokens+toolsTokens(toolDefs))*ratio),fresh=answer.usage.input||0;answer.usage={...answer.usage,input:Math.max(whole,fresh),cacheRead:Math.max(0,whole-fresh),estimated:true};}
   rt.account(id,answer,Date.now()-started);
   // The server counted far fewer prompt tokens than were sent. With a window that was only assumed (nothing
   // reported it), that is a server silently cutting the conversation's beginning to its real window: the answer
   // saw a beheaded context, so drop it, learn the window, compact and ask again. A detected window is trusted;
   // the sample is then only kept out of the calibration.
-  const sentRaw=built.tokens+toolsTokens(toolDefs),estimated=sentRaw*ratio,reported=answer.usage?.input||0;
+  const sentRaw=built.tokens+toolsTokens(toolDefs),estimated=sentRaw*ratio,reported=answer.usage?.uncachedOnly?0:answer.usage?.input||0;
   const anomaly=reported>0&&!answer.usage.uncachedOnly&&estimated>4000&&reported<estimated*0.5;
   if(anomaly&&['default','guess'].includes(limits.source)&&answer.route?.identity===profile.identity){
    rt.streamEnd(id,{discard:true});rt.registry.learnLimit(profile,Math.max(2048,Math.round(reported*1.02)));mem.forceCompact=true;
@@ -123,15 +127,16 @@ export class AgentLoop{
   mem.empties=0;
   await this.runTools(rt.sessions.get(id),calls,{signal,B});
   this.watch(id,mem);
+  this.selfCheck(id,mem,{built,B,ratio,profile});
   return {continue:true};
  }
  async compact(session,{built,B,ratio,toolDefs,chain,signal,reason,tailShare}){
   const rt=this.rt;
   const live={sessions:Object.fromEntries(rt.sessions.list({parentId:session.id}).map(s=>[s.id,s.status])),processes:Object.fromEntries(rt.processes.list(session.id).map(p=>[p.id,p.status+(p.exitCode!==null?' '+p.exitCode:'')]))};
   rt.sessions.update(session.id,{note:'文脈を整理しています'});
-  const cp=await rt.compactor.compact(session,{built,B,ratio,system:session.system,toolDefs,chain,signal,reason,tailShare,todo:session.todo||null,live,cacheRetention:rt.cacheRetention(session)});
+  const cp=await rt.compactor.compact(session,{built,B,ratio,system:session.system,toolDefs,chain,signal,reason,tailShare,todo:session.todo||null,reflection:session.reflection||null,live,cacheRetention:rt.cacheRetention(session)});
   // The checkpoint resets the cache anyway: refresh the system prompt and tool set now if settings changed.
-  if(cp)this.prompt(rt.sessions.get(session.id),{refresh:true});
+  if(cp){this.prompt(rt.sessions.get(session.id),{refresh:true});this.state(session.id).selfCheckContext=false;}
   return cp;
  }
  async runTools(session,calls,{signal,B}){
@@ -194,7 +199,20 @@ export class AgentLoop{
   const mem=this.state(id);mem.calls.push({sig:hash([name,args]),outcome:hash(text),label:`${name}(${argsLabel(args)})`,error:!!out.error});if(mem.calls.length>12)mem.calls.shift();
   const d=out.result?.data;if(name==='read'&&d?.readKey){mem.reads||=new Map();mem.reads.set(d.readKey,{seq,mtimeMs:d.mtimeMs,size:d.size});if(mem.reads.size>300)mem.reads.delete(mem.reads.keys().next().value);}
   mem.errorStreak=out.error?mem.errorStreak+1:0;
+  if(name==='todo'&&!out.error)mem.todoStep=rt.sessions.get(id).stats?.steps||0;
   const s=rt.sessions.get(id);rt.sessions.update(id,{stats:{...s.stats,toolCalls:(s.stats?.toolCalls||0)+1,toolErrors:(s.stats?.toolErrors||0)+(out.error?1:0)}});
+ }
+ /** Metacognition: when something worth noticing happened (context filling up, failures piling up, a checklist
+  * that stopped moving, no stated understanding, low confidence, or simply a long stretch), the measured facts of
+  * the run are appended for the model to judge its own approach by. Appended, so the cached prefix is untouched. */
+ selfCheck(id,mem,ctx){
+  const rt=this.rt,s=rt.sessions.get(id);
+  if(!s||rt.settings().metacognition===false)return;
+  const f=selfFacts(rt,s,mem,ctx),why=selfCheckDue(s,mem,f);
+  if(!why.length)return;
+  noteSelfCheck(mem,f,why);
+  rt.sessions.append(id,'notice',{text:renderSelfCheck(f,why,{kind:s.kind}),selfCheck:why});
+  rt.event(id,'self-check',{why,steps:f.steps,context:f.context?Math.round(f.context.share*100):null,confidence:f.reflection?.confidence??null});
  }
  /** Repetition and error streaks: nudge first, then a stronger model, then tell the requester. */
  watch(id,mem){

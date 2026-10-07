@@ -84,6 +84,7 @@ test('browser: direct actions through the computer tool, headless',{skip:!browse
 test('browser: "do" — the decision model operates the form until the local check passes',{skip:!browser},async t=>{
  const url=await site(t);
  const d=await decisionModel((q,state,name)=>{
+  if(q.type==='noul')return 0.9; // the completion check at the end
   const keys=Object.keys(q.criteria||{}),s=JSON.parse(state);
   if(keys.includes('fill_e1'))return 'fill_e1';if(keys.includes('fill_e2'))return 'fill_e2';
   const box=s.controls.find(c=>c.name==='規約に同意する');if(box&&!box.checked)return `click_${box.ref}`;
@@ -100,7 +101,7 @@ test('browser: "do" — the decision model operates the form until the local che
  const done=await until(()=>{const x=f.rt.sessions.get(s.id);return x.status==='done'&&x;},60000);
  assert.match(done.result,/^completed \(verified\)/,done.result);
  assert.match(done.result,/type the supplied text for "お名前"[\s\S]*choose the supplied option "東京"[\s\S]*click checkbox "規約に同意する" \(currently unchecked\)[\s\S]*click button "送信"/);
- assert.ok(d.requests.every(r=>Object.keys(r.questions.action.criteria).length<=16));
+ assert.ok(d.requests.filter(r=>r.questions.action).every(r=>Object.keys(r.questions.action.criteria).length<=16));
 });
 
 test('browser: "do" without a decision model — the agent\'s own model chooses from the same shortlist',{skip:!browser},async t=>{

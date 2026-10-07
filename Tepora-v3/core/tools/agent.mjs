@@ -109,7 +109,7 @@ export function agentTools(runtime){
   name:'sessions_spawn',group:'core',
   description:'Start a work agent on a task in the background and return immediately. It works on its own and its final report arrives to you as a message. Give a complete, self-contained task (goal, context, constraints, what to deliver). persistent:true keeps it as a named specialist you can send more tasks to later.',
   parameters:{type:'object',additionalProperties:false,required:['task'],properties:{task:{type:'string'},title:{type:'string',description:'Short name shown to the user.'},
-   context:{type:'string',enum:['isolated','fork'],description:'fork copies a summary of your current context into the agent.'},persistent:{type:'boolean'},cwd:{type:'string',description:'Folder to work in.'},
+   context:{type:'string',enum:['isolated','fork'],description:'fork copies a summary of your current context into the agent.'},persistent:{type:'boolean'},cwd:{type:'string',description:'Folder to work in. By default each agent gets a new folder of its own; pass the folder when the work belongs in a particular place (the user\'s project, or your own working folder when the user says "the work folder").'},
    toolset:{type:'string',enum:['worker','lean']},role:{type:'string',enum:['work','escalation'],description:'escalation uses the stronger configured model.'}}},
   summarize:a=>`sessions_spawn ${JSON.stringify(a.title||oneLine(a.task,50))}`,
   async run(a,ctx){

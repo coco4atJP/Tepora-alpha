@@ -3,6 +3,7 @@ import {SMALL_RESULT_TOKENS} from './context.mjs';
 import {compactionInstruction,SUMMARIZER_SYSTEM,summarizerRequest,SUMMARY_HEADINGS,NOTICE} from './prompts.mjs';
 import {fitTokens,oneLine} from '../tools/format.mjs';
 import {renderTodo} from '../tools/agent.mjs';
+import {renderReflection} from './metacog.mjs';
 
 /** Thresholds as fractions of the message budget B (window − output reserve − tool definitions). */
 /** After a checkpoint the context should be well under half the budget (system + checkpoint ≤ ~0.25B,
@@ -46,15 +47,16 @@ export function foldLedger(previous,entries,{kind,instructionTokens=4000,evidenc
 }
 const fmtBytes=n=>n===undefined?'':n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 /** Sections in priority order; when over `maxTokens` the least important (evidence index first) shrink. */
-export function renderLedger(l,{todo=null,live={},maxTokens=Infinity}={}){
+export function renderLedger(l,{todo=null,reflection=null,live={},maxTokens=Infinity}={}){
  let evidence=l.evidence.length,files=60;
- for(;;){const text=ledgerSections(l,{todo,live,evidence,files});if(rawTokens(text)<=maxTokens||evidence===0&&files<=5)return text;if(evidence>0)evidence=Math.floor(evidence/2);else files=Math.max(5,Math.floor(files/2));}
+ for(;;){const text=ledgerSections(l,{todo,reflection,live,evidence,files});if(rawTokens(text)<=maxTokens||evidence===0&&files<=5)return text;if(evidence>0)evidence=Math.floor(evidence/2);else files=Math.max(5,Math.floor(files/2));}
 }
-function ledgerSections(l,{todo,live,evidence,files:fileCount}){
+function ledgerSections(l,{todo,reflection,live,evidence,files:fileCount}){
  const s=[];
  if(l.task)s.push(`### Task (verbatim, #${l.task.seq})\n${l.task.text}`);
  if(l.instructions.length)s.push(`### Instructions received (verbatim, oldest first${l.omittedInstructions?`; ${l.omittedInstructions} older ones only in the summary and recall`:''})\n`+l.instructions.map(i=>`- #${i.seq} ${i.header||'['+i.from+']'} ${i.text}`).join('\n'));
  if(todo?.length)s.push(`### Checklist\n${renderTodo(todo)}`);
+ if(reflection)s.push(`### Self-assessment (your reflect notes, verbatim)\n${renderReflection(reflection)}`);
  const files=Object.entries(l.files);if(files.length)s.push(`### Files written or edited${files.length>fileCount?` (latest ${fileCount} of ${files.length})`:''}\n`+files.slice(-fileCount).map(([p,f])=>`- ${p} (${f.op}, ${fmtBytes(f.bytes)}, sha ${f.sha}, #${f.seq})`).join('\n'));
  const reads=Object.entries(l.reads||{}).filter(([p])=>!l.files[p]);if(reads.length)s.push(`### Files read\n`+reads.slice(-Math.min(fileCount,30)).map(([p,seq])=>`- ${p} (#${seq})`).join('\n'));
  const sources=Object.entries(l.sources||{});if(sources.length)s.push(`### Web pages read\n`+sources.slice(-Math.min(fileCount,30)).map(([u,x])=>`- ${u}${x.title?` "${x.title}"`:''} (#${x.seq})`).join('\n')+(l.searches?.length?`\nSearches: `+l.searches.map(q=>JSON.stringify(q.query)).join(', '):''));
@@ -181,14 +183,14 @@ export class Compactor{
   return {upTo:r[i-1].entry.seq,tailFrom:r[i].entry.seq};
  }
  /** Summarise into a checkpoint. Never throws for a model failure: degrades to a deterministic summary. */
- async compact(session,{built,B,ratio,system,toolDefs,chain,signal,reason='budget',tailShare,todo=null,live={},cacheRetention='short'}){
+ async compact(session,{built,B,ratio,system,toolDefs,chain,signal,reason='budget',tailShare,todo=null,reflection=null,live={},cacheRetention='short'}){
   const bound=this.boundary(built,B,ratio,tailShare);
   if(!bound)return null;
   const prev=built.view.checkpoint,from=(prev?.upTo||0)+1;
   const folded=this.sessions.entries(session.id,{from,to:bound.upTo}).filter(e=>['input','notice','assistant','tool'].includes(e.type));
   const limits=ledgerLimits(B);
   const ledger=foldLedger(prev?.ledger,folded,{kind:session.kind,...limits});
-  const ledgerText=renderLedger(ledger,{todo,live,maxTokens:limits.maxTokens});
+  const ledgerText=renderLedger(ledger,{todo,reflection,live,maxTokens:limits.maxTokens});
   const maxTokens=this.summaryBudget(B);
   let summary=null,method='in-context',usage=null;
   // 1) In-context: same prefix as the next call, so it is read from cache; the model sees every detail.
