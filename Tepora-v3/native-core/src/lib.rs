@@ -9,6 +9,7 @@ use serde_json::{json, Map, Value};
 use std::{error::Error, fmt};
 
 mod context;
+pub mod execution;
 mod js_value;
 mod json_codec;
 pub mod protocols;

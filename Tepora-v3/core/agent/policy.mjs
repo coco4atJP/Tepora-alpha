@@ -19,13 +19,13 @@ export class Policy{
   const json=JSON.stringify(args||{});
   return (this.rt.settings().policy.rules||[]).find(r=>(r.tool==='*'||r.tool===name||r.tool.endsWith('*')&&name.startsWith(r.tool.slice(0,-1)))&&(!r.match||new RegExp(r.match,'i').test(json)))||null;
  }
- async check(session,name,args){
+ async check(session,name,args,{signal}={}){
   const r=this.rule(name,args);if(!r||r.action==='allow')return 'allow';if(r.action==='deny')return 'deny';
   const id=randomUUID(),doc={id,sessionId:session.id,sessionTitle:session.title,tool:name,args,note:r.note||'',status:'pending',createdAt:new Date().toISOString()};
   this.rt.store.put('approval',doc);this.rt.store.emit('approval.updated',doc);
   const before=this.rt.sessions.get(session.id)?.note||'';this.rt.sessions.update(session.id,{note:`承認待ち: ${name}`});
   const allowed=await new Promise(resolve=>this.pending.set(id,{sessionId:session.id,resolve}));
-  this.rt.sessions.update(session.id,{note:before});
+  if(!signal?.aborted)this.rt.sessions.update(session.id,{note:before});
   return allowed?'allow':'declined';
  }
  decide(id,allow){

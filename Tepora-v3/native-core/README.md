@@ -6,7 +6,9 @@ evidence, and pending input. It uses the existing database filename and schemas.
 There is no data conversion and no JavaScript storage fallback.
 
 Context assembly, token accounting, five provider wire formats and stream state
-machines also live in this crate. The HTTP service, web GUI, network transport,
+machines also live in this crate. `execution.rs` owns model/tool step transitions,
+retry/overflow decisions, conservative tool grouping and generation-correlated
+completion. It emits commands for a JavaScript effect/plugin compatibility host. The HTTP service, web GUI, network transport,
 execution policy, event listeners,
 import validation, lexical tokenization, and portable process-ownership checks
 remain in JavaScript during this migration stage.
@@ -57,3 +59,9 @@ The context/token operations are pure and take explicit Unicode estimator versio
 metadata. Provider state machines emit ordered callback events and canonical
 results; they never perform network I/O or grant permissions. Test-only historical
 JavaScript oracles check exact request bytes and behavior under Node22/24.
+
+`ExecutionCore` uses begin/beginTools/advance/stop/state/forget. Opaque per-run
+argument/result handles stay in the host; the engine never executes a captured
+pre-hook call. Aborted parallel groups drain and record ordered receipts, while
+unstarted later calls are explicitly marked not executed. Outer session admission,
+completion checks, scheduling and compaction orchestration are still host-owned.

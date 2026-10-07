@@ -2,7 +2,7 @@
 
 > **2026-10-07:** The agent parts of this document describe beta.11 (protected execution, Codex, routines, effect receipts). The agent runtime has since been rebuilt; see [AGENT-HARNESS.md](AGENT-HARNESS.md) for the current design.
 
-V3 is the default application on this branch. SQLite persistence is now owned by the Rust `native-core` library, with synchronous N-API domain operations used by the Node ESM loopback service. Canonical context assembly, token accounting and provider request/response state machines also run in Rust. Network admission, HTTP transport and the execution loop remain in JavaScript. The application retains a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
+V3 is the default application on this branch. SQLite persistence is now owned by the Rust `native-core` library, with synchronous N-API domain operations used by the Node ESM loopback service. Canonical context assembly, token accounting and provider request/response state machines also run in Rust. The inner model/tool execution state machine is Rust-owned; a correlated JavaScript effect driver runs network/tool/plugin callbacks. Network admission, HTTP transport and outer session lifecycle still remain in JavaScript. The application retains a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
 
 ```mermaid
 flowchart TD
