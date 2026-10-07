@@ -83,7 +83,7 @@ export class AgentRuntime{
   this.memory={
    search:async(query,{limit=8,signal}={})=>{
     if(this.semantic&&this.capabilities?.get().routes?.embedding){try{return (await this.semantic.search(query,{limit,signal})).hits;}catch{}}
-    return this.store.search('memory',query,{limit,filter:m=>m.confirmed});
+    return this.store.recall(query,{limit});
    },
    write:(content,{title='',source=''}={})=>{const m=this.store.memory(content,{title,source,confirmed:true});if(this.semantic&&this.capabilities?.get().routes?.embedding)this.semantic.index().catch(()=>{});return m;}
   };

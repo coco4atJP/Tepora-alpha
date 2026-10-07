@@ -13,8 +13,8 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),outFlag=args.indexOf('--out');
 const out=path.resolve(outFlag>=0?args[outFlag+1]||'validation/loop':path.join(root,'validation/loop'));
 const watch=args.includes('--watch'),browser=args.includes('--browser'),computer=args.includes('--computer'),capabilities=args.includes('--capabilities');
-const ignored=new Set(['.git','node_modules','target','binaries','resources','icons','gen','__pycache__','validation']);
-const roots=['core','web','workers','speech','tests','scripts','spec','docs','ci','desktop'];
+const ignored=new Set(['.git','node_modules','target','binaries','resources','icons','gen','__pycache__','validation','native']);
+const roots=['core','web','workers','speech','tests','scripts','spec','docs','ci','desktop','native-core'];
 let closing=false,child=null;
 async function fingerprint(){
  const entries=[];
@@ -42,7 +42,7 @@ async function command(name,executable,argv,folder){
 async function verify(before){
  const folder=path.join(out,before.slice(0,12)+'-'+Date.now());await mkdir(folder,{recursive:true});
  const python=process.env.PYTHON|| (process.platform==='win32'?'python':'python3');
- const steps=[['syntax',process.execPath,['scripts/check.mjs']],['node-tests',process.execPath,process.platform==='win32'?['--import','./scripts/ci-diagnostics.mjs','--test','--test-timeout=120000']:['--test']],
+ const steps=[['rust-build',process.execPath,['scripts/build-core.mjs']],['rust-tests',process.env.CARGO||'cargo',['test','--locked','--no-default-features','--manifest-path','native-core/Cargo.toml']],['syntax',process.execPath,['scripts/check.mjs']],['node-tests',process.execPath,process.platform==='win32'?['--import','./scripts/ci-diagnostics.mjs','--test','--test-timeout=120000']:['--test']],
   ['worker-contracts',python,['-I','-S','-m','unittest','discover','-s','workers','-p','test_*.py','-v']],
   ['scenario-traceability',process.execPath,['scripts/verify-scenarios.mjs',folder]],['preview-build',process.execPath,['scripts/build-preview.mjs']]];
  if(browser){steps.push(['browser-first-use',python,['tests/browser-first-use.py',root,path.join(folder,'browser')]]);steps.push(['browser-routing',python,['tests/browser-routing.py',root,path.join(folder,'routing-ui')]]);steps.push(['browser-lamp',python,['tests/browser-lamp.py',root,path.join(folder,'lamp')]]);steps.push(['browser-avatar',python,['tests/browser-avatar.py',root,path.join(folder,'avatar')]]);}

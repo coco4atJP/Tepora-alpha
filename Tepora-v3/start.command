@@ -6,4 +6,5 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 node -e 'const [a,b]=process.versions.node.split(".").map(Number);if(a<22 || a===22 && b<16)process.exit(1)' || exit 1
+node scripts/build-core.mjs || exit 1
 exec node core/server.mjs --open

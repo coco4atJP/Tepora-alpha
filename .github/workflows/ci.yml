@@ -52,6 +52,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - run: rustup default stable
+      - name: Rust persistence tests
+        run: npm run test:rust
       - name: V3 regression gate
         env:
           PYTHON: python

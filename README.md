@@ -6,7 +6,9 @@ Teporaは、ひとつのキャラクターとの会話を続けながら、別�
 
 ## 起動
 
-Node.js **22.16.0以上**が必要です。コアサービスには依存パッケージのインストールは不要です。
+ソース版には Node.js **22.16.0以上**、[Rust stable](https://rustup.rs)、OSのC/C++ビルドツールが必要です。初回起動時にRustコアをビルドします。配布用デスクトップパッケージにはビルド済みコアを同梱します。
+
+この移植ブランチでは、SQLiteの永続状態・セッションログ・受信箱をRustに移しました。HTTP・エージェント実行ループ・モデル接続・GUIは引き続きJavaScriptです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
 ```sh
 git clone https://github.com/coco4atJP/Tepora-alpha.git
@@ -42,6 +44,8 @@ npm run preview:build
 ## 開発・検証・ビルド
 
 ```sh
+npm run build:core         # Rust永続状態コアのビルド
+npm run test:rust          # Node不要のRust単体テスト
 npm run doctor             # 環境診断
 npm test                   # V3 Nodeテストとルート起動テスト
 npm run quality            # 構文・Node・Python・仕様参照・プレビュー・能力連携
@@ -64,7 +68,7 @@ beta.11は開発ベータです。回帰試験は主にローカルHTTPと決定
 ## リポジトリと資料
 
 ```text
-Tepora-v3/        現行アプリ: Nodeコア、Web UI、Pythonワーカー、Tauriホスト
+Tepora-v3/        現行アプリ: Rust永続状態コア、Nodeサービス、Web UI、Pythonワーカー、Tauriホスト
 scripts/         V3の環境診断とリリース補助
 Taskfile.yml     V3の共通コマンド
 package.json     V3のルート起動・検証・ビルド

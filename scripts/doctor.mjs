@@ -14,5 +14,5 @@ try{await access(new URL('Tepora-v3/node_modules/@tauri-apps/cli/package.json',r
 catch{console.log('Tauri CLI: not installed; native builds need npm ci --prefix Tepora-v3 --ignore-scripts');}
 const config=JSON.parse(await readFile(new URL('Tepora-v3/package.json',root),'utf8'));
 console.log(`Service: ${fileURLToPath(new URL('Tepora-v3/core/server.mjs',root))} (${config.version})`);
-console.log('Core startup needs only Node. Python is needed for worker tests. Rust/Tauri are needed for native builds.');
+console.log('Source startup needs Node and a built Rust core: npm run build:core (Rust stable + C linker). Installed desktop packages include the core. Python is needed for worker tests; Tauri for desktop builds.');
 console.log('Docker is optional for approved container execution. This check does not run models or containers.');

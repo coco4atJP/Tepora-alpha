@@ -2,7 +2,7 @@
 
 > **2026-10-07:** The agent parts of this document describe beta.11 (protected execution, Codex, routines, effect receipts). The agent runtime has since been rebuilt; see [AGENT-HARNESS.md](AGENT-HARNESS.md) for the current design.
 
-V3 is the default application on this branch. Its core is a Node ESM loopback service with SQLite persistence, a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
+V3 is the default application on this branch. SQLite persistence is now owned by the Rust `native-core` library, with synchronous N-API domain operations used by the Node ESM loopback service. The application retains a JavaScript/CSS web UI, optional Python workers and a thin Tauri host. Earlier application sources and documentation have been removed from this checkout and remain available through Git history.
 
 ```mermaid
 flowchart TD
@@ -33,7 +33,7 @@ flowchart TD
 
 `core/server.mjs` binds to `127.0.0.1`. A one-time launch token establishes an HttpOnly, SameSite cookie. Host/Origin checks, CSRF tokens and CSP control service access. UI and API share one origin. The browser receives no unrestricted native shell/filesystem capability.
 
-`core/store.mjs` owns SQLite documents, settings, events, FTS search and service ownership. Running work becomes interrupted after restart; startup does not automatically dispatch stopped work or replay uncertain effects. V3 data are separate from V2. The source service's data directory and the Tauri host's application directory may differ. SQLite is not encrypted.
+`native-core` owns SQLite documents, settings, events, FTS persistence, session transcripts/evidence/inboxes and atomic artifact revisions. `core/store.mjs` and `core/agent/sessions.mjs` are compatibility facades for validation, JavaScript callbacks, search tokenization and import/export normalization. Service-owner PID liveness checking remains in the facade. All operations and compatibility transactions use one Rust-owned connection. See [Rust migration](RUST-MIGRATION.md). Running work becomes interrupted after restart; startup does not automatically dispatch stopped work or replay uncertain effects. V3 data are separate from V2. The source service's data directory and the Tauri host's application directory may differ. SQLite is not encrypted.
 
 Context import assigns fresh IDs, remaps routine last-job references only to jobs in the same import, and clears missing references. Imported routines remain disabled. Explicitly re-enabling a routine clears its link to a resume-blocked imported job and schedules future occurrences; the imported job remains blocked. Routine references are escaped when rendered, including older stored values. Privileged form submissions require the actual live form element registered by the code-owned shell or sheet; a matching HTML ID does not grant access.
 
@@ -81,6 +81,6 @@ On ホーム the conversation column collapses to its message box, placed under 
 
 ## Desktop, speech and verification
 
-The Tauri host bundles an unmodified Node runtime and V3 sources. It opens only the sidecar's loopback origin, supports tray show/stop/quit and preserves background work when hiding the window. Optional speech and decision workers remain separate services; real latency and GPU contention need hardware tests.
+The Tauri host bundles an unmodified Node runtime, the compiled Rust persistence addon and V3 sources. It opens only the sidecar's loopback origin, supports tray show/stop/quit and preserves background work when hiding the window. Optional speech and decision workers remain separate services; real latency and GPU contention need hardware tests.
 
 Root npm/Task commands, CI, native builds and Dependabot now target V3. [QA](QA.md) documents regression gates and [STATUS](STATUS.md) distinguishes verified mechanics from acceptance still required. Full root-capable VM/VPS adapters, automatic provisioning, complete V2 migration and broad automatic effect brokering remain future work. See [BETA11](BETA11.md) for the exact boundary.

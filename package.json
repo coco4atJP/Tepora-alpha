@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Tepora V3 companion and asynchronous worker workspace",
-  "engines": { "node": ">=22.16.0" },
+  "engines": {
+    "node": ">=22.16.0"
+  },
   "scripts": {
     "start": "node Tepora-v3/core/server.mjs --open",
     "dev": "npm start",
@@ -24,7 +26,14 @@
     "quality:full": "npm run check && npm --prefix Tepora-v3 run improve:full && npm run test:entry",
     "doctor": "node scripts/doctor.mjs",
     "release-notes": "node scripts/release_notes.mjs",
-    "commitlint": "node scripts/check_commit_convention.mjs"
+    "commitlint": "node scripts/check_commit_convention.mjs",
+    "build:core": "node Tepora-v3/scripts/build-core.mjs",
+    "test:rust": "cargo test --locked --no-default-features --manifest-path Tepora-v3/native-core/Cargo.toml",
+    "prestart": "npm run build:core",
+    "preserve": "npm run build:core",
+    "pretest": "npm run build:core",
+    "prequality": "npm run build:core && npm run test:rust",
+    "prequality:full": "npm run build:core && npm run test:rust"
   },
   "license": "Apache-2.0"
 }

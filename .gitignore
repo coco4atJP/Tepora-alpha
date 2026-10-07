@@ -149,3 +149,6 @@ benchmark/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
+
+# Built Rust N-API core (bundled during packaging)
+Tepora-v3/core/native/
