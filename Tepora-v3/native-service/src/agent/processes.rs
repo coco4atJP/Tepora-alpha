@@ -810,11 +810,11 @@ fn uncertain_effect(snapshot: &ProcessSnapshot) -> EffectError {
     error.error["notExecuted"] = json!(false);
     error
 }
-/// Keep a Linux child unreaped until pipe cleanup is complete. Its PID cannot be
-/// reused in the meantime, so negative-PID group termination never targets a new
+/// Keep Linux and macOS children unreaped until pipe cleanup is complete. Their
+/// PIDs cannot be reused, so negative-PID group termination never targets a new
 /// unrelated process group. Other platforms use the owned Child handle and stop
 /// issuing PID-based kills after it has been reaped.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn peek_owned_exit(pid: u32) -> std::io::Result<bool> {
     let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
     let result = unsafe {
@@ -839,7 +839,7 @@ async fn owned_exit_without_reaping(
     _child: &mut Child,
     item: &Item,
 ) -> std::io::Result<Option<ExitStatus>> {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
         let pid = item
             .pid
@@ -856,7 +856,7 @@ async fn owned_exit_without_reaping(
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
         let result = _child.wait().await;
         item.child_reaped.store(true, Ordering::Release);

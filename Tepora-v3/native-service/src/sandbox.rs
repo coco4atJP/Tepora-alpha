@@ -329,22 +329,30 @@ pub fn writable_roots(
     cwd: &Path,
     facts: &SpawnFacts,
 ) -> Option<Vec<PathBuf>> {
+    writable_roots_with_resolver(policy, cwd, facts, &real)
+}
+fn writable_roots_with_resolver(
+    policy: &SandboxConfig,
+    cwd: &Path,
+    facts: &SpawnFacts,
+    resolve: &dyn Fn(&Path) -> PathBuf,
+) -> Option<Vec<PathBuf>> {
     if policy.mode == SandboxMode::Off {
         return None;
     }
     let mut roots = vec![
-        real(&facts.temp_dir),
+        resolve(&facts.temp_dir),
         PathBuf::from("/tmp"),
         PathBuf::from("/private/tmp"),
     ];
     if policy.mode != SandboxMode::Readonly && !cwd.as_os_str().is_empty() {
-        roots.push(real(cwd));
+        roots.push(resolve(cwd));
     }
     roots.extend(
         policy
             .writable
             .iter()
-            .map(|p| real(Path::new(&sql_text(p)))),
+            .map(|p| resolve(Path::new(&sql_text(p)))),
     );
     let mut seen = HashSet::new();
     roots.retain(|p| seen.insert(p.clone()));
@@ -359,7 +367,15 @@ fn seatbelt_quote(path: &Path) -> String {
     )
 }
 pub fn seatbelt_profile(policy: &SandboxConfig, cwd: &Path, facts: &SpawnFacts) -> String {
-    let roots = writable_roots(policy, cwd, facts).unwrap_or_default();
+    seatbelt_profile_with_resolver(policy, cwd, facts, &real)
+}
+fn seatbelt_profile_with_resolver(
+    policy: &SandboxConfig,
+    cwd: &Path,
+    facts: &SpawnFacts,
+    resolve: &dyn Fn(&Path) -> PathBuf,
+) -> String {
+    let roots = writable_roots_with_resolver(policy, cwd, facts, resolve).unwrap_or_default();
     let mut lines=vec!["(version 1)".into(),"(allow default)".into(),"(deny file-write*)".into(),format!("(allow file-write* {} (subpath \"/private/var/folders\") (literal \"/dev/null\") (literal \"/dev/zero\") (regex #\"^/dev/tty\") (regex #\"^/dev/fd/\") (literal \"/dev/stdout\") (literal \"/dev/stderr\"))",roots.iter().map(|r|format!("(subpath {})",seatbelt_quote(r))).collect::<Vec<_>>().join(" "))];
     if !policy.network {
         lines.push("(deny network-outbound)".into());
@@ -373,6 +389,18 @@ pub fn wrap_command(
     policy: &SandboxConfig,
     container_name: Option<&str>,
     facts: &SpawnFacts,
+) -> Result<SpawnPlan, ApiError> {
+    wrap_command_with_resolver(command, cwd, policy, container_name, facts, &real)
+}
+// Synthetic platform fixtures must resolve paths independently of the host OS.
+// Actual execution always enters through wrap_command and retains realpath semantics.
+pub(crate) fn wrap_command_with_resolver(
+    command: &str,
+    cwd: &Path,
+    policy: &SandboxConfig,
+    container_name: Option<&str>,
+    facts: &SpawnFacts,
+    resolve: &dyn Fn(&Path) -> PathBuf,
 ) -> Result<SpawnPlan, ApiError> {
     let plan =
         |file: PathBuf, args: Vec<OsString>, sandbox: &str, container: Option<String>| SpawnPlan {
@@ -394,7 +422,7 @@ pub fn wrap_command(
         if facts.available.seatbelt {
             let mut args = vec![
                 "-p".into(),
-                seatbelt_profile(policy, cwd, facts).into(),
+                seatbelt_profile_with_resolver(policy, cwd, facts, resolve).into(),
                 facts.shell.file.clone().into_os_string(),
             ];
             args.extend(facts.shell.command_args(command));
@@ -686,13 +714,62 @@ mod tests {
             writable: vec!["/extra\"quote".into()],
             ..Default::default()
         };
-        let plan = wrap_command("echo x", Path::new("/work"), &p, None, &f).unwrap();
+        let plan = wrap_command_with_resolver(
+            "echo x",
+            Path::new("/work"),
+            &p,
+            None,
+            &f,
+            &Path::to_path_buf,
+        )
+        .unwrap();
         let profile = plan.args[1].to_string_lossy();
         assert!(profile.contains("(deny file-write*)"));
         assert!(profile.contains("/extra\\\"quote"));
         assert!(profile.contains("(deny network-outbound)"));
         assert!(profile.contains("(remote unix-socket)"));
         assert_eq!(plan.sandbox, "seatbelt");
+    }
+    #[cfg(unix)]
+    #[test]
+    fn runtime_seatbelt_roots_resolve_symlinks_and_keep_missing_path_fallback() {
+        let root = env::temp_dir().join(format!("tepora-sandbox-{}", uuid::Uuid::new_v4()));
+        for directory in ["temp", "work", "extra"] {
+            fs::create_dir_all(root.join("physical").join(directory)).unwrap();
+        }
+        let alias = root.join("alias");
+        std::os::unix::fs::symlink(root.join("physical"), &alias).unwrap();
+        let mut f = facts(Platform::Macos);
+        f.available.seatbelt = true;
+        f.temp_dir = alias.join("temp");
+        let cwd = alias.join("work");
+        let p = SandboxConfig {
+            mode: SandboxMode::Workspace,
+            writable: vec![
+                encode_path(&alias.join("extra")),
+                encode_path(&alias.join("missing/../fallback")),
+            ],
+            ..Default::default()
+        };
+        let expected = vec![
+            fs::canonicalize(root.join("physical/temp")).unwrap(),
+            PathBuf::from("/tmp"),
+            PathBuf::from("/private/tmp"),
+            fs::canonicalize(root.join("physical/work")).unwrap(),
+            fs::canonicalize(root.join("physical/extra")).unwrap(),
+            absolute(&alias.join("fallback")),
+        ];
+        let roots = writable_roots(&p, &cwd, &f).unwrap();
+        let profile = seatbelt_profile(&p, &cwd, &f);
+        let plan = wrap_command("echo x", &cwd, &p, None, &f).unwrap();
+        fs::remove_dir_all(&root).unwrap();
+
+        assert_eq!(roots, expected);
+        assert_eq!(plan.args[1], OsString::from(&profile));
+        for path in expected {
+            assert!(profile.contains(&format!("(subpath {})", seatbelt_quote(&path))));
+        }
+        assert!(!profile.contains(&format!("(subpath {})", seatbelt_quote(&cwd))));
     }
     #[test]
     fn tty_wrapper_keeps_quotes_and_windows_is_explicit() {

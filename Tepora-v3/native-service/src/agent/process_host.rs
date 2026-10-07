@@ -582,6 +582,7 @@ mod tests {
     #[tokio::test]
     async fn adapter_uses_snapshot_environment_root_and_real_effect_result() {
         let f = Fixture::new();
+        let physical_root = fs::canonicalize(&f.root).unwrap();
         let mut call = f.call(
             3,
             "exec",
@@ -594,7 +595,7 @@ mod tests {
         assert!(result["text"]
             .as_str()
             .unwrap()
-            .contains(&format!("owner:{}", f.root.display())));
+            .contains(&format!("owner:{}", physical_root.display())));
         assert_eq!(f.host.list("different"), json!([]));
         let list = f.host.list("owner");
         assert_eq!(list.as_array().unwrap().len(), 1);

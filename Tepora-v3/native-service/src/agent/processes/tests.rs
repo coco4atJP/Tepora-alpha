@@ -171,12 +171,15 @@ fn frozen_source_sandbox_plan_differential() {
             temp_dir: "/tmp".into(),
         };
         let policy = SandboxConfig::parse(&case["policy"], None, &platform).unwrap();
-        match sandbox::wrap_command(
+        // The frozen oracle disables realpath and uses absolute POSIX fixture paths.
+        // Do not resolve these synthetic paths against the machine running the test.
+        match sandbox::wrap_command_with_resolver(
             case["command"].as_str().unwrap(),
             Path::new(case["cwd"].as_str().unwrap()),
             &policy,
             case["name"].as_str(),
             &facts,
+            &Path::to_path_buf,
         ) {
             Ok(plan) => {
                 let mut expected = case["expected"].clone();
@@ -497,10 +500,34 @@ async fn source_tty_adapter_allocates_a_terminal_when_dependency_is_available() 
         return;
     }
     let result = f
-        .exec(json!({"command":"test -t 0 && printf TTY_OK","tty":true,"yield":2}))
+        .exec(json!({"command":"test -t 0 && printf TTY_OK","tty":true,"yield":0}))
         .await;
-    assert_eq!(result["data"]["exitCode"], 0);
-    assert!(result["text"].as_str().unwrap().contains("TTY_OK"));
+    // `yield` only bounds the initial response. In particular, a cold platform
+    // Python/PTY startup is not required to finish within two seconds.
+    let processes = f.manager.list(Some("s"));
+    let handle = f
+        .manager
+        .get(processes[0]["id"].as_str().unwrap(), Some("s"))
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(15), f.manager.drain_process(&handle))
+        .await
+        .unwrap_or_else(|_| {
+            panic!(
+                "PTY did not finish: {result:?}; {:?}; {}",
+                handle.snapshot(),
+                handle.output(0)
+            )
+        });
+    let snapshot = handle.snapshot();
+    assert_eq!(
+        snapshot.exit_code,
+        Some(0),
+        "{snapshot:?}; {}",
+        handle.output(0)
+    );
+    assert_eq!(snapshot.status, "exited");
+    assert!(!snapshot.cleanup_uncertain && !snapshot.output_truncated);
+    assert!(handle.output(0).contains("TTY_OK"));
     f.close().await;
 }
 
@@ -756,6 +783,48 @@ async fn retained_owned_pid_allows_group_kill_after_shell_exit_without_truncatio
     assert!(!fixture_child_identity(child.pid)
         .is_some_and(|(start, state)| start == child.start && state != "Z"));
     drop(child);
+}
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[tokio::test]
+async fn exited_leader_stays_owned_until_term_resistant_descendant_pipes_drain() {
+    let f = Fixture::new();
+    // The descendant announces readiness only after ignoring TERM. Its finite
+    // lifetime bounds test cleanup even when an assertion fails.
+    let command = "/bin/sh -c 'trap \"\" TERM; printf ready > child-ready; exec /bin/sleep 10' &";
+    let handle = f
+        .manager
+        .start(
+            StartRequest::new(command, "s", &f.root),
+            &RequestCancellation::new(),
+        )
+        .await
+        .unwrap();
+    let pid = handle.snapshot().pid.unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if f.root.join("child-ready").exists() && peek_owned_exit(pid).unwrap() {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "Fixture leader did not exit"
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    // Observing exit repeatedly must not reap the leader or release its PID.
+    assert!(peek_owned_exit(pid).unwrap());
+    assert!(!handle.item.child_reaped.load(Ordering::Acquire));
+    let started = tokio::time::Instant::now();
+    tokio::time::timeout(Duration::from_secs(6), f.manager.begin_close().wait_async())
+        .await
+        .expect("Same-group descendant pipes did not drain")
+        .unwrap();
+    assert!(started.elapsed() >= Duration::from_secs(3));
+    let snapshot = handle.snapshot();
+    assert_eq!(snapshot.status, "killed");
+    assert_eq!(snapshot.exit_code, Some(0));
+    assert!(!snapshot.cleanup_uncertain && !snapshot.output_truncated);
+    assert!(handle.item.child_reaped.load(Ordering::Acquire));
 }
 #[cfg(unix)]
 #[tokio::test]
