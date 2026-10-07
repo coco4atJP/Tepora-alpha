@@ -244,3 +244,9 @@ See [complete route inventory and release gates](RUST-ROUTE-PARITY.md).
 - 全Node回帰543/548。残る5件はブラウザー起動3、DNS1、Linux sandbox1。同じ試験を未変更の公開3b4d243で実行して同じ5件の失敗を再確認。品質ゲート全体は不合格のまま明示する
 - 共有Rustコア、構文228モジュール、ルート7件、Python13件、ローカル能力fixture5件、100シナリオ参照、previewビルドは合格。シナリオ参照は実モデルの成功を意味しない
 - Windows/macOS実行、native配布物、実モデル品質、ユーザー環境の移行は未確認。通常起動やmainへのmergeは行っていない
+
+### macOS PTY EOF修正
+
+3964160の実CIではLinux回帰は合格、WindowsのRustゲートは合格した一方、macOSはTTY出力後の終了待ちで315/316となった。Python3.9のptyループがBSD/macOSのゼロbyte EOFでmasterを外した後、対話用に開いたstdinを待ち続けることが原因。master_readでEOFを既存のEIO終了経路へ正規化し、stdinの早期closeや出力からの終了推測は行わない。プロセス所有権・waitid・子孫回収は変更しない。
+
+独立した旧Python/BSD挙動の再現fixtureによりLinuxでも修正前の同じ停止待ち失敗と修正後の終了を確認した。非0終了コード、対話入力、末尾32KiB出力の完全回収も検証。最終Linux再実行はnative322＋CLI2、build-notice/offline HTTP/native-agent計40件合格。新しいmacOS CIが成功するまでは実macOSで修正済みとはしない。Windows/macOSの既存Node失敗と、未到達の配布物／インストール検証は引き続き別のゲートである。

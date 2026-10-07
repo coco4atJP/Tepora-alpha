@@ -533,6 +533,94 @@ async fn source_tty_adapter_allocates_a_terminal_when_dependency_is_available() 
 
 #[cfg(unix)]
 #[tokio::test]
+async fn tty_legacy_python_bsd_eof_completes_with_stdin_open() {
+    let f = Fixture::new();
+    if sandbox::which("python3", OsStr::new("/usr/bin:/bin"), &Platform::current()).is_none() {
+        return;
+    }
+    fs::write(
+        f.root.join("sitecustomize.py"),
+        include_str!("fixtures/legacy_pty_eof.py"),
+    )
+    .unwrap();
+    let mut request = StartRequest::new(
+        sandbox::with_tty(
+            "test -t 0 && printf TTY_EOF_OK; exit 7",
+            &Platform::current(),
+        )
+        .unwrap(),
+        "s",
+        &f.root,
+    );
+    request.keep_stdin = true;
+    request
+        .env
+        .push(("PYTHONPATH".into(), f.root.as_os_str().into()));
+    let handle = f
+        .manager
+        .start(request, &RequestCancellation::new())
+        .await
+        .unwrap();
+    let completed =
+        tokio::time::timeout(Duration::from_secs(5), f.manager.drain_process(&handle)).await;
+    let snapshot = handle.snapshot();
+    let output = handle.output(0);
+    // Close even on failure so the intentionally blocked legacy wrapper is reaped.
+    f.close().await;
+    assert!(
+        completed.is_ok(),
+        "PTY EOF left stdin waiting: {snapshot:?}; {output}"
+    );
+    assert_eq!(snapshot.exit_code, Some(7), "{snapshot:?}; {output}");
+    assert_eq!(snapshot.status, "exited");
+    assert!(!snapshot.cleanup_uncertain && !snapshot.output_truncated);
+    assert_eq!(output, "TTY_EOF_OK");
+    assert!(f.root.join("legacy-pty-loaded").exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn tty_interactive_input_and_final_output_are_drained_before_exit() {
+    let f = Fixture::new();
+    if sandbox::which("python3", OsStr::new("/usr/bin:/bin"), &Platform::current()).is_none() {
+        return;
+    }
+    let tail = "x".repeat(32 * 1024);
+    fs::write(f.root.join("tail.txt"), &tail).unwrap();
+    let result = f.exec(json!({
+        "command":"test -t 0 || exit 99; printf READY; IFS= read -r line; printf 'got:%s\\n' \"$line\"; cat tail.txt; exit 9",
+        "tty":true,"yield":0
+    })).await;
+    let id = result["data"]["processId"].as_str().unwrap();
+    let handle = f.manager.get(id, Some("s")).unwrap();
+    let ready = tokio::time::timeout(Duration::from_secs(5), async {
+        while !handle.output(0).contains("READY") {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    if ready.is_err() {
+        f.close().await;
+        panic!("PTY never became interactive: {}", handle.output(0));
+    }
+    assert_eq!(handle.snapshot().status, "running");
+    f.process(json!({"action":"write","id":id,"input":"hello\n"}))
+        .await;
+    let completed =
+        tokio::time::timeout(Duration::from_secs(5), f.manager.drain_process(&handle)).await;
+    let snapshot = handle.snapshot();
+    let output = handle.output(0);
+    f.close().await;
+    assert!(completed.is_ok(), "{snapshot:?}; {output}");
+    assert_eq!(snapshot.exit_code, Some(9));
+    assert_eq!(snapshot.status, "exited");
+    assert!(!snapshot.cleanup_uncertain && !snapshot.output_truncated);
+    assert!(output.contains("got:hello"), "{output}");
+    assert!(output.ends_with(&tail));
+}
+
+#[cfg(unix)]
+#[tokio::test]
 async fn fractional_json_spelling_of_integer_and_logical_cwd_codec_survive() {
     let f = Fixture::new();
     let args =

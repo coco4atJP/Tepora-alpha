@@ -537,7 +537,7 @@ pub(crate) fn wrap_command_with_resolver(
 pub fn encode_path(path: &Path) -> String {
     encode_text(&path.to_string_lossy())
 }
-/// Source-exact optional PTY adapter. Rust owns and drains the spawned wrapper;
+/// Optional source-compatible PTY adapter. Rust owns and drains the spawned wrapper;
 /// ordinary execution does not invoke Python or script.
 pub fn with_tty(command: &str, platform: &Platform) -> Result<String, ApiError> {
     if *platform == Platform::Windows {
@@ -546,7 +546,18 @@ pub fn with_tty(command: &str, platform: &Platform) -> Result<String, ApiError> 
             "A pseudo-terminal is available on macOS and Linux only.",
         ));
     }
-    const PTY:&str="import os,pty,sys;sys.exit(os.waitstatus_to_exitcode(pty.spawn(['/bin/sh','-c',sys.argv[1]])))";
+    // Python <=3.9 removes the master from select on BSD/macOS's zero-byte
+    // terminal EOF, then hangs on our intentionally open interactive stdin.
+    // Normalize that EOF to Linux's EIO: both old and new pty.spawn finish their
+    // copy loop, close the master, and waitpid their own child. Do not close
+    // stdin early or infer child exit from output/silence.
+    const PTY: &str = r#"import errno,os,pty,sys
+def master_read(fd):
+    data=os.read(fd,1024)
+    if not data:
+        raise OSError(errno.EIO,'PTY EOF')
+    return data
+sys.exit(os.waitstatus_to_exitcode(pty.spawn(['/bin/sh','-c',sys.argv[1]],master_read=master_read)))"#;
     fn quote(value: &str) -> String {
         format!("'{}'", value.replace('\'', "'\\''"))
     }
