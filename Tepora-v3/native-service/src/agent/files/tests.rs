@@ -12,7 +12,8 @@ impl Fixture {
         // can actually distinguish workspace from external paths.
         let root = std::env::current_dir()
             .unwrap()
-            .join("target/native-file-fixtures")
+            .join("target")
+            .join("native-file-fixtures")
             .join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(&root).unwrap();
         let context = FileContext::new(root.join("work"));
@@ -30,7 +31,10 @@ impl Fixture {
             .await
     }
     fn file(&self, name: &str) -> PathBuf {
-        self.context.cwd.join(name)
+        // PathBuf::join keeps caller-provided '/' separators on Windows. Build
+        // expected fixture paths from platform components without canonicalizing
+        // the filesystem or reusing the production path resolver.
+        self.context.cwd.join(name).components().collect()
     }
 }
 impl Drop for Fixture {
@@ -40,6 +44,28 @@ impl Drop for Fixture {
 }
 fn status(e: &EffectError) -> u64 {
     e.error["status"].as_u64().unwrap()
+}
+
+#[test]
+fn fixture_paths_use_native_separators_without_changing_filename_units() {
+    let f = Fixture::new();
+    let expected = f.context.cwd.join("sub").join("notes.md");
+    assert_eq!(f.file("sub/notes.md").as_os_str(), expected.as_os_str());
+    assert_eq!(
+        f.file("\u{e000}\u{e100}�.txt").file_name().unwrap(),
+        std::ffi::OsStr::new("\u{e000}\u{e100}�.txt")
+    );
+    #[cfg(windows)]
+    {
+        assert!(!f.root.to_string_lossy().contains('/'));
+        assert!(!f.context.cwd.to_string_lossy().contains('/'));
+        assert!(!f.file("sub/notes.md").to_string_lossy().contains('/'));
+    }
+    #[cfg(unix)]
+    assert_eq!(
+        f.file(r"sub\notes.md").file_name().unwrap(),
+        std::ffi::OsStr::new(r"sub\notes.md")
+    );
 }
 
 #[tokio::test]
