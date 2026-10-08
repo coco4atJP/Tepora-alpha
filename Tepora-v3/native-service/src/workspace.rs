@@ -8,6 +8,7 @@ mod feed_connectors;
 pub(crate) mod photo_frame;
 pub(crate) mod avatar_assets;
 mod semantic_state;
+mod doctor;
 mod preferences;
 mod skills;
 mod display_avatar;
@@ -213,13 +214,6 @@ fn platform() -> &'static str {
         "darwin"
     } else {
         env::consts::OS
-    }
-}
-fn arch() -> &'static str {
-    match env::consts::ARCH {
-        "x86_64" => "x64",
-        "aarch64" => "arm64",
-        other => other,
     }
 }
 fn home() -> PathBuf {
@@ -963,7 +957,7 @@ impl Backend for Workspace {
    Operation::Export=>s.domain("store.export",json!({}))?,
    Operation::Import{body}=>s.domain("store.import",json!({"bundle":body}))?,
    Operation::Presence{body}=>{require(matches!(body["state"].as_str(),Some("present"|"away")),400,"Invalid presence")?;s.set_value("presence",json!({"state":body["state"],"at":now()}))?;json!({"presence":body["state"]})},
-   Operation::Doctor=>{let providers=s.providers()?;json!({"platform":platform(),"arch":arch(),"ramBytes":ram_bytes(),"cpuThreads":std::thread::available_parallelism().map(|n|n.get()).unwrap_or(1),"sandbox":sandbox(),"providers":providers["profiles"].as_array().unwrap_or(&Vec::new()).iter().map(|p|pick(p,&["id","model","domain","limits"])).collect::<Vec<_>>(),"note":"Rust開発用ローカル作業領域。モデル・GPU・外部操作の動作確認ではありません。","dataLocation":s.dir.to_string_lossy(),"workRoot":s.work_root.to_string_lossy(),"nativeDevelopment":true})},
+   Operation::Doctor=>{let providers=s.providers()?;merge(&doctor::system_facts(),&json!({"sandbox":sandbox(),"providers":providers["profiles"].as_array().unwrap_or(&Vec::new()).iter().map(|p|pick(p,&["id","model","domain","limits"])).collect::<Vec<_>>(),"note":"Rust開発用ローカル作業領域。モデル・GPU・外部操作の動作確認ではありません。","dataLocation":s.dir.to_string_lossy(),"workRoot":s.work_root.to_string_lossy(),"nativeDevelopment":true}))},
    _=>return Err(ApiError::unavailable("Native operation was not dispatched")),
   };
         if bootstrap {if let Some(native)=self.native.get(){value["setup"]=native.setup.snapshot_from(s.setup_stored()?)?;}}

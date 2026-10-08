@@ -368,3 +368,7 @@ R119/R120 now use saved settings and the existing checked feed network under `--
 ## Native ordinary media embed/view
 
 R122/R123 now construct source-compatible local media-view responses under `--dev-native --agent`, using the existing network-policy owner and a process-local 32-entry FIFO. There is no TTL; restart, eviction and non-online network-mode patches invalidate handles. Effect-free mode returns 503, and the normal GUI/Node/Tauri host is unchanged. R121 external opening remains unported. Route totals are 94 implemented / 12 partial / 20 unavailable, plus 22 static rows (148 total), not a feature percentage. [Contract and focused local-only validation](RUST-MEDIA-EMBED.md).
+
+## Native ordinary doctor system facts
+
+R090 now reads host RAM and logical CPU totals through existing platform APIs on Linux, Windows and macOS. It replaces Rust's affinity/quota-limited parallelism API with platform CPU queries. GNU/Linux is the locally verified libc; musl and other libc selector semantics remain unverified and may be affinity-sensitive. The native-development marker, diagnostic note and null unknown-RAM representation are preserved explicitly. R090 remains partial because this bounded slice does not establish the complete response contract or live provider-limit projection. Counts remain 94 implemented / 12 partial / 20 unavailable. Normal GUI/Node/Tauri defaults are unchanged. [System fact contract and focused validation](RUST-DOCTOR-FACTS.md).

@@ -995,7 +995,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "OS diagnostics are partial across platforms: RAM implementation is Linux-only; native marker/note differs. Real model/GPU and packaged Windows/macOS behavior remain unverified.",
+      "limit": "Host RAM and logical CPU facts implemented for Linux, Windows and macOS; native marker/note and unknown-RAM null remain explicit differences. Full response parity, including live provider-limit projection, and exact-head Windows/macOS execution remain unverified.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

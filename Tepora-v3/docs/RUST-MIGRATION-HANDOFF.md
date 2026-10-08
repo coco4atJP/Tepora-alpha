@@ -33,7 +33,7 @@ The 20 unavailable routes cover tool import/connect/search/discovery (6), comput
 | R018/R019 agent settings | Persistence/refresh/heartbeat work exists, but dream optimization and absent peripheral/plugin consumers are not made functional by saved settings |
 | R028 Stop All | Integrated owners are cancelled and drained; missing tool-discovery/computer hosts cannot yet participate |
 | R058 network settings | Voice and embed handling are connected; remaining peripheral-owner lifecycle parity has not been fully reconciled |
-| R090 doctor | The bounded system-fact update is still undergoing verification; R090 stays partial because this does not establish the wider diagnostic contract or real model/GPU acceptance |
+| R090 doctor | RAM/logical-CPU facts now have a bounded cross-platform implementation and GNU/Linux comparison; Windows/macOS execution still needs exact-head CI. R090 stays partial because the wider diagnostic contract and real model/GPU acceptance are not established |
 
 ## Deferred boundaries
 

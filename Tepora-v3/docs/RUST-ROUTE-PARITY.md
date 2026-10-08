@@ -22,6 +22,8 @@ Ordinary weather/news adds R119–R120 with the unchanged saved-setting and feed
 
 Ordinary media embedding adds R122/R123 under `--agent`, using process-local FIFO handles and the existing network policy. [RUST-MEDIA-EMBED](RUST-MEDIA-EMBED.md) records source response parity and the local-only validation boundary. The R121 external opener remains unavailable.
 
+Ordinary doctor system facts now use read-only Linux, Windows and macOS APIs for host RAM and logical CPU counts. [RUST-DOCTOR-FACTS](RUST-DOCTOR-FACTS.md) records injected edge cases, live comparison and remaining response-contract limits. R090 remains partial; the 94 / 12 / 20 inventory is unchanged.
+
 ## Complete route inventory
 
 YES means a real handler is present in the supported scope, not that every model/platform is certified. PARTIAL identifies a missing behavior or deliberate compatibility boundary. ABSENT means the route has no native implementation (normally 503). All API routes retain the outer authentication, CSRF, Host/Origin and body-size boundary.
@@ -117,7 +119,7 @@ YES means a real handler is present in the supported scope, not that every model
 | R087 | `POST /api/display/reset` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
 | R088 | `GET /api/display/export` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
 | R089 | `POST /api/display/import` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
-| R090 | `GET /api/doctor` | PARTIAL | 200 | OS diagnostics are partial across platforms: RAM implementation is Linux-only; native marker/note differs. Real model/GPU and packaged Windows/macOS behavior remain unverified. |
+| R090 | `GET /api/doctor` | PARTIAL | 200 | Host RAM and logical CPU facts implemented for Linux, Windows and macOS; native marker/note and unknown-RAM null remain explicit differences. Full response parity, including live provider-limit projection, and exact-head Windows/macOS execution remain unverified. |
 | R091 | `POST /api/shared/scan` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R092 | `PATCH /api/skills/{id}` | YES | 200 | Stored-skill enabled-flag validation, metadata/order preservation, skill.updated and actor prompt refresh are matched under --agent. Discovery and the native skill content-loading tool remain unavailable. |
 | R093 | `DELETE /api/skills/{id}` | YES | 200 | Stored-skill deletion, including missing-document success, skill.deleted and actor prompt refresh are matched under --agent. No skill file is read or deleted; discovery/content loading remain unavailable. |

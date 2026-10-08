@@ -64,3 +64,7 @@ The [feed-connector gate](RUST-FEED-CONNECTORS.md) freezes ordinary source proje
 ## Native ordinary media embed/view
 
 The [embed/view gate](RUST-MEDIA-EMBED.md) compares source/native response bytes, CSP/cache headers, ordinary validation/method errors, 32-entry FIFO behavior, restart invalidation, network-mode transitions and effect-free-mode availability. Rust tests also cover concurrent admissions and no durable handle events. Synthetic IDs and local HTTP only: no browser, third-party video request, playback, external opener, real account or held security-policy work is exercised. Focused checks do not establish full quality or platform acceptance.
+
+## Native ordinary doctor system facts
+
+The [doctor fact gate](RUST-DOCTOR-FACTS.md) injects OS/architecture labels, memory/CPU results, zero/error responses, page arithmetic overflow and sysctl output lengths. A separate real HTTP test compares the source host and both explicit native modes with Node's local OS facts, using isolated data and an empty native executable path. It preserves the native marker/note and verifies repeated reads. This verifies local facts only; real model/GPU/provider/account checks, broader policy/security suites and exact-head Windows/macOS package acceptance remain separate.

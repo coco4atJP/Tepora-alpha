@@ -61,3 +61,12 @@ test('Media embed/view machine boundaries match the documented local-only scope'
   }
   assert.equal(inventory.routes.find(route => route.id === 'R121').agent, 'unavailable');
 });
+
+test('Doctor fact improvement retains the documented partial response boundary', () => {
+  const route = inventory.routes.find(route => route.id === 'R090');
+  assert.equal(route.agent, 'partial');
+  assert.equal(route.family, 'diagnostics');
+  assert.equal(route.limit, byId.get(route.id)[4]);
+  assert.match(route.limit, /logical CPU facts implemented/);
+  assert.match(route.limit, /Full response parity/);
+});
