@@ -152,6 +152,8 @@ pub enum Operation {
     NetworkPatch {
         body: Value,
     },
+    ConnectorWeather,
+    ConnectorNews,
     VoiceEdit { body: Value },
     VoiceTranscribe { audio: Vec<u8> },
     SpeechStart,
@@ -263,6 +265,10 @@ pub trait Backend: Send + Sync + 'static {
     }
     /// Uploaded voice and dictation waits are request-scoped asynchronous work.
     fn execute_voice(&self, operation: Operation, cancellation: network::RequestCancellation) -> BackendFuture<'_> {
+        Box::pin(async move { if let Some(error) = cancellation.error() { return Err(error.into()); } self.execute(operation) })
+    }
+    /// Weather/news waits are owned, bounded asynchronous requests.
+    fn execute_connector(&self, operation: Operation, cancellation: network::RequestCancellation) -> BackendFuture<'_> {
         Box::pin(async move { if let Some(error) = cancellation.error() { return Err(error.into()); } self.execute(operation) })
     }
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError>;

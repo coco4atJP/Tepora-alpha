@@ -311,6 +311,7 @@ impl Workspace {
             Operation::StopAll => {
                 let _speech_drain = native.speech.stop_barrier(false)?;
                 let _voice_drain = native.voice.stop_barrier(false)?;
+                let _feed_drain = native.feeds.stop_barrier(false)?;
                 native.media.stop_all()?;
                 native.semantic.cancel_all();
                 native.setup.stop();

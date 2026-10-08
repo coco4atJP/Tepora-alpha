@@ -48,3 +48,7 @@ The [voice-route gate](RUST-VOICE-ROUTES.md) compares the real Node/native HTTP 
 ## Native ordinary custom-skill CRUD
 
 The [custom-skill gate](RUST-CUSTOM-SKILLS.md) uses inert synthetic text and both real HTTP hosts to compare create/patch/delete, UTF-16 validation, exact errors, saved ordering, SSE event-before-refresh, cached prompt metadata and cross-host restart. Isolated Rust tests also verify refresh-failure persistence and agent-only admission. No skill dispatch, discovery, model/provider, or held policy/security probes are run. These focused checks do not establish full quality or platform acceptance.
+
+## Native ordinary weather and news
+
+The [feed-connector gate](RUST-FEED-CONNECTORS.md) freezes ordinary source projections, errors and cache/time transitions using fictional cities and synthetic URLs. Rust and real loopback HTTP tests inject every outbound request into a socket-free transport, including the unchanged fixed weather URLs. They cover saved settings, Unicode/chunk/title limits and owned Stop/tray/shutdown cancellation. Real feeds/locations/providers, held security work and full quality/platform acceptance remain untested.

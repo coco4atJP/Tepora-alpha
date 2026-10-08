@@ -172,3 +172,7 @@ The explicit native agent host owns streaming speech R074–R077 through an ephe
 ## Native ordinary stored skills
 
 `workspace/skills.rs` owns custom-skill create, enabled-flag patch and delete under `--agent`. A skill mutex orders document mutation, durable event publication and existing actor refresh; no SQLite guard crosses the actor wait. Errors during refresh retain the source document/event-before-refresh behavior. Native snapshots reread enabled metadata, while the unavailable `skill` tool/content consumer and shared discovery remain separate gaps. No text is executed and no filesystem discovery is added. [Contract and validation](RUST-CUSTOM-SKILLS.md).
+
+## Native ordinary weather and news
+
+`workspace/feed_connectors.rs` owns the saved-city/feed operations, source-compatible in-memory TTL cache and conservative RSS/Atom projections. The existing checked feed transport and settings remain authoritative. Bounded async flights, request-drop cancellation and counted Stop/tray/close barriers prevent cancelled cache publication and drain before SQLite closes. No connector documents, credentials or events are persisted. [Contract and mock-only validation](RUST-FEED-CONNECTORS.md).

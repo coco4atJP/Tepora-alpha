@@ -431,6 +431,20 @@ impl HttpState {
                 result = self.backend.execute_voice(op, cancellation) => result,
             };
         }
+        if matches!(&op, Operation::ConnectorWeather | Operation::ConnectorNews) {
+            if *self.shutdown.borrow() { return Err(ApiError::unavailable("Service is closing")); }
+            let cancellation = crate::network::RequestCancellation::new();
+            struct CancelOnDrop(crate::network::RequestCancellation);
+            impl Drop for CancelOnDrop { fn drop(&mut self) { self.0.cancel(); } }
+            let _cancel = CancelOnDrop(cancellation.clone());
+            self.work.count.fetch_add(1, Ordering::AcqRel);
+            let _work = WorkGuard(self.work.clone());
+            let mut shutdown = self.shutdown.subscribe();
+            return tokio::select! { biased;
+                _ = shutdown_requested(&mut shutdown) => Err(ApiError::unavailable("Service is closing")),
+                result = self.backend.execute_connector(op, cancellation) => result,
+            };
+        }
         if let Operation::ProviderProbe { id } = &op {
             let id = id.clone();
             let cancellation = self.backend.probe_cancellation();
@@ -1151,6 +1165,8 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("GET", "/api/dialogue/personas") => return Some(Ready(Operation::DialoguePersonas, 200)),
         ("PUT", "/api/dialogue/personas") => return Some(Json(Body::DialoguePersonas, 200)),
         ("PATCH", "/api/settings") => return Some(Json(Body::Preferences, 200)),
+        ("POST", "/api/connector/weather") => return Some(Ready(Operation::ConnectorWeather, 200)),
+        ("POST", "/api/connector/news") => return Some(Ready(Operation::ConnectorNews, 200)),
         ("POST", "/api/voice/edit")=>return Some(Json(Body::VoiceEdit,200)),
         ("POST", "/api/voice/start")=>return Some(Ready(Operation::SpeechStart,200)),
         ("POST", "/api/voice/chunk")=>return Some(Json(Body::SpeechChunk,200)),

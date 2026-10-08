@@ -360,3 +360,7 @@ R073/R078 now use the existing device provider chain and configured ASR transpor
 ## Native ordinary custom-skill CRUD
 
 R092–R094 now use the sole Workspace SQLite owner and existing session actor under `--dev-native --agent`. Source UTF-16 validation, enabled defaults, ordered documents/events, missing deletion and cached-prefix-preserving prompt refresh are retained. Workspace-only mode remains unavailable rather than skipping refresh. Shared discovery and native skill content loading remain unported; R003 bootstrap remains partial. Route totals are 90 implemented / 12 partial / 24 unavailable. [Contract and focused synthetic validation](RUST-CUSTOM-SKILLS.md).
+
+## Native ordinary weather and news
+
+R119/R120 now use saved settings and the existing checked feed network under `--dev-native --agent`. Fixed weather queries, 48-hour projections, ordinary RSS/Atom extraction and source cache/time behavior are retained, with bounded native requests/cache and owned cancellation. Route totals are 92 implemented / 12 partial / 22 unavailable. The normal GUI/Node/Tauri host is unchanged. [Contract, deliberate bounds and focused mock-only verification](RUST-FEED-CONNECTORS.md).

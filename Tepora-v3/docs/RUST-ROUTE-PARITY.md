@@ -1,8 +1,8 @@
-# Native backend route parity: ordinary custom-skill CRUD checkpoint
+# Native backend route parity: ordinary weather/news checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **90 are substantially matched, 12 are partial and 24 are absent**. Thus 102 have handlers, and the 12 partial routes are included in those 102. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **92 are substantially matched, 12 are partial and 22 are absent**. Thus 104 have handlers, and the 12 partial routes are included in those 104. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -17,6 +17,8 @@ Media jobs add seven ordinary routes under `--dev-native --agent`. Focused evide
 Dictation proposals and uploaded-audio transcription add two ordinary routes. [RUST-VOICE-ROUTES](RUST-VOICE-ROUTES.md) records source parity, deliberate native bounds and cancellation improvements, and focused synthetic evidence.
 
 Ordinary custom-skill CRUD adds R092–R094 under `--agent`, including real actor prompt refresh. [RUST-CUSTOM-SKILLS](RUST-CUSTOM-SKILLS.md) records exact validation, persistence, event and snapshot behavior. Shared scan R091 and the native `skill` content-loading tool remain absent; stored CRUD does not make skills usable end-to-end. R003 bootstrap remains partial.
+
+Ordinary weather/news adds R119–R120 with the unchanged saved-setting and feed-admission boundary, source projection/cache behavior and owned cancellation. [RUST-FEED-CONNECTORS](RUST-FEED-CONNECTORS.md) records the deliberate native bounds and mock-only verification.
 
 ## Complete route inventory
 
@@ -142,8 +144,8 @@ YES means a real handler is present in the supported scope, not that every model
 | R116 | `POST /api/mcp` | ABSENT | 201 | Persistent stdio/HTTP connection configuration and live revocation is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R117 | `PATCH /api/mcp/{id}` | ABSENT | 200 | Persistent stdio/HTTP connection configuration and live revocation is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R118 | `DELETE /api/mcp/{id}` | ABSENT | 200 | Persistent stdio/HTTP connection configuration and live revocation is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R119 | `POST /api/connector/weather` | ABSENT | 200 | Weather/news network fetch with current consent and document updates is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R120 | `POST /api/connector/news` | ABSENT | 200 | Weather/news network fetch with current consent and document updates is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R119 | `POST /api/connector/weather` | YES | 200 | Saved city/current consent, fixed Open-Meteo URLs, 48-hour projection, 15-minute in-memory cache and owned Stop/shutdown cancellation. Bounded mock-only validation; real provider acceptance unverified. |
+| R120 | `POST /api/connector/news` | YES | 200 | Saved feed/current consent, source RSS/Atom extraction and UTF-16/title/text limits, 10-minute in-memory cache and owned Stop/shutdown cancellation. Returned links remain inert. |
 | R121 | `POST /api/media/open` | ABSENT | 200 | External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R122 | `POST /api/media/embed` | ABSENT | 200 | External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R123 | `GET /media-view/{token}` | ABSENT | 200 | External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior. |

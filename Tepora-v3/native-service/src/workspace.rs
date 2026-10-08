@@ -3,6 +3,7 @@ mod agent_state;
 mod media_jobs;
 mod speech_stream;
 mod voice_operations;
+mod feed_connectors;
 pub(crate) mod photo_frame;
 pub(crate) mod avatar_assets;
 mod semantic_state;
@@ -44,6 +45,7 @@ struct NativeResources {
     media: Arc<media_jobs::MediaJobs>,
     speech: Arc<speech_stream::SpeechStream>,
     voice: voice_operations::VoiceOperations,
+    feeds: feed_connectors::FeedConnectors,
     setup: crate::setup::SetupManager,
     catalog: crate::model_catalog::ModelCatalog,
     host: Arc<crate::agent::host::NativeAgentHost>,
@@ -411,6 +413,9 @@ impl Workspace {
         self.enable_agent_setup(runtime,options)
     }
     fn enable_agent_setup(&self, runtime:tokio::runtime::Handle, setup_options:crate::setup::SetupOptions)->Result<(),ApiError> {
+        self.enable_agent_components(runtime, setup_options, None)
+    }
+    fn enable_agent_components(&self, runtime:tokio::runtime::Handle, setup_options:crate::setup::SetupOptions, injected_network:Option<crate::network::NativeNetwork>)->Result<(),ApiError> {
         require(
             self.native.get().is_none(),
             409,
@@ -434,9 +439,8 @@ impl Workspace {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(error(e)),
         }
-        let network = crate::network::NativeNetwork::new(
-            crate::network::NetworkPolicy::from_value(&policy).map_err(ApiError::from)?,
-        );
+        let policy = crate::network::NetworkPolicy::from_value(&policy).map_err(ApiError::from)?;
+        let network = injected_network.unwrap_or_else(|| crate::network::NativeNetwork::new(policy));
         let provider =
             crate::provider::ProviderRuntime::new(Arc::new(self.access()), network.clone());
         let capabilities =
@@ -462,6 +466,7 @@ impl Workspace {
             .set(NativeResources {
                 speech: speech_stream::SpeechStream::new(network.clone(),runtime.clone()),
                 voice: voice_operations::VoiceOperations::new(provider.clone(),network.clone()),
+                feeds: feed_connectors::FeedConnectors::new(network.clone()),
                 media,
                 setup,
                 catalog,
@@ -986,6 +991,18 @@ impl Backend for Workspace {
             Ok(Reply::Json(value))
         })
     }
+    fn execute_connector(&self, operation: Operation, cancel: crate::network::RequestCancellation) -> crate::BackendFuture<'_> {
+        Box::pin(async move {
+            let native = self.native.get().ok_or_else(|| ApiError::unavailable("This effect requires --dev-native --agent"))?;
+            let settings = { let mut state = self.lock()?; require(!state.closed && !state.closing, 503, "Service closing")?; state.settings()? };
+            let value = match operation {
+                Operation::ConnectorWeather => native.feeds.weather(&settings, cancel).await?,
+                Operation::ConnectorNews => native.feeds.news(&settings, cancel).await?,
+                _ => return Err(ApiError::bad_request("Invalid connector operation")),
+            };
+            Ok(Reply::Json(value))
+        })
+    }
     fn execute_semantic(&self,operation:Operation,cancel:crate::network::RequestCancellation)->crate::BackendFuture<'_>{
         Box::pin(async move {
             let native=self.native.get().ok_or_else(||ApiError::unavailable("This effect requires --dev-native --agent"))?;
@@ -1061,6 +1078,7 @@ impl Backend for Workspace {
         if let Some(native) = self.native.get() {
             let _speech_drain = native.speech.stop_barrier(false)?;
             let _voice_drain = native.voice.stop_barrier(false)?;
+            let _feed_drain = native.feeds.stop_barrier(false)?;
             native.media.stop_all()?;
             // Tray Stop matches the compatibility sidecar: only currently
             // active non-main runs stop. Resident conversation, idle workers
@@ -1090,6 +1108,7 @@ impl Backend for Workspace {
         if let Some(native) = self.native.get() {
             let _speech_drain = native.speech.stop_barrier(true)?;
             let _voice_drain = native.voice.stop_barrier(true)?;
+            let _feed_drain = native.feeds.stop_barrier(true)?;
             native.media.begin_close()?;
             native.semantic.close();
             native.setup.begin_close();
@@ -1172,7 +1191,7 @@ mod tests {
         let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(workspace.access()),network.clone());
         let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(workspace.access()),capabilities.clone()));
         let media=media_jobs::MediaJobs::new(workspace.access(),capabilities.clone(),network.clone(),runtime.handle().clone()).unwrap();
-        assert!(workspace.native.set(NativeResources {voice:voice_operations::VoiceOperations::new(provider.clone(),network.clone()),speech:speech_stream::SpeechStream::new(network.clone(),runtime.handle().clone()),media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        assert!(workspace.native.set(NativeResources {feeds:feed_connectors::FeedConnectors::new(network.clone()),voice:voice_operations::VoiceOperations::new(provider.clone(),network.clone()),speech:speech_stream::SpeechStream::new(network.clone(),runtime.handle().clone()),media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
         workspace.lock().unwrap().native_agent = true;
         agent.request(crate::agent::AgentRequest::Initialize).unwrap();
         (workspace,runtime,transport,dir)

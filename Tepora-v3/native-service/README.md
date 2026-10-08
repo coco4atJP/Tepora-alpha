@@ -166,3 +166,7 @@ R074–R077 are available under `--dev-native --agent` with a configured loopbac
 ### Ordinary voice routes
 
 `--dev-native --agent` supports single-flight device-only dictation proposals and configured-ASR multipart transcription. Both have request/Stop/shutdown ownership, exact source ordinary replies, and no durable audio/transcript state. Native ASR has explicit response/text/concurrency bounds. See [contract and focused tests](../docs/RUST-VOICE-ROUTES.md); microphone/real-model acceptance and normal launcher cutover remain separate.
+
+## Ordinary weather and news
+
+`--dev-native --agent` supports saved-city weather and saved-feed news with source-compatible projections/TTL caching and the existing checked feed admission. Bounded request owners cancel and drain on request drop, Stop All, tray Stop and shutdown; no persistent connector state or credentials are added. Workspace-only mode remains unavailable (503), and normal startup is unchanged. [Contract and mock-only verification](../docs/RUST-FEED-CONNECTORS.md).
