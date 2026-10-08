@@ -494,6 +494,8 @@ struct Active {
 #[derive(Default)]
 struct Memory {
     keys: HashMap<String, EphemeralKey>,
+    // Shared-owner epoch only; no credential material enters advisory bindings.
+    key_generation: u64,
     active: HashMap<u64, Active>,
     next: u64,
     closed: bool,
@@ -690,6 +692,9 @@ impl Capabilities {
         // durable write can cancel prior work/prune a key, but cannot grant it.
         {
             let mut memory = lock(&self.inner.memory);
+            if memory.keys.len() != keys.len() {
+                memory.key_generation = memory.key_generation.wrapping_add(1);
+            }
             memory.keys = keys;
             for active in memory.active.values() {
                 if !arr(&next["profiles"]).iter().any(|p| {
@@ -726,6 +731,9 @@ impl Capabilities {
             .ok_or_else(|| CapabilityError::new(400, "Invalid key"))?;
         {
             let mut memory = lock(&self.inner.memory);
+            // Preserve source in-flight behavior. Settled advisory results are
+            // rejected at actor commit through this epoch, not transport cancellation.
+            memory.key_generation = memory.key_generation.wrapping_add(1);
             if key.is_empty() {
                 memory.keys.remove(id);
             } else {
@@ -1185,6 +1193,18 @@ impl CapabilityDecisionBackend {
     }
 }
 impl DecisionBackend for CapabilityDecisionBackend {
+    fn binding(&self) -> Value {
+        // One synchronous snapshot under the shared owner's configuration lock.
+        // Never return credentials or credential hashes to advisory consumers.
+        let _configuration = lock(&self.capabilities.inner.configuration);
+        let Ok(registry) = self.capabilities.get() else { return Value::Null };
+        let memory = lock(&self.capabilities.inner.memory);
+        let profile = arr(&registry["profiles"]).iter()
+            .find(|p| p["id"] == registry["routes"]["decision"]);
+        json!({"revision":registry["revision"],
+            "identity":profile.map(|p| &p["identity"]),
+            "keyGeneration":memory.key_generation,"closed":memory.closed})
+    }
     fn available(&self) -> bool {
         self.capabilities
             .pin("decision")

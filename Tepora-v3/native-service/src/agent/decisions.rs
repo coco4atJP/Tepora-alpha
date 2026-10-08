@@ -536,6 +536,8 @@ pub type DecisionFuture<'a> =
     Pin<Box<dyn Future<Output = Result<Value, DecisionError>> + Send + 'a>>;
 pub trait DecisionBackend: Send + Sync {
     fn available(&self) -> bool;
+    /// Opaque owner binding used only to reject stale advisory results.
+    fn binding(&self) -> Value { Value::Null }
     fn decide<'a>(
         &'a self,
         state: &'a Value,
@@ -649,6 +651,13 @@ impl Decisions {
             !state.closed && self.inner.clock.now_ms() >= state.paused_until
         };
         ready && self.inner.backend.available()
+    }
+    pub fn binding(&self) -> Value {
+        let (generation, closed) = {
+            let state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());
+            (state.generation, state.closed)
+        };
+        json!({"generation":generation,"closed":closed,"backend":self.inner.backend.binding()})
     }
     pub fn health(&self) -> Value {
         let state = self.inner.state.lock().unwrap_or_else(|e| e.into_inner());

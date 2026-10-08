@@ -127,6 +127,7 @@ fn fixture(
 async fn settle(task: EffectTask) -> Result<EffectResult, EffectError> {
     match task {
         EffectTask::Ready(v) => Ok(v),
+        EffectTask::ReadyWithAuxiliary(_, _) => panic!("WebHost cannot schedule auxiliary effects"),
         EffectTask::Async(f) => f.await,
     }
 }

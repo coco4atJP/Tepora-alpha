@@ -73,6 +73,8 @@ pub struct NativeAgentHost {
     approved: Mutex<HashMap<String, String>>,
     reads: Mutex<HashMap<String, Arc<Mutex<super::files::FileMemory>>>>,
     process_host: super::process_host::ProcessHost,
+    decision_host: super::host_decisions::DecisionHost,
+    decision_integrated: bool,
     semantic: Option<Arc<crate::semantic::SemanticMemory>>,
     pub web: Arc<super::web_host::WebHost>,
 }
@@ -82,11 +84,28 @@ impl NativeAgentHost {
         provider: ProviderRuntime,
         network: NativeNetwork,
     ) -> Result<Self, ApiError> {
+        let mut host = Self::new_with_decisions(
+            state,
+            provider,
+            network,
+            Arc::new(super::decisions::Decisions::with_backend(Arc::new(
+                super::host_decisions::UnavailableBackend,
+            ))),
+        )?;
+        host.decision_integrated = false;
+        Ok(host)
+    }
+    pub fn new_with_decisions(
+        state: WorkspaceAccess,
+        provider: ProviderRuntime,
+        network: NativeNetwork,
+        decisions: Arc<super::decisions::Decisions>,
+    ) -> Result<Self, ApiError> {
         let approvals = super::approvals::Approvals::new(state.clone())?;
         let web = Arc::new(super::web_host::WebHost::new(
             state.clone(),
             network.clone(),
-            None,
+            Some(decisions.clone()),
             None,
         ));
         Ok(Self {
@@ -100,6 +119,8 @@ impl NativeAgentHost {
             approved: Mutex::new(HashMap::new()),
             reads: Mutex::new(HashMap::new()),
             process_host: super::process_host::ProcessHost::new(),
+            decision_host: super::host_decisions::DecisionHost::new(decisions),
+            decision_integrated: true,
             semantic: None,
             web,
         })
@@ -108,9 +129,10 @@ impl NativeAgentHost {
         state: WorkspaceAccess,
         provider: ProviderRuntime,
         network: NativeNetwork,
+        decisions: Arc<super::decisions::Decisions>,
         semantic: Arc<crate::semantic::SemanticMemory>,
     ) -> Result<Self, ApiError> {
-        let mut host = Self::new(state, provider, network)?;
+        let mut host = Self::new_with_decisions(state, provider, network, decisions)?;
         host.semantic = Some(semantic);
         Ok(host)
     }
@@ -312,7 +334,7 @@ impl NativeAgentHost {
             .into_iter()
             .filter(|s| s["enabled"] != false)
             .collect();
-        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image ingestion and vision bridging are not yet available. Scheduling, browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
+        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Scheduling, browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
     }
     fn prompt(&self, session: Value, refresh: bool) -> Result<Value, EffectError> {
         if !refresh {
@@ -415,6 +437,7 @@ impl NativeAgentHost {
         Ok(())
     }
     fn stream_end(&self, id: &str, discard: bool) -> Result<(), ApiError> {
+        let route_held = self.decision_host.held(id);
         let stream = self
             .streams
             .lock()
@@ -426,22 +449,24 @@ impl NativeAgentHost {
                     .map_err(as_api)?
                     .as_bool()
                     .unwrap_or(false);
-            self.state("event.broadcast",json!({"type":"agent.delta","data":{"sessionId":id,"text":if discard||silent{String::new()}else{b.text},"reasoning":if discard{String::new()}else{b.reasoning},"done":true}}))?;
+            self.state("event.broadcast",json!({"type":"agent.delta","data":{"sessionId":id,"text":if discard||silent||route_held{String::new()}else{b.text},"reasoning":if discard{String::new()}else{b.reasoning},"done":true}}))?;
         }
         Ok(())
     }
     fn flush(&self, id: &str) -> Result<(), ApiError> {
+        let route_held = self.decision_host.held(id);
         let mut streams = self
             .streams
             .lock()
             .map_err(|_| ApiError::new(500, "Stream owner unavailable"))?;
         if let Some(b) = streams.get_mut(id) {
             b.scheduled = false;
-            let held = b.main
-                && compute("harness.prompts.mayBeSilent", json!({"text":b.text}))
-                    .map_err(as_api)?
-                    .as_bool()
-                    .unwrap_or(false);
+            let held = route_held
+                || b.main
+                    && compute("harness.prompts.mayBeSilent", json!({"text":b.text}))
+                        .map_err(as_api)?
+                        .as_bool()
+                        .unwrap_or(false);
             self.state("event.broadcast",json!({"type":"agent.delta","data":{"sessionId":id,"text":if held{String::new()}else{b.text.clone()},"reasoning":b.reasoning}}))?;
         }
         Ok(())
@@ -974,8 +999,12 @@ impl NativeAgentHost {
     }
     pub fn preflight(&self) -> Result<(), ApiError> {
         let capabilities = self.state("kv.get", json!({"key":"capabilities"}))?;
-        if tepora_core::js_value::truthy(&capabilities["routes"]["decision"]) {
-            return Err(ApiError::unavailable("Configured decision route requires the compatibility host until native decision inference is integrated"));
+        if !self.decision_integrated
+            && tepora_core::js_value::truthy(&capabilities["routes"]["decision"])
+        {
+            return Err(ApiError::unavailable(
+                "Configured decision route requires the shared native Capabilities decision owner",
+            ));
         }
         let settings = self.settings()?;
         if tepora_core::js_value::truthy(&settings["heartbeat"]["enabled"]) {
@@ -1008,6 +1037,22 @@ impl super::host_runtime::HostServices for NativeAgentHost {
     fn state(&self, op: &str, args: Value) -> Result<Value, ApiError> {
         NativeAgentHost::state(self, op, args)
     }
+    fn state_batch(&self, operations: &[(String, Value)]) -> Result<Vec<Value>, ApiError> {
+        self.state.agent_batch(operations)
+    }
+    fn prepare_decision_routes(
+        &self,
+        ctx: &EffectContext,
+        inputs: &[Value],
+    ) -> Result<Vec<Value>, ApiError> {
+        self.decision_host.prepare(
+            ctx,
+            &self.session(&ctx.scope.session_id)?,
+            &self.settings()?,
+            &self.state("kv.get", json!({"key":"agent-policy"}))?,
+            inputs,
+        )
+    }
     fn configured(&self) -> Result<bool, ApiError> {
         self.provider.configured()
     }
@@ -1018,7 +1063,7 @@ impl super::host_runtime::HostServices for NativeAgentHost {
         false
     }
     fn decision_available(&self) -> bool {
-        false
+        self.decision_host.decisions.available()
     }
     fn refresh_prompt(&self, id: &str) -> Result<bool, ApiError> {
         NativeAgentHost::refresh_prompt(self, id)
@@ -1047,6 +1092,7 @@ impl super::host_runtime::HostServices for NativeAgentHost {
         if let Some(semantic) = &self.semantic {
             semantic.cancel_session(id);
         }
+        self.decision_host.cancel(id, None);
         self.web.cancel_session(id);
         let approval = self.approvals.cancel(id);
         let stream = self.stream_end(id, true);
@@ -1063,6 +1109,132 @@ impl AgentHost for NativeAgentHost {
     fn activate_setup(&self, commit: &crate::setup::SelectionCommit) -> Result<(), ApiError> {
         self.state
             .activate_selection_on_actor(&self.provider, commit)
+    }
+    fn request_key(&self, request: &AgentRequest) -> Result<Option<String>, ApiError> {
+        match request {
+            AgentRequest::Input { body } => super::host_runtime::RuntimeState::input_key(body)
+                .map(|id| id.map(|id| format!("input:{id}"))),
+            _ => Ok(None),
+        }
+    }
+    fn plan_request(&self, request: &AgentRequest) -> Result<super::RequestPlan, ApiError> {
+        if let AgentRequest::DeleteSession { id } = request {
+            let session = self.session(id)?;
+            if session.is_null() {
+                return Err(ApiError::new(404, "Session not found"));
+            }
+            if session["kind"] == "main" {
+                return Err(ApiError::new(403, "The main session cannot be deleted."));
+            }
+            if self
+                .runtime
+                .lock()
+                .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
+                .is_active(id)
+            {
+                return Err(ApiError::new(409, "止めてから削除してください。"));
+            }
+            return Ok(super::RequestPlan::Prepare {
+                session_id: id.clone(),
+                command: json!({"kind":"deleteSession"}),
+            });
+        }
+        let AgentRequest::Input { body } = request else {
+            return self.request(request).map(super::RequestPlan::Ready);
+        };
+        let mut runtime = self
+            .runtime
+            .lock()
+            .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?;
+        if let Some(receipt) = runtime.known_input(body)? {
+            return Ok(super::RequestPlan::Ready(receipt));
+        }
+        if !self.provider.configured()? {
+            return Err(ApiError::new(
+                409,
+                "先に「AIを接続」でモデルを登録してください。",
+            ));
+        }
+        let ids = body
+            .get("attachmentIds")
+            .filter(|v| tepora_core::js_value::truthy(v))
+            .cloned()
+            .unwrap_or_else(|| json!([]));
+        if ids.as_array().is_some_and(Vec::is_empty) {
+            return runtime.input(self, body).map(super::RequestPlan::Ready);
+        }
+        let documents = self.state.resolve_inputs(&ids)?;
+        let main = runtime.main(self)?;
+        let root = self.state("workRoot", json!({}))?;
+        Ok(super::RequestPlan::Prepare {
+            session_id: main["id"].as_str().unwrap_or("").to_owned(),
+            command: json!({"kind":"prepareInput","workRoot":root,"date":super::host_runtime::ClockFacts::now().utc_day(),"documents":documents}),
+        })
+    }
+    fn complete_request(
+        &self,
+        ctx: &EffectContext,
+        request: &AgentRequest,
+        result: EffectResult,
+    ) -> Result<Admission, ApiError> {
+        if ctx.scope.namespace != super::EffectNamespace::Admission
+            || ctx.cancellation.is_cancelled()
+        {
+            return Err(ApiError::new(409, "Input preparation is no longer active"));
+        }
+        if let AgentRequest::DeleteSession { id } = request {
+            if id != &ctx.scope.session_id {
+                return Err(ApiError::new(409, "Deletion session changed"));
+            }
+            let session = self.session(id)?;
+            if session.is_null() {
+                return Err(ApiError::new(404, "Session not found"));
+            }
+            if session["kind"] == "main" {
+                return Err(ApiError::new(403, "The main session cannot be deleted."));
+            }
+            if self
+                .runtime
+                .lock()
+                .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
+                .is_active(id)
+            {
+                return Err(ApiError::new(409, "止めてから削除してください。"));
+            }
+            self.state.agent_batch(&[
+                ("session.remove".into(), json!({"id":id})),
+                (
+                    "event.emit".into(),
+                    json!({"type":"session.removed","data":{"id":id}}),
+                ),
+            ])?;
+            self.memory
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .remove(id);
+            self.reads
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .remove(id);
+            self.streams
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .remove(id);
+            return Ok(Admission::new(json!({"deleted":true})));
+        }
+        let AgentRequest::Input { body } = request else {
+            return Err(ApiError::bad_request("Unsupported prepared request"));
+        };
+        let files = result.value["files"]
+            .as_array()
+            .ok_or_else(|| ApiError::new(500, "Prepared attachment metadata missing"))?;
+        let images = result.value["images"]
+            .as_array()
+            .ok_or_else(|| ApiError::new(500, "Prepared attachment images missing"))?;
+        self.runtime
+            .lock()
+            .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
+            .input_prepared(self, body, &ctx.scope.session_id, files, images)
     }
     fn facts(&self) -> Result<Value, ApiError> {
         self.runtime
@@ -1103,6 +1275,12 @@ impl AgentHost for NativeAgentHost {
             .map_err(|_| ApiError::new(500, "Runtime state unavailable"))?
             .apply_actions(self, actions)?;
         for a in actions {
+            if matches!(a["kind"].as_str(), Some("releaseRun" | "abortRun")) {
+                self.decision_host.cancel(
+                    a["sessionId"].as_str().unwrap_or(""),
+                    a["runEpoch"].as_u64(),
+                );
+            }
             if a["kind"] == "releaseRun" {
                 self.process_host.release_run(
                     a["sessionId"].as_str().unwrap_or(""),
@@ -1122,7 +1300,48 @@ impl AgentHost for NativeAgentHost {
         Ok(events)
     }
     fn start_effect(&self, ctx: &EffectContext, c: &Value) -> Result<EffectTask, EffectError> {
+        if ctx.scope.namespace == super::EffectNamespace::Admission {
+            if c["kind"] == "deleteSession" {
+                let cleanup = self.process_host.stop_session(&ctx.scope.session_id);
+                return Ok(EffectTask::Async(Box::pin(async move {
+                    // Cancellation invalidates deletion acceptance, but never
+                    // detaches actual process cleanup from its drain receipt.
+                    cleanup.wait_async().await?;
+                    Ok(EffectResult::new(Value::Null))
+                })));
+            }
+            if c["kind"] != "prepareInput" {
+                return Err(EffectError::new("Unknown input preparation command"));
+            }
+            let root = c["workRoot"]
+                .as_str()
+                .ok_or_else(|| EffectError::new("Input workRoot missing"))?
+                .to_owned();
+            let date = c["date"]
+                .as_str()
+                .ok_or_else(|| EffectError::new("Input date missing"))?
+                .to_owned();
+            let documents = c["documents"]
+                .as_array()
+                .ok_or_else(|| EffectError::new("Input documents missing"))?
+                .clone();
+            let cancel = ctx.cancellation.clone();
+            return Ok(EffectTask::Async(Box::pin(async move {
+                super::input_attachments::materialize(root, date, documents, cancel)
+                    .await
+                    .map(EffectResult::new)
+            })));
+        }
+        if ctx.scope.namespace == super::EffectNamespace::Auxiliary {
+            return self.decision_host.auxiliary(ctx, c);
+        }
         if ctx.scope.namespace == super::EffectNamespace::Runtime {
+            if c["kind"] == "mainTurn" {
+                return self.decision_host.main_turn(ctx);
+            }
+            if c["kind"] == "completionDecision" {
+                return Ok(self.decision_host.completion(ctx, c));
+            }
             if let Some(task) = self
                 .runtime
                 .lock()
@@ -1184,6 +1403,17 @@ impl AgentHost for NativeAgentHost {
         }
         self.execution_effect(ctx, c)
     }
+    fn complete_auxiliary(
+        &self,
+        ctx: &EffectContext,
+        c: &Value,
+        result: Result<EffectResult, EffectError>,
+    ) -> Result<(), ApiError> {
+        if self.decision_host.complete(ctx, c, result)? {
+            self.flush(&ctx.scope.session_id)?;
+        }
+        Ok(())
+    }
     fn complete_effect(
         &self,
         ctx: &EffectContext,
@@ -1191,6 +1421,75 @@ impl AgentHost for NativeAgentHost {
         mut result: EffectResult,
     ) -> Result<EffectResult, EffectError> {
         match c["kind"].as_str().unwrap_or("") {
+            "completionDecision" => {
+                result.value = if result.value["binding"] == self.decision_host.decisions.binding() {
+                    result.value["raw"].clone()
+                } else { Value::Null };
+            }
+            "mainTurn" => {
+                let id = &ctx.scope.session_id;
+                let Some(route) = self
+                    .decision_host
+                    .take(&ctx.scope, result.value["routeVersion"].as_u64())
+                else {
+                    return Ok(EffectResult::new(json!({"delegated":false})));
+                };
+                let tools = array(&self.state(
+                    "session.entries",
+                    json!({"id":id,"from":route.seq,"types":["tool"]}),
+                )?);
+                let latest = self.state("session.latest", json!({"id":id,"type":"assistant"}))?;
+                let verdict = super::decisions::route_verdict(
+                    &route,
+                    result.value["raw"].as_f64(),
+                    c["text"].as_str().unwrap_or(""),
+                    &tools,
+                    Some(&latest),
+                )?;
+                let episode = verdict
+                    .episode
+                    .as_ref()
+                    .map(|data| super::host_runtime::record_episode(self, id, "route", data))
+                    .transpose()?;
+                if let (Some(reference), Some(label)) = (episode, verdict.label) {
+                    self.state("session.append",json!({"id":id,"type":"event","body":{"event":"decision-label","ref":reference,"label":label["label"],"source":label["source"]}}))?;
+                }
+                result = EffectResult::new(json!({"delegated":verdict.delegate}));
+                if verdict.delegate {
+                    if let Some(seq) = verdict.withdraw_reply {
+                        self.state(
+                            "session.patch",
+                            json!({"id":id,"seq":seq,"fields":{"withdrawn":true}}),
+                        )?;
+                    }
+                    let parent = self.session(id)?;
+                    let child = self
+                        .runtime
+                        .lock()
+                        .map_err(|_| EffectError::new("Runtime state unavailable"))?
+                        .spawn(
+                            self,
+                            Some(&parent),
+                            &json!({"task":route.text,"context":"fork"}),
+                        )?;
+                    self.state("session.update",json!({"id":child.value["id"],"patch":{"origin":{"sessionId":id,"episode":episode}}}))?;
+                    // Source event payload intentionally identifies the child,
+                    // while its transcript entry belongs to the main session.
+                    self.state.agent_batch(&[
+                        ("session.append".into(),json!({"id":id,"type":"event","body":{"event":"auto-delegated","probability":verdict.probability,"sessionId":child.value["id"]}})),
+                        ("event.emit".into(),json!({"type":"agent.event","data":{"sessionId":child.value["id"],"type":"auto-delegated","probability":verdict.probability}}))
+                    ])?;
+                    let text = compute(
+                        "harness.prompts.notice",
+                        json!({"name":"autoDelegated","args":[child.value["title"],child.value["id"]]}),
+                    )?;
+                    self.state(
+                        "session.append",
+                        json!({"id":id,"type":"notice","body":{"text":text}}),
+                    )?;
+                    result.events = child.events;
+                }
+            }
             "authorizeTool" => {
                 result = self.approvals.finish(result, &ctx.cancellation)?;
                 if result.value.is_string() {
@@ -1351,6 +1650,7 @@ impl AgentHost for NativeAgentHost {
     }
     fn close(&self) -> Result<(), ApiError> {
         self.process_host.begin_close();
+        self.decision_host.close();
         if let Some(semantic) = &self.semantic {
             semantic.close();
         }

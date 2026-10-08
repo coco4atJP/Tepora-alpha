@@ -23,6 +23,7 @@ impl Workspace {
                 | Operation::AgentInput { .. }
                 | Operation::SearchKey { .. }
                 | Operation::SessionAccept { .. }
+                | Operation::SessionDelete { .. }
                 | Operation::AgentSpawn { .. }
                 | Operation::SessionMessage { .. }
                 | Operation::SessionStop { .. }
@@ -89,6 +90,7 @@ impl Workspace {
                 native.host.invalidate_web()?;
                 json!({"provider":"brave","keyPresent":!key.is_empty()})
             }
+            Operation::SessionDelete { id } => request(AgentRequest::DeleteSession { id: id.clone() })?,
             Operation::SessionAccept { id } => {
                 let session = self.access().agent_state("session.get", json!({"id":id}))?;
                 require(!session.is_null(), 404, "Session not found")?;
@@ -212,11 +214,6 @@ impl Workspace {
                         == Some(expected as u64),
                     409,
                     "Capability settings changed. Reload before saving.",
-                )?;
-                require(
-                    !truth(&body["config"]["routes"]["decision"]),
-                    503,
-                    "Native decision routing is not integrated in this checkpoint",
                 )?;
                 native
                     .capabilities

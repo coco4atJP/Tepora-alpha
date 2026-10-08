@@ -186,6 +186,11 @@ impl State {
                 })
                 .collect::<Vec<_>>())),
             "session.get" => self.get("session", string_arg(args, "id")?),
+            "session.remove" => {
+                let id=string_arg(args,"id")?;
+                require(!self.get("session",id)?.is_null(),404,"Session not found")?;
+                self.call("session.remove",json!({"id":id}))
+            }
             "session.create" => {
                 let f = args.get("fields").unwrap_or(args);
                 require(

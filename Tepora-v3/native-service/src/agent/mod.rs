@@ -6,6 +6,8 @@ pub mod coordinator;
 pub mod decisions;
 pub mod files;
 pub mod host;
+pub mod host_decisions;
+pub(crate) mod input_attachments;
 pub mod host_runtime;
 pub mod metacognition;
 pub mod policy;
@@ -46,6 +48,13 @@ pub enum AgentRequest {
     Resume {
         id: String,
     },
+    DeleteSession {
+        id: String,
+    },
+    SetupContext,
+    ActivateSetup {
+        commit: crate::setup::SelectionCommit,
+    },
     DecideApproval {
         id: String,
         allow: bool,
@@ -56,10 +65,6 @@ pub enum AgentRequest {
     },
     Configure {
         patch: Value,
-    },
-    SetupContext,
-    ActivateSetup {
-        commit: crate::setup::SelectionCommit,
     },
     RefreshPrompts,
 }
@@ -80,10 +85,21 @@ impl Admission {
     }
 }
 
+/// A direct user request may need owned filesystem work before acceptance.
+/// Prepared commands and their result never come from caller-supplied grants.
+pub enum RequestPlan {
+    Ready(Admission),
+    Prepare { session_id: String, command: Value },
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EffectNamespace {
     Runtime,
     Execution,
+    /// Run-owned host work that never advances either reducer.
+    Auxiliary,
+    /// Pre-run request preparation; no reducer lease or reducer completion.
+    Admission,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EffectScope {
@@ -149,6 +165,8 @@ pub type EffectFuture =
     Pin<Box<dyn Future<Output = Result<EffectResult, EffectError>> + Send + 'static>>;
 pub enum EffectTask {
     Ready(EffectResult),
+    /// Trusted host commands registered before the parent ready result is applied.
+    ReadyWithAuxiliary(EffectResult, Vec<Value>),
     Async(EffectFuture),
 }
 impl EffectTask {
@@ -173,6 +191,24 @@ pub trait AgentHost: Send + Sync + 'static {
     fn activate_setup(&self, _commit: &crate::setup::SelectionCommit) -> Result<(), ApiError> {
         Err(ApiError::unavailable("Native setup is not integrated"))
     }
+    /// Validate dedup identity before resolving attachments or starting IO.
+    fn request_key(&self, _request: &AgentRequest) -> Result<Option<String>, ApiError> {
+        Ok(None)
+    }
+    fn plan_request(&self, request: &AgentRequest) -> Result<RequestPlan, ApiError> {
+        self.request(request).map(RequestPlan::Ready)
+    }
+    fn complete_request(
+        &self,
+        _context: &EffectContext,
+        _request: &AgentRequest,
+        _result: EffectResult,
+    ) -> Result<Admission, ApiError> {
+        Err(ApiError::new(
+            500,
+            "Native request preparation is not implemented",
+        ))
+    }
     fn session(&self, id: &str) -> Result<Value, ApiError>;
     /// The coordinator supplies the whole ordered batch, including lifecycle
     /// actions. The host handles only its state/resource side of those actions.
@@ -194,6 +230,14 @@ pub trait AgentHost: Send + Sync + 'static {
         result: EffectResult,
     ) -> Result<EffectResult, EffectError> {
         Ok(result)
+    }
+    fn complete_auxiliary(
+        &self,
+        _context: &EffectContext,
+        _command: &Value,
+        _result: Result<EffectResult, EffectError>,
+    ) -> Result<(), ApiError> {
+        Ok(())
     }
     /// Stream, route, progress and provider-cache callbacks are validated here
     /// immediately before the host can change state. Never persist in a future.

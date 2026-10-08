@@ -17,6 +17,7 @@ use tokio::{runtime::Handle, sync::oneshot};
 
 const MAX_REQUESTS: usize = 1024;
 const MAX_STREAM_EVENTS: usize = 4096;
+const MAX_PREPARATIONS: usize = 16;
 static NEXT_SERVICE: AtomicU64 = AtomicU64::new(1);
 type Answer = Result<Value, ApiError>;
 type EffectAnswer = Result<EffectResult, EffectError>;
@@ -285,6 +286,11 @@ struct Pending {
     dispatched: bool,
     started: Instant,
 }
+struct PendingAdmission {
+    request: AgentRequest,
+    key: Option<String>,
+    replies: Vec<ResponseSender>,
+}
 struct Step {
     parent: EffectScope,
     generation: u64,
@@ -305,6 +311,11 @@ struct Coordinator {
     leases: HashMap<String, Lease>,
     pending: HashMap<EffectScope, Pending>,
     steps: HashMap<String, Step>,
+    deferred: HashMap<EffectScope, EffectAnswer>,
+    admissions: HashMap<EffectScope, PendingAdmission>,
+    admission_keys: HashMap<String, EffectScope>,
+    next_admission: u64,
+    parked: Vec<EffectScope>,
     timers: HashMap<String, Timer>,
     events: VecDeque<Value>,
     commands: VecDeque<EffectScope>,
@@ -325,6 +336,11 @@ impl Coordinator {
             leases: HashMap::new(),
             pending: HashMap::new(),
             steps: HashMap::new(),
+            deferred: HashMap::new(),
+            admissions: HashMap::new(),
+            admission_keys: HashMap::new(),
+            next_admission: 0,
+            parked: Vec::new(),
             timers: HashMap::new(),
             events: VecDeque::new(),
             commands: VecDeque::new(),
@@ -382,20 +398,31 @@ impl Coordinator {
                 scope,
                 reply,
             } => {
+                if !self.closing && scope.is_none() {
+                    if let RequestBody::Agent(
+                        request @ (AgentRequest::Input { .. } | AgentRequest::DeleteSession { .. }),
+                    ) = &request
+                    {
+                        self.admit_request(request.clone(), reply);
+                        return;
+                    }
+                }
                 self.shared.requests.fetch_sub(1, Ordering::AcqRel);
-                let result =
-                    if self.closing || scope.as_ref().is_some_and(|s| !self.current(s, false)) {
-                        Err(ApiError::new(409, "Agent operation is no longer active"))
-                    } else {
-                        self.request(request, scope.as_ref())
-                    };
+                let result = if self.closing
+                    || scope.as_ref().is_some_and(|s| {
+                        s.namespace == EffectNamespace::Admission || !self.current(s, false)
+                    }) {
+                    Err(ApiError::new(409, "Agent operation is no longer active"))
+                } else {
+                    self.request(request, scope.as_ref())
+                };
                 reply.send(result);
             }
             Message::Runtime(event) => self.events.push_back(event),
             Message::Complete(scope, result) => self.complete(scope, result),
             Message::Stream(scope, event) => {
                 self.shared.streams.fetch_sub(1, Ordering::AcqRel);
-                if self.current(&scope, false) {
+                if scope.namespace != EffectNamespace::Admission && self.current(&scope, false) {
                     if let Err(error) = guarded_api(|| self.host.stream(&scope, event)) {
                         // Do not synthesize completion while an external side
                         // effect is still running. Cancel, retain, and drain it.
@@ -410,11 +437,99 @@ impl Coordinator {
             Message::Close => self.begin_close(),
         }
     }
+    fn admit_request(&mut self, request: AgentRequest, reply: ResponseSender) {
+        let planned = guarded_api(|| {
+            let key = self.host.request_key(&request)?;
+            if key
+                .as_ref()
+                .is_some_and(|key| self.admission_keys.contains_key(key))
+            {
+                return Ok((key, None));
+            }
+            let plan = self.host.plan_request(&request)?;
+            if let AgentRequest::DeleteSession { id } = &request {
+                if self.leases.contains_key(id)
+                    || self.pending.keys().any(|scope| scope.session_id == *id)
+                {
+                    return Err(ApiError::new(409, "止めてから削除してください。"));
+                }
+            }
+            Ok((key, Some(plan)))
+        });
+        match planned {
+            Ok((Some(key), None)) => {
+                let scope = &self.admission_keys[&key];
+                self.admissions.get_mut(scope).unwrap().replies.push(reply);
+            }
+            Ok((_, Some(RequestPlan::Ready(admission)))) => {
+                self.events.extend(admission.events);
+                self.shared.requests.fetch_sub(1, Ordering::AcqRel);
+                reply.send(Ok(admission.value));
+            }
+            Ok((
+                key,
+                Some(RequestPlan::Prepare {
+                    session_id,
+                    command,
+                }),
+            )) if self.admissions.len() < MAX_PREPARATIONS => {
+                self.next_admission += 1;
+                let scope = EffectScope {
+                    service_id: self.service_id,
+                    session_id,
+                    run_epoch: 0,
+                    generation: None,
+                    namespace: EffectNamespace::Admission,
+                    operation_id: format!("admission:{}", self.next_admission),
+                };
+                if let Some(key) = &key {
+                    self.admission_keys.insert(key.clone(), scope.clone());
+                }
+                if matches!(&request, AgentRequest::DeleteSession { .. }) {
+                    self.cancel_timer(&scope.session_id);
+                }
+                self.admissions.insert(
+                    scope.clone(),
+                    PendingAdmission {
+                        request,
+                        key,
+                        replies: vec![reply],
+                    },
+                );
+                self.queue(scope, command);
+            }
+            Ok(_) => {
+                self.shared.requests.fetch_sub(1, Ordering::AcqRel);
+                reply.send(Err(ApiError::new(
+                    429,
+                    "Native attachment preparation queue is full",
+                )));
+            }
+            Err(error) => {
+                self.shared.requests.fetch_sub(1, Ordering::AcqRel);
+                reply.send(Err(error));
+            }
+        }
+    }
+    fn cancel_admissions(&self, session: Option<&str>) {
+        for scope in self.admissions.keys() {
+            if session.is_none_or(|id| scope.session_id == id) {
+                if let Some(pending) = self.pending.get(scope) {
+                    pending.context.cancellation.cancel();
+                }
+            }
+        }
+    }
     fn request(&mut self, request: RequestBody, scope: Option<&EffectScope>) -> Answer {
         match request {
             RequestBody::Scoped(value) => {
                 let scope = scope
                     .ok_or_else(|| ApiError::bad_request("Scoped request requires an effect"))?;
+                if value["op"] == "runtime.send"
+                    && value["id"].as_str().is_some_and(|id| self.deleting(id))
+                {
+                    return Err(ApiError::new(409, "Session deletion is in progress"));
+                }
                 let admission = guarded_api(|| self.host.scoped_request(scope, value))?;
                 self.events.extend(admission.events);
                 Ok(admission.value)
@@ -429,6 +544,7 @@ impl Coordinator {
                     reason,
                     rearm_main,
                 } => {
+                    self.cancel_admissions(Some(&id));
                     self.dispatch(json!({"type":"stop","sessionId":id,"reason":reason}))?;
                     if rearm_main {
                         self.dispatch(json!({"type":"resume","sessionId":id,"mode":"rearm"}))?;
@@ -436,6 +552,7 @@ impl Coordinator {
                     guarded_api(|| self.host.session(&id))
                 }
                 AgentRequest::StopAll { reason } => {
+                    self.cancel_admissions(None);
                     let facts = self.facts()?;
                     let ids = facts["sessions"]
                         .as_array()
@@ -450,8 +567,14 @@ impl Coordinator {
                     Ok(Value::Null)
                 }
                 AgentRequest::Resume { id } => {
+                    if self.deleting(&id) {
+                        return Err(ApiError::new(409, "Session deletion is in progress"));
+                    }
                     self.dispatch(json!({"type":"resume","sessionId":id}))?;
                     guarded_api(|| self.host.session(&id))
+                }
+                AgentRequest::Send { ref id, .. } if self.deleting(id) => {
+                    Err(ApiError::new(409, "Session deletion is in progress"))
                 }
                 AgentRequest::SetupContext => {
                     guarded_api(|| self.host.setup_context(!self.leases.is_empty()))
@@ -478,11 +601,28 @@ impl Coordinator {
         }
     }
     fn facts(&mut self) -> Result<Value, ApiError> {
-        let facts = guarded_api(|| self.host.facts())?;
+        let mut facts = guarded_api(|| self.host.facts())?;
+        if let Some(observations) = facts["sessions"].as_array_mut() {
+            observations.retain(|row| {
+                !row["session"]["id"]
+                    .as_str()
+                    .is_some_and(|id| self.deleting(id))
+            });
+        }
         self.last_facts = facts.clone();
         Ok(facts)
     }
     fn dispatch(&mut self, event: Value) -> Result<(), ApiError> {
+        if event["sessionId"]
+            .as_str()
+            .is_some_and(|id| self.deleting(id))
+            && matches!(
+                event["type"].as_str(),
+                Some("wake" | "resume" | "later" | "timerFired" | "auxiliary")
+            )
+        {
+            return Ok(());
+        }
         let facts = match self.facts() {
             Ok(facts) => facts,
             Err(error) if self.closing => {
@@ -493,6 +633,9 @@ impl Coordinator {
         };
         let response = self.runtime.dispatch(event, facts).map_err(engine_error)?;
         self.runtime_response(response)
+    }
+    fn deleting(&self, id: &str) -> bool {
+        self.admissions.values().any(|pending|matches!(&pending.request,AgentRequest::DeleteSession{id:target} if target==id))
     }
     fn runtime_response(&mut self, response: Value) -> Result<(), ApiError> {
         let actions = response["actions"].as_array().cloned().unwrap_or_default();
@@ -513,6 +656,7 @@ impl Coordinator {
                     );
                 }
                 "abortRun" => {
+                    self.cancel_auxiliary(&id, epoch);
                     if let Some(lease) = self.leases.get(&id).filter(|l| l.epoch == epoch) {
                         lease.cancellation.cancel();
                         if let Some(step) = self.steps.get(&id) {
@@ -520,7 +664,9 @@ impl Coordinator {
                         }
                     }
                 }
+                "stopResources" => self.cancel_admissions(Some(&id)),
                 "releaseRun" => {
+                    self.cancel_auxiliary(&id, epoch);
                     if self.leases.get(&id).is_some_and(|l| l.epoch == epoch) {
                         self.leases.remove(&id);
                     }
@@ -528,6 +674,9 @@ impl Coordinator {
                 "armTimer" => self.arm_timer(action),
                 "cancelTimer" => self.cancel_timer(&id),
                 "shutdownSchedulers" => {
+                    for pending in self.pending.values() {
+                        pending.context.cancellation.cancel();
+                    }
                     for lease in self.leases.values() {
                         lease.cancellation.cancel();
                     }
@@ -592,7 +741,7 @@ impl Coordinator {
         }
     }
     fn queue(&mut self, scope: EffectScope, command: Value) {
-        let cancellation = self
+        let mut cancellation = self
             .leases
             .get(&scope.session_id)
             .filter(|l| l.epoch == scope.run_epoch)
@@ -602,6 +751,11 @@ impl Coordinator {
                 c.cancel();
                 c
             });
+        if scope.namespace == EffectNamespace::Admission
+            || scope.namespace == EffectNamespace::Auxiliary && !cancellation.is_cancelled()
+        {
+            cancellation = RequestCancellation::new();
+        }
         let context = EffectContext {
             events: EventSink {
                 shared: self.shared.clone(),
@@ -625,6 +779,11 @@ impl Coordinator {
         if scope.service_id != self.service_id || !self.pending.contains_key(scope) {
             return false;
         }
+        if scope.namespace == EffectNamespace::Admission {
+            return self.admissions.contains_key(scope)
+                && !self.closing
+                && !self.pending[scope].context.cancellation.is_cancelled();
+        }
         let Some(lease) = self
             .leases
             .get(&scope.session_id)
@@ -645,6 +804,7 @@ impl Coordinator {
             return true;
         }
         !self.closing
+            && !self.pending[scope].context.cancellation.is_cancelled()
             && !lease.cancellation.is_cancelled()
             && self.runtime.state(&scope.session_id)["epoch"].as_u64() == Some(scope.run_epoch)
     }
@@ -660,6 +820,16 @@ impl Coordinator {
                 scope,
                 Err(EffectError::cancelled(command["kind"] == "executeTool")),
             );
+            return;
+        }
+        if scope.namespace != EffectNamespace::Admission
+            && self.pending.keys().any(|old| {
+                old.namespace == EffectNamespace::Auxiliary
+                    && old.session_id == scope.session_id
+                    && old.run_epoch != scope.run_epoch
+            })
+        {
+            self.parked.push(scope);
             return;
         }
         if scope.namespace == EffectNamespace::Runtime && command["kind"] == "step" {
@@ -710,6 +880,25 @@ impl Coordinator {
         };
         match task {
             Ok(EffectTask::Ready(result)) => self.complete(scope, Ok(result)),
+            Ok(EffectTask::ReadyWithAuxiliary(result, commands)) => {
+                if scope.namespace != EffectNamespace::Runtime || commands.len() > 16 {
+                    self.complete(
+                        scope,
+                        Err(EffectError::new("Invalid auxiliary effect batch")),
+                    );
+                    return;
+                }
+                for (index, command) in commands.into_iter().enumerate() {
+                    let child = EffectScope {
+                        namespace: EffectNamespace::Auxiliary,
+                        generation: None,
+                        operation_id: format!("{}:aux:{index}", scope.operation_id),
+                        ..scope.clone()
+                    };
+                    self.queue(child, command);
+                }
+                self.complete(scope, Ok(result));
+            }
             Err(error) => self.complete(scope, Err(error)),
             Ok(EffectTask::Async(future)) => {
                 // The guard is constructed before spawn, so a runtime which
@@ -729,12 +918,110 @@ impl Coordinator {
             }
         }
     }
+    fn cancel_auxiliary(&self, id: &str, epoch: u64) {
+        for (scope, pending) in &self.pending {
+            if scope.namespace == EffectNamespace::Auxiliary
+                && scope.session_id == id
+                && scope.run_epoch == epoch
+            {
+                pending.context.cancellation.cancel();
+            }
+        }
+    }
+    fn has_auxiliary(&self, scope: &EffectScope) -> bool {
+        self.pending.keys().any(|s| {
+            s.namespace == EffectNamespace::Auxiliary
+                && s.session_id == scope.session_id
+                && s.run_epoch == scope.run_epoch
+        })
+    }
     fn complete(&mut self, scope: EffectScope, result: EffectAnswer) {
         let Some(pending) = self.pending.get(&scope) else {
             return;
         };
         let command = pending.command.clone();
         let context = pending.context.clone();
+        if scope.namespace == EffectNamespace::Admission {
+            let admission = self
+                .admissions
+                .remove(&scope)
+                .expect("owned admission reply");
+            let result = if self.closing || context.cancellation.is_cancelled() {
+                Err(ApiError::new(
+                    if self.closing { 503 } else { 409 },
+                    "Input preparation was cancelled before acceptance",
+                ))
+            } else {
+                result
+                    .map_err(|error| {
+                        ApiError::new(
+                            error.error["status"].as_u64().unwrap_or(500) as u16,
+                            error.error["message"]
+                                .as_str()
+                                .unwrap_or("Input preparation failed"),
+                        )
+                    })
+                    .and_then(|result| {
+                        guarded_api(|| {
+                            self.host
+                                .complete_request(&context, &admission.request, result)
+                        })
+                    })
+                    .map(|accepted| {
+                        self.events.extend(accepted.events);
+                        accepted.value
+                    })
+            };
+            self.pending.remove(&scope);
+            if let Some(key) = admission.key {
+                self.admission_keys.remove(&key);
+            }
+            self.shared
+                .requests
+                .fetch_sub(admission.replies.len(), Ordering::AcqRel);
+            for reply in admission.replies {
+                reply.send(result.clone());
+            }
+            return;
+        }
+        if scope.namespace == EffectNamespace::Auxiliary {
+            if self.current(&scope, false) {
+                if let Err(error) =
+                    guarded_api(|| self.host.complete_auxiliary(&context, &command, result))
+                {
+                    self.fail(error);
+                }
+            }
+            self.pending.remove(&scope);
+            self.commands.extend(std::mem::take(&mut self.parked));
+            let ready = self
+                .deferred
+                .keys()
+                .filter(|s| !self.has_auxiliary(s))
+                .cloned()
+                .collect::<Vec<_>>();
+            for parent in ready {
+                if let Some(result) = self.deferred.remove(&parent) {
+                    self.complete(parent, result);
+                }
+            }
+            return;
+        }
+        if scope.namespace == EffectNamespace::Runtime
+            && self.has_auxiliary(&scope)
+            && (context.cancellation.is_cancelled()
+                || self.closing
+                || result.is_err()
+                || command["kind"] == "step"
+                    && result
+                        .as_ref()
+                        .ok()
+                        .is_some_and(|r| r.value["wait"].as_f64().unwrap_or(0.0) != 0.0))
+        {
+            self.cancel_auxiliary(&scope.session_id, scope.run_epoch);
+            self.deferred.insert(scope, result);
+            return;
+        }
         let elapsed = if !pending.dispatched {
             0.0
         } else if scope.namespace == EffectNamespace::Execution && command["kind"] == "invoke" {
@@ -796,6 +1083,9 @@ impl Coordinator {
             EffectNamespace::Runtime => {
                 event["runEpoch"] = json!(scope.run_epoch);
                 self.events.push_back(event);
+            }
+            EffectNamespace::Auxiliary | EffectNamespace::Admission => {
+                unreachable!("handled above")
             }
             EffectNamespace::Execution => {
                 event["generation"] = json!(scope.generation);
@@ -874,6 +1164,7 @@ impl Coordinator {
             return;
         }
         self.closing = true;
+        self.cancel_admissions(None);
         self.shared.closing.store(true, Ordering::Release);
         if let Err(error) = self.dispatch(json!({"type":"close"})) {
             self.fail(error);

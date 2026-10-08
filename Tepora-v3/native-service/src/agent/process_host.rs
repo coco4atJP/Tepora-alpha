@@ -461,6 +461,9 @@ mod tests {
                 .start_effect(call)?
                 .expect("process effect was not recognized")
             {
+                EffectTask::ReadyWithAuxiliary(_, _) => {
+                    panic!("Unexpected auxiliary task in isolated effect test")
+                }
                 EffectTask::Ready(result) => Ok(result),
                 EffectTask::Async(future) => future.await,
             }

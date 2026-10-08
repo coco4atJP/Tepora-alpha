@@ -426,11 +426,15 @@ impl Workspace {
             crate::provider::ProviderRuntime::new(Arc::new(self.access()), network.clone());
         let capabilities =
             crate::capabilities::Capabilities::new(Arc::new(self.access()), network.clone());
+        let decisions = Arc::new(crate::agent::decisions::Decisions::with_backend(Arc::new(
+            crate::capabilities::CapabilityDecisionBackend::new(capabilities.clone()),
+        )));
         let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(self.access()),capabilities.clone()));
         let host = Arc::new(crate::agent::host::NativeAgentHost::new_with_semantic(
             self.access(),
             provider.clone(),
             network.clone(),
+            decisions,
             semantic.clone(),
         )?);
         host.preflight()?;

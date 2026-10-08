@@ -2,6 +2,9 @@
 //! Only the socket transport is scripted; no external model or Node is used.
 #[cfg(unix)]
 mod process_tests;
+mod attachment_tests;
+mod decision_tests;
+mod deletion_tests;
 mod semantic_tests;
 mod web_tests;
 use super::*;
@@ -118,6 +121,7 @@ impl Transport for ScriptedTransport {
             }
             assert!(
                 admitted.url.path().ends_with("/chat/completions")
+                    || admitted.url.path().ends_with("/systemone")
                     || admitted.url.path().ends_with("/embeddings"),
                 "No limits discovery is permitted in this fixture: {}",
                 admitted.url
@@ -216,17 +220,48 @@ impl Fixture {
         let dir = std::env::temp_dir().join(format!("tepora-real-agent-{}", uuid::Uuid::new_v4()));
         Self::open(dir, ScriptedTransport::new(model))
     }
+    fn new_decisions(
+        model: impl Fn(&str, usize, &Value) -> Response + Send + Sync + 'static,
+    ) -> Self {
+        let dir =
+            std::env::temp_dir().join(format!("tepora-decision-agent-{}", uuid::Uuid::new_v4()));
+        Self::open_configured(dir, ScriptedTransport::new(model), true)
+    }
     fn open(dir: PathBuf, transport: Arc<ScriptedTransport>) -> Self {
-        Self::open_services(dir, transport, false)
+        Self::open_with_blocking(dir, transport, 4)
+    }
+    fn open_with_blocking(
+        dir: PathBuf,
+        transport: Arc<ScriptedTransport>,
+        blocking_threads: usize,
+    ) -> Self {
+        Self::open_configured_with_blocking(dir, transport, false, blocking_threads)
+    }
+    fn open_configured(dir: PathBuf, transport: Arc<ScriptedTransport>, decision: bool) -> Self {
+        Self::open_configured_with_blocking(dir, transport, decision, 4)
     }
     fn new_semantic(
         model: impl Fn(&str, usize, &Value) -> Response + Send + Sync + 'static,
     ) -> Self {
         let dir =
             std::env::temp_dir().join(format!("tepora-semantic-agent-{}", uuid::Uuid::new_v4()));
-        Self::open_services(dir, ScriptedTransport::new(model), true)
+        Self::open_services(dir, ScriptedTransport::new(model), false, true, 4)
     }
-    fn open_services(dir: PathBuf, transport: Arc<ScriptedTransport>, embedding: bool) -> Self {
+    fn open_configured_with_blocking(
+        dir: PathBuf,
+        transport: Arc<ScriptedTransport>,
+        decision: bool,
+        blocking_threads: usize,
+    ) -> Self {
+        Self::open_services(dir, transport, decision, false, blocking_threads)
+    }
+    fn open_services(
+        dir: PathBuf,
+        transport: Arc<ScriptedTransport>,
+        decision: bool,
+        embedding: bool,
+        blocking_threads: usize,
+    ) -> Self {
         let workspace = Workspace::open(&dir).unwrap();
         let state = workspace.access();
         let network = NativeNetwork::with_components(
@@ -243,28 +278,54 @@ impl Fixture {
         if !provider.configured().unwrap() {
             provider.save(&json!({"profiles":[{"id":"main-fixture","protocol":"chat-completions","baseUrl":"http://127.0.0.1:17777/v1","model":"main","domain":"device","contextTokens":65536,"maxTokens":2048,"maxParallel":4},{"id":"work-fixture","protocol":"chat-completions","baseUrl":"http://127.0.0.1:17777/v1","model":"worker","domain":"device","contextTokens":65536,"maxTokens":2048,"maxParallel":4}],"routes":{"main":{"primary":"main-fixture"},"work":{"primary":"work-fixture"}}}),0).unwrap();
         }
-        let capabilities = embedding.then(|| {
+        let capabilities = (decision || embedding).then(|| {
             crate::capabilities::Capabilities::new(Arc::new(state.clone()), network.clone())
         });
-        let semantic = capabilities.as_ref().map(|cap| {
+        let semantic = capabilities.as_ref().filter(|_| embedding).map(|cap| {
             Arc::new(crate::semantic::SemanticMemory::new(
                 Arc::new(state.clone()),
                 cap.clone(),
             ))
         });
-        let host = Arc::new(if let Some(semantic) = &semantic {
-            NativeAgentHost::new_with_semantic(state, provider, network, semantic.clone()).unwrap()
+        let host = Arc::new(if let Some(cap) = &capabilities {
+            let decisions = Arc::new(super::super::decisions::Decisions::with_backend(Arc::new(
+                crate::capabilities::CapabilityDecisionBackend::new(cap.clone()),
+            )));
+            if let Some(semantic) = &semantic {
+                NativeAgentHost::new_with_semantic(
+                    state,
+                    provider,
+                    network,
+                    decisions,
+                    semantic.clone(),
+                )
+                .unwrap()
+            } else {
+                NativeAgentHost::new_with_decisions(state, provider, network, decisions).unwrap()
+            }
         } else {
             NativeAgentHost::new(state, provider, network).unwrap()
         });
+        host.preflight().unwrap();
         if let Some(cap) = &capabilities {
-            cap.save(&json!({"profiles":[{"id":"embedding-fixture","protocol":"openai-embeddings","baseUrl":"http://127.0.0.1:17777/v1","model":"embedding","domain":"device","resource":"embedding-fixture"}],"routes":{"embedding":"embedding-fixture"}}),0).unwrap();
+            let (id, protocol, model, role) = if embedding {
+                (
+                    "embedding-fixture",
+                    "openai-embeddings",
+                    "embedding",
+                    "embedding",
+                )
+            } else {
+                ("decision-fixture", "system-one", "decision", "decision")
+            };
+            let mut routes=serde_json::Map::new();routes.insert(role.into(),json!(id));
+            cap.save(&json!({"profiles":[{"id":id,"protocol":protocol,"baseUrl":"http://127.0.0.1:17777/v1","model":model,"domain":"device","resource":id}],"routes":routes}),0).unwrap();
         }
         host.preflight().unwrap();
         host.recover().unwrap();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
-            .max_blocking_threads(4)
+            .max_blocking_threads(blocking_threads)
             .enable_all()
             .build()
             .unwrap();
@@ -952,7 +1013,10 @@ fn unsupported_saved_authority_is_not_silently_ignored_or_resumed() {
     let preserved = f.host.prompt(session.clone(), false).unwrap();
     assert_eq!(preserved["system"], session["system"]);
     assert_eq!(preserved["tools"], json!(["exec", "read"]));
-    let session = f.state("session.update", json!({"id":main["id"],"patch":{"tools":["computer","read"]}}));
+    let session = f.state(
+        "session.update",
+        json!({"id":main["id"],"patch":{"tools":["computer","read"]}}),
+    );
     assert!(f.host.prompt(session.clone(), false).is_err());
     assert_eq!(
         f.state("session.get", json!({"id":main["id"]}))["system"],

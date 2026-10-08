@@ -1020,6 +1020,11 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("POST", "/api/stop") => return Some(Ready(Operation::StopAll, 200)),
         _ => {}
     }
+    if method == Method::DELETE {
+        if let Some(id) = path.strip_prefix("/api/agent/sessions/").filter(|id| session_id(id)) {
+            return Some(Ready(Operation::SessionDelete { id: id.into() }, 200));
+        }
+    }
     if method != Method::POST {
         return None;
     }
@@ -1853,7 +1858,7 @@ mod tests {
             .0,
             400
         );
-        assert_eq!(call(&state,"PUT","/api/capabilities",json!({"expectedRevision":0,"config":{"profiles":[],"routes":{"decision":"pending"}}})).await.0,503);
+        assert_eq!(call(&state,"PUT","/api/capabilities",json!({"expectedRevision":0,"config":{"profiles":[],"routes":{"decision":"pending"}}})).await.0,400);
         assert_eq!(
             call(&state, "GET", "/api/capabilities", json!({})).await.1["revision"],
             0

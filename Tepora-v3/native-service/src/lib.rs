@@ -74,6 +74,7 @@ pub enum Operation {
     SessionAccept {
         id: String,
     },
+    SessionDelete { id: String },
     SessionFiles {
         id: String,
     },

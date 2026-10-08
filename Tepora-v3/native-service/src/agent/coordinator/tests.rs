@@ -4,6 +4,13 @@ use std::sync::atomic::AtomicUsize;
 type Deferred = (EffectContext, oneshot::Sender<EffectAnswer>);
 #[derive(Default)]
 struct Data {
+    admission_checks: usize,
+    admission_plans: usize,
+    admission_commits: usize,
+    admission_seen: HashMap<String, Value>,
+    setup_commits: usize,
+    auxiliary: bool,
+    auxiliary_commits: usize,
     sessions: Vec<Value>,
     tail: HashMap<String, Vec<Value>>,
     effects: Vec<(String, String, u64)>,
@@ -18,7 +25,6 @@ struct Data {
     panic_at: Option<String>,
     async_panic_at: Option<String>,
     close_count: usize,
-    setup_commits: usize,
 }
 struct FakeHost {
     data: Mutex<Data>,
@@ -85,6 +91,50 @@ impl AgentHost for FakeHost {
     fn activate_setup(&self, _: &crate::setup::SelectionCommit) -> Result<(), ApiError> {
         self.data.lock().unwrap().setup_commits += 1;
         Ok(())
+    }
+    fn request_key(&self, request: &AgentRequest) -> Result<Option<String>, ApiError> {
+        let AgentRequest::Input { body } = request else {
+            return Ok(None);
+        };
+        self.data.lock().unwrap().admission_checks += 1;
+        self.changed.notify_all();
+        Ok(body["requestId"].as_str().map(str::to_owned))
+    }
+    fn plan_request(&self, request: &AgentRequest) -> Result<RequestPlan, ApiError> {
+        let AgentRequest::Input { body } = request else {
+            return self.request(request).map(RequestPlan::Ready);
+        };
+        let mut d = self.data.lock().unwrap();
+        if let Some(value) = body["requestId"]
+            .as_str()
+            .and_then(|key| d.admission_seen.get(key))
+        {
+            return Ok(RequestPlan::Ready(Admission::new(value.clone())));
+        }
+        d.admission_plans += 1;
+        self.changed.notify_all();
+        Ok(RequestPlan::Prepare {
+            session_id: "main".into(),
+            command: json!({"kind":"prepareInput"}),
+        })
+    }
+    fn complete_request(
+        &self,
+        _: &EffectContext,
+        request: &AgentRequest,
+        _: EffectResult,
+    ) -> Result<Admission, ApiError> {
+        let AgentRequest::Input { body } = request else {
+            unreachable!()
+        };
+        let value = json!({"accepted":true,"requestId":body["requestId"],"text":body["text"]});
+        let mut d = self.data.lock().unwrap();
+        d.admission_commits += 1;
+        if let Some(key) = body["requestId"].as_str() {
+            d.admission_seen.insert(key.into(), value.clone());
+        }
+        self.changed.notify_all();
+        Ok(Admission::new(value))
     }
     fn facts(&self) -> Result<Value, ApiError> {
         let d = self.data.lock().unwrap();
@@ -176,7 +226,15 @@ impl AgentHost for FakeHost {
                 ],
             }));
         }
+        if kind == "deliver" && d.auxiliary {
+            d.auxiliary = false;
+            return Ok(EffectTask::ReadyWithAuxiliary(
+                EffectResult::new(json!({"delivered":1})),
+                vec![json!({"kind":"decisionRoute","routeVersion":1})],
+            ));
+        }
         let value = match kind.as_str() {
+            "prepareInput" => json!({"files":[],"images":[]}),
             "deliver" => json!({"delivered":0}),
             "prompt" => command["session"].clone(),
             "budget" => {
@@ -230,6 +288,15 @@ impl AgentHost for FakeHost {
             _ => return Err(EffectError::new(format!("Unexpected fake effect {kind}"))),
         };
         Ok(EffectTask::ready(value))
+    }
+    fn complete_auxiliary(
+        &self,
+        _: &EffectContext,
+        _: &Value,
+        _: EffectAnswer,
+    ) -> Result<(), ApiError> {
+        self.data.lock().unwrap().auxiliary_commits += 1;
+        Ok(())
     }
     fn complete_effect(
         &self,
@@ -560,6 +627,258 @@ fn cancellation_before_execute_dispatch_is_explicitly_not_executed() {
     assert!(!d.effects.iter().any(|(_, kind, _)| kind == "executeTool"));
     drop(d);
     h.begin_close().wait().unwrap();
+}
+
+#[test]
+fn auxiliary_route_is_parallel_tool_safe_and_stop_drains_actual_future() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    {
+        let mut d = host.data.lock().unwrap();
+        d.auxiliary = true;
+        d.answers.push_back(json!({"content":"","tool_calls":[{"id":"read1","name":"read","arguments":"{}"}],"usage":{}}));
+    }
+    host.hold("decisionRoute");
+    host.hold("executeTool");
+    let (_rt, h) = start(host.clone());
+    h.request(AgentRequest::Initialize).unwrap();
+    let (aux, aux_tx) = host.pop("decisionRoute");
+    let (tool, tool_tx) = host.pop("executeTool");
+    assert_ne!(aux.scope.namespace, tool.scope.namespace);
+    assert_eq!(aux.scope.run_epoch, tool.scope.run_epoch);
+    h.request(AgentRequest::Stop {
+        id: "main".into(),
+        reason: "fixture".into(),
+        rearm_main: false,
+    })
+    .unwrap();
+    assert!(aux.cancellation.is_cancelled());
+    tool_tx
+        .send(Ok(EffectResult::new(json!({"result":"actual receipt"}))))
+        .unwrap();
+    host.wait(|d| !d.receipts.is_empty());
+    assert_eq!(h.state("main").unwrap()["runtime"]["active"], true);
+    aux.events.publish(json!({"late":true})).unwrap();
+    aux_tx
+        .send(Ok(EffectResult::new(json!({"raw":0.99}))))
+        .unwrap();
+    wait_idle(&h, "main");
+    assert!(host.data.lock().unwrap().callbacks.is_empty());
+    assert_eq!(host.data.lock().unwrap().auxiliary_commits, 0);
+    h.begin_close().wait().unwrap();
+}
+#[test]
+fn close_waits_for_auxiliary_without_accepting_its_late_commit() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    host.data.lock().unwrap().auxiliary = true;
+    host.hold("decisionRoute");
+    host.hold("invoke");
+    let (_rt, h) = start(host.clone());
+    h.request(AgentRequest::Initialize).unwrap();
+    let (aux, aux_tx) = host.pop("decisionRoute");
+    let (_, chat_tx) = host.pop("invoke");
+    let close = h.begin_close();
+    host.wait(|d| d.actions.iter().any(|a| a["kind"] == "abortRun"));
+    chat_tx.send(Err(EffectError::cancelled(false))).unwrap();
+    assert!(!close.is_complete());
+    assert!(aux.cancellation.is_cancelled());
+    aux_tx.send(Ok(EffectResult::new(Value::Null))).unwrap();
+    close.wait().unwrap();
+    assert_eq!(host.data.lock().unwrap().auxiliary_commits, 0);
+}
+
+fn pending_input(handle: &AgentHandle, key: &str, text: &str) -> thread::JoinHandle<Answer> {
+    let handle = handle.clone();
+    let body = json!({"requestId":key,"text":text});
+    thread::spawn(move || handle.request(AgentRequest::Input { body }))
+}
+#[test]
+fn concurrent_input_ids_share_one_preparation_and_cache_only_committed_success() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    host.hold("prepareInput");
+    let (_rt, h) = start(host.clone());
+    let first = pending_input(&h, "same-request", "first");
+    let (ctx, tx) = host.pop("prepareInput");
+    assert_eq!(ctx.scope.namespace, EffectNamespace::Admission);
+    let second = pending_input(&h, "same-request", "second");
+    host.wait(|d| d.admission_checks == 2);
+    assert_eq!(host.data.lock().unwrap().admission_plans, 1);
+    assert_eq!(h.state("main").unwrap()["pending"], 1);
+    assert_eq!(h.shared.requests.load(Ordering::SeqCst), 2);
+    tx.send(Ok(EffectResult::new(Value::Null))).unwrap();
+    let accepted = first.join().unwrap().unwrap();
+    assert_eq!(accepted, second.join().unwrap().unwrap());
+    assert_eq!(accepted["text"], "first");
+    assert_eq!(
+        h.request(AgentRequest::Input {
+            body: json!({"requestId":"same-request","text":"later"})
+        })
+        .unwrap(),
+        accepted
+    );
+    assert_eq!(host.data.lock().unwrap().admission_commits, 1);
+    assert_eq!(host.data.lock().unwrap().admission_plans, 1);
+    assert_eq!(h.shared.requests.load(Ordering::SeqCst), 0);
+    h.begin_close().wait().unwrap();
+}
+#[test]
+fn failed_and_panicking_preparations_release_reservations_for_retry() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    host.hold("prepareInput");
+    let (_rt, h) = start(host.clone());
+    let first = pending_input(&h, "retry-request", "first");
+    let (_, tx) = host.pop("prepareInput");
+    let second = pending_input(&h, "retry-request", "second");
+    host.wait(|d| d.admission_checks == 2);
+    tx.send(Err(
+        ApiError::new(413, "controlled preparation failure").into()
+    ))
+    .unwrap();
+    for reply in [first, second] {
+        assert_eq!(reply.join().unwrap().unwrap_err().status, 413);
+    }
+    assert_eq!(host.data.lock().unwrap().admission_commits, 0);
+    let retry = pending_input(&h, "retry-request", "retry");
+    host.resolve("prepareInput", Value::Null);
+    assert_eq!(retry.join().unwrap().unwrap()["text"], "retry");
+    host.data.lock().unwrap().async_panic_at = Some("prepareInput".into());
+    assert_eq!(
+        h.request(AgentRequest::Input {
+            body: json!({"requestId":"panic-request","text":"panic"})
+        })
+        .unwrap_err()
+        .status,
+        500
+    );
+    host.data.lock().unwrap().async_panic_at = None;
+    let retry = pending_input(&h, "panic-request", "after panic");
+    host.resolve("prepareInput", Value::Null);
+    assert!(retry.join().unwrap().is_ok());
+    assert_eq!(h.shared.requests.load(Ordering::SeqCst), 0);
+    assert_eq!(h.state("main").unwrap()["pending"], 0);
+    h.begin_close().wait().unwrap();
+}
+#[test]
+fn admission_callbacks_cannot_mutate_state_and_stop_close_wait_for_actual_preparation() {
+    for closing in [false, true] {
+        let host = FakeHost::new(vec![session("main", "main")]);
+        host.hold("prepareInput");
+        let (rt, h) = start(host.clone());
+        let reply = pending_input(&h, "cancel-request", "input");
+        let (ctx, tx) = host.pop("prepareInput");
+        assert_eq!(
+            rt.block_on(ctx.events.call(json!({"untrustedMutation":true})))
+                .unwrap_err()
+                .status,
+            409
+        );
+        ctx.events.publish(json!({"untrustedStream":true})).unwrap();
+        let close = if closing {
+            Some(h.begin_close())
+        } else {
+            h.request(AgentRequest::Stop {
+                id: "main".into(),
+                reason: "cancel input".into(),
+                rearm_main: false,
+            })
+            .unwrap();
+            None
+        };
+        h.state("main").unwrap();
+        assert!(ctx.cancellation.is_cancelled());
+        assert!(!reply.is_finished());
+        if let Some(close) = &close {
+            assert!(!close.is_complete());
+        }
+        tx.send(Ok(EffectResult::new(Value::Null))).unwrap();
+        assert_eq!(
+            reply.join().unwrap().unwrap_err().status,
+            if closing { 503 } else { 409 }
+        );
+        assert_eq!(host.data.lock().unwrap().admission_commits, 0);
+        assert!(host.data.lock().unwrap().callbacks.is_empty());
+        close.unwrap_or_else(|| h.begin_close()).wait().unwrap();
+    }
+}
+#[test]
+fn admission_cap_bounds_preparation_and_close_drains_all_waiters() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    host.hold("prepareInput");
+    let (_rt, h) = start(host.clone());
+    let mut replies = Vec::new();
+    let mut effects = Vec::new();
+    for n in 0..MAX_PREPARATIONS {
+        replies.push(pending_input(&h, &format!("request-{n}"), "input"));
+        effects.push(host.pop("prepareInput"));
+    }
+    assert_eq!(
+        h.request(AgentRequest::Input {
+            body: json!({"requestId":"overflow-request","text":"input"})
+        })
+        .unwrap_err()
+        .status,
+        429
+    );
+    assert_eq!(h.state("main").unwrap()["pending"], MAX_PREPARATIONS);
+    let close = h.begin_close();
+    h.state("main").unwrap();
+    assert!(!close.is_complete());
+    for (ctx, tx) in effects {
+        assert!(ctx.cancellation.is_cancelled());
+        tx.send(Ok(EffectResult::new(Value::Null))).unwrap();
+    }
+    for reply in replies {
+        assert_eq!(reply.join().unwrap().unwrap_err().status, 503);
+    }
+    close.wait().unwrap();
+    assert_eq!(h.shared.requests.load(Ordering::SeqCst), 0);
+}
+#[test]
+fn new_epoch_dispatch_is_parked_until_released_old_auxiliary_actually_drains() {
+    let host = FakeHost::new(vec![session("main", "main")]);
+    host.data.lock().unwrap().auxiliary = true;
+    host.hold("decisionRoute");
+    host.hold("invoke");
+    let (_rt, h) = start(host.clone());
+    h.request(AgentRequest::Initialize).unwrap();
+    let (aux, aux_tx) = host.pop("decisionRoute");
+    host.resolve(
+        "invoke",
+        json!({"content":"done","tool_calls":[],"usage":{}}),
+    );
+    host.wait(|d| d.actions.iter().any(|a| a["kind"] == "releaseRun"));
+    assert!(aux.cancellation.is_cancelled());
+    host.data
+        .lock()
+        .unwrap()
+        .tail
+        .get_mut("main")
+        .unwrap()
+        .push(json!({"type":"input","text":"new input"}));
+    h.request(AgentRequest::Send {
+        id: "main".into(),
+        body: json!({"text":"new input"}),
+    })
+    .unwrap();
+    host.wait(|d| {
+        d.actions
+            .iter()
+            .filter(|a| a["kind"] == "createRun")
+            .count()
+            == 2
+    });
+    assert!(host
+        .data
+        .lock()
+        .unwrap()
+        .effects
+        .iter()
+        .all(|(_, _, epoch)| *epoch == aux.scope.run_epoch));
+    aux_tx.send(Ok(EffectResult::new(Value::Null))).unwrap();
+    let (new, tx) = host.pop("invoke");
+    assert_ne!(new.scope.run_epoch, aux.scope.run_epoch);
+    let close = h.begin_close();
+    tx.send(Err(EffectError::cancelled(false))).unwrap();
+    close.wait().unwrap();
 }
 
 #[test]

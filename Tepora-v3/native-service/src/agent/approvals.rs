@@ -420,6 +420,9 @@ mod tests {
     }
     async fn answer(task: EffectTask) -> EffectResult {
         match task {
+            EffectTask::ReadyWithAuxiliary(_, _) => {
+                panic!("Unexpected auxiliary task in isolated effect test")
+            }
             EffectTask::Ready(result) => result,
             EffectTask::Async(future) => future.await.unwrap(),
         }
