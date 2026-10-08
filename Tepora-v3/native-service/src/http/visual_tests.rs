@@ -32,6 +32,21 @@ async fn visual_routes_are_state_operations_in_both_native_modes_with_exact_meth
                 }
             }
         }
+        // Photo metadata and raw uploads now have real domain operations.
+        // Keep method/dispatch coverage rather than treating them as absent.
+        let response = state.clone().handle(request("GET", "/api/frame", "")).await;
+        assert_eq!(response.status(), 200);
+        assert!(matches!(fake.calls.lock().unwrap().last(), Some(Operation::Frame)));
+        let mut upload = request("PUT", "/api/frame/photos", "photo fixture bytes");
+        upload.headers_mut().insert("x-tepora-filename", HeaderValue::from_static("photo%20name.png"));
+        assert_eq!(state.clone().handle(upload).await.status(), 200);
+        match fake.calls.lock().unwrap().last().unwrap() {
+            Operation::FrameAdd { bytes, filename } => {
+                assert_eq!(bytes, b"photo fixture bytes");
+                assert_eq!(filename, "photo name.png");
+            }
+            other => panic!("wrong photo operation {other:?}"),
+        }
         let count = fake.calls.lock().unwrap().len();
         for (method, path, status) in [
             ("PUT", "/api/display", 404),
@@ -40,8 +55,6 @@ async fn visual_routes_are_state_operations_in_both_native_modes_with_exact_meth
             ("GET", "/api/display/undo", 404),
             ("GET", "/api/avatar/assets", 503),
             ("PUT", "/api/avatar/assets", 503),
-            ("GET", "/api/frame", 503),
-            ("PUT", "/api/frame/photos", 503),
         ] {
             assert_eq!(
                 state
