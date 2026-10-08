@@ -128,8 +128,8 @@ export class AgentLoop{
     const next=c.overflow?rt.sessions.get(id):this.prompt(rt.sessions.get(id));return {session:next,toolDefs:c.overflow?c.budget.toolDefs:rt.tools.definitions(next.tools)};
    }
    case 'beforeRequest':{ctx.started=Date.now();const h=rt.tools.hooks.length?await rt.tools.hook('beforeRequest',{session:c.session,messages:c.messages}):{};return {messages:h.messages||c.messages};}
-   case 'invoke':return rt.registry.invoke(c.chain,c.messages,{tools:c.toolDefs,signal,cacheKey:c.cacheKey,slotKey:c.slotKey,priority:c.priority,cacheRetention:rt.cacheRetention(c.session),onDelta:text=>{if(active())rt.stream(id,'text',text);},onReasoning:text=>{if(active())rt.stream(id,'reasoning',text);},onProgress:progress=>{if(active())rt.loadingNote(id,progress);},onRoute:route=>{if(active())rt.sessions.update(id,{route});}});
-   case 'account':rt.account(id,c.answer,c.elapsedMs);return null;
+   case 'invoke':return rt.registry.invoke(c.chain,c.messages,{accountingSessionId:id,tools:c.toolDefs,signal,cacheKey:c.cacheKey,slotKey:c.slotKey,priority:c.priority,cacheRetention:rt.cacheRetention(c.session),onDelta:text=>{if(active())rt.stream(id,'text',text);},onReasoning:text=>{if(active())rt.stream(id,'reasoning',text);},onProgress:progress=>{if(active())rt.loadingNote(id,progress);},onRoute:route=>{if(active())rt.sessions.update(id,{route});}});
+   case 'account':rt.account(id,c.answer,c.elapsedMs,c.reportedUsage);return null;
    case 'commit':{
     let session;
     for(const a of c.actions){

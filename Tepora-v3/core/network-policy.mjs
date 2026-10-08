@@ -140,6 +140,7 @@ export class NetworkPolicy {
    const admitted=await this.authorize(url,{...scope,signal});signal.throwIfAborted();
    if(!this.permitted(admitted.domain,admitted.purpose))throw new NetworkBlocked();
    this.active.set(controller,admitted);
+   scope.onDispatch?.(); // In-memory observation after admission, before transport.
    const result=await this.transport(admitted,{...init,signal,redirect:'error'},{...scope,idleTimeoutMs:Math.max(firstByte,idle)+5000});
    // A redirect may NEVER change credential scope or bypass address validation.
    if(result.status>=300&&result.status<400){

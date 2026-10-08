@@ -3,6 +3,7 @@ import {normalURL,ipDomain,NetworkBlocked} from './network-policy.mjs';
 import {ProtocolClient,PROTOCOLS,ProviderError} from './provider-protocols.mjs';
 import {invariant,text} from './policy.mjs';
 import {probeRuntime} from './probe.mjs';
+import {ModelDispatch,modelPrice} from './model-usage.mjs';
 
 const digest=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const idPattern=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
@@ -196,18 +197,13 @@ export class ProviderRegistry{
   if(key){st.last.delete(key);st.last.set(key,slot);if(st.last.size>500)st.last.delete(st.last.keys().next().value);}
   return {slot,release:()=>st.busy.delete(slot)};
  }
- /** Published prices (USD per million tokens) for a cloud model, from the models.dev catalog. Local models cost nothing. */
- price(route){
-  if(!route||route.domain!=='cloud')return null;
-  const entries=this.store.get('catalog','models.dev')?.entries||[],m=String(route.model||'');
-  const hit=entries.find(e=>e.cost&&e.modelId===m)||entries.find(e=>e.cost&&(e.modelId.endsWith('/'+m)||m.endsWith('/'+e.modelId)));
-  return hit?.cost&&Number.isFinite(hit.cost.input)?hit.cost:null;
- }
+ /** Conservative catalog estimate; absent or conflicting prices remain unknown. */
+ price(route){return modelPrice(this.store,route);}
  compat(p){return this.store.value('provider-compat:'+p.identity)||{drop:[]};}
  addCompat(p,param){const c=this.compat(p);if(!c.drop.includes(param)){c.drop.push(param);this.store.value('provider-compat:'+p.identity,c);}return c;}
  /** One model call with retries, parameter self-healing and failover. Overflow is returned to the caller,
   * which compacts and retries; when every destination is down, RouteUnavailable carries a retry delay. */
- async invoke(role,messages,{tools=[],signal,onDelta,onReasoning,onProgress,onRoute=()=>{},priority=0,maxTokens,toolChoice='auto',cacheKey=null,slotKey=null,cacheRetention='short',requirement=tools.length?'tools':'text'}={}){
+ async invoke(role,messages,{tools=[],signal,onDelta,onReasoning,onProgress,onRoute=()=>{},priority=0,maxTokens,toolChoice='auto',cacheKey=null,slotKey=null,cacheRetention='short',requirement=tools.length?'tools':'text',accountingSessionId=null,accountingPurpose='normal',accountingAttempt=1}={}){
   const chain=Array.isArray(role)?role:this.chain(role);
   if(!chain.length)throw new RouteUnavailable('会話・作業に使うモデルを「AIとの接続」で登録してください。',{kind:'unconfigured',retryAfterMs:60000});
   const purpose=requirement==='vision'?'vision':'model';let last=null,attempted=0,soonest=Infinity;
@@ -217,7 +213,7 @@ export class ProviderRegistry{
    const h=this.health.get(p.id);if(h?.identity===p.identity&&h.until>this.clock()){soonest=Math.min(soonest,h.until-this.clock());continue;}
    let learned=0;
    for(let attempt=0;attempt<3;attempt++){
-    let release,lease;
+    let release,lease,receipt;
     try{
      const limits=await this.limits(p,signal),compat=this.compat(p);
      // A llama.cpp server with several slots serves that many requests at once; one slot stays free for the character.
@@ -230,11 +226,15 @@ export class ProviderRegistry{
      const t=this.timeouts(p);
      // Ollama's native API lives beside /v1 on the same server, so its scope is the server's origin.
      const scope=limits.server==='ollama'&&p.protocol==='chat-completions'?{...p,baseUrl:new URL(p.baseUrl).origin}:p;
-     const client=this.clientFactory({...p,server:limits.server},this.keyFor(p),this.network.fetch({profile:scope,purpose,firstByteTimeoutMs:t.firstByteTimeoutMs,idleTimeoutMs:t.idleTimeoutMs,maxBytes:64_000_000}));
-     const answer=await client.chat(messages,{tools,signal,maxTokens:outputCap,toolChoice,cacheKey,cacheRetention,sampling:p.sampling,compat,slot:lease?.slot??null,numCtx:limits.server==='ollama'?limits.context:null,onDelta,onReasoning,onProgress});
+     receipt=new ModelDispatch(this.store,p,{sessionId:accountingSessionId,purpose:accountingPurpose,attempt:attempted+Math.max(0,accountingAttempt-1),price:this.price(p)});
+     const client=this.clientFactory({...p,server:limits.server},this.keyFor(p),this.network.fetch({profile:scope,purpose,firstByteTimeoutMs:t.firstByteTimeoutMs,idleTimeoutMs:t.idleTimeoutMs,maxBytes:64_000_000,onDispatch:()=>receipt.start()}));
+     const answer=await client.chat(messages,{tools,signal,maxTokens:outputCap,toolChoice,cacheKey,cacheRetention,sampling:p.sampling,compat,slot:lease?.slot??null,numCtx:limits.server==='ollama'?limits.context:null,onDelta,onReasoning,onProgress,onUsageSnapshot:usage=>receipt.observe(usage)});
+     receipt.finish(answer,'completed');
      this.health.set(p.id,{identity:p.identity,failures:0,until:0});
      return {...answer,route:{...event,maxTokens:outputCap}};
     }catch(e){
+     receipt?.finish(null,signal?.aborted?'cancelled':'error');
+     if(e.kind==='accounting')throw e;
      if(signal?.aborted)throw signal.reason??e;
      last=e;
      // Silent past the idle limit (long thinking, slow prompt loading): wait twice as long from now on and retry.
@@ -256,7 +256,7 @@ export class ProviderRegistry{
  async probe(id,signal){
   const p=this.get().profiles.find(p=>p.id===id);invariant(p?.enabled,'Unknown enabled provider',404);
   const limits=await this.limits(p,signal).catch(()=>null);
-  const client={chat:(messages,options)=>this.invoke([p],messages,{...options,signal})};
+  const client={chat:(messages,options)=>this.invoke([p],messages,{...options,signal,accountingPurpose:'probe'})};
   const result=await probeRuntime(client,{provider:p.protocol,baseUrl:p.baseUrl,model:p.model},signal);
   const doc={...result,id:p.identity,profileId:id,ok:result.passed===true,limits,at:new Date().toISOString(),scope:'safe tool roundtrip only, not quality or vision'};
   this.store.put('provider-probe',doc);this.store.emit('providers.updated',this.publicSnapshot());return doc;

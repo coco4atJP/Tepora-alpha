@@ -518,6 +518,10 @@ fn transition(
             mem.bad_requests = 0;
             run.answer = value;
             run.elapsed_ms = number(&facts, "elapsedMs", 0.0);
+            // Preserve reported usage for price estimation before the legacy
+            // context diagnostic replaces it with inferred cache counts.
+            let reported_usage = Value::Object(["input", "output", "cacheRead", "cacheWrite", "uncachedOnly"]
+                .into_iter().filter_map(|key| run.answer["usage"].get(key).map(|value| (key.to_owned(), value.clone()))).collect());
             if run.answer["usage"]["uncachedOnly"] == true {
                 let whole = ((number(&run.built, "tokens", 0.0)
                     + number(&run.budget, "toolsTokens", 0.0))
@@ -532,7 +536,7 @@ fn transition(
                 run,
                 Pending::Account,
                 "account",
-                json!({"session":run.session,"answer":run.answer,"elapsedMs":run.elapsed_ms})
+                json!({"session":run.session,"answer":run.answer,"reportedUsage":reported_usage,"elapsedMs":run.elapsed_ms})
             )
         }
         Pending::Account => {
@@ -755,7 +759,11 @@ fn model_failure(id: &str, mem: &mut Memory, run: &mut Run, error: Value) -> Res
     let kind = string(&error, "kind");
     let message = string(&error, "message");
     let mut actions = vec![json!({"kind":"streamEnd","discard":true})];
-    let next = if kind == "overflow" {
+    let next = if kind == "accounting" {
+        // The transport already ran. A local receipt failure must not schedule
+        // another model request through the outer runtime's provider timer.
+        Next::Finish(json!({"error":error}))
+    } else if kind == "overflow" {
         mem.overflows += 1;
         actions.push(event(
             "overflow",
@@ -1246,6 +1254,17 @@ mod tests {
         }
     }
     #[test]
+    fn accounting_failure_is_terminal_without_provider_wait() {
+        let mut e = ExecutionEngine::new();
+        let (g, c) = invoke(&mut e, "s", limits(), built());
+        let error = json!({"kind":"accounting","message":"Model dispatch accounting could not be persisted"});
+        let r = reject(&mut e, "s", g, &c, error.clone());
+        assert_eq!(command(&r)["actions"], json!([{"kind":"streamEnd","discard":true}]));
+        let r = resolve(&mut e, "s", g, &command(&r), Value::Null);
+        assert_eq!(r["outcome"], json!({"error":error}));
+        assert!(r["outcome"]["wait"].is_null());
+    }
+    #[test]
     fn bad_request_backoff_and_vision_learning_are_separate() {
         let mut e = ExecutionEngine::new();
         for wait in [30000, 60000] {
@@ -1329,6 +1348,7 @@ mod tests {
             command(&r)["answer"]["usage"],
             json!({"input":220.0,"uncachedOnly":true,"cacheRead":200.0,"estimated":true})
         );
+        assert_eq!(command(&r)["reportedUsage"], json!({"input":20,"uncachedOnly":true}));
     }
     #[test]
     fn tools_group_only_consecutive_original_readonly_names() {

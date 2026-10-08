@@ -99,6 +99,7 @@ export class ThinkSplitter{
 async function decodeWire(kind,profile,response,options={}){
  const decoder=new nativeCore.ProtocolDecoderCore(JSON.stringify(profile),kind,randomUUID().slice(0,12));
  const take=(packet,streamed=true)=>emitEvents(nativeProtocol(()=>decoder.push(JSON.stringify(packet),streamed)),options);
+ try{
  if(kind==='ollama'){
   const utf8=new TextDecoder();let buffer='';
   for await(const chunk of response.body){
@@ -114,6 +115,11 @@ async function decodeWire(kind,profile,response,options={}){
   }
  }else take(await response.json(),false);
  const finished=nativeProtocol(()=>decoder.finish());emitEvents(finished.events,options);return finished.result;
+ }catch(error){
+  // Read only on termination, never once per token. Do not copy response content.
+  options.onUsageSnapshot?.(nativeProtocol(()=>decoder.usageSnapshot()));
+  throw error;
+ }
 }
 const decodeChat=(profile,response,options)=>decodeWire('chat-completions',profile,response,options);
 const decodeResponses=(profile,response,options)=>decodeWire('responses',profile,response,options);

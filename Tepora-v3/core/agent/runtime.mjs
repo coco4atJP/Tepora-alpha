@@ -27,6 +27,7 @@ import {sandboxConfig,SANDBOX_DEFAULT} from '../sandbox.mjs';
 import {defaultPersonas,normalizePersonas} from '../persona.mjs';
 import {fitTokens,oneLine} from '../tools/format.mjs';
 import {invariant} from '../policy.mjs';
+import {estimateModelUsage,modelUsageSnapshot} from '../model-usage.mjs';
 
 export const AGENT_DEFAULTS=Object.freeze({workRoot:'',maxDepth:3,maxSteps:0,progressEvery:50,concurrency:8,verifyCompletion:'auto',delegationGuard:true,metacognition:true,dream:true,cacheRetention:{main:'long',worker:'short'},budget:{sessionUsd:0,dailyUsd:0},
  heartbeat:{enabled:false,minutes:30,text:''},sandbox:SANDBOX_DEFAULT,webSearch:{provider:'auto',searxngUrl:'',braveKeyEnv:'BRAVE_API_KEY'},policy:{rules:[]},idleCompactSeconds:20});
@@ -342,18 +343,18 @@ export class AgentRuntime{
   });
  }
  /* ---------- accounting and live output ---------- */
- /** Usage per session and per day. Cost follows the catalog price: uncached input, cache reads (default 10% of input)
-  * and cache writes (default 125%) are priced separately, which is where a good cache shows up. */
- account(id,answer,ms){
+ /** Legacy budgets count successful normal turns only, separately from all dispatches. */
+ account(id,answer,ms,reportedUsage=answer.usage){
   const s=this.sessions.get(id),u=answer.usage||{},st=s.stats||{},price=this.registry.price?.(answer.route);
-  const uncached=Math.max(0,(u.input||0)-(u.cacheRead||0)-(u.cacheWrite||0));
-  const cost=price?(uncached*price.input+(u.cacheRead||0)*(price.cache_read??price.input*0.1)+(u.cacheWrite||0)*(price.cache_write??price.input*1.25)+(u.output||0)*(price.output??price.input))/1e6:0;
+  const estimate=estimateModelUsage({usage:reportedUsage,usageStatus:answer.usageStatus},price),cost=estimate.cost??0,unknown=estimate.cost===null?1:0;
+  const unknownCostCalls=(st.unknownCostCalls||0)+unknown;
   this.sessions.update(id,{stats:{...st,steps:(st.steps||0)+1,input:(st.input||0)+(u.input||0),output:(st.output||0)+(u.output||0),cacheRead:(st.cacheRead||0)+(u.cacheRead||0),cacheWrite:(st.cacheWrite||0)+(u.cacheWrite||0),
-   cost:(st.cost||0)+cost,modelMs:(st.modelMs||0)+ms,lastInput:u.input||0}});
+   cost:(st.cost||0)+cost,unknownCostCalls,costStatus:unknownCostCalls?'incomplete':'estimated',modelMs:(st.modelMs||0)+ms,lastInput:u.input||0}});
   const day='agent-usage:'+new Date(this.clock()).toISOString().slice(0,10),d=this.store.value(day)||{input:0,output:0,cacheRead:0,cost:0,calls:0};
-  this.store.value(day,{input:d.input+(u.input||0),output:d.output+(u.output||0),cacheRead:d.cacheRead+(u.cacheRead||0),cost:d.cost+cost,calls:d.calls+1});
+  const dailyUnknown=(d.unknownCostCalls||0)+unknown;
+  this.store.value(day,{input:d.input+(u.input||0),output:d.output+(u.output||0),cacheRead:d.cacheRead+(u.cacheRead||0),cost:d.cost+cost,calls:d.calls+1,unknownCostCalls:dailyUnknown,costStatus:dailyUnknown?'incomplete':'estimated'});
  }
- usage(days=7){const out={};for(let i=0;i<days;i++){const d=new Date(this.clock()-i*86400000).toISOString().slice(0,10);out[d]=this.store.value('agent-usage:'+d)||null;}return {today:out[new Date(this.clock()).toISOString().slice(0,10)],days:out};}
+ usage(days=7){const out={};for(let i=0;i<days;i++){const d=new Date(this.clock()-i*86400000).toISOString().slice(0,10);out[d]=this.store.value('agent-usage:'+d)||null;}const today=new Date(this.clock()).toISOString().slice(0,10);return {today:out[today],days:out,modelCalls:modelUsageSnapshot(this.store,Object.keys(out),today)};}
  /** A spending limit the user set (none by default). Reaching it pauses the session, which the user can lift. */
  overBudget(session){const f=this.nativeRuntime.facts();return this.nativeRuntime.query('overBudget',{session,settings:f.settings,dailyCost:f.dailyCost});}
  /** Live text for the screen. The character's text is held back while it could still be NO_REPLY,

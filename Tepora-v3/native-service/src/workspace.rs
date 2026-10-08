@@ -653,7 +653,7 @@ impl State {
             model_days.insert(day.clone(), self.value(&format!("model-usage:{day}"))?);
         }
         let model_today = model_days.get(&today_key).cloned().unwrap_or(Value::Null);
-        Ok(json!({"today":today,"days":days,"modelCalls":{"today":model_today,"days":model_days,"total":self.value("model-usage-total")?,"coverage":"native-provider-and-typed-decision-dispatches","excluded":["embedding","speech","image","video","compatibility-host","isolated-setup-probes"],"receiptRetention":crate::model_usage::RECEIPT_LIMIT,"dayRetention":crate::model_usage::DAY_LIMIT}}))
+        Ok(json!({"today":today,"days":days,"modelCalls":{"today":model_today,"days":model_days,"total":self.value("model-usage-total")?,"coverage":"provider-and-typed-decision-dispatches","excluded":["embedding","speech","image","video","isolated-setup-probes"],"receiptRetention":crate::model_usage::RECEIPT_LIMIT,"dayRetention":crate::model_usage::DAY_LIMIT}}))
     }
     fn ui(&mut self, operation: &str) -> Result<Value, ApiError> {
         let main = self.main()?;

@@ -408,12 +408,12 @@ impl NativeAgentHost {
             unicode_version: 17,
         })
     }
-    fn account(&self, id: &str, answer: &Value, ms: f64) -> Result<(), EffectError> {
+    fn account(&self, id: &str, answer: &Value, ms: f64, reported_usage: &Value) -> Result<(), EffectError> {
         let session = self.session(id)?;
         let u = &answer["usage"];
         let mut stats = session["stats"].as_object().cloned().unwrap_or_default();
         let price = self.provider.price(&answer["route"])?;
-        let (estimated, _) = crate::model_usage::estimate(u, &answer["usageStatus"], price.as_ref());
+        let (estimated, _) = crate::model_usage::estimate(reported_usage, &answer["usageStatus"], price.as_ref());
         let cost = estimated.unwrap_or(0.0);
         let unknown = if estimated.is_none() { 1.0 } else { 0.0 };
         stats.insert("unknownCostCalls".into(), json!(stats.get("unknownCostCalls").map_or(0.0, num) + unknown));
@@ -613,7 +613,7 @@ impl NativeAgentHost {
                 })))
             }
             "account" => {
-                self.account(id, &c["answer"], num(&c["elapsedMs"]))?;
+                self.account(id, &c["answer"], num(&c["elapsedMs"]), c.get("reportedUsage").unwrap_or(&c["answer"]["usage"]))?;
                 Ok(EffectTask::ready(Value::Null))
             }
             "commit" => {

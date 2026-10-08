@@ -13,6 +13,7 @@ pub mod harness;
 pub mod execution;
 pub mod js_value;
 pub mod json_codec;
+pub mod model_usage;
 pub mod projection;
 pub mod protocols;
 pub mod runtime;
@@ -300,6 +301,7 @@ impl NativeState {
             return store_domain::dispatch(self, op, p);
         }
         match op {
+            "model.record" => self.record_model_call(field(p, "receipt")?),
             "kv.get" => {
                 let raw: Option<String> = self.db()?.query_row(
                     "SELECT value FROM kv WHERE key=?", [sql_text(string(p, "key")?)], |r| r.get(0),
@@ -734,6 +736,8 @@ pub fn compute_json(operation: &str, payload_json: &str) -> CoreResult<String> {
         tokens::call(operation, payload)?
     } else if operation.starts_with("harness.") {
         harness::call(operation, &payload)?
+    } else if operation.starts_with("model.") {
+        model_usage::call(operation, &payload)?
     } else if operation.starts_with("ui.") {
         projection::call(operation, payload)?
     } else {

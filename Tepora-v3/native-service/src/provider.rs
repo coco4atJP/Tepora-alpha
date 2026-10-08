@@ -770,16 +770,7 @@ impl ProviderRuntime {
             .state
             .get("catalog", "models.dev")?
             .unwrap_or(Value::Null);
-        let entries = array(&catalog["entries"]);
-        let model = s(route, "model");
-        let exact: Vec<_> = entries.iter().filter(|e| !e["cost"].is_null() && s(e, "modelId") == model).collect();
-        let hits: Vec<_> = if exact.is_empty() {
-            entries.iter().filter(|e| !e["cost"].is_null() && !s(e, "modelId").is_empty() && (s(e, "modelId").ends_with(&format!("/{model}")) || model.ends_with(&format!("/{}", s(e, "modelId"))))).collect()
-        } else { exact };
-        // Catalogs may repeat the same model under different resellers. Never
-        // silently select one conflicting price based on catalog row order.
-        let Some(first) = hits.first() else { return Ok(None) };
-        Ok((!model.is_empty() && hits.iter().all(|e| e["cost"] == first["cost"]) && first["cost"]["input"].as_f64().is_some_and(|n| n.is_finite() && n >= 0.)).then(|| first["cost"].clone()))
+        Ok(tepora_core::model_usage::price(route, &catalog["entries"]))
     }
 
     pub fn compat(&self, p: &Value) -> Result<Value, ApiError> {

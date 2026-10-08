@@ -1,3 +1,4 @@
+import {drainModelCalls} from './model-usage.mjs';
 import {ModelCatalog} from './model-catalog.mjs';
 import {NetworkPolicy,NetworkBlocked} from './network-policy.mjs';
 import {ProviderRegistry} from './provider-registry.mjs';
@@ -368,7 +369,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  const launchUrl=`${origin}/launch?token=${secret}`;
  const close=async()=>{if(closing)return;closing=true;for(const probe of probes.values()){probe.abort?.(new Error('Service stopping'));probe.close?.();}
   ui.close();await agent.close();computer.close();toolHub.close();await media.close();capabilities.close();connectors.close();await setup.close();await speech.close();
-  for(const res of streams)res.end();network.close();registry.close();server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
+  for(const res of streams)res.end();network.close();registry.close();await drainModelCalls(store);server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
  return {server,store,network,registry,catalog,agent,ui,connectors,setup,capabilities,media,toolHub,computer,frame,avatar,avatarAssets,origin,launchUrl,csrf,close};
 }
 const isMain=process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;

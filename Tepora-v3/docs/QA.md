@@ -76,3 +76,23 @@ See [write-budget evidence](DISK-WRITES.md) for focused same-value, index-order/
 ## Bounded history paging and context snapshots
 
 The [history-window gate](HISTORY-WINDOWS.md) compares SQL-bounded before-pages and native context snapshots with the previous full-read behavior, including legacy header overrides, checkpoint/clear/tool ordering, JavaScript limit coercion, older-client writes and reopen. A synthetic real-HTTP Node fixture checks public projections and the 500-entry cap without external networking. The sparse compatibility index has a one-time construction cost and an append predicate cost; see the focused measurement recipe and limits. These checks do not establish full quality or platform acceptance.
+
+## Shared model-dispatch accounting (2026-10-08)
+
+The ordinary Node host now uses the same bounded Rust receipt/estimate/aggregate
+store as the opt-in native host. The focused local gate passed **43 Node tests**
+(15 new accounting lifecycle tests plus compaction, usage UI and frozen protocol
+compatibility), **10 shared-core tests**, and **13 native accounting tests**.
+The new Node tests exercise actual network admission and provider decoders with
+socket-free synthetic transport, plus loopback HTTP through the normal server and
+agent. They verify receipt and legacy-session stats survive normal and compaction
+updates, partial/zero/missing usage, unknown prices, cache categories, retry and
+fallback attempts, typed-decision failure/cancellation, rollback without model
+resend or a later provider-retry timer, and shutdown persistence across reopen.
+
+The shared-core gate additionally checks bounded content-free metadata, Unicode,
+UTC completion-day boundaries, retention and deduplication, transactional rollback,
+and raw reported usage before legacy diagnostic normalization. Only existing
+Cargo targets and temporary test databases were used. No external provider calls,
+paid inference, model installation, broad boundary/security suites, full quality,
+or Windows/macOS package acceptance were run. See [coverage and recovery limits](RUST-MODEL-USAGE.md).

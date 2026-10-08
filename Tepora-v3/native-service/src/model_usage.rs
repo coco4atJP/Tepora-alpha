@@ -6,8 +6,7 @@ use std::{
     time::Instant,
 };
 
-pub const RECEIPT_LIMIT: usize = 512;
-pub const DAY_LIMIT: usize = 90;
+pub use tepora_core::model_usage::{estimate, DAY_LIMIT, RECEIPT_LIMIT};
 pub type Commit = Arc<dyn Fn(Value) -> Result<(), ApiError> + Send + Sync>;
 /// Read-only observer of the existing transport boundary. No state writes or
 /// admission authority; marking merely captures one in-memory start instant.
@@ -23,69 +22,6 @@ impl DispatchMarker {
     fn take(&self) -> Option<Instant> {
         self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
     }
-}
-
-fn count(v: &Value) -> Option<f64> {
-    v.as_f64().filter(|n| n.is_finite() && *n >= 0.)
-}
-fn bounded(v: &Value, limit: usize) -> Value {
-    v.as_str()
-        .map(|s| json!(s.chars().take(limit).collect::<String>()))
-        .unwrap_or(Value::Null)
-}
-/// Catalog estimates only. Missing rates are never replaced with assumed prices.
-/// Canonical input includes cache tokens, unless the decoder says uncachedOnly.
-pub fn estimate(
-    usage: &Value,
-    status: &Value,
-    price: Option<&Value>,
-) -> (Option<f64>, &'static str) {
-    if status["status"] != "complete" {
-        return (None, "unknown-usage");
-    }
-    let Some(input) = count(&usage["input"]) else {
-        return (None, "unknown-usage");
-    };
-    let Some(output) = count(&usage["output"]) else {
-        return (None, "unknown-usage");
-    };
-    for key in ["cacheRead", "cacheWrite"] {
-        if usage.get(key).is_some_and(|v| count(v).is_none()) {
-            return (None, "unknown-usage");
-        }
-    }
-    let read = count(&usage["cacheRead"]).unwrap_or(0.);
-    let write = count(&usage["cacheWrite"]).unwrap_or(0.);
-    if usage["uncachedOnly"] != true && read + write > input {
-        return (None, "unknown-usage");
-    }
-    let uncached = if usage["uncachedOnly"] == true {
-        input
-    } else {
-        input - read - write
-    };
-    let Some(price) = price else {
-        return (None, "unknown-price");
-    };
-    let mut total = 0.;
-    for (tokens, field) in [
-        (uncached, "input"),
-        (output, "output"),
-        (read, "cache_read"),
-        (write, "cache_write"),
-    ] {
-        if tokens == 0. {
-            continue;
-        }
-        let Some(rate) = count(&price[field]) else {
-            return (None, "unknown-price");
-        };
-        total += tokens * rate / 1_000_000.;
-    }
-    if !total.is_finite() {
-        return (None, "unknown-price");
-    }
-    (Some(total), "estimated")
 }
 
 /// Created before dispatch, armed only immediately before the network request.
@@ -106,16 +42,12 @@ impl Dispatch {
         price: Option<Value>,
         commit: Commit,
     ) -> Self {
-        let purpose = match purpose {
-            "summary" => "summary",
-            "decision" => "decision",
-            "probe" => "probe",
-            _ => "normal",
-        };
         Self {
-            receipt: Some(
-                json!({"schema":1,"id":uuid::Uuid::new_v4().to_string(),"sessionId":bounded(session,128),"profileId":bounded(&profile["id"],128),"model":bounded(&profile["model"],256),"protocol":bounded(&profile["protocol"],40),"purpose":purpose,"attempt":attempt,"retry":attempt>1}),
-            ),
+            receipt: Some(json!({
+                "id":uuid::Uuid::new_v4().to_string(),
+                "profile":{"id":profile["id"],"model":profile["model"],"protocol":profile["protocol"]},
+                "sessionId":session,"purpose":purpose,"attempt":attempt,
+            })),
             price,
             commit,
             started: DispatchMarker::default(),
@@ -134,35 +66,15 @@ impl Dispatch {
         let Some(mut receipt) = self.receipt.take() else {
             return Ok(());
         };
-        let mut status = answer
-            .map(|a| a["usageStatus"].clone())
-            .filter(|s| s.is_object())
-            .unwrap_or_else(|| json!({"status":"missing","input":"missing","output":"missing"}));
-        if outcome != "completed" && status["status"] == "complete" {
-            status["status"] = json!("partial");
-        }
-        let usage = answer.map(|a| &a["usage"]).unwrap_or(&Value::Null);
-        let (cost, cost_status) = estimate(usage, &status, self.price.as_ref());
-        let mut safe_usage = json!({});
-        for key in ["input", "output", "cacheRead", "cacheWrite"] {
-            safe_usage[key] = count(&usage[key]).map(|n| json!(n)).unwrap_or(Value::Null);
-        }
-        if usage["uncachedOnly"] == true {
-            safe_usage["uncachedOnly"] = json!(true);
-        }
-        receipt["usage"] = safe_usage;
-        receipt["usageStatus"] = status;
-        receipt["cost"] = json!(cost);
-        receipt["costStatus"] = json!(cost_status);
-        receipt["outcome"] = json!(match outcome {
-            "completed" => "completed",
-            "error" => "error",
-            "cancelled" => "cancelled",
-            _ => "unknown",
-        });
+        receipt["answer"] = answer
+            .map(|answer| json!({"usage":answer["usage"],"usageStatus":answer["usageStatus"]}))
+            .unwrap_or(Value::Null);
+        receipt["price"] = self.price.take().unwrap_or(Value::Null);
+        receipt["outcome"] = json!(outcome);
         receipt["elapsedMs"] = json!(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
         receipt["at"] =
             json!(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+        let receipt = tepora_core::model_usage::receipt(&receipt);
         (self.commit)(receipt)
     }
 }
@@ -175,64 +87,11 @@ impl Drop for Dispatch {
     }
 }
 
-/// Known subtotals plus explicit unknown counts. Legacy budget fields are separate.
-pub fn aggregate(previous: &Value, receipt: &Value) -> Value {
-    let mut out = previous
-        .as_object()
-        .cloned()
-        .map(Value::Object)
-        .unwrap_or_else(|| json!({}));
-    let mut add = |key: &str, value: f64| {
-        out[key] = json!(count(&out[key]).unwrap_or(0.) + value);
-    };
-    add("calls", 1.);
-    for key in ["input", "output", "cacheRead", "cacheWrite"] {
-        add(key, count(&receipt["usage"][key]).unwrap_or(0.));
-    }
-    add("cost", count(&receipt["cost"]).unwrap_or(0.));
-    add(
-        "unknownCostCalls",
-        if receipt["cost"].is_null() { 1. } else { 0. },
-    );
-    add(
-        "unknownUsageCalls",
-        if receipt["usageStatus"]["status"] != "complete" || receipt["costStatus"] == "unknown-usage" {
-            1.
-        } else {
-            0.
-        },
-    );
-    add(
-        "failedCalls",
-        if receipt["outcome"] == "completed" {
-            0.
-        } else {
-            1.
-        },
-    );
-    add("retryCalls", if receipt["retry"] == true { 1. } else { 0. });
-    add("modelMs", count(&receipt["elapsedMs"]).unwrap_or(0.));
-    out["costStatus"] = json!(if count(&out["unknownCostCalls"]).unwrap_or(0.) > 0. {
-        "incomplete"
-    } else {
-        "estimated"
-    });
-    out["coverage"] = json!("native-provider-and-typed-decision-dispatches");
-    if out["since"].is_null() {
-        out["since"] = receipt["at"].clone();
-    }
-    let purpose = receipt["purpose"].as_str().unwrap_or("normal");
-    if !out["byPurpose"].is_object() {
-        out["byPurpose"] = json!({});
-    }
-    out["byPurpose"][purpose] = json!(count(&out["byPurpose"][purpose]).unwrap_or(0.) + 1.);
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::Mutex;
+    use tepora_core::model_usage::aggregate;
     fn complete() -> Value {
         json!({"status":"complete","input":"reported","output":"reported"})
     }

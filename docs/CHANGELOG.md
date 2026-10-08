@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Shared model-dispatch accounting (beta.11)
+
+- Extend the ordinary Node provider and typed-decision path to the existing bounded native receipt store, including retries, summaries, failures and cancellation
+- Share Rust estimation, content-free receipt shaping, aggregation and atomic completion storage; keep missing usage/rates explicit and remove invented Node cache/output rates
+- Preserve normal-successful-turn budget scope, the default launcher and event order; no per-token or pre-dispatch accounting writes and no additional model requests
+- Keep embedding, generated media, speech and isolated setup probes outside measured coverage; see [coverage and limits](../Tepora-v3/docs/RUST-MODEL-USAGE.md)
+
 ## Redundant SQLite write reduction (beta.11)
 
 - Use a conditional KV UPSERT to skip unchanged values and avoid primary-key index rewrites on changes; retain original document/FTS persistence

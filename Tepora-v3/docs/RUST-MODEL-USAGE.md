@@ -1,14 +1,16 @@
-# Native model-dispatch accounting — beta.11
+# Shared model-dispatch accounting — beta.11
 
-The opt-in Rust agent records one final receipt per dispatched chat or summary
-attempt, including provider retries/fallbacks and unsuccessful summary attempts.
-Typed decision `/systemone` requests are counted too. This does not change the
-normal Node launcher, provider admission, cancellation authority, or permissions.
+The ordinary Node host and the opt-in Rust agent record one final receipt per
+dispatched chat or summary attempt, including provider retries/fallbacks and
+unsuccessful summary attempts. Typed decision `/systemone` transport requests are
+counted too. Both hosts use the same Rust estimator, receipt format, aggregate
+logic and transactional store on their existing sole SQLite owner. This does not
+change the normal launcher, provider admission, cancellation authority, or permissions.
 
 ## Coverage and interpretation
 
 - `usage.modelCalls` adds `today`, seven recent `days`, `total`, coverage and
-  retention information to the native agent snapshot. Session
+  retention information to either host's agent snapshot. Session
   `stats.modelUsage` contains attributed dispatch totals. These are separate
   aggregates, never values to add to the old normal-turn totals.
 - `purpose` distinguishes `normal`, `summary`, `decision`, and explicit provider
@@ -17,11 +19,13 @@ normal Node launcher, provider admission, cancellation authority, or permissions
 - Decision consumers do not pass reliable session ownership through their typed
   transport. Their receipts have `sessionId: null` and appear in global/day totals,
   not a guessed session. Missing/deleted sessions are likewise not recreated.
-- Embedding, speech, image/video capability transports, setup's isolated probe
-  state, and the Node compatibility host are outside this ledger. They are not
-  represented as zero-cost calls. The coverage fields name these exclusions.
+  The typed transport has no token/rate contract: its usage and cost stay unknown,
+  even on a successful transport. Later typed-answer validation is a separate step.
+- Embedding, speech, image/video capability transports, and setup's isolated probe
+  state are outside this ledger. They are not represented as zero-cost calls. The coverage fields name these exclusions.
 - Existing databases are not backfilled. Each aggregate's `since` marks the first
-  included receipt. The UI labels the native value as today's measured portion.
+  included receipt. The UI labels the shared value as today's measured portion.
+  Earlier Node-host calls also remain outside the measured portion.
   Older calls, crashes before a completion receipt, and abrupt process termination
   are not reconstructed. This is not an invoice or an exact provider billing log.
 
@@ -31,9 +35,10 @@ Canonical numeric usage remains compatible. The additive `usageStatus` reports
 `complete`, `partial`, or `missing`, with separate input/output availability.
 Actual reported zero is distinguishable from synthetic decoder defaults. Known
 counters from failed/terminated streams are retained as partial; unfinished usage
-cannot produce a complete estimate. A dropped in-flight future records an unknown
-outcome. Ordinary cooperative cancellation records cancellation when it reaches
-that boundary; a timeout that drops the future may have unknown outcome.
+cannot produce a complete estimate. A dropped native in-flight future records an
+unknown outcome. Node promise completion records the observed transport outcome;
+abrupt process loss has the same no-pre-dispatch-write limitation. Ordinary
+cooperative cancellation records cancellation when it reaches that boundary; a timeout that drops the future may have unknown outcome.
 
 Receipt `cost` is null when usage or rates are unknown. `costStatus` is
 `estimated`, `unknown-usage`, or `unknown-price`. The numeric aggregate `cost`
@@ -55,16 +60,24 @@ normal-successful-turn budget scope. Summary/decision/retry costs do not silentl
 change admission behavior. Consequently those budgets are not an all-dispatch
 spend ceiling. Their existing numeric cost field is now also accompanied by an
 unknown-cost counter/status, and estimates no longer invent missing rate fields.
-Unknown calls do not receive an arbitrary charge. The old compaction event usage
+Unknown calls do not receive an arbitrary charge. Cost estimates use reported
+provider usage before the legacy context diagnostic infers whole-context/cache
+counts for uncached-only transports. Those inferred diagnostic counters are not
+charged. The old compaction event usage
 field remains its compatibility diagnostic; the new receipts are the complete
-attempt-level source for this native coverage.
+attempt-level source for this measured coverage.
 
 ## Storage, bounds and recovery
 
-A completion transaction uses the existing Workspace mutex and SQLite connection:
+A completion transaction uses the existing SQLite owner (the native Workspace
+mutex or Node's synchronous N-API adapter):
 insert receipt, update daily/lifetime/session aggregates, and prune old metadata.
-It publishes no per-token receipt or progress writes. Duplicate receipt IDs among
-retained records do not update any aggregate. Failed transactions roll back both
+It publishes no per-token receipt or progress writes. Node passes only bounded
+usage/profile metadata across the accounting boundary, never full prompts or answers.
+Its in-memory dispatch marker is armed only after network admission; failed
+stream decoding reads the existing decoder's usage snapshot once at termination.
+Normal service shutdown cancels network work and drains armed receipts before
+closing SQLite. Duplicate receipt IDs among retained records do not update any aggregate. Failed transactions roll back both
 the ID insertion and aggregates, so retrying the same receipt is safe.
 
 The newest 512 receipts are retained, each at most 4 KiB, together with the newest
@@ -80,7 +93,8 @@ The boundary means a transport request was attempted, not proof that the remote
 provider billed it. Pre-dispatch configuration/admission failures produce no
 receipt. A failure after the transport begins remains visible with uncertainty.
 On a normal completion, a persistence failure is surfaced as an accounting error
-without reissuing that call inside the provider retry loop. A dropped-future
+without reissuing that call inside the provider retry loop or scheduling the
+outer agent's provider-retry timer. A dropped-future
 persistence failure emits only a generic local diagnostic; sudden termination
 cannot guarantee a final receipt without an additional pre-dispatch write, which
 this bounded low-write design deliberately avoids.
@@ -96,3 +110,8 @@ request/event/result fields to the frozen baseline and separately tests additive
 usage status and intentional Anthropic counter repairs. Full quality, live paid
 providers, security probes, native WebView and packaged platform acceptance are
 separate gates, not implied by these focused checks.
+
+On 2026-10-08 the shared-host focused gate passed 43 Node tests, 10 shared-core
+tests and 13 native accounting tests. The Node batch includes ordinary HTTP/agent
+execution, error-without-retry and shutdown/reopen persistence; no external model
+or paid provider was used. See [QA](QA.md#shared-model-dispatch-accounting-2026-10-08).

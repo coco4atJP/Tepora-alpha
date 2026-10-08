@@ -1,57 +1,16 @@
 //! One atomic receipt + aggregates commit using the existing SQLite owner.
 use super::*;
-use crate::model_usage::{aggregate, DAY_LIMIT, RECEIPT_LIMIT};
+#[cfg(test)]
+use crate::model_usage::{DAY_LIMIT, RECEIPT_LIMIT};
 
 impl WorkspaceAccess {
     pub(crate) fn record_model_call(&self, receipt: Value) -> Result<(), ApiError> {
-        self.agent_state("model.record", json!({"receipt":receipt}))
-            .map(|_| ())
+        self.lock()?.record_model_call(&receipt).map(|_| ())
     }
 }
 impl State {
     pub(super) fn record_model_call(&mut self, receipt: &Value) -> Result<Value, ApiError> {
-        let id = receipt["id"]
-            .as_str()
-            .ok_or_else(|| ApiError::bad_request("Missing model receipt ID"))?;
-        let at = receipt["at"]
-            .as_str()
-            .ok_or_else(|| ApiError::bad_request("Missing model receipt time"))?;
-        let date = chrono::DateTime::parse_from_rfc3339(at)
-            .map_err(|_| ApiError::bad_request("Invalid model receipt time"))?
-            .with_timezone(&Utc)
-            .format("%Y-%m-%d")
-            .to_string();
-        let encoded = json_codec::stringify_js(receipt).map_err(error)?;
-        require(
-            encoded.len() <= 4096 && id.len() <= 128,
-            400,
-            "Model receipt exceeds metadata bound",
-        )?;
-        self.call("exec", json!({"sql":"CREATE TABLE IF NOT EXISTS native_model_receipts (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, receipt TEXT NOT NULL)"}))?;
-        let inserted = self.call("sql", json!({"mode":"run","sql":"INSERT INTO native_model_receipts(id,receipt) VALUES (?,?) ON CONFLICT(id) DO NOTHING","args":[id,encoded]}))?;
-        if inserted["changes"] == 0 {
-            return Ok(json!({"duplicate":true}));
-        }
-        let key = format!("model-usage:{date}");
-        let daily = aggregate(&self.value(&key)?, receipt);
-        self.set_value(&key, daily)?;
-        let total = aggregate(&self.value("model-usage-total")?, receipt);
-        self.set_value("model-usage-total", total)?;
-        if let Some(session_id) = receipt["sessionId"].as_str().filter(|s| !s.is_empty()) {
-            let mut session = self.get("session", session_id)?;
-            if session.is_object() {
-                if !session["stats"].is_object() {
-                    session["stats"] = json!({});
-                }
-                session["stats"]["modelUsage"] =
-                    aggregate(&session["stats"]["modelUsage"], receipt);
-                self.put("session", session)?;
-            }
-        }
-        self.call("sql", json!({"mode":"run","sql":"DELETE FROM native_model_receipts WHERE seq IN (SELECT seq FROM native_model_receipts ORDER BY seq DESC LIMIT -1 OFFSET ?)","args":[RECEIPT_LIMIT]}))?;
-        // Only this feature's ISO-day namespace is pruned, never legacy usage.
-        self.call("sql", json!({"mode":"run","sql":"DELETE FROM kv WHERE key IN (SELECT key FROM kv WHERE key GLOB 'model-usage:????-??-??' ORDER BY key DESC LIMIT -1 OFFSET ?)","args":[DAY_LIMIT]}))?;
-        Ok(json!({"duplicate":false}))
+        self.call("model.record", json!({"receipt":receipt}))
     }
 }
 

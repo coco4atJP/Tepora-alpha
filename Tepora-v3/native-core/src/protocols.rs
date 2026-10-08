@@ -1719,6 +1719,10 @@ mod binding {
             })())
         }
         #[napi]
+        pub fn usage_snapshot(&self) -> napi::Result<String> {
+            native(json_codec::stringify_js(&self.decoder.usage_snapshot()))
+        }
+        #[napi]
         pub fn finish(&mut self) -> napi::Result<String> {
             native(
                 self.decoder
