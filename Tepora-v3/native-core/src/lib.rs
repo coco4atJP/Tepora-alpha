@@ -160,8 +160,8 @@ impl NativeState {
     fn document(&self, kind: &str, id: &str) -> CoreResult<Value> {
         let raw: Option<String> = self
             .db()?
+            .prepare_cached("SELECT body FROM documents WHERE kind=? AND id=?")?
             .query_row(
-                "SELECT body FROM documents WHERE kind=? AND id=?",
                 params![sql_text(kind), sql_text(id)],
                 |r| r.get(0),
             )

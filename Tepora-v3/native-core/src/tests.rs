@@ -746,3 +746,36 @@ fn standalone_compute_api_retains_wire_contracts_without_node() {
         .to_string()
         .contains("Unknown compute"));
 }
+
+#[test]
+fn cached_document_lookup_preserves_visibility_parameters_and_rollback() {
+    let mut state = NativeState::open(":memory:").unwrap();
+    for (kind, id, value) in [("note", "a", 1), ("note", "b", 2), ("other", "a", 3)] {
+        invoke(&mut state, "document.put", json!({"kind":kind,"doc":{"id":id,"value":value}}));
+    }
+    for _ in 0..3 {
+        for (kind, id, value) in [("note", "a", 1), ("note", "b", 2), ("other", "a", 3)] {
+            assert_eq!(invoke(&mut state, "document.get", json!({"kind":kind,"id":id}))["value"], value);
+        }
+        assert_eq!(invoke(&mut state, "document.get", json!({"kind":"note","id":"missing"})), Value::Null);
+    }
+    invoke(&mut state, "exec", json!({"sql":"BEGIN IMMEDIATE"}));
+    invoke(&mut state, "document.put", json!({"kind":"note","doc":{"id":"a","value":4}}));
+    assert_eq!(invoke(&mut state, "document.get", json!({"kind":"note","id":"a"}))["value"], 4);
+    invoke(&mut state, "exec", json!({"sql":"ROLLBACK"}));
+    assert_eq!(invoke(&mut state, "document.get", json!({"kind":"note","id":"a"}))["value"], 1);
+    invoke(&mut state, "exec", json!({"sql":"DELETE FROM documents WHERE kind='note' AND id='a'"}));
+    assert_eq!(invoke(&mut state, "document.get", json!({"kind":"note","id":"a"})), Value::Null);
+}
+
+#[test]
+fn cached_document_lookup_recovers_after_schema_change_and_closes() {
+    let mut state = NativeState::open(":memory:").unwrap();
+    invoke(&mut state, "document.put", json!({"kind":"note","doc":{"id":"a","value":1}}));
+    assert_eq!(invoke(&mut state, "document.get", json!({"kind":"note","id":"a"}))["value"], 1);
+    invoke(&mut state, "exec", json!({"sql":"ALTER TABLE documents ADD COLUMN future TEXT"}));
+    assert_eq!(invoke(&mut state, "document.get", json!({"kind":"note","id":"a"}))["value"], 1);
+    invoke(&mut state, "close", json!({}));
+    invoke(&mut state, "close", json!({}));
+    assert!(state.call("document.get", json!({"kind":"note","id":"a"})).unwrap_err().to_string().contains("closed"));
+}
