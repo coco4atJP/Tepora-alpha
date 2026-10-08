@@ -113,7 +113,7 @@ export function agentTools(runtime){
    toolset:{type:'string',enum:['worker','lean']},role:{type:'string',enum:['work','escalation'],description:'escalation uses the stronger configured model.'}}},
   summarize:a=>`sessions_spawn ${JSON.stringify(a.title||oneLine(a.task,50))}`,
   async run(a,ctx){
-   const child=await runtime.spawn(ctx.session,{task:a.task,title:a.title,context:a.context,persistent:a.persistent,cwd:a.cwd,toolset:a.toolset,role:a.role});
+   const child=await runtime.spawn(ctx.session,{task:a.task,title:a.title,context:a.context,persistent:a.persistent,cwd:a.cwd,toolset:a.toolset,role:a.role,signal:ctx.signal});
    return {text:`Started ${child.kind} "${child.title}" (${child.id}). Its report will arrive as a message; you do not need to wait.`,data:{sessionId:child.id,title:child.title}};
   }
  },{

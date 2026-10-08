@@ -526,7 +526,7 @@ let avatarStudioUI=null;
 function avatarStudio(){return avatarStudioUI||=createAvatarStudio({bridge,openSheet,notice,previewMode,previewAvatar,saveFile,chooseJSON,themeNow:avatarThemeNow,state:()=>state,isOpen:()=>activeDialog?.kind==='avatar'&&!sharedView});}
 const agentSettings=()=>({sandbox:{mode:'off'},webSearch:{provider:'auto'},heartbeat:{enabled:false,minutes:30},budget:{sessionUsd:0,dailyUsd:0},verifyCompletion:'auto',metacognition:true,dream:true,cacheRetention:{main:'long',worker:'short'},...state.agent?.settings});
 const money=n=>`$${(n||0)<0.01&&n>0?(n||0).toFixed(4):(n||0).toFixed(2)}`;
-function usageSummary(){const u=state.agent?.usage?.today,b=agentSettings().budget;return [u?.calls?`今日 ${money(u.cost)}・${(u.input||0).toLocaleString()}トークン`:'今日はまだ使っていません',b.dailyUsd?`上限 1日${money(b.dailyUsd)}`:'',b.sessionUsd?`1仕事${money(b.sessionUsd)}`:''].filter(Boolean).join(' · ');}
+function usageSummary(){const u=state.agent?.usage?.modelCalls?.today||state.agent?.usage?.today,b=agentSettings().budget;return [u?.calls?`今日${state.agent?.usage?.modelCalls?.today?"の計測分":""} ${u.unknownCostCalls&&!(u.cost>0)?'費用不明 '+u.unknownCostCalls+'件':money(u.cost)+(u.unknownCostCalls?' ＋ 費用不明 '+u.unknownCostCalls+'件':'')}・${(u.input||0).toLocaleString()}トークン${u.unknownUsageCalls?'（使用量不明あり）':''}`:'今日はまだ使っていません',b.dailyUsd?`上限 1日${money(b.dailyUsd)}`:'',b.sessionUsd?`1仕事${money(b.sessionUsd)}`:''].filter(Boolean).join(' · ');}
 /** What the harness has learnt from its own record (core/agent/dream.mjs), in one line. */
 function learningSummary(p){
  if(!p)return '記録を読み込めませんでした。';
@@ -537,7 +537,7 @@ function learningSummary(p){
 }
 async function budgetSheet(){
  const a=agentSettings(),b=a.budget;let policy=null;try{policy=await bridge.request('/api/agent/policy');}catch{}
- openSheet('費用と仕上げ',`<form id="budget-form"><p class="small-text">${escape(usageSummary())}。費用はmodels.devの公開価格から見積もります（このPCとLANのモデルは0）。</p>
+ openSheet('費用と仕上げ',`<form id="budget-form"><p class="small-text">${escape(usageSummary())}。費用はmodels.devの公開価格から見積もります。価格・使用量が確認できない分は費用不明です。上限の判定対象は通常の応答で、要約・判断・再試行の全費用を保証するものではありません。</p>
  <label class="field"><span>1日の上限（ドル、0は上限なし）</span><input type="number" name="dailyUsd" min="0" max="100000" step="0.01" value="${b.dailyUsd||0}"></label>
  <label class="field"><span>1つの仕事の上限（ドル、0は上限なし）</span><input type="number" name="sessionUsd" min="0" max="100000" step="0.01" value="${b.sessionUsd||0}"></label>
  <label class="field"><span>仕上げの確認</span><select name="verifyCompletion">${[['auto','自動（判断モデルか、作業担当の見直し）'],['off','しない']].map(([v,l])=>`<option value="${v}" ${a.verifyCompletion===v?'selected':''}>${l}</option>`).join('')}</select></label>

@@ -1,8 +1,9 @@
 /** What a person brings (a VRM, a picture, a set of pictures, a mesh-avatar-studio project) is judged by its
  * content, kept on this PC under names the person cannot choose, and served back only to the signed-in page. */
 import test from 'node:test';
+import {serviceCleanup} from './helpers/service-cleanup.mjs';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
@@ -131,10 +132,9 @@ test('a mood set needs an idle picture and only names pictures it contains',()=>
 
 /* ---------------- the service ---------------- */
 async function service(t,{dir}={}){
- const owned=!dir;dir||=await mkdtemp(path.join(os.tmpdir(),'tepora-avatar-'));
- const app=await startServer({dir,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})});
- let closed=false;const close=async()=>{if(closed)return;closed=true;await app.close();};
- t.after(async()=>{await close();if(owned)await rm(dir,{recursive:true,force:true});});
+ const cleanup=serviceCleanup(t);dir||=cleanup.directory(await mkdtemp(path.join(os.tmpdir(),'tepora-avatar-')));
+ const app=cleanup.service(await startServer({dir,runtimeFactory:()=>({decide:async()=>null,chat:async()=>({role:'assistant',content:'fixture'})})}));
+ const close=app.close;
  const launch=await fetch(app.launchUrl,{redirect:'manual'}),cookie=launch.headers.get('set-cookie').split(';')[0];
  const bootstrap=await (await fetch(app.origin+'/api/bootstrap',{headers:{Cookie:cookie}})).json();
  const request=(p,method='GET',data,headers={})=>fetch(app.origin+p,{method,headers:{Cookie:cookie,'X-Tepora-CSRF':bootstrap.csrf,...headers},...(data!==undefined?{body:data}:{})});

@@ -1,24 +1,22 @@
 import {createHash} from 'node:crypto';
+import {nativeCore} from '../native-state.mjs';
 import {rawTokens,toolsTokens} from './tokens.mjs';
 import {SMALL_RESULT_TOKENS} from './context.mjs';
-import {COMPACTION} from './compaction.mjs';
 import {NOTICE,systemPrompt} from './prompts.mjs';
 import {toText,fitTokens,defaultStub,checkArgs,parseArgs,argsLabel,oneLine} from '../tools/format.mjs';
-import {RouteUnavailable} from '../provider-registry.mjs';
 import {personaForPrompt} from '../persona.mjs';
 import {selfFacts,selfCheckDue,noteSelfCheck,renderSelfCheck} from './metacog.mjs';
 
 const hash=v=>createHash('sha256').update(typeof v==='string'?v:JSON.stringify(v)).digest('hex').slice(0,16);
 /** A system prompt in its "# Heading" sections (the text before the first heading is one section too). */
 const sections=text=>String(text||'').split(/\n(?=# )/).map(x=>x.trim()).filter(Boolean);
-const hasImages=messages=>messages.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='image_url'));
 const boundedArgs=a=>{if(!a||typeof a!=='object')return a;const o={};for(const [k,v] of Object.entries(a))o[k]=typeof v==='string'&&v.length>600?v.slice(0,600)+'…':v;return o;};
 /** One step: deliver input, keep the context in budget, call the model, run tools, record everything.
  * Returns an outcome for the runtime; only an abort escapes as an exception. */
 export class AgentLoop{
- constructor(runtime){this.rt=runtime;this.memory=new Map();this.signals=new Map();}
+ constructor(runtime){this.rt=runtime;this.memory=new Map();this.signals=new Map();this.engine=new nativeCore.ExecutionCore();}
  state(id){if(!this.memory.has(id))this.memory.set(id,{calls:[],errorStreak:0,warned:new Set(),overflows:0,badRequests:0,empties:0,nudges:0,healthy:0});return this.memory.get(id);}
- forget(id){this.memory.delete(id);}
+ forget(id){this.engine.forget(id);this.memory.delete(id);}
  /** Static per session: computed once and stored, refreshed only at a checkpoint (when the cache resets anyway). */
  prompt(session,{refresh=false}={}){
   const rt=this.rt;
@@ -53,82 +51,128 @@ export class AgentLoop{
   return {chain,profile:p,limits,ratio,B,reserve};
  }
  async step(id,signal){
-  const rt=this.rt,mem=this.state(id);this.signals.set(id,signal);
-  let session=this.prompt(rt.sessions.get(id));
-  let toolDefs=rt.tools.definitions(session.tools);
-  let {chain,profile,ratio,B,limits}=await this.budget(session,toolDefs,signal);
-  if(!chain.length){const e=new RouteUnavailable('会話・作業に使うモデルを「AIとの接続」で登録してください。',{kind:'unconfigured',retryAfterMs:60000});return {wait:e.retryAfterMs,note:e.message};}
-  // A window too small for the full tool set: fall back to the lean set before giving up.
-  if(B<1200&&session.toolset==='worker'){session=this.prompt(rt.sessions.update(id,{toolset:'lean'}),{refresh:true});rt.event(id,'lean-tools',{context:limits.context});toolDefs=rt.tools.definitions(session.tools);({chain,profile,ratio,B,limits}=await this.budget(session,toolDefs,signal));}
-  if(B<1200)return {wait:300000,note:`モデルの文脈の窓（${limits.context}トークン）が小さすぎて作業できません。サーバーの文脈長（llama.cppの-c、Ollamaのnum_ctxなど）を増やしてください。`};
-  // Keep the context inside the budget. Clearing and compaction are the only moments the prefix changes.
-  const vision=rt.registry.visionAllowed(profile);
-  let built=rt.assembler.build(id,{system:session.system,vision});
-  const plan=rt.compactor.plan(built,B,ratio,{force:mem.forceCompact});mem.forceCompact=false;
-  if(plan.action==='clear'){rt.compactor.clear(session,plan.upTo);built=rt.assembler.build(id,{system:session.system,vision});}
-  else if(plan.action==='compact'){await this.compact(session,{built,B,ratio,toolDefs,chain,signal});session=this.prompt(rt.sessions.get(id));toolDefs=rt.tools.definitions(session.tools);built=rt.assembler.build(id,{system:session.system,vision});}
-  // Call the model.
-  let answer;const started=Date.now(),messages=rt.tools.hooks.length?(await rt.tools.hook('beforeRequest',{session,messages:built.messages})).messages||built.messages:built.messages;
+  signal||=new AbortController().signal;this.signals.set(id,signal);
+  return this.drive(JSON.parse(this.engine.begin(JSON.stringify(this.rt.sessions.get(id)),'{}')),signal);
+ }
+ /** Rust owns phase selection. This host executes correlated effects and holds
+  * opaque plugin objects only for the lifetime of this step. */
+ async drive(initial,signal){
+  const rt=this.rt,id=initial.sessionId,generation=initial.generation;
+  const ctx={id,generation,signal,handles:new Map(),args:new Map(),results:new Map(),errors:new Map(),next:0,started:0,closed:false};
+  const pending=new Map(),queue=[];let terminal=null;
+  const accept=state=>{
+   if(state.status==='stale')return;
+   queue.push(...state.commands);if(state.status==='finished')terminal=state.outcome||{};
+   const current=JSON.parse(this.engine.state(id));
+   if(current){const mem=this.state(id);for(const key of ['overflows','badRequests','empties','forceCompact'])mem[key]=current[key];}
+  };
+  const abortError=(notExecuted=false)=>Object.assign(new Error(String(signal.reason?.message||signal.reason||'Aborted')),{name:signal.reason?.name||'AbortError',stopped:signal.reason?.stopped,notExecuted});
+  const serializeError=(error,operationId)=>{
+   ctx.errors.set(operationId,error);
+   const read=key=>{try{return error?.[key];}catch{return undefined;}};
+   const text=key=>{const value=read(key);return typeof value==='string'?value:undefined;};
+   const finite=key=>{const value=read(key);return Number.isFinite(value)?value:undefined;};
+   let message;try{message=String(read('message')||error);}catch{message='Host effect failed';}
+   return {effectId:operationId,name:text('name')||'Error',message,kind:text('kind'),body:text('body'),limit:finite('limit'),retryAfterMs:finite('retryAfterMs'),notExecuted:read('notExecuted')===true};
+  };
+  const stop=()=>{
+   accept(JSON.parse(this.engine.stop(JSON.stringify({sessionId:id,generation,reason:String(signal.reason?.message||signal.reason||'Aborted')}))));
+   rt.policy.cancel(id);rt.streamEnd(id,{discard:true});
+  };
+  accept(initial);signal.addEventListener('abort',stop,{once:true});if(signal.aborted)stop();
   try{
-   answer=await rt.registry.invoke(chain,messages,{tools:toolDefs,signal,cacheKey:id,slotKey:id,priority:session.kind==='main'?10:0,cacheRetention:rt.cacheRetention(session),
-    onDelta:t=>rt.stream(id,'text',t),onReasoning:t=>rt.stream(id,'reasoning',t),onProgress:p=>rt.loadingNote(id,p),onRoute:r=>rt.sessions.update(id,{route:r})});
-  }catch(e){
-   if(signal.aborted)throw e;
-   rt.streamEnd(id,{discard:true});
-   if(e.kind==='overflow'){
-    mem.overflows++;rt.event(id,'overflow',{limit:e.limit,message:oneLine(e.message,200)});
-    const fresh=await this.budget(rt.sessions.get(id),toolDefs,signal);
-    const b2=rt.assembler.build(id,{system:session.system,vision});
-    await this.compact(rt.sessions.get(id),{built:b2,B:fresh.B,ratio:fresh.ratio,toolDefs,chain,signal,reason:'overflow',tailShare:mem.overflows>1?0.1:COMPACTION.tail});
-    return mem.overflows>3?{wait:60000,note:'文脈の溢れが続いています。'}:{continue:true};
+   while(!terminal||pending.size){
+    while(queue.length){
+     const command=queue.shift();
+     const promise=Promise.resolve().then(()=>{
+      if(signal.aborted&&!['recordTools','afterTool'].includes(command.kind))throw abortError(command.kind==='executeTool');
+      return this.effect(command,ctx);
+     }).then(value=>({command,type:'resolved',value}),error=>({command,type:'rejected',error}));
+     pending.set(command.operationId,promise);
+    }
+    if(!pending.size){if(terminal)break;throw new Error('Rust execution controller stalled without a pending effect');}
+    const settled=await Promise.race(pending.values()),command=settled.command;pending.delete(command.operationId);
+    const error=settled.type==='rejected'?serializeError(settled.error,command.operationId):undefined;
+    const handle=ctx.handles.get(command.prepared?.definitionKey)||ctx.handles.get('index:'+command.index);
+    const facts={...(command.kind==='invoke'?{elapsedMs:ctx.started?Date.now()-ctx.started:0}:{}),...(handle&&command.kind!=='prepareTool'?{toolMs:Date.now()-handle.started}:{})};
+    const event={sessionId:id,generation,operationId:command.operationId,type:settled.type,value:settled.value,error,aborted:signal.aborted};
+    let eventJSON;try{eventJSON=JSON.stringify(event);}catch(failure){eventJSON=JSON.stringify({sessionId:id,generation,operationId:command.operationId,type:'rejected',error:serializeError(failure,command.operationId),aborted:signal.aborted});}
+    accept(JSON.parse(this.engine.advance(eventJSON,JSON.stringify(facts))));
    }
-   if(e.kind==='auth')return {wait:300000,note:e.message};
-   // A model that turns out not to see images: remember it, and send placeholders from now on.
-   if(e.kind==='bad-request'&&vision&&hasImages(built.messages)&&/image|vision|multimodal|modalit/i.test(e.message+' '+(e.body||''))){rt.registry.learnNoVision(profile);rt.event(id,'no-vision',{model:profile.model});return {continue:true};}
-   if(e.kind==='bad-request'){mem.badRequests++;rt.event(id,'bad-request',{message:oneLine(e.message,300)});return {wait:Math.min(600000,15000*2**Math.min(mem.badRequests,5)),note:'モデルが依頼を受け付けませんでした: '+oneLine(e.message,160)};}
-   return {wait:e.retryAfterMs||30000,note:e.message||'モデルに接続できません。'};
+   if(terminal?.aborted)throw signal.reason??abortError();
+   if(terminal?.error)throw ctx.errors.get(terminal.error.effectId)||Object.assign(new Error(terminal.error.message),terminal.error);
+   return terminal||{};
+  }finally{
+   ctx.closed=true;signal.removeEventListener('abort',stop);
+   if(this.signals.get(id)===signal)this.signals.delete(id);
+   ctx.handles.clear();ctx.args.clear();ctx.results.clear();ctx.errors.clear();
   }
-  mem.overflows=0;mem.badRequests=0;
-  // Ollama counts only the uncached part of the prompt; estimate the whole so input and cache-hit figures mean the
-  // same thing as for other servers.
-  if(answer.usage?.uncachedOnly){const whole=Math.round((built.tokens+toolsTokens(toolDefs))*ratio),fresh=answer.usage.input||0;answer.usage={...answer.usage,input:Math.max(whole,fresh),cacheRead:Math.max(0,whole-fresh),estimated:true};}
-  rt.account(id,answer,Date.now()-started);
-  // The server counted far fewer prompt tokens than were sent. With a window that was only assumed (nothing
-  // reported it), that is a server silently cutting the conversation's beginning to its real window: the answer
-  // saw a beheaded context, so drop it, learn the window, compact and ask again. A detected window is trusted;
-  // the sample is then only kept out of the calibration.
-  const sentRaw=built.tokens+toolsTokens(toolDefs),estimated=sentRaw*ratio,reported=answer.usage?.uncachedOnly?0:answer.usage?.input||0;
-  const anomaly=reported>0&&!answer.usage.uncachedOnly&&estimated>4000&&reported<estimated*0.5;
-  if(anomaly&&['default','guess'].includes(limits.source)&&answer.route?.identity===profile.identity){
-   rt.streamEnd(id,{discard:true});rt.registry.learnLimit(profile,Math.max(2048,Math.round(reported*1.02)));mem.forceCompact=true;
-   rt.event(id,'input-truncated',{reported,estimated:Math.round(estimated),assumedContext:limits.context});
-   return {continue:true};
+ }
+ hold(map,value,ctx,kind){const ref=`${ctx.generation}:${kind}:${++ctx.next}`;map.set(ref,value);return {hostRef:ref};}
+ held(map,value){if(value&&typeof value.hostRef==='string'&&map.has(value.hostRef))return map.get(value.hostRef);return value;}
+ async effect(c,ctx){
+  const rt=this.rt,{id,signal}=ctx;
+  const active=()=>!ctx.closed&&!signal.aborted&&JSON.parse(this.engine.state(id))?.generation===ctx.generation;
+  const prepared=c.prepared,handle=prepared&&ctx.handles.get(prepared.definitionKey),args=prepared?this.held(ctx.args,prepared.args):undefined;
+  switch(c.kind){
+   case 'prompt':return this.prompt(c.session,{refresh:!!c.refresh});
+   case 'budget':{
+    const session=c.overflow?rt.sessions.get(id):c.session,toolDefs=c.toolDefs||rt.tools.definitions(session.tools),budget=await this.budget(session,toolDefs,signal);
+    return {...budget,toolDefs,toolsTokens:toolsTokens(toolDefs),vision:budget.profile?rt.registry.visionAllowed(budget.profile):false};
+   }
+   case 'context':{const built=rt.assembler.build(id,{system:c.session.system,vision:c.vision});return {built,...(c.plan?{plan:rt.compactor.plan(built,c.budget.B,c.budget.ratio,{force:c.force})}:{})};}
+   case 'clear':rt.compactor.clear(c.session,c.upTo);return null;
+   case 'compact':{
+    const session=c.overflow?rt.sessions.get(id):c.session;
+    await this.compact(session,{built:c.built,B:c.budget.B,ratio:c.budget.ratio,toolDefs:c.budget.toolDefs,chain:c.budget.chain,signal,reason:c.reason==='budget'?undefined:c.reason,tailShare:c.tailShare});
+    const next=c.overflow?rt.sessions.get(id):this.prompt(rt.sessions.get(id));return {session:next,toolDefs:c.overflow?c.budget.toolDefs:rt.tools.definitions(next.tools)};
+   }
+   case 'beforeRequest':{ctx.started=Date.now();const h=rt.tools.hooks.length?await rt.tools.hook('beforeRequest',{session:c.session,messages:c.messages}):{};return {messages:h.messages||c.messages};}
+   case 'invoke':return rt.registry.invoke(c.chain,c.messages,{accountingSessionId:id,tools:c.toolDefs,signal,cacheKey:c.cacheKey,slotKey:c.slotKey,priority:c.priority,cacheRetention:rt.cacheRetention(c.session),onDelta:text=>{if(active())rt.stream(id,'text',text);},onReasoning:text=>{if(active())rt.stream(id,'reasoning',text);},onProgress:progress=>{if(active())rt.loadingNote(id,progress);},onRoute:route=>{if(active())rt.sessions.update(id,{route});}});
+   case 'account':rt.account(id,c.answer,c.elapsedMs,c.reportedUsage);return null;
+   case 'commit':{
+    let session;
+    for(const a of c.actions){
+     if(signal.aborted)signal.throwIfAborted();
+     switch(a.kind){
+      case 'event':rt.event(id,a.event,a.data);break;
+      case 'streamEnd':rt.streamEnd(id,{discard:!!a.discard});break;
+      case 'append':rt.sessions.append(id,a.type,a.body);break;
+      case 'notice':rt.sessions.append(id,'notice',{text:NOTICE[a.notice](...(a.args||[]))});break;
+      case 'learnNoVision':rt.registry.learnNoVision(a.profile);break;
+      case 'learnLimit':rt.registry.learnLimit(a.profile,a.limit);break;
+      case 'calibrate':rt.calibration.observe(a.identity,a.sentRaw,a.reported);break;
+      case 'lean':session=this.prompt(rt.sessions.update(id,{toolset:'lean'}),{refresh:true});rt.event(id,'lean-tools',{context:a.context});break;
+      default:throw new Error('Unknown Rust commit action: '+a.kind);
+     }
+    }
+    return session?{session}:null;
+   }
+   case 'toolCatalog':return {session:rt.sessions.get(id),tools:Object.fromEntries(c.calls.map(call=>[call.name,{readOnly:rt.tools.get(call.name)?.readOnly===true}]))};
+   case 'prepareTool':return this.prepareTool(c,ctx);
+   case 'beforeTool':{const h=rt.tools.hooks.length?await rt.tools.hook('beforeTool',{session:c.session,name:prepared.name,args}):{};return {...(h.block?{block:String(h.block)}:{}),...(h.args&&typeof h.args==='object'?{args:this.hold(ctx.args,h.args,ctx,'args')}:{})};}
+   case 'authorizeTool':{
+    const approvedJSON=JSON.stringify(args),snapshot=JSON.parse(approvedJSON),decision=await rt.policy.check(c.session,prepared.name,snapshot,{signal});
+    if(handle&&decision==='allow')handle.approvedJSON=approvedJSON;return {decision};
+   }
+   case 'executeTool':{
+    if(!handle)throw Object.assign(new Error('Prepared tool handle is missing'),{notExecuted:true});
+    if(JSON.stringify(args)!==handle.approvedJSON)throw Object.assign(new Error('Approved tool arguments changed before execution'),{notExecuted:true});
+    rt.sessions.update(id,{note:handle.def?.summarize?oneLine(handle.def.summarize(args),100):prepared.name});
+    const result=handle.mcp?await rt.mcp.call(prepared.name,args,{signal}):await handle.def.run(args,rt.toolContext(c.session,signal));
+    return {result:this.hold(ctx.results,result,ctx,'result')};
+   }
+   case 'afterTool':{
+    let result=this.held(ctx.results,c.result);
+    if(!signal.aborted&&rt.tools.hooks.length){const a=await rt.tools.hook('afterTool',{session:c.session,name:prepared.name,args,text:toText(result?.text??result)});if(typeof a.text==='string')result={...(result&&typeof result==='object'?result:{}),text:a.text};}
+    return {result:this.hold(ctx.results,result,ctx,'result')};
+   }
+   case 'recordTools':{
+    for(let i=0;i<c.calls.length;i++){const out=c.outputs[i],h=ctx.handles.get(out.definitionKey);this.record(c.session,c.calls[i],{...out,args:this.held(ctx.args,out.args),result:this.held(ctx.results,out.result),def:h?.def,...(signal.aborted?{interrupted:true}:{})},c.B);}return null;
+   }
+   case 'afterTools':{const mem=this.state(id);this.watch(id,mem);this.selfCheck(id,mem,{built:c.built,B:c.budget.B,ratio:c.budget.ratio,profile:c.budget.profile});return null;}
+   default:throw new Error('Unknown Rust execution effect: '+c.kind);
   }
-  if(!anomaly&&!answer.usage?.uncachedOnly)rt.calibration.observe(answer.route?.identity,sentRaw,reported);
-  rt.streamEnd(id);
-  // Truncated replies are kept (minus any half-written tool call) and continued.
-  if(answer.finish==='length'){
-   const partial=answer.tool_calls?.length;
-   rt.sessions.append(id,'assistant',{content:answer.content||'',reasoning:answer.reasoning||null,toolCalls:[],truncated:true,droppedCalls:partial?answer.tool_calls.map(c=>c.function.name):undefined,usage:answer.usage,route:answer.route});
-   rt.sessions.append(id,'notice',{text:partial?NOTICE.truncatedCall(answer.route?.maxTokens):NOTICE.truncatedText(answer.route?.maxTokens)});
-   return {continue:true};
-  }
-  if(answer.finish==='refusal'&&!answer.tool_calls?.length){
-   rt.sessions.append(id,'assistant',{content:answer.content||'',toolCalls:[],refused:true,usage:answer.usage,route:answer.route});
-   if(mem.empties++<1){rt.sessions.append(id,'notice',{text:NOTICE.refusal()});return {continue:true};}
-   return {turnEnded:true,text:answer.content||'（応答が提供元に止められました）'};
-  }
-  const calls=(answer.tool_calls||[]).map(c=>({id:c.id,name:c.function.name,arguments:c.function.arguments||'{}'}));
-  rt.sessions.append(id,'assistant',{content:answer.content||'',reasoning:answer.reasoning||null,toolCalls:calls,native:answer._native||null,usage:answer.usage,route:answer.route,finish:answer.finish});
-  if(!calls.length){
-   if(!String(answer.content||'').trim()){if(mem.empties++<2){rt.sessions.append(id,'notice',{text:NOTICE.empty()});return {continue:true};}return {turnEnded:true,text:''};}
-   mem.empties=0;return {turnEnded:true,text:answer.content};
-  }
-  mem.empties=0;
-  await this.runTools(rt.sessions.get(id),calls,{signal,B});
-  this.watch(id,mem);
-  this.selfCheck(id,mem,{built,B,ratio,profile});
-  return {continue:true};
  }
  async compact(session,{built,B,ratio,toolDefs,chain,signal,reason,tailShare}){
   const rt=this.rt;
@@ -140,46 +184,22 @@ export class AgentLoop{
   return cp;
  }
  async runTools(session,calls,{signal,B}){
-  const groups=[];for(const c of calls){const def=this.rt.tools.get(c.name);const ro=def?.readOnly===true;if(ro&&groups.at(-1)?.ro)groups.at(-1).items.push(c);else groups.push({ro,items:[c]});}
-  for(const g of groups){
-   signal.throwIfAborted();
-   const results=await Promise.all(g.items.map(c=>this.runOne(session,c,{signal})));
-   for(let i=0;i<g.items.length;i++)this.record(session,g.items[i],signal.aborted?{...results[i],interrupted:true}:results[i],B);
-   signal.throwIfAborted();
-  }
+  signal||=new AbortController().signal;this.signals.set(session.id,signal);
+  await this.drive(JSON.parse(this.engine.beginTools(JSON.stringify(session),JSON.stringify(calls),JSON.stringify({B}))),signal);
  }
- async runOne(session,call,{signal}){
-  const rt=this.rt,started=Date.now();
-  let name=call.name,def=rt.tools.get(name);
-  const parsed=parseArgs(call.arguments);
+ prepareTool(c,ctx){
+  const rt=this.rt,{session,call,index}=c,started=Date.now(),parsed=parseArgs(call.arguments);
   if(parsed.error)return {error:`${parsed.error}. Send the call again with valid JSON arguments.`,ms:0};
-  let args=parsed.args;
+  let name=call.name,args=parsed.args,def=rt.tools.get(name),mcp=false;
   if(name==='tools_call'){
-   const inner=String(args.name||'');
-   if(inner.startsWith('mcp:'))return this.guarded(session,{name:inner,args:args.arguments||{},run:()=>rt.mcp.call(inner,args.arguments||{},{signal})},started,parsed.repaired);
-   def=rt.tools.get(inner);if(!def)return {error:`Unknown tool "${inner}". Use tools_search to find available tools.`,ms:0};
-   name=inner;args=args.arguments||{};
+   name=String(args.name||'');args=args.arguments||{};
+   if(name.startsWith('mcp:'))mcp=true;
+   else{def=rt.tools.get(name);if(!def)return {error:`Unknown tool "${name}". Use tools_search to find available tools.`,ms:0};}
   }
-  if(!def){const near=[...rt.tools.tools.keys()].filter(n=>n.includes(name.split('_')[0])||name.includes(n)).slice(0,5);return {error:`Unknown tool "${name}".${near.length?' Did you mean: '+near.join(', ')+'?':''} Available: ${session.tools.join(', ')}.`,ms:0};}
-  const invalid=checkArgs(def.parameters,args);if(invalid)return {error:`Invalid arguments for ${name}: ${invalid}.`,ms:0,def};
-  return this.guarded(session,{name,args,def,run:()=>def.run(args,rt.toolContext(session,signal))},started,parsed.repaired);
- }
- async guarded(session,{name,args,def,run},started,repaired){
-  const rt=this.rt;
-  const hooked=rt.tools.hooks.length?await rt.tools.hook('beforeTool',{session,name,args}):{};
-  if(hooked.block)return {error:`A plugin refused this call: ${oneLine(hooked.block,300)}`,ms:Date.now()-started,def,name,args};
-  if(hooked.args&&typeof hooked.args==='object'){args=hooked.args;if(def)run=()=>def.run(args,rt.toolContext(session,this.signals.get(session.id)));}
-  const decision=await rt.policy.check(session,name,args);
-  if(decision!=='allow')return {error:decision==='deny'?`The user's rules do not allow ${name} here.`:`The user declined this ${name} call.`,ms:Date.now()-started,def,name,args};
-  try{
-   rt.sessions.update(session.id,{note:def?.summarize?oneLine(def.summarize(args),100):name});
-   let result=await run();
-   if(rt.tools.hooks.length){const after=await rt.tools.hook('afterTool',{session,name,args,text:toText(result?.text??result)});if(typeof after.text==='string')result={...(result&&typeof result==='object'?result:{}),text:after.text};}
-   return {result,ms:Date.now()-started,def,name,args,repaired};
-  }catch(e){
-   if(e?.name==='AbortError'&&session&&rt.aborted(session.id))throw e;
-   return {error:String(e?.message||e).slice(0,2000),ms:Date.now()-started,def,name,args};
-  }
+  if(!mcp&&!def){const near=[...rt.tools.tools.keys()].filter(n=>n.includes(name.split('_')[0])||name.includes(n)).slice(0,5);return {error:`Unknown tool "${name}".${near.length?' Did you mean: '+near.join(', ')+'?':''} Available: ${session.tools.join(', ')}.`,ms:0};}
+  const definitionKey=`${ctx.generation}:tool:${index}`,handle={started,def:mcp?null:def,mcp};ctx.handles.set(definitionKey,handle);ctx.handles.set('index:'+index,handle);
+  if(!mcp){const invalid=checkArgs(def.parameters,args);if(invalid)return {error:`Invalid arguments for ${name}: ${invalid}.`,ms:0,definitionKey};}
+  return {name,args:this.hold(ctx.args,args,ctx,'args'),definitionKey,repaired:parsed.repaired,ms:0};
  }
  /** Shapes a result once and appends it. The visible text, its one-line stub and the evidence are fixed here. */
  record(session,call,out,B){
@@ -188,14 +208,15 @@ export class AgentLoop{
   let text=out.error?`Error: ${out.error}`:toText(out.result?.text??out.result);
   const images=!out.error&&Array.isArray(out.result?.images)&&out.result.images.length?out.result.images.slice(0,8).map(i=>({mime:i.mime,base64:i.base64,width:i.width||0,height:i.height||0,name:i.name||''})):null;
   if(out.repaired)text='(note: your arguments were not valid JSON and were repaired automatically)\n'+text;
-  if(out.interrupted)text='[interrupted: the session was stopped or the service shut down while this ran, so it was terminated early. Check the actual state before retrying.]\n'+text;
+  if(out.notExecuted)text='[not executed: this call was not dispatched.]\n'+text;
+  else if(out.interrupted)text='[interrupted: the session was stopped or the service shut down while this ran, so it was terminated early. Check the actual state before retrying.]\n'+text;
   const budget=Math.round(Math.min(10000,Math.max(600,B*0.1)));
   const fitted=fitTokens(text,budget,ref);
   let evidenceId=null;if(fitted.truncated){evidenceId=`${id}#${seq}`;rt.sessions.putEvidence(evidenceId,id,seq,name,text);}
   const stub=out.error?defaultStub(name,args,text,{error:out.error}):(def?.stub?.(args||{},out.result)??defaultStub(name,args||{},text));
   const ephemeralKey=def?.ephemeral?(def.ephemeralKey?def.ephemeralKey(args||{}):name):null;
   rt.sessions.append(id,'tool',{callId:call.id,name,args:boundedArgs(args),content:fitted.text,stub:oneLine(stub,200),error:!!out.error,errorText:out.error?oneLine(out.error,300):undefined,
-   data:out.result?.data,...(images?{images}:{}),ephemeralKey,keep:!images&&rawTokens(fitted.text)<SMALL_RESULT_TOKENS&&!ephemeralKey,evidenceId,chars:text.length,ms:out.ms});
+   data:out.result?.data,...(out.notExecuted?{notExecuted:true}:{}),...(out.interrupted?{interrupted:true}:{}),...(images?{images}:{}),ephemeralKey,keep:!images&&rawTokens(fitted.text)<SMALL_RESULT_TOKENS&&!ephemeralKey,evidenceId,chars:text.length,ms:out.ms});
   const mem=this.state(id);mem.calls.push({sig:hash([name,args]),outcome:hash(text),label:`${name}(${argsLabel(args)})`,error:!!out.error});if(mem.calls.length>12)mem.calls.shift();
   const d=out.result?.data;if(name==='read'&&d?.readKey){mem.reads||=new Map();mem.reads.set(d.readKey,{seq,mtimeMs:d.mtimeMs,size:d.size});if(mem.reads.size>300)mem.reads.delete(mem.reads.keys().next().value);}
   mem.errorStreak=out.error?mem.errorStreak+1:0;

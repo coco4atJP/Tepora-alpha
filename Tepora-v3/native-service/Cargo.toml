@@ -1,0 +1,40 @@
+[package]
+name = "tepora-native-service"
+version = "3.0.0-beta.11"
+edition = "2021"
+license = "Apache-2.0"
+description = "Developmental Node-free Tepora local-workspace HTTP service"
+
+[dependencies]
+tepora-core = { path = "../native-core", default-features = false }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "io-util", "io-std", "signal", "fs", "process"] }
+hyper = { version = "1", features = ["server", "client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+base64 = "=0.23.1"
+async-stream = "0.3"
+futures-util = "0.3"
+url = "2.5"
+subtle = "2.6"
+getrandom = "0.4"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+webpki-roots = "1"
+sha2 = "0.10"
+regex = "1"
+unicode-normalization = "0.1"
+encoding_rs = "=0.8.42"
+regress = { version = "=0.11.1", features = ["utf16"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_SystemInformation"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
+rcgen = { version = "=0.14.10", default-features = false, features = ["crypto", "pem", "ring"] }

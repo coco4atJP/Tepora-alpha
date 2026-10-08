@@ -27,7 +27,14 @@
     "test:avatar-ui": "python tests/browser-avatar.py . validation/avatar-ui",
     "improve:full": "node scripts/improve-loop.mjs --browser --computer --capabilities",
     "test:capabilities": "node scripts/check-capabilities.mjs",
-    "test:abilities-ui": "python tests/browser-capabilities.py . validation/abilities-ui"
+    "test:abilities-ui": "python tests/browser-capabilities.py . validation/abilities-ui",
+    "build:core": "node scripts/build-core.mjs",
+    "test:rust": "cargo test --locked --no-default-features --manifest-path native-core/Cargo.toml",
+    "prestart": "npm run build:core",
+    "preserve": "npm run build:core",
+    "pretest": "npm run build:core && npm run build:native",
+    "build:native": "node scripts/build-native.mjs",
+    "test:native": "cargo test --locked --manifest-path native-service/Cargo.toml"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.4"

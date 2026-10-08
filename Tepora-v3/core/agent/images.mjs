@@ -1,3 +1,4 @@
+import {nativeCompute} from '../native-state.mjs';
 import {readFile,stat,mkdtemp,rm} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import os from 'node:os';
@@ -29,16 +30,8 @@ export function imageInfo(b){
  }
  return null;
 }
-const sizes=new Map();
-/** Vision APIs scale large images down to about 1.15 megapixels; a token covers roughly 750 pixels. */
-export function imageTokens(url){
- const s=String(url||''),key=s.length+':'+s.slice(-48);
- if(sizes.has(key))return sizes.get(key);
- let tokens=1200;
- const comma=s.indexOf(',');
- if(comma>0){try{const head=Buffer.from(s.slice(comma+1,comma+1+131072),'base64'),info=imageInfo(head);if(info?.width&&info?.height)tokens=Math.max(85,Math.min(1600,Math.ceil(info.width*info.height/750)));}catch{}}
- if(sizes.size>2000)sizes.clear();sizes.set(key,tokens);return tokens;
-}
+/** Rust computes bounded-header image costs without the old suffix-cache collisions. */
+export const imageTokens=url=>nativeCompute('tokens.image',{url});
 const run=(file,args)=>new Promise((resolve,reject)=>execFile(file,args,{timeout:30000},(e,out)=>e?reject(e):resolve(out)));
 /** Reads an image file as something a vision model accepts: PNG/JPEG/GIF/WebP, at most `maxSide` pixels on
  * the long side and `maxBytes` large. Other formats (HEIC, TIFF, BMP) are converted with sips on macOS. */

@@ -1,0 +1,5726 @@
+{
+  "source": "core/provider-registry.mjs",
+  "sourceHash": "e27d7e4062328d64e35f7b23a1a3572f8afb9701197e7b3c19962d3c93ba6958",
+  "cases": [
+    {
+      "raw": {
+        "id": "p0",
+        "protocol": "chat-completions",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p0",
+        "name": "p0",
+        "protocol": "chat-completions",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p0",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "3dfa0ffc2eb08f082195a5b96cebcd71840db9655b3e22c864a8a8af4fcc285b"
+      }
+    },
+    {
+      "raw": {
+        "id": "p1",
+        "protocol": "chat-completions",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p1",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p1",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "f73d0e1091a7eb286f000fafcd4c3d99abc3cdcf761508a619c51e57d45aed06"
+      }
+    },
+    {
+      "raw": {
+        "id": "p2",
+        "protocol": "chat-completions",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p2",
+        "name": "p2",
+        "protocol": "chat-completions",
+        "baseUrl": "http://localhost/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "9fe8931f77082835d7bedcdfc1c68fbd9798b5afba33893445ecbd6d7a503cf9"
+      }
+    },
+    {
+      "raw": {
+        "id": "p3",
+        "protocol": "chat-completions",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p3",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p3",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "b0c6bb9964a65ceed5f7ed04f10a4abfc5a64216a158cec995da8ccc338e7de1"
+      }
+    },
+    {
+      "raw": {
+        "id": "p4",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p4",
+        "name": "p4",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p4",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "c30d67a44545fd7ac592f7d6a707764d8e1b385d0ceb7536ec4184102d154a42"
+      }
+    },
+    {
+      "raw": {
+        "id": "p5",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p5",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p5",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "64f4cf051871f30734d4c150e94e9af5c131173aa51a795143ce8b6571d75511"
+      }
+    },
+    {
+      "raw": {
+        "id": "p6",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p6",
+        "name": "p6",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "2faeeb209479318b9b20c5e5e9261bf0ad7b571cabc196b56d963f7d29580b6e"
+      }
+    },
+    {
+      "raw": {
+        "id": "p7",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p7",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p7",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "1bb3b209a2c70c0c5c4311f84975482257920bb36197943893cf3365f227d8a8"
+      }
+    },
+    {
+      "raw": {
+        "id": "p8",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p8",
+        "name": "p8",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p8",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "107fe182f43f39b308cdb4e9ff73fecaf5ddd7f06f239900fb7eda0d0362288d"
+      }
+    },
+    {
+      "raw": {
+        "id": "p9",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p9",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p9",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "617a9d4d35dc2d9dc56ec6522ea68cd2f3bac60217cb1afa54f8aa1ea5f3c6a2"
+      }
+    },
+    {
+      "raw": {
+        "id": "p10",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p10",
+        "name": "p10",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "8fbc7baff07d42195dd12d6f20f3e7b9f448348dc58ec8e9bdf45316dd081352"
+      }
+    },
+    {
+      "raw": {
+        "id": "p11",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p11",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p11",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "1250c35a16bc265f5fc64f59b629134a65038dd8c4f5b74b64b12963e4a8b629"
+      }
+    },
+    {
+      "raw": {
+        "id": "p12",
+        "protocol": "chat-completions",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p12",
+        "name": "p12",
+        "protocol": "chat-completions",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p12",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "4414e802933a4abf3ebc8547d9569db37a594b6f814ffe3d6014ce73d3c74d71"
+      }
+    },
+    {
+      "raw": {
+        "id": "p13",
+        "protocol": "chat-completions",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p13",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p13",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "459ba695bcbe99ec5e361f90b869a9b8f7bdbaec187f330fbbaf4b5868a1fcf7"
+      }
+    },
+    {
+      "raw": {
+        "id": "p14",
+        "protocol": "chat-completions",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p14",
+        "name": "p14",
+        "protocol": "chat-completions",
+        "baseUrl": "https://example.com/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "47c8395445f162523d71fb5da43c657ca83b1b55f146ae1155ae4c2feae26ae0"
+      }
+    },
+    {
+      "raw": {
+        "id": "p15",
+        "protocol": "chat-completions",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p15",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p15",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "bc22414db3181915816303b83836c03ef41ca26890f10338241c2f3cb7f2c656"
+      }
+    },
+    {
+      "raw": {
+        "id": "p16",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p16",
+        "name": "p16",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p16",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "41314f8152a7bb90f686f94c00d2e63bd4a0ea58aa12ac7d4d207ad67a0cb1f5"
+      }
+    },
+    {
+      "raw": {
+        "id": "p17",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p17",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p17",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "44abad436cf945fc22a7dae74c39f41d13f0ed7a71d050048fe119c7893b329f"
+      }
+    },
+    {
+      "raw": {
+        "id": "p18",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p18",
+        "name": "p18",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "8485d22ebe586777aa6f84fe27cfcd788871333bf9fec32effa86eb627cea973"
+      }
+    },
+    {
+      "raw": {
+        "id": "p19",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p19",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p19",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "aaa15d69eb1f3d89f0928fe68d16e2807e4c09806cd236e93777114499fdf9cd"
+      }
+    },
+    {
+      "raw": {
+        "id": "p20",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p20",
+        "name": "p20",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p20",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "0b7aa9f773c75720e1dc6d2a71598574faaa7d7594305a7f4f0d0e526ed0866f"
+      }
+    },
+    {
+      "raw": {
+        "id": "p21",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p21",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p21",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "d7efecd9743711df54e9fbbd7827aa53d5a97cc95f862b11e62ef32d9ff5dd4c"
+      }
+    },
+    {
+      "raw": {
+        "id": "p22",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p22",
+        "name": "p22",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "c77b57806fb74909b01db98614227f4742f588648074cd833574f56e34840c4c"
+      }
+    },
+    {
+      "raw": {
+        "id": "p23",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p23",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p23",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "169a0cbcb3696f634b55833f3b9b788d41c1923bcc3d5031ce3ace2b43a7fdab"
+      }
+    },
+    {
+      "raw": {
+        "id": "p24",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p24",
+        "name": "p24",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p24",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "af95a827ba3391328bc44e77f062953744ffd3e47ceb306a957254660ae2ab07"
+      }
+    },
+    {
+      "raw": {
+        "id": "p25",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p25",
+        "name": "name",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p25",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "934a2666b195fd8bad604552b22950c127270702119350b4f3ddda091d473085"
+      }
+    },
+    {
+      "raw": {
+        "id": "p26",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p26",
+        "name": "p26",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "77d4d8e7e029d8d8dd184aa2585391f839e8b8047c0c63d10bd16b802aaf1d7a"
+      }
+    },
+    {
+      "raw": {
+        "id": "p27",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p27",
+        "name": "a",
+        "protocol": "chat-completions",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p27",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "a25eeec6400ec738b2eabf6dfc45822d5d15132f3357fe23d32104930f38b9e5"
+      }
+    },
+    {
+      "raw": {
+        "id": "p28",
+        "protocol": "responses",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p28",
+        "name": "p28",
+        "protocol": "responses",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p28",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "d5c2bed85606bf8142f63e8834d1257c5f9800977c8ccaa487ffa1d7ddbb1969"
+      }
+    },
+    {
+      "raw": {
+        "id": "p29",
+        "protocol": "responses",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p29",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p29",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "83de024949c4911c8445f250b98e6eb25bdf3c1f0c1616409abd26986550efbc"
+      }
+    },
+    {
+      "raw": {
+        "id": "p30",
+        "protocol": "responses",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p30",
+        "name": "p30",
+        "protocol": "responses",
+        "baseUrl": "http://localhost/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "376d372b54699c1c5f9c4f6143704805f598bfadce7a107b504c3c7c552f381b"
+      }
+    },
+    {
+      "raw": {
+        "id": "p31",
+        "protocol": "responses",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p31",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p31",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "63e28be378fbf08e04d18d1b13eefd8003900fc497f70384d57ed932528f64b9"
+      }
+    },
+    {
+      "raw": {
+        "id": "p32",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p32",
+        "name": "p32",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p32",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "7a10ee505908de31461a612f5759112c34412f7e947c58c8cb87b71b44e23610"
+      }
+    },
+    {
+      "raw": {
+        "id": "p33",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p33",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p33",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "8f3611a96855f69351f63eb2350e691e35a45f2f70d124c666991987c02c63d1"
+      }
+    },
+    {
+      "raw": {
+        "id": "p34",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p34",
+        "name": "p34",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "c9c3b60a6904caa584e69bcb66e69fbabea6890a987c9439efb444906b67b5f6"
+      }
+    },
+    {
+      "raw": {
+        "id": "p35",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p35",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p35",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "c5f2bd690469506b7b838915286b1e63a0c7ac2860fe1f6fc0b48c376866c627"
+      }
+    },
+    {
+      "raw": {
+        "id": "p36",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p36",
+        "name": "p36",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p36",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "6ac54d1a57bea8c39f2828b61a9030295b543bab290494a9b2fdb0a2b5a53559"
+      }
+    },
+    {
+      "raw": {
+        "id": "p37",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p37",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p37",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "9e33e85f3c91e54e2dcd91047f99341a6c51880f1ace4303a9c67967c5dca5de"
+      }
+    },
+    {
+      "raw": {
+        "id": "p38",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p38",
+        "name": "p38",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "d3ead5fb8b28940889af86fa98f489cb82364464e769ce113440958f1326c37b"
+      }
+    },
+    {
+      "raw": {
+        "id": "p39",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p39",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p39",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "175cc36763df03af6ed53c9166e9a04be73002c7d6f059b5bbd708b9ee259c35"
+      }
+    },
+    {
+      "raw": {
+        "id": "p40",
+        "protocol": "responses",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p40",
+        "name": "p40",
+        "protocol": "responses",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p40",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "da9da3dd338d5c35175700bad28f07b833c6ce50a8c4fb7bc78b44a383114828"
+      }
+    },
+    {
+      "raw": {
+        "id": "p41",
+        "protocol": "responses",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p41",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p41",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "05dd087ef4ebf0dfb9cd9e5ddc1d586ce9acb5569ba65b3bbfeabfba2e7d68e1"
+      }
+    },
+    {
+      "raw": {
+        "id": "p42",
+        "protocol": "responses",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p42",
+        "name": "p42",
+        "protocol": "responses",
+        "baseUrl": "https://example.com/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "f88d4404178680c0284782106dfa437ba570b8020ad6d3e1e87783164a013ffd"
+      }
+    },
+    {
+      "raw": {
+        "id": "p43",
+        "protocol": "responses",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p43",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p43",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "ffddfed6dd2586c1f8e2c5effa2ed27cb69bcb9e8bbbfaf57c76144824c252ef"
+      }
+    },
+    {
+      "raw": {
+        "id": "p44",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p44",
+        "name": "p44",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p44",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "bb50603fedaa91d47c3880984b49466d5bd04f03cd8b0d813100a1fea35be7f5"
+      }
+    },
+    {
+      "raw": {
+        "id": "p45",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p45",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p45",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "e777fe28d5888f747e743e62c9c437487f537e3775bfc967325fbf42f1890c15"
+      }
+    },
+    {
+      "raw": {
+        "id": "p46",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p46",
+        "name": "p46",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "72fae3b4fcfb200aa613198d0e5911acc903717d519c8bb0a2226fb2a989095e"
+      }
+    },
+    {
+      "raw": {
+        "id": "p47",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p47",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p47",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "1fe7c9072d3e74075c1157daf3ae2547f0b21cb07ee643616f902f742a8f0b87"
+      }
+    },
+    {
+      "raw": {
+        "id": "p48",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p48",
+        "name": "p48",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p48",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "6e2bbc6bdddccc66ac2a946b17e80ae5c35712a891abc14aff2112f7bf7806d4"
+      }
+    },
+    {
+      "raw": {
+        "id": "p49",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p49",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p49",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "63f5faf709b1d405d9cc0db9ba388cef6d2a2f4a03c36f491b344f61c11f3700"
+      }
+    },
+    {
+      "raw": {
+        "id": "p50",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p50",
+        "name": "p50",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "2e553a9481022abefa0dc9ba8f26e139af026f72dec6a7031623b2949b0b2c7a"
+      }
+    },
+    {
+      "raw": {
+        "id": "p51",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p51",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p51",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "33fc98f27dabca8a66d892a5975c89a7eed00c5439deeedd79ed68d92642ae88"
+      }
+    },
+    {
+      "raw": {
+        "id": "p52",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p52",
+        "name": "p52",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p52",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "db8df84a1302b9afb74490861ada6ab7c779e7058787dec57cf88ecd2799ff22"
+      }
+    },
+    {
+      "raw": {
+        "id": "p53",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p53",
+        "name": "name",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p53",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "9d107789d7c1cfa96836199d630d949f9c3a4c97ec73a536a41d734d19f06bdb"
+      }
+    },
+    {
+      "raw": {
+        "id": "p54",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p54",
+        "name": "p54",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "527486306f7a56fade0d3dd21e12ff76a1911d7db0a2a35f77724ba029a778bf"
+      }
+    },
+    {
+      "raw": {
+        "id": "p55",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p55",
+        "name": "a",
+        "protocol": "responses",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p55",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "8f0c9978d6154ccde695095c21e2fd42dcf26446972697bbd9078fe063d53ae2"
+      }
+    },
+    {
+      "raw": {
+        "id": "p56",
+        "protocol": "anthropic",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p56",
+        "name": "p56",
+        "protocol": "anthropic",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p56",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "7521d96aa2f16f8e7ed548b8662e0a93254a59389174e79845e83155f681dc6d"
+      }
+    },
+    {
+      "raw": {
+        "id": "p57",
+        "protocol": "anthropic",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p57",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p57",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "09a1c37c42d6f1db52215a9438a9c65e2900459509e3623780772d67878aa971"
+      }
+    },
+    {
+      "raw": {
+        "id": "p58",
+        "protocol": "anthropic",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p58",
+        "name": "p58",
+        "protocol": "anthropic",
+        "baseUrl": "http://localhost/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "2fbb5d388824c9e984b1d2fdfcd4097a9457bccac644081727b196951892a8ef"
+      }
+    },
+    {
+      "raw": {
+        "id": "p59",
+        "protocol": "anthropic",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p59",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p59",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "14794de1d57a849f2dc7f57a008ff73c7eefeb5b88a76743c819dd7b5521fedc"
+      }
+    },
+    {
+      "raw": {
+        "id": "p60",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p60",
+        "name": "p60",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p60",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "3f68934e4afb1c237e7aa965aed811456ddd3733d3a0a22314a10e90cb1c7c49"
+      }
+    },
+    {
+      "raw": {
+        "id": "p61",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p61",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p61",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "9c3ddd09e1cfc66a5ebcea13c99754c0c1bcd314556920885d80347d807b1b01"
+      }
+    },
+    {
+      "raw": {
+        "id": "p62",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p62",
+        "name": "p62",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "4968561d619fe85d2fe5210aa2388eac43b85ba441578c76fcc77cfebf71f217"
+      }
+    },
+    {
+      "raw": {
+        "id": "p63",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p63",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p63",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "b168730a6ffe59a7f663c3a99dc6dcaa5a39d325308148bb500b72187777bcf4"
+      }
+    },
+    {
+      "raw": {
+        "id": "p64",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p64",
+        "name": "p64",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p64",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "3b392f182eee09c0ea127d8ebe66c58f740468b7266b241ece1752328a27c819"
+      }
+    },
+    {
+      "raw": {
+        "id": "p65",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p65",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p65",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "dba5ec0e59ca2ae7010ead38599759a159e85b5bba89de58f2160443e307d3f5"
+      }
+    },
+    {
+      "raw": {
+        "id": "p66",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p66",
+        "name": "p66",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "5faaa329fcf3bbace998bd32aa00c49d6fc1578b78ee7377ba2853c85cbadb4e"
+      }
+    },
+    {
+      "raw": {
+        "id": "p67",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p67",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p67",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "16faea9b06269e4062363c0ee26d5ca441249fe05dbfea3a158e8cc66525ab07"
+      }
+    },
+    {
+      "raw": {
+        "id": "p68",
+        "protocol": "anthropic",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p68",
+        "name": "p68",
+        "protocol": "anthropic",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p68",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "818cd37baaba30bd827bdedd83b3c31d15cf579480e36a176fe884c77223c5e5"
+      }
+    },
+    {
+      "raw": {
+        "id": "p69",
+        "protocol": "anthropic",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p69",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p69",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "bcccc07ce9a5ca6c209654e1982b316f5cfecc83dea7b24fcd893c6815521ba7"
+      }
+    },
+    {
+      "raw": {
+        "id": "p70",
+        "protocol": "anthropic",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p70",
+        "name": "p70",
+        "protocol": "anthropic",
+        "baseUrl": "https://example.com/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "114ba41951d635899b6ff01ffcab3a9e6b64e604ed4bbd4aeffbe0c390983ea0"
+      }
+    },
+    {
+      "raw": {
+        "id": "p71",
+        "protocol": "anthropic",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p71",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p71",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "2d2f5d7076ec982034b240749988afea27dac39ce4be1307dd8dd8aa7474e4fc"
+      }
+    },
+    {
+      "raw": {
+        "id": "p72",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p72",
+        "name": "p72",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p72",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "7dae06a59cc3d2890ebecadbeee3f44c698e0d174a50a9be80e8b77b53e351fc"
+      }
+    },
+    {
+      "raw": {
+        "id": "p73",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p73",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p73",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "c2487c8e73822b0355addc0d15ccc1f92edaa55e7912127144f73df855414f96"
+      }
+    },
+    {
+      "raw": {
+        "id": "p74",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p74",
+        "name": "p74",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "3aa60b2a4aa06d1474fd05ce83d9ef97292a9dfe616cb4ef3d9a228d34c51007"
+      }
+    },
+    {
+      "raw": {
+        "id": "p75",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p75",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p75",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "eb4d91506567db5bb03178160c25bcb2ca33417ab58fc31effe04b7036528af0"
+      }
+    },
+    {
+      "raw": {
+        "id": "p76",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p76",
+        "name": "p76",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p76",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "f1ef76c0789cb9a63cc6c5a409eba2892d97a43bb3f21f6376fbf9cab4cd0ff4"
+      }
+    },
+    {
+      "raw": {
+        "id": "p77",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p77",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p77",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "329301c7ae79fb99be2fb8a13b2602df518acd6cf6a746e369309670399c3c06"
+      }
+    },
+    {
+      "raw": {
+        "id": "p78",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p78",
+        "name": "p78",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "97a942724f73708a94e8ec282a6646df2d70ed715cc8e3f1b238eff5e5799c75"
+      }
+    },
+    {
+      "raw": {
+        "id": "p79",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p79",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p79",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "25c910e1f3d539ede8d42edbf44b9c0cd560602e69ec79bb001e1c70d75ced85"
+      }
+    },
+    {
+      "raw": {
+        "id": "p80",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p80",
+        "name": "p80",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p80",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "4a86c8899fc827fb5daecf75f639b22405a80cff669f99a774cd6d7699164017"
+      }
+    },
+    {
+      "raw": {
+        "id": "p81",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p81",
+        "name": "name",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p81",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "026acc789aa4ff33eaaad0bc8f97c9f4837911569e69de63afeab87dd451c01e"
+      }
+    },
+    {
+      "raw": {
+        "id": "p82",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p82",
+        "name": "p82",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "ec67525ea91e00d42f48a62f19ff95f9f13789315ae7b09fa107b716aab07176"
+      }
+    },
+    {
+      "raw": {
+        "id": "p83",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p83",
+        "name": "a",
+        "protocol": "anthropic",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p83",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "54526a114ff75d62220f0a596abe11d1544ce96fa751b651caeb634fea517289"
+      }
+    },
+    {
+      "raw": {
+        "id": "p84",
+        "protocol": "gemini",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p84",
+        "name": "p84",
+        "protocol": "gemini",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p84",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "58d1388396086eecfe6fe3b92dfafde60dec44e63121757af65ab5ca4fb45b36"
+      }
+    },
+    {
+      "raw": {
+        "id": "p85",
+        "protocol": "gemini",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p85",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p85",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "c2a2a4327160de7e4da2420879752a4f6e94ce06e44cb20d4591aa49d3933c93"
+      }
+    },
+    {
+      "raw": {
+        "id": "p86",
+        "protocol": "gemini",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p86",
+        "name": "p86",
+        "protocol": "gemini",
+        "baseUrl": "http://localhost/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "c4db8bd6e4c63dd194165844d3e0079891139828d53d043ce9212cd77aebcb0a"
+      }
+    },
+    {
+      "raw": {
+        "id": "p87",
+        "protocol": "gemini",
+        "baseUrl": "http://LOCALHOST:80/v1/",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p87",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "http://localhost/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p87",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "b71a09fe478b122f5c8642215ef185a2186f89ddb485bd318858a89cf49a5195"
+      }
+    },
+    {
+      "raw": {
+        "id": "p88",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p88",
+        "name": "p88",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p88",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "caecae011439a20b8ee3a41beb10d8e355002481b781413ac5208624bf8ef8f0"
+      }
+    },
+    {
+      "raw": {
+        "id": "p89",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p89",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p89",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "025f565201191604cb9d5a9adf3285483974802158cbaafcffcd72e30403035b"
+      }
+    },
+    {
+      "raw": {
+        "id": "p90",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p90",
+        "name": "p90",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "dd28e32e4ebd01be5d91db080bc631174da94ead885c1aea1814e0494fb6e201"
+      }
+    },
+    {
+      "raw": {
+        "id": "p91",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p91",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "http://[::1]:12345/v1",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p91",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "5dc02fbd250e12e34efc50bab341130214f7be024fb0fc2b70042492db7f7f56"
+      }
+    },
+    {
+      "raw": {
+        "id": "p92",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device"
+      },
+      "expected": {
+        "id": "p92",
+        "name": "p92",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p92",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "ae4b9dc046bfde7c243a74822fbc619de26bbacc7c0592accc074aff3f7d22c8"
+      }
+    },
+    {
+      "raw": {
+        "id": "p93",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p93",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p93",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "151f6ec636328679ba330c2711fa2c7545e60047110bf480c234349b6f67fedd"
+      }
+    },
+    {
+      "raw": {
+        "id": "p94",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "device",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p94",
+        "name": "p94",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "モデル😀\ud800",
+        "domain": "device",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 600000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "85d83953278337a9198c989a55fff3068727332edbe73809bcaa9aee1f50e29c"
+      }
+    },
+    {
+      "raw": {
+        "id": "p95",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p95",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "http://127.0.0.2:8080/api",
+        "model": "model",
+        "domain": "device",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p95",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "d3db1e9a332fb323e23b80e9572c96c9b8d5fb69de6322b6ef9a3f1035ca0885"
+      }
+    },
+    {
+      "raw": {
+        "id": "p96",
+        "protocol": "gemini",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p96",
+        "name": "p96",
+        "protocol": "gemini",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p96",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "284d1d96281496bf48454649bde999c17575390f5d4c2eea320ac80fd422b3ac"
+      }
+    },
+    {
+      "raw": {
+        "id": "p97",
+        "protocol": "gemini",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p97",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p97",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "69ced8f29f2fd6b5d4743138b61800ce1e6ce5cbddc0c67ac8d51ed5fa8d8ebb"
+      }
+    },
+    {
+      "raw": {
+        "id": "p98",
+        "protocol": "gemini",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p98",
+        "name": "p98",
+        "protocol": "gemini",
+        "baseUrl": "https://example.com/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "a04ef86e5a3ee2eb93324b683c9867e42e907c7368d5afdd0a04a95ab95ba9dd"
+      }
+    },
+    {
+      "raw": {
+        "id": "p99",
+        "protocol": "gemini",
+        "baseUrl": "https://EXAMPLE.com:443/v1/",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p99",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "https://example.com/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p99",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "99def2b014593013bf4fcb1e472db4e981f4ad14417b230c2bc2de946880a6c4"
+      }
+    },
+    {
+      "raw": {
+        "id": "p100",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud"
+      },
+      "expected": {
+        "id": "p100",
+        "name": "p100",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "p100",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "5efe3dc73f09a7b5a3f041b338186a52e28be6b6abd8cffbae43c180969b793e"
+      }
+    },
+    {
+      "raw": {
+        "id": "p101",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p101",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p101",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "3dc8780da83206758e2e1ae06c24f46472c473e317a229cc3f3ecf6e0cc2d726"
+      }
+    },
+    {
+      "raw": {
+        "id": "p102",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "cloud",
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p102",
+        "name": "p102",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "モデル😀\ud800",
+        "domain": "cloud",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 180000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 4,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "3b03e48bd70bbaf3a77fd6db4a5c3583369b2b961359442bcd6102fc14992358"
+      }
+    },
+    {
+      "raw": {
+        "id": "p103",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p103",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "https://go.opencode.ai/v1",
+        "model": "model",
+        "domain": "cloud",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "",
+        "allowPlainHttp": false,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 4,
+        "resource": "p103",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "x-opencode-session",
+        "identity": "85d898186a156528e4281d7a897ca4ce99fa866bd43597e3e3827e0e8f07c528"
+      }
+    },
+    {
+      "raw": {
+        "id": "p104",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p104",
+        "name": "p104",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p104",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "f286b1bb4f28aa38810027cbd455e2cadcdeced807fde4b560df1e7cf8e4728f"
+      }
+    },
+    {
+      "raw": {
+        "id": "p105",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p105",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p105",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "edf2e2e4d60cc73ed8aedf66b923ad56ee1a0d0e05adfde78393202ece20905e"
+      }
+    },
+    {
+      "raw": {
+        "id": "p106",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p106",
+        "name": "p106",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "bc1b5a510b11daf8e78b8748018387600388314368b5b2340dd66e0f27901768"
+      }
+    },
+    {
+      "raw": {
+        "id": "p107",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p107",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "http://192.168.1.2:9999/v1",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p107",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "bfd723da30eea647cb858a00ed0b9ccaab8f60ba1f5dabdfd560bcb49b1ec29b"
+      }
+    },
+    {
+      "raw": {
+        "id": "p108",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true
+      },
+      "expected": {
+        "id": "p108",
+        "name": "p108",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "p108",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "dfa33b290e113b162deb11c2a623beabe8f66d06ea3c2bbc3a116326ce69cb32"
+      }
+    },
+    {
+      "raw": {
+        "id": "p109",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "﻿ name ﻿",
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "contextTokens": 4096,
+        "maxTokens": 256,
+        "maxParallel": 2,
+        "capabilities": {
+          "vision": false,
+          "tools": true
+        }
+      },
+      "expected": {
+        "id": "p109",
+        "name": "name",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": true,
+          "vision": false,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 256,
+        "contextTokens": 4096,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 2,
+        "resource": "p109",
+        "thinkingBudget": null,
+        "sampling": {
+          "top_p": 1,
+          "temperature": 0.3,
+          "seed": 2147483647
+        },
+        "server": "auto",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "6fb313dc0359abcc1fa18957382d92c83840a26d1839f58b3928db98b45666eb"
+      }
+    },
+    {
+      "raw": {
+        "id": "p110",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "  モデル😀\ud800  ",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "cache": false,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "resource": "shared",
+        "reasoningEffort": "high",
+        "thinkingBudget": 1024,
+        "sessionHeader": "x-tepora-test"
+      },
+      "expected": {
+        "id": "p110",
+        "name": "p110",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "モデル😀\ud800",
+        "domain": "lan",
+        "enabled": true,
+        "apiKeyEnv": "TEPORA_TEST_KEY",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 300000,
+        "idleTimeoutMs": 120000,
+        "maxParallel": 1,
+        "resource": "shared",
+        "thinkingBudget": 1024,
+        "sampling": {
+          "seed": 0,
+          "repeat_penalty": 0.5,
+          "top_k": 1000,
+          "min_p": 0
+        },
+        "server": "auto",
+        "cache": false,
+        "sessionHeader": "x-tepora-test",
+        "reasoningEffort": "high",
+        "identity": "7eba8c9aa4e654edd64871020fe211734160ef734a44caad2e3fc1591572bc45"
+      }
+    },
+    {
+      "raw": {
+        "id": "p111",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "name": "a",
+        "maxTokens": null,
+        "contextTokens": null,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "server": "llama.cpp",
+        "enabled": false
+      },
+      "expected": {
+        "id": "p111",
+        "name": "a",
+        "protocol": "gemini",
+        "baseUrl": "https://inference.lan/api",
+        "model": "model",
+        "domain": "lan",
+        "enabled": false,
+        "apiKeyEnv": "",
+        "capabilities": {
+          "text": true,
+          "tools": null,
+          "vision": null,
+          "structured": null
+        },
+        "pinnedAddress": "192.168.1.2",
+        "allowPlainHttp": true,
+        "maxTokens": 8192,
+        "contextTokens": null,
+        "timeoutMs": 60000,
+        "firstByteTimeoutMs": 3600000,
+        "idleTimeoutMs": 1000,
+        "maxParallel": 1,
+        "resource": "p111",
+        "thinkingBudget": null,
+        "sampling": {},
+        "server": "llama.cpp",
+        "cache": true,
+        "sessionHeader": "",
+        "identity": "401a29eb7b7188fe3decfe1a948bd56c6c580cd4228ef00325ffa770d4669d58"
+      }
+    }
+  ]
+}

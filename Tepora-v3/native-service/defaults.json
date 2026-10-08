@@ -1,0 +1,146 @@
+{
+  "settings": {
+    "dictationEditing": false,
+    "codexEnabled": false,
+    "codexNetwork": false,
+    "codexBinary": "",
+    "codexModel": "",
+    "companion": "Tepora",
+    "provider": "llama.cpp",
+    "baseUrl": "http://127.0.0.1:8080/v1",
+    "model": "",
+    "apiKeyEnv": "",
+    "allowCloud": false,
+    "allowNetwork": false,
+    "shareMemory": false,
+    "maxSteps": 64,
+    "maxTokens": 2048,
+    "concurrency": 2,
+    "asrUrl": "",
+    "asrStreamUrl": "",
+    "asrModel": "Qwen/Qwen3-ASR-1.7B",
+    "decisionUrl": "",
+    "decisionModel": "multilingual",
+    "voiceEnabled": true,
+    "autoAmbient": false,
+    "weatherCity": "",
+    "newsUrl": "",
+    "runtimeBinary": "",
+    "modelPath": "",
+    "bravePath": ""
+  },
+  "agent": {
+    "workRoot": "",
+    "maxDepth": 3,
+    "maxSteps": 0,
+    "progressEvery": 50,
+    "concurrency": 8,
+    "verifyCompletion": "auto",
+    "delegationGuard": true,
+    "metacognition": true,
+    "dream": true,
+    "cacheRetention": {
+      "main": "long",
+      "worker": "short"
+    },
+    "budget": {
+      "sessionUsd": 0,
+      "dailyUsd": 0
+    },
+    "heartbeat": {
+      "enabled": false,
+      "minutes": 30,
+      "text": ""
+    },
+    "sandbox": {
+      "mode": "off",
+      "network": true,
+      "writable": [],
+      "image": "node:22-bookworm-slim",
+      "engine": "auto"
+    },
+    "webSearch": {
+      "provider": "auto",
+      "searxngUrl": "",
+      "braveKeyEnv": "BRAVE_API_KEY"
+    },
+    "policy": {
+      "rules": []
+    },
+    "idleCompactSeconds": 20
+  },
+  "personas": {
+    "revision": 0,
+    "character": {
+      "name": "Tepora",
+      "instructions": "落ち着いた親しみやすい会話。仕事はワーカーへ渡し、会話を続けられるようにする。",
+      "voice": {
+        "tone": "polite",
+        "callName": "",
+        "proactive": "normal",
+        "lines": {}
+      }
+    },
+    "worker": {
+      "name": "Tepora Worker",
+      "instructions": "依頼の範囲内で検証可能な成果を作る。確認が必要なときは質問し、結果を根拠とともに報告する。"
+    }
+  },
+  "display": {
+    "schema": 1,
+    "revision": 0,
+    "theme": "system",
+    "textScale": 1,
+    "widgets": [
+      "clock",
+      "companion",
+      "work",
+      "weather",
+      "news",
+      "media",
+      "artifact"
+    ],
+    "hiddenUntil": {},
+    "ambient": {
+      "idleMinutes": 5,
+      "rotateSeconds": 12,
+      "nightDim": true,
+      "wallpaper": "room",
+      "keepAwake": false,
+      "frameSeconds": 30,
+      "frameShuffle": true,
+      "frameFit": "cover",
+      "frameMotion": true,
+      "frameClock": "small",
+      "frameCreated": true
+    }
+  },
+  "avatar": {
+    "schema": 1,
+    "body": "shiro",
+    "render": "flat",
+    "palette": "washi",
+    "hue": 30,
+    "lamp": {
+      "hue": "vermilion",
+      "shape": "bead"
+    },
+    "face": {
+      "eyes": "capsule",
+      "cheeks": true,
+      "brows": true
+    },
+    "parts": {
+      "ears": "none"
+    },
+    "props": {
+      "season": "off",
+      "hobby": "none"
+    },
+    "slots": {},
+    "motion": "normal",
+    "size": 1,
+    "asset": null,
+    "revision": 0
+  }
+}

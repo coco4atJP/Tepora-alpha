@@ -2,7 +2,7 @@ name: Tepora V3 beta.11 regression
 on:
   workflow_dispatch:
   push:
-    branches: [main, 'v3.0-beta/**']
+    branches: [main, 'v3.0-beta/**', 'rust/v3-core-migration']
     paths:
       - 'Tepora-v3/**'
       - 'scripts/*.mjs'
@@ -35,6 +35,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   regression:
+    # This migration branch is checked at its exact push SHA, even when the PR
+    # head ref is delayed. Avoid running the same matrix twice on PR sync.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rust/v3-core-migration'
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +55,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - run: rustup default stable
+      - name: Rust persistence tests
+        run: npm run test:rust
       - name: V3 regression gate
         env:
           PYTHON: python

@@ -26,16 +26,28 @@ async function toolFixture(t,settings=null){
 
 test('exec returns finished output, and long commands continue in the background for process polling',async t=>{
  const f=await toolFixture(t);
+ // The exec shell is cmd.exe on Windows, so keep timed output and stdin echoing
+ // in Node rather than relying on POSIX separators, sleep, or cat from PATH.
+ await writeFile(path.join(f.session.cwd,'exec-fixture.mjs'),`
+  import {setTimeout as delay} from 'node:timers/promises';
+  switch(process.argv[2]){
+   case 'slow':
+    console.log('start');await delay(1000);console.log('middle');await delay(1000);console.log('end');break;
+   case 'background':await delay(30000);break;
+   case 'stdin':process.stdin.pipe(process.stdout);break;
+   default:throw new Error('Unknown exec fixture mode');
+  }
+ `);
  const quick=await f.call('exec',{command:'echo hello && echo oops 1>&2 && exit 3'});
  assert.match(quick.text,/^exit 3/);assert.match(quick.text,/hello/);assert.match(quick.text,/oops/);
- const slow=await f.call('exec',{command:'echo start; sleep 1; echo middle; sleep 1; echo end',yield:0});
+ const slow=await f.call('exec',{command:'node exec-fixture.mjs slow',yield:0});
  assert.match(slow.text,/still running as process (p\w+)/);const id=slow.data.processId;
  let seen='';for(let i=0;i<10&&!/middle/.test(seen);i++)seen+=(await f.call('process',{action:'poll',id,wait:3})).text;assert.match(seen,/middle/);
  let done;for(let i=0;i<20&&!done;i++){const p=await f.call('process',{action:'poll',id,wait:2});if(/^exit 0/.test(p.text))done=p;}
  assert.ok(done,'the process finished');assert.equal((await f.call('process',{action:'list'})).text.includes(id),true);
- const bg=await f.call('exec',{command:'sleep 30',background:true});
+ const bg=await f.call('exec',{command:'node exec-fixture.mjs background',background:true});
  const killed=await f.call('process',{action:'kill',id:bg.data.processId});assert.match(killed.text,/killed|exit/);
- const input=await f.call('exec',{command:'cat',stdin:'from stdin'});assert.match(input.text,/from stdin/);
+ const input=await f.call('exec',{command:'node exec-fixture.mjs stdin',stdin:'from stdin'});assert.match(input.text,/from stdin/);
 });
 test('files: read with line numbers, write and append, exact edit, find and grep',async t=>{
  const f=await toolFixture(t);
@@ -93,8 +105,12 @@ test('the sandbox confines writes to the working folder (Seatbelt on macOS)',{sk
  await assert.rejects(stat(outside));
  await assert.rejects(f.call('write',{path:outside,content:'x'}),/サンドボックス/);
  const homeDir=path.join(os.homedir(),'tepora-ro-test');assert.throws(()=>assertWritable({mode:'readonly',writable:[]},homeDir,path.join(homeDir,'a')),/サンドボックス/);
- const plan=wrapCommand('true',{cwd:f.session.cwd,policy:{mode:'container',network:false,writable:[],image:'node:22',engine:'auto'},containerName:'tepora-x'});
- if(plan.sandbox!=='off')assert.ok(plan.args.includes('--network')&&plan.args.includes('none'));
+});
+test('container planning requires an available engine and never drops network isolation',()=>{
+ const plan=()=>wrapCommand('true',{cwd:os.tmpdir(),policy:{mode:'container',network:false,writable:[],image:'node:22',engine:'auto'},containerName:'tepora-x'});
+ const available=detectSandbox();
+ if(!available.docker&&!available.podman){assert.throws(plan,e=>e.status===409&&/Docker|Podman/.test(e.message));return;}
+ const wrapped=plan();assert.notEqual(wrapped.sandbox,'off');assert.ok(wrapped.args.includes('--network')&&wrapped.args.includes('none'));
 });
 
 test('files: a file someone else changed must be read again before editing; edits to one file never interleave',async t=>{

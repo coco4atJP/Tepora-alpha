@@ -1,0 +1,1103 @@
+{
+  "epoch": 1791446400000,
+  "source": "https://bulletin.example.test/feed",
+  "weather": [
+    {
+      "city": "Asterhaven",
+      "place": {
+        "name": "Asterhaven",
+        "latitude": 12.25,
+        "longitude": -34.5
+      },
+      "data": {
+        "current": {
+          "temperature_2m": 18,
+          "weather_code": 2,
+          "apparent_temperature": 17
+        },
+        "hourly": {
+          "time": [
+            "hour-0",
+            "hour-1",
+            "hour-2",
+            "hour-3",
+            "hour-4",
+            "hour-5",
+            "hour-6",
+            "hour-7",
+            "hour-8",
+            "hour-9",
+            "hour-10",
+            "hour-11",
+            "hour-12",
+            "hour-13",
+            "hour-14",
+            "hour-15",
+            "hour-16",
+            "hour-17",
+            "hour-18",
+            "hour-19",
+            "hour-20",
+            "hour-21",
+            "hour-22",
+            "hour-23",
+            "hour-24",
+            "hour-25",
+            "hour-26",
+            "hour-27",
+            "hour-28",
+            "hour-29",
+            "hour-30",
+            "hour-31",
+            "hour-32",
+            "hour-33",
+            "hour-34",
+            "hour-35",
+            "hour-36",
+            "hour-37",
+            "hour-38",
+            "hour-39",
+            "hour-40",
+            "hour-41",
+            "hour-42",
+            "hour-43",
+            "hour-44",
+            "hour-45",
+            "hour-46",
+            "hour-47",
+            "hour-48",
+            "hour-49",
+            "hour-50",
+            "hour-51",
+            "hour-52",
+            "hour-53",
+            "hour-54",
+            "hour-55",
+            "hour-56",
+            "hour-57",
+            "hour-58",
+            "hour-59"
+          ],
+          "temperature_2m": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49
+          ],
+          "weather_code": [
+            0,
+            1
+          ],
+          "precipitation_probability": [
+            3,
+            4,
+            5
+          ]
+        },
+        "daily": {
+          "time": [
+            "day-1"
+          ],
+          "sunrise": [
+            "sunrise"
+          ],
+          "sunset": [
+            "sunset"
+          ]
+        }
+      },
+      "value": {
+        "city": "Asterhaven",
+        "current": {
+          "temperature_2m": 18,
+          "weather_code": 2,
+          "apparent_temperature": 17
+        },
+        "hourly": {
+          "time": [
+            "hour-0",
+            "hour-1",
+            "hour-2",
+            "hour-3",
+            "hour-4",
+            "hour-5",
+            "hour-6",
+            "hour-7",
+            "hour-8",
+            "hour-9",
+            "hour-10",
+            "hour-11",
+            "hour-12",
+            "hour-13",
+            "hour-14",
+            "hour-15",
+            "hour-16",
+            "hour-17",
+            "hour-18",
+            "hour-19",
+            "hour-20",
+            "hour-21",
+            "hour-22",
+            "hour-23",
+            "hour-24",
+            "hour-25",
+            "hour-26",
+            "hour-27",
+            "hour-28",
+            "hour-29",
+            "hour-30",
+            "hour-31",
+            "hour-32",
+            "hour-33",
+            "hour-34",
+            "hour-35",
+            "hour-36",
+            "hour-37",
+            "hour-38",
+            "hour-39",
+            "hour-40",
+            "hour-41",
+            "hour-42",
+            "hour-43",
+            "hour-44",
+            "hour-45",
+            "hour-46",
+            "hour-47"
+          ],
+          "temperature_2m": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47
+          ],
+          "weather_code": [
+            0,
+            1
+          ],
+          "precipitation_probability": [
+            3,
+            4,
+            5
+          ]
+        },
+        "daily": {
+          "time": [
+            "day-1"
+          ],
+          "sunrise": [
+            "sunrise"
+          ],
+          "sunset": [
+            "sunset"
+          ]
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Asterhaven&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=12.25&longitude=-34.5&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ],
+      "admittedUrls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Asterhaven&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=12.25&longitude=-34.5&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ]
+    },
+    {
+      "city": "  Aster's Haven! 😀 / & ",
+      "place": {
+        "name": "Aster Haven",
+        "latitude": 0,
+        "longitude": 1e-7
+      },
+      "data": {
+        "current": null,
+        "hourly": {
+          "time": [],
+          "temperature_2m": [
+            1
+          ]
+        },
+        "daily": null
+      },
+      "value": {
+        "city": "Aster Haven",
+        "current": null,
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "daily": null,
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=%20%20Aster's%20Haven!%20%F0%9F%98%80%20%2F%20%26%20&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=1e-7&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ],
+      "admittedUrls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=%20%20Aster%27s%20Haven!%20%F0%9F%98%80%20%2F%20%26%20&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=1e-7&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ]
+    },
+    {
+      "city": "雲の架空街",
+      "place": {
+        "name": "雲の架空街",
+        "latitude": 0,
+        "longitude": 23
+      },
+      "data": {},
+      "value": {
+        "city": "雲の架空街",
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=%E9%9B%B2%E3%81%AE%E6%9E%B6%E7%A9%BA%E8%A1%97&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=23&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ],
+      "admittedUrls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=%E9%9B%B2%E3%81%AE%E6%9E%B6%E7%A9%BA%E8%A1%97&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=23&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ]
+    },
+    {
+      "city": "No-hourly",
+      "place": {
+        "name": "No-hourly",
+        "latitude": 10,
+        "longitude": 20
+      },
+      "data": {
+        "hourly": {
+          "temperature_2m": [
+            1,
+            2
+          ]
+        },
+        "current": {}
+      },
+      "value": {
+        "city": "No-hourly",
+        "current": {},
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=No-hourly&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=10&longitude=20&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ],
+      "admittedUrls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=No-hourly&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=10&longitude=20&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ]
+    },
+    {
+      "city": "Null-hourly",
+      "place": {
+        "name": "Null-hourly",
+        "latitude": 10,
+        "longitude": 20
+      },
+      "data": {
+        "hourly": null
+      },
+      "value": {
+        "city": "Null-hourly",
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Null-hourly&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=10&longitude=20&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ],
+      "admittedUrls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Null-hourly&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=10&longitude=20&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ]
+    }
+  ],
+  "news": [
+    {
+      "name": "rss",
+      "xml": "<?xml version=\"1.0\"?><rss><channel><title>  Daily &amp; Hourly  </title><item><title>Story 1</title><link>https://articles.example.test/1</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 2</title><link>https://articles.example.test/2</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item></channel></rss>",
+      "value": {
+        "title": "Daily & Hourly",
+        "items": [
+          {
+            "title": "Story 1",
+            "url": "https://articles.example.test/1",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 2",
+            "url": "https://articles.example.test/2",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "atom",
+      "xml": "<feed><title>Atom daily</title><entry><title>First</title><link href=\"https://articles.example.test/atom?a=1&amp;b=2\"/><published>2026-10-08</published></entry><entry><title>Second</title><link href='https://articles.example.test/second'/><updated>today</updated></entry></feed>",
+      "value": {
+        "title": "Atom daily",
+        "items": [
+          {
+            "title": "First",
+            "url": "https://articles.example.test/atom?a=1&amp;b=2",
+            "publishedAt": "2026-10-08"
+          },
+          {
+            "title": "Second",
+            "url": "https://articles.example.test/second",
+            "publishedAt": "today"
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "cdata",
+      "xml": "<rss><title><![CDATA[  <b>Fictional</b> &amp; &lt;news&gt; &quot;daily&quot; &#39;  ]]></title><ITEM id=\"1\"><TITLE><![CDATA[<i>Story</i>]]></TITLE><LINK>https://ARTICLES.example.test/a b?q=x&amp;y=2#story</LINK><PUBDATE> date </PUBDATE></ITEM></rss>",
+      "value": {
+        "title": "Fictional & <news> \"daily\" &#39;",
+        "items": [
+          {
+            "title": "Story",
+            "url": "https://articles.example.test/a%20b?q=x&y=2#story",
+            "publishedAt": "date"
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "twelve",
+      "xml": "<rss><title>First twelve only</title><item><title>Story 0</title><link>https://articles.example.test/0</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 1</title><link>https://articles.example.test/1</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 2</title><link>/relative</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 3</title><link>https://articles.example.test/3</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 4</title><link>https://articles.example.test/4</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 5</title><link>https://articles.example.test/5</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 6</title><link>https://articles.example.test/6</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 7</title><link>https://articles.example.test/7</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 8</title><link>https://articles.example.test/8</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 9</title><link>https://articles.example.test/9</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 10</title><link>https://articles.example.test/10</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 11</title><link>https://articles.example.test/11</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 12</title><link>https://articles.example.test/12</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 13</title><link>https://articles.example.test/13</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item><item><title>Story 14</title><link>https://articles.example.test/14</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item></rss>",
+      "value": {
+        "title": "First twelve only",
+        "items": [
+          {
+            "title": "Story 0",
+            "url": "https://articles.example.test/0",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 1",
+            "url": "https://articles.example.test/1",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 3",
+            "url": "https://articles.example.test/3",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 4",
+            "url": "https://articles.example.test/4",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 5",
+            "url": "https://articles.example.test/5",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 6",
+            "url": "https://articles.example.test/6",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 7",
+            "url": "https://articles.example.test/7",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 8",
+            "url": "https://articles.example.test/8",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 9",
+            "url": "https://articles.example.test/9",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 10",
+            "url": "https://articles.example.test/10",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          },
+          {
+            "title": "Story 11",
+            "url": "https://articles.example.test/11",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "utf16",
+      "xml": "<feed><title>語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語😀tail</title><entry><title>ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt😀tail</title><link href=\"https://articles.example.test/unicode\"/></entry></feed>",
+      "value": {
+        "title": "語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語\ud83d",
+        "items": [
+          {
+            "title": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\ud83d",
+            "url": "https://articles.example.test/unicode",
+            "publishedAt": ""
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "empty",
+      "xml": "<rss><title> Nothing today </title></rss>",
+      "value": {
+        "title": "Nothing today",
+        "items": [],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "updated",
+      "xml": "<feed><title>Time</title><entry><title>T</title><link>https://articles.example.test/</link><updated>later</updated></entry></feed>",
+      "value": {
+        "title": "Time",
+        "items": [
+          {
+            "title": "T",
+            "url": "https://articles.example.test/",
+            "publishedAt": "later"
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "mixed",
+      "xml": "<rss><title>Mixed</title><entry><title>A</title><link>https://articles.example.test/a</link></item><itemized>ordinary unrelated content</itemized><item><title>Story 3</title><link>https://articles.example.test/3</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate></item></rss>",
+      "value": {
+        "title": "Mixed",
+        "items": [
+          {
+            "title": "A",
+            "url": "https://articles.example.test/a",
+            "publishedAt": ""
+          },
+          {
+            "title": "Story 3",
+            "url": "https://articles.example.test/3",
+            "publishedAt": "Thu, 08 Oct 2026 00:00:00 GMT"
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    },
+    {
+      "name": "whitespace",
+      "xml": "<rss><title>﻿  News  </title><item id=\"1\"><title>Kept</title><link>https://articles.example.test/</link></item></rss>",
+      "value": {
+        "title": "News",
+        "items": [
+          {
+            "title": "Kept",
+            "url": "https://articles.example.test/",
+            "publishedAt": ""
+          }
+        ],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ],
+      "admittedUrls": [
+        "https://bulletin.example.test/feed"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "name": "weather-disabled",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": false,
+        "weatherCity": "Asterhaven"
+      },
+      "responses": [],
+      "error": {
+        "status": 403,
+        "message": "天気の取得にはネットワーク接続の許可が必要です。"
+      },
+      "urls": []
+    },
+    {
+      "name": "weather-empty",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": ""
+      },
+      "responses": [],
+      "error": {
+        "status": 400,
+        "message": "city: 1–100 characters required"
+      },
+      "urls": []
+    },
+    {
+      "name": "weather-space",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "﻿ "
+      },
+      "responses": [],
+      "error": {
+        "status": 400,
+        "message": "city: 1–100 characters required"
+      },
+      "urls": []
+    },
+    {
+      "name": "weather-long",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      },
+      "responses": [],
+      "error": {
+        "status": 400,
+        "message": "city: 1–100 characters required"
+      },
+      "urls": []
+    },
+    {
+      "name": "weather-not-found",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven"
+      },
+      "responses": [
+        {
+          "body": "{\"results\":[]}"
+        }
+      ],
+      "error": {
+        "status": 404,
+        "message": "都市が見つかりません。英字表記も試してください。"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Asterhaven&count=1&language=ja"
+      ]
+    },
+    {
+      "name": "weather-geocode-status",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven"
+      },
+      "responses": [
+        {
+          "status": 503,
+          "body": "unavailable"
+        }
+      ],
+      "error": {
+        "status": 502,
+        "message": "Weather location service unavailable"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Asterhaven&count=1&language=ja"
+      ]
+    },
+    {
+      "name": "weather-forecast-status",
+      "kind": "weather",
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven"
+      },
+      "responses": [
+        {
+          "body": "{\"results\":[{\"name\":\"Asterhaven\",\"latitude\":12,\"longitude\":34}]}"
+        },
+        {
+          "status": 503,
+          "body": "unavailable"
+        }
+      ],
+      "error": {
+        "status": 502,
+        "message": "Weather provider unavailable"
+      },
+      "urls": [
+        "https://geocoding-api.open-meteo.com/v1/search?name=Asterhaven&count=1&language=ja",
+        "https://api.open-meteo.com/v1/forecast?latitude=12&longitude=34&current=temperature_2m,weather_code,apparent_temperature&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=2"
+      ]
+    },
+    {
+      "name": "news-disabled",
+      "kind": "news",
+      "settings": {
+        "allowNetwork": false,
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "responses": [],
+      "error": {
+        "status": 409,
+        "message": "RSSのURLとネットワーク許可を設定してください。"
+      },
+      "urls": []
+    },
+    {
+      "name": "news-empty",
+      "kind": "news",
+      "settings": {
+        "allowNetwork": true,
+        "newsUrl": ""
+      },
+      "responses": [],
+      "error": {
+        "status": 409,
+        "message": "RSSのURLとネットワーク許可を設定してください。"
+      },
+      "urls": []
+    },
+    {
+      "name": "news-status",
+      "kind": "news",
+      "settings": {
+        "allowNetwork": true,
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "responses": [
+        {
+          "status": 503,
+          "body": "unavailable"
+        }
+      ],
+      "error": {
+        "status": 502,
+        "message": "RSS feed unavailable"
+      },
+      "urls": [
+        "https://bulletin.example.test/feed"
+      ]
+    }
+  ],
+  "cache": [
+    {
+      "kind": "weather",
+      "at": 1791446400000,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "city": "Asterhaven",
+        "current": {
+          "temperature_2m": 18
+        },
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "requests": 2
+    },
+    {
+      "kind": "weather",
+      "at": 1791447299999,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "city": "Asterhaven",
+        "current": {
+          "temperature_2m": 18
+        },
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:00:00.000Z"
+      },
+      "requests": 2
+    },
+    {
+      "kind": "weather",
+      "at": 1791447300000,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "city": "Asterhaven",
+        "current": {
+          "temperature_2m": 18
+        },
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:15:00.000Z"
+      },
+      "requests": 4
+    },
+    {
+      "kind": "weather",
+      "at": 1791446399999,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Asterhaven",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "city": "Asterhaven",
+        "current": {
+          "temperature_2m": 18
+        },
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:15:00.000Z"
+      },
+      "requests": 4
+    },
+    {
+      "kind": "weather",
+      "at": 1791447300001,
+      "settings": {
+        "allowNetwork": false,
+        "weatherCity": "Asterhaven",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "error": {
+        "status": 403,
+        "message": "天気の取得にはネットワーク接続の許可が必要です。"
+      },
+      "requests": 4
+    },
+    {
+      "kind": "weather",
+      "at": 1791447300002,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "city": "Second fictional city",
+        "current": {
+          "temperature_2m": 18
+        },
+        "hourly": {
+          "time": [],
+          "temperature_2m": [],
+          "weather_code": [],
+          "precipitation_probability": []
+        },
+        "source": "Open-Meteo",
+        "sourceUrl": "https://open-meteo.com/",
+        "fetchedAt": "2026-10-08T08:15:00.002Z"
+      },
+      "requests": 6
+    },
+    {
+      "kind": "news",
+      "at": 1791447400000,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "title": "Cached bulletin",
+        "items": [],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:16:40.000Z"
+      },
+      "requests": 7
+    },
+    {
+      "kind": "news",
+      "at": 1791447999999,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "title": "Cached bulletin",
+        "items": [],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:16:40.000Z"
+      },
+      "requests": 7
+    },
+    {
+      "kind": "news",
+      "at": 1791448000000,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "title": "Cached bulletin",
+        "items": [],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:26:40.000Z"
+      },
+      "requests": 8
+    },
+    {
+      "kind": "news",
+      "at": 1791446400000,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "value": {
+        "title": "Cached bulletin",
+        "items": [],
+        "source": "https://bulletin.example.test/feed",
+        "fetchedAt": "2026-10-08T08:26:40.000Z"
+      },
+      "requests": 8
+    },
+    {
+      "kind": "news",
+      "at": 1791448000001,
+      "settings": {
+        "allowNetwork": false,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/feed"
+      },
+      "error": {
+        "status": 409,
+        "message": "RSSのURLとネットワーク許可を設定してください。"
+      },
+      "requests": 8
+    },
+    {
+      "kind": "news",
+      "at": 1791448000002,
+      "settings": {
+        "allowNetwork": true,
+        "weatherCity": "Second fictional city",
+        "newsUrl": "https://bulletin.example.test/other"
+      },
+      "value": {
+        "title": "Cached bulletin",
+        "items": [],
+        "source": "https://bulletin.example.test/other",
+        "fetchedAt": "2026-10-08T08:26:40.002Z"
+      },
+      "requests": 9
+    }
+  ]
+}

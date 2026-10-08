@@ -2,6 +2,7 @@
  * seals, and the idle screen as a screensaver with wallpapers and a photo frame. Pure modules only;
  * the pointer handling of seals and the slideshow are exercised in the browser checks. */
 import test from 'node:test';
+import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 import {SEASONS,seasonOf,seasonLine} from '../web/seasons.mjs';
 import {skyOf,sunTimes,daylightState,daylightVars} from '../web/daylight.mjs';
@@ -193,7 +194,7 @@ test('wallpaper and photo frame settings are validated, default sensibly and mig
 
 test('the browser bundle includes every new module, in dependency order, without name clashes',async()=>{
  const {browserBundle,BUNDLE_ORDER}=await import('../core/frontend.mjs');
- const code=await browserBundle(new URL('../web',import.meta.url).pathname);
+ const code=await browserBundle(fileURLToPath(new URL('../web',import.meta.url)));
  for(const name of ['seasons','daylight','wallpaper','frame','lights','seal','frame-settings'])assert.ok(BUNDLE_ORDER.includes(name),name);
  assert.ok(BUNDLE_ORDER.indexOf('seal')<BUNDLE_ORDER.indexOf('inbox')&&BUNDLE_ORDER.indexOf('status')<BUNDLE_ORDER.indexOf('lights')&&BUNDLE_ORDER.indexOf('frame-settings')<BUNDLE_ORDER.indexOf('app'));
  for(const symbol of ['function seasonOf','function daylightState','function createLights','function bindSeals','function createPhotoFrame','function createFrameSettings'])assert.ok(code.includes(symbol),symbol);

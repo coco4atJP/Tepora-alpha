@@ -1,0 +1,3549 @@
+{
+  "sourceHashes": {
+    "core/semantic.mjs": "7a7efb754f9c924941bfaa8eaaf6f8ea82680ef7f31818874aacfa3d495c981b",
+    "core/search.mjs": "ee295a379fb5cb6d2107c78e76adcf2814b3771e1a6e0be7612fcf4850a142a6",
+    "core/policy.mjs": "a52177165d541f5445c14ff7b9e7da2da5702da0f129d3f3624cf4377c6b2f2b"
+  },
+  "search": [
+    {
+      "query": "ABC",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          },
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "ABC",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "ABC",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "ABC",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "ABC",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "ABC",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "dog",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          },
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "dog",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "dog",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "dog",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "dog",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "dog",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "日本語",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          },
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "日本語",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "日本語",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "日本語",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "日本語",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "日本語",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "珈琲",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "珈琲",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "珈琲",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "珈琲",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "珈琲",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "珈琲",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "tea",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "tea",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "tea",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "tea",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "second",
+            "content": "abc cafe dog tea 日本",
+            "confirmed": true,
+            "scope": "shared"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "tea",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "tea",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "absent",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "absent",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "absent",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "absent",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "absent",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "absent",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "\ud800",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "\ud800",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "\ud800",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "\ud800",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "\ud800",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "\ud800",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "café",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "café",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "café",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "café",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [
+          {
+            "id": "first",
+            "content": "ＡＢＣ café dogs 日本語 珈琲",
+            "title": "oldest",
+            "confirmed": true,
+            "scope": "private"
+          }
+        ],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "café",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "café",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "﻿ ",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "﻿ ",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "﻿ ",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "﻿ ",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "﻿ ",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "﻿ ",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 0,
+        "coverageComplete": true,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 1,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "result": {
+        "hits": [],
+        "note": "キーワード検索",
+        "indexed": 0,
+        "total": 3,
+        "coverageComplete": false,
+        "automaticLearning": false
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid search limit"
+      }
+    },
+    {
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": null,
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": null,
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": null,
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": null,
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": null,
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": null,
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": 4,
+      "options": {},
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": 4,
+      "options": {
+        "recipientPrivate": false
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": 4,
+      "options": {
+        "recipientPrivate": false,
+        "share": true
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": 4,
+      "options": {
+        "limit": 1
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": 4,
+      "options": {
+        "limit": 0
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    },
+    {
+      "query": 4,
+      "options": {
+        "limit": 31
+      },
+      "docs": [
+        {
+          "id": "first",
+          "content": "ＡＢＣ café dogs 日本語 珈琲",
+          "title": "oldest",
+          "confirmed": true,
+          "scope": "private"
+        },
+        {
+          "id": "second",
+          "content": "abc cafe dog tea 日本",
+          "confirmed": true,
+          "scope": "shared"
+        },
+        {
+          "id": "unconfirmed",
+          "content": "abc dog",
+          "confirmed": false,
+          "scope": "shared"
+        },
+        {
+          "id": "literal",
+          "content": "literal  marker and \ud800 isolated",
+          "confirmed": true,
+          "scope": "private"
+        }
+      ],
+      "error": {
+        "status": 400,
+        "message": "query: 1–4000 characters required"
+      }
+    }
+  ],
+  "cosine": [
+    {
+      "a": [
+        1,
+        0
+      ],
+      "b": [
+        1,
+        0
+      ],
+      "result": 1
+    },
+    {
+      "a": [
+        1,
+        0
+      ],
+      "b": [
+        0,
+        1
+      ],
+      "result": 0
+    },
+    {
+      "a": [
+        -1,
+        0
+      ],
+      "b": [
+        1,
+        0
+      ],
+      "result": -1
+    },
+    {
+      "a": [
+        2,
+        3
+      ],
+      "b": [
+        4,
+        5
+      ],
+      "result": 0.996240588195683
+    },
+    {
+      "a": [],
+      "b": [],
+      "error": {
+        "status": 400,
+        "message": "Incompatible embedding spaces"
+      }
+    },
+    {
+      "a": [
+        1
+      ],
+      "b": [
+        1,
+        2
+      ],
+      "error": {
+        "status": 400,
+        "message": "Incompatible embedding spaces"
+      }
+    },
+    {
+      "a": [
+        0,
+        0
+      ],
+      "b": [
+        1,
+        0
+      ],
+      "error": {
+        "status": 400,
+        "message": "Zero embedding"
+      }
+    },
+    {
+      "a": [
+        1,
+        "x"
+      ],
+      "b": [
+        1,
+        2
+      ],
+      "error": {
+        "status": 400,
+        "message": "Invalid vector"
+      }
+    },
+    {
+      "a": [
+        1e+308
+      ],
+      "b": [
+        1e+308
+      ],
+      "result": null
+    },
+    {
+      "a": [
+        1e-308
+      ],
+      "b": [
+        1e-308
+      ],
+      "error": {
+        "status": 400,
+        "message": "Zero embedding"
+      }
+    }
+  ],
+  "hash": [
+    {
+      "content": "",
+      "result": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "content": "plain",
+      "result": "a116c9ed46d6207734a43317d30fd88f52ac8634c37d904bbf4e41d865f90475"
+    },
+    {
+      "content": "\ud800",
+      "result": "83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097"
+    },
+    {
+      "content": "\udc00",
+      "result": "83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097"
+    },
+    {
+      "content": "literal  marker",
+      "result": "d4cc6341247c38a2dfd199b3f28a758cbf358577b1d0b6ec37e19543a1d2e87d"
+    },
+    {
+      "content": "\ud800",
+      "result": "2bb963c83db9a9a952c8e520614226d3073227c9bd3b72c9bd8d034aaaaac26b"
+    },
+    {
+      "content": "a😀b",
+      "result": "6fba5b2ea783ded096fc2444d540ffbdf49168df30993b155b7efb683313f110"
+    }
+  ]
+}

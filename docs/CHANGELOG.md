@@ -1,5 +1,97 @@
 # Tepora V3 changelog
 
+## Shared model-dispatch accounting (beta.11)
+
+- Extend the ordinary Node provider and typed-decision path to the existing bounded native receipt store, including retries, summaries, failures and cancellation
+- Share Rust estimation, content-free receipt shaping, aggregation and atomic completion storage; keep missing usage/rates explicit and remove invented Node cache/output rates
+- Preserve normal-successful-turn budget scope, the default launcher and event order; no per-token or pre-dispatch accounting writes and no additional model requests
+- Keep embedding, generated media, speech and isolated setup probes outside measured coverage; see [coverage and limits](../Tepora-v3/docs/RUST-MODEL-USAGE.md)
+
+## Redundant SQLite write reduction (beta.11)
+
+- Use a conditional KV UPSERT to skip unchanged values and avoid primary-key index rewrites on changes; retain original document/FTS persistence
+- Keep immediate commits, events, revisions, final/error records and durability settings unchanged; retain single-statement write-first locking
+- Document synthetic WAL reductions, read/CPU costs and diagnostic metadata differences in [write-budget evidence](../Tepora-v3/docs/DISK-WRITES.md)
+
+## Node-suite CI budget repair (beta.11)
+
+- Set a bounded 360-second improvement-loop budget for the whole Node suite after a successful Windows suite exceeded the old 180-second ceiling; keep every other stage at 180 seconds
+- Record selected stage budgets separately from actual elapsed times, retaining existing individual deadlines, diagnostic flags, assertions and skips
+- Add deterministic stage-runner unit fixtures for budget selection, command configuration, measured duration, termination and cleanup; see [QA evidence and limits](../Tepora-v3/docs/QA.md#node-suite-orchestration-budget-repair-2026-10-08), with no full-gate or performance-improvement claim
+
+## Rust ordinary custom-skill CRUD (beta.11)
+
+- Connect custom-skill create, enabled-flag patch and delete to the sole native Workspace SQLite owner and synchronous session prompt refresh under `--agent`
+- Preserve source validation, UTF-16 text, ordering, missing-delete behavior and event-before-refresh failure semantics; keep cached prefixes intact
+- Keep shared discovery and native skill content loading unavailable, and ordinary Node/Tauri launch and GUI unchanged
+- See [the custom-skill boundary](../Tepora-v3/docs/RUST-CUSTOM-SKILLS.md) for focused synthetic-only checks and remaining capability gaps
+
+## Rust ordinary streaming speech (beta.11)
+
+- Connect four explicit native-agent streaming speech routes with one ephemeral 16kHz PCM session, ordered/idempotent chunks, 120-second bounds and partial/final text
+- Drain pending start/chunk/finish on cancel, Stop All, tray Stop and shutdown; keep late results from restoring cancelled sessions
+- Preserve checked loopback transport, effect-free mode and ordinary Node/Tauri launch; real microphone/ASR, non-streaming transcription and dictation remain separate
+- See [the native speech boundary](../Tepora-v3/docs/RUST-SPEECH-STREAM.md) for synthetic-only test evidence and limits
+
+## Rust lifecycle and scheduler checkpoint (beta.11)
+
+- Connect scoped semantic index/search and memory retrieval to the single SQLite/capability owner, retaining consent checks and lexical fallback
+- Bind typed delegation/completion advice to shared capability ownership; recheck buffered advice against registry, identity, opaque key generation and close state without exposing secrets or changing original active-transport behavior
+- Connect bounded server-resolved attachment preparation, request deduplication and supported image delivery; non-vision chat retains local receipts without image bytes or a bridge
+- Delete idle worker session state only after owned cleanup and actor revalidation; retain uncertain cleanup/prior receipts on failure and leave unrelated user files intact
+- Connect saved reminders, recurring work and change-sensitive heartbeat timers; coalesce queued ticks and cancel stale generations/in-flight check-ins
+- Reuse one date grammar for display and scheduling, including tested legacy forms, extended-year display and DST behavior
+- Cache the fixed SQLite document lookup statement; isolated actual-core A/B saved about 2–2.6 microseconds per read (256 B and 4 KiB fixtures), with no measured whole-app speed claim
+- Keep plugins/MCP/media/PC and unsupported vision bridges unavailable; normal launch remains unchanged
+- Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLite cache tests, 11 real HTTP/socket tests, and the original Node scheduler regression pass. The HTTP and source-scheduler gates pass on both Node 22.16.0 and 24.19.0; 9 targeted root workflow/conventional-commit checks pass on both, including dedicated LF/CRLF fixtures. The 11 HTTP tests include a real schedule tool receipt, restart delivery and second-restart deduplication. These are focused gates, not a full Rust/Node/quality pass; approval-policy and broader security suites were not rerun in this slice. Cross-platform CI and packaging for this new source are still pending. Earlier package results at 7743e8d do not certify this candidate. No real model, paid provider or desktop default cutover is claimed.
+
+## Rust process/capability checkpoint (historical development checkpoint, beta.11)
+
+- Connect native exec/process lifecycle, exact approvals, ordered receipts, bounded output and Stop/Resume cleanup barriers
+- Add shared capability configuration with memory-only identity-bound keys and atomic revision/event persistence
+- Preserve live provider/capability state in atomic SSE reconnect snapshots
+- Add inert attachment staging/removal and session acceptance/file listing/download; attachment model delivery remains pending
+- Keep native decision/web consumers and remaining peripheral routes explicitly incomplete; normal launch is unchanged
+
+## Rust core migration (development branch, beta.11)
+
+- Move SQLite documents, events, session logs/evidence/inboxes and atomic artifact revisions into a Rust library, retaining the existing database schema and web/service contracts.
+- Move canonical model context/token accounting and request/response state machines for four wire protocols plus Ollama into Rust, with pinned old-implementation differential tests.
+- Move inner model/tool execution control into a generation-correlated Rust state machine; preserve plugin callbacks, bind approved arguments to dispatch, and drain interrupted parallel receipts.
+- Move outer admission, retries, spending-limit pauses and completion decisions into Rust; distinguish explicit resume from main rearm, reject stale callbacks, and cancel approvals before shutdown drainage.
+- Move UI projections and full workspace validation/import/export/indexing into shared Rust domains; add an explicit Node-free developmental HTTP workspace host with auth, bounded SSE and cross-host data ownership.
+- Add N-API integration, Rust unit tests and legacy-database regression tests; source builds now require Rust stable and a C linker.
+- The HTTP server, effect/plugin compatibility adapters, network admission/transport, scheduling and UI still remain JavaScript; migration continues. See [scope and verification](../Tepora-v3/docs/RUST-MIGRATION.md).
+
+## Rust native preferences checkpoint
+
+- Connect revisioned persona/voice, application preference and display/avatar recipe state routes to the native Workspace, with live actor prompt refresh and frozen-source parity fixtures
+- Retain the V8 date-parser provenance and full license in native distributions; reject missing/empty notices
+- Verify the migration branch through exact-SHA push CI without duplicate same-branch PR matrices; permissions and normal launch remain unchanged
+- Keep custom avatar assets, photo frames, media and other unported native effects explicitly unavailable
+
+## Rust native web checkpoint
+
+- Connect native web search/fetch, exact approvals and alias receipts, atomic credential snapshots, lifecycle cancellation and stale-cache rejection
+- Recheck trusted web configuration after DNS and TCP/TLS before dispatch; browser rendering remains unavailable
+
+## Rust native setup checkpoint (historical, beta.11)
+
+- Connect first-use setup, fixed local runtime discovery and bounded model-catalog import/search/refresh to the native agent host
+- Preserve exact probe/download consent, checked network admission, expiring candidates, actor-serialized atomic selection and cancellation/recovery; install-help only opens the official runtime page
+- Retain the independently reproduced legacy Python/macOS PTY EOF repair; published web/setup head `eba5bd4` now passes actual macOS/Windows native and the full Linux regression; later platform Node jobs are still running at this checkpoint
+- Record setup source/fixture gates: native364 + CLI2, Node HTTP24, catalog18 and race20/20; no real installed model/package or packaging acceptance
+- At the setup checkpoint, keep decision/semantic/attachment delivery, session deletion, find/grep, scheduler/MCP/media/PC/plugins and other peripheral effects unported; default Node/JavaScript/CSS remains unchanged
+
+## Rust native semantic candidate (historical local checkpoint, beta.11)
+
+- Connect authenticated semantic index/search and agent memory search to the shared capability/SQLite owners, with lexical fallback and independent memory-write receipts
+- Require exact HTTP external consent and confirmed/shared indexing documents; model arguments cannot grant consent, and current document/identity guards fence egress and cache publication
+- Coalesce bounded background indexing by session ownership: normal release preserves it; Stop removes only its owner, other owners/foreground searches survive; Close cancels and drains all
+- Record native388 + CLI2, focused HTTP/native-agent/root41, byte-identical frozen search84/cosine10/hash7 and full local Node544/549 with the same five environment failures
+- Inventory: 62 implemented, 13 partial, 51 absent application variants; 22 static rows separately. No semantic publication/exact-head CI, packaging or real-model acceptance yet
+- Preserve decision-route rejection and attachment delivery/session deletion/find/grep/scheduler/MCP/media/PC/plugins gaps; default Node/JavaScript/CSS remains unchanged
+
 ## [Unreleased]
 
 ### Added

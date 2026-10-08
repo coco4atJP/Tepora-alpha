@@ -198,9 +198,9 @@ export class Compactor{
    for(let attempt=0;attempt<2&&!summary;attempt++){
     try{
      const messages=[...built.messages,{role:'user',content:compactionInstruction({ledger:ledgerText,previous:!!prev,maxTokens})+(attempt?'\n\nYour previous attempt did not follow the required headings. Use exactly the headings listed.':'')}];
-     const answer=await this.registry.invoke(chain,messages,{tools:toolDefs,toolChoice:'none',maxTokens:Math.round(maxTokens*1.5)+512,signal,cacheKey:session.id,slotKey:session.id,cacheRetention,priority:session.kind==='main'?5:0});
+     const answer=await this.registry.invoke(chain,messages,{accountingSessionId:session.id,accountingPurpose:'summary',accountingAttempt:attempt+1,tools:toolDefs,toolChoice:'none',maxTokens:Math.round(maxTokens*1.5)+512,signal,cacheKey:session.id,slotKey:session.id,cacheRetention,priority:session.kind==='main'?5:0});
      usage=answer.usage;if(answer.finish!=='length'&&validSummary(answer.content,maxTokens))summary=answer.content.trim();
-    }catch(e){if(signal?.aborted)throw e;if(e.kind!=='overflow'&&e.kind!=='bad-request')break;}
+    }catch(e){if(e.kind==='accounting')throw e;if(signal?.aborted)throw e;if(e.kind!=='overflow'&&e.kind!=='bad-request')break;}
    }
   }
   // 2) Out of context: fold the segment in chunks on the compaction route.
@@ -209,11 +209,11 @@ export class Compactor{
    try{
     let rolling=prev?.summary||'';
     for(const part of chunks(transcriptText(folded,built.view.clearUpTo),Math.max(1500,Math.floor(B*0.45)))){
-     const answer=await this.registry.invoke('compaction',[{role:'system',content:SUMMARIZER_SYSTEM},{role:'user',content:summarizerRequest({previous:rolling,ledger:ledgerText,transcript:part,maxTokens})}],{maxTokens:Math.round(maxTokens*1.5)+512,signal,priority:session.kind==='main'?5:0});
+     const answer=await this.registry.invoke('compaction',[{role:'system',content:SUMMARIZER_SYSTEM},{role:'user',content:summarizerRequest({previous:rolling,ledger:ledgerText,transcript:part,maxTokens})}],{accountingSessionId:session.id,accountingPurpose:'summary',maxTokens:Math.round(maxTokens*1.5)+512,signal,priority:session.kind==='main'?5:0});
      if(validSummary(answer.content,maxTokens))rolling=answer.content.trim();else throw new Error('invalid summary');
     }
     summary=rolling;
-   }catch(e){if(signal?.aborted)throw e;}
+   }catch(e){if(e.kind==='accounting')throw e;if(signal?.aborted)throw e;}
   }
   // 3) Deterministic: the previous summary plus a list of what happened. The loop never stops on this.
   if(!summary){

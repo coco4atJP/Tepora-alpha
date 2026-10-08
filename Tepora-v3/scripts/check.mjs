@@ -9,5 +9,5 @@ async function walk(dir){for(const e of await readdir(dir,{withFileTypes:true}))
  const result=spawnSync(process.execPath,['--check',file],{encoding:'utf8'});
  if(result.status!==0){console.error(result.stderr);process.exit(1);}total++;
 }}
-for(const dir of ['core','web','scripts','tests','spec'])await walk(path.join(root,dir));
+for(const dir of ['core','web','scripts','tests','spec','native-service/scripts'])await walk(path.join(root,dir));
 console.log(`Syntax checked ${total} JavaScript modules.`);

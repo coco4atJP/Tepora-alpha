@@ -247,9 +247,11 @@ test('changed instructions are appended to the transcript; the system prompt its
 test('exec: Japanese output split across chunks stays intact; progress bars collapse to what a terminal shows',async t=>{
  const {rt}=await bare(t);const s=rt.sessions.create({kind:'worker',title:'p',cwd:path.join(os.tmpdir(),'tepora-fix-cwd')});await mkdir(s.cwd,{recursive:true});
  const ctx=()=>rt.toolContext(s,new AbortController().signal);
- const big=await rt.tools.get('exec').run({command:`node -e "process.stdout.write('あ'.repeat(120000))"`},ctx());
+ // stdin isolates byte streaming from cmd.exe's separate, still-unverified quoted-command transport.
+ const big=await rt.tools.get('exec').run({command:'node',stdin:"process.stdout.write('あ'.repeat(120000))"},ctx());
+ assert.match(big.text,/^exit 0/);assert.match(big.text,/あ{100}/);
  assert.equal((big.text.match(/�/g)||[]).length,0);
- const bar=await rt.tools.get('exec').run({command:`node -e "for(let i=0;i<=100;i++)process.stdout.write('Downloading '+i+'%\\r');console.log('Downloading 100%');for(let i=0;i<50;i++)console.log('same line')"`},ctx());
+ const bar=await rt.tools.get('exec').run({command:'node',stdin:"for(let i=0;i<=100;i++)process.stdout.write('Downloading '+i+'%\\r');console.log('Downloading 100%');for(let i=0;i<50;i++)console.log('same line')"},ctx());
  assert.match(bar.text,/^exit 0[^\n]*\nDownloading 100%\nsame line\n… \(line above repeated 49 more times\)/);
 });
 

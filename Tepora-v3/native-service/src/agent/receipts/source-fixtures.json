@@ -1,0 +1,1815 @@
+[
+  {
+    "label": "basic final names and formatting",
+    "session": {
+      "id": "fixture",
+      "stats": {
+        "steps": 7,
+        "toolCalls": 2,
+        "toolErrors": 1
+      }
+    },
+    "calls": [
+      {
+        "id": "call1",
+        "name": "tools_call"
+      },
+      {
+        "id": "call2",
+        "name": "read"
+      },
+      {
+        "id": "call3",
+        "name": "todo"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "write",
+        "args": {
+          "path": "a",
+          "content": "hello"
+        },
+        "result": {
+          "text": "Wrote hello",
+          "data": {
+            "path": "a",
+            "sha": "123"
+          }
+        },
+        "ms": 12
+      },
+      {
+        "name": "read",
+        "args": {
+          "path": "a"
+        },
+        "result": {
+          "text": "a (1 lines)\n    1\thello",
+          "data": {
+            "path": "a",
+            "readKey": "a:1:800",
+            "mtimeMs": 12.5,
+            "size": 5
+          }
+        },
+        "ms": 3
+      },
+      {
+        "name": "todo",
+        "args": {
+          "items": []
+        },
+        "result": {
+          "text": "All done"
+        },
+        "ms": 1
+      }
+    ],
+    "budget": 2000,
+    "definitions": {
+      "todo": {
+        "ephemeral": true,
+        "ephemeralKey": "todo"
+      }
+    },
+    "memory": {
+      "calls": [],
+      "errorStreak": 0,
+      "healthy": 2,
+      "nudges": 1
+    },
+    "firstSeq": 10,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 10,
+          "body": {
+            "callId": "call1",
+            "name": "write",
+            "args": {
+              "path": "a",
+              "content": "hello"
+            },
+            "content": "Wrote hello",
+            "stub": "write(path=\"a\" content=\"hello\") → Wrote hello [11 chars]",
+            "error": false,
+            "data": {
+              "path": "a",
+              "sha": "123"
+            },
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 11,
+            "ms": 12
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "call2",
+            "name": "read",
+            "args": {
+              "path": "a"
+            },
+            "content": "a (1 lines)\n    1\thello",
+            "stub": "read(path=\"a\") → a (1 lines) [23 chars]",
+            "error": false,
+            "data": {
+              "path": "a",
+              "readKey": "a:1:800",
+              "mtimeMs": 12.5,
+              "size": 5
+            },
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 23,
+            "ms": 3
+          },
+          "evidence": null,
+          "read_result": {
+            "text": "a (1 lines)\n    1\thello",
+            "data": {
+              "path": "a",
+              "readKey": "a:1:800",
+              "mtimeMs": 12.5,
+              "size": 5
+            }
+          }
+        },
+        {
+          "seq": 12,
+          "body": {
+            "callId": "call3",
+            "name": "todo",
+            "args": {
+              "items": []
+            },
+            "content": "All done",
+            "stub": "todo(items=[0]) → All done [8 chars]",
+            "error": false,
+            "ephemeralKey": "todo",
+            "keep": false,
+            "evidenceId": null,
+            "chars": 8,
+            "ms": 1
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 7,
+        "toolCalls": 5,
+        "toolErrors": 1
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "283ab128d86ac9ac",
+            "outcome": "ddd85dde64512fc1",
+            "label": "write(path=\"a\" content=\"hello\")",
+            "error": false
+          },
+          {
+            "sig": "6352f36cf7bad00c",
+            "outcome": "b440856fd7df1f67",
+            "label": "read(path=\"a\")",
+            "error": false
+          },
+          {
+            "sig": "18be175c6bb2c107",
+            "outcome": "e9eeba4ce2ece580",
+            "label": "todo(items=[0])",
+            "error": false
+          }
+        ],
+        "errorStreak": 0,
+        "healthy": 2,
+        "nudges": 1,
+        "todoStep": 7
+      }
+    },
+    "reads": [
+      [
+        "a:1:800",
+        {
+          "seq": 11,
+          "mtimeMs": 12.5,
+          "size": 5
+        }
+      ]
+    ]
+  },
+  {
+    "label": "error prefixes preserve actual interruption",
+    "session": {
+      "id": "fixture",
+      "stats": {
+        "steps": 7,
+        "toolCalls": 2,
+        "toolErrors": 1
+      }
+    },
+    "calls": [
+      {
+        "id": "a",
+        "name": "read"
+      },
+      {
+        "id": "b",
+        "name": "write"
+      },
+      {
+        "id": "c",
+        "name": "write"
+      }
+    ],
+    "outputs": [
+      {
+        "args": {
+          "path": "missing"
+        },
+        "error": "not here\n detail",
+        "repaired": true,
+        "notExecuted": true,
+        "interrupted": true,
+        "ms": 4
+      },
+      {
+        "args": {
+          "path": "a"
+        },
+        "result": {
+          "text": "actually wrote it"
+        },
+        "interrupted": true,
+        "ms": 80
+      },
+      {
+        "args": {
+          "path": "a"
+        },
+        "error": "failed",
+        "interrupted": true,
+        "ms": 81
+      }
+    ],
+    "budget": 2000,
+    "definitions": {},
+    "memory": {
+      "calls": [],
+      "errorStreak": 0,
+      "healthy": 2,
+      "nudges": 1
+    },
+    "firstSeq": 10,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 10,
+          "body": {
+            "callId": "a",
+            "name": "read",
+            "args": {
+              "path": "missing"
+            },
+            "content": "[not executed: this call was not dispatched.]\n(note: your arguments were not valid JSON and were repaired automatically)\nError: not here\n detail",
+            "stub": "read(path=\"missing\") → error: not here detail [144 chars]",
+            "error": true,
+            "errorText": "not here detail",
+            "notExecuted": true,
+            "interrupted": true,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 144,
+            "ms": 4
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "b",
+            "name": "write",
+            "args": {
+              "path": "a"
+            },
+            "content": "[interrupted: the session was stopped or the service shut down while this ran, so it was terminated early. Check the actual state before retrying.]\nactually wrote it",
+            "stub": "write(path=\"a\") → [interrupted: the session was stopped or the service shut down while … [165 chars]",
+            "error": false,
+            "interrupted": true,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 165,
+            "ms": 80
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 12,
+          "body": {
+            "callId": "c",
+            "name": "write",
+            "args": {
+              "path": "a"
+            },
+            "content": "[interrupted: the session was stopped or the service shut down while this ran, so it was terminated early. Check the actual state before retrying.]\nError: failed",
+            "stub": "write(path=\"a\") → error: failed [161 chars]",
+            "error": true,
+            "errorText": "failed",
+            "interrupted": true,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 161,
+            "ms": 81
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 7,
+        "toolCalls": 5,
+        "toolErrors": 3
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "670da9c19c38093b",
+            "outcome": "c33af98cd8cb1b83",
+            "label": "read(path=\"missing\")",
+            "error": true
+          },
+          {
+            "sig": "f4f85a7a22716413",
+            "outcome": "50c80075d6775d19",
+            "label": "write(path=\"a\")",
+            "error": false
+          },
+          {
+            "sig": "f4f85a7a22716413",
+            "outcome": "ea9688484c9043aa",
+            "label": "write(path=\"a\")",
+            "error": true
+          }
+        ],
+        "errorStreak": 1,
+        "healthy": 2,
+        "nudges": 1
+      }
+    },
+    "reads": []
+  },
+  {
+    "label": "evidence exact limit and data",
+    "session": {
+      "id": "fixture",
+      "stats": {
+        "steps": 7,
+        "toolCalls": 2,
+        "toolErrors": 1
+      }
+    },
+    "calls": [
+      {
+        "id": "a",
+        "name": "big"
+      },
+      {
+        "id": "b",
+        "name": "empty"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "big",
+        "args": {
+          "long": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀😀😀😀😀😀😀😀😀😀",
+          "deep": {
+            "keep": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+          }
+        },
+        "result": {
+          "text": "long evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\n",
+          "data": {
+            "kept": true
+          }
+        },
+        "ms": 100
+      },
+      {
+        "name": "empty",
+        "args": null,
+        "result": null,
+        "ms": 0
+      }
+    ],
+    "budget": 400,
+    "definitions": {
+      "big": {
+        "stub": "custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub custom\n stub "
+      }
+    },
+    "memory": {
+      "calls": [],
+      "errorStreak": 0,
+      "healthy": 2,
+      "nudges": 1
+    },
+    "firstSeq": 100,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 100,
+          "body": {
+            "callId": "a",
+            "name": "big",
+            "args": {
+              "long": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d…",
+              "deep": {
+                "keep": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+              }
+            },
+            "content": "long evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evide\n…[8,557 characters omitted of 10,000; recall(\"#100\", offset=1010) reads the rest]…\nidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\n",
+            "stub": "custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom stub custom …",
+            "error": false,
+            "data": {
+              "kept": true
+            },
+            "ephemeralKey": null,
+            "keep": false,
+            "evidenceId": "fixture#100",
+            "chars": 10000,
+            "ms": 100
+          },
+          "evidence": {
+            "id": "fixture#100",
+            "sessionId": "fixture",
+            "seq": 100,
+            "tool": "big",
+            "content": "long evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\nlong evidence 日本語😀\n"
+          },
+          "read_result": null
+        },
+        {
+          "seq": 101,
+          "body": {
+            "callId": "b",
+            "name": "empty",
+            "args": null,
+            "content": "(no output)",
+            "stub": "empty() → (no output) [11 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 11,
+            "ms": 0
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 7,
+        "toolCalls": 4,
+        "toolErrors": 1
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "976a046dcd4edcee",
+            "outcome": "4da0587250a9b7f0",
+            "label": "big(long=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\" deep={…})",
+            "error": false
+          },
+          {
+            "sig": "b9aa7c7dae8c0e68",
+            "outcome": "efefc15c24ee8645",
+            "label": "empty()",
+            "error": false
+          }
+        ],
+        "errorStreak": 0,
+        "healthy": 2,
+        "nudges": 1
+      }
+    },
+    "reads": []
+  },
+  {
+    "label": "images and false ephemeral key",
+    "session": {
+      "id": "fixture",
+      "stats": {
+        "steps": 7,
+        "toolCalls": 2,
+        "toolErrors": 1
+      }
+    },
+    "calls": [
+      {
+        "id": "i",
+        "name": "vision"
+      },
+      {
+        "id": "s",
+        "name": "sessions_list"
+      },
+      {
+        "id": "e",
+        "name": "ephemeral"
+      }
+    ],
+    "outputs": [
+      {
+        "args": {},
+        "result": {
+          "text": "image",
+          "images": [
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 0,
+              "height": 0,
+              "name": ""
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 1,
+              "height": 1,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 2,
+              "height": 2,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 3,
+              "height": 3,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 4,
+              "height": 4,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 5,
+              "height": 5,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 6,
+              "height": 6,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 7,
+              "height": 7,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 8,
+              "height": 8,
+              "name": "n"
+            },
+            {
+              "mime": "image/png",
+              "base64": "test",
+              "width": 9,
+              "height": 9,
+              "name": "n"
+            }
+          ]
+        }
+      },
+      {
+        "args": {},
+        "result": "short"
+      },
+      {
+        "args": {},
+        "result": {
+          "text": "key"
+        }
+      }
+    ],
+    "budget": 2000,
+    "definitions": {
+      "sessions_list": {
+        "ephemeral": false,
+        "ephemeralKey": "sessions_list"
+      },
+      "ephemeral": {
+        "ephemeral": true,
+        "ephemeralKey": ""
+      }
+    },
+    "memory": {
+      "calls": [],
+      "errorStreak": 0,
+      "healthy": 2,
+      "nudges": 1
+    },
+    "firstSeq": 10,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 10,
+          "body": {
+            "callId": "i",
+            "name": "vision",
+            "args": {},
+            "content": "image",
+            "stub": "vision() → image [5 chars]",
+            "error": false,
+            "images": [
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 0,
+                "height": 0,
+                "name": ""
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 1,
+                "height": 1,
+                "name": "n"
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 2,
+                "height": 2,
+                "name": "n"
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 3,
+                "height": 3,
+                "name": "n"
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 4,
+                "height": 4,
+                "name": "n"
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 5,
+                "height": 5,
+                "name": "n"
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 6,
+                "height": 6,
+                "name": "n"
+              },
+              {
+                "mime": "image/png",
+                "base64": "test",
+                "width": 7,
+                "height": 7,
+                "name": "n"
+              }
+            ],
+            "ephemeralKey": null,
+            "keep": false,
+            "evidenceId": null,
+            "chars": 5
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "s",
+            "name": "sessions_list",
+            "args": {},
+            "content": "short",
+            "stub": "sessions_list() → short [5 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 5
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 12,
+          "body": {
+            "callId": "e",
+            "name": "ephemeral",
+            "args": {},
+            "content": "key",
+            "stub": "ephemeral() → key [3 chars]",
+            "error": false,
+            "ephemeralKey": "",
+            "keep": true,
+            "evidenceId": null,
+            "chars": 3
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 7,
+        "toolCalls": 5,
+        "toolErrors": 1
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "3950528c6013b8c4",
+            "outcome": "6105d6cc76af4003",
+            "label": "vision()",
+            "error": false
+          },
+          {
+            "sig": "b5aec071f4471a5a",
+            "outcome": "f9b0078b5df596d2",
+            "label": "sessions_list()",
+            "error": false
+          },
+          {
+            "sig": "25d196cd6f89c08f",
+            "outcome": "2c70e12b7a0646f9",
+            "label": "ephemeral()",
+            "error": false
+          }
+        ],
+        "errorStreak": 0,
+        "healthy": 2,
+        "nudges": 1
+      }
+    },
+    "reads": []
+  },
+  {
+    "label": "missing args and primitive result",
+    "session": {
+      "id": "fixture",
+      "stats": {
+        "steps": 7,
+        "toolCalls": 2,
+        "toolErrors": 1
+      }
+    },
+    "calls": [
+      {
+        "id": "a",
+        "name": "x"
+      },
+      {
+        "id": "b",
+        "name": "x"
+      },
+      {
+        "id": "c",
+        "name": "x"
+      },
+      {
+        "id": "d",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "error": "bad JSON"
+      },
+      {
+        "args": [
+          1,
+          "a"
+        ],
+        "result": {
+          "text": {
+            "nested": true
+          },
+          "extra": 1
+        }
+      },
+      {
+        "args": false,
+        "result": 42
+      },
+      {
+        "args": 0,
+        "result": {
+          "arbitrary": [
+            "x",
+            null
+          ]
+        }
+      }
+    ],
+    "budget": 2000,
+    "definitions": {},
+    "memory": {
+      "calls": [],
+      "errorStreak": 0,
+      "healthy": 2,
+      "nudges": 1
+    },
+    "firstSeq": 10,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 10,
+          "body": {
+            "callId": "a",
+            "name": "x",
+            "content": "Error: bad JSON",
+            "stub": "x() → error: bad JSON [15 chars]",
+            "error": true,
+            "errorText": "bad JSON",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 15
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "b",
+            "name": "x",
+            "args": {
+              "0": 1,
+              "1": "a"
+            },
+            "content": "{\n \"nested\": true\n}",
+            "stub": "x(0=1 1=\"a\") → { [19 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 19
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 12,
+          "body": {
+            "callId": "c",
+            "name": "x",
+            "args": false,
+            "content": "42",
+            "stub": "x() → 42 [2 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 2
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 13,
+          "body": {
+            "callId": "d",
+            "name": "x",
+            "args": 0,
+            "content": "{\n \"arbitrary\": [\n  \"x\",\n  null\n ]\n}",
+            "stub": "x() → { [36 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 36
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 7,
+        "toolCalls": 6,
+        "toolErrors": 2
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "4ac8fed3583c2c52",
+            "outcome": "5df21e94cfd90ad8",
+            "label": "x()",
+            "error": true
+          },
+          {
+            "sig": "9fd483eb42e592e1",
+            "outcome": "91b368af610ec5b7",
+            "label": "x(0=1 1=\"a\")",
+            "error": false
+          },
+          {
+            "sig": "bd17c3345d8ec87a",
+            "outcome": "73475cb40a568e8d",
+            "label": "x()",
+            "error": false
+          },
+          {
+            "sig": "6ea923493221e65b",
+            "outcome": "cce9b317627bf303",
+            "label": "x()",
+            "error": false
+          }
+        ],
+        "errorStreak": 0,
+        "healthy": 2,
+        "nudges": 1
+      }
+    },
+    "reads": []
+  },
+  {
+    "label": "codec hashes strings and key ordering",
+    "session": {
+      "id": "fixture",
+      "stats": {
+        "steps": 7,
+        "toolCalls": 2,
+        "toolErrors": 1
+      }
+    },
+    "calls": [
+      {
+        "id": "a",
+        "name": "x"
+      },
+      {
+        "id": "b",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "x",
+        "args": {
+          "2": "two",
+          "10": "ten",
+          "z": "\ud800",
+          "a": ""
+        },
+        "result": {
+          "text": "raw \ud800 😀"
+        }
+      },
+      {
+        "name": "x",
+        "args": {
+          "x": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀"
+        },
+        "result": {
+          "text": "other"
+        },
+        "repaired": true
+      }
+    ],
+    "budget": 2000,
+    "definitions": {},
+    "memory": {
+      "calls": [],
+      "errorStreak": 0,
+      "healthy": 2,
+      "nudges": 1
+    },
+    "firstSeq": 10,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 10,
+          "body": {
+            "callId": "a",
+            "name": "x",
+            "args": {
+              "2": "two",
+              "10": "ten",
+              "z": "\ud800",
+              "a": ""
+            },
+            "content": "raw \ud800 😀",
+            "stub": "x(2=\"two\" 10=\"ten\" z=\"\\ud800\" a=\"\") → raw \ud800 😀 [10 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 10
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "b",
+            "name": "x",
+            "args": {
+              "x": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ud83d…"
+            },
+            "content": "(note: your arguments were not valid JSON and were repaired automatically)\nother",
+            "stub": "x(x=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…\") → (note: your arguments were not valid JSON and were repaired automatic… [80 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 80
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 7,
+        "toolCalls": 4,
+        "toolErrors": 1
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "ad3fe1b7c83d8e08",
+            "outcome": "7b2e585b8e77838a",
+            "label": "x(2=\"two\" 10=\"ten\" z=\"\\ud800\" a=\"\")",
+            "error": false
+          },
+          {
+            "sig": "2828b3b2577b314c",
+            "outcome": "fdd4c925ef93010f",
+            "label": "x(x=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…\")",
+            "error": false
+          }
+        ],
+        "errorStreak": 0,
+        "healthy": 2,
+        "nudges": 1
+      }
+    },
+    "reads": []
+  },
+  {
+    "label": "rolling calls and error streak",
+    "session": {
+      "id": "many",
+      "stats": {
+        "steps": 3,
+        "toolCalls": 0,
+        "toolErrors": 0
+      }
+    },
+    "calls": [
+      {
+        "id": "c0",
+        "name": "x"
+      },
+      {
+        "id": "c1",
+        "name": "x"
+      },
+      {
+        "id": "c2",
+        "name": "x"
+      },
+      {
+        "id": "c3",
+        "name": "x"
+      },
+      {
+        "id": "c4",
+        "name": "x"
+      },
+      {
+        "id": "c5",
+        "name": "x"
+      },
+      {
+        "id": "c6",
+        "name": "x"
+      },
+      {
+        "id": "c7",
+        "name": "x"
+      },
+      {
+        "id": "c8",
+        "name": "x"
+      },
+      {
+        "id": "c9",
+        "name": "x"
+      },
+      {
+        "id": "c10",
+        "name": "x"
+      },
+      {
+        "id": "c11",
+        "name": "x"
+      },
+      {
+        "id": "c12",
+        "name": "x"
+      },
+      {
+        "id": "c13",
+        "name": "x"
+      },
+      {
+        "id": "c14",
+        "name": "x"
+      },
+      {
+        "id": "c15",
+        "name": "x"
+      },
+      {
+        "id": "c16",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "args": {
+          "n": 0
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 1
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 2
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 3
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 4
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 5
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 6
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 7
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 8
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 9
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 10
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 11
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 12
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 13
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 14
+        },
+        "error": "problem"
+      },
+      {
+        "args": {
+          "n": 15
+        },
+        "result": "healthy"
+      },
+      {
+        "args": {
+          "n": 16
+        },
+        "result": "healthy"
+      }
+    ],
+    "budget": 2000,
+    "definitions": {},
+    "memory": {
+      "calls": [],
+      "errorStreak": 3,
+      "healthy": 0
+    },
+    "firstSeq": 1,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 1,
+          "body": {
+            "callId": "c0",
+            "name": "x",
+            "args": {
+              "n": 0
+            },
+            "content": "Error: problem",
+            "stub": "x(n=0) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 2,
+          "body": {
+            "callId": "c1",
+            "name": "x",
+            "args": {
+              "n": 1
+            },
+            "content": "Error: problem",
+            "stub": "x(n=1) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 3,
+          "body": {
+            "callId": "c2",
+            "name": "x",
+            "args": {
+              "n": 2
+            },
+            "content": "Error: problem",
+            "stub": "x(n=2) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 4,
+          "body": {
+            "callId": "c3",
+            "name": "x",
+            "args": {
+              "n": 3
+            },
+            "content": "Error: problem",
+            "stub": "x(n=3) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 5,
+          "body": {
+            "callId": "c4",
+            "name": "x",
+            "args": {
+              "n": 4
+            },
+            "content": "Error: problem",
+            "stub": "x(n=4) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 6,
+          "body": {
+            "callId": "c5",
+            "name": "x",
+            "args": {
+              "n": 5
+            },
+            "content": "Error: problem",
+            "stub": "x(n=5) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 7,
+          "body": {
+            "callId": "c6",
+            "name": "x",
+            "args": {
+              "n": 6
+            },
+            "content": "Error: problem",
+            "stub": "x(n=6) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 8,
+          "body": {
+            "callId": "c7",
+            "name": "x",
+            "args": {
+              "n": 7
+            },
+            "content": "Error: problem",
+            "stub": "x(n=7) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 9,
+          "body": {
+            "callId": "c8",
+            "name": "x",
+            "args": {
+              "n": 8
+            },
+            "content": "Error: problem",
+            "stub": "x(n=8) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 10,
+          "body": {
+            "callId": "c9",
+            "name": "x",
+            "args": {
+              "n": 9
+            },
+            "content": "Error: problem",
+            "stub": "x(n=9) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "c10",
+            "name": "x",
+            "args": {
+              "n": 10
+            },
+            "content": "Error: problem",
+            "stub": "x(n=10) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 12,
+          "body": {
+            "callId": "c11",
+            "name": "x",
+            "args": {
+              "n": 11
+            },
+            "content": "Error: problem",
+            "stub": "x(n=11) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 13,
+          "body": {
+            "callId": "c12",
+            "name": "x",
+            "args": {
+              "n": 12
+            },
+            "content": "Error: problem",
+            "stub": "x(n=12) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 14,
+          "body": {
+            "callId": "c13",
+            "name": "x",
+            "args": {
+              "n": 13
+            },
+            "content": "Error: problem",
+            "stub": "x(n=13) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 15,
+          "body": {
+            "callId": "c14",
+            "name": "x",
+            "args": {
+              "n": 14
+            },
+            "content": "Error: problem",
+            "stub": "x(n=14) → error: problem [14 chars]",
+            "error": true,
+            "errorText": "problem",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 14
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 16,
+          "body": {
+            "callId": "c15",
+            "name": "x",
+            "args": {
+              "n": 15
+            },
+            "content": "healthy",
+            "stub": "x(n=15) → healthy [7 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 7
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 17,
+          "body": {
+            "callId": "c16",
+            "name": "x",
+            "args": {
+              "n": 16
+            },
+            "content": "healthy",
+            "stub": "x(n=16) → healthy [7 chars]",
+            "error": false,
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 7
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 3,
+        "toolCalls": 17,
+        "toolErrors": 15
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "e08ec0b31445022b",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=5)",
+            "error": true
+          },
+          {
+            "sig": "ac908b5a1e510ea9",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=6)",
+            "error": true
+          },
+          {
+            "sig": "3e46914e7a0b269e",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=7)",
+            "error": true
+          },
+          {
+            "sig": "1e2d6c914f7af2d7",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=8)",
+            "error": true
+          },
+          {
+            "sig": "e2ce8c13b5697bb3",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=9)",
+            "error": true
+          },
+          {
+            "sig": "d9ac76d6ca0c1bab",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=10)",
+            "error": true
+          },
+          {
+            "sig": "a3e7d49723666f32",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=11)",
+            "error": true
+          },
+          {
+            "sig": "69e9748d097378c8",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=12)",
+            "error": true
+          },
+          {
+            "sig": "b719625f8677db0d",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=13)",
+            "error": true
+          },
+          {
+            "sig": "1db250291a3c4d68",
+            "outcome": "0ded178f3807fb1f",
+            "label": "x(n=14)",
+            "error": true
+          },
+          {
+            "sig": "efdf0518d48f7872",
+            "outcome": "87695fdac81728b9",
+            "label": "x(n=15)",
+            "error": false
+          },
+          {
+            "sig": "71e044cae54e5d47",
+            "outcome": "87695fdac81728b9",
+            "label": "x(n=16)",
+            "error": false
+          }
+        ],
+        "errorStreak": 0,
+        "healthy": 0
+      }
+    },
+    "reads": []
+  },
+  {
+    "label": "string stats use original js addition",
+    "session": {
+      "id": "strings",
+      "stats": {
+        "steps": 9,
+        "toolCalls": "2",
+        "toolErrors": "1"
+      }
+    },
+    "calls": [
+      {
+        "id": "x",
+        "name": "todo"
+      },
+      {
+        "id": "y",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "args": {},
+        "result": "todo"
+      },
+      {
+        "args": {},
+        "error": "err"
+      }
+    ],
+    "budget": 2000,
+    "definitions": {
+      "todo": {
+        "ephemeral": true
+      }
+    },
+    "memory": {
+      "calls": [],
+      "errorStreak": "3"
+    },
+    "firstSeq": 10,
+    "expected": {
+      "receipts": [
+        {
+          "seq": 10,
+          "body": {
+            "callId": "x",
+            "name": "todo",
+            "args": {},
+            "content": "todo",
+            "stub": "todo() → todo [4 chars]",
+            "error": false,
+            "ephemeralKey": "todo",
+            "keep": false,
+            "evidenceId": null,
+            "chars": 4
+          },
+          "evidence": null,
+          "read_result": null
+        },
+        {
+          "seq": 11,
+          "body": {
+            "callId": "y",
+            "name": "x",
+            "args": {},
+            "content": "Error: err",
+            "stub": "x() → error: err [10 chars]",
+            "error": true,
+            "errorText": "err",
+            "ephemeralKey": null,
+            "keep": true,
+            "evidenceId": null,
+            "chars": 10
+          },
+          "evidence": null,
+          "read_result": null
+        }
+      ],
+      "stats": {
+        "steps": 9,
+        "toolCalls": "211",
+        "toolErrors": "101"
+      },
+      "memory": {
+        "calls": [
+          {
+            "sig": "61b753e93390341d",
+            "outcome": "602fae580f5863ab",
+            "label": "todo()",
+            "error": false
+          },
+          {
+            "sig": "77f689c4813ea310",
+            "outcome": "85ef39254066300c",
+            "label": "x()",
+            "error": true
+          }
+        ],
+        "errorStreak": 1,
+        "todoStep": 9
+      }
+    },
+    "reads": []
+  }
+]

@@ -1,0 +1,49 @@
+{
+  "readOnly": false,
+  "ephemeral": false,
+  "name": "schedule",
+  "group": "core",
+  "description": "Reminders and recurring work. add: at a local time (\"15:00\" or \"2026-10-06T15:00\") or in_minutes, optionally every_minutes to repeat. mode \"remind\" (default) sends you the text at that time; \"task\" starts a work agent with the text as its task. list shows what is scheduled; cancel removes one by id.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "action"
+    ],
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "add",
+          "list",
+          "cancel"
+        ]
+      },
+      "text": {
+        "type": "string",
+        "description": "add: what to remind yourself of, or the task to start."
+      },
+      "at": {
+        "type": "string"
+      },
+      "in_minutes": {
+        "type": "number",
+        "minimum": 0
+      },
+      "every_minutes": {
+        "type": "integer",
+        "minimum": 5
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "remind",
+          "task"
+        ]
+      },
+      "id": {
+        "type": "string"
+      }
+    }
+  }
+}

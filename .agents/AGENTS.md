@@ -4,7 +4,8 @@
 
 - **Release**: Tepora V3 **3.0.0-beta.11**.
 - **Goal**: A local-first character conversation with independent asynchronous worker jobs and verifiable artifacts.
-- **Core**: Node.js 22.16.0+ ESM, HTTP loopback service and SQLite under `Tepora-v3/core/`.
+- **Core**: Rust state/context/token/provider-protocol/execution/runtime library in `Tepora-v3/native-core/`, Node.js 22.16.0+ ESM HTTP/agent service under `Tepora-v3/core/`. SQLite is owned by Rust through a synchronous N-API adapter; do not reintroduce a production `node:sqlite` connection. See `Tepora-v3/docs/RUST-MIGRATION.md` for the deliberately partial migration boundary.
+- **Native host (development)**: Tepora-v3/native-service/ owns Rust HTTP/auth/SSE and local workspace routes behind explicit --dev-native. It is not the complete app cutover; normal launch remains the full compatibility service. Build with npm run build:native before process tests.
 - **UI**: JavaScript modules and CSS under `Tepora-v3/web/`.
 - **Desktop**: Thin Tauri host under `Tepora-v3/desktop/`; optional Python workers under `Tepora-v3/workers/`.
 - **Language**: ユーザーとの対話は原則日本語。
@@ -19,7 +20,7 @@ New installations default to protected mode. Untrusted code runs only through th
 
 Keep current documentation at beta.11. Earlier records are in Git history, not archived copies in this checkout. For documentation and architecture changes, use `.agents/skills/doc-updater/SKILL.md` and `.agents/skills/update-architecture-docs/SKILL.md`. Inspect current V3 code before making feature changes.
 
-Run checks appropriate to the change. `npm run quality` covers V3 syntax, Node/Python regressions, specification traceability, preview build, local capability fixtures and root entry-point tests. Optional real models, paid APIs, host actions, browser checks and container execution are separate explicit choices.
+Run `npm run build:core` before invoking Node tests directly. Source builds require Rust stable and the platform C linker; desktop packages include the native core. Run `npm run test:rust` for Node-independent Rust unit tests. Run checks appropriate to the change. `npm run quality` covers V3 syntax, Node/Python regressions, specification traceability, preview build, local capability fixtures and root entry-point tests. Optional real models, paid APIs, host actions, browser checks and container execution are separate explicit choices.
 
 ## User data and communication
 

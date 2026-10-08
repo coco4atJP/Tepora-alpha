@@ -1,0 +1,862 @@
+{
+  "schema": 1,
+  "timezone": "UTC",
+  "cases": [
+    {
+      "text": "",
+      "valid": false
+    },
+    {
+      "text": " ",
+      "valid": false
+    },
+    {
+      "text": "0",
+      "valid": true
+    },
+    {
+      "text": "1",
+      "valid": true
+    },
+    {
+      "text": "12",
+      "valid": true
+    },
+    {
+      "text": "13",
+      "valid": false
+    },
+    {
+      "text": "31",
+      "valid": false
+    },
+    {
+      "text": "32",
+      "valid": true
+    },
+    {
+      "text": "49",
+      "valid": true
+    },
+    {
+      "text": "50",
+      "valid": true
+    },
+    {
+      "text": "99",
+      "valid": true
+    },
+    {
+      "text": "100",
+      "valid": true
+    },
+    {
+      "text": "1000",
+      "valid": true
+    },
+    {
+      "text": "2024",
+      "valid": true
+    },
+    {
+      "text": "2024-",
+      "valid": true
+    },
+    {
+      "text": "2024-1",
+      "valid": true
+    },
+    {
+      "text": "2024-1-1",
+      "valid": true
+    },
+    {
+      "text": "2024-01",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01",
+      "valid": true
+    },
+    {
+      "text": "2024-13-01",
+      "valid": false
+    },
+    {
+      "text": "2024-00-01",
+      "valid": false
+    },
+    {
+      "text": "2024-01-00",
+      "valid": false
+    },
+    {
+      "text": "2024-01-32",
+      "valid": false
+    },
+    {
+      "text": "2024-02-29",
+      "valid": true
+    },
+    {
+      "text": "2023-02-29",
+      "valid": true
+    },
+    {
+      "text": "2023-02-31",
+      "valid": true
+    },
+    {
+      "text": "01/02/2024",
+      "valid": true
+    },
+    {
+      "text": "2024/01/02",
+      "valid": true
+    },
+    {
+      "text": "02-30-2024",
+      "valid": true
+    },
+    {
+      "text": "2024.1.2",
+      "valid": true
+    },
+    {
+      "text": "Jan 1",
+      "valid": true
+    },
+    {
+      "text": "January 1 2024",
+      "valid": true
+    },
+    {
+      "text": "Janxxx 1 2024",
+      "valid": true
+    },
+    {
+      "text": "1 Jan 2024",
+      "valid": true
+    },
+    {
+      "text": "2024 Jan 1",
+      "valid": true
+    },
+    {
+      "text": "garbage 1 Jan 2024",
+      "valid": true
+    },
+    {
+      "text": "garbage1 Jan 2024",
+      "valid": false
+    },
+    {
+      "text": "2024 Jan garbage 1",
+      "valid": false
+    },
+    {
+      "text": "Thu, 01 Jan 1970 00:00:00 GMT",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01t00:00:00z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00Z",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01T0:00Z",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01T24:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T24:00:00.000Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T24:00:00.001Z",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01T23:59:60Z",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01T00:00:00.1Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00:00.123456789012Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00:00.00000000001Z",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00:00+0900",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01T00:00:00+2400",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01T00:00:00Z ",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01 00:00:00",
+      "valid": true
+    },
+    {
+      "text": "12:00",
+      "valid": false
+    },
+    {
+      "text": "Jan 1 2024 12:34",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 12::34",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 12:.34",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 0:0:0",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 12:00 am",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 12:00 pm",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 13:00 pm",
+      "valid": false
+    },
+    {
+      "text": "Jan 1 2024 GMT+9",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 GMT+0900",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 GMT+9:30",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 GMT+99:59",
+      "valid": true
+    },
+    {
+      "text": "Jan 1 2024 GMT+12345",
+      "valid": false
+    },
+    {
+      "text": "Jan 1 2024 GMT+1193047:0",
+      "valid": true
+    },
+    {
+      "text": "(nested(comment))2024-01-01",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01(comment)",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01(",
+      "valid": true
+    },
+    {
+      "text": "2024-01-01)",
+      "valid": false
+    },
+    {
+      "text": "-000000-01-01",
+      "valid": true
+    },
+    {
+      "text": "+000000-01-01",
+      "valid": true
+    },
+    {
+      "text": "+275760-09-13T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "+275760-09-13T00:00:00.001Z",
+      "valid": false
+    },
+    {
+      "text": "-271821-04-20T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "-271821-04-19T23:59:59.999Z",
+      "valid": false
+    },
+    {
+      "text": "+999999-01-01",
+      "valid": false
+    },
+    {
+      "text": "2024\u0000garbage",
+      "valid": true
+    },
+    {
+      "text": "2024 ",
+      "valid": false
+    },
+    {
+      "text": "2024﻿",
+      "valid": true
+    },
+    {
+      "text": "2024\ud800",
+      "valid": false
+    },
+    {
+      "text": "2024",
+      "valid": false
+    },
+    {
+      "text": "2024",
+      "valid": false
+    },
+    {
+      "text": "2024᠎",
+      "valid": false
+    },
+    {
+      "text": "2024-00-00",
+      "valid": false
+    },
+    {
+      "text": "2024-00-01",
+      "valid": false
+    },
+    {
+      "text": "2024-00-28",
+      "valid": false
+    },
+    {
+      "text": "2024-00-29",
+      "valid": false
+    },
+    {
+      "text": "2024-00-30",
+      "valid": false
+    },
+    {
+      "text": "2024-00-31",
+      "valid": false
+    },
+    {
+      "text": "2024-00-32",
+      "valid": false
+    },
+    {
+      "text": "2024-01-00",
+      "valid": false
+    },
+    {
+      "text": "2024-01-01",
+      "valid": true
+    },
+    {
+      "text": "2024-01-28",
+      "valid": true
+    },
+    {
+      "text": "2024-01-29",
+      "valid": true
+    },
+    {
+      "text": "2024-01-30",
+      "valid": true
+    },
+    {
+      "text": "2024-01-31",
+      "valid": true
+    },
+    {
+      "text": "2024-01-32",
+      "valid": false
+    },
+    {
+      "text": "2024-02-00",
+      "valid": false
+    },
+    {
+      "text": "2024-02-01",
+      "valid": true
+    },
+    {
+      "text": "2024-02-28",
+      "valid": true
+    },
+    {
+      "text": "2024-02-29",
+      "valid": true
+    },
+    {
+      "text": "2024-02-30",
+      "valid": true
+    },
+    {
+      "text": "2024-02-31",
+      "valid": true
+    },
+    {
+      "text": "2024-02-32",
+      "valid": false
+    },
+    {
+      "text": "2024-03-00",
+      "valid": false
+    },
+    {
+      "text": "2024-03-01",
+      "valid": true
+    },
+    {
+      "text": "2024-03-28",
+      "valid": true
+    },
+    {
+      "text": "2024-03-29",
+      "valid": true
+    },
+    {
+      "text": "2024-03-30",
+      "valid": true
+    },
+    {
+      "text": "2024-03-31",
+      "valid": true
+    },
+    {
+      "text": "2024-03-32",
+      "valid": false
+    },
+    {
+      "text": "2024-04-00",
+      "valid": false
+    },
+    {
+      "text": "2024-04-01",
+      "valid": true
+    },
+    {
+      "text": "2024-04-28",
+      "valid": true
+    },
+    {
+      "text": "2024-04-29",
+      "valid": true
+    },
+    {
+      "text": "2024-04-30",
+      "valid": true
+    },
+    {
+      "text": "2024-04-31",
+      "valid": true
+    },
+    {
+      "text": "2024-04-32",
+      "valid": false
+    },
+    {
+      "text": "2024-05-00",
+      "valid": false
+    },
+    {
+      "text": "2024-05-01",
+      "valid": true
+    },
+    {
+      "text": "2024-05-28",
+      "valid": true
+    },
+    {
+      "text": "2024-05-29",
+      "valid": true
+    },
+    {
+      "text": "2024-05-30",
+      "valid": true
+    },
+    {
+      "text": "2024-05-31",
+      "valid": true
+    },
+    {
+      "text": "2024-05-32",
+      "valid": false
+    },
+    {
+      "text": "2024-06-00",
+      "valid": false
+    },
+    {
+      "text": "2024-06-01",
+      "valid": true
+    },
+    {
+      "text": "2024-06-28",
+      "valid": true
+    },
+    {
+      "text": "2024-06-29",
+      "valid": true
+    },
+    {
+      "text": "2024-06-30",
+      "valid": true
+    },
+    {
+      "text": "2024-06-31",
+      "valid": true
+    },
+    {
+      "text": "2024-06-32",
+      "valid": false
+    },
+    {
+      "text": "2024-07-00",
+      "valid": false
+    },
+    {
+      "text": "2024-07-01",
+      "valid": true
+    },
+    {
+      "text": "2024-07-28",
+      "valid": true
+    },
+    {
+      "text": "2024-07-29",
+      "valid": true
+    },
+    {
+      "text": "2024-07-30",
+      "valid": true
+    },
+    {
+      "text": "2024-07-31",
+      "valid": true
+    },
+    {
+      "text": "2024-07-32",
+      "valid": false
+    },
+    {
+      "text": "2024-08-00",
+      "valid": false
+    },
+    {
+      "text": "2024-08-01",
+      "valid": true
+    },
+    {
+      "text": "2024-08-28",
+      "valid": true
+    },
+    {
+      "text": "2024-08-29",
+      "valid": true
+    },
+    {
+      "text": "2024-08-30",
+      "valid": true
+    },
+    {
+      "text": "2024-08-31",
+      "valid": true
+    },
+    {
+      "text": "2024-08-32",
+      "valid": false
+    },
+    {
+      "text": "2024-09-00",
+      "valid": false
+    },
+    {
+      "text": "2024-09-01",
+      "valid": true
+    },
+    {
+      "text": "2024-09-28",
+      "valid": true
+    },
+    {
+      "text": "2024-09-29",
+      "valid": true
+    },
+    {
+      "text": "2024-09-30",
+      "valid": true
+    },
+    {
+      "text": "2024-09-31",
+      "valid": true
+    },
+    {
+      "text": "2024-09-32",
+      "valid": false
+    },
+    {
+      "text": "2024-10-00",
+      "valid": false
+    },
+    {
+      "text": "2024-10-01",
+      "valid": true
+    },
+    {
+      "text": "2024-10-28",
+      "valid": true
+    },
+    {
+      "text": "2024-10-29",
+      "valid": true
+    },
+    {
+      "text": "2024-10-30",
+      "valid": true
+    },
+    {
+      "text": "2024-10-31",
+      "valid": true
+    },
+    {
+      "text": "2024-10-32",
+      "valid": false
+    },
+    {
+      "text": "2024-11-00",
+      "valid": false
+    },
+    {
+      "text": "2024-11-01",
+      "valid": true
+    },
+    {
+      "text": "2024-11-28",
+      "valid": true
+    },
+    {
+      "text": "2024-11-29",
+      "valid": true
+    },
+    {
+      "text": "2024-11-30",
+      "valid": true
+    },
+    {
+      "text": "2024-11-31",
+      "valid": true
+    },
+    {
+      "text": "2024-11-32",
+      "valid": false
+    },
+    {
+      "text": "2024-12-00",
+      "valid": false
+    },
+    {
+      "text": "2024-12-01",
+      "valid": true
+    },
+    {
+      "text": "2024-12-28",
+      "valid": true
+    },
+    {
+      "text": "2024-12-29",
+      "valid": true
+    },
+    {
+      "text": "2024-12-30",
+      "valid": true
+    },
+    {
+      "text": "2024-12-31",
+      "valid": true
+    },
+    {
+      "text": "2024-12-32",
+      "valid": false
+    },
+    {
+      "text": "2024-13-00",
+      "valid": false
+    },
+    {
+      "text": "2024-13-01",
+      "valid": false
+    },
+    {
+      "text": "2024-13-28",
+      "valid": false
+    },
+    {
+      "text": "2024-13-29",
+      "valid": false
+    },
+    {
+      "text": "2024-13-30",
+      "valid": false
+    },
+    {
+      "text": "2024-13-31",
+      "valid": false
+    },
+    {
+      "text": "2024-13-32",
+      "valid": false
+    },
+    {
+      "text": "0000",
+      "valid": true
+    },
+    {
+      "text": "0000-01-01",
+      "valid": true
+    },
+    {
+      "text": "0000-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "0000-09-13T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "0099",
+      "valid": true
+    },
+    {
+      "text": "0099-01-01",
+      "valid": true
+    },
+    {
+      "text": "0099-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "0099-09-13T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "9999",
+      "valid": true
+    },
+    {
+      "text": "9999-01-01",
+      "valid": true
+    },
+    {
+      "text": "9999-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "9999-09-13T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "+010000",
+      "valid": true
+    },
+    {
+      "text": "+010000-01-01",
+      "valid": true
+    },
+    {
+      "text": "+010000-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "+010000-09-13T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "-000001",
+      "valid": true
+    },
+    {
+      "text": "-000001-01-01",
+      "valid": true
+    },
+    {
+      "text": "-000001-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "-000001-09-13T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "+275760",
+      "valid": true
+    },
+    {
+      "text": "+275760-01-01",
+      "valid": true
+    },
+    {
+      "text": "+275760-01-01T00:00:00Z",
+      "valid": true
+    },
+    {
+      "text": "+275760-09-13T00:00:00+09:00",
+      "valid": true
+    },
+    {
+      "text": "-271821",
+      "valid": false
+    },
+    {
+      "text": "-271821-01-01",
+      "valid": false
+    },
+    {
+      "text": "-271821-01-01T00:00:00Z",
+      "valid": false
+    },
+    {
+      "text": "-271821-09-13T00:00:00+09:00",
+      "valid": true
+    }
+  ]
+}

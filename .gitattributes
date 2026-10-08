@@ -1,0 +1,2 @@
+# Pinned vendor hashes describe canonical bytes, independent of core.autocrlf.
+Tepora-v3/web/vendor/** -text

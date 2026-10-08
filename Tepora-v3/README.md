@@ -4,6 +4,8 @@ A quiet, customizable smart monitor that can keep working while you talk.
 Local-first, provider-neutral, with explicit control over cloud/LAN access.
 This is an executable **development beta**, not a finished replacement for the operating system.
 
+The opt-in [native host](native-service/README.md) also connects scoped semantic memory. Its lifecycle implementation adds shared-owner typed decisions, bounded attachment admission/delivery and stopped-session deletion with cleanup barriers. Non-vision chat retains local attachment receipts without sending image bytes or starting a bridge. Saved schedules and change-sensitive heartbeat timers are also connected. Plugins, MCP, media/speech, Computer Use and unsupported vision bridges remain outside the native scope; normal Node/Tauri launch is unchanged. See the [migration record](docs/RUST-MIGRATION.md) for exact validation boundaries.
+
 ## Start
 
 The repository root also provides `npm start`, `npm run quality`, `npm run desktop` and
@@ -85,7 +87,7 @@ results remain available while you keep talking. A received request ID is not a 
 
 **記憶 → 意味で探す** builds/queries a bounded semantic index. Prefer a local embedding endpoint.
 Remote indexing is opt-in and restricted to confirmed shared memories. Lexical search remains
-available offline or when the optional embedding endpoint fails. Similarity is not truth.
+available offline or when the optional embedding endpoint fails. Similarity is not truth. The local native-agent candidate also connects semantic index/search and agent memory tools with explicit external consent, lexical fallback and scoped cancellation. It remains an opt-in development host; normal Node launch and JavaScript/CSS are unchanged. See [native scope and verification](native-service/README.md).
 
 **設定 → 仕事の実行 → 道具（MCP）→ まとめて追加 / まとめて接続** accepts `mcpServers` JSON. Review imported
 configuration, then select which connections to start. They are not launched just because they

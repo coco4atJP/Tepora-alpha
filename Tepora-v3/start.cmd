@@ -14,5 +14,10 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+node scripts/build-core.mjs
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
 node core/server.mjs --open
 if errorlevel 1 pause

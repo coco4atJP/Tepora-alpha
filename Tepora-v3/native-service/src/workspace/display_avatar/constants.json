@@ -1,0 +1,827 @@
+{
+  "displayDefault": {
+    "schema": 1,
+    "revision": 0,
+    "theme": "system",
+    "textScale": 1,
+    "widgets": [
+      "clock",
+      "companion",
+      "work",
+      "weather",
+      "news",
+      "media",
+      "artifact"
+    ],
+    "hiddenUntil": {},
+    "ambient": {
+      "idleMinutes": 5,
+      "rotateSeconds": 12,
+      "nightDim": true,
+      "wallpaper": "room",
+      "keepAwake": false,
+      "frameSeconds": 30,
+      "frameShuffle": true,
+      "frameFit": "cover",
+      "frameMotion": true,
+      "frameClock": "small",
+      "frameCreated": true
+    }
+  },
+  "ambientDefault": {
+    "idleMinutes": 5,
+    "rotateSeconds": 12,
+    "nightDim": true,
+    "wallpaper": "room",
+    "keepAwake": false,
+    "frameSeconds": 30,
+    "frameShuffle": true,
+    "frameFit": "cover",
+    "frameMotion": true,
+    "frameClock": "small",
+    "frameCreated": true
+  },
+  "widgets": [
+    "clock",
+    "companion",
+    "weather",
+    "news",
+    "media",
+    "work",
+    "artifact"
+  ],
+  "bodies": [
+    {
+      "id": "shiro",
+      "kind": "svg",
+      "name": "しろ・改",
+      "note": "いまの姿を磨いた、既定の相棒",
+      "face": true,
+      "parts": [
+        "ears"
+      ],
+      "props": true,
+      "modes": [
+        "flat",
+        "solid"
+      ],
+      "slots": [
+        {
+          "key": "shape",
+          "label": "からだ",
+          "opts": [
+            [
+              "egg",
+              "たまご"
+            ],
+            [
+              "mochi",
+              "もち"
+            ],
+            [
+              "tall",
+              "のっぽ"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "andon",
+      "kind": "svg",
+      "name": "灯守",
+      "note": "和紙の行灯。夜は中から灯り、考え中は走馬灯の影が回る",
+      "face": true,
+      "props": true,
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "shape",
+          "label": "行灯のかたち",
+          "opts": [
+            [
+              "round",
+              "まる"
+            ],
+            [
+              "drum",
+              "つつ"
+            ],
+            [
+              "gourd",
+              "ひょうたん"
+            ]
+          ]
+        },
+        {
+          "key": "soma",
+          "label": "走馬灯の影",
+          "opts": [
+            [
+              "auto",
+              "季節にまかせる"
+            ],
+            [
+              "leaf",
+              "紅葉"
+            ],
+            [
+              "fish",
+              "金魚"
+            ],
+            [
+              "bird",
+              "燕"
+            ],
+            [
+              "snow",
+              "雪"
+            ],
+            [
+              "moon",
+              "月と星"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ensou",
+      "kind": "svg",
+      "name": "円相",
+      "note": "墨の一筆。輪のあきが口と耳",
+      "props": true,
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "brush",
+          "label": "筆の太さ",
+          "opts": [
+            [
+              "thin",
+              "細い"
+            ],
+            [
+              "mid",
+              "ふつう"
+            ],
+            [
+              "bold",
+              "太い"
+            ]
+          ]
+        },
+        {
+          "key": "eyes",
+          "label": "目",
+          "opts": [
+            [
+              "dot",
+              "墨の点"
+            ],
+            [
+              "line",
+              "ひと筆"
+            ],
+            [
+              "slit",
+              "たて筆"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kobako",
+      "kind": "svg",
+      "name": "小箱",
+      "note": "画面が顔の小さな機械。遠くからでも読める",
+      "props": true,
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "shape",
+          "label": "からだ",
+          "opts": [
+            [
+              "box",
+              "はこ"
+            ],
+            [
+              "tall",
+              "たて"
+            ],
+            [
+              "round",
+              "まる"
+            ]
+          ]
+        },
+        {
+          "key": "screen",
+          "label": "画面の顔",
+          "opts": [
+            [
+              "led",
+              "棒の目"
+            ],
+            [
+              "dot",
+              "丸い目"
+            ],
+            [
+              "pixel",
+              "ドット"
+            ],
+            [
+              "bar",
+              "一本線"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kitsune",
+      "kind": "svg",
+      "name": "狐火",
+      "note": "尾の先に灯りを持つ白い小狐。耳としっぽに気持ちが出る",
+      "face": true,
+      "props": true,
+      "lampShape": "flame",
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "earLength",
+          "label": "耳",
+          "opts": [
+            [
+              "std",
+              "ふつう"
+            ],
+            [
+              "long",
+              "長い"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hotaru",
+      "kind": "svg",
+      "name": "蛍",
+      "note": "体のない、やわらかな光",
+      "face": true,
+      "props": true,
+      "eyes": "dot",
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "faceVis",
+          "label": "顔",
+          "opts": [
+            [
+              "always",
+              "いつも"
+            ],
+            [
+              "engage",
+              "呼ばれたとき"
+            ],
+            [
+              "never",
+              "出さない"
+            ]
+          ]
+        },
+        {
+          "key": "halo",
+          "label": "光のひろがり",
+          "opts": [
+            [
+              "soft",
+              "やわらか"
+            ],
+            [
+              "wide",
+              "広い"
+            ],
+            [
+              "tight",
+              "小さめ"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kokedama",
+      "kind": "svg",
+      "name": "苔玉",
+      "note": "芽の先が灯りの蕾。窓へ傾き、季節で葉の色が変わる",
+      "face": true,
+      "props": true,
+      "palette": "moss",
+      "lampShape": "bud",
+      "eyes": "dot",
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "leaves",
+          "label": "葉の色",
+          "opts": [
+            [
+              "auto",
+              "季節にまかせる"
+            ],
+            [
+              "spring",
+              "春"
+            ],
+            [
+              "summer",
+              "夏"
+            ],
+            [
+              "autumn",
+              "秋"
+            ],
+            [
+              "winter",
+              "冬"
+            ]
+          ]
+        },
+        {
+          "key": "faceVis",
+          "label": "顔",
+          "opts": [
+            [
+              "always",
+              "いつも"
+            ],
+            [
+              "never",
+              "出さない"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "kind": "image",
+      "name": "画像（1枚）",
+      "note": "好きな絵や写真をそのまま相棒に",
+      "needs": "image",
+      "modes": [
+        "flat"
+      ],
+      "slots": []
+    },
+    {
+      "id": "imageset",
+      "kind": "image",
+      "name": "画像セット",
+      "note": "気分ごとの絵（PNGtuber形式）。口を開けた絵も使えます",
+      "needs": "imageset",
+      "modes": [
+        "flat"
+      ],
+      "slots": []
+    },
+    {
+      "id": "vrm",
+      "kind": "vrm",
+      "name": "3Dモデル（VRM）",
+      "note": "VRM 1.0 / 0.x。今までのキャラクターをそのまま",
+      "needs": "vrm",
+      "modes": [
+        "flat"
+      ],
+      "slots": [
+        {
+          "key": "framing",
+          "label": "映す範囲",
+          "opts": [
+            [
+              "bust",
+              "上半身"
+            ],
+            [
+              "full",
+              "全身"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mesh",
+      "kind": "mesh",
+      "name": "メッシュアバター",
+      "note": "mesh-avatar-studio で作った、動くイラスト",
+      "needs": "mesh",
+      "modes": [
+        "flat"
+      ],
+      "slots": []
+    }
+  ],
+  "defaults": {
+    "shiro": {
+      "schema": 1,
+      "body": "shiro",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "andon": {
+      "schema": 1,
+      "body": "andon",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "ensou": {
+      "schema": 1,
+      "body": "ensou",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "kobako": {
+      "schema": 1,
+      "body": "kobako",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "kitsune": {
+      "schema": 1,
+      "body": "kitsune",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "flame"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "hotaru": {
+      "schema": 1,
+      "body": "hotaru",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "dot",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "kokedama": {
+      "schema": 1,
+      "body": "kokedama",
+      "render": "flat",
+      "palette": "moss",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bud"
+      },
+      "face": {
+        "eyes": "dot",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "image": {
+      "schema": 1,
+      "body": "image",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "imageset": {
+      "schema": 1,
+      "body": "imageset",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "vrm": {
+      "schema": 1,
+      "body": "vrm",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    },
+    "mesh": {
+      "schema": 1,
+      "body": "mesh",
+      "render": "flat",
+      "palette": "washi",
+      "hue": 30,
+      "lamp": {
+        "hue": "vermilion",
+        "shape": "bead"
+      },
+      "face": {
+        "eyes": "capsule",
+        "cheeks": true,
+        "brows": true
+      },
+      "parts": {
+        "ears": "none"
+      },
+      "props": {
+        "season": "off",
+        "hobby": "none"
+      },
+      "slots": {},
+      "motion": "normal",
+      "size": 1,
+      "asset": null
+    }
+  },
+  "avatarDefault": {
+    "schema": 1,
+    "body": "shiro",
+    "render": "flat",
+    "palette": "washi",
+    "hue": 30,
+    "lamp": {
+      "hue": "vermilion",
+      "shape": "bead"
+    },
+    "face": {
+      "eyes": "capsule",
+      "cheeks": true,
+      "brows": true
+    },
+    "parts": {
+      "ears": "none"
+    },
+    "props": {
+      "season": "off",
+      "hobby": "none"
+    },
+    "slots": {},
+    "motion": "normal",
+    "size": 1,
+    "asset": null,
+    "revision": 0
+  },
+  "palettes": [
+    "washi",
+    "porcelain",
+    "felt",
+    "moss",
+    "sora",
+    "sakura",
+    "kitsune",
+    "sumi",
+    "custom"
+  ],
+  "lamps": [
+    "vermilion",
+    "indigo",
+    "matcha",
+    "plum",
+    "snow"
+  ],
+  "lampShapes": [
+    "bead",
+    "flame",
+    "bud",
+    "bulb",
+    "none"
+  ],
+  "eyes": [
+    "capsule",
+    "dot",
+    "big",
+    "sleepy"
+  ],
+  "ears": [
+    "none",
+    "cat",
+    "bear",
+    "rabbit"
+  ],
+  "seasons": [
+    "auto",
+    "off",
+    "petal",
+    "uchiwa",
+    "leaf",
+    "scarf"
+  ],
+  "hobbies": [
+    "none",
+    "headphones",
+    "glasses",
+    "cup"
+  ],
+  "motions": [
+    "calm",
+    "normal",
+    "lively"
+  ]
+}

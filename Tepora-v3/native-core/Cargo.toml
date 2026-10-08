@@ -1,0 +1,26 @@
+[package]
+name = "tepora-core"
+version = "3.0.0-beta.11"
+edition = "2021"
+description = "Tepora's durable SQLite state and session domain core"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["node"]
+node = ["dep:napi", "dep:napi-derive", "dep:napi-build"]
+
+[dependencies]
+napi = { version = "3", default-features = false, features = ["napi8"], optional = true }
+napi-derive = { version = "3", optional = true }
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+
+ryu-js = "1.0.3"
+regex = "=1.13.1"
+unicode-normalization = "=0.1.25"
+
+[build-dependencies]
+napi-build = { version = "2", optional = true }

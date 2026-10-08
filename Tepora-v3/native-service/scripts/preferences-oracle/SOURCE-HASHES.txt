@@ -1,0 +1,4 @@
+a52177165d541f5445c14ff7b9e7da2da5702da0f129d3f3624cf4377c6b2f2b  core/policy.mjs
+28cd54cb97b2a5aa3fd712c4d3f2ba77cf3e0ada23afb91478aa9abf7a12ed00  core/persona.mjs
+1197a0f6a9862946cb36c377578f5c1dfd5c515ebc151df57002462316b45dd3  web/voice-lines.mjs
+a02965d09892081fdd1c13d71692b9f91c987ae7b9fd32e4fafd732d31c1fc94  core/server.mjs (configurePersonas only)

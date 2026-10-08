@@ -1,0 +1,1983 @@
+{
+  "terminal": [
+    {
+      "input": "",
+      "expected": ""
+    },
+    {
+      "input": "a\ra\nlast\nlast",
+      "expected": "a\nlast\n… (line above repeated 1 more time)"
+    },
+    {
+      "input": "start\r10%\r20%\r\nline\nline\nline\n\n\n",
+      "expected": "20%\nline\n… (line above repeated 2 more times)\n\n\n"
+    },
+    {
+      "input": "\r\r",
+      "expected": ""
+    },
+    {
+      "input": "one\r\n\r\ntwo",
+      "expected": "one\n\ntwo"
+    },
+    {
+      "input": "x\nx",
+      "expected": "x\n… (line above repeated 1 more time)"
+    },
+    {
+      "input": " \n \n",
+      "expected": " \n \n"
+    },
+    {
+      "input": "🌱\n🌱\n🌱",
+      "expected": "🌱\n… (line above repeated 2 more times)"
+    },
+    {
+      "input": "﻿\n﻿",
+      "expected": "﻿\n﻿"
+    },
+    {
+      "input": "\n\nend\rend",
+      "expected": "\n\nend"
+    },
+    {
+      "input": "a\r\rb\r",
+      "expected": "b"
+    }
+  ],
+  "output": [
+    {
+      "chunks": [
+        {
+          "stream": "out",
+          "bytes": [
+            240,
+            159
+          ]
+        },
+        {
+          "stream": "err",
+          "text": "stderr"
+        },
+        {
+          "stream": "out",
+          "bytes": [
+            140,
+            177
+          ]
+        },
+        {
+          "stream": "err",
+          "bytes": [
+            226,
+            130
+          ]
+        }
+      ],
+      "total": 9,
+      "dropped": 0,
+      "head": 9,
+      "tail": 0,
+      "reads": [
+        {
+          "from": 0,
+          "length": 9,
+          "hash": "298288a6c147089dd31c49fe2b1135c72e3126e2e2c40ab27e24617f695de5ed",
+          "first": [
+            115,
+            116,
+            100,
+            101,
+            114,
+            114,
+            55356,
+            57137,
+            65533
+          ],
+          "last": [
+            115,
+            116,
+            100,
+            101,
+            114,
+            114,
+            55356,
+            57137,
+            65533
+          ]
+        },
+        {
+          "from": 1,
+          "length": 8,
+          "hash": "37046f5ec18ac885d26b14f22c31b23290505f6840b4d07c3547e7d3925b4aef",
+          "first": [
+            116,
+            100,
+            101,
+            114,
+            114,
+            55356,
+            57137,
+            65533
+          ],
+          "last": [
+            116,
+            100,
+            101,
+            114,
+            114,
+            55356,
+            57137,
+            65533
+          ]
+        },
+        {
+          "from": 199999,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200000,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200001,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 1,
+          "length": 8,
+          "hash": "37046f5ec18ac885d26b14f22c31b23290505f6840b4d07c3547e7d3925b4aef",
+          "first": [
+            116,
+            100,
+            101,
+            114,
+            114,
+            55356,
+            57137,
+            65533
+          ],
+          "last": [
+            116,
+            100,
+            101,
+            114,
+            114,
+            55356,
+            57137,
+            65533
+          ]
+        },
+        {
+          "from": 9,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 14,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        }
+      ]
+    },
+    {
+      "chunks": [
+        {
+          "text": "\u001b[31mred\u001b[0m\u001b]0;title\u0007!\u001b(B\u001b="
+        }
+      ],
+      "total": 4,
+      "dropped": 0,
+      "head": 4,
+      "tail": 0,
+      "reads": [
+        {
+          "from": 0,
+          "length": 4,
+          "hash": "91eb9afda7a9118153d9b7b929f9b6417eaa62dd46f7fd1e1e1c15f986c14b50",
+          "first": [
+            114,
+            101,
+            100,
+            33
+          ],
+          "last": [
+            114,
+            101,
+            100,
+            33
+          ]
+        },
+        {
+          "from": 1,
+          "length": 3,
+          "hash": "c9b82f93e964b1d677322f6a31e6e50dcbeae3154fa85e4497441838dec84900",
+          "first": [
+            101,
+            100,
+            33
+          ],
+          "last": [
+            101,
+            100,
+            33
+          ]
+        },
+        {
+          "from": 199999,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200000,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200001,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 4,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 9,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        }
+      ]
+    },
+    {
+      "chunks": [
+        {
+          "text": "\u001b["
+        },
+        {
+          "text": "31mred"
+        }
+      ],
+      "total": 8,
+      "dropped": 0,
+      "head": 8,
+      "tail": 0,
+      "reads": [
+        {
+          "from": 0,
+          "length": 8,
+          "hash": "42ea78c40b2e79b89d9d0b440c9662c8c4222524c3cf95f1b1bdb03dbad18869",
+          "first": [
+            27,
+            91,
+            51,
+            49,
+            109,
+            114,
+            101,
+            100
+          ],
+          "last": [
+            27,
+            91,
+            51,
+            49,
+            109,
+            114,
+            101,
+            100
+          ]
+        },
+        {
+          "from": 1,
+          "length": 7,
+          "hash": "63277cf622b42a03531ebf1cf55d43fdf2472188cdddef64cdd233aa80cf3dbc",
+          "first": [
+            91,
+            51,
+            49,
+            109,
+            114,
+            101,
+            100
+          ],
+          "last": [
+            91,
+            51,
+            49,
+            109,
+            114,
+            101,
+            100
+          ]
+        },
+        {
+          "from": 199999,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200000,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200001,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 0,
+          "length": 8,
+          "hash": "42ea78c40b2e79b89d9d0b440c9662c8c4222524c3cf95f1b1bdb03dbad18869",
+          "first": [
+            27,
+            91,
+            51,
+            49,
+            109,
+            114,
+            101,
+            100
+          ],
+          "last": [
+            27,
+            91,
+            51,
+            49,
+            109,
+            114,
+            101,
+            100
+          ]
+        },
+        {
+          "from": 8,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 13,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        }
+      ]
+    },
+    {
+      "chunks": [
+        {
+          "repeat": "a",
+          "count": 199999
+        },
+        {
+          "text": "🌱"
+        },
+        {
+          "repeat": "b",
+          "count": 800023
+        }
+      ],
+      "total": 1000024,
+      "dropped": 24,
+      "head": 200000,
+      "tail": 800000,
+      "reads": [
+        {
+          "from": 0,
+          "length": 1000027,
+          "hash": "2c2e55ab981256999338bf7640a87cf82209713296a4d2982b5dd6cdd1974cad",
+          "first": [
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97
+          ],
+          "last": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ]
+        },
+        {
+          "from": 1,
+          "length": 1000026,
+          "hash": "09ee81e40a0cd2503a5acacb4bcc288258d1d77984deac04f7f83cef2ce91fb4",
+          "first": [
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97,
+            97
+          ],
+          "last": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ]
+        },
+        {
+          "from": 199999,
+          "length": 800028,
+          "hash": "00d43e4b1d739cf0d1367a5d70ff3dca19bce5f7278985a3162897078693bac5",
+          "first": [
+            55356,
+            10,
+            8230,
+            91,
+            50,
+            52,
+            32,
+            99,
+            104,
+            97,
+            114,
+            97,
+            99,
+            116,
+            101,
+            114,
+            115,
+            32,
+            100,
+            114,
+            111,
+            112,
+            112,
+            101
+          ],
+          "last": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ]
+        },
+        {
+          "from": 200000,
+          "length": 800000,
+          "hash": "46f0cfd4911d0a4c56ab8cdbda3e0d3e430291f738bea097082a384b619a6ff4",
+          "first": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ],
+          "last": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ]
+        },
+        {
+          "from": 200001,
+          "length": 800000,
+          "hash": "46f0cfd4911d0a4c56ab8cdbda3e0d3e430291f738bea097082a384b619a6ff4",
+          "first": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ],
+          "last": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ]
+        },
+        {
+          "from": 1000016,
+          "length": 8,
+          "hash": "7acb4573e9d710170eb79ea32ccf479b5a61d8c44e497ca8123f4caf604cd819",
+          "first": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ],
+          "last": [
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98,
+            98
+          ]
+        },
+        {
+          "from": 1000024,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 1000029,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        }
+      ]
+    },
+    {
+      "chunks": [
+        {
+          "repeat": "🌱",
+          "count": 600000
+        },
+        {
+          "text": "TAIL"
+        }
+      ],
+      "total": 1200004,
+      "dropped": 200004,
+      "head": 200000,
+      "tail": 800000,
+      "reads": [
+        {
+          "from": 0,
+          "length": 1000031,
+          "hash": "46e6b8bac8396820d2221881baf6b3bb96fd185c2f9ed6c072d6f1b6efff8618",
+          "first": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137
+          ],
+          "last": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ]
+        },
+        {
+          "from": 1,
+          "length": 1000030,
+          "hash": "c16dac90ddd198f48457b785e9e0c777610d763103145e9cb49d386f9080f28f",
+          "first": [
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356
+          ],
+          "last": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ]
+        },
+        {
+          "from": 199999,
+          "length": 800032,
+          "hash": "b6851bd0ffd11438ad6a53f185a7b771a078547aff19eaf47bde8e2bf7ae4d4d",
+          "first": [
+            57137,
+            10,
+            8230,
+            91,
+            50,
+            48,
+            48,
+            48,
+            48,
+            52,
+            32,
+            99,
+            104,
+            97,
+            114,
+            97,
+            99,
+            116,
+            101,
+            114,
+            115,
+            32,
+            100,
+            114
+          ],
+          "last": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ]
+        },
+        {
+          "from": 200000,
+          "length": 800000,
+          "hash": "6c7b0c20f311291560a386b871a60794cc73756dc93a3081382dcda69a3a1b82",
+          "first": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137
+          ],
+          "last": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ]
+        },
+        {
+          "from": 200001,
+          "length": 800000,
+          "hash": "6c7b0c20f311291560a386b871a60794cc73756dc93a3081382dcda69a3a1b82",
+          "first": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137
+          ],
+          "last": [
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ]
+        },
+        {
+          "from": 1199996,
+          "length": 8,
+          "hash": "fcea6bc5034747e632854fd5e1a78ef572dc00badd6bd8b85e846a04c00d75da",
+          "first": [
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ],
+          "last": [
+            55356,
+            57137,
+            55356,
+            57137,
+            84,
+            65,
+            73,
+            76
+          ]
+        },
+        {
+          "from": 1200004,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 1200009,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        }
+      ]
+    },
+    {
+      "chunks": [
+        {
+          "bytes": [
+            226,
+            40,
+            161,
+            255,
+            240,
+            159,
+            140
+          ]
+        }
+      ],
+      "total": 5,
+      "dropped": 0,
+      "head": 5,
+      "tail": 0,
+      "reads": [
+        {
+          "from": 0,
+          "length": 5,
+          "hash": "508fc3404c208548a153707de2cfa5cf49fdcaf96415b43f67bb892a3b245847",
+          "first": [
+            65533,
+            40,
+            65533,
+            65533,
+            65533
+          ],
+          "last": [
+            65533,
+            40,
+            65533,
+            65533,
+            65533
+          ]
+        },
+        {
+          "from": 1,
+          "length": 4,
+          "hash": "b0b19d9a785a57134f6a3eaed12d273b8ea0a9fdf9963b2fbc5c3211af562f86",
+          "first": [
+            40,
+            65533,
+            65533,
+            65533
+          ],
+          "last": [
+            40,
+            65533,
+            65533,
+            65533
+          ]
+        },
+        {
+          "from": 199999,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200000,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 200001,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 5,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        },
+        {
+          "from": 10,
+          "length": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "first": [],
+          "last": []
+        }
+      ]
+    }
+  ],
+  "config": [
+    {
+      "raw": {},
+      "expected": {
+        "mode": "off",
+        "network": true,
+        "writable": [],
+        "image": "node:22-bookworm-slim",
+        "engine": "auto"
+      }
+    },
+    {
+      "raw": [],
+      "expected": {
+        "mode": "off",
+        "network": true,
+        "writable": [],
+        "image": "node:22-bookworm-slim",
+        "engine": "auto"
+      }
+    },
+    {
+      "raw": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/work",
+          "/work",
+          "/extra"
+        ]
+      },
+      "expected": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/work",
+          "/extra"
+        ],
+        "image": "node:22-bookworm-slim",
+        "engine": "auto"
+      }
+    },
+    {
+      "raw": {
+        "mode": "readonly",
+        "image": "a/b:tag",
+        "engine": "podman"
+      },
+      "expected": {
+        "mode": "readonly",
+        "network": true,
+        "writable": [],
+        "image": "a/b:tag",
+        "engine": "podman"
+      }
+    },
+    {
+      "raw": {
+        "mode": "bad"
+      },
+      "error": "Unknown sandbox mode",
+      "status": 400
+    },
+    {
+      "raw": {
+        "mode": "off",
+        "network": 0
+      },
+      "error": "Invalid sandbox network",
+      "status": 400
+    },
+    {
+      "raw": {
+        "writable": [
+          "relative"
+        ]
+      },
+      "error": "Writable paths must be absolute",
+      "status": 400
+    },
+    {
+      "raw": {
+        "image": "bad;image"
+      },
+      "error": "Invalid container image",
+      "status": 400
+    },
+    {
+      "raw": {
+        "engine": "bad"
+      },
+      "error": "Invalid container engine",
+      "status": 400
+    },
+    {
+      "raw": {
+        "unknown": true
+      },
+      "error": "Invalid sandbox settings",
+      "status": 400
+    }
+  ],
+  "plans": [
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh"
+      },
+      "policy": {
+        "mode": "off",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/bin/sh",
+        "args": [
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "off"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh"
+      },
+      "policy": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "true",
+      "cwd": "/work",
+      "name": null,
+      "error": "このOSで使えるサンドボックスがありません。コンテナ（Docker/Podman）を入れるか、サンドボックスをオフにしてください。",
+      "status": 409
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh"
+      },
+      "policy": {
+        "mode": "readonly",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "true",
+      "cwd": "/work",
+      "name": null,
+      "error": "このOSで使えるサンドボックスがありません。コンテナ（Docker/Podman）を入れるか、サンドボックスをオフにしてください。",
+      "status": 409
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh"
+      },
+      "policy": {
+        "mode": "container",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "true",
+      "cwd": "/work",
+      "name": "tepora-p123",
+      "error": "コンテナ（Docker/Podman）が見つかりません。",
+      "status": 409
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "bwrap": "/usr/bin/bwrap"
+      },
+      "policy": {
+        "mode": "off",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/bin/sh",
+        "args": [
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "off"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "bwrap": "/usr/bin/bwrap"
+      },
+      "policy": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/bwrap",
+        "args": [
+          "--ro-bind",
+          "/",
+          "/",
+          "--dev",
+          "/dev",
+          "--proc",
+          "/proc",
+          "--tmpfs",
+          "/tmp",
+          "--bind",
+          "/work",
+          "/work",
+          "--bind",
+          "/extra",
+          "/extra",
+          "--unshare-net",
+          "--die-with-parent",
+          "--chdir",
+          "/work",
+          "/bin/sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "bwrap"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "bwrap": "/usr/bin/bwrap"
+      },
+      "policy": {
+        "mode": "readonly",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/bwrap",
+        "args": [
+          "--ro-bind",
+          "/",
+          "/",
+          "--dev",
+          "/dev",
+          "--proc",
+          "/proc",
+          "--tmpfs",
+          "/tmp",
+          "--unshare-net",
+          "--die-with-parent",
+          "--chdir",
+          "/work",
+          "/bin/sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "bwrap"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "bwrap": "/usr/bin/bwrap"
+      },
+      "policy": {
+        "mode": "container",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "true",
+      "cwd": "/work",
+      "name": "tepora-p123",
+      "error": "コンテナ（Docker/Podman）が見つかりません。",
+      "status": 409
+    },
+    {
+      "facts": {
+        "platform": "darwin",
+        "shell": "/bin/zsh",
+        "seatbelt": true
+      },
+      "policy": {
+        "mode": "off",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/bin/zsh",
+        "args": [
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "off"
+      }
+    },
+    {
+      "facts": {
+        "platform": "darwin",
+        "shell": "/bin/zsh",
+        "seatbelt": true
+      },
+      "policy": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/sandbox-exec",
+        "args": [
+          "-p",
+          "(version 1)\n(allow default)\n(deny file-write*)\n(allow file-write* (subpath \"/tmp\") (subpath \"/private/tmp\") (subpath \"/work\") (subpath \"/extra\") (subpath \"/private/var/folders\") (literal \"/dev/null\") (literal \"/dev/zero\") (regex #\"^/dev/tty\") (regex #\"^/dev/fd/\") (literal \"/dev/stdout\") (literal \"/dev/stderr\"))\n(deny network-outbound)\n(allow network-outbound (remote unix-socket))",
+          "/bin/zsh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "seatbelt"
+      }
+    },
+    {
+      "facts": {
+        "platform": "darwin",
+        "shell": "/bin/zsh",
+        "seatbelt": true
+      },
+      "policy": {
+        "mode": "readonly",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/sandbox-exec",
+        "args": [
+          "-p",
+          "(version 1)\n(allow default)\n(deny file-write*)\n(allow file-write* (subpath \"/tmp\") (subpath \"/private/tmp\") (subpath \"/extra\") (subpath \"/private/var/folders\") (literal \"/dev/null\") (literal \"/dev/zero\") (regex #\"^/dev/tty\") (regex #\"^/dev/fd/\") (literal \"/dev/stdout\") (literal \"/dev/stderr\"))\n(deny network-outbound)\n(allow network-outbound (remote unix-socket))",
+          "/bin/zsh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "seatbelt"
+      }
+    },
+    {
+      "facts": {
+        "platform": "darwin",
+        "shell": "/bin/zsh",
+        "seatbelt": true
+      },
+      "policy": {
+        "mode": "container",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "true",
+      "cwd": "/work",
+      "name": "tepora-p123",
+      "error": "コンテナ（Docker/Podman）が見つかりません。",
+      "status": 409
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "docker": "/usr/bin/docker",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "off",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/bin/sh",
+        "args": [
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "off"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "docker": "/usr/bin/docker",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/docker",
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "--init",
+          "--network",
+          "none",
+          "-v",
+          "/work:/workspace",
+          "-v",
+          "/extra:/extra",
+          "-w",
+          "/workspace",
+          "node:22",
+          "sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "docker",
+        "container": null
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "docker": "/usr/bin/docker",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "readonly",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/docker",
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "--init",
+          "--network",
+          "none",
+          "-v",
+          "/work:/workspace:ro",
+          "-v",
+          "/extra:/extra",
+          "-w",
+          "/workspace",
+          "node:22",
+          "sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "docker",
+        "container": null
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "docker": "/usr/bin/docker",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "container",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": "tepora-p123",
+      "expected": {
+        "file": "/usr/bin/docker",
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "--init",
+          "--name",
+          "tepora-p123",
+          "--network",
+          "none",
+          "-v",
+          "/work:/workspace",
+          "-v",
+          "/extra:/extra",
+          "-w",
+          "/workspace",
+          "node:22",
+          "sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "docker",
+        "container": "tepora-p123"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "off",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/bin/sh",
+        "args": [
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "off"
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "workspace",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/podman",
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "--init",
+          "--network",
+          "none",
+          "-v",
+          "/work:/workspace",
+          "-v",
+          "/extra:/extra",
+          "-w",
+          "/workspace",
+          "node:22",
+          "sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "podman",
+        "container": null
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "readonly",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": null,
+      "expected": {
+        "file": "/usr/bin/podman",
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "--init",
+          "--network",
+          "none",
+          "-v",
+          "/work:/workspace:ro",
+          "-v",
+          "/extra:/extra",
+          "-w",
+          "/workspace",
+          "node:22",
+          "sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "podman",
+        "container": null
+      }
+    },
+    {
+      "facts": {
+        "platform": "linux",
+        "shell": "/bin/sh",
+        "podman": "/usr/bin/podman"
+      },
+      "policy": {
+        "mode": "container",
+        "network": false,
+        "writable": [
+          "/extra"
+        ],
+        "image": "node:22",
+        "engine": "auto"
+      },
+      "command": "printf '%s' \"a'b\"",
+      "cwd": "/work",
+      "name": "tepora-p123",
+      "expected": {
+        "file": "/usr/bin/podman",
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "--init",
+          "--name",
+          "tepora-p123",
+          "--network",
+          "none",
+          "-v",
+          "/work:/workspace",
+          "-v",
+          "/extra:/extra",
+          "-w",
+          "/workspace",
+          "node:22",
+          "sh",
+          "-c",
+          "printf '%s' \"a'b\""
+        ],
+        "cwd": "/work",
+        "sandbox": "podman",
+        "container": "tepora-p123"
+      }
+    }
+  ],
+  "metadata": [
+    {
+      "args": {
+        "command": "echo \"hello\"",
+        "id": "p1"
+      },
+      "summary": "exec \"echo \\\"hello\\\"\"",
+      "stub": "exec \"echo \\\"hello\\\"\" → running p123",
+      "exitStub": "exec \"echo \\\"hello\\\"\" → exit 7",
+      "ephemeral": "process:p1"
+    },
+    {
+      "args": {
+        "command": "🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱"
+      },
+      "summary": "exec \"🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱\"",
+      "stub": "exec \"🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱\" → running p123",
+      "exitStub": "exec \"🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱\" → exit 7",
+      "ephemeral": "process:list"
+    },
+    {
+      "args": {
+        "command": null,
+        "id": ""
+      },
+      "summary": "exec \"\"",
+      "stub": "exec \"\" → running p123",
+      "exitStub": "exec \"\" → exit 7",
+      "ephemeral": "process:list"
+    },
+    {
+      "args": {
+        "command": 0,
+        "id": "p2"
+      },
+      "summary": "exec \"\"",
+      "stub": "exec \"\" → running p123",
+      "exitStub": "exec \"\" → exit 7",
+      "ephemeral": "process:p2"
+    }
+  ]
+}

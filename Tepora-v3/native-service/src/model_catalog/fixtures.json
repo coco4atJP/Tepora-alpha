@@ -1,0 +1,556 @@
+[
+  {
+    "name": "catalog-0",
+    "raw": null,
+    "error": {
+      "status": 400,
+      "message": "Invalid models.dev catalog"
+    }
+  },
+  {
+    "name": "catalog-1",
+    "raw": [],
+    "error": {
+      "status": 400,
+      "message": "Invalid models.dev catalog"
+    }
+  },
+  {
+    "name": "catalog-2",
+    "raw": {},
+    "error": {
+      "status": 400,
+      "message": "No models in catalog"
+    }
+  },
+  {
+    "name": "catalog-3",
+    "raw": true,
+    "error": {
+      "status": 400,
+      "message": "Invalid models.dev catalog"
+    }
+  },
+  {
+    "name": "catalog-4",
+    "raw": "text",
+    "error": {
+      "status": 400,
+      "message": "Invalid models.dev catalog"
+    }
+  },
+  {
+    "name": "catalog-5",
+    "raw": {
+      "p": null
+    },
+    "error": {
+      "status": 400,
+      "message": "No models in catalog"
+    }
+  },
+  {
+    "name": "catalog-6",
+    "raw": {
+      "p": {
+        "models": []
+      }
+    },
+    "error": {
+      "status": 400,
+      "message": "No models in catalog"
+    }
+  },
+  {
+    "name": "catalog-7",
+    "raw": {
+      "p": {
+        "models": {
+          "m": {}
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "m",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-8",
+    "raw": {
+      "p": {
+        "models": {
+          "m": []
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "m",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-9",
+    "raw": {
+      "p": {
+        "name": 3,
+        "models": {
+          "m": {
+            "name": true
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "",
+        "modelId": "m",
+        "name": "",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-10",
+    "raw": {
+      "p": {
+        "models": {
+          "m": {
+            "tool_call": true,
+            "modalities": {
+              "input": [
+                "text",
+                "image",
+                "alien",
+                "text"
+              ],
+              "output": [
+                "audio",
+                "pdf",
+                "video"
+              ]
+            },
+            "limit": {
+              "context": 123.5
+            },
+            "cost": {
+              "input": 0,
+              "output": 9999,
+              "cache_read": 10000,
+              "cache_write": -1
+            },
+            "last_updated": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "npm": "untrusted"
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "m",
+        "tools": true,
+        "input": [
+          "text",
+          "image",
+          "text"
+        ],
+        "output": [
+          "audio",
+          "pdf",
+          "video"
+        ],
+        "context": 123.5,
+        "cost": {
+          "input": 0,
+          "output": 9999
+        },
+        "updated": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-11",
+    "raw": {
+      "p": {
+        "models": {
+          "m": {
+            "limit": {
+              "context": "200"
+            },
+            "tool_call": 1,
+            "cost": []
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "m",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": {},
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-12",
+    "raw": {
+      "p": {
+        "models": {
+          "m": {
+            "limit": {
+              "context": 0
+            },
+            "cost": {
+              "input": true,
+              "output": "3",
+              "cache_read": 0.5
+            }
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "m",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": {
+          "cache_read": 0.5
+        },
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-13",
+    "raw": {
+      "1": {
+        "models": {
+          "z": {}
+        }
+      },
+      "2": {
+        "name": "two",
+        "models": {
+          "2": {},
+          "10": {},
+          "a": {}
+        }
+      },
+      "z": {
+        "models": {
+          "v": {}
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "1",
+        "provider": "1",
+        "modelId": "z",
+        "name": "z",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "2",
+        "provider": "two",
+        "modelId": "2",
+        "name": "2",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "2",
+        "provider": "two",
+        "modelId": "10",
+        "name": "10",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "2",
+        "provider": "two",
+        "modelId": "a",
+        "name": "a",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "z",
+        "provider": "z",
+        "modelId": "v",
+        "name": "v",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-14",
+    "raw": {
+      "p": {
+        "models": [
+          "skip",
+          {},
+          null,
+          []
+        ]
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "1",
+        "name": "1",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "3",
+        "name": "3",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-15",
+    "raw": {
+      "p": {
+        "models": {
+          "m": {
+            "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx🦊"
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83e",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-16",
+    "raw": {
+      "p": {
+        "models": {
+          "m": {
+            "name": "\ud800",
+            "last_updated": "\udfff"
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "m",
+        "name": "\ud800",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "\udfff",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  },
+  {
+    "name": "catalog-17",
+    "raw": {
+      "p": {
+        "models": {
+          "a": {
+            "name": ""
+          },
+          "b": {
+            "name": null
+          },
+          "c": {
+            "cost": false
+          },
+          "d": {
+            "cost": {
+              "input": 1,
+              "private": "ignored"
+            }
+          }
+        }
+      }
+    },
+    "result": [
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "a",
+        "name": "a",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "b",
+        "name": "b",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "c",
+        "name": "c",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": null,
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      },
+      {
+        "providerId": "p",
+        "provider": "p",
+        "modelId": "d",
+        "name": "d",
+        "tools": null,
+        "input": [],
+        "output": [],
+        "context": null,
+        "cost": {
+          "input": 1
+        },
+        "updated": "",
+        "source": "models.dev",
+        "verified": false
+      }
+    ]
+  }
+]

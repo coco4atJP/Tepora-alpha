@@ -3,6 +3,7 @@ import {validateProfile,ResourceGate} from './provider-registry.mjs';
 import {invariant,text} from './policy.mjs';
 import {normalURL,NetworkBlocked} from './network-policy.mjs';
 import {DecisionClient} from './decision.mjs';
+import {ModelDispatch} from './model-usage.mjs';
 
 /** Modality endpoints are NOT chat models. No dependency on Vercel or a hosted gateway. */
 export const CAPABILITY_PROTOCOLS={
@@ -56,16 +57,19 @@ export class Capabilities{
   invariant(this.current(p),'The capability endpoint changed or was disabled',409);
   invariant(typeof route==='string'&&/^\/[a-z0-9_/-]+$/i.test(route)&&!route.includes('..'),'Invalid modality route');
   const release=await this.gate.acquire('cap:'+p.resource,p.maxParallel,{signal,priority:p.role==='tts'?10:0});
+  // Typed decisions expose no token/rate contract; match native transport receipts.
+  const receipt=p.role==='decision'&&route==='/systemone'?new ModelDispatch(this.store,p,{purpose:'decision'}):null;
   try{
    invariant(this.current(p),'Capability changed while queued',409);
    const key=this.keyFor(p),headers={...(key?{Authorization:`Bearer ${key}`}:{})};if(json!==undefined)headers['Content-Type']='application/json';
    const response=await this.network.request(p.baseUrl.replace(/\/$/,'')+route,{method,headers,signal,body:json!==undefined?JSON.stringify(json):body},
-    {profile:{...p,id:'cap:'+p.id},purpose:'model',timeoutMs:p.timeoutMs,maxBytes});
+    {profile:{...p,id:'cap:'+p.id},purpose:'model',timeoutMs:p.timeoutMs,maxBytes,onDispatch:()=>receipt?.start()});
    if(!response.ok){await response.body?.cancel();throw Object.assign(new Error(`能力接続 HTTP ${response.status}`),{status:502,upstreamStatus:response.status,knownRejected:response.status<500});}
    // Consume under the resource lease, not only until headers arrive.
    const bytes=Buffer.from(await response.arrayBuffer());invariant(this.current(p),'Capability changed during response',409);
+   receipt?.finish(null,'completed');
    return new Response(bytes,{status:response.status,headers:response.headers});
-  }finally{release();}
+  }catch(error){receipt?.finish(null,signal?.aborted?'cancelled':'error');throw error;}finally{release();}
  }
  async decide(state,questions,signal,p=this.pin('decision')){
   invariant(p.role==='decision','Not a decision endpoint');

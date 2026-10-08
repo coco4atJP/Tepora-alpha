@@ -1,3 +1,4 @@
+import {drainModelCalls} from './model-usage.mjs';
 import {ModelCatalog} from './model-catalog.mjs';
 import {NetworkPolicy,NetworkBlocked} from './network-policy.mjs';
 import {ProviderRegistry} from './provider-registry.mjs';
@@ -152,12 +153,12 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     const s=agent.sessions.get(m[1]);invariant(s,'Session not found',404);const action=m[2];
     if(!action&&method==='GET'){
      const before=Number(u.searchParams.get('before')||0),limit=Math.min(500,Number(u.searchParams.get('limit')||150));
-     const all=before?agent.sessions.entries(s.id,{to:before-1}).slice(-limit):agent.sessions.tail(s.id,limit);
+     const all=before?agent.sessions.page(s.id,before,limit):agent.sessions.tail(s.id,limit);
      const {system,...rest}=s;return json(res,{session:rest,job:s.kind==='main'?null:ui.job(s),entries:all.map(e=>e.type==='tool'?{...e,content:String(e.content||'').slice(0,4000)}:e.type==='checkpoint'?{seq:e.seq,type:e.type,at:e.at,upTo:e.upTo,method:e.method,reason:e.reason,summary:e.summary}:e),processes:agent.processes.list(s.id)});
     }
     if(!action&&method==='DELETE'){invariant(s.kind!=='main','The main session cannot be deleted.',403);invariant(!agent.runs.has(s.id),'止めてから削除してください。',409);agent.processes.killSession(s.id);agent.sessions.remove(s.id);store.emit('session.removed',{id:s.id});return json(res,{deleted:true});}
     if(action==='message'&&method==='POST'){const b=await body(req);agent.send(s.id,{text:text(b.text,'message',32000),from:'user',mode:['steer','notify'].includes(b.mode)?b.mode:'followup',source:'user'});return json(res,ui.job(agent.sessions.get(s.id)),202);}
-    if(action==='stop'&&method==='POST'){const stopped=agent.stop(s.id,'あなたが止めました');if(s.kind==='main')agent.resume(s.id);return json(res,s.kind==='main'?{stopped:true}:ui.job(stopped));}
+    if(action==='stop'&&method==='POST'){const stopped=agent.stop(s.id,'あなたが止めました');if(s.kind==='main')agent.resume(s.id,{mode:'rearm'});return json(res,s.kind==='main'?{stopped:true}:ui.job(stopped));}
     if(action==='resume'&&method==='POST')return json(res,ui.job(agent.resume(s.id)));
     if(action==='accept'&&method==='POST')return json(res,ui.job(agent.sessions.update(s.id,{accepted:true,acceptedAt:new Date().toISOString()})));
     if(action==='files'&&method==='GET'){
@@ -190,7 +191,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
    if(p==='/api/stop' && method==='POST'){
     setup.stop();toolHub.stopDiscovery();media.stopAll();computer.close();await speech.close();
     for(const probe of probes.values()){probe.abort?.(new Error('Stopped'));probe.close?.();}
-    for(const s of agent.sessions.list())if(agent.runs.has(s.id)||['running','waiting'].includes(s.status)){agent.stop(s.id,'すべて停止しました');if(s.kind==='main')agent.resume(s.id);}
+    for(const s of agent.sessions.list())if(agent.runs.has(s.id)||['running','waiting'].includes(s.status)){agent.stop(s.id,'すべて停止しました');if(s.kind==='main')agent.resume(s.id,{mode:'rearm'});}
     return json(res,{stopped:true});
    }
    if(p==='/api/dialogue/personas'&&method==='GET')return json(res,agent.personas());
@@ -368,7 +369,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  const launchUrl=`${origin}/launch?token=${secret}`;
  const close=async()=>{if(closing)return;closing=true;for(const probe of probes.values()){probe.abort?.(new Error('Service stopping'));probe.close?.();}
   ui.close();await agent.close();computer.close();toolHub.close();await media.close();capabilities.close();connectors.close();await setup.close();await speech.close();
-  for(const res of streams)res.end();network.close();registry.close();server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
+  for(const res of streams)res.end();network.close();registry.close();await drainModelCalls(store);server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
  return {server,store,network,registry,catalog,agent,ui,connectors,setup,capabilities,media,toolHub,computer,frame,avatar,avatarAssets,origin,launchUrl,csrf,close};
 }
 const isMain=process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;

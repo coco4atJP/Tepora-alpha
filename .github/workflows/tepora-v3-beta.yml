@@ -2,7 +2,7 @@ name: Tepora V3 beta.11 native build
 on:
   workflow_dispatch:
   push:
-    branches: [main, 'v3.0-beta/**']
+    branches: [main, 'v3.0-beta/**', 'rust/v3-core-migration']
     tags: ['v3.*']
     paths: ['Tepora-v3/**', 'package*.json', '.github/workflows/tepora-v3-beta.yml']
   pull_request:
@@ -14,6 +14,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   native:
+    # This migration branch is checked at its exact push SHA, even when the PR
+    # head ref is delayed. Avoid running the same matrix twice on PR sync.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rust/v3-core-migration'
     strategy:
       fail-fast: false
       matrix:
@@ -33,6 +36,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
+      - run: rustup default stable
+      - run: npm run build:core
+      - run: npm run test:rust
+      - run: npm run build:native
+      - run: npm run test:native
       - run: node scripts/check.mjs
       - name: Node tests
         if: runner.os != 'Windows'
