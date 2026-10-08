@@ -669,8 +669,12 @@ impl MediaJobs {
     pub(super) fn stop_all(&self) -> Result<(), ApiError> {
         let mut life = self.life.lock().map_err(error)?;
         for j in self.list_raw()? {
-            if active(&j) {
-                self.cancel_locked(&mut life, j["id"].as_str().unwrap_or(""))?;
+            let id = j["id"].as_str().unwrap_or("");
+            // Unlike the source status-only loop, also stop owned downloads.
+            // A dormant resumable awaiting-download record has no worker and
+            // must keep its handle; status alone does not establish ownership.
+            if active(&j) || life.active.contains_key(id) {
+                self.cancel_locked(&mut life, id)?;
             }
         }
         Ok(())

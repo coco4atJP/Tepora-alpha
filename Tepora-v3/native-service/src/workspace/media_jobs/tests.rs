@@ -499,3 +499,46 @@ async fn video_cancel_and_close_own_pending_poll_timers() {
         f.close().await;
     }
 }
+#[tokio::test]
+async fn stop_all_cancels_owned_download_and_rejects_late_finish_but_keeps_dormant_handle() {
+    let f = Fixture::new("image");
+    let dormant = json!({"id":"dormant","status":"awaiting-download","downloadUrl":"http://127.0.0.1:54321/v1/dormant","profile":f.media.capabilities.pin("image").unwrap()});
+    f.w.lock()
+        .unwrap()
+        .put("media-job", dormant.clone())
+        .unwrap();
+    f.mock
+        .json(json!({"data":[{"url":"http://127.0.0.1:54321/v1/held"}]}));
+    f.mock.hold();
+    let created = f.media.create(&f.body("image", "held-download")).unwrap();
+    let id = created["id"].as_str().unwrap();
+    let downloading = f.status(id, "awaiting-download").await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while f.mock.count() < 2 {
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let token = f.media.life.lock().unwrap().active[id].clone();
+    f.media.stop_all().unwrap();
+    assert!(token.is_cancelled());
+    assert_eq!(f.media.get(id).unwrap()["status"], "cancelled");
+    assert_eq!(f.media.get(id).unwrap()["providerMayContinue"], true);
+    // Model a result that reaches the completion boundary after cancellation.
+    assert_eq!(
+        f.media
+            .finish(&downloading, &png(), &token)
+            .unwrap_err()
+            .status,
+        499
+    );
+    f.settled().await;
+    assert_eq!(f.media.get(id).unwrap()["status"], "cancelled");
+    assert!(f.w.lock().unwrap().list("media-asset").unwrap().is_empty());
+    assert!(!f.dir.join("media").exists());
+    assert_eq!(f.media.get("dormant").unwrap(), dormant);
+    assert_eq!(public(&dormant)["canResume"], true);
+    assert_eq!(f.mock.count(), 2);
+    f.close().await;
+}

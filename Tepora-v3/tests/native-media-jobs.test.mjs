@@ -29,13 +29,15 @@ async function client(launchUrl,close,data){
 }
 async function fixture(t){
  const cleanup=serviceCleanup(t),dir=cleanup.directory(await mkdtemp(path.join(os.tmpdir(),'tepora-media-http-'))),empty=path.join(dir,'empty-path'),bundle=path.join(dir,'app.bundle.js');await mkdir(empty);await writeFile(bundle,'// Synthetic media fixture\n');
- const records=[],sockets=new Set();let origin;
+ const records=[],heldDownloads=[],sockets=new Set();let origin;
  const mock=createServer(async(req,res)=>{
   let chunks=[];for await(const b of req)chunks.push(b);const raw=Buffer.concat(chunks),text=raw.toString();let body={};try{body=JSON.parse(text);}catch{}
   records.push({method:req.method,url:req.url,body,raw});
   if(body.prompt==='lost'){req.socket.destroy();return;}
   if(body.prompt==='held')return;
   const json=value=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));};
+  if(body.prompt==='held-download'){json({data:[{url:origin+'/held-download'}]});return;}
+  if(req.url==='/held-download'){const held={res,closed:false};res.once('close',()=>{held.closed=true;});heldDownloads.push(held);return;}
   if(req.url==='/v1/audio/speech'){res.end(mp3);return;}
   if(req.url==='/v1/images/generations'||req.url==='/v1/images/edits'){json({data:[{b64_json:png.toString('base64')}]});return;}
   if(req.url==='/v1/videos/generations'){json({request_id:'synthetic-video'});return;}
@@ -51,13 +53,13 @@ async function fixture(t){
   const child=spawn(binary,['--dev-native','--agent','--sidecar','--port','0','--data-dir',data[1],'--web-dir',path.join(root,'web'),'--bundle',bundle],{stdio:['pipe','pipe','pipe'],windowsHide:true,env:{PATH:empty,HOME:dir,USERPROFILE:dir,TMPDIR:dir,TEMP:dir,TMP:dir,...(process.env.SystemRoot?{SystemRoot:process.env.SystemRoot}:{})}});
   let stderr='',exit;child.stderr.on('data',v=>stderr=(stderr+v).slice(-20000));child.stdin.on('error',()=>{});const exited=new Promise(resolve=>child.once('exit',code=>{exit={code};resolve(exit);}));const lines=createInterface({input:child.stdout});
   const owned=cleanup.service({close:async()=>{if(!exit){child.stdin.write('shutdown\n');const timer=setTimeout(()=>child.kill('SIGKILL'),15000);try{assert.equal((await exited).code,0,stderr);}finally{clearTimeout(timer);}}lines.close();}});
-  const ready=await Promise.race([new Promise((resolve,reject)=>lines.once('line',line=>{try{resolve(JSON.parse(line));}catch(e){reject(e);}})),exited.then(()=>{throw new Error('Native startup: '+stderr);})]);return client(ready.url,owned.close,data[1]);
+  const ready=await Promise.race([new Promise((resolve,reject)=>lines.once('line',line=>{try{resolve(JSON.parse(line));}catch(e){reject(e);}})),exited.then(()=>{throw new Error('Native startup: '+stderr);})]);return {...await client(ready.url,owned.close,data[1]),trayStop:()=>child.stdin.write('stop\n')};
  };
  const clients=[await start(0),await start(1)];
  const profiles=['image','tts','video','image_edit'].map((role,i)=>({id:role,name:'Synthetic '+role,protocol:['openai-images','openai-speech','xai-video','openai-image-edit'][i],baseUrl:origin+'/v1',domain:'device',model:'synthetic',enabled:true}));
  for(const c of clients){const before=await c.json('/api/capabilities');await c.json('/api/capabilities','PUT',{expectedRevision:before.revision,config:{profiles,routes:Object.fromEntries(profiles.map(p=>[p.id,p.id]))}});}
  const body=async(c,kind,id,prompt='synthetic')=>({kind,requestId:id,prompt,profileIdentity:(await c.json('/api/capabilities')).profiles.find(p=>p.id===kind).identity,consent:true});
- return {clients,start,body,records};
+ return {clients,start,body,records,heldDownloads};
 }
 test('native media: source-parity jobs, all modalities, ranges, replay and cleanup',{timeout:60000},async t=>{
  const f=await fixture(t);
@@ -97,4 +99,25 @@ test('native media: ordinary request validation and JavaScript input defaults ma
   const created=await c.json('/api/media/jobs','POST',{...base,options:true,inputId:'',sourceAssetId:''},202);ids.push(created.id);await c.state(created.id,'ready');await c.json('/api/media/jobs/'+created.id,'DELETE');
  }
  assert.equal(ids[0],ids[1]);assert.equal(f.records.length,2);
+});
+
+// Deliberate native lifecycle improvement; the Node source status-only Stop All
+// currently misses a live worker persisted as awaiting-download.
+test('native media: Stop All and tray Stop cancel held downloads without late ready',{timeout:40000},async t=>{
+ const f=await fixture(t),c=f.clients[1];
+ for(const stop of ['http','tray']){
+  const before=f.heldDownloads.length;
+  const created=await c.json('/api/media/jobs','POST',await f.body(c,'image','download-stop-'+stop,'held-download'),202);
+  await c.state(created.id,'awaiting-download');
+  await wait(()=>f.heldDownloads.length===before+1,'download entered transport');
+  const held=f.heldDownloads[before];
+  if(stop==='http')assert.deepEqual(await c.json('/api/stop','POST',{}),{stopped:true});else c.trayStop();
+  const stopped=await c.state(created.id,'cancelled');assert.equal(stopped.providerMayContinue,true);assert.equal(stopped.asset,undefined);
+  await wait(()=>held.closed,'owned download connection cancelled');
+  held.res.end(png); // A late provider result cannot restore the cancelled job.
+  const final=await c.state(created.id,'cancelled');assert.equal(final.asset,undefined);
+  await c.json('/api/media/jobs/'+created.id,'DELETE');
+ }
+ assert.equal(f.records.filter(r=>r.url==='/v1/images/generations').length,2);
+ assert.equal(f.records.filter(r=>r.url==='/held-download').length,2);
 });
