@@ -313,7 +313,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Correct for integrated actors, provider probes, media jobs, streaming speech and setup cancellation. Tool-discovery/computer hosts remain unported.",
+      "limit": "Correct for integrated actors, provider probes, media jobs, streaming speech, dictation/transcription, feeds, semantic work and setup cancellation. Tool-discovery/computer hosts remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -643,7 +643,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Checked network revocation cancels setup when leaving online mode. Dictation/other peripheral probes and embedded-media tokens remain unported.",
+      "limit": "Checked network revocation cancels setup and clears embedded-media handles when leaving online mode. Dictation/transcription and media embeds are implemented; remaining peripheral-owner lifecycle parity has not been fully reconciled.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

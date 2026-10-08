@@ -777,7 +777,7 @@ impl State {
             })
             .collect::<Vec<_>>());
         s["sandbox"] = sandbox();
-        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["browser rendering","MCP","media agent tools","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
+        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["browser rendering","MCP","media agent tools","computer use","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
         Ok(s)
     }
     fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {

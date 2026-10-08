@@ -274,6 +274,14 @@ async function openEvents(f,app){
  assert.deepEqual(parsed(await app.request(route,'PUT',{provider:'brave',key:''})),{provider:'brave',keyPresent:false});
  });
 
+ test('Rust native agent: bootstrap availability matches integrated scheduler owners',async t=>{
+ const f=await fixture(t),app=await f.start(),bootstrap=parsed(await app.request('/api/bootstrap'));
+ assert.equal(bootstrap.nativeHost.mode,'native-agent');
+ assert.ok(!bootstrap.nativeHost.unavailable.includes('schedules'));
+ assert.ok(!bootstrap.nativeHost.unavailable.includes('heartbeat'));
+ for(const feature of ['browser rendering','MCP','media agent tools','computer use','dream optimization','JavaScript plugins'])assert.ok(bootstrap.nativeHost.unavailable.includes(feature),feature);
+ });
+
  test('Rust native agent: saved schedule receipts survive restart and deliver one ordinary reminder',async t=>{
  const reminder='SCHEDULE_REMINDER_FIXTURE';
  const model=await modelServer(t,(name,index,body)=>{

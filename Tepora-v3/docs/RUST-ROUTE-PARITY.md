@@ -55,7 +55,7 @@ YES means a real handler is present in the supported scope, not that every model
 | R025 | `GET /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R026 | `POST /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R027 | `POST /api/agent/approvals/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors, provider probes, media jobs, streaming speech and setup cancellation. Tool-discovery/computer hosts remain unported. |
+| R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors, provider probes, media jobs, streaming speech, dictation/transcription, feeds, semantic work and setup cancellation. Tool-discovery/computer hosts remain unported. |
 | R029 | `GET /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R030 | `PUT /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R031 | `GET /api/capabilities` | YES | 200 | Live shared capability registry with key-presence hints; this GET does not certify modality consumers. |
@@ -85,7 +85,7 @@ YES means a real handler is present in the supported scope, not that every model
 | R055 | `POST /api/computer/status` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R056 | `POST /api/computer/release` | ABSENT | 200 | Browser/desktop state, permissions/window enumeration, guarded control and release is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R057 | `GET /api/network` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R058 | `PATCH /api/network` | PARTIAL | 200 | Checked network revocation cancels setup when leaving online mode. Dictation/other peripheral probes and embedded-media tokens remain unported. |
+| R058 | `PATCH /api/network` | PARTIAL | 200 | Checked network revocation cancels setup and clears embedded-media handles when leaving online mode. Dictation/transcription and media embeds are implemented; remaining peripheral-owner lifecycle parity has not been fully reconciled. |
 | R059 | `GET /api/providers` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R060 | `PUT /api/providers` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R061 | `POST /api/providers/{id}/key` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
