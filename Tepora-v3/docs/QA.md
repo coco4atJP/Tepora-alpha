@@ -68,3 +68,7 @@ The [embed/view gate](RUST-MEDIA-EMBED.md) compares source/native response bytes
 ## Native ordinary doctor system facts
 
 The [doctor fact gate](RUST-DOCTOR-FACTS.md) injects OS/architecture labels, memory/CPU results, zero/error responses, page arithmetic overflow and sysctl output lengths. A separate real HTTP test compares the source host and both explicit native modes with Node's local OS facts, using isolated data and an empty native executable path. It preserves the native marker/note and verifies repeated reads. This verifies local facts only; real model/GPU/provider/account checks, broader policy/security suites and exact-head Windows/macOS package acceptance remain separate.
+
+## Redundant SQLite writes
+
+See [write-budget evidence](DISK-WRITES.md) for focused same-value, index-order/repair, rollback/restart checks and isolated baseline comparisons; the FTS and document candidates are explicitly excluded. Logical/WAL writes are not physical NAND wear. These checks do not establish whole-application performance or full platform/quality acceptance.

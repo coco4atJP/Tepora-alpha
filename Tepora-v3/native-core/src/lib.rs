@@ -298,7 +298,9 @@ impl NativeState {
             }
             "kv.set" => {
                 let value = field(p, "value")?;
-                self.db()?.execute("INSERT OR REPLACE INTO kv(key,value) VALUES(?,?)",
+                // Keep changed values synchronous, but do not rewrite an exact
+                // serialized duplicate (including its primary-key index).
+                self.db()?.execute("INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE kv.value IS NOT excluded.value",
                     params![sql_text(string(p, "key")?), json_codec::stringify(value)?])?;
                 Ok(value.clone())
             }

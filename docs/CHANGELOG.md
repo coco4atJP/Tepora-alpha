@@ -1,5 +1,11 @@
 # Tepora V3 changelog
 
+## Redundant SQLite write reduction (beta.11)
+
+- Use a conditional KV UPSERT to skip unchanged values and avoid primary-key index rewrites on changes; retain original document/FTS persistence
+- Keep immediate commits, events, revisions, final/error records and durability settings unchanged; retain single-statement write-first locking
+- Document synthetic WAL reductions, read/CPU costs and diagnostic metadata differences in [write-budget evidence](../Tepora-v3/docs/DISK-WRITES.md)
+
 ## Node-suite CI budget repair (beta.11)
 
 - Set a bounded 360-second improvement-loop budget for the whole Node suite after a successful Windows suite exceeded the old 180-second ceiling; keep every other stage at 180 seconds
