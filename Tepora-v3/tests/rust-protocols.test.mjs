@@ -4,7 +4,8 @@ import * as current from '../core/provider-protocols.mjs';
 import * as baseline from './helpers/rust-baseline/provider-protocols.mjs';
 
 // Synthetic data only. All decoding runs through unchanged public JS APIs.
-// The only normalized values are explicitly identified newly generated call IDs.
+// Generated call IDs and additive usage-status metadata are asserted separately.
+// The two intentional Anthropic usage corrections are explicit fixture exceptions.
 const clone=value=>structuredClone(value);
 const protocols=['chat-completions','responses','anthropic','gemini'];
 const profile=(protocol,extra={})=>({protocol,id:'fixture',identity:'provider:model:fixture',model:'models/model 日本語',baseUrl:'https://provider.example.test/v1/',domain:'cloud',...extra});
@@ -37,6 +38,20 @@ function normalizeGenerated(outcome,fixture,label){
  for(const id of fixture.suppliedIds||[])assert.ok(calls.some(c=>c.id===id),`${label}: provider-supplied ID stays exact`);
  return {value};
 }
+const usageStatuses={
+ complete:{status:'complete',input:'reported',output:'reported'},
+ missing:{status:'missing',input:'missing',output:'missing'},
+ inputOnly:{status:'partial',input:'reported',output:'missing'},
+ outputOnly:{status:'partial',input:'missing',output:'reported'},
+};
+function assertAndSeparateUsageStatus(outcome,expected,label){
+ if(outcome.error)return outcome;
+ assert.ok(Object.hasOwn(usageStatuses,expected),`${label}: known usage-status expectation`);
+ equal(outcome.value.usageStatus,usageStatuses[expected],`${label}: provider-reported usage status`);
+ const legacy=clone(outcome);
+ delete legacy.value.usageStatus;
+ return legacy;
+}
 async function compareStream(fixture){
  const run=async implementation=>{
   const events=[],requests=[],p=profile(fixture.protocol,fixture.profile);
@@ -51,7 +66,22 @@ async function compareStream(fixture){
   return {outcome:normalizeGenerated(outcome,fixture,fixture.name),events,requests};
  };
  const expected=await run(baseline),actual=await run(current);
- equal(actual,expected,fixture.name);
+ const legacyActual=clone(actual);
+ legacyActual.outcome=assertAndSeparateUsageStatus(actual.outcome,fixture.expectedUsage||'missing',fixture.name);
+ if(fixture.anthropicCacheWriteCorrection){
+  assert.equal(fixture.protocol,'anthropic');assert.ok(fixture.json);
+  assert.equal(expected.outcome.value.usage.cacheWrite,0,'frozen baseline omitted nonstreaming cache writes');
+  assert.equal(actual.outcome.value.usage.cacheWrite,fixture.json.usage.cache_creation_input_tokens,'cache writes are now preserved');
+  assert.equal(actual.outcome.value.usage.input,9,'total input already includes the cache writes exactly once');
+  expected.outcome.value.usage.cacheWrite=fixture.json.usage.cache_creation_input_tokens;
+ }
+ if(fixture.anthropicZeroOutputCorrection){
+  assert.equal(fixture.protocol,'anthropic');
+  assert.equal(expected.outcome.value.usage.output,9,'frozen baseline ignored the final zero');
+  assert.equal(actual.outcome.value.usage.output,0,'provider-reported final zero replaces the earlier count');
+  expected.outcome.value.usage.output=0;
+ }
+ equal(legacyActual,expected,fixture.name);
  return actual;
 }
 
@@ -122,7 +152,7 @@ test('Rust protocols: Ollama encoding preserves tool names, image bytes, argumen
 
 test('Rust protocols: Chat streams preserve interleaved sparse indices, malformed fragments, callbacks and usage',async()=>{
  const fixtures=[
-  {name:'chat interleaved indices and split think',protocol:'chat-completions',chunkSize:1,suppliedIds:['call_12345678-abcd_0'],generated:[1,2],frames:[
+  {name:'chat interleaved indices and split think',expectedUsage:'complete',protocol:'chat-completions',chunkSize:1,suppliedIds:['call_12345678-abcd_0'],generated:[1,2],frames:[
    {prompt_progress:{total:10,cached:4}},{choices:[{delta:{content:'<th'}}]},
    {choices:[{delta:{content:'ink>考える🪷</think>\n答',reasoning_content:'native reasoning'}}]},
    {choices:[{delta:{content:'え',tool_calls:[{index:5,id:'call_12345678-abcd_0',function:{name:'wr',arguments:'{"con'}},{index:0,function:{name:'read',arguments:'{"2":2,'}}]}}]},
@@ -130,11 +160,11 @@ test('Rust protocols: Chat streams preserve interleaved sparse indices, malforme
    {choices:[{delta:{},finish_reason:'tool_calls'}]},{choices:[],usage:{prompt_tokens:123,completion_tokens:9,prompt_tokens_details:{cached_tokens:100}}},'[DONE]',
    {choices:[{delta:{content:'must ignore after done'}}]},
   ]},
-  {name:'chat object args fallback, unnamed ignored and timings',protocol:'chat-completions',generated:[0,1],frames:[
+  {name:'chat object args fallback, unnamed ignored and timings',expectedUsage:'complete',protocol:'chat-completions',generated:[0,1],frames:[
    'malformed JSON',{timings:{prompt_n:30,cache_n:70,predicted_n:4},choices:[{delta:{tool_calls:[{function:{name:'object',arguments:{'10':10,'2':2,n:1e-7}}},{function:{name:'array',arguments:[1,true,null]}},{function:{arguments:'ignored'}}]}}]},
    {choices:[{delta:{reasoning:'r',refusal:'blocked'},finish_reason:'length'}]},
   ]},
-  {name:'chat JSON response',protocol:'chat-completions',suppliedIds:['upstream-exact'],json:{choices:[{message:{content:'plain 🦊',reasoning:'r',tool_calls:[{id:'upstream-exact',function:{name:'f',arguments:'broken'}}]},finish_reason:'stop'}],usage:{prompt_tokens:20,completion_tokens:2,cache_read_input_tokens:12}}},
+  {name:'chat JSON response',expectedUsage:'complete',protocol:'chat-completions',suppliedIds:['upstream-exact'],json:{choices:[{message:{content:'plain 🦊',reasoning:'r',tool_calls:[{id:'upstream-exact',function:{name:'f',arguments:'broken'}}]},finish_reason:'stop'}],usage:{prompt_tokens:20,completion_tokens:2,cache_read_input_tokens:12}}},
   {name:'chat empty stream',protocol:'chat-completions',frames:[]},
   {name:'chat content filter',protocol:'chat-completions',frames:[{choices:[{delta:{content:'partial'},finish_reason:'content_filter'}]}]},
   {name:'chat overflow event',protocol:'chat-completions',frames:[{choices:[{delta:{content:'first'}}]},{error:{message:'maximum context length is 8192'}}]},
@@ -147,8 +177,8 @@ test('Rust protocols: Responses terminal state, encrypted replay, refusal and mi
  const done={status:'completed',output:[{type:'reasoning',id:'r',encrypted_content:'opaque==',summary:[{text:'reason one'},{text:'reason two'}]},
   {type:'message',content:[{type:'output_text',text:'final 🪷'}]},{type:'function_call',call_id:'f',name:'read',arguments:{'10':10,'2':2,n:1e-7}}],usage:{input_tokens:35,output_tokens:6,input_tokens_details:{cached_tokens:30}}};
  for(const fixture of [
-  {name:'Responses terminal payload authoritative',frames:[{type:'response.reasoning_summary_text.delta',delta:'r1'},{type:'response.output_text.delta',delta:'streamed '},{type:'response.reasoning_text.delta',delta:'r2'},{type:'response.output_text.delta',delta:'🪷'},{type:'response.completed',response:done}],chunkSize:1},
-  {name:'Responses nonstreamed callbacks',json:done},
+  {name:'Responses terminal payload authoritative',expectedUsage:'complete',frames:[{type:'response.reasoning_summary_text.delta',delta:'r1'},{type:'response.output_text.delta',delta:'streamed '},{type:'response.reasoning_text.delta',delta:'r2'},{type:'response.output_text.delta',delta:'🪷'},{type:'response.completed',response:done}],chunkSize:1},
+  {name:'Responses nonstreamed callbacks',expectedUsage:'complete',json:done},
   {name:'Responses fallback to streamed text',frames:[{type:'response.output_text.delta',delta:'fallback'},{type:'response.completed',response:{status:'completed',output:[]}}]},
   {name:'Responses refusal incomplete',frames:[{type:'response.incomplete',response:{status:'incomplete',incomplete_details:{reason:'content_filter'},output:[{type:'message',content:[{type:'refusal',refusal:'no'}]}]}}]},
   {name:'Responses truncated',frames:[{type:'response.incomplete',response:{status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:done.output}}]},
@@ -174,8 +204,8 @@ test('Rust protocols: Anthropic sparse blocks retain signatures, malformed raw J
   {type:'content_block_delta',index:12,delta:{type:'input_json_delta',partial_json:'{"incomplete":'}},
   {type:'message_delta',delta:{stop_reason:'tool_use'},usage:{output_tokens:9}},{type:'message_delta',usage:{output_tokens:0}},{type:'message_stop'}];
  for(const fixture of [
-  {name:'Anthropic sparse indices',frames,chunkSize:1},
-  {name:'Anthropic nonstreamed cache write historical behavior',json:{stop_reason:'end_turn',content:[{type:'text',text:'hello'},{type:'thinking',thinking:'reason',signature:'sig'},{type:'tool_use',id:'a',name:'read',input:{'10':10,'2':2}}],usage:{input_tokens:2,cache_read_input_tokens:3,cache_creation_input_tokens:4,output_tokens:5}}},
+  {name:'Anthropic sparse indices',expectedUsage:'complete',anthropicZeroOutputCorrection:true,frames,chunkSize:1},
+  {name:'Anthropic nonstreamed cache write correction',expectedUsage:'complete',anthropicCacheWriteCorrection:true,json:{stop_reason:'end_turn',content:[{type:'text',text:'hello'},{type:'thinking',thinking:'reason',signature:'sig'},{type:'tool_use',id:'a',name:'read',input:{'10':10,'2':2}}],usage:{input_tokens:2,cache_read_input_tokens:3,cache_creation_input_tokens:4,output_tokens:5}}},
   {name:'Anthropic max tokens',frames:[{type:'message_delta',delta:{stop_reason:'max_tokens'}}]},
   {name:'Anthropic refusal',frames:[{type:'message_delta',delta:{stop_reason:'refusal'}}]},
   {name:'Anthropic overloaded',frames:[{type:'error',error:{type:'overloaded_error',message:'busy'}}]},
@@ -189,7 +219,7 @@ test('Rust protocols: Gemini thought tokens, safety finishes, native signatures 
   {functionCall:{id:'g_12345678-abcd_0',name:'read',args:{'10':10,'2':2,n:1e-7}},thoughtSignature:'sig-two'},
   {functionCall:{name:'write',args:{path:'x'}},thoughtSignature:'sig-three'},
   {functionCall:{name:'third',args:null}},{inlineData:{mimeType:'image/png',data:'opaque'}}];
- await compareStream({name:'Gemini thoughts and calls',protocol:'gemini',generated:[1,2],suppliedIds:['g_12345678-abcd_0'],prefix:'g',chunkSize:1,frames:[
+ await compareStream({name:'Gemini thoughts and calls',expectedUsage:'complete',protocol:'gemini',generated:[1,2],suppliedIds:['g_12345678-abcd_0'],prefix:'g',chunkSize:1,frames:[
   {candidates:[{content:{parts:parts.slice(0,2)}}]},
   {candidates:[{content:{parts:parts.slice(2)},finishReason:'STOP'}],usageMetadata:{promptTokenCount:40,candidatesTokenCount:3,thoughtsTokenCount:7,cachedContentTokenCount:25}},
  ]});
@@ -204,13 +234,53 @@ test('Rust protocols: Ollama NDJSON tracks done, uncached-only usage, leading th
  const packets=[{message:{thinking:'native ',content:'<thi'}},{message:{content:'nk>wrapped 🪷</think>\nanswer',tool_calls:[
   {id:'provider-ollama',function:{name:'first',arguments:{'10':10,'2':2}}},{function:{name:'second',arguments:'broken'}},{function:{name:'third',arguments:{n:1e-7}}}]}},
   {done:true,done_reason:'stop',prompt_eval_count:20,eval_count:6}];
- await compareStream({name:'Ollama done and tools',protocol:'chat-completions',profile:{server:'ollama'},ndjson:true,raw:packets.map(x=>JSON.stringify(x)).join('\n'),chunkSize:1,generated:[1,2],suppliedIds:['provider-ollama']});
+ await compareStream({name:'Ollama done and tools',expectedUsage:'complete',protocol:'chat-completions',profile:{server:'ollama'},ndjson:true,raw:packets.map(x=>JSON.stringify(x)).join('\n'),chunkSize:1,generated:[1,2],suppliedIds:['provider-ollama']});
  for(const fixture of [
   {name:'Ollama without done',raw:JSON.stringify({message:{content:'partial'}})},
-  {name:'Ollama length',raw:JSON.stringify({done:true,done_reason:'length',prompt_eval_count:0,eval_count:1})+'\n'},
+  {name:'Ollama length',expectedUsage:'complete',raw:JSON.stringify({done:true,done_reason:'length',prompt_eval_count:0,eval_count:1})+'\n'},
   {name:'Ollama malformed packet',raw:'{broken}\n'},
   {name:'Ollama error',raw:JSON.stringify({error:'context window exceeded'})+'\n'},
  ])await compareStream({protocol:'chat-completions',profile:{server:'ollama'},ndjson:true,...fixture});
+});
+
+test('Rust protocols: usage status separates missing and partial counts from genuine reported zero',async()=>{
+ for(const [kind,input,output] of [
+  ['chat-completions','prompt_tokens','completion_tokens'],['responses','input_tokens','output_tokens'],
+  ['anthropic','input_tokens','output_tokens'],['gemini','promptTokenCount','candidatesTokenCount'],
+  ['ollama','prompt_eval_count','eval_count'],
+ ]){
+  for(const [name,counts,expectedUsage] of [
+   ['missing',null,'missing'],['empty',{},'missing'],
+   ['zero',{input:0,output:0},'complete'],['input zero',{input:0},'inputOnly'],
+   ['output zero',{output:0},'outputOnly'],['invalid',{input:-1,output:null},'missing'],
+  ]){
+   const usage=counts&&Object.fromEntries(Object.entries(counts).map(([key,value])=>[key==='input'?input:output,value]));
+   const packet=kind==='responses'?{status:'completed',output:[]}:kind==='anthropic'?{stop_reason:'end_turn',content:[]}:kind==='ollama'?{done:true}:{};
+   if(usage){if(kind==='ollama')Object.assign(packet,usage);else packet[kind==='gemini'?'usageMetadata':'usage']=usage;}
+   const fixture=kind==='ollama'?{protocol:'chat-completions',profile:{server:'ollama'},ndjson:true,raw:JSON.stringify(packet)+'\n'}:{protocol:kind,json:packet};
+   const actual=await compareStream({name:`${kind} usage ${name}`,expectedUsage,...fixture});
+   if(name==='zero')equal(actual.outcome.value.usage,{input:0,output:0,cacheRead:0,cacheWrite:0,...(kind==='ollama'?{uncachedOnly:true}:{})},`${kind}: numeric zero contract`);
+  }
+ }
+});
+
+test('Rust protocols: invalid cache counts and truncated stream usage remain incomplete',async()=>{
+ for(const [protocol,json] of [
+  ['chat-completions',{usage:{prompt_tokens:7,completion_tokens:2,prompt_tokens_details:{cached_tokens:-5}}}],
+  ['chat-completions',{usage:{prompt_tokens:7,completion_tokens:2,cache_read_input_tokens:null}}],
+  ['responses',{status:'completed',output:[],usage:{input_tokens:7,output_tokens:2,input_tokens_details:{cached_tokens:-5}}}],
+  ['anthropic',{stop_reason:'end_turn',content:[],usage:{input_tokens:7,output_tokens:2,cache_read_input_tokens:-5}}],
+  ['gemini',{usageMetadata:{promptTokenCount:7,candidatesTokenCount:2,cachedContentTokenCount:-5}}],
+ ])await compareStream({name:`${protocol} invalid cache`,protocol,json,expectedUsage:'outputOnly'});
+ for(const [protocol,frames] of [
+  ['chat-completions',[{choices:[{delta:{content:'partial answer'}}],usage:{prompt_tokens:7,completion_tokens:0}}]],
+  ['anthropic',[{type:'message_start',message:{usage:{input_tokens:7,output_tokens:0}}},{type:'content_block_start',index:0,content_block:{type:'text',text:'partial answer'}}]],
+  ['gemini',[{candidates:[{content:{parts:[{text:'partial answer'}]}}],usageMetadata:{promptTokenCount:7,candidatesTokenCount:0}}]],
+ ]){
+  const actual=await compareStream({name:`${protocol} cleanly truncated usage`,protocol,frames,expectedUsage:'inputOnly'});
+  assert.equal(actual.outcome.value.content,'partial answer');
+  assert.equal(actual.outcome.value.usage.output,0);
+ }
 });
 
 test('Rust protocols: SSE UTF-8 byte boundaries, multiline data, comments, CRLF and final unterminated data',async()=>{
@@ -273,6 +343,8 @@ test('Rust protocols: public one-shot decoding preserves callbacks and terminal 
  ];
  for(const fixture of fixtures){
   const run=async implementation=>{const events=[];const outcome=await captureAsync(()=>implementation.decodeResponse(profile(fixture.protocol),clone(fixture.json),{onDelta:x=>events.push(['text',x]),onReasoning:x=>events.push(['reasoning',x])}));return {outcome,events};};
-  equal(await run(current),await run(baseline),`public decode ${fixture.protocol}`);
+  const actual=await run(current),expected=await run(baseline);
+  actual.outcome=assertAndSeparateUsageStatus(actual.outcome,'missing',`public decode ${fixture.protocol}`);
+  equal(actual,expected,`public decode ${fixture.protocol}`);
  }
 });

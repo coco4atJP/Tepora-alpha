@@ -409,6 +409,7 @@ async fn decode_wire(
         &uuid::Uuid::new_v4().to_string()[..12],
     )
     .map_err(ProviderFailure::from_core)?;
+    let result = async {
     let sse = response
         .headers
         .get("content-type")
@@ -474,9 +475,16 @@ async fn decode_wire(
     let finished = decoder.finish().map_err(ProviderFailure::from_core)?;
     emit(array(&finished["events"]).to_vec(), sink, cancel)?;
     Ok(finished["result"].clone())
+    }.await;
+    result.map_err(|mut error: ProviderFailure| {
+        let mut snapshot = decoder.usage_snapshot();
+        if snapshot["usageStatus"]["status"] != "missing" { snapshot["usageStatus"]["status"] = json!("partial"); }
+        error.accounting_usage = Some(snapshot);
+        error
+    })
 }
 
-pub async fn protocol_chat(
+pub(crate) async fn protocol_chat_accounted(
     network: &NativeNetwork,
     profile: &Value,
     key: &str,
@@ -485,6 +493,7 @@ pub async fn protocol_chat(
     mut scope: NetworkScope,
     cancel: &RequestCancellation,
     sink: &EventSink,
+    mut receipt: Option<crate::model_usage::Dispatch>,
 ) -> Result<Value, ProviderFailure> {
     check(cancel)?;
     let ollama = s(profile, "protocol") == "chat-completions" && s(profile, "server") == "ollama";
@@ -524,6 +533,7 @@ pub async fn protocol_chat(
             .into(),
         cancellation: Some(cancel.clone()),
     };
+    scope.dispatch_observer = receipt.as_ref().map(crate::model_usage::Dispatch::marker);
     let result = async {
         let response = network
             .request(&url, request, scope)
@@ -550,6 +560,10 @@ pub async fn protocol_chat(
         .await
     }
     .await;
+    if let Some(receipt) = receipt.as_mut() {
+        let outcome = match &result { Ok(_) => "completed", Err(e) if e.cancelled => "cancelled", Err(_) => "error" };
+        receipt.finish(match &result { Ok(answer) => Some(answer), Err(error) => error.accounting_usage.as_ref() }, outcome).map_err(|_| ProviderFailure::new("accounting", "Model dispatch accounting could not be persisted"))?;
+    }
     result.map_err(|mut e| {
         if !key.is_empty() {
             e.message = e.message.replace(key, "[redacted]");
@@ -557,4 +571,10 @@ pub async fn protocol_chat(
         }
         e
     })
+}
+
+/// Unaccounted low-level helper retained for synthetic wire fixtures. Runtime
+/// model invocations use protocol_chat_accounted with the shared state owner.
+pub async fn protocol_chat(network: &NativeNetwork, profile: &Value, key: &str, messages: &[Value], options: &Value, scope: NetworkScope, cancel: &RequestCancellation, sink: &EventSink) -> Result<Value, ProviderFailure> {
+    protocol_chat_accounted(network, profile, key, messages, options, scope, cancel, sink, None).await
 }

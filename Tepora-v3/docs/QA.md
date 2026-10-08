@@ -72,3 +72,7 @@ The [doctor fact gate](RUST-DOCTOR-FACTS.md) injects OS/architecture labels, mem
 ## Redundant SQLite writes
 
 See [write-budget evidence](DISK-WRITES.md) for focused same-value, index-order/repair, rollback/restart checks and isolated baseline comparisons; the FTS and document candidates are explicitly excluded. Logical/WAL writes are not physical NAND wear. These checks do not establish whole-application performance or full platform/quality acceptance.
+
+## Bounded history paging and context snapshots
+
+The [history-window gate](HISTORY-WINDOWS.md) compares SQL-bounded before-pages and native context snapshots with the previous full-read behavior, including legacy header overrides, checkpoint/clear/tool ordering, JavaScript limit coercion, older-client writes and reopen. A synthetic real-HTTP Node fixture checks public projections and the 500-entry cap without external networking. The sparse compatibility index has a one-time construction cost and an append predicate cost; see the focused measurement recipe and limits. These checks do not establish full quality or platform acceptance.

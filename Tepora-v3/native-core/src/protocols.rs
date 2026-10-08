@@ -846,6 +846,33 @@ fn checked_upstream_array<'a>(value: &'a Value, field: &str) -> CoreResult<&'a [
 fn usage() -> Value {
     json!({"input":0,"output":0,"cacheRead":0,"cacheWrite":0})
 }
+fn reported_count(value: &Value) -> bool {
+    value
+        .as_f64()
+        .is_some_and(|count| count.is_finite() && count >= 0.0)
+}
+fn reported_total(source: &Value, required: &str, optional: &[&str]) -> bool {
+    reported_count(get(source, required))
+        && optional
+            .iter()
+            .all(|key| source.get(*key).is_none_or(reported_count))
+}
+fn reported_details(source: &Value, key: &str, count: &str) -> bool {
+    source
+        .get(key)
+        .is_none_or(|details| details.is_object() && details.get(count).is_none_or(reported_count))
+}
+fn usage_status(reported: [bool; 2]) -> Value {
+    json!({
+        "status":match reported {
+            [true, true] => "complete",
+            [false, false] => "missing",
+            _ => "partial",
+        },
+        "input":if reported[0] { "reported" } else { "missing" },
+        "output":if reported[1] { "reported" } else { "missing" },
+    })
+}
 fn zero(v: &Value) -> Value {
     if truthy(v) {
         v.clone()
@@ -884,6 +911,10 @@ pub struct Decoder {
     stop: Option<String>,
     calls: Vec<(i64, Value)>,
     usage: Value,
+    // Canonical numeric defaults are retained for compatibility. Presence is
+    // tracked separately so their synthetic zeroes cannot imply free usage.
+    usage_reported: [bool; 2],
+    output_final: bool,
     done: Option<Value>,
     native: Vec<Value>,
     blocks: std::collections::BTreeMap<u64, Value>,
@@ -913,6 +944,8 @@ impl Decoder {
             stop: None,
             calls: vec![],
             usage: usage(),
+            usage_reported: [false, false],
+            output_final: false,
             done: None,
             native: vec![],
             blocks: Default::default(),
@@ -920,12 +953,27 @@ impl Decoder {
             blocked: false,
         })
     }
+    /// Report only counters already received from the provider. Hosts may use
+    /// this on an interrupted request without exposing generated/native data.
+    pub fn usage_snapshot(&self) -> Value {
+        json!({"usage":self.usage,"usageStatus":self.current_usage_status()})
+    }
+    fn current_usage_status(&self) -> Value {
+        let mut reported = self.usage_reported;
+        if matches!(self.kind.as_str(), "chat-completions" | "gemini") && !self.output_final {
+            reported[1] = false;
+        }
+        usage_status(reported)
+    }
     pub fn push(&mut self, packet: &Value, streamed: bool) -> CoreResult<Vec<Value>> {
         if packet.is_null() {
             return Err(provider_error(
                 "transient",
                 "Invalid provider response: null packet",
             ));
+        }
+        if !streamed {
+            self.output_final = true;
         }
         let mut events = vec![];
         match self.kind.as_str() {
@@ -976,6 +1024,11 @@ impl Decoder {
         }
         if truthy(get(p, "usage")) {
             let u = get(p, "usage");
+            self.usage_reported = [
+                reported_total(u, "prompt_tokens", &["cache_read_input_tokens"])
+                    && reported_details(u, "prompt_tokens_details", "cached_tokens"),
+                reported_count(get(u, "completion_tokens")),
+            ];
             self.usage["input"] = zero(get(u, "prompt_tokens"));
             self.usage["output"] = zero(get(u, "completion_tokens"));
             self.usage["cacheRead"] = zero(fallback(
@@ -984,6 +1037,10 @@ impl Decoder {
             ));
         } else if get(p, "timings").get("prompt_n").is_some() {
             let t = get(p, "timings");
+            self.usage_reported = [
+                reported_total(t, "prompt_n", &["cache_n"]),
+                reported_count(get(t, "predicted_n")),
+            ];
             self.usage["input"] = plus(&zero(get(t, "prompt_n")), &zero(get(t, "cache_n")));
             self.usage["output"] = zero(get(t, "predicted_n"));
             self.usage["cacheRead"] = zero(get(t, "cache_n"));
@@ -1052,11 +1109,13 @@ impl Decoder {
         }
         if truthy(get(c, "finish_reason")) {
             self.stop = Some(js_string(get(c, "finish_reason")));
+            self.output_final = true;
         }
         Ok(())
     }
     fn responses(&mut self, e: &Value, streamed: bool, events: &mut Vec<Value>) -> CoreResult<()> {
         if !streamed {
+            self.responses_usage(e);
             self.done = Some(e.clone());
             self.stop = Some(
                 if get(e, "status") == "completed" {
@@ -1079,6 +1138,7 @@ impl Decoder {
                 event(events, "reasoning", get(e, "delta").clone())
             }
             "response.completed" | "response.incomplete" => {
+                self.responses_usage(get(e, "response"));
                 self.done = Some(get(e, "response").clone());
                 self.stop = Some(
                     if get(e, "type") == "response.completed" {
@@ -1094,6 +1154,9 @@ impl Decoder {
                 );
             }
             "response.failed" | "error" => {
+                if get(e, "response").get("usage").is_some() {
+                    self.responses_usage(get(e, "response"));
+                }
                 let err = fallback(
                     get(get(e, "response"), "error"),
                     fallback(get(e, "error"), e),
@@ -1116,6 +1179,17 @@ impl Decoder {
         }
         Ok(())
     }
+    fn responses_usage(&mut self, response: &Value) {
+        let u = get(response, "usage");
+        self.usage_reported = [
+            reported_count(get(u, "input_tokens"))
+                && reported_details(u, "input_tokens_details", "cached_tokens"),
+            reported_count(get(u, "output_tokens")),
+        ];
+        self.usage["input"] = zero(get(u, "input_tokens"));
+        self.usage["output"] = zero(get(u, "output_tokens"));
+        self.usage["cacheRead"] = zero(get(get(u, "input_tokens_details"), "cached_tokens"));
+    }
     fn anthropic(&mut self, e: &Value, streamed: bool, events: &mut Vec<Value>) -> CoreResult<()> {
         if !streamed {
             self.stop = e.get("stop_reason").filter(|v| truthy(v)).map(js_string);
@@ -1129,6 +1203,14 @@ impl Decoder {
                 }
             }
             let u = get(e, "usage");
+            self.usage_reported = [
+                reported_total(
+                    u,
+                    "input_tokens",
+                    &["cache_read_input_tokens", "cache_creation_input_tokens"],
+                ),
+                reported_count(get(u, "output_tokens")),
+            ];
             self.usage["input"] = plus(
                 &plus(
                     &zero(get(u, "input_tokens")),
@@ -1137,12 +1219,23 @@ impl Decoder {
                 &zero(get(u, "cache_creation_input_tokens")),
             );
             self.usage["cacheRead"] = zero(get(u, "cache_read_input_tokens"));
+            self.usage["cacheWrite"] = zero(get(u, "cache_creation_input_tokens"));
             self.usage["output"] = zero(get(u, "output_tokens"));
             return Ok(());
         }
         match strv(get(e, "type")) {
             "message_start" => {
                 let u = get(get(e, "message"), "usage");
+                self.usage_reported = [
+                    reported_total(
+                        u,
+                        "input_tokens",
+                        &["cache_read_input_tokens", "cache_creation_input_tokens"],
+                    ),
+                    // message_start counters are provisional, commonly zero.
+                    // Only a usage-bearing message_delta confirms output.
+                    false,
+                ];
                 self.usage["input"] = plus(
                     &plus(
                         &zero(get(u, "input_tokens")),
@@ -1232,8 +1325,11 @@ impl Decoder {
                 if truthy(get(get(e, "delta"), "stop_reason")) {
                     self.stop = Some(js_string(get(get(e, "delta"), "stop_reason")));
                 }
-                if truthy(get(get(e, "usage"), "output_tokens")) {
-                    self.usage["output"] = get(get(e, "usage"), "output_tokens").clone();
+                if let Some(output) = get(e, "usage").get("output_tokens") {
+                    self.usage_reported[1] = reported_count(output);
+                    if truthy(output) || reported_count(output) {
+                        self.usage["output"] = output.clone();
+                    }
                 }
             }
             "error" => {
@@ -1284,9 +1380,14 @@ impl Decoder {
         }
         if truthy(get(c, "finishReason")) {
             self.stop = Some(js_string(get(c, "finishReason")));
+            self.output_final = true;
         }
         if truthy(get(p, "usageMetadata")) {
             let u = get(p, "usageMetadata");
+            self.usage_reported = [
+                reported_total(u, "promptTokenCount", &["cachedContentTokenCount"]),
+                reported_total(u, "candidatesTokenCount", &["thoughtsTokenCount"]),
+            ];
             self.usage["input"] = zero(get(u, "promptTokenCount"));
             self.usage["output"] = plus(
                 &zero(get(u, "candidatesTokenCount")),
@@ -1340,6 +1441,10 @@ impl Decoder {
         }
         if truthy(get(p, "done")) {
             self.stop = Some(js_string(fallback(get(p, "done_reason"), &json!("stop"))));
+            self.usage_reported = [
+                reported_count(get(p, "prompt_eval_count")),
+                reported_count(get(p, "eval_count")),
+            ];
             self.usage["input"] = zero(get(p, "prompt_eval_count"));
             self.usage["output"] = zero(get(p, "eval_count"));
             self.usage["uncachedOnly"] = json!(true);
@@ -1415,11 +1520,6 @@ impl Decoder {
                     }
                     text = output;
                 }
-                let u = get(done, "usage");
-                self.usage["input"] = zero(get(u, "input_tokens"));
-                self.usage["output"] = zero(get(u, "output_tokens"));
-                self.usage["cacheRead"] =
-                    zero(get(get(u, "input_tokens_details"), "cached_tokens"));
                 finish = if kind == "stop" && !calls.is_empty() {
                     "tool_calls".into()
                 } else {
@@ -1538,6 +1638,7 @@ impl Decoder {
             }
         }
         let mut result = json!({"role":"assistant","content":if text.is_empty(){Value::Null}else{json!(text)},"reasoning":if reasoning.is_empty(){Value::Null}else{json!(reasoning)},"finish":finish,"usage":self.usage});
+        result["usageStatus"] = self.current_usage_status();
         if !calls.is_empty() {
             result["tool_calls"] = json!(calls);
         }
@@ -1556,6 +1657,7 @@ impl Decoder {
                 "tool_calls",
                 "finish",
                 "usage",
+                "usageStatus",
                 "_native",
             ],
         );
@@ -1666,6 +1768,407 @@ mod tests {
     }
     fn finish(decoder: &mut Decoder) -> Value {
         decoder.finish().unwrap()["result"].clone()
+    }
+    fn decode_usage(protocol: &str, usage: Option<Value>, streamed: bool) -> Value {
+        let mut packet = match protocol {
+            "chat-completions" => json!({"choices":[{"finish_reason":"stop"}]}),
+            "responses" => json!({"status":"completed","output":[]}),
+            "anthropic" => json!({"stop_reason":"end_turn","content":[]}),
+            "gemini" => json!({"candidates":[{"finishReason":"STOP"}]}),
+            "ollama" => json!({"done":true}),
+            _ => object(),
+        };
+        if let Some(usage) = usage {
+            match protocol {
+                "gemini" => packet["usageMetadata"] = usage,
+                "ollama" => {
+                    if let Some(fields) = usage.as_object() {
+                        packet.as_object_mut().unwrap().extend(fields.clone());
+                    }
+                }
+                _ => packet["usage"] = usage,
+            }
+        }
+        if streamed {
+            packet = match protocol {
+                "responses" => json!({"type":"response.completed","response":packet}),
+                "anthropic" => json!({"type":"message_start","message":packet}),
+                _ => packet,
+            };
+        }
+        let mut d = decoder(protocol);
+        d.push(&packet, streamed).unwrap();
+        if protocol == "anthropic" && streamed {
+            if let Some(output) = packet.pointer("/message/usage/output_tokens") {
+                d.push(
+                    &json!({"type":"message_delta","usage":{"output_tokens":output}}),
+                    true,
+                )
+                .unwrap();
+            }
+        }
+        finish(&mut d)
+    }
+    fn usage_fields(protocol: &str) -> (&str, &str) {
+        match protocol {
+            "chat-completions" => ("prompt_tokens", "completion_tokens"),
+            "gemini" => ("promptTokenCount", "candidatesTokenCount"),
+            "ollama" => ("prompt_eval_count", "eval_count"),
+            _ => ("input_tokens", "output_tokens"),
+        }
+    }
+    #[test]
+    fn usage_status_distinguishes_missing_partial_and_reported_zero_for_all_protocols() {
+        for protocol in [
+            "chat-completions",
+            "responses",
+            "anthropic",
+            "gemini",
+            "ollama",
+        ] {
+            for streamed in [false, true] {
+                for source in [None, Some(Value::Null), Some(object())] {
+                    let r = decode_usage(protocol, source, streamed);
+                    assert_eq!(
+                        r["usageStatus"],
+                        json!({"status":"missing","input":"missing","output":"missing"}),
+                        "{protocol}, streamed={streamed}"
+                    );
+                    assert_eq!(r["usage"]["input"].as_f64(), Some(0.0));
+                    assert_eq!(r["usage"]["output"].as_f64(), Some(0.0));
+                }
+                let (input, output) = usage_fields(protocol);
+                for count in [0, 7] {
+                    let mut source = object();
+                    source[input] = json!(count);
+                    source[output] = json!(count);
+                    let r = decode_usage(protocol, Some(source), streamed);
+                    assert_eq!(
+                        r["usageStatus"],
+                        json!({"status":"complete","input":"reported","output":"reported"}),
+                        "{protocol}, streamed={streamed}, count={count}"
+                    );
+                    assert_eq!(r["usage"]["input"].as_f64(), Some(count as f64));
+                    assert_eq!(r["usage"]["output"].as_f64(), Some(count as f64));
+                }
+                for (field, known, unknown) in
+                    [(input, "input", "output"), (output, "output", "input")]
+                {
+                    let mut source = object();
+                    source[field] = json!(0);
+                    let r = decode_usage(protocol, Some(source), streamed);
+                    assert_eq!(r["usageStatus"]["status"], "partial", "{protocol}");
+                    assert_eq!(r["usageStatus"][known], "reported", "{protocol}");
+                    assert_eq!(r["usageStatus"][unknown], "missing", "{protocol}");
+                }
+            }
+        }
+    }
+    #[test]
+    fn usage_status_rejects_invalid_counts_without_rewriting_legacy_numeric_fields() {
+        for protocol in [
+            "chat-completions",
+            "responses",
+            "anthropic",
+            "gemini",
+            "ollama",
+        ] {
+            let (input, output) = usage_fields(protocol);
+            for invalid in [json!(-1), json!("0"), json!(false), Value::Null, json!({})] {
+                let mut source = object();
+                source[input] = json!(0);
+                source[output] = invalid;
+                let r = decode_usage(protocol, Some(source), false);
+                assert_eq!(r["usageStatus"]["status"], "partial", "{protocol}");
+                assert_eq!(r["usageStatus"]["output"], "missing", "{protocol}");
+            }
+            let mut source = object();
+            source[input] = json!(-1);
+            source[output] = json!(-2);
+            let r = decode_usage(protocol, Some(source), false);
+            assert_eq!(r["usageStatus"]["status"], "missing", "{protocol}");
+            assert_eq!(r["usage"]["input"].as_f64(), Some(-1.0));
+            assert_eq!(r["usage"]["output"].as_f64(), Some(-2.0));
+        }
+    }
+    #[test]
+    fn reported_usage_keeps_cache_as_a_subset_of_total_input() {
+        for (protocol, source, cache_read, cache_write) in [
+            (
+                "chat-completions",
+                json!({"prompt_tokens":23,"completion_tokens":7,"prompt_tokens_details":{"cached_tokens":11}}),
+                11,
+                0,
+            ),
+            (
+                "responses",
+                json!({"input_tokens":23,"output_tokens":7,"input_tokens_details":{"cached_tokens":11}}),
+                11,
+                0,
+            ),
+            (
+                "anthropic",
+                json!({"input_tokens":7,"output_tokens":7,"cache_read_input_tokens":11,"cache_creation_input_tokens":5}),
+                11,
+                5,
+            ),
+            (
+                "gemini",
+                json!({"promptTokenCount":23,"candidatesTokenCount":3,"thoughtsTokenCount":4,"cachedContentTokenCount":11}),
+                11,
+                0,
+            ),
+            (
+                "ollama",
+                json!({"prompt_eval_count":23,"eval_count":7}),
+                0,
+                0,
+            ),
+        ] {
+            for streamed in [false, true] {
+                let r = decode_usage(protocol, Some(source.clone()), streamed);
+                assert_eq!(r["usageStatus"]["status"], "complete", "{protocol}");
+                assert_eq!(r["usage"]["input"].as_f64(), Some(23.0), "{protocol}");
+                assert_eq!(r["usage"]["output"].as_f64(), Some(7.0), "{protocol}");
+                assert_eq!(r["usage"]["cacheRead"], cache_read, "{protocol}");
+                assert_eq!(r["usage"]["cacheWrite"], cache_write, "{protocol}");
+            }
+        }
+        let r = decode_usage(
+            "chat-completions",
+            Some(json!({"prompt_tokens":23,"completion_tokens":7,"cache_read_input_tokens":11})),
+            false,
+        );
+        assert_eq!(r["usage"]["cacheRead"], 11);
+    }
+    #[test]
+    fn partial_additive_counts_do_not_claim_a_complete_total() {
+        for (protocol, source, unknown) in [
+            (
+                "anthropic",
+                json!({"cache_read_input_tokens":11,"cache_creation_input_tokens":5,"output_tokens":2}),
+                "input",
+            ),
+            (
+                "anthropic",
+                json!({"input_tokens":7,"cache_creation_input_tokens":-1,"output_tokens":2}),
+                "input",
+            ),
+            (
+                "gemini",
+                json!({"promptTokenCount":7,"thoughtsTokenCount":4}),
+                "output",
+            ),
+            (
+                "gemini",
+                json!({"promptTokenCount":7,"candidatesTokenCount":3,"thoughtsTokenCount":null}),
+                "output",
+            ),
+        ] {
+            let r = decode_usage(protocol, Some(source), true);
+            assert_eq!(r["usageStatus"]["status"], "partial", "{protocol}");
+            assert_eq!(r["usageStatus"][unknown], "missing", "{protocol}");
+        }
+    }
+    #[test]
+    fn invalid_optional_cache_counts_do_not_claim_complete_usage() {
+        for invalid in [json!(-5), json!("5"), Value::Null] {
+            for (protocol, source) in [
+                (
+                    "chat-completions",
+                    json!({"prompt_tokens":7,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":invalid}}),
+                ),
+                (
+                    "chat-completions",
+                    json!({"prompt_tokens":7,"completion_tokens":2,"cache_read_input_tokens":invalid}),
+                ),
+                (
+                    "responses",
+                    json!({"input_tokens":7,"output_tokens":2,"input_tokens_details":{"cached_tokens":invalid}}),
+                ),
+                (
+                    "anthropic",
+                    json!({"input_tokens":7,"output_tokens":2,"cache_read_input_tokens":invalid}),
+                ),
+                (
+                    "gemini",
+                    json!({"promptTokenCount":7,"candidatesTokenCount":2,"cachedContentTokenCount":invalid}),
+                ),
+            ] {
+                let r = decode_usage(protocol, Some(source), true);
+                assert_eq!(
+                    r["usageStatus"],
+                    json!({"status":"partial","input":"missing","output":"reported"}),
+                    "{protocol}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn truncated_anthropic_start_usage_does_not_report_final_zero_output() {
+        for output in [0, 2] {
+            let mut d = decoder("anthropic");
+            d.push(&json!({"type":"message_start","message":{"usage":{"input_tokens":7,"output_tokens":output}}}), true).unwrap();
+            d.push(&json!({"type":"content_block_start","index":0,"content_block":{"type":"text","text":"partial answer"}}), true).unwrap();
+            let r = finish(&mut d);
+            assert_eq!(r["content"], "partial answer");
+            assert_eq!(r["finish"], "other");
+            assert_eq!(r["usage"]["output"], output);
+            assert_eq!(
+                r["usageStatus"],
+                json!({"status":"partial","input":"reported","output":"missing"})
+            );
+        }
+    }
+    #[test]
+    fn truncated_chat_and_gemini_counters_remain_provisional_until_finish_marker() {
+        for (protocol, packet, terminal) in [
+            (
+                "chat-completions",
+                json!({"choices":[{"delta":{"content":"partial answer"}}],"usage":{"prompt_tokens":7,"completion_tokens":0}}),
+                json!({"choices":[{"finish_reason":"stop"}]}),
+            ),
+            (
+                "gemini",
+                json!({"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}],"usageMetadata":{"promptTokenCount":7,"candidatesTokenCount":0}}),
+                json!({"candidates":[{"finishReason":"STOP"}]}),
+            ),
+        ] {
+            let mut d = decoder(protocol);
+            d.push(&packet, true).unwrap();
+            assert_eq!(
+                d.usage_snapshot()["usageStatus"],
+                json!({"status":"partial","input":"reported","output":"missing"})
+            );
+            let r = finish(&mut d);
+            assert_eq!(r["content"], "partial answer");
+            assert_eq!(r["finish"], "other");
+            assert_eq!(r["usage"]["output"].as_f64(), Some(0.0));
+            assert_eq!(r["usageStatus"]["status"], "partial");
+            d.push(&terminal, true).unwrap();
+            assert_eq!(finish(&mut d)["usageStatus"]["status"], "complete");
+        }
+    }
+    #[test]
+    fn chat_timing_usage_tracks_zero_counts_and_optional_cache() {
+        for (timings, status, input) in [
+            (json!({"prompt_n":0,"predicted_n":0}), "complete", 0.0),
+            (
+                json!({"prompt_n":7,"cache_n":11,"predicted_n":2}),
+                "complete",
+                18.0,
+            ),
+            (json!({"prompt_n":0}), "partial", 0.0),
+            (json!({"prompt_n":null,"predicted_n":0}), "partial", 0.0),
+        ] {
+            let mut d = decoder("chat-completions");
+            d.push(
+                &json!({"timings":timings,"choices":[{"finish_reason":"stop"}]}),
+                true,
+            )
+            .unwrap();
+            let r = finish(&mut d);
+            assert_eq!(r["usageStatus"]["status"], status);
+            assert_eq!(r["usage"]["input"].as_f64(), Some(input));
+        }
+    }
+    #[test]
+    fn usage_status_follows_replaced_snapshots_and_anthropic_zero_deltas() {
+        for (protocol, key, initial, next) in [
+            (
+                "chat-completions",
+                "usage",
+                json!({"prompt_tokens":7,"completion_tokens":2}),
+                json!({"completion_tokens":0}),
+            ),
+            (
+                "gemini",
+                "usageMetadata",
+                json!({"promptTokenCount":7,"candidatesTokenCount":2}),
+                json!({"candidatesTokenCount":0}),
+            ),
+        ] {
+            let mut d = decoder(protocol);
+            for source in [initial, next] {
+                let mut p = object();
+                p[key] = source;
+                d.push(&p, true).unwrap();
+            }
+            let terminal = if protocol == "chat-completions" {
+                json!({"choices":[{"finish_reason":"stop"}]})
+            } else {
+                json!({"candidates":[{"finishReason":"STOP"}]})
+            };
+            d.push(&terminal, true).unwrap();
+            let r = finish(&mut d);
+            assert_eq!(
+                r["usageStatus"],
+                json!({"status":"partial","input":"missing","output":"reported"})
+            );
+            assert_eq!(r["usage"]["input"].as_f64(), Some(0.0));
+            assert_eq!(r["usage"]["output"].as_f64(), Some(0.0));
+        }
+        let mut d = decoder("anthropic");
+        d.push(&json!({"type":"message_start","message":{"usage":{"input_tokens":7,"output_tokens":2}}}), true).unwrap();
+        d.push(
+            &json!({"type":"message_delta","usage":{"output_tokens":0}}),
+            true,
+        )
+        .unwrap();
+        d.push(
+            &json!({"type":"message_delta","delta":{"stop_reason":"end_turn"}}),
+            true,
+        )
+        .unwrap();
+        let r = finish(&mut d);
+        assert_eq!(r["usageStatus"]["status"], "complete");
+        assert_eq!(r["usage"]["output"], 0);
+        assert_eq!(r["usage"]["input"].as_f64(), Some(7.0));
+        d.push(
+            &json!({"type":"message_delta","usage":{"output_tokens":null}}),
+            true,
+        )
+        .unwrap();
+        assert_eq!(finish(&mut d)["usageStatus"]["status"], "partial");
+    }
+    #[test]
+    fn usage_snapshot_is_read_only_content_free_and_available_before_finish() {
+        let mut d = decoder("anthropic");
+        assert_eq!(d.usage_snapshot()["usageStatus"]["status"], "missing");
+        d.push(
+            &json!({"type":"message_start","message":{"usage":{"input_tokens":7}}}),
+            true,
+        )
+        .unwrap();
+        d.push(&json!({"type":"content_block_start","index":0,"content_block":{"type":"text","text":"private content"}}), true).unwrap();
+        let snapshot = d.usage_snapshot();
+        assert_eq!(snapshot.as_object().unwrap().len(), 2);
+        assert_eq!(snapshot["usage"]["input"].as_f64(), Some(7.0));
+        assert_eq!(snapshot["usageStatus"]["status"], "partial");
+        assert_eq!(snapshot, d.usage_snapshot());
+        assert!(!snapshot.to_string().contains("private content"));
+        assert_eq!(finish(&mut d)["content"], "private content");
+
+        for streamed in [false, true] {
+            let mut d = decoder("responses");
+            let response = json!({"status":"completed","output":[{"type":"message","content":[null]}],"usage":{"input_tokens":7,"output_tokens":0}});
+            let packet = if streamed {
+                json!({"type":"response.completed","response":response})
+            } else {
+                response
+            };
+            d.push(&packet, streamed).unwrap();
+            let snapshot = d.usage_snapshot();
+            assert_eq!(snapshot["usageStatus"]["status"], "complete");
+            assert_eq!(snapshot["usage"]["input"], 7);
+            assert!(d.finish().is_err());
+            assert_eq!(snapshot, d.usage_snapshot());
+        }
+        let mut d = decoder("responses");
+        assert!(d.push(&json!({"type":"response.failed","response":{"error":{"message":"generation failed"},"usage":{"input_tokens":7}}}), true).is_err());
+        let snapshot = d.usage_snapshot();
+        assert_eq!(snapshot["usageStatus"]["status"], "partial");
+        assert_eq!(snapshot["usage"]["input"], 7);
     }
     #[test]
     fn encoders_preserve_native_items_only_for_exact_identity() {

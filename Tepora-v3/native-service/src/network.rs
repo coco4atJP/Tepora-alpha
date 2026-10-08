@@ -182,6 +182,8 @@ pub trait EgressGuard: Send + Sync + std::fmt::Debug {
 }
 #[derive(Clone, Debug)]
 pub struct NetworkScope {
+    /// Internal accounting observer, marked only after admission succeeds.
+    pub dispatch_observer: Option<crate::model_usage::DispatchMarker>,
     pub profile: Option<NetworkProfile>,
     pub egress_guard: Option<Arc<dyn EgressGuard>>,
     pub purpose: Purpose,
@@ -202,6 +204,7 @@ pub struct NetworkScope {
 impl Default for NetworkScope {
     fn default() -> Self {
         Self {
+            dispatch_observer: None,
             profile: None,
             egress_guard: None,
             purpose: Purpose::Model,
@@ -807,7 +810,10 @@ impl NativeNetwork {
             biased;
             error = cancel.cancelled() => return Err(error),
             error = optional_cancellation(&caller_cancel) => return Err(error),
-            result = self.inner.transport.request(admitted, request, cancel.clone()) => result?,
+            result = async {
+                if let Some(observer) = &scope.dispatch_observer { observer.mark(); }
+                self.inner.transport.request(admitted, request, cancel.clone()).await
+            } => result?,
         };
         cancel.check()?;
         if let Some(c) = &caller_cancel {

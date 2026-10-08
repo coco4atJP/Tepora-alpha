@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS documents(kind TEXT NOT NULL,id TEXT NOT NULL,body TEXT NOT NULL,PRIMARY KEY(kind,id));
 CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,type TEXT NOT NULL,body TEXT NOT NULL,at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS session_log(session_id TEXT NOT NULL,seq INTEGER NOT NULL,type TEXT NOT NULL,body TEXT NOT NULL,at TEXT NOT NULL,PRIMARY KEY(session_id,seq));
+-- Normally empty: preserve legacy header overrides without scanning history
+-- on every context read. Invalid legacy JSON must not prevent database opening.
+CREATE INDEX IF NOT EXISTS session_header_overrides ON session_log(session_id,seq)
+WHERE CASE WHEN json_valid(body) THEN json_type(body,'$.seq') IS NOT NULL OR json_type(body,'$.type') IS NOT NULL ELSE 1 END;
 CREATE TABLE IF NOT EXISTS evidence_store(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,seq INTEGER NOT NULL,tool TEXT NOT NULL,body TEXT NOT NULL,at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS evidence_by_session ON evidence_store(session_id,seq);
 CREATE VIRTUAL TABLE IF NOT EXISTS session_search USING fts5(session_id UNINDEXED,seq UNINDEXED,terms,tokenize='unicode61');
@@ -209,6 +213,12 @@ impl NativeState {
             |r| r.get(0),
         )?;
         Ok(seq)
+    }
+
+    fn history_exceptions(&self, id: &str, to: i64) -> CoreResult<bool> {
+        Ok(self.db()?.query_row(
+            "SELECT EXISTS(SELECT 1 FROM session_log WHERE session_id=? AND seq>=1 AND seq<=? AND CASE WHEN json_valid(body) THEN json_type(body,'$.seq') IS NOT NULL OR json_type(body,'$.type') IS NOT NULL ELSE 1 END)",
+            params![id, to], |row| row.get(0))?)
     }
 
     fn merged_entry(seq: i64, kind: String, at: String, body: String) -> CoreResult<Value> {
@@ -502,6 +512,57 @@ impl NativeState {
                 entries.reverse();
                 Ok(Value::Array(entries))
             }
+            // Native UI paging preserves the historical Array.slice(-limit)
+            // behavior, including zero (all) and negative (skip oldest) limits.
+            "session.page" => self.atomic(|| {
+                let id = sql_text(string(p, "id")?);
+                let to = number(p, "to", MAX_SAFE_INTEGER)?;
+                let limit = number(p, "limit", 50)?;
+                if self.history_exceptions(&id, to)? {
+                    // The old path decoded the entire candidate prefix before
+                    // slicing, including any malformed or overriding bodies.
+                    let mut entries = self.entries(
+                        "SELECT seq,type,at,body FROM session_log WHERE session_id=? AND seq>=1 AND seq<=? ORDER BY seq",
+                        &[SqlValue::Text(id), SqlValue::Integer(to)])?;
+                    let start = if limit == 0 { 0 } else if limit > 0 { entries.len().saturating_sub(limit as usize) } else { (-limit) as usize };
+                    entries.drain(..start.min(entries.len()));
+                    return Ok(Value::Array(entries));
+                }
+                let id = SqlValue::Text(id);
+                let to = SqlValue::Integer(to);
+                let mut entries = if limit > 0 {
+                    self.entries("SELECT seq,type,at,body FROM session_log WHERE session_id=? AND seq>=1 AND seq<=? ORDER BY seq DESC LIMIT ?",
+                        &[id, to, SqlValue::Integer(limit)])?
+                } else {
+                    self.entries("SELECT seq,type,at,body FROM session_log WHERE session_id=? AND seq>=1 AND seq<=? ORDER BY seq LIMIT -1 OFFSET ?",
+                        &[id, to, SqlValue::Integer(-limit)])?
+                };
+                if limit > 0 { entries.reverse(); }
+                Ok(Value::Array(entries))
+            }),
+            // One read snapshot: the latest checkpoint plus its complete live
+            // tail. Explicit entries/entry/search remain full-recall operations.
+            "session.contextEntries" => self.atomic(|| {
+                let id = sql_text(string(p, "id")?);
+                // Legacy bodies may override headers. In that case retain the
+                // exact old read path instead of assuming seq/type invariants.
+                if self.history_exceptions(&id, MAX_SAFE_INTEGER)? {
+                    return Ok(Value::Array(self.entries(
+                        "SELECT seq,type,at,body FROM session_log WHERE session_id=? AND seq>=1 AND seq<=? ORDER BY seq",
+                        &[SqlValue::Text(id), SqlValue::Integer(MAX_SAFE_INTEGER)])?));
+                }
+                let checkpoint = self.entries(
+                    "SELECT seq,type,at,body FROM session_log WHERE session_id=? AND seq>=1 AND seq<=? AND type='checkpoint' ORDER BY seq DESC LIMIT 1",
+                    &[SqlValue::Text(id.clone()), SqlValue::Integer(MAX_SAFE_INTEGER)])?.pop();
+                let from = checkpoint.as_ref().and_then(|c| c["upTo"].as_u64()).unwrap_or(0).saturating_add(1);
+                let seq = checkpoint.as_ref().and_then(|c| c["seq"].as_i64()).unwrap_or(0);
+                // Cap an out-of-range boundary above every valid row; retain
+                // the checkpoint even when its own sequence is below upTo.
+                let from = from.min((MAX_SAFE_INTEGER + 1) as u64) as i64;
+                Ok(Value::Array(self.entries(
+                    "SELECT seq,type,at,body FROM session_log WHERE session_id=?1 AND seq>=?2 AND seq<=?3 UNION ALL SELECT seq,type,at,body FROM session_log WHERE session_id=?1 AND seq=?4 AND seq>=1 AND seq<?2 ORDER BY seq",
+                    &[SqlValue::Text(id), SqlValue::Integer(from), SqlValue::Integer(MAX_SAFE_INTEGER), SqlValue::Integer(seq)])?))
+            }),
             "session.patch" => self.atomic(|| {
                 let id = string(p, "id")?;
                 let seq = number(p, "seq", 0)?;

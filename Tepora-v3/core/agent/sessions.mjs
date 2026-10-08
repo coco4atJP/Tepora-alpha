@@ -48,6 +48,11 @@ export class SessionStore{
  entry(id,seq){return this.db.call('session.entry',{id,seq});}
  latest(id,type){return this.db.call('session.latest',{id,type});}
  tail(id,limit=50){return this.db.call('session.tail',{id,limit});}
+ /** Bounded ordinary before-pages; retain Array.slice coercion for legacy limits. */
+ page(id,before,limit=50){
+  if(Number.isSafeInteger(limit))return this.db.call('session.page',{id,to:before-1,limit});
+  return this.entries(id,{to:before-1}).slice(-limit);
+ }
  putEvidence(id,sessionId,seq,tool,content){return this.db.call('evidence.put',{id,sessionId,seq,tool,content,at:now()});}
  evidence(id){return this.db.call('evidence.get',{id});}
  search(query,{sessionIds,limit=10}={}){

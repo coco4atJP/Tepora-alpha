@@ -20,6 +20,7 @@ struct Stored {
     events: Vec<Value>,
     fail_next: Option<u16>,
     commits: usize,
+    receipts: Vec<Value>,
 }
 #[derive(Default)]
 struct TestState(
@@ -55,6 +56,7 @@ impl Drop for ReleasePause {
 }
 
 impl CapabilityState for TestState {
+    fn record_model_call(&self, receipt: Value) -> Result<(), ApiError> { lock(&self.0).receipts.push(receipt); Ok(()) }
     fn value(&self, key: &str) -> Result<Option<Value>, ApiError> {
         assert_eq!(key, "capabilities");
         Ok(lock(&self.0).registry.clone())
@@ -2204,4 +2206,26 @@ fn malformed_saved_registry_returns_a_typed_snapshot_error_without_panicking() {
     lock(&h.state.0).registry = None;
     assert_eq!(h.capabilities.snapshot().unwrap()["revision"], 0);
     h.clean();
+}
+
+#[tokio::test]
+async fn accounting_receipts_include_typed_decision_and_cancellation_once() {
+    let h=Harness::new(); h.install(raw("system-one"));
+    h.transport.push(json_response(&json!({"answers":{"q":{"type":"noul","noul":0.5}}})));
+    h.capabilities.decide(&json!({"message":"private input"}),&json!({"q":{"type":"noul"}}),None,&RequestCancellation::new()).await.unwrap();
+    {
+        let state=lock(&h.state.0); assert_eq!(state.receipts.len(),1);
+        assert_eq!(state.receipts[0]["purpose"],"decision");
+        assert_eq!(state.receipts[0]["usageStatus"]["status"],"missing");
+        assert!(state.receipts[0]["cost"].is_null()); assert!(state.receipts[0]["sessionId"].is_null());
+        assert!(!state.receipts[0].to_string().contains("private"));
+    }
+    let (response,_tx,_dropped)=held_response(200); h.transport.push(response);
+    let capabilities=h.capabilities.clone(); let cancel=RequestCancellation::new(); let token=cancel.clone();
+    let task=tokio::spawn(async move { capabilities.decide(&json!("s"),&json!({"q":{"type":"noul"}}),None,&token).await });
+    eventually(||h.transport.count()==2).await;
+    cancel.cancel(); assert!(task.await.unwrap().is_err());
+    let state=lock(&h.state.0); assert_eq!(state.receipts.len(),2);
+    assert!(["cancelled","unknown"].contains(&state.receipts[1]["outcome"].as_str().unwrap()));
+    assert!(state.receipts[1]["cost"].is_null());
 }

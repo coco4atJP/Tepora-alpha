@@ -252,6 +252,8 @@ impl From<tepora_core::CoreError> for CapabilityError {
 /// One existing Workspace connection must implement this atomic boundary.
 /// Keys are deliberately absent from this interface and every persisted value.
 pub trait CapabilityState: Send + Sync {
+    /// Workspace overrides this with the same receipt transaction as chat.
+    fn record_model_call(&self, _receipt: Value) -> Result<(), ApiError> { Ok(()) }
     fn value(&self, key: &str) -> Result<Option<Value>, ApiError>;
     /// Atomically compare registry revision, persist KV `capabilities`, then
     /// publish `capabilities.updated` with this public snapshot after commit.
@@ -914,7 +916,7 @@ impl Capabilities {
         profile.id = format!("cap:{}", s(p, "id"));
         let base = json_codec::sql_text(s(p, "baseUrl"));
         let url = format!("{}{}", base.strip_suffix('/').unwrap_or(&base), route);
-        let scope = NetworkScope {
+        let mut scope = NetworkScope {
             profile: Some(profile),
             egress_guard: request.egress_guard,
             purpose: Purpose::Model,
@@ -930,6 +932,14 @@ impl Capabilities {
             ..Default::default()
         };
         operation.check()?;
+        // A decision's typed transport has no token-price contract. Record
+        // missing usage/cost explicitly and never infer it from question text.
+        let mut receipt = if p["role"] == "decision" && route == "/systemone" {
+            let state = self.inner.state.clone();
+            Some(crate::model_usage::Dispatch::new(p, &Value::Null, "decision", 1, None, Arc::new(move |receipt| state.record_model_call(receipt))))
+        } else { None };
+        scope.dispatch_observer = receipt.as_ref().map(crate::model_usage::Dispatch::marker);
+        let result = async {
         let response = self
             .inner
             .network
@@ -965,6 +975,13 @@ impl Capabilities {
             headers,
             bytes,
         })
+        }.await;
+        if let Some(receipt) = receipt.as_mut() {
+            let outcome = match &result { Ok(_) => "completed", Err(e) if e.cancelled => "cancelled", Err(_) => "error" };
+            receipt.finish(None, outcome).map_err(|_| CapabilityError::new(500, "Model dispatch accounting could not be persisted"))?;
+        }
+        result
+
     }
     pub async fn decide(
         &self,

@@ -10,6 +10,7 @@ struct MemoryState {
     values: Mutex<HashMap<String, Value>>,
     docs: Mutex<HashMap<(String, String), Value>>,
     events: Mutex<Vec<(String, Value)>>,
+    receipts: Mutex<Vec<Value>>,
     check_runtime_locks: Mutex<Option<std::sync::Weak<Inner>>>,
 }
 impl MemoryState {
@@ -30,6 +31,7 @@ impl MemoryState {
     }
 }
 impl ProviderState for MemoryState {
+    fn record_model_call(&self, receipt: Value) -> Result<(), ApiError> { self.check_locks(); lock(&self.receipts).push(receipt); Ok(()) }
     fn value(&self, k: &str) -> Result<Option<Value>, ApiError> {
         self.check_locks();
         Ok(lock(&self.values).get(k).cloned())
@@ -1022,4 +1024,73 @@ async fn service_stop_cancels_probe_without_closing_future_admission() {
         .unwrap();
     assert_eq!(result["content"], "new turn");
     assert_eq!(runtime.inner.gate.snapshot()[0]["active"], 0);
+}
+
+#[tokio::test]
+async fn accounting_receipts_capture_retries_missing_usage_and_session_without_stream_writes() {
+    let (runtime, state, transport, profiles) = setup(vec![raw("a","chat-completions")], vec![Reply::text(500,"private upstream failure"), chat_answer("private answer")], false);
+    let mut request = request(profiles);
+    request.options = json!({"accountingSessionId":"session-a","accountingPurpose":"summary"});
+    runtime.invoke(request, &RequestCancellation::new(), sink()).await.unwrap();
+    let receipts = lock(&state.receipts);
+    assert_eq!(receipts.len(),2); assert_eq!(lock(&transport.requests).len(),2);
+    assert_eq!(receipts[0]["outcome"],"error"); assert_eq!(receipts[0]["usageStatus"]["status"],"missing");
+    assert_eq!(receipts[1]["outcome"],"completed"); assert_eq!(receipts[1]["usageStatus"]["status"],"complete");
+    assert_eq!(receipts[1]["retry"],true); assert_eq!(receipts[1]["attempt"],2);
+    assert_eq!(receipts[1]["purpose"],"summary"); assert_eq!(receipts[1]["sessionId"],"session-a");
+    assert_eq!(receipts[1]["usage"]["input"],3.); assert!(receipts[1]["cost"].is_null());
+    assert!(!format!("{receipts:?}").contains("private"));
+}
+#[tokio::test]
+async fn accounting_receipts_capture_cancelled_dispatch_and_skip_precancelled_call() {
+    let mut reply=chat_answer("unused"); reply.delay=Duration::from_secs(30);
+    let (runtime,state,transport,profiles)=setup(vec![raw("a","chat-completions")],vec![reply],false);
+    let cancel=RequestCancellation::new(); cancel.cancel();
+    assert!(runtime.invoke(request(profiles.clone()),&cancel,sink()).await.is_err());
+    assert!(lock(&state.receipts).is_empty());
+    let cancel=RequestCancellation::new(); let token=cancel.clone(); let r=runtime.clone();
+    let task=tokio::spawn(async move {r.invoke(request(profiles),&token,sink()).await});
+    while lock(&transport.requests).is_empty() {tokio::task::yield_now().await;}
+    cancel.cancel(); assert!(task.await.unwrap().unwrap_err().cancelled);
+    let receipts=lock(&state.receipts); assert_eq!(receipts.len(),1);
+    assert_eq!(receipts[0]["outcome"],"cancelled"); assert!(receipts[0]["cost"].is_null());
+    assert_eq!(receipts[0]["usageStatus"]["status"],"missing");
+}
+#[tokio::test]
+async fn accounting_receipts_preserve_partial_stream_usage_after_failure() {
+    let (runtime,state,_,profiles)=setup(vec![raw("a","responses")],vec![Reply::sse("data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"private failure\"},\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}}\n\n")],false);
+    let p=&profiles[0]; let owner=state.clone();
+    let receipt=crate::model_usage::Dispatch::new(p,&json!("s"),"normal",1,None,Arc::new(move|v|owner.record_model_call(v)));
+    let result=wire::protocol_chat_accounted(&runtime.inner.network,p,"",&[],&json!({}),NetworkScope{profile:Some(NetworkProfile::from_value(p).unwrap()),..Default::default()},&RequestCancellation::new(),&sink(),Some(receipt)).await;
+    assert!(result.is_err());
+    let receipts=lock(&state.receipts); assert_eq!(receipts.len(),1);
+    assert_eq!(receipts[0]["usage"]["input"],7.);
+    assert_eq!(receipts[0]["usageStatus"]["status"],"partial");
+    assert_eq!(receipts[0]["outcome"],"error"); assert!(receipts[0]["cost"].is_null());
+    assert!(!receipts[0].to_string().contains("private failure"));
+}
+#[tokio::test]
+async fn accounting_receipts_exclude_requests_rejected_before_transport() {
+    let (runtime,state,transport,profiles)=setup(vec![raw("a","chat-completions")],vec![],false);
+    let p=&profiles[0]; let owner=state.clone();
+    let receipt=crate::model_usage::Dispatch::new(p,&json!("s"),"normal",1,None,Arc::new(move|v|owner.record_model_call(v)));
+    let result=wire::protocol_chat_accounted(&runtime.inner.network,p,"",&[],&json!({}),NetworkScope{profile:Some(NetworkProfile::from_value(p).unwrap()),max_request_bytes:Some(1),..Default::default()},&RequestCancellation::new(),&sink(),Some(receipt)).await;
+    assert!(result.is_err()); assert!(lock(&transport.requests).is_empty()); assert!(lock(&state.receipts).is_empty());
+}
+#[tokio::test]
+async fn accounting_receipts_distinguish_missing_usage_from_reported_zero() {
+    for usage in [Value::Null,json!({"prompt_tokens":0,"completion_tokens":0})] {
+        let (runtime,state,_,profiles)=setup(vec![raw("a","chat-completions")],vec![Reply::json(json!({"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":usage}))],false);
+        runtime.invoke(request(profiles),&RequestCancellation::new(),sink()).await.unwrap();
+        let receipts=lock(&state.receipts); assert_eq!(receipts.len(),1);
+        assert_eq!(receipts[0]["usageStatus"]["status"],if usage.is_null(){"missing"}else{"complete"});
+        assert!(receipts[0]["cost"].is_null());
+    }
+}
+#[test]
+fn accounting_price_lookup_rejects_conflicting_catalog_entries() {
+    let (runtime,state,_,_)=setup(vec![raw("a","chat-completions")],vec![],false);
+    state.put("catalog",json!({"id":"models.dev","entries":[{"modelId":"same","cost":{"input":1,"output":2}},{"modelId":"same","cost":{"input":3,"output":4}}]})).unwrap();
+    assert!(runtime.price(&json!({"domain":"cloud","model":"same"})).unwrap().is_none());
+    assert!(runtime.price(&json!({"domain":"cloud","model":"missing"})).unwrap().is_none());
 }

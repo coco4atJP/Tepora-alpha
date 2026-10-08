@@ -42,6 +42,9 @@ pub trait ProviderState: Send + Sync {
         }
         Ok(())
     }
+    /// Production Workspace commits receipt and aggregates atomically. The
+    /// default is for nonpersistent transports/fixtures and setup probes.
+    fn record_model_call(&self, _receipt: Value) -> Result<(), ApiError> { Ok(()) }
     fn get(&self, collection: &str, id: &str) -> Result<Option<Value>, ApiError>;
     fn put(&self, collection: &str, value: Value) -> Result<(), ApiError>;
     fn emit(&self, event: &str, data: Value) -> Result<(), ApiError>;
@@ -59,6 +62,8 @@ pub struct ProviderFailure {
     pub blocked: bool,
     pub idle: bool,
     pub cancelled: bool,
+    /// Bounded canonical counters only; omitted from public errors.
+    pub accounting_usage: Option<Value>,
 }
 impl ProviderFailure {
     pub fn new(kind: impl Into<String>, message: impl Into<String>) -> Self {
@@ -75,6 +80,7 @@ impl ProviderFailure {
             blocked: false,
             idle: false,
             cancelled: false,
+            accounting_usage: None,
         }
     }
     pub fn unavailable(message: impl Into<String>, wait: u64) -> Self {
@@ -766,20 +772,16 @@ impl ProviderRuntime {
             .unwrap_or(Value::Null);
         let entries = array(&catalog["entries"]);
         let model = s(route, "model");
-        let hit = entries
-            .iter()
-            .find(|e| !e["cost"].is_null() && s(e, "modelId") == model)
-            .or_else(|| {
-                entries.iter().find(|e| {
-                    !e["cost"].is_null()
-                        && (s(e, "modelId").ends_with(&format!("/{model}"))
-                            || model.ends_with(&format!("/{}", s(e, "modelId"))))
-                })
-            });
-        Ok(hit
-            .filter(|e| e["cost"]["input"].as_f64().is_some_and(f64::is_finite))
-            .map(|e| e["cost"].clone()))
+        let exact: Vec<_> = entries.iter().filter(|e| !e["cost"].is_null() && s(e, "modelId") == model).collect();
+        let hits: Vec<_> = if exact.is_empty() {
+            entries.iter().filter(|e| !e["cost"].is_null() && !s(e, "modelId").is_empty() && (s(e, "modelId").ends_with(&format!("/{model}")) || model.ends_with(&format!("/{}", s(e, "modelId"))))).collect()
+        } else { exact };
+        // Catalogs may repeat the same model under different resellers. Never
+        // silently select one conflicting price based on catalog row order.
+        let Some(first) = hits.first() else { return Ok(None) };
+        Ok((!model.is_empty() && hits.iter().all(|e| e["cost"] == first["cost"]) && first["cost"]["input"].as_f64().is_some_and(|n| n.is_finite() && n >= 0.)).then(|| first["cost"].clone()))
     }
+
     pub fn compat(&self, p: &Value) -> Result<Value, ApiError> {
         Ok(self
             .inner
@@ -848,7 +850,7 @@ impl ProviderRuntime {
         };
         let priority = request.options["priority"].as_f64().unwrap_or(0.);
         let mut last: Option<ProviderFailure> = None;
-        let mut attempted = 0;
+        let mut attempted = 0u64;
         let mut soonest: Option<u64> = None;
         for p in &request.chain {
             check(cancel)?;
@@ -906,13 +908,16 @@ impl ProviderRuntime {
                     sink(ProviderEvent{kind:"route".into(),value:event.clone()});check(child)?;self.assert_current(p,purpose)?;
                     let mut profile=p.clone();profile["server"]=limits["server"].clone();let mut options=request.options.clone();if !options.is_object(){options=json!({});}options["maxTokens"]=json!(output_cap);options["sampling"]=p["sampling"].clone();options["compat"]=compat;options["slot"]=slot.as_ref().map(|s|json!(s.slot)).unwrap_or(Value::Null);options["numCtx"]=if s(&limits,"server")=="ollama"{limits["context"].clone()}else{Value::Null};
                     let scope=NetworkScope{profile:Some(NetworkProfile::from_value(&profile)?),purpose,max_bytes:64_000_000,first_byte_timeout:Some(Duration::from_millis(n(&timeouts,"firstByteTimeoutMs",180000))),idle_timeout:Some(Duration::from_millis(n(&timeouts,"idleTimeoutMs",120000))),..Default::default()};
-                    let mut answer=protocol_chat(&self.inner.network,&profile,&key,&request.messages,&options,scope,child,&sink).await?;check(child)?;check(cancel)?;self.assert_current(p,purpose)?;
+                    let state = self.inner.state.clone();
+                    let receipt = crate::model_usage::Dispatch::new(&profile, &request.options["accountingSessionId"], request.options["accountingPurpose"].as_str().unwrap_or("normal"), attempted.saturating_add(request.options["accountingAttempt"].as_u64().unwrap_or(1).saturating_sub(1)), self.price(&profile)?, Arc::new(move |receipt| state.record_model_call(receipt)));
+                    let mut answer=wire::protocol_chat_accounted(&self.inner.network,&profile,&key,&request.messages,&options,scope,child,&sink,Some(receipt)).await?;check(child)?;check(cancel)?;self.assert_current(p,purpose)?;
                     lock(&self.inner.health).insert(s(p,"id").into(),json!({"identity":p["identity"],"failures":0,"until":0}));let mut route=event;route["maxTokens"]=json!(output_cap);answer["route"]=route;Ok::<_,ProviderFailure>(answer)
                 }.await;
                 let error = match result {
                     Ok(answer) => return Ok(answer),
                     Err(e) => e,
                 };
+                if error.kind == "accounting" { return Err(error); }
                 check(cancel)?;
                 if child.is_cancelled() {
                     return Err(child.error().unwrap().into());
@@ -1014,7 +1019,7 @@ impl ProviderRuntime {
                 InvokeRequest {
                     chain: vec![profile.clone()],
                     messages: messages.clone(),
-                    options: json!({"tools":tools,"maxTokens":200}),
+                    options: json!({"accountingPurpose":"probe","tools":tools,"maxTokens":200}),
                 },
                 cancel,
                 sink.clone(),
@@ -1047,7 +1052,7 @@ impl ProviderRuntime {
                 InvokeRequest {
                     chain: vec![profile.clone()],
                     messages,
-                    options: json!({"tools":[],"maxTokens":200}),
+                    options: json!({"accountingPurpose":"probe","tools":[],"maxTokens":200}),
                 },
                 cancel,
                 sink,

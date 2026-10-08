@@ -779,3 +779,109 @@ fn cached_document_lookup_recovers_after_schema_change_and_closes() {
     invoke(&mut state, "close", json!({}));
     assert!(state.call("document.get", json!({"kind":"note","id":"a"})).unwrap_err().to_string().contains("closed"));
 }
+
+// Read optimizations must preserve legacy body/header behavior and the exact
+// before-page slice contract. All databases here are disposable synthetic data.
+#[test]
+fn history_page_matches_old_slice_and_survives_restart() {
+    let file = DatabaseFile::new();
+    let mut state = file.open();
+    for n in 1..=1000 { append(&mut state, "history", &format!("line {n} 日本語")); }
+    invoke(&mut state, "session.patch", json!({"id":"history","seq":990,"fields":{"unknown":{"nested":[1,2,3]}}}));
+    for restart in 0..2 {
+        if restart == 1 { drop(state); state = file.open(); }
+        let changes = state.db().unwrap().total_changes();
+        for to in [-2, 0, 1, 501, 999, 1000, MAX_SAFE_INTEGER] {
+            let all = invoke(&mut state, "session.entries", json!({"id":"history","to":to}));
+            for limit in [-1001_i64, -4, -1, 0, 1, 50, 500, 1001] {
+                let mut expected = all.as_array().unwrap().clone();
+                let start = if limit == 0 { 0 } else if limit > 0 { expected.len().saturating_sub(limit as usize) } else { (-limit) as usize };
+                expected.drain(..start.min(expected.len()));
+                assert_eq!(invoke(&mut state,"session.page",json!({"id":"history","to":to,"limit":limit})), json!(expected));
+            }
+        }
+        assert_eq!(state.db().unwrap().total_changes(), changes);
+        assert_eq!(invoke(&mut state,"session.entry",json!({"id":"history","seq":1}))["text"],"line 1 日本語");
+    }
+}
+
+fn history_context_view(entries: &Value) -> Value {
+    let entries = entries.as_array().unwrap();
+    let checkpoint = entries.iter().rev().find(|e| e["type"] == "checkpoint").cloned().unwrap_or(Value::Null);
+    let from = checkpoint["upTo"].as_u64().unwrap_or(0).saturating_add(1);
+    let live: Vec<_> = entries.iter().filter(|e|e["seq"].as_u64().is_some_and(|n|n>=from)).cloned().collect();
+    context::call("context.view",json!({"checkpoint":checkpoint,"entries":live})).unwrap()
+}
+
+#[test]
+fn history_context_window_preserves_checkpoints_headers_and_read_only_state() {
+    let file = DatabaseFile::new();
+    let mut state = file.open();
+    for n in 1..=1000 { append(&mut state,"history", &format!("line {n}")); }
+    for up_to in [json!(950), json!(1005), json!(null), json!("950"), json!(-1), json!(u64::MAX)] {
+        invoke(&mut state,"session.append",json!({"id":"history","type":"checkpoint","at":"now","body":{"upTo":up_to,"text":"summary","unknown":{"preserve":true}}}));
+        invoke(&mut state,"session.append",json!({"id":"history","type":"assistant","at":"now","body":{"toolCalls":[{"id":"pair","name":"read","arguments":{}}]}}));
+        invoke(&mut state,"session.append",json!({"id":"history","type":"tool","at":"now","body":{"callId":"pair","content":"result"}}));
+        invoke(&mut state,"session.append",json!({"id":"history","type":"clear","at":"now","body":{"upTo":980}}));
+        let changes = state.db().unwrap().total_changes();
+        let all = invoke(&mut state,"session.entries",json!({"id":"history"}));
+        let window = invoke(&mut state,"session.contextEntries",json!({"id":"history"}));
+        assert_eq!(history_context_view(&all),history_context_view(&window));
+        assert_eq!(state.db().unwrap().total_changes(),changes);
+    }
+    // Body fields historically override raw seq/type, even on ordinary entries.
+    invoke(&mut state,"session.append",json!({"id":"history","type":"input","at":"now","body":{"seq":3,"type":"checkpoint","upTo":2,"text":"legacy"}}));
+    let all = invoke(&mut state,"session.entries",json!({"id":"history"}));
+    assert_eq!(all,invoke(&mut state,"session.contextEntries",json!({"id":"history"})));
+    drop(state);
+    let mut reopened = file.open();
+    assert_eq!(all,invoke(&mut reopened,"session.contextEntries",json!({"id":"history"})));
+}
+
+#[test]
+fn history_sparse_index_is_additive_idempotent_and_legacy_write_compatible() {
+    let file = DatabaseFile::new();
+    let mut state = file.open();
+    append(&mut state,"history","ordinary");
+    // Simulate an older client: it knows nothing about the new index.
+    state.db().unwrap().execute_batch("DROP INDEX session_header_overrides; INSERT INTO session_log VALUES('legacy',1,'input','not JSON','now');").unwrap();
+    drop(state);
+    let mut reopened = file.open(); // Malformed legacy data does not block open.
+    assert_eq!(invoke(&mut reopened,"session.entry",json!({"id":"history","seq":1}))["text"],"ordinary");
+    let sql = "SELECT count(*) FROM session_log INDEXED BY session_header_overrides WHERE CASE WHEN json_valid(body) THEN json_type(body,'$.seq') IS NOT NULL OR json_type(body,'$.type') IS NOT NULL ELSE 1 END";
+    assert_eq!(reopened.db().unwrap().query_row(sql,[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    reopened.db().unwrap().execute("INSERT INTO session_log VALUES('history',2,'input',?, 'now')",[r#"{"seq":900,"type":"tool","content":"kept"}"#]).unwrap();
+    assert_eq!(reopened.db().unwrap().query_row(sql,[],|r|r.get::<_,i64>(0)).unwrap(),2);
+    assert_eq!(invoke(&mut reopened,"session.contextEntries",json!({"id":"history"}))[1]["seq"],900);
+    reopened.db().unwrap().execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+    drop(reopened);
+    let bytes = std::fs::read(&file.0).unwrap();
+    drop(file.open());
+    assert_eq!(std::fs::read(&file.0).unwrap(),bytes);
+}
+
+#[test]
+fn history_page_retains_decode_errors_outside_the_returned_tail() {
+    let mut state = NativeState::open(":memory:").unwrap();
+    state.db().unwrap().execute_batch("INSERT INTO session_log VALUES('s',1,'input','bad JSON','now'); INSERT INTO session_log VALUES('s',2,'input','{}','now');").unwrap();
+    let old = state.call("session.entries", json!({"id":"s"})).unwrap_err().to_string();
+    assert_eq!(state.call("session.page",json!({"id":"s","limit":1})).unwrap_err().to_string(),old);
+}
+
+#[test]
+fn history_window_excludes_unrepresentable_legacy_rows_without_rewriting_them() {
+    let mut state = NativeState::open(":memory:").unwrap();
+    // SQLite accepts this number; serde_json cannot represent it. Such rows
+    // cannot be produced through the normal parsed session append operation.
+    let raw = r#"{"value":1e400}"#;
+    state.db().unwrap().execute("INSERT INTO session_log VALUES('s',1,'input',?,'now')",[raw]).unwrap();
+    append(&mut state,"s","valid tail");
+    assert!(state.call("session.entries",json!({"id":"s"})).is_err());
+    assert_eq!(invoke(&mut state,"session.page",json!({"id":"s","limit":1}))[0]["text"],"valid tail");
+    assert!(state.call("session.page",json!({"id":"s","limit":2})).is_err());
+    assert!(state.call("session.entry",json!({"id":"s","seq":1})).is_err());
+    invoke(&mut state,"session.append",json!({"id":"s","type":"checkpoint","at":"now","body":{"upTo":1,"text":"summary"}}));
+    assert_eq!(invoke(&mut state,"session.contextEntries",json!({"id":"s"})).as_array().unwrap().len(),2);
+    let stored: String = state.db().unwrap().query_row("SELECT body FROM session_log WHERE session_id='s' AND seq=1",[],|row|row.get(0)).unwrap();
+    assert_eq!(stored,raw);
+}

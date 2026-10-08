@@ -1,5 +1,6 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
+mod model_usage;
 mod media_jobs;
 mod media_embed;
 mod speech_stream;
@@ -517,6 +518,9 @@ impl crate::provider::ProviderState for WorkspaceAccess {
         )
         .map(|_| ())
     }
+    fn record_model_call(&self, receipt: Value) -> Result<(), ApiError> {
+        WorkspaceAccess::record_model_call(self, receipt)
+    }
     fn get(&self, collection: &str, id: &str) -> Result<Option<Value>, ApiError> {
         let value = self.lock()?.get(collection, id)?;
         Ok((!value.is_null()).then_some(value))
@@ -642,8 +646,14 @@ impl State {
             let day = (current - Duration::days(i)).format("%Y-%m-%d").to_string();
             days.insert(day.clone(), self.value(&format!("agent-usage:{day}"))?);
         }
-        let today = days.values().next().cloned().unwrap_or(Value::Null);
-        Ok(json!({"today":today,"days":days}))
+        let today_key = current.format("%Y-%m-%d").to_string();
+        let today = days.get(&today_key).cloned().unwrap_or(Value::Null);
+        let mut model_days = Map::new();
+        for day in days.keys() {
+            model_days.insert(day.clone(), self.value(&format!("model-usage:{day}"))?);
+        }
+        let model_today = model_days.get(&today_key).cloned().unwrap_or(Value::Null);
+        Ok(json!({"today":today,"days":days,"modelCalls":{"today":model_today,"days":model_days,"total":self.value("model-usage-total")?,"coverage":"native-provider-and-typed-decision-dispatches","excluded":["embedding","speech","image","video","compatibility-host","isolated-setup-probes"],"receiptRetention":crate::model_usage::RECEIPT_LIMIT,"dayRetention":crate::model_usage::DAY_LIMIT}}))
     }
     fn ui(&mut self, operation: &str) -> Result<Value, ApiError> {
         let main = self.main()?;
@@ -929,8 +939,7 @@ impl Backend for Workspace {
     require(limit.is_finite()&&limit.fract()==0.0&&limit.abs()<=crate::MAX_SAFE_INTEGER as f64,400,"Invalid limit")?;let limit=limit.min(500.0)as i64;
     let mut entries=if let Some(before)=before.filter(|n|*n!=0.0){
      require(before.is_finite()&&before.fract()==0.0&&before.abs()<=crate::MAX_SAFE_INTEGER as f64,400,"Invalid before")?;
-     let all=s.call("session.entries",json!({"id":id,"to":before as i64-1}))?;let mut a=all.as_array().cloned().unwrap_or_default();
-     let start=if limit==0{0}else if limit>0{a.len().saturating_sub(limit as usize)}else{(-limit)as usize};a.drain(..start.min(a.len()));json!(a)
+     s.call("session.page",json!({"id":id,"to":before as i64-1,"limit":limit}))?
     }else{s.call("session.tail",json!({"id":id,"limit":limit}))?};
     if let Some(entries)=entries.as_array_mut(){for e in entries{if e["type"]=="tool"{let content=if truth(&e["content"]){str_of(&e["content"])}else{String::new()};e["content"]=json!(slice(&content,4000));}else if e["type"]=="checkpoint"{*e=pick(e,&["seq","type","at","upTo","method","reason","summary"]);}}}
     let job=if session["kind"]=="main"{Value::Null}else{let n=s.list("approval")?.iter().filter(|a|a["sessionId"]==id&&a["status"]=="pending").count();json_codec::parse(&projection::project_json("ui.job",&json_codec::stringify_js(&json!({"session":session,"approvals":n})).map_err(error)?).map_err(error)?).map_err(error)?};

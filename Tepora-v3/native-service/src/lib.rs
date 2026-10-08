@@ -10,6 +10,7 @@ pub mod http;
 pub mod network;
 pub mod provider;
 pub mod model_catalog;
+pub mod model_usage;
 pub mod runtime_discovery;
 pub mod setup;
 pub mod sandbox;

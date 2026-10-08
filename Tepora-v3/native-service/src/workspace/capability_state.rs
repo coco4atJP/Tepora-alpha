@@ -3,6 +3,9 @@
 use super::*;
 
 impl crate::capabilities::CapabilityState for WorkspaceAccess {
+    fn record_model_call(&self, receipt: Value) -> Result<(), ApiError> {
+        WorkspaceAccess::record_model_call(self, receipt)
+    }
     fn value(&self, key: &str) -> Result<Option<Value>, ApiError> {
         let value = self.lock()?.value(key)?;
         Ok((!value.is_null()).then_some(value))

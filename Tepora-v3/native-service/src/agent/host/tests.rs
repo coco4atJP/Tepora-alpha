@@ -481,6 +481,16 @@ fn real_text_stream_tools_budget_account_and_restart_persistence() {
     assert!(!definitions.iter().any(|d| d["function"]["name"] == "exec"));
     let session = f.state("session.get", json!({"id":id}));
     assert_eq!(session["stats"]["steps"], 1.0);
+    assert_eq!(session["stats"]["modelUsage"]["calls"], 1.0);
+    assert_eq!(session["stats"]["modelUsage"]["unknownCostCalls"], 1.0);
+    assert_eq!(session["stats"]["unknownCostCalls"], 1.0);
+    let day = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let all_calls = f.state("kv.get", json!({"key":format!("model-usage:{day}")}));
+    let legacy = f.state("kv.get", json!({"key":format!("agent-usage:{day}")}));
+    assert_eq!(all_calls["calls"], 1.0);
+    assert_eq!(legacy["calls"], 1.0);
+    assert_eq!(all_calls["input"], legacy["input"]);
+
     assert!(session["stats"]["input"].as_f64().unwrap() > 0.0);
     let mut saw_reply = false;
     let mut saw_done = false;

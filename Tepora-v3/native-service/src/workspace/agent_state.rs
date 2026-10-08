@@ -97,6 +97,7 @@ impl State {
         events: &mut Vec<Value>,
     ) -> Result<Value, ApiError> {
         match op {
+            "model.record" => self.record_model_call(&args["receipt"]),
             "settings" => self.agent_settings(),
             "settings.configure" => {
                 let patch = args.get("patch").unwrap_or(args);
@@ -410,7 +411,7 @@ impl State {
             }
             "memory.recall" | "document.get" | "document.list" | "document.remove"
             | "document.search" | "kv.get" | "kv.set" | "kv.delete" | "session.seq"
-            | "session.entries" | "session.latest" | "session.entry" | "session.tail"
+            | "session.entries" | "session.contextEntries" | "session.latest" | "session.entry" | "session.tail"
             | "session.patch" | "session.search" | "inbox.pending" | "inbox.take"
             | "inbox.takeItem" | "inbox.sessions" | "evidence.get" => self.call(op, args.clone()),
             "document.put" => self.put(string_arg(args, "kind")?, args["doc"].clone()),
@@ -430,5 +431,42 @@ impl State {
                 "Native agent state operation {op} is unavailable"
             ))),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn history_window_agent_router_reads_without_new_writes() {
+        let dir = std::env::temp_dir().join(format!("tepora-history-router-{}", Uuid::new_v4()));
+        let workspace = Workspace::open(&dir).unwrap();
+        let access = workspace.access();
+        let session = access.agent_state("main", json!({})).unwrap();
+        let id = &session["id"];
+        for (kind, body) in [
+            ("input", json!({"text":"earlier"})),
+            ("checkpoint", json!({"upTo":1,"text":"summary"})),
+            ("input", json!({"text":"live"})),
+        ] {
+            access.agent_state("session.append", json!({"id":id,"type":kind,"body":body})).unwrap();
+        }
+        let counters = || {
+            let mut state = access.lock().unwrap();
+            let changes = state.call("sql",json!({"mode":"get","sql":"SELECT total_changes() AS n"})).unwrap();
+            let sequence = state.call("event.seq",json!({})).unwrap();
+            (changes, sequence)
+        };
+        let before = counters();
+        let entries = access.agent_state("session.contextEntries",json!({"id":id})).unwrap();
+        assert_eq!(entries.as_array().unwrap().len(), 2);
+        assert_eq!(entries[0]["type"], "checkpoint");
+        assert_eq!(entries[1]["text"], "live");
+        assert_eq!(counters(), before);
+        assert_eq!(access.agent_state("session.entries",json!({"id":id})).unwrap().as_array().unwrap().len(),3);
+        drop(access);
+        drop(workspace);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -413,17 +413,11 @@ impl NativeAgentHost {
         let u = &answer["usage"];
         let mut stats = session["stats"].as_object().cloned().unwrap_or_default();
         let price = self.provider.price(&answer["route"])?;
-        let uncached = (num(&u["input"]) - num(&u["cacheRead"]) - num(&u["cacheWrite"])).max(0.0);
-        let cost = price
-            .map(|p| {
-                let input = num(&p["input"]);
-                (uncached * input
-                    + num(&u["cacheRead"]) * p["cache_read"].as_f64().unwrap_or(input * 0.1)
-                    + num(&u["cacheWrite"]) * p["cache_write"].as_f64().unwrap_or(input * 1.25)
-                    + num(&u["output"]) * p["output"].as_f64().unwrap_or(input))
-                    / 1e6
-            })
-            .unwrap_or(0.0);
+        let (estimated, _) = crate::model_usage::estimate(u, &answer["usageStatus"], price.as_ref());
+        let cost = estimated.unwrap_or(0.0);
+        let unknown = if estimated.is_none() { 1.0 } else { 0.0 };
+        stats.insert("unknownCostCalls".into(), json!(stats.get("unknownCostCalls").map_or(0.0, num) + unknown));
+        stats.insert("costStatus".into(), json!(if stats.get("unknownCostCalls").map_or(0.0, num) > 0.0 { "incomplete" } else { "estimated" }));
         for k in ["input", "output", "cacheRead", "cacheWrite"] {
             stats.insert(k.into(), json!(stats.get(k).map_or(0.0, num) + num(&u[k])));
         }
@@ -433,7 +427,7 @@ impl NativeAgentHost {
         stats.insert("lastInput".into(), json!(num(&u["input"])));
         let key = format!("agent-usage:{}", chrono::Utc::now().format("%Y-%m-%d"));
         let daily = self.state("kv.get", json!({"key":key}))?;
-        let value = json!({"input":num(&daily["input"])+num(&u["input"]),"output":num(&daily["output"])+num(&u["output"]),"cacheRead":num(&daily["cacheRead"])+num(&u["cacheRead"]),"cost":num(&daily["cost"])+cost,"calls":num(&daily["calls"])+1.0});
+        let value = json!({"input":num(&daily["input"])+num(&u["input"]),"output":num(&daily["output"])+num(&u["output"]),"cacheRead":num(&daily["cacheRead"])+num(&u["cacheRead"]),"cost":num(&daily["cost"])+cost,"calls":num(&daily["calls"])+1.0,"cacheWrite":num(&daily["cacheWrite"])+num(&u["cacheWrite"]),"unknownCostCalls":num(&daily["unknownCostCalls"])+unknown,"costStatus":if num(&daily["unknownCostCalls"])+unknown>0.0{"incomplete"}else{"estimated"}});
         self.state.agent_batch(&[
             (
                 "session.update".into(),
@@ -507,7 +501,7 @@ impl NativeAgentHost {
             "context" => Ok(EffectTask::ready(context::context(
                 &context::ContextSnapshot {
                     session: c["session"].clone(),
-                    entries: self.entries(id)?,
+                    entries: array(&self.state("session.contextEntries", json!({"id":id}))?),
                     budget: c["budget"].clone(),
                     vision: c["vision"] != false,
                     plan: c["plan"] == true,
@@ -570,7 +564,7 @@ impl NativeAgentHost {
                 let req = InvokeRequest {
                     chain: array(&c["chain"]),
                     messages: array(&c["messages"]),
-                    options: json!({"tools":c["toolDefs"],"cacheKey":c["cacheKey"],"slotKey":c["slotKey"],"priority":c["priority"],"cacheRetention":self.retention(&c["session"])?}),
+                    options: json!({"accountingSessionId":id,"accountingPurpose":"normal","tools":c["toolDefs"],"cacheKey":c["cacheKey"],"slotKey":c["slotKey"],"priority":c["priority"],"cacheRetention":self.retention(&c["session"])?}),
                 };
                 Ok(EffectTask::Async(Box::pin(async move {
                     let scheduled = Arc::new(std::sync::atomic::AtomicBool::new(false));

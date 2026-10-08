@@ -152,7 +152,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     const s=agent.sessions.get(m[1]);invariant(s,'Session not found',404);const action=m[2];
     if(!action&&method==='GET'){
      const before=Number(u.searchParams.get('before')||0),limit=Math.min(500,Number(u.searchParams.get('limit')||150));
-     const all=before?agent.sessions.entries(s.id,{to:before-1}).slice(-limit):agent.sessions.tail(s.id,limit);
+     const all=before?agent.sessions.page(s.id,before,limit):agent.sessions.tail(s.id,limit);
      const {system,...rest}=s;return json(res,{session:rest,job:s.kind==='main'?null:ui.job(s),entries:all.map(e=>e.type==='tool'?{...e,content:String(e.content||'').slice(0,4000)}:e.type==='checkpoint'?{seq:e.seq,type:e.type,at:e.at,upTo:e.upTo,method:e.method,reason:e.reason,summary:e.summary}:e),processes:agent.processes.list(s.id)});
     }
     if(!action&&method==='DELETE'){invariant(s.kind!=='main','The main session cannot be deleted.',403);invariant(!agent.runs.has(s.id),'止めてから削除してください。',409);agent.processes.killSession(s.id);agent.sessions.remove(s.id);store.emit('session.removed',{id:s.id});return json(res,{deleted:true});}

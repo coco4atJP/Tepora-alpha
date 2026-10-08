@@ -55,6 +55,8 @@ The network policy distinguishes online, trusted-LAN and offline destinations. I
 
 `context.rs` and `tokens.rs` build stable model context, clear/supersede old results, repair call/result sequences and account for tool definitions, images and calibration. Unicode16/17 token estimates are explicit inputs; the native host uses Unicode17 consistently. Role selection, reserve calculation and overflow retries remain compatible with the original harness.
 
+Native dispatch accounting records bounded final receipts for chat, summary and typed decision transport attempts, including retries and unknown usage/cost. Additive all-call aggregates are separate from the existing normal-turn budget counters; modality/Node coverage remains explicitly excluded. See [model-dispatch accounting](RUST-MODEL-USAGE.md) for retention, uncertainty and attribution limits.
+
 Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability configuration, identity-bound memory-only keys and typed transport components are implemented. Typed decision and scoped semantic consumers are connected to the shared owner; user-requested media jobs also consume those transports. Ordinary streaming speech, dictation proposals and uploaded-audio transcription are also connected. Media agent tools and other speech capability consumers remain unported.
 
 ## User-requested media jobs

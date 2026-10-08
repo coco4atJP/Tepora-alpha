@@ -379,7 +379,7 @@ pub async fn compact(
         let request = InvokeRequest {
             chain: array(&snapshot.budget["chain"]).to_vec(),
             messages,
-            options: json!({"tools":snapshot.budget["toolDefs"],"toolChoice":"none","maxTokens":prepared["requestMaxTokens"],"cacheKey":snapshot.session["id"],"slotKey":snapshot.session["id"],"cacheRetention":snapshot.cache_retention,"priority":prepared["priority"]}),
+            options: json!({"accountingSessionId":snapshot.session["id"],"accountingPurpose":"summary","accountingAttempt":attempt+1,"tools":snapshot.budget["toolDefs"],"toolChoice":"none","maxTokens":prepared["requestMaxTokens"],"cacheKey":snapshot.session["id"],"slotKey":snapshot.session["id"],"cacheRetention":snapshot.cache_retention,"priority":prepared["priority"]}),
         };
         let answer = provider.invoke(request, cancel, silent_sink()).await;
         check(cancel)?;
@@ -398,7 +398,7 @@ pub async fn compact(
                 }
             }
             Err(error) => {
-                if error.cancelled {
+                if error.cancelled || error.kind == "accounting" {
                     return Err(provider_error(error, cancel));
                 }
                 if error.kind != "overflow" && error.kind != "bad-request" {
@@ -423,7 +423,7 @@ pub async fn compact(
                     json!({"role":"system","content":prepared["summarizerSystem"]}),
                     json!({"role":"user","content":request_text}),
                 ],
-                options: json!({"maxTokens":prepared["requestMaxTokens"],"priority":prepared["priority"]}),
+                options: json!({"accountingSessionId":snapshot.session["id"],"accountingPurpose":"summary","maxTokens":prepared["requestMaxTokens"],"priority":prepared["priority"]}),
             };
             let answer = provider.invoke(request, cancel, silent_sink()).await;
             check(cancel)?;
@@ -443,7 +443,7 @@ pub async fn compact(
                     }
                 }
                 Err(error) => {
-                    if error.cancelled {
+                    if error.cancelled || error.kind == "accounting" {
                         return Err(provider_error(error, cancel));
                     }
                     complete = false;
@@ -494,8 +494,11 @@ mod tests {
     struct State {
         values: Mutex<HashMap<String, Value>>,
         events: Mutex<Vec<(String, Value)>>,
+        receipts: Mutex<Vec<Value>>,
+        fail_accounting: Mutex<bool>,
     }
     impl ProviderState for State {
+        fn record_model_call(&self, receipt: Value) -> Result<(), ApiError> { if *lock(&self.fail_accounting) { return Err(ApiError::new(500,"Fixture receipt failure")); } lock(&self.receipts).push(receipt); Ok(()) }
         fn value(&self, key: &str) -> Result<Option<Value>, ApiError> {
             Ok(lock(&self.values).get(key).cloned())
         }
@@ -738,6 +741,31 @@ mod tests {
             .contains("older"));
         assert_eq!(result["plan"]["action"], "compact");
     }
+    #[test]
+    fn history_window_context_matches_full_snapshot() {
+        let mut state = tepora_core::NativeState::open(":memory:").unwrap();
+        for n in 1..=1000 {
+            state.call("session.append",json!({"id":"s","type":"input","at":"now","body":{"text":format!("synthetic {n}")}})).unwrap();
+        }
+        for (kind, body) in [
+            ("checkpoint", json!({"upTo":990,"text":"summary","ledger":{"preserve":true}})),
+            ("assistant", json!({"content":"checking","toolCalls":[{"id":"call-1","name":"read","arguments":{}}]})),
+            ("tool", json!({"callId":"call-1","name":"read","content":"result","ephemeralKey":"file"})),
+            ("clear", json!({"upTo":995})),
+            ("notice", json!({"text":"still working"})),
+        ] {
+            state.call("session.append",json!({"id":"s","type":kind,"at":"now","body":body})).unwrap();
+        }
+        let snapshot = |entries: Value| ContextSnapshot {
+            session: json!({"system":"system"}), entries: entries.as_array().unwrap().clone(),
+            budget: json!({"B":1000,"ratio":1}), vision:false, plan:true,
+            force:true, idle:false, unicode_version:17,
+        };
+        let full = state.call("session.entries",json!({"id":"s"})).unwrap();
+        let bounded = state.call("session.contextEntries",json!({"id":"s"})).unwrap();
+        assert!(bounded.as_array().unwrap().len() < 20);
+        assert_eq!(context(&snapshot(full)).unwrap(),context(&snapshot(bounded)).unwrap());
+    }
     #[tokio::test]
     async fn budget_uses_real_registry_limits_calibration_and_exact_reserve() {
         let (provider, _, transport, chain) = setup(vec![]);
@@ -771,6 +799,14 @@ mod tests {
         assert!(empty.get("profile").is_none());
     }
     #[tokio::test]
+    async fn accounting_failure_stops_compaction_without_extra_dispatch() {
+        let (provider, state, transport, chain) = setup(vec![response(&summary("done"), "stop")]);
+        *lock(&state.fail_accounting) = true;
+        let result = compact(&provider, &compaction_snapshot(chain), &RequestCancellation::new(), clock()).await;
+        assert!(result.is_err());
+        assert_eq!(lock(&transport.requests).len(), 1);
+    }
+    #[tokio::test]
     async fn compaction_executes_two_real_attempts_and_returns_only_proposed_effects() {
         let (provider, state, transport, chain) = setup(vec![
             response("bad headings", "stop"),
@@ -790,6 +826,11 @@ mod tests {
         );
         assert_eq!(result.completed_at, "2026-10-07T10:30:00.000Z");
         assert_eq!(lock(&transport.requests).len(), 2);
+        let receipts = lock(&state.receipts);
+        assert_eq!(receipts.len(), 2);
+        assert!(receipts.iter().all(|r| r["purpose"] == "summary" && r["sessionId"] == snapshot.session["id"]));
+        assert_eq!(receipts[1]["retry"], true);
+        assert_eq!(receipts.iter().map(|r| r["usage"]["input"].as_f64().unwrap()).sum::<f64>(), 62.);
         let second = request_body(&transport, 1);
         assert!(
             second["messages"].as_array().unwrap().last().unwrap()["content"]
@@ -804,7 +845,7 @@ mod tests {
     }
     #[tokio::test]
     async fn overflow_skips_in_context_and_rolling_accepts_valid_length_finish() {
-        let (provider, _, transport, chain) = setup(vec![response(&summary("rolling"), "length")]);
+        let (provider, state, transport, chain) = setup(vec![response(&summary("rolling"), "length")]);
         let mut snapshot = compaction_snapshot(chain);
         snapshot.reason = "overflow".into();
         let result = compact(&provider, &snapshot, &RequestCancellation::new(), clock())
@@ -813,6 +854,8 @@ mod tests {
             .unwrap();
         assert_eq!(result.checkpoint["method"], "rolling");
         assert_eq!(result.event["usage"], Value::Null);
+        assert_eq!(lock(&state.receipts).len(), 1);
+        assert_eq!(lock(&state.receipts)[0]["purpose"], "summary");
         assert_eq!(lock(&transport.requests).len(), 1);
         let request = request_body(&transport, 0);
         assert!(request["tools"].is_null());
