@@ -1266,7 +1266,7 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
 }
 enum SseNext {
     Close,
-    Event(Option<ServiceEvent>),
+    Event(Option<Arc<ServiceEvent>>),
     Heartbeat,
 }
 struct SubscriptionGuard {
@@ -1537,7 +1537,7 @@ mod tests {
     #[derive(Default)]
     struct Fake {
         calls: Mutex<Vec<Operation>>,
-        sender: Mutex<Option<mpsc::Sender<ServiceEvent>>>,
+        sender: Mutex<Option<mpsc::Sender<Arc<ServiceEvent>>>>,
         initial: Mutex<Vec<ServiceEvent>>,
         unsubscribed: AtomicUsize,
     }
@@ -2477,10 +2477,10 @@ mod tests {
             data: json!({"text":"live"}),
             at: None,
         };
-        sender.try_send(event.clone()).unwrap();
-        sender.try_send(event.clone()).unwrap();
+        sender.try_send(Arc::new(event.clone())).unwrap();
+        sender.try_send(Arc::new(event.clone())).unwrap();
         assert!(matches!(
-            sender.try_send(event),
+            sender.try_send(Arc::new(event)),
             Err(mpsc::error::TrySendError::Full(_))
         ));
         drop(response);

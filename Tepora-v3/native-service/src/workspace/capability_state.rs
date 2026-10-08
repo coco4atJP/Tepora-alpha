@@ -136,7 +136,7 @@ mod tests {
     fn registry() -> Value {
         json!({"profiles":[{"id":"decision","protocol":"system-one","baseUrl":"http://127.0.0.1:8123/v1","model":"fixture","domain":"device"}],"routes":{"decision":"decision"}})
     }
-    fn drain(receiver: &mut mpsc::Receiver<ServiceEvent>) -> Vec<ServiceEvent> {
+    fn drain(receiver: &mut mpsc::Receiver<Arc<ServiceEvent>>) -> Vec<Arc<ServiceEvent>> {
         let mut result = Vec::new();
         while let Ok(event) = receiver.try_recv() {
             result.push(event);

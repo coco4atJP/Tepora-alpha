@@ -92,7 +92,7 @@ fn deletion_rejects_main_and_active_session_then_removes_only_owned_storage() {
     let mut removed = Vec::new();
     while let Ok(event) = events.receiver.try_recv() {
         if event.event_type == "session.removed" {
-            removed.push(event.data);
+            removed.push(event.data.clone());
         }
     }
     assert_eq!(removed, vec![json!({"id":id})]);

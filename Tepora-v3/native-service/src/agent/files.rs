@@ -134,6 +134,14 @@ impl FileMemory {
             }
         }
     }
+    fn invalidate_reads(&mut self, path: &str) {
+        // A local mutation can preserve mtime+size. Drop every range receipt
+        // before writing; a successful truncating open has already changed bytes.
+        // Colon-prefixed sibling names may be conservatively evicted too.
+        let prefix = format!("{path}:");
+        self.reads.retain(|key, _| !key.starts_with(&prefix));
+        self.read_order.retain(|key| !key.starts_with(&prefix));
+    }
     pub fn stamp(&self, path: &Path) -> Option<FileStamp> {
         self.files.get(path).copied()
     }
@@ -657,6 +665,7 @@ fn write(file: &ResolvedFile, args: &Value, context: &FileContext) -> Result<Val
         fs::create_dir_all(parent).map_err(|e| io_error("mkdir", parent, e))?;
     }
     let mut output = open_write(file, append, true, context)?;
+    memory(context).invalidate_reads(&file.text());
     output
         .write_all(sql_text(content).as_bytes())
         .map_err(|e| resolved_io_error("write", file, e))?;
@@ -738,6 +747,7 @@ fn edit(file: &ResolvedFile, args: &Value, context: &FileContext) -> Result<Valu
     after.extend_from_slice(&units[cursor..]);
     let after = String::from_utf16_lossy(&after);
     let mut output = open_write(file, false, true, context)?;
+    memory(context).invalidate_reads(&file.text());
     output
         .write_all(after.as_bytes())
         .map_err(|e| resolved_io_error("write", file, e))?;

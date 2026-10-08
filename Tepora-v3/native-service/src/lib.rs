@@ -247,7 +247,8 @@ impl ServiceEvent {
 pub struct EventSubscription {
     pub id: u64,
     pub initial: Vec<ServiceEvent>,
-    pub receiver: mpsc::Receiver<ServiceEvent>,
+    /// Live consumers share immutable payloads; replay/snapshot stays independently owned.
+    pub receiver: mpsc::Receiver<std::sync::Arc<ServiceEvent>>,
 }
 /// Each implementation owns exactly one state authority. subscribe must choose
 /// replay/snapshot AND register its bounded live channel atomically with writes.

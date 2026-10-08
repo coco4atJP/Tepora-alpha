@@ -500,7 +500,7 @@ mod tests {
         assert_eq!(f.saved_note(id), "承認待ち: write");
         let mut kinds = Vec::new();
         while let Ok(event) = events.receiver.try_recv() {
-            kinds.push(event.event_type);
+            kinds.push(event.event_type.clone());
         }
         assert!(kinds.contains(&"approval.updated".to_owned()));
         assert!(kinds.contains(&"session.updated".to_owned()));

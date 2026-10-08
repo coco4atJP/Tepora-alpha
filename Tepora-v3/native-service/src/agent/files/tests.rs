@@ -546,6 +546,86 @@ fn read_reference_cache_is_insertion_order_bounded() {
     assert!(!m.reads.contains_key("k1"));
 }
 #[tokio::test]
+async fn local_mutations_invalidate_same_stamp_read_receipts() {
+    for tool in ["write", "edit"] {
+        let f = Fixture::new();
+        fs::write(f.file("a"), "old\nline").unwrap();
+        fs::write(f.file("b"), "other").unwrap();
+        let original = fs::metadata(f.file("a")).unwrap();
+        for (seq, args) in [
+            json!({"path":"a","limit":1}),
+            json!({"path":"a","offset":2,"limit":1}),
+            json!({"path":"b"}),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let out = f.run("read", args).await.unwrap();
+            f.context
+                .memory
+                .lock()
+                .unwrap()
+                .record_read(seq as u64 + 1, &out);
+        }
+        let args = if tool == "write" {
+            json!({"path":"a","content":"new\nline"})
+        } else {
+            json!({"path":"a","old_string":"old","new_string":"new"})
+        };
+        f.run(tool, args).await.unwrap();
+        // Force the metadata collision, independent of filesystem clock speed.
+        let file = OpenOptions::new().write(true).open(f.file("a")).unwrap();
+        file.set_times(fs::FileTimes::new().set_modified(original.modified().unwrap()))
+            .unwrap();
+        drop(file);
+        assert_eq!(
+            FileStamp::of(&original),
+            FileStamp::of(&fs::metadata(f.file("a")).unwrap())
+        );
+        {
+            let memory = f.context.memory.lock().unwrap();
+            assert_eq!(memory.reads.len(), 1);
+            assert_eq!(memory.read_order.len(), 1);
+        }
+        let fresh = f.run("read", json!({"path":"a","limit":1})).await.unwrap();
+        assert!(fresh["text"].as_str().unwrap().contains("\tnew"), "{tool}");
+        assert!(fresh["data"]["readKey"].is_string());
+        assert!(f
+            .run("read", json!({"path":"a","offset":2,"limit":1}))
+            .await
+            .unwrap()["data"]["readKey"]
+            .is_string());
+        assert_eq!(
+            f.run("read", json!({"path":"b"})).await.unwrap()["data"]["unchanged"],
+            true
+        );
+    }
+}
+
+#[test]
+fn read_invalidation_removes_ranges_and_conservative_colon_prefixes() {
+    let mut memory = FileMemory::default();
+    for (seq, key) in ["a:1:1", "a:2:1", "a:extra:1:1", "ab:1:1"]
+        .into_iter()
+        .enumerate()
+    {
+        memory.record_read(
+            seq as u64,
+            &json!({"data":{"readKey":key,"mtimeMs":1.5,"size":2}}),
+        );
+    }
+    memory.invalidate_reads("a");
+    assert_eq!(memory.reads.len(), 1);
+    assert!(memory.reads.contains_key("ab:1:1"));
+    assert_eq!(memory.read_order, VecDeque::from(["ab:1:1".to_string()]));
+    memory.record_read(
+        10,
+        &json!({"data":{"readKey":"a:1:1","mtimeMs":1.5,"size":2}}),
+    );
+    assert_eq!(memory.read_order.back().unwrap(), "a:1:1");
+}
+
+#[tokio::test]
 async fn same_size_mtime_change_requires_a_fresh_read() {
     let f = Fixture::new();
     fs::write(f.file("a"), "same").unwrap();

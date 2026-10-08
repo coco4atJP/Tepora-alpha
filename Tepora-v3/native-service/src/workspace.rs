@@ -71,7 +71,7 @@ struct State {
     work_root: PathBuf,
     owner: String,
     defaults: Value,
-    subscribers: HashMap<u64, mpsc::Sender<ServiceEvent>>,
+    subscribers: HashMap<u64, mpsc::Sender<Arc<ServiceEvent>>>,
     next_subscriber: u64,
     closed: bool,
     closing: bool,
@@ -813,6 +813,11 @@ impl State {
         Ok(())
     }
     fn send_event(&mut self, event: ServiceEvent) {
+        // Avoid even the shared allocation when there are no live subscribers.
+        if self.subscribers.is_empty() {
+            return;
+        }
+        let event = Arc::new(event);
         self.subscribers
             .retain(|_, sender| sender.try_send(event.clone()).is_ok());
     }
@@ -1163,6 +1168,47 @@ mod tests {
     use super::*;
     use crate::network::{Admitted, ByteStream, NetworkFuture, NetworkRequest, RequestCancellation, Resolver, Transport, TransportResponse};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn live_fanout_shares_payload_and_disconnects_full_queues_without_retaining_events() {
+        let dir = env::temp_dir().join(format!("tepora-fanout-{}", Uuid::new_v4()));
+        let workspace = Workspace::open(&dir).unwrap();
+        let (fast_tx, mut fast) = mpsc::channel(64);
+        let (slow_tx, mut slow) = mpsc::channel(64);
+        let data = json_codec::parse(r#"{"text":"normal 日本語 😀 \ud800 \ue000","10":1,"2":2}"#).unwrap();
+        let make = |seq| ServiceEvent {seq: Some(seq), event_type: "memory.updated".into(), data: data.clone(), at: Some("fixture".into())};
+        {
+            let mut state = workspace.lock().unwrap();
+            state.subscribers.insert(1, fast_tx);
+            state.subscribers.insert(2, slow_tx);
+            state.send_event(make(0));
+        }
+        let a = fast.try_recv().unwrap();
+        let b = slow.try_recv().unwrap();
+        assert!(Arc::ptr_eq(&a, &b), "one immutable allocation per published event");
+        assert_eq!(json_codec::stringify_js(&a.value()).unwrap(), json_codec::stringify_js(&make(0).value()).unwrap());
+        drop(a); drop(b);
+        workspace.lock().unwrap().send_event(make(1));
+        let first = fast.try_recv().unwrap();
+        let weak = Arc::downgrade(&first);
+        drop(first);
+        for seq in 2..=65 {
+            workspace.lock().unwrap().send_event(make(seq));
+            assert_eq!(fast.try_recv().unwrap().seq, Some(seq));
+        }
+        assert_eq!(slow.len(), 64);
+        assert!(slow.is_closed());
+        assert_eq!(workspace.lock().unwrap().subscribers.len(), 1);
+        assert!(weak.upgrade().is_some(), "queued consumer still owns its event");
+        drop(slow);
+        assert!(weak.upgrade().is_none(), "disconnected consumer releases queued payloads");
+        workspace.lock().unwrap().send_event(make(66));
+        assert_eq!(fast.try_recv().unwrap().seq, Some(66));
+        workspace.shutdown().unwrap();
+        assert!(fast.is_closed());
+        drop(workspace);
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[derive(Default)]
     struct SnapshotTransport(AtomicUsize);
