@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-photo-frame-local",
+  "checkpoint": "native-avatar-assets-local",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 69,
+    "implemented": 74,
     "partial": 12,
-    "unavailable": 45
+    "unavailable": 40
   },
   "routes": [
     {
@@ -38,7 +38,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets behavior is still incomplete.",
+      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media behavior is still incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1072,7 +1072,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1083,7 +1083,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1094,7 +1094,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1105,7 +1105,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1116,7 +1116,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1127,7 +1127,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes.",
+      "limit": "Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1136,9 +1136,9 @@
       "path": "/api/avatar/assets",
       "family": "avatar-assets",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Local image, VRM and image-set/mesh pack inspection, original byte serving, quotas, deduplication, ordered metadata/events, delete/reset and restart are implemented in both native development modes. Synthetic fixture validation only; extremely deep JSON inherits the shared serde nesting limit. No real asset rendering or default cutover.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1147,9 +1147,9 @@
       "path": "/api/avatar/assets",
       "family": "avatar-assets",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Local image, VRM and image-set/mesh pack inspection, original byte serving, quotas, deduplication, ordered metadata/events, delete/reset and restart are implemented in both native development modes. Synthetic fixture validation only; extremely deep JSON inherits the shared serde nesting limit. No real asset rendering or default cutover.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1158,9 +1158,9 @@
       "path": "/api/avatar/assets/{uuid}",
       "family": "avatar-assets",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Local image, VRM and image-set/mesh pack inspection, original byte serving, quotas, deduplication, ordered metadata/events, delete/reset and restart are implemented in both native development modes. Synthetic fixture validation only; extremely deep JSON inherits the shared serde nesting limit. No real asset rendering or default cutover.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1169,9 +1169,9 @@
       "path": "/api/avatar/assets/{uuid}/files/{relativePath}",
       "family": "avatar-assets",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Local image, VRM and image-set/mesh pack inspection, original byte serving, quotas, deduplication, ordered metadata/events, delete/reset and restart are implemented in both native development modes. Synthetic fixture validation only; extremely deep JSON inherits the shared serde nesting limit. No real asset rendering or default cutover.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1180,9 +1180,9 @@
       "path": "/api/avatar/assets/{uuid}/files/{relativePath}",
       "family": "avatar-assets",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Local image, VRM and image-set/mesh pack inspection, original byte serving, quotas, deduplication, ordered metadata/events, delete/reset and restart are implemented in both native development modes. Synthetic fixture validation only; extremely deep JSON inherits the shared serde nesting limit. No real asset rendering or default cutover.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

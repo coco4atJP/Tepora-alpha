@@ -639,3 +639,19 @@ impl Workspace {
 #[cfg(test)]
 #[path = "display_avatar/tests.rs"]
 mod tests;
+
+impl State {
+    pub(super) fn avatar_asset_removed(&mut self, id: &str) -> Result<(), ApiError> {
+        let current=self.value("avatar")?;
+        if current["asset"] != id {return Ok(());}
+        let mut next=default_avatar(&json!("shiro"));
+        next["revision"]=plus_one(current.get("revision"));
+        let mut previous=history(&self.value("avatar-history")?)?;
+        previous.push(current);
+        if previous.len()>20 {previous.drain(..previous.len()-20);}
+        self.set_value("avatar-history",json!(previous))?;
+        self.set_value("avatar",next.clone())?;
+        let event=self.call("event.append",json!({"type":"avatar.updated","data":next,"at":now()}))?;
+        self.publish_value(event)
+    }
+}

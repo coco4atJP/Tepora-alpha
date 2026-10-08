@@ -332,3 +332,11 @@ Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLit
 生成したローカル画像バイトだけでRust 8件、Node 22.16.0/24.19.0それぞれHTTP 2件が通過した。56件の署名/エラーfixtureとPOSIX/Windowsファイル名fixtureは両Node版で一致。元画像の描画・デコード、個人写真、外部通信、実モデル、デスクトップ梱包は検証していない。approval-policyや広範なsecurity suiteはこの差分で実行しておらず、全体quality通過の主張ではない。
 
 この差分のルート一覧は実装69・部分12・未実装45、別枠static22。通常のNode/Tauri起動、GUI、独自avatar素材や他の未移植機能は変更しない。[写真フレームの境界と検証](RUST-PHOTO-FRAME.md)を参照。
+
+## Avatar素材ライブラリの独立Rust化（2026-10-08）
+
+通常ルートR103〜R107を両方のRust開発モードへ接続。画像、VRM 0.x/1.0、画像セット、メッシュpackの検査と元バイト、上限、重複判定、メタデータ、GET/HEAD、削除、使用中素材のリセットと履歴、イベント、再起動を維持する。専用mutexでファイル操作を直列化し、SQLiteロックをI/Oへ持ち越さず、受付済みの更新を終了時に待つ。通常起動とGUIは変更しない。
+
+一覧は実装74・部分12・未実装40、別枠static22。生成fixtureのみを対象とし、実際のユーザー素材・描画・外部モデル・配布の受け入れや全体quality通過は主張しない。[境界と検証](RUST-AVATAR-ASSETS.md)を参照。
+
+この差分のLinux検証はavatar Rust19件＋写真回帰8件、Node22.16.0/24.19.0それぞれ実HTTP avatar5件＋写真2件が通過（skipなし）。コア/nativeビルド、235 JSモジュールの構文と一覧集計も確認。元バイトを借用しpack全体の追加コピーを避けるが、アプリ全体の速度測定ではない。非常に深いJSONは共有serdeパーサーの深さ制限によりNodeより先に形式エラーになる境界を残す。approval-policy/security suite、実素材の描画とOS間配布はこの局所検証に含めない。

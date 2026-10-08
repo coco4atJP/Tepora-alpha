@@ -601,12 +601,44 @@ impl HttpState {
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
         }
+        if path == "/api/avatar/assets" && method == Method::GET {
+            return self.json_operation(Operation::AvatarAssets, 200).await;
+        }
+        if path == "/api/avatar/assets" && method == Method::PUT {
+            let filename = decode_photo_filename(field(request.headers(), "x-tepora-filename").unwrap_or(""));
+            let kind = field(request.headers(), "x-tepora-asset-kind").unwrap_or("").to_owned();
+            let bytes = self.read_asset_bytes(request.into_body(), crate::workspace::avatar_assets::MAX_ASSET_BYTES).await?;
+            return self.json_operation(Operation::AvatarAssetAdd { kind, bytes, filename }, 200).await;
+        }
+        if let Some(suffix) = path.strip_prefix("/api/avatar/assets/") {
+            let (id, tail) = suffix.split_once('/').unwrap_or((suffix, ""));
+            if id.len()==36 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b==b'-') {
+                if tail.is_empty() && suffix == id && method == Method::DELETE {
+                    return self.json_operation(Operation::AvatarAssetDelete { id: id.into() }, 200).await;
+                }
+                if let Some(file) = tail.strip_prefix("files/").filter(|p| !p.is_empty()) {
+                    if method == Method::GET || method == Method::HEAD {
+                        return match self.domain(Operation::AvatarAssetRead { id: id.into(), path: decode_photo_filename(file) }).await? {
+                            Reply::AvatarFile { bytes, mime } => {
+                                let length = bytes.len();
+                                let mut r = response(200, &mime, if method==Method::HEAD {Bytes::new()} else {Bytes::from(bytes)});
+                                set_header(&mut r, "content-length", &length.to_string());
+                                set_header(&mut r, "cache-control", "private, max-age=3600");
+                                set_header(&mut r, "content-security-policy", "default-src 'none'; sandbox");
+                                return Ok(r);
+                            },
+                            _ => Err(ApiError::new(500, "Invalid avatar file response")),
+                        };
+                    }
+                }
+            }
+        }
         if path == "/api/frame" && method == Method::GET {
             return self.json_operation(Operation::Frame, 200).await;
         }
         if path == "/api/frame/photos" && method == Method::PUT {
             let filename = decode_photo_filename(field(request.headers(), "x-tepora-filename").unwrap_or(""));
-            let bytes = self.read_photo(request.into_body()).await?;
+            let bytes = self.read_asset_bytes(request.into_body(), crate::workspace::photo_frame::MAX_PHOTO_BYTES).await?;
             return self.json_operation(Operation::FrameAdd { bytes, filename }, 200).await;
         }
         if let Some(id) = path.strip_prefix("/api/frame/photos/").filter(|id| id.len()==36 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b==b'-')) {
@@ -873,14 +905,14 @@ impl HttpState {
             _ => Err(ApiError::new(500, "Invalid JSON domain response")),
         }
     }
-    async fn read_photo<B>(&self, mut body: B) -> Result<Vec<u8>, ApiError>
+    async fn read_asset_bytes<B>(&self, mut body: B, max_bytes: usize) -> Result<Vec<u8>, ApiError>
     where B: Body<Data=Bytes> + Unpin, B::Error: std::fmt::Display {
         tokio::time::timeout(self.config.body_timeout, async {
             let mut bytes=Vec::new();
             while let Some(frame)=body.frame().await {
                 let frame=frame.map_err(|_|ApiError::bad_request("Invalid request body"))?;
                 if let Ok(data)=frame.into_data() {
-                    if bytes.len().saturating_add(data.len())>crate::workspace::photo_frame::MAX_PHOTO_BYTES {return Err(ApiError::new(413,"ファイルが大きすぎます。"));}
+                    if bytes.len().saturating_add(data.len())>max_bytes {return Err(ApiError::new(413,"ファイルが大きすぎます。"));}
                     bytes.extend_from_slice(&data);
                 }
             }

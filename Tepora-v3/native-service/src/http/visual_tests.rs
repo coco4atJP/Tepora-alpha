@@ -47,14 +47,27 @@ async fn visual_routes_are_state_operations_in_both_native_modes_with_exact_meth
             }
             other => panic!("wrong photo operation {other:?}"),
         }
+        let response = state.clone().handle(request("GET", "/api/avatar/assets", "")).await;
+        assert_eq!(response.status(), 200);
+        assert!(matches!(fake.calls.lock().unwrap().last(), Some(Operation::AvatarAssets)));
+        let mut upload = request("PUT", "/api/avatar/assets", "avatar fixture bytes");
+        upload.headers_mut().insert("x-tepora-asset-kind", HeaderValue::from_static("image"));
+        upload.headers_mut().insert("x-tepora-filename", HeaderValue::from_static("avatar%20name.png"));
+        assert_eq!(state.clone().handle(upload).await.status(), 200);
+        match fake.calls.lock().unwrap().last().unwrap() {
+            Operation::AvatarAssetAdd { kind, bytes, filename } => {
+                assert_eq!(kind, "image");
+                assert_eq!(bytes, b"avatar fixture bytes");
+                assert_eq!(filename, "avatar name.png");
+            }
+            other => panic!("wrong avatar asset operation {other:?}"),
+        }
         let count = fake.calls.lock().unwrap().len();
         for (method, path, status) in [
             ("PUT", "/api/display", 404),
             ("POST", "/api/avatar", 404),
             ("PATCH", "/api/avatar/export", 404),
             ("GET", "/api/display/undo", 404),
-            ("GET", "/api/avatar/assets", 503),
-            ("PUT", "/api/avatar/assets", 503),
         ] {
             assert_eq!(
                 state

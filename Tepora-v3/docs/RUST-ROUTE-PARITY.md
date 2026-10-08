@@ -1,16 +1,16 @@
-# Native backend route parity: local photo-frame checkpoint
+# Native backend route parity: local avatar-assets checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **69 are substantially matched, 12 are partial and 45 are absent**. Thus 81 have handlers, and the 12 partial routes are included in those 81. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **74 are substantially matched, 12 are partial and 40 are absent**. Thus 86 have handlers, and the 12 partial routes are included in those 86. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
-Current photo-frame integration: 71 selected ordinary native-service tests passed. On both Node 22.16.0 and 24.19.0, 13 selected real HTTP tests (including both photo modes), 1 source scheduler regression and9 root portability/conventional checks passed. Syntax checks cover 234 JavaScript modules. These are focused gates; current full CI/package acceptance is pending. No new broad security review, real model or default cutover is claimed.
+Current avatar integration: 91 selected ordinary native-service tests passed, including photo, avatar, scheduler, lifecycle and positive HTTP dispatch checks. On both Node 22.16.0 and 24.19.0, 18 selected real HTTP tests, 1 source scheduler regression and 9 root checks passed. Syntax checks cover 235 modules. These are focused gates; exact-head full CI/package acceptance remains pending. Photo repair head `34203d3` passed all three full quality gates and macOS packaging, but its separate Windows native job hit the previously observed completion-fixture deadline; Windows package stages were skipped. The test-only fixture stabilization is tracked separately. No new broad security review, real model or default cutover is claimed.
 
 Scope: native exec/process, web_search/web_fetch, preferences/personas, display/avatar configuration state, first-use setup, model catalog/runtime discovery, scoped semantic memory and typed decisions are connected. Attachment admission/delivery and idle-worker deletion use correlated actor admissions and drain barriers. Saved schedules and change-sensitive heartbeats are connected. Unsupported vision bridges, plugins/MCP/media/PC and remaining peripheral effects stay unavailable. Session download retains its resolved-root symlink guard. Missing effects are not fabricated and never fall back to Node inside this host.
 
-Photo-frame evidence and exact local scope are recorded in [RUST-PHOTO-FRAME](RUST-PHOTO-FRAME.md). This five-route slice does not establish a full quality pass or cross-platform package acceptance.
+Photo-frame evidence and exact local scope are recorded in [RUST-PHOTO-FRAME](RUST-PHOTO-FRAME.md). Avatar asset evidence and scope are recorded in [RUST-AVATAR-ASSETS](RUST-AVATAR-ASSETS.md). These independent five-route slices do not establish a full quality pass or cross-platform package acceptance.
 
 ## Complete route inventory
 
@@ -20,7 +20,7 @@ YES means a real handler is present in the supported scope, not that every model
 |---|---|---|---|---|
 | R001 | `GET /health` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R002 | `GET /launch?token={token}` | YES | 303 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets behavior is still incomplete. |
+| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media behavior is still incomplete. |
 | R004 | `GET /api/events?since={seq}` | PARTIAL | 200 | Atomic replay/reconnect includes live provider health/limits/resources, capability key hints and setup state. Events from unported peripheral hosts remain absent. |
 | R005 | `GET /api/agent` | PARTIAL | 200 | Projected agent state includes saved schedules and change-sensitive heartbeats; browser rendering/media/plugin effects remain incomplete. |
 | R006 | `GET /api/agent/dialogue` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
@@ -114,17 +114,17 @@ YES means a real handler is present in the supported scope, not that every model
 | R094 | `POST /api/skills` | ABSENT | 201 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R095 | `PATCH /api/settings` | YES | 200 | Existing application preferences and atomic network revocation coupling are implemented; unknown fields do not grant permissions. |
 | R096 | `POST /api/presence` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R097 | `GET /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
-| R098 | `PATCH /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
-| R099 | `POST /api/avatar/undo` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
-| R100 | `POST /api/avatar/reset` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
-| R101 | `GET /api/avatar/export` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
-| R102 | `POST /api/avatar/import` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving remains absent in separate routes. |
-| R103 | `GET /api/avatar/assets` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R104 | `PUT /api/avatar/assets` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R105 | `DELETE /api/avatar/assets/{uuid}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R106 | `GET /api/avatar/assets/{uuid}/files/{relativePath}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R107 | `HEAD /api/avatar/assets/{uuid}/files/{relativePath}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R097 | `GET /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |
+| R098 | `PATCH /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |
+| R099 | `POST /api/avatar/undo` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |
+| R100 | `POST /api/avatar/reset` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |
+| R101 | `GET /api/avatar/export` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |
+| R102 | `POST /api/avatar/import` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |
+| R103 | `GET /api/avatar/assets` | YES | 200 | Local image/VRM/image-set/mesh inspection, original bytes, quotas, deduplication, metadata/events, deletion/reset and restart. Synthetic fixtures only; deep JSON parser boundary and [validation](RUST-AVATAR-ASSETS.md). |
+| R104 | `PUT /api/avatar/assets` | YES | 200 | Local image/VRM/image-set/mesh inspection, original bytes, quotas, deduplication, metadata/events, deletion/reset and restart. Synthetic fixtures only; deep JSON parser boundary and [validation](RUST-AVATAR-ASSETS.md). |
+| R105 | `DELETE /api/avatar/assets/{uuid}` | YES | 200 | Local image/VRM/image-set/mesh inspection, original bytes, quotas, deduplication, metadata/events, deletion/reset and restart. Synthetic fixtures only; deep JSON parser boundary and [validation](RUST-AVATAR-ASSETS.md). |
+| R106 | `GET /api/avatar/assets/{uuid}/files/{relativePath}` | YES | 200 | Local image/VRM/image-set/mesh inspection, original bytes, quotas, deduplication, metadata/events, deletion/reset and restart. Synthetic fixtures only; deep JSON parser boundary and [validation](RUST-AVATAR-ASSETS.md). |
+| R107 | `HEAD /api/avatar/assets/{uuid}/files/{relativePath}` | YES | 200 | Local image/VRM/image-set/mesh inspection, original bytes, quotas, deduplication, metadata/events, deletion/reset and restart. Synthetic fixtures only; deep JSON parser boundary and [validation](RUST-AVATAR-ASSETS.md). |
 | R108 | `GET /api/frame` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
 | R109 | `PUT /api/frame/photos` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
 | R110 | `GET /api/frame/photos/{uuid}` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |

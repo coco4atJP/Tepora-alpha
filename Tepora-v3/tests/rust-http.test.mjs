@@ -532,9 +532,9 @@ test('Rust HTTP: display and avatar config keep CAS, undo, presets and restart w
    saved[kind]=parsed(await app.request(base+'/import','POST',{expectedRevision:4,preset}));
    assert.equal(saved[kind].revision,5);
   }
-  parsed(await app.request('/api/avatar/assets'),503);
+  const assets=parsed(await app.request('/api/avatar/assets'));assert.deepEqual(assets.assets,[]);assert.equal(assets.limits.maxAssets,24);
   assert.deepEqual(parsed(await app.request('/api/frame')).photos,[]);
-  parsed(await app.request('/api/avatar/assets','PUT',{}),503);parsed(await app.request('/api/frame/photos','PUT',{}),400);
+  parsed(await app.request('/api/avatar/assets','PUT',{}),400);parsed(await app.request('/api/frame/photos','PUT',{}),400);
   assert.equal((await app.close()).code,0);
   const restarted=await f.start(options);
   for(const kind of ['display','avatar'])assert.deepEqual(parsed(await restarted.request('/api/'+kind)),saved[kind]);

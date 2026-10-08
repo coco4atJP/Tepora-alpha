@@ -1,6 +1,7 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
 pub(crate) mod photo_frame;
+pub(crate) mod avatar_assets;
 mod semantic_state;
 mod preferences;
 mod display_avatar;
@@ -31,6 +32,7 @@ pub struct Workspace {
     native: OnceLock<NativeResources>,
     preference_changes: Mutex<()>,
     photo_changes: Mutex<()>,
+    avatar_asset_changes: Mutex<()>,
     probe_cancel: Mutex<crate::network::RequestCancellation>,
 }
 struct NativeResources {
@@ -378,6 +380,7 @@ impl Workspace {
             native: OnceLock::new(),
             preference_changes: Mutex::new(()),
             photo_changes: Mutex::new(()),
+            avatar_asset_changes: Mutex::new(()),
             probe_cancel: Mutex::new(crate::network::RequestCancellation::new()),
         })
     }
@@ -720,7 +723,7 @@ impl State {
             avatar
         };
         let assets = self.value("avatar-assets")?;
-        s["avatarAssets"] = json!({"assets":assets.as_array().unwrap_or(&Vec::new()).iter().map(|a|{let mut a=pick(a,&["id","kind","name","bytes","createdAt","meta","files"]);a["files"]=json!(a["files"].as_array().unwrap_or(&Vec::new()).iter().map(|f|pick(f,&["path","mime","bytes"])).collect::<Vec<_>>());a}).collect::<Vec<_>>(),"limits":{"maxAssets":24,"maxBytes":96*1024*1024,"maxVrmBytes":80*1024*1024,"maxLibraryBytes":1024*1024*1024}});
+        s["avatarAssets"] = avatar_assets::snapshot(&assets);
         let photos = self.value("frame-photos")?;
         s["frame"] = photo_frame::snapshot(&photos);
         s["mediaJobs"] = json!(self
@@ -855,6 +858,7 @@ impl Backend for Workspace {
         })
     }
     fn execute(&self, operation: Operation) -> Result<Reply, ApiError> {
+        if let Some(reply) = self.execute_avatar_assets(&operation)? { return Ok(reply); }
         if let Some(reply) = self.execute_frame(&operation)? { return Ok(reply); }
         if let Some(reply) = self.execute_visual(&operation)? { return Ok(reply); }
         match &operation {
@@ -1072,6 +1076,7 @@ impl Backend for Workspace {
             native.agent.begin_close().wait()?;
         }
         // Drain admitted photo file/metadata operations before releasing SQLite.
+        let _assets = self.avatar_asset_changes.lock().map_err(error)?;
         let _photos = self.photo_changes.lock().map_err(error)?;
         self.lock()?.close()
     }

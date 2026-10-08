@@ -48,6 +48,10 @@ impl std::error::Error for ApiError {}
 
 #[derive(Debug, Clone)]
 pub enum Operation {
+    AvatarAssets,
+    AvatarAssetAdd { kind: String, bytes: Vec<u8>, filename: String },
+    AvatarAssetRead { id: String, path: String },
+    AvatarAssetDelete { id: String },
     Frame,
     FrameAdd { bytes: Vec<u8>, filename: String },
     FrameRead { id: String },
@@ -183,6 +187,7 @@ pub enum Operation {
 }
 #[derive(Debug, Clone)]
 pub enum Reply {
+    AvatarFile { bytes: Vec<u8>, mime: String },
     Photo { bytes: Vec<u8>, mime: String },
     Download {
         bytes: Vec<u8>,
