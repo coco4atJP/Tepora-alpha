@@ -220,7 +220,7 @@ fn configure_personas(raw: &Value, current: &Value) -> Result<Value, ApiError> {
     }
     Ok(Value::Object(result))
 }
-fn endpoint(value: &Value, allow_cloud: bool) -> Result<(), ApiError> {
+pub(super) fn endpoint(value: &Value, allow_cloud: bool) -> Result<(), ApiError> {
     let text = json_codec::sql_text(&js_string(Some(value)));
     let url = url::Url::parse(&text).map_err(|_| ApiError::bad_request("Invalid endpoint URL"))?;
     require(

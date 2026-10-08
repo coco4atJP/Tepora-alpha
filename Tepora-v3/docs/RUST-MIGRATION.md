@@ -348,3 +348,7 @@ R036–R042の7ルートを `--dev-native --agent` に接続した。TTS・画�
 合成バイトとローカル提供先によるRust単体テスト・Node互換ホストとの実HTTP比較を追加した。実アカウント、有料生成、モデル品質、映像/音声デコーダー、GUI、クロスプラットフォームのパッケージ受入は検証していない。エージェントからのメディアツール、音声入力、ブラウザー描画、MCP等は別範囲。通常起動とTauriは変更しない。ルート集計は実装81・部分12・未実装33（計126）で、完成率ではない。詳細は [RUST-MEDIA-JOBS](RUST-MEDIA-JOBS.md)。
 
 メディアのStop All／トレイ停止は、移植元の状態名だけの判定を意図的に改善し、実行中のダウンロード所有者もキャンセルする。再開待ちで実行者のないハンドルは保持し、遅着した結果によるreadyへの復帰と生成再送は行わない。16件の新規作成判定は移植元と同じ状態集合であり、awaiting-downloadと明示再開を含む全ハンドル数の上限ではない。
+
+## Ordinary streaming speech native owner
+
+The explicit native agent host owns streaming speech R074–R077 through an ephemeral lifecycle owner and the existing checked network transport. Stop/close invalidate and drain pending worker operations; no audio/transcript enters durable state. The effect-free native mode, normal Node/Tauri defaults, non-streaming ASR and dictation boundaries are unchanged. [Contract and verification](RUST-SPEECH-STREAM.md).

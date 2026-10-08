@@ -149,6 +149,10 @@ pub enum Operation {
     NetworkPatch {
         body: Value,
     },
+    SpeechStart,
+    SpeechChunk { body: Value },
+    SpeechFinish { body: Value },
+    SpeechCancel { body: Value },
     StopAll,
     Bootstrap,
     Agent,

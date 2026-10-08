@@ -29,10 +29,12 @@ async function client(launchUrl,close,data){
 }
 async function fixture(t){
  const cleanup=serviceCleanup(t),dir=cleanup.directory(await mkdtemp(path.join(os.tmpdir(),'tepora-media-http-'))),empty=path.join(dir,'empty-path'),bundle=path.join(dir,'app.bundle.js');await mkdir(empty);await writeFile(bundle,'// Synthetic media fixture\n');
- const records=[],heldDownloads=[],sockets=new Set();let origin;
+ const records=[],heldDownloads=[],heldSpeechCancels=[],sockets=new Set();let origin;
  const mock=createServer(async(req,res)=>{
   let chunks=[];for await(const b of req)chunks.push(b);const raw=Buffer.concat(chunks),text=raw.toString();let body={};try{body=JSON.parse(text);}catch{}
   records.push({method:req.method,url:req.url,body,raw});
+  if(req.url==='/api/start'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({session_id:'synthetic-speech'}));return;}
+  if(req.url==='/api/cancel'){heldSpeechCancels.push(res);return;}
   if(body.prompt==='lost'){req.socket.destroy();return;}
   if(body.prompt==='held')return;
   const json=value=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));};
@@ -59,7 +61,7 @@ async function fixture(t){
  const profiles=['image','tts','video','image_edit'].map((role,i)=>({id:role,name:'Synthetic '+role,protocol:['openai-images','openai-speech','xai-video','openai-image-edit'][i],baseUrl:origin+'/v1',domain:'device',model:'synthetic',enabled:true}));
  for(const c of clients){const before=await c.json('/api/capabilities');await c.json('/api/capabilities','PUT',{expectedRevision:before.revision,config:{profiles,routes:Object.fromEntries(profiles.map(p=>[p.id,p.id]))}});}
  const body=async(c,kind,id,prompt='synthetic')=>({kind,requestId:id,prompt,profileIdentity:(await c.json('/api/capabilities')).profiles.find(p=>p.id===kind).identity,consent:true});
- return {clients,start,body,records,heldDownloads};
+ return {clients,start,body,records,heldDownloads,heldSpeechCancels,origin};
 }
 test('native media: source-parity jobs, all modalities, ranges, replay and cleanup',{timeout:60000},async t=>{
  const f=await fixture(t);
@@ -120,4 +122,29 @@ test('native media: Stop All and tray Stop cancel held downloads without late re
  }
  assert.equal(f.records.filter(r=>r.url==='/v1/images/generations').length,2);
  assert.equal(f.records.filter(r=>r.url==='/held-download').length,2);
+});
+
+// A slow speech cleanup must not delay cancellation of another owned transport.
+test('native speech: held upstream cancel does not delay media Stop or shutdown',{timeout:60000},async t=>{
+ const f=await fixture(t);let c=f.clients[1];
+ for(const mode of ['http','tray','close']){
+  if(mode!=='http')c=await f.start(1);
+  await c.json('/api/settings','PATCH',{asrStreamUrl:f.origin,voiceEnabled:true});
+  await c.json('/api/voice/start','POST');
+  const count=f.heldDownloads.length,cancels=f.heldSpeechCancels.length;
+  const job=await c.json('/api/media/jobs','POST',await f.body(c,'image','speech-drain-'+mode,'held-download'),202);
+  await wait(()=>f.heldDownloads.length===count+1,'media download entered');const held=f.heldDownloads[count];
+  let done=false;let stopping;
+  if(mode==='http')stopping=c.json('/api/stop','POST',{}).then(()=>{done=true;});
+  else if(mode==='tray'){c.trayStop();stopping=Promise.resolve();}
+  else stopping=c.close().then(()=>{done=true;});
+  try {
+   if(mode!=='close')await wait(()=>f.heldSpeechCancels.length===cancels+1,'speech cancel entered');
+   await wait(()=>held.closed,'media cancelled while speech cleanup is held');
+   // Shutdown may also close the shared network owner, ending best-effort cancel.
+   if(mode==='http')assert.equal(done,false);
+  } finally {f.heldSpeechCancels[cancels]?.end(JSON.stringify({cancelled:true}));}
+  await stopping;
+  if(mode!=='close'){await c.state(job.id,'cancelled');await c.close();}
+ }
 });

@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-media-jobs",
+  "checkpoint": "native-streaming-speech",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 81,
+    "implemented": 85,
     "partial": 12,
-    "unavailable": 33
+    "unavailable": 29
   },
   "routes": [
     {
@@ -313,7 +313,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Correct for integrated actors, provider probes, media jobs and setup probe/download cancellation. Tool-discovery/computer/speech hosts remain unported.",
+      "limit": "Correct for integrated actors, provider probes, media jobs, streaming speech and setup cancellation. Tool-discovery/computer hosts remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -817,9 +817,9 @@
       "path": "/api/voice/start",
       "family": "voice",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -828,9 +828,9 @@
       "path": "/api/voice/chunk",
       "family": "voice",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -839,9 +839,9 @@
       "path": "/api/voice/finish",
       "family": "voice",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -850,9 +850,9 @@
       "path": "/api/voice/cancel",
       "family": "voice",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

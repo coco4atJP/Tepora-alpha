@@ -1,6 +1,7 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
 mod media_jobs;
+mod speech_stream;
 pub(crate) mod photo_frame;
 pub(crate) mod avatar_assets;
 mod semantic_state;
@@ -38,6 +39,7 @@ pub struct Workspace {
 }
 struct NativeResources {
     media: Arc<media_jobs::MediaJobs>,
+    speech: Arc<speech_stream::SpeechStream>,
     setup: crate::setup::SetupManager,
     catalog: crate::model_catalog::ModelCatalog,
     host: Arc<crate::agent::host::NativeAgentHost>,
@@ -453,6 +455,7 @@ impl Workspace {
         let media=media_jobs::MediaJobs::new(self.access(),capabilities.clone(),network.clone(),runtime.clone())?;
         self.native
             .set(NativeResources {
+                speech: speech_stream::SpeechStream::new(network.clone(),runtime.clone()),
                 media,
                 setup,
                 catalog,
@@ -1038,6 +1041,7 @@ impl Backend for Workspace {
     fn stop(&self) -> Result<(), ApiError> {
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
+            let _speech_drain = native.speech.stop_barrier(false)?;
             native.media.stop_all()?;
             // Tray Stop matches the compatibility sidecar: only currently
             // active non-main runs stop. Resident conversation, idle workers
@@ -1065,6 +1069,7 @@ impl Backend for Workspace {
         self.lock()?.closing = true;
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
+            let _speech_drain = native.speech.stop_barrier(true)?;
             native.media.begin_close()?;
             native.semantic.close();
             native.setup.begin_close();
@@ -1147,7 +1152,7 @@ mod tests {
         let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(workspace.access()),network.clone());
         let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(workspace.access()),capabilities.clone()));
         let media=media_jobs::MediaJobs::new(workspace.access(),capabilities.clone(),network.clone(),runtime.handle().clone()).unwrap();
-        assert!(workspace.native.set(NativeResources {media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        assert!(workspace.native.set(NativeResources {speech:speech_stream::SpeechStream::new(network.clone(),runtime.handle().clone()),media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
         workspace.lock().unwrap().native_agent = true;
         agent.request(crate::agent::AgentRequest::Initialize).unwrap();
         (workspace,runtime,transport,dir)

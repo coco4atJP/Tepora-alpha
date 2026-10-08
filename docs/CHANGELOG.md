@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Rust ordinary streaming speech (beta.11)
+
+- Connect four explicit native-agent streaming speech routes with one ephemeral 16kHz PCM session, ordered/idempotent chunks, 120-second bounds and partial/final text
+- Drain pending start/chunk/finish on cancel, Stop All, tray Stop and shutdown; keep late results from restoring cancelled sessions
+- Preserve checked loopback transport, effect-free mode and ordinary Node/Tauri launch; real microphone/ASR, non-streaming transcription and dictation remain separate
+- See [the native speech boundary](../Tepora-v3/docs/RUST-SPEECH-STREAM.md) for synthetic-only test evidence and limits
+
 ## Rust lifecycle and scheduler checkpoint (beta.11)
 
 - Connect scoped semantic index/search and memory retrieval to the single SQLite/capability owner, retaining consent checks and lexical fallback

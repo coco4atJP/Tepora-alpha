@@ -6,7 +6,7 @@ impl Workspace {
     pub(super) fn execute_native(&self, op: &Operation) -> Result<Option<Reply>, ApiError> {
         if !matches!(
             op,
-            Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
+            Operation::SpeechStart | Operation::SpeechChunk {..} | Operation::SpeechFinish {..} | Operation::SpeechCancel {..} | Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
                 | Operation::ModelCatalogImport{..}
                 | Operation::ModelCatalogRefresh
                 | Operation::Setup
@@ -56,6 +56,10 @@ impl Workspace {
         }
         let request = |r| native.agent.request(r);
         let value = match op {
+            Operation::SpeechStart => {let settings=self.lock()?.settings()?;native.speech.start(&settings)?},
+            Operation::SpeechChunk {body} => native.speech.chunk(body)?,
+            Operation::SpeechFinish {body} => native.speech.finish(body)?,
+            Operation::SpeechCancel {body} => native.speech.cancel(Some(body["id"].as_str().unwrap_or("")),false)?,
             Operation::MediaJobs => native.media.snapshot()?,
             Operation::MediaCreate {body} => native.media.create(body)?,
             Operation::MediaCancel {id} => native.media.cancel(id)?,
@@ -299,6 +303,7 @@ impl Workspace {
                 next
             }
             Operation::StopAll => {
+                let _speech_drain = native.speech.stop_barrier(false)?;
                 native.media.stop_all()?;
                 native.semantic.cancel_all();
                 native.setup.stop();

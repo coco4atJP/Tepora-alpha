@@ -1,8 +1,8 @@
-# Native backend route parity: media-jobs checkpoint
+# Native backend route parity: streaming-speech checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **81 are substantially matched, 12 are partial and 33 are absent**. Thus 93 have handlers, and the 12 partial routes are included in those 93. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **85 are substantially matched, 12 are partial and 29 are absent**. Thus 97 have handlers, and the 12 partial routes are included in those 97. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -47,7 +47,7 @@ YES means a real handler is present in the supported scope, not that every model
 | R025 | `GET /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R026 | `POST /api/agent/approvals` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R027 | `POST /api/agent/approvals/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors, provider probes, media jobs and setup probe/download cancellation. Tool-discovery/computer/speech hosts remain unported. |
+| R028 | `POST /api/stop` | PARTIAL | 200 | Correct for integrated actors, provider probes, media jobs, streaming speech and setup cancellation. Tool-discovery/computer hosts remain unported. |
 | R029 | `GET /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R030 | `PUT /api/dialogue/personas` | YES | 200 | Revisioned persona/voice configuration; saving refreshes the live actor prompt without replacing its cached prefix. Persona data cannot grant tool/network authority. |
 | R031 | `GET /api/capabilities` | YES | 200 | Live shared capability registry with key-presence hints; this GET does not certify modality consumers. |
@@ -93,10 +93,10 @@ YES means a real handler is present in the supported scope, not that every model
 | R071 | `DELETE /api/inputs/{id}` | YES | 200 | Staged deletion retains the baseline referenced-job guard. |
 | R072 | `POST /api/runtime/discover` | YES | 200 | Explicit discovery of fixed local runtime endpoints through checked model transport; availability is not model-quality certification. |
 | R073 | `POST /api/voice/edit` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R074 | `POST /api/voice/start` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R075 | `POST /api/voice/chunk` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R076 | `POST /api/voice/finish` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R077 | `POST /api/voice/cancel` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R074 | `POST /api/voice/start` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
+| R075 | `POST /api/voice/chunk` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
+| R076 | `POST /api/voice/finish` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
+| R077 | `POST /api/voice/cancel` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
 | R078 | `POST /api/voice/transcribe` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R079 | `GET /api/artifacts/{id}/revisions` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R080 | `GET /api/artifacts/{id}/revisions/{version}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
@@ -177,3 +177,5 @@ YES means a real handler is present in the supported scope, not that every model
 - Verify auth/CSRF/SSE disconnects, exact approval arguments, revocation, session visibility and filesystem boundaries on actual supported platforms
 - Keep original source differential tests and independent baseline evidence; do not relabel known failures as passing gates
 - Verify desktop packaging and lifecycle before switching normal launch or consolidating V3
+
+Ordinary streaming speech R074–R077 is available only with `--agent`; local-workspace-only mode remains effect-free. See [RUST-SPEECH-STREAM](RUST-SPEECH-STREAM.md) for lifecycle, transport bounds and synthetic-only evidence.
