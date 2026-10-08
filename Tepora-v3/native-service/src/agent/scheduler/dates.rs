@@ -42,7 +42,75 @@ pub fn parse_when(at: &str, now: i64, clock: &dyn Clock) -> Option<i64> {
 }
 pub(super) fn parse_instant(raw: &str, clock: &dyn Clock) -> Option<i64> {
     crate::js_date::timestamp(raw, |wall| {
-        let local = Utc.timestamp_millis_opt(wall).single()?.naive_utc();
-        clock.instant(local)
+        if let Some(local) = Utc.timestamp_millis_opt(wall).single() {
+            return clock.instant(local.naive_utc());
+        }
+        // ECMAScript's TimeClip range is wider than Chrono's calendar. Query
+        // the zone with an equivalent calendar and retain the original epoch.
+        let mapped = equivalent_wall(parts(wall))?;
+        wall.checked_add(
+            clock
+                .instant(mapped)?
+                .checked_sub(mapped.and_utc().timestamp_millis())?,
+        )
     })
+}
+
+pub(super) struct Parts {
+    pub year: i64,
+    pub month: u32,
+    pub day: u32,
+    pub hour: u32,
+    pub minute: u32,
+    pub second: u32,
+    pub millis: u32,
+}
+/// Inverse proleptic Gregorian day arithmetic; valid over the full Date range.
+pub(super) fn parts(ms: i64) -> Parts {
+    let z = ms.div_euclid(86_400_000) + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let mut year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    year += i64::from(month <= 2);
+    let time = ms.rem_euclid(86_400_000);
+    Parts {
+        year,
+        month: month as u32,
+        day: day as u32,
+        hour: (time / 3_600_000) as u32,
+        minute: (time / 60_000 % 60) as u32,
+        second: (time / 1_000 % 60) as u32,
+        millis: (time % 1_000) as u32,
+    }
+}
+fn equivalent_wall(p: Parts) -> Option<NaiveDateTime> {
+    let year = if p.year < 1 {
+        if p.year.rem_euclid(4) == 0 && (p.year.rem_euclid(100) != 0 || p.year.rem_euclid(400) == 0)
+        {
+            1600
+        } else {
+            1601
+        }
+    } else {
+        2000 + (p.year - 2000).rem_euclid(400)
+    };
+    chrono::NaiveDate::from_ymd_opt(year as i32, p.month, p.day)?
+        .and_hms_milli_opt(p.hour, p.minute, p.second, p.millis)
+}
+pub(super) fn local_parts(ms: i64, clock: &dyn Clock) -> Option<Parts> {
+    if let Some(local) = clock.local(ms) {
+        return Some(parts(local.and_utc().timestamp_millis()));
+    }
+    let mapped = equivalent_wall(parts(ms))?.and_utc().timestamp_millis();
+    let offset = clock
+        .local(mapped)?
+        .and_utc()
+        .timestamp_millis()
+        .checked_sub(mapped)?;
+    Some(parts(ms.checked_add(offset)?))
 }

@@ -1,6 +1,18 @@
 # Tepora V3 changelog
 
-## Rust process/capability checkpoint (development branch, beta.11)
+## Rust lifecycle and scheduler checkpoint (beta.11)
+
+- Connect scoped semantic index/search and memory retrieval to the single SQLite/capability owner, retaining consent checks and lexical fallback
+- Bind typed delegation/completion advice to shared capability ownership; recheck buffered advice against registry, identity, opaque key generation and close state without exposing secrets or changing original active-transport behavior
+- Connect bounded server-resolved attachment preparation, request deduplication and supported image delivery; non-vision chat retains local receipts without image bytes or a bridge
+- Delete idle worker session state only after owned cleanup and actor revalidation; retain uncertain cleanup/prior receipts on failure and leave unrelated user files intact
+- Connect saved reminders, recurring work and change-sensitive heartbeat timers; coalesce queued ticks and cancel stale generations/in-flight check-ins
+- Reuse one date grammar for display and scheduling, including tested legacy forms, extended-year display and DST behavior
+- Cache the fixed SQLite document lookup statement; isolated actual-core A/B saved about 2–2.6 microseconds per read (256 B and 4 KiB fixtures), with no measured whole-app speed claim
+- Keep plugins/MCP/media/PC and unsupported vision bridges unavailable; normal launch remains unchanged
+- Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLite cache tests, 11 real HTTP/socket tests, and the original Node scheduler regression pass. The HTTP and source-scheduler gates pass on both Node 22.16.0 and 24.19.0; 9 targeted root workflow/conventional-commit checks pass on both, including dedicated LF/CRLF fixtures. The 11 HTTP tests include a real schedule tool receipt, restart delivery and second-restart deduplication. These are focused gates, not a full Rust/Node/quality pass; approval-policy and broader security suites were not rerun in this slice. Cross-platform CI and packaging for this new source are still pending. Earlier package results at 7743e8d do not certify this candidate. No real model, paid provider or desktop default cutover is claimed.
+
+## Rust process/capability checkpoint (historical development checkpoint, beta.11)
 
 - Connect native exec/process lifecycle, exact approvals, ordered receipts, bounded output and Stop/Resume cleanup barriers
 - Add shared capability configuration with memory-only identity-bound keys and atomic revision/event persistence
@@ -30,7 +42,7 @@
 - Connect native web search/fetch, exact approvals and alias receipts, atomic credential snapshots, lifecycle cancellation and stale-cache rejection
 - Recheck trusted web configuration after DNS and TCP/TLS before dispatch; browser rendering remains unavailable
 
-## Rust native setup checkpoint (beta.11)
+## Rust native setup checkpoint (historical, beta.11)
 
 - Connect first-use setup, fixed local runtime discovery and bounded model-catalog import/search/refresh to the native agent host
 - Preserve exact probe/download consent, checked network admission, expiring candidates, actor-serialized atomic selection and cancellation/recovery; install-help only opens the official runtime page
@@ -38,7 +50,7 @@
 - Record setup source/fixture gates: native364 + CLI2, Node HTTP24, catalog18 and race20/20; no real installed model/package or packaging acceptance
 - At the setup checkpoint, keep decision/semantic/attachment delivery, session deletion, find/grep, scheduler/MCP/media/PC/plugins and other peripheral effects unported; default Node/JavaScript/CSS remains unchanged
 
-## Rust native semantic candidate (local, beta.11)
+## Rust native semantic candidate (historical local checkpoint, beta.11)
 
 - Connect authenticated semantic index/search and agent memory search to the shared capability/SQLite owners, with lexical fallback and independent memory-write receipts
 - Require exact HTTP external consent and confirmed/shared indexing documents; model arguments cannot grant consent, and current document/identity guards fence egress and cache publication

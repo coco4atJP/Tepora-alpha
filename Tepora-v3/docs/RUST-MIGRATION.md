@@ -4,7 +4,7 @@
 
 移植元は `835c585da7d4fbe2b463492edefce70ad20d19b8`。V3はTypeScriptではなくNode.js ESMのJavaScriptと素のJavaScript/CSSのGUIです。既存のRustはTauriの薄いホストだけでした。
 
-以下は第1段階からの移行記録です。現在の到達点は末尾の**第9段階（Web検索・取得）**であり、通常起動・Tauriの全面切替は行っていません。
+以下は第1段階からの移行記録です。現在の到達点は末尾の**予定・チェックインとSQLite最適化**であり、通常起動・Tauriの全面切替は行っていません。
 
 第1段階では、`native-core` をRustライブラリとして追加し、実際のSQLite処理を移しました。
 
@@ -272,7 +272,7 @@ setup側のPTY修正込みゲートはnative library364＋CLI2、Node HTTP24、c
 統合した最終Linuxゲートはnative364＋CLI2、build-notice/offline HTTP/native-agent計41件がNode22/24それぞれ合格。全Node22は544/549、ソース指紋は前後一致。残る5件は同じ既知のブラウザー3・DNS1・bubblewrap1であり、品質ゲート全体は不合格。実macOSでのPTY修正は22941beの318＋CLI2で確認済みだが、新しいWeb/setupのOS間受け入れ証明へ読み替えない。
 
 
-## 意味検索・索引のローカル候補
+## 意味検索・索引のローカル検証記録（公開前のチェックポイント）
 
 `POST /api/semantic/index` と `POST /api/semantic/search` を `--dev-native --agent` に接続した。単一Workspace/SQLite所有者のvector cacheを使い、確認済み記憶の字句・意味順位を組み合わせる。索引は最大24文書、各12,000 UTF-16単位。HTTPは既存auth/CSRF/Host/Originとnetwork policyを維持し、非同期待機・要求破棄時の取消・index 90秒/search 30秒の期限を持つ。
 
@@ -293,3 +293,34 @@ Rust移行前からCIを止めていた検証障害を、移行回帰と分け�
 名前付き作業ルートの検証はNodeとRustの双方を現在のOSのパス文法へ揃えた。実在するディレクトリーだけを使い、URL/版数/報告だけの裸ファイル名、失敗したtool証拠、最大8件の規則を保持する。Windows/UNCの文法テストはLinux上の純粋文字列試験であり、共有先を探査しない。実Windowsでの動作はこのチェックポイントのCIで確認する。
 
 ローカル検証: Node22/24で影響範囲85件と厳格container計画1件がそれぞれ合格、skipなし。新しいautocrlf=true checkoutでもvendor14ハッシュは元の値と一致。native391＋CLI2、Node claims/runtime/native-agent50件合格。Nativeコアは変更せず、completion待ち8秒と判定assertionを維持し、失敗時診断を追加した。包括agent-toolsのDNS/bubblewrap環境失敗、一般的cmd引用符、間欠的completion遅延、配布物の実行はこれだけで解消・確認済みとはしない。
+
+## 第11〜12段階: 意味検索とライフサイクル候補（beta.11）
+
+以下は現在の対応範囲であり、前段の未対応一覧とdecisionルート拒否の記録は各チェックポイント時点のもの。通常のNode/Tauri起動、GUI、sandbox設定は変更していない。
+
+Native semantic index/search and `memory_search` now share `Capabilities`, `NativeNetwork` and the one SQLite owner. Confirmed-memory consent, scope, content and capability identity are rechecked before egress and cache publication; external embedding requires explicit permission and shared scope. Vectors are disposable caches, and lexical fallback remains available. This does not connect media/speech or other capability consumers.
+
+Typed decision requests now use `CapabilityDecisionBackend` with the existing shared capability registry, memory-only keys, network owner and resource gate. Actor-owned delegation and completion consume advisory answers only after scope and binding checks. Buffered answers recheck registry revision, endpoint identity, an opaque owner-wide key generation and close state before consumption. Any capability-key set/clear conservatively invalidates buffered advice; original active-transport behavior is preserved. No keys or credential hashes enter advisory bindings or public events. Advice never grants tool authority.
+
+Attachment input resolves up to six staged IDs on the server, verifies hashes and byte limits, then materializes collision-safe files under the configured work root outside the FIFO actor. Pending requests with the same request ID share preparation; only successful actor acceptance caches the receipt. Stop/shutdown cancel admission but still join dispatched filesystem work. A partial write may remain on disk without an accepted-input receipt. Files are saved locally and the input retains their text/path receipts; up to the first four images enter supported vision context. Non-vision chat omits image bytes while retaining the local receipt and never starts a vision bridge. Oversized images use the bounded macOS resize path; if resizing is unavailable or fails, the local file remains but the image is omitted. Image loading through `read` and unsupported vision bridges remain unavailable.
+
+Session deletion rejects the resident main session (403), missing sessions (404), and active or still-draining work (409). For an idle worker, a correlated admission cancels its timer, blocks new send/resume/wake activity and waits for owned process cleanup before the actor rechecks and commits removal. Cancellation or uncertain cleanup cannot become successful deletion; failed deletion retains the session and prior receipts. Successful removal concerns session state and in-memory host caches, not unrelated user files or recursive removal of the working folder.
+
+The unpublished lifecycle candidate with the native claimed-root correction passed 427 native library + 2 CLI tests and 36 HTTP tests on Node22 against pinned binary SHA-256 `4fec77166ea8322c1b166f093cfb9e30a850be4e2032b12d4d33d00b74f1574a`; Node24 passed 38/38 against the same binary (the 36 HTTP/native-agent tests plus 2 root entry-point tests). These reruns supersede the earlier 424+2 Rust / 12 native-agent HTTP review gate and the pre-guard 36 HTTP result. Published platform-repair head `0b9d548` has CI running; no terminal result is claimed for it. Previous published semantic head `d2d18f2` passed Rust on all supported CI operating systems and the full Linux gate; downstream baseline Node failures and skipped packaging remain separate. No lifecycle publication, lifecycle CI, desktop packaging/installation or real-model acceptance is claimed.
+
+現在のルート一覧は126 application variantsのうち実装64・部分12・未実装50、別枠static22。完成率ではない。scheduler/heartbeat/dream、JS plugins、MCP、media/speech、PC操作、find/grep、skills実行、ブラウザー描画、未対応の視覚ブリッジと独自avatar素材/写真は残る。[HTTP一覧](RUST-ROUTE-PARITY.md)と[native host](../native-service/README.md)を参照。
+
+
+### ライフサイクル統合候補の追加ローカル検証
+
+Node22の全回帰は552/557、skipなし。残る5件は既知のクラウド環境由来のブラウザー3件、DNS `EAI_AGAIN` 1件、bubblewrap制限1件であり、全体の品質ゲートは不合格のまま。native427＋CLI2、固定binaryでのNode22 HTTP/native-agent36件とNode24 HTTP/native-agent＋root38件の合格は上記の範囲に限る。構文確認は231 JavaScript modulesを検査し、root entry-point/build-noticeゲートは14/14、skipなし。公開済み `0b9d548` のCIはこの記録時点で実行中であり、このローカル結果をOS間・配布・実モデルの受け入れへ読み替えない。
+
+## 予定・チェックインとSQLite最適化（2026-10-08、Linux）
+
+- 保存した予定の追加・一覧・取消、一度だけの通知、定期実行、ワーカー起動をRust actorへ接続。再起動直後の実行と二重配送防止を実HTTPで確認
+- チェックインは意味のある変化のみを処理。実行中・入力待ち・変化なしではモデルを起こさず、型付き判断の待機は非同期で保持
+- タイマー通知を種類ごとに最大1件へ集約。設定変更は古い判断待ちを取消し、旧世代/別サービス/終了後の通知を破棄
+- 日付の解釈を既存のV8由来パーサーへ統合。Dateの両端、年の表示と並び順、DSTの欠落/重複と30分移動を追加検証
+- SQLiteの固定文書SELECTをprepare_cachedへ変更。独立ビルドの実コアA/Bで256 Bの読み込み中央値5.57→3.09µs、4 KiBで21.74→19.48µs。アプリ全体の高速化率は未測定
+
+Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLite cache tests, 11 real HTTP/socket tests, and the original Node scheduler regression pass. The HTTP and source-scheduler gates pass on both Node 22.16.0 and 24.19.0; 9 targeted root workflow/conventional-commit checks pass on both, including dedicated LF/CRLF fixtures. The 11 HTTP tests include a real schedule tool receipt, restart delivery and second-restart deduplication. These are focused gates, not a full Rust/Node/quality pass; approval-policy and broader security suites were not rerun in this slice. Cross-platform CI and packaging for this new source are still pending. Earlier package results at 7743e8d do not certify this candidate. No real model, paid provider or desktop default cutover is claimed.

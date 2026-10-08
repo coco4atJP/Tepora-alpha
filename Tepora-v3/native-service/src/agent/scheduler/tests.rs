@@ -62,6 +62,32 @@ fn frozen_source_date_parsing_and_add_validation() {
         .add(&json!({"text":"fixture","in_minutes":0}), "worker", 200)
         .is_err());
 }
+
+#[test]
+fn full_date_range_display_and_sign_order_match_source() {
+    let fixture = fixture();
+    let scheduler = Scheduler::new(clock(fixture["now"].as_i64().unwrap()));
+    let docs = fixture["displays"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|case| {
+            assert_eq!(
+                scheduler.show(&case["doc"]).unwrap(),
+                case["text"].as_str().unwrap()
+            );
+            case["doc"].clone()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        json!(scheduler
+            .list(&docs)
+            .iter()
+            .map(|d| d["id"].clone())
+            .collect::<Vec<_>>()),
+        fixture["sorted"]
+    );
+}
 #[test]
 fn frozen_source_due_once_repeat_and_task_plans() {
     let fixture = fixture();
@@ -260,4 +286,42 @@ fn system_clock_matches_source_dst_and_local_date_shorthand() {
             String::from_utf8_lossy(&result.stderr)
         );
     }
+}
+
+#[test]
+fn cancelled_heartbeat_only_retries_its_current_plan_not_a_newer_settled_identity() {
+    let mut scheduler = Scheduler::new(clock(0));
+    let settings = json!({"heartbeat":{"text":""}});
+    let a = vec![json!({"id":"a","kind":"worker","title":"A","status":"done","accepted":false})];
+    let b = vec![json!({"id":"b","kind":"worker","title":"B","status":"done","accepted":false})];
+    let old_a = scheduler
+        .heartbeat(&settings, &a, &[], false, false, true)
+        .unwrap()
+        .unwrap();
+    let settled_b = scheduler
+        .heartbeat(&settings, &b, &[], false, false, true)
+        .unwrap()
+        .unwrap();
+    scheduler.retry_cancelled_heartbeat(old_a.generation);
+    assert!(scheduler
+        .heartbeat(&settings, &b, &[], false, false, true)
+        .unwrap()
+        .is_none());
+    // Even the same work hash must not confuse an older plan after A -> B -> A.
+    let new_a = scheduler
+        .heartbeat(&settings, &a, &[], false, false, true)
+        .unwrap()
+        .unwrap();
+    assert_ne!(old_a.generation, new_a.generation);
+    scheduler.retry_cancelled_heartbeat(old_a.generation);
+    scheduler.retry_cancelled_heartbeat(settled_b.generation);
+    assert!(scheduler
+        .heartbeat(&settings, &a, &[], false, false, true)
+        .unwrap()
+        .is_none());
+    scheduler.retry_cancelled_heartbeat(new_a.generation);
+    assert!(scheduler
+        .heartbeat(&settings, &a, &[], false, false, true)
+        .unwrap()
+        .is_some());
 }

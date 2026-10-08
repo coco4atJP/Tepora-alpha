@@ -164,6 +164,26 @@
     {
       "input": "Oct 7 2026 15:00 GMT",
       "ms": 1791385200000
+    },
+    {
+      "input": "+275760-09-13T00:00:00.000Z",
+      "ms": 8640000000000000
+    },
+    {
+      "input": "-271821-04-20T00:00:00.000Z",
+      "ms": -8640000000000000
+    },
+    {
+      "input": "+275760-09-13T00:00:00.001Z",
+      "ms": null
+    },
+    {
+      "input": "+275760-09-13T00:00",
+      "ms": 8640000000000000
+    },
+    {
+      "input": "-271821-04-20T00:00",
+      "ms": -8640000000000000
     }
   ],
   "additions": [
@@ -177,6 +197,38 @@
         "text": "fixture",
         "mode": "remind",
         "at": "2026-10-07T12:34:56.789Z",
+        "every": null,
+        "createdBy": "worker",
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      }
+    },
+    {
+      "args": {
+        "text": "future boundary",
+        "at": "+275760-09-13T00:00:00.000Z"
+      },
+      "value": {
+        "id": "<id>",
+        "text": "future boundary",
+        "mode": "remind",
+        "at": "+275760-09-13T00:00:00.000Z",
+        "every": null,
+        "createdBy": "worker",
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      }
+    },
+    {
+      "args": {
+        "text": "past boundary",
+        "at": "-271821-04-20T00:00:00.000Z"
+      },
+      "value": {
+        "id": "<id>",
+        "text": "past boundary",
+        "mode": "remind",
+        "at": "-271821-04-20T00:00:00.000Z",
         "every": null,
         "createdBy": "worker",
         "createdAt": "2026-10-07T12:34:56.789Z",
@@ -310,7 +362,7 @@
   "tick": {
     "before": [
       {
-        "id": "sch_00000006",
+        "id": "sch_00000008",
         "text": "recurring",
         "mode": "remind",
         "at": "2026-10-07T12:00:00.000Z",
@@ -320,7 +372,7 @@
         "fired": 0
       },
       {
-        "id": "sch_00000005",
+        "id": "sch_00000007",
         "text": "one shot",
         "mode": "remind",
         "at": "2026-10-07T12:34:56.789Z",
@@ -330,7 +382,7 @@
         "fired": 0
       },
       {
-        "id": "sch_00000008",
+        "id": "sch_00000010",
         "text": "task fixture",
         "mode": "task",
         "at": "2026-10-07T12:34:56.789Z",
@@ -340,7 +392,7 @@
         "fired": 0
       },
       {
-        "id": "sch_00000007",
+        "id": "sch_00000009",
         "text": "future",
         "mode": "remind",
         "at": "2026-10-07T12:35:56.789Z",
@@ -353,7 +405,7 @@
     "first": {
       "remaining": [
         {
-          "id": "sch_00000007",
+          "id": "sch_00000009",
           "text": "future",
           "mode": "remind",
           "at": "2026-10-07T12:35:56.789Z",
@@ -363,7 +415,7 @@
           "fired": 0
         },
         {
-          "id": "sch_00000006",
+          "id": "sch_00000008",
           "text": "recurring",
           "mode": "remind",
           "at": "2026-10-07T13:04:56.789Z",
@@ -378,7 +430,7 @@
         {
           "type": "schedule.updated",
           "data": {
-            "id": "sch_00000006",
+            "id": "sch_00000008",
             "text": "recurring",
             "mode": "remind",
             "at": "2026-10-07T12:00:00.000Z",
@@ -391,7 +443,7 @@
         {
           "type": "schedule.updated",
           "data": {
-            "id": "sch_00000005",
+            "id": "sch_00000007",
             "text": "one shot",
             "mode": "remind",
             "at": "2026-10-07T12:34:56.789Z",
@@ -404,7 +456,7 @@
         {
           "type": "schedule.updated",
           "data": {
-            "id": "sch_00000008",
+            "id": "sch_00000010",
             "text": "task fixture",
             "mode": "task",
             "at": "2026-10-07T12:34:56.789Z",
@@ -422,7 +474,7 @@
             "text": "recurring",
             "from": "schedule",
             "kind": "reminder",
-            "source": "scheduled reminder sch_00000006 (every 30 min)"
+            "source": "scheduled reminder sch_00000008 (every 30 min)"
           }
         },
         {
@@ -431,7 +483,7 @@
             "text": "one shot",
             "from": "schedule",
             "kind": "reminder",
-            "source": "scheduled reminder sch_00000005"
+            "source": "scheduled reminder sch_00000007"
           }
         }
       ],
@@ -449,7 +501,7 @@
     "second": {
       "remaining": [
         {
-          "id": "sch_00000007",
+          "id": "sch_00000009",
           "text": "future",
           "mode": "remind",
           "at": "2026-10-07T12:35:56.789Z",
@@ -459,7 +511,7 @@
           "fired": 0
         },
         {
-          "id": "sch_00000006",
+          "id": "sch_00000008",
           "text": "recurring",
           "mode": "remind",
           "at": "2026-10-07T13:04:56.789Z",
@@ -617,6 +669,120 @@
       "at": "2026-10-08",
       "now": 1791376496000,
       "ms": 1791417600000
+    },
+    {
+      "zone": "Asia/Tokyo",
+      "at": "+275760-09-13T00:00",
+      "now": 1791376496000,
+      "ms": 8639999967600000
+    },
+    {
+      "zone": "America/New_York",
+      "at": "+275760-09-12T00:00",
+      "now": 1791376496000,
+      "ms": 8639999928000000
     }
+  ],
+  "displays": [
+    {
+      "doc": {
+        "id": "sch_00000011",
+        "text": "date display",
+        "mode": "remind",
+        "at": "0000-01-01T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000011 remind at 1-01-01 00:00:00: date display"
+    },
+    {
+      "doc": {
+        "id": "sch_00000012",
+        "text": "date display",
+        "mode": "remind",
+        "at": "0001-01-01T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000012 remind at 1-01-01 00:00:00: date display"
+    },
+    {
+      "doc": {
+        "id": "sch_00000013",
+        "text": "date display",
+        "mode": "remind",
+        "at": "0099-01-01T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000013 remind at 99-01-01 00:00:0: date display"
+    },
+    {
+      "doc": {
+        "id": "sch_00000014",
+        "text": "date display",
+        "mode": "remind",
+        "at": "0999-01-01T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000014 remind at 999-01-01 00:00:: date display"
+    },
+    {
+      "doc": {
+        "id": "sch_00000015",
+        "text": "date display",
+        "mode": "remind",
+        "at": "+010000-01-01T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000015 remind at 10000-01-01 00:0: date display"
+    },
+    {
+      "doc": {
+        "id": "sch_00000016",
+        "text": "date display",
+        "mode": "remind",
+        "at": "+275760-09-13T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000016 remind at 275760-09-13 00:: date display"
+    },
+    {
+      "doc": {
+        "id": "sch_00000017",
+        "text": "date display",
+        "mode": "remind",
+        "at": "-271821-04-20T00:00:00.000Z",
+        "every": null,
+        "createdBy": null,
+        "createdAt": "2026-10-07T12:34:56.789Z",
+        "fired": 0
+      },
+      "text": "sch_00000017 remind at 271822-04-20 00:: date display"
+    }
+  ],
+  "sorted": [
+    "sch_00000017",
+    "sch_00000015",
+    "sch_00000016",
+    "sch_00000011",
+    "sch_00000012",
+    "sch_00000013",
+    "sch_00000014"
   ]
 }

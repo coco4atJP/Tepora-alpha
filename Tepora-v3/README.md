@@ -4,6 +4,8 @@ A quiet, customizable smart monitor that can keep working while you talk.
 Local-first, provider-neutral, with explicit control over cloud/LAN access.
 This is an executable **development beta**, not a finished replacement for the operating system.
 
+The opt-in [native host](native-service/README.md) also connects scoped semantic memory. Its lifecycle implementation adds shared-owner typed decisions, bounded attachment admission/delivery and stopped-session deletion with cleanup barriers. Non-vision chat retains local attachment receipts without sending image bytes or starting a bridge. Saved schedules and change-sensitive heartbeat timers are also connected. Plugins, MCP, media/speech, Computer Use and unsupported vision bridges remain outside the native scope; normal Node/Tauri launch is unchanged. See the [migration record](docs/RUST-MIGRATION.md) for exact validation boundaries.
+
 ## Start
 
 The repository root also provides `npm start`, `npm run quality`, `npm run desktop` and

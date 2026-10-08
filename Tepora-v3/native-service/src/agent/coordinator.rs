@@ -1,6 +1,7 @@
 //! Mechanical FIFO host of the two native reducers. No duplicate step loop,
 //! scheduling policy, database, or async mutable session snapshot lives here.
 use super::*;
+mod scheduling;
 use futures_util::FutureExt;
 use std::{
     collections::{HashMap, VecDeque},
@@ -67,12 +68,14 @@ impl CloseTicket {
 }
 
 enum ResponseSender {
+    Ignore,
     Sync(mpsc::Sender<Answer>),
     Async(oneshot::Sender<Answer>),
 }
 impl ResponseSender {
     fn send(self, value: Answer) {
         match self {
+            Self::Ignore => {},
             Self::Sync(tx) => {
                 let _ = tx.send(value);
             }
@@ -87,6 +90,7 @@ enum RequestBody {
     Scoped(Value),
 }
 enum Message {
+    SchedulerTimer { service_id: u64, kind: SchedulerKind, generation: u64 },
     Request {
         request: RequestBody,
         scope: Option<EffectScope>,
@@ -302,6 +306,8 @@ struct Timer {
     cancellation: RequestCancellation,
 }
 struct Coordinator {
+    recurring: HashMap<SchedulerKind, super::scheduler::timer::RecurringTimer>,
+    next_recurring: u64,
     host: Arc<dyn AgentHost>,
     executor: Handle,
     shared: Arc<Shared>,
@@ -328,6 +334,8 @@ impl Coordinator {
     fn new(host: Arc<dyn AgentHost>, executor: Handle, shared: Arc<Shared>) -> Self {
         Self {
             host,
+            recurring: HashMap::new(),
+            next_recurring: 0,
             executor,
             shared,
             service_id: NEXT_SERVICE.fetch_add(1, Ordering::Relaxed),
@@ -393,6 +401,7 @@ impl Coordinator {
     }
     fn message(&mut self, message: Message) {
         match message {
+            Message::SchedulerTimer { service_id, kind, generation } => self.scheduler_tick(service_id, kind, generation),
             Message::Request {
                 request,
                 scope,
@@ -400,7 +409,7 @@ impl Coordinator {
             } => {
                 if !self.closing && scope.is_none() {
                     if let RequestBody::Agent(
-                        request @ (AgentRequest::Input { .. } | AgentRequest::DeleteSession { .. }),
+                        request @ (AgentRequest::Input { .. } | AgentRequest::DeleteSession { .. } | AgentRequest::SchedulerTick { .. }),
                     ) = &request
                     {
                         self.admit_request(request.clone(), reply);
@@ -506,6 +515,7 @@ impl Coordinator {
                 )));
             }
             Err(error) => {
+                self.background_error(&request, &error);
                 self.shared.requests.fetch_sub(1, Ordering::AcqRel);
                 reply.send(Err(error));
             }
@@ -537,6 +547,7 @@ impl Coordinator {
             RequestBody::Agent(request) => match request {
                 AgentRequest::Initialize => {
                     self.dispatch(json!({"type":"initialize"}))?;
+                    self.refresh_schedulers(true)?;
                     Ok(Value::Null)
                 }
                 AgentRequest::Stop {
@@ -595,6 +606,7 @@ impl Coordinator {
                 other => {
                     let admission = guarded_api(|| self.host.request(&other))?;
                     self.events.extend(admission.events);
+                    if matches!(other, AgentRequest::Configure { .. }) { self.refresh_schedulers(false)?; }
                     Ok(admission.value)
                 }
             },
@@ -973,6 +985,9 @@ impl Coordinator {
                     })
             };
             self.pending.remove(&scope);
+            if !context.cancellation.is_cancelled() {
+                if let Err(error) = &result { self.background_error(&admission.request, error); }
+            }
             if let Some(key) = admission.key {
                 self.admission_keys.remove(&key);
             }
@@ -1160,6 +1175,7 @@ impl Coordinator {
         self.complete(step.parent, step.terminal.unwrap());
     }
     fn begin_close(&mut self) {
+        self.recurring.clear();
         if self.closing {
             return;
         }

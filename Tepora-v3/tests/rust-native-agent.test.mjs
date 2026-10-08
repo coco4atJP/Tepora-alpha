@@ -273,3 +273,27 @@ async function openEvents(f,app){
  await delay(50);assert.ok(!JSON.stringify(stream.packets).includes('fixture-web-secret'));
  assert.deepEqual(parsed(await app.request(route,'PUT',{provider:'brave',key:''})),{provider:'brave',keyPresent:false});
  });
+
+ test('Rust native agent: saved schedule receipts survive restart and deliver one ordinary reminder',async t=>{
+ const reminder='SCHEDULE_REMINDER_FIXTURE';
+ const model=await modelServer(t,(name,index,body)=>{
+  assert.equal(name,'main');
+  if(index===0)return calls([call('schedule-fixture','schedule',{action:'add',text:reminder,in_minutes:0})]);
+  const user=body.messages.filter(m=>m.role==='user').at(-1);
+  return answer(JSON.stringify(user?.content||'').includes(reminder)?'REMINDER_DELIVERED':'SCHEDULE_SAVED');
+ }),f=await fixture(t);let app=await f.start();await configure(app,model);const id=app.bootstrap.dialogue.session.id;
+ const enabled=parsed(await app.request('/api/agent/settings','PATCH',{heartbeat:{enabled:true,minutes:60,text:'Fixture check-in'}}));
+ assert.equal(enabled.heartbeat.enabled,true);
+ parsed(await app.request('/api/agent/settings','PATCH',{heartbeat:{enabled:false}}));
+ parsed(await app.request('/api/agent/input','POST',{text:'Create the fixture reminder now'}),202);
+ const saved=await waitAnswer(app,id,'SCHEDULE_SAVED');
+ const receipt=saved.entries.find(e=>e.type==='tool'&&e.callId==='schedule-fixture');
+ assert.ok(receipt);assert.notEqual(receipt.error,true);assert.match(receipt.content,/Scheduled sch_/);
+ await app.close();app=await f.start();
+ const delivered=await waitAnswer(app,id,'REMINDER_DELIVERED');
+ assert.equal(delivered.entries.filter(e=>e.type==='input'&&e.kind==='reminder'&&e.text===reminder).length,1);
+ await app.close();app=await f.start();await delay(100);
+ const restarted=await transcript(app,id);
+ assert.equal(restarted.entries.filter(e=>e.type==='input'&&e.kind==='reminder'&&e.text===reminder).length,1);
+ model.assertHealthy();
+ });

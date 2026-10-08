@@ -27,6 +27,7 @@ use std::{future::Future, pin::Pin};
 #[derive(Clone, Debug)]
 pub enum AgentRequest {
     Initialize,
+    SchedulerTick { kind: SchedulerKind },
     Input {
         body: Value,
     },
@@ -67,6 +68,15 @@ pub enum AgentRequest {
         patch: Value,
     },
     RefreshPrompts,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SchedulerKind {
+    Schedules,
+    Heartbeat,
+}
+pub struct SchedulerPolicy {
+    pub heartbeat_ms: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -185,6 +195,15 @@ impl EffectTask {
 pub trait AgentHost: Send + Sync + 'static {
     fn facts(&self) -> Result<Value, ApiError>;
     fn request(&self, request: &AgentRequest) -> Result<Admission, ApiError>;
+    fn scheduler_policy(&self) -> Result<Option<SchedulerPolicy>, ApiError> {
+        Ok(None)
+    }
+    fn retry_cancelled_heartbeat(&self, _generation: u64) -> Result<(), ApiError> {
+        Ok(())
+    }
+    fn background_error(&self, _request: &AgentRequest, _error: &ApiError) -> Result<(), ApiError> {
+        Ok(())
+    }
     fn setup_context(&self, _busy: bool) -> Result<Value, ApiError> {
         Err(ApiError::unavailable("Native setup is not integrated"))
     }

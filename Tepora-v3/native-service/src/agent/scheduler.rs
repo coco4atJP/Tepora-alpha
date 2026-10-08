@@ -2,7 +2,7 @@
 //! owned plans; the FIFO host alone commits documents and delivers ordinary
 //! inputs. It never invokes a model or owns a database connection.
 use crate::ApiError;
-use chrono::{Datelike, Local, LocalResult, NaiveDateTime, TimeZone, Timelike, Utc};
+use chrono::{Local, LocalResult, NaiveDateTime, TimeZone, Utc};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -74,6 +74,7 @@ impl Clock for SystemClock {
 pub struct Scheduler {
     clock: Arc<dyn Clock>,
     last_heartbeat: Option<String>,
+    heartbeat_generation: u64,
 }
 impl Default for Scheduler {
     fn default() -> Self {
@@ -92,6 +93,7 @@ pub struct Due {
 }
 #[derive(Clone, Debug)]
 pub struct Heartbeat {
+    pub generation: u64,
     pub state_text: String,
     pub message: String,
     pub infer: bool,
@@ -101,10 +103,18 @@ impl Scheduler {
         Self {
             clock,
             last_heartbeat: None,
+            heartbeat_generation: 0,
         }
     }
     pub fn now_ms(&self) -> i64 {
         self.clock.now_ms()
+    }
+    /// A cancelled decision never delivered its check-in. Reconfiguration may
+    /// retry that same work; settled decisions keep the normal dedup key.
+    pub fn retry_cancelled_heartbeat(&mut self, generation: u64) {
+        if generation == self.heartbeat_generation {
+            self.last_heartbeat = None;
+        }
     }
     pub fn add(&self, args: &Value, created_by: &str, existing: usize) -> Result<Value, ApiError> {
         let text = args["text"]
@@ -153,21 +163,36 @@ impl Scheduler {
     }
     pub fn list(&self, documents: &[Value]) -> Vec<Value> {
         let mut list = documents.to_vec();
-        list.sort_by(|a, b| s(a, "at").cmp(s(b, "at")));
+        list.sort_by(|a, b| {
+            // Source-normalized ISO timestamps have only an optional year sign
+            // before their digits. Intl collates '-' before '+', then digits.
+            let rank = |v: &str| match v.as_bytes().first() {
+                Some(b'-') => 0,
+                Some(b'+') => 1,
+                _ => 2,
+            };
+            let (a, b) = (s(a, "at"), s(b, "at"));
+            rank(a).cmp(&rank(b)).then_with(|| a.cmp(b))
+        });
         list
     }
     pub fn show(&self, doc: &Value) -> Result<String, ApiError> {
         let at = dates::parse_instant(s(doc, "at"), self.clock.as_ref())
-            .and_then(|ms| self.clock.local(ms))
+            .and_then(|ms| dates::local_parts(ms, self.clock.as_ref()))
             .ok_or_else(|| bad("Saved schedule has an invalid time"))?;
+        // Source uses sv-SE formatting then slices the first 16 code units;
+        // years below 1000 and extended years therefore include different
+        // portions of the seconds/minutes field. Preserve that behavior.
         let date = format!(
-            "{:04}-{:02}-{:02} {:02}:{:02}",
-            at.year(),
-            at.month(),
-            at.day(),
-            at.hour(),
-            at.minute()
+            "{}-{:02}-{:02} {:02}:{:02}:{:02}",
+            if at.year > 0 { at.year } else { 1 - at.year },
+            at.month,
+            at.day,
+            at.hour,
+            at.minute,
+            at.second
         );
+        let date = &date[..date.len().min(16)];
         Ok(format!(
             "{} {} at {}{}: {}",
             s(doc, "id"),
@@ -249,13 +274,17 @@ impl Scheduler {
         let state = heartbeat_state(sessions, approvals)?;
         let key = s(&state, "key").to_owned();
         let custom = truthy(&settings["heartbeat"]["text"]);
-        if self.last_heartbeat.as_ref() == Some(&key) || state["empty"] == true && !custom {
-            self.last_heartbeat = Some(key);
+        if self.last_heartbeat.as_ref() == Some(&key) {
             return Ok(None);
         }
+        self.heartbeat_generation += 1;
         self.last_heartbeat = Some(key);
+        if state["empty"] == true && !custom {
+            return Ok(None);
+        }
         let state_text = s(&state, "text").to_owned();
         Ok(Some(Heartbeat {
+            generation: self.heartbeat_generation,
             message: format!(
                 "{}\n\nCurrent work:\n{}",
                 if custom {
@@ -391,26 +420,21 @@ fn bad(message: &str) -> ApiError {
     ApiError::bad_request(message)
 }
 fn iso(ms: i64) -> Result<String, ApiError> {
-    Utc.timestamp_millis_opt(ms)
-        .single()
-        .map(|d| {
-            let year = if (0..=9999).contains(&d.year()) {
-                format!("{:04}", d.year())
-            } else {
-                format!("{:+07}", d.year())
-            };
-            format!(
-                "{year}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
-                d.month(),
-                d.day(),
-                d.hour(),
-                d.minute(),
-                d.second(),
-                d.timestamp_subsec_millis()
-            )
-        })
-        .ok_or_else(|| bad("Invalid scheduled time"))
+    if ms.unsigned_abs() > 8_640_000_000_000_000 {
+        return Err(bad("Invalid scheduled time"));
+    }
+    let d = dates::parts(ms);
+    let year = if (0..=9999).contains(&d.year) {
+        format!("{:04}", d.year)
+    } else {
+        format!("{:+07}", d.year)
+    };
+    Ok(format!(
+        "{year}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+        d.month, d.day, d.hour, d.minute, d.second, d.millis
+    ))
 }
+
 fn trim(value: &str) -> &str {
     value.trim_matches(|c:char|matches!(c,'\u{0009}'..='\u{000d}'|'\u{0020}'|'\u{00a0}'|'\u{1680}'|'\u{2000}'..='\u{200a}'|'\u{2028}'|'\u{2029}'|'\u{202f}'|'\u{205f}'|'\u{3000}'|'\u{feff}'))
 }

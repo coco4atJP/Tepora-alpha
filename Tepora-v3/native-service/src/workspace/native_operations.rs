@@ -143,11 +143,6 @@ impl Workspace {
                         .unwrap_or_else(|| json!([]));
                     patch["policy"] = json!({"rules":crate::agent::policy::CompiledPolicy::validate(&rules)?.normalized_rules()});
                 }
-                if truth(&patch["heartbeat"]["enabled"]) {
-                    return Err(ApiError::unavailable(
-                        "Native heartbeat scheduling is not integrated",
-                    ));
-                }
                 request(AgentRequest::Configure { patch })?
             }
             Operation::Approvals => {

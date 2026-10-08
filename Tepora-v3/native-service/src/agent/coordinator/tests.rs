@@ -4,6 +4,8 @@ use std::sync::atomic::AtomicUsize;
 type Deferred = (EffectContext, oneshot::Sender<EffectAnswer>);
 #[derive(Default)]
 struct Data {
+    scheduler_enabled: bool,
+    scheduler_ticks: Vec<SchedulerKind>,
     admission_checks: usize,
     admission_plans: usize,
     admission_commits: usize,
@@ -85,6 +87,9 @@ fn session(id: &str, kind: &str) -> Value {
     json!({"id":id,"kind":kind,"status":"idle","toolset":"lean","tools":[],"stats":{"steps":0,"toolCalls":0,"cost":0},"result":null})
 }
 impl AgentHost for FakeHost {
+    fn scheduler_policy(&self) -> Result<Option<SchedulerPolicy>, ApiError> {
+        Ok(self.data.lock().unwrap().scheduler_enabled.then_some(SchedulerPolicy { heartbeat_ms: Some(60_000) }))
+    }
     fn setup_context(&self, busy: bool) -> Result<Value, ApiError> {
         Ok(json!({"busy":busy}))
     }
@@ -101,6 +106,10 @@ impl AgentHost for FakeHost {
         Ok(body["requestId"].as_str().map(str::to_owned))
     }
     fn plan_request(&self, request: &AgentRequest) -> Result<RequestPlan, ApiError> {
+        if let AgentRequest::SchedulerTick { kind } = request {
+            self.data.lock().unwrap().scheduler_ticks.push(*kind);
+            return Ok(RequestPlan::Ready(Admission::new(Value::Null)));
+        }
         let AgentRequest::Input { body } = request else {
             return self.request(request).map(RequestPlan::Ready);
         };
@@ -942,4 +951,38 @@ fn setup_selection_final_busy_check_is_serialized_with_new_runs_and_cancellation
         .unwrap();
     assert_eq!(host.data.lock().unwrap().setup_commits, 1);
     h.begin_close().wait().unwrap();
+}
+
+#[test]
+fn scheduler_reconfiguration_and_shutdown_reject_stale_queued_ticks() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1).enable_all().build().unwrap();
+    let host = FakeHost::new(vec![]);
+    host.data.lock().unwrap().scheduler_enabled = true;
+    let (tx, rx) = mpsc::channel();
+    let shared = Arc::new(Shared {
+        tx, closing: AtomicBool::new(false), requests: AtomicUsize::new(0),
+        streams: AtomicUsize::new(0), handles: AtomicUsize::new(1), thread: Mutex::new(None),
+        done: Arc::new(Completion { result: Mutex::new(None), changed: Condvar::new() }),
+    });
+    let mut actor = Coordinator::new(host.clone(), runtime.handle().clone(), shared.clone());
+    actor.refresh_schedulers(true).unwrap();
+    let service = actor.service_id;
+    let first = rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    actor.message(first);
+    assert_eq!(host.data.lock().unwrap().scheduler_ticks, vec![SchedulerKind::Schedules]);
+    let old = actor.recurring[&SchedulerKind::Heartbeat].generation;
+    actor.refresh_schedulers(false).unwrap();
+    let new = actor.recurring[&SchedulerKind::Heartbeat].generation;
+    assert_ne!(old, new);
+    actor.scheduler_tick(service, SchedulerKind::Heartbeat, old);
+    actor.scheduler_tick(service + 1, SchedulerKind::Heartbeat, new);
+    assert_eq!(host.data.lock().unwrap().scheduler_ticks.len(), 1);
+    actor.scheduler_tick(service, SchedulerKind::Heartbeat, new);
+    assert_eq!(host.data.lock().unwrap().scheduler_ticks.len(), 2);
+    assert_eq!(shared.requests.load(Ordering::SeqCst), 0);
+    actor.begin_close();
+    assert!(actor.recurring.is_empty());
+    actor.scheduler_tick(service, SchedulerKind::Heartbeat, new);
+    assert_eq!(host.data.lock().unwrap().scheduler_ticks.len(), 2);
 }

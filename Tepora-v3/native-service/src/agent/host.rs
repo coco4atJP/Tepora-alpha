@@ -2,6 +2,7 @@
 //! reads owned snapshots and commits effects only on the coordinator thread.
 #[cfg(test)]
 mod tests;
+mod scheduling;
 use super::{
     context, Admission, AgentHost, AgentRequest, EffectContext, EffectError, EffectResult,
     EffectScope, EffectTask,
@@ -63,6 +64,7 @@ struct Stream {
 /// Native-only host. Configured JS hooks are rejected before construction;
 /// optional compatibility effects will be installed explicitly in a later slice.
 pub struct NativeAgentHost {
+    scheduler: Mutex<super::scheduler::Scheduler>,
     pub state: WorkspaceAccess,
     pub provider: ProviderRuntime,
     pub network: NativeNetwork,
@@ -109,6 +111,7 @@ impl NativeAgentHost {
             None,
         ));
         Ok(Self {
+            scheduler: Mutex::new(super::scheduler::Scheduler::default()),
             state,
             provider,
             network,
@@ -153,15 +156,19 @@ impl NativeAgentHost {
         let (files, other): (Vec<_>, Vec<_>) = super::tools::catalog()
             .into_iter()
             .partition(|d| matches!(d["name"].as_str(), Some("read" | "write" | "edit")));
+        let (reflect, other): (Vec<_>, Vec<_>) = other.into_iter().partition(|d| d["name"] == "reflect");
         self.process_host
             .catalog()
             .into_iter()
             .chain(files)
             .chain(super::web::definitions())
             .chain(other)
+            .chain(std::iter::once(super::scheduler::definition()))
+            .chain(reflect)
             .collect()
     }
     fn tool_definition(&self, name: &str) -> Option<Value> {
+        if name == "schedule" { return Some(super::scheduler::definition()); }
         self.process_host
             .definition(name)
             .or_else(|| super::tools::definition(name))
@@ -334,7 +341,7 @@ impl NativeAgentHost {
             .into_iter()
             .filter(|s| s["enabled"] != false)
             .collect();
-        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Scheduling, browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
+        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
     }
     fn prompt(&self, session: Value, refresh: bool) -> Result<Value, EffectError> {
         if !refresh {
@@ -763,6 +770,7 @@ impl NativeAgentHost {
                 let args = prepared["args"].clone();
                 let session = c["session"].clone();
                 let note = match self.process_host.summarize(&name, &args)? {
+                    None if name == "schedule" => compute("harness.format.oneLine", json!({"value":super::scheduler::summarize(&args)?,"max":100}))?,
                     Some(note) => {
                         compute("harness.format.oneLine", json!({"value":note,"max":100}))?
                     }
@@ -822,6 +830,9 @@ impl NativeAgentHost {
                 }
                 if matches!(name.as_str(), "web_search" | "web_fetch") {
                     return self.web.start(ctx, &name, args);
+                }
+                if name == "schedule" {
+                    return Ok(EffectTask::ready(json!({"result":self.scheduler_tool(&session, &args)?})));
                 }
                 if matches!(name.as_str(), "exec" | "process") {
                     let work_root = self.state("workRoot", json!({}))?;
@@ -1007,12 +1018,6 @@ impl NativeAgentHost {
             ));
         }
         let settings = self.settings()?;
-        if tepora_core::js_value::truthy(&settings["heartbeat"]["enabled"]) {
-            return Err(ApiError::unavailable("Configured heartbeat requires the compatibility host until native scheduling is integrated"));
-        }
-        if !array(&self.state("document.list", json!({"kind":"schedule"}))?).is_empty() {
-            return Err(ApiError::unavailable("Saved schedules require the compatibility host until native scheduling is integrated"));
-        }
         // Hooks are executable files, not ordinary persisted skills. The CLI
         // supplies the plugin scan separately before constructing this host.
         super::policy::CompiledPolicy::validate(
@@ -1103,6 +1108,16 @@ impl super::host_runtime::HostServices for NativeAgentHost {
     }
 }
 impl AgentHost for NativeAgentHost {
+    fn scheduler_policy(&self) -> Result<Option<super::SchedulerPolicy>, ApiError> {
+        self.scheduler_policy_snapshot().map(Some)
+    }
+    fn retry_cancelled_heartbeat(&self, generation: u64) -> Result<(), ApiError> {
+        self.scheduler.lock().map_err(|_| ApiError::new(500, "Scheduler state unavailable"))?.retry_cancelled_heartbeat(generation);
+        Ok(())
+    }
+    fn background_error(&self, request: &AgentRequest, error: &ApiError) -> Result<(), ApiError> {
+        self.scheduler_failed(request, error)
+    }
     fn setup_context(&self, busy: bool) -> Result<Value, ApiError> {
         self.state.setup_selection_context(busy)
     }
@@ -1118,6 +1133,7 @@ impl AgentHost for NativeAgentHost {
         }
     }
     fn plan_request(&self, request: &AgentRequest) -> Result<super::RequestPlan, ApiError> {
+        if let AgentRequest::SchedulerTick { kind } = request { return self.plan_scheduled(*kind); }
         if let AgentRequest::DeleteSession { id } = request {
             let session = self.session(id)?;
             if session.is_null() {
@@ -1181,6 +1197,9 @@ impl AgentHost for NativeAgentHost {
             || ctx.cancellation.is_cancelled()
         {
             return Err(ApiError::new(409, "Input preparation is no longer active"));
+        }
+        if matches!(request, AgentRequest::SchedulerTick { kind: super::SchedulerKind::Heartbeat }) {
+            return self.finish_heartbeat(&ctx.scope.session_id, result.value["message"].as_str().unwrap_or(""), result.value["send"] == true);
         }
         if let AgentRequest::DeleteSession { id } = request {
             if id != &ctx.scope.session_id {
@@ -1301,6 +1320,7 @@ impl AgentHost for NativeAgentHost {
     }
     fn start_effect(&self, ctx: &EffectContext, c: &Value) -> Result<EffectTask, EffectError> {
         if ctx.scope.namespace == super::EffectNamespace::Admission {
+            if c["kind"] == "heartbeat" { return Ok(self.heartbeat_effect(ctx, c)); }
             if c["kind"] == "deleteSession" {
                 let cleanup = self.process_host.stop_session(&ctx.scope.session_id);
                 return Ok(EffectTask::Async(Box::pin(async move {

@@ -5,6 +5,7 @@ mod process_tests;
 mod attachment_tests;
 mod decision_tests;
 mod deletion_tests;
+mod scheduling_tests;
 mod semantic_tests;
 mod web_tests;
 use super::*;
@@ -989,14 +990,12 @@ fn unsupported_saved_authority_is_not_silently_ignored_or_resumed() {
         "kv.set",
         json!({"key":"agent-settings","value":{"heartbeat":{"enabled":1}}}),
     );
-    assert_eq!(f.host.preflight().unwrap_err().status, 503);
+    f.host.preflight().unwrap();
     f.state("kv.set", json!({"key":"agent-settings","value":{}}));
     let schedule =
         json!({"id":"future-fixture","at":"2099-01-01T00:00:00Z","task":"fixture future task"});
     f.state("document.put", json!({"kind":"schedule","doc":schedule}));
-    let error = f.host.preflight().unwrap_err();
-    assert_eq!(error.status, 503);
-    assert!(error.message.contains("Saved schedules"));
+    f.host.preflight().unwrap();
     assert_eq!(
         f.state(
             "document.get",

@@ -43,27 +43,38 @@ Shared Rust projections preserve message/continuation and job/approval shapes. T
 
 Native process execution supports foreground/background commands, bounded UTF-16 output, process polling/logging/input/kill, exact approvals and custom receipts. Stop owns the original process resources; Resume waits for their cleanup before the next model request. Escaped descendant pipes are reported as uncertain cleanup, never a successful drain.
 
-Capability registry/key routes use one shared owner and atomic revision checks. Explicit capability keys are memory-only and identity-bound. Typed capability transports are tested components; semantic memory search/indexing is connected in this local candidate; decision routing remains unconnected. Web search/fetch is connected through the checked native transport and actor approval/receipt path. A new live decision route is rejected as well as a saved route at startup.
+Capability registry/key routes use one shared owner and atomic revision checks. Explicit capability keys are memory-only and identity-bound. Typed decisions and scoped semantic memory are connected through that owner. Web search/fetch uses checked native transport and the actor approval/receipt path. Valid configured decision routes are admitted; unsupported peripheral consumers remain unavailable.
 
-Attachment staging/removal validates bounded text and PNG/JPEG payloads on the existing database. Agent mode also supports session acceptance, file lists and downloads. Download paths are confined after symlink resolution, tightening the prior lexical-only guard. Attachment delivery to a model is still unavailable; staging alone does not claim that feature is complete.
+Attachment staging/removal validates bounded text and PNG/JPEG payloads on the existing database. Agent mode also supports session acceptance, file lists and downloads. Download paths are confined after symlink resolution, tightening the prior lexical-only guard. Agent input now supports bounded attachment preparation and supported image delivery, with the limits below.
 
 SSE reconnect/retention-gap snapshots now include live provider health, detected limits, resource queues and capability key hints without reentering the database owner.
+
+## Typed decisions, attachments and deletion
+
+Typed decision requests now use `CapabilityDecisionBackend` with the existing shared capability registry, memory-only keys, network owner and resource gate. Actor-owned delegation and completion consume advisory answers only after scope and binding checks. Buffered answers recheck registry revision, endpoint identity, an opaque owner-wide key generation and close state before consumption. Any capability-key set/clear conservatively invalidates buffered advice; original active-transport behavior is preserved. No keys or credential hashes enter advisory bindings or public events. Advice never grants tool authority.
+
+Attachment input resolves up to six staged IDs on the server, verifies hashes and byte limits, then materializes collision-safe files under the configured work root outside the FIFO actor. Pending requests with the same request ID share preparation; only successful actor acceptance caches the receipt. Stop/shutdown cancel admission but still join dispatched filesystem work. A partial write may remain on disk without an accepted-input receipt. Files are saved locally and the input retains their text/path receipts; up to the first four images enter supported vision context. Non-vision chat omits image bytes while retaining the local receipt and never starts a vision bridge. Oversized images use the bounded macOS resize path; if resizing is unavailable or fails, the local file remains but the image is omitted. Image loading through `read` and unsupported vision bridges remain unavailable.
+
+Session deletion rejects the resident main session (403), missing sessions (404), and active or still-draining work (409). For an idle worker, a correlated admission cancels its timer, blocks new send/resume/wake activity and waits for owned process cleanup before the actor rechecks and commits removal. Cancellation or uncertain cleanup cannot become successful deletion; failed deletion retains the session and prior receipts. Successful removal concerns session state and in-memory host caches, not unrelated user files or recursive removal of the working folder.
+
+Native semantic index/search and `memory_search` now share `Capabilities`, `NativeNetwork` and the one SQLite owner. Confirmed-memory consent, scope, content and capability identity are rechecked before egress and cache publication; external embedding requires explicit permission and shared scope. Vectors are disposable caches, and lexical fallback remains available. This does not connect media/speech or other capability consumers.
 
 ## Native agent mode
 
 `--dev-native --agent` adds real text conversation, asynchronous worker sessions, tool receipts, stop/resume, parent reports, provider configuration/probes, settings and approvals. It uses the saved provider registry; it does not substitute canned model replies. Chat Completions, Responses, Anthropic and Gemini transports are implemented, including the native Ollama path discovered behind a Chat Completions profile. Protocol fixtures do not certify every model or hosted provider account.
 
-The native tool catalog contains these 21 built-ins, with the existing main/worker/lean ordering intersected with implemented tools:
+The native tool catalog contains these 22 built-ins, with the existing main/worker/lean ordering intersected with implemented tools:
 
 - Sessions: `sessions_spawn`, `sessions_send`, `sessions_list`, `sessions_history`, `sessions_stop`
 - Processes: `exec`, `process`
 - Files: `read`, `write`, `edit`
 - Web: `web_search`, `web_fetch`
 - Task state/results: `todo`, `reflect`, `artifact`
+- Saved work/check-ins: `schedule`
 - Retrieval/memory: `recall`, `history_search`, `memory_search`, `memory_write`
 - Discovery/indirection: `tools_search`, `tools_call`
 
-`memory_search` uses configured semantic retrieval with the existing lexical fallback. `tools_call` resolves implemented built-ins; it does not enable MCP. File reads support text and directory handling, but image ingestion/vision bridging remains unavailable. Unported tools are omitted from new toolsets, and native availability instructions state the limitations explicitly.
+`memory_search` supports scoped semantic retrieval with the existing lexical fallback. `tools_call` resolves implemented built-ins; it does not enable MCP. File reads support text and directory handling, but image loading through `read` and vision bridging remain unavailable. Unported tools are omitted from new toolsets, and native availability instructions state the limitations explicitly.
 
 ### Ownership and execution
 
@@ -91,7 +102,7 @@ In `--dev-native --agent`, `setup/manager.rs`, `runtime_discovery.rs` and `model
 - Install-help only opens the fixed official Ollama download page with the platform opener after the explicit authenticated request. It is not arbitrary shell execution or unattended package installation
 - Catalog import/search handles bounded unverified metadata with provenance/hash; explicit refresh uses the fixed `https://models.dev/api.json` endpoint through checked web network policy with a 24 MiB limit and cancellation. Catalog entries grant no execution or network authority
 
-The outer cookie/authentication, CSRF, Host/Origin and body-size checks remain in force. Setup does not change the existing sandbox selection or grant tool permissions. Checked application networking is not an OS firewall and cannot constrain a separately forwarding local runtime. Existing decision-route, heartbeat/schedule, plugin and cached unsupported-tool admission failures remain.
+The outer cookie/authentication, CSRF, Host/Origin and body-size checks remain in force. Setup does not change the existing sandbox selection or grant tool permissions. Checked application networking is not an OS firewall and cannot constrain a separately forwarding local runtime. Plugin and cached unsupported-tool admission failures remain; saved schedules and heartbeat timers are native actor consumers.
 
 ## Semantic memory (local candidate)
 
@@ -103,15 +114,15 @@ Agent `memory_search` uses the configured semantic space with ordinary tool rece
 
 ## Admission and remaining limits
 
-A configured `capabilities.routes.decision` endpoint, enabled heartbeat, saved schedule documents, or global `.mjs` plugin files reject native-agent startup with a compatibility-host diagnostic. JavaScript hooks are not silently replaced with no-ops. Cached sessions containing unavailable tools are diagnosed at startup or before model use, including resumed sessions; their prompts/history are not silently rewritten.
+Global `.mjs` plugin files reject native-agent startup with a compatibility-host diagnostic. JavaScript hooks are not silently replaced with no-ops. Cached sessions containing unavailable tools are diagnosed at startup or before model use, including resumed sessions; their prompts/history are not silently rewritten.
 
-Still unported: `find`/`grep`, browser rendering, MCP, image ingestion and vision bridging, media/speech, Computer Use, capability decision services, skills execution, scheduling/heartbeat/dream optimization, JavaScript plugins and the remaining avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
+Still unported: `find`/`grep`, browser rendering, MCP, image loading through `read` and unsupported vision bridges, media/speech, Computer Use, skills execution, dream optimization, JavaScript plugins and the remaining avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
 
 Do not change default launch or remove the Node sidecar until the remaining effects, route inventory and desktop packaging/installation/startup have their own acceptance evidence. A future JavaScript plugin compatibility host must preserve live callback/context behavior, not just copy it into JSON.
 
 ## Verification
 
-The local semantic candidate passes 388 native library + 2 CLI tests and 41 focused HTTP/native-agent/root tests. Frozen-source fixtures remain byte-identical: 84 search, 10 cosine and 7 hash cases. The full local Node gate is 544/549 with the same five browser (3), DNS (1) and bubblewrap (1) environment failures; aggregate local quality remains red. Published web/setup head `eba5bd4` has actual macOS and Windows native passes and a complete green Linux regression; its later platform Node jobs are still running at this checkpoint. Those results do not certify this unpublished semantic candidate, which has no exact-head CI yet. Desktop packaging, installation and real-model acceptance remain unverified.
+Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLite cache tests, 11 real HTTP/socket tests, and the original Node scheduler regression pass. The HTTP and source-scheduler gates pass on both Node 22.16.0 and 24.19.0; 9 targeted root workflow/conventional-commit checks pass on both, including dedicated LF/CRLF fixtures. The 11 HTTP tests include a real schedule tool receipt, restart delivery and second-restart deduplication. These are focused gates, not a full Rust/Node/quality pass; approval-policy and broader security suites were not rerun in this slice. Cross-platform CI and packaging for this new source are still pending. Earlier package results at 7743e8d do not certify this candidate. No real model, paid provider or desktop default cutover is claimed.
 
 From the repository root:
 
@@ -133,3 +144,11 @@ The stage-6 Linux checkpoint passed **153 service tests and 2 CLI tests**, inclu
 Pure harness comparison tests freeze the original JavaScript as a test-only oracle, including malformed arguments, Unicode/UTF-16 boundaries, token thresholds, prompts, compaction and metacognition. Node22/Unicode16 and Node24/Unicode17 are explicit core inputs; the native agent host selects Unicode17 consistently with its receipt calculations.
 
 `defaults.json` and catalog/profile fixtures are frozen build-time compatibility data. Their generation scripts are development tools, never executed by the Rust service. See [Rust migration](../docs/RUST-MIGRATION.md) for staged evidence and the [architecture](../docs/ARCHITECTURE.md) for ownership boundaries.
+
+## Native saved schedules and check-ins
+
+`agent/scheduler.rs` plans ordinary reminders and worker tasks without owning a database or invoking a model. Add/list/cancel retains source metadata, UTF-16 bounds, local-time shorthand, recurrence and missed-tick behavior. Its date grammar is shared with display validation; fixtures cover legacy forms, Date range endpoints, signed-year ordering and DST gaps/repeats. Unix timezone subprocess fixtures cover New York, Lord Howe and Tokyo; Windows uses its OS timezone and does not run the TZ-variable fixture.
+
+`agent/coordinator/scheduling.rs` owns versioned timers. Each interval holds at most one queued callback; stale generations, foreign service IDs and callbacks after close are ignored. Shutdown cancels timers before draining outstanding effects. Heartbeat configuration replaces its timer and cancels any old decision request. Cancellation clears dedup state only for that still-current plan generation, allowing unchanged undelivered work to retry without invalidating a newer settled check-in. Unchanged state, ordinary step-counter progress, a busy main session or pending input does not wake the model. Optional typed decisions remain asynchronous owned admissions, and cancelled results cannot enqueue late input.
+
+Only actor callbacks commit schedule documents and `schedule.updated` events through the existing Workspace. A due one-shot is removed; a missed recurring item fires once and moves to its next future occurrence. As in the source host, delivery and schedule advancement are separate commits: a crash between them can redeliver, so no crash-atomic exactly-once guarantee is claimed. The `schedule` tool follows the existing tool execution/receipt path. Real HTTP fixtures verify saved receipts, startup catch-up and no duplicate reminder on a second restart. This remains the explicit development host; Node/Tauri and GUI files are unchanged.

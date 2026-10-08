@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-semantic-memory-local",
+  "checkpoint": "native-lifecycle-scheduler-local",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 62,
-    "partial": 13,
-    "unavailable": 51
+    "implemented": 64,
+    "partial": 12,
+    "unavailable": 50
   },
   "routes": [
     {
@@ -60,7 +60,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Projected agent state works for admitted native sessions; browser rendering/media/scheduler/plugin effects remain incomplete.",
+      "limit": "Projected agent state includes saved schedules and change-sensitive heartbeats; browser rendering/media/plugin effects remain incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -82,7 +82,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 202,
-      "limit": "Text input works; nonempty attachmentIds still fail explicitly. Staging exists, but copying/image delivery, vision bridging and decision routing remain pending.",
+      "limit": "Server-resolved bounded attachment preparation, request-ID deduplication and supported vision delivery are connected. Non-vision chat keeps local receipts without image bytes or a bridge. Oversized image resize is macOS-only; unavailable/failed resize omits the image. Unsupported vision bridges remain absent.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -104,7 +104,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 202,
-      "limit": "Native 21-tool worker path includes exec/process and web_search/web_fetch. find/grep/skill/MCP/media/computer/schedule remain unavailable; unsupported cached tools block admission.",
+      "limit": "Native 22-tool catalog includes exec/process, web_search/web_fetch and schedule. find/grep/skill/MCP/media/computer remain unavailable; unsupported cached tools block admission.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -124,9 +124,9 @@
       "path": "/api/agent/sessions/{id}",
       "family": "sessions",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Session deletion is not yet connected to native actor/process cleanup.",
+      "limit": "Idle worker deletion waits for owned process cleanup and actor revalidation. Main, missing, active/draining and uncertain-cleanup cases fail explicitly; failure preserves session receipts. Working folders and unrelated user files are not recursively deleted.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -203,7 +203,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Settings and real process sandbox availability are returned. Some preserved optimizer/scheduler/peripheral settings still have no native consumer.",
+      "limit": "Settings and real process sandbox availability are returned. Heartbeat settings drive versioned native timers; optimizer and peripheral settings remain partial.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -214,7 +214,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Policy/config mutations and prompt refresh work; enabling heartbeat is rejected. Web search configuration invalidates existing bindings; optimizer, scheduler and broader effects remain unported.",
+      "limit": "Configuration and prompt refresh work; heartbeat changes replace timers and cancel in-flight old check-ins. Web search configuration invalidates bindings; dream optimizer and broader effects remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -355,9 +355,9 @@
       "path": "/api/capabilities",
       "family": "capabilities",
       "static": false,
-      "agent": "partial",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Atomic revisioned capability settings. Nonempty decision routes are explicitly rejected until the decision host is connected.",
+      "limit": "Atomic revisioned shared capability settings; valid decision routes are connected to typed actor-owned advice. Buffered advice rechecks registry/identity/key generation/close; this does not implement media/speech consumers.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -775,7 +775,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 201,
-      "limit": "Atomic bounded text/PNG/JPEG staging and metadata. Model input attachment delivery remains missing in the agent input route.",
+      "limit": "Atomic bounded text/PNG/JPEG staging and metadata; actor-correlated model input delivery is connected through the agent input route with its documented image limits.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
