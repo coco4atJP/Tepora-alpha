@@ -1040,6 +1040,8 @@ enum NativeAgentBodyRoute {
     ModelCatalogImport,
     SetupSelect,
     SetupInstall,
+    SkillCreate,
+    SkillPatch(String),
     DialoguePersonas,
     Preferences,
     SearchKey,
@@ -1071,6 +1073,8 @@ impl NativeAgentBodyRoute {
             Self::ModelCatalogImport=>Operation::ModelCatalogImport{body},
             Self::SetupSelect=>Operation::SetupSelect{body},
             Self::SetupInstall=>Operation::SetupInstall{body},
+            Self::SkillCreate => Operation::SkillCreate { body },
+            Self::SkillPatch(id) => Operation::SkillPatch { id, body },
             Self::DialoguePersonas => Operation::DialoguePersonasSave { body },
             Self::Preferences => Operation::SettingsPatch { body },
             Self::SearchKey => Operation::SearchKey { body },
@@ -1143,6 +1147,7 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("POST","/api/setup/stop")=>return Some(Ready(Operation::SetupStop,200)),
         ("POST","/api/setup/install-help")=>return Some(Ready(Operation::SetupInstallHelp,200)),
         ("POST","/api/runtime/discover")=>return Some(Ready(Operation::RuntimeDiscover,200)),
+        ("POST", "/api/skills") => return Some(Json(Body::SkillCreate, 201)),
         ("GET", "/api/dialogue/personas") => return Some(Ready(Operation::DialoguePersonas, 200)),
         ("PUT", "/api/dialogue/personas") => return Some(Json(Body::DialoguePersonas, 200)),
         ("PATCH", "/api/settings") => return Some(Json(Body::Preferences, 200)),
@@ -1170,6 +1175,14 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("PATCH", "/api/network") => return Some(Json(Body::Network, 200)),
         ("POST", "/api/stop") => return Some(Ready(Operation::StopAll, 200)),
         _ => {}
+    }
+    if let Some(id) = path.strip_prefix("/api/skills/").filter(|id| raw_id(id)) {
+        // Match the source raw [^/]+ capture: do not URL-decode document IDs.
+        match *method {
+            Method::PATCH => return Some(Json(Body::SkillPatch(id.into()), 200)),
+            Method::DELETE => return Some(Ready(Operation::SkillDelete { id: id.into() }, 200)),
+            _ => {}
+        }
     }
     if method == Method::DELETE {
         if let Some(id) = path.strip_prefix("/api/agent/sessions/").filter(|id| session_id(id)) {
@@ -1434,6 +1447,7 @@ mod tests {
     use std::sync::Mutex;
     use tokio::sync::mpsc;
     include!("http/visual_tests.rs");
+    include!("http/skills_tests.rs");
     include!("http/media_tests.rs");
     include!("http/semantic_tests.rs");
     #[tokio::test]
@@ -1492,6 +1506,8 @@ mod tests {
             self.calls.lock().unwrap().push(op.clone());
             Ok(match op {
                 Operation::MemoryCreate { body }
+                | Operation::SkillCreate { body }
+                | Operation::SkillPatch { body, .. }
                 | Operation::Display { body, .. }
                 | Operation::Avatar { body, .. }
                 | Operation::DialoguePersonasSave { body }

@@ -356,3 +356,7 @@ The explicit native agent host owns streaming speech R074–R077 through an ephe
 ## Native ordinary dictation and uploaded-audio transcription
 
 R073/R078 now use the existing device provider chain and configured ASR transport in the opt-in native agent host. Async request cancellation and counted Stop barriers preserve sibling-owner signalling before drain; Unicode edit proposals retain JavaScript UTF-16 semantics. Normal GUI/Node/Tauri defaults and policy/configuration authority are unchanged. Native ASR bounds and source cancellation differences are explicit in [RUST-VOICE-ROUTES](RUST-VOICE-ROUTES.md). Route totals are 87 implemented / 12 partial / 27 unavailable; focused synthetic tests do not establish full quality or platform/model acceptance.
+
+## Native ordinary custom-skill CRUD
+
+R092–R094 now use the sole Workspace SQLite owner and existing session actor under `--dev-native --agent`. Source UTF-16 validation, enabled defaults, ordered documents/events, missing deletion and cached-prefix-preserving prompt refresh are retained. Workspace-only mode remains unavailable rather than skipping refresh. Shared discovery and native skill content loading remain unported; R003 bootstrap remains partial. Route totals are 90 implemented / 12 partial / 24 unavailable. [Contract and focused synthetic validation](RUST-CUSTOM-SKILLS.md).

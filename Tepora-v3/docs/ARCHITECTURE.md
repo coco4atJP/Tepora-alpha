@@ -168,3 +168,7 @@ The explicit native agent host owns streaming speech R074–R077 through an ephe
 ## Ordinary voice proposals and uploaded audio
 
 `workspace/voice_operations.rs` owns asynchronous device-only dictation and configured-ASR upload flights. It reuses the provider registry, shared JSON/UTF-16 codec and checked network without saving text, audio or credentials. Counted voice and speech cancellation barriers are both signalled before media drain on Stop All, tray Stop or shutdown. Request drop cancels its scope; late results cannot become successful replies. Native ASR adds explicit response, transcript and concurrent-flight bounds. [Contract and focused validation](RUST-VOICE-ROUTES.md).
+
+## Native ordinary stored skills
+
+`workspace/skills.rs` owns custom-skill create, enabled-flag patch and delete under `--agent`. A skill mutex orders document mutation, durable event publication and existing actor refresh; no SQLite guard crosses the actor wait. Errors during refresh retain the source document/event-before-refresh behavior. Native snapshots reread enabled metadata, while the unavailable `skill` tool/content consumer and shared discovery remain separate gaps. No text is executed and no filesystem discovery is added. [Contract and validation](RUST-CUSTOM-SKILLS.md).

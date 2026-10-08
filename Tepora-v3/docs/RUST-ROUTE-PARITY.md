@@ -1,8 +1,8 @@
-# Native backend route parity: dictation/transcription checkpoint
+# Native backend route parity: ordinary custom-skill CRUD checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **87 are substantially matched, 12 are partial and 27 are absent**. Thus 99 have handlers, and the 12 partial routes are included in those 99. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **90 are substantially matched, 12 are partial and 24 are absent**. Thus 102 have handlers, and the 12 partial routes are included in those 102. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -15,6 +15,8 @@ Photo-frame evidence and exact local scope are recorded in [RUST-PHOTO-FRAME](RU
 Media jobs add seven ordinary routes under `--dev-native --agent`. Focused evidence and limitations are in [RUST-MEDIA-JOBS](RUST-MEDIA-JOBS.md). This does not switch the launcher or certify remote accounts, decoders or billing.
 
 Dictation proposals and uploaded-audio transcription add two ordinary routes. [RUST-VOICE-ROUTES](RUST-VOICE-ROUTES.md) records source parity, deliberate native bounds and cancellation improvements, and focused synthetic evidence.
+
+Ordinary custom-skill CRUD adds R092–R094 under `--agent`, including real actor prompt refresh. [RUST-CUSTOM-SKILLS](RUST-CUSTOM-SKILLS.md) records exact validation, persistence, event and snapshot behavior. Shared scan R091 and the native `skill` content-loading tool remain absent; stored CRUD does not make skills usable end-to-end. R003 bootstrap remains partial.
 
 ## Complete route inventory
 
@@ -113,9 +115,9 @@ YES means a real handler is present in the supported scope, not that every model
 | R089 | `POST /api/display/import` | YES | 200 | Revisioned display configuration, validation, import/export, reset and undo; real Workspace/HTTP regression coverage. |
 | R090 | `GET /api/doctor` | PARTIAL | 200 | OS diagnostics are partial across platforms: RAM implementation is Linux-only; native marker/note differs. Real model/GPU and packaged Windows/macOS behavior remain unverified. |
 | R091 | `POST /api/shared/scan` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R092 | `PATCH /api/skills/{id}` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R093 | `DELETE /api/skills/{id}` | ABSENT | 200 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R094 | `POST /api/skills` | ABSENT | 201 | Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R092 | `PATCH /api/skills/{id}` | YES | 200 | Stored-skill enabled-flag validation, metadata/order preservation, skill.updated and actor prompt refresh are matched under --agent. Discovery and the native skill content-loading tool remain unavailable. |
+| R093 | `DELETE /api/skills/{id}` | YES | 200 | Stored-skill deletion, including missing-document success, skill.deleted and actor prompt refresh are matched under --agent. No skill file is read or deleted; discovery/content loading remain unavailable. |
+| R094 | `POST /api/skills` | YES | 201 | Custom-skill text validation, UTF-16/trim semantics, enabled defaults, ordered persistence, skill.updated and actor prompt refresh are matched under --agent. No discovery or content-loading tool is added. |
 | R095 | `PATCH /api/settings` | YES | 200 | Existing application preferences and atomic network revocation coupling are implemented; unknown fields do not grant permissions. |
 | R096 | `POST /api/presence` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R097 | `GET /api/avatar` | YES | 200 | Revisioned avatar recipe state, validation, import/export, reset and undo; custom asset upload/byte-serving is implemented in R103–R107. |

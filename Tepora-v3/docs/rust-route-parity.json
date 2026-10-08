@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-dictation-transcription",
+  "checkpoint": "native-custom-skill-crud",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 87,
+    "implemented": 90,
     "partial": 12,
-    "unavailable": 27
+    "unavailable": 24
   },
   "routes": [
     {
@@ -1015,9 +1015,9 @@
       "path": "/api/skills/{id}",
       "family": "skills",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Stored-skill enabled-flag validation, metadata/order preservation, skill.updated and actor prompt refresh are matched under --agent. Discovery and the native skill content-loading tool remain unavailable.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1026,9 +1026,9 @@
       "path": "/api/skills/{id}",
       "family": "skills",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Stored-skill deletion, including missing-document success, skill.deleted and actor prompt refresh are matched under --agent. No skill file is read or deleted; discovery/content loading remain unavailable.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1037,9 +1037,9 @@
       "path": "/api/skills",
       "family": "skills",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 201,
-      "limit": "Local/shared skill discovery, SHA-bound enabling and lazy content loading is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Custom-skill text validation, UTF-16/trim semantics, enabled defaults, ordered persistence, skill.updated and actor prompt refresh are matched under --agent. No discovery or content-loading tool is added.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

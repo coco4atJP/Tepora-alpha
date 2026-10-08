@@ -17,6 +17,9 @@ impl Workspace {
                 | Operation::SetupStop
                 | Operation::SetupInstallHelp
                 | Operation::RuntimeDiscover
+                | Operation::SkillCreate { .. }
+                | Operation::SkillPatch { .. }
+                | Operation::SkillDelete { .. }
                 | Operation::DialoguePersonas
                 | Operation::DialoguePersonasSave { .. }
                 | Operation::SettingsPatch { .. }
@@ -74,6 +77,9 @@ impl Workspace {
             Operation::SetupInstall{body}=>native.setup.install(body)?,
             Operation::SetupStop=>native.setup.stop(),
             Operation::SetupInstallHelp=>crate::setup::open_installer_page()?,
+            Operation::SkillCreate { .. } | Operation::SkillPatch { .. } | Operation::SkillDelete { .. } => self.change_skill(op, || {
+                native.agent.request(AgentRequest::RefreshPrompts).map(|_| ())
+            })?,
             Operation::DialoguePersonas => self.preference_personas()?,
             Operation::DialoguePersonasSave { body } => self.change_personas(body, || {
                 native.agent.request(AgentRequest::RefreshPrompts).map(|_| ())

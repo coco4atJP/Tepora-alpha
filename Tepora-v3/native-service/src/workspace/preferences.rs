@@ -6,7 +6,7 @@ use tepora_core::js_value::js_string;
 fn space(unit: u16) -> bool {
     matches!(unit, 0x09..=0x0d | 0x20 | 0xa0 | 0x1680 | 0x2000..=0x200a | 0x2028 | 0x2029 | 0x202f | 0x205f | 0x3000 | 0xfeff)
 }
-fn trim_text(text: &str) -> String {
+pub(super) fn trim_text(text: &str) -> String {
     let units = json_codec::utf16_units(text);
     let start = units.iter().position(|u| !space(*u)).unwrap_or(units.len());
     let end = units

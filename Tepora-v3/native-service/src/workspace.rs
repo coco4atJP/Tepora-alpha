@@ -7,6 +7,7 @@ pub(crate) mod photo_frame;
 pub(crate) mod avatar_assets;
 mod semantic_state;
 mod preferences;
+mod skills;
 mod display_avatar;
 pub use display_avatar::VisualAction;
 mod capability_state;
@@ -34,6 +35,7 @@ pub struct Workspace {
     state: Arc<Mutex<State>>,
     native: OnceLock<NativeResources>,
     preference_changes: Mutex<()>,
+    skill_changes: Mutex<()>,
     photo_changes: Mutex<()>,
     avatar_asset_changes: Mutex<()>,
     probe_cancel: Mutex<crate::network::RequestCancellation>,
@@ -385,6 +387,7 @@ impl Workspace {
             state: Arc::new(Mutex::new(s)),
             native: OnceLock::new(),
             preference_changes: Mutex::new(()),
+            skill_changes: Mutex::new(()),
             photo_changes: Mutex::new(()),
             avatar_asset_changes: Mutex::new(()),
             probe_cancel: Mutex::new(crate::network::RequestCancellation::new()),

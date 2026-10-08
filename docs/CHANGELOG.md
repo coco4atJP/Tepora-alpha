@@ -1,5 +1,12 @@
 # Tepora V3 changelog
 
+## Rust ordinary custom-skill CRUD (beta.11)
+
+- Connect custom-skill create, enabled-flag patch and delete to the sole native Workspace SQLite owner and synchronous session prompt refresh under `--agent`
+- Preserve source validation, UTF-16 text, ordering, missing-delete behavior and event-before-refresh failure semantics; keep cached prefixes intact
+- Keep shared discovery and native skill content loading unavailable, and ordinary Node/Tauri launch and GUI unchanged
+- See [the custom-skill boundary](../Tepora-v3/docs/RUST-CUSTOM-SKILLS.md) for focused synthetic-only checks and remaining capability gaps
+
 ## Rust ordinary streaming speech (beta.11)
 
 - Connect four explicit native-agent streaming speech routes with one ephemeral 16kHz PCM session, ordered/idempotent chunks, 120-second bounds and partial/final text
