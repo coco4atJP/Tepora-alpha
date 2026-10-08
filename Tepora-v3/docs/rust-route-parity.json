@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-custom-skill-crud",
+  "checkpoint": "native-weather-news-connectors",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 90,
+    "implemented": 92,
     "partial": 12,
-    "unavailable": 24
+    "unavailable": 22
   },
   "routes": [
     {
@@ -1312,9 +1312,9 @@
       "path": "/api/connector/weather",
       "family": "feeds",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Weather/news network fetch with current consent and document updates is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Saved city/current consent, fixed Open-Meteo URLs, 48-hour projection, 15-minute in-memory cache and owned Stop/shutdown cancellation. Bounded mock-only validation; real provider acceptance unverified.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1323,9 +1323,9 @@
       "path": "/api/connector/news",
       "family": "feeds",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Weather/news network fetch with current consent and document updates is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Saved feed/current consent, source RSS/Atom extraction and UTF-16/title/text limits, 10-minute in-memory cache and owned Stop/shutdown cancellation. Returned links remain inert.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
