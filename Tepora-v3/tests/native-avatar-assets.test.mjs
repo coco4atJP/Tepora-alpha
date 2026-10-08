@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
+import {getDefaultHighWaterMark,setDefaultHighWaterMark} from 'node:stream';
 import {access,mkdir,mkdtemp,readdir,rm,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -237,24 +238,28 @@ test('native avatar assets match HTTP metadata, ordering, logical files, bytes, 
 });
 
 test('native avatar asset use, delete, reset, undo, event envelopes and restart match HTTP',async t=>{
+ // Keep this fixture below the older Node/Windows replay buffering boundary.
+ const previousHighWaterMark=getDefaultHighWaterMark(false);
+ setDefaultHighWaterMark(false,16*1024);
+ t.after(()=>setDefaultHighWaterMark(false,previousHighWaterMark));
  const pair=await fixture(t,{agent:true});
- const cursors=pair.clients.map(app=>app.bootstrap.seq),expectedEvents=[[],[]],saved=[];
+ const cursors=pair.clients.map(app=>app.bootstrap.seq),expectedEvents=[[],[]];
  const inputs=['vrm','image','imageset','mesh'].map(kind=>corpus().cases.find(input=>input.kind===kind));
- for(const input of inputs){
-  const values=await pair.upload(input.kind,input.bytes,input.filename);saved.push(values);
-  values.forEach((value,i)=>expectedEvents[i].push({type:'avatar.assets',data:{assets:value.assets,limits:value.limits}}));
- }
  let revision=0;
- for(const [index,input] of inputs.entries()){
-  const ids=saved[index].map(value=>value.asset.id);
+ for(const input of inputs){
+  // Exercise one complete lifecycle before importing the next asset. Keeping
+  // the full library in every intermediate event makes this format test a
+  // large synchronous SSE replay test instead, exceeding Node22's 16 KiB
+  // writable buffer on Windows. The separate CRUD test covers library order.
+  const saved=await pair.upload(input.kind,input.bytes,input.filename);
+  saved.forEach((value,i)=>expectedEvents[i].push({type:'avatar.assets',data:{assets:value.assets,limits:value.limits}}));
+  const ids=saved.map(value=>value.asset.id);
   const worn=await pair.json('/api/avatar','PATCH',i=>({expectedRevision:revision,patch:{body:input.kind,asset:ids[i],palette:'felt'}}));revision++;
   worn.forEach((value,i)=>expectedEvents[i].push({type:'avatar.updated',data:value}));
   await pair.upload(input.kind,input.bytes,'unchanged copy.bin');
-  if(index===0){
-   const library=await pair.json(assetRoot);await pair.restart();
-   pair.clients.forEach((app,i)=>{assert.deepEqual(app.bootstrap.avatar,worn[i]);assert.deepEqual(app.bootstrap.avatarAssets,library[i]);});
-   await assertFiles(pair,saved[index],input.files);
-  }
+  const library=await pair.json(assetRoot);await pair.restart();
+  pair.clients.forEach((app,i)=>{assert.deepEqual(app.bootstrap.avatar,worn[i]);assert.deepEqual(app.bootstrap.avatarAssets,library[i]);});
+  await assertFiles(pair,saved,input.files);
   const removed=await pair.json(i=>`${assetRoot}/${ids[i]}`,'DELETE');
   removed.forEach((value,i)=>{assert.equal(value.removed,ids[i]);expectedEvents[i].push({type:'avatar.assets',data:{assets:value.assets,limits:value.limits}});});
   const reset=await pair.json('/api/avatar');revision++;
@@ -266,6 +271,12 @@ test('native avatar asset use, delete, reset, undo, event envelopes and restart 
   undone.forEach((value,i)=>{assert.equal(value.body,'shiro');assert.equal(value.asset,null);assert.equal(value.revision,revision);expectedEvents[i].push({type:'avatar.updated',data:value});});
   await pair.json(fileRoute(ids,Object.keys(input.files)[0]),'GET',undefined,404);
   await pair.json(i=>`${assetRoot}/${ids[i]}`,'DELETE',undefined,404);
+ }
+ // Bound the entire persisted avatar replay, including worst-case sequence
+ // fields, leaving headroom for response headers and ordinary startup events.
+ for(const expected of expectedEvents){
+  const replayBytes=expected.reduce((bytes,event)=>bytes+Buffer.byteLength(`id: ${Number.MAX_SAFE_INTEGER}\ndata: ${JSON.stringify({...event,seq:Number.MAX_SAFE_INTEGER,at:'2000-01-01T00:00:00.000Z'})}\n\n`),0);
+  assert.ok(replayBytes<=12*1024,`Avatar event fixture replay grew to ${replayBytes} bytes`);
  }
  const events=await Promise.all(pair.clients.map((app,i)=>avatarEvents(app,cursors[i],revision)));
  events.forEach((value,i)=>assert.deepEqual(value,expectedEvents[i],`${i===0?'Node':'native'} avatar events, including no dedup event`));
