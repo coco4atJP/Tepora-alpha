@@ -364,3 +364,7 @@ R092–R094 now use the sole Workspace SQLite owner and existing session actor u
 ## Native ordinary weather and news
 
 R119/R120 now use saved settings and the existing checked feed network under `--dev-native --agent`. Fixed weather queries, 48-hour projections, ordinary RSS/Atom extraction and source cache/time behavior are retained, with bounded native requests/cache and owned cancellation. Route totals are 92 implemented / 12 partial / 22 unavailable. The normal GUI/Node/Tauri host is unchanged. [Contract, deliberate bounds and focused mock-only verification](RUST-FEED-CONNECTORS.md).
+
+## Native ordinary media embed/view
+
+R122/R123 now construct source-compatible local media-view responses under `--dev-native --agent`, using the existing network-policy owner and a process-local 32-entry FIFO. There is no TTL; restart, eviction and non-online network-mode patches invalidate handles. Effect-free mode returns 503, and the normal GUI/Node/Tauri host is unchanged. R121 external opening remains unported. Route totals are 94 implemented / 12 partial / 20 unavailable, plus 22 static rows (148 total), not a feature percentage. [Contract and focused local-only validation](RUST-MEDIA-EMBED.md).

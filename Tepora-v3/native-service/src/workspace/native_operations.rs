@@ -6,7 +6,7 @@ impl Workspace {
     pub(super) fn execute_native(&self, op: &Operation) -> Result<Option<Reply>, ApiError> {
         if !matches!(
             op,
-            Operation::SpeechStart | Operation::SpeechChunk {..} | Operation::SpeechFinish {..} | Operation::SpeechCancel {..} | Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
+            Operation::MediaEmbed { .. } | Operation::MediaView { .. } | Operation::SpeechStart | Operation::SpeechChunk {..} | Operation::SpeechFinish {..} | Operation::SpeechCancel {..} | Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
                 | Operation::ModelCatalogImport{..}
                 | Operation::ModelCatalogRefresh
                 | Operation::Setup
@@ -59,6 +59,8 @@ impl Workspace {
         }
         let request = |r| native.agent.request(r);
         let value = match op {
+            Operation::MediaEmbed { body } => self.media_embed(body, &native.network)?,
+            Operation::MediaView { token } => return self.media_view(token, &native.network).map(Some),
             Operation::SpeechStart => {let settings=self.lock()?.settings()?;native.speech.start(&settings)?},
             Operation::SpeechChunk {body} => native.speech.chunk(body)?,
             Operation::SpeechFinish {body} => native.speech.finish(body)?,
@@ -304,7 +306,7 @@ impl Workspace {
                 next["note"] =
                     json!("Tepora管理の通信に適用します。OS全体のファイアウォールではありません。");
                 // Cancel selection while State still excludes its final commit.
-                if next["mode"]!="online" {native.setup.stop();}
+                if next["mode"]!="online" {native.setup.stop();s.media_frames.clear();}
                 drop(s);
                 next
             }

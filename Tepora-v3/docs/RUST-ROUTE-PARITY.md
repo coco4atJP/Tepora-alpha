@@ -1,8 +1,8 @@
-# Native backend route parity: ordinary weather/news checkpoint
+# Native backend route parity: ordinary media embed/view checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **92 are substantially matched, 12 are partial and 22 are absent**. Thus 104 have handlers, and the 12 partial routes are included in those 104. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **94 are substantially matched, 12 are partial and 20 are absent**. Thus 106 have handlers, and the 12 partial routes are included in those 106. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -20,9 +20,11 @@ Ordinary custom-skill CRUD adds R092–R094 under `--agent`, including real acto
 
 Ordinary weather/news adds R119–R120 with the unchanged saved-setting and feed-admission boundary, source projection/cache behavior and owned cancellation. [RUST-FEED-CONNECTORS](RUST-FEED-CONNECTORS.md) records the deliberate native bounds and mock-only verification.
 
+Ordinary media embedding adds R122/R123 under `--agent`, using process-local FIFO handles and the existing network policy. [RUST-MEDIA-EMBED](RUST-MEDIA-EMBED.md) records source response parity and the local-only validation boundary. The R121 external opener remains unavailable.
+
 ## Complete route inventory
 
-YES means a real handler is present in the supported scope, not that every model/platform is certified. PARTIAL identifies a missing behavior or deliberate compatibility boundary. ABSENT means the route has no native implementation (normally503; media-view remains404). All API routes retain the outer authentication, CSRF, Host/Origin and body-size boundary.
+YES means a real handler is present in the supported scope, not that every model/platform is certified. PARTIAL identifies a missing behavior or deliberate compatibility boundary. ABSENT means the route has no native implementation (normally 503). All API routes retain the outer authentication, CSRF, Host/Origin and body-size boundary.
 
 | ID | Method/path | Native agent | Successful source status | Boundary |
 |---|---|---|---|---|
@@ -147,8 +149,8 @@ YES means a real handler is present in the supported scope, not that every model
 | R119 | `POST /api/connector/weather` | YES | 200 | Saved city/current consent, fixed Open-Meteo URLs, 48-hour projection, 15-minute in-memory cache and owned Stop/shutdown cancellation. Bounded mock-only validation; real provider acceptance unverified. |
 | R120 | `POST /api/connector/news` | YES | 200 | Saved feed/current consent, source RSS/Atom extraction and UTF-16/title/text limits, 10-minute in-memory cache and owned Stop/shutdown cancellation. Returned links remain inert. |
 | R121 | `POST /api/media/open` | ABSENT | 200 | External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R122 | `POST /api/media/embed` | ABSENT | 200 | External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R123 | `GET /media-view/{token}` | ABSENT | 200 | External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R122 | `POST /api/media/embed` | YES | 200 | Agent-only strict 11-character video IDs, existing cloud/web policy check and process-local 32-entry FIFO handles. No TTL, durable token, browser open or outbound fetch; R121 opener remains unavailable. |
+| R123 | `GET /media-view/{token}` | YES | 200 | Agent-only repeated local HTML reads with source bytes/CSP/no-store headers and network-before-lookup errors. Non-online mode changes, FIFO eviction and restart invalidate handles. Third-party playback remains untested. |
 | R124 | `GET /api/context/export` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R125 | `POST /api/context/import` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R126 | `GET /` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |

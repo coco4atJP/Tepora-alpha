@@ -48,6 +48,8 @@ impl std::error::Error for ApiError {}
 
 #[derive(Debug, Clone)]
 pub enum Operation {
+    MediaEmbed { body: Value },
+    MediaView { token: String },
     MediaJobs,
     MediaCreate { body: Value },
     MediaCancel { id: String },
@@ -204,6 +206,7 @@ pub enum Operation {
 }
 #[derive(Debug, Clone)]
 pub enum Reply {
+    MediaView { id: String },
     Media { bytes: Vec<u8>, mime: String },
     AvatarFile { bytes: Vec<u8>, mime: String },
     Photo { bytes: Vec<u8>, mime: String },

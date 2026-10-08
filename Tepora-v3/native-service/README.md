@@ -170,3 +170,8 @@ R074–R077 are available under `--dev-native --agent` with a configured loopbac
 ## Ordinary weather and news
 
 `--dev-native --agent` supports saved-city weather and saved-feed news with source-compatible projections/TTL caching and the existing checked feed admission. Bounded request owners cancel and drain on request drop, Stop All, tray Stop and shutdown; no persistent connector state or credentials are added. Workspace-only mode remains unavailable (503), and normal startup is unchanged. [Contract and mock-only verification](../docs/RUST-FEED-CONNECTORS.md).
+
+
+## Ordinary media embed/view
+
+Under `--dev-native --agent`, R122/R123 create ephemeral media-view handles and serve source-compatible local HTML/CSP/cache headers. The existing network owner checks cloud/web permission, and the sole Workspace state lock orders the 32-entry FIFO, lookup and non-online-mode clearing. Handles have no TTL and never persist across restart. Effect-free mode returns 503. See [contract and local-only validation](../docs/RUST-MEDIA-EMBED.md). This does not fetch video, open a browser, certify third-party playback or implement R121's external opener.

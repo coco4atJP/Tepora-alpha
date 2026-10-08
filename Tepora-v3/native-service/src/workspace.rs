@@ -1,6 +1,7 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
 mod media_jobs;
+mod media_embed;
 mod speech_stream;
 mod voice_operations;
 mod feed_connectors;
@@ -23,7 +24,7 @@ use crate::{ApiError, Backend, EventRequest, EventSubscription, Operation, Reply
 use chrono::{Duration, SecondsFormat, Utc};
 use serde_json::{json, Map, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     env, fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, MutexGuard, OnceLock},
@@ -73,6 +74,7 @@ struct State {
     closed: bool,
     closing: bool,
     native_agent: bool,
+    media_frames: VecDeque<(String, String)>,
 }
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
@@ -306,6 +308,7 @@ impl Workspace {
             closed: false,
             closing: false,
             native_agent: false,
+            media_frames: VecDeque::new(),
         };
         s.call("exec", json!({"sql":"BEGIN IMMEDIATE"}))?;
         let result = (|| {
@@ -827,6 +830,7 @@ impl State {
         }
         self.closed = true;
         self.subscribers.clear();
+        self.media_frames.clear();
         if self.value("service-owner")?["id"] == self.owner {
             self.call("kv.delete", json!({"key":"service-owner"}))?;
         }

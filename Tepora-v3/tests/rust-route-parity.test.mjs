@@ -49,3 +49,15 @@ test('Weather and news machine boundaries match the documented connector scope',
     assert.equal(route.limit, byId.get(id)[4], id);
   }
 });
+
+
+test('Media embed/view machine boundaries match the documented local-only scope', () => {
+  for (const id of ['R122', 'R123']) {
+    const route = inventory.routes.find(route => route.id === id);
+    assert.equal(route.agent, 'implemented', id);
+    assert.equal(route.family, 'media-embed', id);
+    assert.equal(route.static, false, id);
+    assert.equal(route.limit, byId.get(id)[4], id);
+  }
+  assert.equal(inventory.routes.find(route => route.id === 'R121').agent, 'unavailable');
+});

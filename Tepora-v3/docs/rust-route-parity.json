@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-weather-news-connectors",
-  "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
+  "checkpoint": "native-media-embed-view",
+  "baseline": "765d786d711321890db5c9d7260d8c45bc2e52c3",
   "counting": {
-    "implemented": 92,
+    "implemented": 94,
     "partial": 12,
-    "unavailable": 22
+    "unavailable": 20
   },
   "routes": [
     {
@@ -1345,9 +1345,9 @@
       "path": "/api/media/embed",
       "family": "media-embed",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Agent-only strict 11-character video IDs, existing cloud/web policy check and process-local 32-entry FIFO handles. No TTL, durable token, browser open or outbound fetch; R121 opener remains unavailable.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1356,9 +1356,9 @@
       "path": "/media-view/{token}",
       "family": "media-embed",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "External opener and tokenized third-party embedded viewer is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Agent-only repeated local HTML reads with source bytes/CSP/no-store headers and network-before-lookup errors. Non-online mode changes, FIFO eviction and restart invalidate handles. Third-party playback remains untested.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

@@ -63,6 +63,10 @@ Separate capability endpoints handle typed decisions, embeddings, speech and gen
 
 Persisted submission uncertainty is never replayed as a new paid job. Startup pauses queued/running handles and marks a lost submitting response unknown. Explicit resume polls the same remote ID or retries its download; a provably unsent queued job may be submitted by that explicit action. Local files retain signature/modality checks, hashes, the 32 MiB output limit and 512 MiB library limit. Serialized writes make a separate pending-byte reservation unnecessary. Authenticated GET/HEAD supports source byte ranges and inert download headers. See [media validation](RUST-MEDIA-JOBS.md); agent media tools and live provider acceptance remain separate.
 
+## Local media-view responses
+
+`workspace/media_embed.rs` owns the two ordinary embed/view routes under `--dev-native --agent`. It uses the existing native network policy and stores a 32-entry FIFO of ephemeral handle/video-ID pairs under the sole Workspace State lock. Lookup, admission, close and non-online network-mode invalidation are ordered through that same owner. No handle is persisted; there is no TTL and reading does not refresh insertion order. The HTTP host emits the source HTML/CSP/cache headers without fetching media or opening a browser. Effect-free mode returns 503. [Embed/view validation](RUST-MEDIA-EMBED.md) covers local response bytes only; third-party playback and the external opener are outside this slice.
+
 ## Semantic memory
 
 `POST /api/semantic/index` and `POST /api/semantic/search` are connected under `--dev-native --agent`, retaining authentication, CSRF, Host/Origin and network-policy checks. Their asynchronous waits do not occupy the blocking pool; request drop/shutdown cancels the request scope, with 90-second index and 30-second search deadlines. Index batches contain at most 24 documents, each truncated to 12,000 UTF-16 units. Vectors are disposable caches stored through the existing sole Workspace/SQLite owner.

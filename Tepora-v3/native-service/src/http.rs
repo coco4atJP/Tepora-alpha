@@ -220,7 +220,7 @@ async fn shutdown_requested(stop: &mut watch::Receiver<bool>) {
         }
     }
 }
-fn random_token() -> Result<String, ApiError> {
+pub(crate) fn random_token() -> Result<String, ApiError> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes)
         .map_err(|e| ApiError::new(500, format!("Operating-system randomness failed: {e}")))?;
@@ -628,6 +628,17 @@ impl HttpState {
                 } => Ok(render_artifact(&self.origin, &kind, &content, interactive)),
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
+        }
+        if method == Method::GET {
+            if let Some(token) = path.strip_prefix("/media-view/") {
+                if !self.config.agent {
+                    return Err(ApiError::unavailable("This effect requires --dev-native --agent"));
+                }
+                return match self.domain(Operation::MediaView { token: token.into() }).await? {
+                    Reply::MediaView { id } => Ok(render_media_view(&self.origin, &id)),
+                    _ => Err(ApiError::new(500, "Invalid media view response")),
+                };
+            }
         }
         if self.config.agent {
             if let Some(suffix)=path.strip_prefix("/api/media/jobs/") {
@@ -1066,6 +1077,7 @@ enum NativeAgentBodyRoute {
     Approvals,
     Approval(String),
     MediaCreate,
+    MediaEmbed,
     Capabilities,
     CapabilityKey(String),
     Providers,
@@ -1099,6 +1111,7 @@ impl NativeAgentBodyRoute {
             Self::Approvals => Operation::ApprovalsDecide { body },
             Self::Approval(id) => Operation::ApprovalDecide { id, body },
             Self::MediaCreate => Operation::MediaCreate {body},
+            Self::MediaEmbed => Operation::MediaEmbed {body},
             Self::Capabilities => Operation::CapabilitiesSave { body },
             Self::CapabilityKey(id) => Operation::CapabilityKey { id, body },
             Self::Providers => Operation::ProvidersSave { body },
@@ -1183,6 +1196,7 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("POST", "/api/agent/approvals") => return Some(Json(Body::Approvals, 200)),
         ("GET", "/api/media/jobs") => return Some(Ready(Operation::MediaJobs, 200)),
         ("POST", "/api/media/jobs") => return Some(Json(Body::MediaCreate, 202)),
+        ("POST", "/api/media/embed") => return Some(Json(Body::MediaEmbed, 200)),
         ("GET", "/api/capabilities") => return Some(Ready(Operation::Capabilities, 200)),
         ("PUT", "/api/capabilities") => return Some(Json(Body::Capabilities, 200)),
         ("GET", "/api/providers") => return Some(Ready(Operation::Providers, 200)),
@@ -1309,6 +1323,16 @@ fn render_artifact(
     let mut r = response(200, "text/html; charset=utf-8", content);
     set_header(&mut r, "cache-control", "no-store");
     set_header(&mut r, "content-security-policy", &csp);
+    r.extensions_mut().insert(ArtifactFrame);
+    r
+}
+
+/// Inert local HTML construction only. No URL fetch, browser open or playback.
+fn render_media_view(origin: &str, id: &str) -> Response<ResponseBody> {
+    let content = format!(r#"<!doctype html><meta charset="utf-8"><style>html,body,iframe{{margin:0;border:0;width:100%;height:100%;overflow:hidden;background:#120c0a}}</style><iframe title="YouTube player" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen src="https://www.youtube-nocookie.com/embed/{id}?autoplay=0&amp;playsinline=1&amp;rel=0"></iframe>"#);
+    let mut r = response(200, "text/html; charset=utf-8", content);
+    set_header(&mut r, "cache-control", "no-store");
+    set_header(&mut r, "content-security-policy", &format!("default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com; frame-ancestors {origin}"));
     r.extensions_mut().insert(ArtifactFrame);
     r
 }
