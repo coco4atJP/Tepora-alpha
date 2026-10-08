@@ -4,11 +4,10 @@
  * A model/provider is never called implicitly; live model evals remain an explicit separate step.
  */
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
-import {createWriteStream} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {runStage} from './improve-stage.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),outFlag=args.indexOf('--out');
 const out=path.resolve(outFlag>=0?args[outFlag+1]||'validation/loop':path.join(root,'validation/loop'));
@@ -28,16 +27,7 @@ async function fingerprint(){
  return hash.digest('hex');
 }
 async function command(name,executable,argv,folder){
- const log=createWriteStream(path.join(folder,name+'.log')),start=Date.now();
- const result=await new Promise(resolve=>{
-  const processChild=spawn(executable,argv,{cwd:root,shell:false,env:process.env,stdio:['ignore','pipe','pipe']});child=processChild;
-  let killTimer=null;
-  let finished=false;const done=(code,error=null)=>{if(finished)return;finished=true;clearTimeout(timer);clearTimeout(killTimer);resolve({name,code,error,ms:Date.now()-start});};
-  const timer=setTimeout(()=>{processChild.kill('SIGTERM');killTimer=setTimeout(()=>processChild.kill('SIGKILL'),1500);killTimer.unref();},180000);
-  processChild.stdout.pipe(log,{end:false});processChild.stderr.pipe(log,{end:false});
-  processChild.once('error',e=>done(1,e.message));processChild.once('close',code=>done(code??1));
- });
- await new Promise(r=>log.end(r));child=null;return result;
+ return runStage({name,executable,argv,cwd:root,folder,onChild:processChild=>{child=processChild;}});
 }
 async function verify(before){
  const folder=path.join(out,before.slice(0,12)+'-'+Date.now());await mkdir(folder,{recursive:true});

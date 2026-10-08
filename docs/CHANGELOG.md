@@ -1,5 +1,11 @@
 # Tepora V3 changelog
 
+## Node-suite CI budget repair (beta.11)
+
+- Set a bounded 360-second improvement-loop budget for the whole Node suite after a successful Windows suite exceeded the old 180-second ceiling; keep every other stage at 180 seconds
+- Record selected stage budgets separately from actual elapsed times, retaining existing individual deadlines, diagnostic flags, assertions and skips
+- Add deterministic stage-runner unit fixtures for budget selection, command configuration, measured duration, termination and cleanup; see [QA evidence and limits](../Tepora-v3/docs/QA.md#node-suite-orchestration-budget-repair-2026-10-08), with no full-gate or performance-improvement claim
+
 ## Rust ordinary custom-skill CRUD (beta.11)
 
 - Connect custom-skill create, enabled-flag patch and delete to the sole native Workspace SQLite owner and synchronous session prompt refresh under `--agent`
