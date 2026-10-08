@@ -1,8 +1,8 @@
-# Native backend route parity: streaming-speech checkpoint
+# Native backend route parity: dictation/transcription checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **85 are substantially matched, 12 are partial and 29 are absent**. Thus 97 have handlers, and the 12 partial routes are included in those 97. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **87 are substantially matched, 12 are partial and 27 are absent**. Thus 99 have handlers, and the 12 partial routes are included in those 99. A route count is not an end-to-end feature completion percentage.
 
 Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
 
@@ -13,6 +13,8 @@ Scope: native exec/process, web_search/web_fetch, preferences/personas, display/
 Photo-frame evidence and exact local scope are recorded in [RUST-PHOTO-FRAME](RUST-PHOTO-FRAME.md). Avatar asset evidence and scope are recorded in [RUST-AVATAR-ASSETS](RUST-AVATAR-ASSETS.md). These independent five-route slices do not establish a full quality pass or cross-platform package acceptance.
 
 Media jobs add seven ordinary routes under `--dev-native --agent`. Focused evidence and limitations are in [RUST-MEDIA-JOBS](RUST-MEDIA-JOBS.md). This does not switch the launcher or certify remote accounts, decoders or billing.
+
+Dictation proposals and uploaded-audio transcription add two ordinary routes. [RUST-VOICE-ROUTES](RUST-VOICE-ROUTES.md) records source parity, deliberate native bounds and cancellation improvements, and focused synthetic evidence.
 
 ## Complete route inventory
 
@@ -92,12 +94,12 @@ YES means a real handler is present in the supported scope, not that every model
 | R070 | `POST /api/inputs` | YES | 201 | Atomic bounded text/PNG/JPEG staging and metadata; actor-correlated model input delivery is connected through the agent input route with its documented image limits. |
 | R071 | `DELETE /api/inputs/{id}` | YES | 200 | Staged deletion retains the baseline referenced-job guard. |
 | R072 | `POST /api/runtime/discover` | YES | 200 | Explicit discovery of fixed local runtime endpoints through checked model transport; availability is not model-quality certification. |
-| R073 | `POST /api/voice/edit` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R074 | `POST /api/voice/start` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
-| R075 | `POST /api/voice/chunk` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
-| R076 | `POST /api/voice/finish` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
-| R077 | `POST /api/voice/cancel` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate. |
-| R078 | `POST /api/voice/transcribe` | ABSENT | 200 | Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R073 | `POST /api/voice/edit` | YES | 200 | Native single-flight device-only dictation proposals through existing provider protocols, 12-second deadline, exact UTF-16 edits and owned cancellation. Synthetic loopback evidence only; real model acceptance remains separate. |
+| R074 | `POST /api/voice/start` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073. |
+| R075 | `POST /api/voice/chunk` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073. |
+| R076 | `POST /api/voice/finish` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073. |
+| R077 | `POST /api/voice/cancel` | YES | 200 | Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073. |
+| R078 | `POST /api/voice/transcribe` | YES | 200 | Native configured-ASR multipart upload with 120-second deadline and owned cancellation; 12 MiB audio, 256,000-byte response, 32,000 UTF-16 transcript and eight-flight bounds. Synthetic loopback evidence only; actual capture/ASR remains separate. |
 | R079 | `GET /api/artifacts/{id}/revisions` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R080 | `GET /api/artifacts/{id}/revisions/{version}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R081 | `PATCH /api/artifacts/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |

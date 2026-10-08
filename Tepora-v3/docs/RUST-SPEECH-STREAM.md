@@ -16,7 +16,7 @@ The explicit `--dev-native --agent` host owns R074–R077 (`/api/voice/start`, `
 
 Upstream cancel is best-effort. If start is cancelled before the worker session ID reaches the host, the remote session cannot be explicitly named for cleanup; the local socket is cancelled and no local session is created. The worker may already have processed audio when its response is lost. No claim of remote rollback is made. Malformed/noncanonical base64 padding may be rejected earlier than Node's permissive Buffer decoder; normal padded and unpadded PCM are accepted.
 
-`/api/voice/transcribe`, dictation editing, speech capability consumers, actual ASR quality, browser microphone capture, codecs and real workers remain separate. The tests use zero-filled synthetic PCM and a loopback JSON worker. They do not use private audio, credentials, external accounts or paid APIs. Focused tests are not full quality, cross-platform package, installation or real-model acceptance.
+`/api/voice/transcribe` and dictation editing are now covered separately by [RUST-VOICE-ROUTES](RUST-VOICE-ROUTES.md). Speech capability consumers, actual ASR quality, browser microphone capture, codecs and real workers remain separate. The tests use zero-filled synthetic PCM and a loopback JSON worker. They do not use private audio, credentials, external accounts or paid APIs. Focused tests are not full quality, cross-platform package, installation or real-model acceptance.
 
 ## Verification
 

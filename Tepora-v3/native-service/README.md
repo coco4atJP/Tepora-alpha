@@ -118,7 +118,7 @@ Agent `memory_search` uses the configured semantic space with ordinary tool rece
 
 Global `.mjs` plugin files reject native-agent startup with a compatibility-host diagnostic. JavaScript hooks are not silently replaced with no-ops. Cached sessions containing unavailable tools are diagnosed at startup or before model use, including resumed sessions; their prompts/history are not silently rewritten.
 
-Still unported: `find`/`grep`, browser rendering, MCP, image loading through `read` and unsupported vision bridges, media agent tools, non-streaming ASR and dictation editing, Computer Use, skills execution, dream optimization, JavaScript plugins and the remaining peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
+Still unported: `find`/`grep`, browser rendering, MCP, image loading through `read` and unsupported vision bridges, media agent tools, other speech capability consumers, Computer Use, skills execution, dream optimization, JavaScript plugins and the remaining peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
 
 Do not change default launch or remove the Node sidecar until the remaining effects, route inventory and desktop packaging/installation/startup have their own acceptance evidence. A future JavaScript plugin compatibility host must preserve live callback/context behavior, not just copy it into JSON.
 
@@ -162,3 +162,7 @@ Under `--dev-native --agent`, R036–R042 implement job listing/submission, canc
 ## Ordinary streaming speech
 
 R074–R077 are available under `--dev-native --agent` with a configured loopback worker. One 16kHz Float32 session, ordered/idempotent chunks, a 120-second audio/timer bound and partial/final text remain ephemeral. Cancel, Stop All, tray Stop and shutdown drain in-flight operations and prevent late resurrection. Local-workspace-only mode remains unavailable (503). See [RUST-SPEECH-STREAM](../docs/RUST-SPEECH-STREAM.md) for explicit limits and synthetic-only verification.
+
+### Ordinary voice routes
+
+`--dev-native --agent` supports single-flight device-only dictation proposals and configured-ASR multipart transcription. Both have request/Stop/shutdown ownership, exact source ordinary replies, and no durable audio/transcript state. Native ASR has explicit response/text/concurrency bounds. See [contract and focused tests](../docs/RUST-VOICE-ROUTES.md); microphone/real-model acceptance and normal launcher cutover remain separate.

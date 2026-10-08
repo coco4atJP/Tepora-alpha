@@ -351,4 +351,8 @@ R036–R042の7ルートを `--dev-native --agent` に接続した。TTS・画�
 
 ## Ordinary streaming speech native owner
 
-The explicit native agent host owns streaming speech R074–R077 through an ephemeral lifecycle owner and the existing checked network transport. Stop/close invalidate and drain pending worker operations; no audio/transcript enters durable state. The effect-free native mode, normal Node/Tauri defaults, non-streaming ASR and dictation boundaries are unchanged. [Contract and verification](RUST-SPEECH-STREAM.md).
+The explicit native agent host owns streaming speech R074–R077 through an ephemeral lifecycle owner and the existing checked network transport. Stop/close invalidate and drain pending worker operations; no audio/transcript enters durable state. The effect-free native mode and normal Node/Tauri defaults are unchanged. [Streaming contract and verification](RUST-SPEECH-STREAM.md); dictation and uploaded-audio ASR have their own [route contract](RUST-VOICE-ROUTES.md).
+
+## Native ordinary dictation and uploaded-audio transcription
+
+R073/R078 now use the existing device provider chain and configured ASR transport in the opt-in native agent host. Async request cancellation and counted Stop barriers preserve sibling-owner signalling before drain; Unicode edit proposals retain JavaScript UTF-16 semantics. Normal GUI/Node/Tauri defaults and policy/configuration authority are unchanged. Native ASR bounds and source cancellation differences are explicit in [RUST-VOICE-ROUTES](RUST-VOICE-ROUTES.md). Route totals are 87 implemented / 12 partial / 27 unavailable; focused synthetic tests do not establish full quality or platform/model acceptance.

@@ -149,6 +149,8 @@ pub enum Operation {
     NetworkPatch {
         body: Value,
     },
+    VoiceEdit { body: Value },
+    VoiceTranscribe { audio: Vec<u8> },
     SpeechStart,
     SpeechChunk { body: Value },
     SpeechFinish { body: Value },
@@ -255,6 +257,10 @@ pub trait Backend: Send + Sync + 'static {
     /// Semantic transport waits use the async reactor, never its blocking pool.
     fn execute_semantic(&self,operation:Operation,cancellation:network::RequestCancellation)->BackendFuture<'_>{
         Box::pin(async move {if let Some(error)=cancellation.error(){return Err(error.into());}self.execute(operation)})
+    }
+    /// Uploaded voice and dictation waits are request-scoped asynchronous work.
+    fn execute_voice(&self, operation: Operation, cancellation: network::RequestCancellation) -> BackendFuture<'_> {
+        Box::pin(async move { if let Some(error) = cancellation.error() { return Err(error.into()); } self.execute(operation) })
     }
     fn subscribe(&self, request: EventRequest) -> Result<EventSubscription, ApiError>;
     fn unsubscribe(&self, id: u64);

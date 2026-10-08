@@ -2,6 +2,7 @@
 mod agent_state;
 mod media_jobs;
 mod speech_stream;
+mod voice_operations;
 pub(crate) mod photo_frame;
 pub(crate) mod avatar_assets;
 mod semantic_state;
@@ -40,6 +41,7 @@ pub struct Workspace {
 struct NativeResources {
     media: Arc<media_jobs::MediaJobs>,
     speech: Arc<speech_stream::SpeechStream>,
+    voice: voice_operations::VoiceOperations,
     setup: crate::setup::SetupManager,
     catalog: crate::model_catalog::ModelCatalog,
     host: Arc<crate::agent::host::NativeAgentHost>,
@@ -456,6 +458,7 @@ impl Workspace {
         self.native
             .set(NativeResources {
                 speech: speech_stream::SpeechStream::new(network.clone(),runtime.clone()),
+                voice: voice_operations::VoiceOperations::new(provider.clone(),network.clone()),
                 media,
                 setup,
                 catalog,
@@ -968,6 +971,18 @@ impl Backend for Workspace {
         }
         Ok(Reply::Json(value))
     }
+    fn execute_voice(&self, operation: Operation, cancel: crate::network::RequestCancellation) -> crate::BackendFuture<'_> {
+        Box::pin(async move {
+            let native = self.native.get().ok_or_else(|| ApiError::unavailable("This effect requires --dev-native --agent"))?;
+            let settings = { let mut state = self.lock()?; require(!state.closed && !state.closing, 503, "Service closing")?; state.settings()? };
+            let value = match operation {
+                Operation::VoiceEdit { body } => native.voice.edit(&settings, &body, cancel).await?,
+                Operation::VoiceTranscribe { audio } => native.voice.transcribe(&settings, audio, cancel).await?,
+                _ => return Err(ApiError::bad_request("Invalid voice operation")),
+            };
+            Ok(Reply::Json(value))
+        })
+    }
     fn execute_semantic(&self,operation:Operation,cancel:crate::network::RequestCancellation)->crate::BackendFuture<'_>{
         Box::pin(async move {
             let native=self.native.get().ok_or_else(||ApiError::unavailable("This effect requires --dev-native --agent"))?;
@@ -1042,6 +1057,7 @@ impl Backend for Workspace {
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
             let _speech_drain = native.speech.stop_barrier(false)?;
+            let _voice_drain = native.voice.stop_barrier(false)?;
             native.media.stop_all()?;
             // Tray Stop matches the compatibility sidecar: only currently
             // active non-main runs stop. Resident conversation, idle workers
@@ -1070,6 +1086,7 @@ impl Backend for Workspace {
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
             let _speech_drain = native.speech.stop_barrier(true)?;
+            let _voice_drain = native.voice.stop_barrier(true)?;
             native.media.begin_close()?;
             native.semantic.close();
             native.setup.begin_close();
@@ -1152,7 +1169,7 @@ mod tests {
         let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(workspace.access()),network.clone());
         let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(workspace.access()),capabilities.clone()));
         let media=media_jobs::MediaJobs::new(workspace.access(),capabilities.clone(),network.clone(),runtime.handle().clone()).unwrap();
-        assert!(workspace.native.set(NativeResources {speech:speech_stream::SpeechStream::new(network.clone(),runtime.handle().clone()),media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        assert!(workspace.native.set(NativeResources {voice:voice_operations::VoiceOperations::new(provider.clone(),network.clone()),speech:speech_stream::SpeechStream::new(network.clone(),runtime.handle().clone()),media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
         workspace.lock().unwrap().native_agent = true;
         agent.request(crate::agent::AgentRequest::Initialize).unwrap();
         (workspace,runtime,transport,dir)

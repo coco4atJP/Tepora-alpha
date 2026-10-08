@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-streaming-speech",
+  "checkpoint": "native-dictation-transcription",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 85,
+    "implemented": 87,
     "partial": 12,
-    "unavailable": 29
+    "unavailable": 27
   },
   "routes": [
     {
@@ -806,9 +806,9 @@
       "path": "/api/voice/edit",
       "family": "voice",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native single-flight device-only dictation proposals through existing provider protocols, 12-second deadline, exact UTF-16 edits and owned cancellation. Synthetic loopback evidence only; real model acceptance remains separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -819,7 +819,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -830,7 +830,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -841,7 +841,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -852,7 +852,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR and dictation remain separate.",
+      "limit": "Native single-session streaming speech: ordered/idempotent 16kHz Float32 PCM, two-minute budget/timer, partial/final text and owned cancellation. Synthetic loopback evidence only; real capture/ASR remains separate; dictation is covered by R073.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -861,9 +861,9 @@
       "path": "/api/voice/transcribe",
       "family": "voice",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Ordered PCM, partial/final transcript, local ASR/dictation and cancellation is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native configured-ASR multipart upload with 120-second deadline and owned cancellation; 12 MiB audio, 256,000-byte response, 32,000 UTF-16 transcript and eight-flight bounds. Synthetic loopback evidence only; actual capture/ASR remains separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

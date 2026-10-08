@@ -40,3 +40,7 @@ Earlier failure/reproduction records are available through Git history. They are
 ## Native ordinary streaming speech
 
 The focused speech gate uses synthetic zero-filled PCM and a loopback JSON worker, without microphone capture or real model execution. Rust tests cover sequence/retry, sample/text validation, budget/timer, single-flight behavior and cancellation drains. Real HTTP tests compare ordinary compatibility/native replies, verify effect-free-mode 503 availability, and cancel pending start/chunk/finish through Stop All, tray Stop and shutdown. This is not full quality or platform/package acceptance. See [RUST-SPEECH-STREAM](RUST-SPEECH-STREAM.md).
+
+## Native ordinary dictation and uploaded audio
+
+The [voice-route gate](RUST-VOICE-ROUTES.md) compares the real Node/native HTTP paths using synthetic Unicode text/audio and a credential-free loopback provider. It verifies proposal/error parity, multipart contents, dictation timeout and owned Stop/tray/shutdown cancellation, plus focused Rust validation, deadlines, budgets and overlapping barriers. It does not use a microphone, real ASR, external provider or private credentials and is not full quality/platform acceptance.

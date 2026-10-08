@@ -55,7 +55,7 @@ The network policy distinguishes online, trusted-LAN and offline destinations. I
 
 `context.rs` and `tokens.rs` build stable model context, clear/supersede old results, repair call/result sequences and account for tool definitions, images and calibration. Unicode16/17 token estimates are explicit inputs; the native host uses Unicode17 consistently. Role selection, reserve calculation and overflow retries remain compatible with the original harness.
 
-Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability configuration, identity-bound memory-only keys and typed transport components are implemented. Typed decision and scoped semantic consumers are connected to the shared owner; user-requested media jobs also consume those transports. Media agent tools, voice input/transcription and other speech consumers remain unported.
+Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability configuration, identity-bound memory-only keys and typed transport components are implemented. Typed decision and scoped semantic consumers are connected to the shared owner; user-requested media jobs also consume those transports. Ordinary streaming speech, dictation proposals and uploaded-audio transcription are also connected. Media agent tools and other speech capability consumers remain unported.
 
 ## User-requested media jobs
 
@@ -163,4 +163,8 @@ Only actor callbacks commit schedule documents and `schedule.updated` events thr
 
 ## Ordinary streaming speech native owner
 
-The explicit native agent host owns streaming speech R074–R077 through an ephemeral lifecycle owner and the existing checked network transport. Stop/close invalidate and drain pending worker operations; no audio/transcript enters durable state. The effect-free native mode, normal Node/Tauri defaults, non-streaming ASR and dictation boundaries are unchanged. [Contract and verification](RUST-SPEECH-STREAM.md).
+The explicit native agent host owns streaming speech R074–R077 through an ephemeral lifecycle owner and the existing checked network transport. Stop/close invalidate and drain pending worker operations; no audio/transcript enters durable state. The effect-free native mode and normal Node/Tauri defaults are unchanged. [Streaming contract and verification](RUST-SPEECH-STREAM.md); dictation and uploaded-audio ASR have their own [route contract](RUST-VOICE-ROUTES.md).
+
+## Ordinary voice proposals and uploaded audio
+
+`workspace/voice_operations.rs` owns asynchronous device-only dictation and configured-ASR upload flights. It reuses the provider registry, shared JSON/UTF-16 codec and checked network without saving text, audio or credentials. Counted voice and speech cancellation barriers are both signalled before media drain on Stop All, tray Stop or shutdown. Request drop cancels its scope; late results cannot become successful replies. Native ASR adds explicit response, transcript and concurrent-flight bounds. [Contract and focused validation](RUST-VOICE-ROUTES.md).

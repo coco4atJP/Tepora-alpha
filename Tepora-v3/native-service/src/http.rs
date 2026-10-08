@@ -417,6 +417,20 @@ impl HttpState {
                 result=self.backend.execute_semantic(op,cancellation)=>result,
             };
         }
+        if matches!(&op, Operation::VoiceEdit {..} | Operation::VoiceTranscribe {..}) {
+            if *self.shutdown.borrow() { return Err(ApiError::unavailable("Service is closing")); }
+            let cancellation = crate::network::RequestCancellation::new();
+            struct CancelOnDrop(crate::network::RequestCancellation);
+            impl Drop for CancelOnDrop { fn drop(&mut self) { self.0.cancel(); } }
+            let _cancel = CancelOnDrop(cancellation.clone());
+            self.work.count.fetch_add(1, Ordering::AcqRel);
+            let _work = WorkGuard(self.work.clone());
+            let mut shutdown = self.shutdown.subscribe();
+            return tokio::select! { biased;
+                _ = shutdown_requested(&mut shutdown) => Err(ApiError::unavailable("Service is closing")),
+                result = self.backend.execute_voice(op, cancellation) => result,
+            };
+        }
         if let Operation::ProviderProbe { id } = &op {
             let id = id.clone();
             let cancellation = self.backend.probe_cancellation();
@@ -731,6 +745,12 @@ impl HttpState {
                 }
             }
         }
+        if self.config.agent && method == Method::POST && path == "/api/voice/transcribe" {
+            let audio = self.read_asset_bytes(request.into_body(), BODY_LIMIT).await.map_err(|e| {
+                if e.status == 413 { ApiError::new(413, "Request body too large") } else { e }
+            })?;
+            return self.json_operation(Operation::VoiceTranscribe { audio }, 200).await;
+        }
         if self.config.agent {
             if let Some(route) = native_agent_route(&method, path) {
                 let (operation, status) = match route {
@@ -1035,6 +1055,7 @@ enum NativeAgentBodyRoute {
     Providers,
     ProviderKey(String),
     ProviderProbe(String),
+    VoiceEdit,
     SpeechChunk,
     SpeechFinish,
     SpeechCancel,
@@ -1065,6 +1086,7 @@ impl NativeAgentBodyRoute {
             Self::Providers => Operation::ProvidersSave { body },
             Self::ProviderKey(id) => Operation::ProviderKey { id, body },
             Self::ProviderProbe(id) => Operation::ProviderProbe { id },
+            Self::VoiceEdit=>Operation::VoiceEdit{body},
             Self::SpeechChunk=>Operation::SpeechChunk{body},
             Self::SpeechFinish=>Operation::SpeechFinish{body},
             Self::SpeechCancel=>Operation::SpeechCancel{body},
@@ -1124,6 +1146,7 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("GET", "/api/dialogue/personas") => return Some(Ready(Operation::DialoguePersonas, 200)),
         ("PUT", "/api/dialogue/personas") => return Some(Json(Body::DialoguePersonas, 200)),
         ("PATCH", "/api/settings") => return Some(Json(Body::Preferences, 200)),
+        ("POST", "/api/voice/edit")=>return Some(Json(Body::VoiceEdit,200)),
         ("POST", "/api/voice/start")=>return Some(Ready(Operation::SpeechStart,200)),
         ("POST", "/api/voice/chunk")=>return Some(Json(Body::SpeechChunk,200)),
         ("POST", "/api/voice/finish")=>return Some(Json(Body::SpeechFinish,200)),
