@@ -1,5 +1,6 @@
 //! One state/event authority. This developmental workspace runs no external effects.
 mod agent_state;
+mod media_jobs;
 pub(crate) mod photo_frame;
 pub(crate) mod avatar_assets;
 mod semantic_state;
@@ -36,6 +37,7 @@ pub struct Workspace {
     probe_cancel: Mutex<crate::network::RequestCancellation>,
 }
 struct NativeResources {
+    media: Arc<media_jobs::MediaJobs>,
     setup: crate::setup::SetupManager,
     catalog: crate::model_catalog::ModelCatalog,
     host: Arc<crate::agent::host::NativeAgentHost>,
@@ -448,8 +450,10 @@ impl Workspace {
         let agent = crate::agent::AgentCoordinator::start(host.clone(), runtime.clone())?;
         let setup=crate::setup::SetupManager::with_options(self.access().setup_state(agent.clone()),network.clone(),runtime.clone(),setup_options)?;
         let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(self.access()),network.clone());
+        let media=media_jobs::MediaJobs::new(self.access(),capabilities.clone(),network.clone(),runtime.clone())?;
         self.native
             .set(NativeResources {
+                media,
                 setup,
                 catalog,
                 host,
@@ -749,13 +753,14 @@ impl State {
                     out["provider"] = name.clone();
                 }
                 out["providerMayContinue"] = json!(truth(&j["providerMayContinue"]));
+                if self.native_agent {return media_jobs::public(j);}
                 out["canResume"] = json!(false);
                 out["nativeUnavailable"] = json!(true);
                 out
             })
             .collect::<Vec<_>>());
         s["sandbox"] = sandbox();
-        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["browser rendering","MCP","media","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
+        s["nativeHost"] = json!({"development":true,"mode":if self.native_agent{"native-agent"}else{"local-workspace"},"nodeRequired":false,"agentExecution":self.native_agent,"externalEffects":self.native_agent,"unavailable":if self.native_agent{json!(["browser rendering","MCP","media agent tools","computer use","schedules","heartbeat","dream optimization","JavaScript plugins"])}else{json!(["agent execution","external effects"])}});
         Ok(s)
     }
     fn publish_value(&mut self, value: Value) -> Result<(), ApiError> {
@@ -1033,6 +1038,7 @@ impl Backend for Workspace {
     fn stop(&self) -> Result<(), ApiError> {
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
+            native.media.stop_all()?;
             // Tray Stop matches the compatibility sidecar: only currently
             // active non-main runs stop. Resident conversation, idle workers
             // and completed transcripts keep their state. Their individual
@@ -1059,6 +1065,7 @@ impl Backend for Workspace {
         self.lock()?.closing = true;
         self.cancel_probes()?;
         if let Some(native) = self.native.get() {
+            native.media.begin_close()?;
             native.semantic.close();
             native.setup.begin_close();
             native.catalog.close();
@@ -1071,6 +1078,7 @@ impl Backend for Workspace {
     fn shutdown(&self) -> Result<(), ApiError> {
         self.begin_shutdown()?;
         if let Some(native) = self.native.get() {
+            native.runtime.block_on(native.media.drain());
             native.runtime.block_on(native.semantic.close_and_drain());
             native.runtime.block_on(native.setup.close());
             native.agent.begin_close().wait()?;
@@ -1138,7 +1146,8 @@ mod tests {
         let setup=crate::setup::SetupManager::new(workspace.access().setup_state(agent.clone()),network.clone(),runtime.handle().clone()).unwrap();
         let catalog=crate::model_catalog::ModelCatalog::new(Arc::new(workspace.access()),network.clone());
         let semantic=Arc::new(crate::semantic::SemanticMemory::new(Arc::new(workspace.access()),capabilities.clone()));
-        assert!(workspace.native.set(NativeResources {host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
+        let media=media_jobs::MediaJobs::new(workspace.access(),capabilities.clone(),network.clone(),runtime.handle().clone()).unwrap();
+        assert!(workspace.native.set(NativeResources {media,host,capabilities,semantic,setup,catalog,agent:agent.clone(),provider,network,runtime:runtime.handle().clone()}).is_ok());
         workspace.lock().unwrap().native_agent = true;
         agent.request(crate::agent::AgentRequest::Initialize).unwrap();
         (workspace,runtime,transport,dir)

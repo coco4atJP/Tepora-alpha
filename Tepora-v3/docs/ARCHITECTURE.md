@@ -20,7 +20,7 @@ flowchart TD
     Host --> Tools[22 native built-ins and immutable approvals]
     Host --> Harness[Pure prompts, context, compaction and metacognition]
     Host --> Workspace
-    Node --> Compatibility[Remaining tools, hooks, media and dream optimization]
+    Node --> Compatibility[Remaining tools, hooks and dream optimization]
 ```
 
 ## HTTP, state and event ownership
@@ -55,7 +55,13 @@ The network policy distinguishes online, trusted-LAN and offline destinations. I
 
 `context.rs` and `tokens.rs` build stable model context, clear/supersede old results, repair call/result sequences and account for tool definitions, images and calibration. Unicode16/17 token estimates are explicit inputs; the native host uses Unicode17 consistently. Role selection, reserve calculation and overflow retries remain compatible with the original harness.
 
-Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability configuration, identity-bound memory-only keys and typed transport components are implemented. Typed decision and scoped semantic consumers are connected to the shared owner; media/speech consumers remain unported.
+Separate capability endpoints handle typed decisions, embeddings, speech and generated media in the compatibility service. Native capability configuration, identity-bound memory-only keys and typed transport components are implemented. Typed decision and scoped semantic consumers are connected to the shared owner; user-requested media jobs also consume those transports. Media agent tools, voice input/transcription and other speech consumers remain unported.
+
+## User-requested media jobs
+
+`workspace/media_jobs.rs` owns the seven media-job/asset routes under `--dev-native --agent`. Its lifecycle lock serializes admissions, two concurrent workers, completion, cancellation and close; all documents/events use the existing Workspace owner. No SQLite guard crosses provider or file I/O. Native capability/network code retains endpoint identity, resource budgets, cancellation and destination policy. Video poll timers are owned tasks, and shutdown cancels and drains them before SQLite closes.
+
+Persisted submission uncertainty is never replayed as a new paid job. Startup pauses queued/running handles and marks a lost submitting response unknown. Explicit resume polls the same remote ID or retries its download; a provably unsent queued job may be submitted by that explicit action. Local files retain signature/modality checks, hashes, the 32 MiB output limit and 512 MiB library limit. Serialized writes make a separate pending-byte reservation unnecessary. Authenticated GET/HEAD supports source byte ranges and inert download headers. See [media validation](RUST-MEDIA-JOBS.md); agent media tools and live provider acceptance remain separate.
 
 ## Semantic memory
 

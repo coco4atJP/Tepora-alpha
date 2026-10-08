@@ -601,6 +601,29 @@ impl HttpState {
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
         }
+        if self.config.agent {
+            if let Some(suffix)=path.strip_prefix("/api/media/jobs/") {
+                let (id,action)=suffix.split_once('/').unwrap_or((suffix,""));
+                if id.len()==64 && id.bytes().all(|b|b.is_ascii_digit()||(b'a'..=b'f').contains(&b)) {
+                    let op=match (method.as_str(),action) {
+                        ("DELETE","")=>Some(Operation::MediaDelete{id:id.into()}),
+                        ("POST","cancel")=>Some(Operation::MediaCancel{id:id.into()}),
+                        ("POST","resume")=>Some(Operation::MediaResume{id:id.into()}),
+                        _=>None,
+                    };
+                    if let Some(op)=op{return self.json_operation(op,200).await;}
+                }
+            }
+            if let Some(id)=path.strip_prefix("/api/media/assets/").filter(|id|id.len()==36&&id.bytes().all(|b|b.is_ascii_digit()||(b'a'..=b'f').contains(&b)||b==b'-')) {
+                if method==Method::GET || method==Method::HEAD {
+                    let range=field(request.headers(),"range").map(str::to_owned);
+                    return match self.domain(Operation::MediaRead{id:id.into()}).await? {
+                        Reply::Media{bytes,mime}=>media_response(bytes,&mime,id,method==Method::HEAD,query(&url,"download").as_deref()==Some("1"),range.as_deref()),
+                        _=>Err(ApiError::new(500,"Invalid media response")),
+                    };
+                }
+            }
+        }
         if path == "/api/avatar/assets" && method == Method::GET {
             return self.json_operation(Operation::AvatarAssets, 200).await;
         }
@@ -968,6 +991,25 @@ impl HttpState {
         StreamBody::new(stream).boxed_unsync()
     }
 }
+fn media_response(bytes:Vec<u8>,mime:&str,id:&str,head:bool,download:bool,range:Option<&str>)->Result<Response<ResponseBody>,ApiError>{
+    let length=bytes.len();
+    let (mut begin,mut end,status)=(0usize,length.saturating_sub(1),if range.is_some(){206}else{200});
+    if let Some(range)=range {
+        let (a,b)=range.strip_prefix("bytes=").and_then(|s|s.split_once('-')).filter(|(a,b)|(!a.is_empty()||!b.is_empty())&&a.bytes().chain(b.bytes()).all(|c|c.is_ascii_digit())).ok_or_else(||ApiError::new(416,"Invalid media range"))?;
+        // Match JavaScript Number and safe-integer checks even for huge ranges.
+        let number=|s:&str|s.parse::<f64>().unwrap_or(f64::INFINITY);
+        let start=if a.is_empty(){(length as f64-number(b)).max(0.)}else{number(a)};
+        let stop=if !a.is_empty()&&!b.is_empty(){(end as f64).min(number(b))}else{end as f64};
+        if !start.is_finite()||!stop.is_finite()||start>crate::MAX_SAFE_INTEGER as f64||stop>crate::MAX_SAFE_INTEGER as f64||start>stop||start>=length as f64 {return Err(ApiError::new(416,"Range is outside asset"));}
+        begin=start as usize;end=stop as usize;
+    }
+    let mut r=response(status,mime,if head{Bytes::new()}else{Bytes::copy_from_slice(&bytes[begin..=end])});
+    set_header(&mut r,"content-length",&(end-begin+1).to_string());
+    set_header(&mut r,"cache-control","no-store");set_header(&mut r,"accept-ranges","bytes");set_header(&mut r,"content-security-policy","default-src 'none'; sandbox");
+    if status==206{set_header(&mut r,"content-range",&format!("bytes {begin}-{end}/{length}"));}
+    if download {let ext=match mime{"image/png"=>"png","image/jpeg"=>"jpg","image/webp"=>"webp","audio/mpeg"=>"mp3","audio/wav"=>"wav","video/mp4"=>"mp4",_=>"undefined"};set_header(&mut r,"content-disposition",&format!("attachment; filename=\"tepora-{id}.{ext}\""));}
+    Ok(r)
+}
 enum NativeAgentRoute {
     Ready(Operation, u16),
     Body(NativeAgentBodyRoute, u16),
@@ -987,6 +1029,7 @@ enum NativeAgentBodyRoute {
     Settings,
     Approvals,
     Approval(String),
+    MediaCreate,
     Capabilities,
     CapabilityKey(String),
     Providers,
@@ -1013,6 +1056,7 @@ impl NativeAgentBodyRoute {
             Self::Settings => Operation::AgentSettingsPatch { body },
             Self::Approvals => Operation::ApprovalsDecide { body },
             Self::Approval(id) => Operation::ApprovalDecide { id, body },
+            Self::MediaCreate => Operation::MediaCreate {body},
             Self::Capabilities => Operation::CapabilitiesSave { body },
             Self::CapabilityKey(id) => Operation::CapabilityKey { id, body },
             Self::Providers => Operation::ProvidersSave { body },
@@ -1083,6 +1127,8 @@ fn native_agent_route(method: &Method, path: &str) -> Option<NativeAgentRoute> {
         ("PATCH", "/api/agent/settings") => return Some(Json(Body::Settings, 200)),
         ("GET", "/api/agent/approvals") => return Some(Ready(Operation::Approvals, 200)),
         ("POST", "/api/agent/approvals") => return Some(Json(Body::Approvals, 200)),
+        ("GET", "/api/media/jobs") => return Some(Ready(Operation::MediaJobs, 200)),
+        ("POST", "/api/media/jobs") => return Some(Json(Body::MediaCreate, 202)),
         ("GET", "/api/capabilities") => return Some(Ready(Operation::Capabilities, 200)),
         ("PUT", "/api/capabilities") => return Some(Json(Body::Capabilities, 200)),
         ("GET", "/api/providers") => return Some(Ready(Operation::Providers, 200)),
@@ -1355,6 +1401,7 @@ mod tests {
     use std::sync::Mutex;
     use tokio::sync::mpsc;
     include!("http/visual_tests.rs");
+    include!("http/media_tests.rs");
     include!("http/semantic_tests.rs");
     #[tokio::test]
     async fn preference_routes_keep_explicit_native_mode_auth_methods_and_codec() {

@@ -6,7 +6,7 @@ impl Workspace {
     pub(super) fn execute_native(&self, op: &Operation) -> Result<Option<Reply>, ApiError> {
         if !matches!(
             op,
-            Operation::ModelCatalogSearch{..}
+            Operation::MediaJobs | Operation::MediaCreate {..} | Operation::MediaCancel {..} | Operation::MediaResume {..} | Operation::MediaDelete {..} | Operation::MediaRead {..} | Operation::ModelCatalogSearch{..}
                 | Operation::ModelCatalogImport{..}
                 | Operation::ModelCatalogRefresh
                 | Operation::Setup
@@ -56,6 +56,12 @@ impl Workspace {
         }
         let request = |r| native.agent.request(r);
         let value = match op {
+            Operation::MediaJobs => native.media.snapshot()?,
+            Operation::MediaCreate {body} => native.media.create(body)?,
+            Operation::MediaCancel {id} => native.media.cancel(id)?,
+            Operation::MediaResume {id} => native.media.resume(id)?,
+            Operation::MediaDelete {id} => native.media.remove(id)?,
+            Operation::MediaRead {id} => {let (asset,bytes)=native.media.read_asset(id)?;return Ok(Some(Reply::Media{bytes,mime:asset["mime"].as_str().unwrap_or("").to_owned()}));},
             Operation::ModelCatalogRefresh | Operation::SetupScan | Operation::SetupSelect { .. } | Operation::RuntimeDiscover => return Err(ApiError::unavailable("Setup network operations require the asynchronous backend")),
             Operation::ModelCatalogSearch{query}=>native.catalog.search(query)?,
             Operation::ModelCatalogImport{body}=>native.catalog.import(body)?,
@@ -293,6 +299,7 @@ impl Workspace {
                 next
             }
             Operation::StopAll => {
+                native.media.stop_all()?;
                 native.semantic.cancel_all();
                 native.setup.stop();
                 self.cancel_probes()?;

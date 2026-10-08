@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-avatar-assets-local",
+  "checkpoint": "native-media-jobs",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 74,
+    "implemented": 81,
     "partial": 12,
-    "unavailable": 40
+    "unavailable": 33
   },
   "routes": [
     {
@@ -38,7 +38,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media behavior is still incomplete.",
+      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer behavior and media agent tools are still incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -60,7 +60,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Projected agent state includes saved schedules and change-sensitive heartbeats; browser rendering/media/plugin effects remain incomplete.",
+      "limit": "Projected agent state includes saved schedules and change-sensitive heartbeats; browser rendering/media agent tools/plugin effects remain incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -313,7 +313,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Correct for integrated actors, provider probes and setup probe/download cancellation. Tool-discovery/media/computer/speech hosts remain unported.",
+      "limit": "Correct for integrated actors, provider probes, media jobs and setup probe/download cancellation. Tool-discovery/computer/speech hosts remain unported.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -357,7 +357,7 @@
       "static": false,
       "agent": "implemented",
       "success_status": 200,
-      "limit": "Atomic revisioned shared capability settings; valid decision routes are connected to typed actor-owned advice. Buffered advice rechecks registry/identity/key generation/close; this does not implement media/speech consumers.",
+      "limit": "Atomic revisioned shared capability settings; valid decision routes are connected to typed actor-owned advice. Buffered advice rechecks registry/identity/key generation/close; user-requested media jobs consume pinned transport, while media agent tools and other speech consumers remain separate.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -399,9 +399,9 @@
       "path": "/api/media/jobs",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -410,9 +410,9 @@
       "path": "/api/media/jobs",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 202,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -421,9 +421,9 @@
       "path": "/api/media/jobs/{sha256}",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -432,9 +432,9 @@
       "path": "/api/media/jobs/{sha256}/cancel",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -443,9 +443,9 @@
       "path": "/api/media/jobs/{sha256}/resume",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -454,9 +454,9 @@
       "path": "/api/media/assets/{uuid}",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -465,9 +465,9 @@
       "path": "/api/media/assets/{uuid}",
       "family": "media",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Persistent generation handles, poll/resume/cancel and protected asset bytes is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native user-requested media jobs: pinned capabilities, durable handles, bounded polling/resume/cancel, local asset bytes and cleanup. Synthetic local fixtures only; media agent tools and live provider acceptance remain outside this slice.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
