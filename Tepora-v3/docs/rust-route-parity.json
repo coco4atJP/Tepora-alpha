@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "checkpoint": "native-lifecycle-scheduler-local",
+  "checkpoint": "native-photo-frame-local",
   "baseline": "835c585da7d4fbe2b463492edefce70ad20d19b8",
   "counting": {
-    "implemented": 64,
+    "implemented": 69,
     "partial": 12,
-    "unavailable": 50
+    "unavailable": 45
   },
   "routes": [
     {
@@ -38,7 +38,7 @@
       "static": false,
       "agent": "partial",
       "success_status": 200,
-      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets/photo behavior is still incomplete.",
+      "limit": "Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets behavior is still incomplete.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1191,9 +1191,9 @@
       "path": "/api/frame",
       "family": "frame",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1202,9 +1202,9 @@
       "path": "/api/frame/photos",
       "family": "frame",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1213,9 +1213,9 @@
       "path": "/api/frame/photos/{uuid}",
       "family": "frame",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1224,9 +1224,9 @@
       "path": "/api/frame/photos/{uuid}",
       "family": "frame",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {
@@ -1235,9 +1235,9 @@
       "path": "/api/frame/photos/{uuid}",
       "family": "frame",
       "static": false,
-      "agent": "unavailable",
+      "agent": "implemented",
       "success_status": 200,
-      "limit": "Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior.",
+      "limit": "Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access.",
       "baseline_source": "Tepora-v3/core/server.mjs"
     },
     {

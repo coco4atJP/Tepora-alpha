@@ -33,6 +33,8 @@ State batches commit before their events are published. UI-derived projections p
 
 Context import assigns fresh IDs, remaps references and cannot restore execution authority: memories are private/unconfirmed, imported skills/routines remain disabled, jobs remain interrupted/resume-blocked and dialogue archives remain read-only. Existing databases and unknown document fields are preserved rather than converted or deleted. SQLite is not encrypted; the source-service and desktop data directories may differ.
 
+`workspace/photo_frame.rs` stores bounded, inert photo bytes for both native development modes. A photo-specific mutex orders imports, reads and deletions while the existing Workspace owner handles metadata and `frame.updated` events. SQLite locks are released during filesystem I/O. Image signatures and inexpensive dimensions are inspected without decoding; authenticated HTTP serves the original bytes with the photo CSP and private caching. The 24 MiB/photo, 300-photo, 2 GiB-total and 120-million-pixel limits match the compatibility host. This does not migrate custom avatar assets or change the normal launcher. See [photo-frame validation](RUST-PHOTO-FRAME.md).
+
 ## Sessions and native coordination
 
 The resident main session and independent worker sessions have append-only logs, ordered inboxes, personas, working folders, toolsets, state and usage. Worker progress is a passive parent notification; a final report is an ordinary follow-up message. Visibility follows the existing main/parent/descendant rules. Input headers identify provenance and use the process-local timezone. Model output, persona text and received reports are data, not new authority.
@@ -73,7 +75,7 @@ Agent `memory_search` uses the configured semantic space with ordinary tool rece
 
 The explicit native host now implements persona/voice and application preference changes, plus the display/avatar recipe state APIs. `workspace/preferences.rs` validates the existing field subset, serializes persona changes, checks revisions and asks the actor to refresh prompts without replacing a cached prefix. Persona/voice text never grants execution authority. Network-related preference changes retain the existing policy revocation boundary.
 
-`workspace/display_avatar.rs` owns validated recipe changes, revision histories, undo/reset and portable preset import/export under the same Workspace/SQLite owner. The date parser preserves the frozen V8 input behavior and carries its source/license notice into native distributions. These state APIs do not implement custom avatar asset uploads, asset byte serving, photo-frame storage, audio or media effects. Normal Node/Tauri startup and all JavaScript/CSS remain unchanged.
+`workspace/display_avatar.rs` owns validated recipe changes, revision histories, undo/reset and portable preset import/export under the same Workspace/SQLite owner. The date parser preserves the frozen V8 input behavior and carries its source/license notice into native distributions. These state APIs do not implement custom avatar asset uploads, asset byte serving, audio or media effects. Normal Node/Tauri startup and all JavaScript/CSS remain unchanged.
 
 ## Native first-use setup and catalog
 
@@ -101,7 +103,7 @@ File tools preserve path resolution, freshness checks and read-before-overwrite 
 
 Native mode fails preflight for configured global `.mjs` plugins. Cached unsupported toolsets are diagnosed before model use, including resumed sessions. Absent hooks can use identity behavior; configured hooks cannot silently become no-ops. New native prompts explicitly describe unavailable capabilities, and known unimplemented APIs fail clearly.
 
-Browser rendering, `find`/`grep`, MCP, skills execution, image loading through `read` and unsupported vision bridges, media/speech, Computer Use, dream optimization, JavaScript plugins and remaining avatar/photo/peripheral mutations still use the compatibility service. Their saved data are retained. [Native host setup and limits](../native-service/README.md) lists the supported mode and routes. Neither the default launcher nor Tauri has been switched to the native service.
+Browser rendering, `find`/`grep`, MCP, skills execution, image loading through `read` and unsupported vision bridges, media/speech, Computer Use, dream optimization, JavaScript plugins and remaining avatar/peripheral mutations still use the compatibility service. Their saved data are retained. [Native host setup and limits](../native-service/README.md) lists the supported mode and routes. Neither the default launcher nor Tauri has been switched to the native service.
 
 ## Companion monitor UI
 

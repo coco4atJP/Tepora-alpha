@@ -1,0 +1,633 @@
+{
+  "source": "core/photo-frame.mjs",
+  "cases": [
+    {
+      "name": "png 800x600",
+      "hex": "89504e470d0a1a0a0000000049484452000003200000025800000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/png",
+          "ext": "png",
+          "width": 800,
+          "height": 600
+        }
+      }
+    },
+    {
+      "name": "png 0x0",
+      "hex": "89504e470d0a1a0a0000000049484452000000000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/png",
+          "ext": "png",
+          "width": 0,
+          "height": 0
+        }
+      }
+    },
+    {
+      "name": "png 0x10",
+      "hex": "89504e470d0a1a0a0000000049484452000000000000000a00000000000000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像の大きさを読み取れません。"
+      }
+    },
+    {
+      "name": "png 10x0",
+      "hex": "89504e470d0a1a0a00000000494844520000000a0000000000000000000000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像の大きさを読み取れません。"
+      }
+    },
+    {
+      "name": "png 12000x10000",
+      "hex": "89504e470d0a1a0a000000004948445200002ee00000271000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/png",
+          "ext": "png",
+          "width": 12000,
+          "height": 10000
+        }
+      }
+    },
+    {
+      "name": "png 12001x10000",
+      "hex": "89504e470d0a1a0a000000004948445200002ee10000271000000000000000000000000000000000",
+      "expected": {
+        "status": 413,
+        "message": "画像が大きすぎます。画面に十分な大きさに縮小して選んでください。"
+      }
+    },
+    {
+      "name": "png 4294967295x4294967295",
+      "hex": "89504e470d0a1a0a0000000049484452ffffffffffffffff00000000000000000000000000000000",
+      "expected": {
+        "status": 413,
+        "message": "画像が大きすぎます。画面に十分な大きさに縮小して選んでください。"
+      }
+    },
+    {
+      "name": "png truncated 16",
+      "hex": "89504e470d0a1a0a0000000049484452",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 12. Received 16"
+      }
+    },
+    {
+      "name": "png truncated 17",
+      "hex": "89504e470d0a1a0a000000004948445200",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 13. Received 16"
+      }
+    },
+    {
+      "name": "png truncated 18",
+      "hex": "89504e470d0a1a0a00000000494844520000",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 14. Received 16"
+      }
+    },
+    {
+      "name": "png truncated 19",
+      "hex": "89504e470d0a1a0a0000000049484452000000",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 15. Received 16"
+      }
+    },
+    {
+      "name": "png truncated 20",
+      "hex": "89504e470d0a1a0a000000004948445200000001",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 16. Received 20"
+      }
+    },
+    {
+      "name": "png truncated 21",
+      "hex": "89504e470d0a1a0a00000000494844520000000100",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 17. Received 20"
+      }
+    },
+    {
+      "name": "png truncated 22",
+      "hex": "89504e470d0a1a0a0000000049484452000000010000",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 18. Received 20"
+      }
+    },
+    {
+      "name": "png truncated 23",
+      "hex": "89504e470d0a1a0a000000004948445200000001000000",
+      "expected": {
+        "status": 500,
+        "message": "The value of \"offset\" is out of range. It must be >= 0 and <= 19. Received 20"
+      }
+    },
+    {
+      "name": "short 0",
+      "hex": "",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 1",
+      "hex": "00",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 2",
+      "hex": "0000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 3",
+      "hex": "000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 4",
+      "hex": "00000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 5",
+      "hex": "0000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 6",
+      "hex": "000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 7",
+      "hex": "00000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 8",
+      "hex": "0000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 9",
+      "hex": "000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 10",
+      "hex": "00000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 11",
+      "hex": "0000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 12",
+      "hex": "000000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 13",
+      "hex": "00000000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 14",
+      "hex": "0000000000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "short 15",
+      "hex": "000000000000000000000000000000",
+      "expected": {
+        "status": 400,
+        "message": "画像ファイルを選んでください。"
+      }
+    },
+    {
+      "name": "unknown text",
+      "hex": "6f7264696e617279207465787420686173206e6f20696d616765207369676e6174757265",
+      "expected": {
+        "status": 400,
+        "message": "JPEG・PNG・WebP・GIF・AVIFの写真を選んでください。"
+      }
+    },
+    {
+      "name": "avif",
+      "hex": "000000006674797061766966000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/avif",
+          "ext": "avif",
+          "width": 0,
+          "height": 0
+        }
+      }
+    },
+    {
+      "name": "avis",
+      "hex": "000000006674797061766973000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/avif",
+          "ext": "avif",
+          "width": 0,
+          "height": 0
+        }
+      }
+    },
+    {
+      "name": "GIF87a",
+      "hex": "4749463837614001f0000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/gif",
+          "ext": "gif",
+          "width": 320,
+          "height": 240
+        }
+      }
+    },
+    {
+      "name": "GIF89a",
+      "hex": "4749463839614001f0000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/gif",
+          "ext": "gif",
+          "width": 320,
+          "height": 240
+        }
+      }
+    },
+    {
+      "name": "VP8X",
+      "hex": "524946460000000057454250565038580000000000000000ff070054050000000000",
+      "expected": {
+        "value": {
+          "mime": "image/webp",
+          "ext": "webp",
+          "width": 2048,
+          "height": 1365
+        }
+      }
+    },
+    {
+      "name": "VP8 ",
+      "hex": "52494646000000005745425056503820000000000000009d012a8002e00100000000",
+      "expected": {
+        "value": {
+          "mime": "image/webp",
+          "ext": "webp",
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    {
+      "name": "VP8L",
+      "hex": "5249464600000000574542505650384c000000002f3f400f00000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/webp",
+          "ext": "webp",
+          "width": 64,
+          "height": 62
+        }
+      }
+    },
+    {
+      "name": "????",
+      "hex": "5249464600000000574542503f3f3f3f000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/webp",
+          "ext": "webp",
+          "width": 0,
+          "height": 0
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 192",
+      "hex": "ffd8ffc000110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 193",
+      "hex": "ffd8ffc100110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 194",
+      "hex": "ffd8ffc200110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 195",
+      "hex": "ffd8ffc300110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 197",
+      "hex": "ffd8ffc500110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 198",
+      "hex": "ffd8ffc600110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 199",
+      "hex": "ffd8ffc700110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 201",
+      "hex": "ffd8ffc900110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 202",
+      "hex": "ffd8ffca00110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 203",
+      "hex": "ffd8ffcb00110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 205",
+      "hex": "ffd8ffcd00110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 206",
+      "hex": "ffd8ffce00110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg SOF 207",
+      "hex": "ffd8ffcf00110802580320000000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "height": 600,
+          "width": 800
+        }
+      }
+    },
+    {
+      "name": "jpeg unmeasured 53",
+      "hex": "ffd8ff0000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "width": 0,
+          "height": 0
+        }
+      }
+    },
+    {
+      "name": "jpeg unmeasured 54",
+      "hex": "ffd8ffffff010000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "width": 0,
+          "height": 0
+        }
+      }
+    },
+    {
+      "name": "jpeg unmeasured 55",
+      "hex": "ffd8ffd90000000000000000000000000000000000000000",
+      "expected": {
+        "value": {
+          "mime": "image/jpeg",
+          "ext": "jpg",
+          "width": 0,
+          "height": 0
+        }
+      }
+    }
+  ],
+  "names": [
+    {
+      "input": "",
+      "posix": "写真",
+      "windows": "写真"
+    },
+    {
+      "input": "/",
+      "posix": "写真",
+      "windows": "写真"
+    },
+    {
+      "input": "///",
+      "posix": "写真",
+      "windows": "写真"
+    },
+    {
+      "input": "a//b///",
+      "posix": "b",
+      "windows": "b"
+    },
+    {
+      "input": "C:",
+      "posix": "C:",
+      "windows": "写真"
+    },
+    {
+      "input": "C:cat.png",
+      "posix": "C:cat.png",
+      "windows": "cat.png"
+    },
+    {
+      "input": "C:\\cat\\dog.png",
+      "posix": "C:\\cat\\dog.png",
+      "windows": "dog.png"
+    },
+    {
+      "input": "\\\\server\\share",
+      "posix": "\\\\server\\share",
+      "windows": "share"
+    },
+    {
+      "input": "a\u0000b.png",
+      "posix": "a b.png",
+      "windows": "a b.png"
+    },
+    {
+      "input": "﻿ x ﻿",
+      "posix": "x",
+      "windows": "x"
+    },
+    {
+      "input": "x",
+      "posix": "x",
+      "windows": "x"
+    },
+    {
+      "input": "猫.png",
+      "posix": "猫.png",
+      "windows": "猫.png"
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀.png",
+      "posix": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ud83d",
+      "windows": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ud83d"
+    },
+    {
+      "input": ".png",
+      "posix": ".png",
+      "windows": ".png"
+    }
+  ]
+}

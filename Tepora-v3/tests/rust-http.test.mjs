@@ -434,7 +434,7 @@ test('Rust HTTP: unported effects fail explicitly instead of reporting fabricate
   ['POST','/api/agent/approvals'],['POST','/api/agent/approvals/fixture-approval'],['POST','/api/stop'],
   ['PUT','/api/dialogue/personas'],['PATCH','/api/settings'],
   ['PUT','/api/avatar/assets'],
-  ['PUT','/api/frame/photos'],['POST','/api/skills'],['PATCH','/api/skills/fixture-skill'],['DELETE','/api/skills/fixture-skill'],['POST','/api/shared/scan'],
+  ['POST','/api/skills'],['PATCH','/api/skills/fixture-skill'],['DELETE','/api/skills/fixture-skill'],['POST','/api/shared/scan'],
   ['PUT','/api/providers'],['POST','/api/providers/fixture-provider/key'],['POST','/api/providers/fixture-provider/probe'],
   ['PATCH','/api/network'],['POST','/api/runtime/discover'],
   ...['install-help','scan','dismiss','select','install','stop'].map(action=>['POST','/api/setup/'+action]),
@@ -532,8 +532,9 @@ test('Rust HTTP: display and avatar config keep CAS, undo, presets and restart w
    saved[kind]=parsed(await app.request(base+'/import','POST',{expectedRevision:4,preset}));
    assert.equal(saved[kind].revision,5);
   }
-  for(const pathname of ['/api/avatar/assets','/api/frame'])parsed(await app.request(pathname),503);
-  parsed(await app.request('/api/avatar/assets','PUT',{}),503);parsed(await app.request('/api/frame/photos','PUT',{}),503);
+  parsed(await app.request('/api/avatar/assets'),503);
+  assert.deepEqual(parsed(await app.request('/api/frame')).photos,[]);
+  parsed(await app.request('/api/avatar/assets','PUT',{}),503);parsed(await app.request('/api/frame/photos','PUT',{}),400);
   assert.equal((await app.close()).code,0);
   const restarted=await f.start(options);
   for(const kind of ['display','avatar'])assert.deepEqual(parsed(await restarted.request('/api/'+kind)),saved[kind]);

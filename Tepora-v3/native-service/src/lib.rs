@@ -48,6 +48,10 @@ impl std::error::Error for ApiError {}
 
 #[derive(Debug, Clone)]
 pub enum Operation {
+    Frame,
+    FrameAdd { bytes: Vec<u8>, filename: String },
+    FrameRead { id: String },
+    FrameDelete { id: String },
     Display { action: workspace::VisualAction, body: Value },
     Avatar { action: workspace::VisualAction, body: Value },
     ModelCatalogSearch { query:String },
@@ -179,6 +183,7 @@ pub enum Operation {
 }
 #[derive(Debug, Clone)]
 pub enum Reply {
+    Photo { bytes: Vec<u8>, mime: String },
     Download {
         bytes: Vec<u8>,
         disposition: String,

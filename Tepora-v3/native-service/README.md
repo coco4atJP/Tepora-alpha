@@ -36,6 +36,7 @@ Both modes implement:
 - Artifacts, optimistic revisions, history and rendering
 - Context export/import with remapped IDs, disabled authority, private/unconfirmed memories and read-only dialogue archives
 - Presence, diagnostics, durable event replay and SSE snapshots
+- Local photo-frame list/import/GET/HEAD/delete, inert bytes, quotas, duplicate suppression and ordered events ([validation](../docs/RUST-PHOTO-FRAME.md))
 
 Shared Rust projections preserve message/continuation and job/approval shapes. The workspace domain owns validation, ID remapping, indexing, transactions and event creation. SSE subscription and replay/snapshot selection are atomic relative to writes; slow clients have bounded queues and write deadlines. `--dev-native` without `--agent` retains its explicit unavailable-effect responses.
 
@@ -116,7 +117,7 @@ Agent `memory_search` uses the configured semantic space with ordinary tool rece
 
 Global `.mjs` plugin files reject native-agent startup with a compatibility-host diagnostic. JavaScript hooks are not silently replaced with no-ops. Cached sessions containing unavailable tools are diagnosed at startup or before model use, including resumed sessions; their prompts/history are not silently rewritten.
 
-Still unported: `find`/`grep`, browser rendering, MCP, image loading through `read` and unsupported vision bridges, media/speech, Computer Use, skills execution, dream optimization, JavaScript plugins and the remaining avatar/photo/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
+Still unported: `find`/`grep`, browser rendering, MCP, image loading through `read` and unsupported vision bridges, media/speech, Computer Use, skills execution, dream optimization, JavaScript plugins and the remaining avatar/other peripheral mutations. Saved configuration and documents remain intact. Known unavailable APIs return **503**; unknown paths/methods retain their 404/405 distinctions. Bootstrap reports the selected development scope.
 
 Do not change default launch or remove the Node sidecar until the remaining effects, route inventory and desktop packaging/installation/startup have their own acceptance evidence. A future JavaScript plugin compatibility host must preserve live callback/context behavior, not just copy it into JSON.
 

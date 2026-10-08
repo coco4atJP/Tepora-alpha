@@ -601,6 +601,32 @@ impl HttpState {
                 _ => Err(ApiError::new(500, "Invalid artifact response")),
             };
         }
+        if path == "/api/frame" && method == Method::GET {
+            return self.json_operation(Operation::Frame, 200).await;
+        }
+        if path == "/api/frame/photos" && method == Method::PUT {
+            let filename = decode_photo_filename(field(request.headers(), "x-tepora-filename").unwrap_or(""));
+            let bytes = self.read_photo(request.into_body()).await?;
+            return self.json_operation(Operation::FrameAdd { bytes, filename }, 200).await;
+        }
+        if let Some(id) = path.strip_prefix("/api/frame/photos/").filter(|id| id.len()==36 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b==b'-')) {
+            if method == Method::DELETE {
+                return self.json_operation(Operation::FrameDelete { id: id.into() }, 200).await;
+            }
+            if method == Method::GET || method == Method::HEAD {
+                return match self.domain(Operation::FrameRead { id: id.into() }).await? {
+                    Reply::Photo { bytes, mime } => {
+                        let length = bytes.len();
+                        let mut r = response(200, &mime, if method==Method::HEAD {Bytes::new()} else {Bytes::from(bytes)});
+                        set_header(&mut r, "content-length", &length.to_string());
+                        set_header(&mut r, "cache-control", "private, max-age=3600");
+                        set_header(&mut r, "content-security-policy", "default-src 'none'; sandbox");
+                        Ok(r)
+                    },
+                    _ => Err(ApiError::new(500, "Invalid photo response")),
+                };
+            }
+        }
         if let Some(route) = visual_route(&method, path) {
             let operation = match route {
                 NativeAgentRoute::Ready(operation, _) => operation,
@@ -846,6 +872,20 @@ impl HttpState {
             Reply::Json(value) => Ok(json_response(value, status)),
             _ => Err(ApiError::new(500, "Invalid JSON domain response")),
         }
+    }
+    async fn read_photo<B>(&self, mut body: B) -> Result<Vec<u8>, ApiError>
+    where B: Body<Data=Bytes> + Unpin, B::Error: std::fmt::Display {
+        tokio::time::timeout(self.config.body_timeout, async {
+            let mut bytes=Vec::new();
+            while let Some(frame)=body.frame().await {
+                let frame=frame.map_err(|_|ApiError::bad_request("Invalid request body"))?;
+                if let Ok(data)=frame.into_data() {
+                    if bytes.len().saturating_add(data.len())>crate::workspace::photo_frame::MAX_PHOTO_BYTES {return Err(ApiError::new(413,"ファイルが大きすぎます。"));}
+                    bytes.extend_from_slice(&data);
+                }
+            }
+            Ok(bytes)
+        }).await.map_err(|_|ApiError::new(408,"Request body timed out"))?
     }
     async fn read_json<B>(&self, mut body: B) -> Result<Value, ApiError>
     where
@@ -2357,4 +2397,18 @@ mod tests {
         assert!(!json.contains("sk-hidden"));
         assert_eq!(tepora_core::json_codec::utf16_units(&text).len(), 600);
     }
+}
+
+// decodeURIComponent semantics: '+' stays literal; any invalid escape/UTF-8 clears the name.
+fn decode_photo_filename(raw: &str) -> String {
+    let input=raw.as_bytes();let mut out=Vec::with_capacity(input.len());let mut at=0;
+    while at<input.len() {
+        if input[at]==b'%' {
+            let Some(pair)=input.get(at+1..at+3) else{return String::new()};
+            let hex=|b:u8|(b as char).to_digit(16);
+            let (Some(a),Some(b))=(hex(pair[0]),hex(pair[1])) else{return String::new()};
+            out.push((a*16+b) as u8);at+=3;
+        } else {out.push(input[at]);at+=1;}
+    }
+    String::from_utf8(out).map(|s|tepora_core::json_codec::encode_text(&s)).unwrap_or_default()
 }

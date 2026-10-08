@@ -1,12 +1,16 @@
-# Native backend route parity: lifecycle and scheduler checkpoint
+# Native backend route parity: local photo-frame checkpoint
 
 This source inventory compares the existing application routes with the explicit Rust development host. It is not a default-switch approval. The GUI and normal Node/Tauri launch remain unchanged.
 
-The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **64 are substantially matched, 12 are partial and 50 are absent**. Thus 76 have handlers, and the 12 partial routes are included in those 76. A route count is not an end-to-end feature completion percentage.
+The inventory contains 126 application method/path variants and 22 separately grouped static rows. In this checkpoint, **69 are substantially matched, 12 are partial and 45 are absent**. Thus 81 have handlers, and the 12 partial routes are included in those 81. A route count is not an end-to-end feature completion percentage.
 
-Verification: Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLite cache tests, 11 real HTTP/socket tests, and the original Node scheduler regression pass. The HTTP and source-scheduler gates pass on both Node 22.16.0 and 24.19.0; 9 targeted root workflow/conventional-commit checks pass on both, including dedicated LF/CRLF fixtures. The 11 HTTP tests include a real schedule tool receipt, restart delivery and second-restart deduplication. These are focused gates, not a full Rust/Node/quality pass; approval-policy and broader security suites were not rerun in this slice. Cross-platform CI and packaging for this new source are still pending. Earlier package results at 7743e8d do not certify this candidate. No real model, paid provider or desktop default cutover is claimed.
+Preceding exact-head acceptance: `f0d6c43e210fe925732643119cb1db4fccb16b4b` passed all five CI jobs: full quality gates on Linux/Windows/macOS, macOS DMG and bundled startup, and Windows NSIS build/installation/startup. Native-service counts were macOS 441 + 2 CLI and Windows 407 + 2 CLI; Node tests were macOS 558 passed, Windows 556 passed / 2 platform skips. Both had 109 core tests. This evidence does not certify the photo-frame candidate.
+
+Current photo-frame integration: 71 selected ordinary native-service tests passed. On both Node 22.16.0 and 24.19.0, 13 selected real HTTP tests (including both photo modes), 1 source scheduler regression and9 root portability/conventional checks passed. Syntax checks cover 234 JavaScript modules. These are focused gates; current full CI/package acceptance is pending. No new broad security review, real model or default cutover is claimed.
 
 Scope: native exec/process, web_search/web_fetch, preferences/personas, display/avatar configuration state, first-use setup, model catalog/runtime discovery, scoped semantic memory and typed decisions are connected. Attachment admission/delivery and idle-worker deletion use correlated actor admissions and drain barriers. Saved schedules and change-sensitive heartbeats are connected. Unsupported vision bridges, plugins/MCP/media/PC and remaining peripheral effects stay unavailable. Session download retains its resolved-root symlink guard. Missing effects are not fabricated and never fall back to Node inside this host.
+
+Photo-frame evidence and exact local scope are recorded in [RUST-PHOTO-FRAME](RUST-PHOTO-FRAME.md). This five-route slice does not establish a full quality pass or cross-platform package acceptance.
 
 ## Complete route inventory
 
@@ -16,7 +20,7 @@ YES means a real handler is present in the supported scope, not that every model
 |---|---|---|---|---|
 | R001 | `GET /health` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R002 | `GET /launch?token={token}` | YES | 303 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
-| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets/photo behavior is still incomplete. |
+| R003 | `GET /api/bootstrap` | PARTIAL | 200 | Live provider/capability/setup overlays implemented. Display/avatar configuration and persona state are supported; computer/media/custom-avatar assets behavior is still incomplete. |
 | R004 | `GET /api/events?since={seq}` | PARTIAL | 200 | Atomic replay/reconnect includes live provider health/limits/resources, capability key hints and setup state. Events from unported peripheral hosts remain absent. |
 | R005 | `GET /api/agent` | PARTIAL | 200 | Projected agent state includes saved schedules and change-sensitive heartbeats; browser rendering/media/plugin effects remain incomplete. |
 | R006 | `GET /api/agent/dialogue` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
@@ -121,11 +125,11 @@ YES means a real handler is present in the supported scope, not that every model
 | R105 | `DELETE /api/avatar/assets/{uuid}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R106 | `GET /api/avatar/assets/{uuid}/files/{relativePath}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
 | R107 | `HEAD /api/avatar/assets/{uuid}/files/{relativePath}` | ABSENT | 200 | Validated VRM/picture/mood/mesh packs, quotas, hashes and exact byte serving is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R108 | `GET /api/frame` | ABSENT | 200 | Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R109 | `PUT /api/frame/photos` | ABSENT | 200 | Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R110 | `GET /api/frame/photos/{uuid}` | ABSENT | 200 | Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R111 | `HEAD /api/frame/photos/{uuid}` | ABSENT | 200 | Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior. |
-| R112 | `DELETE /api/frame/photos/{uuid}` | ABSENT | 200 | Local photo signatures/dimensions, quotas, dedupe, bytes and events is not implemented in native-service. Saved metadata does not provide the behavior. |
+| R108 | `GET /api/frame` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
+| R109 | `PUT /api/frame/photos` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
+| R110 | `GET /api/frame/photos/{uuid}` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
+| R111 | `HEAD /api/frame/photos/{uuid}` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
+| R112 | `DELETE /api/frame/photos/{uuid}` | YES | 200 | Native local signature/dimension inspection, bounded inert-byte import, hash dedupe, persisted ordering, GET/HEAD, deletion and frame.updated events. Synthetic fixtures only; no image decoding or personal-photo access. |
 | R113 | `POST /api/memories` | YES | 201 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R114 | `PATCH /api/memories/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |
 | R115 | `DELETE /api/memories/{id}` | YES | 200 | No route-specific missing implementation identified within the admitted native scope; this does not establish real-model/platform acceptance. |

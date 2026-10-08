@@ -324,3 +324,11 @@ Node22の全回帰は552/557、skipなし。残る5件は既知のクラウド�
 - SQLiteの固定文書SELECTをprepare_cachedへ変更。独立ビルドの実コアA/Bで256 Bの読み込み中央値5.57→3.09µs、4 KiBで21.74→19.48µs。アプリ全体の高速化率は未測定
 
 Current Linux checks: 63 selected ordinary native-service tests, 2 focused SQLite cache tests, 11 real HTTP/socket tests, and the original Node scheduler regression pass. The HTTP and source-scheduler gates pass on both Node 22.16.0 and 24.19.0; 9 targeted root workflow/conventional-commit checks pass on both, including dedicated LF/CRLF fixtures. The 11 HTTP tests include a real schedule tool receipt, restart delivery and second-restart deduplication. These are focused gates, not a full Rust/Node/quality pass; approval-policy and broader security suites were not rerun in this slice. Cross-platform CI and packaging for this new source are still pending. Earlier package results at 7743e8d do not certify this candidate. No real model, paid provider or desktop default cutover is claimed.
+
+## 写真フレームの独立Rust化（2026-10-08、ローカル検証）
+
+写真フレームの通常ルートR108〜R112をWorkspaceへ接続した。署名・寸法判定、24MiB/枚・300枚・合計2GiB・120M画素の上限、SHA-256重複抑制、元バイトのGET/HEAD、削除、順序、再起動、frame.updatedを維持する。HTTP認証・CSRF・Host/Originと単一SQLite所有はそのまま。写真専用mutexで操作を直列化し、ファイルI/O中はSQLiteロックを保持しない。終了受付後も受付済みのファイル/メタデータ更新を完了させ、最終DB終了はその処理を待つ。
+
+生成したローカル画像バイトだけでRust 8件、Node 22.16.0/24.19.0それぞれHTTP 2件が通過した。56件の署名/エラーfixtureとPOSIX/Windowsファイル名fixtureは両Node版で一致。元画像の描画・デコード、個人写真、外部通信、実モデル、デスクトップ梱包は検証していない。approval-policyや広範なsecurity suiteはこの差分で実行しておらず、全体quality通過の主張ではない。
+
+この差分のルート一覧は実装69・部分12・未実装45、別枠static22。通常のNode/Tauri起動、GUI、独自avatar素材や他の未移植機能は変更しない。[写真フレームの境界と検証](RUST-PHOTO-FRAME.md)を参照。
