@@ -12,6 +12,7 @@ pub mod policy;
 pub mod process_host;
 pub mod processes;
 pub mod receipts;
+pub mod scheduler;
 pub mod tools;
 pub mod web;
 pub mod web_host;

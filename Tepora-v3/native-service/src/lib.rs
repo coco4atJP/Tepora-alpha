@@ -259,3 +259,7 @@ pub trait Backend: Send + Sync + 'static {
     }
     fn shutdown(&self) -> Result<(), ApiError>;
 }
+
+// One Date.parse grammar shared by display validation and saved schedules.
+#[path = "workspace/display_avatar/date.rs"]
+pub(crate) mod js_date;

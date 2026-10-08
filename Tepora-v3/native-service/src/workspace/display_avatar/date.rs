@@ -471,15 +471,23 @@ fn local_offset(
         })?;
     Some(local.offset().fix().local_minus_utc())
 }
-pub(super) fn valid(text: &str) -> bool {
-    valid_with_offset(text, None)
+const LIMIT: i128 = 8640000000000000;
+struct Calendar {
+    year: i64,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+    wall_ms: i128,
+    offset_seconds: Option<i128>,
 }
-fn valid_with_offset(text: &str, forced_local_offset: Option<i32>) -> bool {
+fn calendar(text: &str) -> Option<Calendar> {
     let Some(mut p) = parse(text) else {
-        return false;
+        return None;
     };
     if p.day.is_empty() {
-        return false;
+        return None;
     }
     p.day.resize(3, 1);
     let (mut year, month, day) = if let Some(month) = p.named {
@@ -501,14 +509,14 @@ fn valid_with_offset(text: &str, forced_local_offset: Option<i32>) -> bool {
         }
     }
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-        return false;
+        return None;
     }
     p.time.resize(4, 0);
     let mut h = p.time[0];
     let (m, s, ms) = (p.time[1], p.time[2], p.time[3]);
     if let Some(half) = p.half_day {
         if !(0..=12).contains(&h) {
-            return false;
+            return None;
         }
         h = h % 12 + half;
     }
@@ -518,7 +526,7 @@ fn valid_with_offset(text: &str, forced_local_offset: Option<i32>) -> bool {
         || !(0..=999).contains(&ms)
     {
         if h != 24 || m != 0 || s != 0 || ms != 0 {
-            return false;
+            return None;
         }
     }
     let time = days(year, month, day) * 86400000
@@ -526,31 +534,67 @@ fn valid_with_offset(text: &str, forced_local_offset: Option<i32>) -> bool {
         + m as i128 * 60000
         + s as i128 * 1000
         + ms as i128;
-    const LIMIT: i128 = 8640000000000000;
-    let offset = if let Some(sign) = p.sign {
+    let offset_seconds = if let Some(sign) = p.sign {
         let seconds = (p.zone_hour.unwrap_or(0) as u32)
             .wrapping_mul(3600)
             .wrapping_add((p.zone_minute.unwrap_or(0) as u32).wrapping_mul(60));
         if seconds > i32::MAX as u32 {
-            return false;
+            return None;
         }
-        seconds as i128 * sign as i128
+        Some(seconds as i128 * sign as i128)
     } else {
-        if time.abs() < LIMIT - 3 * 86400000 {
+        None
+    };
+    Some(Calendar {
+        year,
+        month: month as u32,
+        day: day as u32,
+        hour: h as u32,
+        minute: m as u32,
+        second: s as u32,
+        wall_ms: time,
+        offset_seconds,
+    })
+}
+
+pub(crate) fn valid(text: &str) -> bool {
+    valid_with_offset(text, None)
+}
+fn valid_with_offset(text: &str, forced_local_offset: Option<i32>) -> bool {
+    let Some(c) = calendar(text) else {
+        return false;
+    };
+    let offset = if let Some(offset) = c.offset_seconds {
+        offset
+    } else {
+        // Keep the display validator's existing boundary-only zone lookup.
+        if c.wall_ms.abs() < LIMIT - 3 * 86400000 {
             return true;
         }
-        if time.abs() > LIMIT + 3 * 86400000 {
+        if c.wall_ms.abs() > LIMIT + 3 * 86400000 {
             return false;
         }
         let Some(offset) = forced_local_offset
-            .or_else(|| local_offset(year, month as u32, day as u32, h as u32, m as u32, s as u32))
+            .or_else(|| local_offset(c.year, c.month, c.day, c.hour, c.minute, c.second))
         else {
             return false;
         };
         offset as i128
     };
-    (time - offset * 1000).abs() <= LIMIT
+    (c.wall_ms - offset * 1000).abs() <= LIMIT
 }
+
+/// Parse the same grammar for saved schedules. The caller owns timezone/DST
+/// conversion of an unzoned wall-clock value, keeping tests deterministic.
+pub(crate) fn timestamp(text: &str, local: impl FnOnce(i64) -> Option<i64>) -> Option<i64> {
+    let c = calendar(text)?;
+    let time = match c.offset_seconds {
+        Some(offset) => c.wall_ms.checked_sub(offset.checked_mul(1000)?)?,
+        None => i128::from(local(c.wall_ms.try_into().ok()?)?),
+    };
+    (time.abs() <= LIMIT).then_some(time.try_into().ok()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

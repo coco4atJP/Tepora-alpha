@@ -2,8 +2,7 @@
 //! no upload, file serving, image inspection or photo-frame effect is provided.
 use super::preferences::{ordered_keys, plus_one, spread, strict_equal};
 use super::*;
-#[path = "display_avatar/date.rs"]
-mod date;
+use crate::js_date as date;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VisualAction {
     Get,
