@@ -433,7 +433,6 @@ test('Rust HTTP: unported effects fail explicitly instead of reporting fabricate
   ['PATCH','/api/agent/settings'],['POST','/api/agent/policy/revert'],['POST','/api/agent/dream'],['PUT','/api/agent/search-key'],['POST','/api/agent/plugins/reload'],
   ['POST','/api/agent/approvals'],['POST','/api/agent/approvals/fixture-approval'],['POST','/api/stop'],
   ['PUT','/api/dialogue/personas'],['PATCH','/api/settings'],
-  ['PUT','/api/avatar/assets'],
   ['POST','/api/skills'],['PATCH','/api/skills/fixture-skill'],['DELETE','/api/skills/fixture-skill'],['POST','/api/shared/scan'],
   ['PUT','/api/providers'],['POST','/api/providers/fixture-provider/key'],['POST','/api/providers/fixture-provider/probe'],
   ['PATCH','/api/network'],['POST','/api/runtime/discover'],
@@ -450,6 +449,17 @@ test('Rust HTTP: unported effects fail explicitly instead of reporting fabricate
   assert.equal(typeof error.error,'string',method+' '+pathname);assert.ok(error.error.length>0);assert.notEqual(error.accepted,true);assert.notEqual(error.ok,true);
  }
  const after=parsed(await app.request('/api/bootstrap'));assert.deepEqual(after.dialogue,app.bootstrap.dialogue);assert.deepEqual(after.settings,app.bootstrap.settings);
+});
+
+test('Rust HTTP: avatar import validates ordinary input without changing the library',async t=>{
+ const f=await fixture(t);
+ for(const nativeAgent of [false,true]){
+  const app=await f.start({extraArgs:nativeAgent?['--agent']:[]}),before=parsed(await app.request('/api/avatar/assets'));
+  const error=parsed(await app.request('/api/avatar/assets','PUT',{fixture:true}),400);
+  assert.equal(error.error,'素材の種類が正しくありません。');
+  assert.deepEqual(parsed(await app.request('/api/avatar/assets')),before);
+  await app.close();
+ }
 });
 
 test('Rust HTTP: a dead legacy Store lease recovers without replaying work or touching other files',async t=>{
