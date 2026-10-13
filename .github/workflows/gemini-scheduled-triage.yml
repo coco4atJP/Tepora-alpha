@@ -5,13 +5,13 @@ on:
     - cron: '0 * * * *' # Runs every hour
   pull_request:
     branches:
-      - 'main'
+      - 'rust/v3-core-migration'
       - 'release/**/*'
     paths:
       - '.github/workflows/gemini-scheduled-triage.yml'
   push:
     branches:
-      - 'main'
+      - 'rust/v3-core-migration'
       - 'release/**/*'
     paths:
       - '.github/workflows/gemini-scheduled-triage.yml'

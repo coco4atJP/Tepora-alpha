@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 function assertMigrationWorkflow(source, job) {
   // Git may check out the same workflow with Windows line endings.
   source = source.replace(/\r\n/g, '\n');
-  assert.match(source, /push:\n\s+branches: \[main, 'v3\.0-beta\/\*\*', 'rust\/v3-core-migration'\]/);
+  assert.match(source, /push:\n\s+branches: \['rust\/v3-core-migration'\]/);
   assert.match(source, new RegExp(`  ${job}:\\n(?:    #.*\\n)*    if: github.event_name != 'pull_request' \\|\\| github.head_ref != 'rust/v3-core-migration'`));
   assert.match(source, /permissions:\n  contents: read\n/);
   assert.match(source, /workflow_dispatch:/);
@@ -20,7 +20,7 @@ for (const [, job] of workflows) {
         'on:',
         '  workflow_dispatch:',
         '  push:',
-        "    branches: [main, 'v3.0-beta/**', 'rust/v3-core-migration']",
+        "    branches: ['rust/v3-core-migration']",
         '  pull_request:',
         'permissions:',
         '  contents: read',

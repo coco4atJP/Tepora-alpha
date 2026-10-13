@@ -4,16 +4,18 @@
 
 Teporaは、ひとつのキャラクターとの会話を続けながら、別のワーカーへ非同期に仕事を任せるローカル中心のAIワークスペースです。このブランチの起動・開発・検証・ネイティブビルドはすべて **V3 beta.11** を対象にしています。
 
+V3の開発本流は **`rust/v3-core-migration`** に一本化します。旧 `v3.0-beta/companion-os` の全履歴はこのブランチに含まれています。旧版とのAPI・設定形式の後方互換性はリリース要件にしません。ユーザーデータの削除や自動変換は別途明示的に扱います。GitHubの既定ブランチ設定とは独立して、以下のcloneコマンドで開発本流を取得できます。
+
 ## 起動
 
 ソース版には Node.js **22.16.0以上**、[Rust stable](https://rustup.rs)、OSのC/C++ビルドツールが必要です。初回起動時にRustコアをビルドします。配布用デスクトップパッケージにはビルド済みコアを同梱します。
 
-この移植ブランチでは、永続状態・文脈・トークン・モデル通信形式・実行状態機械を共有Rustコアに移し、独立Rust HTTPホストに実際のプロバイダー通信、対応ツール、承認、コンパクション、自己点検を接続しています。通常起動は既存機能を保つNode互換サービスのままです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
+このRust系の開発本流では、永続状態・文脈・トークン・モデル通信形式・実行状態機械を共有Rustコアに移し、独立Rust HTTPホストに実際のプロバイダー通信、対応ツール、承認、コンパクション、自己点検を接続しています。通常起動は既存機能を保つNode互換サービスのままです。[Rust移行の範囲と検証](Tepora-v3/docs/RUST-MIGRATION.md)を参照してください。
 
 開発用の[独立Rustホスト](Tepora-v3/native-service/README.md)は、`--dev-native` で履歴・記憶・成果物・SSE、追加の `--agent` で会話と22の組み込みツールを実行します。ビルド済みバイナリーはNodeなしで動き、プロセス実行と停止/回収、Web検索/取得に対応します。初回接続の探索・同意付き検証/モデル取得、モデルカタログ、同意と公開範囲を検証する意味検索もRustへ接続しています。ライフサイクル移植では共有所有者による型付き判断、添付の準備/対応画像配送、停止したセッションの削除を接続しました。非vision会話は画像bytesを送らずローカルreceiptを保持し、視覚ブリッジは起動しません。実モデル・package導入・配布成功の検証ではありません。保存した予定・定期実行・変化時のみのチェックインもRust側で動作します。MCP/音声/メディア/PC操作・JSプラグイン等は未移植です。GUIはJavaScript/CSSのままで、通常起動・Tauriの切替や全面Rust化の完了を意味しません。
 
 ```sh
-git clone https://github.com/coco4atJP/Tepora-alpha.git
+git clone --branch rust/v3-core-migration https://github.com/coco4atJP/Tepora-alpha.git
 cd Tepora-alpha
 npm start
 ```
@@ -61,7 +63,7 @@ npm run build              # Windows/macOSネイティブパッケージ
 
 標準検証にはPython 3が必要です。ネイティブビルドにはRust stableとOSごとのTauriビルド環境が必要です。Taskを利用する場合も、`task dev`、`task quality`、`task build` は同じV3のコマンドを実行します。
 
-CIは `main` と `v3.0-beta/**` のV3関連変更およびPRを対象にします。通常検証とWindows/macOSのネイティブビルド・起動確認を用意しています。ワークフローの設定は実行成功の証拠ではありません。
+CIは `rust/v3-core-migration` のV3関連変更およびPRを対象にします。通常検証とWindows/macOSのネイティブビルド・起動確認を用意しています。ワークフローの設定は実行成功の証拠ではありません。
 
 ## 現在の範囲
 

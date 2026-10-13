@@ -1,5 +1,11 @@
 # Tepora V3 changelog
 
+## Canonical Rust V3 branch (beta.11)
+
+- Consolidate V3 development on `rust/v3-core-migration`; the former `v3.0-beta/companion-os` tip is already an ancestor, with no unmerged commits
+- Target V3 push CI and repository triage configuration at the canonical Rust branch; clone it explicitly while the GitHub default-branch setting is handled separately
+- Drop backward compatibility as a release requirement; data deletion/conversion still needs explicit scope, and the native host's unported capabilities remain documented
+
 ## Harness reliability repairs (beta.11)
 
 - Reject incomplete summaries, disclose clipped file reads, and include known auxiliary dispatch costs in step-admission budgets without counting normal costs twice
