@@ -6,6 +6,7 @@ use crate::{network::RequestCancellation, ApiError};
 use chrono::{DateTime, Datelike, Local, SecondsFormat, Timelike, Utc};
 use regex::Regex;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     env, fs,
@@ -186,8 +187,16 @@ impl RuntimeState {
             "kv.get",
             json!({"key":format!("agent-usage:{}",clock.utc_day())}),
         )?;
+        let model_usage = services.state(
+            "kv.get",
+            json!({"key":format!("model-usage:{}",clock.utc_day())}),
+        )?;
+        let daily_cost = tepora_core::model_usage::budget_cost(
+            usage["cost"].as_f64().unwrap_or(0.),
+            &model_usage,
+        );
         Ok(
-            json!({"nowMs":clock.now_ms,"settings":services.state("settings",json!({}))?,"dailyCost":usage["cost"].as_f64().unwrap_or(0.0),"hasHooks":services.has_hooks(),"decisionAvailable":services.decision_available(),"sessions":observations}),
+            json!({"nowMs":clock.now_ms,"settings":services.state("settings",json!({}))?,"dailyCost":daily_cost,"hasHooks":services.has_hooks(),"decisionAvailable":services.decision_available(),"sessions":observations}),
         )
     }
     /// Call once after preflight and before AgentRequest::Initialize. Missing
@@ -369,7 +378,7 @@ impl RuntimeState {
         } else {
             "text"
         };
-        let mut input = json!({"text":message,"from":"user","kind":"message","source":if source=="voice"{"user via voice"}else{"user"},"meta":{"source":source,"attachments":files}});
+        let mut input = json!({"text":message,"from":"user","kind":"message","mode":"steer","source":if source=="voice"{"user via voice"}else{"user"},"meta":{"source":source,"attachments":files}});
         if !images.is_empty() {
             input["images"] = json!(images);
         }
@@ -418,7 +427,36 @@ impl RuntimeState {
             409,
             &format!("Work agents can be nested at most {max} deep."),
         )?;
-        let id = Uuid::new_v4().to_string();
+        let occurrence = &args["scheduleOccurrence"];
+        let id = if occurrence.is_object() {
+            let key = serde_json::to_vec(&json!([occurrence["id"], occurrence["at"]]))
+                .map_err(|e| ApiError::new(500, e.to_string()))?;
+            format!("{:x}", Sha256::digest(key))[..32].to_owned()
+        } else {
+            Uuid::new_v4().to_string()
+        };
+        let existing = if occurrence.is_object() {
+            services.state("session.get", json!({"id":id}))?
+        } else {
+            Value::Null
+        };
+        if existing.is_object() {
+            let pending = !array(services.state("inbox.pending", json!({"id":id}))?).is_empty();
+            if pending
+                || !array(services.state("session.entries", json!({"id":id,"types":["input"]}))?)
+                    .is_empty()
+            {
+                let events = if pending && existing["status"] != "stopped" {
+                    vec![json!({"type":"wake","sessionId":id,"from":"schedule"})]
+                } else {
+                    Vec::new()
+                };
+                return Ok(Admission {
+                    value: existing,
+                    events,
+                });
+            }
+        }
         let role = if args["role"] == "escalation" && services.has_route("escalation")? {
             "escalation"
         } else {
@@ -458,7 +496,11 @@ impl RuntimeState {
             json!(one_line(task, 48)?)
         };
         let persistent = args["persistent"] == true;
-        let child=services.state("session.create",json!({"fields":{"id":id,"kind":if persistent{"specialist"}else{"worker"},"title":title,"parentId":parent.map(|p|p["id"].clone()),"rootId":parent.map(|p|if truth(&p["rootId"]){p["rootId"].clone()}else{p["id"].clone()}),"depth":depth,"cwd":encoded_path(&cwd),"toolset":toolset,"role":role,"task":task,"label":if persistent{title.clone()}else{Value::Null}}}))?;
+        let child = if existing.is_object() {
+            existing
+        } else {
+            services.state("session.create",json!({"fields":{"id":id,"kind":if persistent{"specialist"}else{"worker"},"title":title,"parentId":parent.map(|p|p["id"].clone()),"rootId":parent.map(|p|if truth(&p["rootId"]){p["rootId"].clone()}else{p["id"].clone()}),"depth":depth,"cwd":encoded_path(&cwd),"toolset":toolset,"role":role,"task":task,"label":if persistent{title.clone()}else{Value::Null}}}))?
+        };
         let mut message = task.to_owned();
         if args["context"] == "fork" {
             if let Some(parent) = parent {
@@ -543,7 +585,7 @@ impl RuntimeState {
             && !self.is_active(id)
             && matches!(s["status"].as_str(), Some("idle" | "done" | "stopped"))
         {
-            self.deliver(services, id)?;
+            services.state("inbox.deliver", json!({"id":id,"followups":false}))?;
         } else if mode != "notify" {
             if s["status"] == "stopped" && !matches!(from, "user" | "parent" | "system") {
                 return Ok(Admission::new(
@@ -554,7 +596,7 @@ impl RuntimeState {
                 update(
                     services,
                     id,
-                    json!({"status":"idle","result":if s["status"]=="done"{s["result"].clone()}else{Value::Null}}),
+                    json!({"status":"idle","result":if s["status"]=="done"{s["result"].clone()}else{Value::Null},"turnBoundary":true}),
                 )?;
                 services.refresh_prompt(id)?;
             }
@@ -807,7 +849,11 @@ impl RuntimeState {
                     .state("session.seq", json!({"id":id}))?
                     .as_u64()
                     .unwrap_or(0);
-                let delivered = self.deliver(services, id)?;
+                let value = services.state(
+                    "inbox.deliver",
+                    json!({"id":id,"followups":command["followups"]!=false}),
+                )?;
+                let delivered = value["delivered"].as_u64().unwrap_or(0);
                 let inputs = array(services.state(
                     "session.entries",
                     json!({"id":id,"from":before,"types":["input"]}),
@@ -1496,6 +1542,19 @@ mod tests {
                 "inbox.take" => json!(s.inbox.remove(&id).unwrap_or_default()),
                 "inbox.deliver" => {
                     let items = s.inbox.remove(&id).unwrap_or_default();
+                    let mut followup = p["followups"] != false;
+                    let (items, pending): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| {
+                        if item["mode"] == "notify" || item["mode"] == "steer" {
+                            return true;
+                        }
+                        if followup {
+                            followup = false;
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                    s.inbox.insert(id.clone(), pending);
                     let mut delivered = 0;
                     let entries = s.entries.entry(id).or_default();
                     for mut item in items {
@@ -1633,8 +1692,10 @@ mod tests {
         )
         .unwrap();
         let s = f.store.lock().unwrap();
-        assert!(s.inbox.get("main-id").is_none());
-        assert_eq!(s.entries["main-id"][1]["passive"], true);
+        assert_eq!(s.inbox["main-id"].len(), 1);
+        assert_eq!(s.inbox["main-id"][0]["text"], "report");
+        assert_eq!(s.entries["main-id"].len(), 1);
+        assert_eq!(s.entries["main-id"][0]["passive"], true);
     }
     #[test]
     fn restart_appends_one_unknown_receipt_without_tool_dispatch() {

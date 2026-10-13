@@ -407,8 +407,8 @@ test('Rust runtime: completion preserves todo, claimed-file, hook and decision p
  const notices=rt.sessions.entries(s.id,{types:['notice']}).map(e=>e.text);
  assert.deepEqual(notices,[NOTICE.unfinished('- unfinished item'),NOTICE.unfinished('- unfinished item'),NOTICE.missingFiles(['missing.txt'],false),NOTICE.missingFiles(['missing.txt'],false),'fixture hook asks for another pass',NOTICE.verify('Create missing.txt','the report does not clearly show that every part is done')]);
  assert.equal(steps,7);assert.equal(hooks,3);assert.equal(decisions,1);assert.equal(finished(f,s.id).length,1);
- rt.send(s.id,{text:'Check it again',from:'user',kind:'task'});await until(()=>finished(f,s.id).length===2&&idle(rt),'followup reuses verification and claimed-file counters');
- assert.equal(decisions,1);assert.equal(f.events.filter(e=>e.type==='agent.event'&&e.data.type==='missing-files').length,2);
+ rt.send(s.id,{text:'Check it again',from:'user',kind:'task'});await until(()=>finished(f,s.id).length===2&&idle(rt),'followup gets fresh bounded completion checks');
+ assert.equal(decisions,2);assert.equal(f.events.filter(e=>e.type==='agent.event'&&e.data.type==='missing-files').length,4);
 });
 
 test('Rust runtime: no-work retry precedes plugin continuation and shares its three-nudge limit',async t=>{

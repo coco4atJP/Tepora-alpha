@@ -168,8 +168,13 @@ async fn utf16_line_slice_and_os_replacement_are_lossless_at_right_boundary() {
     );
     fs::write(f.file("long"), format!("{}😀tail", "a".repeat(1999))).unwrap();
     let out = f.run("read", json!({"path":"long"})).await.unwrap();
-    let units = utf16_units(out["text"].as_str().unwrap());
+    let units = utf16_units(out["text"].as_str().unwrap().lines().nth(1).unwrap());
     assert_eq!(&units[units.len() - 2..], &[0xd83d, 0x2026]);
+    assert_eq!(out["data"]["truncatedLines"], true);
+    assert!(out["text"]
+        .as_str()
+        .unwrap()
+        .contains("Some lines were truncated"));
     let args = parse(r#"{"path":"long","old_string":"\ud83d","new_string":"X"}"#).unwrap();
     FileTools
         .execute("edit", args, f.context.clone(), RequestCancellation::new())

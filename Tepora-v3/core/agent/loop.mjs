@@ -19,28 +19,28 @@ export class AgentLoop{
  forget(id){this.engine.forget(id);this.memory.delete(id);}
  /** Static per session: computed once and stored, refreshed only at a checkpoint (when the cache resets anyway). */
  prompt(session,{refresh=false}={}){
-  const rt=this.rt;
-  if(session.system&&!refresh)return session;
+  const rt=this.rt,projectInstructions=nativeCore.projectInstructions(session.cwd||'');
+  if(session.system&&!refresh){if(session.projectInstructions!==projectInstructions){this.update(session,projectInstructions);return rt.sessions.get(session.id);}return session;}
   const tools=session.tools?.length&&!refresh?session.tools:rt.tools.toolset(session.toolset,{exclude:rt.excludedTools(session)});
-  return rt.sessions.update(session.id,{system:this.render(session,tools),tools,promptAt:new Date().toISOString(),promptStale:false,announced:null});
+  return rt.sessions.update(session.id,{system:this.render(session,tools,projectInstructions),projectInstructions,tools,promptAt:new Date().toISOString(),promptStale:false,announced:null});
  }
- render(session,tools){
+ render(session,tools,projectInstructions=nativeCore.projectInstructions(session.cwd||'')){
   const rt=this.rt,persona=session.kind==='main'?personaForPrompt(rt.personas().character):personaForPrompt(session.persona||rt.personas().worker);
-  return systemPrompt(session,{tools,sandbox:rt.sandboxPolicy(),persona,computer:rt.computerInfo?.(),skills:rt.skillIndex?.(session)});
+  return systemPrompt(session,{tools,sandbox:rt.sandboxPolicy(),persona,computer:rt.computerInfo?.(),skills:rt.skillIndex?.(session)})+(projectInstructions?'\n\n'+projectInstructions:'');
  }
  /** Settings, persona or tools changed while a session lives. Rewriting the system prompt would throw away the
   * whole cached prefix, so the changed instructions are appended to the transcript instead (DeepSeek Harness does
   * the same) and the prompt itself is replaced at the next checkpoint, where the cache starts over anyway. */
- update(session){
+ update(session,projectInstructions=nativeCore.projectInstructions(session?.cwd||'')){
   const rt=this.rt;if(!session?.system)return false;
   // Compared with what the session was last told (an earlier update, or its system prompt), so nothing repeats.
   const told=session.announced||{system:session.system,tools:session.tools||[]};
   const declared=session.tools||[],available=rt.tools.toolset(session.toolset,{exclude:rt.excludedTools(session)});
-  const next=this.render(session,declared),old=new Set(sections(told.system));
+  const next=this.render(session,declared,projectInstructions),old=new Set(sections(told.system));
   const changed=sections(next).filter(x=>!old.has(x)),added=available.filter(n=>!told.tools.includes(n)),removed=told.tools.filter(n=>!available.includes(n));
   if(!changed.length&&!added.length&&!removed.length)return false;
   rt.sessions.append(session.id,'notice',{text:NOTICE.instructionsUpdated({sections:changed,added,removed}),promptUpdate:true});
-  rt.sessions.update(session.id,{promptStale:true,announced:{system:next,tools:available}});return true;
+  rt.sessions.update(session.id,{promptStale:true,projectInstructions,announced:{system:next,tools:available}});return true;
  }
  async budget(session,toolDefs,signal){
   const rt=this.rt,chain=rt.registry.chain(session.role).filter(p=>rt.registry.permitted(p));
@@ -218,7 +218,7 @@ export class AgentLoop{
   rt.sessions.append(id,'tool',{callId:call.id,name,args:boundedArgs(args),content:fitted.text,stub:oneLine(stub,200),error:!!out.error,errorText:out.error?oneLine(out.error,300):undefined,
    data:out.result?.data,...(out.notExecuted?{notExecuted:true}:{}),...(out.interrupted?{interrupted:true}:{}),...(images?{images}:{}),ephemeralKey,keep:!images&&rawTokens(fitted.text)<SMALL_RESULT_TOKENS&&!ephemeralKey,evidenceId,chars:text.length,ms:out.ms});
   const mem=this.state(id);mem.calls.push({sig:hash([name,args]),outcome:hash(text),label:`${name}(${argsLabel(args)})`,error:!!out.error});if(mem.calls.length>12)mem.calls.shift();
-  const d=out.result?.data;if(name==='read'&&d?.readKey){mem.reads||=new Map();mem.reads.set(d.readKey,{seq,mtimeMs:d.mtimeMs,size:d.size});if(mem.reads.size>300)mem.reads.delete(mem.reads.keys().next().value);}
+  const d=out.result?.data;if(name==='read'&&d?.readKey){mem.reads||=new Map();mem.reads.set(d.readKey,{seq,mtimeMs:d.mtimeMs,size:d.size,fullyVisible:!out.error&&!out.interrupted&&!fitted.truncated&&!d.truncatedLines&&!rt.tools.hooks.some(h=>h.afterTool||h.beforeRequest)});if(mem.reads.size>300)mem.reads.delete(mem.reads.keys().next().value);}
   mem.errorStreak=out.error?mem.errorStreak+1:0;
   if(name==='todo'&&!out.error)mem.todoStep=rt.sessions.get(id).stats?.steps||0;
   const s=rt.sessions.get(id);rt.sessions.update(id,{stats:{...s.stats,toolCalls:(s.stats?.toolCalls||0)+1,toolErrors:(s.stats?.toolErrors||0)+(out.error?1:0)}});

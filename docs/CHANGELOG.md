@@ -1,10 +1,19 @@
 # Tepora V3 changelog
 
+## Harness reliability repairs (beta.11)
+
+- Reject incomplete summaries, disclose clipped file reads, and include known auxiliary dispatch costs in step-admission budgets without counting normal costs twice
+- Share bounded repository instruction discovery between both hosts; preserve cached prefixes with append-only updates
+- Atomically claim inbox entries with distinct followup/steer/notify boundaries; retain failed scheduled work and reuse an admitted worker on acknowledgement retry
+- Repair computer completion checks, scrolling, launch ordering, cancellation and exact field readback; require explicit responses to browser dialogs
+- Strengthen evaluation checks and failure exit codes, prepare fixtures before inference, and prevent artifacts from older runs passing a new case
+- See [implementation, regression scope and remaining platform gates](../Tepora-v3/docs/HARNESS-RELIABILITY.md); normal launch remains the compatibility host
+
 ## Shared model-dispatch accounting (beta.11)
 
 - Extend the ordinary Node provider and typed-decision path to the existing bounded native receipt store, including retries, summaries, failures and cancellation
 - Share Rust estimation, content-free receipt shaping, aggregation and atomic completion storage; keep missing usage/rates explicit and remove invented Node cache/output rates
-- Preserve normal-successful-turn budget scope, the default launcher and event order; no per-token or pre-dispatch accounting writes and no additional model requests
+- At this checkpoint, preserve normal-successful-turn budget scope (expanded by the reliability repairs above), the default launcher and event order; no per-token or pre-dispatch accounting writes and no additional model requests
 - Keep embedding, generated media, speech and isolated setup probes outside measured coverage; see [coverage and limits](../Tepora-v3/docs/RUST-MODEL-USAGE.md)
 
 ## Redundant SQLite write reduction (beta.11)

@@ -141,7 +141,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     // Pictures go to the character as images (it sees them if its model can); every file is also on disk for work agents.
     const images=[];for(const f of files.filter(f=>f.kind==='image').slice(0,4)){try{images.push({...await loadImage(f.path),name:f.name});}catch{}}
     const message=files.length?`${input}\n\n[添付ファイル（このPCに保存済み）: ${files.map(f=>f.path).join(', ')}]`:input;
-    agent.send(main.id,{text:message,from:'user',kind:'message',source:source==='voice'?'user via voice':'user',...(images.length?{images}:{}),meta:{source,attachments:files}});
+    agent.send(main.id,{text:message,from:'user',kind:'message',mode:'steer',source:source==='voice'?'user via voice':'user',...(images.length?{images}:{}),meta:{source,attachments:files}});
     const receipt={accepted:true,sessionId:main.id,requestId:b.requestId||null};
     if(b.requestId){seen.set(b.requestId,receipt);if(seen.size>500)seen.delete(seen.keys().next().value);}
     return json(res,receipt,202);

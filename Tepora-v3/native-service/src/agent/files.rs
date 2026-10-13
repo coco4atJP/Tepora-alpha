@@ -111,6 +111,9 @@ impl FileMemory {
     /// Call only after the owner commits a read receipt, with that receipt's seq.
     pub fn record_read(&mut self, seq: u64, result: &Value) {
         let d = &result["data"];
+        if d["truncatedLines"] == true {
+            return;
+        }
         let (Some(key), Some(mtime_ms), Some(size)) = (
             d["readKey"].as_str(),
             d["mtimeMs"].as_f64(),
@@ -568,8 +571,10 @@ fn read(file: &ResolvedFile, args: &Value, context: &FileContext) -> Result<Valu
     let lines: Vec<_> = text.split('\n').collect();
     let from = offset.saturating_sub(1);
     let mut shown = Vec::new();
+    let mut truncated_lines = false;
     for (index, line) in lines.iter().enumerate().skip(from).take(limit) {
         let units: Vec<_> = line.encode_utf16().collect();
+        truncated_lines |= units.len() > 2000;
         let cut = from_utf16_units(&units[..units.len().min(2000)]);
         shown.push(format!(
             "{:>5}\t{cut}{}",
@@ -587,9 +592,16 @@ fn read(file: &ResolvedFile, args: &Value, context: &FileContext) -> Result<Valu
     } else {
         String::new()
     };
-    Ok(
-        json!({"text":format!("{path} ({} lines)\n{}{more}",lines.len(),shown.join("\n")),"data":{"path":path,"readKey":key,"mtimeMs":stamp.mtime_ms,"size":stamp.size}}),
-    )
+    let notice = if truncated_lines {
+        "\nSome lines were truncated at 2,000 characters. Use exec with a text-processing command to inspect their remaining content."
+    } else {
+        ""
+    };
+    let mut result = json!({"text":format!("{path} ({} lines)\n{}{more}{notice}",lines.len(),shown.join("\n")),"data":{"path":path,"readKey":key,"mtimeMs":stamp.mtime_ms,"size":stamp.size}});
+    if truncated_lines {
+        result["data"]["truncatedLines"] = json!(true);
+    }
+    Ok(result)
 }
 fn positive(v: Option<&Value>, default: usize) -> usize {
     v.and_then(Value::as_f64)

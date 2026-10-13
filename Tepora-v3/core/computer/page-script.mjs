@@ -26,7 +26,11 @@ export const OBSERVE=`(() => {
    let ref=el.getAttribute('data-tepora-ref');if(!ref){ref='e'+(window.__teporaNext++);el.setAttribute('data-tepora-ref',ref);}
    const rl=role(el),type=(el.type||'').toLowerCase();
    const item={ref,role:rl,name:labelOf(el).slice(0,140),x:Math.round(r.x+r.w/2),y:Math.round(r.y+r.h/2),inView:r.y+r.h>0&&r.y<H&&r.x+r.w>0&&r.x<W};
-   if(['textbox','searchbox','password','combobox','slider','date','time','color'].includes(rl)&&el.tagName!=='A'){item.value=rl==='password'?(el.value?'••••':''):clean(el.tagName==='SELECT'?el.options[el.selectedIndex]?.text:el.isContentEditable?el.innerText:el.value).slice(0,200);}
+   if(['textbox','searchbox','password','combobox','slider','date','time','color'].includes(rl)&&el.tagName!=='A'){
+    const value=String((el.tagName==='SELECT'?el.options[el.selectedIndex]?.text:el.isContentEditable?el.innerText:el.value)??'');
+    item.value=rl==='password'?(value?'••••':''):value.slice(0,200);
+    if(rl==='password')item.valueMasked=true;else if(value.length>200)item.valueTruncated=true;
+   }
    if(el.tagName==='SELECT')item.options=[...el.options].slice(0,30).map(o=>clean(o.text).slice(0,60));
    if(rl==='checkbox'||rl==='radio'||rl==='switch')item.checked=!!(el.checked||el.getAttribute('aria-checked')==='true');
    if(el.getAttribute('aria-selected')==='true')item.selected=true;

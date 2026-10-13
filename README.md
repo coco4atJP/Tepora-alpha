@@ -85,6 +85,7 @@ docs/            beta.11のユーザー・開発・設定ガイド
 - [設定ガイド](docs/operations/CONFIGURATION_GUIDE.md)
 - [beta.11アーキテクチャ](Tepora-v3/docs/ARCHITECTURE.md)
 - [現在のエージェント設計](Tepora-v3/docs/AGENT-HARNESS.md)
+- [ハーネスの信頼性改善と残る検証](Tepora-v3/docs/HARNESS-RELIABILITY.md)
 - [旧beta.11実行境界の記録](Tepora-v3/docs/BETA11.md)
 - [変更履歴](docs/CHANGELOG.md)
 

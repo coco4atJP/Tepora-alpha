@@ -104,6 +104,14 @@ pub fn aggregate(previous: &Value, receipt: &Value) -> Value {
     }
     add("cost", count(&receipt["cost"]).unwrap_or(0.));
     add(
+        "auxiliaryCost",
+        if receipt["purpose"] != "normal" {
+            count(&receipt["cost"]).unwrap_or(0.)
+        } else {
+            0.
+        },
+    );
+    add(
         "unknownCostCalls",
         if receipt["cost"].is_null() { 1. } else { 0. },
     );
@@ -241,8 +249,20 @@ pub fn price(route: &Value, entries: &Value) -> Option<Value> {
         .then(|| first["cost"].clone())
 }
 
+/// Preserve legacy spend while counting new auxiliary calls exactly once.
+/// Historical aggregates without the auxiliary split remain a lower bound.
+pub fn budget_cost(legacy: f64, usage: &Value) -> f64 {
+    let total = count(&usage["cost"]).unwrap_or(0.);
+    let auxiliary = count(&usage["auxiliaryCost"]).unwrap_or(0.).min(total);
+    legacy.max(total - auxiliary) + auxiliary
+}
+
 pub(crate) fn call(operation: &str, payload: &Value) -> CoreResult<Value> {
     match operation {
+        "model.budgetCost" => Ok(json!(budget_cost(
+            count(&payload["legacy"]).unwrap_or(0.),
+            &payload["usage"]
+        ))),
         "model.estimate" => {
             let (cost, status) = estimate(
                 &payload["usage"],
@@ -437,6 +457,24 @@ mod tests {
             ),
             json!({"cost":cost,"costStatus":status})
         );
+    }
+
+    #[test]
+    fn budgets_include_auxiliary_cost_without_double_counting_normal_or_losing_legacy_spend() {
+        assert_eq!(
+            budget_cost(2., &json!({"cost":2.5,"auxiliaryCost":0.5})),
+            2.5
+        );
+        assert_eq!(
+            budget_cost(10., &json!({"cost":2.5,"auxiliaryCost":0.5})),
+            10.5
+        );
+        assert_eq!(
+            budget_cost(0., &json!({"cost":0.5,"auxiliaryCost":0.5})),
+            0.5
+        );
+        assert_eq!(budget_cost(2., &json!({"cost":1.})), 2.);
+        assert_eq!(budget_cost(2., &Value::Null), 2.);
     }
 
     #[test]

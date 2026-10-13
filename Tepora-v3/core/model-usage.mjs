@@ -5,6 +5,7 @@ import {nativeCompute} from './native-state.mjs';
 const pending=new WeakMap();
 const bounded=(value,n)=>typeof value==='string'?[...value.slice(0,n*2)].slice(0,n).join(''):null;
 const counter=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
+export const budgetCost=(legacy,usage)=>nativeCompute('model.budgetCost',{legacy,usage});
 // Only bounded, content-free usage crosses the accounting N-API boundary.
 export function usageMetadata(answer){
  const u=answer?.usage,s=answer?.usageStatus;

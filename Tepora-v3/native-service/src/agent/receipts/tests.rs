@@ -60,6 +60,30 @@ fn planning_does_not_mutate_input_and_rejects_unpairable_outputs() {
     .is_err());
 }
 #[test]
+fn clipped_or_interrupted_reads_never_become_complete_read_references() {
+    let calls = [json!({"id":"read","name":"read"})];
+    for (text, truncated, interrupted, budget) in [
+        ("long line".into(), true, false, 8000.0),
+        ("line\n".repeat(50000), false, false, 1024.0),
+        ("small".into(), false, true, 8000.0),
+    ] {
+        let outputs = [
+            json!({"name":"read","args":{"path":"a"},"result":{"text":text,"data":{"readKey":"a:1:800","mtimeMs":1.0,"size":200000,"truncatedLines":truncated}},"interrupted":interrupted}),
+        ];
+        let plan = plan_receipts(
+            &json!({"id":"s","stats":{}}),
+            &calls,
+            &outputs,
+            budget,
+            &json!({}),
+            &json!({}),
+            1,
+        )
+        .unwrap();
+        assert!(plan.receipts[0].read_result.is_none());
+    }
+}
+#[test]
 fn cancelled_success_remains_success_and_not_executed_prefix_wins() {
     let calls = [
         json!({"id":"1","name":"write"}),

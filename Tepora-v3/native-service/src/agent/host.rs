@@ -1,8 +1,8 @@
 //! Native effect integration. Engines remain the scheduling authority; this host
 //! reads owned snapshots and commits effects only on the coordinator thread.
+mod scheduling;
 #[cfg(test)]
 mod tests;
-mod scheduling;
 use super::{
     context, Admission, AgentHost, AgentRequest, EffectContext, EffectError, EffectResult,
     EffectScope, EffectTask,
@@ -332,6 +332,10 @@ impl NativeAgentHost {
         )
     }
     fn prompt_snapshot(&self, session: Value) -> Result<context::PromptSnapshot, EffectError> {
+        let project_instructions =
+            json_codec::encode_text(&tepora_core::project_instructions::load(
+                std::path::Path::new(&json_codec::sql_text(session["cwd"].as_str().unwrap_or(""))),
+            ));
         let settings = self.settings()?;
         let mut available_tools = self.toolset(session["toolset"].as_str().unwrap_or("worker"));
         if num(&session["depth"]) >= num(&settings["maxDepth"]) {
@@ -341,7 +345,7 @@ impl NativeAgentHost {
             .into_iter()
             .filter(|s| s["enabled"] != false)
             .collect();
-        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
+        Ok(context::PromptSnapshot{session,available_tools,personas:self.state("personas",json!({}))?,sandbox:settings["sandbox"].clone(),environment:json_codec::encode_value(json!({"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"arch":match std::env::consts::ARCH{"x86_64"=>"x64","aarch64"=>"arm64","x86"=>"ia32",other=>other},"username":std::env::var("USER").or_else(|_|std::env::var("USERNAME")).unwrap_or_default(),"home":std::env::var("HOME").or_else(|_|std::env::var("USERPROFILE")).unwrap_or_default(),"shell":std::env::var("SHELL").or_else(|_|std::env::var("COMSPEC")).unwrap_or_default()})),computer:Value::Null,skills,project_instructions,availability_instruction:"# Native availability\nOnly the tools listed above are available in this development host. Read supports text files only; image loading through read and vision bridging are not yet available. Browser rendering, MCP, Computer Use, media and JavaScript plugins are not yet available. Never promise or report those effects as completed.".into(),at:now()})
     }
     fn prompt(&self, session: Value, refresh: bool) -> Result<Value, EffectError> {
         if !refresh {
@@ -353,7 +357,28 @@ impl NativeAgentHost {
                 return Err(EffectError::new(format!("Cached session tools unavailable in native mode: {}. Continue with the compatibility host.",unavailable.join(", "))));
             }
         }
-        let proposal = context::prompt(&self.prompt_snapshot(session)?, refresh)?;
+        let mut snapshot = self.prompt_snapshot(session)?;
+        if !refresh
+            && snapshot.session["system"].as_str().is_some()
+            && snapshot.session["projectInstructions"].as_str()
+                != Some(snapshot.project_instructions.as_str())
+        {
+            if let Some(update) = context::prompt_update(&snapshot)? {
+                let id = snapshot.session["id"].clone();
+                self.state.agent_batch(&[
+                    (
+                        "session.append".into(),
+                        json!({"id":id,"type":"notice","body":update.notice}),
+                    ),
+                    (
+                        "session.update".into(),
+                        json!({"id":id,"patch":update.patch}),
+                    ),
+                ])?;
+                snapshot.session = self.state("session.get", json!({"id":id}))?;
+            }
+        }
+        let proposal = context::prompt(&snapshot, refresh)?;
         if let Some(patch) = proposal.patch {
             Ok(self.state(
                 "session.update",

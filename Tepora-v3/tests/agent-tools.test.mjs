@@ -83,6 +83,9 @@ test('web_fetch follows redirects and returns Markdown that keeps links, tables 
 test('web_fetch respects offline mode and web tools can be switched off',async t=>{
  const f=await toolFixture(t);
  const network=f.rt.network;network.change({mode:'offline'},network.get().revision);
+ // Policy rejection is deterministic and must not depend on external DNS availability.
+ network.lookup=async host=>{assert.equal(host,'example.com');return [{address:'93.184.216.34'}];};
+ network.transport=async()=>assert.fail('offline public browsing reached transport');
  await assert.rejects(f.call('web_fetch',{url:'https://example.com/'}),/通信|許可|オフライン/);
 });
 test('DuckDuckGo result pages are parsed into title, URL and snippet',()=>{

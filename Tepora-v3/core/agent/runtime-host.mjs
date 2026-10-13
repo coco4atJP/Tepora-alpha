@@ -1,6 +1,7 @@
 import {nativeCore} from '../native-state.mjs';
 import {NOTICE} from './prompts.mjs';
 import {oneLine} from '../tools/format.mjs';
+import {budgetCost} from '../model-usage.mjs';
 
 /** Mechanical effect host. Admission, timers and turn phases belong to Rust;
  * these maps contain only native lease-associated JS handles. */
@@ -8,7 +9,8 @@ export class RuntimeHost {
  constructor(rt){this.rt=rt;this.core=new nativeCore.RuntimeCore();this.timerTokens=new Map();this.leases=new Map();this.pending=new Set();this.resourcesClosed=false;this.events=[];this.dispatching=false;}
  facts(){
   const rt=this.rt,nowMs=rt.clock();
-  return {nowMs,settings:rt.settings(),dailyCost:rt.store.value('agent-usage:'+new Date(nowMs).toISOString().slice(0,10))?.cost||0,
+  const day=new Date(nowMs).toISOString().slice(0,10);
+  return {nowMs,settings:rt.settings(),dailyCost:budgetCost(rt.store.value('agent-usage:'+day)?.cost||0,rt.store.value('model-usage:'+day)),
    decisionAvailable:rt.decisions.available(),hasHooks:!!rt.tools.hooks.length,
    sessions:rt.sessions.list().map(session=>{const tail=rt.sessions.tail(session.id,12);return {session,tail,pending:rt.sessions.pending(session.id),lastAtMs:Date.parse(tail.at(-1)?.at)||0};})};
  }
@@ -87,7 +89,7 @@ export class RuntimeHost {
  async effect(c,run){
   const rt=this.rt,id=c.sessionId,signal=run.controller.signal;
   switch(c.kind){
-   case 'deliver':return {delivered:rt.deliver(id)};
+   case 'deliver':return {delivered:rt.deliver(id,{followups:c.followups!==false})};
    case 'step':return rt.loop.step(id,signal);
    case 'probeFiles':return rt.probeClaimedFiles(c.session,c.report);
    case 'turnEndHook':{const value=await rt.tools.hook('turnEnd',{session:c.session,text:c.text});return typeof value?.continue==='string'?{continue:value.continue}:{};}

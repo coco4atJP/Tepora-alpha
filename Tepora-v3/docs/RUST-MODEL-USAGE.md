@@ -55,11 +55,18 @@ Nonstreaming Anthropic now preserves `cacheWrite`, matching its streaming path.
 
 ## Budgets and compatibility
 
-The old `stats.steps`, `stats.cost` and `agent-usage:DAY` retain their existing
-normal-successful-turn budget scope. Summary/decision/retry costs do not silently
-change admission behavior. Consequently those budgets are not an all-dispatch
-spend ceiling. Their existing numeric cost field is now also accompanied by an
-unknown-cost counter/status, and estimates no longer invent missing rate fields.
+The old `stats.steps`, `stats.cost` and `agent-usage:DAY` retain their stored
+normal-successful-turn scope. Step admission now uses the greater of the legacy
+normal subtotal and measured normal dispatch subtotal, plus measured auxiliary
+cost. New aggregates retain `auxiliaryCost` for non-normal dispatches, so summaries
+count without counting successful normal calls twice or discarding legacy spend.
+Historical aggregates without this split are not backfilled; their combined
+value provides only a lower bound when mixed with legacy costs. Known retries
+are covered by measured normal totals. Unknown prices/usage, unattributed session
+costs, active in-flight calls and excluded transports do not form a strict spend
+ceiling. A summary or simultaneous dispatch can cross a limit before the next
+step-admission check. The existing numeric fields remain accompanied by an
+unknown-cost counter/status, and estimates do not invent missing rate fields.
 Unknown calls do not receive an arbitrary charge. Cost estimates use reported
 provider usage before the legacy context diagnostic infers whole-context/cache
 counts for uncached-only transports. Those inferred diagnostic counters are not

@@ -160,7 +160,7 @@ export class AgentRuntime{
  toolContext(session,signal){const mem=this.loop.state(session.id);mem.files||=new Map();return {session,signal,cwd:session.cwd||this.workRoot,sandbox:this.sandboxPolicy(),runtime:this,store:this.store,files:mem.files};}
  /** The transcript entry that already shows these lines of this (unchanged) file, if it is still in view. */
  priorRead(session,key,info){
-  const r=this.loop.state(session.id).reads?.get(key);if(!r||r.mtimeMs!==info.mtimeMs||r.size!==info.size)return null;
+  const r=this.loop.state(session.id).reads?.get(key);if(!r?.fullyVisible||r.mtimeMs!==info.mtimeMs||r.size!==info.size)return null;
   const view=this.assembler.view(session.id);return r.seq>view.clearUpTo&&r.seq>(view.checkpoint?.upTo||0)?r.seq:null;
  }
  /* ---------- sessions ---------- */
@@ -170,7 +170,7 @@ export class AgentRuntime{
   return this.sessions.create({kind:'main',title:this.personas().character.name,cwd,role:'chat',toolset:'main'});
  }
  folder(id){const dir=path.join(this.workRoot,'sessions',id.slice(0,8));mkdirSync(dir,{recursive:true});return dir;}
- async spawn(parent,{task,title,context='isolated',persistent=false,cwd,toolset,role='work',from,signal}={}){
+ async spawn(parent,{task,title,context='isolated',persistent=false,cwd,toolset,role='work',from,signal,scheduleOccurrence}={}){
   invariant(typeof task==='string'&&task.trim(),'task is required');
   // Small context windows cannot afford the full tool set: pick the lean one unless asked otherwise.
   // A guessed window (Ollama before the model is loaded) is not evidence: the step-time check downgrades if needed.
@@ -178,8 +178,11 @@ export class AgentRuntime{
   signal?.throwIfAborted();
   const depth=(parent?.depth||0)+(parent&&parent.kind!=='main'?1:0);
   invariant(!parent||parent.kind==='main'||depth<=this.settings().maxDepth,`Work agents can be nested at most ${this.settings().maxDepth} deep.`,409);
-  const id=randomUUID();
-  const s=this.sessions.create({id,kind:persistent?'specialist':'worker',title:title||oneLine(task,48),parentId:parent?.id||null,rootId:parent?.rootId||parent?.id||null,depth,
+  const id=scheduleOccurrence?createHash('sha256').update(JSON.stringify([scheduleOccurrence.id,scheduleOccurrence.at])).digest('hex').slice(0,32):randomUUID();
+  const existing=scheduleOccurrence&&this.sessions.get(id);
+  if(existing){const pending=this.sessions.pending(id).length;
+   if(pending||this.sessions.entries(id,{types:['input']}).length){if(pending&&existing.status!=='stopped')this.wake(id,{from:'schedule'});return existing;}}
+  const s=existing||this.sessions.create({id,kind:persistent?'specialist':'worker',title:title||oneLine(task,48),parentId:parent?.id||null,rootId:parent?.rootId||parent?.id||null,depth,
    cwd:cwd?path.resolve(parent?.cwd||this.workRoot,cwd):this.folder(id),toolset:toolset==='lean'?'lean':'worker',role:role==='escalation'&&this.registry.hasRoute('escalation')?'escalation':'work',task,label:persistent?(title||null):null});
   let text=task;
   if(context==='fork'&&parent){
@@ -195,21 +198,20 @@ export class AgentRuntime{
   const s=this.sessions.get(id);invariant(s,'Session not found',404);invariant(typeof text==='string'&&text.trim(),'message is required');
   const after=this.sessions.seq(id)-1;
   this.sessions.enqueue(id,{text,from,kind,mode,images,header:stampHeader(new Date(this.clock()),source||(from==='user'?'user':from)),...meta});
-  if(mode==='notify'&&!this.runs.has(id)&&['idle','done','stopped'].includes(s.status))this.deliver(id);
+  if(mode==='notify'&&!this.runs.has(id)&&['idle','done','stopped'].includes(s.status))this.deliver(id,{followups:false});
   else if(mode!=='notify'){
    if(s.status==='stopped'&&!['user','parent'].includes(from)&&from!=='system')return {queued:true,after};
-   if(['done','stopped'].includes(s.status)){this.sessions.update(id,{status:'idle',result:s.status==='done'?s.result:null});this.loop.update(this.sessions.get(id));}
+   if(['done','stopped'].includes(s.status)){this.sessions.update(id,{status:'idle',result:s.status==='done'?s.result:null,turnBoundary:true});this.loop.update(this.sessions.get(id));}
    this.wake(id,{from});
   }
   return {queued:true,after};
  }
- deliver(id){
-  const items=this.sessions.take(id);
-  for(const {id:_,at,mode,...rest} of items){
-   const {seq}=this.sessions.append(id,'input',{...rest,passive:mode==='notify'});
-   if(mode!=='notify'&&(rest.from==='user'||rest.from?.startsWith?.('voice'))&&rest.kind==='message')this.route(id,rest.text,seq);
+ deliver(id,{followups=true}={}){
+  const {entries,delivered}=this.sessions.claim(id,{followups});
+  for(const entry of entries){
+   if(!entry.passive&&(entry.from==='user'||entry.from?.startsWith?.('voice'))&&entry.kind==='message')this.route(id,entry.text,entry.seq);
   }
-  return items.filter(i=>i.mode!=='notify').length;
+  return delivered;
  }
  /** Delegation safety net. While the character thinks about a user message, the decision model judges in parallel
   * whether it asks for real work (files, code, research, operating apps). If it surely does and the character then

@@ -12,7 +12,7 @@ export function parseWhen(at,now=Date.now()){
 /** Reminders and recurring work for the resident agent (its routines). A due item becomes an ordinary
  * input: a reminder to the main session, or the task of a new work agent. Nothing here calls a model. */
 export class Scheduler{
- constructor(runtime){this.rt=runtime;this.timer=null;}
+ constructor(runtime){this.rt=runtime;this.timer=null;this.pending=new Map();this.closed=false;}
  list(){return this.rt.store.list('schedule').sort((a,b)=>a.at.localeCompare(b.at));}
  add({text,at,in_minutes,every_minutes,mode='remind',createdBy=null}){
   invariant(typeof text==='string'&&text.trim()&&text.length<=4000,'text is required (at most 4000 characters)');
@@ -25,26 +25,38 @@ export class Scheduler{
   const doc={id:'sch_'+randomUUID().slice(0,8),text:text.trim(),mode,at:when.toISOString(),every:every_minutes||null,createdBy,createdAt:new Date(now).toISOString(),fired:0};
   this.rt.store.put('schedule',doc);this.rt.store.emit('schedule.updated',doc);return doc;
  }
- cancel(id){const d=this.rt.store.get('schedule',String(id||''));invariant(d,`No scheduled item ${id}`,404);this.rt.store.remove('schedule',d.id);this.rt.store.emit('schedule.updated',{...d,removed:true});return d;}
+ cancel(id){const d=this.rt.store.get('schedule',String(id||''));invariant(d,`No scheduled item ${id}`,404);this.pending.get(d.id)?.abort();this.rt.store.remove('schedule',d.id);this.rt.store.emit('schedule.updated',{...d,removed:true});return d;}
  start(){clearInterval(this.timer);this.timer=setInterval(()=>this.tick(),15000);this.timer.unref?.();this.tick();}
  /** Fires everything due. A repeating item that was missed while the service was off fires once, then keeps its rhythm. */
  tick(){
-  if(this.rt.closed)return;
+  if(this.rt.closed||this.closed)return;
   const now=this.rt.clock();
   for(const d of this.list()){
-   if(Date.parse(d.at)>now)continue;
-   const main=this.rt.main(),label=`scheduled ${d.mode==='task'?'task':'reminder'} ${d.id}${d.every?` (every ${d.every} min)`:''}`;
-   if(d.mode==='task')this.rt.spawn(main,{task:d.text,title:oneLine(d.text,40),from:'schedule'}).catch(e=>this.rt.event(main.id,'schedule-failed',{id:d.id,message:oneLine(e.message,200)}));
-   else this.rt.send(main.id,{text:d.text,from:'schedule',kind:'reminder',source:label});
-   if(d.every){let next=Date.parse(d.at)+d.every*60000;if(next<=now)next=now+d.every*60000;this.rt.store.put('schedule',{...d,at:new Date(next).toISOString(),fired:d.fired+1,lastFiredAt:new Date(now).toISOString()});}
-   else this.rt.store.remove('schedule',d.id);
-   this.rt.store.emit('schedule.updated',{...d,fired:d.fired+1});
+   if(Date.parse(d.at)>now||Date.parse(d.retryAt)>now||this.pending.has(d.id))continue;
+   const controller=new AbortController();this.pending.set(d.id,controller);
+   this.fire(d,now,controller.signal).finally(()=>this.pending.delete(d.id)).catch(()=>{});
   }
  }
- close(){clearInterval(this.timer);}
+ async fire(d,now,signal){
+  const main=this.rt.main(),label=`scheduled ${d.mode==='task'?'task':'reminder'} ${d.id}${d.every?` (every ${d.every} min)`:''}`;
+  try{
+   if(d.mode==='task')await this.rt.spawn(main,{task:d.text,title:oneLine(d.text,40),from:'schedule',signal,scheduleOccurrence:{id:d.id,at:d.at}});
+   else this.rt.send(main.id,{text:d.text,from:'schedule',kind:'reminder',source:label});
+   if(signal.aborted||this.closed||this.rt.closed||this.rt.store.get('schedule',d.id)?.at!==d.at)return;
+   if(d.every){let next=Date.parse(d.at)+d.every*60000;if(next<=now)next=now+d.every*60000;this.rt.store.put('schedule',{...d,at:new Date(next).toISOString(),fired:d.fired+1,lastFiredAt:new Date(now).toISOString(),retryAt:null,lastError:null});}
+   else this.rt.store.remove('schedule',d.id);
+   this.rt.store.emit('schedule.updated',{...d,fired:d.fired+1});
+  }catch(e){
+   if(signal.aborted||this.closed||this.rt.closed||this.rt.store.get('schedule',d.id)?.at!==d.at)return;
+   const failed={...d,lastError:oneLine(e.message,200),retryAt:new Date(this.rt.clock()+60000).toISOString()};
+   this.rt.store.put('schedule',failed);this.rt.store.emit('schedule.updated',failed);
+   this.rt.event(main.id,'schedule-failed',{id:d.id,message:failed.lastError,retryAt:failed.retryAt});
+  }
+ }
+ close(){this.closed=true;clearInterval(this.timer);for(const c of this.pending.values())c.abort();}
 }
 export function scheduleTool(scheduler){
- const show=d=>`${d.id} ${d.mode} at ${new Date(d.at).toLocaleString('sv-SE',{hour12:false}).slice(0,16)}${d.every?` every ${d.every} min`:''}: ${oneLine(d.text,120)}`;
+ const show=d=>`${d.id} ${d.mode} at ${new Date(d.at).toLocaleString('sv-SE',{hour12:false}).slice(0,16)}${d.every?` every ${d.every} min`:''}: ${oneLine(d.text,120)}${d.lastError?` (retry pending: ${d.lastError})`:''}`;
  return {
   name:'schedule',group:'core',
   description:'Reminders and recurring work. add: at a local time ("15:00" or "2026-10-06T15:00") or in_minutes, optionally every_minutes to repeat. mode "remind" (default) sends you the text at that time; "task" starts a work agent with the text as its task. list shows what is scheduled; cancel removes one by id.',

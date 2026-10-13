@@ -93,21 +93,23 @@ export class Browser{
  }
 }
 export class Page{
- constructor(browser,owner){this.browser=browser;this.owner=owner;this.closed=false;this.dialogs=[];this.downloads=[];this.off=null;}
+ constructor(browser,owner){this.browser=browser;this.owner=owner;this.closed=false;this.dialogs=[];this.dialogSequence=0;this.downloads=[];this.off=null;}
  get conn(){return this.browser.conn;}
- send(method,params={},timeoutMs){return this.conn.send(method,params,this.sessionId,timeoutMs);}
+ async send(method,params={},timeoutMs){this.signal?.throwIfAborted();return this.conn.send(method,params,this.sessionId,timeoutMs);}
  async attach(targetId){
-  this.off?.();this.targetId=targetId;
+  this.off?.();this.targetId=targetId;this.dialogs=[];this.lastObservation=null;
   const {sessionId}=await this.conn.send('Target.attachToTarget',{targetId,flatten:true});this.sessionId=sessionId;
   await Promise.all([this.send('Page.enable'),this.send('Runtime.enable')]);
   await this.send('Emulation.setFocusEmulationEnabled',{enabled:true}).catch(()=>{});
   this.off=this.conn.on(m=>{
    if(m.sessionId!==this.sessionId)return;
-   if(m.method==='Page.javascriptDialogOpening'){this.dialogs.push({type:m.params.type,message:String(m.params.message||'').slice(0,300)});this.send('Page.handleJavaScriptDialog',{accept:true,promptText:m.params.defaultPrompt||''}).catch(()=>{});}
+   if(m.method==='Page.javascriptDialogOpening')this.dialogs=[{id:`dialog_${++this.dialogSequence}`,type:m.params.type,message:String(m.params.message||'').slice(0,300),pending:true}];
+   if(m.method==='Page.javascriptDialogClosed')this.dialogs=[];
   });
  }
  async adopt(targetId){if(targetId===this.targetId)return;this.opened=targetId;await this.attach(targetId);await this.send('Target.activateTarget',{targetId}).catch(()=>{});}
  async eval(expression,{awaitPromise=false,timeoutMs=15000}={}){
+  if(this.dialogs.some(d=>d.pending))throw new Error('A browser dialog is pending. Observe it and respond with action "dialog" first.');
   const r=await this.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise,userGesture:true},timeoutMs);
   if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description?.split('\n')[0]||r.exceptionDetails.text||'Script error');
   return r.result?.value;
@@ -116,6 +118,7 @@ export class Page{
  async settle(maxMs=10000){
   const t0=Date.now();
   for(;;){
+   this.signal?.throwIfAborted();if(this.dialogs.some(d=>d.pending))return;
    try{await this.eval(SETTLE,{awaitPromise:true,timeoutMs:Math.max(1000,maxMs-(Date.now()-t0))});const state=await this.eval('document.readyState');if(state!=='loading')return;}
    catch{}
    if(Date.now()-t0>maxMs)return;await new Promise(r=>setTimeout(r,200));
@@ -125,7 +128,19 @@ export class Page{
   const r=await this.send('Page.navigate',{url},30000);if(r.errorText)throw new Error(`Could not open ${url}: ${r.errorText}`);
   await this.settle(15000);
  }
- async observe(){const o=await this.eval(OBSERVE,{timeoutMs:20000});o.dialogs=this.dialogs.splice(0);if(this.opened){o.newTab=true;this.opened=null;}return o;}
+ async observe(){
+  this.signal?.throwIfAborted();
+  // JavaScript evaluation is paused while a native browser dialog is open.
+  const o=this.dialogs.some(d=>d.pending)?{...(this.lastObservation||{url:'',title:'',elements:[],text:''})}:await this.eval(OBSERVE,{timeoutMs:20000});
+  o.dialogs=this.dialogs.map(d=>({...d}));if(this.opened){o.newTab=true;this.opened=null;}this.lastObservation=o;return o;
+ }
+ async respondDialog(id,accept,text){
+  if(typeof accept!=='boolean'||!this.dialogs.some(d=>d.id===id&&d.pending))throw new Error('An explicit accept boolean and the current dialog_id are required. Observe the dialog again.');
+  await this.send('Page.handleJavaScriptDialog',{accept,...(typeof text==='string'?{promptText:text}:{})});
+  this.dialogs=this.dialogs.filter(d=>d.id!==id);
+ }
+ /** Return equality booleans only. Observation previews may be clipped or password-masked. */
+ matches(checks){return this.eval(`(()=>{${DEEP};return ${JSON.stringify(checks)}.map(c=>{const found=__find(document,c.ref);if(!found)return false;const el=found[0];const value=el.tagName==='SELECT'?el.options[el.selectedIndex]?.text:el.isContentEditable?el.innerText:el.value;return value!==undefined&&String(value)===c.value;});})()`);}
  /** Runs `body` in the page with `el` bound to the control (and dx, dy its frame offset). */
  async withEl(ref,body){
   const v=await this.eval(`(()=>{${DEEP};const f=__find(document,${JSON.stringify(String(ref))});if(!f)return {__missing:true};const [el,dx,dy]=f;${body}})()`);

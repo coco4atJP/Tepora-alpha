@@ -136,7 +136,12 @@ pub fn over_budget(session: &Value, settings: &Value, daily_cost: f64) -> Value 
     let budget = &settings["budget"];
     let per = num(budget, "sessionUsd", 0.0);
     let daily = num(budget, "dailyUsd", 0.0);
-    if per > 0.0 && num(&session["stats"], "cost", 0.0) >= per {
+    if per > 0.0
+        && crate::model_usage::budget_cost(
+            num(&session["stats"], "cost", 0.0),
+            &session["stats"]["modelUsage"],
+        ) >= per
+    {
         return json!(format!(
             "この仕事の費用が上限（${}）に達しました。設定で上限を上げると続きます。",
             crate::js_value::js_string(budget.get("sessionUsd"))
@@ -421,7 +426,7 @@ impl RuntimeEngine {
                 Await::Deliver
             },
             if auxiliary { "idleCompact" } else { "deliver" },
-            json!({}),
+            json!({"followups":observed.session["turnBoundary"]==true||!needs_step(&observed.tail)}),
             out,
         );
         self.runs.insert(id.into(), run);
@@ -460,7 +465,14 @@ impl RuntimeEngine {
         self.close_ready(out);
     }
     fn next_cycle(&mut self, id: &str, run: &mut Run, out: &mut Response) {
-        self.issue(id, run, Await::Deliver, "deliver", json!({}), out);
+        self.issue(
+            id,
+            run,
+            Await::Deliver,
+            "deliver",
+            json!({"followups":false}),
+            out,
+        );
     }
     fn stop_one(&mut self, id: &str, reason: &str, out: &mut Response) {
         self.cancel_timer(id, out);
@@ -488,7 +500,7 @@ impl RuntimeEngine {
         self.patch(
             id,
             None,
-            json!({"status":"stopped","note":one_line(reason,120)}),
+            json!({"status":"stopped","note":one_line(reason,120),"turnBoundary":true}),
             None,
             out,
         );
@@ -759,6 +771,12 @@ impl RuntimeEngine {
             Await::Deliver => {
                 let o = self.observed.get(&id).cloned().unwrap_or_default();
                 let delivered = num(&value, "delivered", 0.0);
+                if delivered > 0.0 {
+                    let control = self.controls.entry(id.clone()).or_default();
+                    control.nudges = 0;
+                    control.claims = 0;
+                    control.verified = false;
+                }
                 if delivered == 0.0 && !needs_step(&o.tail) {
                     if matches!(o.session["status"].as_str(), Some("running" | "waiting")) {
                         let done = o.session["kind"] == "worker"
@@ -789,7 +807,7 @@ impl RuntimeEngine {
                         self.patch(
                             &id,
                             Some(run.epoch),
-                            json!({"status":"running","note":"考えています","retryAt":null}),
+                            json!({"status":"running","note":"考えています","retryAt":null,"turnBoundary":false}),
                             None,
                             out,
                         );
@@ -970,7 +988,14 @@ impl RuntimeEngine {
                         json!({"text":run.report}),
                     );
                 }
-                self.next_cycle(&id, &mut run, out);
+                self.issue(
+                    &id,
+                    &mut run,
+                    Await::Deliver,
+                    "deliver",
+                    json!({"followups":value["delegated"]!=true}),
+                    out,
+                );
             }
             Await::Yield => self.next_cycle(&id, &mut run, out),
             Await::Auxiliary => {
@@ -1052,6 +1077,9 @@ impl RuntimeEngine {
         );
     }
     fn finish_action(&mut self, id: &str, run: &Run, report: &str, out: &mut Response) {
+        // A max-steps finish may leave a tool as the final log entry. Persist the
+        // boundary before publishing completion, which can reenter with new input.
+        self.patch(id, Some(run.epoch), json!({"turnBoundary":true}), None, out);
         let status = if self.snapshot(id)["kind"] == "specialist" {
             "idle"
         } else {
@@ -1073,7 +1101,14 @@ impl RuntimeEngine {
     fn finish_turn(&mut self, id: &str, run: &mut Run, out: &mut Response) {
         self.controls.entry(id.into()).or_default().nudges = 0;
         self.finish_action(id, run, &run.report, out);
-        self.next_cycle(id, run, out);
+        self.issue(
+            id,
+            run,
+            Await::Deliver,
+            "deliver",
+            json!({"followups":true}),
+            out,
+        );
     }
     pub fn state(&self, id: &str) -> Value {
         let c = self.controls.get(id);

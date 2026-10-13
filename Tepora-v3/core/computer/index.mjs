@@ -2,7 +2,7 @@ import path from 'node:path';
 import {invariant} from '../policy.mjs';
 import {ipDomain,normalURL,NetworkBlocked} from '../network-policy.mjs';
 import {Browser,findBrowser} from './browser.mjs';
-import {runGoal,llmChooser,DO_DEFAULTS} from './decide.mjs';
+import {runGoal,llmChooser,DO_DEFAULTS,validateChecks} from './decide.mjs';
 import {Desktop,desktopSupported} from './desktop.mjs';
 import {oneLine} from '../tools/format.mjs';
 
@@ -83,7 +83,7 @@ export function renderObservation(o,{all=false,max=80}={}){
  const view=all?o.elements:o.elements.filter(e=>e.inView!==false),shown=view.slice(0,max);
  const where=o.url?`${o.title||'(untitled)'} — ${o.url}`:`${o.app||''}${o.title?` — ${o.title}`:''}`;
  return [`Screen: ${where}`,o.scroll?`Scroll: ${o.scroll.y} of ${Math.max(0,o.scroll.height-o.scroll.viewport)} px`:null,
-  o.dialog?`Dialog open: ${o.dialog}`:null,...(o.dialogs||[]).map(d=>`A ${d.type} dialog was answered automatically: ${d.message}`),o.newTab?'A new tab opened from this page; you are now in it.':null,
+  o.dialog?`Dialog open: ${o.dialog}`:null,...(o.dialogs||[]).map(d=>`Pending ${d.type} dialog (${d.id}): ${d.message}\nRespond with action "dialog", dialog_id "${d.id}", and accept true or false.`),o.newTab?'A new tab opened from this page; you are now in it.':null,
   `Controls${all?'':' in view'} (${shown.length}${view.length>shown.length?` of ${view.length}`:''}${!all&&o.elements.length>view.length?`; ${o.elements.length-view.length} more off screen`:''}):`,
   ...shown.map(line),o.text?`Text on screen:\n${oneLine(o.text,1800)}`:null].filter(Boolean).join('\n');
 }
@@ -93,7 +93,8 @@ export function computerTool(cu){
   available:()=>cu.available(),
   description:`Operate a web browser (and on macOS, desktop apps) like a person. Prefer action "do" for any multi-step UI goal: describe one small goal (with done_when, and inputs for any text to enter), and the decision model operates the screen step by step and reports what happened. Use direct actions when you need exact control or "do" was uncertain: open (url), observe, click (ref, or x/y), type (ref + text; submit:true presses Enter), select (ref + option), key ("Enter", "Control+A", "Mod+L"), scroll (dy, optionally ref), back, screenshot (to look at the screen), upload (ref + paths). Refs like e12 come from the latest observation. For desktop apps set target "desktop": windows lists them, then observe/do with app (name or pid).`,
   parameters:{type:'object',additionalProperties:false,required:['action'],properties:{
-   action:{type:'string',enum:['do','open','observe','click','type','select','key','scroll','back','screenshot','upload','windows','release']},
+   action:{type:'string',enum:['do','open','observe','click','type','select','key','scroll','back','screenshot','upload','windows','release','dialog']},
+   dialog_id:{type:'string',description:'dialog: id from the latest pending dialog observation.'},accept:{type:'boolean',description:'dialog: explicitly accept (true) or dismiss (false). text supplies an optional prompt answer.'},
    target:{type:'string',enum:['browser','desktop'],description:'Default browser.'},
    goal:{type:'string',description:'do: one small, concrete goal on the current screen (e.g. "search for Tepora and open the first result").'},
    done_when:{type:'string',description:'do: what will be visible when the goal is reached.'},
@@ -106,15 +107,18 @@ export function computerTool(cu){
   // Screen state goes stale fast: only the newest observation stays in view (older ones clear in batches).
   ephemeral:true,ephemeralKey:a=>a.action==='do'||a.action==='windows'?null:'computer:'+(a.target||'browser'),
   async run(a,ctx){
+   ctx.signal?.throwIfAborted();
+   if(a.action==='do')validateChecks(a.checks);
    const c=cu.config();
    if(a.action==='do')invariant(c.control!=='direct','Decision-model control is turned off in the settings; use direct actions.',409);
-   else if(!['observe','screenshot','windows','release','open'].includes(a.action))invariant(c.control!=='decision','Direct control is turned off in the settings; use action "do".',409);
+   else if(!['observe','screenshot','windows','release','open','dialog'].includes(a.action))invariant(c.control!=='decision','Direct control is turned off in the settings; use action "do".',409);
    if(a.target==='desktop')return desktopAction(cu,a,ctx);
    const id=ctx.session.id;
    if(a.action==='release'){await cu.release(id);return {text:'Released the browser tab.'};}
-   const p=await cu.page(id);
+   const p=await cu.page(id);p.signal=ctx.signal;ctx.signal?.throwIfAborted();
    const after=async(what)=>{await p.settle(8000);const o=await p.observe();return {text:`${what}\n\n${renderObservation(o)}`,data:{url:o.url,title:o.title}};};
-   switch(a.action){
+   try{switch(a.action){
+    case 'dialog':await p.respondDialog(a.dialog_id,a.accept,a.text);return after(a.accept?'Accepted the dialog.':'Dismissed the dialog.');
     case 'open':invariant(a.url,'url is required');await p.goto(cu.assertURL(a.url));return after(`Opened ${a.url}.`);
     case 'observe':{const o=await p.observe();return {text:renderObservation(o,{all:a.all===true}),data:{url:o.url,title:o.title}};}
     case 'click':{invariant(a.ref||Number.isFinite(a.x)&&Number.isFinite(a.y),'ref, or x and y, is required');await p.click(a.ref||{x:a.x,y:a.y});return after(`Clicked ${a.ref||`(${a.x}, ${a.y})`}.`);}
@@ -127,12 +131,12 @@ export function computerTool(cu){
     case 'screenshot':{const shot=await p.screenshot();const o=await p.observe();return {text:`Screenshot of ${o.title||o.url} (${shot.width}×${shot.height}; click by x/y in these coordinates).`,images:[{...shot,name:'screen'}],data:{url:o.url}};}
     case 'do':{
      invariant(a.goal,'goal is required');if(a.url)await p.goto(cu.assertURL(a.url));
-     const surface={observe:()=>p.observe(),settle:()=>p.settle(8000),act:c=>c.op==='click'?p.click(c.ref):c.op==='fill'?p.fill(c.ref,c.value):c.op==='select'?p.select(c.ref,c.value):c.op==='key'?p.key(c.value):c.op==='scroll'?p.scroll({dy:c.dy}):null};
+     const surface={observe:()=>p.observe(),matches:checks=>p.matches(checks),settle:()=>p.settle(8000),act:c=>c.op==='click'?p.click(c.ref):c.op==='fill'?p.fill(c.ref,c.value):c.op==='select'?p.select(c.ref,c.value):c.op==='key'?p.key(c.value):c.op==='scroll'?p.scroll({dy:c.dy}):null};
      const r=await runGoal(surface,{goal:a.goal,doneWhen:a.done_when,inputs:a.inputs,checks:a.checks},{choose:cu.chooser(ctx.session,{signal:ctx.signal}),signal:ctx.signal,maxSteps:a.max_steps||c.maxSteps});
      return {text:renderRun(r),data:{status:r.status,steps:r.steps.length,url:r.observation?.url}};
     }
     default:invariant(false,`Unknown action ${a.action}`);
-   }
+   }}finally{p.signal=undefined;}
   }
  };
 }
@@ -140,10 +144,14 @@ export function renderRun(r){
  return `${r.status}${r.verified?' (verified)':''}: ${r.detail}\nSteps:\n${r.steps.map(s=>`${s.n}. ${s.action}${s.p!==undefined?` (p=${s.p}${s.method?', '+s.method:''})`:''}${s.changed===false?' — no visible change':s.changed?' — the screen changed':''}${s.error?` — failed: ${s.error}`:''}`).join('\n')||'(none)'}\n\nNow:\n${r.observation?renderObservation(r.observation,{max:40}):'(no observation)'}`;
 }
 async function desktopAction(cu,a,ctx){
- const d=cu.desktopClient(),id=ctx.session.id;
+ const desktop=cu.desktopClient(),d=desktop.withSignal?desktop.withSignal(ctx.signal):desktop,id=ctx.session.id;
  if(a.action==='windows'){const w=await d.windows();return {text:w.length?w.map(x=>`- ${x.app} (pid ${x.pid})${x.title?`: "${x.title}"`:''}${x.active?' [front]':''}`).join('\n'):'No app windows found.'};}
- if(a.action==='release'){d.forget(id);return {text:'Released the desktop target.'};}
- const target=await d.target(id,a.app,a.window);
+ if(a.action==='release'){await d.forget(id);return {text:'Released the desktop target.'};}
+ let target;
+ if(a.action==='open'){
+  invariant(a.app||a.url,'app or url is required');await d.open(a.app||a.url);
+  target=await d.openedTarget(id,a.app,a.window,{signal:ctx.signal});
+ }else target=await d.target(id,a.app,a.window);
  const after=async(what)=>{await d.settle();const o=await d.observe(target);return {text:`${what}\n\n${renderObservation(o)}`,data:{app:o.app,title:o.title}};};
  switch(a.action){
   case 'observe':{const o=await d.observe(target);return {text:renderObservation(o,{all:a.all===true}),data:{app:o.app}};}
@@ -153,10 +161,10 @@ async function desktopAction(cu,a,ctx){
   case 'key':invariant(a.keys,'keys is required');await d.key(target,a.keys);return after(`Pressed ${a.keys}.`);
   case 'scroll':await d.scroll(target,a.ref,a.dy??600);return after('Scrolled.');
   case 'screenshot':{const shot=await d.screenshot(target);return {text:`Screenshot of ${target.app} (${shot.width}×${shot.height} screen points from the window's top left).`,images:[{...shot,name:'window'}]};}
-  case 'open':invariant(a.app||a.url,'app or url is required');await d.open(a.app||a.url);return after(`Opened ${a.app||a.url}.`);
+  case 'open':return after(`Opened ${a.app||a.url}.`);
   case 'do':{
    invariant(a.goal,'goal is required');
-   const surface={observe:()=>d.observe(target),settle:()=>d.settle(),act:c=>c.op==='click'?d.press(target,c.ref):c.op==='fill'?d.setText(target,c.ref,c.value):c.op==='select'?d.choose(target,c.ref,c.value):c.op==='key'?d.key(target,c.value):c.op==='scroll'?d.scroll(target,null,c.dy):null};
+   const surface={observe:()=>d.observe(target),matches:checks=>d.matches(target,checks),settle:()=>d.settle(),act:c=>c.op==='click'?d.press(target,c.ref):c.op==='fill'?d.setText(target,c.ref,c.value):c.op==='select'?d.choose(target,c.ref,c.value):c.op==='key'?d.key(target,c.value):c.op==='scroll'?d.scroll(target,null,c.dy):null};
    const r=await runGoal(surface,{goal:a.goal,doneWhen:a.done_when,inputs:a.inputs,checks:a.checks},{choose:cu.chooser(ctx.session,{signal:ctx.signal}),signal:ctx.signal,maxSteps:a.max_steps||cu.config().maxSteps});
    return {text:renderRun(r),data:{status:r.status,steps:r.steps.length}};
   }

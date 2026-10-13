@@ -4,6 +4,7 @@ import {readFileSync,existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import readline from 'node:readline';
+import {setTimeout as delay} from 'node:timers/promises';
 import {invariant} from '../policy.mjs';
 
 /** macOS desktop apps through the Accessibility API, via a small Swift helper compiled on first use (Xcode
@@ -14,6 +15,8 @@ const run=(file,args,opts={})=>new Promise((resolve,reject)=>execFile(file,args,
 export class Desktop{
  constructor({binDir}){this.binDir=binDir;this.proc=null;this.pending=new Map();this.id=0;this.targets=new Map();this.building=null;}
  get alive(){return !!this.proc&&this.proc.exitCode===null;}
+ /** A signal belongs to one invocation, never to the shared desktop helper. */
+ withSignal(signal){return new Proxy(this,{get(target,key,receiver){const value=Reflect.get(target,key,receiver);return typeof value==='function'?async(...args)=>{signal?.throwIfAborted();const result=await value.apply(receiver,args);signal?.throwIfAborted();return result;}:value;}});}
  /** Builds the helper when it is missing or its source changed. */
  async binary(){
   const src=readFileSync(SOURCE),hash=createHash('sha256').update(src).digest('hex').slice(0,16),bin=path.join(this.binDir,'tepora-ax'),stamp=bin+'.sha';
@@ -50,13 +53,26 @@ export class Desktop{
   const t={pid:hit.pid,app:hit.app,window:window||''};this.targets.set(sessionId,t);return t;
  }
  async observe(t){const r=await this.call('observe',{pid:t.pid,title:t.window||''},30000);return {...r,app:t.app};}
+ matches(t,checks){return this.call('matches',{pid:t.pid,checks});}
  press(t,ref,{x,y}={}){return ref?this.call('press',{pid:t.pid,ref}):this.call('click',{pid:t.pid,x,y,title:t.window||''});}
  setText(t,ref,text){return ref?this.call('setText',{pid:t.pid,ref,text}):this.call('type',{pid:t.pid,text});}
  choose(t,ref,option){return this.call('choose',{pid:t.pid,ref,option});}
  key(t,combo){return this.call('key',{pid:t.pid,combo});}
  scroll(t,ref,dy){return this.call('scroll',{pid:t.pid,ref:ref||'',dy});}
  async screenshot(t){const r=await this.call('screenshot',{pid:t.pid,title:t.window||''},30000);return {mime:'image/jpeg',base64:r.base64,width:r.width,height:r.height};}
- async open(what){await run('/usr/bin/open',/^[a-z]+:\/\//i.test(what)?[what]:['-a',what]);await new Promise(r=>setTimeout(r,1500));}
+ async open(what){await run('/usr/bin/open',/^[a-z]+:\/\//i.test(what)?[what]:['-a',what]);}
+ async openedTarget(sessionId,app,window,{signal,timeoutMs=10000}={}){
+  const until=Date.now()+timeoutMs;
+  for(;;){
+   signal?.throwIfAborted();
+   try{
+    if(app)return await this.target(sessionId,app,window);
+    const front=(await this.windows()).find(w=>w.active);if(front)return await this.target(sessionId,String(front.pid),window);
+   }catch(e){if(e.status!==404)throw e;}
+   if(Date.now()>=until)throw new Error(`No window appeared after opening ${app||'the URL'}.`);
+   await delay(200,undefined,{signal});
+  }
+ }
  settle(){return new Promise(r=>setTimeout(r,400));}
  forget(sessionId){this.targets.delete(sessionId);}
  close(){if(this.alive)this.proc.kill();this.proc=null;}

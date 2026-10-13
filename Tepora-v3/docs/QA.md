@@ -1,5 +1,44 @@
 # Tepora 3.0.0-beta.11 — QA
 
+## Harness reliability repairs (2026-10-13 JST)
+
+The [reliability repair record](HARNESS-RELIABILITY.md) links the changed behavior
+and remaining Windows/macOS work. The focused Node run passed **63 tests** across
+runtime, reliability, computer boundaries and evaluation. The native host also
+checks actual repository instruction loading, change/deletion notices and failed
+schedule recovery against its real Workspace owner. The computer regressions use
+synthetic surfaces/CDP transport; they do not establish real desktop acceptance.
+
+Final Linux gate and separately completed stages:
+
+| Check | Result |
+| --- | --- |
+| Shared Rust core | 137 passed |
+| Native service / CLI | 551 + 2 passed |
+| V3 Node suite | 666 passed, 4 failed, 0 skipped; failures are the 3 Chromium tests and 1 bwrap test below |
+| JavaScript syntax | 256 modules passed, plus root script checks |
+| Python worker contracts | 13 passed |
+| Root entry/release/CI checks | 11 passed |
+| Local capability integration | 5 / 5 passed |
+| Preview build | passed |
+| Specification traceability | 100 references checked; 94 partial and 6 not implemented, not 100 successful user journeys |
+
+`npm run quality` exits nonzero at the Node stage because of the four environment
+failures. Its source fingerprint stayed stable during the run. The Python,
+traceability, preview, capability and root stages were then run separately, with
+successful exit codes. Generated logs and the combined local evidence are under
+`validation/loop/` and `validation/harness-reliability/`; this evidence-only QA
+update follows that gate run.
+
+The Linux cloud environment cannot currently launch sandboxed Chromium (its SUID
+helper is not configured for this container), and bwrap cannot establish its UID
+map (`Read-only file system`). These failures are retained in the standard gate;
+no sandbox is disabled and no failing assertion is skipped. Full quality success,
+real-model scores and Windows/macOS AX/UI Automation acceptance must not be inferred
+from the passing deterministic regressions. When using a shared Cargo output
+directory, set `TEPORA_NATIVE_SERVICE_BINARY` to the built executable for the
+native-process HTTP tests.
+
 ## Standard gate
 
 From the repository root:

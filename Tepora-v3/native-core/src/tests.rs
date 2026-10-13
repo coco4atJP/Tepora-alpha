@@ -206,6 +206,58 @@ fn inbox_take_rolls_back_when_delete_fails() {
 }
 
 #[test]
+fn inbox_claim_preserves_turn_order_and_rolls_back_both_queue_and_transcript() {
+    let mut state = NativeState::open(":memory:").unwrap();
+    for (id, mode) in [
+        ("first", "followup"),
+        ("second", "followup"),
+        ("correction", "steer"),
+    ] {
+        invoke(
+            &mut state,
+            "inbox.enqueue",
+            json!({"sessionId":"s","item":{"id":id,"at":"2026-10-13T00:00:00Z","mode":mode,"text":id}}),
+        );
+    }
+    let claim = json!({"id":"s","at":"2026-10-13T00:01:00Z","followups":false,"terms":{"correction":"correction"}});
+    invoke(
+        &mut state,
+        "exec",
+        json!({"sql":"CREATE TRIGGER deny_claim BEFORE DELETE ON session_inbox BEGIN SELECT RAISE(ABORT,'fixture'); END;"}),
+    );
+    assert!(state.call("inbox.claim", claim.clone()).is_err());
+    assert_eq!(invoke(&mut state, "session.seq", json!({"id":"s"})), 1);
+    assert_eq!(
+        invoke(&mut state, "inbox.pending", json!({"id":"s"}))
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    invoke(
+        &mut state,
+        "exec",
+        json!({"sql":"DROP TRIGGER deny_claim;"}),
+    );
+    let taken = invoke(&mut state, "inbox.claim", claim);
+    assert_eq!(taken["delivered"], 1);
+    assert_eq!(taken["entries"][0]["inputId"], "correction");
+    let next = json!({"id":"s","at":"2026-10-13T00:02:00Z","followups":true});
+    assert_eq!(
+        invoke(&mut state, "inbox.claim", next.clone())["entries"][0]["inputId"],
+        "first"
+    );
+    assert_eq!(
+        invoke(&mut state, "inbox.claim", next)["entries"][0]["inputId"],
+        "second"
+    );
+    assert!(invoke(&mut state, "inbox.pending", json!({"id":"s"}))
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
 fn forgetting_memory_erases_fts_vectors_and_legacy_event_copies() {
     let mut state = NativeState::open(":memory:").unwrap();
     let doc = json!({"id":"secret","content":"private-unique"});

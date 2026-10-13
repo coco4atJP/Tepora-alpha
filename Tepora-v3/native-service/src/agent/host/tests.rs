@@ -1,10 +1,10 @@
 //! Real Workspace + native engines + provider protocol + host integration.
 //! Only the socket transport is scripted; no external model or Node is used.
-#[cfg(unix)]
-mod process_tests;
 mod attachment_tests;
 mod decision_tests;
 mod deletion_tests;
+#[cfg(unix)]
+mod process_tests;
 mod scheduling_tests;
 mod semantic_tests;
 mod web_tests;
@@ -215,6 +215,42 @@ struct Fixture {
     fifo: Option<PathBuf>,
     capabilities: Option<crate::capabilities::Capabilities>,
     semantic: Option<Arc<crate::semantic::SemanticMemory>>,
+}
+
+#[test]
+fn repository_instructions_reach_native_prompt_and_changes_preserve_its_prefix() {
+    let mut f = Fixture::new(|_, _, _| panic!("Prompt preparation must not invoke a model"));
+    let main = f.main();
+    let id = main["id"].as_str().unwrap();
+    let cwd = PathBuf::from(json_codec::sql_text(main["cwd"].as_str().unwrap()));
+    fs::write(cwd.join("AGENTS.md"), "NATIVE_PROJECT_RULE").unwrap();
+    let initial = f.host.prompt(main.clone(), false).unwrap();
+    assert!(initial["system"]
+        .as_str()
+        .unwrap()
+        .contains("NATIVE_PROJECT_RULE"));
+    fs::write(cwd.join("AGENTS.md"), "UPDATED_NATIVE_RULE").unwrap();
+    let changed = f.host.prompt(initial.clone(), false).unwrap();
+    assert_eq!(changed["system"], initial["system"]);
+    assert!(f.entries(id).iter().any(|e| e["promptUpdate"] == true
+        && e["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("UPDATED_NATIVE_RULE")));
+    fs::remove_file(cwd.join("AGENTS.md")).unwrap();
+    let deleted = f.host.prompt(changed, false).unwrap();
+    assert!(deleted["projectInstructions"]
+        .as_str()
+        .unwrap()
+        .contains("No applicable AGENTS.md"));
+    assert_eq!(
+        f.entries(id)
+            .iter()
+            .filter(|e| e["promptUpdate"] == true)
+            .count(),
+        2
+    );
+    f.close();
 }
 impl Fixture {
     fn new(model: impl Fn(&str, usize, &Value) -> Response + Send + Sync + 'static) -> Self {

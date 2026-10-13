@@ -113,6 +113,9 @@ export function validSummary(text,maxTokens){
  const headings=(t.match(/^#{1,3} +\S/gm)||[]).length,named=SUMMARY_HEADINGS.filter(h=>t.toLowerCase().includes(h.toLowerCase())).length;
  return (named>=5||headings>=5)&&rawTokens(t)<=maxTokens*2;
 }
+function usableSummary(answer,maxTokens){
+ return (answer.finish==null||answer.finish==='stop')&&typeof answer.content==='string'&&!(answer.tool_calls?.length||answer.toolCalls?.length)&&validSummary(answer.content,maxTokens);
+}
 /** A transcript rendering for out-of-context summarisation: bounded per entry, with references. */
 export function transcriptText(entries,clearUpTo=0){
  return entries.map(e=>{
@@ -199,7 +202,7 @@ export class Compactor{
     try{
      const messages=[...built.messages,{role:'user',content:compactionInstruction({ledger:ledgerText,previous:!!prev,maxTokens})+(attempt?'\n\nYour previous attempt did not follow the required headings. Use exactly the headings listed.':'')}];
      const answer=await this.registry.invoke(chain,messages,{accountingSessionId:session.id,accountingPurpose:'summary',accountingAttempt:attempt+1,tools:toolDefs,toolChoice:'none',maxTokens:Math.round(maxTokens*1.5)+512,signal,cacheKey:session.id,slotKey:session.id,cacheRetention,priority:session.kind==='main'?5:0});
-     usage=answer.usage;if(answer.finish!=='length'&&validSummary(answer.content,maxTokens))summary=answer.content.trim();
+     usage=answer.usage;if(usableSummary(answer,maxTokens))summary=answer.content.trim();
     }catch(e){if(e.kind==='accounting')throw e;if(signal?.aborted)throw e;if(e.kind!=='overflow'&&e.kind!=='bad-request')break;}
    }
   }
@@ -210,7 +213,7 @@ export class Compactor{
     let rolling=prev?.summary||'';
     for(const part of chunks(transcriptText(folded,built.view.clearUpTo),Math.max(1500,Math.floor(B*0.45)))){
      const answer=await this.registry.invoke('compaction',[{role:'system',content:SUMMARIZER_SYSTEM},{role:'user',content:summarizerRequest({previous:rolling,ledger:ledgerText,transcript:part,maxTokens})}],{accountingSessionId:session.id,accountingPurpose:'summary',maxTokens:Math.round(maxTokens*1.5)+512,signal,priority:session.kind==='main'?5:0});
-     if(validSummary(answer.content,maxTokens))rolling=answer.content.trim();else throw new Error('invalid summary');
+     if(usableSummary(answer,maxTokens))rolling=answer.content.trim();else throw new Error('Incomplete or invalid summary');
     }
     summary=rolling;
    }catch(e){if(e.kind==='accounting')throw e;if(signal?.aborted)throw e;}

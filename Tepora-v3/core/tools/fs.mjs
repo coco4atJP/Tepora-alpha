@@ -87,8 +87,9 @@ export function fsTools(){
    ctx.files?.set(file,{mtimeMs:info.mtimeMs,size:info.size});
    const lines=(await readFile(file,'utf8')).split('\n'),from=(a.offset||1)-1,count=a.limit||800,slice=lines.slice(from,from+count);
    const body=slice.map((l,i)=>`${String(from+i+1).padStart(5)}\t${l.length>2000?l.slice(0,2000)+'…':l}`).join('\n');
+   const truncatedLines=slice.some(l=>l.length>2000),lineNotice=truncatedLines?'\nSome lines were truncated at 2,000 characters. Use exec with a text-processing command to inspect their remaining content.':'';
    const more=from+count<lines.length?`\n… ${lines.length-from-count} more lines (read with offset=${from+count+1})`:'';
-   return {text:`${file} (${lines.length} lines)\n${body}${more}`,data:{path:file,readKey,mtimeMs:info.mtimeMs,size:info.size}};
+   return {text:`${file} (${lines.length} lines)\n${body}${more}${lineNotice}`,data:{path:file,readKey,mtimeMs:info.mtimeMs,size:info.size,...(truncatedLines?{truncatedLines:true}:{})}};
   }
  },{
   name:'write',group:'core',

@@ -374,28 +374,26 @@ impl State {
             }
             "inbox.deliver" => {
                 let id = string_arg(args, "id")?;
-                let items = self.call("inbox.take", json!({"id":id}))?;
-                let mut delivered = 0;
-                for item in items.as_array().into_iter().flatten() {
-                    let passive = item["mode"] == "notify";
-                    let mut body = item
-                        .as_object()
-                        .cloned()
-                        .ok_or_else(|| ApiError::new(500, "Invalid inbox item"))?;
-                    body.remove("id");
-                    body.remove("at");
-                    body.remove("mode");
-                    body.insert("passive".into(), json!(passive));
-                    self.agent_operation(
-                        "session.append",
-                        &json!({"id":id,"type":"input","body":body}),
-                        events,
-                    )?;
-                    if !passive {
-                        delivered += 1;
-                    }
+                let pending = self.call("inbox.pending", json!({"id":id}))?;
+                let mut terms = serde_json::Map::new();
+                for item in pending.as_array().into_iter().flatten() {
+                    terms.insert(
+                        string_arg(item, "id")?.to_owned(),
+                        json!(indexable("input", item)),
+                    );
                 }
-                Ok(json!({"delivered":delivered}))
+                let result = self.call(
+                    "inbox.claim",
+                    json!({"id":id,"at":now(),"followups":args["followups"]!=false,"terms":terms}),
+                )?;
+                for entry in result["entries"].as_array().into_iter().flatten() {
+                    broadcast(
+                        events,
+                        "session.entry",
+                        json!({"sessionId":id,"entry":entry}),
+                    );
+                }
+                Ok(result)
             }
             "event.broadcast" => {
                 broadcast(events, string_arg(args, "type")?, args["data"].clone());

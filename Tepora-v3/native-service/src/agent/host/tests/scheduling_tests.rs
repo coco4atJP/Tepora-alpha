@@ -216,15 +216,16 @@ fn shutdown_drains_heartbeat_decision_without_late_delivery() {
 }
 
 #[test]
-fn failed_saved_task_is_consumed_once_with_failure_event() {
-    let mut f = Fixture::new(|_, _, _| panic!("Failed task must not invoke a model"));
+fn failed_saved_task_is_retained_with_retry_backoff_and_failure_event() {
+    let mut f = Fixture::new(|_, _, _| answer("NO_REPLY"));
     let main = f.main();
     f.state("document.put", json!({"kind":"schedule","doc":{"id":"bad-task","mode":"task","text":"   ","at":"2026-01-01T00:00:00Z","every":null,"fired":0}}));
     tick(&f, SchedulerKind::Schedules);
-    assert_eq!(
-        f.state("document.list", json!({"kind":"schedule"})),
-        json!([])
-    );
+    let retained = f.state("document.list", json!({"kind":"schedule"}));
+    assert_eq!(retained.as_array().unwrap().len(), 1);
+    assert_eq!(retained[0]["fired"], 0);
+    assert_eq!(retained[0]["lastError"], "task is required");
+    assert!(retained[0]["retryAt"].as_str().is_some());
     assert!(f
         .entries(main["id"].as_str().unwrap())
         .iter()
@@ -235,6 +236,24 @@ fn failed_saved_task_is_consumed_once_with_failure_event() {
             .iter()
             .filter(|e| e["event"] == "schedule-failed")
             .count(),
+        1
+    );
+    assert!(f.transport.requests.lock().unwrap().is_empty());
+    let mut repaired = retained[0].clone();
+    repaired["text"] = json!("Check the repaired schedule");
+    repaired["retryAt"] = json!("2026-01-01T00:00:00Z");
+    f.state("document.put", json!({"kind":"schedule","doc":repaired}));
+    tick(&f, SchedulerKind::Schedules);
+    tick(&f, SchedulerKind::Schedules);
+    assert_eq!(
+        f.state("document.list", json!({"kind":"schedule"})),
+        json!([])
+    );
+    assert_eq!(
+        f.state("session.list", json!({"kind":"worker"}))
+            .as_array()
+            .unwrap()
+            .len(),
         1
     );
     f.close();

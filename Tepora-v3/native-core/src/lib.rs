@@ -9,11 +9,12 @@ use serde_json::{json, Map, Value};
 use std::{error::Error, fmt};
 
 mod context;
-pub mod harness;
 pub mod execution;
+pub mod harness;
 pub mod js_value;
 pub mod json_codec;
 pub mod model_usage;
+pub mod project_instructions;
 pub mod projection;
 pub mod protocols;
 pub mod runtime;
@@ -645,6 +646,37 @@ impl NativeState {
                 Ok(item.clone())
             }
             "inbox.pending" => self.pending(string(p, "id")?),
+            "inbox.claim" => self.atomic(|| {
+                let id = string(p, "id")?;
+                let at = string(p, "at")?;
+                self.db()?.execute("UPDATE session_inbox SET id=id WHERE 0", [])?;
+                let pending = self.pending(id)?;
+                let mut entries = Vec::new();
+                let mut followup = p["followups"] != false;
+                let mut delivered = 0;
+                for item in pending.as_array().into_iter().flatten() {
+                    let passive = item["mode"] == "notify";
+                    if !passive && item["mode"] != "steer" {
+                        if !followup { continue; }
+                        followup = false;
+                    }
+                    let item_id = string(item, "id")?;
+                    let mut body = item.as_object().cloned().ok_or_else(|| invalid("Invalid inbox item"))?;
+                    body.remove("id"); body.remove("at"); body.remove("mode");
+                    body.insert("inputId".into(), json!(item_id));
+                    body.insert("passive".into(), json!(passive));
+                    let seq = self.next_seq(id)?;
+                    let encoded = json_codec::stringify(&Value::Object(body))?;
+                    self.db()?.execute("INSERT INTO session_log(session_id,seq,type,body,at) VALUES(?,?,'input',?,?)",
+                        params![sql_text(id),seq,encoded,sql_text(at)])?;
+                    let terms = p["terms"][item_id].as_str().unwrap_or("");
+                    if !terms.is_empty() { self.db()?.execute("INSERT INTO session_search(session_id,seq,terms) VALUES(?,?,?)",params![sql_text(id),seq,sql_text(terms)])?; }
+                    self.db()?.execute("DELETE FROM session_inbox WHERE session_id=? AND id=?",params![sql_text(id),sql_text(item_id)])?;
+                    entries.push(Self::merged_entry(seq,"input".into(),sql_text(at),encoded)?);
+                    if !passive { delivered += 1; }
+                }
+                Ok(json!({"entries":entries,"delivered":delivered}))
+            }),
             "inbox.take" => self.atomic(|| {
                 let id = string(p, "id")?;
                 // Reserve the writer before selecting, so consumption is atomic
@@ -750,6 +782,11 @@ pub fn compute_json(operation: &str, payload_json: &str) -> CoreResult<String> {
 mod binding {
     use super::*;
     use napi_derive::napi;
+
+    #[napi(js_name = "projectInstructions")]
+    pub fn project_instructions(cwd: String) -> String {
+        super::project_instructions::load(std::path::Path::new(&cwd))
+    }
 
     #[napi(js_name = "computeCore")]
     pub fn compute_core(operation: String, payload_json: String) -> napi::Result<String> {

@@ -29,14 +29,13 @@ impl NativeAgentHost {
                     runtime.spawn(
                         self,
                         Some(&main),
-                        &json!({"task":due.text,"title":due.title,"from":"schedule"}),
+                        &json!({"task":due.text,"title":due.title,"from":"schedule","scheduleOccurrence":{"id":due.document["id"],"at":due.document["at"]}}),
                     )
                 } else {
                     runtime.send(self,id,&json!({"text":due.text,"from":"schedule","kind":"reminder","source":due.source}))
                 };
                 drop(runtime);
-                // Source task failures are reported after consuming the due
-                // item; a failed one-shot is not silently retried on restart.
+                // Admission failure retains the occurrence for a bounded later retry.
                 let task_error = match delivery {
                     Ok(admission) => {
                         events.extend(admission.events);
@@ -45,6 +44,29 @@ impl NativeAgentHost {
                     Err(error) if due.task => Some(error),
                     Err(error) => return Err(error),
                 };
+                if let Some(error) = task_error {
+                    let message = compute(
+                        "harness.format.oneLine",
+                        json!({"value":error.message,"max":200}),
+                    )
+                    .map_err(as_api)?;
+                    let mut failed = due.document.clone();
+                    failed["lastError"] = message.clone();
+                    failed["retryAt"] = json!((chrono::Utc::now() + chrono::Duration::seconds(60))
+                        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+                    self.state.agent_batch(&[
+                        (
+                            "document.put".into(),
+                            json!({"kind":"schedule","doc":failed}),
+                        ),
+                        (
+                            "event.emit".into(),
+                            json!({"type":"schedule.updated","data":failed}),
+                        ),
+                    ])?;
+                    self.emit(id,"schedule-failed",json!({"id":due.document["id"],"message":message,"retryAt":failed["retryAt"]}))?;
+                    continue;
+                }
                 let mutation = match due.next {
                     Some(next) => ("document.put".into(), json!({"kind":"schedule","doc":next})),
                     None => (
@@ -59,18 +81,6 @@ impl NativeAgentHost {
                         json!({"type":"schedule.updated","data":due.event}),
                     ),
                 ])?;
-                if let Some(error) = task_error {
-                    let message = compute(
-                        "harness.format.oneLine",
-                        json!({"value":error.message,"max":200}),
-                    )
-                    .map_err(as_api)?;
-                    self.emit(
-                        id,
-                        "schedule-failed",
-                        json!({"id":due.document["id"],"message":message}),
-                    )?;
-                }
             }
             return Ok(RequestPlan::Ready(Admission {
                 value: Value::Null,

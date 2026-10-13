@@ -272,6 +272,10 @@ pub fn plan_receipts_with_unicode(
         stats["toolCalls"] = add_number(stats.get("toolCalls"), 1);
         stats["toolErrors"] = add_number(stats.get("toolErrors"), u8::from(has_error));
         let read_result = if name == "read"
+            && !has_error
+            && out["interrupted"] != true
+            && fitted["truncated"] != true
+            && out["result"]["data"]["truncatedLines"] != true
             && result
                 .and_then(|r| r.get("data"))
                 .and_then(|d| d.get("readKey"))

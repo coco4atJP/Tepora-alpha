@@ -22,6 +22,7 @@ pub struct PromptSnapshot {
     pub environment: Value,
     pub computer: Value,
     pub skills: Vec<Value>,
+    pub project_instructions: String,
     /// A truthful, host-owned instruction for the selected native capabilities.
     /// Include its heading (e.g. "# Native availability") when supplied.
     pub availability_instruction: String,
@@ -176,6 +177,10 @@ fn render(snapshot: &PromptSnapshot, tools: &[Value]) -> Result<String, EffectEr
         text.push_str("\n\n");
         text.push_str(&snapshot.availability_instruction);
     }
+    if !snapshot.project_instructions.is_empty() {
+        text.push_str("\n\n");
+        text.push_str(&snapshot.project_instructions);
+    }
     Ok(text)
 }
 
@@ -193,7 +198,7 @@ pub fn prompt(snapshot: &PromptSnapshot, refresh: bool) -> Result<PromptProposal
     } else {
         snapshot.available_tools.iter().map(|s| json!(s)).collect()
     };
-    let patch = json!({"system":render(snapshot,&tools)?,"tools":tools,"promptAt":snapshot.at,"promptStale":false,"announced":null});
+    let patch = json!({"system":render(snapshot,&tools)?,"projectInstructions":snapshot.project_instructions,"tools":tools,"promptAt":snapshot.at,"promptStale":false,"announced":null});
     let mut session = snapshot.session.clone();
     let object = session
         .as_object_mut()
@@ -257,7 +262,7 @@ pub fn prompt_update(snapshot: &PromptSnapshot) -> Result<Option<PromptUpdate>, 
         json!({"name":"instructionsUpdated","args":[{"sections":changed,"added":added,"removed":removed}]}),
     )?;
     Ok(Some(PromptUpdate {
-        patch: json!({"promptStale":true,"announced":{"system":next,"tools":available}}),
+        patch: json!({"promptStale":true,"projectInstructions":snapshot.project_instructions,"announced":{"system":next,"tools":available}}),
         notice: json!({"text":text,"promptUpdate":true}),
     }))
 }
@@ -344,10 +349,17 @@ fn silent_sink() -> EventSink {
     // Provider-global health/cache events still go through ProviderState.
     Arc::new(|_| {})
 }
-fn valid_summary(content: &Value, max_tokens: &Value, unicode: u32) -> Result<bool, EffectError> {
+fn valid_summary(answer: &Value, max_tokens: &Value, unicode: u32) -> Result<bool, EffectError> {
+    if !matches!(answer["finish"].as_str(), None | Some("stop"))
+        || !answer["content"].is_string()
+        || !array(&answer["tool_calls"]).is_empty()
+        || !array(&answer["toolCalls"]).is_empty()
+    {
+        return Ok(false);
+    }
     Ok(harness(
         "compaction.validSummary",
-        json!({"text":content,"maxTokens":max_tokens,"unicodeVersion":unicode}),
+        json!({"text":answer["content"],"maxTokens":max_tokens,"unicodeVersion":unicode}),
     )? == true)
 }
 
@@ -386,13 +398,7 @@ pub async fn compact(
         match answer {
             Ok(answer) => {
                 usage = answer.get("usage").cloned().unwrap_or(Value::Null);
-                if answer["finish"] != "length"
-                    && valid_summary(
-                        &answer["content"],
-                        &prepared["maxTokens"],
-                        snapshot.unicode_version,
-                    )?
-                {
+                if valid_summary(&answer, &prepared["maxTokens"], snapshot.unicode_version)? {
                     summary = s(&answer, "content").trim_matches(ws).to_owned();
                     break;
                 }
@@ -429,13 +435,8 @@ pub async fn compact(
             check(cancel)?;
             match answer {
                 Ok(answer) => {
-                    // Original rolling path validates headings/size and accepts
-                    // even finish=length when the resulting summary is valid.
-                    if valid_summary(
-                        &answer["content"],
-                        &prepared["maxTokens"],
-                        snapshot.unicode_version,
-                    )? {
+                    // Every chunk must complete; a well-formed prefix is not a checkpoint.
+                    if valid_summary(&answer, &prepared["maxTokens"], snapshot.unicode_version)? {
                         rolling = s(&answer, "content").trim_matches(ws).to_owned();
                     } else {
                         complete = false;
@@ -605,6 +606,7 @@ mod tests {
             environment: json!({"platform":"linux","arch":"x64","username":"fixture","home":"/tmp","shell":"bash"}),
             computer: Value::Null,
             skills: vec![],
+            project_instructions: String::new(),
             availability_instruction:
                 "# Native availability\nThe schedule tool is unavailable in this native mode."
                     .into(),
@@ -844,15 +846,17 @@ mod tests {
         assert!(result.checkpoint.get("seq").is_none());
     }
     #[tokio::test]
-    async fn overflow_skips_in_context_and_rolling_accepts_valid_length_finish() {
-        let (provider, state, transport, chain) = setup(vec![response(&summary("rolling"), "length")]);
+    async fn overflow_rejects_truncated_summary_but_retains_its_usage_receipt() {
+        let (provider, state, transport, chain) =
+            setup(vec![response(&summary("rolling"), "length")]);
         let mut snapshot = compaction_snapshot(chain);
         snapshot.reason = "overflow".into();
         let result = compact(&provider, &snapshot, &RequestCancellation::new(), clock())
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(result.checkpoint["method"], "rolling");
+        assert_eq!(result.checkpoint["method"], "deterministic");
+        assert_ne!(result.checkpoint["summary"], summary("rolling"));
         assert_eq!(result.event["usage"], Value::Null);
         assert_eq!(lock(&state.receipts).len(), 1);
         assert_eq!(lock(&state.receipts)[0]["purpose"], "summary");

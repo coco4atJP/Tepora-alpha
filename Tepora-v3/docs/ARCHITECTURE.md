@@ -83,6 +83,8 @@ Agent `memory_search` uses the configured semantic space with ordinary tool rece
 
 `agent/context.rs` handles cached prompts, append-only instruction updates, budgets and real asynchronous compaction. It attempts an in-context summary, then rolling compaction-route summaries, then the existing deterministic fallback if model summarization fails. Previous facts, exact ledgers and permanent chapter provenance survive; a cancelled operation cannot return a checkpoint for commit. The actor commits the checkpoint/notice, increments statistics and refreshes the prompt only for the current operation.
 
+Both hosts use `native-core/src/project_instructions.rs` for bounded, read-only repository instruction discovery before inference. Changes become append-only notices until the next checkpoint. `inbox.claim` commits transcript/search entries and inbox removal atomically on the existing SQLite owner, with separate steer/followup boundaries. Shared budget admission includes known auxiliary model costs; it is still not an in-flight spending reservation. [Harness reliability](HARNESS-RELIABILITY.md) records the changed behavior, computer-use boundaries and remaining platform work. Computer Use remains available through the compatibility host, not the opt-in native agent.
+
 `agent/metacognition.rs` applies repetition/error notices and real escalation/deescalation before rereading the session for a measured self-check. Stuck-parent reports use ordinary passive send semantics and per-reason deduplication. `reflect` records model-stated beliefs separately from measured facts. Memory updates are published only after their corresponding effects succeed.
 
 ## Native preferences and visual configuration

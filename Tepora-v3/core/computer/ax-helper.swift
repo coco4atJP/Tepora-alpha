@@ -102,6 +102,8 @@ func observe(_ pid: Int32, _ title: String, _ maxNodes: Int) throws -> [String: 
                 if ["textbox", "password", "searchbox", "combobox", "slider", "date"].contains(r) {
                     let v = r == "password" ? ((text(el, kAXValueAttribute as String) ?? "").isEmpty ? "" : "••••") : (text(el, kAXValueAttribute as String) ?? "")
                     item["value"] = String(v.prefix(200))
+                    if r == "password" { item["valueMasked"] = true }
+                    else if v.count > 200 { item["valueTruncated"] = true }
                 }
                 if r == "checkbox" || r == "radio" || r == "switch" { item["checked"] = (attr(el, kAXValueAttribute as String) as? NSNumber)?.intValue == 1 }
                 if flag(el, kAXSelectedAttribute as String) == true { item["selected"] = true }
@@ -261,6 +263,12 @@ func handle(_ req: [String: Any]) throws -> Any {
     case "status": return ["trusted": AXIsProcessTrusted(), "screen": CGPreflightScreenCaptureAccess()]
     case "windows": return ["windows": windows()]
     case "observe": return try observe(pid, title, req["max"] as? Int ?? 1500)
+    case "matches":
+        return try (req["checks"] as? [[String: Any]] ?? []).map { check -> Bool in
+            let el = try target(pid, check["ref"] as? String ?? "")
+            guard let expected = check["value"] as? String, let actual = text(el, kAXValueAttribute as String) else { return false }
+            return actual == expected
+        }
     case "press": try press(pid, ref); return true
     case "click": try clickPoint(pid, req["x"] as? Double ?? 0, req["y"] as? Double ?? 0, title); return true
     case "setText": try setText(pid, ref, req["text"] as? String ?? ""); return true

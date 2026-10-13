@@ -66,6 +66,13 @@ export class SessionStore{
   this.store.broadcast('session.inbox',{sessionId:id,count:this.pending(id).length,item});return item;
  }
  pending(id){return this.db.call('inbox.pending',{id});}
+ /** Claim input and append it in one Rust transaction; publish only after commit. */
+ claim(id,{followups=true}={}){
+  const terms=Object.fromEntries(this.pending(id).map(item=>[item.id,indexable('input',item)]));
+  const result=this.db.call('inbox.claim',{id,at:now(),followups,terms});
+  for(const entry of result.entries)this.store.broadcast('session.entry',{sessionId:id,entry});
+  return result;
+ }
  take(id){return this.db.call('inbox.take',{id});}
  /** Consume one answer only, leaving other pending messages in their original order. */
  takeItem(id,itemId){return this.db.call('inbox.takeItem',{id,itemId});}

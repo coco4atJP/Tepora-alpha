@@ -194,7 +194,7 @@ impl Scheduler {
         );
         let date = &date[..date.len().min(16)];
         Ok(format!(
-            "{} {} at {}{}: {}",
+            "{} {} at {}{}: {}{}",
             s(doc, "id"),
             s(doc, "mode"),
             date,
@@ -203,7 +203,12 @@ impl Scheduler {
             } else {
                 String::new()
             },
-            one_line(&doc["text"], 120)?
+            one_line(&doc["text"], 120)?,
+            if truthy(&doc["lastError"]) {
+                format!(" (retry pending: {})", one_line(&doc["lastError"], 200)?)
+            } else {
+                String::new()
+            }
         ))
     }
     pub fn due(&self, documents: &[Value]) -> Result<Vec<Due>, ApiError> {
@@ -212,7 +217,10 @@ impl Scheduler {
         for doc in self.list(documents) {
             let at = dates::parse_instant(s(&doc, "at"), self.clock.as_ref())
                 .ok_or_else(|| bad("Saved schedule has an invalid time"))?;
-            if at > now {
+            if at > now
+                || dates::parse_instant(s(&doc, "retryAt"), self.clock.as_ref())
+                    .is_some_and(|retry| retry > now)
+            {
                 continue;
             }
             let task = doc["mode"] == "task";
@@ -231,6 +239,10 @@ impl Scheduler {
                 update["at"] = json!(iso(next.trunc() as i64)?);
                 update["fired"] = json!(fired);
                 update["lastFiredAt"] = json!(iso(now)?);
+                update.as_object_mut().map(|object| {
+                    object.remove("retryAt");
+                    object.remove("lastError");
+                });
                 Some(update)
             } else {
                 None
