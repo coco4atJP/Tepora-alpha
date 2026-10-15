@@ -33,7 +33,7 @@ export const AVATAR_BODY_KITSUNE=(()=>{
     <path class="tail-rim" d="M226 152C229 126 222 98 212 72" />
     <g class="foxfire">${avatarLamp(u,lampShape,205,40,1.15)}</g>
    </g></g>
-   ${earSVG(-1,u,r.slots?.ears)}${earSVG(1,u,r.slots?.ears)}
+   ${earSVG(-1,u,r.slots?.earLength||r.slots?.ears)}${earSVG(1,u,r.slots?.earLength||r.slots?.ears)}
    <ellipse class="paw" cx="78" cy="205" rx="16" ry="8"/><ellipse class="paw" cx="122" cy="205" rx="16" ry="8"/>
    <path class="shell" fill="url(#${u}-b)" d="${BODY}"/>
    <g clip-path="url(#${u}-c)"><ellipse cx="100" cy="214" rx="100" ry="66" fill="url(#${u}-ao)" opacity=".7"/><ellipse cx="72" cy="82" rx="36" ry="20" transform="rotate(-24 72 82)" fill="url(#${u}-hl)"/>

@@ -69,6 +69,7 @@ let musicUI=null;
 function musicPlayer(){return musicUI||=createMusic({onChange:value=>{musicState=value;if(view==='home')paintDeck();paintChrome();}});}
 
 const widgetNames={clock:'時計',companion:'キャラクター',weather:'天気（日付の下に一行。雨などの日はカードも）',news:'ニュース',media:'音楽',work:'仕事のようす（キャラクターのまわりの灯り）',artifact:'つくった画像'};
+const widgetRoles={clock:'ステージ',companion:'ステージ',work:'灯り',weather:'一行＋カード',news:'カード',media:'カード',artifact:'カード'};
 const workJobs=()=>state.jobs.filter(j=>!(j.kind==='chat'&&j.characterSessionId));
 const activeJobs=()=>workJobs().filter(j=>['queued','running','waiting_approval'].includes(j.status));
 const settings=()=>state.settings;
@@ -159,8 +160,9 @@ function shell(){
  <button type="button" class="talk-rail" id="talk-rail" data-action="talk-open" hidden>${icon('chat')}<span>会話</span></button>
  </div>`;
  registerForms(app);
+ toastEl?.addEventListener?.('click',()=>{clearTimeout(toastTimer);toastEl.classList.remove('show');});
  document.body.classList.toggle('preview',previewMode);
- const surface=$('#surface'),size=()=>{const w=surface.clientWidth,width=w<760?'narrow':w<1040?'medium':'wide';surface.dataset.width=width;document.body.dataset.surface=width;fitComposer();};
+ const surface=$('#surface'),size=()=>{const w=surface.clientWidth,width=w<760?'narrow':w<1040?'medium':'wide';surface.dataset.width=width;document.body.dataset.surface=width;fitComposer();if(view==='home')paintSpeech();};
  if(globalThis.ResizeObserver)new ResizeObserver(size).observe(surface);size();
  abilities();mountCharacters();render();tick();
 }
@@ -186,6 +188,7 @@ function paintChrome(){
  const items=inboxList(),attention=items.length,active=activeJobs().length,body=document.body,wide=!narrow();
  const shown=sharedView&&view!=='home'?'home':view;
  body.dataset.view=shown;body.classList.toggle('is-ambient',ambientMode);
+ body.classList.toggle('panel-approvals',activePanel?.kind==='inbox'||(activePanel?.kind==='task'&&activePanel.id===state.companion?.focusJobId));
  body.classList.toggle('talk-open',wide&&talkOpen&&!sharedView&&!ambientMode);
  body.classList.toggle('talk-docked',shown==='home'&&!(wide&&talkOpen)&&!sharedView&&!ambientMode);
  document.querySelectorAll('.nav [data-action=view]').forEach(b=>{b.setAttribute('aria-current',b.dataset.view===(view==='talk'&&wide?'home':view)?'page':'false');});
@@ -292,15 +295,21 @@ function paintHome(){
 }
 function paintSpeech(){
  const el=$('#speech');if(!el)return;
- if(sharedView||!widgetsVisible().includes('companion')||(talkOpen&&!narrow())||(ambientMode&&backdropNow()==='photos')){el.hidden=true;return;}
+ if(sharedView||!widgetsVisible().includes('companion')||(talkOpen&&!narrow())||(ambientMode&&backdropNow()==='photos')){el.hidden=true;el.dataset.key='';return;}
  const all=state.dialogue?.messages||[],messages=all.filter(m=>m.role==='assistant'&&!['worker-report','worker-question'].includes(m.kind));
  const last=messages.at(-1),fresh=last&&Date.now()-Date.parse(last.at||0)<(ambientMode?20*60e3:6*3600e3),waiting=inboxList().length;
  // On return the caption says what happened; otherwise a fresh reply, then a word about what waits, then the greeting.
  const voice=characterVoice(state.dialogue),recapping=recapUntil>Date.now();
- if(!recapping&&!fresh&&!waiting&&!voiceSpeaks(voice,'greeting')){el.hidden=true;return;}
+ if(!recapping&&!fresh&&!waiting&&!voiceSpeaks(voice,'greeting')){el.hidden=true;el.dataset.key='';return;}
  const text=recapping?recapText:fresh?String(last.content||''):waiting?`${voiceAddress(voice)}${voiceLine(voice,'waiting',{n:countWord(waiting)})}`:greeting(new Date(),weatherData,characterName(state.dialogue),voice).text;
+ const more=all.length&&!ambientMode?`<button type="button" class="speech-more" data-action="${narrow()?'view':'talk-open'}" data-view="talk">会話の履歴</button>`:'';
+ const key=`${!fresh}|${narrow()}|${ambientMode}|${all.length>0}|${text}`;
  el.hidden=false;el.classList.toggle('is-greeting',!fresh);
- el.innerHTML=`<div class="speech-text md">${renderMarkdown(text.length>900?text.slice(0,898)+'…':text,{headings:'text'})}</div>${all.length&&!ambientMode?`<button type="button" class="speech-more" data-action="${narrow()?'view':'talk-open'}" data-view="talk">会話の履歴</button>`:''}`;
+ if(el.dataset.key!==key){
+  el.dataset.key=key;
+  el.innerHTML=`<div class="speech-text md">${renderMarkdown(text.length>900?text.slice(0,898)+'…':text,{headings:'text'})}</div>${more}`;
+ }
+ // Text can stay the same while its width changes; measure without replacing focused controls.
  const body=el.querySelector('.speech-text');el.classList.toggle('is-clipped',!!body&&body.scrollHeight>body.clientHeight+2);
 }
 /** Below the stage: only what the topbar cannot show (it is hidden on the idle screen). */
@@ -579,7 +588,7 @@ function settingsView(){
    ${settingRow('写真立て',frameSummary(),frameStored().length?'ok':null,'選んだ写真を、待機画面でゆっくり切り替えます。写真はこのPCに保存し、外へは送りません。',`${btn('frame-open','写真を管理','image','button secondary')}${btn('frame-now','写真立てを始める','','text-button')}`)}
    ${settingRow('画面をつけたままにする','',null,'待機画面のあいだ、画面が消えないようにします（対応している環境のみ）。',`<label class="switch-label"><input class="switch" type="checkbox" role="switch" data-action="awake-set" aria-label="待機画面のあいだ画面をつけたままにする" ${prefs.ambient.keepAwake?'checked':''}></label>`)}
    ${settingRow('ホームのカード','',null,'ニュース・音楽・つくった画像は、この順番でカードをめくります。仕事は灯り、天気は日付の下の一行で表します。',`<label class="select-label"><span class="visually-hidden">めくる間隔</span><select data-action="rotate-set">${[8,12,20,30,60].map(n=>`<option value="${n}" ${prefs.ambient.rotateSeconds===n?'selected':''}>${n}秒ごと</option>`).join('')}</select></label>`)}
-   <ol class="widget-order">${order.map((w,i)=>`<li><label><input type="checkbox" data-action="widget-toggle" value="${w}" ${prefs.widgets.includes(w)?'checked':''}><span>${widgetNames[w]}</span></label><span class="widget-move">${toolbtn('widget-up',`${widgetNames[w]}を上へ`,'arrow',`data-widget="${w}" data-dir="up" ${i===0?'disabled':''}`)}${toolbtn('widget-down',`${widgetNames[w]}を下へ`,'arrow',`data-widget="${w}" data-dir="down" ${i===order.length-1?'disabled':''}`)}</span></li>`).join('')}</ol>
+   <ol class="widget-order">${order.map((w,i)=>`<li data-role="${['news','media','artifact'].includes(w)?'card':'stage'}"><label><input type="checkbox" data-action="widget-toggle" value="${w}" ${prefs.widgets.includes(w)?'checked':''}><span>${widgetNames[w]}</span><small class="widget-role">${widgetRoles[w]||''}</small></label><span class="widget-move">${toolbtn('widget-up',`${widgetNames[w]}を上へ`,'arrow',`data-widget="${w}" data-dir="up" ${i===0?'disabled':''}`)}${toolbtn('widget-down',`${widgetNames[w]}を下へ`,'arrow',`data-widget="${w}" data-dir="down" ${i===order.length-1?'disabled':''}`)}</span></li>`).join('')}</ol>
    ${settingRow('天気とニュース',[s.weatherCity&&`天気: ${escape(s.weatherCity)}`,s.newsUrl&&'ニュース: 設定済み'].filter(Boolean).join(' · '),s.weatherCity||s.newsUrl?'ok':null,'',btn('feeds-setup',s.weatherCity||s.newsUrl?'変更':'場所とRSSを設定','','button secondary'))}
    ${settingRow('音楽',musicState?.track?escape(`${musicState.count}曲を選択中`):'',musicState?.track?'ok':null,'このPCの音楽ファイルをホームで流します。送信はしません。',`${btn('music-choose','曲を選ぶ','music','button secondary')}${btn('media','YouTube','','text-button','aria-label="YouTubeを流す"')}`)}
    <div class="setting-foot">${btn('display-undo','前の表示に戻す','undo','text-button')}${btn('display-reset','既定に戻す','','text-button')}</div>`],
@@ -773,6 +782,7 @@ function openSheet(title,body,kind='generic',id=null){
  setTimeout(()=>{const first=kind==='avatar'?null:$('.modal-body input:not([type=hidden]):not([readonly]):not([type=checkbox]),.modal-body textarea,.modal-body select',overlay);(first||$('#modal-title',overlay))?.focus();},0);
 }
 function closeSheet(){capabilityUI?.onClose();avatarStudioUI?.close();pendingRelay=null;
+ clearTimeout(toastTimer);toastEl.classList.remove('show');
  const wasAvatar=activeDialog?.kind==='avatar';
  overlay.replaceChildren();document.body.classList.remove('dialog-open');activeDialog=null;sheetBaseline='';
  if(wasAvatar&&view==='settings')scheduleRender();   // the summary line under 姿 changed while the studio was open
@@ -789,14 +799,14 @@ function requestCloseSheet(){
 function openPanel(title,body,kind,id){
  const panel=$('#panel');if(!panel)return;
  if(!activePanel)panelReturnFocus=document.activeElement;
- activePanel={kind,id};
+ activePanel={kind,id};panel.dataset.kind=kind;
  panel.innerHTML=`<header class="panel-head"><h2 id="panel-title" tabindex="-1">${escape(title)}</h2>${toolbtn('close-panel','閉じる','close')}</header><div class="panel-body">${body}</div>`;
- panel.hidden=false;registerForms(panel);document.body.classList.add('panel-open');
+ panel.hidden=false;registerForms(panel);document.body.classList.add('panel-open');paintChrome();
  setTimeout(()=>$('#panel-title')?.focus(),0);
 }
 function closePanel(){
  if(!activePanel)return;if(activePanel.kind==='creative')capabilityUI?.onClose();
- const panel=$('#panel');panel.hidden=true;panel.replaceChildren();activePanel=null;document.body.classList.remove('panel-open');
+ const panel=$('#panel');panel.hidden=true;delete panel.dataset.kind;panel.replaceChildren();activePanel=null;document.body.classList.remove('panel-open','panel-approvals');
  if(panelReturnFocus?.isConnected)panelReturnFocus.focus();
 }
 function openInbox(){openPanel('あなたの番',inboxHTML(inboxList(),{presence}),'inbox');}
@@ -964,7 +974,7 @@ const actions={
  'work-tab':el=>{workTab=el.dataset.tab;render();},
  proposals:()=>{closePanel();view='workspace';workTab='tasks';render();},
  'skill-details':el=>{const skill=state.skills.find(s=>s.id===el.dataset.id);openSheet(skill.name,`<p>${escape(skill.source==='learned-proposal'?'仕事から提案された手順です。確認して有効化するまで使用しません。':skill.description)}</p><pre>${escape(skill.content||'共有スキルです。実行時に出所とハッシュを照合して読み込みます。')}</pre><p class="small-text">${escape(skill.sourceJobId?'元の仕事: '+skill.sourceJobId:'')}</p>`);},
- view:el=>{if(sharedView&&el.dataset.view!=='home'){notice('個人表示に戻してから開いてください。');return;}if(ambientMode)setAmbient(false);document.body.classList.remove('artifact-focus');view=el.dataset.view;closePanel();render();if(view==='talk')setTimeout(()=>$('#composer-input')?.focus(),0);else $('#surface')?.focus({preventScroll:true});},
+ view:el=>{if(sharedView&&el.dataset.view!=='home'){notice('個人表示に戻してから開いてください。');return;}clearTimeout(toastTimer);toastEl.classList.remove('show');if(ambientMode)setAmbient(false);document.body.classList.remove('artifact-focus');view=el.dataset.view;closePanel();render();if(view==='talk')setTimeout(()=>$('#composer-input')?.focus(),0);else $('#surface')?.focus({preventScroll:true});},
  display:()=>{view='settings';render();setTimeout(()=>$('#settings-home')?.scrollIntoView({block:'start'}),0);},'runtime-settings':()=>providerSettings().open(),'voice-settings':voiceSheet,close:requestCloseSheet,'close-panel':closePanel,
  'discard-close':closeSheet,'discard-cancel':()=>{$('.discard-bar',overlay)?.remove();$('.modal-body input,.modal-body textarea',overlay)?.focus();},
  share:async()=>{capabilityUI?.stop();sharedView=!sharedView;if(sharedView){invalidatePendingSubmit();view='home';closeSheet();closePanel();cancelVoice();}dialogueRenderKey='';render();paintHome();},

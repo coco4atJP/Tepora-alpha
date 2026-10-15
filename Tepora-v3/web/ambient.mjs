@@ -137,10 +137,13 @@ export function ambientCards({widgets=[],weather,news,music,jobs=[],images=[],sh
 
 /** One card at a time; the next one rises into place. Hover or focus holds the current card. */
 export function createDeck(host,{interval=12000,reducedMotion=false,onChange=()=>{}}={}){
- let cards=[],index=0,timer=0,paused=false,stopped=false;
+ let cards=[],index=0,timer=0,paused=false,stopped=false,lastSig='';
  const paint=(animate=false)=>{
-  if(!cards.length){host.innerHTML='';onChange(null);return;}
+  if(!cards.length){if(lastSig!==''){host.innerHTML='';lastSig='';}onChange(null);return;}
   index=((index%cards.length)+cards.length)%cards.length;const c=cards[index];
+  const sig=`${index}|${cards.map(x=>`${x.id}:${x.title}:${x.html}`).join('||')}`;
+  if(!animate&&sig===lastSig){onChange(c.id);return;}
+  lastSig=sig;
   host.innerHTML=`<article class="deck-card${animate&&!reducedMotion?' is-arriving':''}" data-card="${escape(c.id)}"><header class="deck-title">${escape(c.title)}</header><div class="deck-body">${c.html}</div></article>
    ${cards.length>1?`<div class="deck-pager" role="group" aria-label="表示するカード">${cards.map((x,n)=>`<button type="button" data-deck="${n}" aria-label="${escape(x.title)}" aria-pressed="${n===index}"></button>`).join('')}</div>`:''}`;
   onChange(c.id);
