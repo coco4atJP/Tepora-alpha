@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,rm,readFile} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,rm,readFile,realpath} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
@@ -21,7 +21,8 @@ test('installed service import probe preserves missing dependency errors and fai
  assert.notEqual(result.status,0);assert.match(result.stderr,/missing-packaged-module\.mjs/);assert.equal(result.stdout,'');
 });
 test('absolute sidecar entry handles relocated Unicode paths, imports and stdin shutdown',async t=>{
- const dir=await mkdtemp(path.join(os.tmpdir(),'tepora native 日本語 '));t.after(()=>rm(dir,{recursive:true,force:true}));
+ // Tauri resource_dir is canonical; macOS temp paths may alias /private/var.
+ const dir=await realpath(await mkdtemp(path.join(os.tmpdir(),'tepora native 日本語 ')));t.after(()=>rm(dir,{recursive:true,force:true}));
  await mkdir(path.join(dir,'core'));
  await mkdir(path.join(dir,'node_modules','fixture'),{recursive:true});await writeFile(path.join(dir,'node_modules','fixture','index.js'),'module.exports=42;');
  await writeFile(path.join(dir,'core','server.mjs'),`import path from 'node:path';import {pathToFileURL} from 'node:url';import answer from 'fixture';
