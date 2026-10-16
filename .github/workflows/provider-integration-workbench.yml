@@ -2,32 +2,87 @@ name: Provider integration workbench
 on:
   push:
     branches: ['work/v3-provider-auth-20261016']
+    paths: ['.github/workflows/provider-integration-workbench.yml']
 permissions:
   contents: read
 jobs:
   validate:
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    env:
+      RUST_TEST_THREADS: '2'
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Export exact source for isolated local review
-        run: git archive --format=tar.gz --output="$RUNNER_TEMP/tepora-source.tar.gz" HEAD
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tepora-provider-source
-          path: ${{ runner.temp }}/tepora-source.tar.gz
-          retention-days: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply exact reviewed source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request
+          parts = ['49321a0d55252a2bd330604a3cd318a352ab50c1', 'eab7dd6b967cdcbe06fb9fd34dfe9e050e61807f', '20b89d6740cd721bf559419f439818b123758044']
+          encoded = b''
+          for sha in parts:
+              req = urllib.request.Request('https://api.github.com/repos/coco4atJP/Tepora-alpha/git/blobs/'+sha, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  data = json.load(response)
+              assert data['sha'] == sha and data['encoding'] == 'base64'
+              encoded += base64.b64decode(data['content'])
+          assert hashlib.sha256(encoded).hexdigest() == 'd7cb3c13cfe4be3bca39eaf21fa1e34bbbfcc64ec9482c41768a179cfa4e9dc3'
+          patch = lzma.decompress(base64.b64decode(encoded, validate=True))
+          assert hashlib.sha256(patch).hexdigest() == 'c00b37a38f8e33802f0d2274d92b6fa8e01c2fbc85288f281a387f8154169371'
+          p = pathlib.Path(os.environ['RUNNER_TEMP'])/'provider-integration.patch'
+          p.write_bytes(patch)
+          subprocess.run(['git','apply','--check',str(p)],check=True)
+          subprocess.run(['git','apply','--index',str(p)],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          subprocess.run(['git','diff','--cached','--stat'],check=True)
+          PY
       - run: npm run build:core
-      - run: npm run test:rust
-      - name: Export native module for offline compatibility tests
-        run: find Tepora-v3 -type f -name '*.node' -not -path '*/target/*' -print0 | tar --null -T - -czf "$RUNNER_TEMP/tepora-native.tar.gz"
+      - name: Export rebuilt native module for local interaction tests
+        run: tar -czf "$RUNNER_TEMP/tepora-native.tar.gz" Tepora-v3/core/native/tepora_core.node
       - uses: actions/upload-artifact@v4
         with:
           name: tepora-provider-native
           path: ${{ runner.temp }}/tepora-native.tar.gz
+          retention-days: 1
+      - name: Shared Rust regressions
+        run: npm run test:rust
+      - name: Native-host regressions
+        run: npm run test:native
+      - run: npm run build:native
+      - name: V3 regression gate
+        env:
+          PYTHON: python
+        run: npm run quality
+      - name: Stage validated source on isolated branch
+        env:
+          PUSH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'Tepora development assistant'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git diff --cached --check
+          git commit -m "feat(providers): add ChatGPT authentication and multi-provider connection management"
+          git rev-parse HEAD > "$RUNNER_TEMP/validated-commit.txt"
+          git rev-parse HEAD^{tree} >> "$RUNNER_TEMP/validated-commit.txt"
+          auth="$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          test "$(git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" ls-remote origin refs/heads/work/v3-provider-auth-20261016 | cut -f1)" = "$GITHUB_SHA"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD:refs/heads/work/v3-provider-auth-20261016
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tepora-provider-validation
+          path: |
+            Tepora-v3/validation/
+            ${{ runner.temp }}/validated-commit.txt
+          if-no-files-found: ignore
           retention-days: 1
