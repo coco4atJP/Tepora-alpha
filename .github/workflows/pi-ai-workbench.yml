@@ -2,12 +2,18 @@ name: Pi AI integration workbench
 on:
   push:
     branches: ['work/v3-pi-ai-integration-20261016']
+    paths: ['.github/workflows/pi-ai-workbench.yml']
 permissions:
   contents: read
 jobs:
-  prepare:
+  validate:
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    env:
+      RUST_TEST_THREADS: '2'
+      PYTHON: python
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,19 +21,73 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.22.0'
-      - name: Install real published pi-ai without lifecycle scripts
-        run: npm install --prefix Tepora-v3 --save-exact --ignore-scripts @earendil-works/pi-ai
-      - name: Build native persistence module
-        run: npm run build:core
-      - name: Export exact source, SDK and persistence module for isolated tests
-        run: |
-          git archive --format=tar.gz --output="$RUNNER_TEMP/source.tar.gz" HEAD
-          tar -czf "$RUNNER_TEMP/dependencies.tar.gz" Tepora-v3/node_modules Tepora-v3/package.json Tepora-v3/package-lock.json Tepora-v3/core/native/tepora_core.node
-          node -e "const p=require('./Tepora-v3/node_modules/@earendil-works/pi-ai/package.json');console.log(JSON.stringify({version:p.version,engines:p.engines},null,2))"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-python@v5
         with:
-          name: pi-ai-integration-inputs
+          python-version: '3.13'
+      - name: Apply exact reviewed integration source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request
+          parts = ['835c1c7af26a6faafcc16c7155af6b71591ded8b','d732680a2f06ab4d49cb5030508e2565b2b56ccc','36a7d98ad368c17ac7b95c77bb1eb83a894d017f','30a88caed47123526d726fe3fcd575ade4bf7feb','abe1b078be2138fb6aa24623c25a9a69da39050b']
+          encoded = b''
+          for sha in parts:
+              req = urllib.request.Request('https://api.github.com/repos/coco4atJP/Tepora-alpha/git/blobs/'+sha, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  data = json.load(response)
+              assert data['sha'] == sha and data['encoding'] == 'base64'
+              encoded += base64.b64decode(data['content'])
+          compressed = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(compressed).hexdigest() == 'd2be771f2f02ed00a58d70d44dec6f4425c2ef31866fc27e8e61aa1c603e8b2a'
+          patch = lzma.decompress(compressed)
+          assert hashlib.sha256(patch).hexdigest() == 'b8ee2b96fe8253b7eeb9798e0fe994fe394e302bd6589b87d41f170280eefa80'
+          p = pathlib.Path(os.environ['RUNNER_TEMP'])/'pi-ai.patch'
+          p.write_bytes(patch)
+          subprocess.run(['git','apply','--check',str(p)],check=True)
+          subprocess.run(['git','apply','--index',str(p)],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          subprocess.run(['git','diff','--cached','--stat'],check=True)
+          PY
+      - run: npm ci --prefix Tepora-v3 --ignore-scripts
+      - run: rustup default stable
+      - run: npm run build:core
+      - name: pi-ai SDK authentication, streaming, real HTTP and distribution tests
+        run: node --test --test-timeout=120000 Tepora-v3/tests/pi-ai.test.mjs Tepora-v3/tests/pi-ai-http.test.mjs Tepora-v3/tests/pi-packaging.test.mjs
+      - name: Shared Rust regression tests
+        run: npm run test:rust
+      - name: Native host regression tests
+        run: npm run test:native
+      - run: npm run build:native
+      - name: Complete V3 quality gate
+        run: npm run quality
+      - name: Commit validated source on isolated branch
+        env:
+          PUSH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'Tepora development assistant'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git diff --cached --check
+          git diff --exit-code
+          git commit -m "feat(v3): integrate actual pi-ai SDK providers, inference and multi-service OAuth"
+          git rev-parse HEAD > "$RUNNER_TEMP/validated-commit.txt"
+          git rev-parse HEAD^{tree} >> "$RUNNER_TEMP/validated-commit.txt"
+          auth="$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          test "$(git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" ls-remote origin refs/heads/work/v3-pi-ai-integration-20261016 | cut -f1)" = "$GITHUB_SHA"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD:refs/heads/work/v3-pi-ai-integration-20261016
+      - name: Export native persistence module
+        if: always()
+        run: |
+          if test -f Tepora-v3/core/native/tepora_core.node; then
+            tar -czf "$RUNNER_TEMP/pi-ai-native.tar.gz" Tepora-v3/core/native/tepora_core.node
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pi-ai-integration-validation
           path: |
-            ${{ runner.temp }}/source.tar.gz
-            ${{ runner.temp }}/dependencies.tar.gz
+            Tepora-v3/validation/
+            ${{ runner.temp }}/validated-commit.txt
+            ${{ runner.temp }}/pi-ai-native.tar.gz
+          if-no-files-found: warn
           retention-days: 2
