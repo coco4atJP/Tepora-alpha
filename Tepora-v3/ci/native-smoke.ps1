@@ -1,6 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $out = Join-Path $PWD '.qa-native'
 New-Item -ItemType Directory -Force $out | Out-Null
+$app=$null
+$report=@{source_commit=$env:GITHUB_SHA;platform='windows-x64';native_alive=$false;service_ready=$false;actual_model_tested=$false;stage='install'}
+try {
 $setup = Get-ChildItem desktop/target/release/bundle -Recurse -Filter '*setup.exe' | Select-Object -First 1
 if (-not $setup) { throw 'NSIS installer was not found' }
 $install = Join-Path $env:RUNNER_TEMP 'TeporaSmoke'
@@ -9,8 +12,14 @@ if (-not $installer.WaitForExit(120000)) { $installer.Kill(); throw 'Installer t
 if ($installer.ExitCode -ne 0) { throw "Installer failed: $($installer.ExitCode)" }
 $exe = Get-ChildItem $install -Recurse -Filter 'tepora-v3.exe' | Select-Object -First 1
 if (-not $exe) { throw 'Installed executable was not found' }
-$app = Start-Process -FilePath $exe.FullName -PassThru
-try {
+  $report.stage='installed-service-import'
+  $runtime=Join-Path $install 'node-runtime.exe'
+  $resource=Join-Path $install 'v3'
+  Get-ChildItem $resource -Recurse -File -Force | ForEach-Object { $_.FullName.Substring($resource.Length + 1) } | Set-Content (Join-Path $out 'installed-files.txt')
+  & $runtime ./ci/installed-probe.mjs $resource 1> (Join-Path $out 'import-stdout.txt') 2> (Join-Path $out 'import-stderr.txt')
+  if ($LASTEXITCODE -ne 0) { throw "Installed service import failed: $LASTEXITCODE" }
+  $report.stage='native-readiness'
+  $app = Start-Process -FilePath $exe.FullName -PassThru -RedirectStandardOutput (Join-Path $out 'native-stdout.txt') -RedirectStandardError (Join-Path $out 'native-stderr.txt')
   $expectedVersion=(Get-Content package.json -Raw | ConvertFrom-Json).version
   $health=$null
   for ($i=0; $i -lt 40; $i++) {
@@ -27,6 +36,7 @@ try {
     if ($health) { break }
   }
   if (-not $health) { throw 'Bundled service never became ready' }
+  $report.stage='native-liveness'
   Start-Sleep -Seconds 25; $app.Refresh()
   if ($app.HasExited) { throw 'Native app exited after readiness' }
   @{source_commit=$env:GITHUB_SHA;platform='windows-x64';service_health=$health;native_alive=$true;window_title=$app.MainWindowTitle;window_handle_nonzero=($app.MainWindowHandle -ne 0);visual_assertion='Inspect desktop.png';actual_model_tested=$false} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $out 'result.json')
@@ -37,4 +47,15 @@ try {
   $graphics.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size)
   $image.Save((Join-Path $out 'desktop.png'),[System.Drawing.Imaging.ImageFormat]::Png)
   $graphics.Dispose(); $image.Dispose()
-} finally { & taskkill.exe /PID $app.Id /T /F 2>$null | Out-Null }
+} catch {
+  $report.error=$_.Exception.Message
+  if ($app) { $app.Refresh(); $report.native_exit_code=if($app.HasExited){$app.ExitCode}else{$null} }
+  $report | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $out 'failure.json')
+  foreach ($file in @('import-stderr.txt','native-stderr.txt')) {
+    $log=Join-Path $out $file
+    if(Test-Path $log) { Get-Content $log -Tail 80 | Write-Host }
+  }
+  throw
+} finally {
+  if ($app -and -not $app.HasExited) { & taskkill.exe /PID $app.Id /T /F 2>$null | Out-Null }
+}

@@ -19,7 +19,7 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
-fn request_exit(app: tauri::AppHandle, state: Arc<Backend>) {
+fn request_exit(app: tauri::AppHandle, state: Arc<Backend>, code: i32) {
     if state.closing.swap(true, Ordering::SeqCst) { return; }
     let child = state.child.lock().unwrap().take();
     std::thread::spawn(move || {
@@ -28,7 +28,7 @@ fn request_exit(app: tauri::AppHandle, state: Arc<Backend>) {
             std::thread::sleep(Duration::from_millis(1200));
             let _ = child.kill();
         }
-        app.exit(0);
+        app.exit(code);
     });
 }
 
@@ -69,7 +69,7 @@ fn main() {
                             let _ = window.eval("window.dispatchEvent(new Event('tepora-stop'))");
                         }
                     }
-                    "quit" => request_exit(app.clone(), menu_state.clone()),
+                    "quit" => request_exit(app.clone(), menu_state.clone(), 0),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -81,8 +81,10 @@ fn main() {
             tray.build(app)?;
 
             let handle = app.handle().clone();
+            let event_state = setup_state.clone();
             tauri::async_runtime::spawn(async move {
                 let mut opened = false;
+                let mut diagnostic_bytes = 0;
                 while let Some(event) = events.recv().await {
                     match event {
                         CommandEvent::Stdout(bytes) if !opened => {
@@ -99,14 +101,35 @@ fn main() {
                                                 .on_navigation(move |next| next.scheme() == "http" && next.host_str() == Some("127.0.0.1") && next.port() == port)
                                                 .build();
                                             if result.is_ok() { opened = true; }
-                                            else { eprintln!("Failed to create the Tepora window"); handle.exit(1); }
+                                            else if let Err(error) = result {
+                                                eprintln!("Failed to create the Tepora window: {error}");
+                                                request_exit(handle.clone(), event_state.clone(), 1);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                        CommandEvent::Terminated(_) => { handle.exit(0); break; }
-                        CommandEvent::Error(error) => { eprintln!("Tepora backend: {error}"); handle.exit(1); break; }
+                        // A missing packaged module otherwise disappears behind a successful
+                        // native exit. Never log ready stdout: it contains the launch token.
+                        CommandEvent::Stderr(bytes) if !opened && diagnostic_bytes < 16384 => {
+                            let remaining = 16384 - diagnostic_bytes;
+                            let bytes = &bytes[..bytes.len().min(remaining)];
+                            diagnostic_bytes += bytes.len();
+                            eprintln!("Tepora backend startup: {}", String::from_utf8_lossy(bytes));
+                        }
+                        CommandEvent::Terminated(status) => {
+                            if !event_state.closing.swap(true, Ordering::SeqCst) {
+                                eprintln!("Tepora backend terminated unexpectedly: code={:?}, signal={:?}", status.code, status.signal);
+                                handle.exit(status.code.filter(|code| *code != 0).unwrap_or(1));
+                            }
+                            break;
+                        }
+                        CommandEvent::Error(error) => {
+                            eprintln!("Tepora backend: {error}");
+                            request_exit(handle.clone(), event_state.clone(), 1);
+                            break;
+                        }
                         _ => {}
                     }
                 }
@@ -128,7 +151,7 @@ fn main() {
             }
             tauri::RunEvent::ExitRequested { api, .. } if !state.closing.load(Ordering::SeqCst) => {
                 api.prevent_exit();
-                request_exit(handle.clone(), state.clone());
+                request_exit(handle.clone(), state.clone(), 0);
             }
             _ => {}
         }

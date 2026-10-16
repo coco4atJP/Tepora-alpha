@@ -78,6 +78,16 @@ Focused unit fixtures exercise the production stage runner with fake clocks and 
 
 ## Native checks
 
+The Windows package startup failure at `7804be9c` passed the regression matrix,
+Node tests and NSIS installation, but the native host reported every unexpected
+backend termination as exit 0 and discarded startup stderr. The native gate now
+imports the installed service without starting it, retains bounded backend
+startup errors and the real failure status, and writes failure evidence even
+before readiness. Import success is not native startup acceptance: the same
+installed-app readiness and 25-second liveness assertions still run. The exact
+Windows runtime cause must be established from that evidence before claiming a
+fix; fixture checks do not replace cross-platform package CI.
+
 `.github/workflows/tepora-v3-beta.yml` builds the current revision for Windows/macOS and records installation/startup evidence and screenshots. The bundled service must report the package version **3.0.0-beta.11**. The separate manual native-smoke workflow requires an explicit artifact run and matching exact commit; it has no defaults pointing at older betas.
 
 Local macOS arm64 `.app`/DMG creation and bundled Node service startup passed during this cutover; the native WebView was not exercised. Native startup, screenshots and regression tests are different evidence. Do not infer real-model quality, microphone/ASR success, signed/notarized distribution or unattended reliability from service readiness. A configured workflow is not a successful remote CI run.
