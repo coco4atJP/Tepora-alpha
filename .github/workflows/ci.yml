@@ -43,7 +43,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
@@ -55,6 +55,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Bound Windows Rust test parallelism
+        if: runner.os == 'Windows'
+        run: echo "RUST_TEST_THREADS=2" >> "$GITHUB_ENV"
       - run: rustup default stable
       - name: Rust persistence tests
         run: npm run test:rust

@@ -54,6 +54,14 @@ for (const [file, job] of workflows) {
 test('both Windows Node gates cap heavy fixture concurrency without weakening timeouts', async () => {
   const native = await readFile(new URL('../.github/workflows/tepora-v3-beta.yml', import.meta.url), 'utf8');
   const loop = await readFile(new URL('../Tepora-v3/scripts/improve-loop.mjs', import.meta.url), 'utf8');
-  assert.match(native, /node --import \.\/scripts\/ci-diagnostics\.mjs --test --test-concurrency=2 --test-timeout=120000/);
-  assert.match(loop, /process\.platform==='win32'\?\['--import','\.\/scripts\/ci-diagnostics\.mjs','--test','--test-concurrency=2','--test-timeout=120000'\]:\['--test'\]/);
+  assert.match(native, /node --import \.\/scripts\/ci-diagnostics\.mjs --test --test-concurrency=1 --test-timeout=120000/);
+  assert.match(loop, /process\.platform==='win32'\?\['--import','\.\/scripts\/ci-diagnostics\.mjs','--test','--test-concurrency=1','--test-timeout=120000'\]:\['--test'\]/);
+});
+
+
+test('both Windows gates bound Rust fixture threads without changing Rust assertions', async () => {
+  for (const [file] of workflows) {
+    const source = (await readFile(new URL(`../.github/workflows/${file}`, import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
+    assert.match(source, /name: Bound Windows Rust test parallelism\n\s+if: runner\.os == 'Windows'\n\s+run: echo "RUST_TEST_THREADS=2" >> "\$GITHUB_ENV"/);
+  }
 });

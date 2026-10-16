@@ -3,9 +3,9 @@ import {createWriteStream} from 'node:fs';
 import path from 'node:path';
 
 export const DEFAULT_STAGE_TIMEOUT_MS = 180_000;
-// The whole Windows Node suite has measured 212,318 ms in native CI. Allow
-// bounded headroom here without changing any individual test's deadline.
-export const NODE_SUITE_TIMEOUT_MS = 360_000;
+// A lower-contention Windows replay reached 592 tests at the former 360 s
+// outer limit. Allow eight minutes without changing any behavioral deadline.
+export const NODE_SUITE_TIMEOUT_MS = 480_000;
 // Windows native tests need both test-target compilation and execution (192 s
 // observed together in native CI); keep a separate bounded five-minute budget.
 export const NATIVE_TEST_TIMEOUT_MS = 300_000;
