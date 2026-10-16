@@ -1,0 +1,33 @@
+name: Pi AI integration workbench
+on:
+  push:
+    branches: ['work/v3-pi-ai-integration-20261016']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+      - name: Install real published pi-ai without lifecycle scripts
+        run: npm install --prefix Tepora-v3 --save-exact --ignore-scripts @earendil-works/pi-ai
+      - name: Build native persistence module
+        run: npm run build:core
+      - name: Export exact source, SDK and persistence module for isolated tests
+        run: |
+          git archive --format=tar.gz --output="$RUNNER_TEMP/source.tar.gz" HEAD
+          tar -czf "$RUNNER_TEMP/dependencies.tar.gz" Tepora-v3/node_modules Tepora-v3/package.json Tepora-v3/package-lock.json Tepora-v3/core/native/tepora_core.node
+          node -e "const p=require('./Tepora-v3/node_modules/@earendil-works/pi-ai/package.json');console.log(JSON.stringify({version:p.version,engines:p.engines},null,2))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pi-ai-integration-inputs
+          path: |
+            ${{ runner.temp }}/source.tar.gz
+            ${{ runner.temp }}/dependencies.tar.gz
+          retention-days: 2
