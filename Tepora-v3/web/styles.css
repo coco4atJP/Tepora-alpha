@@ -872,3 +872,10 @@ body.shared-view .talk,body.shared-view .talk-rail{display:none!important}
 body.shared-view .layout{grid-template-columns:minmax(0,1fr)}
 body.shared-view .nav{visibility:hidden}
 body.shared-view .ability-now-playing{display:none}
+
+/* Account names keep their own row rather than collapsing behind auth actions on phones. */
+@media (max-width:520px){
+ #pi-auth-panel .provider-list article{align-items:flex-start;flex-direction:column}
+ #pi-auth-panel .provider-list article>div{width:100%;min-width:0}
+ #pi-auth-panel .provider-list article>div:last-child{display:flex;gap:4px;flex-wrap:wrap}
+}
