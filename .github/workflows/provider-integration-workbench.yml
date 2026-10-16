@@ -1,0 +1,33 @@
+name: Provider integration workbench
+on:
+  push:
+    branches: ['work/v3-provider-auth-20261016']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export exact source for isolated local review
+        run: git archive --format=tar.gz --output="$RUNNER_TEMP/tepora-source.tar.gz" HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tepora-provider-source
+          path: ${{ runner.temp }}/tepora-source.tar.gz
+          retention-days: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - run: npm run build:core
+      - run: npm run test:rust
+      - name: Export native module for offline compatibility tests
+        run: find Tepora-v3 -type f -name '*.node' -not -path '*/target/*' -print0 | tar --null -T - -czf "$RUNNER_TEMP/tepora-native.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tepora-provider-native
+          path: ${{ runner.temp }}/tepora-native.tar.gz
+          retention-days: 1
