@@ -114,9 +114,10 @@ export class ProviderAuth {
   const p={id:randomUUID(),accountId,status:'pending',state:random(),nonce:random(),verifier:random(),clientId:previous?.clientId||null,subject:previous?.subject||null,expiresAt:this.clock()+this.attemptMs,cancel:new AbortController()};this.pending=p;
   p.server=http.createServer((req,res)=>{const task=this.callback(p,req,res).catch(()=>{if(!res.writableEnded){res.writeHead(500);res.end('Sign-in failed. Return to Tepora.');}this.finish(p,'error','ログインを完了できませんでした。');}).finally(()=>this.tasks.delete(task));this.tasks.add(task);});
   p.server.headersTimeout=10000;p.server.requestTimeout=15000;p.server.maxHeadersCount=30;
-  try{await new Promise((resolve,reject)=>{p.server.once('error',reject);p.server.listen(0,'127.0.0.1',resolve);});}
-  catch{this.finish(p,'error','ログイン用のローカルポートを開けません。');throw new ProviderAuthError(p.error);}
-  this.available();p.cancel.signal.throwIfAborted();
+  let onAbort;
+  try{await new Promise((resolve,reject)=>{onAbort=()=>reject(new ProviderAuthError('ログインを取り消しました。'));p.cancel.signal.addEventListener('abort',onAbort,{once:true});p.server.once('error',reject);p.server.listen(0,'127.0.0.1',()=>{if(p.cancel.signal.aborted)p.server.close();resolve();});});this.available();p.cancel.signal.throwIfAborted();}
+  catch{this.finish(p,'error','ログイン用のローカルポートを開けません。');p.server.close();p.server.closeAllConnections();throw new ProviderAuthError('ログインを開始できませんでした。');}
+  finally{p.cancel.signal.removeEventListener('abort',onAbort);}
   p.redirectUri=`http://127.0.0.1:${p.server.address().port}/auth/callback`;
   p.timer=setTimeout(()=>this.finish(p,'expired','ログインの期限が切れました。'),this.attemptMs);p.timer.unref?.();
   const params={client_id:p.clientId||'dynamic_agent_client',ext_agent_host_id:this.vault.hostId,response_type:'code',redirect_uri:p.redirectUri,scope:SCOPES,resource:CHATGPT_RESOURCE,state:p.state,nonce:p.nonce,code_challenge_method:'S256',code_challenge:createHash('sha256').update(p.verifier).digest('base64url')};

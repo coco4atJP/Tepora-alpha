@@ -105,3 +105,7 @@ test('registry never exposes/reuses subscription tokens as API keys and rejects 
  assert.equal(r.price(p),null);
  const api=profile({authMode:undefined,accountId:undefined});r.save({profiles:[api],routes:{main:{primary:'chatgpt'}}},1);assert.throws(()=>r.setKey('chatgpt','paid-secret',p.identity),/変更/);r.setKey('chatgpt','paid-secret');r.save({profiles:[profile()],routes:{main:{primary:'chatgpt'}}},2);assert.equal(store.value('provider-keys').chatgpt,undefined);
 });
+
+test('closing during loopback startup never leaves a listening OAuth server',async t=>{
+ const f=await fixture(t);const pending=f.auth.begin({consent:true});const rejected=assert.rejects(pending,/ログイン/);await f.auth.close();await rejected;await new Promise(r=>setImmediate(r));assert.equal(f.auth.pending.server.listening,false);
+});
