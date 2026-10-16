@@ -1350,6 +1350,7 @@ fn static_asset(path: &str) -> Option<&str> {
         "/realtime-voice.mjs",
         "/onboarding.mjs",
         "/provider-settings.mjs",
+        "/provider-presets.mjs",
         "/capability-ui.mjs",
         "/pcm-worklet.js",
         "/display-model.mjs",

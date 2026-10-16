@@ -22,6 +22,7 @@ pub const SERVERS: &[&str] = &[
     "other",
 ];
 const FIELDS: &[&str] = &[
+    "authMode", "accountId",
     "id",
     "name",
     "protocol",
@@ -220,6 +221,13 @@ pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
         !truth(&raw["sessionHeader"]) || matches(r"^x-[a-z0-9-]{1,60}$", s(raw, "sessionHeader")),
         "Invalid session header name",
     )?;
+    let auth_mode = if truth(&raw["authMode"]) { s(raw,"authMode") } else { "api-key" };
+    require(["api-key","chatgpt"].contains(&auth_mode), "Invalid authentication mode")?;
+    if auth_mode == "chatgpt" {
+        require(s(raw,"protocol")=="responses" && domain==Domain::Cloud && url.as_str().trim_end_matches('/')=="https://api.openai.com/v1", "ChatGPT認証は公式Responses APIにだけ使用できます。")?;
+        require(matches(r"^chatgpt-[a-f0-9-]{36}$",s(raw,"accountId")), "ChatGPTアカウントを選択してください。")?;
+        require(!truth(&raw["apiKeyEnv"]) && !truth(&raw["sessionHeader"]), "ChatGPT認証にAPIキーや追加認証ヘッダーは使えません。")?;
+    } else { require(!truth(&raw["accountId"]), "APIキー接続にChatGPTアカウントは指定できません。")?; }
     let slow = match domain {
         Domain::Device => 600000,
         Domain::Lan => 300000,
@@ -250,6 +258,7 @@ pub fn validate_profile(raw: &Value) -> Result<Value, ApiError> {
     if truth(&raw["reasoningEffort"]) {
         p["reasoningEffort"] = raw["reasoningEffort"].clone();
     }
+    if auth_mode=="chatgpt" { p["authMode"]=json!("chatgpt"); p["accountId"]=raw["accountId"].clone(); }
     p["identity"] = json!(digest(&p)?);
     Ok(p)
 }
@@ -320,6 +329,10 @@ pub fn validate_registry(raw: &Value) -> Result<Value, ApiError> {
                     require(p["domain"] == "device", "Dictation stays on this PC")?;
                 }
             }
+            let classes: std::collections::HashSet<_> = chain.iter().map(|id| {
+                let p=profiles.iter().find(|p|p["id"]==*id).unwrap(); credential_class(p)
+            }).collect();
+            require(classes.len()==1,"ChatGPTアカウントとAPI課金の境界を跨ぐ自動切替はできません。")?;
             routes.insert(
                 role.clone(),
                 json!({"primary":route["primary"],"fallbacks":fallback}),
@@ -360,4 +373,9 @@ pub fn role_chain(role: &str, registry: &Value) -> Vec<Value> {
         }
     }
     vec![]
+}
+
+/// A subscription never silently changes account or falls back to an API key.
+pub fn credential_class(p: &Value) -> String {
+    if p["authMode"]=="chatgpt" { format!("chatgpt:{}",s(p,"accountId")) } else { "api-key".into() }
 }

@@ -1,5 +1,15 @@
 # Tepora V3 changelog
 
+## Model connections and ChatGPT plan authentication (beta.11)
+
+- Add 22 connection templates, explicit account model selection and user-triggered provider catalog discovery without replacing Tepora's harness
+- Add official public-client ChatGPT OAuth to ordinary launch, with PKCE/OIDC checks, separate registration records, atomic credential files, serialized rotation and revocation-aware sign-out
+- Bind subscription credentials to the official Responses endpoint; prohibit silent cross-account / subscription-to-API fallback
+- Update shared Rust Responses encoding for namespaced tools and subscription parameter restrictions; native development mode preserves profiles but explicitly refuses unported OAuth effects
+- Repair retired connection-editor fields and preserve hidden timeout/cache/sampling settings and auxiliary role routes during edits
+- See [scope, security boundaries and remaining validation](../Tepora-v3/docs/MODEL-CONNECTIONS.md)
+
+
 ## Canonical Rust V3 branch (beta.11)
 
 - Consolidate V3 development on `rust/v3-core-migration`; the former `v3.0-beta/companion-os` tip is already an ancestor, with no unmerged commits

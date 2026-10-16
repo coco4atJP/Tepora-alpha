@@ -21,7 +21,8 @@ function validateSampling(raw){
  for(const [k,v] of Object.entries(raw)){const r=SAMPLING[k];invariant(r&&typeof v==='number'&&v>=r[0]&&v<=r[1]&&(!r[2]||Number.isInteger(v)),`Invalid sampling ${k}`);out[k]=v;}
  return out;
 }
-const profileFields=['id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader'];
+export const credentialClass=p=>p.authMode==='chatgpt'?'chatgpt:'+p.accountId:'api-key';
+const profileFields=['authMode','accountId','id','name','protocol','baseUrl','model','domain','pinnedAddress','allowPlainHttp','enabled','apiKeyEnv','capabilities','maxTokens','contextTokens','timeoutMs','firstByteTimeoutMs','idleTimeoutMs','maxParallel','resource','reasoningEffort','thinkingBudget','sampling','server','cache','sessionHeader'];
 /** Gateways that route by conversation (and keep its prompt cache warm on one backend) when told which one a request
  * belongs to. OpenCode Go requires it; anyone else can set `sessionHeader` on the profile. */
 function sessionHeaderFor(u){return /(^|\.)opencode\.ai$/.test(u.hostname)?'x-opencode-session':'';}
@@ -38,6 +39,13 @@ export function validateProfile(raw){
   invariant(lex==='name'||raw.pinnedAddress===host,'LAN pin and URL do not match');
   invariant(u.protocol==='https:'||raw.allowPlainHttp===true,'LAN HTTP needs explicit plaintext consent');
  }
+ const authMode=raw.authMode||'api-key';
+ invariant(['api-key','chatgpt'].includes(authMode),'Invalid authentication mode');
+ if(authMode==='chatgpt'){
+  invariant(raw.protocol==='responses'&&raw.domain==='cloud'&&u.href.replace(/\/$/,'')==='https://api.openai.com/v1','ChatGPT認証は公式Responses APIにだけ使用できます。');
+  invariant(/^chatgpt-[a-f0-9-]{36}$/.test(raw.accountId||''),'ChatGPTアカウントを選択してください。');
+  invariant(!raw.apiKeyEnv&&!raw.sessionHeader,'ChatGPT認証にAPIキーや追加認証ヘッダーは使えません。');
+ }else invariant(!raw.accountId,'APIキー接続にChatGPTアカウントは指定できません。');
  const caps={text:true,tools:null,vision:null,structured:null};
  for(const [k,v] of Object.entries(raw.capabilities||{})){invariant(Object.hasOwn(caps,k)&&[true,false,null].includes(v),'Invalid capability declaration');caps[k]=v;}
  const number=(name,fallback,min,max)=>{const x=raw[name]??fallback;invariant(x===null||Number.isInteger(x)&&x>=min&&x<=max,`Invalid ${name}`);return x;};
@@ -56,6 +64,7 @@ export function validateProfile(raw){
   maxParallel:number('maxParallel',raw.domain==='cloud'?4:1,1,64),resource:raw.resource||raw.id,
   thinkingBudget:number('thinkingBudget',null,1024,128000),sampling:validateSampling(raw.sampling),server:raw.server||'auto',cache:raw.cache!==false,sessionHeader:raw.sessionHeader||sessionHeaderFor(u),
   ...(raw.reasoningEffort?{reasoningEffort:raw.reasoningEffort}:{})};
+ if(authMode==='chatgpt'){p.authMode='chatgpt';p.accountId=raw.accountId;}
  p.identity=digest(p);return p;
 }
 export function validateRegistry(raw){
@@ -67,6 +76,7 @@ export function validateRegistry(raw){
   invariant(ROUTE_ROLES.includes(role)&&r&&Object.keys(r).every(k=>['primary','fallbacks'].includes(k)),'Invalid route');
   const chain=[r.primary,...(r.fallbacks||[])];invariant(chain.length<=8&&new Set(chain).size===chain.length,'Invalid fallback chain');
   for(const id of chain){const p=profiles.find(p=>p.id===id);invariant(p?.enabled,'Route refers to a missing or disabled profile');if(role==='vision')invariant(p.capabilities.vision!==false,'Vision routes need a vision-capable model');if(role==='dictation')invariant(p.domain==='device','Dictation stays on this PC');}
+  invariant(new Set(chain.map(id=>credentialClass(profiles.find(p=>p.id===id)))).size===1,'ChatGPTアカウントとAPI課金の境界を跨ぐ自動切替はできません。');
   routes[role]={primary:r.primary,fallbacks:r.fallbacks||[]};
  }
  invariant(!profiles.length||routes.main||routes.chat||routes.work,'A main route is required');
@@ -104,24 +114,25 @@ export class ResourceGate{
 }
 const DEFAULT_CONTEXT={anthropic:200000,gemini:1000000,responses:200000,'chat-completions':128000};
 export class ProviderRegistry{
- constructor(store,network,{clientFactory=(p,k,f)=>new ProtocolClient(p,k,f),clock=()=>Date.now(),detectLimits=true}={}){
-  Object.assign(this,{store,network,clientFactory,clock,detectLimits});this.keys=new Map();this.health=new Map();this.gate=new ResourceGate();this.limitCache=new Map();this.pendingLimits=new Map();this.slotState=new Map();
+ constructor(store,network,{auth=null,clientFactory=(p,k,f)=>new ProtocolClient(p,k,f),clock=()=>Date.now(),detectLimits=true}={}){
+  Object.assign(this,{store,network,clientFactory,clock,detectLimits,auth});this.active=new Map();this.keys=new Map();this.health=new Map();this.gate=new ResourceGate();this.limitCache=new Map();this.pendingLimits=new Map();this.slotState=new Map();
   for(const [id,key] of Object.entries(store.value('provider-keys')||{}))if(typeof key==='string')this.keys.set(id,key);
  }
  get(){return this.store.value('provider-registry')||{schema:2,revision:0,profiles:[],routes:{}};}
  get configured(){return this.get().profiles.length>0;}
- publicSnapshot(){const c=this.get();return {...c,profiles:c.profiles.map(p=>({...p,keyPresent:!!this.keyFor(p),health:this.health.get(p.id)||null,limits:this.knownLimits(p),probe:this.store.get('provider-probe',p.identity)||null})),resources:this.gate.snapshot()};}
+ publicSnapshot(){const c=this.get();return {...c,profiles:c.profiles.map(p=>({...p,keyPresent:p.authMode==='chatgpt'?!!this.auth?.status(p.accountId).connected:!!this.keyFor(p),...(p.authMode==='chatgpt'?{authStatus:this.auth?.status(p.accountId)||{connected:false,error:'通常起動でChatGPTへ接続してください。'}}:{}),health:this.health.get(p.id)||null,limits:this.knownLimits(p),probe:this.store.get('provider-probe',p.identity)||null})),resources:this.gate.snapshot()};}
  save(raw,expectedRevision){
   const old=this.get();invariant(old.revision===expectedRevision,'接続設定が更新されています。',409);
   const c={schema:2,revision:old.revision+1,...validateRegistry(raw)};
-  for(const [id] of this.keys){const a=old.profiles.find(p=>p.id===id),b=c.profiles.find(p=>p.id===id);if(!a||!b||a.baseUrl!==b.baseUrl||a.protocol!==b.protocol)this.keys.delete(id);}
+  for(const [id] of this.keys){const a=old.profiles.find(p=>p.id===id),b=c.profiles.find(p=>p.id===id);if(!a||!b||a.baseUrl!==b.baseUrl||a.protocol!==b.protocol||credentialClass(a)!==credentialClass(b))this.keys.delete(id);}
   this.persistKeys();
+  for(const [controller,p] of this.active)if(!c.profiles.some(x=>x.identity===p.identity&&x.enabled))controller.abort(new ProviderError('auth','接続設定が変更されました。'));
   for(const id of this.health.keys())if(!c.profiles.some(p=>p.id===id))this.health.delete(id);
   this.store.value('provider-registry',c);this.store.emit('providers.updated',this.publicSnapshot());return this.publicSnapshot();
  }
  persistKeys(){this.store.value('provider-keys',Object.fromEntries(this.keys));}
- keyFor(p){const current=this.get().profiles.find(x=>x.id===p.id);if(!current)return '';return this.keys.get(p.id)||(p.apiKeyEnv?process.env[p.apiKeyEnv]:'')||'';}
- setKey(id,key){const p=this.get().profiles.find(p=>p.id===id);invariant(p,'接続先が見つかりません。',404);invariant(typeof key==='string'&&key.length<=8000,'Invalid key');if(key)this.keys.set(id,key);else this.keys.delete(id);this.persistKeys();this.health.delete(id);return {id,keyPresent:!!this.keyFor(p)};}
+ keyFor(p){const current=this.get().profiles.find(x=>x.id===p.id);if(!current||current.identity!==p.identity||p.authMode==='chatgpt')return '';return this.keys.get(p.id)||(p.apiKeyEnv?process.env[p.apiKeyEnv]:'')||'';}
+ setKey(id,key,identity){const p=this.get().profiles.find(p=>p.id===id);invariant(p,'接続先が見つかりません。',404);invariant(!identity||identity===p.identity,'接続設定が変更されています。',409);invariant(p.authMode!=='chatgpt','ChatGPT接続にはAPIキーを設定できません。');invariant(typeof key==='string'&&key.length<=8000,'Invalid key');if(key)this.keys.set(id,key);else this.keys.delete(id);this.persistKeys();for(const [controller,x]of this.active)if(x.id===id)controller.abort(new ProviderError('auth','接続先の認証が変更されました。'));this.health.delete(id);return {id,keyPresent:!!this.keyFor(p)};}
  /** Profiles for one role, primary first, following role fallbacks (e.g. compaction → work → main). */
  chain(role='work',c=this.get()){
   for(const r of FALLBACK[role]||[role]){const route=c.routes[r];if(route)return [route.primary,...route.fallbacks].map(id=>c.profiles.find(p=>p.id===id)).filter(p=>p?.enabled);}
@@ -149,7 +160,7 @@ export class ProviderRegistry{
   this.limitCache.set(p.identity,value);this.store.value('provider-limits:'+p.identity,value);return value;
  }
  async detect(p,signal){
-  if(!this.detectLimits)return {};
+  if(!this.detectLimits||p.authMode==='chatgpt')return {};
   const origin=new URL(p.baseUrl).origin,scope=base=>this.network.fetch({profile:{...p,baseUrl:base},purpose:'model',timeoutMs:4000,maxBytes:2_000_000});
   const get=async(url,base=origin,init={})=>{const r=await scope(base)(url,{signal,...init});if(!r.ok){await r.body?.cancel();return null;}try{return await r.json();}catch{return null;}};
   if(p.protocol==='chat-completions'&&p.domain!=='cloud'){
@@ -198,7 +209,7 @@ export class ProviderRegistry{
   return {slot,release:()=>st.busy.delete(slot)};
  }
  /** Conservative catalog estimate; absent or conflicting prices remain unknown. */
- price(route){return modelPrice(this.store,route);}
+ price(route){return route.authMode==='chatgpt'?null:modelPrice(this.store,route);}
  compat(p){return this.store.value('provider-compat:'+p.identity)||{drop:[]};}
  addCompat(p,param){const c=this.compat(p);if(!c.drop.includes(param)){c.drop.push(param);this.store.value('provider-compat:'+p.identity,c);}return c;}
  /** One model call with retries, parameter self-healing and failover. Overflow is returned to the caller,
@@ -208,12 +219,13 @@ export class ProviderRegistry{
   if(!chain.length)throw new RouteUnavailable('会話・作業に使うモデルを「AIとの接続」で登録してください。',{kind:'unconfigured',retryAfterMs:60000});
   const purpose=requirement==='vision'?'vision':'model';let last=null,attempted=0,soonest=Infinity;
   for(const p of chain){
+   if(credentialClass(p)!==credentialClass(chain[0]))throw new ProviderError('auth','認証・課金が異なる接続先へ自動切替しません。');
    if(!this.permitted(p,purpose)){last||=new RouteUnavailable('現在の通信モードでは使える接続先がありません。');continue;}
    if(requirement==='vision'&&!this.visionAllowed(p))continue;
    const h=this.health.get(p.id);if(h?.identity===p.identity&&h.until>this.clock()){soonest=Math.min(soonest,h.until-this.clock());continue;}
    let learned=0;
    for(let attempt=0;attempt<3;attempt++){
-    let release,lease,receipt;
+    let release,lease,receipt,controller;
     try{
      const limits=await this.limits(p,signal),compat=this.compat(p);
      // A llama.cpp server with several slots serves that many requests at once; one slot stays free for the character.
@@ -227,8 +239,16 @@ export class ProviderRegistry{
      // Ollama's native API lives beside /v1 on the same server, so its scope is the server's origin.
      const scope=limits.server==='ollama'&&p.protocol==='chat-completions'?{...p,baseUrl:new URL(p.baseUrl).origin}:p;
      receipt=new ModelDispatch(this.store,p,{sessionId:accountingSessionId,purpose:accountingPurpose,attempt:attempted+Math.max(0,accountingAttempt-1),price:this.price(p)});
-     const client=this.clientFactory({...p,server:limits.server},this.keyFor(p),this.network.fetch({profile:scope,purpose,firstByteTimeoutMs:t.firstByteTimeoutMs,idleTimeoutMs:t.idleTimeoutMs,maxBytes:64_000_000,onDispatch:()=>receipt.start()}));
-     const answer=await client.chat(messages,{tools,signal,maxTokens:outputCap,toolChoice,cacheKey,cacheRetention,sampling:p.sampling,compat,slot:lease?.slot??null,numCtx:limits.server==='ollama'?limits.context:null,onDelta,onReasoning,onProgress,onUsageSnapshot:usage=>receipt.observe(usage)});
+     controller=new AbortController();this.active.set(controller,p);
+     let callSignal=AbortSignal.any([controller.signal,...(signal?[signal]:[])]),key=this.keyFor(p);
+     if(p.authMode==='chatgpt'){
+      if(!this.auth)throw new ProviderError('auth','このホストではChatGPT認証が利用できません。');
+      const credential=await this.auth.acquire(p.accountId,callSignal);key=credential.key;callSignal=credential.signal;
+     }
+     callSignal.throwIfAborted();invariant(this.permitted(p,purpose),'接続先が変更されています。',409);
+     const client=this.clientFactory({...p,server:limits.server},key,this.network.fetch({profile:scope,purpose,firstByteTimeoutMs:t.firstByteTimeoutMs,idleTimeoutMs:t.idleTimeoutMs,maxBytes:64_000_000,onDispatch:()=>receipt.start()}));
+     const answer=await client.chat(messages,{tools,signal:callSignal,maxTokens:outputCap,toolChoice,cacheKey,cacheRetention,sampling:p.sampling,compat,slot:lease?.slot??null,numCtx:limits.server==='ollama'?limits.context:null,onDelta,onReasoning,onProgress,onUsageSnapshot:usage=>receipt.observe(usage)});
+     callSignal.throwIfAborted();
      receipt.finish(answer,'completed');
      this.health.set(p.id,{identity:p.identity,failures:0,until:0});
      return {...answer,route:{...event,maxTokens:outputCap}};
@@ -246,13 +266,26 @@ export class ProviderRegistry{
      if(e.kind==='auth'||e.kind==='bad-request'||e.kind==='invalid-output')break;
      if(attempt<2){await sleep(1000*3**attempt,signal);continue;}
      const failures=(h?.failures||0)+1,wait=Math.min(300000,5000*2**Math.min(failures,6));this.markDown(p,wait,e,failures);soonest=Math.min(soonest,wait);
-    }finally{lease?.release();release?.();}
+    }finally{if(controller)this.active.delete(controller);lease?.release();release?.();}
    }
   }
   if(last&&['auth','bad-request','invalid-output'].includes(last.kind))throw last;
   throw new RouteUnavailable(last?`接続先が応答しません（${String(last.message).slice(0,160)}）。時間を置いて再試行します。`:'使える接続先がありません。',{retryAfterMs:Number.isFinite(soonest)?Math.max(1000,soonest):30000});
  }
  markDown(p,ms,e,failures){this.health.set(p.id,{identity:p.identity,failures:failures??(this.health.get(p.id)?.failures||0),until:this.clock()+ms,lastError:e?.kind||e?.name});this.store.emit('route.failed',{profileId:p.id,kind:e?.kind||null,retryAfterMs:ms});}
+ async models(id,{identity,consent=false,signal}={}){
+  invariant(consent===true,'モデル一覧の取得を許可してください。',403);
+  const p=this.get().profiles.find(x=>x.id===id);invariant(p?.enabled,'Unknown enabled provider',404);
+  invariant(identity===p.identity,'接続設定が更新されています。',409);invariant(this.permitted(p),'この接続先は現在の通信モードで使用できません。',403);
+  if(p.authMode==='chatgpt')return this.auth.models(p.accountId,{consent,signal});
+  const headers=p.protocol==='anthropic'?{'anthropic-version':'2023-06-01',...(this.keyFor(p)?{'x-api-key':this.keyFor(p)}:{})}:p.protocol==='gemini'?(this.keyFor(p)?{'x-goog-api-key':this.keyFor(p)}:{}):(this.keyFor(p)?{Authorization:'Bearer '+this.keyFor(p)}:{});
+  const r=await this.network.fetch({profile:p,purpose:'model',timeoutMs:15000,maxBytes:2_000_000})(p.baseUrl+'/models',{headers,signal,redirect:'error'});
+  invariant(r.ok,`モデル一覧を取得できません（HTTP ${r.status}）。モデルIDを手入力できます。`,502);
+  const data=await r.json(),items=data.data||data.models;invariant(Array.isArray(items),'モデル一覧の形式を確認できません。モデルIDを手入力してください。',502);
+  invariant(this.permitted(p),'取得中に接続先が変更されました。',409);
+  const models=items.filter(x=>x&&typeof (x.id||x.name)==='string').slice(0,500).map(x=>({id:(x.id||x.name).replace(/^models\//,''),name:x.displayName||x.display_name||x.id||x.name})).filter(x=>x.id.length<=160&&typeof x.name==='string').map(x=>({...x,name:x.name.slice(0,200)}));
+  return {profileId:id,models,verified:false,note:'一覧への掲載は推論成功や品質の保証ではありません。'};
+ }
  async probe(id,signal){
   const p=this.get().profiles.find(p=>p.id===id);invariant(p?.enabled,'Unknown enabled provider',404);
   const limits=await this.limits(p,signal).catch(()=>null);
@@ -261,6 +294,6 @@ export class ProviderRegistry{
   const doc={...result,id:p.identity,profileId:id,ok:result.passed===true,limits,at:new Date().toISOString(),scope:'safe tool roundtrip only, not quality or vision'};
   this.store.put('provider-probe',doc);this.store.emit('providers.updated',this.publicSnapshot());return doc;
  }
- close(){this.gate.close();}
+ close(){for(const controller of this.active.keys())controller.abort(new ProviderError('auth','Service closed'));this.active.clear();this.gate.close();}
 }
 export {ProviderError};

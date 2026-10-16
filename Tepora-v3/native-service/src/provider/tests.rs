@@ -1094,3 +1094,25 @@ fn accounting_price_lookup_rejects_conflicting_catalog_entries() {
     assert!(runtime.price(&json!({"domain":"cloud","model":"same"})).unwrap().is_none());
     assert!(runtime.price(&json!({"domain":"cloud","model":"missing"})).unwrap().is_none());
 }
+
+fn subscription_raw() -> Value {
+    json!({"id":"subscription","protocol":"responses","baseUrl":"https://api.openai.com/v1","model":"fixture","domain":"cloud","authMode":"chatgpt","accountId":"chatgpt-11111111-1111-4111-8111-111111111111"})
+}
+#[test]
+fn subscription_profile_binding_and_fallback_class_are_explicit() {
+    let p=subscription_raw();assert_eq!(validate_profile(&p).unwrap()["authMode"],"chatgpt");
+    for (field,value) in [("baseUrl","https://proxy.invalid/v1"),("protocol","chat-completions"),("apiKeyEnv","PAID_API_KEY"),("accountId","../bad")] {
+        let mut bad=p.clone();bad[field]=json!(value);assert!(validate_profile(&bad).is_err());
+    }
+    let api=raw("api","responses");assert!(validate_registry(&json!({"profiles":[p,api],"routes":{"main":{"primary":"subscription","fallbacks":["api"]}}})).is_err());
+}
+#[tokio::test]
+async fn unported_native_oauth_fails_before_network_or_api_key_dispatch() {
+    let (runtime,state,_,profiles)=setup(vec![subscription_raw()],vec![],true);
+    state.set_value("provider-keys",json!({"subscription":"must-not-be-used"})).unwrap();
+    assert!(runtime.set_key("subscription","paid-key").is_err());
+    assert_eq!(runtime.public_snapshot().unwrap()["profiles"][0]["keyPresent"],false);
+    let error=runtime.invoke(request(profiles),&RequestCancellation::new(),sink()).await.unwrap_err();
+    assert_eq!(error.kind,"auth");assert!(error.message.contains("通常起動"));
+    assert!(runtime.probe("subscription",&RequestCancellation::new()).await.is_err());
+}

@@ -313,6 +313,7 @@ impl ProviderRuntime {
     }
     /// Reject stale identities before reading a same-ID profile's replacement key.
     fn key_for(&self, p: &Value) -> Result<String, ApiError> {
+        if p["authMode"]=="chatgpt" { return Ok(String::new()); }
         // Disabled profiles still show whether a saved key exists. Exact identity
         // is mandatory so a stale endpoint can never read its replacement key.
         if !array(&self.get()?["profiles"])
@@ -340,6 +341,7 @@ impl ProviderRuntime {
         let mut profiles = vec![];
         for mut p in array(&c["profiles"]).to_vec() {
             p["keyPresent"] = json!(!self.key_for(&p)?.is_empty());
+            if p["authMode"]=="chatgpt" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT認証は通常起動で利用してください。"}); }
             p["limits"] = self.known_limits(&p)?.unwrap_or(Value::Null);
             p["probe"] = self
                 .inner
@@ -391,7 +393,7 @@ impl ProviderRuntime {
         if let Some(keys) = keys.as_object_mut() {
             keys.retain(|id,_|{
             let a=array(&old["profiles"]).iter().find(|p|s(p,"id")==id);let b=array(&c["profiles"]).iter().find(|p|s(p,"id")==id);
-            matches!((a,b),(Some(a),Some(b)) if a["baseUrl"]==b["baseUrl"]&&a["protocol"]==b["protocol"])
+            matches!((a,b),(Some(a),Some(b)) if a["baseUrl"]==b["baseUrl"]&&a["protocol"]==b["protocol"]&&validation::credential_class(a)==validation::credential_class(b))
         });
         }
         self.inner.state.set_values(&[
@@ -423,6 +425,7 @@ impl ProviderRuntime {
             .iter()
             .find(|p| s(p, "id") == id)
             .ok_or_else(|| ApiError::new(404, "接続先が見つかりません。"))?;
+        if p["authMode"]=="chatgpt" { return Err(ApiError::bad_request("ChatGPT接続にはAPIキーを設定できません。")); }
         if key.encode_utf16().count() > 8000 {
             return Err(ApiError::bad_request("Invalid key"));
         }
@@ -845,6 +848,14 @@ impl ProviderRuntime {
         let mut soonest: Option<u64> = None;
         for p in &request.chain {
             check(cancel)?;
+            if validation::credential_class(p)!=validation::credential_class(&request.chain[0]) {
+                return Err(ProviderFailure::new("auth","認証・課金が異なる接続先へ自動切替しません。"));
+            }
+            // OAuth's callback/credential owner is currently the ordinary local
+            // service. Never reinterpret a saved subscription as a paid API key.
+            if p["authMode"]=="chatgpt" {
+                return Err(ProviderFailure::new("auth","ChatGPT認証は通常起動で利用してください。--dev-nativeへの認証ホスト移植は未完了です。"));
+            }
             if !self.permitted(p, purpose)? {
                 last.get_or_insert_with(|| {
                     ProviderFailure::unavailable(
@@ -990,6 +1001,9 @@ impl ProviderRuntime {
             .ok_or_else(|| {
                 ProviderFailure::new("bad-request", "Unknown enabled provider").with_status(404)
             })?;
+        if profile["authMode"]=="chatgpt" {
+            return Err(ProviderFailure::new("auth","ChatGPT認証は通常起動で利用してください。"));
+        }
         // Keep one cancellable lease over discovery and both roundtrip calls.
         // A service-wide Stop must not miss the gap between individual requests.
         let parent_cancel = cancel;

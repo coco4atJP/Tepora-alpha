@@ -1,6 +1,7 @@
 import {drainModelCalls} from './model-usage.mjs';
 import {ModelCatalog} from './model-catalog.mjs';
 import {NetworkPolicy,NetworkBlocked} from './network-policy.mjs';
+import {ProviderAuth} from './provider-auth.mjs';
 import {ProviderRegistry} from './provider-registry.mjs';
 import {openInstallerPage} from './platform-links.mjs';
 import {SetupManager} from './setup.mjs';
@@ -56,9 +57,9 @@ function configurePersonas(store,raw){
  const next={revision:current.revision+1,character:persona(raw.character,current.character,true),worker:persona(raw.worker,current.worker,false)};
  store.value('dialogue-personas',next);return next;
 }
-export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
+export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPORA_WEB_DIR||path.resolve(here,'../web'),runtimeFactory,setupOptions={},networkOptions={},registryOptions={},authOptions={},computerOptions={},mediaOptions={},toolHubOptions={},agentOptions={}}={}) {
  const bundledFrontend=await browserBundle(webDir);
- const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),registry=new ProviderRegistry(store,network,registryOptions);
+ const store=new Store(dir),network=new NetworkPolicy(store,networkOptions),providerAuth=new ProviderAuth(store,network,authOptions),registry=new ProviderRegistry(store,network,{...registryOptions,auth:providerAuth});
  const connectors=new Connectors(store,network),capabilities=new Capabilities(store,network),media=new MediaJobs(store,capabilities,mediaOptions);
  const semantic=new SemanticMemory(store,capabilities),toolHub=new ToolHub(store,network,toolHubOptions);
  const computer=new ComputerUse(store,network,{dataDir:dir,registry,...computerOptions});
@@ -246,11 +247,17 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
     if(next.mode!=='online'){setup.stop();for(const probe of probes.values()){probe.abort?.(new NetworkBlocked());probe.close?.();}mediaFrames.clear();}
     return json(res,{...next,note:'Tepora管理の通信に適用します。OS全体のファイアウォールではありません。'});
    }
+   if(p==='/api/provider-auth'&&method==='GET')return json(res,providerAuth.snapshot());
+   if(p==='/api/provider-auth/start'&&method==='POST')return json(res,await providerAuth.begin(await body(req)));
+   if(p==='/api/provider-auth/cancel'&&method==='POST'){const b=await body(req);return json(res,providerAuth.cancel(b.id));}
+   const authAction=p.match(/^\/api\/provider-auth\/(chatgpt-[a-f0-9-]{36})\/(models|disconnect)$/);
+   if(authAction&&method==='POST'){const b=await body(req);return json(res,authAction[2]==='models'?await providerAuth.models(authAction[1],{consent:b.consent,signal:AbortSignal.timeout(30000)}):await providerAuth.disconnect(authAction[1]));}
    if(p==='/api/providers'&&method==='GET')return json(res,registry.publicSnapshot());
    if(p==='/api/providers'&&method==='PUT'){const b=await body(req);return json(res,registry.save(b.config,b.expectedRevision));}
-   const providerAction=p.match(/^\/api\/providers\/([\w-]+)\/(key|probe)$/);
+   const providerAction=p.match(/^\/api\/providers\/([\w-]+)\/(key|probe|models)$/);
    if(providerAction&&method==='POST'){
-    const b=await body(req);if(providerAction[2]==='key')return json(res,registry.setKey(providerAction[1],b.key));
+    const b=await body(req);if(providerAction[2]==='key')return json(res,registry.setKey(providerAction[1],b.key,b.identity));
+    if(providerAction[2]==='models')return json(res,await registry.models(providerAction[1],{...b,signal:AbortSignal.timeout(20000)}));
     return json(res,await registry.probe(providerAction[1],AbortSignal.timeout(90000)));
    }
    if(p==='/api/setup/install-help'&&method==='POST'){return json(res,await openInstallerPage());}
@@ -368,7 +375,7 @@ export async function startServer({port=0,dir=dataDir(),webDir=process.env.TEPOR
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});origin=`http://127.0.0.1:${server.address().port}`;
  const launchUrl=`${origin}/launch?token=${secret}`;
  const close=async()=>{if(closing)return;closing=true;for(const probe of probes.values()){probe.abort?.(new Error('Service stopping'));probe.close?.();}
-  ui.close();await agent.close();computer.close();toolHub.close();await media.close();capabilities.close();connectors.close();await setup.close();await speech.close();
+  await providerAuth.close();ui.close();await agent.close();computer.close();toolHub.close();await media.close();capabilities.close();connectors.close();await setup.close();await speech.close();
   for(const res of streams)res.end();network.close();registry.close();await drainModelCalls(store);server.closeAllConnections();await new Promise(r=>server.close(r));store.close();};
  return {server,store,network,registry,catalog,agent,ui,connectors,setup,capabilities,media,toolHub,computer,frame,avatar,avatarAssets,origin,launchUrl,csrf,close};
 }
