@@ -35,7 +35,9 @@ async function harness(t,handler,{decision=null}={}){
  if(decision)capabilities.save({profiles:[{id:'d1',name:'decision',protocol:'system-one',baseUrl:decision,model:'d1:test',domain:'device'}],routes:{decision:'d1'}},capabilities.get().revision);
  const computer=new ComputerUse(store,network,{dataDir:dir,registry});
  const rt=new AgentRuntime(store,{registry,network,capabilities,computer,workRoot:path.join(dir,'work'),autoStart:false});
- t.after(async()=>{await rt.close();await computer.close();capabilities.close();store.close();await model.close();await rm(dir,{recursive:true,force:true});});
+ // Windows may briefly retain helper/antivirus handles after browser close.
+ // Native removal retries are finite; a persistent cleanup error still fails.
+ t.after(async()=>{await rt.close();await computer.close();capabilities.close();store.close();await model.close();await rm(dir,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
  return {rt,computer,model,store,dir};
 }
 const browser=findBrowser();

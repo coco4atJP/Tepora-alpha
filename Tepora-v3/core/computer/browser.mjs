@@ -49,11 +49,23 @@ class Connection{
  on(fn){this.listeners.add(fn);return ()=>this.listeners.delete(fn);}
  close(){try{this.ws.close();}catch{}}
 }
+function startupWait(promise,signal){
+ return new Promise((resolve,reject)=>{
+  let settled=false;
+  const done=(error,value)=>{if(settled)return;settled=true;signal.removeEventListener('abort',onAbort);error?reject(error):resolve(value);};
+  const onAbort=()=>done(signal.reason);
+  signal.addEventListener('abort',onAbort,{once:true});
+  Promise.resolve(promise).then(value=>done(null,value),error=>done(error));
+  if(signal.aborted)onAbort();
+ });
+}
 export class Browser{
- constructor({executable,profileDir,downloadDir,headless=true,windowSize='1280,900'},{spawnProcess=spawn,connect=url=>new Connection(url),schedule=setTimeout,cancel=clearTimeout}={}){Object.assign(this,{executable,profileDir,downloadDir,headless,windowSize});this.effects={spawnProcess,connect,schedule,cancel};this.pages=new Map();this.starting=null;this.proc=null;this.conn=null;}
+ constructor({executable,profileDir,downloadDir,headless=true,windowSize='1280,900'},{spawnProcess=spawn,connect=url=>new Connection(url),schedule=setTimeout,cancel=clearTimeout}={}){Object.assign(this,{executable,profileDir,downloadDir,headless,windowSize});this.effects={spawnProcess,connect,schedule,cancel};this.pages=new Map();this.processClosures=new WeakMap();this.starting=null;this.closing=null;this.proc=null;this.conn=null;}
  get alive(){return !!this.conn&&!this.conn.closed&&!!this.proc&&this.proc.exitCode===null;}
  async start(){
+  if(this.closing){await this.closing;return this.start();}
   if(this.alive)return this;if(this.starting)return this.starting;
+  const startup=new AbortController();this.startup=startup;
   this.starting=(async()=>{
    if(!this.executable)throw new Error('No Chrome, Edge, Brave or Chromium was found. Install one, or set its path in the computer-use settings.');
    mkdirSync(this.profileDir,{recursive:true});
@@ -61,47 +73,66 @@ export class Browser{
     '--disable-features=Translate,MediaRouter','--disable-popup-blocking',`--window-size=${this.windowSize}`,'--lang=ja',...(this.headless?['--headless=new','--hide-scrollbars','--mute-audio']:[]),'about:blank'];
    // A failed launch must release its profile before another launch can start.
    if(this.proc)await this.terminate(this.proc);
+   startup.signal.throwIfAborted();
    const {spawnProcess,connect,schedule,cancel}=this.effects;
    const proc=spawnProcess(this.executable,args,{stdio:['ignore','ignore','pipe']});this.proc=proc;
+   // Exit does not mean stdio (or Windows profile handles) has closed. Record
+   // close immediately, so even an exit during CDP shutdown cannot lose it.
+   const lifecycle={closed:false,conn:null};
+   lifecycle.promise=new Promise(resolve=>proc.once('close',()=>{
+    lifecycle.closed=true;lifecycle.conn?.close();
+    if(this.proc===proc){this.conn=null;this.proc=null;this.pages.clear();}
+    resolve();
+   }));
+   this.processClosures.set(proc,lifecycle);
+   proc.on('exit',()=>lifecycle.conn?.close());
    proc.on('error',()=>{}); // A late process/kill error must not become an uncaught event.
    const url=await new Promise((resolve,reject)=>{
     let buf='';
-    const done=(error,value)=>{cancel(t);proc.stderr.off('data',onData);proc.off('exit',onExit);proc.off('error',onError);error?reject(error):resolve(value);};
+    const done=(error,value)=>{cancel(t);proc.stderr.off('data',onData);proc.off('exit',onExit);proc.off('error',onError);startup.signal.removeEventListener('abort',onAbort);error?reject(error):resolve(value);};
     const onData=c=>{buf+=c;const m=/DevTools listening on (ws:\/\/\S+)/.exec(buf);if(m)done(null,m[1]);if(buf.length>100000)buf=buf.slice(-10000);};
     const onExit=code=>done(new Error(`The browser exited (${code}). If another Tepora browser uses the same profile, close it.`));
     const onError=e=>done(e);
+    const onAbort=()=>done(startup.signal.reason);
     const t=schedule(()=>done(new Error('The browser did not start within 20 seconds')),20000);
     proc.stderr.on('data',onData);proc.once('exit',onExit);proc.once('error',onError);
+    startup.signal.addEventListener('abort',onAbort,{once:true});
    });
-   this.conn=connect(url);await this.conn.ready;
-   await this.conn.send('Target.setDiscoverTargets',{discover:true});
-   if(this.downloadDir){mkdirSync(this.downloadDir,{recursive:true});await this.conn.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:this.downloadDir,eventsEnabled:true}).catch(()=>{});}
+   startup.signal.throwIfAborted();
+   this.conn=lifecycle.conn=connect(url);await startupWait(this.conn.ready,startup.signal);
+   await startupWait(this.conn.send('Target.setDiscoverTargets',{discover:true}),startup.signal);
+   if(this.downloadDir){mkdirSync(this.downloadDir,{recursive:true});await startupWait(this.conn.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:this.downloadDir,eventsEnabled:true}).catch(()=>{}),startup.signal);}
    // A link that opens a new tab moves its session there, like a person following it.
    this.conn.on(m=>{if(m.method==='Target.targetCreated'){const info=m.params.targetInfo;if(info.type==='page'&&info.openerId)for(const page of this.pages.values())if(page.targetId===info.openerId)page.adopt(info.targetId).catch(()=>{});}});
-   const conn=this.conn;
-   proc.on('exit',()=>{conn.close();if(this.proc===proc){this.conn=null;this.proc=null;this.pages.clear();}});
    return this;
   })();
   try{return await this.starting;}catch(error){
    this.conn?.close();this.conn=null;this.pages.clear();
    await this.terminate(this.proc);
    throw error;
-  }finally{this.starting=null;}
+  }finally{this.starting=null;if(this.startup===startup)this.startup=null;}
  }
  /** Failed starts have no working CDP connection. Kill and reap the owned process
   * before freeing its profile; never overwrite a still-running launch on retry. */
  async terminate(proc){
+  await this.waitForClose(proc);
+ }
+ async waitForClose(proc,{graceMs=0}={}){
   if(!proc)return;
-  if(proc.pid&&proc.exitCode===null&&!proc.signalCode){
-   const {schedule,cancel}=this.effects;
-   await new Promise((resolve,reject)=>{
-    const done=()=>{cancel(t);proc.off('exit',done);resolve();};
-    const t=schedule(()=>{proc.off('exit',done);reject(new Error('The previous browser process did not stop; its profile is still in use.'));},5000);
-    proc.once('exit',done);
-    try{proc.kill('SIGKILL');}catch(error){cancel(t);proc.off('exit',done);reject(error);}
-   });
-  }
-  if(this.proc===proc)this.proc=null;
+  const lifecycle=this.processClosures.get(proc);if(lifecycle.closed)return;
+  const {schedule,cancel}=this.effects;
+  await new Promise((resolve,reject)=>{
+   let timer,settled=false;
+   const done=error=>{if(settled)return;settled=true;cancel(timer);error?reject(error):resolve();};
+   const kill=()=>{
+    if(settled)return;
+    timer=schedule(()=>done(new Error('The previous browser process did not stop; its profile is still in use.')),5000);
+    // An exited child can still own open stdio. Wait for close in that case too.
+    if(proc.pid&&proc.exitCode===null&&!proc.signalCode)try{proc.kill('SIGKILL');}catch(error){done(error);}
+   };
+   lifecycle.promise.then(()=>done());
+   if(graceMs)timer=schedule(kill,graceMs);else kill();
+  });
  }
  /** The tab of a session (created on first use). */
  async page(key){
@@ -113,10 +144,16 @@ export class Browser{
  async release(key){const p=this.pages.get(key);if(!p)return;this.pages.delete(key);await p.close();}
  /** Closes every tab and the browser, and waits for the process to end (its profile is then free). */
  async close(){
-  for(const k of [...this.pages.keys()])await this.release(k).catch(()=>{});
-  await this.conn?.send('Browser.close',{},undefined,3000).catch(()=>{});this.conn?.close();
-  const proc=this.proc;if(!proc||proc.exitCode!==null||proc.signalCode)return;
-  await new Promise(resolve=>{const t=setTimeout(()=>{try{proc.kill('SIGKILL');}catch{}resolve();},5000);proc.once('exit',()=>{clearTimeout(t);resolve();});});
+  if(this.closing)return this.closing;
+  this.closing=(async()=>{
+   if(this.starting){this.startup?.abort(new Error('Browser startup was cancelled by shutdown'));await this.starting.catch(()=>{});}
+   // Capture ownership before any page/CDP awaits; starts wait on this barrier.
+   const proc=this.proc,conn=this.conn;
+   for(const k of [...this.pages.keys()])await this.release(k).catch(()=>{});
+   const closed=this.waitForClose(proc,{graceMs:5000});
+   await Promise.all([closed,(async()=>{await conn?.send('Browser.close',{},undefined,3000).catch(()=>{});conn?.close();})()]);
+  })();
+  try{return await this.closing;}finally{this.closing=null;}
  }
 }
 export class Page{
