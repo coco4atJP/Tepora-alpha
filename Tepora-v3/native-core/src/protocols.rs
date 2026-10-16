@@ -219,6 +219,10 @@ pub fn encode_request(
     ollama: bool,
 ) -> CoreResult<Value> {
     let protocol = strv(get(profile, "protocol"));
+    let chatgpt = get(profile, "authMode") == "chatgpt";
+    if chatgpt && (protocol != "responses" || get(profile, "baseUrl") != "https://api.openai.com/v1" || ollama) {
+        return Err(invalid("ChatGPT credentials require the official Responses endpoint"));
+    }
     if ollama {
         return encode_ollama(profile, messages, options);
     }
@@ -379,6 +383,7 @@ pub fn encode_request(
                 }
                 copy_present(&mut v, function(c), "name");
                 copy_present(&mut v, function(c), "arguments");
+                if chatgpt { v["namespace"] = json!("tepora"); }
                 input.push(v);
             }
         }
@@ -411,6 +416,22 @@ pub fn encode_request(
         }
         if long {
             put(&mut body, "prompt_cache_retention", &json!("24h"), drop);
+        }
+        if chatgpt {
+            // The OSS ChatGPT-plan route is not the paid API contract. Keep the
+            // replay/history and local function loop, omit unsupported controls.
+            for key in ["background", "conversation", "max_output_tokens", "max_tool_calls",
+                "metadata", "moderation", "multi_agent", "prompt", "prompt_cache_retention",
+                "safety_identifier", "temperature", "top_logprobs", "top_p", "truncation",
+                "user", "previous_response_id"] {
+                body.as_object_mut().unwrap().shift_remove(key);
+            }
+            if !tools.is_empty() {
+                let defs = body["tools"].clone();
+                body["tools"] = json!([{"type":"namespace","name":"tepora",
+                    "description":"Tepora local tools. Execution remains subject to local permissions.","tools":defs}]);
+                if body["tool_choice"].is_object() { body["tool_choice"]["namespace"] = json!("tepora"); }
+            }
         }
         front(&mut body, &["model"]);
         return Ok(body);
@@ -1464,6 +1485,9 @@ impl Decoder {
                 let done = self.done.as_ref().filter(|d| truthy(d)).ok_or_else(|| {
                     provider_error("transient", "Responses stream ended before completion")
                 })?;
+                if get(&self.profile,"authMode")=="chatgpt" && get(done,"status")!="completed" {
+                    return Err(provider_error("invalid-output","ChatGPT response did not complete"));
+                }
                 native = array(get(done, "output")).to_vec();
                 if native.iter().any(Value::is_null) {
                     return Err(provider_error(
@@ -1500,6 +1524,9 @@ impl Decoder {
                             .join("\n"),
                         ),
                         "function_call" => {
+                            if get(&self.profile,"authMode")=="chatgpt" && item.get("namespace").is_some_and(|ns|ns!="tepora") {
+                                return Err(provider_error("invalid-output","Unexpected ChatGPT tool namespace"));
+                            }
                             let args = if let Some(s) = get(item, "arguments").as_str() {
                                 s.into()
                             } else {
@@ -2584,4 +2611,25 @@ mod tests {
             .to_string()
             .contains("Invalid Responses output"));
     }
+    #[test]
+    fn chatgpt_plan_uses_namespaced_tools_and_drops_paid_api_parameters() {
+        let mut p=profile("responses");p["authMode"]=json!("chatgpt");p["baseUrl"]=json!("https://api.openai.com/v1");
+        let options=json!({"tools":[{"type":"function","function":{"name":"read","description":"read","parameters":{"type":"object"}}}],"maxTokens":1000,"sampling":{"temperature":0.5,"top_p":0.8},"cacheRetention":"long"});
+        let body=encode_request(&p,&[json!({"role":"system","content":"trusted"}),json!({"role":"user","content":"fixture"})],&options,false).unwrap();
+        assert_eq!(body["tools"][0]["type"],"namespace");assert_eq!(body["tools"][0]["name"],"tepora");
+        assert_eq!(body["tools"][0]["tools"][0]["name"],"read");assert_eq!(body["instructions"],"trusted");
+        for key in ["max_output_tokens","temperature","top_p","prompt_cache_retention"] {assert!(body.get(key).is_none());}
+        assert_eq!(body["store"],false);assert_eq!(body["stream"],true);
+        p["baseUrl"]=json!("https://proxy.invalid/v1");assert!(encode_request(&p,&[],&options,false).is_err());
+    }
+    #[test]
+    fn chatgpt_plan_rejects_foreign_namespace_and_noncompleted_responses() {
+        for (status,namespace) in [("incomplete","tepora"),("completed","foreign")] {
+            let mut p=profile("responses");p["authMode"]=json!("chatgpt");
+            let mut d=Decoder::new(p,"responses","fixture").unwrap();
+            d.push(&json!({"status":status,"output":[{"type":"function_call","call_id":"c","name":"read","namespace":namespace,"arguments":"{}"}]}),false).unwrap();
+            assert!(d.finish().is_err());
+        }
+    }
+
 }

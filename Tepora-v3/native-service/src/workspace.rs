@@ -689,7 +689,8 @@ impl State {
                     .as_str()
                     .and_then(|name| env::var(name).ok())
                     .is_some_and(|s| !s.is_empty());
-            p["keyPresent"] = json!(key_present);
+            p["keyPresent"] = json!(key_present && p["authMode"]!="chatgpt");
+            if p["authMode"]=="chatgpt" { p["authStatus"]=json!({"connected":false,"error":"ChatGPT認証は通常起動で利用してください。"}); }
             p["health"] = Value::Null;
             p["limits"] = self.value(&format!(
                 "provider-limits:{}",

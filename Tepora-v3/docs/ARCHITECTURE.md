@@ -49,6 +49,9 @@ The Node host still supplies callbacks, timers and effects through `core/agent/l
 
 ## Providers, network and budgets
 
+The ordinary host additionally owns `core/provider-auth.mjs`: an isolated OAuth callback listener and protected local ChatGPT credential store. Account IDs, not credentials, are part of provider identities. Subscription requests use the shared Rust Responses codec; the opt-in native host validates/preserves their configuration but explicitly rejects unported authentication effects. See [model connections](MODEL-CONNECTIONS.md) for the lifecycle, storage protections and remaining native-host boundary.
+
+
 `native-core/src/protocols.rs` handles canonical request/response state machines and provider-native replay tied to exact identities. Native `provider.rs` and `network.rs` implement registry profiles/routes, destination admission, DNS/TLS, UTF-8/SSE/NDJSON framing, cancellation, resource/slot leases, limit discovery, retries, compatibility learning and safe errors. Chat Completions, Responses, Anthropic and Gemini are supported, plus discovered native Ollama transport. The Node compatibility path retains its existing provider/network adapters.
 
 The network policy distinguishes online, trusted-LAN and offline destinations. It is not an OS firewall and cannot constrain a separately forwarding inference server. Provider configuration changes invalidate affected active operations. Protocol support and deterministic fixtures do not certify every remote account, model, hardware configuration or real-model quality.
